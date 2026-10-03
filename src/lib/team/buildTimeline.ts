@@ -30,6 +30,8 @@ import { withRebasedTime } from "@/lib/sim/rebaseTime";
 import { normalizeHostIps } from "@/lib/sim/hostIdentity";
 import { applyTenant, type Tenant } from "./tenant";
 import { mitreVisible } from "@/lib/sim/mitreVisible";
+import { describeEvent } from "@/lib/sim/describeEvent";
+import { fpAlerts } from "./fpAlerts";
 import { serviceNowRecord } from "@/lib/sim/emitters/servicenow";
 import { applyStack, fitsStack, storyFitsOrg, storyFitsStack, storyHonoursLocks } from "@/lib/logs/native";
 import { PRODUCT_LABEL, type Stack } from "@/lib/logs/native/stack";
@@ -38,7 +40,12 @@ import { PRODUCT_LABEL, type Stack } from "@/lib/logs/native/stack";
 // (an MSEL curveball: management pressure, a help-desk ticket, an announcement).
 // `body` is PUBLIC (promoted verbatim to every player); `answer` is the ground
 // truth, stored in the staff-only session_injects.expected_action column.
-export interface TimelineEntry { due_offset_ms: number; channel: "feed" | "inject"; body: Record<string, unknown>; answer?: Record<string, unknown> }
+// "bonus" → a held attack story: seeded with due_offset_ms = BONUS_HOLD_MS + its relative offset,
+// never promoted until the DB releases it (team_release_bonus) once the team has caught every
+// planned attack; released rows become ordinary "feed" rows.
+export interface TimelineEntry { due_offset_ms: number; channel: "feed" | "inject" | "bonus"; body: Record<string, unknown>; answer?: Record<string, unknown> }
+/** The offset a held bonus row is parked at (far beyond any shift); its real offset is added on release. */
+export const BONUS_HOLD_MS = 1_000_000_000_000_000;
 
 export type TeamVerdict = "tp" | "escalate" | "benign" | "fp";
 /** Where a feed log came from — lets the report / instructor tell story steps from noise. */
@@ -70,6 +77,27 @@ function sampleN<T>(arr: T[], n: number, rnd: () => number): T[] {
 }
 const pick = <T,>(arr: T[], rnd: () => number): T => arr[Math.floor(rnd() * arr.length) % arr.length];
 
+// ── Noise hygiene ────────────────────────────────────────────────────────────
+const PERSONAL_MAIL = /@(gmail|googlemail|yahoo|outlook|hotmail|live|proton|protonmail|icloud|gmx)\.(com|me|de|net|ch)\b/i;
+const SENSITIVE = /\b(ssn|social security|salary|payroll|passport|credit card|card number|patient|confidential|password|credentials)\b/i;
+const ODD_PORTS = new Set([4444, 1337, 31337, 5555, 6666, 6667, 9001, 9050]);
+const TOOL_NAMES = /\b(mimikatz|nmap|masscan|rclone|ngrok|procdump|psexec|cobalt ?strike|bloodhound|sharphound|impacket|lazagne|anydesk|teamviewer)\b/i;
+/** A row labelled benign that reads as an attack: sensitive data to a personal mailbox, a classic
+ *  shell port, an attacker tool by name, or this session's attack infrastructure. */
+export function looksLikeAttack(e: TelemetryEvent, attackIps: Set<string> = new Set()): boolean {
+  const text = `${e.description ?? ""} ${JSON.stringify(e.raw ?? {})} ${JSON.stringify(e.network ?? {})} ${JSON.stringify(e.process ?? {})}`;
+  if (PERSONAL_MAIL.test(text) && SENSITIVE.test(text)) return true;
+  const ports = [Number((e as { dst_port?: number }).dst_port), ...[...text.matchAll(/(?:port"?\s*[:=]\s*"?|:)(\d{4,5})\b/gi)].map(m => Number(m[1]))];
+  if (ports.some(p => ODD_PORTS.has(p))) return true;
+  if (TOOL_NAMES.test(text)) return true;
+  return [e.src_ip, e.dst_ip].some(ip => !!ip && attackIps.has(ip));
+}
+const BLOCKED = /_blocked|waf_block|ids_blocked|email_quarantined|email_blocked|av_quarantine/;
+function isBlockedAttempt(e: TelemetryEvent): boolean {
+  const action = String(e.raw?.["action"] ?? e.raw?.["data.action"] ?? e.raw?.["event.action"] ?? e.raw?.["pan.action"] ?? "");
+  return BLOCKED.test(e.event_type ?? "") || /^(block|blocked|deny|denied|drop|reset-both)$/i.test(action);
+}
+
 // ── Answer-key classification ────────────────────────────────────────────────
 
 /**
@@ -79,8 +107,13 @@ const pick = <T,>(arr: T[], rnd: () => number): T => arr[Math.floor(rnd() * arr.
  * site visit before a drive-by) and FP decoys. Those are benign/fp — defaulting
  * every story event to tp punished the analysts who read them correctly.
  */
+const PRIVATE_IP = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/;
 export function classifyStoryEvent(ev: TelemetryEvent): TeamVerdict {
   if (ev.is_baseline) return "benign";
+  // One rule for context rows in every story (expert review P0-6): a user's ordinary internal
+  // logon / logoff — no technique, no alert, no explicit verdict — is context, not attack evidence.
+  if (!ev.mitre_technique && !ev.is_detection && !ev.expected_verdict && ev.event_type === "auth_success"
+    && (!ev.src_ip || PRIVATE_IP.test(ev.src_ip)) && (ev.source === "ad" || ev.source === "windows_security")) return "benign";
   if (ev.expected_verdict === "fp" || ev.fp_explanation || ev.it_verify_result === "confirmed") return "fp";
   if (ev.expected_verdict === "escalate") return "escalate";
   if (ev.expected_verdict === "informational") return "benign";
@@ -290,7 +323,7 @@ function itsmRecordFor(ev: TelemetryEvent, companyId: string): TelemetryEvent | 
 
 // ── The builder ──────────────────────────────────────────────────────────────
 
-interface Placed { ev: TelemetryEvent; origin: FeedOrigin; verdict: TeamVerdict; incident?: string; supports?: string }
+interface Placed { ev: TelemetryEvent; origin: FeedOrigin; verdict: TeamVerdict; incident?: string; supports?: string; held?: boolean; autoContained?: boolean }
 
 /** Build the ordered, time-stamped feed for a session. */
 /**
@@ -321,6 +354,31 @@ export function teamStoryPool(companyId: string, difficulty: "easy" | "medium" |
   return pool;
 }
 
+/**
+ * Does a named organization run the product this event's source implies? Baseline sources every SOC
+ * has are always allowed; specialised tools only when the instructor selected a matching product
+ * (stack) or platform (env) — so the feed never shows a tool the org didn't choose.
+ */
+const BASELINE_SOURCES = new Set(["edr", "av", "firewall", "ids", "vpn", "o365", "exchange", "sharepoint", "ad", "windows_security", "sysmon", "dns", "siem", "email_gateway", "cloud_azure", "soar"]);
+function orgRunsSource(e: TelemetryEvent, env: TeamEnv, stack: Stack): boolean {
+  const src = String(e.source);
+  if (BASELINE_SOURCES.has(src)) return true;
+  switch (src) {
+    case "proxy": return stack.proxy !== undefined;
+    case "gws": return stack.collab === "google_workspace";
+    case "okta": case "mfa": return stack.idp === "okta";
+    case "iam": return env.platforms.includes("cyberark");
+    case "cloudtrail": return env.platforms.includes("aws");
+    case "k8s_audit": return env.platforms.includes("k8s");
+    case "linux_audit": return env.platforms.includes("linux");
+    case "vcs": return env.platforms.includes("github");
+    case "virtualization": return env.platforms.includes("vmware");
+    // Specialised tools with no selector yet (WAF, DAM, UEBA, NAC, DLP): not shown unless the org opted in — keep them out of a named org's noise.
+    case "waf": case "db_monitor": case "ueba": case "nac": case "dlp": case "infra_monitor": return false;
+    default: return true;
+  }
+}
+
 /** Platforms whose ordinary logs a named organization's template lacks: borrowed (re-homed) from the demo company that runs them. */
 function platformNoise(companyId: string, env: TeamEnv, own: TelemetryEvent[]): TelemetryEvent[] {
   const ownHas = new Set(own.flatMap(platformsOfEvent));
@@ -344,10 +402,13 @@ function storyBase(companyId: string, stack: Stack, env: TeamEnv | null = null) 
   const ownPool0 = COMPANY_EVENTS[companyId]?.length ? COMPANY_EVENTS[companyId] : undefined;
   let ownPool = ownPool0 ? ownPool0.filter(e => fitsStack(e, companyId, stack)) : ownPool0;
   let basePool = ownPool ?? BENIGN_EVENTS.filter(e => fitsStack(e, companyId, stack));
-  // A named organization's feed carries the platforms it runs — and only those.
+  // A named organization's feed carries the platforms it runs — and only those. It also only shows
+  // the specialised security tools the instructor opted into: a WAF / DAM / UEBA / NAC / SOAR / proxy
+  // log for a product the org never selected surprised analysts in the diagnostic. Baseline sources
+  // (endpoint, firewall, VPN, identity, mail, DNS, AD, the SIEM) are always present.
   if (env) {
     const own = (ownPool0 ?? BENIGN_EVENTS).filter(e => envHasPlatforms(env, [e]));
-    basePool = [...basePool.filter(e => envHasPlatforms(env, [e])), ...platformNoise(companyId, env, own).filter(e => fitsStack(e, companyId, stack))];
+    basePool = [...basePool.filter(e => envHasPlatforms(env, [e]) && orgRunsSource(e, env, stack)), ...platformNoise(companyId, env, own).filter(e => fitsStack(e, companyId, stack))];
     if (ownPool) ownPool = basePool;
   }
   // One host, one IP across the noise (normalizeHostIps) — the story is mapped onto it.
@@ -394,7 +455,7 @@ export function teamStoryFilter(companyId: string, stack: Stack = {}, env: TeamE
  * from the Tier-1 count, attack count from the team size. Omitted → the fixed,
  * difficulty-only load of before (existing seeds replay exactly).
  */
-export function buildTeamTimeline(companyId: string, difficulty: "easy" | "medium" | "hard", seed: string, storyId?: string | null | (string | null)[], load: TeamLoad = legacyLoad(difficulty), stack: Stack = {}, tenant: Tenant | null = null, envIn: TeamEnv | null = null): TimelineEntry[] {
+export function buildTeamTimeline(companyId: string, difficulty: "easy" | "medium" | "hard", seed: string, storyId?: string | null | (string | null)[], load: TeamLoad = legacyLoad(difficulty), stack: Stack = {}, tenant: Tenant | null = null, envIn: TeamEnv | null = null, opts: { bonus?: boolean } = {}): TimelineEntry[] {
   // A named organization always has an environment (the default one when none was stored).
   const env = envIn ?? (tenant ? DEFAULT_ENV : null);
   const rnd = mulberry32(hashSeed(`${companyId}:${difficulty}:${seed}`));
@@ -426,7 +487,7 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   const takenVictims = new Set<string>();
   // A named organization's incidents are never named after the demo company a story was written for.
   const DEMO_COMPANY = /nexacorp|rocketstack|medcore|globallogis|quantumbank/gi;
-  const buildStory = (avoid0: (string | undefined)[] = [], forced?: AttackStory | null): Story | null => {
+  const buildStory = (avoid0: (string | undefined)[] = [], forced?: AttackStory | null, keepOff?: { hosts: Set<string>; users: Set<string> }): Story | null => {
     const avoid = [...avoid0];
     const maxAttempts = stacked || env ? 20 : 6;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -440,6 +501,9 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
         if (events0.length === 0) return null;
         if ((stacked || env) && !forced && !sessionFit(companyId, stack, env)(events0)) continue;
         const victim = victimOf(events0);
+        // The bonus lands on new ground (expert review P0-4): no host or person the planned attacks touched.
+        if (keepOff && !forced && attempt < maxAttempts - 1
+          && events0.some(e => (e.hostname && keepOff.hosts.has(e.hostname)) || (e.user_email && keepOff.users.has(e.user_email)))) { avoid.push(story.id); continue; }
         // A random pick tries another story; a chosen one is re-instantiated onto another victim.
         if (victim && takenVictims.has(victim) && attempt < maxAttempts - 1) { if (!forced) avoid.push(story.id); continue; }
         if (victim) takenVictims.add(victim);
@@ -463,12 +527,18 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   const attack1 = storyPlaced(story1);
   const attack2 = storyPlaced(distinct(story2, 2, [story1]));
   const attack3 = storyPlaced(distinct(story3, 3, [story1, story2]));
+  // The bonus attack (Tal, 2026-10-03): one more random story, another victim, held back until
+  // the team has caught every planned attack — then released into the live feed.
+  const planned = [story1, story2, story3].flatMap(st => st?.events ?? []);
+  const keepOff = { hosts: new Set(planned.map(e => e.hostname).filter((h): h is string => !!h)), users: new Set(planned.map(e => e.user_email).filter((u): u is string => !!u)) };
+  const story4 = opts.bonus ? buildStory([...pinnedIdsAll, story1?.id, story2?.id, story3?.id], null, keepOff) : null;
+  const bonusAttack = storyPlaced(distinct(story4, 4, [story1, story2, story3])).map(p => ({ ...p, held: true }));
 
   // Identities an incident has touched — their ordinary logins must not sit in the
   // noise labelled benign (playtest: a "benign, informational" VPN+MFA success for an
   // account the team had just contained).
   const compromised = new Set<string>();
-  for (const p of [...attack1, ...attack2, ...attack3]) if (isMalicious(p.verdict) && p.ev.user_email) compromised.add(p.ev.user_email);
+  for (const p of [...attack1, ...attack2, ...attack3, ...bonusAttack]) if (isMalicious(p.verdict) && p.ev.user_email) compromised.add(p.ev.user_email);
 
   // ── Pool: noise + standalone attacks ─────────────────────────────────────────
   const seen = new Set<string>();
@@ -491,21 +561,38 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   const groupKeys = [...groups.keys()].sort();
   const freshKeys = groupKeys.filter(k => !(groups.get(k) ?? []).some(e => e.user_email && takenVictims.has(e.user_email)));
   const chosenGroups = sampleN(freshKeys.length >= poolAttackN ? freshKeys : groupKeys, poolAttackN, rnd);
-  const poolAttacks: Placed[][] = chosenGroups.map(key => (groups.get(key) ?? [])
-    .map(ev => ({ ev, origin: "pool_attack" as const, verdict: classifyPoolEvent(ev), incident: key })));
+  // A lone blocked attempt (WAF / IPS / proxy block) is a true positive the controls already stopped;
+  // it keeps its own incident (the team confirms it) but is tagged auto_contained so the report does
+  // not count it as a missed incident when nobody escalates it (expert review P0-6).
+  const poolAttacks: Placed[][] = chosenGroups.map(key => { const g = groups.get(key) ?? []; const lone = g.length === 1 && isBlockedAttempt(g[0]);
+    return g.map(ev => ({ ev, origin: "pool_attack" as const, verdict: classifyPoolEvent(ev), incident: key, autoContained: lone })); });
   for (const g of poolAttacks) for (const p of g) if (p.ev.user_email) compromised.add(p.ev.user_email);
 
+  // Attack infrastructure of this session: benign noise must never share it (expert review P0-3).
+  const attackIps = new Set([...attack1, ...attack2, ...attack3, ...bonusAttack].flatMap(p => [p.ev.src_ip, p.ev.dst_ip]).filter((ip): ip is string => !!ip && !PRIVATE_IP.test(ip)));
   const noiseCandidates = pool.filter(e => {
     const v = classifyPoolEvent(e);
     if (isMalicious(v)) return false;                                      // attacks are never "noise"
+    if (v === "benign" && looksLikeAttack(e, attackIps)) return false;     // a "benign" row that reads as an attack would punish the analyst who spots it
     if (!ownIds.has(String(e.id ?? "")) && e.it_verify_result) return false; // another tenant's IT context
     if (e.user_email && compromised.has(e.user_email) && (e.source === "vpn" || /^(auth_|vpn_|mfa_)/.test(e.event_type))) return false;
     return true;
   });
   // Enough continuous noise to span the shift at this team's pace (load.ts), so the
   // DB refill rarely has to recycle logs.
-  const benignN = load.noiseCount;
+  // Benign-positive alerts (fpAlerts.ts) at the same rate as the attacks' alerts, so a high-severity
+  // alert is not an answer — each provable from its approved ticket in the feed. They count toward
+  // the shift's row budget, so the noise sample shrinks by their number and the shift length holds.
+  const attackAlerts = [...attack1, ...attack2, ...attack3].filter(p => isMalicious(p.verdict) && isAlertRow(p.ev)).length;
+  const fpRows = fpAlerts(assets, companyId, Math.max(2, Math.min(6, attackAlerts + (rnd() < 0.5 ? 1 : 0))), rnd, new Date(TEAM_TIME_BASE_MS).toISOString());
+  // Keep the shift at its intended length: the storylines now carry their initial-access and
+  // first-alert rows, so the real attack-row count runs over load.ts's estimate (≈10/story, 2/pool).
+  // Trim the noise by that overflow and by the FP alerts, so total rows ≈ the planned budget.
+  const attackRowsReal = attack1.length + attack2.length + attack3.length + poolAttacks.reduce((n, g) => n + g.length, 0);
+  const attackRowsEst = load.stories * 10 + load.poolAttacks * 2;
+  const benignN = Math.max(0, load.noiseCount - fpRows.length - Math.max(0, attackRowsReal - attackRowsEst));
   const noise: Placed[] = sampleN(noiseCandidates, benignN, rnd).map(ev => ({ ev, origin: "noise" as const, verdict: classifyPoolEvent(ev) }));
+  for (const ev of fpRows) noise.splice(Math.floor(noise.length * (0.12 + rnd() * 0.84)), 0, { ev, origin: "noise", verdict: "fp" });
 
   const storyCount = attack1.length + attack2.length + attack3.length;
   const poolCount = poolAttacks.reduce((n, g) => n + g.length, 0);
@@ -513,8 +600,10 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   if (total === 0) return [];
 
   // ── Placement ─────────────────────────────────────────────────────────────────
-  // Each story clusters into its own position band so it reads as an unfolding
-  // attack; the primary across the back of the shift, the second one earlier.
+  // A warm-up of ordinary traffic first, then each story clusters into its own band so it
+  // reads as an unfolding attack. The attacks start at staggered, seed-varied points (Tal,
+  // 2026-10-03: not all at once, different timing every session) and in a seeded order — the
+  // primary incident is not always the first to surface.
   const posToAttack = new Map<number, Placed>();
   const place = (evs: Placed[], startFrac: number, endFrac: number) => {
     if (evs.length === 0) return;
@@ -528,13 +617,20 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
       posToAttack.set(pos, evs[i]);
     }
   };
-  place(attack1, 0.42, 0.82);
-  place(attack2, 0.12, 0.52);
-  place(attack3, 0.58, 0.94);
-  // Standalone pool incidents land at seeded points across the shift (a multi-event
+  const warmup = 0.10 + rnd() * 0.08;
+  const bands = [attack1, attack2, attack3].filter(a => a.length > 0);
+  for (let i = bands.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [bands[i], bands[j]] = [bands[j], bands[i]]; }
+  const lastStart = bands.length > 1 ? 0.58 : warmup + 0.22;
+  bands.forEach((evs, k) => {
+    const base = bands.length > 1 ? warmup + ((lastStart - warmup) * k) / (bands.length - 1) : warmup;
+    const startFrac = Math.max(warmup, base + (rnd() - 0.5) * 0.08 + (bands.length > 1 ? 0 : rnd() * 0.22));
+    const len = 0.22 + rnd() * 0.14;
+    place(evs, startFrac, Math.min(0.96, startFrac + len));
+  });
+  // Standalone pool incidents land at seeded points after the warm-up (a multi-event
   // one spans a few positions).
   for (const g of poolAttacks) {
-    const startFrac = 0.06 + rnd() * 0.84;
+    const startFrac = warmup + rnd() * (0.92 - warmup);
     place(g, startFrac, Math.min(0.97, startFrac + 0.02 * g.length));
   }
 
@@ -568,8 +664,13 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
 
   // ── MSEL — scripted injects timed against the shift ───────────────────────────
   // Each inject is EVALUABLE (expected_response + linked_objective). Skipped on easy.
+  // Injects are placed in the window that OPENS at the first attack log and runs to the end of the
+  // shift — a "CISO wants a status on the suspicious activity" request can't fire before any attack
+  // exists (diagnostic P1). `at(f)` interpolates f across [firstAttack, span].
   const mselOn = difficulty !== "easy" && span > 0;
-  const at = (f: number) => Math.floor(span * f);
+  const firstAttackAt = Math.min(span, ...timed.filter(x => isMalicious(x.p.verdict)).map(x => x.at));
+  const mselStart = Number.isFinite(firstAttackAt) ? Math.min(firstAttackAt + 30000, span) : 0;
+  const at = (f: number) => Math.floor(mselStart + (span - mselStart) * f);
   const msel: TimelineEntry[] = !mselOn ? [] : [
     { due_offset_ms: at(0.30), channel: "inject", body: { id: "msel_1", kind: "mgmt_pressure", text: "CISO wants a status update on the suspicious activity within 15 minutes — is this contained, or spreading?", expected_response: "SOC Manager sends a SITREP: current status, scope so far, and whether it's contained or spreading.", linked_objective: "coordination · SITREP cadence" } },
     { due_offset_ms: at(0.45), channel: "inject", body: { id: "msel_false_lead", kind: "false_lead", text: "Marketing's manager messages the SOC: their newly-approved SaaS analytics tool 'looks like data exfil' in the firewall logs — large outbound transfers to an unfamiliar cloud domain. Is this a real incident?", expected_response: "Recognise it as a sanctioned/benign tool: verify it's on the approved list, confirm the destination is the vendor's, and do NOT over-escalate. A decoy — discrimination, not detection.", linked_objective: "accuracy · discrimination (reject false leads)" } },
@@ -646,7 +747,15 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
       const who = victim ? victim.split("@")[0] : null;
       (twistInject.body as { text: string }).text = `EDR update: ${host}${who ? ` — ${who}'s own device —` : ""} has started beaconing to a NEW C2 domain. The compromise may have reached the endpoint: re-scope the incident to include this host and confirm your containment still holds.`;
     }
-    const tw = (k: number) => twistAt + 20000 + k * 45000 + Math.floor(mrnd() * 8000);
+    // Cause before effect (expert review P0-4): the twist fires only after every log the story
+    // put on that host (or, for a host-less story, the whole story) has reached the feed — a
+    // NEW beacon never appears before the payload it comes from. The inject moves with it.
+    const atOf = new Map<Placed, number>(timed.map(x => [x.p, x.at]));
+    const onHost = twistStory.filter(p => p.ev.hostname === host);
+    const doneAt = Math.max(0, ...(onHost.length ? onHost : twistStory).map(p => atOf.get(p) ?? 0));
+    const twistFire = Math.min(Math.floor(span * 0.95), Math.max(twistAt, doneAt + 60000));
+    if (twistInject) twistInject.due_offset_ms = twistFire;
+    const tw = (k: number) => twistFire + 20000 + k * 45000 + Math.floor(mrnd() * 8000);
     const twistEvents: TelemetryEvent[] = [
       useSysmon ? {
         id: "msel_twist_dns", ts: baseTs, source: "sysmon", vendor: "Microsoft Sysmon", event_type: "dns_query", severity: "low",
@@ -721,9 +830,13 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
     leadEvents.forEach(({ ev, at: a }, k) => support.push({ p: { ev, origin: "inject_support", verdict: k === 0 ? "benign" : "fp", supports: "msel_false_lead" }, at: a }));
   }
 
+  // The held bonus story: its own pace (relative offsets), parked past any shift until released.
+  const bonusGap = Math.max(4000, Math.round(load.baseGapMs * 2.5));
+  const bonusTimed = bonusAttack.map((p, k) => ({ p, at: BONUS_HOLD_MS + k * bonusGap + Math.floor(rnd() * load.jitterMs) }));
+
   // Merge the supporting logs into the feed by time. Feed entries come first in the
   // id index space, so ids stay a pure function of (seed, position).
-  const merged = [...timed, ...support].sort((a, b) => a.at - b.at);
+  const merged = [...timed, ...support, ...bonusTimed].sort((a, b) => a.at - b.at);
   // One host, one IP across the WHOLE session — stories, noise, the twist, inject support
   // logs each chose an address their own way; the analyst pivots across all of them.
   const sessionEvs = normalizeHostIps(merged.map(m => m.p.ev));
@@ -733,7 +846,7 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
     const scrub = ev.description && ev.source !== "ueba";
     return {
       due_offset_ms: due,
-      channel: "feed",
+      channel: p.held ? "bonus" as const : "feed" as const,
       // stamp a stable per-feed id so duplicate pool ids can't collide in the room
       body: {
         ...ev,
@@ -743,6 +856,8 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
         incident_id: p.incident,
         supports_inject: p.supports,
         feed_origin: p.origin,
+        ...(p.autoContained ? { auto_contained: true } : {}),
+        ...(p.held ? { bonus_attack: true } : {}),
       },
     };
   });
@@ -759,6 +874,22 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
     .sort((a, b) => a.due_offset_ms - b.due_offset_ms);
   // A named organization (the instructor's own): its people, domain and brand everywhere.
   return tenant ? applyTenant(out, companyId, tenant, seed) : out;
+}
+
+// ── What the player sees: the same shape for an attack row and a noise row ──────
+// Expert review P0-1/P0-2: 92% of high/critical rows were attacks and attack rows read ~2.3×
+// longer, as narrative — the answer was in the badge and the prose. A raw telemetry row now
+// carries the level its product logs it at (by event type) and only ALERT rows keep an alert
+// severity (attack alerts and false-positive alerts alike); every row's text is the same
+// field-built sentence. The authored line and severity go to the answer key for the debrief.
+const ALERT_EVENT = /alert|detection|quarantine|finding|ids_signature|ids_blocked|waf_block|threat_intel_match|ioc_hit|^dlp_|^av_|ueba_anomaly|risk_score_change|email_quarantined|email_blocked|nac_quarantine/;
+const LOW_EVENT = /auth_failure|vpn_failed|ssh_failed|db_failed|mfa_denied|account_lockout|net_blocked|http_blocked|account_create|account_modify|account_delete|group_modify|role_assignment|cloud_role_change|privilege_escalation|policy_modification|service_install|scheduled_task|privileged_operation|audit_log_cleared|mfa_disabled|k8s_rbac|linux_priv_change/;
+export function isAlertRow(e: { is_detection?: boolean; source?: string; event_type?: string }): boolean {
+  return !!e.is_detection || ["siem", "ueba", "dlp", "av"].includes(String(e.source)) || ALERT_EVENT.test(String(e.event_type ?? ""));
+}
+export function productSeverity(e: { is_detection?: boolean; source?: string; event_type?: string; severity?: string }): string {
+  if (isAlertRow(e)) return e.severity ?? "medium";
+  return LOW_EVENT.test(String(e.event_type ?? "")) ? "low" : "informational";
 }
 
 /** Feed fields that reveal the ground truth or the attack story — never sent to players. */
@@ -819,9 +950,12 @@ function toPublicEntry(entry: TimelineEntry, i: number, seed: string, tier: stri
   }
   const {
     expected_verdict, fp_explanation, incident_id, edr_scope, is_baseline, it_verify_result, it_verify_message,
-    supports_inject, feed_origin, tier: originalTier, id, ...rest
+    supports_inject, feed_origin, tier: originalTier, id, bonus_attack, auto_contained, ...rest
   } = body;
-  const newTs = new Date(TEAM_TIME_BASE_MS + entry.due_offset_ms).toISOString();
+  // A held bonus row is stamped as if it followed the planned shift; the client re-bases every
+  // log onto its release time (occurred_at) anyway.
+  const offset = entry.due_offset_ms >= BONUS_HOLD_MS ? entry.due_offset_ms - BONUS_HOLD_MS : entry.due_offset_ms;
+  const newTs = new Date(TEAM_TIME_BASE_MS + offset).toISOString();
   const oldMs = typeof rest.ts === "string" ? Date.parse(rest.ts) : NaN;
   const withMail = Number.isFinite(oldMs) && rest.raw
     ? { ...rest, raw: shiftRfc2822(rest.raw, Date.parse(newTs) - oldMs) as Record<string, unknown> }
@@ -832,8 +966,11 @@ function toPublicEntry(entry: TimelineEntry, i: number, seed: string, tier: stri
   // (the report joins it back), empty structures are dropped.
   const tagged = mitreVisible(retimed as { source?: string; event_type?: string; is_detection?: boolean });
   const { mitre_technique, mitre_tactic, ...untagged } = retimed;
-  const publicBody = Object.fromEntries(Object.entries(tagged ? retimed : untagged).filter(([, v]) =>
+  const shown0 = Object.fromEntries(Object.entries(tagged ? retimed : untagged).filter(([, v]) =>
     v !== undefined && v !== null && !(typeof v === "object" && !Array.isArray(v) && Object.keys(v as object).length === 0)));
+  const asEvent = { ...retimed, mitre_technique: undefined } as unknown as TelemetryEvent;
+  const factual = describeEvent(asEvent, { preferFields: true, fieldsOnly: true });
+  const publicBody = { ...shown0, description: factual, severity: productSeverity(retimed as { source?: string; event_type?: string; severity?: string; is_detection?: boolean }) };
   return {
     ...entry,
     body: { ...publicBody, id: opaqueId(seed, i, "e"), tier },
@@ -841,7 +978,8 @@ function toPublicEntry(entry: TimelineEntry, i: number, seed: string, tier: stri
       // contract 1: an explicit verdict on every feed log — never missing
       expected_verdict: expected_verdict ?? "benign",
       fp_explanation, incident_id, supports_inject, origin: feed_origin, edr_scope, is_baseline,
-      it_verify_result, it_verify_message, original_id: id, original_tier: originalTier,
+      it_verify_result, it_verify_message, original_id: id, original_tier: originalTier, bonus: bonus_attack,
+      authored_description: retimed.description, authored_severity: retimed.severity, auto_contained,
       ...(tagged ? {} : { mitre_technique, mitre_tactic }),
     }),
   };

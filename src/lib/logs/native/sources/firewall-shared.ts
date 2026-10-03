@@ -401,6 +401,9 @@ export function extractFacts(ev: TelemetryEvent, ctx: NativeCtx, vendorMatch: st
   if (isThreat) cls = "threat";
   else if (file && (ev.event_type === "http_request" || ev.event_type === "file_create")) cls = "file";
   else if (rawPanType === "THREAT" && rawPanSub === "url") cls = "url";
+  // An authored URL record (a FortiGate web-filter / WAF row, a PAN URL log) stays a URL record in
+  // either direction — rendering it as plain traffic would drop the URL, method and user it carries.
+  else if (/^(webfilter|waf)$/i.test(rawGet(raw, "data.subtype") ?? "") && url) cls = "url";
   else if (dir === "outbound" && (ev.event_type === "http_request" || ev.event_type === "http_blocked") && (url || domain)) cls = "url";
   else if (dir === "outbound" && ev.event_type === "net_connection" && domain && webPort && !startOnly && (bytesOutRaw ?? 0) < 10 * 1024 * 1024 && rawPanType !== "TRAFFIC" && !rawGet(raw, "data.type")) cls = "url";
   else cls = "traffic";

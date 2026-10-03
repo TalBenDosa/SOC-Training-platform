@@ -11,6 +11,7 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 import { entraSignIn, entraAudit } from "@/lib/sim/emitters/entra";
 import { serviceNowRecord } from "@/lib/sim/emitters/servicenow";
 import { csProcess } from "@/lib/sim/emitters/crowdstrike";
+import { sentinelAlert } from "@/lib/sim/emitters/sentinel";
 
 /** Telemetry half of `buildHelpdeskMfaResetScenario`: the events and the story title, no answer key. */
 export function helpdeskMfaResetScenarioEvents() {
@@ -34,7 +35,7 @@ export function helpdeskMfaResetScenarioEvents() {
     ip: "10.60.4.18",
   };
 
-  const attackerIp = "185.220.101.47";
+  const attackerIp = "5.181.234.19";
   const ticket = "INC0048217";
 
   const vdiHost = { hostname: "VDI-POOL-014", ip: "10.20.60.14" };
@@ -142,7 +143,7 @@ export function helpdeskMfaResetScenarioEvents() {
         "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].oldValue": "[]",
         "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].newValue": "[{\"MethodType\":\"PhoneAppNotification\",\"Default\":true}]",
       },
-      description: "A new Microsoft Authenticator app was registered as l.ferreira's security info five minutes after the reset — the initiating identity is l.ferreira, but the IP address is 185.220.101.47 in Amsterdam, not the address recorded on either of her sign-ins this morning.",
+      description: "A new Microsoft Authenticator app was registered as l.ferreira's security info five minutes after the reset — the initiating identity is l.ferreira, but the IP address is 5.181.234.19 in Amsterdam, not the address recorded on either of her sign-ins this morning.",
     }),
 
     // 7. The sign-in — MFA genuinely satisfied, on the attacker's phone (T1078.004).
@@ -156,9 +157,21 @@ export function helpdeskMfaResetScenarioEvents() {
         geo: { country: "Netherlands", city: "Amsterdam", latitude: 52.3702, longitude: 4.8952 }, severity: "critical",
         mitre: "T1078.004", tactic: "Initial Access",
         extra: { "azure.signinlogs.properties.location.state": "North Holland", "azure.signinlogs.properties.authenticationDetails": pwPush(T(61 * MIN)) },
-        description: "l.ferreira's account signed in to Office 365 Exchange Online at 10:01 from 185.220.101.47 in Amsterdam, on an unmanaged Windows 10 / Chrome device. Password and MFA both completed successfully.",
+        description: "l.ferreira's account signed in to Office 365 Exchange Online at 10:01 from 5.181.234.19 in Amsterdam, on an unmanaged Windows 10 / Chrome device. Password and MFA both completed successfully.",
       }),
       edr_scope: "non_edr",
+    },
+
+    // 7b. The page: a Sentinel analytic correlating the method wipe, the re-registration and the new-country sign-in.
+    {
+      ...sentinelAlert({
+        companyId: cx, id: "evt_hmr_07b_sentinel_alert", ts: T(62 * MIN), user: victim.email, srcIp: attackerIp,
+        alertName: "Authentication methods reset followed by a sign-in from a new country",
+        severity: "high", eventType: "risk_score_change", mitre: "T1098.005", tactic: "Persistence",
+        extendedProperties: { "Methods Cleared By": "Helpdesk Administrator", "Minutes Reset To Sign-in": 10, "Sign-in Country": "NL", "Device Compliance": "unmanaged" },
+        description: `Sentinel raised a High alert for ${victim.email.split("@")[0]}: authentication methods cleared by the help desk, a new Authenticator registered, then a sign-in from ${attackerIp} in a country not seen for this account.`,
+      }),
+      is_detection: true,
     },
 
     // 8. The session lands on an internal VDI host (benign logon start).

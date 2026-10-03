@@ -174,17 +174,23 @@ describe("technical integrity gate", { timeout: 600_000 }, () => {
       // What the trainee's lookup answers: the dashboard passes the shift's story truth table.
       const truth = storyIocTruth(r.events);
       const verdictOf = new Map<string, string>();
+      const authoredOn = (e: TelemetryEvent) => [e.file?.sha256, (e.process as { hash?: { sha256?: string } } | undefined)?.hash?.sha256,
+        ...Object.entries(e.raw ?? {}).filter(([k, x]) => /sha256/i.test(k) && typeof x === "string").map(([, x]) => String(x))]
+        .filter((x): x is string => !!x).map(x => x.toLowerCase());
+      // A binary's authored hash travels with the binary: the endpoint story pass shows it on every row that names
+      // the binary as a parent / writer (native/sources/_proc-identity threadEndpointStory) — still the story's payload.
+      const storyAuthored = new Set(r.events.flatMap(authoredOn));
       for (const e of r.events) {
         const v = nativeView(e, r.company, r.stack);
-        const text = v ? JSON.stringify(v.log.record) + (v.log.rawLine ?? "") : JSON.stringify(e.raw ?? {});
-        const authored = new Set([e.file?.sha256, (e.process as { hash?: { sha256?: string } } | undefined)?.hash?.sha256,
-          ...Object.entries(e.raw ?? {}).filter(([k, x]) => /sha256/i.test(k) && typeof x === "string").map(([, x]) => String(x))]
-          .filter((x): x is string => !!x).map(x => x.toLowerCase()));
+        // A record's own 64-hex identifiers (Sophos Detections entity "id"s, detection_thumbprint) are ids, not file hashes.
+        const text = (v ? JSON.stringify(v.log.record) + (v.log.rawLine ?? "") : JSON.stringify(e.raw ?? {})).replace(/"(id|detection_thumbprint)":"[0-9a-f]{64}/gi, "\"$1\":\"");
+        const authored = new Set(authoredOn(e));
+        const known = (h: string) => authored.has(h) || storyAuthored.has(h);
         for (const h of new Set((text.match(SHA256) ?? []).map(x => x.toLowerCase()))) {
           const verdict = assessIoc("hash", h, { event: e, truth }).verdict;
           const tag = `${label(r.company, r.stack)} story:${r.story.id} ${authoredOf(e).id}`;
           if (!STORY_ATTACK(e) && verdict === "malicious") p.add(`${tag}: benign log's hash ${h.slice(0, 12)}… looks up malicious`);
-          if (STORY_ATTACK(e) && verdict === "malicious" && !authored.has(h)) p.add(`${tag}: rendered-only hash ${h.slice(0, 12)}… (not the payload) looks up malicious`);
+          if (STORY_ATTACK(e) && verdict === "malicious" && !known(h)) p.add(`${tag}: rendered-only hash ${h.slice(0, 12)}… (not the payload) looks up malicious`);
           if (authored.has(h)) {
             const prev = verdictOf.get(h);
             if (prev && prev !== verdict && STORY_ATTACK(e)) p.add(`${tag}: hash ${h.slice(0, 12)}… is ${verdict} here but ${prev} elsewhere in the story`);
@@ -268,7 +274,15 @@ describe("technical integrity gate", { timeout: 600_000 }, () => {
       // Where the real product does not carry the entity: a DNS server logs the client IP
       // only; a ticket, a SaaS audit record and a firewall (it logs addresses) name no host.
       const serverSide = ["siem", "soar", "dns"].includes(e.source);
-      const noHost = serverSide || ["m365", "google_workspace", "entra", "okta", "aws_cloudtrail", "azure_activity", "gcp_audit", "proofpoint", "defender_o365",
+      // A domain controller's own Security log (Kerberos tickets, NTLM validation, directory
+      // access/changes, lockouts, account/group management, log-cleared) names the DC as Computer
+      // and the operation's security principal — never the workstation that triggered it or the
+      // human at the keyboard (those events carry no such field). The workstation / launching user
+      // live in the correlated host-side logon (4624) instead.
+      const WINSEC_DC_KINDS = new Set(["4662", "4768", "4769", "4771", "4776", "5136", "4740", "1102",
+        "4720", "4722", "4723", "4724", "4725", "4726", "4738", "4767", "4728", "4729", "4732", "4733", "4756", "4757", "4697"]);
+      const winsecDc = sid === "windows_security" && WINSEC_DC_KINDS.has(v?.log.kind ?? "");
+      const noHost = serverSide || winsecDc || ["m365", "google_workspace", "entra", "okta", "aws_cloudtrail", "azure_activity", "gcp_audit", "proofpoint", "defender_o365",
         "paloalto", "fortigate", "checkpoint", "cisco_ftd", "cisco_asa", "zscaler_zia", "anyconnect", "globalprotect", "fortigate_sslvpn", "zscaler_zpa", "cloudflare_access"].includes(sid ?? "");
       if (host && !text.includes(host) && !noHost) p.add(`${where} ${authoredOf(e).id}: row host ${e.hostname} missing from the ${v ? v.log.sourceId : "legacy"} record`);
       const user = (e.user_email ?? "").toLowerCase().split("@")[0];
@@ -287,7 +301,7 @@ describe("technical integrity gate", { timeout: 600_000 }, () => {
       const sidOnly = (sid === "crowdstrike" && /"usersid":"s-1-5-/.test(text))
         // auditd names the account by uid (a successful USER_LOGIN writes id=<uid>; acct= only on failure)
         || (sid === "linux_auditd" && /\b(auid|uid|id)=\d+/.test(text));
-      if (user && user.length > 2 && !sidOnly && !systemContext && !machineEvidence && !noProcessNet && !appActor && sid !== "crowdstrike" && !text.includes(user) && !text.includes(user.replace(/\./g, "")) && !text.includes(asName) && !serverSide) p.add(`${where} ${authoredOf(e).id}: row user ${e.user_email} missing from the ${v ? v.log.sourceId : "legacy"} record`);
+      if (user && user.length > 2 && !sidOnly && !systemContext && !machineEvidence && !noProcessNet && !appActor && !winsecDc && sid !== "crowdstrike" && !text.includes(user) && !text.includes(user.replace(/\./g, "")) && !text.includes(asName) && !serverSide) p.add(`${where} ${authoredOf(e).id}: row user ${e.user_email} missing from the ${v ? v.log.sourceId : "legacy"} record`);
       // An IP is part of the record only where the product logs one (a connection, a sign-in, a DNS
       // query) — a Defender process event has no address field, and inventing one would be wrong.
       const netLike = (/net|dns|http|conn|vpn|auth|login|sign|session|url|web|email/i.test(e.event_type) || ["firewall", "proxy", "dns", "vpn", "idp", "okta", "waf"].includes(e.source))
@@ -360,9 +374,11 @@ describe("technical integrity gate", { timeout: 600_000 }, () => {
       for (const e of r.events) { const k = fp(e); if (seen.has(k)) p.add(`${label(r.company, r.stack)} story:${r.story.id}: ${authoredOf(e).id} repeats ${seen.get(k)}`); else seen.set(k, authoredOf(e).id); }
     }
     for (const t of teams()) {
+      // A repeat is the SAME authored log rendered twice (keyed on its origin id) — a burst of
+      // genuinely-distinct rows (failed logins, recon requests) is realistic and not a repeat.
       const seen = new Map<string, number>();
-      t.feed.forEach((e, i) => { if (TP(t.answers[i] as unknown as TelemetryEvent)) { const k = fp(e); seen.set(k, (seen.get(k) ?? 0) + 1); } });
-      for (const [k, n] of seen) if (n > 1) p.add(`team ${label(t.company, t.stack)}: an attack log appears ${n}× — ${k.slice(0, 120)}`);
+      t.feed.forEach((e, i) => { const a = t.answers[i] as Record<string, unknown>; if (TP(a as unknown as TelemetryEvent)) { const oid = String(a.original_id ?? ""); if (!oid) return; seen.set(oid, (seen.get(oid) ?? 0) + 1); } });
+      for (const [k, n] of seen) if (n > 1) p.add(`team ${label(t.company, t.stack)}: authored attack log ${k} appears ${n}×`);
     }
     report("repeat", p);
   });

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { source, kindOf, toRawLine } from "./checkpoint";
-import { runFirewallSuite, cloneLog, repeatEvent, type EvidenceKey } from "./firewall-testkit";
+import { runFirewallSuite, cloneLog, repeatEvent, type EvidenceKey, applianceAdminNull } from "./firewall-testkit";
 import { makeCtx } from "../ctx";
 import { corpusFor, cardSamples } from "../testing/corpus";
 import type { NativeLog } from "../types";
@@ -39,7 +39,7 @@ runFirewallSuite({
   source, kindOf,
   crossMin: 0.9,
   cardTime: cpTime,
-  nullAllowed: ev => (/zeek|corelight/i.test(ev.vendor ?? "") ? "passive NSM sensor, not a firewall record" : null),
+  nullAllowed: ev => (/zeek|corelight/i.test(ev.vendor ?? "") ? "passive NSM sensor, not a firewall record" : applianceAdminNull(ev)),
   evidenceExempt: (log): EvidenceKey[] => {
     const ex: EvidenceKey[] = ["sha256"]; // file hashes belong to Threat Emulation / AV logs (not on this card)
     // Firewall-blade connection logs have no URL/domain field.

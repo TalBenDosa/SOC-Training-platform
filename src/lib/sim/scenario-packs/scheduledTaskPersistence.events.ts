@@ -76,6 +76,17 @@ export function scheduledTaskPersistenceScenarioEvents() {
         "At 08:08:18 explorer.exe started powershell.exe with an execution-policy bypass, running the downloaded script directly from Downloads.",
     }),
 
+    // 2b. The script fetches its payload binary — the origin of netfix_agent.exe.
+    panWeb({
+      ...cx, id: "evt_stp_02b_payload_download", ts: T(3 * MIN + 21_000), url: `https://${downloadSite}/agent/netfix_agent.exe`,
+      domain: downloadSite, method: "GET", action: "alert", category: "computer-and-internet-info",
+      dstIp: "172.67.140.55", status: 200, bytesIn: 318_976,
+      file: { name: "netfix_agent.exe", path: "/agent/netfix_agent.exe", sha256: payloadHash, size: 318_976 },
+      fileType: "pe", mitre: "T1105", tactic: "Command and Control", severity: "medium",
+      description:
+        "Three seconds after the script started, WS-7742 fetched netfix_agent.exe from netfix-tools-download.com — the binary the script then wrote to disk.",
+    }),
+
     // 3. The script drops its payload (Sysmon 11).
     sysmonFile({
       ...cx, id: "evt_stp_03_payload_written", ts: T(3 * MIN + 24_000), processName: "powershell.exe", processPath: PW,
@@ -87,12 +98,12 @@ export function scheduledTaskPersistenceScenarioEvents() {
     {
       ...sysmonProcess({
         ...cx, id: "evt_stp_04_scheduled_task", ts: T(3 * MIN + 29_000), processName: "schtasks.exe", processPath: "C:\\Windows\\System32\\schtasks.exe",
-        cmdline: "schtasks.exe /create /tn \"NetFixOptimizer\" /tr \"C:\\Users\\s.attia\\AppData\\Local\\NetFixSvc\\netfix_agent.exe\" /sc onlogon /rl highest /f",
+        cmdline: "schtasks.exe /create /tn \"NetFixOptimizer\" /tr \"C:\\Users\\s.attia\\AppData\\Local\\NetFixSvc\\netfix_agent.exe\" /sc onlogon /f",
         parentName: "powershell.exe", parentPath: PW, parentCmdline: PWCMD, pid: 5188, parentPid: 5124,
         sha256: schtasksHash, integrity: "Medium", processGuid: schtasksGuid, parentGuid: powershellGuid,
         eventType: "scheduled_task", isDetection: true, mitre: "T1053.005", tactic: "Persistence", severity: "high",
         description:
-          "Five seconds later powershell.exe spawned schtasks.exe, registering a task named NetFixOptimizer to run the AppData binary at every logon, at the highest available run level.",
+          "Five seconds later powershell.exe spawned schtasks.exe, registering a per-user task named NetFixOptimizer to run the AppData binary at every logon (no elevation — the user is not a local admin).",
       }),
       edr_scope: "edr",
     },
@@ -154,6 +165,18 @@ export function scheduledTaskPersistenceScenarioEvents() {
 
   // Every event belongs to the one incident.
   for (const e of events) e.incident_id = INCIDENT;
+
+  // Sysmon Event 1 carries the session's LogonGuid/LogonId. Day-1 runs share the
+  // user's first interactive session; the next-morning relaunch (evt_stp_07) is a
+  // NEW logon session, so it must carry a different LogonGuid/LogonId — reusing the
+  // day-1 value would wrongly imply one unbroken session across two days.
+  const day1Logon = { guid: "{a53f7d10-e9f0-6600-0000-0020c41a0400}", id: "0x1F4A2C" };
+  const day2Logon = { guid: "{a53f7d29-4701-6600-0000-0020e8360800}", id: "0x3B91E7" };
+  for (const e of events) {
+    if (e.source !== "sysmon" || e.event_type === "dns_query") continue;
+    const l = e.id === "evt_stp_07_relaunch_at_logon" ? day2Logon : day1Logon;
+    if (e.raw) { e.raw["winlog.event_data.LogonGuid"] = l.guid; e.raw["winlog.event_data.LogonId"] = l.id; }
+  }
 
   return { title: "Fix My Internet — Scheduled-Task Persistence from a Downloaded Script", events, T, MIN, HOUR, host, downloadSite, c2, scriptHash, payloadHash };
 }

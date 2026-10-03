@@ -191,7 +191,7 @@ Its first act was to call home. The connection to sync-metrics-relay.com was den
 
 Nothing in this chain involved a file the user downloaded and clicked. Every action up to the moment sysupd32.exe was written happened because a piece of text sat on his clipboard and he was told, by a fake CAPTCHA, exactly which three keys to press.`,
     learning_objectives: [
-      "Recognise ClickFix / paste-and-run (T1204.004) from a process launched by explorer.exe with no antecedent file download",
+      "Recognise ClickFix / paste-and-run (T1204.004) from a process launched by explorer.exe with no antecedent file download, corroborated by a RunMRU entry holding the pasted command",
       "Explain why perimeter file inspection cannot see a command that never crosses the network as a file",
       "Understand fileless execution via `iwr | iex` and why no hash exists for a script that never touched disk",
       "Trace a staged PowerShell parent/child relationship using process.parent.pid",
@@ -203,10 +203,12 @@ Nothing in this chain involved a file the user downloaded and clicked. Every act
     killchain: [
       { ts: T(0), phase: "Initial Access", action: "User loads a lure page offering free invoice templates" },
       { ts: T(45_000), phase: "Initial Access", action: `Fake CAPTCHA widget loads from ${widgetHost} and copies a command to the clipboard` },
+      { ts: T(2 * MIN + 44_000), phase: "Execution", action: "Pasted command recorded in HKCU\\...\\Explorer\\RunMRU — Win+R → paste → Enter (T1204.004)" },
       { ts: T(2 * MIN + 50_000), phase: "Execution", action: "explorer.exe launches powershell.exe with no antecedent download (T1204.004)" },
       { ts: T(2 * MIN + 53_000), phase: "Command and Control", action: `Fileless stager fetched in-memory from ${stagingHost} (T1105)` },
       { ts: T(2 * MIN + 58_000), phase: "Execution", action: "Child PowerShell process spawned with an encoded command (T1059.001)" },
-      { ts: T(3 * MIN + 5_000), phase: "Execution", action: "sysupd32.exe written to AppData\\Local\\Temp" },
+      { ts: T(3 * MIN + 2_000), phase: "Command and Control", action: `sysupd32.exe fetched from ${stagingHost} (T1105)` },
+      { ts: T(3 * MIN + 5_000), phase: "Execution", action: "sysupd32.exe written to AppData\\Local\\Temp by powershell.exe (pid 8901)" },
       { ts: T(3 * MIN + 9_000), phase: "Execution", action: "sysupd32.exe executed" },
       { ts: T(3 * MIN + 12_000), phase: "Command and Control", action: `Outbound call to ${c2} blocked at the perimeter (T1071.001)` },
       { ts: T(3 * MIN + 30_000), phase: "Containment", action: "Falcon kills the process and raises a Critical detection" },

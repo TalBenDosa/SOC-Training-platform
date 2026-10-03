@@ -26,11 +26,11 @@
  */
 import type { NativeSource, NativeLog, KindSchema, UseCase, NativeCtx } from "../types";
 import type { TelemetryEvent } from "@/lib/sim/types";
-import { procPid } from "./_proc-identity";
+import { procPid, sha1Of, accountSid } from "./_proc-identity";
 import { edrFacts, type EdrFacts } from "./edr-normalize";
 import {
   TACTICS, techniqueName, tacticOf, fixPath, baseOf, effectiveAction, imageName,
-  isPrivate, isSystemUser, userSid, isoFrac, isServer,
+  isPrivate, isSystemUser, isoFrac, isServer,
 } from "./_edr_mde_sophos_common";
 
 // ── Schema ──────────────────────────────────────────────────────────────────
@@ -143,9 +143,11 @@ function sophosUser(f: EdrFacts, ctx: NativeCtx): string | undefined {
   return `${(f.userDomain ?? ctx.netbios).toUpperCase()}\\${u}`;
 }
 /** OS pid of a process instance (./_proc-identity) — the same id every EDR module gives that process. */
-function pidOf(ctx: NativeCtx, ev: TelemetryEvent, f: EdrFacts, host: string, name: string | undefined): number {
+function pidOf(ctx: NativeCtx, ev: TelemetryEvent, f: EdrFacts, host: string, name: string | undefined, role: "proc" | "parent" = "proc"): number {
   const user = f.user ?? (f.userEmail ? f.userEmail.split("@")[0] : undefined);
-  return procPid(ctx, { host, os: f.os, timeMs: f.timeMs, user, incident: ev.incident_id }, { name }) ?? 4;
+  // The story's instance tag (an image shown as its own parent: the child is another instance).
+  const inst = role === "parent" ? f.parent.inst : f.proc.inst;
+  return procPid(ctx, { host, os: f.os, timeMs: f.timeMs, user, incident: ev.incident_id }, { name, inst }) ?? 4;
 }
 /** Stable Sophos endpoint id per host (seeded from the entity, never the event). */
 const endpointIdOf = (ctx: NativeCtx, host: string) => ctx.uuid(`${ctx.companyId}:${host.toLowerCase()}:sophos-endpoint`);
@@ -194,7 +196,7 @@ function dataLakeProcess(ev: TelemetryEvent, f: EdrFacts, ctx: NativeCtx, host: 
   const meta = deviceMeta(f, ctx, host, endpointId);
   const pid = pidOf(ctx, ev, f, host, name);
   const parentName = f.parent.name;
-  const ppid = parentName ? pidOf(ctx, ev, f, host, parentName) : 0;
+  const ppid = parentName ? pidOf(ctx, ev, f, host, parentName, "parent") : 0;
   // The row's time is when the scheduled query saw the process (calendar_time); the
   // process started a little before, and the result reaches the data lake seconds later
   // — never stamped after the moment the row is shown.
@@ -229,7 +231,7 @@ function dataLakeProcess(ev: TelemetryEvent, f: EdrFacts, ctx: NativeCtx, host: 
     path: fixPath(f.proc.path) ?? "",
     pid,
     pua_score: ctx.int(seed("pua"), 0, 20),
-    sha1: ctx.hex(`sha1:${ident}`, 40),
+    sha1: sha1Of(ctx, ident),
     sha256: f.proc.sha256 ?? "",
     sophos_pid: `${pid}:${filetime(startMs, ctx, seed("ft"))}`,
     time: startSec,
@@ -305,7 +307,7 @@ function detectionItem(ev: TelemetryEvent, f: EdrFacts, ctx: NativeCtx, host: st
     item_type: "Process",
     ...(path ? { detection_item: path, process_path: path } : {}),
     detection_name: detectionName,
-    ...(user && f.os === "Win" ? { sid: userSid(ctx, f.user ?? user.split("\\").pop()) } : {}),
+    ...(user && f.os === "Win" ? { sid: f.sid ?? accountSid(ctx, f.user ?? user.split("\\").pop()!, f.userEmail) } : {}),
     process_cmd_line: f.proc.cmdline,
     process_cmd_line_truncated: 0,
     process_name: name,
@@ -314,7 +316,7 @@ function detectionItem(ev: TelemetryEvent, f: EdrFacts, ctx: NativeCtx, host: st
     ...(sha256 ? { process_sha256: sha256 } : {}),
     ...(f.parent.name ? {
       process_parent_name: f.parent.name,
-      process_parent_sophos_pid: `${pidOf(ctx, ev, f, host, f.parent.name)}:${filetime(startMs - ctx.int(seed("pstart"), 1_000, 600_000), ctx, seed("pft"))}`,
+      process_parent_sophos_pid: `${pidOf(ctx, ev, f, host, f.parent.name, "parent")}:${filetime(startMs - ctx.int(seed("pstart"), 1_000, 600_000), ctx, seed("pft"))}`,
       ...(f.parent.path ? { process_parent_path: fixPath(f.parent.path) } : {}),
     } : {}),
     monitor_mode: 0,

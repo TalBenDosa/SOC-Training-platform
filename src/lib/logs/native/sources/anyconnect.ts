@@ -22,7 +22,7 @@
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { KindSchema, NativeCtx, NativeLog, NativeSource, SourceSchema, UseCase } from "../types";
-import { vpnFacts, company, asaTime, asaDuration, typedUser, osFamily, type VpnFacts } from "./remote-access-shared";
+import { vpnFacts, company, asaTime, asaDuration, typedUser, userKey, osFamily, type VpnFacts } from "./remote-access-shared";
 
 const HEADER = ["timestamp", "hostname", "severity", "message_id"];
 const LABELS: Record<string, string[]> = {
@@ -117,13 +117,16 @@ function clientType(f: VpnFacts): string {
   return "Cisco AnyConnect VPN Agent for Windows 5.1.4.74";
 }
 
+const poolIp = (ctx: NativeCtx, seed: string) => `10.250.${ctx.int(`${ctx.companyId}:asa-pool:${seed}:3`, 0, 15)}.${ctx.int(`${ctx.companyId}:asa-pool:${seed}:4`, 2, 250)}`;
+
 function build(ev: TelemetryEvent, f: VpnFacts, ctx: NativeCtx): Record<string, unknown> | null {
   const co = company(ctx);
   const ms = Date.parse(ev.ts);
   const user = typedUser(f);
   const ip = f.publicIp ?? "0.0.0.0";
-  const groupPolicy = f.groupPolicy ?? f.tunnelGroup ?? `GP-${co.short}-Users`;
-  const tunnelGroup = f.tunnelGroup ?? `TG-${co.short}-AnyConnect`;
+  // The authored VPN group (an ASA tunnel group / group policy, or the FortiGate SSL-VPN user group) is evidence.
+  const groupPolicy = f.groupPolicy ?? f.tunnelGroup ?? f.fgtGroup ?? `GP-${co.short}-Users`;
+  const tunnelGroup = f.tunnelGroup ?? f.fgtGroup ?? `TG-${co.short}-AnyConnect`;
   const aaaServer = `10.${ctx.int(`${ctx.companyId}:aaa-net`, 10, 60)}.1.20`;
   const head = (id: string) => ({ timestamp: asaTime(ms), hostname: f.gatewayHost ?? "asa-vpn-01", severity: SEVERITY[id] ?? 6, message_id: id });
 
@@ -154,7 +157,8 @@ function build(ev: TelemetryEvent, f: VpnFacts, ctx: NativeCtx): Record<string, 
       const gui = { Group: groupPolicy, User: user, IP: ip };
       switch (id) {
         case "113004": return { ...head(id), server: aaaServer, user };
-        case "722051": return { ...head(id), ...gui, "IPv4 Address": f.tunnelIp ?? `10.250.${ctx.int(`${ev.id}:pool3`, 0, 15)}.${ctx.int(`${ev.id}:pool4`, 2, 250)}`, "IPv6 address": "::" };
+        // No authored pool address: one per user session (user + public IP + day), so every record of the session agrees.
+        case "722051": return { ...head(id), ...gui, "IPv4 Address": f.tunnelIp ?? poolIp(ctx, `${userKey(f)}|${ip}|${ev.ts.slice(0, 10)}`), "IPv6 address": "::" };
         case "722055": return { ...head(id), ...gui, "Client Type": clientType(f) };
         case "722022": return { ...head(id), ...gui, Protocol: /dtls/i.test(f.sessionType ?? "") ? "UDP" : "TCP", Compression: "without" };
         default: return { ...head(id), ...gui };

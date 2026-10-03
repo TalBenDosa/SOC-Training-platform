@@ -12,6 +12,8 @@ export interface AttackPlan {
   count: number | null;
   /** Up to MAX_ATTACKS slots: a storyline id, or null for a random pick. */
   slots: (string | null)[];
+  /** One more random attack, released only once the team has caught every planned one (default on). */
+  bonus: boolean;
 }
 
 const ID_RE = /^[a-z0-9][a-z0-9-]{1,119}$/;
@@ -22,7 +24,7 @@ const cleanId = (v: unknown): string | null => (typeof v === "string" && ID_RE.t
  * random); an older client's single `scenario_id` is slot 1. Repeated storylines collapse to
  * one (the later slot becomes random); slots beyond the count are dropped.
  */
-export function sanitizeAttackPlan(body: { attack_count?: unknown; scenario_ids?: unknown; scenario_id?: unknown }): AttackPlan {
+export function sanitizeAttackPlan(body: { attack_count?: unknown; scenario_ids?: unknown; scenario_id?: unknown; bonus_attack?: unknown }): AttackPlan {
   const n = Number(body.attack_count);
   const count = Number.isInteger(n) && n >= 1 && n <= MAX_ATTACKS ? n : null;
   const raw = Array.isArray(body.scenario_ids) ? body.scenario_ids.slice(0, MAX_ATTACKS) : [body.scenario_id];
@@ -30,14 +32,14 @@ export function sanitizeAttackPlan(body: { attack_count?: unknown; scenario_ids?
   const slots = raw.map(cleanId).map(id => (id && !seen.has(id) ? (seen.add(id), id) : null));
   const kept = count ? slots.slice(0, count) : slots;
   while (kept.length && kept[kept.length - 1] === null) kept.pop();
-  return { count, slots: kept };
+  return { count, slots: kept, bonus: body.bonus_attack !== false };
 }
 
 /** The stored plan (config.attacks), else the legacy single storyline. */
 export function planFromConfig(config: unknown, scenarioId?: string | null): AttackPlan {
-  const a = (config as { attacks?: { count?: unknown; slots?: unknown } } | null)?.attacks;
-  if (a) return sanitizeAttackPlan({ attack_count: a.count, scenario_ids: a.slots });
-  return { count: null, slots: scenarioId ? [scenarioId] : [] };
+  const a = (config as { attacks?: { count?: unknown; slots?: unknown; bonus?: unknown } } | null)?.attacks;
+  if (a) return sanitizeAttackPlan({ attack_count: a.count, scenario_ids: a.slots, bonus_attack: a.bonus });
+  return { count: null, slots: scenarioId ? [scenarioId] : [], bonus: true };
 }
 
 /** The chosen storylines, in slot order. */

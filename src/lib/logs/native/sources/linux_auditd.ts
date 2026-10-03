@@ -349,7 +349,7 @@ const useCases: UseCase[] = [
   {
     id: "linux_auditd.hidden_dir_executable", title: "Executable file in a hidden directory", sourceId: "linux_auditd", kinds: ["PATH"],
     severity: "medium", mitre: ["T1564.001", "T1036.005"],
-    description: "Miners and backdoors hide in dot-directories (~/.cache/.fontconfig/kworker) and borrow kernel-thread names. A PATH record with an executable mode (0100755 / 0100700) under a path component starting with a dot deserves a hash lookup and a look at what runs it.",
+    description: "Backdoors and implants hide in dot-directories (~/.cache/.fontconfig/kworker) and borrow kernel-thread names. A PATH record with an executable mode (0100755 / 0100700) under a path component starting with a dot deserves a hash lookup and a look at what runs it.",
     logic: "SPL: index=linux sourcetype=linux:audit type=PATH | regex name=\"/\\.[^/]+/\" | regex mode=\"^0100[57]\"",
     match: { all: [{ field: "name", op: "regex", value: "/\\.[^/]+/[^/]+$" }, { field: "mode", op: "regex", value: "^0100[57][0-7][0-7]$" }] },
     falsePositives: ["Developer tool caches (~/.npm, ~/.cargo/bin) — allow-list known paths"],

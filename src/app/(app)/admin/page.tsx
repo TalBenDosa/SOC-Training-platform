@@ -558,7 +558,6 @@ function ScenariosTab() {
                   <option value="ransomware">Ransomware Deployment</option>
                   <option value="infostealer">Infostealer + Credential Market</option>
                   <option value="rootkit">Rootkit / Bootkit Persistence</option>
-                  <option value="cryptomining">Cryptomining / Resource Hijack</option>
                 </optgroup>
                 <optgroup label="--------- Exploitation & Privilege ---------">
                   <option value="webapp">Web App Attack / RCE</option>

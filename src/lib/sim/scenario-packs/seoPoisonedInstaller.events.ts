@@ -48,10 +48,10 @@ export function seoPoisonedInstallerScenarioEvents() {
       ...mde, id: "evt_spi_01_ad_click", ts: T(0), severity: "medium",
       url: `https://${lookalike}/download`, domain: lookalike, category: "newly-registered-domain",
       action: "alert", dstIp: "146.70.108.44", status: 200, bytesIn: 41_280,
-      referer: "https://www.google.com/search?q=putty+ssh+client+download",
+      referer: "https://www.googleadservices.com/pagead/aclk?sa=L&ai=DChc&adurl=https://puttysoftware-download.com/download",
       userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/126.0.0.0 Safari/537.36",
       userTitle: "Systems Administrator", mitre: "T1608.006", tactic: "Resource Development",
-      description: "LAP-3312 followed the sponsored result for \"putty ssh client download\" at 14:20 and landed on puttysoftware-download.com — a domain unrelated to the official PuTTY project — carrying a Google search results page as its referer.",
+      description: "LAP-3312 landed on puttysoftware-download.com at 14:20 — a domain unrelated to the official PuTTY project — with a googleadservices.com/pagead/aclk ad-click URL as its referer.",
     }),
 
     panWeb({
@@ -84,9 +84,9 @@ export function seoPoisonedInstallerScenarioEvents() {
       processName: "PuTTY-0.83-installer.exe", pid: 7744,
       processPath: "C:\\Users\\d.avraham\\Downloads\\PuTTY-0.83-installer.exe",
       cmdline: '"C:\\Users\\d.avraham\\Downloads\\PuTTY-0.83-installer.exe"',
-      parentName: "explorer.exe", parentPid: 3392, sha256: installerHash, signed: false, integrity: "High",
+      parentName: "explorer.exe", parentPid: 3392, sha256: installerHash, signed: false, integrity: "Medium",
       mitre: "T1204.002", tactic: "Execution", severity: "high",
-      description: "At 14:23:10 explorer.exe started PuTTY-0.83-installer.exe, unsigned, from the Downloads folder.",
+      description: "At 14:23:10 explorer.exe started PuTTY-0.83-installer.exe, unsigned, from the Downloads folder, at medium integrity (no elevation — the stealer reads the user's own Chrome profile).",
     }),
 
     // ---------------------------------------------------------------------
@@ -152,8 +152,8 @@ export function seoPoisonedInstallerScenarioEvents() {
         mdeIncidentId: "38821", sha256: stealerHash,
         malwareCategory: "infostealer", malwareName: "Trojan:Win32/Rhadesta.SP!MTB", alertSeverity: "High",
         mitre: "T1555.003", techniqueName: "Credentials from Web Browsers",
-        remediation: "Quarantine", remediationStatus: "Completed", expectedVerdict: "tp",
-        description: "Defender raised a High-severity infostealer incident on LAP-3312, tying the unsigned dropper to the Chrome credential-store copy and the outbound POST, and quarantined upd_helper.exe after the transfer had already completed.",
+        remediation: "Quarantine", expectedVerdict: "tp",
+        description: "Defender raised a High-severity infostealer incident on LAP-3312, tying the unsigned dropper to the Chrome credential-store copy and the outbound POST; it quarantined upd_helper.exe at 14:27:20 — after the exfiltration POST at 14:27:00 had already completed.",
       }),
       edr_scope: "edr",
     },

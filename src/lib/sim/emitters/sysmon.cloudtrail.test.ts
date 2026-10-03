@@ -89,7 +89,7 @@ describe("AWS GuardDuty emitter", () => {
     title: "An IAM identity read objects from a bucket from a remote host", srcIp: "91.242.217.35",
     api: "GetObject", serviceName: "s3.amazonaws.com", callerType: "Remote IP", resourceType: "S3Bucket",
     bucketName: "medcore-patient-exports-prod", userType: "IAMUser", userName: "reporting-export-svc",
-    accessKeyId: "AKIA4MC2X7QF9ZB3RLTD", count: 20000, mitre: "T1567", tactic: "Exfiltration",
+    accessKeyId: "AKIA4MC2X7QF9EXAMPLE", count: 20000, mitre: "T1567", tactic: "Exfiltration",
   });
   it("emits only registry-valid GuardDuty fields under the right vendor", () => {
     expect(finding.vendor).toBe("AWS GuardDuty");

@@ -32,7 +32,7 @@ describe("the arsenal follows the environment", () => {
   it("platform stories need the platform", () => {
     const noAws: TeamEnv = { platforms: ["azure", "linux"], industry: "general" };
     expect(envAllowsStory(noAws, story("rocketstack-chain-a"))).toBe(false);        // S3 exfil needs AWS
-    expect(envAllowsStory({ ...noAws, platforms: [...noAws.platforms, "aws"] }, story("rocketstack-chain-c"))).toBe(true);
+    expect(envAllowsStory({ ...noAws, platforms: [...noAws.platforms, "aws"] }, story("rocketstack-chain-b"))).toBe(true);
     expect(envAllowsStory(noAws, story("k8s-pod-escape"))).toBe(false);
     expect(envAllowsStory({ platforms: ALL, industry: "general" }, story("k8s-pod-escape"))).toBe(true);
     expect(envAllowsStory({ platforms: ["linux"], industry: "general" }, story("nexacorp-chain-a"))).toBe(false);   // Key Vault needs Azure

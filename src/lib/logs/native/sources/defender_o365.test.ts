@@ -72,7 +72,8 @@ describe("defender_o365 — corpus conversion", () => {
       const sha = ev.raw["email.attachments.file.hash.sha256"] ?? ev.raw["data.office365.AttachmentSha256"];
       if (typeof sha === "string" && c.log.kind === "EmailEvents") expect(present(hay, sha), `${ev.id} sha`).toBe(true);
       const imid = ev.raw["email.message_id"] ?? ev.raw["data.office365.InternetMessageId"] ?? ev.raw["pps.messageID"];
-      if (typeof imid === "string" && c.log.kind !== "UrlClickEvents") expect(present(hay, imid), `${ev.id} imid`).toBe(true);
+      // EmailAttachmentInfo / EmailUrlInfo / UrlClickEvents key on NetworkMessageId — they have no InternetMessageId column.
+      if (typeof imid === "string" && !["UrlClickEvents", "EmailAttachmentInfo", "EmailUrlInfo"].includes(c.log.kind)) expect(present(hay, imid), `${ev.id} imid`).toBe(true);
       n++;
     }
     expect(n).toBeGreaterThan(25);

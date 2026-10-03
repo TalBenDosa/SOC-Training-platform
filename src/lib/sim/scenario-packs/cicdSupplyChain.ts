@@ -189,7 +189,7 @@ export function buildCicdSupplyChainScenario(
         companyId: cx, id: "cicd_10_guardduty_finding", ts: T(22 * MIN), findingType: "UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS", gdSeverity: 8,
         title: "Credentials for the role github-actions-deploy are being used from a remote host outside AWS", srcIp: attackerIp, region, accountId: awsAccount,
         api: "GetSecretValue", serviceName: "secretsmanager.amazonaws.com", callerType: "Remote IP", asnOrg: "M247 Europe SRL",
-        resourceType: "AccessKey", userType: "AssumedRole", userName: "github-actions-deploy", accessKeyId: "ASIAY7RCX2NLP4Q8ZK3D", count: 3,
+        resourceType: "AccessKey", userType: "AssumedRole", userName: "github-actions-deploy", accessKeyId: "ASIAY7RCX2NLPEXAMPLE", count: 3,
         mitre: "T1078.004", tactic: "Defense Evasion", severity: "critical", incidentId: INCIDENT,
         description: "GuardDuty raised InstanceCredentialExfiltration.OutsideAWS (severity 8): the github-actions-deploy role's temporary credentials making API calls from 45.156.128.19, an address outside AWS.",
       }),

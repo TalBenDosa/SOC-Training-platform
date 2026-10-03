@@ -76,7 +76,7 @@ describe("POST /api/team/sessions", () => {
     expect(ok.status).toBe(200);
     const row = state.ops.find(o => o.table === "team_sessions" && o.action === "insert")!.payload as { scenario_id: string | null; config: { attacks?: unknown } };
     expect(row.scenario_id).toBe("known");
-    expect(row.config.attacks).toEqual({ count: 3, slots: [null, "known"] });
+    expect(row.config.attacks).toEqual({ count: 3, slots: [null, "known"], bonus: true });
   });
 
   it("a roster conflict at insert is a 409 (and the half-made session is deleted)", async () => {

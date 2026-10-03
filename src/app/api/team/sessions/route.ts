@@ -96,7 +96,7 @@ export async function POST(req: Request) {
 
   const { data: sess, error } = await admin
     .from("team_sessions")
-    .insert({ org_id: orgId, created_by: user.id, company_id, difficulty, format, scenario_id, schema_version: 2, config: { ...(Object.keys(stack).length ? { stack } : {}), ...(tenant ? { tenant: { name: tenant.name } } : {}), ...(env ? { env } : {}), ...(plan.count || plan.slots.length ? { attacks: plan } : {}) } })   // new sessions are v2 from birth (0071)
+    .insert({ org_id: orgId, created_by: user.id, company_id, difficulty, format, scenario_id, schema_version: 2, config: { ...(Object.keys(stack).length ? { stack } : {}), ...(tenant ? { tenant: { name: tenant.name } } : {}), ...(env ? { env } : {}), attacks: plan } })   // new sessions are v2 from birth (0071)
     .select("id").single();
   if (error || !sess) {
     if (error) console.error("[team create] session insert:", error.message);   // no raw DB text to the client (S12)

@@ -76,7 +76,7 @@ const MAP: Record<string, Mapped> = {
   AssumeRole: { serviceName: "iamcredentials.googleapis.com", methodName: "GenerateAccessToken", permission: "iam.serviceAccounts.getAccessToken", resourceType: "service_account", dataAccess: true,
     shape: (ev, proj) => ({ resourceName: `projects/-/serviceAccounts/deploy-sa@${proj}.iam.gserviceaccount.com`, labels: { project_id: proj, email_id: `deploy-sa@${proj}.iam.gserviceaccount.com` } }) },
   RunInstances: { serviceName: "compute.googleapis.com", methodName: "v1.compute.instances.insert", permission: "compute.instances.create", resourceType: "gce_instance", dataAccess: false,
-    shape: (ev, proj) => { const it = rs(ev.raw, "aws.cloudtrail.request_parameters.instanceType", "aws.cloudtrail.requestParameters.instanceType") ?? "n1"; const gpu = /^(p|g|a2|a3|dl|trn|inf)/.test(it); return { resourceName: `projects/${proj}/zones/us-central1-a/instances/miner-01`, labels: { project_id: proj, zone: "us-central1-a", instance_id: "2525602744967966726" }, request: { "@type": "type.googleapis.com/compute.instances.insert", name: "miner-01", machineType: `https://www.googleapis.com/compute/v1/projects/${proj}/zones/us-central1-a/machineTypes/${gpu ? "a2-highgpu-4g" : "e2-standard-4"}` } }; } },
+    shape: (ev, proj) => { const it = rs(ev.raw, "aws.cloudtrail.request_parameters.instanceType", "aws.cloudtrail.requestParameters.instanceType") ?? "n1"; const gpu = /^(p|g|a2|a3|dl|trn|inf)/.test(it); return { resourceName: `projects/${proj}/zones/us-central1-a/instances/instance-1`, labels: { project_id: proj, zone: "us-central1-a", instance_id: "2525602744967966726" }, request: { "@type": "type.googleapis.com/compute.instances.insert", name: "instance-1", machineType: `https://www.googleapis.com/compute/v1/projects/${proj}/zones/us-central1-a/machineTypes/${gpu ? "a2-highgpu-4g" : "e2-standard-4"}` } }; } },
 };
 
 function iamPolicyMap(): Mapped {
@@ -202,15 +202,6 @@ const useCases: UseCase[] = [
     logic: "SPL: methodName=storage.objects.get",
     match: { field: "protoPayload.methodName", op: "eq", value: "storage.objects.get" },
     falsePositives: ["Applications that legitimately read objects (scope by principal, bucket and caller IP)."],
-  },
-  {
-    id: "gcp_audit.gpu_compute_insert",
-    title: "GPU compute instance created (crypto-mining)",
-    sourceId: "gcp_audit", severity: "high", mitre: ["T1578.002", "T1496"],
-    description: "compute.instances.insert requesting a GPU/accelerator machine type (a2-highgpu / a3 / g2) — the compute footprint of crypto-mining on compromised GCP credentials.",
-    logic: "SPL: methodName=\"*compute.instances.insert\" request.machineType=\"*a2-highgpu*\"|\"*a3-*\"|\"*g2-*\"",
-    match: { all: [{ field: "protoPayload.methodName", op: "icontains", value: "compute.instances.insert" }, { field: "protoPayload.request.machineType", op: "regex", value: "(a2-highgpu|a2-ultragpu|a3-|g2-)" }] },
-    falsePositives: ["Legitimate ML/HPC workloads using GPU machine types (verify the owning project/team)."],
   },
   {
     id: "gcp_audit.permission_denied",

@@ -66,7 +66,7 @@ export function fakeBrowserUpdateScenarioEvents() {
     panWeb({
       ...cs, id: "evt_fbu_02_overlay_fetch", ts: T(1 * MIN + 12_000), severity: "low",
       url: `https://${stagingHost}/loader/update-check.js`, domain: stagingHost,
-      category: "computer-and-internet-info", action: "alert", dstIp: "91.219.238.14", status: 200, bytesIn: 12_744,
+      category: "computer-and-internet-info", action: "alert", dstIp: "38.180.29.140", status: 200, bytesIn: 12_744,
       referer: `https://${compromisedSite}/2026/06/port-congestion-outlook`, mitre: "T1189", tactic: "Initial Access",
       description: "During the same page view, the browser session requested /loader/update-check.js from cdn-static-assets-92.net, referred by the logisticsweekly.com article.",
     }),
@@ -75,7 +75,7 @@ export function fakeBrowserUpdateScenarioEvents() {
     panWeb({
       ...cs, id: "evt_fbu_03_download", ts: T(3 * MIN + 40_000), severity: "medium",
       url: `https://${stagingHost}/download/Chrome_Update_127.0.6533.js`, domain: stagingHost,
-      category: "computer-and-internet-info", action: "alert", dstIp: "91.219.238.14", status: 200, bytesIn: 341_902,
+      category: "computer-and-internet-info", action: "alert", dstIp: "38.180.29.140", status: 200, bytesIn: 341_902,
       file: { name: "Chrome_Update_127.0.6533.js", path: "/download/Chrome_Update_127.0.6533.js", sha256: scriptHash, size: 341_902 },
       fileType: "script", mitre: "T1189", tactic: "Initial Access",
       description: "The same host then downloaded Chrome_Update_127.0.6533.js from cdn-static-assets-92.net over the same session.",
@@ -117,7 +117,7 @@ export function fakeBrowserUpdateScenarioEvents() {
     panWeb({
       ...cs, id: "evt_fbu_07_c2_blocked", ts: T(5 * MIN + 12_000), severity: "high",
       url: `https://${c2}/s/2`, domain: c2, category: "newly-registered-domain", action: "block",
-      dstIp: "45.61.136.90", status: 0, mitre: "T1105", tactic: "Command and Control",
+      dstIp: "176.97.76.18", status: 0, mitre: "T1105", tactic: "Command and Control",
       description: "The outbound request to api-telemetry-sync.com/s/2 was denied under the category newly-registered-domain.",
     }),
 

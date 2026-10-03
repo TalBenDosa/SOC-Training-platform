@@ -34,11 +34,15 @@
 import type { NativeSource, NativeLog, KindSchema, UseCase, NativeCtx } from "../types";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { edrFacts, taskFacts, schtasksTask, type EdrFacts, type EdrProc, type TaskFacts } from "./edr-normalize";
-import { procKey, procPid, inferredFileWriter, OS_COMMAND_LINE, OS_PARENT, type ProcScope } from "./_proc-identity";
+import {
+  procKey, procPid, inferredFileWriter, OS_COMMAND_LINE, OS_PARENT, SERVICE_ACCOUNT, imageHashes, sha1Of, accountSid, logonLuid,
+  type ProcScope,
+} from "./_proc-identity";
 import { imagePath } from "./_cs-s1-common";
+import { aadObjectId } from "./collab-email-shared";
 import {
   TACTICS, techniqueName, tacticOf, fixPath, baseOf, dirOf, effectiveAction, imageName,
-  isPrivate, ipType, isSystemUser, userSid, isoFrac, isServer,
+  isPrivate, ipType, isSystemUser, isoFrac, isServer,
 } from "./_edr_mde_sophos_common";
 
 // ── Schema ──────────────────────────────────────────────────────────────────
@@ -120,9 +124,6 @@ export function kindOf(record: Record<string, unknown>): string | null {
 // ── Builders ────────────────────────────────────────────────────────────────
 interface Proc { name: string | null; path: string | null; pid: number | null; cmdline: string | null; sha1: string | null; sha256: string | null; md5: string | null; uniqueId: string | null }
 
-/** Windows / Office / browser images whose binary is the same fleet-wide build — hash derivable from the image. */
-const OS_IMAGE = /^C:\\(Windows|Program Files( \(x86\))?\\(Microsoft Office|Google\\Chrome|Microsoft\\Edge))\\/i;
-
 /**
  * Stable process identity (./_proc-identity): ProcessId / ProcessUniqueId / SHA1 come from the
  * process INSTANCE key, so its own ProcessCreated row, its children's InitiatingProcess* columns and
@@ -135,40 +136,58 @@ function proc(ctx: NativeCtx, s: ProcScope, p: EdrProc): Proc {
   const path = (name ? imagePath({ ...p, name }) : undefined) ?? fixPath(p.path) ?? null;
   const pid = name ? procPid(ctx, s, p) ?? null : null;
   const key = name ? procKey(ctx, s, p) : undefined;
-  const osImage = !!path && OS_IMAGE.test(path);
-  const sha256 = p.sha256 ?? (osImage ? ctx.hex(`img:${path!.toLowerCase()}`, 64) : null);
+  // An image with no story hash: one hash per path (./_proc-identity imageHashes) — the fleet build of a
+  // well-known binary, and the same value every record of that file shows (file rows, alerts, Sysmon).
+  const fleet = path && /[\\/]/.test(path) ? imageHashes(ctx, path) : null;
+  const sha256 = p.sha256 ?? fleet?.sha256 ?? null;
   const ident = sha256 ?? (path ?? name ?? "").toLowerCase();
   return {
     name, path, pid, cmdline: p.cmdline ?? (name ? OS_COMMAND_LINE[name.toLowerCase()] : undefined) ?? null,
-    sha1: ident ? ctx.hex(`sha1:${ident}`, 40) : null,
-    sha256, md5: p.md5 ?? (osImage ? ctx.hex(`img:${path!.toLowerCase()}:md5`, 32) : null),
+    sha1: ident ? sha1Of(ctx, ident) : null,
+    sha256, md5: p.md5 ?? (p.sha256 ? null : fleet?.md5 ?? null),
     uniqueId: key ? String(ctx.int(`${key}:uid`, 30_000_000_000_000, 39_999_999_999_999)) : null,
   };
 }
 
 interface Who { name: string | null; domain: string | null; sid: string | null; upn: string | null; objectId: string | null; logonId: number | null; system: boolean }
-function who(ctx: NativeCtx, f: EdrFacts, host: string): Who {
-  const name = f.user ?? (f.userEmail ? f.userEmail.split("@")[0] : undefined);
-  if (!name) return { name: null, domain: null, sid: null, upn: null, objectId: null, logonId: null, system: false };
+const NOBODY: Who = { name: null, domain: null, sid: null, upn: null, objectId: null, logonId: null, system: false };
+/**
+ * The account columns of one process: the story's user (authored SID / logon id when the story has
+ * them — EdrFacts.sid / logonId — else the user's directory SID and a per-host-per-day session).
+ * `account` names another account the process runs as (a parent that ran as SYSTEM).
+ */
+function who(ctx: NativeCtx, f: EdrFacts, host: string, account?: string): Who {
+  const raw = account ?? f.user ?? (f.userEmail ? f.userEmail.split("@")[0] : undefined);
+  if (!raw) return NOBODY;
+  const name = raw.includes("\\") ? raw.split("\\").pop()! : raw;
+  const own = !account || name.toLowerCase() === (f.user ?? "").toLowerCase();
   const system = isSystemUser(name);
   const win = f.os === "Win";
+  const email = own && !system ? f.userEmail : undefined;
   return {
-    name,
-    domain: system ? "nt authority" : win ? (f.userDomain ?? ctx.netbios.toLowerCase()) : host.toLowerCase(),
-    sid: win ? userSid(ctx, name) : null,
-    upn: !system && f.userEmail ? f.userEmail : null,
-    objectId: !system && win ? ctx.uuid(`${ctx.companyId}:aadobj:${name.toLowerCase()}`) : null,
-    logonId: system ? 999 : ctx.int(`${ctx.companyId}:${host.toLowerCase()}:${name.toLowerCase()}:logon`, 100_000, 9_999_999),
+    name: system && !own ? name.toLowerCase() : name,
+    domain: system ? "nt authority" : win ? (raw.includes("\\") ? raw.split("\\")[0].toLowerCase() : (f.userDomain ?? ctx.netbios).toLowerCase()) : host.toLowerCase(),
+    sid: win ? (own && f.sid ? f.sid : accountSid(ctx, name, email)) : null,
+    upn: email ?? null,
+    objectId: !system && win ? aadObjectId(ctx, email ?? `${name.toLowerCase()}@${ctx.domain}`) : null,
+    logonId: logonLuid(ctx, host, name, f.timeMs, own ? f.logonId : undefined, own ? f.logonSeq : 0),
     system,
   };
 }
 
-function integrity(f: EdrFacts, u: Who): { level: string | null; elevation: string | null } {
+type Integ = { level: string | null; elevation: string | null };
+function integrity(f: EdrFacts, u: Who, authored = f.proc.integrity): Integ {
   if (f.os !== "Win") return { level: null, elevation: null };
-  const raw = (f.proc.integrity ?? (u.system ? "system" : "medium")).toLowerCase();
+  const raw = (authored ?? (u.system ? "system" : "medium")).toLowerCase();
   const level = raw.charAt(0).toUpperCase() + raw.slice(1);
   const elevation = level === "High" ? "TokenElevationTypeFull" : level === "Medium" ? "TokenElevationTypeLimited" : "TokenElevationTypeDefault";
   return { level, elevation };
+}
+/** The creator of a new process runs as ITS own account and integrity (its own row, or a service host's account) — not the child's. */
+function creatorAccount(ctx: NativeCtx, f: EdrFacts, host: string, creator: Proc, u: Who): { cu: Who; ci: Integ } {
+  const account = f.parent.user ?? (creator.name ? SERVICE_ACCOUNT[creator.name.toLowerCase()] : undefined);
+  const cu = account ? who(ctx, f, host, account) : u;
+  return { cu, ci: integrity(f, cu, f.parent.integrity ?? (cu.system ? "system" : account ? undefined : f.proc.integrity)) };
 }
 
 function machineGroup(host: string, os: EdrFacts["os"]): string {
@@ -298,10 +317,49 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const task = f.kind === "process" ? taskFacts(ev, f) : null;
   if (task) return wrap("DeviceEvents", scheduledTaskRow(ctx, scope, task, f, u, integ, base, tail));
 
+  // A cross-process handle open (lsass access, a hook into a browser) is DeviceEvents OpenProcessApiCall:
+  // the target is FileName / ProcessId, the opener is InitiatingProcess* (card §DeviceEvents ActionTypes).
+  if (f.kind === "process" && f.access && p.name) {
+    const target = proc(ctx, scope, { name: f.access.name, path: f.access.path });
+    const mask = f.access.granted && /^0x[0-9a-f]+$/i.test(f.access.granted) ? parseInt(f.access.granted, 16) : f.access.granted ? Number(f.access.granted) || null : null;
+    return wrap("DeviceEvents", {
+      ...base,
+      ActionType: "OpenProcessApiCall",
+      FileName: target.name, FolderPath: target.path, SHA1: target.sha1, SHA256: target.sha256, MD5: target.md5,
+      ProcessId: target.pid,
+      AccountDomain: u.domain, AccountName: u.name, AccountSid: u.sid,
+      ...initiatingCols(p, parent ?? osParentOf(p), u, integ),
+      AdditionalFields: mask !== null ? JSON.stringify({ DesiredAccess: mask }) : null,
+      ...tail,
+    });
+  }
+  // A service installation is DeviceEvents ServiceInstalled, recorded by services.exe (the SCM), naming the
+  // service and its binary — not a ProcessCreated row of the binary.
+  // (Only when the event's process IS the service binary — started by services.exe; an event whose process is
+  // the installer (msiexec /i …) stays that installer's ProcessCreated row, which carries its command line.)
+  if (f.kind === "process" && f.service && f.os === "Win" && /^services\.exe$/i.test(f.parent.name ?? "")) {
+    const scm = proc(ctx, scope, { name: "services.exe" });
+    const bin = proc(ctx, scope, f.proc);
+    const sys = who(ctx, f, host, "NT AUTHORITY\\SYSTEM");
+    return wrap("DeviceEvents", {
+      ...base,
+      ActionType: "ServiceInstalled",
+      FileName: bin.name, FolderPath: bin.path, SHA1: bin.name ? bin.sha1 : null, SHA256: bin.sha256, MD5: bin.md5,
+      AccountDomain: u.domain, AccountName: u.name, AccountSid: u.sid,
+      ...initiatingCols(scm, osParentOf(scm), sys, integrity(f, sys, "system")),
+      AdditionalFields: JSON.stringify({
+        ServiceName: f.service.name, ServiceAccount: f.service.account ?? "LocalSystem",
+        ServiceStartType: f.service.startType && /^\d+$/.test(f.service.startType) ? Number(f.service.startType) : 3, ServiceType: 16,
+      }),
+      ...tail,
+    });
+  }
+
   switch (f.kind) {
     case "process": {
       if (!p.name) return null; // no image identity at all — Defender never emits a nameless ProcessCreated row
       const creator = parent ?? proc(ctx, scope, {});
+      const { cu, ci } = creatorAccount(ctx, f, host, creator, u);
       return wrap("DeviceProcessEvents", {
         ...base,
         ActionType: "ProcessCreated",
@@ -321,7 +379,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
         AccountUpn: u.upn,
         AccountObjectId: u.objectId,
         LogonId: u.logonId,
-        ...initiatingCols(creator, osParentOf(creator), u, integ),
+        ...initiatingCols(creator, osParentOf(creator), cu, ci),
         ProcessUniqueId: p.uniqueId,
         CreatedProcessSessionId: u.system ? 0 : 1,
         IsProcessRemoteSession: false,
@@ -355,30 +413,35 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       const action = ev.event_type === "file_delete" ? "FileDeleted" : ev.event_type === "file_modify" ? "FileModified"
         : ev.event_type === "file_rename" ? "FileRenamed" : "FileCreated";
       const browser = /^(chrome|msedge|firefox|iexplore|outlook|brave|opera)\.exe$/i.test(p.name ?? "");
+      const authoredOrigin = !!(ev.raw as Record<string, unknown> | undefined)?.["FileOriginUrl"];
       // No writer on the event: a user's hand copy into a profile folder is Explorer's write.
       const inferred = p.name ? undefined : inferredFileWriter(path, f.os, u.system);
       const writer = inferred ? proc(ctx, scope, inferred) : p;
       const writerParent = (inferred ? null : parent) ?? osParentOf(writer);
+      // The writer's account: the event's user, or the account the story's writer runs as.
+      const wu = f.proc.user && !u.name ? who(ctx, f, host, f.proc.user) : u;
       return wrap("DeviceFileEvents", {
         ...base,
         ActionType: action,
         FileName: f.file.name ?? baseOf(path) ?? null,
         FolderPath: path,
-        SHA1: ctx.hex(`sha1:${f.file.sha256 ?? path.toLowerCase()}`, 40),
+        SHA1: sha1Of(ctx, f.file.sha256 ?? path),
         SHA256: f.file.sha256 ?? null,
         MD5: f.file.md5 ?? null,
         FileSize: f.file.size ?? null,
-        // FileOriginUrl comes from Mark-of-the-Web — only for browser/mail downloads (card §4.4 note).
-        FileOriginUrl: browser && f.net.url ? f.net.url : null,
+        // FileOriginUrl comes from Mark-of-the-Web — only for browser/mail downloads (card §4.4 note): the URL
+        // the row or the story's own download request authored (EdrFacts.originUrl), else the row's URL.
+        FileOriginUrl: browser ? f.originUrl ?? f.net.url ?? null : f.originUrl && authoredOrigin ? f.originUrl : null,
+        FileOriginReferrerUrl: browser || authoredOrigin ? f.referrerUrl ?? null : null,
         FileOriginIP: null,
         PreviousFileName: null,
         PreviousFolderPath: null,
         ...initiatingCols(writer.name ? writer : { ...writer, pid: null, sha1: null, uniqueId: null }, writerParent, u, integ),
         RequestProtocol: "Local",
         RequestSourceIP: null,
-        RequestAccountName: u.name,
-        RequestAccountDomain: u.domain ? u.domain.toUpperCase() : null,
-        RequestAccountSid: u.sid,
+        RequestAccountName: wu.name,
+        RequestAccountDomain: wu.domain ? wu.domain.toUpperCase() : null,
+        RequestAccountSid: wu.sid,
         ShareName: null,
         AdditionalFields: null,
         ...tail,
@@ -441,14 +504,30 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
         ...tail,
       });
     }
+    case "usb": {
+      // DeviceEvents ActionType UsbDriveMounted (card §DeviceEvents ActionTypes "…"): the drive letter and the
+      // device's identity in AdditionalFields — the record that ties a removable drive to the files later written to it.
+      const usb = f.usb ?? {};
+      if (!usb.drive && !usb.serial) return null;
+      return wrap("DeviceEvents", {
+        ...base,
+        ActionType: "UsbDriveMounted",
+        AccountDomain: u.domain, AccountName: u.name, AccountSid: u.sid,
+        AdditionalFields: JSON.stringify({
+          DriveLetter: usb.drive ?? null, BusType: 7, ProductName: usb.product ?? null, Manufacturer: usb.vendor ?? null,
+          SerialNumber: usb.serial ?? null, ProductRevision: "1.00",
+        }),
+        ...tail,
+      });
+    }
     case "detection":
-      return wrap("AlertEvidence", alertEvidence(ev, f, ctx, host, base, tail, p, u));
+      return wrap("AlertEvidence", alertEvidence(ev, f, ctx, host, base, tail, p, u, parent));
   }
   return null;
 }
 
 function alertEvidence(ev: TelemetryEvent, f: EdrFacts, ctx: NativeCtx, host: string,
-  base: Record<string, unknown>, tail: { MachineGroup: string }, p: Proc, u: Who): Record<string, unknown> {
+  base: Record<string, unknown>, tail: { MachineGroup: string }, p: Proc, u: Who, parent: Proc | null): Record<string, unknown> {
   const d = f.detection!;
   const action = effectiveAction(ev, f);
   const tactic = tacticOf(f);
@@ -456,7 +535,8 @@ function alertEvidence(ev: TelemetryEvent, f: EdrFacts, ctx: NativeCtx, host: st
   const av = ev.source === "av" || /^av_/.test(ev.event_type) || /antivirus/i.test(ev.vendor ?? "");
   const hasProc = !!(p.name || p.cmdline);
   const filePath = f.file.path && !/^memory:/i.test(f.file.path) ? f.file.path : undefined;
-  const entity = hasProc ? "Process" : filePath ? "File" : f.net.remoteIp ? "Ip" : "Machine";
+  // A hash-only alert still names its file (Defender's evidence is the file the hash belongs to).
+  const entity = hasProc ? "Process" : filePath || (f.file.sha256 && !f.file.path) ? "File" : f.net.remoteIp ? "Ip" : "Machine";
   const category = (tactic && TACTICS[tactic]?.token) ?? (entity === "File" ? "Malware" : "SuspiciousActivity");
   const m = d.name ? DEFENDER_THREAT.exec(d.name) : null;
   const verb = action === "detected" ? "detected" : "prevented";
@@ -464,6 +544,9 @@ function alertEvidence(ev: TelemetryEvent, f: EdrFacts, ctx: NativeCtx, host: st
   // ThreatFamily whenever the event names a family (an AV detection without it reads as "unknown malware").
   // Behavioural (EDR) alerts carry a family only when the name is a Defender malware name.
   let family: string | null = familyOf(ev, av || entity === "File" || m ? d.name : undefined);
+  // An antivirus verdict on a file always names a threat: when the story names none, Defender's generic
+  // machine-learning family for that file type (Office macro documents → Donoff, anything else → Wacatac).
+  if (!family && !m && av && entity === "File") family = /\.(doc[mx]?|dot[mx]?|xls[mxb]?|ppt[mx]?)$/i.test(f.file.name ?? filePath ?? "") ? "Donoff" : "Wacatac";
   if (m) {
     family = m[3].split(".")[0];
     const kind = /hacktool/i.test(m[1]) ? "hacktool" : /^pua|^app$/i.test(m[1]) ? "unwanted software" : "malware";
@@ -476,6 +559,8 @@ function alertEvidence(ev: TelemetryEvent, f: EdrFacts, ctx: NativeCtx, host: st
     title = `'${family}' ${kind} was ${verb}`;
   } else if (d.name && isNative(ev)) {
     title = d.name; // authored for Defender: keep the detection name verbatim
+  } else if (entity === "File" && family) {
+    title = `'${family}' malware was ${verb}`;
   } else if (entity === "File") {
     title = `Malware was ${verb}`;
   } else if (techName) {
@@ -493,7 +578,9 @@ function alertEvidence(ev: TelemetryEvent, f: EdrFacts, ctx: NativeCtx, host: st
     Categories: JSON.stringify([category]),
     AttackTechniques: JSON.stringify(d.techniqueId ? [`${techName ?? d.techniqueId} (${d.techniqueId})`] : []),
     ServiceSource: "Microsoft Defender for Endpoint",
-    DetectionSource: av ? "Antivirus" : "EDR",
+    // Antivirus = a signature / file verdict (a named family, a file, a quarantine); a behavioural
+    // detection of a running process is the EDR sensor's, whatever the feed row's source.
+    DetectionSource: av && (entity === "File" || family !== null || action === "quarantined") ? "Antivirus" : "EDR",
     EntityType: entity,
     EvidenceRole: entity === "Process" || entity === "Machine" ? "Impacted" : "Related",
     EvidenceDirection: entity === "Ip" ? "Destination" : null,
@@ -517,12 +604,16 @@ function alertEvidence(ev: TelemetryEvent, f: EdrFacts, ctx: NativeCtx, host: st
       FileSize: sameImage ? f.file.size ?? null : null,
       AccountName: u.name, AccountDomain: u.domain, AccountSid: u.sid, AccountObjectId: u.objectId, AccountUpn: u.upn,
       ProcessCommandLine: p.cmdline,
-      AdditionalFields: JSON.stringify({ ProcessId: p.pid === null ? null : String(p.pid), ImageFile: { FileName: p.name, FolderPath: procDir } }),
+      // The process entity as Defender serialises it — its parent too (the parent's command line is often the evidence).
+      AdditionalFields: JSON.stringify({
+        ProcessId: p.pid === null ? null : String(p.pid), CommandLine: p.cmdline ?? undefined, ImageFile: { FileName: p.name, FolderPath: procDir },
+        ...(parent?.name ? { ParentProcess: { ProcessId: parent.pid === null ? null : String(parent.pid), CommandLine: parent.cmdline ?? undefined, ImageFile: { FileName: parent.name, FolderPath: dirOf(parent.path ?? undefined) ?? null } } } : {}),
+      }),
     });
   } else if (entity === "File") {
     Object.assign(row, {
-      FileName: f.file.name ?? baseOf(filePath), FolderPath: dirOf(filePath) ?? null,
-      SHA1: ctx.hex(`sha1:${f.file.sha256 ?? filePath!.toLowerCase()}`, 40),
+      FileName: f.file.name ?? baseOf(filePath) ?? null, FolderPath: dirOf(filePath) ?? null,
+      SHA1: sha1Of(ctx, f.file.sha256 ?? filePath!),
       SHA256: f.file.sha256 ?? null, FileSize: f.file.size ?? null,
     });
   } else if (entity === "Ip") {

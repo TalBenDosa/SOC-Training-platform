@@ -205,7 +205,7 @@
 **מאגר סיפורי תקיפה** (~35+ תרחישים, נבחרים אקראית לפי רמת קושי וארכיטקטורת החברה):
 - **Foundation** (מתחילים): phishing-malware, usb-malware, browser-extension, tech-support-scam, cracked-software, malicious-macro, bruteforce-single, okta-password-burst, gws-phish-attachment, fake-browser-update, trojanized-keylogger, bundled-cryptominer
 - **Core** (בינוני): insider-threat, impossible-travel, impossible-travel-basic, rogue-admin-account
-- **Advanced** (מתקדם): BEC, ransomware, OAuth abuse, cryptomining, DCSync, supply-chain, MFA fatigue, AS-REP roasting, NTLM relay, K8s pod escape, OAuth consent phishing, Kerberoasting, DNS tunneling, LOLBins, ESXi ransomware, web-shell RCE, Linux SSH cryptominer, AiTM token theft
+- **Advanced** (מתקדם): BEC, ransomware, OAuth abuse, cryptomining, DCSync, supply-chain, MFA fatigue, AS-REP roasting, NTLM relay, K8s pod escape, OAuth consent phishing, Kerberoasting, DNS tunneling, LOLBins, ESXi ransomware, web-shell RCE, Linux SSH → cron-persisted backdoor, AiTM token theft
 - **שרשראות ייעודיות לכל חברה** (4 לכל אחת, 20 סה"כ): למשל אצל NexaCorp — Phishing→Key Vault Exfil, BEC השתלטות מנכ״ל, גניבת מודלים ע"י עובד; אצל QuantumBank — MFA Fatigue→Cobalt Strike→Core Banking Takeover
 
 **מנגנון:** תקיפה **אחת** בכל פעם, מתגלה בהדרגה (2-3 דקות עד השלב הראשון, 2-4 דקות בין שלבים), חייבת דו״ח עובר (≥60/100) לפני שהבאה נדרכת. פיד לא רץ בלי Start Training.
@@ -228,7 +228,7 @@
 ## חלק ה׳ — תרחישי חקירה עצמאיים (Scenarios)
 
 **14 חבילות scenario-pack** מלוטשות-יד, מדויקות-ספק:
-aitmTokenTheft · backupFalsePositive · bruteForceSingleAccount · bundledCryptominer · esxiRansomware · fakeBrowserUpdate · gwsPhishingAttachment · impossibleTravelBasic · linuxSshCryptominer · oktaPasswordBurst · rogueAdminAccount · softwareInstallFalsePositive · trojanizedInstallerKeylogger · webShellRce
+aitmTokenTheft · backupFalsePositive · bruteForceSingleAccount · bundledCryptominer · esxiRansomware · fakeBrowserUpdate · gwsPhishingAttachment · impossibleTravelBasic · linuxSshPersistence · oktaPasswordBurst · rogueAdminAccount · softwareInstallFalsePositive · trojanizedInstallerKeylogger · webShellRce
 
 **+21 תרחישי בסיס** נוספים ב-`scenarios.ts` (משמשים גם את ה-Dashboard וגם כתרגילים עצמאיים): BEC, Ransomware, OAuth abuse, Insider Threat, Impossible Travel, Phishing→Malware, USB Malware, Browser Extension Malware, Tech Support Scam, Cracked Software, Malicious Macro, Kerberoasting, DNS Tunneling, LOLBins, Cloud Cryptomining, DCSync, Supply Chain, MFA Fatigue, AS-REP Roasting, NTLM Relay, OAuth Consent Phishing.
 

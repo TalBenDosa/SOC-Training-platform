@@ -97,7 +97,7 @@ export function webShellRceScenarioEvents() {
       mitre_tactic: "Reconnaissance",
       network: { url: `https://${web.site}/.git/config`, domain: web.site, method: "GET", status: 404, user_agent: uaPython },
       description:
-        "IIS access record for shop.nexacorp.com, representative of 214 requests in 96 seconds against paths that do not exist on the site — all 404, User-Agent python-requests.",
+        "IIS access record for shop.nexacorp.com, one of a rapid burst of requests against paths that do not exist on the site — all 404, User-Agent python-requests.",
       raw: {
         TimeGenerated: "2026-03-17T09:00:00.412Z",
         Computer: "WEB-SHOP-01.nexacorp.com",

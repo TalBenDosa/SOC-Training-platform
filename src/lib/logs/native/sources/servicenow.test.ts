@@ -49,7 +49,7 @@ describe("servicenow — conversion", () => {
     console.log(`[servicenow] ${ok}/${sn.length} ServiceNow records (${packEvents.length} from scenario packs); kinds ${JSON.stringify(converted.reduce((a, c) => (c.log ? { ...a, [c.log.kind]: (a[c.log.kind] ?? 0) + 1 } : a), {} as Record<string, number>))}`);
     expect(ok / sn.length).toBeGreaterThanOrEqual(0.95);
   });
-  it("raw-mode shape: strings only, {link,value} references, UTC datetimes, empty journals", () => {
+  it("raw-mode shape: strings only, {link,value} references, UTC datetimes, journals carry the authored notes", () => {
     for (const { log } of converted) {
       if (!log) continue;
       const r = (log.record.result ?? {}) as Record<string, unknown>;
@@ -62,9 +62,27 @@ describe("servicenow — conversion", () => {
         } else expect(typeof v, k).toBe("string");
         if (/(_on|_at|_date)$/.test(k) && v) expect(String(v), k).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
       }
-      expect(r.work_notes).toBe("");
-      expect(r.comments).toBe("");
     }
+  });
+  it("journal fields carry the authored work notes / comments (the verification evidence), else stay empty", () => {
+    let withNotes = 0;
+    for (const { c, log } of converted) {
+      if (!log) continue;
+      const r = log.record.result as Record<string, unknown>;
+      for (const [field, key, label] of [["work_notes", "servicenow.work_notes", "Work notes"], ["comments", "servicenow.comments", "Additional comments"]] as const) {
+        const text = c.ev.raw[key] as string | undefined;
+        if (!text) { expect(r[field], `${c.ev.id} ${field}`).toBe(""); continue; }
+        withNotes++;
+        expect(String(r[field]), `${c.ev.id} ${field}`).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} - [^\n]+ \((Work notes|Additional comments)\)\n/);
+        expect(String(r[field])).toContain(`(${label})`);
+        expect(String(r[field]).endsWith(text), `${c.ev.id} ${field} text`).toBe(true);
+      }
+      // A ticket read at ev.ts cannot have been resolved / closed / updated after it.
+      const at = new Date(c.ev.ts).toISOString().slice(0, 19).replace("T", " ");
+      for (const k of ["resolved_at", "closed_at", "sys_updated_on", "opened_at"]) if (r[k]) expect(String(r[k]) <= at, `${c.ev.id} ${k}`).toBe(true);
+      if (["6", "7"].includes(String(r.state))) expect(r.resolved_at, `${c.ev.id} resolved_at`).not.toBe("");
+    }
+    expect(withNotes).toBeGreaterThan(0);
   });
   it("evidence survives: number, short description, people as sys_user references, one sys_id per ticket", () => {
     const byNumber = new Map<string, string>();

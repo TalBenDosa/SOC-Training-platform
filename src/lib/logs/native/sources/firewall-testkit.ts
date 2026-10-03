@@ -177,3 +177,12 @@ export function repeatEvent(ev: TelemetryEvent, times: number, everySec: number)
   const t0 = Date.parse(ev.ts);
   return Array.from({ length: times }, (_, i) => ({ ...ev, id: `${ev.id}#${i}`, ts: new Date(t0 + i * everySec * 1000).toISOString() }));
 }
+
+/**
+ * An appliance's own management log (a FortiOS event/system admin login) has no counterpart in
+ * another vendor's traffic / threat logs — and the storyline that carries it is product-locked to
+ * that appliance, so it is never shown as another firewall.
+ */
+export function applianceAdminNull(ev: TelemetryEvent): string | null {
+  return ev.source === "firewall" && /^auth_/.test(ev.event_type ?? "") ? "appliance management (admin login) log — no equivalent in this product's traffic/threat logs" : null;
+}

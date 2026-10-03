@@ -115,8 +115,7 @@ Format: `ThreatPurpose:ResourceType/ThreatFamilyName.Variant`. Key SOC-relevant 
   `Exfiltration:S3/MaliciousIPCaller` (High), `Discovery:S3/AnomalousBehavior` (Low),
   `Impact:S3/AnomalousBehavior.Delete` (High), `PenTest:S3/KaliLinux` (Medium),
   `Stealth:S3/ServerAccessLoggingDisabled` (Low).
-- EC2 (DNS/VPC flow source): `CryptoCurrency:EC2/BitcoinTool.B!DNS` (High), `CryptoCurrency:EC2/BitcoinTool.B` (High),
-  `Backdoor:EC2/C&CActivity.B!DNS` (High), `Trojan:EC2/BlackholeTraffic!DNS` (Medium),
+- EC2 (DNS/VPC flow source): `Backdoor:EC2/C&CActivity.B!DNS` (High), `Backdoor:EC2/C&CActivity.B` (High), `Trojan:EC2/BlackholeTraffic!DNS` (Medium),
   `Trojan:EC2/DNSDataExfiltration` (High), `UnauthorizedAccess:EC2/SSHBruteForce` (Low),
   `UnauthorizedAccess:EC2/RDPBruteForce` (Low), `UnauthorizedAccess:EC2/TorClient` (High),
   `Recon:EC2/PortProbeUnprotectedPort` (Low), `Impact:EC2/PortSweep` (High), `Backdoor:EC2/Spambot` (Medium).
@@ -368,7 +367,7 @@ the call was proxied by a service like CloudFormation; here the attacker called 
 }
 ```
 
-### G5 — Crypto-mining C2 DNS from an EC2 instance: `CryptoCurrency:EC2/BitcoinTool.B!DNS`
+### G5 — C2 DNS from an EC2 instance: `Backdoor:EC2/C&CActivity.B!DNS`
 ```json
 {
   "schemaVersion": "2.0",
@@ -377,17 +376,17 @@ the call was proxied by a service like CloudFormation; here the attacker called 
   "partition": "aws",
   "id": "e1f4a6b8c0d2e4f6a8b0c2d4e6f8a0b2",
   "arn": "arn:aws:guardduty:us-east-1:123456789012:detector/d6012345678912345678912349f831b8/finding/e1f4a6b8c0d2e4f6a8b0c2d4e6f8a0b2",
-  "type": "CryptoCurrency:EC2/BitcoinTool.B!DNS",
+  "type": "Backdoor:EC2/C&CActivity.B!DNS",
   "resource": {
     "resourceType": "Instance",
     "instanceDetails": {
       "instanceId": "i-02468ace13579bdf0",
-      "instanceType": "g4dn.12xlarge",
+      "instanceType": "t3.medium",
       "launchTime": "2026-09-30T02:42:10.000Z",
       "platform": null,
       "iamInstanceProfile": { "arn": "arn:aws:iam::123456789012:instance-profile/ec2-ci-runner", "id": "AIPA2QXCZ4R7KPROFILE1" },
       "networkInterfaces": [ { "networkInterfaceId": "eni-0a1b2c3d4e5f60718", "privateIpAddress": "10.0.3.47", "publicIp": "54.160.22.9", "subnetId": "subnet-0abc12345", "vpcId": "vpc-0def67890", "securityGroups": [ { "groupName": "ci-sg", "groupId": "sg-0123456789abcdef0" } ], "privateDnsName": "ip-10-0-3-47.ec2.internal" } ],
-      "tags": [ { "key": "Name", "value": "ci-runner-gpu" } ],
+      "tags": [ { "key": "Name", "value": "ci-runner" } ],
       "instanceState": "running",
       "availabilityZone": "us-east-1d",
       "imageId": "ami-0abcdef1234567890"
@@ -398,11 +397,11 @@ the call was proxied by a service like CloudFormation; here the attacker called 
     "detectorId": "d6012345678912345678912349f831b8",
     "action": {
       "actionType": "DNS_REQUEST",
-      "dnsRequestAction": { "domain": "xmr.pool-mine.example", "protocol": "UDP", "blocked": false }
+      "dnsRequestAction": { "domain": "update-cdn-sync.example", "protocol": "UDP", "blocked": false }
     },
     "resourceRole": "ACTOR",
     "additionalInfo": { "threatListName": "ProofPoint", "value": "{\"threatListName\":\"ProofPoint\"}", "type": "default" },
-    "evidence": { "threatIntelligenceDetails": [ { "threatNames": [ "CryptoCurrency:Bitcoin" ], "threatListName": "ProofPoint" } ] },
+    "evidence": { "threatIntelligenceDetails": [ { "threatNames": [ "Backdoor:Generic" ], "threatListName": "ProofPoint" } ] },
     "eventFirstSeen": "2026-09-30T02:44:19.000Z",
     "eventLastSeen": "2026-09-30T03:02:20.000Z",
     "archived": false,
@@ -411,8 +410,8 @@ the call was proxied by a service like CloudFormation; here the attacker called 
   "severity": 8,
   "createdAt": "2026-09-30T02:45:19.000Z",
   "updatedAt": "2026-09-30T03:02:20.000Z",
-  "title": "EC2 instance i-02468ace13579bdf0 is querying a domain name associated with bitcoin mining activity.",
-  "description": "EC2 instance i-02468ace13579bdf0 is querying a domain name that is associated with bitcoin or other cryptocurrency mining activity."
+  "title": "Command and Control server domain name queried by EC2 instance i-02468ace13579bdf0.",
+  "description": "EC2 instance i-02468ace13579bdf0 is querying a domain name associated with a known Command & Control server."
 }
 ```
 
@@ -498,7 +497,7 @@ the call was proxied by a service like CloudFormation; here the attacker called 
   `PORT_PROBE`→`portProbeAction`, `KUBERNETES_API_CALL`→`kubernetesApiCallAction`,
   `RDS_LOGIN_ATTEMPT`→`rdsLoginAttemptAction`. Don't put a `networkConnectionAction` under an `AWS_API_CALL`.
 - Finding `type` strings are exact and case-sensitive, with `:` and `/` separators and sometimes `!DNS` / `.B`
-  suffixes (e.g. `CryptoCurrency:EC2/BitcoinTool.B!DNS`). Don't paraphrase them.
+  suffixes (e.g. `Backdoor:EC2/C&CActivity.B!DNS`). Don't paraphrase them.
 - `connectionDirection` is `INBOUND`/`OUTBOUND`/`UNKNOWN`; `effectivePermission` is
   `PUBLIC`/`NOT_PUBLIC`/`UNKNOWN`; `resourceRole` is `ACTOR`/`TARGET` — all uppercase enums.
 - The EventBridge envelope `detail-type` is exactly `"GuardDuty Finding"` and `source` is `"aws.guardduty"`.

@@ -25,6 +25,8 @@ import {
   aadObjectId, b64ish, bareIp, clientIp, digits, domainOf, entitySeed, isEmail, isGuid, isoNoMs, isPrivateIp,
   localOf, puid, rs, rv, spTenant, userEmail, userSid, type Raw,
 } from "./collab-email-shared";
+import { aadSessionId } from "./_identity-common";
+import { egressIp } from "./firewall-shared";
 
 // ── Schema ───────────────────────────────────────────────────────────────────
 
@@ -264,7 +266,10 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const rawUserId = rs(raw, "UserId");
   const actor = (rawUserId && (isEmail(rawUserId) || isGuid(rawUserId))) ? rawUserId : user;
   if (!actor) return null;
-  const ip = clientIp(ev);
+  // M365 is SaaS: a user on the office LAN reaches it through the company's NAT egress, so the
+  // record carries that public address — the private one only tells us the device is on-site.
+  const lanIp = clientIp(ev);
+  const ip = lanIp && isPrivateIp(lanIp) ? egressIp(ctx) : lanIp;
   const timeMs = Date.parse(ev.ts);
   const out = (kind: string, record: Record<string, unknown>): NativeLog => ({ sourceId: "m365", kind, format: "json", record, timeMs });
   const keyFor = (rt: number) => {
@@ -339,8 +344,10 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const mailboxCommon = (mailbox: string) => {
     const appId = rs(raw, "application.id");
     const ctxObj: Record<string, unknown> = {
-      AADSessionId: ctx.uuid(`${sess}:aad`),
-      IssuedAtTime: isoNoMs(new Date(timeMs - ctx.int(`${ev.id}:iat`, 60, 1800) * 1000).toISOString()),
+      // The Entra session this token belongs to (the sign-in's sessionId) and when it was issued
+      // (the sign-in — threadIdentityContext — never before it).
+      AADSessionId: rs(raw, "AppAccessContext.AADSessionId") ?? aadSessionId(ctx, user ?? actor, ip, ev.ts),
+      IssuedAtTime: rs(raw, "AppAccessContext.IssuedAtTime") ?? isoNoMs(new Date(timeMs - ctx.int(`${ev.id}:iat`, 60, 1800) * 1000).toISOString()),
       UniqueTokenId: b64ish(ctx, `${ev.id}:uti`, 22),
     };
     if (appId) { ctxObj.ClientAppId = appId; const an = rs(raw, "application.name"); if (an) ctxObj.ClientAppName = an; }
@@ -472,7 +479,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     rec.WebId = rs(raw, "WebId") ?? ctx.uuid(`${siteSeed}:web`);
     rec.GeoLocation = geoResidency(ctx);
     const managed = rs(raw, "IsManagedDevice");
-    rec.IsManagedDevice = managed !== undefined ? /^true$/i.test(managed) : isPrivateIp(ip);
+    rec.IsManagedDevice = managed !== undefined ? /^true$/i.test(managed) : isPrivateIp(lanIp);
     if (ev.hostname && !ev.hostname.includes(".")) rec.DeviceDisplayName = ev.hostname;
     const appId = rs(raw, "application.id");
     if (appId) { rec.ApplicationId = appId; const an = rs(raw, "application.name"); if (an) rec.ApplicationDisplayName = an; }
@@ -521,13 +528,13 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     rec.TargetContextId = ctx.tenant.azureTenantId;
     rec.ApplicationId = rs(raw, "ApplicationId") ?? "4765445b-32c6-49b0-83e6-1d93765276ca";
     if (!fail) {
-      const managed = isPrivateIp(ip);
+      const managed = isPrivateIp(lanIp);
       rec.DeviceProperties = [
         { Name: "OS", Value: "Windows10" },
         { Name: "BrowserType", Value: /Edg\//.test(ua) ? "Edge" : "Chrome" },
         { Name: "IsCompliant", Value: managed ? "True" : "False" },
         { Name: "IsCompliantAndManaged", Value: managed ? "True" : "False" },
-        { Name: "SessionId", Value: ctx.uuid(`${sess}:aad`) },
+        { Name: "SessionId", Value: rs(raw, "azure.signinlogs.properties.sessionId", "AppAccessContext.AADSessionId") ?? aadSessionId(ctx, actor, ip, ev.ts) },
       ];
     } else {
       const err: Record<string, string> = { "50126": "InvalidUserNameOrPassword", "50053": "IdsLocked", "50074": "UserStrongAuthClientAuthNRequiredInterrupt", "50076": "UserStrongAuthClientAuthNRequiredInterrupt" };

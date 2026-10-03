@@ -36,6 +36,7 @@ function documentedNull(c: Converted): string | null {
   const ev = c.c.ev;
   const f = edrFacts(ev);
   if (f.kind === "unsupported") return f.unsupportedReason ?? "unsupported";
+  if (f.kind === "usb") return "USB mount (device-control telemetry has no documented record in the card)";
   if (f.kind === "file" && ev.event_type === "file_delete") return "file deletion";
   if (f.kind === "process" && !f.proc.name && !f.proc.path && !f.proc.cmdline) return "process event without an image";
   if (f.kind === "network" && !f.net.remoteIp && !ev.raw?.["crowdstrike.remote_address"] && !(f.net.localIp && !isPrivate(f.net.localIp))) return "network event without an IPv4 peer";

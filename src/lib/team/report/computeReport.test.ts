@@ -280,7 +280,7 @@ describe("computeReport — per-incident detection (fix 1)", () => {
     expect(team.incidents.find(i => i.id === "solo:s1")!.detected).toBe(false);
     expect(cell(perUser[0].rubric, "Attack recall (team)").score).toBe(8); // bandHigh(50, 80, 50, 25)
     expect(team.detected).toBe(true);
-    expect(team.timeToDetectS).toBe(70);
+    expect(team.timeToDetectS).toBe(60);   // 70 − first attack log (a1 at 10)
   });
 
   it("marking an attack log true_positive or suspicious (no escalation) also detects its incident", () => {
@@ -591,7 +591,8 @@ describe("computeReport — timing (fix 11)", () => {
     add("escalation.requested", "a", 50, { event_id: "n1" }, "t1");
     add("escalation.requested", "a", 122, { event_id: "a1" }, "t1");
     add("escalation.requested", "b", 530, { event_id: "a1" }, "t1");
-    expect(computeReport(events, [member("a", "t1"), member("b", "t1")]).team.timeToDetectS).toBe(122);
+    // MTTD runs from the first attack log reaching the feed (a1 at sec 1), not shift start: 122 − 1.
+    expect(computeReport(events, [member("a", "t1"), member("b", "t1")]).team.timeToDetectS).toBe(121);
   });
 });
 
@@ -618,18 +619,20 @@ describe("computeReport — curveballs need supporting telemetry (fix 12)", () =
     expect(computeReport(events, [member("t2", "t2")]).team.injects[0]).toMatchObject({ scored: true, handled: true });
   });
 
-  it("a decoy is handled when nobody escalated its supporting benign telemetry, and missed when the team chased it", () => {
+  it("a decoy is handled only by an EXPLICIT benign call — not by inaction; chasing it is missed", () => {
     const decoy = { kind: "false_lead", text: "Marketing SaaS looks like exfil", expected_response: "reject", linked_objective: "discrimination" };
-    const build = (chase: boolean) => {
+    const build = (action: "none" | "benign" | "chase") => {
       const { events, add } = log();
       add("staff.inject", "instr", 60, { ...decoy, id: "msel_false_lead" });
       add("feed.event", null, 80, { id: "fl-1", expected_verdict: "benign", supports_inject: "msel_false_lead" });
-      if (chase) add("escalation.requested", "a", 120, { event_id: "fl-1" }, "t1");
+      if (action === "benign") add("disposition.set", "a", 120, { event_id: "fl-1", verdict: "benign" }, "t1");
+      if (action === "chase") add("escalation.requested", "a", 120, { event_id: "fl-1" }, "t1");
       return computeReport(events, [member("a", "t1")]).team;
     };
-    expect(build(false).injects[0]).toMatchObject({ decoy: true, scored: true, handled: true });
-    expect(build(true).injects[0]).toMatchObject({ decoy: true, scored: true, handled: false });
-    expect(build(false).injectsScored).toBe(1);
+    expect(build("benign").injects[0]).toMatchObject({ decoy: true, scored: true, handled: true });
+    expect(build("none").injects[0]).toMatchObject({ decoy: true, scored: true, handled: false });
+    expect(build("chase").injects[0]).toMatchObject({ decoy: true, scored: true, handled: false });
+    expect(build("benign").injectsScored).toBe(1);
   });
 });
 

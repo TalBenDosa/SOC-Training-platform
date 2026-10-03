@@ -20,7 +20,8 @@
  */
 import type { NativeSource, NativeLog, KindSchema, UseCase, NativeCtx } from "../types";
 import type { TelemetryEvent } from "@/lib/sim/types";
-import { procPid, win4 } from "./_proc-identity";
+import { procPid, procKey, win4, OS_IMAGE_PATH, imageHashes, accountSid, logonLuid } from "./_proc-identity";
+import { threadOf } from "./edr-normalize";
 
 /** Windows pids / tids are multiples of 4: an authored value is rounded down to one (equal values stay equal). */
 const pid4 = (v: string | undefined): string | undefined => (v !== undefined && /^\d+$/.test(v) ? String(win4(Number(v))) : v);
@@ -80,26 +81,8 @@ const VERSION: Record<string, number> = { "1": 5, "3": 5, "6": 4, "7": 3, "8": 2
 
 const S32 = "C:\\Windows\\System32\\";
 const OFFICE = "C:\\Program Files\\Microsoft Office\\root\\Office16\\";
-/** Install paths of well-known binaries (lower-case name → full path). */
-const KNOWN: Record<string, string> = {
-  "powershell.exe": `${S32}WindowsPowerShell\\v1.0\\powershell.exe`,
-  "pwsh.exe": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
-  "wmic.exe": `${S32}wbem\\WMIC.exe`, "wmiprvse.exe": `${S32}wbem\\WmiPrvSE.exe`,
-  "explorer.exe": "C:\\Windows\\explorer.exe", "psexesvc.exe": "C:\\Windows\\PSEXESVC.exe",
-  "chrome.exe": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-  "msedge.exe": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
-  "firefox.exe": "C:\\Program Files\\Mozilla Firefox\\firefox.exe",
-  "officeclicktorun.exe": "C:\\Program Files\\Common Files\\Microsoft Shared\\ClickToRun\\OfficeClickToRun.exe",
-  "sqlcmd.exe": "C:\\Program Files\\Microsoft SQL Server\\Client SDK\\ODBC\\170\\Tools\\Binn\\SQLCMD.EXE",
-  "sapgui.exe": "C:\\Program Files (x86)\\SAP\\FrontEnd\\SAPgui\\sapgui.exe",
-  "msmpeng.exe": "C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\4.18.24090.11-0\\MsMpEng.exe",
-  "ccmexec.exe": "C:\\Windows\\CCM\\CcmExec.exe",
-  "acrord32.exe": "C:\\Program Files (x86)\\Adobe\\Acrobat Reader DC\\Reader\\AcroRd32.exe",
-};
-for (const n of ["winword.exe", "excel.exe", "powerpnt.exe", "outlook.exe", "onenote.exe", "msaccess.exe", "mspub.exe"]) KNOWN[n] = `${OFFICE}${n.toUpperCase()}`;
-for (const n of ["cmd.exe", "wscript.exe", "cscript.exe", "mshta.exe", "rundll32.exe", "regsvr32.exe", "schtasks.exe", "sc.exe", "net.exe", "net1.exe", "whoami.exe", "wevtutil.exe", "vssadmin.exe", "certutil.exe", "bitsadmin.exe", "reg.exe", "svchost.exe", "services.exe", "lsass.exe", "conhost.exe", "taskhostw.exe", "ntdsutil.exe", "gpupdate.exe", "msiexec.exe", "nltest.exe", "ipconfig.exe", "systeminfo.exe", "tasklist.exe", "taskkill.exe", "robocopy.exe", "curl.exe", "fodhelper.exe", "computerdefaults.exe", "eventvwr.exe", "sdclt.exe", "notepad.exe", "mstsc.exe", "winlogon.exe", "csrss.exe", "smss.exe", "wininit.exe", "dllhost.exe", "bcdedit.exe", "wbadmin.exe", "netsh.exe", "quser.exe", "query.exe", "nslookup.exe", "ping.exe", "arp.exe", "route.exe", "hostname.exe", "dsquery.exe", "adfind.exe", "esentutl.exe", "makecab.exe", "expand.exe", "forfiles.exe", "cmstp.exe", "msbuild.exe", "installutil.exe", "regasm.exe", "odbcconf.exe", "searchindexer.exe", "spoolsv.exe", "lsm.exe", "wuauclt.exe"]) {
-  KNOWN[n] ??= `${S32}${n}`;
-}
+/** Install paths of well-known binaries (lower-case name → full path) — the table every EDR module shares. */
+const KNOWN: Record<string, string> = OS_IMAGE_PATH;
 /** Version-resource metadata of the most common Windows binaries. */
 const META: Record<string, { d: string; o: string }> = {
   "powershell.exe": { d: "Windows PowerShell", o: "PowerShell.EXE" }, "cmd.exe": { d: "Windows Command Processor", o: "Cmd.Exe" },
@@ -153,14 +136,10 @@ function pathFromCmd(cmd: string | undefined, name: string | undefined): string 
   return m[1];
 }
 
-interface Actor { name?: string; path?: string; cmd?: string; pid?: string; user?: string; integrity?: string; sha256?: string; md5?: string; guid?: string }
+interface Actor { name?: string; path?: string; cmd?: string; pid?: string; user?: string; integrity?: string; sha256?: string; md5?: string; guid?: string; inst?: string }
 
-function sid(ctx: NativeCtx, user: string): string {
-  const a = ctx.int(`${ctx.companyId}:sid:a`, 1_000_000_000, 4_200_000_000);
-  const b = ctx.int(`${ctx.companyId}:sid:b`, 1_000_000_000, 4_200_000_000);
-  const c = ctx.int(`${ctx.companyId}:sid:c`, 1_000_000_000, 4_200_000_000);
-  return `S-1-5-21-${a}-${b}-${c}-${ctx.int(`${ctx.companyId}:rid:${user.toLowerCase()}`, 1100, 9999)}`;
-}
+/** The user's SID — the same value every EDR / directory record gives the user (./_proc-identity accountSid). */
+const sid = (ctx: NativeCtx, user: string, email?: string) => accountSid(ctx, user, email);
 
 function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const raw = ev.raw ?? {};
@@ -190,13 +169,24 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const timeMs = Date.parse(ev.ts);
 
   // ── the acting process (new process for event 1; the actor for 3/10/11/13/22/26) ──
+  // The story pass (edr-normalize EndpointThread) supplies what this row cannot know: the canonical
+  // image path / hash of the actor and its parent, the parent's own account and command line, the
+  // writer of an unattributed file, the user's authored SID and logon id.
+  const th = threadOf(ev);
   const mdeProcEvent = r("ActionType") === "ProcessCreated";
   const a: Actor = {};
   a.name = ev.process?.name ?? (ed("Image") ? base(ed("Image")!) : undefined) ?? r("process.name") ?? r("crowdstrike.FileName") ?? r("crowdstrike.process_name") ?? r("crowdstrike.ContextBaseFileName")
     ?? (mdeProcEvent ? r("FileName") : r("InitiatingProcessFileName")) ?? r("s1.srcProcName");
   a.cmd = ev.process?.cmdline ?? ed("CommandLine") ?? r("process.command_line") ?? r("crowdstrike.CommandLine")
     ?? (mdeProcEvent ? r("ProcessCommandLine") : r("InitiatingProcessCommandLine")) ?? r("s1.srcProcCmdLine");
-  a.path = ed("Image") ?? (isWinPath(ev.process?.path) ? ev.process!.path : undefined) ?? (isWinPath(r("process.executable")) ? r("process.executable") : undefined)
+  // A file / registry row that names no actor: the writer the story implies.
+  const wr = /^(11|12|13|23|26)$/.test(id) && th?.writer && !ed("Image") &&
+    ((!a.name && !a.cmd) || (a.name && a.name.toLowerCase() === th.writer.name?.toLowerCase())) ? th.writer : undefined;
+  if (wr) { a.name = wr.name; a.cmd = wr.cmdline; }
+  a.cmd ??= th?.proc?.cmdline;
+  a.inst = wr?.inst ?? th?.proc?.inst;
+  a.path = (wr?.path && isWinPath(wr.path) ? wr.path : undefined) ?? (th?.proc?.path && isWinPath(th.proc.path) ? th.proc.path : undefined)
+    ?? ed("Image") ?? (isWinPath(ev.process?.path) ? ev.process!.path : undefined) ?? (isWinPath(r("process.executable")) ? r("process.executable") : undefined)
     ?? joinPath(r("crowdstrike.FilePath"), r("crowdstrike.FileName") === a.name ? a.name : undefined) ?? devicePath(r("crowdstrike.ImageFileName"))
     ?? joinPath(mdeProcEvent ? r("FolderPath") : r("InitiatingProcessFolderPath"), a.name)
     ?? (a.name ? KNOWN[a.name.toLowerCase()] : undefined) ?? pathFromCmd(a.cmd, a.name)
@@ -213,24 +203,34 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   a.user = ed("User") ?? normUser(ev.process?.user) ?? normUser(r("user.name")) ?? normUser(r("crowdstrike.UserName"))
     ?? normUser(mdeProcEvent ? mdeAcct(r("AccountDomain"), r("AccountName")) : mdeAcct(r("InitiatingProcessAccountDomain"), r("InitiatingProcessAccountName")))
     ?? normUser(r("s1.srcProcUser")) ?? (email ? `${ctx.netbios}\\${email.split("@")[0]}` : undefined);
-  a.sha256 = ev.process?.hash?.sha256 ?? r("process.hash.sha256") ?? r("crowdstrike.SHA256HashData") ?? (mdeProcEvent ? r("SHA256") : r("InitiatingProcessSHA256")) ?? r("crowdstrike.SHA256")
+  a.sha256 = (wr ? wr.sha256 : th?.proc?.sha256) ?? ev.process?.hash?.sha256 ?? /SHA256=([0-9A-Fa-f]{64})/.exec(ed("Hashes") ?? "")?.[1] ?? r("process.hash.sha256") ?? r("crowdstrike.SHA256HashData") ?? (mdeProcEvent ? r("SHA256") : r("InitiatingProcessSHA256")) ?? r("crowdstrike.SHA256")
     ?? (ev.file?.sha256 && a.name && ev.file.path && base(ev.file.path).toLowerCase() === a.name.toLowerCase() ? ev.file.sha256 : undefined);
-  a.md5 = ev.process?.hash?.md5 ?? r("process.hash.md5") ?? r("crowdstrike.MD5HashData");
+  a.md5 = (wr ? wr.md5 : th?.proc?.md5) ?? ev.process?.hash?.md5 ?? /MD5=([0-9A-Fa-f]{32})/.exec(ed("Hashes") ?? "")?.[1] ?? r("process.hash.md5") ?? r("crowdstrike.MD5HashData");
   const integ: Record<string, string> = { low: "Low", medium: "Medium", high: "High", system: "System" };
-  a.integrity = ed("IntegrityLevel") ?? (ev.process?.integrity ? integ[ev.process.integrity] : undefined) ?? r("ProcessIntegrityLevel") ?? r("process.integrity_level");
+  a.integrity = ed("IntegrityLevel") ?? (ev.process?.integrity ? integ[ev.process.integrity] : undefined) ?? r("ProcessIntegrityLevel") ?? r("process.integrity_level")
+    ?? ((wr ?? th?.proc)?.integrity ? integ[(wr ?? th!.proc!).integrity!.toLowerCase()] ?? (wr ?? th!.proc!).integrity : undefined);
+  if (!a.user && wr?.user) a.user = normUser(wr.user);
+  if (!a.user && th?.user) a.user = normUser(th.user);
 
   // Unknown account: SYSTEM only when the parent is a service host; otherwise Sysmon-style "-" (never a guessed user).
   const user = a.user ?? (ev.process?.parent_name && SYSTEM_PARENTS.has(ev.process.parent_name.toLowerCase()) ? "NT AUTHORITY\\SYSTEM" : "-");
   const isSystemUser = /^NT AUTHORITY\\/i.test(user);
-  // Seeded pids come from the shared process identity, so a parent's seeded pid on its child equals its own.
-  const seededPid = (name?: string) => String(procPid(ctx, { host, os: "Win", timeMs, incident: ev.incident_id, user: user.includes("\\") ? user.split("\\").pop() : undefined }, { name: name ?? "?" }) ?? 4);
-  const pid = pid4(a.pid) ?? seededPid(a.name);
+  const userName = user.includes("\\") ? user.split("\\").pop()! : user;
+  // Every pid and ProcessGuid comes from the shared process identity (./_proc-identity: host + image +
+  // lifetime scope, plus the story's instance tag) — never from an authored ProcessId / ProcessGuid, which
+  // the corpus does not number consistently — so a parent's ids on its child equal its own row's.
+  const scope = { host, os: "Win" as const, timeMs, incident: ev.incident_id, user: user === "-" ? undefined : userName };
+  const seededPid = (name?: string, inst?: string) => String(procPid(ctx, scope, { name: name ?? "?", inst }) ?? 4);
+  const pid = a.name ? seededPid(a.name, a.inst) : pid4(a.pid) ?? seededPid(undefined);
   const image = a.path ?? "<unknown process>";
-  const guidFor = (p: string, n: string) => {
-    const h = hx(ctx, `${ctx.companyId}:${host.toLowerCase()}:${p}:${n.toLowerCase()}`, 24);
+  const guidFor = (n: string | undefined, inst?: string, pidFallback?: string) => {
+    const key = n ? procKey(ctx, scope, { name: n, inst }) : undefined;
+    const h = hx(ctx, key ? `${key}:guid` : `${ctx.companyId}:${host.toLowerCase()}:${pidFallback}:?`, 24);
     return `{${machine}-${h.slice(0, 4)}-${h.slice(4, 8)}-${h.slice(8, 12)}-${h.slice(12, 24)}}`;
   };
-  const procGuid = ed("ProcessGuid") ?? guidFor(pid, base(image));
+  const procGuid = guidFor(a.name ?? (a.path ? base(a.path) : undefined), a.inst, pid);
+  // The session: the story's authored logon id, else one per host + user + day (./_proc-identity logonLuid).
+  const luidHex = `0x${logonLuid(ctx, host, userName, timeMs, th?.logonId, th?.logonSeq).toString(16).toUpperCase()}`;
 
   const sys = {
     ProviderName: "Microsoft-Windows-Sysmon",
@@ -255,20 +255,29 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       const nm = base(image).toLowerCase();
       const parentName = ev.process?.parent_name ?? (ed("ParentImage") ? base(ed("ParentImage")!) : undefined) ?? r("process.parent.name") ?? r("crowdstrike.ParentBaseFileName")
         ?? r("crowdstrike.parent_basefilename") ?? r("crowdstrike.ParentProcessName") ?? (mdeProcEvent ? r("InitiatingProcessFileName") : undefined) ?? r("s1.srcProcParentName");
-      const parentCmd = ed("ParentCommandLine") ?? r("process.parent.command_line") ?? (mdeProcEvent ? r("InitiatingProcessCommandLine") : undefined);
-      const parentPath = ed("ParentImage") ?? (mdeProcEvent ? joinPath(r("InitiatingProcessFolderPath"), parentName) : undefined)
+      const parentCmd = ed("ParentCommandLine") ?? r("process.parent.command_line") ?? r("crowdstrike.parent_commandline") ?? (mdeProcEvent ? r("InitiatingProcessCommandLine") : undefined) ?? th?.parent?.cmdline;
+      const tParentPath = th?.parent?.path && isWinPath(th.parent.path) ? th.parent.path : undefined;
+      const parentPath = tParentPath ?? ed("ParentImage") ?? (mdeProcEvent ? joinPath(r("InitiatingProcessFolderPath"), parentName) : undefined)
+        ?? (isWinPath(r("process.parent.executable")) ? r("process.parent.executable") : undefined)
         ?? (parentName ? KNOWN[parentName.toLowerCase()] ?? pathFromCmd(parentCmd, parentName) : undefined);
-      const ppid = pid4((ev.process?.parent_pid !== undefined ? String(ev.process.parent_pid) : undefined) ?? ed("ParentProcessId") ?? r("process.parent.pid")
-        ?? (mdeProcEvent ? r("InitiatingProcessId") : undefined)) ?? (parentName ? seededPid(parentName) : "0");
+      const pName = parentName ?? (parentPath ? base(parentPath) : undefined);
+      const ppid = pName ? seededPid(pName, th?.parent?.inst) : "0";
       const pImage = parentPath ?? (parentName ? `-` : "-");
       const parentKnown = parentPath !== undefined;
-      const parentUser = parentName && SYSTEM_PARENTS.has(parentName.toLowerCase()) ? "NT AUTHORITY\\SYSTEM" : user;
+      const parentUser = th?.parent?.user ? normUser(th.parent.user)! : parentName && SYSTEM_PARENTS.has(parentName.toLowerCase()) ? "NT AUTHORITY\\SYSTEM" : user;
       const meta = META[nm];
-      const winBin = /^C:\\Windows\\/i.test(image);
-      const office = image.startsWith(OFFICE);
+      // Microsoft version info only for the real binary at its install path — a payload dropped into
+      // C:\Windows\Temp is not "Microsoft® Windows® Operating System".
+      const installed = KNOWN[nm]?.toLowerCase() === image.toLowerCase();
+      const winBin = installed && /^C:\\Windows\\/i.test(image);
+      const office = installed && image.startsWith(OFFICE);
       const ms = isSystemUser;
       const imphash = hx(ctx, `imphash:${nm}`, 32).toUpperCase();
-      const sha = a.sha256 ?? hx(ctx, `sha256:${image.toLowerCase()}`, 64).toUpperCase();
+      // No story hash: the fleet build's hash for this path — the value every EDR record of this binary shows.
+      const fleet = imageHashes(ctx, image);
+      // Sysmon prints hashes upper-case; an authored hash is kept verbatim.
+      const sha = a.sha256 ?? fleet.sha256.toUpperCase();
+      const md5 = a.md5 ?? (a.sha256 ? undefined : fleet.md5.toUpperCase());
       data = {
         ...head,
         ProcessGuid: procGuid,
@@ -282,12 +291,14 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
         CommandLine: a.cmd ?? (image.includes(" ") ? `"${image}"` : image),
         CurrentDirectory: ed("CurrentDirectory") ?? (ms ? "C:\\Windows\\system32\\" : user === "-" ? "-" : `C:\\Users\\${user.split("\\").pop()}\\`),
         User: user,
-        LogonGuid: (() => { const h = hx(ctx, `${ctx.companyId}:${host.toLowerCase()}:${user.toLowerCase()}:logon`, 24); return `{${machine}-${h.slice(0, 4)}-${h.slice(4, 8)}-${h.slice(8, 12)}-${h.slice(12, 24)}}`; })(),
-        LogonId: ms ? "0x3E7" : `0x${hx(ctx, `${ctx.companyId}:${host.toLowerCase()}:${user.toLowerCase()}:luid`, 6).toUpperCase()}`,
+        // One logon session → one LogonGuid (seeded by the LUID, so a new session has a new GUID).
+        LogonGuid: (() => { const h = hx(ctx, `${ctx.companyId}:${host.toLowerCase()}:${user.toLowerCase()}:${luidHex}:logon`, 24); return `{${machine}-${h.slice(0, 4)}-${h.slice(4, 8)}-${h.slice(8, 12)}-${h.slice(12, 24)}}`; })(),
+        LogonId: ms ? "0x3E7" : luidHex,
         TerminalSessionId: ms ? "0" : String(ctx.int(`${host}:${user}:session`, 1, 3)),
         IntegrityLevel: a.integrity ?? (ms ? "System" : "Medium"),
-        Hashes: ed("Hashes") ?? `SHA256=${sha}${a.md5 ? `,MD5=${a.md5}` : ""},IMPHASH=${imphash}`,
-        ParentProcessGuid: ed("ParentProcessGuid") ?? (parentName ? guidFor(ppid, parentName) : "{00000000-0000-0000-0000-000000000000}"),
+        // The authored Hashes line verbatim when it names this binary's hash; else built from the story's hash.
+        Hashes: ed("Hashes") && ed("Hashes")!.toLowerCase().includes(sha.toLowerCase()) ? ed("Hashes")! : `SHA256=${sha}${md5 ? `,MD5=${md5}` : ""},IMPHASH=${imphash}`,
+        ParentProcessGuid: pName ? guidFor(pName, th?.parent?.inst) : "{00000000-0000-0000-0000-000000000000}",
         ParentProcessId: ppid,
         ParentImage: pImage,
         ParentCommandLine: parentCmd ?? (parentKnown ? (pImage.includes(" ") ? `"${pImage}"` : pImage) : "-"),
@@ -335,16 +346,16 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       break;
     }
     case "10": {
-      const tgt = r("crowdstrike.target_imagefilename") ?? r("s1.tgtProcName") ?? ed("TargetImage") ?? r("TargetImage");
-      const access = r("crowdstrike.GrantedAccess") ?? r("s1.granted_access") ?? ed("GrantedAccess") ?? r("GrantedAccess");
+      const tgt = r("crowdstrike.target_imagefilename") ?? r("s1.tgtProcName") ?? ed("TargetImage") ?? r("TargetImage") ?? th?.access?.path ?? th?.access?.name;
+      const access = r("crowdstrike.GrantedAccess") ?? r("s1.granted_access") ?? ed("GrantedAccess") ?? r("GrantedAccess") ?? th?.access?.granted;
       if (!tgt || !access || !needImage()) return null;
       const tPath = isWinPath(tgt) ? tgt : KNOWN[tgt.toLowerCase()] ?? `${S32}${tgt}`;
-      const tPid = pid4(r("crowdstrike.target_process_id") ?? ed("TargetProcessId")) ?? seededPid(base(tPath));
+      const tPid = seededPid(base(tPath)); // the target's own identity (the same pid its rows and every EDR record show)
       const off = (k: string) => hx(ctx, `${ev.id}:${k}`, 5);
       data = {
         ...head,
         SourceProcessGUID: procGuid, SourceProcessId: pid, SourceThreadId: String(win4(Number(pid) + ctx.int(`${ev.id}:thr`, 1, 40) * 4)), SourceImage: image,
-        TargetProcessGUID: guidFor(tPid, base(tPath)), TargetProcessId: tPid, TargetImage: tPath,
+        TargetProcessGUID: guidFor(base(tPath)), TargetProcessId: tPid, TargetImage: tPath,
         GrantedAccess: access,
         CallTrace: ed("CallTrace") ?? `C:\\Windows\\SYSTEM32\\ntdll.dll+${off("a")}|C:\\Windows\\System32\\KERNELBASE.dll+${off("b")}|${image}+${off("c")}`,
         SourceUser: user, TargetUser: "NT AUTHORITY\\SYSTEM",
@@ -362,7 +373,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     case "23": {
       const target = ev.file?.path ?? ed("TargetFilename") ?? r("file.path");
       if (!target || !isWinPath(target) || !needImage()) return null;
-      const fsha = ev.file?.sha256 ?? r("file.hash.sha256") ?? hx(ctx, `sha256:${target.toLowerCase()}`, 64).toUpperCase();
+      const fsha = ev.file?.sha256 ?? r("file.hash.sha256") ?? imageHashes(ctx, target).sha256.toUpperCase();
       data = {
         ...head, ProcessGuid: procGuid, ProcessId: pid, User: user, Image: image, TargetFilename: target,
         Hashes: ed("Hashes") ?? `SHA256=${fsha}`, IsExecutable: String(/\.(exe|dll|sys|scr|com)$/i.test(target)),
@@ -378,8 +389,8 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       const value = ev.registry?.value ?? r("registry.data.strings") ?? r("registry.data") ?? (r("registry.key") !== undefined ? r("registry.value") : undefined);
       if (name && !ed("TargetObject") && !path.toLowerCase().endsWith(`\\${name.toLowerCase()}`)) path = `${path}\\${name}`;
       // Sysmon prints the hive abbreviated and HKCU as HKU\<user SID>.
-      const userName = user.split("\\").pop() ?? user;
-      path = path.replace(/^HKEY_LOCAL_MACHINE\\/i, "HKLM\\").replace(/^HKEY_CLASSES_ROOT\\/i, "HKCR\\").replace(/^(HKEY_CURRENT_USER|HKCU)\\/i, `HKU\\${sid(ctx, userName)}\\`);
+      const usid = th?.sid ?? sid(ctx, userName, ev.user_email ?? ev.user?.email);
+      path = path.replace(/^HKEY_LOCAL_MACHINE\\/i, "HKLM\\").replace(/^HKEY_CLASSES_ROOT\\/i, "HKCR\\").replace(/^(HKEY_CURRENT_USER|HKCU)\\/i, `HKU\\${usid}\\`);
       data = {
         ...head, EventType: ed("EventType") ?? (id === "13" ? "SetValue" : "DeleteValue"), ProcessGuid: procGuid, ProcessId: pid, Image: image, TargetObject: path,
         ...(id === "13" ? { Details: ed("Details") ?? value ?? "(Empty)" } : {}),
@@ -390,7 +401,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     case "6": {
       const loaded = ed("ImageLoaded");
       if (!loaded) return null;
-      data = { ...head, ImageLoaded: loaded, Hashes: ed("Hashes") ?? `SHA256=${hx(ctx, `sha256:${loaded.toLowerCase()}`, 64).toUpperCase()}`, Signed: ed("Signed") ?? "true", Signature: ed("Signature") ?? "Microsoft Windows", SignatureStatus: ed("SignatureStatus") ?? "Valid" };
+      data = { ...head, ImageLoaded: loaded, Hashes: ed("Hashes") ?? `SHA256=${imageHashes(ctx, loaded).sha256.toUpperCase()}`, Signed: ed("Signed") ?? "true", Signature: ed("Signature") ?? "Microsoft Windows", SignatureStatus: ed("SignatureStatus") ?? "Valid" };
       break;
     }
     case "17": {

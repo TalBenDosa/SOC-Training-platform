@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { source, kindOf, toRawLine } from "./cisco_asa";
-import { runFirewallSuite, cloneLog, type EvidenceKey } from "./firewall-testkit";
+import { runFirewallSuite, cloneLog, type EvidenceKey, applianceAdminNull } from "./firewall-testkit";
 import { makeCtx } from "../ctx";
 import { corpusFor, cardSamples } from "../testing/corpus";
 import type { NativeLog } from "../types";
@@ -51,7 +51,7 @@ runFirewallSuite({
   source, kindOf,
   crossMin: 0.75,
   cardTime: asaTime,
-  nullAllowed: asaNull,
+  nullAllowed: ev => asaNull(ev) ?? applianceAdminNull(ev),
   evidenceExempt: (log, ev): EvidenceKey[] => {
     // The ASA body names only sockets: no user, host name, URL, domain or file hash.
     const ex: EvidenceKey[] = ["user", "network.domain", "network.url", "sha256", "dns.query"];
@@ -63,6 +63,12 @@ runFirewallSuite({
     const burst = Array.from({ length: 12 }, (_, i) => cloneLog(deny, deny.timeMs + i * 3000, {
       Message_text: String(deny.record.Message_text).replace("/3389 ", `/${[21, 22, 23, 25, 80, 110, 135, 139, 443, 445, 1433, 3306][i]} `),
     }));
-    return burst;
+    // An inside host's outbound session to a reverse-shell port (no story carries one today).
+    const built = cardLog(1);
+    const shell = cloneLog(built, built.timeMs, { Message_text: String(built.record.Message_text).replace(/\/443 /g, "/4444 ") });
+    // …and a session it then kept open for hours (teardown duration ≥ 1:00:00).
+    const teardown = cardLog(2);
+    const longLived = cloneLog(teardown, teardown.timeMs, { Message_text: String(teardown.record.Message_text).replace(/duration \d+:\d\d:\d\d/, "duration 3:12:40") });
+    return [...burst, shell, longLived];
   },
 });

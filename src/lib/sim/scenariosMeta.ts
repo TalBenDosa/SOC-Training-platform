@@ -26,9 +26,9 @@ export const SCENARIOS_META: ScenarioMeta[] = [
   },
   {
     "slug": "phishing-to-cloud-exfil",
-    "title": "Phishing → Cloud Exfiltration",
+    "title": "Phishing Macro → AWS Key Theft → S3 Download",
     "difficulty": "intermediate",
-    "summary": "A finance analyst opens a macro-laced invoice. Trace the attacker through PowerShell, LSASS credential theft, and a 184MB S3 data exfiltration."
+    "summary": "A finance analyst opens a macro-laced invoice. Trace the chain from Word → PowerShell → the AWS key on the workstation → a 184 MB S3 download, and contain both the host and the key."
   },
   {
     "slug": "bec-mailbox-rule",
@@ -73,10 +73,10 @@ export const SCENARIOS_META: ScenarioMeta[] = [
     "summary": "A 7-step LOLBin chain: certutil download → regsvr32 Squiblydoo → mshta VBScript → wmic recon → bitsadmin persistence → rundll32 DLL → schtasks SYSTEM task."
   },
   {
-    "slug": "cloud-cryptomining",
-    "title": "Cloud Credential Leak — Cryptomining + Data Breach",
-    "difficulty": "intermediate",
-    "summary": "AWS keys leaked to GitHub. In 24 minutes: automated bot steals creds, 14 GPU instances mine Monero at $342/hr, backdoor IAM user created, and 4.7GB of customer PII exfiltrated from a public S3 bucket."
+    "slug": "aws-key-leak-s3-exfil",
+    "title": "Leaked AWS Key → IAM Backdoor → S3 Data Theft",
+    "difficulty": "advanced",
+    "summary": "A CI access key pushed to a public GitHub repo is used from a VPS within minutes: recon, a new IAM user with its own key and AdministratorAccess, then a GetObject run on the customer-data bucket. Follow the key ids from the leak to the bucket and contain both credentials."
   },
   {
     "slug": "dcsync-golden-ticket",
@@ -157,10 +157,10 @@ export const SCENARIOS_META: ScenarioMeta[] = [
     "summary": "The WAF blocked the obvious payloads and missed the one that worked. Pivot between WAF, IIS, SQL audit and EDR to find how a web shell reached the server."
   },
   {
-    "slug": "linux-ssh-cryptominer",
-    "title": "Exposed SSH → Cron Persistence → Cryptominer",
+    "slug": "linux-ssh-persistence",
+    "title": "Exposed SSH → Cron-Persisted Backdoor",
     "difficulty": "intermediate",
-    "summary": "A Linux server intrusion read through auditd and sshd rather than Windows telemetry — the successful login comes from an IP that never appears in the brute force."
+    "summary": "A Linux server intrusion read through sshd, auditd, Falcon and the firewall rather than Windows telemetry — the login that worked comes from an address that never failed, and the flagged process checks in every five minutes."
   },
   {
     "slug": "aitm-token-theft",
@@ -211,12 +211,6 @@ export const SCENARIOS_META: ScenarioMeta[] = [
     "summary": "SPF, DKIM and DMARC all passed, because the supplier's domain really did send it. The mailbox belongs to someone else now."
   },
   {
-    "slug": "bundled-cryptominer",
-    "title": "Slow Laptop — Coinminer Bundled with a Video Converter",
-    "difficulty": "beginner",
-    "summary": "Nothing was stolen, no account was touched, and it is still a real incident. Grading severity by 'what did they take' files this as low and leaves it mining for weeks."
-  },
-  {
     "slug": "seo-poisoned-installer",
     "title": "Sponsored Result — SEO-Poisoned PuTTY Download",
     "difficulty": "beginner",
@@ -224,27 +218,15 @@ export const SCENARIOS_META: ScenarioMeta[] = [
   },
   {
     "slug": "iso-container-smuggling",
-    "title": "Invoice.iso — Mark-of-the-Web Bypass via a Mounted Image",
+    "title": "Invoice.iso — Container-Delivered LNK and LOLBin Chain",
     "difficulty": "beginner",
-    "summary": "The firewall only logged the .iso because it is not on the block list. Double-clicking it mounts a drive whose contents never inherit Mark-of-the-Web — so SmartScreen never gets a say."
-  },
-  {
-    "slug": "drive-by-browser-miner",
-    "title": "Slow Fan — Drive-by Cryptominer on a Trusted Converter",
-    "difficulty": "beginner",
-    "summary": "A site he uses most weeks pulled a malicious ad that ran a miner right in the browser tab. No file was downloaded, nothing was installed — and the CPU has been pinned since he opened it."
+    "summary": "The firewall only logged the .iso because it is not on the block list. Windows tags the files inside it (the Nov-2022 fix) and warns — but the user clicks Run anyway, and the shortcut runs rundll32 against a bundled data file, so SmartScreen never re-gates it."
   },
   {
     "slug": "clickfix-fake-captcha",
     "title": "Fake CAPTCHA — 'Paste This to Verify You're Human'",
     "difficulty": "beginner",
     "summary": "The 'verification' step told her to press Win+R and paste — and she did. The command she never saw was already on her clipboard, put there by the page."
-  },
-  {
-    "slug": "clipboard-clipper",
-    "title": "Wrong Wallet — Clipboard-Hijacking Crypto Utility",
-    "difficulty": "beginner",
-    "summary": "The utility works exactly as advertised. It also watches the clipboard, and quietly swaps any wallet address you copy for the attacker's before you paste it."
   },
   {
     "slug": "scheduled-task-persistence",
@@ -266,9 +248,9 @@ export const SCENARIOS_META: ScenarioMeta[] = [
   },
   {
     "slug": "edge-vpn-cve-exploit",
-    "title": "Edge Appliance Exploitation — SSL-VPN Pre-Auth RCE to Internal Foothold",
+    "title": "Edge Appliance Exploitation — FortiOS SSL-VPN Auth Bypass to Internal Foothold",
     "difficulty": "advanced",
-    "summary": "A pre-auth request to an unusual admin path on the SSL-VPN appliance returns 200 with no credentials. Minutes later a backdoor is on the appliance, the config and its password hashes are gone, and a 'valid' VPN login lands on an internal jump host. The initial access is the appliance itself."
+    "summary": "The FortiGate SSL-VPN appliance's own IPS fires CVE-2022-40684 and its event log records admin access as Local_Process_Access, then a new rogue admin. An hour later a 'valid' VPN login's tunnel IP turns up as a 4624 on an internal jump host, then a SAM dump and SMB reach. The initial access is the appliance itself."
   },
   {
     "slug": "exfil-first-extortion",
@@ -377,12 +359,6 @@ export const SCENARIOS_META: ScenarioMeta[] = [
     "title": "Threat-Intel Hunt — From a Recorded Future IOC Set to a Live Beacon",
     "difficulty": "intermediate",
     "summary": "This case opens with intelligence, not an alert: a Recorded Future risk-list update names a C2 domain, an IP and a malware hash tied to an active campaign. Sweep the estate and one workstation lights up — DNS to the C2, periodic proxy beacons, and the exact hash running on the host. Learn intel→sweep→confirm, and why a second host that matched a now-sinkholed indicator is a false hit, not a compromise."
-  },
-  {
-    "slug": "container-escape-cryptomining",
-    "title": "Container Escape to the Node — a Poisoned Image that Mines and Breaks Out",
-    "difficulty": "advanced",
-    "summary": "A poisoned image is deployed as an over-permissive privileged pod, runs an XMRig miner, then uses host namespaces to break out of the container onto the Kubernetes worker node and reach a mining pool. The Kubernetes audit trail is the escape origin; the runtime miner and pool traffic are the impact. A sanctioned CNI DaemonSet that is privileged by design is the benign control — privileged alone is not the signal."
   },
   {
     "slug": "mobile-mdm-compromise",

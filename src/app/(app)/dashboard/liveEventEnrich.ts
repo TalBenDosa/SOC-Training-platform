@@ -74,6 +74,20 @@ const SOURCE_EVENT_RULE: Record<string, string> = {
   "cloudtrail:cloud_api_call":"HTS-80200",
 };
 
+// Windows events get a rule per EVENT ID, not per source:event_type — otherwise a network logon, an
+// RDP logon, a Kerberos ticket and a GPO change all fire one rule id and "filter by rule / tune this
+// rule" becomes unteachable (Tal's diagnostic). Keyed on the real Event ID.
+const WINSEC_EVENT_RULE: Record<string, string> = {
+  "4624": "HTS-18101", "4625": "HTS-18102", "4634": "HTS-18103", "4647": "HTS-18104", "4648": "HTS-18110",
+  "4672": "HTS-18120", "4688": "HTS-18200", "4697": "HTS-18210", "7045": "HTS-18211",
+  "4768": "HTS-18300", "4769": "HTS-18301", "4771": "HTS-18302", "4776": "HTS-18303",
+  "4720": "HTS-18400", "4722": "HTS-18401", "4724": "HTS-18402", "4725": "HTS-18403", "4726": "HTS-18404",
+  "4738": "HTS-18405", "4740": "HTS-18410", "4767": "HTS-18411",
+  "4728": "HTS-18420", "4732": "HTS-18421", "4756": "HTS-18422", "4729": "HTS-18423", "4733": "HTS-18424", "4757": "HTS-18425",
+  "4662": "HTS-18500", "5136": "HTS-18510", "5140": "HTS-18520", "5145": "HTS-18521",
+  "4698": "HTS-18211", "1102": "HTS-18600", "4719": "HTS-18601",
+};
+
 
 function calculateRuleLevel(event: TelemetryEvent): number {
   // L-06 — SINGLE SOURCE OF TRUTH: the displayed rule level is derived purely from
@@ -134,8 +148,12 @@ export function ingestionDelayMs(source: string): number {
 export function buildRuleId(event: TelemetryEvent, index: number): string {
   // Pick the base rule that matched (technique → source/event_type → fallback).
   let base: string;
+  const eventCode = String(event.raw?.["event.code"] ?? event.raw?.["winlog.event_id"] ?? "");
+  const isWinSec = event.source === "ad" || event.source === "windows_security";
   if (event.mitre_technique && RULE_ID_MAP[event.mitre_technique]) {
     base = RULE_ID_MAP[event.mitre_technique];
+  } else if (isWinSec && WINSEC_EVENT_RULE[eventCode]) {
+    base = WINSEC_EVENT_RULE[eventCode];
   } else {
     const sourceKey = `${event.source}:${event.event_type}`;
     base = SOURCE_EVENT_RULE[sourceKey] ?? `HTS-${60000 + (index % 9000)}`;

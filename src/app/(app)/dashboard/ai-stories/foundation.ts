@@ -8,8 +8,8 @@
  * prompt text are Zscaler (`prompt_req`); the EDR, DNS, mail-gateway and Entra records
  * carry none.
  *
- *  1. ai-shadow-chat-upload      Zscaler ZIA + EDR   (a spreadsheet uploaded to a personal chat account)
- *  2. ai-chat-harvest-extension  Zscaler ZIA + EDR + Infoblox DNS   (a free extension update copies AI chats)
+ *  1. ai-shadow-chat-upload      Zscaler ZIA + EDR   (a DLP-blocked spreadsheet pasted into an unsanctioned chatbot)
+ *  2. ai-chat-harvest-extension  Zscaler ZIA + EDR + DNS + Sentinel TI   (a free extension update copies AI chats)
  *  3. ai-svg-invoice-lure        Defender for Office 365 + EDR + Zscaler ZIA + Entra ID   (SVG posing as a PDF)
  *
  * Authored against nexacorp identities (host, subnet, domain, victim). instantiateStory()
@@ -24,8 +24,9 @@
 import type { TelemetryEvent, Severity } from "@/lib/sim/types";
 import { makeSha256 } from "@/lib/sim/iocs";
 import { zscalerWeb } from "@/lib/sim/emitters/zscaler";
-import { csFile, csProcess } from "@/lib/sim/emitters/crowdstrike";
+import { csFile, csProcess, csNetwork } from "@/lib/sim/emitters/crowdstrike";
 import { entraSignIn } from "@/lib/sim/emitters/entra";
+import { sentinelAlert } from "@/lib/sim/emitters/sentinel";
 
 export interface AiStoryDef {
   id: string;
@@ -141,6 +142,13 @@ const aiApp = (status: "Sanctioned" | "Unsanctioned") => ({
   "zscaler.app_risk_score": "3",
 });
 
+/** Zscaler URL category of generative-AI destinations. */
+const GENAI_CATEGORY = "Generative AI and ML Applications";
+
+/** A file event carrying the file's MD5 too (the hash a proxy logs for the same file). */
+const withMd5 = (ev: TelemetryEvent, md5: string): TelemetryEvent =>
+  ({ ...ev, file: { ...(ev.file ?? { path: "" }), md5 }, raw: { ...ev.raw, "crowdstrike.MD5HashData": md5 } });
+
 const baseline = { is_baseline: true, expected_verdict: "informational" } as const;
 
 // ═════════════════════════════════════════════════════════════════════════════════════
@@ -155,24 +163,27 @@ function buildShadowChatUpload(): TelemetryEvent[] {
   const zia = makeZia(c);
 
   const xlsxName = "Customer_Contacts_Q3_Master.xlsx";
-  const csvName = "Customer_Contacts_Q3_Master.csv";
   const xlsxPath = `C:\\Users\\a.kaplan\\Downloads\\${xlsxName}`;
-  const csvPath = `C:\\Users\\a.kaplan\\Downloads\\${csvName}`;
   const xlsxHash = makeSha256("aishd_customer_contacts_q3_master_xlsx_2026");
-  const csvHash = makeSha256("aishd_customer_contacts_q3_master_csv_2026");
+  const xlsxMd5 = makeSha256("aishd_customer_contacts_q3_master_xlsx_md5").slice(0, 32);
   const XLSX_SIZE = 2_418_944;
-  const CSV_SIZE = 1_731_088;
+  // The CRM report export the spreadsheet came from (Mark-of-the-Web origin on the download).
+  const crmExportUrl = "https://eu47.salesforce.com/00O5g000004XyZ1EAK?export=1&enc=UTF-8&xf=xlsx";
   const CHROME = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
   const EXCEL = "C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE";
+  const DS = "chat.deepseek.com";
+  const deepseek = { category: GENAI_CATEGORY, appName: "DeepSeek" };
+  // The prompt rule only monitors: the DLP engine scans the request body and the transaction is allowed.
+  const promptDlp = { "zscaler.activity": "Chat", "zscaler.dlpeng": "PII", "zscaler.dlpdict": "Email Addresses", ...aiApp("Unsanctioned") };
 
   const events: TelemetryEvent[] = [
-    // Reference point: the same domain, but the company's sanctioned workspace.
+    // Reference point: the company's approved AI assistant.
     zia({
       id: "aishd1", ts: "2026-09-22T08:41:17.336Z",
       url: "https://chatgpt.com/backend-api/conversation", domain: "chatgpt.com", method: "POST",
-      category: "Internet Services", appName: "ChatGPT", sent: 968, recv: 5_412, severity: "informational",
+      category: GENAI_CATEGORY, appName: "ChatGPT", sent: 968, recv: 5_412, severity: "informational",
       description:
-        "At 08:41 a.kaplan's browser on WS-SALES-1876 posted a short prompt to chatgpt.com and Zscaler classified the session Sanctioned: the company's enterprise ChatGPT workspace, reached through corporate single sign-on. Ordinary work-related use, and the reference point for the later sessions on the same domain.",
+        "At 08:41 a.kaplan's browser on WS-SALES-1876 posted a 968-byte request to chatgpt.com (appname ChatGPT, the company's approved AI assistant). This is the user's usual AI traffic before the later sessions.",
       extra: {
         ...aiApp("Sanctioned"),
         "zscaler.prompt_req": "give me three subject lines for the Q4 partner newsletter",
@@ -180,115 +191,124 @@ function buildShadowChatUpload(): TelemetryEvent[] {
       top: { ...baseline },
     }),
 
-    // A customer export lands on disk.
-    csFile({
+    // A CRM report export lands on disk.
+    withMd5(csFile({
       companyId: CX, id: "aishd2", ts: "2026-09-22T09:22:46.581Z", host: c.host, srcIp: c.ip, user: c.user,
-      extra: csFileExtra({
-        id: "aishd2", ts: "2026-09-22T09:22:46.581Z", host: c.host, user: c.user, path: xlsxPath, type: "creation",
-        actor: "chrome.exe", actorPid: 6204, actorPath: CHROME, actorParent: "explorer.exe", actorParentPid: 3844,
-      }),
+      extra: {
+        ...csFileExtra({
+          id: "aishd2", ts: "2026-09-22T09:22:46.581Z", host: c.host, user: c.user, path: xlsxPath, type: "creation",
+          actor: "chrome.exe", actorPid: 6204, actorPath: CHROME, actorParent: "explorer.exe", actorParentPid: 3844,
+        }),
+        "file.origin_url": crmExportUrl,
+        "file.origin_referrer_url": "https://eu47.salesforce.com/00O5g000004XyZ1EAK",
+      },
       path: xlsxPath, sha256: xlsxHash, size: XLSX_SIZE, action: "file_create",
       actorProcess: "chrome.exe", actorPid: 6204, actorPath: CHROME,
       actorParentName: "explorer.exe", actorParentPid: 3844, actorSigned: "trusted", actorIntegrity: "medium",
-      severity: "low", incidentId: INC,
+      severity: "low", mitre: "T1213", tactic: "Collection", incidentId: INC,
       description:
-        `chrome.exe wrote ${xlsxName} (2.3 MB) into a.kaplan's Downloads folder on WS-SALES-1876 at 09:22: a report exported from a browser session, not a file created locally.`,
-    }),
+        `At 09:22 chrome.exe wrote ${xlsxName} (2.3 MB) into a.kaplan's Downloads folder on WS-SALES-1876. FileOriginUrl is a Salesforce report export (export=1, xf=xlsx).`,
+    }), xlsxMd5),
 
-    // Same domain, different classification: not the company workspace.
+    // First contact with an AI service that is not the approved one.
     zia({
       id: "aishd3", ts: "2026-09-22T09:30:08.127Z",
-      url: "https://chatgpt.com/", domain: "chatgpt.com", method: "GET",
-      category: "Internet Services", appName: "ChatGPT", sent: 742, recv: 118_204, severity: "low",
+      url: `https://${DS}/api/v0/users/login`, domain: DS, method: "POST",
+      ...deepseek, sent: 1_142, recv: 2_918, severity: "low",
       description:
-        "At 09:30 the same browser requested chatgpt.com again. This time Zscaler classified the session Unsanctioned, on the same domain that was Sanctioned at 08:41, which means this session is not signed in to the company workspace.",
+        `At 09:30 the same browser posted to https://${DS}/api/v0/users/login (appname DeepSeek). It is the first request from WS-SALES-1876 to that host in these logs; the company has no DeepSeek tenant, so any account signed in here is a personal one.`,
       extra: { ...aiApp("Unsanctioned") },
     }),
 
-    // DLP stops the spreadsheet.
-    zia({
-      id: "aishd4", ts: "2026-09-22T09:33:54.640Z",
-      url: "https://chatgpt.com/backend-api/files", domain: "chatgpt.com", method: "POST", action: "blocked", status: 403,
-      category: "Internet Services", appName: "ChatGPT", sent: 2_419_377, recv: 312,
-      severity: "medium", mitre: "T1567", tactic: "Exfiltration",
-      description:
-        `At 09:33 Zscaler blocked a POST of ${xlsxName} to chatgpt.com/backend-api/files in the Unsanctioned session. The DLP rule Block PII to GenAI (Files) matched the Credit Cards dictionary (9 hits) and the Email Addresses dictionary (1,204 hits).`,
-      extra: {
-        ...aiApp("Unsanctioned"),
-        "zscaler.activity": "Upload",
-        "zscaler.upload_filename": xlsxName,
-        "zscaler.upload_filetype": "xlsx",
-        "zscaler.ruletype": "Data Loss Prevention",
-        "zscaler.rulelabel": "GenAI-DLP-Block",
-        "zscaler.dlpeng": "PII",
-        "zscaler.dlpdict": "Credit Cards|Email Addresses",
-        "zscaler.dlpdicthitcount": "9|1204",
-        "zscaler.trig_dlprulename": "Block PII to GenAI (Files)",
-      },
-      top: { is_detection: true, edr_scope: "edr" },
-    }),
-
-    // The same data, re-saved in another format.
-    csFile({
-      companyId: CX, id: "aishd5", ts: "2026-09-22T09:35:22.905Z", host: c.host, srcIp: c.ip, user: c.user,
-      extra: csFileExtra({
-        id: "aishd5", ts: "2026-09-22T09:35:22.905Z", host: c.host, user: c.user, path: csvPath, type: "creation",
-        actor: "EXCEL.EXE", actorPid: 7284, actorPath: EXCEL, actorParent: "explorer.exe", actorParentPid: 3844,
+    // DLP stops the spreadsheet — the first alert.
+    {
+      ...zia({
+        id: "aishd4", ts: "2026-09-22T09:33:54.640Z",
+        url: `https://${DS}/api/v0/file/upload_file`, domain: DS, method: "POST", action: "blocked", status: 403,
+        ...deepseek, sent: 2_419_377, recv: 312,
+        severity: "medium", mitre: "T1567", tactic: "Exfiltration",
+        description:
+          `At 09:33 Zscaler blocked a 2.4 MB POST to ${DS}/api/v0/file/upload_file (reason Blocked by DLP, filetype Microsoft Excel, dlpengine PII, dlpdictionaries Credit Cards and Email Addresses). The md5 in the record is the md5 of ${xlsxName} written at 09:22.`,
+        extra: {
+          ...aiApp("Unsanctioned"),
+          "zscaler.activity": "Upload",
+          "zscaler.upload_filename": xlsxName,
+          "zscaler.upload_filetype": "xlsx",
+          "zscaler.ruletype": "Data Loss Prevention",
+          "zscaler.rulelabel": "GenAI-DLP-Block-Files",
+          "zscaler.dlpeng": "PII",
+          "zscaler.dlpdict": "Credit Cards|Email Addresses",
+          "zscaler.dlpdicthitcount": "9|1204",
+          "zscaler.trig_dlprulename": "Block PII to GenAI (Files)",
+        },
+        top: { is_detection: true, edr_scope: "hybrid" },
       }),
-      path: csvPath, sha256: csvHash, size: CSV_SIZE, action: "file_create",
-      actorProcess: "EXCEL.EXE", actorPid: 7284, actorPath: EXCEL,
-      actorParentName: "explorer.exe", actorParentPid: 3844, actorSigned: "trusted", actorIntegrity: "medium",
-      severity: "medium", mitre: "T1074.001", tactic: "Collection", incidentId: INC,
+      file: { name: xlsxName, path: xlsxPath, md5: xlsxMd5, size: XLSX_SIZE, extension: "xlsx" },
+    },
+
+    // The blocked file is opened locally.
+    csProcess({
+      companyId: CX, id: "aishd5", ts: "2026-09-22T09:34:41.905Z", host: c.host, srcIp: c.ip, user: c.user,
+      processName: "EXCEL.EXE", processPath: EXCEL,
+      cmdline: `"${EXCEL}" "${xlsxPath}"`,
+      parentName: "explorer.exe", parentPid: 3844, pid: 7284,
+      extra: {
+        ...csEnvelope("aishd5"),
+        "host.name": c.host,
+        "user.name": "a.kaplan",
+        "event.category": "process",
+        "event.type": "start",
+        "event.created": ingested("2026-09-22T09:34:41.905Z", 2_200),
+        "process.name": "EXCEL.EXE",
+        "process.pid": "7284",
+        "process.executable": EXCEL,
+        "process.command_line": `"${EXCEL}" "${xlsxPath}"`,
+        "process.parent.name": "explorer.exe",
+        "process.parent.pid": "3844",
+      },
+      sha256: makeSha256("aishd_excel_exe_16_0_clean"),
+      signed: true, signatureSubject: "Microsoft Corporation", integrity: "medium",
+      mitre: "T1005", tactic: "Collection", severity: "low", incidentId: INC,
       description:
-        `About ninety seconds after the block, EXCEL.EXE (started from explorer.exe) wrote ${csvName} (1.7 MB) into the same Downloads folder on WS-SALES-1876: the same customer data saved again in a different file format.`,
+        `At 09:34, 47 seconds after the block, explorer.exe started EXCEL.EXE with ${xlsxName} from Downloads as its argument on WS-SALES-1876.`,
     }),
 
-    // The CSV goes up and nothing fires.
+    // Rows go in as prompt text instead of a file.
     zia({
-      id: "aishd6", ts: "2026-09-22T09:36:41.318Z",
-      url: "https://chatgpt.com/backend-api/files", domain: "chatgpt.com", method: "POST", action: "allowed", status: 200,
-      category: "Internet Services", appName: "ChatGPT", sent: 1_731_522, recv: 486,
+      id: "aishd6", ts: "2026-09-22T09:36:12.318Z",
+      url: `https://${DS}/api/v0/chat/completion`, domain: DS, method: "POST", action: "allowed", status: 200,
+      ...deepseek, sent: 64_218, recv: 7_904,
       severity: "high", mitre: "T1567", tactic: "Exfiltration",
       description:
-        `At 09:36 Zscaler allowed a POST of ${csvName} to chatgpt.com/backend-api/files in the Unsanctioned session. DLP inspection returned nothing for the CSV, although it holds the same records the rule matched in the xlsx under three minutes earlier.`,
+        `At 09:36 Zscaler allowed a 64 KB POST to ${DS}/api/v0/chat/completion, the prompt endpoint. The DLP engine scanned the body (dlpengine PII, dlpdictionaries Email Addresses) and the action is Allowed: the rule that blocked the file at 09:33 does not cover prompt text.`,
       extra: {
-        ...aiApp("Unsanctioned"),
-        "zscaler.activity": "Upload",
-        "zscaler.upload_filename": csvName,
-        "zscaler.upload_filetype": "csv",
-        "zscaler.dlpeng": "None",
-        "zscaler.dlpdict": "None",
+        ...promptDlp,
+        "zscaler.prompt_req": "Here is our customer list (part 1 of 3) with account owners, contact emails and annual spend. Group the accounts by region and rank them by spend…",
       },
     }),
-
-    // The prompt that goes with it (Zscaler is the one source that logs it).
     zia({
-      id: "aishd7", ts: "2026-09-22T09:36:46.752Z",
-      url: "https://chatgpt.com/backend-api/conversation", domain: "chatgpt.com", method: "POST", action: "allowed", status: 200,
-      category: "Internet Services", appName: "ChatGPT", sent: 1_486, recv: 7_903,
+      id: "aishd7", ts: "2026-09-22T09:38:05.752Z",
+      url: `https://${DS}/api/v0/chat/completion`, domain: DS, method: "POST", action: "allowed", status: 200,
+      ...deepseek, sent: 71_904, recv: 6_211,
       severity: "high", mitre: "T1567", tactic: "Exfiltration",
       description:
-        "Five seconds later a POST to the conversation endpoint carried the user's prompt, which Zscaler logged in prompt_req: the full customer list with account owners and annual spend, to be grouped by region, ranked and turned into renewal emails. Customer records have now been disclosed to a public model service outside company control (ATLAS AML.T0048).",
+        `At 09:38 a second 72 KB POST to the same prompt endpoint was allowed with the same DLP result (dlpengine PII, dlpdictionaries Email Addresses).`,
       extra: {
-        ...aiApp("Unsanctioned"),
-        "zscaler.prompt_req":
-          "Here is our full customer list with account owners and annual spend. Group the accounts by region, rank the top 20 by spend, and write a personalised renewal email for each of the top 5.",
+        ...promptDlp,
+        "zscaler.prompt_req": "Part 2 of 3 of the customer list, same columns…",
       },
     }),
-
-    // The upload copy is removed from disk.
-    csFile({
-      companyId: CX, id: "aishd8", ts: "2026-09-22T09:44:03.271Z", host: c.host, srcIp: c.ip, user: c.user,
-      extra: csFileExtra({
-        id: "aishd8", ts: "2026-09-22T09:44:03.271Z", host: c.host, user: c.user, path: csvPath, type: "deletion",
-        actor: "explorer.exe", actorPid: 3844, actorPath: "C:\\Windows\\explorer.exe",
-      }),
-      path: csvPath, sha256: csvHash, size: CSV_SIZE, action: "file_delete",
-      actorProcess: "explorer.exe", actorPid: 3844, actorPath: "C:\\Windows\\explorer.exe",
-      actorSigned: "trusted", actorIntegrity: "medium",
-      severity: "medium", mitre: "T1070.004", tactic: "Defense Evasion", incidentId: INC,
+    zia({
+      id: "aishd8", ts: "2026-09-22T09:40:31.044Z",
+      url: `https://${DS}/api/v0/chat/completion`, domain: DS, method: "POST", action: "allowed", status: 200,
+      ...deepseek, sent: 58_377, recv: 11_486,
+      severity: "high", mitre: "T1567", tactic: "Exfiltration",
       description:
-        `At 09:44 explorer.exe deleted ${csvName} from Downloads on WS-SALES-1876, seven minutes after the upload. No matching delete was logged for the xlsx export.`,
+        `At 09:40 a third 58 KB POST was allowed with the same DLP result. Between 09:36 and 09:40 the three prompt requests carried about 194 KB to ${DS}, each flagged by the PII engine and none blocked.`,
+      extra: {
+        ...promptDlp,
+        "zscaler.prompt_req": "Part 3 of 3. Now write a personalised renewal email for each of the top 5 accounts by spend.",
+      },
     }),
   ];
 
@@ -309,7 +329,7 @@ function buildChatHarvestExtension(): TelemetryEvent[] {
 
   const extId = "hkgmfnpelcbjoadkdanmghcplobjhegk";
   const statsHost = "stats.surfguard-vpn.com";
-  const statsIp = "80.94.95.213";
+  const statsIp = "212.87.204.61";
   const statsQuery = `ext=${extId}&ver=5.5.0`;
   const statsUrl = `https://${statsHost}/v2/events?${statsQuery}`;
   const crxUrl = `https://clients2.googleusercontent.com/crx/blobs/Acy5rT0q8XvL3nWk2dUe1hQmZ7JpAaVfN4YtR6sGxKb9oCwDiE5uLhBMg2PzHnQ/${extId}_5_5_0_0.crx`;
@@ -321,9 +341,9 @@ function buildChatHarvestExtension(): TelemetryEvent[] {
     zia({
       id: "aiext1", ts: "2026-09-23T08:57:29.412Z",
       url: "https://chatgpt.com/backend-api/conversation", domain: "chatgpt.com", method: "POST",
-      category: "Internet Services", appName: "ChatGPT", sent: 1_204, recv: 4_880, severity: "informational",
+      category: GENAI_CATEGORY, appName: "ChatGPT", sent: 1_204, recv: 4_880, severity: "informational",
       description:
-        "At 08:57 s.patel posted a short editing prompt to the sanctioned ChatGPT workspace from WS-MKT-3301. No request to any other domain followed it: this is the browser's traffic pattern before the extension update.",
+        "At 08:57 s.patel posted a 1.2 KB request to chatgpt.com (appname ChatGPT, the company's approved AI assistant) from WS-MKT-3301 and received 4.9 KB. This is the browser's traffic before the extension update.",
       extra: {
         ...aiApp("Sanctioned"),
         "zscaler.prompt_req": "shorten this intro paragraph for the partner one-pager",
@@ -338,7 +358,8 @@ function buildChatHarvestExtension(): TelemetryEvent[] {
       category: "Internet Services", appName: "General Browsing", sent: 611, recv: 1_882_417,
       severity: "low", mitre: "T1176", tactic: "Persistence",
       description:
-        `At 09:38 Chrome on WS-MKT-3301 downloaded a 1.8 MB extension package, version 5.5.0, for extension ID ${extId} from the Chrome Web Store update service: a routine automatic update of an extension already installed in the browser.`,
+        `At 09:38 Chrome on WS-MKT-3301 downloaded a 1.8 MB extension package from the Chrome Web Store update host; the file name in the URL is ${extId}_5_5_0_0.crx (extension ID ${extId}, version 5.5.0).`,
+      extra: { "data.http.content_type": "application/x-chrome-extension" },
     }),
 
     // The new version is unpacked into the profile.
@@ -353,10 +374,10 @@ function buildChatHarvestExtension(): TelemetryEvent[] {
       actorParentName: "explorer.exe", actorParentPid: 3844, actorSigned: "trusted", actorIntegrity: "medium",
       severity: "low", mitre: "T1176", tactic: "Persistence", incidentId: INC,
       description:
-        `At 09:38, about five seconds after the package download, chrome.exe wrote manifest.json into a new 5.5.0_0 folder under Extensions\\${extId} in s.patel's Chrome profile. The folder name is the extension's Chrome Web Store ID, and it now runs at version 5.5.0.`,
+        `At 09:38, about five seconds after the package download, chrome.exe wrote manifest.json into a new 5.5.0_0 folder under Extensions\\${extId} in s.patel's Chrome profile on WS-MKT-3301.`,
     }),
 
-    // First lookup of a name that has never appeared for this host.
+    // First lookup of the new name.
     {
       id: "aiext4", ts: "2026-09-23T09:39:58.207Z",
       source: "dns", vendor: "Infoblox DNS", event_type: "dns_query", severity: "low",
@@ -364,7 +385,7 @@ function buildChatHarvestExtension(): TelemetryEvent[] {
       dns: { query: statsHost, query_type: "A", response: statsIp, rcode: "NOERROR" },
       network: { domain: statsHost },
       description:
-        `At 09:39, 67 seconds after the new version was written, WS-MKT-3301 asked the internal Infoblox resolver for ${statsHost} and received one A record, ${statsIp} (a hosting range in Bucharest, Romania). This is the first lookup of that name in this sequence of events.`,
+        `At 09:39, 67 seconds after the new version was written, WS-MKT-3301 asked the internal DNS resolver for ${statsHost} and received one A record, ${statsIp}.`,
       raw: {
         "infoblox.client_ip": c.ip,
         "infoblox.query_name": statsHost,
@@ -403,17 +424,44 @@ function buildChatHarvestExtension(): TelemetryEvent[] {
       category: "Miscellaneous or Unknown", appName: "General Browsing", sent: 1_186, recv: 46, dstIp: statsIp,
       severity: "medium", mitre: "T1071.001", tactic: "Command and Control",
       description:
-        `At 09:40 a 1.2 KB POST reached ${statsHost}/v2/events with ext=${extId}&ver=5.5.0 in the query string and was answered with 46 bytes. Zscaler had no category for the domain and allowed it. The ext parameter is the same 32-character ID as the extension folder written at 09:38.`,
+        `At 09:40 a 1.2 KB POST reached ${statsHost}/v2/events (${statsIp}) with ext=${extId}&ver=5.5.0 in the query string and was answered with 46 bytes. Zscaler had no category for the domain (Miscellaneous or Unknown) and allowed it. The ext value is the extension ID of the folder written at 09:38.`,
       extra: {},
     }),
+
+    // The threat-intelligence match on that lookup — the first alert.
+    {
+      ...sentinelAlert({
+        companyId: CX, id: "aiext10", ts: "2026-09-23T09:46:20.000Z", host: c.host, user: c.user, srcIp: c.ip, incidentId: INC,
+        alertName: "TI map Domain entity to DnsEvents",
+        ruleId: "85aca4d1-5d15-4001-abd9-acb86ca1786a",
+        detail: "Identifies a match in DNS events from any Domain IOC from threat intelligence.",
+        severity: "medium", eventType: "threat_intel_match", mitre: "T1176", tactic: "Persistence",
+        extendedProperties: {
+          DomainName: statsHost,
+          ClientIP: c.ip,
+          Computer: c.host,
+          DnsQueryTime: "2026-09-23T09:39:58.207Z",
+          IndicatorId: "indicator--6e1b9c42-7f30-4d8a-a5c2-0b93e4f17d58",
+          ThreatType: "malicious-activity",
+          ConfidenceScore: 80,
+          IndicatorDescription: "Collection endpoint contacted by the SurfGuard VPN browser extension from version 5.5.0 (extension ID hkgmfnpelcbjoadkdanmghcplobjhegk)",
+          IndicatorFirstSeen: "2026-09-23T06:12:00Z",
+          SourceSystem: "Microsoft Defender Threat Intelligence",
+        },
+        description:
+          `Microsoft Sentinel raised TI map Domain entity to DnsEvents at 09:46: the 09:39 lookup of ${statsHost} by WS-MKT-3301 matched a threat-intelligence domain indicator (confidence 80) whose description names the SurfGuard VPN extension 5.5.0 and the extension ID seen in the profile folder.`,
+      }),
+      is_detection: true,
+      edr_scope: "hybrid" as const,
+    },
 
     // Chat 1: a normal prompt to the sanctioned workspace.
     zia({
       id: "aiext6", ts: "2026-09-23T09:52:14.719Z",
       url: "https://chatgpt.com/backend-api/conversation", domain: "chatgpt.com", method: "POST",
-      category: "Internet Services", appName: "ChatGPT", sent: 1_412, recv: 6_204, severity: "informational",
+      category: GENAI_CATEGORY, appName: "ChatGPT", sent: 1_412, recv: 6_204, severity: "informational",
       description:
-        "At 09:52 s.patel sent a 1.4 KB prompt to the sanctioned ChatGPT workspace asking for an announcement paragraph to be rewritten; the answer was 6.2 KB. prompt_req shows the text, which includes unreleased pricing.",
+        "At 09:52 s.patel sent a 1,412-byte request to the approved ChatGPT workspace and received a 6,204-byte answer.",
       extra: {
         ...aiApp("Sanctioned"),
         "zscaler.prompt_req":
@@ -421,14 +469,14 @@ function buildChatHarvestExtension(): TelemetryEvent[] {
       },
     }),
 
-    // ...and the copy leaves for the extension vendor's domain.
+    // ...and a POST of matching size goes to the extension's domain.
     zia({
       id: "aiext7", ts: "2026-09-23T09:52:24.318Z",
       url: statsUrl, domain: statsHost, method: "POST", action: "allowed", status: 200,
       category: "Miscellaneous or Unknown", appName: "General Browsing", sent: 8_004, recv: 46, dstIp: statsIp,
       severity: "high", mitre: "T1041", tactic: "Exfiltration",
       description:
-        `About ten seconds after that request, a 7.8 KB POST went to ${statsHost}/v2/events with the same ext and ver parameters: about the size of the prompt and the answer together (1,412 + 6,204 bytes plus roughly 390 bytes of overhead). Conversation content is being copied to a domain that belongs to the extension vendor, not to the AI service (ATLAS AML.T0048).`,
+        `About ten seconds after that request, an 8,004-byte POST went to ${statsHost}/v2/events with the same ext and ver parameters: about the size of the prompt and the answer together (1,412 + 6,204 bytes plus roughly 390 bytes).`,
       top: { edr_scope: "edr" },
     }),
 
@@ -436,9 +484,9 @@ function buildChatHarvestExtension(): TelemetryEvent[] {
     zia({
       id: "aiext8", ts: "2026-09-23T10:31:40.885Z",
       url: "https://chatgpt.com/backend-api/conversation", domain: "chatgpt.com", method: "POST",
-      category: "Internet Services", appName: "ChatGPT", sent: 21_344, recv: 9_876, severity: "informational",
+      category: GENAI_CATEGORY, appName: "ChatGPT", sent: 21_344, recv: 9_876, severity: "informational",
       description:
-        "At 10:31 s.patel pasted about 21 KB of notes into the sanctioned workspace to draft a board update; the answer was 9.9 KB. prompt_req shows notes about a revenue shortfall and acquisition talks (truncated by the log).",
+        "At 10:31 s.patel sent a 21,344-byte request to the approved ChatGPT workspace and received a 9,876-byte answer.",
       extra: {
         ...aiApp("Sanctioned"),
         "zscaler.prompt_req":
@@ -453,7 +501,7 @@ function buildChatHarvestExtension(): TelemetryEvent[] {
       category: "Miscellaneous or Unknown", appName: "General Browsing", sent: 31_622, recv: 46, dstIp: statsIp,
       severity: "high", mitre: "T1041", tactic: "Exfiltration",
       description:
-        `About 17 seconds after the request, a 31 KB POST went to ${statsHost}/v2/events: again the size of prompt plus answer (21,344 + 9,876 bytes plus roughly 400 bytes of overhead). The volume sent to that domain scales with what the user typed and received, not with a fixed heartbeat, and it follows each chat exchange by seconds.`,
+        `About 17 seconds after the request, a 31,622-byte POST went to ${statsHost}/v2/events: again about the size of prompt plus answer (21,344 + 9,876 bytes plus roughly 400 bytes). The bytes sent to that domain track each chat exchange within seconds rather than following a fixed heartbeat.`,
     }),
   ];
 
@@ -552,6 +600,60 @@ function buildSvgInvoiceLure(): TelemetryEvent[] {
     result: "failure", enforcedGrantControls: ["Mfa"], enforcedSessionControls: [],
   }];
 
+  // Each recipient's copy of the lure has its own NetworkMessageId (one InternetMessageId).
+  const lureNetworkId = "e94b06d1-2f73-4a8c-9c15-7b30a1d8f462";
+  const secondNetworkId = "1a5d78c3-b902-47e6-8f4a-c60e93b2d517";
+  const lureSubject = "Invoice INV-20418 - September freight services and remittance details";
+
+  // The EmailAttachmentInfo companion of j.chen's copy: same message, so the same ids and time.
+  const attRow = mail({
+    id: "aisvg12", ts: "2026-09-24T08:13:22.317Z", rcpt: victim, headerTo: supplier,
+    subject: lureSubject, internetId: lureInternetId, networkId: lureNetworkId,
+    attName: svgName, attMime: "image/svg+xml", attExt: "svg", attSize: svgSize, attHash: svgHash,
+    clientIp: lureClientIp, scl: "1", severity: "low",
+    description:
+      "The attachment row of j.chen's copy of the lure (same NetworkMessageId): FileName 'Invoice_INV-20418 - PDF - 4 pages.svg', FileType svg, 12,846 bytes, with its SHA256. The name says PDF; the file is an SVG, a web document that can carry script.",
+    top: { mitre_technique: "T1566.001", mitre_tactic: "Initial Access" },
+  });
+
+  // Zero-hour auto purge of one recipient's copy (Defender EmailPostDeliveryEvents).
+  const zapRow = (id: string, ts: string, rcpt: string, networkId: string, description: string): TelemetryEvent => ({
+    id, ts, source: "email_gateway", vendor: "Microsoft Defender for Office 365", event_type: "email_quarantined",
+    severity: "medium", user_email: rcpt, incident_id: INC, description,
+    raw: {
+      "email.from.address": supplier,
+      "email.from.display_name": supplierName,
+      "email.sender.address": supplier,
+      "email.to.address": rcpt,
+      "email.direction": "inbound",
+      "email.subject": lureSubject,
+      "email.message_id": lureInternetId,
+      "email.attachments.file.name": svgName,
+      "email.attachments.file.hash.sha256": svgHash,
+      "data.office365.ActionType": "Moved to quarantine",
+      "data.office365.ActionTrigger": "ZAP",
+      "data.office365.ActionResult": "Success",
+      "data.office365.DeliveryLocation": "Quarantine",
+      "data.office365.ThreatTypes": "Phish",
+      "data.office365.DetectionMethods": "File detonation reputation",
+      "data.office365.NetworkMessageId": networkId,
+      "data.office365.InternetMessageId": lureInternetId,
+      "data.office365.MailboxOwnerUPN": rcpt,
+      "data.office365.RecipientEmailAddress": rcpt,
+      "data.office365.Subject": lureSubject,
+      "data.office365.Sender": supplier,
+      "data.office365.SenderFromDomain": "brightwaterfreight.co.uk",
+      "data.office365.SenderIp": eopIp,
+      "data.office365.AttachmentName": svgName,
+      "data.office365.AttachmentSha256": svgHash,
+      "data.office365.AttachmentCount": "1",
+      "data.office365.CreationTime": ts,
+      "data.office365.Workload": "Exchange",
+      "data.office365.Directionality": "Inbound",
+      "action_result": "quarantined",
+    },
+  });
+
   const events: TelemetryEvent[] = [
     // Reference point: this supplier's ordinary invoice mail, the day before.
     mail({
@@ -561,7 +663,7 @@ function buildSvgInvoiceLure(): TelemetryEvent[] {
       attName: pdfName, attMime: "application/pdf", attExt: "pdf", attSize: pdfSize, attHash: pdfHash,
       clientIp: usualClientIp, scl: "0", severity: "informational",
       description:
-        "On Wednesday afternoon d.holloway of Brightwater Freight, an existing supplier, sent j.chen invoice INV-20377 as a PDF (145 KB). SPF, DKIM and DMARC passed, the message was addressed to j.chen and the mailbox client connected from the supplier's usual UK office IP. This is the sender's normal pattern.",
+        "On Wednesday afternoon d.holloway of Brightwater Freight, an existing supplier, sent j.chen invoice INV-20377 as a PDF (145 KB). SPF, DKIM and DMARC passed and the To header is j.chen. This is the sender's normal pattern.",
       top: { ...baseline },
     }),
 
@@ -569,23 +671,27 @@ function buildSvgInvoiceLure(): TelemetryEvent[] {
     mail({
       id: "aisvg2", ts: "2026-09-24T08:13:22.317Z", rcpt: victim, headerTo: supplier,
       subject: "Invoice INV-20418 - September freight services and remittance details", internetId: lureInternetId,
-      networkId: "e94b06d1-2f73-4a8c-9c15-7b30a1d8f462",
+      networkId: lureNetworkId,
       attName: svgName, attMime: "image/svg+xml", attExt: "svg", attSize: svgSize, attHash: svgHash,
       clientIp: lureClientIp, scl: "1", severity: "low",
       description:
-        "At 08:13 a message from the same supplier mailbox reached j.chen with an attachment named 'Invoice_INV-20418 - PDF - 4 pages.svg' (12.5 KB, image/svg+xml). SPF, DKIM and DMARC passed and it was delivered to the inbox with SCL 1, but the To header names d.holloway himself and j.chen received the copy only by envelope, so the real recipients were hidden (Bcc). The mailbox client connected from an IP in Lagos, not the supplier's usual UK office. The subject and wording are fluent, generic business English of the kind an LLM produces at no cost (ATLAS AML.T0052.000).",
+        "At 08:13 a message from the same supplier mailbox reached j.chen with one attachment. SPF, DKIM and DMARC passed and it was delivered to the inbox with SCL 1, but the To header names d.holloway himself while the recipient is j.chen, so the real recipients were hidden (Bcc).",
       top: { mitre_technique: "T1566.001", mitre_tactic: "Initial Access" },
     }),
+
+    // The attachment of that message (Defender's EmailAttachmentInfo row: name, type and hash).
+    // (EmailAttachmentInfo has no sender-IP column, so the row carries no src_ip.)
+    { ...attRow, src_ip: undefined, raw: { ...attRow.raw, category: "AdvancedHunting-EmailAttachmentInfo" } },
 
     // Same message, second hidden recipient.
     mail({
       id: "aisvg3", ts: "2026-09-24T08:13:25.041Z", rcpt: second, headerTo: supplier,
       subject: "Invoice INV-20418 - September freight services and remittance details", internetId: lureInternetId,
-      networkId: "1a5d78c3-b902-47e6-8f4a-c60e93b2d517",
+      networkId: secondNetworkId,
       attName: svgName, attMime: "image/svg+xml", attExt: "svg", attSize: svgSize, attHash: svgHash,
       clientIp: lureClientIp, scl: "1", severity: "low",
       description:
-        "Under three seconds later the same message (identical Internet message ID) was delivered to p.whitfield, again with d.holloway in the To header. One message reached both mailboxes as hidden recipients.",
+        "Under three seconds later the same message (identical InternetMessageId) was delivered to p.whitfield, again with d.holloway in the To header. One message reached both mailboxes as hidden recipients.",
       top: { mitre_technique: "T1566.001", mitre_tactic: "Initial Access" },
     }),
 
@@ -601,7 +707,7 @@ function buildSvgInvoiceLure(): TelemetryEvent[] {
       actorParentName: "explorer.exe", actorParentPid: 3844, actorSigned: "trusted", actorIntegrity: "medium",
       severity: "low", incidentId: INC,
       description:
-        "At 08:26 OUTLOOK.EXE wrote 'Invoice_INV-20418 - PDF - 4 pages.svg' into the INetCache\\Content.Outlook folder in j.chen's profile on WS-ACC-4477, the copy Outlook makes when an attachment is opened from a message. The SHA-256 equals the hash of the attachment delivered at 08:13.",
+        "At 08:26 OUTLOOK.EXE wrote 'Invoice_INV-20418 - PDF - 4 pages.svg' into the INetCache\\Content.Outlook folder in j.chen's profile on WS-ACC-4477, the copy Outlook makes when an attachment is opened from a message. The SHA256 equals the attachment hash of the lure delivered at 08:13.",
     }),
 
     // Edge, not a PDF reader, renders it.
@@ -631,7 +737,19 @@ function buildSvgInvoiceLure(): TelemetryEvent[] {
       signed: true, signatureSubject: "Microsoft Corporation", integrity: "medium",
       mitre: "T1204.002", tactic: "Execution", severity: "medium", incidentId: INC,
       description:
-        "About two seconds later OUTLOOK.EXE started msedge.exe with the SVG as its only argument. The file opened in the browser, not in a PDF reader: an SVG is a web document that can carry script.",
+        "About two seconds later OUTLOOK.EXE started msedge.exe with the cached SVG as its only argument, so the file opened in the browser rather than in a PDF reader.",
+    }),
+
+    // That Edge process connects out.
+    csNetwork({
+      companyId: CX, id: "aisvg13", ts: "2026-09-24T08:26:46.871Z", host: c.host, srcIp: c.ip, user: victim,
+      remoteIp: gateIp, remotePort: 443, domain: gateHost,
+      processName: "msedge.exe", processPath: EDGE, pid: 9236, parentName: "OUTLOOK.EXE", parentPid: 5148,
+      cmdline: `"${EDGE}" --single-argument "${svgPath}"`,
+      extra: csEnvelope("aisvg13"),
+      mitre: "T1204.002", tactic: "Execution", severity: "medium", incidentId: INC,
+      description:
+        `Six seconds after it started, the msedge.exe process opened with the SVG (parent OUTLOOK.EXE) connected to ${gateIp}:443 (${gateHost}).`,
     }),
 
     // The SVG sends the browser to a gate page.
@@ -641,7 +759,7 @@ function buildSvgInvoiceLure(): TelemetryEvent[] {
       category: "Newly Registered Domains", appName: "General Browsing", sent: 902, recv: 41_336, dstIp: gateIp,
       severity: "medium", mitre: "T1566.002", tactic: "Initial Access",
       description:
-        `Six seconds after Edge opened the file, WS-ACC-4477 requested https://${gateHost}/r/Xq7Lp2Vt9 (${gateIp}). Zscaler categorised the domain as Newly Registered Domains and allowed it. The host had made no earlier request to this domain.`,
+        `At 08:26 WS-ACC-4477 requested https://${gateHost}/r/Xq7Lp2Vt9 (${gateIp}) with no referer. Zscaler categorised the domain as Newly Registered Domains and allowed it. The host had made no earlier request to this domain.`,
     }),
 
     // The CAPTCHA.
@@ -651,7 +769,8 @@ function buildSvgInvoiceLure(): TelemetryEvent[] {
       category: "Internet Services", appName: "General Browsing", sent: 1_014, recv: 47_905,
       severity: "informational",
       description:
-        "About 23 seconds later the page loaded the Cloudflare Turnstile script, the CAPTCHA that gates the next step. The destination is a legitimate CDN; what matters is that it was requested by the page on the newly registered domain.",
+        `About 23 seconds later the browser loaded the Cloudflare Turnstile CAPTCHA script; refererURL is the page on ${gateHost}. The destination itself is a legitimate CDN.`,
+      extra: { "zscaler.referer": `https://${gateHost}/r/Xq7Lp2Vt9`, "data.http.content_type": "application/javascript" },
     }),
 
     // The credential page.
@@ -662,6 +781,7 @@ function buildSvgInvoiceLure(): TelemetryEvent[] {
       severity: "medium",
       description:
         `At 08:27, 47 seconds after the CAPTCHA script, the browser loaded https://${gateHost}/auth/signin?d=INV-20418, a sign-in page on the same newly registered domain.`,
+      extra: { "zscaler.referer": `https://${gateHost}/r/Xq7Lp2Vt9` },
     }),
 
     // The form is submitted.
@@ -669,9 +789,10 @@ function buildSvgInvoiceLure(): TelemetryEvent[] {
       id: "aisvg9", ts: "2026-09-24T08:28:44.126Z",
       url: `https://${gateHost}/api/session`, domain: gateHost, method: "POST", action: "allowed", status: 200,
       category: "Newly Registered Domains", appName: "General Browsing", sent: 3_214, recv: 204, dstIp: gateIp,
-      severity: "high", mitre: "T1056", tactic: "Credential Access",
+      severity: "high", mitre: "T1598.003", tactic: "Reconnaissance",
       description:
-        `At 08:28 a 3.2 KB POST to https://${gateHost}/api/session was allowed: the submission of the sign-in form, about the size of a username, a password and some page metadata. Zscaler does not log the body.`,
+        `At 08:28 a 3.2 KB POST from the sign-in page to https://${gateHost}/api/session was allowed: about the size of a username, a password and some page metadata. Zscaler does not log the body.`,
+      extra: { "zscaler.referer": `https://${gateHost}/auth/signin?d=INV-20418` },
     }),
 
     // A sign-in follows from the address that served the page; MFA holds.
@@ -685,7 +806,7 @@ function buildSvgInvoiceLure(): TelemetryEvent[] {
         userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
         userId: "6b2f9d40-8e13-4c57-a1d6-3f0c7e8b5a92",
         correlationId: "d4a81c36-5f92-4e07-b3c8-2a9e6f1d7b40", sessionId: "c9e2a705-1f84-4b36-a927-6d0e5c3f819a",
-        riskLevel: "none", conditionalAccess: "failure",
+        riskLevel: "medium", riskDetail: "none", riskEventTypes: ["unfamiliarFeatures"], conditionalAccess: "failure",
         severity: "high", mitre: "T1078.004", tactic: "Initial Access", incidentId: INC,
         extra: {
           "azure.signinlogs.resultDescription": "Authentication failed during strong authentication request.",
@@ -696,51 +817,17 @@ function buildSvgInvoiceLure(): TelemetryEvent[] {
           "azure.signinlogs.properties.appliedConditionalAccessPolicies": signInPolicy,
         },
         description:
-          `At 08:29, 28 seconds after the form POST, Entra ID logged a sign-in attempt for j.chen from ${gateIp} in Kyiv, the same address that served the page. The password step succeeded, but the multifactor step failed (500121) because no Authenticator prompt was approved, and Conditional Access blocked the session. The password is disclosed even though nobody got in.`,
+          `At 08:29, 28 seconds after the form POST, Entra ID logged a sign-in attempt for j.chen from ${gateIp} (Kyiv), the address that served the sign-in page. Identity Protection rated it medium risk (unfamiliarFeatures). The password step succeeded ("Correct password"); the Authenticator step was not approved (500121) and Conditional Access did not grant the session.`,
       }),
       is_detection: true,
       edr_scope: "hybrid" as const,
     },
 
     // The mail product catches up after delivery.
-    {
-      id: "aisvg11", ts: "2026-09-24T08:33:51.077Z",
-      source: "email_gateway", vendor: "Microsoft Defender for Office 365", event_type: "email_quarantined",
-      severity: "medium", user_email: victim, incident_id: INC,
-      description:
-        "At 08:33 Defender for Office 365 removed the message from j.chen's mailbox after delivery (zero-hour auto purge, alert \"Email messages containing malicious file removed after delivery\"), 20 minutes after it arrived and about five minutes after the credentials were submitted. The removal came after the attachment had been opened and the form submitted.",
-      raw: {
-        "email.from.address": supplier,
-        "email.subject": "Invoice INV-20418 - September freight services and remittance details",
-        "email.message_id": lureInternetId,
-        "email.attachments.file.name": svgName,
-        "email.attachments.file.hash.sha256": svgHash,
-        "data.office365.ActionType": "Moved to quarantine",
-        "data.office365.ActionTrigger": "ZAP",
-        "data.office365.ActionResult": "Success",
-        "data.office365.DeliveryLocation": "Quarantine",
-        "data.office365.ThreatTypes": "Phish",
-        "data.office365.NetworkMessageId": "e94b06d1-2f73-4a8c-9c15-7b30a1d8f462",
-        "data.office365.InternetMessageId": lureInternetId,
-        "data.office365.MailboxOwnerUPN": victim,
-        "data.office365.Subject": "Invoice INV-20418 - September freight services and remittance details",
-        "data.office365.Sender": supplier,
-        "data.office365.AttachmentName": svgName,
-        "data.office365.AttachmentSha256": svgHash,
-        "email.from.display_name": supplierName,
-        "email.sender.address": supplier,
-        "email.to.address": victim,
-        "email.direction": "inbound",
-        "data.office365.CreationTime": "2026-09-24T08:33:51.077Z",
-        "data.office365.Workload": "Exchange",
-        "data.office365.Directionality": "Inbound",
-        "data.office365.SenderIp": eopIp,
-        "data.office365.SenderFromDomain": "brightwaterfreight.co.uk",
-        "data.office365.RecipientEmailAddress": victim,
-        "data.office365.AttachmentCount": "1",
-        "action_result": "quarantined",
-      },
-    },
+    zapRow("aisvg11", "2026-09-24T08:33:51.077Z", victim, lureNetworkId,
+      "At 08:33 zero-hour auto purge moved the lure delivered at 08:13 (same NetworkMessageId) from j.chen's inbox to quarantine (Phish ZAP), 20 minutes after delivery and about five minutes after the 08:28 form POST."),
+    zapRow("aisvg14", "2026-09-24T08:33:52.410Z", second, secondNetworkId,
+      "One second later the same purge moved p.whitfield's copy of the message to quarantine (Phish ZAP, same InternetMessageId)."),
   ];
 
   for (const e of events) e.incident_id = INC;
@@ -752,7 +839,7 @@ function buildSvgInvoiceLure(): TelemetryEvent[] {
 export const AI_FOUNDATION_STORIES: AiStoryDef[] = [
   {
     id: "ai-shadow-chat-upload",
-    title: "Shadow AI — Customer List Uploaded to a Personal Chatbot Account",
+    title: "Shadow AI — Customer List Pasted into an Unsanctioned Chatbot After a DLP Block",
     complexity: "foundation",
     companies: ["nexacorp", "globallogis", "quantumbank"],
     events: buildShadowChatUpload(),

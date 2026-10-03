@@ -174,7 +174,7 @@ function webfilter(f: FwFacts, ctx: NativeCtx): Rec {
   if (f.referer) r.referralurl = f.referer;
   r.sentbyte = f.blocked ? ctx.int(`${f.ev.id}:req`, 380, 720) : f.bytesOut;
   r.rcvdbyte = f.blocked ? 0 : f.bytesIn;
-  r.direction = "outgoing";
+  r.direction = f.dir === "inbound" ? "incoming" : "outgoing";
   r.msg = f.blocked ? "URL belongs to a denied category in policy" : "URL belongs to an allowed category in policy";
   r.method = "domain";
   const c = catOf(f);
@@ -209,7 +209,7 @@ function ips(f: FwFacts, ctx: NativeCtx): Rec {
   if (f.url) r.url = f.path ?? "/";
   if (f.userAgent) r.agent = f.userAgent;
   if (f.method && f.url) r.httpmethod = f.method;
-  r.direction = "outgoing"; // client-to-server request (attacker or implant is the client)
+  r.direction = f.dir === "inbound" ? "incoming" : "outgoing"; // client-to-server request (attacker or implant is the client)
   const attackid = Number(t.id) || threatNumber(t.name, ctx, 10000, 59999);
   r.attackid = attackid;
   r.profile = rawGet(raw, "data.profile") ?? (f.dir === "outbound" ? "protect_client" : [80, 443, 8080, 8443].includes(f.dport) ? "protect_http_server" : "high_security");
@@ -250,6 +250,8 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   // Web filtering applies to outbound HTTP(S); a downloaded file is logged by the
   // web filter as its URL (the AV log exists only for an infected verdict).
   else if ((f.cls === "url" || f.cls === "file") && f.dir === "outbound") record = webfilter(f, ctx);
+  // A web-filter profile on an inbound (published-server) policy logs the request it rated too.
+  else if (f.cls === "url" && f.dir === "inbound") record = webfilter(f, ctx);
   else record = traffic(f, ctx);
   const kind = `${record.type}/${record.subtype}`;
   return { sourceId: "fortigate", kind, format: "kv", record, rawLine: toRawLine(record), timeMs: f.timeMs };

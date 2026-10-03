@@ -76,7 +76,8 @@ describe("google_workspace — corpus conversion", () => {
       const hay = strings(log.record);
       const user = ev.user?.email ?? ev.user_email;
       if (user) expect(present(hay, user), `${ev.id} user`).toBe(true);
-      if (ev.src_ip) expect(present(hay, ev.src_ip), `${ev.id} ip`).toBe(true);
+      // Google is SaaS: an office-LAN client reaches it through the NAT egress, never with its private address.
+      if (ev.src_ip && !/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ev.src_ip)) expect(present(hay, ev.src_ip), `${ev.id} ip`).toBe(true);
       if (ev.file?.name && log.kind === "drive") expect(present(hay, ev.file.name), `${ev.id} file`).toBe(true);
       if (ev.file?.sha256) expect(present(hay, ev.file.sha256), `${ev.id} sha`).toBe(true);
       if (ev.network?.domain && log.kind === "gmail") expect(present(hay, ev.network.domain), `${ev.id} domain`).toBe(true);

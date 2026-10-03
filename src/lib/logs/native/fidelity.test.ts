@@ -231,9 +231,10 @@ describe("#12 Defender for Office 365 verdicts", () => {
     expect(p.ThreatTypes).toBe("");
     expect(p.DetectionMethods).toBe("");
   });
-  it("an authored org-level allow keeps the verdict and shows the override", () => {
+  it("an authored org-level allow shows the override, but no allow delivers a Malware verdict (clean at delivery, ZAP later)", () => {
     const p = P(render("defender_o365", lure("email_received", { action_result: "delivered", OrgLevelAction: "Allow", OrgLevelPolicy: "Tenant Allow/Block List" })));
-    expect(p.ThreatTypes).toBe("Malware");
+    expect(p.DeliveryAction).toBe("Delivered");
+    expect(p.ThreatTypes).not.toContain("Malware");
     expect(p.OrgLevelAction).toBe("Allow");
   });
 });

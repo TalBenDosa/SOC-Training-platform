@@ -43,8 +43,10 @@ export type ClaudeActivityType =
   | "claude_project_created" | "claude_project_viewed" | "claude_project_sharing_updated"
   | "claude_file_uploaded" | "claude_file_viewed" | "claude_file_deleted"
   | "claude_artifact_created" | "claude_artifact_viewed" | "claude_artifact_sharing_updated" | "claude_artifact_published"
+  | "claude_artifact_external_sharing_permission_updated"
   | "admin_api_key_created" | "api_key_created" | "compliance_api_accessed"
-  | "org_ip_restriction_deleted" | "org_data_export_started" | "org_user_invite_accepted"
+  | "org_ip_restriction_deleted" | "org_data_export_started" | "org_data_export_completed" | "org_data_export_accessed"
+  | "org_user_invite_accepted"
   | "platform_memory_store_created" | "platform_memory_created" | "platform_memory_deleted";
 
 /** Platform classification per activity: normalised event_type, default severity, fallback wording. */
@@ -65,11 +67,14 @@ const META: Record<ClaudeActivityType, { et: EventType; sev: Severity; label: st
   claude_artifact_viewed:          { et: "cloud_storage_access", sev: "informational", label: "artifact loaded" },
   claude_artifact_sharing_updated: { et: "cloud_storage_access", sev: "low",           label: "artifact sharing settings updated" },
   claude_artifact_published:       { et: "cloud_storage_access", sev: "low",           label: "artifact version published" },
+  claude_artifact_external_sharing_permission_updated: { et: "cloud_storage_access", sev: "low", label: "artifact external sharing permission updated" },
   admin_api_key_created:           { et: "account_modify",       sev: "medium",        label: "admin API key created" },
   api_key_created:                 { et: "account_modify",       sev: "medium",        label: "API key created" },
   compliance_api_accessed:         { et: "cloud_api_call",       sev: "informational", label: "Compliance API accessed" },
   org_ip_restriction_deleted:      { et: "account_modify",       sev: "medium",        label: "organization IP restriction deleted" },
   org_data_export_started:         { et: "cloud_storage_access", sev: "medium",        label: "organization data export started" },
+  org_data_export_completed:       { et: "cloud_storage_access", sev: "low",           label: "organization data export completed" },
+  org_data_export_accessed:        { et: "cloud_storage_access", sev: "medium",        label: "organization data export accessed" },
   org_user_invite_accepted:        { et: "account_modify",       sev: "low",           label: "organization invite accepted" },
   platform_memory_store_created:   { et: "cloud_api_call",       sev: "informational", label: "memory store created" },
   platform_memory_created:         { et: "cloud_api_call",       sev: "informational", label: "memory created" },
@@ -94,10 +99,12 @@ const ECS: Record<ClaudeActivityType, { cat: string; type: string }> = {
   claude_file_uploaded: { cat: "file", type: "creation" }, claude_file_viewed: { cat: "file", type: "access" }, claude_file_deleted: { cat: "file", type: "deletion" },
   claude_artifact_created: { cat: "web", type: "creation" }, claude_artifact_viewed: { cat: "web", type: "access" },
   claude_artifact_sharing_updated: { cat: "web", type: "change" }, claude_artifact_published: { cat: "web", type: "change" },
+  claude_artifact_external_sharing_permission_updated: { cat: "web", type: "change" },
   admin_api_key_created: { cat: "iam", type: "creation" }, api_key_created: { cat: "iam", type: "creation" },
   compliance_api_accessed: { cat: "api", type: "access" },
   org_ip_restriction_deleted: { cat: "configuration", type: "deletion" },
   org_data_export_started: { cat: "web", type: "start" },
+  org_data_export_completed: { cat: "web", type: "end" }, org_data_export_accessed: { cat: "web", type: "access" },
   org_user_invite_accepted: { cat: "iam", type: "change" },
   platform_memory_store_created: { cat: "web", type: "creation" }, platform_memory_created: { cat: "web", type: "creation" }, platform_memory_deleted: { cat: "web", type: "deletion" },
 };

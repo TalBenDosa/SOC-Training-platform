@@ -190,17 +190,41 @@ function render(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts, r: Render): Nati
   return { sourceId: "okta", kind: r.eventType, format: "json", record, timeMs: Date.parse(ev.ts) };
 }
 
-/** debugData risk/behaviour enrichment for sign-in-type events. */
+/**
+ * debugData risk/behaviour enrichment for sign-in-type events. Authored behaviours / risk win
+ * key by key; what the story did not state is what Okta's engines conclude from the request
+ * itself: an address outside the head-office country (not the corporate egress) is a new
+ * country / geo-location / IP; an anonymizer is a new IP and location; a scripted client or a
+ * high risk is a new device. The user's own baseline sign-ins (is_baseline, or an informational
+ * context row with no technique) are their usual pattern — all NEGATIVE. Risk with none authored: anonymizer, or a new location on a new
+ * device → HIGH; a new location → MEDIUM; otherwise LOW.
+ */
 function riskDebug(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts, withBehaviors: boolean): Record<string, string> {
   const out: Record<string, string> = {};
-  const ip = f.ip;
+  const egress = egressIp(ctx);
+  const ip = isPrivateIp(f.ip) ? egress : f.ip;
   const geo = geoOf(ev, ctx, ip);
-  const foreign = !isPrivateIp(ip) && geo.iso !== (COMPANY_HQ[ctx.companyId] ?? "IL");
-  const positive = new Set<string>();
-  if (f.behaviors) for (const m of f.behaviors.matchAll(/([A-Za-z -]+)=POSITIVE/g)) positive.add(m[1].trim());
-  else if (foreign && f.risk !== "none") ["New Geo-Location", "New IP", "New State", "New Country", "New City", ...(f.risk === "high" ? ["New Device", "Velocity"] : [])].forEach(k => positive.add(k));
-  if (withBehaviors && (f.behaviors || f.risk !== "none" || foreign)) out.behaviors = behaviorsString(positive);
-  out.risk = f.risk === "high" ? "{reasons=Anomalous Location, Anomalous Device, level=HIGH}" : f.risk === "medium" ? "{reasons=Anomalous Location, level=MEDIUM}" : "{level=LOW}";
+  const asn = asnOf(ev, geo, ip);
+  const corporate = !ip || ip === egress;
+  const proxy = !corporate && asn.isProxy;
+  const foreign = !corporate && geo.iso !== (COMPANY_HQ[ctx.companyId] ?? "IL");
+  const authored = new Map<string, boolean>();
+  if (f.behaviors) for (const m of f.behaviors.matchAll(/([A-Za-z -]+)=(POSITIVE|NEGATIVE)/g)) authored.set(m[1].trim(), m[2] === "POSITIVE");
+  const derived = new Set<string>();
+  // The account's usual pattern: a baseline row, or an informational context row with no technique.
+  const usual = ev.is_baseline || (ev.severity === "informational" && !ev.mitre_technique && ev.expected_verdict !== "tp" && ev.expected_verdict !== "escalate");
+  if (!usual) {
+    if (foreign) ["New Geo-Location", "New IP", "New State", "New Country", "New City"].forEach(k => derived.add(k));
+    if (proxy) ["New Geo-Location", "New IP"].forEach(k => derived.add(k));
+    if (uaOf(ev).scripted || f.risk === "high") derived.add("New Device");
+    if (f.riskReasons.includes("unlikelyTravel")) derived.add("Velocity");
+  }
+  const positive = new Set(BEHAVIOR_KEYS.filter(k => authored.get(k) ?? derived.has(k)));
+  if (withBehaviors && (f.behaviors || f.risk !== "none" || foreign || proxy)) out.behaviors = behaviorsString(positive);
+  const newLoc = positive.has("New Country") || positive.has("New Geo-Location");
+  const level = f.risk !== "none" ? f.risk : proxy || (newLoc && positive.has("New Device")) ? "high" : newLoc ? "medium" : "low";
+  const reasons = [newLoc || proxy || level !== "low" ? "Anomalous Location" : "", positive.has("New Device") || (level === "high" && !proxy) ? "Anomalous Device" : ""].filter(Boolean);
+  out.risk = level === "low" ? "{level=LOW}" : `{reasons=${reasons.join(", ")}, level=${level.toUpperCase()}}`;
   out.threatSuspected = f.threatSuspected ? "true" : "false";
   return out;
 }

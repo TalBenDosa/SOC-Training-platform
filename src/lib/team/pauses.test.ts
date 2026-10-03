@@ -87,7 +87,8 @@ describe("computeReport timing is pause-aware", () => {
     const a = computeReport(log(false), roster);
     const b = computeReport(log(true), roster);
     expect(b.team.timeToDetectS).toBe(a.team.timeToDetectS);
-    expect(b.team.timeToDetectS).toBe(120);
+    // MTTD now runs from the first attack log (e1 at 60s), pause-invariant: 120 − 60.
+    expect(b.team.timeToDetectS).toBe(60);
     expect(b.team.handoffLatS).toBe(30);
     expect(b.team.incidents[0].dwellS).toBe(60);
     const t1 = b.perUser.find(u => u.user_id === "t1")!;

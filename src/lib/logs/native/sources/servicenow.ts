@@ -6,8 +6,13 @@
  * choice fields as their stored value ("state": "2", "approval": "approved"), date/times
  * "YYYY-MM-DD HH:MM:SS" UTC, reference fields as `{link, value}` objects pointing at the
  * referenced table (sys_user, sys_user_group, cmdb_ci …), `sys_created_by` /
- * `sys_updated_by` as user_name strings, and journal fields (`work_notes`, `comments`)
- * returned empty — the Table API never inlines journal text.
+ * `sys_updated_by` as user_name strings. Journal fields (`work_notes`, `comments`) carry the
+ * ticket's journal as the SIEM connector reads it — the entry list ServiceNow returns for a journal
+ * field read with display values (`<sys_created_on> - <user> (Work notes)` + the text) — because
+ * the notes ARE the evidence (how the caller was verified, what the agent did); a ticket with no
+ * authored note returns them empty. resolved_at / closed_at follow the ticket's own timeline: the
+ * authored value, else the record's time when the state says it was resolved / closed — never
+ * later than the record itself.
  *
  * Input: `source:"soar"` events whose vendor is ServiceNow — the records produced by
  * src/lib/sim/emitters/servicenow.ts (`serviceNowRecord`, legacy `servicenow.*` raw keys).
@@ -64,6 +69,8 @@ function ref(ctx: NativeCtx, table: string, key: string) {
   return { link: `https://${ctx.org}.service-now.com/api/now/table/${table}/${value}`, value };
 }
 const userName = (v: string) => (v.includes("@") ? v.split("@")[0] : v);
+/** "j.oduya@x" → "J Oduya" (a journal entry names its author by display name). */
+const displayName = (v: string) => userName(v).split(/[._]/).filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 const DT = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
 const snowTime = (v: string) => (DT.test(v) ? v : new Date(v).toISOString().slice(0, 19).replace("T", " "));
 
@@ -96,8 +103,11 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const assignee = sn("assigned_to");
   const resolver = sn("resolved_by");
   const updatedBy = sn("sys_updated_by") ?? (resolver && /resolved|closed/i.test(stateRaw) ? resolver : undefined) ?? assignee ?? opener ?? "system";
-  const openedAt = sn("opened_at") ?? (isNew ? snowTime(ev.ts) : undefined);
-  const createdOn = sn("sys_created_on") ?? openedAt;
+  // The record is read at ev.ts: nothing in it happened later than that.
+  const recTime = snowTime(ev.ts);
+  const notAfter = (t: string) => (t > recTime ? recTime : t);
+  const openedAt = sn("opened_at") ? notAfter(snowTime(sn("opened_at")!)) : isNew ? recTime : undefined;
+  const createdOn = sn("sys_created_on") ? notAfter(snowTime(sn("sys_created_on")!)) : openedAt;
   const rank = closed ? 6 : /resolved/i.test(stateRaw) || state === "6" ? 5 : isNew ? 0 : 2;
   const result: Record<string, unknown> = {
     sys_id: sysId(ctx, table, number),
@@ -128,8 +138,8 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     put("u_identity_verification", sn("u_identity_verification"));
     put("u_verification_result", sn("u_verification_result"));
     result.hold_reason = "";
-    result.resolved_at = sn("resolved_at") ?? "";
-    result.closed_at = sn("closed_at") ?? "";
+    result.resolved_at = sn("resolved_at") ? notAfter(snowTime(sn("resolved_at")!)) : state === "6" || closed ? recTime : "";
+    result.closed_at = sn("closed_at") ? notAfter(snowTime(sn("closed_at")!)) : closed ? recTime : "";
   } else if (table === "change_request") {
     put("type", choice(sn("type")));
     const risk = sn("risk");
@@ -151,14 +161,17 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   put("opened_at", openedAt);
   put("sys_created_on", createdOn);
   put("sys_created_by", opener ? userName(opener) : undefined);
-  result.sys_updated_on = sn("sys_updated_on") ? snowTime(sn("sys_updated_on")!) : snowTime(ev.ts);
+  result.sys_updated_on = sn("sys_updated_on") ? notAfter(snowTime(sn("sys_updated_on")!)) : recTime;
   result.sys_updated_by = userName(updatedBy);
   result.sys_mod_count = String(rank + (rank === 0 ? 0 : ctx.int(`${ctx.companyId}:${number}:${state}:mod`, 0, 3)));
   result.close_code = sn("close_code") ?? "";
   result.close_notes = sn("close_notes") ?? "";
-  // Journal fields always come back empty from the Table API (entries live in sys_journal_field).
-  result.work_notes = "";
-  result.comments = "";
+  // Journal entries, stamped with the last update and its author (see the header).
+  const journal = (kind: "Work notes" | "Additional comments", text?: string) =>
+    text ? `${result.sys_updated_on} - ${displayName(updatedBy)} (${kind})
+${text}` : "";
+  result.work_notes = journal("Work notes", sn("work_notes"));
+  result.comments = journal("Additional comments", sn("comments"));
 
   return { sourceId: "servicenow", kind: table, format: "json", record: { result }, timeMs: Date.parse(ev.ts) };
 }

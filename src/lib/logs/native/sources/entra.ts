@@ -15,9 +15,10 @@
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { NativeCtx, NativeLog, NativeSource, SourceSchema, UseCase } from "../types";
 import {
-  asnOf, b62, geoOf, identityFacts, isoFrac, isPrivateIp, nameFromLogin, rawAny, rawStr, rawWithPrefix, uaOf,
+  aadSessionId, asnOf, b62, entraObjectId, geoOf, identityFacts, isoFrac, isPrivateIp, nameFromLogin, rawAny, rawStr, rawWithPrefix, uaOf,
   type IdFacts, type MfaMethod,
 } from "./_identity-common";
+import { egressIp } from "./firewall-shared";
 
 // ── schema ───────────────────────────────────────────────────────────────────
 
@@ -139,7 +140,8 @@ const MFA_METHOD: Record<MfaMethod, { step: string; used: string; detail: string
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-const userId = (ctx: NativeCtx, upn: string) => ctx.uuid(`${ctx.companyId}:entra-user:${upn}`);
+/** One object id per user in every Microsoft record (Entra, UAL, MDO) — see entraObjectId. */
+const userId = (ctx: NativeCtx, upn: string) => entraObjectId(ctx, upn);
 const graphId = (ctx: NativeCtx, seed: string) => { const u = ctx.uuid(seed); return `${u.slice(0, -4)}${u.slice(-4, -2)}00`; };
 
 function appOf(ctx: NativeCtx, name?: string): { appId: string; appDisplayName: string } {
@@ -164,7 +166,10 @@ const jsonStr = (v: string) => JSON.stringify(v);
 
 function renderSignIn(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts, upn: string, opts: { code: number; interactive?: boolean; appName?: string }): NativeLog {
   const p = rawWithPrefix(ev, "azure.signinlogs.properties.");
-  const ip = f.ip ?? "";
+  // Entra is SaaS: a user inside the office reaches it from the company's NAT egress (the address
+  // its "Corporate HQ" named location is defined on) — never from the workstation's private IP.
+  const lanIp = f.ip ?? "";
+  const ip = isPrivateIp(lanIp) ? egressIp(ctx) : lanIp;
   const geo = geoOf(ev, ctx, ip);
   const asn = asnOf(ev, geo, ip);
   const ua = uaOf(ev);
@@ -194,7 +199,7 @@ function renderSignIn(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts, upn: strin
   const riskState = rawStr(ev, "azure.signinlogs.properties.riskState", "azure.signinlogs.risk_state") ?? (riskDuring !== "none" || riskAgg !== "none" ? "atRisk" : "none");
   const norm = (v: string) => (["none", "low", "medium", "high", "hidden"].includes(v) ? v : v === "critical" ? "high" : "none");
   // Device
-  const corp = isPrivateIp(ip) && !ua.scripted;
+  const corp = isPrivateIp(lanIp) && !ua.scripted;
   const managed = f.managedDevice ?? (corp && !!ev.hostname);
   const devId = rawStr(ev, "azure.signinlogs.properties.deviceDetail.deviceId", "azure.signinlogs.device_detail.device_id");
   const deviceDetail = {
@@ -207,8 +212,12 @@ function renderSignIn(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts, upn: strin
     trustType: rawStr(ev, "azure.signinlogs.properties.deviceDetail.trustType") ?? (managed ? "Azure AD joined" : ""),
   };
   // Conditional Access
-  const rawCa = rawStr(ev, "azure.signinlogs.properties.conditionalAccessStatus", "azure.signinlogs.conditional_access_status", "data.office365.ConditionalAccessStatus", "azure.conditional_access.status");
+  const rawCaIn = rawStr(ev, "azure.signinlogs.properties.conditionalAccessStatus", "azure.signinlogs.conditional_access_status", "data.office365.ConditionalAccessStatus", "azure.conditional_access.status");
+  const rawCa = rawCaIn && /^(not[ _-]?appl\w*|none)$/i.test(rawCaIn) ? "notApplied" : rawCaIn;
   const caStatus = code === 53003 || code === 500121 ? "failure" : rawCa && ["success", "failure", "notApplied"].includes(rawCa) ? rawCa : mfaReached && ok ? "success" : "notApplied";
+  // A policy's result never contradicts the record's conditionalAccessStatus: with no CA policy in
+  // force, the MFA the sign-in did is the per-user MFA setting (authenticationRequirementPolicies).
+  const caResult = caStatus === "notApplied" ? "notApplied" : caStatus === "failure" ? "failure" : "success";
   const rawPolicies = rawAny(ev, "azure.signinlogs.properties.appliedConditionalAccessPolicies");
   const policy = (name: string, grant: string[], result: string, satisfied: string) => ({
     id: ctx.uuid(`${ctx.companyId}:ca:${name}`), displayName: name, enforcedGrantControls: grant, enforcedSessionControls: [] as string[], result,
@@ -217,8 +226,9 @@ function renderSignIn(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts, upn: strin
   });
   const policies = Array.isArray(rawPolicies) ? rawPolicies :
     code === 53003 ? [legacy ? policy("Block legacy authentication", ["Block"], "failure", "application,users,clientType") : policy("Require compliant device", ["RequireCompliantDevice"], "failure", "application,users")] :
-      mfaReached ? [policy("Require MFA - All users", ["Mfa"], ok ? "success" : code === 500121 ? "failure" : "success", "application,users")] :
+      mfaReached && caResult !== "notApplied" ? [policy("Require MFA - All users", ["Mfa"], caResult, "application,users")] :
         !passwordOk ? [] : [policy("Require MFA - Admin portals", [], "notApplied", "none")];
+  const perUserMfa = mfaReached && caResult === "notApplied";
   // Authentication steps
   const rawSteps = rawAny(ev, "azure.signinlogs.properties.authenticationDetails");
   const steps: Record<string, unknown>[] = Array.isArray(rawSteps) ? rawSteps as Record<string, unknown>[] : [];
@@ -242,14 +252,19 @@ function renderSignIn(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts, upn: strin
   const rawCode = p["status.errorCode"];
   const errorCode = typeof rawCode === "number" ? rawCode : code;
   const [failureReason, defaultDetails] = STATUS[errorCode] ?? [rawStr(ev, "azure.signinlogs.resultDescription", "azure.signinlogs.result_description") ?? "Other.", null];
-  const sessionId = ok ? (f.sessionId ?? ctx.uuid(`${ctx.companyId}:entra-session:${upn}:${ip}:${ev.ts.slice(0, 10)}`)) : "";
+  const sessionId = ok ? (f.sessionId ?? aadSessionId(ctx, upn, ip, ev.ts)) : "";
+  // A Primary Refresh Token only exists on an Entra-joined / registered device signing in through
+  // the OS broker; a browser on an unmanaged device presents none (a replayed cookie included).
+  const tokenRaw = rawStr(ev, "azure.signinlogs.properties.incomingTokenType") ?? "none";
+  const incomingTokenType = /primaryRefreshToken/i.test(tokenRaw) && (!deviceDetail.isManaged || !deviceDetail.deviceId) ? "none" : tokenRaw;
+  const rawNetLoc = rawAny(ev, "azure.signinlogs.properties.networkLocationDetails");
   const id = rawStr(ev, "azure.signinlogs.properties.id") ?? graphId(ctx, `${ev.id}:signin`);
   const record: Record<string, unknown> = {
     id,
     createdDateTime: isoFrac(ev.ts, 0),
     userDisplayName: f.displayName ?? nameFromLogin(upn),
     userPrincipalName: upn,
-    userId: userId(ctx, upn),
+    userId: entraObjectId(ctx, upn),
     userType: upn.includes("#ext#") ? "guest" : "member",
     appId: app.appId,
     appDisplayName: app.appDisplayName,
@@ -263,7 +278,7 @@ function renderSignIn(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts, upn: strin
     isInteractive: interactive,
     signInEventTypes: [interactive ? "interactiveUser" : "nonInteractiveUser"],
     authenticationProtocol: protocol,
-    incomingTokenType: rawStr(ev, "azure.signinlogs.properties.incomingTokenType") ?? "none",
+    incomingTokenType,
     authenticationRequirement: mfaReached ? "multiFactorAuthentication" : "singleFactorAuthentication",
     authenticationMethodsUsed: methodsUsed,
     tokenIssuerName: "",
@@ -291,9 +306,9 @@ function renderSignIn(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts, upn: strin
     location: { city: geo.city, state: geo.state, countryOrRegion: geo.iso, geoCoordinates: { altitude: null, latitude: geo.lat, longitude: geo.lon } },
     appliedConditionalAccessPolicies: policies,
     authenticationProcessingDetails: legacy || ua.scripted ? [{ key: "Legacy TLS (TLS 1.0, 1.1, 3DES)", value: "False" }] : interactive ? [{ key: "Login Hint Present", value: "False" }] : [],
-    networkLocationDetails: isPrivateIp(ip) ? [{ networkType: "trustedNamedLocation", networkNames: ["Corporate HQ"] }] : [],
+    networkLocationDetails: Array.isArray(rawNetLoc) ? rawNetLoc : isPrivateIp(lanIp) ? [{ networkType: "trustedNamedLocation", networkNames: ["Corporate HQ"] }] : [],
     authenticationDetails: steps,
-    authenticationRequirementPolicies: mfaReached ? [{ requirementProvider: "multiConditionalAccess", detail: "Conditional Access" }] : [],
+    authenticationRequirementPolicies: !mfaReached ? [] : perUserMfa ? [{ requirementProvider: "user", detail: "Per-user MFA" }] : [{ requirementProvider: "multiConditionalAccess", detail: "Conditional Access" }],
     sessionLifetimePolicies: [],
   };
   return { sourceId: "entra", kind: "signIn", format: "json", record, timeMs: Date.parse(ev.ts) };
@@ -359,9 +374,12 @@ function auditFor(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts): NativeLog | n
     case "factor_enroll": {
       if (!actor) return null;
       const viaOktaDevice = f.deviceName ? ` (${f.deviceName})` : "";
+      // The method the user registered is the evidence: the authored reason / modified properties win.
+      const reason = f.mfaMethod === "totp" ? "User registered Software OATH token" : f.mfaMethod === "sms" ? "User registered Mobile Phone SMS"
+        : f.mfaMethod === "voice" ? "User registered Mobile Phone Call" : f.mfaMethod === "fido" ? "User registered FIDO2 Security Key"
+          : `User registered Authenticator App with Notification and Code${viaOktaDevice}`;
       return renderAudit(ev, ctx, f, { activity: "User registered security info", category: "UserManagement", service: "Authentication Methods", operationType: "Add",
-        initiator: me, targets: [userTarget(ctx, actor, [], f.displayName ?? nameFromLogin(actor))],
-        resultReason: f.mfaMethod === "totp" ? "User registered Software OATH token" : `User registered Authenticator App with Notification and Code${viaOktaDevice}` });
+        initiator: me, targets: [userTarget(ctx, actor, rawModified(ev), f.displayName ?? nameFromLogin(actor))], resultReason: reason });
     }
     case "factor_reset": case "factor_deactivate": {
       const target = f.targetEmail ?? actor;
@@ -492,6 +510,8 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
 // ── use cases ────────────────────────────────────────────────────────────────
 
 const RFC1918 = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"];
+/** A sign-in from the office: the company egress is a trusted named location ("Corporate HQ"). */
+const OFFICE = { field: "networkLocationDetails[].networkType", op: "eq", value: "trustedNamedLocation" } as const;
 const useCases: UseCase[] = [
   {
     id: "entra.password_spray", title: "Password spray — many accounts failing from one IP", sourceId: "entra", kinds: ["signIn"], severity: "high", mitre: ["T1110.003"],
@@ -511,9 +531,9 @@ const useCases: UseCase[] = [
   },
   {
     id: "entra.bruteforce_then_success", title: "Failed passwords followed by a success from the same external IP", sourceId: "entra", kinds: ["signIn"], severity: "high", mitre: ["T1110", "T1078.004"],
-    description: "The same user and the same non-corporate IP produce both bad-password failures (50126) and a successful sign-in (0) within 30 minutes — the guess eventually worked. Check the password step (authenticationDetails) and whether MFA was required.",
-    logic: "KQL: SigninLogs | where IPAddress !startswith \"10.\" | where ResultType in (0, 50126) | summarize Results=make_set(ResultType) by UserPrincipalName, IPAddress, bin(TimeGenerated, 30m) | where Results has \"0\" and Results has \"50126\"",
-    match: { all: [{ field: "status.errorCode", op: "in", value: [0, 50126] }, { field: "ipAddress", op: "notCidr", value: RFC1918 }, { field: "isInteractive", op: "eq", value: true }] },
+    description: "The same user and the same non-corporate IP (outside every trusted named location) produce both bad-password failures (50126) and a successful sign-in (0) within 30 minutes — the guess eventually worked. Check the password step (authenticationDetails) and whether MFA was required.",
+    logic: "KQL: SigninLogs | where NetworkLocationDetails !has \"trustedNamedLocation\" | where ResultType in (0, 50126) | summarize Results=make_set(ResultType) by UserPrincipalName, IPAddress, bin(TimeGenerated, 30m) | where Results has \"0\" and Results has \"50126\"",
+    match: { all: [{ field: "status.errorCode", op: "in", value: [0, 50126] }, { field: "ipAddress", op: "notCidr", value: RFC1918 }, { not: OFFICE }, { field: "isInteractive", op: "eq", value: true }] },
     threshold: { groupBy: ["userPrincipalName", "ipAddress"], count: 2, windowSec: 1800, distinct: "status.errorCode" },
     falsePositives: ["A travelling user mistyping the password once at a hotel"],
   },
@@ -528,8 +548,8 @@ const useCases: UseCase[] = [
   {
     id: "entra.mfa_fatigue_approved", title: "MFA denials followed by an approval from the same IP", sourceId: "entra", kinds: ["signIn"], severity: "critical", mitre: ["T1621", "T1078.004"],
     description: "A user denies MFA (500121) and then a multi-factor sign-in succeeds from the same external IP within 30 minutes — the fatigue attack worked. Revoke sessions and reset the password.",
-    logic: "KQL: SigninLogs | where IPAddress !startswith \"10.\" | where ResultType == 500121 or (ResultType == 0 and AuthenticationRequirement == \"multiFactorAuthentication\") | summarize Results=make_set(ResultType) by UserPrincipalName, IPAddress, bin(TimeGenerated, 30m) | where array_length(Results) >= 2",
-    match: { all: [{ field: "ipAddress", op: "notCidr", value: RFC1918 }, { any: [{ field: "status.errorCode", op: "eq", value: 500121 },
+    logic: "KQL: SigninLogs | where NetworkLocationDetails !has \"trustedNamedLocation\" | where ResultType == 500121 or (ResultType == 0 and AuthenticationRequirement == \"multiFactorAuthentication\") | summarize Results=make_set(ResultType) by UserPrincipalName, IPAddress, bin(TimeGenerated, 30m) | where array_length(Results) >= 2",
+    match: { all: [{ field: "ipAddress", op: "notCidr", value: RFC1918 }, { not: OFFICE }, { any: [{ field: "status.errorCode", op: "eq", value: 500121 },
       { all: [{ field: "status.errorCode", op: "eq", value: 0 }, { field: "authenticationRequirement", op: "eq", value: "multiFactorAuthentication" }] }] }] },
     threshold: { groupBy: ["userPrincipalName", "ipAddress"], count: 2, windowSec: 1800, distinct: "status.errorCode" },
     falsePositives: ["A user who accidentally denied once and then approved their own login"],

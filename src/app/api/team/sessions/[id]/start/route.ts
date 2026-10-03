@@ -86,7 +86,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     }
     // QA L7: a build failure is a clear, retryable error — the session stays in the lobby.
     let timeline: ReturnType<typeof buildTeamTimeline>;
-    try { timeline = buildTeamTimeline(sess.company_id, sess.difficulty, sess.seed, plan.slots, load, stack, tenantFromConfig(sess.config), env); }
+    try { timeline = buildTeamTimeline(sess.company_id, sess.difficulty, sess.seed, plan.slots, load, stack, tenantFromConfig(sess.config), env, { bonus: plan.bonus }); }
     catch (e) {
       console.error("[team start] timeline build:", e instanceof Error ? e.message : String(e));
       return NextResponse.json({ error: "Couldn't build the exercise feed for this company and difficulty — nothing was started. Try again, or create the session with another storyline." }, { status: 500 });

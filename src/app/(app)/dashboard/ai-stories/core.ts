@@ -7,8 +7,8 @@
  *
  *  1. ai-helpdesk-voice-reset        — voice-clone impersonation → MFA reset → new-device
  *                                       sign-in → mailbox forwarding rule
- *  2. ai-claude-enterprise-departure — resignation → after-hours bulk uploads to Claude
- *                                       Enterprise (Compliance API activity records)
+ *  2. ai-claude-enterprise-departure — resignation → evening SharePoint downloads → uploads to a
+ *                                       Claude Enterprise project → produced file → USB copy
  *  3. ai-copilot-oversharing-probe   — Copilot jailbreak prompts + sensitivity-labelled
  *                                       HR / IT / finance files read on behalf of a user who
  *                                       never opens them
@@ -30,7 +30,9 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 import { entraSignIn, entraAudit } from "@/lib/sim/emitters/entra";
 import { serviceNowRecord } from "@/lib/sim/emitters/servicenow";
 import { m365Operation } from "@/lib/sim/emitters/m365";
+import { csFile } from "@/lib/sim/emitters/crowdstrike";
 import { claudeActivity, type ClaudeActivityType } from "@/lib/sim/emitters/claudeEnterprise";
+import { sentinelAlert } from "@/lib/sim/emitters/sentinel";
 
 export interface AiStoryDef {
   id: string;
@@ -100,11 +102,18 @@ function guid(seed: string): string {
   return `${x.slice(0, 8)}-${x.slice(8, 12)}-4${x.slice(13, 16)}-a${x.slice(17, 20)}-${x.slice(20, 32)}`;
 }
 
-/** The NexaCorp Microsoft 365 tenant (the same id the Copilot audit records carry). */
-const TENANT_ID = "6d1f9a3e-4b27-4c85-9e10-a7c53f82b9d4";
+/** The NexaCorp Microsoft 365 tenant — the id the native Entra / UAL / Defender records carry for
+ *  nexacorp (instantiateStory re-keys it to each company's tenant). */
+const TENANT_ID = "74155343-f751-4c49-b96d-3af1878a608c";
 
 /** Milliseconds after an event's ts at which the SIEM ingested it (event.created). */
 const ingested = (ts: string, ms: number): string => new Date(Date.parse(ts) + ms).toISOString();
+
+/** An identity alert concerns no endpoint: drop the host the SIEM emitter fills in. */
+const noHost = (ev: TelemetryEvent): TelemetryEvent => {
+  const { "host.name": _h, "host.ip": _i, ...raw } = ev.raw;
+  return { ...ev, hostname: undefined, raw };
+};
 
 /**
  * Fields the Unified Audit Log writes on every SharePointFileOperation record (RecordType 6):
@@ -112,7 +121,7 @@ const ingested = (ts: string, ms: number): string => new Date(Date.parse(ts) + m
  * ObjectId or SiteUrl (absolute tenant host), only SourceRelativeUrl, so no company-specific host
  * survives the per-company swap.
  */
-const spFileAudit = (id: string, fileName: string, libraryPath: string, managed: boolean): Record<string, string> => {
+const spFileAudit = (id: string, fileName: string, libraryPath: string, managed: boolean, browser = "Edge"): Record<string, string> => {
   const site = libraryPath.split("/")[1] ?? libraryPath;
   return {
     Id: guid(`ual:${id}`),
@@ -126,7 +135,7 @@ const spFileAudit = (id: string, fileName: string, libraryPath: string, managed:
     ListId: guid(`list:${libraryPath}`),
     ListItemUniqueId: guid(`item:${fileName}`),
     CorrelationId: guid(`corr:${id}`),
-    BrowserName: "Edge",
+    BrowserName: browser,
     BrowserVersion: "151.0.0.0",
     IsManagedDevice: String(managed),
     HighPriorityMediaProcessing: "false",
@@ -193,6 +202,8 @@ function buildVoiceReset(): TelemetryEvent[] {
         description: "d.cohen signed in to Microsoft Teams at 07:58 from the corporate office egress address on the Entra-joined, compliant laptop WS-HR-1182, password plus an Authenticator push. This is the account's normal pattern.",
       }),
       hostname: LAPTOP,
+      is_baseline: true,
+      expected_verdict: "informational",
     },
 
     // 2. The call — a routine-looking MFA-reset ticket opened by phone.
@@ -223,24 +234,8 @@ function buildVoiceReset(): TelemetryEvent[] {
         description: "d.cohen signed in to SharePoint Online at 08:39 from the same office address and the same compliant laptop, MFA by Authenticator push — under six minutes after the help desk ticket was opened in this account's name and while that ticket was still open.",
       }),
       hostname: LAPTOP,
+      expected_verdict: "informational",
     },
-
-    // 4. Ticket resolved — verification was a voice match and an employee id.
-    serviceNowRecord({
-      companyId: cx, id: "aihvr4", ts: "2026-09-22T08:46:52.334Z", table: "incident", number: TICKET, state: "Resolved",
-      shortDescription: T_SHORT,
-      callerId: VICTIM, mitre: "T1656", tactic: "Defense Evasion", severity: "low",
-      extra: {
-        ...snowRow("2026-09-22T08:46:52.334Z"),
-        "servicenow.priority": "2 - High", "servicenow.urgency": "1 - High", "servicenow.impact": "3 - Low",
-        "servicenow.close_code": "Solved (Permanently)",
-        "servicenow.close_notes": "Password reset via admin portal and registered authentication methods cleared so the caller can re-enroll Microsoft Authenticator at next sign-in.",
-        "servicenow.work_notes": "Identity check: employee ID given by caller, voice recognised by agent. Call-back to the number on file not performed because the caller stated the phone was lost.",
-        "servicenow.resolved_by": AGENT, "servicenow.resolved_at": "2026-09-22 08:46:52",
-        "servicenow.assignment_group": "IT Service Desk", "servicenow.assigned_to": AGENT, "servicenow.sys_updated_on": "2026-09-22 08:46:52",
-      },
-      description: "INC0051764 was resolved by j.oduya at 08:46: password reset and registered authentication methods cleared for d.cohen. The recorded identity check is an employee ID plus voice recognition, and no call-back to the number on file was made.",
-    }),
 
     // 5. Password reset by the help-desk admin (privilege chain: Authentication Administrator).
     entraAudit({
@@ -249,7 +244,7 @@ function buildVoiceReset(): TelemetryEvent[] {
       initiatedByUpn: AGENT, initiatedById: AGENT_ID, initiatedByIp: AGENT_IP, initiatedByRoles: ["Authentication Administrator"],
       targetUpn: VICTIM, targetId: VICTIM_ID, mitre: "T1098", tactic: "Persistence", severity: "medium",
       extra: auditEnvelope("aihvr5", "a7e63d02-4b91-4c58-8f27-d15b0c9e3a64", EDGE_UA),
-      description: "j.oduya, holding the Authentication Administrator role and working from the internal help desk network, reset the password of d.cohen's account one minute after closing INC0051764.",
+      description: "j.oduya, holding the Authentication Administrator role and working from the internal help desk network, reset the password of d.cohen's account at 08:47 while INC0051764 was open.",
     }),
 
     // 6. Registered authentication methods wiped (T1556.006).
@@ -267,7 +262,34 @@ function buildVoiceReset(): TelemetryEvent[] {
       description: "j.oduya deleted the registered Microsoft Authenticator method on d.cohen's account 33 seconds after the password reset, leaving the account with a password and no second factor until new security info is registered.",
     }),
 
-    // 7. First sign-in from an unseen address is interrupted: the account must enroll MFA.
+    // 7. Ticket resolved after the reset and the wipe — verification was a voice match and an employee id.
+    serviceNowRecord({
+      companyId: cx, id: "aihvr4", ts: "2026-09-22T08:49:20.334Z", table: "incident", number: TICKET, state: "Resolved",
+      shortDescription: T_SHORT,
+      callerId: VICTIM, mitre: "T1656", tactic: "Defense Evasion", severity: "low",
+      extra: {
+        ...snowRow("2026-09-22T08:49:20.334Z"),
+        "servicenow.priority": "2 - High", "servicenow.urgency": "1 - High", "servicenow.impact": "3 - Low",
+        "servicenow.close_code": "Solved (Permanently)",
+        "servicenow.close_notes": "Password reset via admin portal and registered authentication methods cleared so the caller can re-enroll Microsoft Authenticator at next sign-in.",
+        "servicenow.work_notes": "Identity check: employee ID given by caller, voice recognised by agent. Call-back to the number on file not performed because the caller stated the phone was lost.",
+        "servicenow.resolved_by": AGENT, "servicenow.resolved_at": "2026-09-22 08:49:20",
+        "servicenow.assignment_group": "IT Service Desk", "servicenow.assigned_to": AGENT, "servicenow.sys_updated_on": "2026-09-22 08:49:20",
+      },
+      description: "INC0051764 was resolved by j.oduya at 08:49, after the password reset and the deletion of the registered methods. The recorded identity check is an employee ID plus voice recognition, and the work note says no call-back to the number on file was made.",
+    }),
+
+    // 8. The temporary password is replaced at the first sign-in from an unseen address.
+    entraAudit({
+      companyId: cx, id: "aihvr13", ts: "2026-09-22T08:51:31.420Z", operationName: "Change user password", loggedByService: "Core Directory",
+      result: "success", correlationId: "b4106e9a-2f75-4d38-a1c3-7e58d09f6b21",
+      initiatedByUpn: VICTIM, initiatedById: VICTIM_ID, initiatedByIp: NEW_IP, initiatedByRoles: [],
+      targetUpn: VICTIM, targetId: VICTIM_ID, mitre: "T1098", tactic: "Persistence", severity: "medium",
+      extra: auditEnvelope("aihvr13", "b4106e9a-2f75-4d38-a1c3-7e58d09f6b21", CHROME_WIN_UA),
+      description: "d.cohen's account changed its own password from 80.94.95.118 at 08:51, two and a half minutes after the help desk set a temporary one: the forced change at first sign-in, made from an address none of this morning's office sessions used.",
+    }),
+
+    // 9. The same sign-in is interrupted: the account must enroll MFA.
     entraSignIn({
       companyId: cx, id: "aihvr7", ts: "2026-09-22T08:51:44.904Z", srcIp: NEW_IP, user: VICTIM, userId: VICTIM_ID,
       correlationId: "b4106e9a-2f75-4d38-a1c3-7e58d09f6b21", sessionId: "6f2a9c84-0d13-4b7e-85a6-e3c17d40b592",
@@ -279,10 +301,10 @@ function buildVoiceReset(): TelemetryEvent[] {
         "azure.signinlogs.resultDescription": "User needs to enroll for second factor authentication (interrupt)",
         "azure.signinlogs.properties.authenticationDetails": pwMfa("2026-09-22T08:51:44.904Z", false),
       },
-      description: "A sign-in to d.cohen's account from 80.94.95.118 (Bucharest, Romania), an address not seen for this account, passed the password step and was interrupted with error 50072 because the account now has no second factor and must enroll. Device is an unmanaged Windows 10 machine running Chrome.",
+      description: "The sign-in from 80.94.95.118 (Bucharest, Romania; same correlation id as the password change) passed the password step and was interrupted with error 50072: the account has no second factor and must enroll one. The device is an unmanaged Windows 10 machine running Chrome.",
     }),
 
-    // 8. New Authenticator registered from the same unseen address (T1098.005).
+    // 10. New Authenticator registered from the same unseen address (T1098.005).
     entraAudit({
       companyId: cx, id: "aihvr8", ts: "2026-09-22T08:53:40.119Z", operationName: "User registered security info", loggedByService: "Authentication Methods",
       result: "success", resultReason: "User registered security info: Microsoft Authenticator app", correlationId: "e58c2b07-9a14-4f63-b0d5-18a7c36e4d90",
@@ -301,7 +323,7 @@ function buildVoiceReset(): TelemetryEvent[] {
       description: "A new Microsoft Authenticator app was registered as d.cohen's security info from 80.94.95.118, the same Romanian address, five minutes after the methods were wiped. The initiating identity is d.cohen's own, but the IP matches none of the office-address sessions on the account earlier this morning.",
     }),
 
-    // 9. MFA genuinely satisfied on the newly enrolled method (T1078.004).
+    // 11. MFA genuinely satisfied on the newly enrolled method (T1078.004).
     entraSignIn({
       companyId: cx, id: "aihvr9", ts: "2026-09-22T08:56:12.560Z", srcIp: NEW_IP, user: VICTIM, userId: VICTIM_ID,
       correlationId: "91d7f3a6-c082-4b59-8e14-5f60a2d8b73c", sessionId: "6f2a9c84-0d13-4b7e-85a6-e3c17d40b592",
@@ -313,7 +335,33 @@ function buildVoiceReset(): TelemetryEvent[] {
       description: "d.cohen's account signed in to Exchange Online at 08:56 from 80.94.95.118 on the unmanaged Windows 10 / Chrome device. Password and MFA both completed, Conditional Access succeeded and Entra sign-in risk is none — the newly registered Authenticator satisfied the second factor.",
     }),
 
-    // 10. Mailbox forwarding rule from the new session (T1114.003).
+    // 12. The correlation rule fires on the wipe → re-register → sign-in sequence — the first alert.
+    {
+      ...noHost(sentinelAlert({
+        companyId: cx, id: "aihvr12", ts: "2026-09-22T08:58:42.000Z", user: VICTIM, srcIp: NEW_IP,
+        alertName: "Authentication methods reset by admin, then registered from a new IP",
+        ruleId: "3c1d7e52-9a84-4f06-b2d1-6e8a0f5c7b39",
+        detail: "An admin deleted a user's registered authentication methods and, within 30 minutes, new security info was registered and used to sign in from an IP address not seen for that user in 14 days.",
+        severity: "high", eventType: "ueba_anomaly", mitre: "T1098.005", tactic: "Persistence",
+        extendedProperties: {
+          TargetUser: VICTIM,
+          AdminActor: AGENT,
+          MethodsDeletedTime: "2026-09-22T08:48:31.097Z",
+          RegisteredTime: "2026-09-22T08:53:40.119Z",
+          RegisteredFromIP: NEW_IP,
+          RegisteredFromCountry: "Romania",
+          FirstSignInTime: "2026-09-22T08:56:12.560Z",
+          FirstSignInApp: "Office 365 Exchange Online",
+          IPSeenForUserLast14d: "false",
+          DeviceCompliant: "false",
+        },
+        description: "Microsoft Sentinel raised \"Authentication methods reset by admin, then registered from a new IP\" for d.cohen at 08:58: methods deleted by j.oduya at 08:48, Authenticator registered from 80.94.95.118 (Romania) at 08:53 and used for an Exchange Online sign-in from the same IP at 08:56, on a non-compliant device.",
+      })),
+      is_detection: true,
+      edr_scope: "non_edr" as const,
+    },
+
+    // 13. Mailbox forwarding rule from the new session (T1114.003).
     {
       ...m365Operation({
         companyId: cx, id: "aihvr10", ts: "2026-09-22T09:03:27.842Z", user: VICTIM, operation: "New-InboxRule", workload: "Exchange", srcIp: NEW_IP,
@@ -330,7 +378,34 @@ function buildVoiceReset(): TelemetryEvent[] {
       geo: { country: "Romania", city: "Bucharest", latitude: 44.4, longitude: 26.1 },
     },
 
-    // 11. Afterwards: the ticket note that finally names the voice.
+    // 14. The rule acts: a matching message leaves for the external address.
+    {
+      id: "aihvr14", ts: "2026-09-22T09:24:16.508Z", source: "email_gateway", vendor: "Microsoft Defender for Office 365", event_type: "email_sent",
+      // No user_email: on an outbound EmailEvents row the recipient column is the external address.
+      severity: "high", mitre_technique: "T1114.003", mitre_tactic: "Collection",
+      description: "At 09:24 a message from d.cohen's mailbox went outbound to mailbox.archive.2026@proton.me with the subject \"FW: Salary review FY27 - HR business partners (confidential)\" and one attachment; the subject contains the word salary that the 09:03 rule matches.",
+      raw: {
+        "email.from.address": VICTIM,
+        "email.sender.address": VICTIM,
+        "email.to.address": "mailbox.archive.2026@proton.me",
+        "email.subject": "FW: Salary review FY27 - HR business partners (confidential)",
+        "email.direction": "outbound",
+        "email.message_id": "<LO2P265MB4471C2E94A7B0D6F3E81A5C9D2B7F0@LO2P265MB4471.GBRP265.PROD.OUTLOOK.COM>",
+        "email.attachments.file.name": "Salary_Review_FY27_HRBP.xlsx",
+        "email.attachments.file.extension": "xlsx",
+        "email.attachments.file.size": 318_422,
+        "data.office365.Directionality": "Outbound",
+        "data.office365.DeliveryAction": "Delivered",
+        "data.office365.DeliveryLocation": "On-premises/external",
+        "data.office365.Sender": VICTIM,
+        "data.office365.InternetMessageId": "<LO2P265MB4471C2E94A7B0D6F3E81A5C9D2B7F0@LO2P265MB4471.GBRP265.PROD.OUTLOOK.COM>",
+        "data.office365.Subject": "FW: Salary review FY27 - HR business partners (confidential)",
+        "data.office365.AttachmentCount": "1",
+        "action_result": "allowed",
+      },
+    },
+
+    // 15. Afterwards: the ticket note that names the voice.
     serviceNowRecord({
       companyId: cx, id: "aihvr11", ts: "2026-09-22T09:41:05.276Z", table: "incident", number: TICKET, state: "In Progress",
       shortDescription: T_SHORT,
@@ -342,7 +417,7 @@ function buildVoiceReset(): TelemetryEvent[] {
         "servicenow.priority": "1 - Critical", "servicenow.assignment_group": "IT Service Desk",
         "servicenow.sys_updated_on": "2026-09-22 09:41:05", "servicenow.sys_updated_by": "s.reinhardt@nexacorp.com",
       },
-      description: "A work note was added to INC0051764: d.cohen phoned the desk to say no call was made and no phone was lost, and the desk lead's replay of the 08:31 recording describes a voice indistinguishable from d.cohen's but unnaturally uniform, with a refused call-back. The ticket now records a suspected AI-cloned voice used to impersonate d.cohen (ATLAS AML.T0088 Generate Deepfakes, AML.T0052.001).",
+      description: "A work note was added to INC0051764 at 09:41: d.cohen phoned the desk to say no call was made and no phone was lost, and the desk lead's replay of the 08:31 recording describes a voice indistinguishable from d.cohen's but with unnaturally uniform cadence, no room noise and a refused call-back. The note records a suspected synthetic voice.",
     }),
   ];
 }
@@ -355,9 +430,9 @@ function buildVoiceReset(): TelemetryEvent[] {
 interface ClaudeOpts {
   id: string; ts: string; type: string;
   email: string; userId: string; ip: string; ua: string;
-  projectId?: string; fileId?: string; filename?: string;
+  projectId?: string; fileId?: string; chatId?: string; filename?: string;
   severity: TelemetryEvent["severity"]; description: string;
-  mitre?: string; tactic?: string;
+  mitre?: string; tactic?: string; isBaseline?: boolean;
 }
 
 /**
@@ -374,10 +449,61 @@ function claudeEvent(o: ClaudeOpts): TelemetryEvent {
     geo: o.ip === OFFICE_IP ? { country: OFFICE_GEO.country, city: OFFICE_GEO.city, lat: OFFICE_GEO.latitude, lon: OFFICE_GEO.longitude }
       : o.ip === "86.14.203.57" ? { country: "United Kingdom", city: "Manchester", lat: 53.4808, lon: -2.2426 }   // a.kaplan's home ISP
       : undefined,
-    projectSeed: o.projectId, fileSeed: o.fileId, filename: o.filename,
+    projectSeed: o.projectId, fileSeed: o.fileId, chatSeed: o.chatId, filename: o.filename,
     severity: o.severity, description: o.description,
     mitre: o.mitre, tactic: o.tactic,
+    ...(o.isBaseline ? { isBaseline: true, expectedVerdict: "informational" as const } : {}),
   });
+}
+
+/**
+ * Purview Endpoint DLP audit record (Unified Audit Log RecordType 63, Workload Endpoint) as the
+ * SIEM ingests it: the file, the device, the matched policy/rule and sensitive-info types, and the
+ * channel — TargetDomain for a cloud upload, TargetFilePath + RemovableMediaDeviceAttributes for USB.
+ */
+function endpointDlp(o: {
+  id: string; ts: string; user: string; host: string; ip: string; operation: "FileUploadedToCloud" | "FileCopiedToRemovableMedia";
+  app: string; filePath: string; size: number; sha256: string; ruleName: string; sitCount: number;
+  target: Record<string, unknown>; severity: TelemetryEvent["severity"]; description: string;
+}): TelemetryEvent {
+  const name = o.filePath.split("\\").pop()!;
+  const ext = name.split(".").pop()!;
+  return {
+    id: o.id, ts: o.ts, source: "dlp", vendor: "Microsoft Purview", event_type: "dlp_alert",
+    hostname: o.host, user_email: o.user, src_ip: o.ip, severity: o.severity,
+    mitre_technique: o.operation === "FileCopiedToRemovableMedia" ? "T1052.001" : "T1567",
+    mitre_tactic: "Exfiltration", is_detection: true, edr_scope: "hybrid",
+    description: o.description,
+    file: { name, path: o.filePath, extension: ext, size: o.size, sha256: o.sha256 },
+    raw: {
+      "data.office365.RecordType": "63",
+      "data.office365.Workload": "Endpoint",
+      "data.office365.Operation": o.operation,
+      "data.office365.Id": guid(`dlpep:${o.id}`),
+      "data.office365.CreationTime": o.ts.replace(/\.\d{3}Z$/, ""),
+      "data.office365.OrganizationId": TENANT_ID,
+      "data.office365.UserId": o.user,
+      "data.office365.UserType": "0",
+      "data.office365.ClientIP": o.ip,
+      "data.office365.DeviceName": `${o.host}.nexacorp.com`,
+      "data.office365.Application": o.app,
+      "data.office365.ObjectId": o.filePath,
+      "data.office365.FileExtension": ext,
+      "data.office365.FileSize": String(o.size),
+      "data.office365.Sha256": o.sha256,
+      ...Object.fromEntries(Object.entries(o.target).map(([k, v]) => [`data.office365.${k}`, v])),
+      "data.office365.EnforcementMode": "1",
+      "data.office365.PolicyMatchInfo.PolicyName": "Confidential Sales Data - Endpoint",
+      "data.office365.PolicyMatchInfo.RuleName": o.ruleName,
+      "data.office365.SensitiveInfoTypeData.SensitiveInfoTypeName": "Customer Account Number",
+      "data.office365.SensitiveInfoTypeData.Count": String(o.sitCount),
+      "data.office365.SensitiveInfoTypeData.Confidence": "85",
+      "data.office365.SensitivityLabelEventData.SensitivityLabelName": "Confidential - Sales",
+      "host.name": o.host,
+      "user.name": "NEXACORP\\a.kaplan",
+      "action_result": "allowed",
+    },
+  };
 }
 
 function buildClaudeDeparture(): TelemetryEvent[] {
@@ -386,21 +512,36 @@ function buildClaudeDeparture(): TelemetryEvent[] {
   const USER_ID = "user_01Gm4RzXq7NvKc2Bw9LhYt5D";
   const HOME_IP = "86.14.203.57";
   const HOST = "WS-SALES-1876";
-  const PROJECT = `claude_proj_01${opaque("proj:renewals", 22)}`;
-  const F1 = { name: "Enterprise_Accounts_Renewals_FY27.xlsx", id: `claude_file_01${opaque("file:1", 22)}` };
-  const F2 = { name: "Top50_Customer_Contracts_Redlines.docx", id: `claude_file_01${opaque("file:2", 22)}` };
-  const F3 = { name: "Pricing_Model_Discounts_2026.xlsx", id: `claude_file_01${opaque("file:3", 22)}` };
-  const F4 = { name: "Pipeline_Q4_Forecast_Detail.xlsx", id: `claude_file_01${opaque("file:4", 22)}` };
+  const PROJECT = "proj:renewals-handover";
+  const CHAT = "chat:renewals-handover";
+  const F1 = { name: "Enterprise_Accounts_Renewals_FY27.xlsx", id: "file:1", size: 2_874_112, path: "sites/Sales-Operations/Shared Documents/Accounts" };
+  const F2 = { name: "Top50_Customer_Contracts_Redlines.docx", id: "file:2", size: 1_402_368, path: "sites/Sales-Operations/Shared Documents/Contracts" };
+  const F3 = { name: "Pricing_Model_Discounts_2026.xlsx", id: "file:3", size: 966_656, path: "sites/Sales-Operations/Shared Documents/Pricing" };
+  const OUT = "Key_Accounts_Handover_Pack.xlsx";
+  const OUT_PATH = `C:\\Users\\a.kaplan\\Downloads\\${OUT}`;
+  const OUT_HASH = hexId("aicld:key-accounts-handover-pack.xlsx", 64);
+  const OUT_SIZE = 1_184_302;
+  const CHROME = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
+  const F1_HASH = hexId("aicld:enterprise-accounts-renewals-fy27.xlsx", 64);
 
   const base = { email: USER, userId: USER_ID, ua: CHROME_WIN_UA };
-  const SP_PATH = "sites/Sales-Operations/Shared Documents/Accounts";
+  const spDownload = (id: string, ts: string, f: typeof F1, description: string): TelemetryEvent => ({
+    ...m365Operation({
+      companyId: cx, id, ts, user: USER, operation: "FileDownloaded", workload: "SharePoint", srcIp: HOME_IP,
+      fileName: f.name, fileExtension: f.name.split(".").pop(), fileSize: f.size, userAgent: CHROME_WIN_UA,
+      extra: { SourceRelativeUrl: f.path, ItemType: "File", ...spFileAudit(id, f.name, f.path, true, "Chrome") },
+      mitre: "T1213.002", tactic: "Collection", severity: "medium", description,
+    }),
+    source: "sharepoint" as const,
+    hostname: HOST,
+  });
 
   return [
     // 1. HR: the resignation (no MITRE — routine business event).
     {
       id: "aicld1", ts: "2026-09-24T09:14:07.330Z", source: "hr", vendor: "Workday", event_type: "account_modify",
       user_email: USER, severity: "informational",
-      description: "A worker lifecycle change was recorded for a.kaplan: a voluntary resignation submitted by the employee with an employment end date of 2026-10-08 and access revocation scheduled for that evening. The notice period is active.",
+      description: "Workday recorded a voluntary resignation submitted by a.kaplan at 09:14, with an employment end date of 2026-10-08 and access revocation scheduled for that evening.",
       raw: {
         "workday.event_type": "Worker_Resignation_Submitted",
         "workday.worker_id": "WD-0068417",
@@ -422,118 +563,90 @@ function buildClaudeDeparture(): TelemetryEvent[] {
     // 2. Baseline — ordinary daytime Claude use from the office.
     claudeEvent({
       id: "aicld2", ts: "2026-09-24T11:26:33.140Z", type: "claude_chat_created", ...base, ip: OFFICE_IP,
-      severity: "informational",
-      description: "a.kaplan started a new Claude Enterprise chat at 11:26 from the corporate office egress address in a normal browser session. No project, no file upload — this is the account's usual daytime pattern on the sanctioned AI workspace.",
+      severity: "informational", isBaseline: true,
+      description: "a.kaplan started a Claude Enterprise chat at 11:26 from the corporate office egress address, outside any project and with no file upload: the account's usual daytime pattern on the company's AI workspace.",
     }),
 
-    // 3-4. Evening SharePoint downloads of the sales files, from the home address.
-    {
-      ...m365Operation({
-        companyId: cx, id: "aicld3", ts: "2026-09-24T19:44:52.310Z", user: USER, operation: "FileDownloaded", workload: "SharePoint", srcIp: HOME_IP,
-        fileName: F1.name, fileExtension: "xlsx", fileSize: 2_874_112, userAgent: EDGE_UA,
-        extra: { SourceRelativeUrl: SP_PATH, ItemType: "File", ...spFileAudit("aicld3", F1.name, SP_PATH, false) },
-        mitre: "T1213.002", tactic: "Collection", severity: "medium",
-        description: "a.kaplan downloaded Enterprise_Accounts_Renewals_FY27.xlsx from the Sales-Operations SharePoint library at 19:44, from a home internet address, roughly ten and a half hours after the resignation was recorded.",
-      }),
-      source: "sharepoint" as const,
-    },
-    {
-      ...m365Operation({
-        companyId: cx, id: "aicld4", ts: "2026-09-24T19:45:41.775Z", user: USER, operation: "FileDownloaded", workload: "SharePoint", srcIp: HOME_IP,
-        fileName: F2.name, fileExtension: "docx", fileSize: 1_402_368, userAgent: EDGE_UA,
-        extra: { SourceRelativeUrl: "sites/Sales-Operations/Shared Documents/Contracts", ItemType: "File", ...spFileAudit("aicld4", F2.name, "sites/Sales-Operations/Shared Documents/Contracts", false) },
-        mitre: "T1213.002", tactic: "Collection", severity: "medium",
-        description: "a.kaplan downloaded Top50_Customer_Contracts_Redlines.docx from the Sales-Operations contracts library 49 seconds after the first download, from the same home address.",
-      }),
-      source: "sharepoint" as const,
-    },
+    // 3-5. Evening SharePoint downloads to the corporate laptop, from the home connection.
+    spDownload("aicld3", "2026-09-24T19:44:52.310Z", F1,
+      "a.kaplan downloaded Enterprise_Accounts_Renewals_FY27.xlsx from the Sales-Operations library at 19:44 on the managed laptop WS-SALES-1876 (Chrome), from the home internet address 86.14.203.57, ten and a half hours after the resignation was recorded."),
+    spDownload("aicld4", "2026-09-24T19:45:41.775Z", F2,
+      "49 seconds later a.kaplan downloaded Top50_Customer_Contracts_Redlines.docx from the Sales-Operations contracts library, same device and address."),
+    spDownload("aicld13", "2026-09-24T19:47:09.118Z", F3,
+      "At 19:47 a.kaplan downloaded Pricing_Model_Discounts_2026.xlsx from the Sales-Operations pricing library, same device and address."),
 
-    // 5. SSO into Claude Enterprise, outside business hours, from home.
+    // 6. A new Claude project, from home.
     claudeEvent({
-      id: "aicld5", ts: "2026-09-24T20:03:58.221Z", type: "sso_login_initiated", ...base, ip: HOME_IP,
+      id: "aicld6", ts: "2026-09-24T20:05:31.480Z", type: "claude_project_created", ...base, ip: HOME_IP, projectId: PROJECT,
       severity: "low",
-      description: "a.kaplan initiated a Claude Enterprise SSO login at 20:03 from the home internet address, about eight and a half hours after the last daytime session from the office.",
-    }),
-
-    // 6. Opens a project.
-    claudeEvent({
-      id: "aicld6", ts: "2026-09-24T20:05:31.480Z", type: "claude_project_viewed", ...base, ip: HOME_IP, projectId: PROJECT,
-      severity: "low",
-      description: "a.kaplan opened a Claude Enterprise project at 20:05. The audit record carries the project id only — no project name, prompt or file content.",
+      description: "a.kaplan created a Claude Enterprise project at 20:05 from the home address 86.14.203.57, eight and a half hours after the last daytime session from the office. The record carries the project id only.",
     }),
 
     // 7. First upload — the file just downloaded.
     claudeEvent({
       id: "aicld7", ts: "2026-09-24T20:07:14.902Z", type: "claude_file_uploaded", ...base, ip: HOME_IP, projectId: PROJECT, fileId: F1.id, filename: F1.name,
-      severity: "medium",
-      mitre: "T1567", tactic: "Exfiltration",
-      description: "a.kaplan uploaded Enterprise_Accounts_Renewals_FY27.xlsx to the Claude Enterprise project — the file downloaded from SharePoint about 22 minutes earlier. This is the company's own tenant, so the upload alone is not a leak; the risk is a leaver consolidating customer data in a place from which it can be pulled back out (ATLAS AML.T0025 when an AI workspace is used as the staging channel).",
+      severity: "medium", mitre: "T1074.002", tactic: "Collection",
+      description: "a.kaplan uploaded Enterprise_Accounts_Renewals_FY27.xlsx into the new project at 20:07, 22 minutes after downloading it from SharePoint.",
     }),
 
-    // 8. Endpoint DLP audits the browser upload of the same file (audit-only rule).
-    {
-      id: "aicld8", ts: "2026-09-24T20:07:19.880Z", source: "dlp", vendor: "Microsoft Purview", event_type: "dlp_alert",
-      hostname: HOST, user_email: USER, src_ip: HOME_IP, severity: "medium",
-      mitre_technique: "T1567", mitre_tactic: "Exfiltration",
-      description: "Microsoft Purview Endpoint DLP matched the browser upload of Enterprise_Accounts_Renewals_FY27.xlsx by chrome.exe on WS-SALES-1876 to claude.ai. The matching rule is audit-only: the activity was logged and nothing was blocked or justified by the user.",
-      file: { name: F1.name, path: `C:\\Users\\a.kaplan\\Downloads\\${F1.name}`, extension: "xlsx", size: 2_874_112 },
-      raw: {
-        "data.office365.Operation": "DlpRuleMatch",
-        "data.office365.Workload": "Endpoint",
-        "data.office365.UserId": USER,
-        "data.office365.ObjectId": `C:\\Users\\a.kaplan\\Downloads\\${F1.name}`,
-        "data.office365.IncidentId": "6104827",
-        "data.office365.PolicyDetails.PolicyName": "Confidential Sales Data - Cloud Upload Audit",
-        "data.office365.PolicyDetails.Rules.RuleName": "Audit upload of labeled sales files to cloud AI services",
-        "data.office365.PolicyDetails.Rules.RuleMode": "Enforce",
-        "data.office365.PolicyDetails.Rules.Severity": "Medium",
-        "data.office365.PolicyDetails.Rules.Actions": ["Audit"],
-        "data.office365.PolicyDetails.Rules.ConditionsMatched.SensitiveInformation.SensitiveInformationTypeName": "Customer Account Number",
-        "data.office365.PolicyDetails.Rules.ConditionsMatched.SensitiveInformation.Count": "218",
-        "data.office365.PolicyDetails.Rules.ConditionsMatched.SensitiveInformation.Confidence": "85",
-        "data.office365.PolicyDetails.Rules.ConditionsMatched.SensitiveInformation.ClassifierType": "PatternMatch",
-        "purview.PolicyName": "Confidential Sales Data - Cloud Upload Audit",
-        "purview.RuleName": "Audit upload of labeled sales files to cloud AI services",
-        "purview.SensitiveInfoType": "Customer Account Number",
-        "purview.Workload": "Endpoint",
-        "purview.ActionTaken": "Audit",
-        "purview.Override": "false",
-        "data.office365.DeviceDisplayName": HOST,
-        "data.office365.ClientProcessName": "chrome.exe",
-        "data.office365.TargetDomain": "claude.ai",
-        "user.name": "NEXACORP\\a.kaplan",
-        "host.name": HOST,
-        "action_result": "allowed",
-      },
-    },
+    // 8. Endpoint DLP audits the browser upload of the same file — the first alert.
+    endpointDlp({
+      id: "aicld8", ts: "2026-09-24T20:07:19.880Z", user: USER, host: HOST, ip: HOME_IP, operation: "FileUploadedToCloud",
+      app: "Google Chrome", filePath: `C:\\Users\\a.kaplan\\Downloads\\${F1.name}`, size: F1.size, sha256: F1_HASH,
+      ruleName: "Audit upload of labeled sales files to cloud services", sitCount: 218, target: { TargetDomain: "claude.ai" },
+      severity: "medium",
+      description: "Purview Endpoint DLP (FileUploadedToCloud, audit mode) matched Chrome's upload of Enterprise_Accounts_Renewals_FY27.xlsx from Downloads on WS-SALES-1876 to claude.ai: label Confidential - Sales, 218 Customer Account Number matches. Nothing was blocked.",
+    }),
 
-    // 9. Second upload.
+    // 9-10. More files into the same project.
     claudeEvent({
       id: "aicld9", ts: "2026-09-24T20:07:52.117Z", type: "claude_file_uploaded", ...base, ip: HOME_IP, projectId: PROJECT, fileId: F2.id, filename: F2.name,
-      severity: "high",
-      mitre: "T1567", tactic: "Exfiltration",
-      description: "a.kaplan uploaded Top50_Customer_Contracts_Redlines.docx to the same Claude Enterprise project 37 seconds after the first upload — the second file downloaded from SharePoint earlier the same evening.",
+      severity: "medium", mitre: "T1074.002", tactic: "Collection",
+      description: "37 seconds later a.kaplan uploaded Top50_Customer_Contracts_Redlines.docx into the same project.",
+    }),
+    claudeEvent({
+      id: "aicld10", ts: "2026-09-24T20:08:40.560Z", type: "claude_file_uploaded", ...base, ip: HOME_IP, projectId: PROJECT, fileId: F3.id, filename: F3.name,
+      severity: "medium", mitre: "T1074.002", tactic: "Collection",
+      description: "At 20:08 a.kaplan uploaded Pricing_Model_Discounts_2026.xlsx into the same project: all three files downloaded from Sales-Operations between 19:44 and 19:47 are now in it.",
     }),
 
-    // 10-11. Two more files in quick succession.
+    // 11. A chat inside the project.
     claudeEvent({
-      id: "aicld10", ts: "2026-09-24T20:12:40.560Z", type: "claude_file_uploaded", ...base, ip: HOME_IP, projectId: PROJECT, fileId: F3.id, filename: F3.name,
-      severity: "high",
-      mitre: "T1567", tactic: "Exfiltration",
-      description: "a.kaplan uploaded Pricing_Model_Discounts_2026.xlsx to the project at 20:12 — a pricing file with no matching SharePoint download in this feed.",
-    }),
-    claudeEvent({
-      id: "aicld11", ts: "2026-09-24T20:12:58.301Z", type: "claude_file_uploaded", ...base, ip: HOME_IP, projectId: PROJECT, fileId: F4.id, filename: F4.name,
-      severity: "high",
-      mitre: "T1567", tactic: "Exfiltration",
-      description: "a.kaplan uploaded Pipeline_Q4_Forecast_Detail.xlsx 18 seconds after the pricing file: four commercially sensitive files (renewals, contracts, pricing, pipeline) are now in one Claude Enterprise project, all uploaded between 20:07 and 20:12 by an employee who resigned that morning.",
-    }),
-
-    // 12. A chat inside the project.
-    claudeEvent({
-      id: "aicld12", ts: "2026-09-24T20:16:26.348Z", type: "claude_chat_created", ...base, ip: HOME_IP, projectId: PROJECT,
+      id: "aicld11", ts: "2026-09-24T20:11:26.348Z", type: "claude_chat_created", ...base, ip: HOME_IP, projectId: PROJECT, chatId: CHAT,
       severity: "medium",
-      description: "a.kaplan created a new chat inside the project holding the four uploaded files at 20:16. The audit log records that the chat exists, not what was asked or answered — establishing what was done with the data needs the Compliance API session content, HR and legal.",
+      description: "a.kaplan created a chat inside the project at 20:11. The audit record shows the chat and project ids, not the prompt or the answer.",
+    }),
+
+    // 12. A spreadsheet produced in that chat is downloaded to the laptop.
+    {
+      ...csFile({
+        companyId: cx, id: "aicld12", ts: "2026-09-24T20:39:02.611Z", host: HOST, srcIp: "192.168.1.23", user: USER,
+        extra: {
+          "file.origin_url": `https://claude.ai/api/organizations/${guid("claude-org-uuid:nexacorp")}/conversations/${guid("claude-conv:renewals-handover")}/wiggle/download-file?path=/mnt/user-data/outputs/${OUT}`,
+          "file.origin_referrer_url": `https://claude.ai/chat/${guid("claude-conv:renewals-handover")}`,
+        },
+        path: OUT_PATH, sha256: OUT_HASH, size: OUT_SIZE, action: "file_create",
+        actorProcess: "chrome.exe", actorPid: 11408, actorPath: CHROME,
+        actorParentName: "explorer.exe", actorParentPid: 6012, actorSigned: "trusted", actorIntegrity: "medium",
+        severity: "medium", mitre: "T1074.001", tactic: "Collection",
+        description: `At 20:39 chrome.exe wrote ${OUT} (1.1 MB) to Downloads on WS-SALES-1876. FileOriginUrl is a file download from a claude.ai conversation (wiggle/download-file, outputs/${OUT}).`,
+      }),
+    },
+
+    // 13. The produced file is copied to a USB drive.
+    endpointDlp({
+      id: "aicld14", ts: "2026-09-24T20:44:37.205Z", user: USER, host: HOST, ip: HOME_IP, operation: "FileCopiedToRemovableMedia",
+      app: "Windows Explorer", filePath: OUT_PATH, size: OUT_SIZE, sha256: OUT_HASH,
+      ruleName: "Audit copy of labeled sales files to removable media", sitCount: 412,
+      target: {
+        TargetFilePath: `E:\\${OUT}`,
+        "RemovableMediaDeviceAttributes.Manufacturer": "SanDisk",
+        "RemovableMediaDeviceAttributes.Model": "Ultra Fit",
+        "RemovableMediaDeviceAttributes.SerialNumber": "4C530001190625117463",
+        "RemovableMediaDeviceAttributes.BusType": "USB",
+      },
+      severity: "high",
+      description: `Purview Endpoint DLP (FileCopiedToRemovableMedia, audit mode) matched a copy of ${OUT} from Downloads to E:\\ on WS-SALES-1876 at 20:44: a SanDisk Ultra Fit USB drive (serial 4C530001190625117463), 412 Customer Account Number matches, same SHA256 as the file written at 20:39. Nothing was blocked.`,
     }),
   ];
 }
@@ -546,22 +659,28 @@ function buildCopilotProbe(): TelemetryEvent[] {
   const cx = "nexacorp" as const;
   const USER = "s.patel@nexacorp.com";
   const USER_KEY = "12d24f71-6b3e-4a95-8c07-f8884f3f373e";
-  const ORG = "6d1f9a3e-4b27-4c85-9e10-a7c53f82b9d4";
+  const ORG = TENANT_ID;
+  const HOST = "WS-MKT-3301";
   const THREAD = "19:Xn3uQZYgZ7f2ue0vp5w9MglEVjFyp5pza1efaC6g2U41@thread.v2";
   const LABEL_HR = "a8f3c6d1-2b47-4e90-9c15-7d0e3b6a4f28";
   const LABEL_FIN = "5e91b7a4-c3d8-4f26-8a70-1b9d4e6c2f35";
   const LABEL_IT = "0c72d5e8-91a3-4b64-a7f0-38e5d1b9c604";
+  // The site the HR, IT and Finance libraries live in, and the marketing team's own site.
+  const HUB = "https://nexacorp.sharepoint.com/sites/Leadership-Hub/";
+  const MKT = "https://nexacorp.sharepoint.com/sites/Marketing/";
+  const SITE_OWNER = "r.okafor@nexacorp.com";
 
-  type Res = { name: string; type: string; label?: string };
+  type Res = { name: string; type: string; site: string; label?: string };
   const copilot = (
     id: string, ts: string, jailbreak: boolean, resources: Res[],
-    severity: TelemetryEvent["severity"], description: string, mitre?: string, tactic?: string,
+    severity: TelemetryEvent["severity"], description: string, mitre?: string, tactic?: string, isBaseline = false,
   ): TelemetryEvent => {
     const t = Date.parse(ts);
     return {
       id, ts, source: "o365", vendor: "Microsoft Purview", event_type: "cloud_api_call",
       severity, user_email: USER, src_ip: OFFICE_IP,
       ...(mitre ? { mitre_technique: mitre, mitre_tactic: tactic } : {}),
+      ...(isBaseline ? { is_baseline: true, expected_verdict: "informational" as const } : {}),
       description,
       raw: {
         "data.office365.Operation": "CopilotInteraction",
@@ -585,6 +704,7 @@ function buildCopilotProbe(): TelemetryEvent[] {
           Action: "Read",
           Id: `01${opaque(`res:${r.name}`, 32).toUpperCase()}`,
           Name: r.name,
+          SiteUrl: r.site,
           Type: r.type,
           ...(r.label ? { SensitivityLabelId: r.label } : {}),
           Status: "success",
@@ -618,106 +738,137 @@ function buildCopilotProbe(): TelemetryEvent[] {
       mitre: "T1213.002", tactic: "Collection", severity, description,
     }),
     source: "sharepoint" as const,
+    hostname: HOST,
   });
 
   return [
+    // 0. The day before: the leadership site is opened to every employee (the access path).
+    {
+      ...m365Operation({
+        companyId: cx, id: "aicop10", ts: "2026-09-22T16:42:10.204Z", user: SITE_OWNER, operation: "SharingSet", workload: "SharePoint", srcIp: OFFICE_IP,
+        userAgent: EDGE_UA,
+        extra: {
+          SiteUrl: HUB, SourceRelativeUrl: "Shared Documents", ItemType: "Folder",
+          TargetUserOrGroupName: "Everyone except external users", TargetUserOrGroupType: "SecurityGroup",
+          "EventData.PermissionLevel": "Read",
+          ...spFileAudit("aicop10", "Shared Documents", "sites/Leadership-Hub/Shared Documents", true),
+        },
+        severity: "low",
+        description: "On 22 September at 16:42 site owner r.okafor granted the group Everyone except external users Read access on the Shared Documents library of the Leadership-Hub site, the site that holds the HR-Compensation, IT-Admin and Finance-Board folders. From then on every employee account can open those files, and Copilot answers for any employee can draw on them.",
+      }),
+      source: "sharepoint" as const,
+      expected_verdict: "informational" as const,
+    },
+
     // 1. Baseline — routine Copilot use over the user's own team files.
     copilot("aicop1", "2026-09-23T10:41:22.508Z", false, [
-      { name: "Campaign_Calendar_Q4.pptx", type: "pptx" },
-      { name: "Brand_Guidelines_2026.pdf", type: "pdf" },
+      { name: "Campaign_Calendar_Q4.pptx", type: "pptx", site: MKT },
+      { name: "Brand_Guidelines_2026.pdf", type: "pdf", site: MKT },
     ], "informational",
-    "s.patel used Microsoft 365 Copilot (BizChat) at 10:41 and it read two ordinary team files, a campaign calendar and brand guidelines: no jailbreak flag, no sensitivity labels. This is the account's normal Copilot pattern."),
+    "s.patel used Microsoft 365 Copilot (BizChat) at 10:41 and it read two files from the Marketing site, a campaign calendar and brand guidelines: no jailbreak flag, no sensitivity labels. This is the account's normal Copilot pattern.",
+    undefined, undefined, true),
 
-    // 2. First flagged prompt — detected, nothing retrieved.
+    // 2. The account's own sign-in before the session: same device, same office.
+    {
+      ...entraSignIn({
+        companyId: cx, id: "aicop11", ts: "2026-09-23T13:02:18.733Z", srcIp: OFFICE_IP, user: USER,
+        correlationId: guid("aicop11:corr"), sessionId: guid("aicop11:session"),
+        app: "OfficeHome", appId: "4765445b-32c6-49b0-83e6-1d93765276ca", resource: "Office 365 SharePoint Online", mfa: true, isInteractive: true,
+        managed: true, compliant: true, deviceId: guid("aicop11:device"), deviceName: HOST, os: "Windows 11", browser: "Edge 151.0.0", trustType: "Azure AD joined",
+        userAgent: EDGE_UA, asn: 2856, tokenIssuerType: "AzureAD", incomingTokenType: "none", riskLevel: "none", riskDetail: "none",
+        riskEventTypes: [], conditionalAccess: "success", geo: OFFICE_GEO, severity: "informational",
+        extra: { "azure.signinlogs.properties.authenticationDetails": pwMfa("2026-09-23T13:02:18.733Z") },
+        description: "s.patel signed in at 13:02 from the office egress address on the Entra-joined, compliant laptop WS-MKT-3301 with password and Authenticator push, no sign-in risk: the account's usual device and location.",
+      }),
+      hostname: HOST,
+      expected_verdict: "informational" as const,
+    },
+
+    // 3. First flagged prompt — detected, nothing retrieved.
     copilot("aicop2", "2026-09-23T13:07:44.121Z", true, [], "medium",
-    "A Copilot interaction by s.patel at 13:07 has JailbreakDetected=true on the prompt and no accessed resources. The record holds only message ids and the flag, not the prompt text (ATLAS AML.T0054 LLM Jailbreak, AML.T0051.000 direct prompt injection).",
+    "A Copilot interaction by s.patel at 13:07 has JailbreakDetected=true on the prompt and no accessed resources. The record holds message ids and the flag, not the prompt text.",
     "T1213", "Collection"),
 
-    // 3. Second flagged prompt — detected, but three labelled HR files were still read.
+    // 4. Second flagged prompt — flagged, but three labelled HR files were still read.
     copilot("aicop3", "2026-09-23T13:10:02.774Z", true, [
-      { name: "Payroll_Register_Sep2026.xlsx", type: "xlsx", label: LABEL_HR },
-      { name: "Exec_Compensation_Bands_2026.xlsx", type: "xlsx", label: LABEL_HR },
-      { name: "Salary_Review_Proposals_FY27.xlsx", type: "xlsx", label: LABEL_HR },
+      { name: "Payroll_Register_Sep2026.xlsx", type: "xlsx", site: HUB, label: LABEL_HR },
+      { name: "Exec_Compensation_Bands_2026.xlsx", type: "xlsx", site: HUB, label: LABEL_HR },
+      { name: "Salary_Review_Proposals_FY27.xlsx", type: "xlsx", site: HUB, label: LABEL_HR },
     ], "high",
-    "A second Copilot interaction at 13:10 again has JailbreakDetected=true, and this time Copilot read three files from the HR library, each carrying the HR sensitivity label a8f3c6d1 (payroll register, executive compensation bands, salary review proposals), all with Status success. The flag is detection, not prevention: the content was still retrieved for a marketing user.",
+    "A second Copilot interaction at 13:10 again has JailbreakDetected=true, and Copilot read three files from the Leadership-Hub site with the HR sensitivity label a8f3c6d1 (payroll register, executive compensation bands, salary review proposals), all with Status success. The flag marks the prompt; it did not stop the reads.",
     "T1213", "Collection"),
 
-    // 4. Reworded prompt — no jailbreak flag, five more labelled HR files.
+    // 5. Next prompt — no jailbreak flag, five more labelled HR files.
     copilot("aicop4", "2026-09-23T13:14:37.309Z", false, [
-      { name: "Bonus_Pool_Allocation_FY27.xlsx", type: "xlsx", label: LABEL_HR },
-      { name: "Severance_Terms_Template.docx", type: "docx", label: LABEL_HR },
-      { name: "Headcount_Reduction_Plan_Q1.xlsx", type: "xlsx", label: LABEL_HR },
-      { name: "Performance_Ratings_2026.xlsx", type: "xlsx", label: LABEL_HR },
-      { name: "Retention_Risk_Register.xlsx", type: "xlsx", label: LABEL_HR },
+      { name: "Bonus_Pool_Allocation_FY27.xlsx", type: "xlsx", site: HUB, label: LABEL_HR },
+      { name: "Severance_Terms_Template.docx", type: "docx", site: HUB, label: LABEL_HR },
+      { name: "Headcount_Reduction_Plan_Q1.xlsx", type: "xlsx", site: HUB, label: LABEL_HR },
+      { name: "Performance_Ratings_2026.xlsx", type: "xlsx", site: HUB, label: LABEL_HR },
+      { name: "Retention_Risk_Register.xlsx", type: "xlsx", site: HUB, label: LABEL_HR },
     ], "high",
-    "A Copilot interaction at 13:14 with JailbreakDetected=false read five more HR-labelled files (bonus pool, severance terms, headcount reduction plan, performance ratings, retention risk register), all with Status success. The prompt was apparently reworded after two flagged attempts and, unflagged, retrieved more.",
+    "A Copilot interaction at 13:14 with JailbreakDetected=false read five more HR-labelled files from the Leadership-Hub site (bonus pool, severance terms, headcount reduction plan, performance ratings, retention risk register), all with Status success.",
     "T1213", "Collection"),
 
-    // 5. The user opens one of the surfaced files directly.
+    // 6. The user opens one of the surfaced files directly.
     spOp("aicop5", "2026-09-23T13:16:20.481Z", "FileAccessed", "Exec_Compensation_Bands_2026.xlsx",
-      "sites/HR-Compensation/Shared Documents/Compensation", "medium",
-      "s.patel opened Exec_Compensation_Bands_2026.xlsx directly in the HR-Compensation SharePoint library at 13:16, about six minutes after Copilot first read it. This is a marketing-role account reading an HR compensation file."),
+      "sites/Leadership-Hub/Shared Documents/HR-Compensation", "medium",
+      "s.patel opened Exec_Compensation_Bands_2026.xlsx directly in the Leadership-Hub HR-Compensation folder at 13:16 from WS-MKT-3301, about six minutes after Copilot first read it."),
 
-    // 6. Credential-hunting: IT admin library files, flagged again.
+    // 7. IT admin folder, flagged again.
     copilot("aicop6", "2026-09-23T13:24:51.036Z", true, [
-      { name: "Admin_Handover_Notes.docx", type: "docx", label: LABEL_IT },
-      { name: "Break-Glass_Access_Procedure.docx", type: "docx", label: LABEL_IT },
-      { name: "Network_Device_Logins_2025.xlsx", type: "xlsx", label: LABEL_IT },
-      { name: "Shared_Mailbox_Access_Matrix.xlsx", type: "xlsx", label: LABEL_IT },
+      { name: "Admin_Handover_Notes.docx", type: "docx", site: HUB, label: LABEL_IT },
+      { name: "Break-Glass_Access_Procedure.docx", type: "docx", site: HUB, label: LABEL_IT },
+      { name: "Network_Device_Logins_2025.xlsx", type: "xlsx", site: HUB, label: LABEL_IT },
+      { name: "Shared_Mailbox_Access_Matrix.xlsx", type: "xlsx", site: HUB, label: LABEL_IT },
     ], "high",
-    "A Copilot interaction at 13:24 has JailbreakDetected=true and read four IT-labelled files: admin handover notes, the break-glass access procedure, a network device logins spreadsheet and a shared mailbox access matrix — the kind of documents that hold credentials and privileged-access procedures.",
+    "A Copilot interaction at 13:24 has JailbreakDetected=true and read four IT-labelled files from the Leadership-Hub site: admin handover notes, the break-glass access procedure, a network device logins spreadsheet and a shared mailbox access matrix.",
     "T1552.001", "Credential Access"),
 
-    // 7. Finance / board documents, flagged again.
+    // 8. Finance / board folder, flagged again.
     copilot("aicop7", "2026-09-23T13:31:08.652Z", true, [
-      { name: "Q3_Board_Financials_DRAFT.xlsx", type: "xlsx", label: LABEL_FIN },
-      { name: "Acquisition_Target_Shortlist.xlsx", type: "xlsx", label: LABEL_FIN },
-      { name: "Treasury_Cash_Positions_Sep.xlsx", type: "xlsx", label: LABEL_FIN },
+      { name: "Q3_Board_Financials_DRAFT.xlsx", type: "xlsx", site: HUB, label: LABEL_FIN },
+      { name: "Acquisition_Target_Shortlist.xlsx", type: "xlsx", site: HUB, label: LABEL_FIN },
+      { name: "Treasury_Cash_Positions_Sep.xlsx", type: "xlsx", site: HUB, label: LABEL_FIN },
     ], "high",
-    "A fourth flagged Copilot interaction at 13:31 (JailbreakDetected=true) read three Finance-labelled files: draft board financials, an acquisition target shortlist and treasury cash positions. In 23 minutes the account has now pulled HR, IT and Finance content through Copilot.",
+    "A fourth flagged Copilot interaction at 13:31 (JailbreakDetected=true) read three Finance-labelled files from the Leadership-Hub site: draft board financials, an acquisition target shortlist and treasury cash positions.",
     "T1213", "Collection"),
-
-    // 8. UEBA deviation over the whole session.
-    {
-      id: "aicop8", ts: "2026-09-23T13:36:00.000Z", source: "ueba", vendor: "Microsoft Sentinel UEBA", event_type: "ueba_anomaly",
-      severity: "high", user_email: USER, src_ip: OFFICE_IP,
-      mitre_technique: "T1213.002", mitre_tactic: "Collection",
-      description: "Microsoft Sentinel UEBA flagged s.patel's activity: first-time access to HR, IT and Finance content areas, none of which the account had touched in its lookback window, all reached in one 30-minute burst through Copilot plus a direct SharePoint open and download.",
-      // One BehaviorAnalytics-style record (the UEBA table's own shape: a single activity with its
-      // insight flags and the user entity), not the Anomalies table's ExtendedProperties bag.
-      raw: {
-        "Type": "BehaviorAnalytics",
-        "TimeGenerated": "2026-09-23T13:36:00.000Z",
-        "event.id": guid("aicop8:record"),
-        "event.action": "BehaviorAnomalyDetected",
-        "event.category": "file",
-        "event.type": "access",
-        "event.outcome": "alerted",
-        "event.provider": "Microsoft Sentinel",
-        "event.created": ingested("2026-09-23T13:36:00.000Z", 4_318),
-        "entity.type": "user",
-        "entity.name": "s.patel",
-        "entity.id": USER_KEY,
-        "user.name": "NEXACORP\\s.patel",
-        "user.email": USER,
-        "user.domain": "NEXACORP",
-        "user.department": "Marketing",
-        "source.ip": OFFICE_IP,
-        "source.geo.country_name": OFFICE_GEO.country,
-        "source.geo.city_name": OFFICE_GEO.city,
-        "application.name": "Microsoft 365 Copilot",
-        "FirstTimeUserPerformedAction": "True",
-        "ActionUncommonlyPerformedByUser": "True",
-        "behavior.name": "Uncommon content access",
-        "behavior.category": "Data access",
-        "behavior.description": "Copilot read sensitivity-labelled files from HR, IT and Finance libraries never accessed by this user; Copilot prompts with JailbreakDetected=true on four of five interactions in the same hour",
-      },
-    },
 
     // 9. Direct download of the salary proposals file.
     spOp("aicop9", "2026-09-23T13:41:18.930Z", "FileDownloaded", "Salary_Review_Proposals_FY27.xlsx",
-      "sites/HR-Compensation/Shared Documents/Compensation", "high",
-      "s.patel downloaded Salary_Review_Proposals_FY27.xlsx from the HR-Compensation library at 13:41 — a file Copilot had read at 13:10 — ending the session by taking a local copy of the salary data."),
+      "sites/Leadership-Hub/Shared Documents/HR-Compensation", "high",
+      "s.patel downloaded Salary_Review_Proposals_FY27.xlsx from the Leadership-Hub HR-Compensation folder to WS-MKT-3301 at 13:41, a file Copilot had read at 13:10."),
+
+    // 10. The Insider Risk Management policy alert over the session — the first alert.
+    {
+      id: "aicop8", ts: "2026-09-23T13:52:40.000Z", source: "ueba", vendor: "Microsoft Purview Insider Risk Management", event_type: "ueba_anomaly",
+      severity: "high", user_email: USER, src_ip: OFFICE_IP, hostname: HOST,
+      mitre_technique: "T1213.002", mitre_tactic: "Collection", is_detection: true, edr_scope: "non_edr",
+      description: "Purview Insider Risk Management raised a Risky AI usage alert for s.patel at 13:52 covering 13:07 to 13:41: 4 Copilot prompts flagged as jailbreak attempts, 15 sensitivity-labelled files (HR, IT, Finance) returned to Copilot, and 1 SharePoint download from the same site.",
+      raw: {
+        "purview.AlertId": `ir${hexOf("aicop8:alert", 32)}`,
+        "purview.Timestamp": "2026-09-23T13:52:40.000Z",
+        "purview.Title": "Risky AI usage",
+        "purview.Severity": "High",
+        "purview.ServiceSource": "Microsoft Insider Risk Management",
+        "purview.DetectionSource": "Microsoft Insider Risk Management",
+        "purview.AccountUpn": USER,
+        "purview.AccountObjectId": USER_KEY,
+        "purview.Department": "Marketing",
+        "purview.PolicyName": "Risky AI usage - all users",
+        "purview.PolicyTemplate": "Risky AI usage",
+        "purview.ActivityWindowStart": "2026-09-23T13:07:44Z",
+        "purview.ActivityWindowEnd": "2026-09-23T13:41:18Z",
+        "purview.Indicators": [
+          { Name: "Entered risky prompts in Microsoft 365 Copilot", Count: 4 },
+          { Name: "Received responses containing sensitive info from Microsoft 365 Copilot", Count: 15 },
+          { Name: "Downloaded content from SharePoint", Count: 1 },
+        ],
+        "purview.SensitivityLabelIds": [LABEL_HR, LABEL_IT, LABEL_FIN],
+        "purview.SiteUrls": [HUB],
+        "purview.CopilotThreadId": THREAD,
+        "purview.Status": "New",
+      },
+    },
   ];
 }
 
@@ -735,7 +886,7 @@ export const AI_CORE_STORIES: AiStoryDef[] = [
   },
   {
     id: "ai-claude-enterprise-departure",
-    title: "Departing Employee — After-Hours Bulk Uploads to Claude Enterprise",
+    title: "Departing Employee — Sales Files Consolidated in Claude Enterprise, Then Copied to USB",
     complexity: "core",
     companies: ["nexacorp", "medcore", "globallogis"],
     events: buildClaudeDeparture(),

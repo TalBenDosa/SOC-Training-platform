@@ -144,7 +144,7 @@ export function buildHelpdeskMfaResetScenario(
       answer: "ip_and_concurrent",
       xp: 70,
       explanation:
-        "The genuine lost-phone case looks exactly like evt_hmr_02 through evt_hmr_05 on their own — a phone call, a reset, a new registration. What separates an ordinary re-enrollment from this one is where evt_hmr_06 comes from: 185.220.101.47, an address that appears nowhere else in l.ferreira's telemetry, and the fact that her own laptop was still authenticating normally from London in evt_hmr_03 seven minutes before the reset even started. An employee who actually lost her phone doesn't have a second, live, unrelated session running from her own desk while someone else re-enrolls her account. Option (b) overweights a single, common verification method — DOB checks are standard and weak, but weak process alone isn't proof of an incident. Option (c) would flag every legitimate lost-phone case; phone-based MFA resets are how most help desks operate. Option (d) is not a real signal — urgency and priority reflect what the caller claimed, not what happened next.",
+        "The genuine lost-phone case looks exactly like evt_hmr_02 through evt_hmr_05 on their own — a phone call, a reset, a new registration. What separates an ordinary re-enrollment from this one is where evt_hmr_06 comes from: 5.181.234.19, an address that appears nowhere else in l.ferreira's telemetry, and the fact that her own laptop was still authenticating normally from London in evt_hmr_03 seven minutes before the reset even started. An employee who actually lost her phone doesn't have a second, live, unrelated session running from her own desk while someone else re-enrolls her account. Option (b) overweights a single, common verification method — DOB checks are standard and weak, but weak process alone isn't proof of an incident. Option (c) would flag every legitimate lost-phone case; phone-based MFA resets are how most help desks operate. Option (d) is not a real signal — urgency and priority reflect what the caller claimed, not what happened next.",
     },
     {
       id: "q3",
@@ -193,7 +193,7 @@ export function buildHelpdeskMfaResetScenario(
         },
         {
           value: "block_ip_only",
-          label: "Block 185.220.101.47 at the perimeter and on the VDI gateway — with the attacker's IP blocked, their access to the account is gone",
+          label: "Block 5.181.234.19 at the perimeter and on the VDI gateway — with the attacker's IP blocked, their access to the account is gone",
         },
         {
           value: "retrain_agent",
@@ -218,7 +218,7 @@ export function buildHelpdeskMfaResetScenario(
 
 At 09:41 the IT Service Desk opened ticket INC0048217: the caller reported being locked out and having lost her phone, and asked for a password and MFA reset. James Oduya verified the caller with an employee ID and date of birth over the phone — the bank's standard phone-verification procedure, and also exactly what a caller who has done a little research on their target can usually produce (T1656). At 09:45, four minutes into that call, Lucia's own account signed in again from the same London address on the same laptop — she was at her desk in SharePoint the entire time.
 
-At 09:52 the ticket was resolved: password reset, MFA requirement cleared, caller told to re-enroll on next sign-in — closed exactly the way this help desk closes several tickets like it every week. One minute later the reset itself landed in the directory (T1556.006). Five minutes after that, at 09:58, a new Microsoft Authenticator was registered as Lucia's security info. The identity performing the registration was hers — because by then anyone holding the new password could act as her — but the IP address behind it was 185.220.101.47 in Amsterdam, an address that appears nowhere else in her telemetry (T1098.005).
+At 09:52 the ticket was resolved: password reset, MFA requirement cleared, caller told to re-enroll on next sign-in — closed exactly the way this help desk closes several tickets like it every week. One minute later the reset itself landed in the directory (T1556.006). Five minutes after that, at 09:58, a new Microsoft Authenticator was registered as Lucia's security info. The identity performing the registration was hers — because by then anyone holding the new password could act as her — but the IP address behind it was 5.181.234.19 in Amsterdam, an address that appears nowhere else in her telemetry (T1098.005).
 
 At 10:01 that account signed in to Exchange Online from the same Amsterdam address, on an unmanaged Windows 10 machine running Chrome. Password and MFA both genuinely completed — Conditional Access shows success, sign-in risk shows none, because the attacker now held a working second factor and Entra's risk engine had nothing unusual to key on (T1078.004). Five minutes later a fresh session started on VDI-POOL-014 under her account.
 
@@ -239,7 +239,7 @@ No single record here reads as malicious. The ticket looks like routine support.
       { ts: T(45 * MIN), phase: "Baseline", action: "l.ferreira signs in again from the same London address — still genuinely active" },
       { ts: T(52 * MIN), phase: "Impersonation", action: "Ticket INC0048217 resolved: password reset, MFA cleared" },
       { ts: T(53 * MIN), phase: "Defense Evasion", action: "Registered authentication methods cleared on the account (T1556.006)" },
-      { ts: T(58 * MIN), phase: "Persistence", action: "New Microsoft Authenticator registered from 185.220.101.47, Amsterdam (T1098.005)" },
+      { ts: T(58 * MIN), phase: "Persistence", action: "New Microsoft Authenticator registered from 5.181.234.19, Amsterdam (T1098.005)" },
       { ts: T(61 * MIN), phase: "Initial Access", action: "Account signs in from Amsterdam, MFA genuinely satisfied on the new device (T1078.004)" },
       { ts: T(66 * MIN), phase: "Lateral Movement", action: "New session lands on internal host VDI-POOL-014" },
     ],

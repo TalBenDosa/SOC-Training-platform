@@ -183,8 +183,9 @@ describe("buildTeamTimeline — shift length (recycling)", () => {
     };
     const med = ["a", "b", "c", "d"].map(s => spanMin("nexacorp", "medium", s));
     const avg = med.reduce((a, b) => a + b, 0) / med.length;
+    // Medium shift runs ~35–39 min: storylines carry their own initial-access + first-alert rows now.
     expect(avg).toBeGreaterThan(33);
-    expect(avg).toBeLessThan(37);
+    expect(avg).toBeLessThan(40);
     expect(spanMin("nexacorp", "easy", "a")).toBeGreaterThan(21);
     expect(spanMin("nexacorp", "hard", "a")).toBeGreaterThan(31);
   });

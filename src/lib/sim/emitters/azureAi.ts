@@ -151,6 +151,12 @@ export interface DefenderAiAlertOpts extends Common {
   promptSegment?: string;          // "Suspicious user prompt segment" (redacted evidence)
   extra?: Record<string, string>;  // further extended properties
   startTs?: string;                // first activity covered by the alert
+  /**
+   * End-user security context the calling application passes with each request (user_security_context:
+   * end-user id, source IP, application name). With it, the alert names the person behind an app's
+   * request and carries their address as the IP entity; "Client IP address" stays the app's own.
+   */
+  endUser?: { id: string; ip: string; app: string };
 }
 
 export function defenderAiAlert(o: DefenderAiAlertOpts): TelemetryEvent {
@@ -162,8 +168,9 @@ export function defenderAiAlert(o: DefenderAiAlertOpts): TelemetryEvent {
     id: o.id, ts: o.ts, source: "cloud_azure", vendor: "Microsoft Defender for Cloud",
     event_type: "cloud_api_call" as EventType,
     severity: o.severity ?? sev,
-    src_ip: o.clientIp,
+    src_ip: o.endUser?.ip ?? o.clientIp,
     user_email: o.user,
+    is_detection: true,
     description: o.description,
     ...meta(o),
     raw: {
@@ -184,6 +191,11 @@ export function defenderAiAlert(o: DefenderAiAlertOpts): TelemetryEvent {
       "azure.alert.extendedProperties.Model deployment name": o.deployment,
       "azure.alert.extendedProperties.Azure AI resource": r.account,
       "azure.alert.extendedProperties.Client IP address": o.clientIp,
+      ...(o.endUser ? {
+        "azure.alert.extendedProperties.End user ID": o.endUser.id,
+        "azure.alert.extendedProperties.End user IP address": o.endUser.ip,
+        "azure.alert.extendedProperties.Application name": o.endUser.app,
+      } : {}),
       ...(o.promptSegment ? { "azure.alert.extendedProperties.Suspicious user prompt segment": o.promptSegment } : {}),
       ...Object.fromEntries(Object.entries(o.extra ?? {}).map(([k, v]) => [`azure.alert.extendedProperties.${k}`, v])),
       "azure.subscription_id": r.subscriptionId,
@@ -197,7 +209,7 @@ export function defenderAiAlert(o: DefenderAiAlertOpts): TelemetryEvent {
       "event.action": a.type,
       "event.category": ["intrusion_detection"],
       "event.outcome": "success",
-      "source.ip": o.clientIp,
+      "source.ip": o.endUser?.ip ?? o.clientIp,
       ...geoFields(o.geo, o.asOrg),
     },
   };

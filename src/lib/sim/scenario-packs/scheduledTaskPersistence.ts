@@ -153,13 +153,13 @@ export function buildScheduledTaskPersistenceScenario(
       options: [
         { value: "chain_of_custody", label: "The full chain: a forum-downloaded script spawned the process that registered the task, targeting a binary the same script had just written to AppData" },
         { value: "onlogon_trigger", label: "Its onlogon trigger — IT-managed tasks run on fixed daily or weekly schedules, so a task keyed to user logon is the signature of malicious persistence" },
-        { value: "rl_highest", label: "Its /rl highest run level — IT deployment tools register tasks as SYSTEM, so a user-context task asking for top privileges marks it as malicious" },
+        { value: "task_path", label: "Its target — a binary in the user's own AppData\\Local, where IT deployment tools never install, rather than Program Files or a managed agent path" },
         { value: "task_name", label: "The task name NetFixOptimizer, which appears as a known-malicious persistence string in threat-intel feeds and is enough by itself to classify the task" },
       ],
       answer: "chain_of_custody",
       xp: 50,
       explanation:
-        "IT-managed scheduled tasks are created by known deployment tools, run from Program Files or a management agent's install path, and register cleanly through documented change processes — none of that context exists here. What makes this task suspicious is not any single argument on its command line (onlogon triggers and /rl highest are both used constantly by entirely legitimate software) but the full provenance: a script fetched from a site with no relationship to the organisation, run interactively by an end user, spawning the exact process that registered the task, pointed at a binary written to the user's own AppData folder seconds earlier. The task name itself is meaningless — attackers can and do name tasks anything that sounds boring.",
+        "IT-managed scheduled tasks are created by known deployment tools, run from Program Files or a management agent's install path, and register cleanly through documented change processes — none of that context exists here. What makes this task suspicious is not any single argument on its command line (onlogon triggers and AppData targets both appear in some legitimate per-user software too) but the full provenance: a script fetched from a site with no relationship to the organisation, run interactively by an end user, spawning the exact process that registered the task, pointed at a binary written to the user's own AppData folder seconds earlier. The task name itself is meaningless — attackers can and do name tasks anything that sounds boring; and this is a plain per-user task (no elevation), which is exactly what a non-admin end user can register.",
     },
   ];
 
@@ -172,11 +172,11 @@ export function buildScheduledTaskPersistenceScenario(
       "A SIEM correlation rule fired on WS-7742 overnight: a binary written by a PowerShell script the previous morning relaunched at logon as a child of the Task Scheduler service. Work out how it got persistence and what it does when it runs.",
     narrative: `At 08:05 Shani Attia downloaded SpeedBoost_NetFix.ps1 from netfix-tools-download.com, a script linked from a forum thread promising to fix a slow home-office VPN connection. She ran it just over three minutes later: powershell.exe -ExecutionPolicy Bypass -File, launched directly by explorer.exe.
 
-Six seconds in, the script wrote C:\\Users\\s.attia\\AppData\\Local\\NetFixSvc\\netfix_agent.exe. Five seconds after that, it spawned schtasks.exe with a single, decisive command: register a task called NetFixOptimizer to run that binary at every logon, at the highest available privilege level, no confirmation required. Twelve seconds later, netfix_agent.exe resolved svc-heartbeat-relay.net and opened a TCP/443 session to it — the first check-in.
+Three seconds in, the script fetched netfix_agent.exe from the same site and, six seconds in, wrote it to C:\\Users\\s.attia\\AppData\\Local\\NetFixSvc\\netfix_agent.exe. Five seconds after that, it spawned schtasks.exe with a single, decisive command: register a per-user task called NetFixOptimizer to run that binary at every logon, no confirmation required — no elevation needed, because the task runs only in this user's context. Twelve seconds later, netfix_agent.exe resolved svc-heartbeat-relay.net and opened a TCP/443 session to it — the first check-in.
 
 Nothing about that first run looked catastrophic. It was one script, one dropped file, one outbound connection that the firewall allowed under a category nobody blocks by default.
 
-The evidence that this mattered arrived 21 hours later. At 05:11 the next morning, netfix_agent.exe started again — same file, same hash, but this time launched by svchost.exe running the Schedule service, not by anything the user did. The scheduled task had fired exactly as it was built to. A SIEM detection rule built on the Sysmon feed connected the two events three minutes later: a script-spawned PowerShell process registering a task, and that task's target binary actually executing at the next logon, on a host where nobody had removed anything in between.`,
+The evidence that this mattered arrived 21 hours later. At 05:11 the next morning — in a new logon session, carrying a different LogonGuid/LogonId from the previous day's run — netfix_agent.exe started again: same file, same hash, but this time launched by svchost.exe running the Schedule service, not by anything the user did. The scheduled task had fired exactly as it was built to. A SIEM detection rule built on the Sysmon feed connected the two events three minutes later: a script-spawned PowerShell process registering a task, and that task's target binary actually executing at the next logon, on a host where nobody had removed anything in between.`,
     learning_objectives: [
       "Identify Scheduled Task/Job persistence (T1053.005) from a schtasks.exe command line, independent of what the payload itself does",
       "Recognise PowerShell script execution (T1059.001) launched by explorer.exe from a downloaded file",
@@ -190,12 +190,13 @@ The evidence that this mattered arrived 21 hours later. At 05:11 the next mornin
     killchain: [
       { ts: T(0), phase: "Initial Access", action: `SpeedBoost_NetFix.ps1 downloaded from ${downloadSite}` },
       { ts: T(3 * MIN + 18_000), phase: "Execution", action: "explorer.exe launches powershell.exe running the downloaded script (T1059.001)" },
+      { ts: T(3 * MIN + 21_000), phase: "Command and Control", action: `netfix_agent.exe fetched from ${downloadSite} (T1105)` },
       { ts: T(3 * MIN + 24_000), phase: "Execution", action: "netfix_agent.exe written to AppData\\Local\\NetFixSvc" },
-      { ts: T(3 * MIN + 29_000), phase: "Persistence", action: "schtasks.exe registers NetFixOptimizer to run at every logon (T1053.005)" },
+      { ts: T(3 * MIN + 29_000), phase: "Persistence", action: "schtasks.exe registers a per-user NetFixOptimizer task to run at every logon (T1053.005)" },
       { ts: T(3 * MIN + 33_000), phase: "Execution", action: "powershell.exe launches netfix_agent.exe directly for an immediate first run" },
       { ts: T(3 * MIN + 41_000), phase: "Command and Control", action: `netfix_agent.exe resolves ${c2}` },
       { ts: T(3 * MIN + 44_000), phase: "Command and Control", action: "First outbound check-in, allowed as newly-registered-domain (T1071.001)" },
-      { ts: T(21 * HOUR + 6 * MIN), phase: "Persistence", action: "netfix_agent.exe relaunches at logon as a child of svchost.exe — the task firing (T1053.005)" },
+      { ts: T(21 * HOUR + 6 * MIN), phase: "Persistence", action: "Next-day logon (new LogonId): netfix_agent.exe relaunches as a child of svchost.exe — the task firing (T1053.005)" },
       { ts: T(21 * HOUR + 9 * MIN), phase: "Detection", action: "SIEM correlation rule fires on the Sysmon telemetry" },
     ],
     questions,

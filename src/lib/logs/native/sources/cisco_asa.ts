@@ -90,7 +90,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
 
 // ── use cases (regex over the verbatim Message_text, as on a real ASA) ───────
 const ADMIN_PORTS = "(22|23|445|3389|5985|5986)";
-const C2_PORTS = "(4444|3333|5555|1337|6667|8333|14444|45700)";
+const C2_PORTS = "(4444|5555|1337|6667|9001)";
 export const useCases: UseCase[] = [
   {
     id: "cisco_asa.acl-deny-burst", title: "Burst of ACL denies (scan / sweep)", sourceId: "cisco_asa", kinds: ["106023"],
@@ -118,9 +118,9 @@ export const useCases: UseCase[] = [
     falsePositives: ["Vendor jump hosts with source-restricted ACLs"],
   },
   {
-    id: "cisco_asa.outbound-suspicious-port", title: "Outbound connection to a typical C2 / mining port", sourceId: "cisco_asa", kinds: ["302013", "302014"],
-    severity: "high", mitre: ["T1571", "T1496"],
-    description: "An inside host built a TCP connection to an outside server on a port commonly used by reverse shells and miners (4444, 3333 Stratum, 5555, 1337 …). Legitimate business traffic rarely uses these.",
+    id: "cisco_asa.outbound-suspicious-port", title: "Outbound connection to a typical C2 / reverse-shell port", sourceId: "cisco_asa", kinds: ["302013", "302014"],
+    severity: "high", mitre: ["T1571"],
+    description: "An inside host built a TCP connection to an outside server on a port commonly used by reverse shells and C2 implants (4444, 5555, 1337 …). Legitimate business traffic rarely uses these.",
     logic: `SPL: sourcetype=cisco:asa message_id IN (302013, 302014) | regex Message_text="for outside:[\\d.]+/${C2_PORTS} (\\(\\S+\\) )?to inside:"`,
     match: { field: "Message_text", op: "regex", value: `for outside:[\\d.]+/${C2_PORTS} (\\(\\S+\\) )?to inside:` },
     falsePositives: ["Developer tools or games using these ports"],
@@ -135,8 +135,8 @@ export const useCases: UseCase[] = [
   },
   {
     id: "cisco_asa.long-lived-session", title: "Outbound TCP session open for more than an hour", sourceId: "cisco_asa", kinds: ["302014"],
-    severity: "medium", mitre: ["T1071", "T1496"],
-    description: "A teardown with duration ≥ 1:00:00 on an outbound connection: interactive tunnels, reverse shells and mining pools keep one session open for hours.",
+    severity: "medium", mitre: ["T1071"],
+    description: "A teardown with duration ≥ 1:00:00 on an outbound connection: interactive tunnels, reverse shells and C2 channels keep one session open for hours.",
     logic: "SPL: sourcetype=cisco:asa message_id=302014 | regex Message_text=\"to inside:\\S+ duration [1-9]\\d*:\\d\\d:\\d\\d \"",
     match: { field: "Message_text", op: "regex", value: "to inside:\\S+ duration [1-9]\\d*:\\d\\d:\\d\\d " },
     falsePositives: ["VPN / VDI sessions, streaming, long downloads"],

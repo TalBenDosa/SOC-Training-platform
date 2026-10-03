@@ -23,7 +23,7 @@
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { NativeCtx } from "../types";
 import type { EdrFacts, EdrProc } from "./edr-normalize";
-import { procKey, procPid, type ProcScope } from "./_proc-identity";
+import { procKey, procPid, accountSid, osImagePath, type ProcScope } from "./_proc-identity";
 
 export type { ProcScope } from "./_proc-identity";
 export { inferredFileWriter } from "./_proc-identity";
@@ -122,16 +122,13 @@ export const isoNano = (ctx: NativeCtx, ms: number, seed: string) => `${iso(ms).
 export interface UserFacts { user?: string; domain: string; system: boolean; sid?: string; upn?: string; email?: string }
 const SYSTEM_SIDS: Record<string, string> = { system: "S-1-5-18", "local service": "S-1-5-19", "network service": "S-1-5-20", "nt authority\\system": "S-1-5-18" };
 
+/** The event's account: the story's authored SID when it has one (EdrFacts.sid), else the user's directory SID — one value per user in every product. */
 export function userOf(ctx: NativeCtx, f: EdrFacts, os: "Win" | "Lin" | "Mac"): UserFacts {
   const user = f.user ?? (f.userEmail ? f.userEmail.split("@")[0] : undefined);
   const system = !!user && (lc(user) in SYSTEM_SIDS || lc(user) === "root");
   const domain = system && os === "Win" ? "NT AUTHORITY" : (f.userDomain ?? ctx.netbios);
-  const sid = os !== "Win" || !user ? undefined : SYSTEM_SIDS[lc(user)] ?? domainSid(ctx, user);
+  const sid = os !== "Win" || !user ? undefined : SYSTEM_SIDS[lc(user)] ?? f.sid ?? accountSid(ctx, user, f.userEmail);
   return { user, domain, system, sid, email: f.userEmail, upn: f.userEmail ?? (user && !system ? `${user}@${ctx.domain}` : undefined) };
-}
-export function domainSid(ctx: NativeCtx, user: string): string {
-  const s = `${ctx.companyId}:sid`;
-  return `S-1-5-21-${ctx.int(`${s}:a`, 1_000_000_000, 3_999_999_999)}-${ctx.int(`${s}:b`, 1_000_000_000, 3_999_999_999)}-${ctx.int(`${s}:c`, 10_000_000, 999_999_999)}-${ctx.int(`${ctx.companyId}:rid:${lc(user)}`, 1104, 9800)}`;
 }
 
 // ── processes ───────────────────────────────────────────────────────────────
@@ -166,14 +163,17 @@ export function imagePath(p: EdrProc): string | undefined {
     const tok = m?.[1] ?? m?.[2];
     if (tok && (/^[A-Za-z]:\\/.test(tok) || tok.startsWith("/")) && (!p.name || lc(baseName(tok)) === lc(p.name))) return tok;
   }
-  return p.name ? CANONICAL[lc(p.name)] : undefined;
+  return p.name ? CANONICAL[lc(p.name)] ?? osImagePath(p.name) : undefined;
 }
 export const procName = (p: EdrProc) => p.name ?? baseName(fixPath(p.path));
 
 /** Windows device-path form used by Falcon ("C:\X" → "\Device\HarddiskVolume3\X"); unix paths unchanged. */
 export function ntDevicePath(p: string): string {
-  const m = /^[A-Za-z]:\\(.*)$/.exec(p);
-  return m ? `\\Device\\HarddiskVolume3\\${m[1]}` : p;
+  const m = /^([A-Za-z]):\\(.*)$/.exec(p);
+  if (!m) return p;
+  // C: is the system volume (HarddiskVolume3); another letter (a USB drive at E:) is a later volume.
+  const vol = 3 + Math.max(0, m[1].toUpperCase().charCodeAt(0) - 67);
+  return `\\Device\\HarddiskVolume${vol}\\${m[2]}`;
 }
 /** Drive-letter form used by SentinelOne telemetry ("\Device\HarddiskVolume3\X" → "C:\X"). */
 export function drivePath(p: string): string {

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { source, kindOf } from "./aws_guardduty";
+import { source as ctSource } from "./aws_cloudtrail";
 import { validateNative } from "../validate";
 import { runUseCase } from "../engine";
 import { makeCtx } from "../ctx";
@@ -110,5 +111,53 @@ describe("aws_guardduty — use cases", () => {
     for (const uc of source.useCases) if (uc.severity === "high" || uc.severity === "critical") fired += runUseCase(uc, noise).length;
     console.log(`[aws_guardduty] high/critical hits on ${noise.length} benign/company findings: ${fired}`);
     expect(fired).toBe(0);
+  });
+});
+
+// ── resource / action / location derived from the finding (storyline review 2026-10-02 §C.5) ──
+describe("aws_guardduty — the finding names the authored principal, call and address", () => {
+  type Rec = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+  const gd = (id: string, raw: Record<string, unknown>, extra: Record<string, unknown> = {}): Rec =>
+    source.fromTelemetry({ id, ts: "2026-06-18T09:10:00.000Z", source: "cloudtrail", vendor: "AWS GuardDuty", event_type: "cloud_alert", src_ip: "62.210.71.148", raw, ...extra } as never, ctx)!.record as Rec;
+  const ct = (raw: Record<string, unknown>): Rec =>
+    ctSource.fromTelemetry({ id: "ct_" + JSON.stringify(raw).length, ts: "2026-06-18T09:05:00.000Z", source: "cloudtrail", vendor: "AWS CloudTrail", event_type: "cloud_api_call", src_ip: "62.210.71.148", raw } as never, ctx)!.record as Rec;
+
+  it("accessKeyDetails is the authored IAM user, with the same key / principal id its CloudTrail rows carry", () => {
+    const f = gd("t_gd_user", { "aws.guardduty.type": "Discovery:IAMUser/AnomalousBehavior", "aws.guardduty.resource.accessKeyDetails.userType": "IAMUser", "aws.guardduty.resource.accessKeyDetails.userName": "svc-build-release" });
+    const c = ct({ "aws.cloudtrail.eventName": "ListUsers", "aws.cloudtrail.userIdentity.type": "IAMUser", "aws.cloudtrail.userIdentity.userName": "svc-build-release" });
+    expect(f.resource.accessKeyDetails).toEqual({ accessKeyId: c.userIdentity.accessKeyId, principalId: c.userIdentity.principalId, userType: "IAMUser", userName: "svc-build-release" });
+  });
+
+  it("an instance-credential finding is an AssumedRole session (ASIA) of the authored role — the session the CloudTrail rows show", () => {
+    const f = gd("t_gd_inst", { "aws.guardduty.type": "UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::247316892041:assumed-role/ci-deploy-role/i-0abc123def4567890" });
+    const c = ct({ "aws.cloudtrail.eventName": "GetCallerIdentity", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::247316892041:assumed-role/ci-deploy-role/i-0abc123def4567890" });
+    expect(f.resource.accessKeyDetails.userType).toBe("AssumedRole");
+    expect(f.resource.accessKeyDetails.userName).toBe("ci-deploy-role");
+    expect(f.resource.accessKeyDetails.accessKeyId).toBe(c.userIdentity.accessKeyId);
+    expect(f.resource.accessKeyDetails.principalId).toBe(c.userIdentity.principalId);
+    expect(f.accountId).toBe("247316892041");
+  });
+
+  it("the API is the call actually made (finding → event → type), the address carries its own geo — no fixed svc-account / ListBuckets / Unknown", () => {
+    const f = gd("t_gd_api", { "aws.guardduty.type": "Stealth:IAMUser/CloudTrailLoggingDisabled" }, { user_email: "svc-ops@rocketstack.io" });
+    expect(f.service.action.awsApiCallAction.api).toBe("StopLogging");
+    expect(f.service.action.awsApiCallAction.serviceName).toBe("cloudtrail.amazonaws.com");
+    const geo = f.service.action.awsApiCallAction.remoteIpDetails;
+    expect(geo.ipAddressV4).toBe("62.210.71.148");
+    expect(geo.country.countryName).toBe("France");
+    expect(geo.city.cityName).toBe("Paris");
+    expect(geo.geoLocation.lat).not.toBe(0);
+    expect(JSON.stringify(f)).not.toMatch(/svc-account|"Unknown"/);
+    const s3 = gd("t_gd_s3", { "aws.guardduty.type": "Exfiltration:S3/AnomalousBehavior", "aws.guardduty.resource.s3BucketDetails.name": "acme-exports" });
+    expect(s3.resource.s3BucketDetails[0].name).toBe("acme-exports");
+    expect(s3.service.action.awsApiCallAction.api).toBe("GetObject");
+  });
+
+  it("no corpus finding falls back to the old constant resource / API", () => {
+    for (const c of corpusFor(source.schema.telemetrySources, source.schema.vendorMatch)) {
+      const log = source.fromTelemetry(c.ev, makeCtx(c.companyId));
+      if (!log) continue;
+      expect(JSON.stringify(log.record), c.ev.id).not.toMatch(/"svc-account"|"Unknown"/);
+    }
   });
 });

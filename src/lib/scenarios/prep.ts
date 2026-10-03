@@ -27,15 +27,12 @@ export const SCENARIO_PREP: Record<string, string[]> = {
 
   // Endpoint malware / commodity initial access
   "usb-malware-basic":             ["malware-types", "endpoint-security-fundamentals"],
-  "bundled-cryptominer":           ["malware-types", "endpoint-security-fundamentals"],
   "seo-poisoned-installer":        ["commodity-initial-access", "malware-types"],
   "clickfix-fake-captcha":         ["commodity-initial-access", "phishing-analysis"],
   "trojanized-installer-keylogger":["malware-types", "commodity-initial-access"],
   "fake-browser-update":           ["commodity-initial-access", "malware-types"],
-  "drive-by-browser-miner":        ["commodity-initial-access", "malware-types"],
   "iso-container-smuggling":       ["commodity-initial-access", "malware-types"],
   "infostealer-session-theft":     ["malware-types", "identity-basics"],
-  "clipboard-clipper":             ["commodity-initial-access", "malware-types"],
   "macos-stealer-dmg":             ["macos-security-fundamentals"],
   "macos-tcc-pkg":                 ["macos-security-fundamentals"],
 
@@ -70,14 +67,13 @@ export const SCENARIO_PREP: Record<string, string[]> = {
   "pam-vault-abuse":               ["privileged-access-monitoring", "active-directory"],
 
   // Cloud & container
-  "cloud-cryptomining":            ["aws-security", "cloud-security-monitoring"],
   "k8s-pod-escape-imds":           ["kubernetes-container-security", "aws-security"],
   "azure-managed-identity-abuse":  ["azure-security", "cloud-security-monitoring"],
   "cicd-supply-chain":             ["aws-security", "cloud-security-monitoring"],
   "s3-exfil-exposure":             ["aws-security", "cloud-security-monitoring"],
+  "aws-key-leak-s3-exfil":         ["aws-security", "cloud-security-monitoring"],
   "ai-llmjacking-bedrock":         ["aws-security", "cloud-security-monitoring"],
   "gcp-sa-key-theft":              ["gcp-security", "cloud-security-monitoring"],
-  "container-escape-cryptomining": ["kubernetes-container-security", "cloud-security-monitoring"],
 
   // Web / perimeter / DB
   "web-shell-sqli":                ["web-application-security", "web-attacks-practice"],
@@ -88,7 +84,7 @@ export const SCENARIO_PREP: Record<string, string[]> = {
   "dns-tunneling":                 ["dns-investigation", "tunneling-c2-channels"],
   "lolbins":                       ["windows-event-logs", "mitre-attack", "powershell-for-soc-analyst"],
   "threat-intel-hunt":             ["threat-intelligence", "threat-hunting-fundamentals", "ioc-analysis"],
-  "linux-ssh-cryptominer":         ["linux-fundamentals", "linux-log-analysis"],
+  "linux-ssh-persistence":         ["linux-fundamentals", "linux-log-analysis"],
 
   // Insider, supply-chain, physical, OT
   "insider-threat-finance":        ["dlp-fundamentals", "analyst-mindset"],

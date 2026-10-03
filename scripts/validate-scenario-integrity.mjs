@@ -134,6 +134,10 @@ for (const def of SCENARIOS) {
 // CloudTrail" mistake F-04 targets; both sources here are Windows Security itself.
 const ALLOWED_MULTI_SOURCE = new Map([
   ["windows security", new Set(["ad", "windows_security"])],
+  // A FortiGate NGFW is one product written at two planes: its allowed/denied
+  // sessions and admin event log ("firewall") and its IPS/UTM engine ("ids").
+  // The native fortigate module declares telemetrySources ["firewall", "ids"].
+  ["fortigate", new Set(["firewall", "ids"])],
 ]);
 
 // ── F-04 cross-corpus consistency (after the full sweep) ─────────────────────

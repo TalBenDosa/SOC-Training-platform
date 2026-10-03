@@ -31,6 +31,7 @@ function documentedNull(c: Converted): string | null {
   const ev = c.c.ev;
   const f = edrFacts(ev);
   if (f.kind === "unsupported") return f.unsupportedReason ?? "unsupported";
+  if (f.kind === "usb") return "USB mount (device-control telemetry has no documented record in the card)";
   if (f.kind === "registry") return "registry (no documented keys)";
   if (f.kind === "logon") return "logon (no documented keys)";
   if (f.kind === "process" && !f.proc.name && !f.proc.path && !f.proc.cmdline) return "process event without an image";

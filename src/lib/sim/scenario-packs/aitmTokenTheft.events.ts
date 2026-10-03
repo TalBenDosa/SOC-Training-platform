@@ -455,6 +455,32 @@ export function aitmTokenTheftScenarioEvents() {
       },
     },
 
+    // ── 9b. The page: Identity Protection's offline token anomaly reaches Sentinel ──
+    {
+      id: "aitm_09b_idp_alert",
+      ts: T(12 * MIN + 10 * SEC),
+      source: "siem", vendor: "Microsoft Sentinel", event_type: "risk_score_change",
+      severity: "high", is_detection: true, mitre_technique: "T1550.004",
+      user_email: victim, src_ip: replayIp,
+      description: `Sentinel received the Identity Protection alert "Anomalous Token" (High) for m.delgado, source IP ${replayIp}.`,
+      raw: {
+        "AlertName": "Anomalous Token",
+        "ProductName": "Azure Active Directory Identity Protection",
+        "ProviderName": "IPC",
+        "AlertSeverity": "High",
+        "AlertType": "AnomalousToken",
+        "Status": "New",
+        "CompromisedEntity": victim,
+        "Entities.Account.Name": "m.delgado",
+        "Entities.Account.UPNSuffix": "nexacorp.com",
+        "Entities.IP.Address": replayIp,
+        "ExtendedProperties.Client IP Address": replayIp,
+        "ExtendedProperties.Detection Timing Type": "offline",
+        "ExtendedProperties.Token Issuer Type": "AzureAD",
+        "event.action": "alert",
+      },
+    },
+
     // ── 10. The replayed session brokers a mailbox token ─────────────────────
     {
       id: "aitm_10_exo_token",

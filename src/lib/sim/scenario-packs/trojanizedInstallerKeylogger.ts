@@ -112,14 +112,14 @@ export function buildTrojanizedInstallerKeyloggerScenario(
       kind: "single",
       options: [
         { value: "hkcu", label: "It used the HKCU Run key, which any standard user can write to for their own account" },
-        { value: "uac", label: "The installer bypassed UAC, which is why it ran at high integrity and could write system autoruns" },
+        { value: "uac", label: "The installer bypassed UAC and ran elevated, which is why it could write system-wide autoruns" },
         { value: "service", label: "It installed a per-user Windows service, which does not require administrative rights to register" },
         { value: "task", label: "It created a scheduled task running as SYSTEM, which any standard user is allowed to register" },
       ],
       answer: "hkcu",
       xp: 50,
       explanation:
-        "evt_tik_05 records the hive explicitly: HKEY_CURRENT_USER. Every user can write autoruns for their own profile without any elevation, and the entry runs whenever that user logs in — which is all a keylogger targeting one person needs. This is why 'the user isn't an admin' is a much weaker control than it sounds. Options (c) and (d) are simply false about Windows: services and SYSTEM-context scheduled tasks both require administrative rights. Option (b) misreads the evidence — the installer prompted and the user consented, which is ordinary elevation, and in any case the persistence that was actually used needed no elevation at all.",
+        "evt_tik_05 records the hive explicitly: HKEY_CURRENT_USER. Every user can write autoruns for their own profile without any elevation, and the entry runs whenever that user logs in — which is all a keylogger targeting one person needs. This is why 'the user isn't an admin' is a much weaker control than it sounds. Options (c) and (d) are simply false about Windows: services and SYSTEM-context scheduled tasks both require administrative rights. Option (b) misreads the evidence — evt_tik_02 shows the installer ran at medium integrity with TokenElevationTypeLimited (no elevation at all), and the persistence that was actually used is a per-user HKCU key that needs none.",
     },
     {
       id: "q4",
@@ -148,7 +148,7 @@ export function buildTrojanizedInstallerKeyloggerScenario(
       "CrowdStrike Falcon raised a Critical detection on LAP-2290 at 10:46: an unsigned binary in AppData holding a low-level keyboard hook. The user installed a free PDF tool this morning. Establish what was installed, what it is doing, and what has left the machine.",
     narrative: `At 10:05 Yael Karni downloaded SwiftPDF_Setup.exe from pdf-tools-free.io. She needed to merge two contracts before an 11:00 meeting, the corporate PDF licence does not cover merging, and the site was categorised shareware-and-freeware, so nothing blocked it.
 
-She ran it at 10:07:30. The installer is signed by "Nordvale Software Solutions OU" with a certificate Windows trusts, issued on 29 May 2026. It installed C:\\Program Files\\SwiftPDF\\SwiftPDF.exe, which is a genuine, working PDF application — she merged her contracts and made her meeting.
+She ran it at 10:07:30. The installer is signed by "Nordvale Software Solutions OU" with a certificate Windows trusts, issued on 29 May 2026. It installed C:\\Users\\y.karni\\AppData\\Local\\Programs\\SwiftPDF\\SwiftPDF.exe — a per-user install needing no admin rights — which is a genuine, working PDF application — she merged her contracts and made her meeting.
 
 Three seconds after writing the real product, the same installer wrote a second binary: C:\\Users\\y.karni\\AppData\\Roaming\\WinUpd\\winupd_helper.exe, 393 KB, unsigned. Two seconds after that it added a value called WindowsUpdateHelper to HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run pointing at it. She is not a local administrator, and none of that required her to be.
 
@@ -167,7 +167,7 @@ Falcon detected the hook and raised the alert at 10:46. It did not block anythin
     iocs,
     killchain: [
       { ts: T(0), phase: "Initial Access", action: `SwiftPDF_Setup.exe downloaded from ${downloadSite}` },
-      { ts: T(2 * MIN + 30_000), phase: "Execution", action: "User runs the signed installer, elevating to high integrity (T1204.002)" },
+      { ts: T(2 * MIN + 30_000), phase: "Execution", action: "User runs the signed installer at medium integrity, no elevation (T1204.002)" },
       { ts: T(2 * MIN + 51_000), phase: "Execution", action: "The genuine PDF application is installed to Program Files" },
       { ts: T(2 * MIN + 54_000), phase: "Execution", action: "An unsigned second binary is written to AppData\\Roaming\\WinUpd" },
       { ts: T(2 * MIN + 56_000), phase: "Persistence", action: "HKCU Run key WindowsUpdateHelper added (T1547.001)" },

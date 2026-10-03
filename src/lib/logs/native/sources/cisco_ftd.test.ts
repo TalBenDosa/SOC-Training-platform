@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { source, kindOf, toRawLine } from "./cisco_ftd";
-import { runFirewallSuite, cloneLog, repeatEvent, type EvidenceKey } from "./firewall-testkit";
+import { runFirewallSuite, cloneLog, repeatEvent, type EvidenceKey, applianceAdminNull } from "./firewall-testkit";
 import { makeCtx } from "../ctx";
 import { corpusFor, cardSamples } from "../testing/corpus";
 import type { NativeLog } from "../types";
@@ -36,7 +36,7 @@ runFirewallSuite({
   source, kindOf,
   crossMin: 0.9,
   cardTime: ftdTime,
-  nullAllowed: ev => (/zeek|corelight/i.test(ev.vendor ?? "") ? "passive NSM sensor, not a firewall record" : null),
+  nullAllowed: ev => (/zeek|corelight/i.test(ev.vendor ?? "") ? "passive NSM sensor, not a firewall record" : applianceAdminNull(ev)),
   evidenceExempt: (log, ev): EvidenceKey[] => {
     const ex: EvidenceKey[] = [];
     // FTD security events have no host-name key; only the reporting device (device_id).

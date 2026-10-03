@@ -27,6 +27,8 @@ function deepStrings(v: unknown, out: string[] = []): string[] {
   if (Array.isArray(v)) { for (const x of v) deepStrings(x, out); return out; }
   if (typeof v === "object") { for (const x of Object.values(v as Rec)) deepStrings(x, out); return out; }
   out.push(String(v));
+  // AdditionalFields is a JSON string: its members are evidence too.
+  if (typeof v === "string" && /^[[{]/.test(v)) { try { deepStrings(JSON.parse(v), out); } catch { /* not JSON */ } }
   return out;
 }
 const contains = (r: unknown, s: string) => deepStrings(r).some(x => x.includes(s));

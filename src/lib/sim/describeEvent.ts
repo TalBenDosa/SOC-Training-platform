@@ -25,8 +25,9 @@ function rawStr(raw: Record<string, unknown> | undefined, ...keys: string[]): st
  *  `event.action` is deliberately NOT used: some sources put conclusions there. */
 function operationOf(e: TelemetryEvent): string {
   return rawStr(e.raw, "aws.cloudtrail.eventName", "data.office365.Operation", "azure.auditlogs.operationName",
-    "azure.operation.name", "gcp.audit.method_name", "protoPayload.methodName", "okta.eventType", "github.action",
-    "gws.event.name", "intune.activityType", "vsphere.event.eventTypeId", "aws.guardduty.service.action.awsApiCallAction.api");
+    "azure.operation.name", "azure.activitylogs.operationName", "gcp.audit.method_name", "protoPayload.methodName",
+    "okta.eventType", "github.action", "github.audit.action", "gws.event.name", "google_workspace.event.name",
+    "intune.activityType", "vsphere.event.eventTypeId", "aws.guardduty.service.action.awsApiCallAction.api");
 }
 
 const baseName = (p?: string) => (p ? p.split(/[\\/]/).filter(Boolean).pop() ?? p : "");
@@ -37,6 +38,9 @@ export interface DescribeOptions {
    *  Viewer text when the fields say more ("cmd.exe started powershell.exe on
    *  FIN-WS-08" instead of "Process Create"). Used by the scenario page. */
   preferFields?: boolean;
+  /** Never use the authored prose — every row (attack or noise) gets the same field-built
+   *  sentence, so neither length nor style tells an attack row from noise (team feed). */
+  fieldsOnly?: boolean;
 }
 
 /** Windows LogonType → the wording analysts (and the live feed) use. */
@@ -60,8 +64,13 @@ export function describeEvent(event: TelemetryEvent, opts: DescribeOptions = {})
   // events (whose authored text is factual). Attack events (mitre_technique present)
   // skip it and fall through to the observable-derived line, so the feed describes
   // rather than explains.
-  if (!event.mitre_technique && event.description && event.description.trim().length > 12) {
+  if (!opts.fieldsOnly && !event.mitre_technique && event.description && event.description.trim().length > 12) {
     return event.description;
+  }
+  // An alert row names the alert — what the console really shows — never the analysis.
+  const alertName = rawStr(event.raw, "AlertName", "alert.name", "crowdstrike.DetectName", "threat.name", "ThreatName", "data.ms-graph.title");
+  if (opts.fieldsOnly && alertName && (event.is_detection || ["siem", "ueba", "dlp", "av"].includes(event.source) || /alert|detection|quarantine|finding/.test(event.event_type))) {
+    return `Alert: ${alertName}${event.hostname ? ` — ${event.hostname}` : ""}`;
   }
 
   // Otherwise fall back to the exact Event Viewer description text for the code
@@ -167,8 +176,12 @@ export function describeEvent(event: TelemetryEvent, opts: DescribeOptions = {})
       return `${who} gained elevated privileges${host}`;
     case "cloud_api_call":
       return op ? `${who} called ${op}` : `${who} made a cloud API call`;
-    case "cloud_storage_access":
-      return op ? `${who} accessed cloud storage (${op})` : `${who} accessed cloud storage`;
+    case "cloud_storage_access": {
+      const bkt = rawStr(event.raw, "aws.cloudtrail.requestParameters.bucketName", "azure.resource.name", "gcp.resource.name");
+      const key = rawStr(event.raw, "aws.cloudtrail.requestParameters.key");
+      const tgt = [bkt, key].filter(Boolean).join("/");
+      return `${who} ${op || "accessed"} ${tgt || "cloud storage"}`;
+    }
     case "role_assignment": {
       const role = rawStr(event.raw, "iam.role.name", "vsphere.event.permission.roleName");
       return `${who} changed a role assignment${role ? ` (${role})` : op ? ` (${op})` : ""}`;

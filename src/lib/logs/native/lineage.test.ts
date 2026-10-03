@@ -108,15 +108,19 @@ describe("process lineage within a story", () => {
             // Windows pids are multiples of 4.
             for (const o of x.own) if (o.os === "Win" && o.pid && Number(o.pid) % 4 !== 0) problems.add(`${company} ${s.id} ${o.name} pid ${o.pid} not a multiple of 4`);
           }
-          // One process instance → one id set, however many records describe it.
+          // One process instance → one id set, however many records describe it. Two instances of one
+          // image exist only where the story shows the image as its own parent (powershell.exe → powershell.exe):
+          // each instance keeps one id ↔ pid pairing.
           for (const [k, list] of own) {
-            const ids = new Set(list.map(o => `${o.id}/${o.pid}`));
-            if (ids.size > 1) problems.add(`${company} ${s.id} ${k}: ${list.length} own records disagree (${[...ids].join(" vs ")})`);
+            const byId = new Map<string, Set<string | undefined>>();
+            for (const o of list) byId.set(String(o.id), (byId.get(String(o.id)) ?? new Set()).add(o.pid));
+            for (const [id, pids] of byId) if (pids.size > 1) problems.add(`${company} ${s.id} ${k}: id ${id} carries pids ${[...pids].join(" vs ")}`);
           }
           for (const ref of refs) {
-            const target = own.get(`${ref.host}|${ref.name}`)?.[0];
-            if (!target) continue;
+            const targets = own.get(`${ref.host}|${ref.name}`);
+            if (!targets?.length) continue;
             checked++;
+            const target = targets.find(t => (ref.id !== undefined && t.id === ref.id) || (ref.id === undefined && t.pid === ref.pid)) ?? targets[0];
             if (ref.id !== undefined && target.id !== undefined && ref.id !== target.id) problems.add(`${company} ${s.id} ${ref.ev} ${ref.what} ${ref.name}: id ${ref.id} ≠ own ${target.id}`);
             if (ref.pid !== undefined && target.pid !== undefined && ref.pid !== target.pid) problems.add(`${company} ${s.id} ${ref.ev} ${ref.what} ${ref.name}: pid ${ref.pid} ≠ own ${target.pid}`);
           }

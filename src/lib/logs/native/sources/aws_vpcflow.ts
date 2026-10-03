@@ -13,7 +13,7 @@
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { KindSchema, NativeCtx, NativeLog, NativeSource, SourceSchema, UseCase } from "../types";
-import { rs } from "./cloud-shared";
+import { awsAccountId, rs } from "./cloud-shared";
 
 /** Default v2 field order (14 fields). */
 const V2 = ["version", "account-id", "interface-id", "srcaddr", "dstaddr", "srcport", "dstport", "protocol", "packets", "bytes", "start", "end", "action", "log-status"];
@@ -69,7 +69,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const proto = PROTO[(ev.protocol ?? "tcp").toLowerCase()] ?? 6;
   const record: Record<string, unknown> = {
     version: "2",
-    "account-id": ctx.tenant.awsAccountId,
+    "account-id": awsAccountId(ev, ctx),
     "interface-id": eni ?? `eni-${ctx.hex(ev.id + ":eni", 17)}`,
     srcaddr: ev.src_ip,
     dstaddr: ev.dst_ip,
@@ -89,7 +89,6 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
 // ── use cases ─────────────────────────────────────────────────────────────────
 
 const PRIVATE = ["10.0.0.0/8", "192.168.0.0/16", "172.16.0.0/12", "169.254.0.0/16"];
-const MINING_PORTS = [3333, 4444, 5555, 7777, 8333, 14444, 45700];
 
 const useCases: UseCase[] = [
   {
@@ -100,15 +99,6 @@ const useCases: UseCase[] = [
     logic: "Athena: action='REJECT' AND dstport IN (22,3389)",
     match: { all: [{ field: "action", op: "eq", value: "REJECT" }, { field: "dstport", op: "in", value: [22, 3389] }] },
     falsePositives: ["Background internet scan noise hitting a closed port (expected; only alert on volume or on an ACCEPT that follows)."],
-  },
-  {
-    id: "aws_vpcflow.cryptomining_pool",
-    title: "Outbound connection to a mining-pool port",
-    sourceId: "aws_vpcflow", severity: "high", mitre: ["T1496"],
-    description: "An ACCEPTed outbound flow to a common Stratum / mining-pool port (3333/4444/5555/7777…) — the network footprint of crypto-mining on a compromised instance.",
-    logic: "Athena: action='ACCEPT' AND dstport IN (3333,4444,5555,7777,14444)",
-    match: { all: [{ field: "action", op: "eq", value: "ACCEPT" }, { field: "dstport", op: "in", value: MINING_PORTS }] },
-    falsePositives: ["A legitimate service that happens to use one of these high ports (rare; confirm the destination)."],
   },
   {
     id: "aws_vpcflow.large_egress_external",

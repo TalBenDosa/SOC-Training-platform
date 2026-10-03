@@ -45,10 +45,10 @@ export function buildGwsPhishingAttachmentScenario(
     {
       type: "domain",
       value: c2,
-      first_seen: T(16 * MIN + 25_000),
-      last_seen: T(16 * MIN + 25_000),
+      first_seen: T(16 * MIN + 49_400),
+      last_seen: T(16 * MIN + 49_400),
       reputation: "malicious",
-      tags: ["c2", "newly-observed"],
+      tags: ["credential-collection", "newly-observed"],
     },
     {
       // A real supplier whose mailbox is compromised. Blocking the domain
@@ -92,7 +92,7 @@ export function buildGwsPhishingAttachmentScenario(
     {
       id: "q2",
       prompt:
-        "The .dmg appeared in Downloads with no matching download request in the firewall log. What does that indicate?",
+        "Invoice_8842.dmg appeared in Downloads eight seconds after Invoice_8842.html was saved, written by the same Chrome process, with no matching .dmg download in the firewall log. What does that indicate?",
       kind: "single",
       options: [
         { value: "smuggling", label: "The HTML attachment carried the payload as data and assembled the file in the browser (HTML smuggling)" },
@@ -103,7 +103,7 @@ export function buildGwsPhishingAttachmentScenario(
       answer: "smuggling",
       xp: 60,
       explanation:
-        "The attachment is text/html and 241 KB — large for a message body, and exactly the shape of a file with an encoded blob inside it. When the user opens it, script in the page reconstructs the binary locally and hands it to the browser as a download, so the bytes never cross the network as a fetchable file. That is HTML smuggling (T1027.006), and it is specifically designed to defeat perimeter file inspection. Option (b) is contradicted by the same firewall logging a block four seconds later in evt_gws_05. Option (c) ignores that Chrome is the process that wrote the file, recorded in the raw event.",
+        "The attachment is text/html and 241 KB — large for a message body, and exactly the shape of a file with an encoded blob inside it. When the user opens it, script in the page reconstructs the binary locally and hands it to the browser as a download, so the bytes never cross the network as a fetchable file. That is HTML smuggling (T1027.006), and it is specifically designed to defeat perimeter file inspection. Option (b) is contradicted by the same firewall logging LAP-003's blocked POST minutes later in evt_gws_05. Option (c) ignores that Chrome is the process that wrote the file, recorded in the raw event.",
     },
     {
       id: "q3",
@@ -124,7 +124,7 @@ export function buildGwsPhishingAttachmentScenario(
     {
       id: "q4",
       prompt:
-        "Given evt_gws_07 and evt_gws_08, what should happen beyond containing LAP-003?",
+        "Given evt_gws_07 and the two further deliveries (evt_gws_08_tenant_spread, evt_gws_08b_tenant_spread), what should happen beyond containing LAP-003 and resetting the user's password?",
       kind: "single",
       options: [
         { value: "purge_and_call", label: "Purge the two unopened copies and phone the supplier out-of-band — their mailbox is compromised" },
@@ -135,7 +135,7 @@ export function buildGwsPhishingAttachmentScenario(
       answer: "purge_and_call",
       xp: 50,
       explanation:
-        "evt_gws_08 shows the same attachment sitting unopened in two other mailboxes, so there is live exposure to remove — and 'the payload was blocked' (d) only describes what happened on the one host where a user opened it. The supplier needs telling, but not by replying to the thread (c): the attacker is reading that mailbox, and a reply tips them off and reaches them rather than the supplier. Use a phone number you already have on file. Blocking the domain (b) is the tempting reflex and the wrong one — it severs genuine invoicing with a real business partner to solve a problem that a purge plus a phone call solves better, and it does nothing about the mailbox actually being under someone else's control.",
+        "evt_gws_08_tenant_spread and evt_gws_08b_tenant_spread show the same message and attachment delivered to two other mailboxes, and no endpoint row shows either of them opening it, so there is live exposure to remove — and 'the payload was blocked' (d) only describes what happened on the one host where a user opened it. The supplier needs telling, but not by replying to the thread (c): the attacker is reading that mailbox, and a reply tips them off and reaches them rather than the supplier. Use a phone number you already have on file. Blocking the domain (b) is the tempting reflex and the wrong one — it severs genuine invoicing with a real business partner to solve a problem that a purge plus a phone call solves better, and it does nothing about the mailbox actually being under someone else's control.",
     },
   ];
 
@@ -145,20 +145,21 @@ export function buildGwsPhishingAttachmentScenario(
     threat_actor: "Business email compromise operator (supplier thread hijack)",
     attack_kind: "gws_phishing_attachment",
     briefing:
-      "CrowdStrike Falcon raised a Critical detection on LAP-003 at 08:48 for osascript spawned by an unsigned app. The user had just opened an invoice from a supplier. Establish how the file reached the machine and what else in the tenant is affected.",
+      "CrowdStrike Falcon raised a Critical detection on LAP-003 at 08:47:50: osascript, spawned by an unsigned app, launched curl to an external host. The user had just opened an invoice from a supplier. Establish how the file reached the machine, whether anything left it, and what else in the tenant is affected.",
     narrative: `At 08:31 Gmail delivered a reply into an invoice thread Shira Amir had started herself. It came from billing@northline-print.co.uk — a print supplier RocketStack has worked with for fourteen months — and it carried one attachment, Invoice_8842.html. SPF passed. DKIM passed against northline-print.co.uk. DMARC passed. The spam score was 0.4 and the message went straight to the inbox, which is the correct outcome: the domain really did authorise this message, because it was sent from a genuine mailbox by whoever now controls it.
 
-She opened the attachment at 08:45. Four seconds later Chrome wrote a 4.1 MB file, Invoice_8842.dmg, into her Downloads folder — and there is no corresponding download in the firewall log, because there was no download. The HTML carried the payload as encoded data and assembled it in the browser.
+She saved and opened the attachment at 08:44:52 — Falcon recorded Chrome writing Invoice_8842.html with the same SHA256 Gmail logged. Eight seconds later the same Chrome process wrote a 4.1 MB file, Invoice_8842.dmg, into her Downloads folder — and there is no corresponding download in the firewall log, because there was no download. The HTML carried the payload as encoded data and assembled it in the browser.
 
 At 08:47:20 Finder mounted the image and she launched "Invoice Viewer.app" from the volume. It is unsigned and unnotarized. Four seconds after that it spawned /usr/bin/osascript — a legitimate, Apple-signed binary — with an AppleScript that puts up a hidden-answer password dialog and pipes the answer into a curl POST to doc-verify-cdn.com.
 
-That POST never left. FortiGate blocked it under Newly Observed Domain, and Falcon killed the osascript process on the same detection. Whether she typed her password before it died is not recorded anywhere in this telemetry.
+The dialog stayed up for 25 seconds. At 08:47:49 osascript started curl — which the script only does once the dialog returns, so she clicked OK on it. The POST never left: FortiGate blocked it 0.4 seconds later under Newly Observed Domain, and at 08:47:50 Falcon raised its Critical detection and killed the process tree. The password did not reach the attacker's server, but it was typed into an attacker's dialog on a machine running attacker code — treat it as exposed and reset it.
 
-Two facts remain open. The sender has delivered 41 authenticated messages over fourteen months and every attachment before today was a PDF. And the same HTML file was delivered to two other mailboxes in the tenant between 08:31 and 08:36, both still unopened.`,
+Two facts remain open. The sender has delivered 41 authenticated messages over fourteen months and every attachment before today was a PDF. And Gmail delivered the same message, with the same attachment hash, to two other mailboxes in the tenant at 08:33 and 08:36; no endpoint shows either copy being opened.`,
     learning_objectives: [
       "State precisely what SPF, DKIM and DMARC verify, and why a compromised mailbox passes all three",
       "Recognise HTML smuggling (T1027.006) from a file appearing on disk with no matching network download",
       "Explain why a signed system binary can still be the malicious step in a chain",
+      "Read a blocked exfiltration attempt as proof the credential prompt was answered — and reset the credential even though nothing left",
       "Use mail-log search on sender history and attachment hash to scope exposure across a tenant",
       "Choose a response for a compromised supplier that preserves the business relationship and does not tip off the attacker",
     ],
@@ -167,13 +168,16 @@ Two facts remain open. The sender has delivered 41 authenticated messages over f
     iocs,
     killchain: [
       { ts: T(0), phase: "Initial Access", action: "Authenticated reply from a compromised supplier mailbox, delivered to the inbox (T1566.001)" },
+      { ts: T(2 * MIN), phase: "Initial Access", action: "Same message delivered to finance@ (08:33) and d.shapira@ (08:36)" },
+      { ts: T(13 * MIN + 52_000), phase: "Execution", action: "User saves and opens Invoice_8842.html from Gmail (T1204.002)" },
       { ts: T(14 * MIN), phase: "Defense Evasion", action: "HTML attachment assembles Invoice_8842.dmg locally in the browser (T1027.006)" },
       { ts: T(16 * MIN + 20_000), phase: "Execution", action: "User mounts the image and launches the unnotarized app (T1204.002)" },
       { ts: T(16 * MIN + 24_000), phase: "Execution", action: "App spawns osascript with a credential-prompt-to-curl one-liner (T1059.002)" },
-      { ts: T(16 * MIN + 25_000), phase: "Exfiltration", action: `POST to ${c2} blocked by the web filter` },
-      { ts: T(17 * MIN), phase: "Containment", action: "Falcon kills osascript and raises a Critical detection" },
+      { ts: T(16 * MIN + 49_000), phase: "Credential Access", action: "Dialog answered — osascript starts curl (T1056.002)" },
+      { ts: T(16 * MIN + 49_400), phase: "Exfiltration", action: `POST to ${c2} blocked by the web filter` },
+      { ts: T(16 * MIN + 50_000), phase: "Detection", action: "Falcon raises a Critical detection and kills the process tree" },
       { ts: T(22 * MIN), phase: "Scoping", action: "Sender history shows 41 authenticated messages, PDFs only until today" },
-      { ts: T(24 * MIN), phase: "Scoping", action: "Same attachment found unopened in two further tenant mailboxes" },
+      { ts: T(24 * MIN), phase: "Scoping", action: "Hash search returns the two further deliveries — purge them" },
     ],
     questions,
   };

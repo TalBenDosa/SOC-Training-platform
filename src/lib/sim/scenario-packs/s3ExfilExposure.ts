@@ -61,7 +61,7 @@ export function buildS3ExfilExposureScenario(
   // The abused credential: a long-lived IAM access key for a reporting service
   // account, over-permissioned and leaked. Every attacker action rides it.
   const iamUser = "reporting-export-svc";
-  const accessKeyId = "AKIA4MC2X7QF9ZB3RLTD";
+  const accessKeyId = "AKIA4MC2X7QF9EXAMPLE";
   const iamUserArn = `arn:aws:iam::${awsAccount}:user/${iamUser}`;
   // The operator's external address — outside AWS, the whole tell.
   const attackerIp = "91.242.217.35";
@@ -99,7 +99,7 @@ export function buildS3ExfilExposureScenario(
       companyId: cx, id: "s3exfil_01_list_buckets", ts: T(0), eventName: "ListBuckets", srcIp: attackerIp, region, accountId: awsAccount,
       actorType: "IAMUser", actorName: iamUser, arn: iamUserArn, accessKeyId, readOnly: true, managementEvent: true, userAgent: "aws-cli/2.15.30 Python/3.11.6 Linux/6.5 exe/x86_64",
       userTitle: "Service Account", mitre: "T1078.004", tactic: "Initial Access", severity: "high", incidentId: INCIDENT,
-      description: "ListBuckets on account 612498330517 by the reporting-export-svc access key AKIA4MC2X7QF9ZB3RLTD from 91.242.217.35 — the first call this long-lived key has made from an internet address.",
+      description: "ListBuckets on account 612498330517 by the reporting-export-svc access key AKIA4MC2X7QF9EXAMPLE from 91.242.217.35 — the first call this long-lived key has made from an internet address.",
     }),
 
     // 2. CONFIG ORIGIN #1 — PutBucketPublicAccessBlock turns OFF Block Public Access (T1562.007).

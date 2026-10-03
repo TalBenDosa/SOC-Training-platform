@@ -40,7 +40,7 @@ export function buildImpossibleTravelBasicScenario(
       first_seen: T(135 * MIN),
       last_seen: T(160 * MIN),
       reputation: "malicious",
-      tags: ["hosting-provider", "asn-14061", "amsterdam"],
+      tags: ["hosting-provider", "asn-14061", "new-york", "session-replay"],
     },
     {
       type: "domain",
@@ -54,9 +54,9 @@ export function buildImpossibleTravelBasicScenario(
       type: "ip",
       value: phishIp,
       first_seen: T(79 * MIN),
-      last_seen: T(79 * MIN),
+      last_seen: T(79 * MIN + 40_000),
       reputation: "malicious",
-      tags: ["phishing-host"],
+      tags: ["phishing-host", "aitm-proxy", "asn-60781"],
     },
     {
       type: "email",
@@ -234,9 +234,9 @@ export function buildImpossibleTravelBasicScenario(
       "Microsoft Sentinel opened a ticket at 08:29 on an impossible-travel anomaly for d.harel@nexacorp.com: a successful Exchange Online sign-in from London at 06:12 and another successful sign-in from New York at 08:27. Finance say Dana is at her desk in the London office today. Determine whether the account is compromised and what was done with it.",
     narrative: `At 06:12 Dana Harel, an accounts payable clerk, signed in to Exchange Online the way she signs in every morning: from her home address 86.150.23.44 on her corporate laptop LT-FIN-3390, an Entra-joined and Intune-managed Windows 11 machine, with an Authenticator push answered on her phone. Six minutes later she brought up the corporate VPN through VPN-GW-01.
 
-At 07:26 a message reached her inbox claiming her sign-in session needed re-verifying, with a link to nexacorp-signin-verify.com — a lookalike domain that failed SPF and DMARC and was delivered anyway (T1566.002). Five minutes later the proxy recorded her laptop POSTing form data to that page, which the proxy filed under "Newly Registered and Observed Domains" and allowed. That request is where her authenticated session left the building (T1539). At 07:40 the VPN session closed after one hour and twenty-two minutes.
+At 07:26 a message reached her inbox claiming her sign-in session needed re-verifying, with a link to nexacorp-signin-verify.com — a lookalike domain that failed SPF and DMARC and was delivered anyway (T1566.002). Five minutes later the proxy recorded her laptop POSTing form data to that page from her home address, which the proxy filed under "Newly Registered and Observed Domains" and allowed. The page was an Adversary-in-the-Middle proxy (T1557): forty seconds after the POST, a sign-in for d.harel completed successfully against Entra from 91.229.23.86 in Amsterdam — the same host the browser had just POSTed to — with the password and the real Authenticator push relayed straight through. That sign-in minted the session the attacker now holds (T1539). At 07:40 the VPN session closed after one hour and twenty-two minutes.
 
-At 08:27 the same account signed in successfully to Exchange Online from 146.190.62.117 in New York, on AutonomousSystemNumber 14061 — a hosting provider, not her ISP and not the 194.90.7.20 address the corporate gateway uses. The device fields are empty: no deviceId, isManaged false, isCompliant false, MacOs and Firefox instead of Windows 11 and Edge. MFA is recorded as satisfied, but by a claim carried inside the token rather than by any challenge anyone answered. Those three facts together are what convert the impossible-travel hypothesis into a verdict; the map alone never could, and "she must be on a VPN" is a claim the gateway log had already disproved.
+At 08:27 the same account signed in successfully to Exchange Online from 146.190.62.117 in New York, on AutonomousSystemNumber 14061 — a hosting provider, not her ISP and not the 194.90.7.20 address the corporate gateway uses. This sign-in carries the same SessionId as the Amsterdam relay: the attacker is replaying the stolen session cookie, which is why IncomingTokenType is "none" and no fresh token was issued — not a Primary Refresh Token, which is device-bound and cannot be phished this way. The device fields are empty: no deviceId, isManaged false, isCompliant false, MacOs and Firefox instead of Windows 11 and Edge. MFA is recorded as satisfied, but by a claim carried inside the replayed cookie rather than by any challenge anyone answered. Those three facts together are what convert the impossible-travel hypothesis into a verdict; the map alone never could, and "she must be on a VPN" is a claim the gateway log had already disproved.
 
 What the intruder did next removes any doubt. Everything from 08:27 onwards shares SessionId a4f8c1d2-7b93-4e15-8c60-3d29f7a1b504. At 08:33 a rule called "AP sync" was created on the mailbox, forwarding anything matching invoice, remittance, bank details, IBAN or payment to ap-archive.2026@securemaildrop.net and moving the originals into RSS Subscriptions marked as read (T1114.003). At 08:41 the Vendor Banking folder was read in bulk — 812 items in a single sync (T1114.002). At 08:52 a message went out to a supplier contact at ridgeline-supply.com with new remittance details attached, composed and sent inside the same session as the inbox rule and the bulk read.
 
@@ -245,7 +245,8 @@ Containment is an identity action, not a host action: revoke the account's refre
       "Treat an impossible-travel alert as a hypothesis and name the specific fields that would confirm or refute it, rather than deciding from the map",
       "Test the innocent explanation with evidence — read the VPN gateway log for session start, end and public egress address instead of assuming a VPN was involved",
       "Compare DeviceDetail, AutonomousSystemNumber and UserAgent against the user's own baseline sign-in to tell a different network from a different machine",
-      "Read AuthenticationDetails to see how MFA was satisfied, and recognise that a requirement met by a claim in the token means no challenge was ever answered",
+      "Read AuthenticationDetails to see how MFA was satisfied, and recognise that a requirement met by a claim in a replayed session cookie means no challenge was ever answered",
+      "Trace an AiTM session-theft back to the proxy sign-in that minted it, and know a stolen session cookie (IncomingTokenType none) is not a device-bound Primary Refresh Token",
       "Use SessionId to link post-authentication actions back to a specific sign-in, and escalate on that linkage rather than on geography",
     ],
     // alerts are attached by the catalogue wiring
@@ -255,9 +256,10 @@ Containment is an identity action, not a host action: revoke the account's refre
     killchain: [
       { ts: T(0), phase: "Baseline", action: "d.harel signs in from London on LT-FIN-3390 with an Authenticator push" },
       { ts: T(74 * MIN), phase: "Initial Access", action: "Lookalike re-verification email delivered to the inbox" },
-      { ts: T(79 * MIN), phase: "Credential Access", action: "Laptop POSTs to nexacorp-signin-verify.com — session token captured" },
+      { ts: T(79 * MIN), phase: "Credential Access", action: "Laptop POSTs to nexacorp-signin-verify.com from home — AiTM proxy captures the session (T1539)" },
+      { ts: T(79 * MIN + 40_000), phase: "Credential Access", action: "AiTM proxy relays password + MFA to Entra; sign-in completes from Amsterdam (T1557)" },
       { ts: T(88 * MIN), phase: "Context", action: "Corporate VPN session ends — nothing after this came through the gateway" },
-      { ts: T(135 * MIN), phase: "Valid Accounts", action: "Successful sign-in from 146.190.62.117, unmanaged device, MFA satisfied by token claim" },
+      { ts: T(135 * MIN), phase: "Valid Accounts", action: "Stolen session replayed from 146.190.62.117, unmanaged device, same SessionId as the Amsterdam relay" },
       { ts: T(137 * MIN), phase: "Detection", action: "Sentinel raises the impossible-travel anomaly" },
       { ts: T(141 * MIN), phase: "Persistence", action: "\"AP sync\" inbox rule forwards payment mail out and hides the originals" },
       { ts: T(149 * MIN), phase: "Collection", action: "812 items read in one sync from the Vendor Banking folder" },

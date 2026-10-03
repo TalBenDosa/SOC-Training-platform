@@ -69,7 +69,8 @@ describe("m365 — corpus conversion", () => {
       const user = ev.user?.email ?? ev.user_email;
       // Records whose actor is an application (UserId = app id) do not name the human (story teaching point).
       if (user && !isGuid(rawUser)) expect(present(hay, user), `${ev.id} user ${user}`).toBe(true);
-      if (ev.src_ip) expect(present(hay, ev.src_ip), `${ev.id} ip`).toBe(true);
+      // M365 is SaaS: an office-LAN client reaches it through the NAT egress, never with its private address.
+      if (ev.src_ip && !/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ev.src_ip)) expect(present(hay, ev.src_ip), `${ev.id} ip`).toBe(true);
       if (ev.file?.sha256) expect(present(hay, ev.file.sha256), `${ev.id} sha`).toBe(true);
       if (ev.cloud?.api_call) expect(present(hay, ev.cloud.api_call), `${ev.id} api`).toBe(true);
       if (ev.file?.name && log.kind.startsWith("SharePoint")) expect(present(hay, ev.file.name), `${ev.id} file`).toBe(true);

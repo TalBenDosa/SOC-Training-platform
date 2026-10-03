@@ -27,9 +27,10 @@
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { KindSchema, NativeCtx, NativeLog, NativeSource, SourceSchema, UseCase } from "../types";
 import {
-  b64ish, clientIp, digits, domainOf, emailFacts, entitySeed, int64Str, isEmail, isGuid, isoMs, rs, userEmail, type Raw,
+  b64ish, clientIp, digits, domainOf, emailFacts, entitySeed, int64Str, isEmail, isGuid, isoMs, isPrivateIp, rs, userEmail, type Raw,
 } from "./collab-email-shared";
 import { resolveOperation } from "./m365";
+import { egressIp } from "./firewall-shared";
 
 // ── Schema ───────────────────────────────────────────────────────────────────
 
@@ -120,7 +121,9 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const actor = b.actor ?? userEmail(ev);
   if (!actor || !isEmail(actor)) return null;
   const raw: Raw = ev.raw ?? {};
-  const ip = b.noIp ? undefined : clientIp(ev);
+  // Google is SaaS: an office-LAN client reaches it through the company's NAT egress, never with its private address.
+  const lanIp = b.noIp ? undefined : clientIp(ev);
+  const ip = lanIp && isPrivateIp(lanIp) ? egressIp(ctx) : lanIp;
   const record: Record<string, unknown> = {
     kind: "admin#reports#activity",
     id: { time: isoMs(ev.ts), uniqueQualifier: int64Str(ctx, `${ev.id}:uq`), applicationName: b.app, customerId: ctx.tenant.googleCustomerId },

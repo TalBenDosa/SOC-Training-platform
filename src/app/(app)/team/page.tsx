@@ -84,6 +84,8 @@ export default function TeamIndexPage() {
   // or OFF = no attack. A slot the instructor hasn't touched follows the team size (load.ts).
   const [slots, setSlots] = useState<string[]>(["", "", ""]);
   const [touched, setTouched] = useState<boolean[]>([false, false, false]);
+  // One more random attack, released only once the team has caught every planned one.
+  const [bonusAttack, setBonusAttack] = useState(true);
   // QA L3: a chosen storyline that stops fitting (environment / difficulty / products changed)
   // falls back to Random — and the builder SAYS so instead of clearing it silently.
   const [storyNote, setStoryNote] = useState<string | null>(null);
@@ -214,7 +216,7 @@ export default function TeamIndexPage() {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tenant_name: tenant.name, difficulty, invites, env, stack: stackDelta(company, stack),
         // Slots 2–3 untouched → the count stays automatic (sized by whoever is in the lobby at start).
-        attack_count: touched[1] || touched[2] ? active.length : null, scenario_ids: active.map(id => id || null) }),
+        attack_count: touched[1] || touched[2] ? active.length : null, scenario_ids: active.map(id => id || null), bonus_attack: bonusAttack }),
     }).catch(() => null);
     setCreating(false);
     if (!res) { setError("Couldn't reach the server — check your connection and try again."); return; }
@@ -289,6 +291,13 @@ export default function TeamIndexPage() {
                   );
                 })}
               </div>
+              <label htmlFor="team-bonus-attack" className="mt-2 flex cursor-pointer items-start gap-2 rounded-md border border-border bg-bg-elevated px-2.5 py-2 text-xs text-slate-300">
+                <input id="team-bonus-attack" type="checkbox" checked={bonusAttack} onChange={e => setBonusAttack(e.target.checked)} className="mt-0.5 accent-cyan-400" />
+                <span>
+                  <span className="font-medium text-slate-200">Bonus attack</span> — one more random attack, released only after the team has caught every attack above.
+                  <span className="block text-[10px] text-slate-500">Attacks start at staggered times after a warm-up of ordinary traffic; the order and timing vary every session.</span>
+                </span>
+              </label>
               <p className="mt-1.5 text-[11px] text-slate-500">
                 Pick a storyline for each attack, leave it Random, or switch attacks 2–3 off. The logs, hosts and people for each attack are generated for your organization when the exercise starts.
               </p>

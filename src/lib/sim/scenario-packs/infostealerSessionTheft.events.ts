@@ -28,7 +28,7 @@ export function infostealerSessionTheftScenarioEvents() {
   const lureDomain = "freeware-pdftools.net";
   const lureIp = "104.21.44.187";
   const c2Domain = "telemetry-cdn-relay.net";
-  const c2Ip = "185.220.101.47";
+  const c2Ip = "45.88.97.214";
   const corpEgress = "81.174.55.21"; // London corporate egress
   const replayIp = "91.243.24.19";
 

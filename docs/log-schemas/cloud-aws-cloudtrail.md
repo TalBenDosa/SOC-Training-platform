@@ -421,9 +421,9 @@ Account `123456789012`, compromised IAM user `svc-deploy`, attacker IP `203.0.11
 }
 ```
 
-### Attack chain B — crypto-mining via oversized GPU instances
+### Attack chain B — stolen instance-role session launches a backdoor instance
 
-**B1 — `RunInstances` launching GPU instances (`g4dn.12xlarge`) — truncated responseElements**
+**B1 — `RunInstances` from a stolen instance-role session (`t3.medium` from an unapproved AMI) — truncated responseElements**
 ```json
 {
   "eventVersion": "1.11",
@@ -450,14 +450,14 @@ Account `123456789012`, compromised IAM user `svc-deploy`, attacker IP `203.0.11
   "sourceIPAddress": "203.0.113.77",
   "userAgent": "aws-cli/2.17.60 md/command#ec2.run-instances",
   "requestParameters": {
-    "instancesSet": { "items": [ { "imageId": "ami-0abcdef1234567890", "minCount": 8, "maxCount": 8 } ] },
-    "instanceType": "g4dn.12xlarge",
+    "instancesSet": { "items": [ { "imageId": "ami-0abcdef1234567890", "minCount": 1, "maxCount": 1 } ] },
+    "instanceType": "t3.medium",
     "monitoring": { "enabled": false }
   },
   "responseElements": {
     "reservationId": "r-0f1e2d3c4b5a69780",
     "ownerId": "123456789012",
-    "instancesSet": { "items": [ { "instanceId": "i-02468ace13579bdf0", "instanceType": "g4dn.12xlarge", "instanceState": { "code": 0, "name": "pending" } } ] }
+    "instancesSet": { "items": [ { "instanceId": "i-02468ace13579bdf0", "instanceType": "t3.medium", "instanceState": { "code": 0, "name": "pending" } } ] }
   },
   "requestID": "ffd44d98-cea5-4b4a-9c38-b2aee9f73489",
   "eventID": "5e1fb8e0-231d-4527-a146-d051e37d0d4f",

@@ -8,7 +8,7 @@ import type { Alert, IOC, ScenarioBundle, ScenarioQuestion, Severity, TelemetryE
 import { makeSha256 } from "./iocs";
 import { buildBackupFalsePositiveScenario } from "./scenario-packs/backupFalsePositive";
 import { buildWebShellRceScenario }         from "./scenario-packs/webShellRce";
-import { buildLinuxSshCryptominerScenario } from "./scenario-packs/linuxSshCryptominer";
+import { buildLinuxSshPersistenceScenario } from "./scenario-packs/linuxSshPersistence";
 import { buildAitmTokenTheftScenario }      from "./scenario-packs/aitmTokenTheft";
 import { buildEsxiRansomwareScenario }      from "./scenario-packs/esxiRansomware";
 import { buildBruteForceSingleAccountScenario } from "./scenario-packs/bruteForceSingleAccount";
@@ -18,12 +18,9 @@ import { buildTrojanizedInstallerKeyloggerScenario } from "./scenario-packs/troj
 import { buildMultiHostIntrusionScenario } from "./scenario-packs/multiHostIntrusion";
 import { buildAiLlmJackingScenario } from "./scenario-packs/aiLlmJacking";
 import { buildGwsPhishingAttachmentScenario } from "./scenario-packs/gwsPhishingAttachment";
-import { buildBundledCryptominerScenario }   from "./scenario-packs/bundledCryptominer";
 import { buildSeoPoisonedInstallerScenario }     from "./scenario-packs/seoPoisonedInstaller";
 import { buildIsoContainerSmugglingScenario }    from "./scenario-packs/isoContainerSmuggling";
-import { buildDriveByBrowserMinerScenario }      from "./scenario-packs/driveByBrowserMiner";
 import { buildClickFixFakeCaptchaScenario }      from "./scenario-packs/clickFixFakeCaptcha";
-import { buildClipboardClipperScenario }         from "./scenario-packs/clipboardClipper";
 import { buildScheduledTaskPersistenceScenario } from "./scenario-packs/scheduledTaskPersistence";
 import { buildRogueAdminAccountScenario }   from "./scenario-packs/rogueAdminAccount";
 import { buildImpossibleTravelBasicScenario } from "./scenario-packs/impossibleTravelBasic";
@@ -50,7 +47,6 @@ import { buildS3ExfilExposureScenario }          from "./scenario-packs/s3ExfilE
 import { buildGoldenSamlScenario }               from "./scenario-packs/goldenSaml";
 import { buildGwsOauthMarketplaceScenario }      from "./scenario-packs/gwsOauthMarketplace";
 import { buildThreatIntelHuntScenario }          from "./scenario-packs/threatIntelHunt";
-import { buildContainerEscapeCryptominingScenario } from "./scenario-packs/containerEscapeCryptomining";
 import { buildMobileMdmCompromiseScenario }      from "./scenario-packs/mobileMdmCompromise";
 import { buildGcpSaKeyTheftScenario }            from "./scenario-packs/gcpSaKeyTheft";
 import { buildMacosTccPkgScenario }              from "./scenario-packs/macosTccPkg";
@@ -64,7 +60,7 @@ import {
   oauthScenarioEvents,
   insiderThreatScenarioEvents,
   impossibleTravelScenarioEvents,
-  cloudCryptoMiningScenarioEvents,
+  cloudKeyLeakS3ExfilScenarioEvents,
   dcSyncScenarioEvents,
   supplyChainScenarioEvents,
   mfaFatigueScenarioEvents,
@@ -237,33 +233,32 @@ function tacticForTechnique(t: string): string | undefined {
 }
 
 // =========================================================================
-// Scenario 1: Phishing → PowerShell → LSASS → Cloud Exfil
+// Scenario 1: Phishing macro → AWS key theft → S3 download
 // =========================================================================
 
 export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioBundle {
-  const { title, events, T, MIN, victim, c2Domain, c2Ip, attackerIp, dllHash } = phishingToExfilEvents();
+  const { title, events, T, MIN, victim, c2Domain, c2Ip, attackerIp, senderIp, dllHash } = phishingToExfilEvents();
 
   const alerts = eventsToAlerts(events, scenarioId);
   const iocs: IOC[] = [
-    { type: "domain",  value: c2Domain,                        reputation: "malicious",  tags: ["c2", "cobalt-strike"] },
-    { type: "ip",      value: c2Ip,                            reputation: "malicious",  tags: ["c2", "cobalt-strike"] },
-    { type: "ip",      value: attackerIp,                      reputation: "malicious",  tags: ["attacker", "netherlands"] },
-    { type: "ip",      value: "91.108.56.199",                 reputation: "malicious",  tags: ["phishing-sender"] },
+    { type: "domain",  value: c2Domain,                        reputation: "malicious",  tags: ["c2", "newly-registered"] },
+    { type: "ip",      value: c2Ip,                            reputation: "malicious",  tags: ["c2"] },
+    { type: "ip",      value: attackerIp,                      reputation: "malicious",  tags: ["aws-key-use", "s3-download"] },
+    { type: "ip",      value: senderIp,                        reputation: "malicious",  tags: ["phishing-sender"] },
     { type: "sha256",  value: dllHash,                         reputation: "malicious",  tags: ["dropper", "dll", "stage1"] },
     { type: "email",   value: "support@nexacorp-vendor.xyz",   reputation: "malicious",  tags: ["phishing", "sender"] },
-    { type: "url",     value: `https://${c2Domain}/beacon`,    reputation: "malicious",  tags: ["c2", "beacon"] },
     { type: "user",    value: victim.email,                    reputation: "suspicious", tags: ["victim", "compromised"] },
     { type: "host",    value: victim.hostname,                 reputation: "unknown", tags: ["patient-zero"] },
   ];
 
   const killchain = [
-    { ts: T(5 * MIN),          phase: "Initial Access",          action: "Phishing email 'Invoice_Q3_Final.docm' delivered — bypassed SPF/DKIM/DMARC via transport rule" },
-    { ts: T(5 * MIN + 31_000), phase: "Execution",               action: "WINWORD.EXE macro spawns hidden PowerShell with encoded Cobalt Strike loader" },
-    { ts: T(5 * MIN + 45_000), phase: "Command & Control",       action: "Cobalt Strike HTTPS beacon to cdn-update-fb76.xyz every 60s" },
+    { ts: T(5 * MIN),          phase: "Initial Access",          action: "Phishing email 'Invoice_Q3_Final.docm' delivered — SPF/DKIM/DMARC failed, a keyword transport rule allowed it" },
+    { ts: T(5 * MIN + 31_000), phase: "Execution",               action: "WINWORD.EXE spawns hidden PowerShell (execution policy bypass); Falcon raises a detection, no action" },
+    { ts: T(5 * MIN + 42_000), phase: "Command & Control",       action: "The same PowerShell process resolves 3-day-old cdn-update-fb76.xyz and connects to it over HTTPS" },
     { ts: T(8 * MIN),          phase: "Persistence",             action: "svchost32.dll dropped to %TEMP%; HKCU Run key 'WindowsUpdater' created" },
-    { ts: T(23 * MIN),         phase: "Credential Access",       action: "LSASS dumped via comsvcs.dll MiniDump — domain credentials extracted" },
-    { ts: T(35 * MIN),         phase: "Lateral / Identity",      action: "Stolen credentials used to authenticate from Netherlands into Microsoft 365" },
-    { ts: T(43 * MIN),         phase: "Exfiltration",            action: "184MB customer financial data exfiltrated from S3 (48,000 customer PII records)" },
+    { ts: T(38 * MIN),         phase: "Credential Access",       action: "PowerShell (PID 5512) opens C:\\Users\\jsmith\\.aws\\credentials" },
+    { ts: T(40 * MIN),         phase: "Discovery",               action: "Access key AKIA4XJ9PQ2M7EXAMPLE calls GetCallerIdentity from an external IP" },
+    { ts: T(43 * MIN),         phase: "Collection",              action: "Same key reads exports/customer-financial-data-2026.zip (184 MB) from nexacorp-crm-exports" },
   ];
 
   const questions: ScenarioQuestion[] = [
@@ -288,12 +283,12 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
     { id: "q3", prompt: "Which TWO artifacts together form the persistence mechanism on WS-FIN-2847?", kind: "multi",
       options: [
         { value: "run_key", label: "HKCU Run key 'WindowsUpdater' → rundll32 + svchost32.dll" },
-        { value: "lsass",   label: "LSASS memory dump file (debug.bin)" },
+        { value: "aws",     label: "The AWS CLI profile C:\\Users\\jsmith\\.aws\\credentials" },
         { value: "dll",     label: "svchost32.dll dropped to C:\\Users\\jsmith\\AppData\\Local\\Temp\\" },
-        { value: "inbox",   label: "Hidden inbox rule '..' in j.smith's mailbox" },
+        { value: "docm",    label: "Invoice_Q3_Final.docm in the Downloads folder" },
       ],
       answer: ["run_key", "dll"], xp: 75,
-      explanation: "The DLL is the malicious payload; the Run key is the autorun trigger. Together they ensure the malware survives reboots. The LSASS dump is credential theft, not persistence. The inbox rule is post-compromise collection, not persistence on the endpoint." },
+      explanation: "The DLL is the payload; the Run key is the autorun trigger. Together they ensure the implant survives reboots. The AWS profile is the credential that was read (credential access), not persistence. The .docm is the delivery vehicle — it only runs when a user opens it again." },
     { id: "q4", prompt: "What single containment action best stops the active threat on WS-FIN-2847 immediately?", kind: "single",
       options: [
         { value: "isolate",  label: "Network-isolate the endpoint via EDR console" },
@@ -303,6 +298,15 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
       ],
       answer: "isolate", xp: 50,
       explanation: "EDR network isolation severs all connections (C2, lateral) while preserving memory and disk for forensics. Rebooting kills the process but the Run key re-executes it on next logon. Blocking a single IP fails because the attacker can rotate IPs. Email warning doesn't address an active compromise." },
+    { id: "q5", prompt: "Isolating WS-FIN-2847 does not stop the S3 access. Which action closes it?", kind: "single",
+      options: [
+        { value: "deactivate_key", label: "Deactivate access key AKIA4XJ9PQ2M7EXAMPLE (jsmith-analytics) and review its CloudTrail activity" },
+        { value: "reset_ad",       label: "Reset j.smith's Active Directory password" },
+        { value: "block_domain",   label: "Sinkhole cdn-update-fb76.xyz at the DNS resolver" },
+        { value: "delete_bucket",  label: "Delete the nexacorp-crm-exports bucket" },
+      ],
+      answer: "deactivate_key", xp: 75,
+      explanation: "GetCallerIdentity (evt_11c) and GetObject (evt_12) were signed with the long-term IAM access key read from the workstation's AWS profile (evt_11b), from an external IP. That key works from anywhere, independent of the endpoint and of the AD password, so it must be deactivated (then rotated) and its full CloudTrail history reviewed for other reads. Sinkholing the domain stops the beacon, not the key; deleting the bucket destroys evidence and business data." },
   ];
 
   return {
@@ -310,14 +314,14 @@ export function buildPhishingToExfil(scenarioId = "phish-exfil-2026"): ScenarioB
     title,
     threat_actor: "TA-COBALTSPIDER (financially motivated)",
     attack_kind: "phishing_to_exfil",
-    briefing: "CrowdStrike raised a high-severity detection on WS-FIN-2847 (j.smith) at 10:00. Twenty minutes later Entra ID Identity Protection flagged the same user's account as High Risk. Both alerts are sitting unassigned in the queue.",
-    narrative: `At 09:47, a finance analyst at NexaCorp Industries received what appeared to be a routine vendor invoice. The macro-enabled Word attachment bypassed email security via a misconfigured transport rule. Moments after clicking "Enable Content", Office spawned a hidden PowerShell process loading a Cobalt Strike beacon. Within 90 seconds the host was beaconing to a 3-day-old domain, dropping a DLL into %TEMP%, and writing a Run key for persistence. Eighteen minutes in, LSASS was dumped using a built-in Windows DLL — no external tools. Thirty-five minutes later, the stolen credentials authenticated from the Netherlands, a hidden inbox rule silently rerouted financial emails, and 184MB of customer PII was pulled from S3. Your job: trace the full kill chain, identify the persistence mechanism, and determine what containment actions would have stopped the exfiltration.`,
+    briefing: "CrowdStrike raised a high-severity detection on WS-FIN-2847 (j.smith) at 09:47 — Word launched a hidden PowerShell. The detection was 'detect only' and has sat unassigned for an hour.",
+    narrative: `At 09:47, a finance analyst at NexaCorp Industries received what appeared to be a routine vendor invoice. The macro-enabled Word attachment failed SPF, DKIM and DMARC but was delivered anyway by a keyword transport rule. Moments after the document was opened, Word spawned a hidden PowerShell process; Falcon flagged it but took no action. The same process resolved a 3-day-old domain, connected to it, dropped a DLL into %TEMP% and wrote a Run key for persistence. Half an hour later it opened the user's AWS CLI profile — and two minutes after that, the long-term access key stored there was used from an external IP to check its identity and download a 184 MB customer financial export from S3. Your job: trace the chain from the email to the bucket, identify the persistence mechanism, and decide which containment actions stop both the endpoint and the cloud access.`,
     learning_objectives: [
       "Identify spearphishing delivery and recognize SPF/DKIM/DMARC bypass techniques",
       "Trace the Office macro → PowerShell → C2 execution chain using process trees",
       "Distinguish endpoint persistence mechanisms (Registry Run keys + DLL drops)",
-      "Recognize LSASS credential dumping via Living-off-the-Land (LOLBin) techniques",
-      "Correlate endpoint compromise with subsequent identity abuse in cloud services",
+      "Link a credential-file read on an endpoint to the cloud API calls signed with that key",
+      "Contain both halves of a hybrid incident: isolate the host AND deactivate the cloud key",
     ],
     alerts, events, iocs, killchain, questions,
   };
@@ -425,7 +429,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
 
   const killchain = [
     { ts: T(0),          phase: "Initial Access",              action: "Phishing 'Salary_Adjustment_Notice.docm' delivered — keyword whitelist bypass" },
-    { ts: T(45_000),     phase: "Execution",                   action: "WINWORD macro spawns encoded PowerShell → Cobalt Strike stage-1 loader" },
+    { ts: T(45_000),     phase: "Execution",                   action: "WINWORD macro spawns hidden PowerShell (execution policy bypass) → Cobalt Strike stage-1 loader" },
     { ts: T(3 * MIN),    phase: "Command & Control",           action: "Cobalt Strike HTTPS beacon to edge-cdn-updates.xyz every 60s" },
     { ts: T(87 * MIN),   phase: "Privilege Escalation",         action: "fodhelper UAC bypass — beacon gains a High-integrity token" },
     { ts: T(90 * MIN),   phase: "Credential Access",           action: "LSASS dumped via comsvcs.dll — domain admin hash extracted" },
@@ -480,7 +484,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
         { value: "disable_user", label: "Disable c.martin's account when the out-of-hours logon appeared at 02:45 — the very first anomaly in the timeline" },
       ],
       answer: "isolate_zero", xp: 100,
-      explanation: "Isolating WS-FIN-1193 at the LSASS dump breaks the chain: it removes the attacker's foothold entirely, and it happens while the stolen hash is still unused — the first reuse is the 04:47 TGT request, two minutes later. Blocking the C2 domain at 03:18 is the tempting answer, and the evidence at 03:18 IS strong enough to act on: WINWORD spawning hidden Base64 PowerShell that beacons every 60 seconds to a freshly-registered domain over a self-signed certificate is a textbook Cobalt Strike beacon, not merely 'suspicious'. It fails for a different reason — blocking an indicator is not containing a host. The implant keeps running, and this scenario proves the attacker had a second channel: at 05:05 the traffic goes to the raw IP 185.220.101.45, which no domain block would have touched. Disabling c.martin at 02:45 acts on the only genuinely ambiguous event in the timeline and would not stop a beacon already executing in that user's session. By 05:15 the shadow copies are gone and the attacker holds domain admin, so isolating the file server then is damage control rather than prevention. The lesson: the right containment action is the one that removes the adversary's access, not the one that removes one of their indicators." },
+      explanation: "Isolating WS-FIN-1193 at the LSASS dump breaks the chain: it removes the attacker's foothold entirely, and it happens while the stolen hash is still unused — the first reuse is the 04:47 TGT request, two minutes later. Blocking the C2 domain at 03:18 is the tempting answer, and the evidence at 03:18 IS strong enough to act on: WINWORD spawning hidden PowerShell that beacons every 60 seconds to a freshly-registered domain over a self-signed certificate is a textbook Cobalt Strike beacon, not merely 'suspicious'. It fails for a different reason — blocking an indicator is not containing a host. The implant keeps running, and this scenario proves the attacker had a second channel: at 05:05 the traffic goes to the raw IP " + c2Ip + ", which no domain block would have touched. Disabling c.martin at 02:45 acts on the only genuinely ambiguous event in the timeline and would not stop a beacon already executing in that user's session. By 05:15 the shadow copies are gone and the attacker holds domain admin, so isolating the file server then is damage control rather than prevention. The lesson: the right containment action is the one that removes the adversary's access, not the one that removes one of their indicators." },
   ];
 
   return {
@@ -552,7 +556,7 @@ export function buildOAuthScenario(scenarioId = "oauth-persistence-2026"): Scena
         { value: "revoke",  label: "Revoke consent to 'MicrosoftSecurityUpdate' in Entra ID Enterprise Applications" },
         { value: "pw",      label: "Reset s.chen's password again and enforce a stronger complexity requirement in the policy" },
         { value: "disable", label: "Disable s.chen's account in Entra ID and remove her from all mail-enabled groups" },
-        { value: "block_ip", label: "Block 185.220.101.88 at the perimeter firewall and in Defender for Cloud Apps" },
+        { value: "block_ip", label: "Block 193.233.20.57 at the perimeter firewall and in Defender for Cloud Apps" },
       ],
       answer: "revoke", xp: 75,
       explanation: "Revoking app consent immediately invalidates all tokens issued to that application for all users — stopping Graph API access within seconds. Account disable works but disrupts the legitimate user. IP blocking fails since the attacker can rotate IPs. Password reset (as proven) has no effect on OAuth token issuance." },
@@ -680,10 +684,10 @@ export const SCENARIOS = [
     threat_actor: "Commodity Malware / Opportunistic Physical Access", build: withAlerts(buildUsbMalwareScenario),
     summary: "An untagged USB drive delivers a trojan that sets up Registry Run key persistence on one workstation before EDR catches it." },
   { slug: "phishing-to-cloud-exfil",
-    title: "Phishing → Cloud Exfiltration",
+    title: "Phishing Macro → AWS Key Theft → S3 Download",
     difficulty: "intermediate", attack_kind: "phishing_to_exfil",
     threat_actor: "TA-COBALTSPIDER", build: withAlerts(buildPhishingToExfil),
-    summary: "A finance analyst opens a macro-laced invoice. Trace the attacker through PowerShell, LSASS credential theft, and a 184MB S3 data exfiltration." },
+    summary: "A finance analyst opens a macro-laced invoice. Trace the chain from Word → PowerShell → the AWS key on the workstation → a 184 MB S3 download, and contain both the host and the key." },
   { slug: "bec-mailbox-rule",
     title: "Password Spray → BEC Mailbox Rule",
     difficulty: "beginner", attack_kind: "identity_bec",
@@ -722,12 +726,12 @@ export const SCENARIOS = [
     threat_actor: "TA-GHOSTSHELL",
     build: withAlerts(buildLOLBinsScenario),
     summary: "A 7-step LOLBin chain: certutil download → regsvr32 Squiblydoo → mshta VBScript → wmic recon → bitsadmin persistence → rundll32 DLL → schtasks SYSTEM task." },
-  { slug: "cloud-cryptomining",
-    title: "Cloud Credential Leak — Cryptomining + Data Breach",
-    difficulty: "intermediate", attack_kind: "cloud_cryptomining",
-    threat_actor: "UNC3782 (Financially Motivated)",
-    build: withAlerts(buildCloudCryptoMiningScenario),
-    summary: "AWS keys leaked to GitHub. In 24 minutes: automated bot steals creds, 14 GPU instances mine Monero at $342/hr, backdoor IAM user created, and 4.7GB of customer PII exfiltrated from a public S3 bucket." },
+  { slug: "aws-key-leak-s3-exfil",
+    title: "Leaked AWS Key → IAM Backdoor → S3 Data Theft",
+    difficulty: "advanced", attack_kind: "cloud_credential_leak",
+    threat_actor: "Financially motivated actor scanning public repos for cloud keys",
+    build: withAlerts(buildCloudKeyLeakS3ExfilScenario),
+    summary: "A CI access key pushed to a public GitHub repo is used from a VPS within minutes: recon, a new IAM user with its own key and AdministratorAccess, then a GetObject run on the customer-data bucket. Follow the key ids from the leak to the bucket and contain both credentials." },
   { slug: "dcsync-golden-ticket",
     title: "DCSync → Golden Ticket (Domain Dominance)",
     difficulty: "advanced", attack_kind: "dcsync_golden_ticket",
@@ -800,11 +804,11 @@ export const SCENARIOS = [
     difficulty: "advanced", attack_kind: "web_exploitation",
     threat_actor: "Opportunistic web attacker", build: withAlerts(buildWebShellRceScenario),
     summary: "The WAF blocked the obvious payloads and missed the one that worked. Pivot between WAF, IIS, SQL audit and EDR to find how a web shell reached the server." },
-  { slug: "linux-ssh-cryptominer",
-    title: "Exposed SSH → Cron Persistence → Cryptominer",
-    difficulty: "intermediate", attack_kind: "linux_ssh_cryptomining",
-    threat_actor: "Commodity cryptomining crew", build: withAlerts(buildLinuxSshCryptominerScenario),
-    summary: "A Linux server intrusion read through auditd and sshd rather than Windows telemetry — the successful login comes from an IP that never appears in the brute force." },
+  { slug: "linux-ssh-persistence",
+    title: "Exposed SSH → Cron-Persisted Backdoor",
+    difficulty: "intermediate", attack_kind: "linux_ssh_intrusion",
+    threat_actor: "Opportunistic SSH-scanning intrusion set", build: withAlerts(buildLinuxSshPersistenceScenario),
+    summary: "A Linux server intrusion read through sshd, auditd, Falcon and the firewall rather than Windows telemetry — the login that worked comes from an address that never failed, and the flagged process checks in every five minutes." },
   { slug: "aitm-token-theft",
     title: "Adversary-in-the-Middle Phishing — Session Token Theft",
     difficulty: "advanced", attack_kind: "aitm_session_hijack",
@@ -845,36 +849,21 @@ export const SCENARIOS = [
     difficulty: "beginner", attack_kind: "phishing_attachment",
     threat_actor: "Business email compromise operator", build: withAlerts(buildGwsPhishingAttachmentScenario),
     summary: "SPF, DKIM and DMARC all passed, because the supplier's domain really did send it. The mailbox belongs to someone else now." },
-  { slug: "bundled-cryptominer",
-    title: "Slow Laptop — Coinminer Bundled with a Video Converter",
-    difficulty: "beginner", attack_kind: "resource_hijacking",
-    threat_actor: "Freeware bundler (cryptomining monetisation)", build: withAlerts(buildBundledCryptominerScenario),
-    summary: "Nothing was stolen, no account was touched, and it is still a real incident. Grading severity by 'what did they take' files this as low and leaves it mining for weeks." },
   { slug: "seo-poisoned-installer",
     title: "Sponsored Result — SEO-Poisoned PuTTY Download",
     difficulty: "beginner", attack_kind: "user_execution",
     threat_actor: "Commodity SEO-poisoning operator", build: withAlerts(buildSeoPoisonedInstallerScenario),
     summary: "An admin searched for a tool she installs all the time and clicked the top result. The domain was registered last week — and by the time Defender flagged it, the browser-saved credentials were already gone." },
   { slug: "iso-container-smuggling",
-    title: "Invoice.iso — Mark-of-the-Web Bypass via a Mounted Image",
+    title: "Invoice.iso — Container-Delivered LNK and LOLBin Chain",
     difficulty: "beginner", attack_kind: "defense_evasion",
     threat_actor: "Commodity malware distributor", build: withAlerts(buildIsoContainerSmugglingScenario),
-    summary: "The firewall only logged the .iso because it is not on the block list. Double-clicking it mounts a drive whose contents never inherit Mark-of-the-Web — so SmartScreen never gets a say." },
-  { slug: "drive-by-browser-miner",
-    title: "Slow Fan — Drive-by Cryptominer on a Trusted Converter",
-    difficulty: "beginner", attack_kind: "resource_hijacking",
-    threat_actor: "Malvertising / drive-by miner operator", build: withAlerts(buildDriveByBrowserMinerScenario),
-    summary: "A site he uses most weeks pulled a malicious ad that ran a miner right in the browser tab. No file was downloaded, nothing was installed — and the CPU has been pinned since he opened it." },
+    summary: "The firewall only logged the .iso because it is not on the block list. Windows tags the files inside it (the Nov-2022 fix) and warns — but the user clicks Run anyway, and the shortcut runs rundll32 against a bundled data file, so SmartScreen never re-gates it." },
   { slug: "clickfix-fake-captcha",
     title: "Fake CAPTCHA — 'Paste This to Verify You're Human'",
     difficulty: "beginner", attack_kind: "user_execution",
     threat_actor: "ClickFix social-engineering operator", build: withAlerts(buildClickFixFakeCaptchaScenario),
     summary: "The 'verification' step told her to press Win+R and paste — and she did. The command she never saw was already on her clipboard, put there by the page." },
-  { slug: "clipboard-clipper",
-    title: "Wrong Wallet — Clipboard-Hijacking Crypto Utility",
-    difficulty: "beginner", attack_kind: "input_capture",
-    threat_actor: "Commodity clipper-malware operator", build: withAlerts(buildClipboardClipperScenario),
-    summary: "The utility works exactly as advertised. It also watches the clipboard, and quietly swaps any wallet address you copy for the attacker's before you paste it." },
   { slug: "scheduled-task-persistence",
     title: "Speed-Boost Script — Persistence via a Scheduled Task",
     difficulty: "beginner", attack_kind: "persistence",
@@ -893,10 +882,10 @@ export const SCENARIOS = [
     threat_actor: "Scattered-Spider-style ATO operator (help-desk social engineering)", build: withAlerts(buildHelpdeskMfaResetScenario),
     summary: "A phone call to the service desk, a reset MFA, and a new authenticator enrolled from an IP the employee has never used — while her real session is still active elsewhere. The ticket that 'fixed' an access problem is the breach." },
   { slug: "edge-vpn-cve-exploit",
-    title: "Edge Appliance Exploitation — SSL-VPN Pre-Auth RCE to Internal Foothold",
+    title: "Edge Appliance Exploitation — FortiOS SSL-VPN Auth Bypass to Internal Foothold",
     difficulty: "advanced", attack_kind: "exploit_public_facing",
     threat_actor: "Opportunistic access broker (mass edge-appliance exploitation)", build: withAlerts(buildEdgeVpnCveExploitScenario),
-    summary: "A pre-auth request to an unusual admin path on the SSL-VPN appliance returns 200 with no credentials. Minutes later a backdoor is on the appliance, the config and its password hashes are gone, and a 'valid' VPN login lands on an internal jump host. The initial access is the appliance itself." },
+    summary: "The FortiGate SSL-VPN appliance's own IPS fires CVE-2022-40684 and its event log records admin access as Local_Process_Access, then a new rogue admin. An hour later a 'valid' VPN login's tunnel IP turns up as a 4624 on an internal jump host, then a SAM dump and SMB reach. The initial access is the appliance itself." },
   { slug: "exfil-first-extortion",
     title: "Exfiltration-First Extortion — Ransomware Without an Encryptor",
     difficulty: "advanced", attack_kind: "exfiltration",
@@ -993,11 +982,6 @@ export const SCENARIOS = [
     difficulty: "intermediate", attack_kind: "threat_hunt",
     threat_actor: "GLASSTHORN intrusion set (TEMP.Halberd) — SystemBC proxy-implant operator", build: withAlerts(buildThreatIntelHuntScenario),
     summary: "This case opens with intelligence, not an alert: a Recorded Future risk-list update names a C2 domain, an IP and a malware hash tied to an active campaign. Sweep the estate and one workstation lights up — DNS to the C2, periodic proxy beacons, and the exact hash running on the host. Learn intel→sweep→confirm, and why a second host that matched a now-sinkholed indicator is a false hit, not a compromise." },
-  { slug: "container-escape-cryptomining",
-    title: "Container Escape to the Node — a Poisoned Image that Mines and Breaks Out",
-    difficulty: "advanced", attack_kind: "container_escape",
-    threat_actor: "Cloud-native intrusion operator (resource-hijacking, runtime breakout)", build: withAlerts(buildContainerEscapeCryptominingScenario),
-    summary: "A poisoned image is deployed as an over-permissive privileged pod, runs an XMRig miner, then uses host namespaces to break out of the container onto the Kubernetes worker node and reach a mining pool. The Kubernetes audit trail is the escape origin; the runtime miner and pool traffic are the impact. A sanctioned CNI DaemonSet that is privileged by design is the benign control — privileged alone is not the signal." },
 
   // ── P4 use-case expansion (scenario-usecase-map Part 5: mobile/MDM, GCP-native, macOS TCC, email-bomb social-eng, OT/ICS, BEC wire fraud) ──
   { slug: "mobile-mdm-compromise",
@@ -1047,22 +1031,25 @@ export function buildImpossibleTravelScenario(scenarioId = "impossible-travel-20
     title,
     threat_actor: "External Threat Actor (Credential Theft)",
     attack_kind: "account_compromise",
-    briefing: "Azure AD Identity Protection raised an impossible-travel alert on k.taylor at 09:04, and the VPN concentrator logged a second session for the same account minutes after the first. The user has not been contacted yet.",
-    narrative: `At 09:00, k.taylor connected VPN normally from Tel Aviv. Four minutes later, the same credentials were used to connect from Lagos, Nigeria — 4,320 km away. This is physically impossible. The attacker, who had stolen k.taylor's credentials, logged in from Nigeria and immediately: authenticated to O365, created a hidden inbox forwarding rule (forwarding all emails to a ProtonMail address), and downloaded 847 engineering files from SharePoint in under 6 minutes.`,
+    briefing: "Entra ID Protection raised a high-risk, unlikely-travel sign-in on k.taylor at 09:06, minutes after the VPN logged a second session for the same account from a new country. A burst of failed sign-ins preceded it. The user has not been contacted yet.",
+    narrative: `A password-spray burst from a Nigerian IP ended in a successful sign-in to k.taylor's account. At 09:00 k.taylor connected to the VPN normally from Tel Aviv; four minutes later the same account connected from Lagos, Nigeria — 4,320 km away, physically impossible. The VPN sign-in went through Entra with a single factor (no MFA), Entra ID Protection rated the O365 sign-in high risk (unlikely travel), and the attacker then created a hidden inbox forwarding rule to a ProtonMail address, used the VPN tunnel to reach the engineering file server over SMB, and downloaded 847 SharePoint files (2.3 GB). The failed-login origin, the shared Entra session id and the tunnel IP tie the chain together.`,
     learning_objectives: [
       "Recognize impossible travel as a credential compromise indicator",
-      "Identify MFA bypass via Conditional Access misconfiguration",
+      "Identify a single-factor VPN sign-in (no MFA) as the gap that let the stolen password work",
       "Detect hidden inbox forwarding rules (T1114.003)",
-      "Correlate VPN + O365 + SharePoint events to reconstruct the attack chain",
+      "Correlate the credential-origin spray, VPN, Entra risk, VPN-tunnel SMB traffic, and SharePoint download into one chain",
     ],
     events,
     iocs,
     alerts: eventsToAlerts(events, scenarioId),
     killchain: [
+      { ts: T(-28 * MIN), phase: "Credential Access", action: "Password-spray burst from a Nigerian IP ends in a valid password for k.taylor" },
       { ts: T(0),        phase: "Normal Baseline",  action: "k.taylor VPN login from Tel Aviv — looks normal" },
       { ts: T(4 * MIN),  phase: "Impossible Travel", action: "Same user VPN login from Lagos, Nigeria — 4 min later, 4,320 km away" },
-      { ts: T(6 * MIN),  phase: "Credential Abuse",  action: "Attacker authenticates to Azure AD / O365 from Nigerian IP" },
+      { ts: T(4 * MIN + 20_000), phase: "Defense Evasion", action: "VPN app sign-in through Entra with a single factor — no MFA" },
+      { ts: T(6 * MIN),  phase: "Detection",        action: "Entra ID Protection flags the O365 sign-in high risk (unlikely travel)" },
       { ts: T(9 * MIN),  phase: "Email Persistence", action: "Inbox forwarding rule created: all mail → protonmail attacker address" },
+      { ts: T(11 * MIN), phase: "Lateral Movement",  action: "VPN tunnel IP opens an SMB session to the engineering file server" },
       { ts: T(14 * MIN), phase: "Data Collection",   action: "847 SharePoint files (2.3 GB) downloaded in 5 minutes" },
     ],
     questions: [
@@ -1116,12 +1103,13 @@ export function buildImpossibleTravelScenario(scenarioId = "impossible-travel-20
 // =========================================================================
 
 export function buildPhishingMalwareScenario(scenarioId = "phishing-malware-basic-2026"): ScenarioBundle {
-  const { title, events, T, MIN, c2Domain, c2Ip, fileHash } = phishingMalwareScenarioEvents();
+  const { title, events, T, MIN, c2Domain, c2Ip, fileHash, zipHash } = phishingMalwareScenarioEvents();
 
   const iocs: IOC[] = [
-    { type: "domain", value: c2Domain, reputation: "malicious", tags: ["external-infrastructure", "registered-2-days-ago"] },
+    { type: "domain", value: c2Domain, reputation: "malicious", tags: ["external-infrastructure", "newly-registered-domain"] },
     { type: "ip",     value: c2Ip,     reputation: "malicious", tags: ["external-infrastructure"] },
     { type: "sha256", value: fileHash, reputation: "malicious", tags: ["commodity-trojan", "double-extension"] },
+    { type: "sha256", value: zipHash,  reputation: "malicious", tags: ["email-attachment", "zip-container"] },
   ];
 
   return {
@@ -1129,8 +1117,8 @@ export function buildPhishingMalwareScenario(scenarioId = "phishing-malware-basi
     title,
     threat_actor: "Commodity Malware Operator (opportunistic, financially motivated)",
     attack_kind: "phishing_malware_basic",
-    briefing: "CrowdStrike Falcon raised a critical detection on WS-HR-1182 (r.avraham) at 10:24 and quarantined a file. The mail gateway also logged an inbound attachment to the same user earlier this morning. Confirm what ran on the host.",
-    narrative: `r.avraham received a phishing email disguised as a shipping notification, with a ZIP attachment hiding a trojan behind a double file extension (.pdf.exe). Minutes after opening it, the malware called out to a freshly-registered command-and-control domain and was later caught and quarantined by the EDR — but not before it had already run on the workstation.`,
+    briefing: "The firewall's URL filtering alerted at 10:21 on a session from WS-HR-1182 (r.avraham) to a newly registered domain, and the EDR quarantined a file on the same host at 10:24. The mail gateway logged an inbound attachment to the same user earlier this morning. Confirm what ran on the host.",
+    narrative: `r.avraham received a phishing email disguised as a shipping notification, with a ZIP attachment hiding a trojan behind a double file extension (.pdf.exe). Outlook saved the ZIP (same SHA256 as the attachment record), Explorer extracted the .pdf.exe, and when it ran it connected to a newly registered domain. The EDR killed and quarantined it three minutes later, and ZAP then pulled the message from the inbox — but the workstation was infected from the moment the process ran.`,
     learning_objectives: [
       "Recognize a phishing email with a disguised executable attachment (T1566.001)",
       "Identify user execution of a double-extension file as the actual infection point (T1204.002)",
@@ -1142,9 +1130,11 @@ export function buildPhishingMalwareScenario(scenarioId = "phishing-malware-basi
     alerts: eventsToAlerts(events, scenarioId),
     killchain: [
       { ts: T(0),               phase: "Initial Access",  action: "Phishing email with ZIP attachment delivered to r.avraham" },
+      { ts: T(5 * MIN + 20_000), phase: "Delivery",      action: "Outlook saves the ZIP to Downloads; Explorer extracts the .pdf.exe" },
       { ts: T(6 * MIN),         phase: "Execution",       action: "r.avraham double-clicks the disguised .pdf.exe — malware runs" },
-      { ts: T(6 * MIN + 45_000), phase: "Command & Control", action: "Malware beacons out to a 2-day-old domain; firewall allows it" },
-      { ts: T(9 * MIN),         phase: "Detection",       action: "EDR identifies the known trojan and quarantines it" },
+      { ts: T(6 * MIN + 45_000), phase: "Command & Control", action: "The process connects to a newly registered domain; URL filtering alerts but allows it" },
+      { ts: T(9 * MIN),         phase: "Detection",       action: "EDR kills the process and quarantines the file" },
+      { ts: T(11 * MIN),        phase: "Response",        action: "ZAP moves the message to quarantine" },
     ],
     questions: [
       { id: "q1", prompt: "What is the single clearest sign that Delivery_Notice_48213.pdf.exe is not really a PDF?", kind: "single",
@@ -1159,10 +1149,10 @@ export function buildPhishingMalwareScenario(scenarioId = "phishing-malware-basi
       { id: "q2", prompt: "The firewall ALLOWED the connection to shiptrack-updates-net.xyz. Does that mean the connection was safe?", kind: "single",
         options: [
           { value: "yes", label: "Yes — the firewall returned action=allow, which means the destination passed its threat and URL filtering checks" },
-          { value: "no",  label: "No — 'allowed' just means it wasn't on a blocklist yet; a domain registered 2 days ago is itself suspicious" },
+          { value: "no",  label: "No — 'allowed' just means it wasn't on a blocklist yet; a domain the firewall categorises as newly registered is itself suspicious" },
         ],
         answer: "no", xp: 50,
-        explanation: "Firewalls default to allow unless a domain is already known-bad. A domain registered only 2 days ago is a strong red flag on its own — legitimate business services are almost never that young. 'Allowed by the firewall' and 'safe' are not the same thing, and a SOC analyst has to evaluate the domain itself, not just the firewall verdict." },
+        explanation: "Firewalls default to allow unless a domain is already known-bad. A newly registered domain (PAN-DB: registered within the last ~32 days) is a strong red flag on its own — legitimate business services are almost never that young. 'Allowed by the firewall' and 'safe' are not the same thing, and a SOC analyst has to evaluate the domain itself, not just the firewall verdict." },
       { id: "q3", prompt: "At what point was WS-HR-1182 actually compromised?", kind: "single",
         options: [
           { value: "email",   label: "When the phishing email landed in r.avraham's inbox" },
@@ -1183,10 +1173,12 @@ export function buildPhishingMalwareScenario(scenarioId = "phishing-malware-basi
 // =========================================================================
 
 export function buildUsbMalwareScenario(scenarioId = "usb-malware-basic-2026"): ScenarioBundle {
-  const { title, events, T, MIN, fileHash } = usbMalwareScenarioEvents();
+  const { title, events, T, MIN, fileHash, c2Domain, c2Ip } = usbMalwareScenarioEvents();
 
   const iocs: IOC[] = [
     { type: "sha256", value: fileHash, reputation: "malicious", tags: ["trojan-dropper", "removable-media"] },
+    { type: "domain", value: c2Domain, reputation: "malicious", tags: ["external-infrastructure"] },
+    { type: "ip",     value: c2Ip,     reputation: "malicious", tags: ["external-infrastructure"] },
   ];
 
   return {
@@ -1194,8 +1186,8 @@ export function buildUsbMalwareScenario(scenarioId = "usb-malware-basic-2026"): 
     title,
     threat_actor: "Commodity Malware / Opportunistic Physical Access",
     attack_kind: "usb_malware_basic",
-    briefing: "CrowdStrike Falcon raised a critical detection on WS-OPS-2214 at 13:35 and quarantined a file. Removable-media activity was logged on the same workstation shortly beforehand. The assigned user, m.levi, has not reported anything.",
-    narrative: `An untagged USB drive was plugged into WS-OPS-2214 and a file was copied to the Desktop. m.levi ran it, believing it to be a legitimate backup tool. The binary set up a Registry Run key to survive reboots and was later caught and quarantined by the EDR — but only after it had already gained a foothold on the workstation.`,
+    briefing: "The EDR quarantined a file on WS-OPS-2214 at 13:35. Removable-media activity and an outbound connection to an unfamiliar domain were logged on the same workstation shortly beforehand. The assigned user, m.levi, has not reported anything.",
+    narrative: `An untagged USB drive was mounted on WS-OPS-2214 (its device serial is in the mount record), and USB_Backup_Tool.exe was copied off it to the Desktop. m.levi ran it, believing it to be a legitimate backup tool. The binary wrote a Registry Run key to survive reboots and connected to an external domain before the EDR killed and quarantined it — the drive serial, the file hash and the C2 domain/IP are all in the records, and persistence was already established.`,
     learning_objectives: [
       "Recognize removable media as an infection vector, separate from email or the network",
       "Identify user execution of an unsigned, never-before-seen binary (T1204.002)",
@@ -1206,10 +1198,12 @@ export function buildUsbMalwareScenario(scenarioId = "usb-malware-basic-2026"): 
     iocs,
     alerts: eventsToAlerts(events, scenarioId),
     killchain: [
-      { ts: T(0),                phase: "Initial Access", action: "Untagged USB drive used to copy USB_Backup_Tool.exe onto WS-OPS-2214" },
+      { ts: T(-1 * MIN),         phase: "Initial Access", action: "Untagged USB drive mounted as E:\\ on WS-OPS-2214" },
+      { ts: T(0),                phase: "Initial Access", action: "USB_Backup_Tool.exe copied from E:\\ to the Desktop" },
       { ts: T(3 * MIN),          phase: "Execution",      action: "m.levi double-clicks the unsigned binary — malware runs" },
       { ts: T(3 * MIN + 20_000), phase: "Persistence",    action: "Malware writes a Registry Run key to survive reboot" },
-      { ts: T(5 * MIN),          phase: "Detection",      action: "EDR identifies the trojan dropper and quarantines it" },
+      { ts: T(3 * MIN + 50_000), phase: "Command & Control", action: "The binary connects out to an external domain" },
+      { ts: T(5 * MIN),          phase: "Detection",      action: "EDR kills the process and quarantines the file" },
     ],
     questions: [
       { id: "q1", prompt: "What made this USB drive suspicious even before anything was executed?", kind: "single",
@@ -1247,12 +1241,15 @@ export function buildUsbMalwareScenario(scenarioId = "usb-malware-basic-2026"): 
 // =========================================================================
 
 export function buildBrowserExtensionMalwareScenario(scenarioId = "browser-extension-malware-2026"): ScenarioBundle {
-  const { title, events, T, MIN, c2Domain, c2Ip, stagerHash } = browserExtensionMalwareScenarioEvents();
+  const { title, events, T, MIN, c2Domain, c2Ip, stagerHash, dlDomain, dlIp, zipHash } = browserExtensionMalwareScenarioEvents();
 
   const iocs: IOC[] = [
-    { type: "domain", value: c2Domain, reputation: "malicious", tags: ["external-infrastructure", "registered-4-days-ago"] },
+    { type: "domain", value: c2Domain, reputation: "malicious", tags: ["external-infrastructure", "newly-registered-domain"] },
     { type: "ip",     value: c2Ip,     reputation: "malicious", tags: ["external-infrastructure"] },
-    { type: "sha256", value: stagerHash, reputation: "malicious", tags: ["browser-extension-loader"] },
+    { type: "domain", value: dlDomain, reputation: "malicious", tags: ["extension-lure-site"] },
+    { type: "ip",     value: dlIp,     reputation: "malicious", tags: ["extension-lure-site"] },
+    { type: "sha256", value: zipHash,  reputation: "malicious", tags: ["sideloaded-extension-zip"] },
+    { type: "sha256", value: stagerHash, reputation: "malicious", tags: ["browser-extension-loader", "stage-2-script"] },
   ];
 
   return {
@@ -1260,8 +1257,8 @@ export function buildBrowserExtensionMalwareScenario(scenarioId = "browser-exten
     title,
     threat_actor: "Commodity Malware Operator (opportunistic, financially motivated)",
     attack_kind: "browser_extension_malware_basic",
-    briefing: "CrowdStrike Falcon raised a critical detection on WS-MKT-3301 (d.cohen) at 09:04 and quarantined a folder under the user's profile. The firewall logged an outbound connection from the same host to an unfamiliar domain minutes earlier.",
-    narrative: "d.cohen installed a browser extension promising to speed up Chrome, loaded through a developer-mode flag rather than the Chrome Web Store. The extension could not run code on its own, so it messaged its registered native-messaging host — a cmd.exe wrapper Chrome launched — which in turn spawned an encoded PowerShell command that reached out to a freshly-registered domain. The EDR later killed the PowerShell process, but not before the beacon completed.",
+    briefing: "The EDR killed an encoded PowerShell process on WS-MKT-3301 (d.cohen) at 09:04, and the firewall logged an alert on an outbound connection from the same host to a newly registered domain minutes earlier. Reconstruct how a browser extension reached PowerShell.",
+    narrative: "d.cohen downloaded a 'perf boost' Chrome extension as a ZIP from a lure site, a NativeMessagingHosts key was registered under HKCU, and Chrome was relaunched with a developer-mode --load-extension flag. The extension messaged its registered native-messaging host — a cmd.exe wrapper Chrome launched — which spawned an encoded PowerShell command. That command connected to a newly registered domain and wrote b.ps1 to %TEMP%. The EDR killed the PowerShell process; the download URL, the registry registration, the file hashes and the C2 domain/IP tie the chain together end to end.",
     learning_objectives: [
       "Recognize a sideloaded browser extension as a persistence mechanism (T1176.001), separate from email or removable media",
       "Understand that an extension reaches the OS through a native-messaging host — the chrome.exe → cmd.exe → powershell.exe chain, not Chrome spawning PowerShell directly",
@@ -1273,10 +1270,13 @@ export function buildBrowserExtensionMalwareScenario(scenarioId = "browser-exten
     iocs,
     alerts: eventsToAlerts(events, scenarioId),
     killchain: [
-      { ts: T(0),               phase: "Persistence",      action: "Chrome relaunched with a sideloaded extension from Downloads" },
+      { ts: T(-6 * MIN),        phase: "Initial Access",    action: "Chrome downloads the extension ZIP from a lure site" },
+      { ts: T(-4 * MIN),        phase: "Persistence",       action: "A NativeMessagingHosts key is registered under HKCU for the host manifest" },
+      { ts: T(0),               phase: "Persistence",       action: "Chrome relaunched with a sideloaded extension from Downloads" },
       { ts: T(MIN + 30_000),    phase: "Execution",         action: "chrome.exe launches the extension's native-messaging host (cmd.exe wrapper)" },
       { ts: T(2 * MIN),         phase: "Execution",         action: "The native host spawns encoded PowerShell — malware runs" },
-      { ts: T(2 * MIN + 30_000), phase: "Command & Control", action: "PowerShell beacons out to a newly-registered domain; firewall allows it" },
+      { ts: T(2 * MIN + 30_000), phase: "Command & Control", action: "PowerShell connects to a newly registered domain; URL filtering alerts but allows it" },
+      { ts: T(2 * MIN + 45_000), phase: "Command & Control", action: "PowerShell writes b.ps1 to %TEMP%" },
       { ts: T(4 * MIN),         phase: "Detection",          action: "EDR kills the PowerShell process" },
     ],
     questions: [
@@ -1298,10 +1298,10 @@ export function buildBrowserExtensionMalwareScenario(scenarioId = "browser-exten
       { id: "q3", prompt: "The firewall ALLOWED the connection to cdn-assets-update.xyz. Does that mean the connection was safe?", kind: "single",
         options: [
           { value: "yes", label: "Yes — the firewall evaluated the session against its URL and threat policy and allowed it, so it passed" },
-          { value: "no",  label: "No — 'allowed' just means it wasn't on a blocklist yet; a domain registered 4 days ago is itself suspicious" },
+          { value: "no",  label: "No — 'allowed' just means it wasn't on a blocklist yet; a domain the firewall categorises as newly registered is itself suspicious" },
         ],
         answer: "no", xp: 50,
-        explanation: "Firewalls default to allow unless a domain is already known-bad. A domain registered only days ago is a strong red flag on its own, since legitimate business services are almost never that young. 'Allowed by the firewall' and 'safe' are not the same thing." },
+        explanation: "Firewalls default to allow unless a domain is already known-bad. A newly registered domain is a strong red flag on its own, since legitimate business services are almost never that young. 'Allowed by the firewall' and 'safe' are not the same thing." },
     ],
   };
 }
@@ -1315,19 +1315,25 @@ export function buildBrowserExtensionMalwareScenario(scenarioId = "browser-exten
 // =========================================================================
 
 export function buildTechSupportScamScenario(scenarioId = "tech-support-scam-2026"): ScenarioBundle {
-  const { title, events, T, MIN, toolHash } = techSupportScamScenarioEvents();
+  const { title, events, T, MIN, toolHash, scamSite, scamIp, relayHost, relayIp, peerId } = techSupportScamScenarioEvents();
 
   const iocs: IOC[] = [
     { type: "sha256", value: toolHash, reputation: "suspicious", tags: ["unapproved-remote-access-tool"] },
+    { type: "domain", value: scamSite, reputation: "malicious", tags: ["tech-support-scam-page"] },
+    { type: "ip",     value: scamIp,   reputation: "malicious", tags: ["tech-support-scam-page"] },
+    { type: "domain", value: relayHost, reputation: "suspicious", tags: ["anydesk-relay"] },
+    { type: "ip",     value: relayIp,  reputation: "suspicious", tags: ["anydesk-relay"] },
+    // The caller's AnyDesk incoming ID (${peerId}) is evidence in the connection_trace row, not an IOC type the schema models.
   ];
+  void peerId;
 
   return {
     scenario_id: scenarioId,
     title,
     threat_actor: "Tech-Support Scam Operator (opportunistic, financially motivated)",
     attack_kind: "tech_support_scam_basic",
-    briefing: "SentinelOne terminated a process on WS-ACC-4477 at 14:06 and flagged unapproved software running under t.mizrahi's session. The user has not opened a ticket. Establish what was running and what it did while it was up.",
-    narrative: "t.mizrahi received a call from someone claiming to be Microsoft technical support and was talked into downloading and running AnyDesk, then granting the caller remote control of WS-ACC-4477. The caller ran basic system enumeration commands through the remote session before SentinelOne flagged the unapproved remote-access tool and terminated it.",
+    briefing: "The EDR raised a behavioural alert for an unsanctioned remote-access tool on WS-ACC-4477 at 14:06 and terminated it. A scam page was loaded on the host earlier, and an AnyDesk relay session and a new service were logged in between. The user has not opened a ticket. Establish what ran and what the remote operator did.",
+    narrative: "t.mizrahi loaded a scareware page (ms-support-alert.live), called the number on it, and was talked into downloading and running AnyDesk and granting the caller control. The AnyDesk connection_trace.txt records the incoming session ID and the operator's IP; during the live relay session cmd.exe ran systeminfo and netstat, and AnyDesk was installed as a service for unattended access. The EDR then raised a behavioural unsanctioned-RMM alert and killed the processes — the referrer URL, the relay host, the trace file and the service tie the chain together.",
     learning_objectives: [
       "Recognize that a legitimate, signed tool can still be the vehicle for an attack when used outside policy (T1219)",
       "Identify a remote-access tool spawning a command shell as an observable pivot point (T1059.003)",
@@ -1338,10 +1344,13 @@ export function buildTechSupportScamScenario(scenarioId = "tech-support-scam-202
     iocs,
     alerts: eventsToAlerts(events, scenarioId),
     killchain: [
-      { ts: T(0),                phase: "Preparation",  action: "AnyDesk.exe downloaded to Downloads at the caller's instruction" },
-      { ts: T(4 * MIN),          phase: "Initial Access", action: "t.mizrahi runs AnyDesk and grants remote control to the caller" },
-      { ts: T(4 * MIN + 90_000), phase: "Discovery",      action: "cmd.exe spawned by AnyDesk runs system and network enumeration" },
-      { ts: T(6 * MIN),          phase: "Detection",      action: "EDR flags the unapproved remote-access tool and terminates it" },
+      { ts: T(-3 * MIN),         phase: "Preparation",   action: "Scam/scareware page loaded on WS-ACC-4477 (ms-support-alert.live)" },
+      { ts: T(0),                phase: "Preparation",   action: "AnyDesk.exe downloaded to Downloads (referrer = the scam page)" },
+      { ts: T(4 * MIN),          phase: "Initial Access", action: "t.mizrahi runs AnyDesk and grants control; relay session to an AnyDesk relay opens" },
+      { ts: T(4 * MIN + 55_000), phase: "Initial Access", action: "AnyDesk trace file records the incoming session ID and the operator's IP" },
+      { ts: T(4 * MIN + 90_000), phase: "Discovery",      action: "cmd.exe runs systeminfo and netstat during the live session" },
+      { ts: T(5 * MIN + 40_000), phase: "Persistence",    action: "AnyDesk installed as a Windows service for unattended access" },
+      { ts: T(6 * MIN),          phase: "Detection",      action: "EDR raises an unsanctioned-RMM behavioural alert and terminates the processes" },
     ],
     questions: [
       { id: "q1", prompt: "AnyDesk.exe is a legitimate, digitally signed application. Does that mean this event chain is not a security incident?", kind: "single",
@@ -1365,7 +1374,7 @@ export function buildTechSupportScamScenario(scenarioId = "tech-support-scam-202
           { value: "no",  label: "No — the remote session was active for several minutes before the block; the analyst must confirm what the caller did and document it" },
         ],
         answer: "no", xp: 60,
-        explanation: "Blocking the process stops further access, but does not undo whatever the caller already saw or did during the active session. A SOC analyst still needs to review what commands were run, whether any data was viewed or copied, and write up the incident for the user's awareness training." },
+        explanation: "Killing the processes stops further access, but does not undo whatever the caller already saw or did during the active session — and the AnyDesk service installed for unattended access must be removed too. A SOC analyst still needs to review what commands were run, whether any data was viewed or copied, remove the service, and write up the incident for the user's awareness training." },
     ],
   };
 }
@@ -1379,10 +1388,13 @@ export function buildTechSupportScamScenario(scenarioId = "tech-support-scam-202
 // =========================================================================
 
 export function buildCrackedSoftwareScenario(scenarioId = "cracked-software-installer-2026"): ScenarioBundle {
-  const { title, events, T, MIN, downloadDomain, installerHash, payloadHash } = crackedSoftwareScenarioEvents();
+  const { title, events, T, MIN, downloadDomain, downloadIp, c2Domain, c2Ip, installerHash, payloadHash } = crackedSoftwareScenarioEvents();
 
   const iocs: IOC[] = [
     { type: "domain", value: downloadDomain, reputation: "suspicious", tags: ["cracked-software-host"] },
+    { type: "ip",     value: downloadIp,     reputation: "suspicious", tags: ["cracked-software-host"] },
+    { type: "domain", value: c2Domain,       reputation: "malicious", tags: ["external-infrastructure", "payload-c2"] },
+    { type: "ip",     value: c2Ip,           reputation: "malicious", tags: ["external-infrastructure", "payload-c2"] },
     { type: "sha256", value: installerHash, reputation: "malicious", tags: ["trojanized-installer"] },
     { type: "sha256", value: payloadHash,   reputation: "malicious", tags: ["dropped-payload", "scheduled-task-persistence"] },
   ];
@@ -1392,8 +1404,8 @@ export function buildCrackedSoftwareScenario(scenarioId = "cracked-software-inst
     title,
     threat_actor: "Commodity Malware Operator (opportunistic, financially motivated)",
     attack_kind: "cracked_software_installer_basic",
-    briefing: "Microsoft Defender quarantined a file on WS-ENG-2093 at 20:19, and earlier logs show a scheduled task being registered on the same host. The activity is well outside business hours and y.golan is the assigned user, who has reported nothing.",
-    narrative: "y.golan searched for a free way to activate Office, clicked a sponsored ad, and downloaded a trojanized activator installer late in the evening. Running it used schtasks.exe to register a recurring task (OfficeLicenseRefresh) that relaunches a dropped payload every 30 minutes; when the task fired, the Task Scheduler service launched the payload. Defender later quarantined the payload — but only after it had already run, and without confirming the task itself was deleted.",
+    briefing: "The firewall alerted on an executable download to WS-ENG-2093 at 20:10, Defender quarantined a file at 20:19, and in between a scheduled task was registered and the host connected to an unfamiliar domain. The activity is well outside business hours and y.golan has reported nothing.",
+    narrative: "y.golan downloaded a trojanized Office 'activator' installer late in the evening (the firewall logged the EXE download; the browser saved it with its origin URL). Running it dropped svchelper.exe into C:\\ProgramData\\OfficeTools and registered a scheduled task (OfficeLicenseRefresh) that runs as y.golan — no admin, so no /ru SYSTEM. When the task fired, svchelper.exe ran and connected to a C2 domain before Defender quarantined it; the installer hash, the dropped-payload hash and the C2 domain/IP tie the chain together, and the task is not shown as removed.",
     learning_objectives: [
       "Recognize a trojanized installer served through a sponsored search-ad as an infection vector distinct from email or USB",
       "Identify user execution of an unsigned, never-before-seen binary (T1204.002)",
@@ -1404,16 +1416,17 @@ export function buildCrackedSoftwareScenario(scenarioId = "cracked-software-inst
     iocs,
     alerts: eventsToAlerts(events, scenarioId),
     killchain: [
-      { ts: T(0),                phase: "Initial Access", action: "Trojanized activator installer downloaded from a sponsored ad result" },
-      { ts: T(6 * MIN),          phase: "Execution",      action: "y.golan runs the installer — dropped payload begins" },
-      { ts: T(6 * MIN + 40_000), phase: "Persistence",    action: "schtasks.exe registers OfficeLicenseRefresh to relaunch the payload every 30 minutes" },
-      { ts: T(7 * MIN + 30_000), phase: "Execution",      action: "The task fires — Task Scheduler (svchost) launches svchelper.exe" },
-      { ts: T(9 * MIN),          phase: "Detection",      action: "EDR identifies the trojan and quarantines the payload" },
+      { ts: T(0),                phase: "Initial Access", action: "Trojanized activator EXE downloaded from fast-office-tools-download.top" },
+      { ts: T(6 * MIN),          phase: "Execution",      action: "y.golan runs the installer; it drops svchelper.exe to C:\\ProgramData\\OfficeTools" },
+      { ts: T(6 * MIN + 40_000), phase: "Persistence",    action: "schtasks.exe registers OfficeLicenseRefresh (runs as y.golan) every 30 minutes" },
+      { ts: T(7 * MIN + 30_000), phase: "Execution",      action: "The task fires — Task Scheduler launches svchelper.exe as y.golan" },
+      { ts: T(7 * MIN + 45_000), phase: "Command & Control", action: "svchelper.exe connects to its C2 domain" },
+      { ts: T(9 * MIN),          phase: "Detection",      action: "EDR quarantines the payload (the task itself is not shown removed)" },
     ],
     questions: [
       { id: "q1", prompt: "What made this download suspicious even before the installer was run?", kind: "single",
         options: [
-          { value: "time", label: "It was downloaded at 20:10, off-hours, via a sponsored ad instead of the official vendor site" },
+          { value: "time", label: "It was downloaded at 20:10, off-hours, from a third-party 'activator' site instead of the official vendor" },
           { value: "size", label: "The installer was larger than 15MB, well above the size of the genuine vendor download" },
           { value: "dept", label: "y.golan works in engineering, not IT, and engineers should not be installing their own software" },
         ],
@@ -1445,11 +1458,13 @@ export function buildCrackedSoftwareScenario(scenarioId = "cracked-software-inst
 // =========================================================================
 
 export function buildMaliciousMacroScenario(scenarioId = "malicious-macro-2026"): ScenarioBundle {
-  const { title, events, T, MIN, c2Domain, c2Ip } = maliciousMacroScenarioEvents();
+  const { title, events, T, MIN, c2Domain, c2Ip, docmHash, invHash } = maliciousMacroScenarioEvents();
 
   const iocs: IOC[] = [
-    { type: "domain", value: c2Domain, reputation: "malicious", tags: ["external-infrastructure", "registered-3-days-ago"] },
+    { type: "domain", value: c2Domain, reputation: "malicious", tags: ["external-infrastructure", "newly-registered-domain"] },
     { type: "ip",     value: c2Ip,     reputation: "malicious", tags: ["external-infrastructure"] },
+    { type: "sha256", value: docmHash, reputation: "malicious", tags: ["macro-document", "email-attachment"] },
+    { type: "sha256", value: invHash,  reputation: "malicious", tags: ["second-stage-download"] },
   ];
 
   return {
@@ -1457,8 +1472,8 @@ export function buildMaliciousMacroScenario(scenarioId = "malicious-macro-2026")
     title,
     threat_actor: "Commodity Malware Operator (opportunistic, financially motivated)",
     attack_kind: "malicious_macro_basic",
-    briefing: "CrowdStrike Falcon killed a process on WS-SALES-1876 (s.peretz) at 11:31. The mail gateway logged an inbound attachment to the same user a few minutes earlier, and the firewall shows an outbound connection from the host in between.",
-    narrative: "s.peretz received a phishing email with a macro-enabled Word attachment disguised as an invoice review request. Enabling content caused WINWORD.EXE to spawn an encoded PowerShell command, which reached out to a freshly-registered domain before CrowdStrike caught and quarantined it.",
+    briefing: "The EDR raised a high-severity 'Suspicious PowerShell command line' alert on WS-SALES-1876 (s.peretz) at 11:28. The mail gateway logged an inbound attachment to the same user a few minutes earlier, and the firewall shows a download from the host right after the alert.",
+    narrative: "s.peretz received a phishing email with a macro-enabled Word attachment disguised as an invoice review request. It was delivered clean and only convicted later by ZAP. Enabling content caused WINWORD.EXE to spawn an encoded PowerShell command that downloaded inv.exe over HTTP from a newly registered domain into %TEMP%. The EDR quarantined inv.exe before it ran, then quarantined the document itself; the decoded command, the firewall file log and the file hashes tie every step together.",
     learning_objectives: [
       "Recognize a macro-enabled Office attachment as a delivery mechanism (T1566.001)",
       "Identify an Office application spawning PowerShell as the clearest sign of macro execution (T1059.001)",
@@ -1471,8 +1486,10 @@ export function buildMaliciousMacroScenario(scenarioId = "malicious-macro-2026")
     killchain: [
       { ts: T(0),                phase: "Initial Access",    action: "Phishing email with macro-enabled attachment delivered to s.peretz" },
       { ts: T(8 * MIN),          phase: "Execution",         action: "s.peretz enables content — WINWORD.EXE spawns encoded PowerShell" },
-      { ts: T(8 * MIN + 25_000), phase: "Command & Control", action: "PowerShell beacons out to a 3-day-old domain; firewall allows it" },
-      { ts: T(11 * MIN),         phase: "Detection",         action: "EDR kills the PowerShell process and quarantines the document" },
+      { ts: T(8 * MIN + 6_000),  phase: "Detection",         action: "EDR alert: Office application launched encoded PowerShell (detect-only)" },
+      { ts: T(8 * MIN + 25_000), phase: "Command & Control", action: "PowerShell downloads inv.exe over HTTP from a newly registered domain; firewall allows it" },
+      { ts: T(8 * MIN + 29_000), phase: "Detection",         action: "EDR quarantines inv.exe in %TEMP% before it runs" },
+      { ts: T(11 * MIN),         phase: "Detection",         action: "EDR quarantines the .docm; ZAP pulls the message from the inbox a minute later" },
     ],
     questions: [
       { id: "q1", prompt: "What is the clearest technical sign that the Word document's macro did something dangerous?", kind: "single",
@@ -1511,6 +1528,7 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
 
   const iocs: IOC[] = [
     { type: "ip",   value: attackerIp,          reputation: "suspicious", tags: ["internal-attacker", "kerberoasting-source", "developer-workstation"] },
+    { type: "ip",   value: "91.243.85.117",     reputation: "malicious",  tags: ["outbound-from-db-server", "post-xp_cmdshell"] },
     { type: "user", value: "m.cohen@nexacorp.com", reputation: "suspicious", tags: ["compromised-user", "kerberoasting-actor"] },
     { type: "user", value: "svc-mssql",           reputation: "suspicious", tags: ["compromised-svc-account", "cracked-via-kerberoast"] },
   ];
@@ -1520,12 +1538,12 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
     title,
     threat_actor: "Internal Attacker (Compromised Developer Account)",
     attack_kind: "credential_theft_kerberoasting",
-    briefing: "Microsoft Sentinel fired 'Anomalous Kerberos service ticket volume' for m.cohen on WS-DEV-4412 at 10:08, and Defender for Identity raised a separate reconnaissance alert on the same workstation. A related alert on srv-db01 is attached to the ticket.",
+    briefing: "Microsoft Sentinel fired 'Anomalous Kerberos service ticket volume' for m.cohen on WS-DEV-4412 at 10:08, and Defender for Identity raised 'Suspected Kerberos SPN exposure' for the same account and workstation at 10:06. A related alert on srv-db01 is attached to the ticket.",
     narrative: `An attacker with a foothold on developer workstation WS-DEV-4412 used PowerView to enumerate all service principal names (SPNs) via LDAP. They then requested Kerberos TGS tickets for 12 service accounts in 90 seconds — all using weak RC4 encryption (0x17). These tickets were exfiltrated and cracked offline using hashcat. About eleven minutes later, the cracked svc-mssql password was used to log in interactively to the database server. From there, xp_cmdshell was used to execute a PowerShell reverse shell.`,
     learning_objectives: [
       "Identify RC4 encryption (0x17) in Event ID 4769 as a Kerberoasting indicator",
       "Recognize abnormal TGS request volume from a single account in a short window",
-      "Correlate LDAP SPN enumeration (4662) → TGS requests (4769) → cracked service account login (4624)",
+      "Correlate the identity alert (SPN exposure) → TGS requests (4769) → cracked service account login (4624)",
       "Understand why service accounts logging on interactively is highly suspicious",
       "Detect xp_cmdshell as a post-exploitation code execution technique (T1059.001)",
     ],
@@ -1534,11 +1552,13 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
     alerts: eventsToAlerts(events, scenarioId),
     killchain: [
       { ts: T(0),             phase: "Initial Access",     action: "Attacker foothold on developer workstation WS-DEV-4412" },
-      { ts: T(2 * MIN),       phase: "Reconnaissance",     action: "LDAP SPN enumeration via PowerView — 12 Kerberoastable accounts found" },
+      { ts: T(2 * MIN),       phase: "Reconnaissance",     action: "SPN enumeration from WS-DEV-4412 — 12 service accounts with SPNs (seen through the identity sensor, not a DC event)" },
       { ts: T(4 * MIN),       phase: "Credential Access",  action: "Kerberos TGS tickets requested for SQL, IIS, Backup services (RC4/0x17)" },
-      { ts: T(8 * MIN),       phase: "Credential Access",  action: "Volume spike: 12 TGS tickets in 90 seconds — bulk Kerberoasting" },
+      { ts: T(6 * MIN),       phase: "Detection",          action: "Defender for Identity: 'Suspected Kerberos SPN exposure' — m.cohen on WS-DEV-4412, 12 target accounts" },
+      { ts: T(8 * MIN),       phase: "Detection",          action: "Sentinel: 'Anomalous Kerberos service ticket volume' — 12 RC4 TGS tickets in 90 seconds" },
       { ts: T(15 * MIN),      phase: "Credential Use",     action: "svc-mssql password cracked — interactive login to srv-db01" },
       { ts: T(18 * MIN),      phase: "Execution",          action: "xp_cmdshell spawns encoded PowerShell — attacker achieves code execution on DB server" },
+      { ts: T(18 * MIN + 6_000), phase: "Command and Control", action: "srv-db01 opens outbound TCP/443 to 91.243.85.117 — block and hunt for the address" },
     ],
     questions: [
       {
@@ -1558,10 +1578,10 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
       },
       {
         id: "kerb_q2_volume",
-        prompt: "Select the TWO observations that, taken together, separate this activity from normal Kerberos ticket traffic. You will need evt_kerb_02_ldap_spn and evt_kerb_06_ticket_spike.",
+        prompt: "Select the TWO observations that, taken together, separate this activity from normal Kerberos ticket traffic. You will need evt_kerb_02_mdi_spn_exposure and evt_kerb_06_ticket_spike.",
         kind: "multi",
         options: [
-          { value: "spn_enum_first", label: "An LDAP servicePrincipalName wildcard query returned 12 accounts two minutes earlier" },
+          { value: "spn_enum_first", label: "The identity sensor ties the requests to one account working through 12 SPN-holding service accounts" },
           { value: "twelve_in_90s", label: "Twelve service tickets for twelve distinct SPNs were issued inside a 90-second window" },
           { value: "logged_on_dc", label: "Every one of the ticket requests was recorded on DC01 rather than on the workstation" },
           { value: "ntlm_package", label: "The ticket requests name NTLM as the authentication package used against the domain" },
@@ -1569,7 +1589,7 @@ export function buildKerberoastingScenario(scenarioId = "kerberoasting-2026"): S
         answer: ["spn_enum_first", "twelve_in_90s"],
         xp: 75,
         explanation:
-          "Kerberoasting has a shape: first find every account that has an SPN, then ask for a ticket for each one. The 4662 LDAP query supplies the target list and the 12 tickets in 90 seconds consume it — neither is odd alone, but together they are the technique. 'logged_on_dc' is a property of the log source, not the behaviour: 4769 is *always* written by the KDC on a domain controller, including for m.cohen's benign baseline ticket. 'ntlm_package' is simply false here — 4769 is a Kerberos event by definition and no NTLM package is recorded on it; the NTLM authentication in this scenario appears later, on the 4624s.",
+          "Kerberoasting has a shape: first find every account that has an SPN, then ask for a ticket for each one. Defender for Identity's 'Suspected Kerberos SPN exposure' names that shape — one source account and workstation, 12 SPN-holding target accounts — and the Sentinel rule measures it: 12 RC4 tickets for 12 distinct services in 90 seconds. A single ticket request is ordinary; one user sweeping every service account is the technique. (A domain controller writes no Security event for a client's LDAP search filter, so the enumeration itself is seen through the identity sensor, not a 4662.) 'logged_on_dc' is a property of the log source, not the behaviour: 4769 is *always* written by the KDC on a domain controller, including for m.cohen's benign baseline ticket. 'ntlm_package' is simply false here — 4769 is a Kerberos event by definition and no NTLM package is recorded on it; the NTLM authentication in this scenario appears later, on the 4624s.",
       },
       {
         id: "kerb_q3_chain",
@@ -1819,112 +1839,94 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
 }
 
 // =========================================================================
-// Scenario 10: Cloud Credential Leak → Cryptomining + Data Breach
+// Scenario 10: Leaked AWS Key → IAM Backdoor → S3 Data Theft
 // =========================================================================
 
-export function buildCloudCryptoMiningScenario(scenarioId = "cloud-cryptomining-2026"): ScenarioBundle {
-  const { title, events, T, MIN, attackerIp, iamUser, backdoorUser, s3Bucket } = cloudCryptoMiningScenarioEvents();
+export function buildCloudKeyLeakS3ExfilScenario(scenarioId = "aws-key-leak-s3-exfil-2026"): ScenarioBundle {
+  const { title, events, T, MIN, attackerIp, iamUser, leakedKey, backdoorUser, backdoorKey, s3Bucket, sampleObject } = cloudKeyLeakS3ExfilScenarioEvents();
 
   const iocs: IOC[] = [
-    { type: "ip",     value: attackerIp,                             reputation: "malicious",  tags: ["attacker-bot", "singapore", "credential-abuse"] },
-    { type: "domain", value: "pool.minexmr.com",                     reputation: "malicious",  tags: ["monero-mining-pool", "xmrig", "cryptomining"] },
-    { type: "domain", value: "xmr.pool.minergate.com",               reputation: "malicious",  tags: ["monero-mining-pool", "cryptomining"] },
-    { type: "user",   value: backdoorUser,                           reputation: "malicious",  tags: ["iam-principal", "aws"] },
-    { type: "user",   value: iamUser,                                reputation: "suspicious", tags: ["compromised-iam-user", "leaked-credentials"] },
-    { type: "host",   value: s3Bucket,                               reputation: "unknown", tags: ["exfiltrated-bucket", "data-breach", "made-public"] },
-    { type: "url",    value: "https://github.com/rocketstack-io/deploy-scripts/commit/f3a8c2d9b8e1f4a67c3d2e1f", reputation: "suspicious", tags: ["credential-leak-source", "github-commit"] },
-    { type: "email",  value: "a.levy@rocketstack.io",                reputation: "suspicious", tags: ["developer", "accidental-leak", "not-malicious"] },
+    { type: "ip",   value: attackerIp,              reputation: "malicious",  tags: ["vps", "singapore", "leaked-key-use", "s3-download"] },
+    { type: "user", value: backdoorUser,            reputation: "malicious",  tags: ["iam-user", "created-by-leaked-key", "persistence"] },
+    { type: "user", value: iamUser,                 reputation: "suspicious", tags: ["ci-service-user", "leaked-credentials"] },
+    { type: "host", value: s3Bucket,                reputation: "unknown",    tags: ["s3-bucket", "data-accessed"] },
+    { type: "url",  value: "https://github.com/rocketstack-io/deploy-scripts/blob/76c770915494ad31afa9e44701a8f39a4924a4e3/scripts/deploy.sh", reputation: "suspicious", tags: ["credential-leak-source", "public-repo"] },
+    { type: "email", value: "a.levy@rocketstack.io", reputation: "unknown",   tags: ["developer", "accidental-leak"] },
   ];
 
   const killchain = [
-    { ts: T(0),        phase: "Credential Exposure",       action: "a.levy commits AWS key AKIA247316892041LEAK to public GitHub repo — secret scanning detects it and reports it to AWS after 3 minutes" },
-    { ts: T(2 * MIN),  phase: "Initial Access",            action: "Attacker bot GetCallerIdentity from Singapore — confirms stolen credentials valid within 2 minutes of commit" },
-    { ts: T(4 * MIN),  phase: "Discovery",                 action: "Automated cloud recon: 12 S3 buckets, EC2 in us-east-1 and eu-west-1, 9 Secrets Manager entries — 90 seconds total" },
-    { ts: T(6 * MIN),  phase: "Resource Hijacking",        action: "RunInstances us-east-1: 8x p3.8xlarge with XMRig UserData — $195.84/hr mining Monero" },
-    { ts: T(8 * MIN),  phase: "Resource Hijacking",        action: "RunInstances eu-west-1: 6x p3.8xlarge — second region, combined 14 GPUs at $342.72/hr" },
-    { ts: T(10 * MIN), phase: "Persistence",               action: "CreateUser: backdoor IAM account svc-lambda-monitoring created before original key revoked" },
-    { ts: T(13 * MIN), phase: "Persistence",               action: "AttachUserPolicy: AdministratorAccess on backdoor account — full AWS takeover persists" },
-    { ts: T(16 * MIN), phase: "Detection (GuardDuty)",     action: "GuardDuty CryptoCurrency:EC2/BitcoinTool.B!DNS — 14 instances, 847 DNS queries/min to pool.minexmr.com" },
-    { ts: T(20 * MIN), phase: "Detection (Billing)",       action: "Cost Anomaly: $47,320 in 6 hours — roughly 59x the $800/day baseline" },
-    { ts: T(22 * MIN), phase: "Data Staging",              action: "PutBucketPolicy: rocketstack-prod-customer-data made public — via backdoor account" },
-    { ts: T(24 * MIN), phase: "Exfiltration / Impact",    action: "4.7 GB (12,847 objects) downloaded via public HTTP — customer PII, payment tokens, API keys exfiltrated" },
+    { ts: T(-4 * MIN), phase: "Credential Exposure", action: `a.levy pushes scripts/deploy.sh containing ${iamUser}'s access key ${leakedKey} to the public repo rocketstack-io/deploy-scripts` },
+    { ts: T(0),        phase: "Detection",           action: "GitHub secret scanning opens alert #42 for the AWS access key (validity: active)" },
+    { ts: T(2 * MIN),  phase: "Initial Access",      action: `GetCallerIdentity with ${leakedKey} from ${attackerIp} (Singapore) — the key's first use outside the CI runner` },
+    { ts: T(4 * MIN),  phase: "Discovery",           action: "ListBuckets, ListUsers, ListAttachedUserPolicies within a minute" },
+    { ts: T(10 * MIN), phase: "Persistence",         action: `CreateUser ${backdoorUser}` },
+    { ts: T(11 * MIN), phase: "Persistence",         action: `CreateAccessKey → ${backdoorKey} for ${backdoorUser}` },
+    { ts: T(13 * MIN), phase: "Persistence",         action: `AttachUserPolicy AdministratorAccess → ${backdoorUser}` },
+    { ts: T(16 * MIN), phase: "Detection",           action: `GuardDuty Persistence:IAMUser/AnomalousBehavior on ${iamUser}` },
+    { ts: T(18 * MIN), phase: "Collection",          action: `GetObject run against ${s3Bucket} signed with ${backdoorKey} (first object ${sampleObject})` },
+    { ts: T(31 * MIN), phase: "Detection",           action: "GuardDuty Exfiltration:S3/AnomalousBehavior — 1,284 GetObject calls in 11 minutes" },
   ];
 
   const questions: ScenarioQuestion[] = [
     {
       id: "q1",
-      prompt: "The attacker struck within 2 minutes of the credentials being committed to GitHub. What does this tell you about the attack?",
+      prompt: "Which row proves the leaked key was used by someone other than the CI pipeline?",
       kind: "single",
       options: [
-        { value: "A", label: "The attacker was manually watching RocketStack's public GitHub repositories for new commits" },
-        { value: "B", label: "The attacker used an automated credential harvesting bot that scans GitHub in real-time" },
-        { value: "C", label: "The keys had already leaked through a different channel, such as a paste site, before the commit" },
-        { value: "D", label: "The developer a.levy@rocketstack.io was the attacker, using the keys from a second machine" },
+        { value: "A", label: "evt_kl_01 — the GitHub secret-scanning alert itself" },
+        { value: "B", label: `evt_kl_02 — GetCallerIdentity signed with ${leakedKey} from ${attackerIp}, not the CI runner's egress IP` },
+        { value: "C", label: "evt_kl_00 — the PutObject to rocketstack-deploy-artifacts" },
+        { value: "D", label: "evt_kl_06 — AttachUserPolicy, because only an attacker attaches AdministratorAccess" },
       ],
       answer: "B",
       xp: 50,
-      explanation: "The 2-minute window from commit to GetCallerIdentity is far too fast for a human attacker manually monitoring GitHub. Threat actors (particularly financially motivated groups like UNC3782) run automated bots that scan GitHub 24/7 for credential patterns using the GitHub API and regex matching. This is why GitHub secret scanning push protection must be enabled AND developers must be trained never to commit secrets. GitHub revoked the key after 3 minutes — but the 2-minute gap was already enough.",
+      explanation: "The GitHub alert (evt_kl_01) proves exposure, not use. The baseline (evt_kl_00) shows how the key is normally used: the CI runner's egress IP and an S3 upload. evt_kl_02 is the same access key id from a Singapore VPS address calling GetCallerIdentity — the first thing anyone runs with a key they just found, to learn whose it is. AttachUserPolicy comes later and is damning, but B is the first proof of outside use.",
     },
     {
       id: "q2",
-      prompt: "evt_cm_07 shows AttachUserPolicy with AdministratorAccess attached to 'svc-lambda-monitoring'. Why is this the MOST critical event in the kill chain?",
+      prompt: `Which access key signed the S3 GetObject calls (evt_kl_08), and how did that key come to exist?`,
       kind: "single",
       options: [
-        { value: "A", label: "Because AdministratorAccess grants s3:GetObject, making this the call that directly enables the bucket download in the next event" },
-        { value: "B", label: "Because it creates IAM persistence — the attacker retains full admin access even after the original stolen credentials are revoked" },
-        { value: "C", label: "Because attaching AdministratorAccess silently stops CloudTrail from recording the principal's subsequent API calls, blinding the audit trail" },
-        { value: "D", label: "Because admin rights let the attacker call ec2:RunInstances in every region, scaling the GPU mining fleet beyond the original quota" },
+        { value: "A", label: `${leakedKey} — the leaked CI key, used directly against the bucket` },
+        { value: "B", label: `${backdoorKey} — created for ${backdoorUser} by CreateAccessKey (evt_kl_05), called with the leaked key` },
+        { value: "C", label: "No key — the bucket was made public and read anonymously" },
+        { value: "D", label: "A temporary ASIA session key from AssumeRole" },
       ],
       answer: "B",
       xp: 75,
-      explanation: "Revoking the leaked key (AKIA247316892041LEAK) is the obvious first containment step, and on its own it accomplishes nothing here. By T+13min the attacker has already created a second IAM user and attached AdministratorAccess to it, so their access no longer depends on the credential you are about to kill. The proof is in the telemetry rather than in the timing: evt_cm_10 (PutBucketPolicy) is performed by the BACKDOOR user, not by the leaked key. Containment has to enumerate what the stolen credential created before it is revoked — otherwise you close the door the attacker came through and leave the one they built.",
+      explanation: `evt_kl_08's userIdentity is IAMUser ${backdoorUser} with accessKeyId ${backdoorKey}. That id appears exactly once before: in the responseElements of CreateAccessKey (evt_kl_05), whose caller was ${leakedKey} from ${attackerIp}. Pivoting on the key id is how you chain the S3 read back to the leak — and it is why deactivating only the leaked key would not have stopped the download.`,
     },
     {
       id: "q3",
-      prompt: "GuardDuty finding CryptoCurrency:EC2/BitcoinTool.B!DNS appears in evt_cm_08. What should an analyst do BEFORE terminating all 14 mining instances?",
-      kind: "single",
-      options: [
-        { value: "A", label: "Immediately terminate all 14 instances from the EC2 console to stop the $342/hr spend, since ephemeral cloud compute leaves no forensic artifacts worth preserving" },
-        { value: "B", label: "Capture a memory forensics snapshot from at least one running instance to preserve XMRig configuration, wallet addresses, and pool credentials before termination" },
-        { value: "C", label: "Wait for the AWS Cost Anomaly Detection alert to corroborate the GuardDuty finding, since a single DNS-based finding is not enough to justify terminating capacity" },
-        { value: "D", label: "Check the CMDB and tagging policy to confirm the p3.8xlarge instances are not an approved GPU training fleet, since terminating legitimate workloads is costly" },
-      ],
-      answer: "B",
-      xp: 75,
-      explanation: "While stopping the financial hemorrhage is urgent, forensic preservation is critical for the investigation. Running memory of a mining instance contains: the XMRig configuration file (wallet address, pool URL, pool password — which may link back to the threat actor), environment variables with any additional stolen credentials, and the full process tree. AWS SSM Run Command can execute a memory dump non-intrusively before the instance is terminated. Once instances are terminated, this evidence is gone forever.",
-    },
-    {
-      id: "q4",
-      prompt: "Which FOUR containment actions are required to fully remediate this incident? (Select all that apply)",
+      prompt: "Which FOUR actions are required to contain and scope this incident? (Select all that apply)",
       kind: "multi",
       options: [
-        { value: "A", label: "Revoke IAM user rocketstack-ci-deploy access keys (AKIA247316892041LEAK)" },
-        { value: "B", label: "Delete the backdoor IAM user svc-lambda-monitoring and all its access keys" },
-        { value: "C", label: "Terminate all GPU instances (p3.8xlarge) in us-east-1 and eu-west-1" },
-        { value: "D", label: "Revert the rocketstack-prod-customer-data S3 bucket policy to private (Block Public Access)" },
-        { value: "E", label: "Rotate the developer's GitHub personal access token and enable MFA on their account" },
-        { value: "F", label: "Delete and recreate the CloudTrail trail to clear the polluted event history" },
+        { value: "A", label: `Deactivate and then delete access key ${leakedKey}; issue the CI pipeline a new credential (preferably a role, not a long-term key)` },
+        { value: "B", label: `Deactivate ${backdoorKey}, detach AdministratorAccess and delete the IAM user ${backdoorUser}` },
+        { value: "C", label: `Search CloudTrail for every call by both keys and from ${attackerIp} (management AND S3 data events) to scope what was read or changed` },
+        { value: "D", label: "Remove the key from the repo history and treat the commit as public forever — removal does not un-leak it" },
+        { value: "E", label: "Delete the CloudTrail trail to stop the attacker reading it" },
+        { value: "F", label: "Make the bucket public-read-blocked only — the IAM changes are noise" },
       ],
       answer: ["A", "B", "C", "D"],
       xp: 100,
-      explanation: "All four actions are mandatory and order matters: (A) must happen first to revoke the original stolen key — but alone is insufficient. (B) is equally critical: without deleting svc-lambda-monitoring, the attacker retains full AdministratorAccess even after (A). (C) stops the $342.72/hr cryptomining spend — but capture forensics first (see Q3). (D) stops ongoing public access to the breached S3 bucket and prevents additional data from being downloaded. (E) is wrong here: the leak was an AWS key committed to a repo, not a compromised GitHub account — rotating the PAT hardens the developer but removes none of the attacker's access. (F) is actively harmful: CloudTrail is your only record of what the attacker did, and deleting it destroys the evidence you need for scope and notification. Also required but not listed: rotate the 9 Secrets Manager secrets exposed during recon, and notify affected customers per breach-notification duty.",
+      explanation: `(A) closes the original door; (B) closes the door the attacker built — ${backdoorUser} has AdministratorAccess and its own long-term key, so it survives (A). (C) scopes the breach: GuardDuty counted 1,284 GetObject calls, and the object keys in the S3 data events define what was taken (and therefore notification duties). (D) matters because the commit is public and scanned continuously; rotating is the fix, history rewriting is hygiene. (E) destroys your only evidence. (F) misreads the incident: the bucket was never public — the reads were signed by an IAM user the attacker created.`,
     },
   ];
 
   return {
     scenario_id: scenarioId,
     title,
-    threat_actor: "Financially Motivated Actor (UNC3782)",
-    attack_kind: "cloud_cryptomining",
-    briefing: "GitHub Advanced Security reported an exposed AWS access key in rocketstack-io/deploy-scripts at 09:03. AWS Cost Anomaly Detection has since flagged a spend spike on the same account, and GuardDuty has an open finding. Scope the account.",
-    narrative: `At 09:00, junior DevOps engineer a.levy accidentally committed AWS access keys to a public GitHub repository. GitHub's secret scanning detected the leak 3 minutes later and automatically revoked the key — but the damage was already done. Within 2 minutes of the commit, an automated bot operated by UNC3782 (a financially motivated threat actor known for scanning GitHub for cloud credentials) captured the keys and ran GetCallerIdentity to confirm they were valid. Over the next 24 minutes, the attacker executed a textbook cloud credential abuse playbook: rapid recon across S3, EC2, and Secrets Manager; launching 14 GPU instances (p3.8xlarge) across two regions to mine Monero at $342/hr; creating a backdoor IAM user with AdministratorAccess for persistence; and finally making a production S3 bucket public to exfiltrate 4.7GB of customer PII, payment tokens, and API keys. Your job: trace the attack from credential leak to data breach, identify the critical persistence mechanism that revoking the original key would not fix, and define the complete remediation sequence.`,
+    threat_actor: "Financially motivated actor scanning public repos for cloud keys",
+    attack_kind: "cloud_credential_leak",
+    briefing: "GitHub secret scanning opened an alert at 09:00 for an AWS access key in the public repo rocketstack-io/deploy-scripts. Since then GuardDuty has raised two findings on the same account. Scope the account.",
+    narrative: `At 08:56, DevOps engineer a.levy pushed a deploy script to a public GitHub repository with the CI user's long-term access key embedded in it. GitHub's secret scanning flagged it four minutes later — but two minutes after that the key was already in use from a Singapore VPS: first GetCallerIdentity, then a quick look at the account's buckets and IAM users. Ten minutes in, the same key created a new IAM user, gave it its own access key and attached AdministratorAccess. From then on the leaked key was no longer needed: the new user's key read more than a thousand objects from the production customer-data bucket before GuardDuty's S3 finding fired. Your job: prove the key was used, follow the key ids from the leak to the bucket, and define containment that removes BOTH the leaked credential and the one the attacker built.`,
     learning_objectives: [
-      "Understand how automated GitHub credential scanners work and why a 3-minute revocation window can still be too late",
-      "Recognize the cloud attacker playbook: GetCallerIdentity → Discovery → RunInstances (cryptomining) → CreateUser (persistence) → Data exfiltration",
-      "Identify why CreateUser + AttachUserPolicy (backdoor IAM) is the most critical persistence technique in cloud attacks",
-      "Correlate GuardDuty CryptoCurrency findings with billing anomalies as dual detection signals for cryptomining",
-      "Define the correct 4-step remediation order: revoke leaked key, delete backdoor account, terminate mining instances, restrict S3 access",
-      "Understand why forensic memory capture of mining instances must happen BEFORE termination",
+      "Tell exposure (a secret-scanning alert) from use (CloudTrail calls signed with that key from a new IP)",
+      "Pivot on access key ids: CreateAccessKey responseElements → the key in later userIdentity blocks",
+      "Recognise IAM persistence in AWS: CreateUser + CreateAccessKey + AttachUserPolicy",
+      "Read S3 data events and GuardDuty S3 findings to scope what was taken",
+      "Contain a leaked-key incident completely: both keys, the created user, and the scoping search",
     ],
     alerts: eventsToAlerts(events, scenarioId),
     events,
@@ -1942,7 +1944,7 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
   const { title, events, T, MIN, attackerIp, dc01, adminEmail, mimikatzHash, ntdsDitHash } = dcSyncScenarioEvents();
 
   const iocs: IOC[] = [
-    { type: "ip",     value: attackerIp,                                      reputation: "malicious",  tags: ["external-infrastructure", "netherlands", "tor-exit-node"] },
+    { type: "ip",     value: attackerIp,                                      reputation: "malicious",  tags: ["external-infrastructure", "netherlands", "vps-hosting"] },
     { type: "user",   value: adminEmail,                                       reputation: "suspicious", tags: ["compromised-account", "it-admin", "stolen-credentials"] },
     { type: "host",   value: dc01,                                             reputation: "unknown", tags: ["patient-zero", "domain-controller", "dcsync-source"] },
     { type: "sha256", value: mimikatzHash,                                     reputation: "malicious",  tags: ["mimikatz", "credential-dumper", "hacktool"] },
@@ -2029,7 +2031,7 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
     threat_actor: "APT-IRONBEAR (nation-state, Russia nexus)",
     attack_kind: "dcsync_golden_ticket",
     briefing: "An interactive RDP logon for it.admin was recorded on DC01 from an external address at 01:15 — the first time this account has authenticated from that country. Windows Defender raised a tool detection on the same host three minutes later. Nothing was blocked.",
-    narrative: `At 01:15 AM Israeli time, NexaCorp's IT admin account — compromised weeks earlier via a targeted spearphishing campaign — was used to RDP directly into the primary Domain Controller from a Netherlands Tor exit node. The attacker moved methodically: first launching Mimikatz — which Defender flagged but was configured not to block — then disabling Windows Defender via registry tamper and executing a DCSync attack using the legitimate DS-Replication-Get-Changes-All extended right. Within 10 minutes, the krbtgt account's NTLM hash was extracted — the domain's master Kerberos signing key. Using this hash, the attacker forged a Golden Ticket offline with a 10-year lifetime, granting unlimited, password-reset-resistant access to every service in the domain. The attacker then authenticated directly to the secondary DC using the forged ticket, ran ntdsutil to snapshot the entire Active Directory database (2.7 GB — every domain account's credentials), created a disguised shadow admin account svc-monitoring-prod, and finally cleared the Security event log to erase the evidence. Your job: trace the DCSync kill chain, identify the Golden Ticket indicators, and determine the correct incident response actions for a fully compromised Active Directory domain.`,
+    narrative: `At 01:15 AM Israeli time, NexaCorp's IT admin account — compromised weeks earlier via a targeted spearphishing campaign — was used to RDP directly into the primary Domain Controller from an IP at a Netherlands VPS hosting provider. The attacker moved methodically: first launching Mimikatz — which Defender flagged but was configured not to block — then disabling Windows Defender via registry tamper and executing a DCSync attack using the legitimate DS-Replication-Get-Changes-All extended right. Within 10 minutes, the krbtgt account's NTLM hash was extracted — the domain's master Kerberos signing key. Using this hash, the attacker forged a Golden Ticket offline with a 10-year lifetime, granting unlimited, password-reset-resistant access to every service in the domain. The attacker then authenticated directly to the secondary DC using the forged ticket, ran ntdsutil to snapshot the entire Active Directory database (2.7 GB — every domain account's credentials), created a disguised shadow admin account svc-monitoring-prod, and finally cleared the Security event log to erase the evidence. Your job: trace the DCSync kill chain, identify the Golden Ticket indicators, and determine the correct incident response actions for a fully compromised Active Directory domain.`,
     learning_objectives: [
       "Identify DCSync attacks using Windows Event ID 4662 with DS-Replication-Get-Changes-All GUIDs",
       "Recognize Golden Ticket indicators: RC4 encryption (0x17) on an AES-only domain, and a 4769 service-ticket request with no preceding 4768 TGT",
@@ -2265,15 +2267,16 @@ export function buildAsRepRoastingScenario(scenarioId = "asrep-roasting"): Scena
   ];
 
   const killchain = [
-    { ts: T(0),                    phase: "Discovery",         action: "LDAP query for accounts with Kerberos pre-auth disabled (userAccountControl flag 4194304)" },
-    { ts: T(1 * MIN),              phase: "Credential Access", action: "Impacket GetNPUsers.py launched on WS-DEV-09 — AS-REP roasting tool detected by EDR" },
+    { ts: T(-25 * MIN),            phase: "Initial Access",    action: "m.johnson's interactive session on WS-DEV-09 — the foothold every later workstation row runs under" },
+    { ts: T(-5_000),               phase: "Credential Access", action: "Impacket GetNPUsers.py launched on WS-DEV-09 under m.johnson (EDR process telemetry)" },
     { ts: T(2 * MIN),              phase: "Credential Access", action: "AS-REP TGT requested for svc-backup without credentials (PreAuthType=0, RC4 encryption)" },
     { ts: T(2 * MIN + 30_000),     phase: "Credential Access", action: "AS-REP TGTs collected for svc-monitoring and svc-reports — 3 offline-crackable hashes captured" },
+    { ts: T(3 * MIN + 10_000),     phase: "Detection",         action: "Defender for Identity raises 'Suspected AS-REP Roasting attack' — source WS-DEV-09, three target accounts" },
     { ts: T(3 * MIN),              phase: "Offline Cracking",  action: "Silent gap — hashcat cracking RC4-encrypted TGTs offline (no domain logs generated)" },
     { ts: T(6 * HOUR),             phase: "Lateral Movement",  action: "svc-backup authenticates from WS-DEV-09 to SRV-FILE01 — crack succeeded" },
     { ts: T(6 * HOUR + 1 * MIN),   phase: "Privilege Abuse",   action: "SeBackupPrivilege assigned to svc-backup session — file ACL bypass established" },
     { ts: T(6 * HOUR + 5 * MIN),   phase: "Discovery",         action: "net.exe enumerates Domain Admins group — attacker mapping escalation path" },
-    { ts: T(6 * HOUR + 20 * MIN),  phase: "Credential Access", action: "ntdsutil.exe extracts NTDS.dit via IFM — 847 domain account NTLM hashes compromised" },
+    { ts: T(6 * HOUR + 20 * MIN),  phase: "Credential Access", action: "ntdsutil.exe writes an IFM copy of ntds.dit to C:\\Temp\\ntds_dump on DC01 — every domain account's hash is now exposed" },
   ];
 
   const questions: ScenarioQuestion[] = [
@@ -2292,7 +2295,7 @@ export function buildAsRepRoastingScenario(scenarioId = "asrep-roasting"): Scena
     },
     {
       id: "q2", xp: 20,
-      prompt: "There is a 6-hour gap between Events 4-6 (roasting) and Events 7-10 (lateral movement). What does this gap indicate?",
+      prompt: "There is a 6-hour gap between Events 2-4 (the AS-REP requests) and Events 7-10 (lateral movement). What does this gap indicate?",
       kind: "single",
       options: [
         { value: "a", label: "The attacker was waiting out the account lockout window before retrying authentication against the domain controller" },
@@ -2336,7 +2339,7 @@ export function buildAsRepRoastingScenario(scenarioId = "asrep-roasting"): Scena
     title,
     threat_actor: "APT28 (Fancy Bear)",
     attack_kind: "Credential Access / Lateral Movement",
-    briefing: "CrowdStrike raised a detection on WS-DEV-09 under m.johnson's account at 09:01. DC01 logged a burst of Kerberos ticket issuance for three service accounts around the same time, and Zeek flagged the traffic between the two hosts.",
+    briefing: "Defender for Identity raised 'Suspected AS-REP Roasting attack' at 09:03 with WS-DEV-09 (10.0.1.45) as the source and three service accounts as targets. DC01's Kerberos log, Zeek and the EDR on WS-DEV-09 are available for the same window.",
     narrative: "APT28 operator with foothold on developer workstation WS-DEV-09 discovers three NexaCorp service accounts with Kerberos pre-authentication disabled. Using Impacket GetNPUsers.py, they request AS-REP responses (TGTs) without providing credentials. The RC4-encrypted TGT hashes are cracked offline (silent period — no logs). Six hours later the cracked svc-backup password is used to authenticate laterally. The account turns out to hold Backup Operators rights on the domain controller itself, and ntdsutil is used there to create an IFM snapshot containing the AD database.",
     learning_objectives: [
       "Understand that Kerberos Event 4768 with PreAuthType=0 means the account is vulnerable to AS-REP Roasting",
@@ -2362,6 +2365,9 @@ export function buildNtlmRelayScenario(scenarioId = "ntlm-relay-responder"): Sce
   ];
 
   const killchain = [
+    { ts: T(-40 * MIN),   phase: "Initial Access",    action: "m.johnson's interactive session on WS-DEV-09 — the foothold the poisoner runs under" },
+    { ts: T(-10_000),     phase: "Credential Access", action: "Inveigh.exe starts on WS-DEV-09 with LLMNR, NBNS and SMB listeners" },
+    { ts: T(-6_000),      phase: "Detection",         action: "EDR raises a critical, detect-only alert on Inveigh.exe — the process keeps running" },
     { ts: T(0),           phase: "Collection",        action: "WS-FIN-03 broadcasts an LLMNR query for a name DNS could not resolve — the poisoner answers it" },
     { ts: T(1_000),       phase: "Credential Access", action: "Inveigh on WS-DEV-09 answers the broadcast, redirecting WS-FIN-03 to the attacker host" },
     { ts: T(5_000),       phase: "Credential Access", action: "l.nguyen's NTLM challenge-response captured and relayed to SRV-FILE01" },
@@ -2451,7 +2457,7 @@ export function buildK8sPodEscapeScenario(scenarioId = "k8s-pod-escape-imds"): S
   const { title, events, T, MIN } = k8sPodEscapeScenarioEvents();
 
   const iocs: IOC[] = [
-    { type: "ip",     value: "185.220.101.47", reputation: "malicious", tags: ["tor-exit-node", "attacker-source", "imds-query-origin", "cloudtrail-source"] },
+    { type: "ip",     value: "193.233.48.71", reputation: "malicious", tags: ["tor-exit-node", "attacker-source", "imds-query-origin", "cloudtrail-source"] },
     { type: "user",   value: "svc-monitoring-backup", reputation: "malicious", tags: ["iam-principal", "administrator-access", "persistence"] },
     // Were two `sha256` IOCs seeded from strings like
     // "eks-node-role-credentials-stolen". Neither appeared in any event, and
@@ -2460,11 +2466,11 @@ export function buildK8sPodEscapeScenario(scenarioId = "k8s-pod-escape-imds"): S
     // analyst can actually pivot on.
     { type: "user",   value: "arn:aws:sts::123456789012:assumed-role/eks-node-role/i-0abc123", reputation: "suspicious", tags: ["assumed-role", "credential-source"] },
     { type: "url",    value: "s3://rocketstack-secrets-prod/db-passwords.json", reputation: "suspicious", tags: ["accessed-object", "secrets-bucket"] },
-    { type: "host",   value: "185.220.101.47:5000", reputation: "malicious", tags: ["attacker-registry", "image-source"] },
+    { type: "host",   value: "193.233.48.71:5000", reputation: "malicious", tags: ["attacker-registry", "image-source"] },
   ];
 
   const killchain = [
-    { ts: T(0),           phase: "Execution",         action: "kubectl exec into api-prod container via compromised CI/CD token from Tor exit node 185.220.101.47" },
+    { ts: T(0),           phase: "Execution",         action: "kubectl exec into api-prod container via compromised CI/CD token from Tor exit node 193.233.48.71" },
     { ts: T(2 * MIN),     phase: "Execution",         action: "nsenter with full host namespaces — container escape to EC2 node OS, root access achieved" },
     { ts: T(3 * MIN),     phase: "Credential Access", action: "curl to 169.254.169.254 IMDS — IAM role credentials for eks-node-role retrieved" },
     { ts: T(5 * MIN),     phase: "Credential Access", action: "GetCallerIdentity from external IP confirms stolen credentials are valid" },
@@ -2482,11 +2488,11 @@ export function buildK8sPodEscapeScenario(scenarioId = "k8s-pod-escape-imds"): S
       options: [
         { value: "a", label: "The container name 'api-prod-7f8b9c' does not match the deployment naming convention used in this cluster" },
         { value: "b", label: "kubectl exec that spawns an interactive shell in a production namespace is malicious regardless of source" },
-        { value: "c", label: "The source IP 185.220.101.47 is not an internal or corporate IP — it is a known Tor exit node" },
+        { value: "c", label: "The source IP 193.233.48.71 is not an internal or corporate IP — it is a known Tor exit node" },
         { value: "d", label: "The CI/CD service account token was used, and pipeline tokens should be scoped to deployments, not exec" },
       ],
       answer: "c",
-      explanation: "kubectl exec from an internal developer IP is routine. kubectl exec from 185.220.101.47 (a known Tor exit node, verifiable via threat intel) is immediately suspicious — legitimate CI/CD pipelines don't route through Tor. This is the distinguishing detail that separates routine debugging from an intrusion.",
+      explanation: "kubectl exec from an internal developer IP is routine. kubectl exec from 193.233.48.71 (a known Tor exit node, verifiable via threat intel) is immediately suspicious — legitimate CI/CD pipelines don't route through Tor. This is the distinguishing detail that separates routine debugging from an intrusion.",
     },
     {
       id: "q2", xp: 20,
@@ -2503,16 +2509,16 @@ export function buildK8sPodEscapeScenario(scenarioId = "k8s-pod-escape-imds"): S
     },
     {
       id: "q3", xp: 20,
-      prompt: "Events 5-7 (GetCallerIdentity, ListBuckets, DescribeInstances) show AWS API calls from IP 185.220.101.47. What is the critical anomaly?",
+      prompt: "Events 5-7 (GetCallerIdentity, ListBuckets, DescribeInstances) show AWS API calls from IP 193.233.48.71. What is the critical anomaly?",
       kind: "single",
       options: [
         { value: "a", label: "The calls were made over plain HTTP to the AWS endpoint, so the SigV4 signature and session token travelled in the clear" },
         { value: "b", label: "The IAM role eks-node-role is over-permissive — a node role needs EC2 and ECR permissions, not s3:ListAllMyBuckets across the account" },
-        { value: "c", label: "The source IP 185.220.101.47 is not an AWS IP range — legitimate EC2 role usage comes from AWS IP ranges, not external IPs" },
+        { value: "c", label: "The source IP 193.233.48.71 is not an AWS IP range — legitimate EC2 role usage comes from AWS IP ranges, not external IPs" },
         { value: "d", label: "sts:GetCallerIdentity returned the full account ID and role ARN, handing the attacker the account details needed to plan escalation" },
       ],
       answer: "c",
-      explanation: "When an EC2 instance uses its IAM role normally, CloudTrail shows the source IP as the EC2's private or public IP (within AWS IP ranges). Seeing eks-node-role calls from an external IP (185.220.101.47) means the credentials were stolen and are being used from outside AWS — a clear indicator of IMDS credential theft.",
+      explanation: "When an EC2 instance uses its IAM role normally, CloudTrail shows the source IP as the EC2's private or public IP (within AWS IP ranges). Seeing eks-node-role calls from an external IP (193.233.48.71) means the credentials were stolen and are being used from outside AWS — a clear indicator of IMDS credential theft.",
     },
     {
       id: "q4", xp: 25,

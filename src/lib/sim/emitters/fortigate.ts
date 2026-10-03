@@ -313,6 +313,63 @@ export function fgWaf(o: FgWafOpts): TelemetryEvent {
   };
 }
 
+// ── Admin / management-plane login (event/system) ─────────────────────────────────────
+// The FortiOS event log a login to the appliance's own management interface or API writes
+// (logid 0100032001 success / 0100032002 fail), rendered by the fortigate native module's
+// systemEvent path. `data.user` is the administrator the appliance attributes the session
+// to — the field that carries the published CVE-2022-40684 indicator `Local_Process_Access`
+// (the pseudo-identity FortiOS records when the management API is driven without an
+// authenticated session). Source is the external client; no company user is attached.
+export interface FgAdminLoginOpts extends Ctx {
+  adminUser: string;               // data.user — the admin account the appliance logs (e.g. "Local_Process_Access")
+  attackerIp: string;              // data.srcip — the external source
+  applianceIp: string;             // data.dstip — the appliance management IP
+  ui?: string;                     // data.ui — the management channel ("Node.js", "Report Runner", "https(ip)")
+  outcome?: "success" | "failure";
+  country?: string;                // data.srccountry
+  logid?: string;
+  mitre?: string;
+  tactic?: string;
+  severity?: Severity;
+  description?: string;
+}
+export function fgAdminLogin(o: FgAdminLoginOpts): TelemetryEvent {
+  const r = resolve({ ...o, host: o.host, user: null }); // appliance host; no company user
+  const ok = (o.outcome ?? "success") === "success";
+  return {
+    id: o.id, ts: o.ts, source: "firewall", vendor: VENDOR,
+    event_type: ok ? "auth_success" : "auth_failure",
+    severity: o.severity ?? "high", hostname: r.host, src_ip: o.attackerIp, dst_ip: o.applianceIp,
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
+    authentication: { method: "https", result: ok ? "success" : "failure" },
+    description: o.description ?? `FortiOS admin ${ok ? "login" : "login failed"} for ${o.adminUser} on ${r.host} from ${o.attackerIp}`,
+    raw: {
+      "data.type": "event",
+      "data.subtype": "system",
+      "data.logid": o.logid ?? (ok ? "0100032001" : "0100032002"),
+      "data.level": ok ? "information" : "alert",
+      "data.logdesc": ok ? "Admin login successful" : "Admin login failed",
+      "data.user": o.adminUser,
+      "data.ui": o.ui ?? `https(${o.attackerIp})`,
+      "data.method": "https",
+      "data.srcip": o.attackerIp,
+      ...(o.country ? { "data.srccountry": o.country } : {}),
+      "data.dstip": o.applianceIp,
+      "data.action": "login",
+      "data.status": ok ? "success" : "failed",
+      "data.msg": ok
+        ? `Administrator ${o.adminUser} logged in successfully from ${o.ui ?? `https(${o.attackerIp})`}`
+        : `Administrator ${o.adminUser} login failed from ${o.ui ?? `https(${o.attackerIp})`}`,
+      // shared ECS
+      "event.category": "authentication",
+      "event.action": "admin-login",
+      "event.outcome": ok ? "success" : "failure",
+      "source.ip": o.attackerIp,
+      "source.user.name": o.adminUser,
+    },
+  };
+}
+
 // ── SSL-VPN login ─────────────────────────────────────────────────────────────────────
 export interface FgVpnOpts extends Ctx {
   remoteIp: string;                // the client's public IP

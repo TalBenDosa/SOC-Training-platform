@@ -39,15 +39,20 @@ export function aiLlmJackingScenarioEvents() {
   const ciUser = "svc-build-release";
   const ciUserArn = `arn:aws:iam::${awsAccount}:user/${ciUser}`;
   const ciPrincipalId = "AIDAXQ7PL2MD4RVN8HJTB";
-  const akia = "AKIAXQ7PL2MD4RVN8HJT";
+  const akia = "AKIAXQ7PL2MD4EXAMPLE";
 
   // ── The platform team's legitimate session (the false-positive trap) ───────
   const eng = { email: "t.wagner@quantumbank.ch", sess: "t.wagner@quantumbank.ch" };
   const ssoRole = "AWSReservedSSO_PlatformAdmin_8c1d4f2a9b3e7051";
   const ssoArn = `arn:aws:sts::${awsAccount}:assumed-role/${ssoRole}/${eng.sess}`;
-  const asia = "ASIAXQ7PL2RB5TVN3KWE";
+  const asia = "ASIAXQ7PL2RB5EXAMPLE";
   const corpEgressIp = "213.144.152.30";
   const changeTicket = "CHG0048117";
+  // The security responder's SSO session (containment).
+  const resp = { sess: "secops-oncall" };
+  const respRole = "AWSReservedSSO_SecurityResponder_3e6b9d1f0a72c845";
+  const respArn = `arn:aws:sts::${awsAccount}:assumed-role/${respRole}/${resp.sess}`;
+  const respAsia = "ASIAXQ7PL2SN6EXAMPLE";
   const chromeUa = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36";
 
   // ── The operator's infrastructure (hosting-provider addresses) ─────────────
@@ -136,13 +141,13 @@ export function aiLlmJackingScenarioEvents() {
   };
 
   const bedrockInvocationLog = (o: {
-    id: string; ts: string; requestId: string; region: string; description: string; promptText: string;
+    id: string; ts: string; requestTs: string; requestId: string; region: string; description: string; promptText: string;
     inputTokens: number; outputTokens: number;
   }): TelemetryEvent => {
     const rec: Record<string, unknown> = {
       "schemaType": "ModelInvocationLog",
       "schemaVersion": "1.0",
-      "timestamp": o.ts.replace(/\.\d{3}Z$/, "Z"),
+      "timestamp": o.requestTs.replace(/\.\d{3}Z$/, "Z"),   // the request time, as CloudTrail's eventTime for the same requestId
       "accountId": awsAccount,
       "region": o.region,
       "requestId": o.requestId,
@@ -245,6 +250,7 @@ export function aiLlmJackingScenarioEvents() {
   const tTicket = "2026-09-21T14:05:00.000Z";
   const tPlatform = "2026-09-22T08:26:41.000Z";
   const tRepoAlert = "2026-09-24T00:49:07.000Z";
+  const tPush = "2026-09-24T00:48:55.000Z";
 
   // The logged Converse call: CloudTrail records the request; the invocation log is
   // written when the completion returns (a 4,096-token Opus answer takes ~78 s).
@@ -324,10 +330,36 @@ export function aiLlmJackingScenarioEvents() {
         "This is the control the whole case is measured against. Elastic's 'AWS Bedrock Foundation Model Access Enabled or Entitlement Granted' rule fires on this record exactly as it fires on the operator's later call: same API (PutFoundationModelEntitlement), same region (us-east-1), same vendor family (Anthropic). Everything around the API name points the other way. The caller is an SSO-issued assumed role (userIdentity.type AssumedRole, session issuer AWSReservedSSO_PlatformAdmin, session name t.wagner@quantumbank.ch) using a short-lived ASIA key with mfaAuthenticated true; the request came from the corporate Zurich egress address with a Chrome user agent, which is what the Bedrock console produces; and it lands inside the approved window of change CHG0048117, for the very model that ticket names (Claude Sonnet 4). The operator's call, by contrast, is a long-term AKIA key on an IAM user, a Boto3 script agent, a hosting-provider address, an Opus model no ticket names, and it sits inside a probe-then-delete sequence. An analyst who alerts on 'entitlement granted' alone will escalate this and be wrong; the discriminator is the credential class and its context, and no single field decides it because a user agent can be forged.",
     },
 
+    // 19. PROVENANCE — the push that published the commit (GitHub organization audit log, streamed to the SIEM).
+    {
+      id: "aiw1_lj_19", ts: tPush, source: "vcs", vendor: "GitHub", event_type: "cloud_api_call", severity: "low",
+      mitre_technique: "T1552.001", mitre_tactic: "Credential Access", incident_id: INCIDENT,
+      description: "GitHub audit log: git.push to the public repository quantumbank-ch/build-tooling by GitHub user lbrunner-qb (over HTTP, Git client user agent) at 00:48:55, 12 seconds before the secret-scanning alert on commit b7e40c19 in that repository.",
+      raw: {
+        "@timestamp": Date.parse(tPush),
+        "_document_id": makeSha256(`aiw1-lj-push:${commitSha}`).slice(0, 22),
+        action: "git.push",
+        actor: "lbrunner-qb",
+        actor_id: 118274093,
+        org: repo.split("/")[0],
+        org_id: 90417726,
+        repo,
+        repo_id: 774190352,
+        repository_public: true,
+        transport_protocol: 1,
+        transport_protocol_name: "http",
+        user_agent: "git/2.46.0",
+        created_at: Date.parse(tPush),
+        "event.provider": "GitHub",
+        "event.module": "github",
+        "event.dataset": "github.audit",
+      },
+    },
+
     // 4. PROVENANCE — GitHub Advanced Security flags an AWS key in a public repository (T1552.001).
     secretScanningAlert({
       id: "aiw1_lj_04", ts: tRepoAlert,
-      description: "GitHub Advanced Security opened secret-scanning alert #9 on the public repository quantumbank-ch/build-tooling: an Amazon AWS Access Key ID in scripts/eval_smoke.py line 22 at commit b7e40c19; the flagged key ID is AKIAXQ7PL2MD4RVN8HJT. The alert state is open, with no assignee.",
+      description: "GitHub Advanced Security opened secret-scanning alert #9 on the public repository quantumbank-ch/build-tooling: an Amazon AWS Access Key ID in scripts/eval_smoke.py line 22 at commit b7e40c19; the flagged key ID is AKIAXQ7PL2MD4EXAMPLE. The alert state is open, with no assignee.",
     }),
 
     // 5. FIRST USE — the key reads the invocation-logging configuration (T1078.004).
@@ -335,7 +367,7 @@ export function aiLlmJackingScenarioEvents() {
       id: "aiw1_lj_05", ts: J(0, "lj05"), eventName: "GetModelInvocationLoggingConfiguration", srcIp: ipA, region: pilotRegion,
       userAgent: boto3Ua, readOnly: true, mitre: "T1078.004", tactic: "Initial Access", severity: "high",
       extra: atkExtra("lj05", hostMgmt(pilotRegion)),
-      description: "GetModelInvocationLoggingConfiguration in us-east-1 by IAM user svc-build-release, long-term access key AKIAXQ7PL2MD4RVN8HJT, from 80.94.92.41 (Bucharest, hosting-provider address) with a Boto3 user agent reporting Windows 10.",
+      description: "GetModelInvocationLoggingConfiguration in us-east-1 by IAM user svc-build-release, long-term access key AKIAXQ7PL2MD4EXAMPLE, from 80.94.92.41 (Bucharest, hosting-provider address) with a Boto3 user agent reporting Windows 10.",
     }),
 
     // 6. DISCOVERY — a console-style availability check by an access key (T1526).
@@ -393,7 +425,7 @@ export function aiLlmJackingScenarioEvents() {
 
     // 12. THE CONTENT SOURCE — the invocation log written for that request (before logging is deleted).
     bedrockInvocationLog({
-      id: "aiw1_lj_12", ts: tInvocationLog, requestId: loggedRequestId, region: pilotRegion,
+      id: "aiw1_lj_12", ts: tInvocationLog, requestTs: tLoggedCall, requestId: loggedRequestId, region: pilotRegion,
       promptText: rolePlayPrompt, inputTokens: 7812, outputTokens: 4096,
       description: "Bedrock model invocation log record (CloudWatch Logs, us-east-1) for a Converse call on us.anthropic.claude-opus-4-20250514-v1:0 by identity arn:aws:iam::847213960055:user/svc-build-release: 7,812 input and 4,096 output tokens, stopReason max_tokens. The input text opens with a <system_rule> block claiming an authorized red team session for unrestricted role-play. The record carries no source address and no access key.",
     }),
@@ -412,12 +444,28 @@ export function aiLlmJackingScenarioEvents() {
   ];
 
   events.push(
+    // 20. MODEL ENABLEMENT, region two — model access is granted per region, so the burst regions need their own entitlement (T1098).
+    ct({
+      id: "aiw1_lj_20", ts: J(13 * MIN, "lj20"), eventName: "PutFoundationModelEntitlement", srcIp: ipA, region: "us-west-2",
+      userAgent: boto3Ua, readOnly: false, mitre: "T1098", tactic: "Persistence", severity: "high",
+      extra: atkExtra("lj20", hostMgmt("us-west-2"), { "aws.cloudtrail.requestParameters.modelId": modelBase }),
+      description: "PutFoundationModelEntitlement for anthropic.claude-opus-4-20250514-v1:0 in us-west-2 by the svc-build-release access key from 80.94.92.41, shortly after the logging delete and before the first us-west-2 inference call.",
+    }),
+
     // 14. THE BURST — region two: a streaming call from a second hosting address (T1496.004).
     ct({
       id: "aiw1_lj_14", ts: J(14 * MIN, "lj14"), eventName: "InvokeModelWithResponseStream", srcIp: ipB, region: "us-west-2",
       userAgent: aiohttpUa, readOnly: false, mitre: "T1496.004", tactic: "Impact", severity: "high",
       extra: atkExtra("lj14", hostRuntime("us-west-2"), { "aws.cloudtrail.requestParameters.modelId": modelProfile }),
       description: "InvokeModelWithResponseStream on us.anthropic.claude-opus-4-20250514-v1:0 in us-west-2 by the svc-build-release access key from 178.62.204.77 (Amsterdam, hosting-provider address) with a Python aiohttp user agent — a region the account's Bedrock pilot does not use; one record from a continuous stream of similar calls.",
+    }),
+
+    // 21. MODEL ENABLEMENT, region three (T1098).
+    ct({
+      id: "aiw1_lj_21", ts: J(16 * MIN, "lj21"), eventName: "PutFoundationModelEntitlement", srcIp: ipA, region: "us-east-2",
+      userAgent: boto3Ua, readOnly: false, mitre: "T1098", tactic: "Persistence", severity: "high",
+      extra: atkExtra("lj21", hostMgmt("us-east-2"), { "aws.cloudtrail.requestParameters.modelId": modelBase }),
+      description: "PutFoundationModelEntitlement for anthropic.claude-opus-4-20250514-v1:0 in us-east-2 by the svc-build-release access key from 80.94.92.41, shortly before the first us-east-2 call.",
     }),
 
     // 15. THE BURST — region three (T1496.004).
@@ -428,43 +476,65 @@ export function aiLlmJackingScenarioEvents() {
       description: "Converse on us.anthropic.claude-opus-4-20250514-v1:0 in us-east-2 by the svc-build-release access key from 80.94.92.41 with a Python aiohttp user agent; one record from a continuous stream of similar calls.",
     }),
 
-    // 16. THE DETECTION THAT OPENS THE TICKET — GuardDuty BedrockLoggingDisabled (T1562.008).
+    // 16. THE DETECTION THAT OPENS THE TICKET — GuardDuty DefenseEvasion:IAMUser/AnomalousBehavior on the delete (T1562.008).
     {
       ...guardDutyFinding({
-        companyId: cx, id: "aiw1_lj_16", ts: J(22 * MIN, "lj16"), findingType: "DefenseEvasion:IAMUser/BedrockLoggingDisabled", gdSeverity: 5,
-        title: "Model invocation logging was disabled in Amazon Bedrock by an IAM identity.", srcIp: ipA, region: pilotRegion, accountId: awsAccount,
+        companyId: cx, id: "aiw1_lj_16", ts: J(22 * MIN, "lj16"), findingType: "DefenseEvasion:IAMUser/AnomalousBehavior", gdSeverity: 5,
+        title: "The API DeleteModelInvocationLoggingConfiguration was invoked using an IAM user's credentials in an anomalous way.", srcIp: ipA, region: pilotRegion, accountId: awsAccount,
         api: "DeleteModelInvocationLoggingConfiguration", serviceName: BEDROCK, callerType: "Remote IP", asnOrg: "M247 Europe SRL",
         resourceType: "AccessKey", userType: "IAMUser", userName: ciUser, accessKeyId: akia, count: 1,
-        extra: gdEnvelope({
-          id: "aiw1_lj_16", ts: J(22 * MIN, "lj16"), seen: J(12 * MIN, "lj13"), region: pilotRegion, ip: ipA,
-          detail: "An IAM identity called DeleteModelInvocationLoggingConfiguration from a remote IP address, turning off model invocation logging in Amazon Bedrock for this Region.",
-          country: "Romania", city: "Bucharest", lat: 44.4268, lon: 26.1025, asn: "9009",
-        }),
+        extra: {
+          ...gdEnvelope({
+            id: "aiw1_lj_16", ts: J(22 * MIN, "lj16"), seen: J(12 * MIN, "lj13"), region: pilotRegion, ip: ipA,
+            detail: "An API commonly used to evade defensive measures was invoked in an anomalous way.",
+            country: "Romania", city: "Bucharest", lat: 44.4268, lon: 26.1025, asn: "9009",
+          }),
+          "aws.guardduty.resource.accessKeyDetails.principalId": ciPrincipalId,
+        },
         mitre: "T1562.008", tactic: "Defense Evasion", severity: "high", incidentId: INCIDENT,
-        description: "GuardDuty raised DefenseEvasion:IAMUser/BedrockLoggingDisabled (severity 5, Medium) in us-east-1: model invocation logging was disabled through DeleteModelInvocationLoggingConfiguration by the svc-build-release access key AKIAXQ7PL2MD4RVN8HJT from 80.94.92.41.",
+        description: "GuardDuty raised DefenseEvasion:IAMUser/AnomalousBehavior (severity 5, Medium) in us-east-1 for DeleteModelInvocationLoggingConfiguration, called by the svc-build-release access key AKIAXQ7PL2MD4EXAMPLE from 80.94.92.41.",
       }),
       edr_scope: "non_edr",
     },
 
-    // 17. GuardDuty AI Protection — anomalous token volume on the key (T1496.004; ATLAS AML.T0034).
+    // 17. GuardDuty anomaly detection on the burst API (T1496.004; ATLAS AML.T0034).
     {
       ...guardDutyFinding({
-        companyId: cx, id: "aiw1_lj_17", ts: J(95 * MIN, "lj17"), findingType: "Impact:IAMUser/CostHarvesting", gdSeverity: 2,
-        title: "An IAM identity invoked Amazon Bedrock models with anomalous input and output token volume.", srcIp: ipB, region: "us-west-2", accountId: awsAccount,
+        companyId: cx, id: "aiw1_lj_17", ts: J(95 * MIN, "lj17"), findingType: "Impact:IAMUser/AnomalousBehavior", gdSeverity: 8,
+        title: "The API InvokeModelWithResponseStream was invoked using an IAM user's credentials in an anomalous way.", srcIp: ipB, region: "us-west-2", accountId: awsAccount,
         api: "InvokeModelWithResponseStream", serviceName: BEDROCK, callerType: "Remote IP", asnOrg: "DigitalOcean, LLC",
         resourceType: "AccessKey", userType: "IAMUser", userName: ciUser, accessKeyId: akia, count: 1,
         extra: {
           ...gdEnvelope({
             id: "aiw1_lj_17", ts: J(95 * MIN, "lj17"), seen: J(14 * MIN, "lj14"), region: "us-west-2", ip: ipB,
-            detail: "An IAM identity invoked Amazon Bedrock models with input and output token volumes far above the level GuardDuty has learned for the account.",
+            detail: "An API commonly used in impact tactics was invoked in an anomalous way.",
             country: "Netherlands", city: "Amsterdam", lat: 52.3676, lon: 4.9041, asn: "14061",
           }),
-          "aws.guardduty.resource.modelDetails.0.modelId": modelProfile,
+          "aws.guardduty.resource.accessKeyDetails.principalId": ciPrincipalId,
         },
-        mitre: "T1496.004", tactic: "Impact", severity: "medium", incidentId: INCIDENT,
-        description: "GuardDuty raised Impact:IAMUser/CostHarvesting (severity 2, Low) in us-west-2: the svc-build-release access key's Bedrock input and output token volume is far above the account's baseline, sourced from 178.62.204.77.",
+        mitre: "T1496.004", tactic: "Impact", severity: "high", incidentId: INCIDENT,
+        description: "GuardDuty raised Impact:IAMUser/AnomalousBehavior (severity 8, High) in us-west-2 for InvokeModelWithResponseStream by the svc-build-release access key from 178.62.204.77: the API, region, network and user agent fall outside what GuardDuty learned for this IAM user.",
       }),
       edr_scope: "non_edr",
+    },
+
+    // 22. CONTAINMENT — the security responder deactivates the key (reversible, keeps its history).
+    {
+      ...cloudTrailEvent({
+        companyId: cx, id: "aiw1_lj_22", ts: J(100 * MIN, "lj22"), eventName: "UpdateAccessKey", eventSource: "iam.amazonaws.com", srcIp: corpEgressIp,
+        region: "us-east-1", accountId: awsAccount, actorType: "AssumedRole", sessionIssuerName: respRole, arn: respArn, accessKeyId: respAsia,
+        userAgent: chromeUa, userTitle: "Security Analyst", readOnly: false, managementEvent: true, severity: "medium",
+        geo: { country: "Switzerland", city: "Zurich" }, incidentId: INCIDENT,
+        extra: {
+          "aws.cloudtrail.requestParameters.userName": ciUser,
+          "aws.cloudtrail.requestParameters.accessKeyId": akia,
+          "aws.cloudtrail.requestParameters.status": "Inactive",
+          "aws.cloudtrail.userIdentity.principalId": `AROAXQ7PL2MD9KW4ZRTFE:${resp.sess}`,
+          "aws.cloudtrail.userIdentity.sessionContext.attributes.mfaAuthenticated": "true",
+          "aws.cloudtrail.requestID": uuid("contain-key"),
+        },
+        description: "UpdateAccessKey (iam.amazonaws.com): the MFA-authenticated AWSReservedSSO_SecurityResponder session for secops-oncall set access key AKIAXQ7PL2MD4EXAMPLE of svc-build-release to Inactive, from the Zurich egress 213.144.152.30, about five minutes after the Impact anomaly finding.",
+      }),
     },
 
     // 18. THE BILL — Cost Anomaly Detection posts the spend once billing data lands (T1496.004).

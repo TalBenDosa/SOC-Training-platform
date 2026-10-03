@@ -86,7 +86,7 @@ export function buildSeoPoisonedInstallerScenario(
       id: "q1",
       prompt:
         "The domain in evt_spi_01 had no abuse history and isn't a compromised legitimate site. How should this initial-access step be classified?",
-      hint: "Look at pan.referer — the traffic arrived from a search results page, not from a link on another publisher's site.",
+      hint: "Look at pan.referer — the traffic arrived through a googleadservices.com ad click-tracker, not from a link on another publisher's site.",
       kind: "single",
       options: [
         { value: "seo_poisoning", label: "SEO poisoning / malvertising — a paid or manipulated search result pointed directly at attacker infrastructure" },
@@ -97,7 +97,7 @@ export function buildSeoPoisonedInstallerScenario(
       answer: "seo_poisoning",
       xp: 50,
       explanation:
-        "The referer is a Google search results page, and the destination is a domain built specifically to look like a software download site — not a hacked publisher. That combination is the signature of a poisoned or purchased search result (T1608.006): the attacker doesn't need to compromise anything, only to outrank or outbid the real project for the query she typed. Drive-by compromise (b) requires a genuine site to be hijacked, which nothing here shows. Phishing (c) requires an email or message as the delivery channel — there is none in this chain. Supply-chain compromise (d) would mean the real chiark.greenend.org.uk build process was tampered with, which is a far larger claim than the evidence supports.",
+        "The referer is a googleadservices.com/pagead/aclk ad click-tracker, and the destination is a domain built specifically to look like a software download site — not a hacked publisher. That combination is the signature of a poisoned or purchased search result (T1608.006): the attacker doesn't need to compromise anything, only to outrank or outbid the real project for the query she typed. Drive-by compromise (b) requires a genuine site to be hijacked, which nothing here shows. Phishing (c) requires an email or message as the delivery channel — there is none in this chain. Supply-chain compromise (d) would mean the real chiark.greenend.org.uk build process was tampered with, which is a far larger claim than the evidence supports.",
     },
     {
       id: "q2",
@@ -173,13 +173,13 @@ export function buildSeoPoisonedInstallerScenario(
     attack_kind: "seo_poisoned_installer",
     briefing:
       "Microsoft Defender for Endpoint raised a High-severity infostealer incident on LAP-3312 at 14:27. The user says she was installing PuTTY this afternoon for a routine SSH task. Work out how the installer got onto the machine, what it actually did, and what has left the building.",
-    narrative: `At 14:20 Dor Avraham, a systems administrator, searched for "putty ssh client download" and clicked the sponsored result rather than the organic one. It took her to puttysoftware-download.com — a domain with no connection to the real PuTTY project, and no abuse history either, because it was registered for exactly this purpose. The firewall logged it under newly-registered-domain and let it through: that category is set to log, not block.
+    narrative: `At 14:20 Dor Avraham, a systems administrator, searched for "putty ssh client download" and clicked the sponsored result rather than the organic one. The click went through Google's own ad click-tracker — the landing request's referer is a googleadservices.com/pagead/aclk URL — to puttysoftware-download.com, a domain with no connection to the real PuTTY project and no abuse history, because it was registered for exactly this purpose. The firewall logged it under newly-registered-domain and let it through: that category is set to log, not block.
 
-Forty-five seconds later she downloaded PuTTY-0.83-installer.exe from the same host, and ran it at 14:23:10. The file is unsigned. Four seconds after it started, the installer process itself reached out to a second, unrelated domain — cdn-assets-relay92.net — and pulled down upd_helper.exe, 3.1 MB. The original installer was never going to install PuTTY; its only job was to fetch this.
+Forty-five seconds later she downloaded PuTTY-0.83-installer.exe from the same host, and ran it at 14:23:10. The file is unsigned, and it ran at medium integrity — reading her own Chrome profile needs no elevation. Four seconds after it started, the installer process itself reached out to a second, unrelated domain — cdn-assets-relay92.net — and pulled down upd_helper.exe, 3.1 MB. The original installer was never going to install PuTTY; its only job was to fetch this.
 
 upd_helper.exe ran, and the installer window closed a moment later with a generic "Setup failed" message. She never got a working copy of PuTTY. What she did get, over the next few minutes, was a new folder under her own Temp directory — AppData\\Local\\Temp\\sysdata\\Chrome_Default — containing a file named Login Data, 120 KB, the same filename and size class as Chrome's own saved-password database. Chrome holds that file open and locked while it runs, so upd_helper.exe copied it instead of reading it directly. Cookies and Web Data followed in the same burst.
 
-At 14:27 the host POSTed a 340 KB payload to cdn-assets-relay92.net/collect. The firewall allowed it — the domain's category is unknown, which carries no blocking policy. Defender's behavioural engine caught up twenty seconds later and raised the incident, quarantining upd_helper.exe. By then the credential store had already left the building.`,
+At 14:27 the host POSTed a 340 KB payload to cdn-assets-relay92.net/collect. The firewall allowed it — the domain's category is unknown, which carries no blocking policy. Defender's behavioural engine caught up twenty seconds later, raised the incident and quarantined upd_helper.exe at 14:27:20 — but the exfiltration POST had completed at 14:27:00, so this is a detection after the fact, not a prevention. By then the credential store had already left the building.`,
     learning_objectives: [
       "Recognise SEO-poisoned / malvertised search results (T1608.006) as an initial-access vector distinct from compromised-site drive-by or phishing email",
       "Read a firewall's category-vs-action fields to understand log-only policies on risky-but-unconfirmed domains",
@@ -193,12 +193,12 @@ At 14:27 the host POSTed a 340 KB payload to cdn-assets-relay92.net/collect. The
     killchain: [
       { ts: T(0), phase: "Resource Development", action: `Sponsored search result routes to lookalike domain ${lookalike} (T1608.006)` },
       { ts: T(45_000), phase: "Resource Development", action: "PuTTY-0.83-installer.exe downloaded" },
-      { ts: T(3 * MIN + 10_000), phase: "Execution", action: "User runs the unsigned installer, elevated on UAC consent (T1204.002)" },
+      { ts: T(3 * MIN + 10_000), phase: "Execution", action: "User runs the unsigned installer at medium integrity, no elevation (T1204.002)" },
       { ts: T(3 * MIN + 14_000), phase: "Command and Control", action: `Installer process fetches upd_helper.exe from ${c2} (T1105)` },
       { ts: T(3 * MIN + 22_000), phase: "Execution", action: "Second-stage payload executes; original installer exits with a fake setup error" },
       { ts: T(6 * MIN + 40_000), phase: "Credential Access", action: "Copy of Chrome's Login Data created outside the browser's own profile (T1555.003)" },
       { ts: T(7 * MIN), phase: "Exfiltration", action: `Harvested data POSTed to ${c2}/collect (T1041)` },
-      { ts: T(7 * MIN + 20_000), phase: "Detection", action: "Defender raises a High-severity infostealer incident and quarantines the payload" },
+      { ts: T(7 * MIN + 20_000), phase: "Detection", action: "Defender detects the infostealer and quarantines the payload — 20 s after exfil completed" },
     ],
     questions,
   };

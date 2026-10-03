@@ -24,6 +24,7 @@ export function trojanizedInstallerKeyloggerScenarioEvents() {
 
   const downloadSite = "pdf-tools-free.io";
   const c2 = "stat-collect-eu.com";
+  const c2Ip = "85.209.11.37";     // this story's own collection host
 
   const installerHash = makeSha256("swiftpdf_setup_trojanized_installer_2026");
   const keyloggerHash = makeSha256("winupd_helper_keylogger_binary_2026");
@@ -69,23 +70,25 @@ export function trojanizedInstallerKeyloggerScenarioEvents() {
       processName: "SwiftPDF_Setup.exe", pid: 7120,
       processPath: "C:\\Users\\y.karni\\Downloads\\SwiftPDF_Setup.exe",
       cmdline: '"C:\\Users\\y.karni\\Downloads\\SwiftPDF_Setup.exe" /S',
-      parentName: "explorer.exe", parentPid: 3204, sha256: installerHash, signed: true,
+      parentName: "explorer.exe", parentPid: 3204, sha256: installerHash, signed: true, integrity: "medium",
       mitre: "T1204.002", tactic: "Execution", severity: "low",
-      description: "SwiftPDF_Setup.exe ran from Downloads at 10:07:30, started by explorer.exe and elevated to high integrity.",
+      description: "SwiftPDF_Setup.exe ran from Downloads at 10:07:30, started by explorer.exe at medium integrity (TokenElevationTypeLimited — the account is not a local admin).",
     }),
 
     // 3. The real product is installed. It works — not a decoy.
     csFile({
       ...cs, id: "evt_tik_03_real_component", ts: T(2 * MIN + 51_000),
-      path: "C:\\Program Files\\SwiftPDF\\SwiftPDF.exe", sha256: realToolHash, signed: true, severity: "low",
-      description: "The installer wrote C:\\Program Files\\SwiftPDF\\SwiftPDF.exe, the working PDF application.",
+      path: "C:\\Users\\y.karni\\AppData\\Local\\Programs\\SwiftPDF\\SwiftPDF.exe", sha256: realToolHash, signed: true, severity: "low",
+      actorProcess: "SwiftPDF_Setup.exe", actorPid: 7120, actorPath: "C:\\Users\\y.karni\\Downloads\\SwiftPDF_Setup.exe", actorSha256: installerHash,
+      description: "SwiftPDF_Setup.exe (pid 7120) wrote C:\\Users\\y.karni\\AppData\\Local\\Programs\\SwiftPDF\\SwiftPDF.exe, the working PDF application (a per-user install — no admin rights needed).",
     }),
 
     // 4. A second binary, to AppData, with a name that borrows Windows' vocabulary.
     csFile({
       ...cs, id: "evt_tik_04_second_binary", ts: T(2 * MIN + 54_000),
       path: "C:\\Users\\y.karni\\AppData\\Roaming\\WinUpd\\winupd_helper.exe", sha256: keyloggerHash, signed: false, severity: "medium",
-      description: "Three seconds later the same installer wrote C:\\Users\\y.karni\\AppData\\Roaming\\WinUpd\\winupd_helper.exe, unsigned.",
+      actorProcess: "SwiftPDF_Setup.exe", actorPid: 7120, actorPath: "C:\\Users\\y.karni\\Downloads\\SwiftPDF_Setup.exe", actorSha256: installerHash,
+      description: "Three seconds later SwiftPDF_Setup.exe (pid 7120) wrote C:\\Users\\y.karni\\AppData\\Roaming\\WinUpd\\winupd_helper.exe, unsigned.",
     }),
 
     // 5. Persistence — a Run key, in the user hive, no admin rights needed.
@@ -107,16 +110,17 @@ export function trojanizedInstallerKeyloggerScenarioEvents() {
       sha256: keyloggerHash, signed: false, targetProcess: "chrome.exe", targetPid: 5012,
       api: "SetWindowsHookExW", threatName: "UnsignedUserlandKeyboardHook",
       mitre: "T1056.001", tactic: "Collection", technique: "Input Capture: Keylogging",
-      severity: "critical", isDetection: true, expectedVerdict: "tp",
-      description: "winupd_helper.exe installed a low-level keyboard hook via SetWindowsHookExW and began reading input directed at chrome.exe.",
+      severity: "high", isDetection: false,
+      description: "winupd_helper.exe (pid 7688, parent SwiftPDF_Setup.exe) called SetWindowsHookExW against chrome.exe (pid 5012).",
     }),
 
     // 7. A local buffer file grows in the same folder (no hash — a growing buffer).
     csFile({
       ...cs, id: "evt_tik_07_buffer_file", ts: T(38 * MIN),
       path: "C:\\Users\\y.karni\\AppData\\Roaming\\WinUpd\\cache.dat", sha256: null, action: "file_modify",
+      actorProcess: "winupd_helper.exe", actorPid: 7688, actorPath: "C:\\Users\\y.karni\\AppData\\Roaming\\WinUpd\\winupd_helper.exe", actorSha256: keyloggerHash,
       mitre: "T1074.001", tactic: "Collection", severity: "high",
-      description: "winupd_helper.exe repeatedly appended to C:\\Users\\y.karni\\AppData\\Roaming\\WinUpd\\cache.dat, which reached 61 KB over 34 minutes.",
+      description: "winupd_helper.exe (pid 7688) repeatedly appended to C:\\Users\\y.karni\\AppData\\Roaming\\WinUpd\\cache.dat, which reached 61 KB over 34 minutes.",
     }),
 
     // ---------------------------------------------------------------------
@@ -125,9 +129,9 @@ export function trojanizedInstallerKeyloggerScenarioEvents() {
     panWeb({
       ...cs, id: "evt_tik_08_exfil", ts: T(40 * MIN), severity: "critical",
       method: "POST", url: `https://${c2}/v1/report`, domain: c2, category: "unknown",
-      action: "allow", dstIp: "185.243.115.62", status: 200, bytesOut: 4_216, bytesIn: 118,
+      action: "allow", dstIp: c2Ip, status: 200, bytesOut: 4_216, bytesIn: 118,
       repeatCount: 5, mitre: "T1041", tactic: "Exfiltration",
-      description: "From 10:45 the host began POSTing roughly 4 KB every ten minutes to stat-collect-eu.com/v1/report, allowed under the category unknown.",
+      description: "From 10:45 LAP-2290 POSTed roughly 4 KB every ten minutes to stat-collect-eu.com/v1/report (85.209.11.37), as NEXACORP\\y.karni, allowed under the category unknown.",
     }),
 
     // ---------------------------------------------------------------------
@@ -142,7 +146,7 @@ export function trojanizedInstallerKeyloggerScenarioEvents() {
         cmdline: "winupd_helper.exe -svc", sha256: keyloggerHash,
         threatName: "UnsignedUserlandKeyboardHook", action: "detected", expectedVerdict: "tp",
         mitre: "T1056.001", tactic: "Collection", technique: "Input Capture: Keylogging", severity: "critical",
-        description: "Falcon raised a Critical detection on LAP-2290 for an unsigned AppData binary holding a keyboard hook, with the host's recent software-installation context attached.",
+        description: "Falcon raised a Critical detection on LAP-2290 for winupd_helper.exe (unsigned, in AppData\\Roaming) holding a low-level keyboard hook against chrome.exe.",
       }),
       edr_scope: "edr",
     },

@@ -117,7 +117,7 @@ export const PRODUCT_LABEL: Partial<Record<SourceId, string>> = {
   crowdstrike: "CrowdStrike Falcon", mde: "Microsoft Defender for Endpoint", sentinelone: "SentinelOne", sophos: "Sophos Intercept X",
   paloalto: "Palo Alto Networks", fortigate: "Fortinet FortiGate", checkpoint: "Check Point", cisco_ftd: "Cisco Firepower (FTD)", cisco_asa: "Cisco ASA",
   globalprotect: "GlobalProtect", anyconnect: "Cisco AnyConnect", fortigate_sslvpn: "FortiGate SSL-VPN", zscaler_zpa: "Zscaler Private Access", cloudflare_access: "Cloudflare Access",
-  entra: "Microsoft Entra ID", okta: "Okta",
+  entra: "Microsoft Entra ID", okta: "Okta", cyberark: "CyberArk PAM",
   m365: "Microsoft 365", google_workspace: "Google Workspace",
   defender_o365: "Microsoft Defender for Office 365", proofpoint: "Proofpoint TAP",
   windows_dns: "Windows DNS", infoblox: "Infoblox", zscaler_zia: "Zscaler Internet Access",

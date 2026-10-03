@@ -37,6 +37,7 @@ import {
   PRIVATE_CIDRS, USER_WRITABLE_RE, DOWNLOADS_PUBLIC_RE, type UserFacts,
   foreignDetectionName, inferredFileWriter, type ProcScope,
 } from "./_cs-s1-common";
+import { logonLuid } from "./_proc-identity";
 
 // ── schema ───────────────────────────────────────────────────────────────────
 
@@ -200,7 +201,8 @@ const aidOf = (ctx: NativeCtx, host: string) => rhex(ctx, `${ctx.companyId}:${ho
 /** Falcon-unique process id (UPID) — 12 decimal digits, stable per process instance. */
 const upid = (ctx: NativeCtx, seed: string) => `2${digits(ctx, `${seed}:upid`, 11)}`;
 const threadId = (ctx: NativeCtx, seed: string) => `1${digits(ctx, `${seed}:tid`, 11)}`;
-const luid = (ctx: NativeCtx, host: string, u: UserFacts) => (u.system ? "999" : u.user ? digits(ctx, `${ctx.companyId}:${host}:${u.user.toLowerCase()}:luid`, 7) : undefined);
+/** Logon LUID of the event's user on this host (./_proc-identity logonLuid: authored session, else per host + user + day; 999 SYSTEM). */
+const luid = (b: Base) => (b.u.user ? String(logonLuid(b.ctx, b.host, b.u.user, b.f.timeMs, b.f.logonId, b.f.logonSeq)) : undefined);
 
 interface Base { ctx: NativeCtx; ev: TelemetryEvent; f: EdrFacts; host: string; os: "Win" | "Lin" | "Mac"; hostIp: string; aid: string; u: UserFacts; scope: ProcScope }
 
@@ -249,7 +251,7 @@ function processRollup2(b: Base): Record<string, unknown> | null {
   const seed = procSeed(ctx, b.scope, p);
   const parentSeed = f.parent.name || f.parent.path ? procSeed(ctx, b.scope, f.parent) : `${seed}:unattributed-parent`;
   const ppid = upid(ctx, parentSeed);
-  const auth = luid(ctx, host, u);
+  const auth = luid(b);
   const win = os === "Win";
   const cmd = p.cmdline ?? (path ? (path.includes(" ") ? `"${path}"` : path) : name!);
   return {
@@ -333,7 +335,7 @@ function fileWritten(b: Base, ev: TelemetryEvent): { simple: string; rec: Record
   };
   if (simple === "PeFileWritten") {
     Object.assign(rec, {
-      AuthenticationId: luid(ctx, host, u), TokenType: "1", FileOperatorSid: u.sid, FileCategory: "6", FileWrittenFlags: "0",
+      AuthenticationId: luid(b), TokenType: "1", FileOperatorSid: u.sid, FileCategory: "6", FileWrittenFlags: "0",
       IsOnNetwork: path.startsWith("\\\\") ? "1" : "0", IsOnRemovableDisk: /^[D-Zd-z]:\\/.test(path) ? "1" : "0", IsTransactedFile: "0",
       DiskParentDeviceInstanceId: `PCI\\VEN_144D&DEV_A80A&SUBSYS_0B0F1028&REV_00\\4&${rhex(ctx, `${ctx.companyId}:${host}:disk`, 8)}&0&0008`,
       ImageSubsystem: "2", ImageEntryPoint: String(ctx.int(`${seed}:ep`, 4096, 400_000)),
@@ -363,7 +365,7 @@ function registry(b: Base, ev: TelemetryEvent): { simple: string; rec: Record<st
     simple,
     rec: {
       ...common(b, simple), ...a, RegObjectName: obj, RegValueName: rf.valueName, RegStringValue: rf.data, RegType: "1",
-      RegOperationType: "1", AuthenticationId: luid(ctx, host, u), TokenType: "1",
+      RegOperationType: "1", AuthenticationId: luid(b), TokenType: "1",
       TargetFileName: asep && target ? ntDevicePath(target) : undefined,
     },
   };
@@ -388,7 +390,7 @@ function scheduledTask(b: Base, t: TaskFacts): Record<string, unknown> | null {
     ContextProcessId: upid(ctx, svcSeed), ContextThreadId: threadId(ctx, `${svcSeed}:${f.eventId}`), ContextTimeStamp: secMs(f.timeMs),
     RpcClientProcessId: procName(t.registrar) ? upid(ctx, procSeed(ctx, b.scope, t.registrar)) : undefined,
     TaskName: t.path, TaskExecCommand: t.command, TaskExecArguments: t.args ?? "", TaskAuthor: author,
-    UserSid: u.sid, AuthenticationId: luid(ctx, host, u),
+    UserSid: u.sid, AuthenticationId: luid(b),
   };
 }
 
@@ -415,7 +417,7 @@ function logon(b: Base, ev: TelemetryEvent): { simple: string; rec: Record<strin
     simple: "UserLogon",
     rec: {
       ...common(b, "UserLogon", "2"), UserName: u.user, LogonDomain: u.domain, UserPrincipal: u.upn, UserSid: u.sid,
-      AuthenticationId: luid(ctx, host, u), LogonType: logonType, LogonTime: t, ContextTimeStamp: t,
+      AuthenticationId: luid(b), LogonType: logonType, LogonTime: t, ContextTimeStamp: t,
       AuthenticationPackage: u.system ? "Negotiate" : "Kerberos", UserLogonFlags: "0", UserIsAdmin: "0", ClientComputerName: host,
       ContextProcessId: upid(ctx, `${ctx.companyId}:${host}:lsass`), ContextThreadId: threadId(ctx, `${ctx.companyId}:${host}:lsass:${f.eventId}`),
     },
@@ -572,6 +574,14 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   // A task registration is its own sensor event, not a child process of the registrar.
   const task = f.kind === "process" ? taskFacts(ev, f) : null;
   if (task) return out("ScheduledTaskRegistered", scheduledTask(b, task));
+  // A handle opened on lsass.exe: FDR keeps no generic cross-process telemetry — the sensor reports the
+  // credential-dumping behaviour as a detection (card: FalconProcessHandleOpDetectInfo feeds the IOA), so
+  // the record is that alert on the opening process, never a ProcessRollup2 that drops the lsass access.
+  if (f.kind === "process" && f.access && /^lsass\.exe$/i.test(f.access.name ?? "")) {
+    const techniqueId = ev.mitre_technique ?? "T1003.001";
+    const detection = { techniqueId, tactic: ev.mitre_tactic ?? "Credential Access", severity: ev.severity, action: "detected" as const };
+    return out("alert", alert({ ...b, f: { ...f, kind: "detection", detection } }, ev));
+  }
   switch (f.kind) {
     case "process": return out("ProcessRollup2", processRollup2(b));
     case "dns": return out("DnsRequest", dnsRequest(b, ev));

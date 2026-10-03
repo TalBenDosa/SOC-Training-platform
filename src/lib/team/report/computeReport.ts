@@ -898,7 +898,12 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
   // ── Team detection. MTTD = the FIRST correct escalation of any malicious log.
   const firstDetect = Math.min(...[...escalatedAttack.values()].filter(Number.isFinite), Infinity);
   const detected = incidentList.length ? incidentsDetected > 0 : escalatedAttack.size > 0;
-  const timeToDetectS = Number.isFinite(firstDetect) ? relS(firstDetect) : null;
+  // MTTD is measured from the first attack log reaching the feed, not from shift start — a warm-up
+  // of benign traffic before the attack must not be charged to the team (diagnostic P1).
+  const firstAttackFeedMs = Math.min(...[...attackIds].map(id => feedTs.get(id)).filter((t): t is number => t != null), Infinity);
+  const timeToDetectS = Number.isFinite(firstDetect)
+    ? (Number.isFinite(firstAttackFeedMs) ? Math.max(0, Math.round(runMs(firstAttackFeedMs, firstDetect) / 1000)) : relS(firstDetect))
+    : null;
   // Team disposition accuracy over DISTINCT logs (latest verdict, suspicious = partial).
   const teamLatestVerdict = new Map<string, string>();
   for (const d of dispEvents) teamLatestVerdict.set(eidOf(d), verdictOf(d));
@@ -942,6 +947,9 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
   }
   const RESPONSE_TYPES = new Set(["escalation.requested", "elevation.requested", "hunt.logged", "report.submitted", "containment.requested", "note.added", "scope.set", "scope.confirmed", "case.status_set", "intel.published", "decision.logged", "sitrep.sent", "evidence.pinned"]);
   const NOT_EVALUABLE = "not evaluable — no supporting telemetry for it in the feed";
+  // A role must exist to own a management inject — with no SOC Manager / Lead / Tier-3 in the room,
+  // a CISO/Legal/Exec SITREP request is skipped, not counted missed (diagnostic P1).
+  const hasSenior = players.some(p => ["mgr", "lead", "ti", "t3"].includes(p.role));
   const injectResults: InjectResult[] = events.filter(e => e.type === "staff.inject").map(e => {
     const p = e.payload as { id?: string; original_id?: string; kind?: string; text?: string; expected_response?: string; linked_objective?: string };
     const kind = String(p.kind ?? ""); const at = tsOf(e);
@@ -955,7 +963,13 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
     if (kind === "false_lead") {
       if (!sup.length) return { ...base, decoy: true, scored: false, handled: false, evaluable: false, note: NOT_EVALUABLE };
       const chased = escReq.some(x => supSet.has(eidOf(x)));
-      return { ...base, decoy: true, scored: true, handled: !chased, note: chased ? "the team escalated the decoy's benign telemetry" : "the team did not escalate the decoy's benign telemetry" };
+      // Handling a decoy is an EXPLICIT call, not silence: the team must disposition its telemetry
+      // benign / FP (or answer the inject) AND not escalate it. Doing nothing is not "handled".
+      const dispositionedBenign = dispEvents.some(x => supSet.has(eidOf(x)) && ["benign", "false_positive"].includes(verdictOf(x)));
+      const answered = at != null && sitrepAts.some(t => t >= at && runMs(at, t) <= INJECT_WINDOW);
+      const acted = dispositionedBenign || answered;
+      return { ...base, decoy: true, scored: true, handled: acted && !chased,
+        note: chased ? "the team escalated the decoy's benign telemetry (over-escalation)" : acted ? "the team identified it as benign" : "no explicit call — the decoy was neither dispositioned benign nor answered" };
     }
     if (kind === "twist") {
       if (!sup.length) return { ...base, scored: false, handled: false, evaluable: false, note: NOT_EVALUABLE };
@@ -980,6 +994,7 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
       const onTime = at == null || tk.ts == null || runMs(at, tk.ts) <= INJECT_WINDOW;
       return { ...base, scored: true, handled: tk.correct && onTime, note: !tk.correct ? `answered "${tk.decision}" — the wrong call` : onTime ? `answered "${tk.decision}" — the right call` : "answered after the 15-min window" };
     }
+    if (kind === "mgmt_pressure" && !hasSenior) return { ...base, scored: false, handled: false, evaluable: false, note: "no SOC Manager / senior in the team to own this — skipped" };
     let handled = false;
     if (at != null) { const idx = sitrepAts.findIndex((t, i) => !usedS.has(i) && t >= at && runMs(at, t) <= INJECT_WINDOW); if (idx !== -1) { usedS.add(idx); handled = true; } }
     return { ...base, scored: true, handled };

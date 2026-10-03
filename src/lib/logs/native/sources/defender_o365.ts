@@ -22,6 +22,7 @@ import type { KindSchema, NativeCtx, NativeLog, NativeSource, SourceSchema, UseC
 import {
   aadObjectId, domainOf, emailFacts, entitySeed, isThreatMail, iso7, rs, syntheticMessageId, userEmail, type EmailFacts, type Raw,
 } from "./collab-email-shared";
+import { egressIp } from "./firewall-shared";
 
 // ── Schema ───────────────────────────────────────────────────────────────────
 
@@ -178,7 +179,8 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       Timestamp: m.ts, Url: url, ActionType: blocked ? "ClickBlocked" : "ClickAllowed", AccountUpn: user, Workload: "Email",
       NetworkMessageId: nmid, ThreatTypes: knownBad ? "Phish" : "", DetectionMethods: knownBad ? JSON.stringify({ Phish: ["URL detonation reputation"] }) : "",
     };
-    if (ev.src_ip) row.IPAddress = ev.src_ip;
+    // Safe Links (a cloud service) sees an office-LAN click from the company's NAT egress.
+    if (ev.src_ip) row.IPAddress = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(ev.src_ip) ? egressIp(ctx) : ev.src_ip;
     row.IsClickedThrough = !blocked && knownBad;
     row.UrlChain = JSON.stringify([url]);
     row.ReportId = ctx.uuid(`${ev.id}:click`);
@@ -209,6 +211,14 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
     });
   }
 
+  // ── EmailAttachmentInfo / EmailUrlInfo: a row authored as that table (raw `category`, the
+  // streaming envelope's own field) — the attachment's SHA256 / the URL live there, not in EmailEvents.
+  const table = /AdvancedHunting-(EmailAttachmentInfo|EmailUrlInfo)/.exec(rs(raw, "category") ?? "")?.[1];
+  if (table) {
+    const row = companionLogs(ev, ctx).find(l => l.kind === table);
+    if (row) return row;
+  }
+
   // ── EmailEvents (delivery verdict) ──
   return out("EmailEvents", emailEventsRow(ev, ctx, m));
 }
@@ -233,8 +243,12 @@ function deliveryAction(ev: TelemetryEvent): string {
  */
 function deliveredClean(ev: TelemetryEvent, m: Msg): boolean {
   const raw: Raw = ev.raw ?? {};
+  if (deliveryAction(ev) !== "Delivered") return false;
+  // No allow (transport rule, org / user allow) delivers a Malware verdict — Defender always
+  // quarantines malware. A delivered message with malware was clean at delivery; ZAP convicts it later.
+  if (m.threats.includes("Malware")) return true;
   const etr = /transport rule/i.test(rs(raw, "block.reason") ?? "");
-  return deliveryAction(ev) === "Delivered" && !etr && !rs(raw, "OrgLevelAction", "UserLevelAction") && m.threats.some(t => t === "Malware" || t === "Phish");
+  return !etr && !rs(raw, "OrgLevelAction", "UserLevelAction") && m.threats.some(t => t === "Phish");
 }
 
 function emailEventsRow(ev: TelemetryEvent, ctx: NativeCtx, m: Msg): Record<string, unknown> {
@@ -253,7 +267,8 @@ function emailEventsRow(ev: TelemetryEvent, ctx: NativeCtx, m: Msg): Record<stri
   else if (action === "Junked") { emailAction = "Move message to junk mail folder"; policy = phish ? "Antispam phishing" : "Antispam"; }
   const scl = rs(raw, "SpamConfidenceLevel");
   const conf: Record<string, string> = {};
-  if (phish) conf.Phish = rs(raw, "PhishConfidenceLevel") && !/none/i.test(rs(raw, "PhishConfidenceLevel")!) ? rs(raw, "PhishConfidenceLevel")! : "High";
+  // An allow can only deliver normal-confidence phish (high-confidence phish is always quarantined).
+  if (phish) conf.Phish = rs(raw, "PhishConfidenceLevel") && !/none/i.test(rs(raw, "PhishConfidenceLevel")!) ? rs(raw, "PhishConfidenceLevel")! : action === "Delivered" ? "Normal" : "High";
   if (!malware) conf.Spam = scl ?? (threats.includes("Spam") ? "5" : "1");
   const internalSender = domainOf(f.from) === domainOf(user);
   const size = f.sizeBytes ?? (f.attachments.reduce((n, a) => n + (a.size ?? 0), 0) + ctx.int(`${ev.id}:sz`, 3500, 60000));
@@ -267,7 +282,7 @@ function emailEventsRow(ev: TelemetryEvent, ctx: NativeCtx, m: Msg): Record<stri
     SenderObjectId: internalSender && f.from ? aadObjectId(ctx, f.from) : "",
     SenderMailFromDomain: domainOf(f.mailFrom ?? f.from) ?? "",
     SenderFromDomain: domainOf(f.from) ?? "",
-    SenderIPv4: f.senderIp && /^\d{1,3}(\.\d{1,3}){3}$/.test(f.senderIp) ? f.senderIp : "",
+    SenderIPv4: senderIpv4(ctx, f, internalSender),
     SenderIPv6: f.senderIp && f.senderIp.includes(":") ? f.senderIp : "",
     RecipientEmailAddress: user,
     RecipientObjectId: aadObjectId(ctx, user),
@@ -302,9 +317,24 @@ function emailEventsRow(ev: TelemetryEvent, ctx: NativeCtx, m: Msg): Record<stri
     Cc: "",
     RecipientDomain: domainOf(user) ?? "",
     EmailSize: size,
-    IsFirstContact: isThreatMail(ev, f) ? 1 : 0,
+    // Authored (or threaded: a sender who already mailed this recipient in the story is not a first contact).
+    IsFirstContact: /^(0|1|true|false)$/i.test(rs(raw, "IsFirstContact") ?? "") ? (/^(1|true)$/i.test(rs(raw, "IsFirstContact")!) ? 1 : 0) : isThreatMail(ev, f) ? 1 : 0,
   };
   return row;
+}
+/**
+ * The connecting server Exchange Online Protection recorded. Every inbound message has one: the
+ * authored address, else a stable address of the sending domain's outbound relay (an internal
+ * sender's mail is relayed by Exchange Online itself, 40.107.0.0/16).
+ */
+function senderIpv4(ctx: NativeCtx, f: EmailFacts, internalSender: boolean): string {
+  if (f.senderIp && /^\d{1,3}(\.\d{1,3}){3}$/.test(f.senderIp)) return f.senderIp;
+  if (f.senderIp && f.senderIp.includes(":")) return "";
+  const dom = domainOf(f.mailFrom ?? f.from) ?? "unknown";
+  if (internalSender || f.direction !== "Inbound") return `40.107.${ctx.int(`${ctx.companyId}:exo-relay:a`, 0, 255)}.${ctx.int(`${ctx.companyId}:exo-relay:b`, 10, 250)}`;
+  const k = `dom:${dom.toLowerCase()}:mx-out`;
+  const first = [45, 46, 51, 62, 77, 81, 89, 91, 94, 103, 141, 146, 176, 178, 185, 188, 193, 194, 195, 212, 213][ctx.int(k, 0, 20)];
+  return `${first}.${ctx.int(`${k}:b`, 1, 254)}.${ctx.int(`${k}:c`, 0, 255)}.${ctx.int(`${k}:d`, 2, 254)}`;
 }
 function malwareName(f: EmailFacts): string {
   const ext = f.attachments[0]?.ext ?? "";

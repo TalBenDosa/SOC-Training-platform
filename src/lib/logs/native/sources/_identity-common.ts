@@ -11,6 +11,7 @@
  * has no truthful equivalent record.
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { knownGeoForIp } from "@/lib/geo/resolveGeo";
 import type { NativeCtx } from "../types";
 
 // ── raw-map access ───────────────────────────────────────────────────────────
@@ -125,18 +126,53 @@ export function countryInfo(v?: string): CountryInfo | undefined {
 export const COMPANY_HQ: Record<string, string> = { nexacorp: "GB", rocketstack: "IL", medcore: "NL", globallogis: "DE", quantumbank: "CH" };
 
 export interface GeoFacts { iso: string; country: string; city: string; state: string; lat: number; lon: number; postal: string }
-/** Geo for the event's client IP: structured geo → legacy raw → company HQ (private IPs) → deterministic. */
-export function geoOf(ev: TelemetryEvent, ctx: NativeCtx, ip?: string): GeoFacts {
-  const countryRaw = ev.geo?.country ?? rawStr(ev, "GeoLocation.country_name", "source.geo.country_name", "source.geo.country_iso_code",
+
+/**
+ * Network owners of the address ranges the stories use as anonymizers — a Tor exit or an
+ * anonymous-VPN range is `isProxy` / `anonymizedIPAddress` in every row that shows it, with the
+ * operator's ASN (never the HQ's home ISP). Location stays with the platform's shared IP→geo map
+ * (lib/geo/resolveGeo), so the feed, the threat-intel drawer and the IdP records agree.
+ */
+interface NetOwner { prefixes: string[]; asn: number; asOrg: string; isp: string; domain: string; anonymous: boolean }
+const NET_OWNERS: NetOwner[] = [
+  { prefixes: ["185.220.100.", "185.220.101.", "185.220.102.", "185.220.103."], asn: 60729, asOrg: "stiftung erneuerbare freiheit", isp: "tor exit node", domain: "torservers.net", anonymous: true },
+  { prefixes: ["23.129.64."], asn: 396507, asOrg: "emerald onion", isp: "tor exit node", domain: "emeraldonion.org", anonymous: true },
+  { prefixes: ["171.25.193."], asn: 198093, asOrg: "foreningen for digitala fri- och rattigheter", isp: "tor exit node", domain: "dfri.se", anonymous: true },
+  { prefixes: ["146.70."], asn: 9009, asOrg: "m247 europe srl", isp: "m247 ltd", domain: "m247.com", anonymous: true },
+  { prefixes: ["138.199."], asn: 212238, asOrg: "datacamp limited", isp: "datacamp limited", domain: "datacamp.co.uk", anonymous: true },
+];
+function netOwnerOf(ip?: string): NetOwner | undefined {
+  return ip ? NET_OWNERS.find(o => o.prefixes.some(p => ip.startsWith(p))) : undefined;
+}
+
+/** Location the event's author wrote for its client IP (structured geo first, then any vendor raw key). */
+export function authoredGeo(ev: TelemetryEvent): { country?: string; city?: string; latitude?: number; longitude?: number } {
+  const country = ev.geo?.country ?? rawStr(ev, "GeoLocation.country_name", "source.geo.country_name", "source.geo.country_iso_code",
     "okta.client.geographicalContext.country", "azure.signinlogs.properties.location.countryOrRegion", "azure.signinlogs.location.country_or_region",
     "azure.location.country", "geo.country");
-  const cityRaw = ev.geo?.city ?? rawStr(ev, "GeoLocation.city_name", "source.geo.city_name", "okta.client.geographicalContext.city",
+  const city = ev.geo?.city ?? rawStr(ev, "GeoLocation.city_name", "source.geo.city_name", "okta.client.geographicalContext.city",
     "azure.signinlogs.properties.location.city", "azure.signinlogs.location.city", "azure.location.city");
-  let ci = countryInfo(countryRaw);
-  if (!ci) ci = countryInfo(isPrivateIp(ip) || !ip ? COMPANY_HQ[ctx.companyId] ?? "IL" : COMPANY_HQ[ctx.companyId] ?? "IL");
+  const latitude = num(ev.geo?.latitude ?? rawAny(ev, "GeoLocation.location.lat", "GeoLocation.latitude", "azure.signinlogs.properties.location.geoCoordinates.latitude", "azure.signinlogs.location.geo_coordinates.latitude"));
+  const longitude = num(ev.geo?.longitude ?? rawAny(ev, "GeoLocation.location.lon", "GeoLocation.longitude", "azure.signinlogs.properties.location.geoCoordinates.longitude", "azure.signinlogs.location.geo_coordinates.longitude"));
+  return { country, city, latitude, longitude };
+}
+
+/**
+ * Geo for the event's client IP: authored geo → the platform's deterministic per-IP map
+ * (knownGeoForIp, the same one the feed's GeoLocation enrichment uses) → company HQ (private
+ * IPs, the corporate egress and any address the story never placed). One IP, one place.
+ */
+export function geoOf(ev: TelemetryEvent, ctx: NativeCtx, ip?: string): GeoFacts {
+  const a = authoredGeo(ev);
+  const known = !a.country && ip && !isPrivateIp(ip) ? knownGeoForIp(ip) : null;
+  let ci = countryInfo(a.country) ?? (known ? countryInfo(known.country) : undefined);
+  if (!ci) ci = countryInfo(COMPANY_HQ[ctx.companyId] ?? "IL");
   const c = ci as CountryInfo;
-  const lat = num(ev.geo?.latitude ?? rawAny(ev, "GeoLocation.location.lat", "GeoLocation.latitude", "azure.signinlogs.properties.location.geoCoordinates.latitude", "azure.signinlogs.location.geo_coordinates.latitude"));
-  const lon = num(ev.geo?.longitude ?? rawAny(ev, "GeoLocation.location.lon", "GeoLocation.longitude", "azure.signinlogs.properties.location.geoCoordinates.longitude", "azure.signinlogs.location.geo_coordinates.longitude"));
+  // The shared map labels some cities for analysts ("San Francisco (Cloudflare)", "Tor Exit — Unknown"); an IdP prints a city.
+  const knownCity = known && countryInfo(known.country) === c && !/unknown/i.test(known.city) ? known.city.replace(/\s*\(.*\)$/, "") : undefined;
+  const cityRaw = a.city ?? knownCity;
+  const lat = a.latitude ?? (knownCity ? known!.lat : undefined);
+  const lon = a.longitude ?? (knownCity ? known!.lon : undefined);
   const state = rawStr(ev, "azure.signinlogs.properties.location.state", "GeoLocation.region_name") ?? (cityRaw && cityRaw !== c.city ? cityRaw : c.state);
   return { iso: c.iso, country: c.name, city: cityRaw ?? c.city, state, lat: lat ?? c.lat, lon: lon ?? c.lon, postal: c.postal };
 }
@@ -147,17 +183,21 @@ function num(v: unknown): number | undefined {
 }
 
 export interface AsnFacts { asn: number | null; asOrg: string | null; isp: string | null; domain: string | null; isProxy: boolean }
+/** Network owner of the client IP: authored (structured geo, then Okta / Entra raw) → known operator ranges → the country's carrier. */
 export function asnOf(ev: TelemetryEvent, geo: GeoFacts, ip?: string): AsnFacts {
-  const proxyRaw = rawAny(ev, "okta.securityContext.isProxy");
-  const asnRaw = rawStr(ev, "okta.securityContext.asNumber", "azure.signinlogs.properties.autonomousSystemNumber");
-  const c = countryInfo(geo.iso)!;
-  const asOrg = rawStr(ev, "okta.securityContext.asOrg") ?? c.asOrg;
-  const isp = rawStr(ev, "okta.securityContext.isp") ?? (rawStr(ev, "okta.securityContext.asOrg") ?? c.isp);
-  const asn = asnRaw ? Number(asnRaw.replace(/^AS/i, "")) : c.asn;
-  const reasons = (rawStr(ev, "okta.debugContext.debugData.riskReasons") ?? "") + " " + (ev.description ?? "");
-  const isProxy = proxyRaw !== undefined ? truthy(proxyRaw) : /\b(tor|anonymi[sz]|vpn exit|commercial vpn|proxy)\b/i.test(reasons) && !/office vpn|company vpn|corporate vpn|known egress/i.test(reasons);
   if (isPrivateIp(ip)) return { asn: null, asOrg: null, isp: null, domain: null, isProxy: false };
-  return { asn: isFinite(asn) ? asn : c.asn, asOrg: asOrg.toLowerCase(), isp: isp.toLowerCase(), domain: rawStr(ev, "okta.securityContext.domain") ?? c.asDomain, isProxy };
+  const owner = netOwnerOf(ip);
+  const proxyRaw = ev.geo?.anonymous ?? rawAny(ev, "okta.securityContext.isProxy");
+  const asnRaw = ev.geo?.asn !== undefined ? String(ev.geo.asn) : rawStr(ev, "okta.securityContext.asNumber", "azure.signinlogs.properties.autonomousSystemNumber");
+  const c = countryInfo(geo.iso)!;
+  const orgRaw = ev.geo?.as_org ?? rawStr(ev, "okta.securityContext.asOrg");
+  const asOrg = orgRaw ?? owner?.asOrg ?? c.asOrg;
+  const isp = ev.geo?.isp ?? rawStr(ev, "okta.securityContext.isp") ?? orgRaw ?? owner?.isp ?? c.isp;
+  const asn = asnRaw ? Number(asnRaw.replace(/^AS/i, "")) : owner?.asn ?? c.asn;
+  const reasons = (rawStr(ev, "okta.debugContext.debugData.riskReasons") ?? "") + " " + (ev.description ?? "");
+  const isProxy = proxyRaw !== undefined ? truthy(proxyRaw) : owner ? owner.anonymous :
+    /\b(tor|anonymi[sz]\w*|vpn exit|commercial vpn|proxy)\b/i.test(reasons) && !/office vpn|company vpn|corporate vpn|known egress/i.test(reasons);
+  return { asn: isFinite(asn) ? asn : c.asn, asOrg: asOrg.toLowerCase(), isp: isp.toLowerCase(), domain: rawStr(ev, "okta.securityContext.domain") ?? (orgRaw ? c.asDomain : owner?.domain ?? c.asDomain), isProxy };
 }
 
 // ── user agents ──────────────────────────────────────────────────────────────
@@ -420,7 +460,7 @@ export function identityFacts(ev: TelemetryEvent): IdFacts | null {
   if (lop.startsWith("change user password")) return base("password_change", ok, { nativeName: "Change user password" });
   if (lop.startsWith("invite external user")) return base("guest_invite", ok, { nativeName: "Invite external user", targetEmail: rawStr(ev, "data.office365.Target[0].ID") });
   if (lop === "set user risk level") return base("risk_change", ok);
-  if (lop === "user registered security info") return base("factor_enroll", ok, { nativeName: "User registered security info", mfaMethod: "push" });
+  if (lop === "user registered security info") return base("factor_enroll", ok, { nativeName: "User registered security info", mfaMethod: registeredMethodOf(ev) ?? mfaMethodOf(ev) ?? "push" });
   if (lop === "admin deleted security info" || (lop === "update user" && /StrongAuthentication/i.test(JSON.stringify(ev.raw ?? {})))) {
     return base("factor_reset", ok, { nativeName: op, targetEmail: rawStr(ev, "azure.auditlogs.properties.targetResources[0].userPrincipalName")?.toLowerCase() ?? email,
       email: rawStr(ev, "azure.auditlogs.properties.initiatedBy.user.userPrincipalName")?.toLowerCase() ?? email });
@@ -459,6 +499,22 @@ export function identityFacts(ev: TelemetryEvent): IdFacts | null {
   if (ev.event_type === "role_assignment" || ev.event_type === "privilege_escalation") return base("role_grant", true, { roleName: /(Global Administrator|[A-Z][\w ]+ Admin(?:istrator)?)/.exec(desc)?.[1] });
   return null;
 }
+/**
+ * The method a "User registered security info" audit added, from the authored reason / the NEW
+ * StrongAuthenticationMethod entries (the last one added) — not the method the user had before.
+ */
+function registeredMethodOf(ev: TelemetryEvent): MfaMethod | undefined {
+  const reason = rawStr(ev, "azure.auditlogs.properties.resultReason", "data.office365.ResultStatusDetail") ?? "";
+  const mods = Object.entries(ev.raw ?? {}).filter(([k]) => /modifiedProperties\[\d+\]\.newValue$|ModifiedProperties\[\d+\]\.NewValue$/.test(k)).map(([, v]) => String(v)).join(" ");
+  const added = [...mods.matchAll(/"MethodType"\s*:\s*"?(\w+)/g)].pop()?.[1] ?? "";
+  const t = `${reason} ${added}`;
+  if (/oath|software token|authenticator app code/i.test(t)) return "totp";
+  if (/fido|security key|passkey/i.test(t)) return "fido";
+  if (/sms|text message/i.test(t)) return "sms";
+  if (/phone call|voice|TwoWayVoice/i.test(t)) return "voice";
+  if (/authenticator|PhoneAppNotification|PhoneAppOTP|notification/i.test(t)) return "push";
+  return undefined;
+}
 function extProp(ev: TelemetryEvent, name: string): string | undefined {
   const r = ev.raw ?? {};
   for (let i = 0; i < 8; i++) {
@@ -494,4 +550,159 @@ export function b62(ctx: NativeCtx, seed: string, n: number): string {
   let s = "";
   for (let i = 0; i < n; i++) s += alphabet[parseInt(h.slice(i * 2, i * 2 + 2), 16) % 62];
   return s;
+}
+
+// ── stable identity ids (one value per user / per session, in every Microsoft record) ──
+
+/** Entra object id of a user — the SAME value in Entra sign-ins / audits, the UAL (TokenObjectId, UserKey) and MDO (RecipientObjectId). */
+export function entraObjectId(ctx: NativeCtx, upn: string): string {
+  return ctx.uuid(`${ctx.companyId}:aadoid:${upn.toLowerCase()}`);
+}
+/**
+ * Entra session id when the story authored none: one per user + client IP + day — the sign-in's
+ * `sessionId` and the UAL's `AppAccessContext.AADSessionId` of what that session then did agree.
+ */
+export function aadSessionId(ctx: NativeCtx, upn: string, ip: string | undefined, ts: string): string {
+  return ctx.uuid(`${ctx.companyId}:entra-session:${upn.toLowerCase()}:${ip ?? "-"}:${ts.slice(0, 10)}`);
+}
+
+// ── story-level threading ────────────────────────────────────────────────────
+
+/** Rows whose src_ip is the CLIENT an IdP / SaaS / VPN gateway saw (not a mail relay, not a firewall 5-tuple). */
+const CLIENT_SOURCES = new Set(["okta", "o365", "mfa", "gws", "vpn", "exchange", "sharepoint", "teams"]);
+const isClientRow = (e: TelemetryEvent) => CLIENT_SOURCES.has(e.source) && !["email_received", "email_blocked", "email_quarantined"].includes(e.event_type);
+const IPV4 = /^\d{1,3}(\.\d{1,3}){3}$/;
+function clientIpOf(e: TelemetryEvent): string | undefined {
+  const v = e.src_ip ?? rawStr(e, "okta.client.ipAddress", "azure.signinlogs.properties.ipAddress", "data.office365.ClientIP", "data.office365.ActorIpAddress", "source.ip", "data.remip");
+  const ip = v?.trim().replace(/^\[([^\]]+)\](:\d+)?$/, "$1").replace(/^(\d{1,3}(?:\.\d{1,3}){3}):\d+$/, "$1");
+  return ip && IPV4.test(ip) ? ip : undefined;
+}
+const emailOf = (e: TelemetryEvent) => (e.user?.email ?? e.user_email ?? rawStr(e, "okta.actor.alternateId", "azure.signinlogs.properties.userPrincipalName", "data.office365.UserId"))?.toLowerCase();
+const OKTA_SID = "okta.authenticationContext.externalSessionId";
+const ENTRA_SID = "azure.signinlogs.properties.sessionId";
+/** An Okta row that belongs to an authenticated (or authenticating) session — not a failed password, a lockout or a ThreatInsight block. */
+function oktaSessionRow(e: TelemetryEvent): boolean {
+  const t = rawStr(e, "okta.eventType");
+  if (!t || t === "user.account.lock" || t === "user.account.lock.limit" || t === "security.threat.detected") return false;
+  if (t === "user.session.start") return /SUCCESS/i.test(rawStr(e, "okta.outcome.result") ?? "SUCCESS") || /MFA_REQUIRED/i.test(rawStr(e, "okta.outcome.reason") ?? "");
+  return true;
+}
+
+/**
+ * Story-level consistency for identity / SaaS / VPN rows, applied when a story is instantiated
+ * (attackStories.instantiateStory). A renderer only ever sees one row; these facts span rows:
+ *
+ *  • one place and one network owner per client IP — the location / ASN / anonymizer flag the
+ *    story authored for an address (first in time) is carried to every row of that address, so
+ *    an MFA approval never sits in Tel Aviv while its sign-in sits in Warsaw;
+ *  • one Okta session per login flow — a user's rows from one address less than an hour apart
+ *    share the session id of the flow's first session-bearing row (sign-in, MFA, policy);
+ *  • Entra / UAL linkage — sign-ins of a flow with no authored Entra session take the flow's
+ *    authored one; a UAL record carries that session (AADSessionId) and a token issued at the
+ *    latest sign-in before it (never before the flow's first sign-in);
+ *  • mail — a sender who already mailed the recipient earlier in the story is not a first contact.
+ *
+ * Authored values on a row are kept, except where they contradict the address or the flow.
+ */
+export function threadIdentityContext(events: TelemetryEvent[]): TelemetryEvent[] {
+  const order = events.map((e, i) => ({ e, i, t: Date.parse(e.ts) })).sort((a, b) => (a.t - b.t) || (a.i - b.i));
+  const out = events.slice();
+
+  // 1) one geo / network owner per client IP
+  type Net = { asn?: number; as_org?: string; isp?: string; anonymous?: boolean };
+  const NET_KEYS = ["asn", "as_org", "isp", "anonymous"] as const;
+  const canon = new Map<string, { geo: ReturnType<typeof authoredGeo>; net: Net }>();
+  for (const { e } of order) {
+    if (!isClientRow(e)) continue;
+    const ip = clientIpOf(e);
+    if (!ip || isPrivateIp(ip)) continue;
+    const g = authoredGeo(e);
+    const proxyRaw = e.geo?.anonymous ?? rawAny(e, "okta.securityContext.isProxy");
+    const n: Net = {
+      asn: e.geo?.asn ?? num(rawStr(e, "okta.securityContext.asNumber", "azure.signinlogs.properties.autonomousSystemNumber")?.replace(/^AS/i, "")),
+      as_org: e.geo?.as_org ?? rawStr(e, "okta.securityContext.asOrg"), isp: e.geo?.isp ?? rawStr(e, "okta.securityContext.isp"),
+      anonymous: proxyRaw === undefined ? undefined : truthy(proxyRaw),
+    };
+    const c = canon.get(ip) ?? { geo: {}, net: {} };
+    if (!c.geo.country && g.country) c.geo = { ...g };
+    else if (g.country && countryInfo(g.country) === countryInfo(c.geo.country) && !c.geo.city && g.city) c.geo = { ...c.geo, city: g.city, latitude: g.latitude, longitude: g.longitude };
+    for (const k of NET_KEYS) if (c.net[k] === undefined && n[k] !== undefined) (c.net as Record<string, unknown>)[k] = n[k];
+    canon.set(ip, c);
+  }
+  for (const { e, i } of order) {
+    if (!isClientRow(e)) continue;
+    const ip = clientIpOf(e);
+    const c = ip ? canon.get(ip) : undefined;
+    if (!c || (!c.geo.country && NET_KEYS.every(k => c.net[k] === undefined))) continue;
+    const geo: NonNullable<TelemetryEvent["geo"]> = { ...(e.geo ?? {}) };
+    if (c.geo.country) {
+      const same = countryInfo(authoredGeo(e).country) === countryInfo(c.geo.country);
+      geo.country = c.geo.country;
+      if (c.geo.city || !same) geo.city = c.geo.city;
+      if (c.geo.latitude !== undefined || !same) { geo.latitude = c.geo.latitude; geo.longitude = c.geo.longitude; }
+    }
+    for (const k of NET_KEYS) if (c.net[k] !== undefined) (geo as Record<string, unknown>)[k] = c.net[k];
+    for (const k of Object.keys(geo) as (keyof typeof geo)[]) if (geo[k] === undefined) delete geo[k];
+    if (JSON.stringify(geo) !== JSON.stringify(e.geo ?? {})) out[i] = { ...out[i], geo };
+  }
+
+  // 2) login flows: one user, one client IP, rows less than an hour apart (time order)
+  const FLOW_GAP = 60 * 60_000;
+  type Row = { i: number; t: number };
+  const flows: Row[][] = [];
+  const open = new Map<string, Row[]>();
+  for (const { i, t } of order) {
+    const e = out[i];
+    if (!isClientRow(e)) continue;
+    const user = emailOf(e), ip = clientIpOf(e);
+    if (!user || !ip) continue;
+    const key = `${user}|${ip}`;
+    const cur = open.get(key);
+    if (cur && t - cur[cur.length - 1].t <= FLOW_GAP) cur.push({ i, t });
+    else { const f = [{ i, t }]; flows.push(f); open.set(key, f); }
+  }
+  for (const flow of flows) {
+    // Okta: every session-bearing row carries the first one's session id.
+    const oktaRows = flow.filter(r => oktaSessionRow(out[r.i]));
+    const oktaSid = oktaRows.map(r => rawStr(out[r.i], OKTA_SID)).find(Boolean);
+    if (oktaSid) for (const r of oktaRows) {
+      if (rawStr(out[r.i], OKTA_SID) !== oktaSid) out[r.i] = { ...out[r.i], raw: { ...(out[r.i].raw ?? {}), [OKTA_SID]: oktaSid } };
+    }
+    // Entra / UAL: sign-ins with no authored session take the flow's; what the session then did in
+    // M365 carries that session (AADSessionId) and a token issued at the latest sign-in before it.
+    const AAD = "data.office365.AppAccessContext.AADSessionId", IAT = "data.office365.AppAccessContext.IssuedAtTime";
+    const entraSid = flow.filter(r => identityFacts(out[r.i])?.success).map(r => rawStr(out[r.i], ENTRA_SID)).find(Boolean) ?? flow.map(r => rawStr(out[r.i], ENTRA_SID)).find(Boolean);
+    const signIns = flow.filter(r => { const e = out[r.i]; const f = !rawStr(e, "okta.eventType") ? identityFacts(e) : null; return !!f && f.success && (f.action === "signin" || f.action === "mfa"); });
+    for (const r of flow) {
+      const e = out[r.i];
+      const raw = { ...(e.raw ?? {}) } as Record<string, unknown>;
+      const keys = Object.keys(raw);
+      const entraShaped = keys.some(k => k.startsWith("azure.signinlogs."));
+      const ual = !entraShaped && !signIns.includes(r) && keys.some(k => k.startsWith("data.office365."));
+      let changed = false;
+      // A successful sign-in keeps an authored session of its own; a failed / interrupted step of the
+      // flow has none in Entra, and shown as Okta it belongs to the session the flow then opened.
+      const ok = identityFacts(e)?.success;
+      if (entraSid && entraShaped && (ok ? !rawStr(e, ENTRA_SID) : rawStr(e, ENTRA_SID) !== entraSid)) { raw[ENTRA_SID] = entraSid; changed = true; }
+      if (ual && entraSid && rawStr(e, AAD) !== entraSid) { raw[AAD] = entraSid; changed = true; }
+      const last = signIns.filter(s => s.t <= r.t).pop();
+      const iat = rawStr(e, IAT);
+      if (ual && last && (!iat || Date.parse(`${iat.replace(/Z$/, "")}Z`) < signIns[0].t)) { raw[IAT] = new Date(last.t).toISOString().slice(0, 19); changed = true; }
+      if (changed) out[r.i] = { ...e, raw };
+    }
+  }
+
+  // 3) mail: a sender who already mailed this recipient earlier in the story is no first contact.
+  const mailed = new Set<string>();
+  for (const { i } of order) {
+    const e = out[i];
+    if (e.event_type !== "email_received") continue;
+    const from = rawStr(e, "email.from.address", "data.office365.SenderFromAddress", "data.office365.Sender", "SenderFromAddress", "pps.sender")?.toLowerCase();
+    const to = emailOf(e) ?? rawStr(e, "email.to.address")?.toLowerCase();
+    if (!from || !to) continue;
+    const pair = `${from}|${to}`;
+    if (mailed.has(pair) && rawStr(e, "IsFirstContact", "data.office365.IsFirstContact") === undefined) out[i] = { ...e, raw: { ...(e.raw ?? {}), IsFirstContact: "0" } };
+    mailed.add(pair);
+  }
+  return out;
 }

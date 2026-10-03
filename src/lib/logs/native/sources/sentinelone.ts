@@ -84,6 +84,12 @@ const kinds: Record<string, KindSchema> = {
     required: [...COMMON_REQ, "task.name", "task.path"],
     optional: [...COMMON_OPT, ...ACTOR],
   },
+  // Card event.type list: "Open Remote Process Handle" (category cross_process; spelling UNVERIFIED there) —
+  // the opener is src.process.*, the opened process tgt.process.*.
+  "Open Remote Process Handle": {
+    required: [...COMMON_REQ, "tgt.process.name", "tgt.process.pid", "tgt.process.uid"],
+    optional: [...COMMON_OPT, ...ACTOR, ...px("tgt.process.", PROC_SUFFIX)],
+  },
   "Behavioral Indicators": {
     required: [...COMMON_REQ, "indicator.name", "indicator.category"],
     optional: [...COMMON_OPT, ...ACTOR, "indicator.description", "indicator.metadata"],
@@ -238,7 +244,8 @@ function procKeys(b: Base, prefix: string, p: EdrProc, story: Story, opts: { sel
     [k("cmdline")]: cmd, [k("image.path")]: path,
     [k("image.sha256")]: p.sha256, [k("image.md5")]: p.md5,
     [k("image.binaryIsExecutable")]: opts.self && /\.(exe|com|scr)$/i.test(name) ? true : undefined,
-    [k("user")]: opts.self || prefix.includes("parent") || prefix === "src.process." ? qualifiedUser(b) : undefined,
+    // A parent / creator runs as its own account when the story says so (a service host as SYSTEM).
+    [k("user")]: opts.self || prefix.includes("parent") || prefix === "src.process." ? (!opts.self && p.user ? p.user : qualifiedUser(b)) : undefined,
     [k("integrityLevel")]: win && opts.self ? (INTEGRITY[lc(p.integrity)] ?? (u.system ? "SYSTEM" : "MEDIUM")) : undefined,
     [k("sessionId")]: win && opts.self ? (u.system ? 0 : 1) : undefined,
     [k("startTime")]: opts.startMs,
@@ -347,6 +354,19 @@ function file(b: Base, ev: TelemetryEvent): { type: string; rec: Record<string, 
       "tgt.file.sha256": type === "File Deletion" ? undefined : f.file.sha256, "tgt.file.isSigned": isSigned,
       ...(writer ? actorKeys(b, writer, parent) : {}),
     },
+  };
+}
+
+/** A handle the actor opened on another process (lsass.exe, a browser): the target is its own storyline root. */
+function openProcess(b: Base): Record<string, unknown> | null {
+  const { ctx, f, host } = b;
+  if (!f.access?.name || !procName(f.proc)) return null;
+  const target: EdrProc = { name: f.access.name, path: f.access.path };
+  const st: Story = { id: rhex(ctx, `${ctx.companyId}:${host}:story:root:${procSeed(ctx, b.scope, target)}`, 16).toUpperCase(), root: true };
+  return {
+    ...common(b, "Open Remote Process Handle", "cross_process", "OPENPROCESS", actorUid(b)),
+    ...actorKeys(b),
+    ...procKeys(b, "tgt.process.", target, st, { self: false }),
   };
 }
 
@@ -499,6 +519,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   // A task registration is its own Deep Visibility event, not a child process of the registrar.
   const task = f.kind === "process" ? taskFacts(ev, f) : null;
   if (task) return out("Task Register", taskRegister(b, task));
+  if (f.kind === "process" && f.access) { const r = openProcess(b); if (r) return out("Open Remote Process Handle", r); }
   switch (f.kind) {
     case "process": return out("Process Creation", processCreation(b));
     case "network": return out("IP Connect", ipConnect(b, ev));

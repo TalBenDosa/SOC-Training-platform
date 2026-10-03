@@ -13,8 +13,8 @@ import { validateNative } from "./validate";
 const COMPANIES = ["nexacorp", "rocketstack", "medcore", "globallogis", "quantumbank"];
 
 describe("native corpus gate", () => {
-  it("32 source modules, every use case uniquely named", () => {
-    expect(Object.keys(NATIVE_SOURCES).length).toBe(32);
+  it("34 source modules, every use case uniquely named", () => {
+    expect(Object.keys(NATIVE_SOURCES).length).toBe(34);
     const ids = useCasesFor().map(u => u.id);
     expect(new Set(ids).size).toBe(ids.length);
     console.log(`[gate] ${ids.length} use cases`);

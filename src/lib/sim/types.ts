@@ -77,7 +77,13 @@ export interface TelemetryEvent {
   src_port?: number;
   dst_port?: number;
   protocol?: string;
-  geo?: { country?: string; city?: string; latitude?: number; longitude?: number };
+  geo?: {
+    country?: string; city?: string; latitude?: number; longitude?: number;
+    /** Network owner of the client IP (one value per IP across a story — threadIdentityContext). */
+    asn?: number; as_org?: string; isp?: string;
+    /** The IP is an anonymizer (Tor exit / anonymous VPN / proxy network). */
+    anonymous?: boolean;
+  };
   process?: {
     name: string;
     pid: number;

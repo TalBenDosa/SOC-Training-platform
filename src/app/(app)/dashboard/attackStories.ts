@@ -24,7 +24,7 @@
 
 import {
   phishingToExfilEvents, becScenarioEvents, ransomwareScenarioEvents, oauthScenarioEvents,
-  insiderThreatScenarioEvents, impossibleTravelScenarioEvents, cloudCryptoMiningScenarioEvents,
+  insiderThreatScenarioEvents, impossibleTravelScenarioEvents, cloudKeyLeakS3ExfilScenarioEvents,
   dcSyncScenarioEvents, supplyChainScenarioEvents, mfaFatigueScenarioEvents,
   asRepRoastingScenarioEvents, ntlmRelayScenarioEvents, k8sPodEscapeScenarioEvents,
   oauthConsentPhishingScenarioEvents, kerberoastingScenarioEvents, dnsTunnelingScenarioEvents,
@@ -40,12 +40,15 @@ import {
 // auditd where there are Linux servers, AiTM/AD attacks at the M365/AD shops.
 import { esxiRansomwareScenarioEvents }        from "@/lib/sim/scenario-packs/esxiRansomware.events";
 import { lsReadJson, lsSet, isStringArray } from "@/lib/storage/safeStorage";
-import { companyNetbios as companyNetbiosOf } from "@/lib/logs/native/ctx";
-import { edrFacts } from "@/lib/logs/native/sources/edr-normalize";
+import { companyNetbios as companyNetbiosOf, makeCtx } from "@/lib/logs/native/ctx";
+import { testNetIp } from "@/lib/logs/native/sources/remote-access-shared";
+import { edrFacts, stashThread } from "@/lib/logs/native/sources/edr-normalize";
+import { threadIdentityContext } from "@/lib/logs/native/sources/_identity-common";
+import { threadEndpointStory } from "@/lib/logs/native/sources/_proc-identity";
 import { rogueAdminAccountScenarioEvents }     from "@/lib/sim/scenario-packs/rogueAdminAccount.events";
 import { impossibleTravelBasicScenarioEvents } from "@/lib/sim/scenario-packs/impossibleTravelBasic.events";
 import { webShellRceScenarioEvents }           from "@/lib/sim/scenario-packs/webShellRce.events";
-import { linuxSshCryptominerScenarioEvents }   from "@/lib/sim/scenario-packs/linuxSshCryptominer.events";
+import { linuxSshPersistenceScenarioEvents }   from "@/lib/sim/scenario-packs/linuxSshPersistence.events";
 import { aitmTokenTheftScenarioEvents }        from "@/lib/sim/scenario-packs/aitmTokenTheft.events";
 import { bruteForceSingleAccountScenarioEvents } from "@/lib/sim/scenario-packs/bruteForceSingleAccount.events";
 // Foundation-tier additions. Before these, the easy tier held 7 stories, and
@@ -128,7 +131,7 @@ const _ransomware       = ransomwareScenarioEvents();
 const _oauth            = oauthScenarioEvents();
 const _insider          = insiderThreatScenarioEvents();
 const _impossibleTravel = impossibleTravelScenarioEvents();
-const _cryptomining     = cloudCryptoMiningScenarioEvents();
+const _awsKeyLeak       = cloudKeyLeakS3ExfilScenarioEvents();
 const _dcsync           = dcSyncScenarioEvents();
 const _supplyChain      = supplyChainScenarioEvents();
 const _mfaFatigue       = mfaFatigueScenarioEvents();
@@ -151,7 +154,7 @@ const _esxiRansomware   = esxiRansomwareScenarioEvents();
 const _rogueAdmin       = rogueAdminAccountScenarioEvents();
 const _impossibleTravelBasic = impossibleTravelBasicScenarioEvents();
 const _webShellRce      = webShellRceScenarioEvents();
-const _linuxCryptominer = linuxSshCryptominerScenarioEvents();
+const _linuxSshPersistence = linuxSshPersistenceScenarioEvents();
 const _aitmTokenTheft   = aitmTokenTheftScenarioEvents();
 const _bruteForceSingle = bruteForceSingleAccountScenarioEvents();
 const _oktaPasswordBurst    = oktaPasswordBurstScenarioEvents();
@@ -213,7 +216,7 @@ const GENERIC_STORIES: AttackStory[] = [
   story("oauth",             _oauth,           "advanced"),
   // AWS-native (GitHub secret leak → S3 exfil) — rocketstack is the cloud-native
   // estate whose identities these carry; keeps the feed tenant-pure.
-  story("cryptomining",      _cryptomining,    "advanced", ["rocketstack"]),
+  story("aws-key-leak-s3-exfil", _awsKeyLeak,   "advanced", ["rocketstack"]),
   story("dcsync",            _dcsync,          "advanced"),
   story("supply-chain",      _supplyChain,     "advanced", ["rocketstack"]),
   story("mfa-fatigue",       _mfaFatigue,      "advanced"),
@@ -266,7 +269,7 @@ const GENERIC_STORIES: AttackStory[] = [
   // advanced — full kill chains on infrastructure the on-prem/cloud estates run
   story("esxi-ransomware",   _esxiRansomware,        "advanced", ["medcore", "globallogis", "nexacorp"]),
   story("webshell-rce",      _webShellRce,           "advanced", ["rocketstack", "quantumbank", "nexacorp"]),
-  story("linux-cryptominer", _linuxCryptominer,      "advanced", ["globallogis", "rocketstack"]),
+  story("linux-ssh-persistence", _linuxSshPersistence, "advanced", ["globallogis", "rocketstack"]),
   story("aitm-token-theft",  _aitmTokenTheft,        "advanced", ["nexacorp", "medcore", "globallogis"]),
 
   // ── P0 attack-coverage additions (docs/live-feed-attack-coverage-review.md) ──
@@ -333,7 +336,19 @@ const CHAIN_TITLES: Record<string, string[]> = {
   ],
 };
 
+/**
+ * A company's kill chains, by the chain letter in the event id (nx_a1… → chain a, qb_d3 → chain d),
+ * so a chain can carry as many steps as its investigation needs. Ids without a letter fall back
+ * to the old fixed slices of four.
+ */
 function chunk4(events: TelemetryEvent[]): TelemetryEvent[][] {
+  const byLetter = new Map<string, TelemetryEvent[]>();
+  const loose: TelemetryEvent[] = [];
+  for (const e of events) {
+    const m = /_([a-z])\d+[a-z]?$/.exec(String(e.id ?? ""));
+    if (m) (byLetter.get(m[1]) ?? byLetter.set(m[1], []).get(m[1])!).push(e); else loose.push(e);
+  }
+  if (loose.length === 0 && byLetter.size > 0) return [...byLetter.keys()].sort().map(k => byLetter.get(k)!);
   const out: TelemetryEvent[][] = [];
   for (let i = 0; i < events.length; i += 4) out.push(events.slice(i, i + 4));
   return out;
@@ -491,7 +506,7 @@ const QB_FRAUD_MONITORING_TAMPERING: TelemetryEvent[] = [
     severity: "high", vendor: "CyberArk PAM", user_email: "l.brunner@quantumbank.ch", src_ip: "10.100.1.20",
     description: "l.brunner checked out svc-fraud-monitor from the FraudOps vault outside the approved maintenance window, no ticket attached",
     mitre_technique: "T1078.002", mitre_tactic: "Privilege Escalation",
-    raw: { "pam.vault.name": "FraudOps", "pam.account.name": "svc-fraud-monitor@qb-siem01", "pam.checkout.status": "approved", "access.request.status": "not_required", "cyberark.ticket.required": "true", "cyberark.ticket.provided": "false", "cyberark.change_window": "outside_window", "event.action": "credential-checkout", "event.outcome": "success", "user.email": "l.brunner@quantumbank.ch", "action_result": "allowed" }
+    raw: { "pam.vault.name": "FraudOps", "pam.account.name": "svc-fraud-monitor@siem01", "pam.checkout.status": "approved", "access.request.status": "not_required", "cyberark.ticket.required": "true", "cyberark.ticket.provided": "false", "cyberark.change_window": "outside_window", "event.action": "credential-checkout", "event.outcome": "success", "user.email": "l.brunner@quantumbank.ch", "action_result": "allowed" }
   },
   {
     id: "qbft3", ts: "2026-06-20T22:24:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
@@ -499,6 +514,16 @@ const QB_FRAUD_MONITORING_TAMPERING: TelemetryEvent[] = [
     description: "Using svc-fraud-monitor's assumed role, alarm actions were disabled on the composite alarm qb-fraud-threshold-alerts",
     mitre_technique: "T1562.001", mitre_tactic: "Defense Evasion",
     raw: { "aws.cloudtrail.eventName": "DisableAlarmActions", "aws.cloudtrail.eventSource": "monitoring.amazonaws.com", "aws.cloudtrail.requestParameters.alarmNames": "qb-fraud-threshold-alerts", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::552134008821:assumed-role/qb-fraud-monitor-role/svc-fraud-monitor", "aws.cloudtrail.awsRegion": "us-gov-west-1", "aws.cloudtrail.sourceIPAddress": "10.100.1.20", "action_result": "allowed" }
+  },
+  {
+    // The page: a Sentinel analytic on alarm actions disabled for a fraud-monitoring alarm outside a change window.
+    id: "qbft3b", ts: "2026-06-20T22:24:40.000Z", source: "siem", event_type: "risk_score_change",
+    severity: "high", vendor: "Microsoft Sentinel", is_detection: true,
+    description: "Sentinel raised a High alert: alarm actions disabled on qb-fraud-threshold-alerts by the svc-fraud-monitor assumed role, with no open change request.",
+    mitre_technique: "T1562.001", mitre_tactic: "Defense Evasion",
+    raw: { "AlertName": "Alarm actions disabled on a fraud-monitoring alarm", "ProductName": "Azure Sentinel", "AlertSeverity": "High", "Status": "New",
+      "Entities.Account.Name": "svc-fraud-monitor", "ExtendedProperties.Alarm": "qb-fraud-threshold-alerts", "ExtendedProperties.API": "DisableAlarmActions",
+      "ExtendedProperties.Principal": "assumed-role/qb-fraud-monitor-role/svc-fraud-monitor", "ExtendedProperties.Open Change Requests": "0", "event.action": "alert" }
   },
   {
     id: "qbft4", ts: "2026-06-20T22:26:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
@@ -542,7 +567,7 @@ const QB_FRAUD_MONITORING_TAMPERING: TelemetryEvent[] = [
     severity: "high", vendor: "CyberArk PAM", src_ip: "10.100.1.10",
     description: "svc-fraud-monitor was checked back in, but the PSM session recording for the entire window is flagged incomplete",
     mitre_technique: "T1562.001", mitre_tactic: "Defense Evasion",
-    raw: { "pam.vault.name": "FraudOps", "pam.account.name": "svc-fraud-monitor@qb-siem01", "pam.checkout.status": "returned", "session.state": "recording_incomplete", "cyberark.session.recorded": "false", "event.action": "session-checkin", "event.outcome": "anomalous", "action_result": "allowed" }
+    raw: { "pam.vault.name": "FraudOps", "pam.account.name": "svc-fraud-monitor@siem01", "pam.checkout.status": "returned", "session.state": "recording_incomplete", "cyberark.session.recorded": "false", "event.action": "session-checkin", "event.outcome": "anomalous", "action_result": "allowed" }
   },
 ];
 
@@ -564,7 +589,7 @@ const QB_CYBERARK_MULE_PAYOUT: TelemetryEvent[] = [
   },
   {
     id: "qbmp3", ts: "2026-06-25T13:11:00.000Z", source: "iam", event_type: "privileged_operation",
-    severity: "high", vendor: "CyberArk PAM", src_ip: "10.100.1.44",
+    severity: "high", vendor: "CyberArk PAM", user_email: "e.steiner@quantumbank.ch", src_ip: "10.100.1.44",
     description: "The PSM session opened for svc-corebanking-admin shows session recording disabled before connecting to the core-banking admin console",
     mitre_technique: "T1562.001", mitre_tactic: "Defense Evasion",
     raw: { "pam.vault.name": "CoreBankingAdmins", "pam.account.name": "svc-corebanking-admin@corebanking-db01", "pam.session.type": "PSM-RDP", "session.state": "recording_disabled", "cyberark.session.recorded": "false", "event.action": "session-start", "event.outcome": "anomalous", "action_result": "allowed" }
@@ -653,7 +678,7 @@ const RS_CICD_PIPELINE_POISONING: TelemetryEvent[] = [
     is_detection: true,
     description: "GuardDuty raised InstanceCredentialExfiltration.OutsideAWS: SRV-PROD-001's instance-role credentials were used from an external IP",
     mitre_technique: "T1552.005", mitre_tactic: "Credential Access",
-    raw: { "aws.guardduty.type": "UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS", "aws.guardduty.severity": "8.0", "aws.guardduty.title": "EC2 instance credentials are being used from an external IP address.", "aws.cloudtrail.awsRegion": "us-east-1", "action_result": "detected" }
+    raw: { "aws.guardduty.type": "UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS", "aws.guardduty.severity": "8.0", "aws.guardduty.title": "EC2 instance credentials are being used from an external IP address.", "aws.guardduty.resource.accessKeyDetails.accessKeyId": "ASIAW4ZRX7CIDEXAMPLE", "aws.guardduty.resource.accessKeyDetails.principalId": "AROAW4ZRX7CIRUNNER:i-0abc123def456789", "aws.guardduty.resource.accessKeyDetails.userType": "AssumedRole", "aws.guardduty.resource.instanceDetails.instanceId": "i-0abc123def456789", "aws.guardduty.service.action.awsApiCallAction.api": "GetCallerIdentity", "aws.guardduty.service.action.awsApiCallAction.remoteIpDetails.ipAddressV4": "185.220.101.42", "aws.cloudtrail.awsRegion": "us-east-1", "aws.cloudtrail.recipientAccountId": "247316892041", "action_result": "detected" }
   },
   {
     id: "rscp6", ts: "2026-06-18T09:09:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
@@ -667,14 +692,14 @@ const RS_CICD_PIPELINE_POISONING: TelemetryEvent[] = [
     severity: "critical", vendor: "AWS CloudTrail", src_ip: "185.220.101.42",
     description: "CreateAccessKey established a standing access key on the IAM user rocketstack-deploy-prod, outliving the temporary role session",
     mitre_technique: "T1098.001", mitre_tactic: "Persistence",
-    raw: { "aws.cloudtrail.eventName": "CreateAccessKey", "aws.cloudtrail.eventSource": "iam.amazonaws.com", "aws.cloudtrail.requestParameters.userName": "rocketstack-deploy-prod", "aws.cloudtrail.sourceIPAddress": "185.220.101.42", "action_result": "allowed" }
+    raw: { "aws.cloudtrail.eventName": "CreateAccessKey", "aws.cloudtrail.eventSource": "iam.amazonaws.com", "aws.cloudtrail.requestParameters.userName": "rocketstack-deploy-prod", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::247316892041:assumed-role/rocketstack-ci-deploy-role/i-0abc123def456789", "aws.cloudtrail.userIdentity.accessKeyId": "ASIAW4ZRX7CIDEXAMPLE", "aws.cloudtrail.responseElements.accessKey.accessKeyId": "AKIAW4ZRX7DEPEXAMPLE", "aws.cloudtrail.responseElements.accessKey.userName": "rocketstack-deploy-prod", "aws.cloudtrail.responseElements.accessKey.status": "Active", "aws.cloudtrail.recipientAccountId": "247316892041", "aws.cloudtrail.sourceIPAddress": "185.220.101.42", "action_result": "allowed" }
   },
   {
     id: "rscp8", ts: "2026-06-18T09:16:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
     severity: "high", vendor: "AWS CloudTrail", src_ip: "185.220.101.42",
     description: "GetSecretValue retrieved the production database master password from Secrets Manager",
     mitre_technique: "T1555.006", mitre_tactic: "Credential Access",
-    raw: { "aws.cloudtrail.eventName": "GetSecretValue", "aws.cloudtrail.eventSource": "secretsmanager.amazonaws.com", "aws.cloudtrail.requestParameters.secretId": "rocketstack/prod/db-master-password", "aws.cloudtrail.sourceIPAddress": "185.220.101.42", "action_result": "allowed" }
+    raw: { "aws.cloudtrail.eventName": "GetSecretValue", "aws.cloudtrail.eventSource": "secretsmanager.amazonaws.com", "aws.cloudtrail.requestParameters.secretId": "rocketstack/prod/db-master-password", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::247316892041:assumed-role/rocketstack-ci-deploy-role/i-0abc123def456789", "aws.cloudtrail.userIdentity.accessKeyId": "ASIAW4ZRX7CIDEXAMPLE", "aws.cloudtrail.recipientAccountId": "247316892041", "aws.cloudtrail.sourceIPAddress": "185.220.101.42", "action_result": "allowed" }
   },
   {
     id: "rscp9", ts: "2026-06-18T09:21:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
@@ -723,7 +748,7 @@ const RS_TERRAFORM_IAC_BACKDOOR: TelemetryEvent[] = [
     is_detection: true,
     description: "GuardDuty flagged ci-pipeline's trust-policy change as PrivilegeEscalation:IAMUser/AdministrativePermissions",
     mitre_technique: "T1098.003", mitre_tactic: "Persistence",
-    raw: { "aws.guardduty.type": "PrivilegeEscalation:IAMUser/AdministrativePermissions", "aws.guardduty.severity": "7.0", "aws.guardduty.title": "An IAM entity modified a resource's trust policy to grant broad or external access.", "aws.cloudtrail.awsRegion": "us-east-1", "action_result": "detected" }
+    raw: { "aws.guardduty.type": "PrivilegeEscalation:IAMUser/AnomalousBehavior", "aws.guardduty.severity": "7.0", "aws.guardduty.title": "An IAM entity invoked an API commonly used to change the permissions of users, groups or roles.", "aws.guardduty.resource.accessKeyDetails.userName": "ci-pipeline", "aws.guardduty.resource.accessKeyDetails.userType": "IAMUser", "aws.guardduty.service.action.awsApiCallAction.api": "UpdateAssumeRolePolicy", "aws.cloudtrail.recipientAccountId": "247316892041", "aws.cloudtrail.awsRegion": "us-east-1", "action_result": "detected" }
   },
   {
     id: "rstb4", ts: "2026-06-22T14:15:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
@@ -737,14 +762,14 @@ const RS_TERRAFORM_IAC_BACKDOOR: TelemetryEvent[] = [
     severity: "critical", vendor: "AWS CloudTrail", src_ip: "91.234.100.55",
     description: "The external principal listed buckets and read objects from rocketstack-prod-customer-data",
     mitre_technique: "T1530", mitre_tactic: "Collection",
-    raw: { "aws.cloudtrail.eventName": "GetObject", "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.requestParameters.bucketName": "rocketstack-prod-customer-data", "aws.cloudtrail.requestParameters.key": "exports/customers_full.csv", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.accountId": "999999999999", "aws.cloudtrail.sourceIPAddress": "91.234.100.55", "action_result": "allowed" }
+    raw: { "aws.cloudtrail.eventName": "GetObject", "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.requestParameters.bucketName": "rocketstack-prod-customer-data", "aws.cloudtrail.requestParameters.key": "exports/customers_full.csv", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::247316892041:assumed-role/rocketstack-prod-admin/ext-session", "aws.cloudtrail.userIdentity.accessKeyId": "ASIAW4ZRX7PROEXAMPLE", "aws.cloudtrail.recipientAccountId": "247316892041", "aws.cloudtrail.additionalEventData.bytesTransferredOut": "1850624000", "aws.cloudtrail.sourceIPAddress": "91.234.100.55", "action_result": "allowed" }
   },
   {
     id: "rstb6", ts: "2026-06-22T14:24:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
     severity: "high", vendor: "AWS CloudTrail", src_ip: "91.234.100.55",
     description: "GetSecretValue retrieved the production database master password using the backdoored role session",
     mitre_technique: "T1555.006", mitre_tactic: "Credential Access",
-    raw: { "aws.cloudtrail.eventName": "GetSecretValue", "aws.cloudtrail.eventSource": "secretsmanager.amazonaws.com", "aws.cloudtrail.requestParameters.secretId": "rocketstack/prod/db-master-password", "aws.cloudtrail.userIdentity.accountId": "999999999999", "aws.cloudtrail.sourceIPAddress": "91.234.100.55", "action_result": "allowed" }
+    raw: { "aws.cloudtrail.eventName": "GetSecretValue", "aws.cloudtrail.eventSource": "secretsmanager.amazonaws.com", "aws.cloudtrail.requestParameters.secretId": "rocketstack/prod/db-master-password", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::247316892041:assumed-role/rocketstack-prod-admin/ext-session", "aws.cloudtrail.userIdentity.accessKeyId": "ASIAW4ZRX7PROEXAMPLE", "aws.cloudtrail.recipientAccountId": "247316892041", "aws.cloudtrail.userIdentity.srcAccountId": "999999999999", "aws.cloudtrail.sourceIPAddress": "91.234.100.55", "action_result": "allowed" }
   },
   {
     id: "rstb7", ts: "2026-06-22T14:33:00.000Z", source: "firewall", event_type: "net_connection",
@@ -759,7 +784,7 @@ const RS_TERRAFORM_IAC_BACKDOOR: TelemetryEvent[] = [
     is_detection: true,
     description: "GuardDuty raised Exfiltration:S3/ObjectRead.Unusual for the anomalous high-volume reads from account 999999999999",
     mitre_technique: "T1530", mitre_tactic: "Collection",
-    raw: { "aws.guardduty.type": "Exfiltration:S3/ObjectRead.Unusual", "aws.guardduty.severity": "8.0", "aws.guardduty.title": "An unusual amount of data was downloaded from an S3 bucket by an unusual principal.", "aws.cloudtrail.awsRegion": "us-east-1", "action_result": "detected" }
+    raw: { "aws.guardduty.type": "Exfiltration:S3/AnomalousBehavior", "aws.guardduty.severity": "8.0", "aws.guardduty.title": "An S3 API was invoked in an anomalous way by an IAM principal.", "aws.guardduty.resource.accessKeyDetails.accessKeyId": "ASIAW4ZRX7PROEXAMPLE", "aws.guardduty.resource.accessKeyDetails.userType": "AssumedRole", "aws.guardduty.resource.s3BucketDetails.name": "rocketstack-prod-customer-data", "aws.guardduty.service.action.awsApiCallAction.api": "GetObject", "aws.cloudtrail.awsRegion": "us-east-1", "aws.cloudtrail.recipientAccountId": "247316892041", "action_result": "detected" }
   },
   {
     id: "rstb9", ts: "2026-06-22T15:10:00.000Z", source: "vcs", event_type: "policy_modification",
@@ -812,14 +837,14 @@ const RS_OAUTH_CONSENT_CHAINING: TelemetryEvent[] = [
     severity: "critical", vendor: "AWS CloudTrail", src_ip: "185.220.101.90",
     description: "AssumeRoleWithSAML using an Okta-issued assertion succeeded against the AWS federation role from an unfamiliar IP",
     mitre_technique: "T1078.004", mitre_tactic: "Initial Access",
-    raw: { "aws.cloudtrail.eventName": "AssumeRoleWithSAML", "aws.cloudtrail.eventSource": "sts.amazonaws.com", "aws.cloudtrail.requestParameters.roleArn": "arn:aws:iam::247316892041:role/rocketstack-okta-federated-admin", "aws.cloudtrail.requestParameters.principalArn": "arn:aws:iam::247316892041:saml-provider/Okta", "aws.cloudtrail.sourceIPAddress": "185.220.101.90", "action_result": "allowed" }
+    raw: { "aws.cloudtrail.eventName": "AssumeRoleWithSAML", "aws.cloudtrail.eventSource": "sts.amazonaws.com", "aws.cloudtrail.userIdentity.type": "SAMLUser", "aws.cloudtrail.userIdentity.userName": "r.cohen@rocketstack.io", "aws.cloudtrail.userIdentity.identityProvider": "Okta", "aws.cloudtrail.responseElements.credentials.accessKeyId": "ASIAW4ZRX7OKTAFED07", "aws.cloudtrail.responseElements.assumedRoleUser.arn": "arn:aws:sts::247316892041:assumed-role/rocketstack-okta-federated-admin/r.cohen@rocketstack.io", "aws.cloudtrail.recipientAccountId": "247316892041", "aws.cloudtrail.requestParameters.principalArn": "arn:aws:iam::247316892041:saml-provider/Okta", "aws.cloudtrail.sourceIPAddress": "185.220.101.90", "action_result": "allowed" }
   },
   {
     id: "rsoc7", ts: "2026-06-28T10:21:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
     severity: "critical", vendor: "AWS CloudTrail", src_ip: "185.220.101.90",
     description: "The federated session listed buckets and read objects from rocketstack-prod-customer-data",
     mitre_technique: "T1530", mitre_tactic: "Collection",
-    raw: { "aws.cloudtrail.eventName": "GetObject", "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.requestParameters.bucketName": "rocketstack-prod-customer-data", "aws.cloudtrail.requestParameters.key": "exports/customers_full.csv", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.sourceIPAddress": "185.220.101.90", "action_result": "allowed" }
+    raw: { "aws.cloudtrail.eventName": "GetObject", "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.requestParameters.bucketName": "rocketstack-prod-customer-data", "aws.cloudtrail.requestParameters.key": "exports/customers_full.csv", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::247316892041:assumed-role/rocketstack-okta-federated-admin/r.cohen@rocketstack.io", "aws.cloudtrail.userIdentity.accessKeyId": "ASIAW4ZRX7OKTAFED07", "aws.cloudtrail.recipientAccountId": "247316892041", "aws.cloudtrail.additionalEventData.bytesTransferredOut": "740352000", "aws.cloudtrail.sourceIPAddress": "185.220.101.90", "action_result": "allowed" }
   },
   {
     id: "rsoc8", ts: "2026-06-28T10:50:00.000Z", source: "gws", event_type: "account_modify",
@@ -860,6 +885,13 @@ const AI_STORIES: AttackStory[] = [
   story("ai-llmjacking-bedrock", { title: "Stolen CI Key Used for Bedrock Inference (LLMjacking)", events: aiLlmJackingScenarioEvents().events }, "advanced", ["quantumbank"]),
 ];
 
+/**
+ * No cryptocurrency incidents (Tal, 2026-10-02): mining / cryptojacking / wallet clippers are
+ * not what the SOC trains for. These storylines stay out of every feed and team exercise.
+ */
+const EXCLUDED_STORIES = new Set(["bundled-cryptominer", "drive-by-browser-miner", "clipboard-clipper", "rocketstack-chain-c",
+  "ai-bedrock-key-abuse"]); // same incident as ai-llmjacking-bedrock (leaked CI AKIA → Sysdig Bedrock sequence), which is the fuller story
+
 export const ATTACK_STORIES: AttackStory[] = [
   ...GENERIC_STORIES,
   ...COMPANY_CHAIN_STORIES,
@@ -867,7 +899,7 @@ export const ATTACK_STORIES: AttackStory[] = [
   ...QB_ADVANCED_STORIES,
   ...RS_ADVANCED_STORIES,
   ...AI_STORIES,
-];
+].filter(s => !EXCLUDED_STORIES.has(s.id));
 
 // ── Company fit ───────────────────────────────────────────────────────────────
 
@@ -889,6 +921,7 @@ const SOURCE_ALIASES: Record<string, string[]> = {
   // stories are company-allowlisted, so this only quiets the dev sanity-warning;
   // it does not affect selection.
   windows_security: ["ad", "sysmon", "edr"],   // DC/Windows Security events via the AD channel
+  ids:              ["firewall", "ids"],        // an IPS signature is an NGFW/firewall-class source
   linux_audit:      ["edr", "sysmon"],          // auditd shipped by the endpoint agent
   email_gateway:    ["o365", "gws"],
   sharepoint:       ["o365"],                   // SharePoint/OneDrive audit arrives through the M365 unified audit log
@@ -1043,6 +1076,15 @@ function otherTenantPairs(companyId: string, others: string[] = Object.keys(COMP
       [o.brand.charAt(0) + o.brand.slice(1).toLowerCase(), me.brand],
     );
     if (o.netbios !== o.brand.toUpperCase()) pairs.push([o.netbios, me.netbios]);
+    // Tenant identifiers the native records derive per company (Entra tenant / Azure subscription,
+    // the Zscaler egress): a story authored with one tenant's ids reads as this tenant's.
+    const ot = makeCtx(other), mt = makeCtx(companyId);
+    pairs.push(
+      [ot.tenant.azureTenantId, mt.tenant.azureTenantId],
+      [ot.tenant.azureSubscriptionId, mt.tenant.azureSubscriptionId],
+      [ot.tenant.azureSubscriptionId.toUpperCase(), mt.tenant.azureSubscriptionId.toUpperCase()],
+      [testNetIp(ot, `${other}:egress`), testNetIp(mt, `${companyId}:egress`)],
+    );
   }
   return pairs;
 }
@@ -1238,10 +1280,43 @@ function reshapeEdrRaw(e: TelemetryEvent, target: EdrNs): Record<string, unknown
  * log — the last matters because the student is told to quote the raw exactly, so a
  * stale value there would be scored as fabricated evidence.
  */
+/** A server name that says Linux / container platform. */
+const LINUX_NAME = /(^|[-_])(lnx|linux|nix|k8s|k8snode|kube|ubuntu|rhel|centos|debian)([-_\d]|$)/i;
+/** Servers with one job: only a story server with the same role may be mapped onto them. */
+const SPECIALISED = new Set(["exchange", "k8s", "dc", "federation"]);
+/** Roles a company's registry may lack: with no server of that role, the story's own name stays (an AD FS farm is not the file server). */
+const KEEP_IF_ABSENT = new Set(["federation"]);
+/** A server's role from its name (file, db, exchange, web, app, backup, erp, emr, wms, jump, k8s). */
+function serverRole(h: string): string | undefined {
+  const n = h.toLowerCase();
+  if (/adfs|(^|[-_])fed([-_\d]|$)|federation/.test(n)) return "federation";
+  if (/exch|mail/.test(n)) return "exchange";
+  if (/k8s|kube/.test(n)) return "k8s";
+  if (/(^|[-_])dc[-_]?\d*([^a-z]|$)/.test(n)) return "dc";
+  if (/sql|(^|[-_])db/.test(n)) return "db";
+  if (/(^|[-_])(fs|file|files|nas)([-_\d]|$)/.test(n)) return "file";
+  if (/backup|bkp|(^|[-_])bak/.test(n)) return "backup";
+  if (/(^|[-_])web|iis|www/.test(n)) return "web";
+  if (/(^|[-_])(jmp|jump|adm|admin)([-_\d]|$)/.test(n)) return "jump";
+  if (/erp|sap/.test(n)) return "erp";
+  if (/emr|ehr|pacs/.test(n)) return "emr";
+  if (/wms/.test(n)) return "wms";
+  if (/(^|[-_])app/.test(n)) return "app";
+  return undefined;
+}
+/** What OS a story shows a host running: Linux (auditd, unix paths) or Windows (Security log, Windows paths), else unknown. */
+function serverOs(h: string, events: TelemetryEvent[]): "linux" | "windows" | undefined {
+  const on = events.filter(e => e.hostname === h);
+  if (on.some(e => e.source === "linux_audit" || /^\/(usr|bin|sbin|etc|home|opt|var|tmp)\//.test(e.process?.path ?? ""))) return "linux";
+  if (on.some(e => e.source === "ad" || e.source === "windows_security" || e.source === "sysmon" || /^[a-z]:\\/i.test(e.process?.path ?? "") || /^[a-z]:\\/i.test(e.file?.path ?? ""))) return "windows";
+  return LINUX_NAME.test(h) ? "linux" : undefined;
+}
+
 export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], companyEdr?: string, companyId?: string): AttackStory {
   const targetNs = edrNsOfVendor(companyEdr);
-  // Before any vendor reshape drops the authored keys: a hash-only alert names its file.
-  s = { ...s, events: threadFilesByHash(s.events) };
+  // Before any vendor reshape drops the authored keys: a hash-only alert names its file; one
+  // client IP keeps one place / network owner and one login flow keeps one session id across rows.
+  s = { ...s, events: threadIdentityContext(threadFilesByHash(s.events)) };
   if (companyEdr) {
     s = {
       ...s,
@@ -1348,7 +1423,9 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
   const hostHash = (h: string) => { let x = 2166136261; for (let i = 0; i < h.length; i++) { x ^= h.charCodeAt(i); x = Math.imul(x, 16777619); } return Math.abs(x); };
   const isDcHost = (h: string) => (assets && h === assets.dc) || /(^|[^a-z0-9])dc[-_]?\d*([^a-z]|$)/i.test(h);
   // A machine the story shows running Linux (auditd, unix paths) is a server, never a workstation.
-  const linuxHosts = new Set(s.events.filter(e => e.hostname && (e.source === "linux_audit" || /^\/(usr|bin|sbin|etc|home|opt|var|tmp)\//.test(e.process?.path ?? ""))).map(e => e.hostname!));
+  // A Mac also runs /usr/bin binaries (osascript, curl) — a host any row shows as macOS is a laptop, not a server.
+  const macHosts = new Set(s.events.filter(e => e.hostname && (/darwin|^mac/i.test(String(e.raw?.["host.os.family"] ?? e.raw?.["crowdstrike.platform"] ?? "")) || /^\/(Applications|Users|Volumes|System|Library)\//.test(e.process?.path ?? e.file?.path ?? ""))).map(e => e.hostname!));
+  const linuxHosts = new Set(s.events.filter(e => e.hostname && !macHosts.has(e.hostname) && (e.source === "linux_audit" || /^\/(usr|bin|sbin|etc|home|opt|var|tmp)\//.test(e.process?.path ?? ""))).map(e => e.hostname!));
   const isServerHost = (h: string) => !isDcHost(h) && (
     (assets ? h === assets.fileServer : false) ||
     /^(srv|svr|server|prod|db|web|app|sql|k8s|nix|lnx|linux|ubuntu|rhel|centos|debian|ip-\d)[-_]/i.test(h) ||
@@ -1370,6 +1447,7 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
   const dcTargets = [...new Set([...(assets ? [assets.dc] : []), ...assetHosts.filter(isDcHost)])];
   const serverTargets = [...new Set([...registryHostPool.filter(isServerHost), ...hostPool.filter(isServerHost)])];
   const workstationTargets = registryHostPool.filter(h => !isDcHost(h) && !isServerHost(h));
+  const poolLinux = new Set(companyPool.filter(e => e.hostname && e.source === "linux_audit").map(e => e.hostname!));
   const used = new Set<string>();
   const pickFrom = (cands: string[], h: string, allowReuse = false): string | undefined => {
     if (cands.length === 0) return undefined;
@@ -1388,7 +1466,19 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
       // The company's primary DC first (it is where the feed's own domain events live).
       t = dcTargets.find(c => !used.has(c)) ?? dcTargets[0];
     } else if (isServerHost(h)) {
-      t = pickFrom(serverTargets, h) ?? pickFrom(workstationTargets.length ? [] : registryHostPool, h, true);
+      // Role- and OS-aware: a Windows file server never lands on the Linux box, the K8s node or
+      // the Exchange server; a story's database server prefers the company's database server.
+      const storyOs = serverOs(h, s.events);
+      const role = serverRole(h);
+      const fits = (c: string) => {
+        const cOs = poolLinux.has(c) || LINUX_NAME.test(c) ? "linux" : "windows";
+        if (storyOs && storyOs !== cOs) return false;
+        const cRole = serverRole(c);
+        return !SPECIALISED.has(cRole ?? "") || cRole === role;
+      };
+      const sameRole = serverTargets.filter(c => fits(c) && role && serverRole(c) === role);
+      t = pickFrom(sameRole, h) ?? (role && KEEP_IF_ABSENT.has(role) ? h : undefined) ?? pickFrom(serverTargets.filter(fits), h)
+        ?? pickFrom(serverTargets, h) ?? pickFrom(workstationTargets.length ? [] : registryHostPool, h, true);
     } else {
       const users = storyHostUsers.get(h);
       const victimHost = !!(victim && users?.has(victim));
@@ -1555,14 +1645,20 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
       if (!adapted.file && f.file.path) adapted.file = { path: f.file.path, name: f.file.name, sha256: f.file.sha256, md5: f.file.md5 };
       const pname = f.proc.name ?? f.proc.path?.split(/[\\/]/).pop();
       if (!adapted.process && pname) {
-        adapted.process = { name: pname, pid: f.proc.pid ?? 0, path: f.proc.path, cmdline: f.proc.cmdline, parent_name: f.parent.name };
+        // The account and hash too — a reshape that dropped crowdstrike.UserName rendered an lsass access with no user.
+        const user = f.user ? (f.userDomain ? `${f.userDomain}\\${f.user}` : f.user) : undefined;
+        adapted.process = { name: pname, pid: f.proc.pid ?? 0, path: f.proc.path, cmdline: f.proc.cmdline, parent_name: f.parent.name,
+          ...(user ? { user } : {}), ...(f.proc.sha256 ? { hash: { sha256: f.proc.sha256, md5: f.proc.md5 } } : {}) };
       }
+      // A cross-process access (lsass target, granted rights) has no structured field: it rides on the event's endpoint facts.
+      if (f.access) stashThread(adapted, { access: f.access });
       adapted.raw = reshapeEdrRaw(adapted, targetNs) as typeof adapted.raw;
     }
     return adapted;
   });
 
-  return { ...s, events: threadHostIps(normalizeLogonIds(assets ? pinDomainEventsToDc(adaptedEvents, assets.dc, assets.domain) : adaptedEvents)) };
+  // Last: one story → one set of endpoint identities (image path / hash per host, parent facts, writers, SIDs, logon ids).
+  return { ...s, events: threadEndpointStory(threadHostIps(normalizeLogonIds(assets ? pinDomainEventsToDc(adaptedEvents, assets.dc, assets.domain) : adaptedEvents))) };
 }
 
 /**

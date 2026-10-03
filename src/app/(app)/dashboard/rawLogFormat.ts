@@ -85,6 +85,38 @@ const PROVIDER_GUID: Record<string, string> = {
   "Microsoft-Windows-Sysmon":            "{5770385f-c22a-43e0-bf4c-06f5698ffbd9}",
 };
 
+/** A Windows Security event as a SIEM ingests it: the System fields + flattened EventData, JSON. */
+function toWinJson(event: LiveEvent): string {
+  const raw = event.raw ?? {};
+  const str = (k: string) => (raw[k] === undefined || raw[k] === null ? undefined : String(raw[k]));
+  const SECURITY_EVENT_ID: Partial<Record<string, string>> = {
+    auth_success: "4624", auth_failure: "4625", account_lockout: "4740", kerberos_tgt: "4768",
+    kerberos_tgs: "4769", process_create: "4688", account_create: "4720", account_modify: "4738",
+    account_delete: "4726", group_modify: "4728", audit_log_cleared: "1102", privilege_escalation: "4672",
+  };
+  const eventId = str("winlog.event_id") ?? SECURITY_EVENT_ID[event.event_type] ?? "4688";
+  const provider = str("winlog.provider_name") ?? "Microsoft-Windows-Security-Auditing";
+  const rec: Record<string, unknown> = {
+    "event.code": eventId,
+    "winlog.channel": str("winlog.channel") ?? "Security",
+    "winlog.provider_name": provider,
+    "winlog.computer_name": event.hostname ?? str("winlog.computer_name") ?? "-",
+    "winlog.record_id": str("winlog.record_id") ?? String(1_000_000 + (stableHash(event.id) % 900000)),
+    "winlog.keywords": [event.event_type === "auth_failure" ? "Audit Failure" : "Audit Success"],
+    "@timestamp": event.ts,
+  };
+  for (const [key, v] of Object.entries(raw)) {
+    if (key.startsWith("winlog.event_data.") && v !== null && v !== undefined && v !== "") rec[key] = String(v);
+  }
+  // When the authored event carried no event_data.* keys, surface the structured basics.
+  if (!Object.keys(rec).some(k => k.startsWith("winlog.event_data."))) {
+    if (event.user_email) rec["winlog.event_data.TargetUserName"] = event.user_email.split("@")[0];
+    if (event.src_ip) rec["winlog.event_data.IpAddress"] = event.src_ip;
+    if (event.authentication?.logon_type !== undefined) rec["winlog.event_data.LogonType"] = String(event.authentication.logon_type);
+  }
+  return JSON.stringify(rec, null, 2);
+}
+
 function toWinXml(event: LiveEvent): string {
   const raw = event.raw ?? {};
   const str = (k: string) => (raw[k] === undefined || raw[k] === null ? undefined : String(raw[k]));
@@ -430,7 +462,11 @@ function toJson(event: LiveEvent): string {
 
 export function toRawLog(event: LiveEvent): RawLog {
   if (isWindowsEventLog(event)) {
-    return { format: "Windows Event Log (XML)", text: toWinXml(event), lang: "xml" };
+    // Sysmon's Operational channel is read as XML; a Windows Security event reaches the analyst
+    // through the SIEM as normalised JSON, not raw EVTX XML (Tal, 2026-10-03).
+    const isSysmon = event.source === "sysmon" || String(event.raw?.["winlog.provider_name"] ?? "").includes("Sysmon");
+    if (isSysmon) return { format: "Windows Event Log (XML)", text: toWinXml(event), lang: "xml" };
+    return { format: "Windows Security (JSON, as ingested)", text: toWinJson(event), lang: "json" };
   }
 
   // Appliance sources emit syslog ONLY when the vendor is an actual box.

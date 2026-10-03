@@ -53,30 +53,33 @@ export function oktaPasswordBurstScenarioEvents() {
     oktaAuthFailure({
       ...atk, id: "evt_okb_01_okta_first_seen", ts: T(0), severity: "low",
       description:
-        "Okta's System Log records the first authentication request from 45.132.192.77 at 02:14 — a user.session.start that failed with INVALID_CREDENTIALS. This is the tenant's OWN view of the attacker: Okta is a SaaS IdP, so a customer perimeter firewall never sees this traffic — the evidence lives in the Okta System Log, not on FortiGate.",
+        "Okta System Log: user.session.start FAILURE (INVALID_CREDENTIALS) for m.ben-david@rocketstack.io from 45.132.192.77 (AS200651 FlokiNET ehf, Reykjavik) at 02:14.",
     }),
 
     // 2. First failure — the address is unknown to the tenant.
     oktaAuthFailure({
       ...atk, id: "evt_okb_02_fail_first", ts: T(1 * MIN), severity: "low",
       description:
-        "Another user.session.start failure for m.ben-david@rocketstack.io from 45.132.192.77 at 02:15 — one minute after the first, the burst is clearly under way.",
+        "A second user.session.start FAILURE (INVALID_CREDENTIALS) for the same account from 45.132.192.77 at 02:15.",
+    }),
+
+    // 4. The first alert: Okta ThreatInsight (log-only mode) flags the address — it is on
+    //    Okta's cross-tenant list of IPs running credential attacks. Log mode = ALLOW, so the
+    //    attempts keep reaching the password check.
+    oktaSystem({
+      companyId: "rocketstack", id: "evt_okb_04_threatinsight", ts: T(4 * MIN), srcIp: attackerIp,
+      eventType: "security.threat.detected", displayMessage: "Request from suspicious actor",
+      event_type: "threat_intel_match", outcome: "SUCCESS", severity: "medium",
+      geo: atk.geo, asn: attackerAsn, asOrg: attackerAsOrg, domain: "flokinet.is",
+      mitre: "T1110.001", tactic: "Credential Access",
+      description: "Okta ThreatInsight logged security.threat.detected for 45.132.192.77 at 02:18 against the tenant's /api/v1/authn endpoint; outcome ALLOW (log-only mode).",
     }),
 
     // 3. The burst proper — representative of 96 identical rejections.
     oktaAuthFailure({
       ...atk, id: "evt_okb_03_fail_burst", ts: T(6 * MIN), severity: "medium",
       description:
-        "A representative record from 96 user.session.start failures written for the same account between 02:15 and 02:41, all from 45.132.192.77.",
-    }),
-
-    // 4. Okta's own rate limiter kicks in — the tenant is defending itself.
-    oktaSystem({
-      companyId: "rocketstack", id: "evt_okb_04_ratelimit", ts: T(24 * MIN), srcIp: attackerIp,
-      eventType: "system.org.rate_limit.warning", displayMessage: "Rate limit warning",
-      event_type: "http_blocked", outcome: "SUCCESS", severity: "low",
-      thresholds: { threshold: "60", timeSpan: "1", timeUnit: "MINUTE" },
-      description: "Okta recorded a rate-limit warning for the /api/v1/authn endpoint against this tenant at 02:38.",
+        "A representative user.session.start FAILURE (INVALID_CREDENTIALS) of the burst for the same account, from 45.132.192.77 at 02:20.",
     }),
 
     // 5. THE EVENT THAT MATTERS — reason flips to MFA_REQUIRED, authStep → 1.
@@ -84,14 +87,14 @@ export function oktaPasswordBurstScenarioEvents() {
       ...atk, id: "evt_okb_05_password_accepted", ts: T(27 * MIN), severity: "high",
       reason: "MFA_REQUIRED", authStep: 1, sessionId: SESSION,
       description:
-        "At 02:41 a user.session.start for the same account from the same address records outcome.reason MFA_REQUIRED and authenticationStep 1, with credentialType PASSWORD.",
+        "At 02:41 the next sign-in for the same account from 45.132.192.77 is not an INVALID_CREDENTIALS failure: Okta evaluated the sign-on policy for it — policy.evaluate_sign_on, outcome CHALLENGE, rule \"Require MFA outside Corporate HQ\".",
     }),
 
     // 6. The factor challenge is issued to the real user's phone.
     oktaMfa({
       ...atk, id: "evt_okb_06_factor_challenge", ts: T(27 * MIN + 4_000), result: "challenge",
       factor: "OKTA_VERIFY_PUSH", sessionId: SESSION, severity: "medium", mitre: "T1621",
-      description: "Okta issued an Okta Verify push challenge for this transaction at 02:41:04.",
+      description: "system.push.send_factor_verify_push at 02:41:04 — an Okta Verify push sent to the account's enrolled device for the session started from 45.132.192.77.",
     }),
 
     // 7. The push is rejected — by the user, on her own phone, at 02:41.
@@ -99,7 +102,7 @@ export function oktaPasswordBurstScenarioEvents() {
       ...atk, id: "evt_okb_07_factor_denied", ts: T(27 * MIN + 51_000), result: "denied",
       factor: "OKTA_VERIFY_PUSH", sessionId: SESSION, severity: "high", mitre: "T1621",
       description:
-        "Forty-seven seconds later the same transaction records outcome.result REJECTED with reason USER_REJECTED_PUSH.",
+        "Forty-seven seconds later user.authentication.auth_via_mfa for the same session: outcome FAILURE, factor OKTA_VERIFY_PUSH, pushOnlyResponseType OV_RESPONSE_DENY.",
     }),
 
     // 8. Two more push attempts in the following four minutes, then nothing.
@@ -107,7 +110,7 @@ export function oktaPasswordBurstScenarioEvents() {
       ...atk, id: "evt_okb_08_factor_retry", ts: T(31 * MIN), result: "denied",
       factor: "OKTA_VERIFY_PUSH", transactionId: "YkQ1a2VuMTAz", severity: "high", mitre: "T1621",
       description:
-        "The last of two further push challenges from the same address, also rejected. No further activity from 45.132.192.77 after 02:45.",
+        "02:45 — another user.authentication.auth_via_mfa FAILURE (OV_RESPONSE_DENY) for a push from the same address; the System Log shows no later event from 45.132.192.77.",
     }),
 
     // 10. The correlation that opened the ticket, with the account context.
@@ -121,15 +124,18 @@ export function oktaPasswordBurstScenarioEvents() {
           "Window Start": T(1 * MIN),
           "Window End": T(31 * MIN),
           "Failure Count": "96",
-          "Outcome Reasons Seen": ["INVALID_CREDENTIALS", "MFA_REQUIRED", "USER_REJECTED_PUSH"],
+          "Event Types Seen": ["security.threat.detected", "user.session.start", "policy.evaluate_sign_on", "system.push.send_factor_verify_push", "user.authentication.auth_via_mfa"],
+          "Outcome Reasons Seen": ["INVALID_CREDENTIALS", "CHALLENGE", "OV_RESPONSE_DENY"],
           "Source Addresses In Window": [attackerIp],
           "Sessions Created In Window": "0",
           "Password Last Changed": "2025-11-02T08:41:00Z",
           "Group Memberships": ["Everyone", "Finance", "Okta-MFA-Required"],
         },
         description:
-          "The SIEM correlated the sign-in failures and raised a Medium alert at 02:52, with the account's directory context and the outcome reasons seen in the window.",
+          "Sentinel raised a Medium alert at 02:52 for m.ben-david@rocketstack.io: 96 sign-in failures from 45.132.192.77, then a sign-on policy CHALLENGE and denied pushes, 0 sessions created.",
       }),
+      // An identity alert: no device entity (the attacker's machine is not ours).
+      hostname: undefined,
       edr_scope: "non_edr",
     },
 
@@ -149,6 +155,12 @@ export function oktaPasswordBurstScenarioEvents() {
 
   // Every event belongs to the one Okta password-burst incident.
   for (const e of events) e.incident_id = INCIDENT;
+  // The identity alert's entities are the account and the source address — no device.
+  for (const e of events) if (e.source === "siem" && e.raw) {
+    delete e.raw["host.name"];
+    delete e.raw["host.ip"];
+    e.raw["source.ip"] = attackerIp;
+  }
 
   return { title: "Sign-In Failure Burst — Okta Tenant, One Account", events, T, MIN, victim, attackerIp };
 }

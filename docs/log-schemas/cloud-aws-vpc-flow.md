@@ -131,10 +131,10 @@ Flat JSON:
 }
 ```
 
-### V3 — Crypto-mining pool connection (outbound to mining port 3333)
+### V3 — Outbound connection to a reverse-shell port (4444)
 Raw:
 ```
-2 123456789012 eni-0a1b2c3d4e5f60718 10.0.3.47 192.0.2.155 44210 3333 6 15230 912400 1790650000 1790650060 ACCEPT OK
+2 123456789012 eni-0a1b2c3d4e5f60718 10.0.3.47 192.0.2.155 44210 4444 6 15230 912400 1790650000 1790650060 ACCEPT OK
 ```
 Flat JSON:
 ```json
@@ -145,7 +145,7 @@ Flat JSON:
   "srcaddr": "10.0.3.47",
   "dstaddr": "192.0.2.155",
   "srcport": 44210,
-  "dstport": 3333,
+  "dstport": 4444,
   "protocol": 6,
   "packets": 15230,
   "bytes": 912400,
@@ -261,7 +261,7 @@ Flat JSON (first line):
 - **`log-status`:** `NODATA` means the ENI was idle (not an outage); `SKIPDATA` means some flows were dropped
   internally — a visibility gap, not evidence of no traffic.
 - **Correlate with GuardDuty:** EC2 findings sourced from VPC flow logs (`Recon:EC2/Portscan`,
-  `UnauthorizedAccess:EC2/SSHBruteForce`, `CryptoCurrency:EC2/BitcoinTool.B`, `Backdoor:EC2/DenialOfService.*`,
+  `UnauthorizedAccess:EC2/SSHBruteForce`, `Backdoor:EC2/C&CActivity.B`, `Backdoor:EC2/DenialOfService.*`,
   `Impact:EC2/PortSweep`) are derived from exactly these records; the finding's instance/IP/ports map back here.
 - **`pkt-dst-aws-service`/`traffic-path`** distinguish traffic to AWS services vs the open internet
   (traffic-path 2/8 = via internet/IGW), which helps tell legitimate S3/DynamoDB access from C2.

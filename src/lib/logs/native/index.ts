@@ -4,8 +4,8 @@
  *   nativize(ev, companyId, stack?)  → the event in its source's native format
  *   useCasesFor(sourceId?)            → the detection use cases written on those logs
  *
- * Windows Security and CyberArk have no native module yet: their events keep the
- * legacy rendering (nativize returns null for them).
+ * CyberArk PAM renders as the Vault's CEF audit line; Windows Security / Active
+ * Directory events render as native EVTX Security-log records.
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
 import type { NativeLog, NativeSource, SourceId, UseCase } from "./types";
@@ -24,6 +24,7 @@ import { source as cisco_asa } from "./sources/cisco_asa";
 import { source as cisco_ftd } from "./sources/cisco_ftd";
 import { source as cloudflare_access } from "./sources/cloudflare_access";
 import { source as crowdstrike } from "./sources/crowdstrike";
+import { source as cyberark } from "./sources/cyberark";
 import { source as defender_o365 } from "./sources/defender_o365";
 import { source as entra } from "./sources/entra";
 import { source as fortigate } from "./sources/fortigate";
@@ -44,6 +45,7 @@ import { source as servicenow } from "./sources/servicenow";
 import { source as sophos } from "./sources/sophos";
 import { source as sysmon } from "./sources/sysmon";
 import { source as windows_dns } from "./sources/windows_dns";
+import { source as windows_security } from "./sources/windows_security";
 import { source as zscaler_zia } from "./sources/zscaler_zia";
 import { source as zscaler_zpa } from "./sources/zscaler_zpa";
 
@@ -52,6 +54,7 @@ export const NATIVE_SOURCES: Partial<Record<SourceId, NativeSource>> = {
   cloudflare_access, crowdstrike, defender_o365, entra, fortigate, fortigate_sslvpn, gcp_audit, globalprotect,
   google_workspace, infoblox, k8s_audit, linux_auditd, m365, mde, okta, paloalto, proofpoint, sentinelone,
   servicenow, sophos, sysmon, windows_dns, zscaler_zia, zscaler_zpa,
+  cyberark, windows_security,
 };
 
 export function stackFor(companyId: string, override?: Stack): Stack {
@@ -190,10 +193,20 @@ export function applyStack(ev: TelemetryEvent, companyId: string, stack?: Stack)
 
 const PID_SOURCES = new Set(["edr", "sysmon", "av", "windows_security", "linux_audit"]);
 function withCanonicalPids(ev: TelemetryEvent, companyId: string): TelemetryEvent {
-  if (!ev.process || !PID_SOURCES.has(ev.source)) return ev;
+  if (!PID_SOURCES.has(ev.source)) return ev;
   let pids: { pid?: number; parentPid?: number };
   try { pids = canonicalPids(ev, companyId); } catch { return ev; }
   const { pid, parentPid } = pids;
+  // An event whose process lives only in its raw block (an MDE network row's InitiatingProcessId, a Sysmon
+  // ProcessId): the text quoting that pid still follows the record.
+  if (!ev.process) {
+    const f = edrFacts(authoredOf(ev));
+    let d = ev.description;
+    for (const [from, to] of [[f.proc.pid, pid], [f.parent.pid, parentPid]] as const) {
+      if (d && from !== undefined && to !== undefined && from !== to) d = d.replace(new RegExp(`(\\bPID[ :=#]*|\\bpid[ :=#]*|ProcessId[ :=]*)${from}\\b`, "g"), `$1${to}`);
+    }
+    return d === ev.description ? ev : { ...ev, description: d };
+  }
   const oldPid = ev.process.pid, oldParent = ev.process.parent_pid;
   if ((pid === undefined || pid === oldPid) && (parentPid === undefined || parentPid === oldParent)) return ev;
   let description = ev.description;

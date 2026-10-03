@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { source, kindOf, TRAFFIC_COLUMNS, THREAT_COLUMNS } from "./paloalto";
-import { runFirewallSuite, cloneLog, repeatEvent, type EvidenceKey } from "./firewall-testkit";
+import { runFirewallSuite, cloneLog, repeatEvent, type EvidenceKey, applianceAdminNull } from "./firewall-testkit";
 import { makeCtx } from "../ctx";
 import { corpusFor, cardSamples } from "../testing/corpus";
 import type { NativeLog } from "../types";
@@ -63,7 +63,7 @@ runFirewallSuite({
   crossMin: 0.9,
   cardTime: panTime,
   // Zeek/Corelight NSM records are not firewall logs (intra-segment traffic the firewall never sees).
-  nullAllowed: ev => (/zeek|corelight/i.test(ev.vendor ?? "") ? "passive NSM sensor, not a firewall record" : null),
+  nullAllowed: ev => (/zeek|corelight/i.test(ev.vendor ?? "") ? "passive NSM sensor, not a firewall record" : applianceAdminNull(ev)),
   evidenceExempt: (log): EvidenceKey[] => {
     const ex: EvidenceKey[] = [];
     // PAN TRAFFIC logs carry no FQDN / URL (only `category`); file-subtype THREAT logs put the filename in `misc`.

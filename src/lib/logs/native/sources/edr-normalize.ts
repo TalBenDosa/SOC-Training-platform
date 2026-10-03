@@ -9,9 +9,51 @@
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
 
-export type EdrKind = "process" | "network" | "dns" | "file" | "registry" | "logon" | "detection" | "unsupported";
+export type EdrKind = "process" | "network" | "dns" | "file" | "registry" | "logon" | "detection" | "usb" | "unsupported";
 
-export interface EdrProc { name?: string; path?: string; pid?: number; cmdline?: string; sha256?: string; md5?: string; integrity?: string; signed?: boolean }
+/**
+ * `inst` separates two instances of one image the story shows as parent and child; `user` is the
+ * account the process runs as when the story says so and it differs from the event's user (a
+ * parent's own row ran as SYSTEM, the child as the user).
+ */
+export interface EdrProc { name?: string; path?: string; pid?: number; cmdline?: string; sha256?: string; md5?: string; integrity?: string; signed?: boolean; inst?: string; user?: string }
+
+/**
+ * Facts one event cannot know on its own but the STORY does (filled by the story pass in
+ * ./_proc-identity, threadEndpointStory, when the story is instantiated): the canonical image path
+ * and hash of the acting process and of its parent (the process's own row wins), the parent's
+ * integrity / account / command line from its own row, the process that wrote a file when the row
+ * names none, the user's authored SID and logon id, and a download's origin URL. Rendering stays
+ * per event; these keep every record of one story pivotable on the same values.
+ */
+export interface ThreadProc { name?: string; path?: string; sha256?: string; md5?: string; inst?: string; integrity?: string; user?: string; cmdline?: string; pid?: number }
+export interface EndpointThread {
+  proc?: ThreadProc;
+  parent?: ThreadProc;
+  /** The process that wrote the file / set the value when the event names none. */
+  writer?: ThreadProc;
+  sid?: string;
+  /** Authored logon id of the user's session on this host ("0x…" hex). */
+  logonId?: string;
+  /** Ordinal of the event's day among the user's days on this host in the story (a later day = a new session). */
+  logonSeq?: number;
+  originUrl?: string;
+  referrerUrl?: string;
+  /** A cross-process access kept across a vendor reshape (the authored target / rights have no structured field). */
+  access?: { name?: string; path?: string; pid?: number; granted?: string };
+  /** The threat name the story's other detection of the same file authored (one file → one verdict name). */
+  threatName?: string;
+  /** The account active on this host at that time in the story, for a row that names no user ("DOMAIN\user" or "user"). */
+  user?: string;
+}
+type Threaded = TelemetryEvent & { _endpoint?: EndpointThread };
+export const threadOf = (ev: TelemetryEvent): EndpointThread | undefined => (ev as Threaded)._endpoint;
+export const withThread = (ev: TelemetryEvent, t: EndpointThread): TelemetryEvent => ({ ...ev, _endpoint: t } as Threaded);
+/** Merge facts into a freshly built event's thread in place (the event object is not shared). */
+export function stashThread(ev: TelemetryEvent, patch: EndpointThread): void {
+  (ev as Threaded)._endpoint = { ...threadOf(ev), ...patch };
+}
+
 export interface EdrFacts {
   kind: EdrKind;
   /** Why the event cannot be rendered by an EDR (USB/device control, file read, agent offline …). */
@@ -31,6 +73,19 @@ export interface EdrFacts {
   net: { remoteIp?: string; remotePort?: number; localIp?: string; localPort?: number; protocol?: string; url?: string; domain?: string; direction: "outbound" | "inbound" };
   dns: { query?: string; type?: string; response?: string };
   registry: { path?: string; key?: string; value?: string };
+  /** The user's SID / logon id as the story authored them (absent → the module derives them). */
+  sid?: string;
+  logonId?: string;
+  logonSeq?: number;
+  /** Mark-of-the-Web origin of a downloaded file (authored on the file row or on the story's download). */
+  originUrl?: string;
+  referrerUrl?: string;
+  /** A cross-process handle open (process_access): the target process and the rights granted. */
+  access?: { name?: string; path?: string; pid?: number; granted?: string };
+  /** A removable drive mounted on the host (usb kind). */
+  usb?: { drive?: string; product?: string; vendor?: string; serial?: string; type?: string };
+  /** A service installation (service_install): the service and the binary it runs. */
+  service?: { name: string; path?: string; account?: string; startType?: string };
   detection?: {
     name?: string; description?: string; severity?: string; technique?: string; techniqueId?: string;
     tactic?: string; tacticId?: string; confidence?: number;
@@ -42,6 +97,9 @@ export interface EdrFacts {
 const str = (v: unknown): string | undefined => (v === undefined || v === null || v === "" ? undefined : String(v));
 const numOrU = (v: unknown): number | undefined => { const n = Number(v); return v === undefined || v === null || v === "" || isNaN(n) ? undefined : n; };
 const first = (...vals: unknown[]) => { for (const v of vals) { const s = str(v); if (s) return s; } return undefined; };
+/** "\Device\HarddiskVolume3\X" → "C:\X": one path spelling per binary whatever vocabulary authored it. */
+const drive = (p?: string) => (p ? p.replace(/^\\Device\\HarddiskVolume\d+\\/i, "C:\\") : p);
+const lcEq = (a?: string, b?: string) => !!a && !!b && a.toLowerCase() === b.toLowerCase();
 const baseName = (p?: string) => (p ? p.split(/[\\/]/).pop() : undefined);
 /** Folder + file name, without doubling when the folder value already ends with the file name. */
 const joinPath = (folder: unknown, file: unknown): string | undefined => {
@@ -77,6 +135,9 @@ function kindOf(ev: TelemetryEvent, r: Record<string, unknown>): { kind: EdrKind
   const simple = str(r["crowdstrike.event_simpleName"]) ?? "";
   const s1type = (str(r["s1.eventType"]) ?? "").toLowerCase();
   const et = ev.event_type ?? "";
+  // A file copied onto a mounted USB drive is a file write on that drive; the mount itself is a USB-mount record.
+  if (/^FileWrittenToRemovableMedia$/i.test(simple) || str(r["event.action"]) === "FileCopiedToRemovableMedia") return { kind: "file" };
+  if (/^RemovableMedia(Connected|VolumeMounted)$/i.test(simple || str(r["event.action"]) || "") || /^mount/i.test(str(r["usb.action"]) ?? "")) return { kind: "usb" };
   if (UNSUPPORTED_SIMPLE.test(simple) || s1type.includes("device control") || /usb|removable/i.test(et))
     return { kind: "unsupported", reason: "device-control / USB telemetry has no documented native record in the cards" };
   if (et === "file_access" || /FileOpenInfo|DocumentScan/.test(simple)) return { kind: "unsupported", reason: "file-read telemetry is not a documented native record" };
@@ -134,31 +195,43 @@ export function edrFacts(ev: TelemetryEvent): EdrFacts {
     : !platform && anyPath.startsWith("/") ? "Lin" : "Win";
 
   const u = splitUser(first(ev.process?.user, r["crowdstrike.UserName"], r["user.name"], r["AccountName"] && r["AccountDomain"] ? `${r["AccountDomain"]}\\${r["AccountName"]}` : r["AccountName"], r["InitiatingProcessAccountName"], r["s1.srcProcUser"], r["s1.process.user"]));
-  const procPath = first(ev.process?.path, r["process.executable"], r["crowdstrike.ImageFileName"], kind === "process" ? joinPath(r["FolderPath"], r["FileName"]) : undefined, kind !== "process" ? joinPath(r["InitiatingProcessFolderPath"], r["InitiatingProcessFileName"]) : undefined);
-  const procName = first(ev.process?.name, r["process.name"], r["crowdstrike.FileName"] && kind === "process" ? r["crowdstrike.FileName"] : undefined, r["crowdstrike.process_name"], kind === "process" ? r["FileName"] : r["InitiatingProcessFileName"], r["s1.srcProcName"], baseName(procPath));
+  const csName = str(r["crowdstrike.FileName"]);
+  // A Falcon detection's process tree ("explorer.exe > PDF_Setup.exe"): the triggering process is its last node.
+  const tree = (str(r["crowdstrike.detection.process_tree"]) ?? "").split(/\s*>\s*/).filter(Boolean);
+  const procPath = first(ev.process?.path, r["process.executable"], r["crowdstrike.ImageFileName"], kind === "process" ? joinPath(r["FolderPath"], r["FileName"]) : undefined, kind !== "process" ? joinPath(r["InitiatingProcessFolderPath"], r["InitiatingProcessFileName"]) : undefined,
+    // A Falcon process row authored as FilePath + FileName of the image itself.
+    kind === "process" && csName && lcEq(csName, first(ev.process?.name, r["process.name"], r["crowdstrike.process_name"], csName)) ? joinPath(r["crowdstrike.FilePath"], csName) : undefined,
+    // A Sysmon EventData block (the actor of events 1/3/10/11/13/22).
+    r["winlog.event_data.Image"], r["winlog.event_data.SourceImage"]);
+  const procName = first(ev.process?.name, r["process.name"], r["crowdstrike.FileName"] && kind === "process" ? r["crowdstrike.FileName"] : undefined, r["crowdstrike.process_name"], kind === "process" ? r["FileName"] : r["InitiatingProcessFileName"], r["s1.srcProcName"], baseName(procPath), tree[tree.length - 1]);
   const proc: EdrProc = {
     name: procName, path: procPath,
-    pid: numOrU(ev.process?.pid ?? r["process.pid"] ?? r["crowdstrike.RawProcessId"] ?? (kind === "process" ? r["ProcessId"] : r["InitiatingProcessId"]) ?? r["s1.srcProcPid"]),
-    cmdline: first(ev.process?.cmdline, r["process.command_line"], r["crowdstrike.CommandLine"], kind === "process" ? r["ProcessCommandLine"] : r["InitiatingProcessCommandLine"], r["s1.srcProcCmdLine"], r["s1.process.cmdline"]),
-    sha256: first(ev.process?.hash?.sha256, r["process.hash.sha256"], kind === "process" ? r["crowdstrike.SHA256HashData"] : undefined, kind === "process" ? r["SHA256"] : undefined),
-    md5: first(ev.process?.hash?.md5, kind === "process" ? r["crowdstrike.MD5HashData"] : undefined),
+    pid: numOrU(ev.process?.pid ?? r["process.pid"] ?? r["crowdstrike.RawProcessId"] ?? (kind === "process" ? r["ProcessId"] : r["InitiatingProcessId"]) ?? r["s1.srcProcPid"] ?? r["winlog.event_data.ProcessId"] ?? r["winlog.event_data.SourceProcessId"]),
+    cmdline: first(ev.process?.cmdline, r["process.command_line"], r["crowdstrike.CommandLine"], kind === "process" ? r["ProcessCommandLine"] : r["InitiatingProcessCommandLine"], r["s1.srcProcCmdLine"], r["s1.process.cmdline"], r["winlog.event_data.CommandLine"]),
+    sha256: first(ev.process?.hash?.sha256, r["process.hash.sha256"], kind === "process" ? r["crowdstrike.SHA256HashData"] : undefined, kind === "process" ? r["SHA256"] : r["InitiatingProcessSHA256"]),
+    md5: first(ev.process?.hash?.md5, r["process.hash.md5"], kind === "process" ? r["crowdstrike.MD5HashData"] : r["InitiatingProcessMD5"]),
     integrity: first(ev.process?.integrity, r["process.integrity_level"], r["ProcessIntegrityLevel"], r["crowdstrike.IntegrityLevel"]),
     signed: str(r["process.code_signature.status"] ?? r["file.signed"]) ? !/unsigned|false|not/i.test(String(r["process.code_signature.status"] ?? r["file.signed"])) : undefined,
   };
-  const parentName = first(ev.process?.parent_name, r["process.parent.name"], r["crowdstrike.ParentBaseFileName"], r["crowdstrike.parent_basefilename"], r["crowdstrike.ParentProcessName"], kind === "process" ? r["InitiatingProcessFileName"] : undefined, r["s1.srcProcParentName"]);
+  const parentName = first(ev.process?.parent_name, r["process.parent.name"], r["crowdstrike.ParentBaseFileName"], r["crowdstrike.parent_basefilename"], r["crowdstrike.ParentProcessName"], kind === "process" ? r["InitiatingProcessFileName"] : undefined, r["s1.srcProcParentName"], baseName(str(r["process.parent.executable"])), baseName(str(r["winlog.event_data.ParentImage"])), tree.length > 1 ? tree[tree.length - 2] : undefined);
   const parent: EdrProc = {
     name: parentName,
-    path: kind === "process" ? joinPath(r["InitiatingProcessFolderPath"], r["InitiatingProcessFileName"]) : undefined,
-    pid: numOrU(ev.process?.parent_pid ?? r["process.parent.pid"] ?? (kind === "process" ? r["InitiatingProcessId"] : undefined)),
-    cmdline: kind === "process" ? first(r["InitiatingProcessCommandLine"]) : undefined,
+    path: first(r["process.parent.executable"], kind === "process" ? joinPath(r["InitiatingProcessFolderPath"], r["InitiatingProcessFileName"]) : undefined, r["winlog.event_data.ParentImage"]),
+    pid: numOrU(ev.process?.parent_pid ?? r["process.parent.pid"] ?? (kind === "process" ? r["InitiatingProcessId"] : undefined) ?? r["winlog.event_data.ParentProcessId"]),
+    cmdline: first(r["process.parent.command_line"], r["crowdstrike.parent_commandline"], r["crowdstrike.ParentCommandLine"], kind === "process" ? r["InitiatingProcessCommandLine"] : undefined, r["winlog.event_data.ParentCommandLine"]),
+    sha256: first(r["process.parent.hash.sha256"], kind === "process" ? r["InitiatingProcessSHA256"] : undefined),
+    md5: first(r["process.parent.hash.md5"], kind === "process" ? r["InitiatingProcessMD5"] : undefined),
   };
-  const filePath = first(ev.file?.path, r["file.path"], r["crowdstrike.FilePath"] && r["crowdstrike.FileName"] && kind !== "process" ? `${String(r["crowdstrike.FilePath"]).replace(/[\\/]$/, "")}\\${r["crowdstrike.FileName"]}` : r["crowdstrike.TargetFileName"], kind === "file" ? joinPath(r["FolderPath"], r["FileName"]) : undefined);
+  const filePath = first(ev.file?.path, r["file.path"], joinPath(r["usb.destination"], r["file.name"]), r["crowdstrike.FilePath"] && r["crowdstrike.FileName"] && kind !== "process" ? `${String(r["crowdstrike.FilePath"]).replace(/[\\/]$/, "")}\\${r["crowdstrike.FileName"]}` : r["crowdstrike.TargetFileName"], kind === "file" ? joinPath(r["FolderPath"], r["FileName"]) : undefined);
   // Direction: an authored inbound connection has a PUBLIC source and the host as
   // destination (RDP from the internet). Read it as remote = source, local = host.
   const srcIp = first(ev.src_ip, r["source.ip"]);
   const dstIp = first(ev.dst_ip, r["destination.ip"], r["RemoteIP"], r["crowdstrike.RemoteAddressIP4"], r["crowdstrike.remote_address"]);
   const inbound = kind === "network" && !!srcIp && !isPrivateIp(srcIp) && (!dstIp || isPrivateIp(dstIp));
-  return {
+  const accessTarget = first(r["crowdstrike.target_imagefilename"], r["crowdstrike.CrossProcessTargetName"], r["s1.tgtProcName"], r["winlog.event_data.TargetImage"], r["TargetImage"]);
+  const svcName = ev.event_type === "service_install" ? first(r["service.name"], r["ServiceName"], r["winlog.event_data.ServiceName"], (procName ?? baseName(procPath))?.replace(/\.exe$/i, "")) : undefined;
+  proc.path = drive(proc.path); parent.path = drive(parent.path);
+  const out: EdrFacts = {
     kind, unsupportedReason: reason,
     timeMs: Date.parse(ev.ts),
     eventId: ev.id,
@@ -199,6 +272,46 @@ export function edrFacts(ev: TelemetryEvent): EdrFacts {
       confidence: numOrU(r["crowdstrike.detection.confidence"] ?? r["crowdstrike.Confidence"]),
       action: actionOf(r),
     } : undefined,
+    sid: first(r["crowdstrike.UserSid"], kind === "process" ? r["AccountSid"] : r["InitiatingProcessAccountSid"], /^S-1-5-/.test(String(r["user.id"] ?? "")) ? r["user.id"] : undefined),
+    originUrl: first(r["FileOriginUrl"], r["file.origin_url"]),
+    referrerUrl: first(r["FileOriginReferrerUrl"], r["file.origin_referrer_url"]),
+    access: ev.event_type === "process_access" && accessTarget ? {
+      name: baseName(accessTarget), path: /[\\/]/.test(accessTarget) ? accessTarget : undefined,
+      pid: numOrU(r["crowdstrike.target_process_id"] ?? r["crowdstrike.CrossProcessTargetPid"] ?? r["winlog.event_data.TargetProcessId"] ?? r["TargetProcessId"]),
+      granted: first(r["crowdstrike.GrantedAccess"], r["s1.granted_access"], r["winlog.event_data.GrantedAccess"], r["GrantedAccess"]),
+    } : undefined,
+    usb: kind === "usb" ? { drive: first(r["usb.mount_point"])?.replace(/\\$/, ""), product: first(r["usb.device.name"]), vendor: first(r["usb.vendor"]), serial: first(r["usb.device.serial"]), type: first(r["removable_media.type"]) } : undefined,
+    service: svcName ? { name: svcName, path: procPath, account: first(r["service.account"], r["winlog.event_data.AccountName"]), startType: first(r["service.start_type"], r["winlog.event_data.StartType"]) } : undefined,
+  };
+  return applyThread(out, threadOf(ev));
+}
+
+/** Story facts (EndpointThread) over the event's own: canonical path / hash / instance win; authored text fills gaps. */
+function applyThread(f: EdrFacts, t: EndpointThread | undefined): EdrFacts {
+  if (!t) return f;
+  let proc = f.proc;
+  // A file / registry row that names no actor: the story's writer.
+  if (t.writer && (f.kind === "file" || f.kind === "registry") && !proc.name && !proc.path && !proc.cmdline) {
+    proc = { name: t.writer.name, path: t.writer.path, cmdline: t.writer.cmdline, sha256: t.writer.sha256, md5: t.writer.md5, inst: t.writer.inst, integrity: t.writer.integrity, user: t.writer.user };
+  }
+  const merge = (p: EdrProc, s?: ThreadProc): EdrProc => (!s ? p : {
+    ...p,
+    path: s.path ?? p.path, sha256: s.sha256 ?? p.sha256, md5: s.md5 ?? p.md5, inst: s.inst ?? p.inst,
+    cmdline: p.cmdline ?? s.cmdline, integrity: p.integrity ?? s.integrity, user: p.user ?? s.user,
+  });
+  const tu = !f.user && !f.userEmail && t.user ? splitUser(t.user) : undefined;
+  return {
+    ...f,
+    ...(tu ? { user: tu.user, userDomain: tu.domain } : {}),
+    proc: merge(proc, proc === f.proc ? t.proc : undefined),
+    parent: merge(f.parent, t.parent),
+    sid: t.sid ?? f.sid,
+    logonId: t.logonId ?? f.logonId,
+    logonSeq: t.logonSeq,
+    originUrl: f.originUrl ?? t.originUrl,
+    referrerUrl: f.referrerUrl ?? t.referrerUrl,
+    access: f.access ?? (f.kind === "process" ? t.access : undefined),
+    detection: f.detection && !f.detection.name && t.threatName ? { ...f.detection, name: t.threatName } : f.detection,
   };
 }
 

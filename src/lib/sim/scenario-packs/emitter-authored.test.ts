@@ -234,7 +234,7 @@ describe("emitter-authored scenario packs", () => {
 
   it("scheduledTaskPersistence builds a coherent persistence incident from emitters only (Sysmon + PAN + Sentinel)", () => {
     const s = buildScheduledTaskPersistenceScenario();
-    expect(s.events.length).toBe(9);
+    expect(s.events.length).toBe(10);
     expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
       "Microsoft Sysmon", "Palo Alto Networks PAN-OS", "Microsoft Sentinel",
     ]));
@@ -458,23 +458,25 @@ describe("emitter-authored scenario packs", () => {
     expect(hosts).toEqual(new Set(["FIN-WS-08", "FS-SRV-03", "BKP-SRV-02"]));
   });
 
-  it("isoContainerSmuggling builds a coherent MotW-bypass chain from emitters only (FortiGate + CrowdStrike)", () => {
+  it("isoContainerSmuggling builds a coherent container-delivered LNK/LOLBin chain from emitters only (FortiGate + CrowdStrike)", () => {
     const s = buildIsoContainerSmugglingScenario();
-    expect(s.events.length).toBe(8);
+    expect(s.events.length).toBe(9);
     expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set(["FortiGate", "CrowdStrike Falcon"]));
     // the download is a FortiGate file-filter log-only record (not a block), carrying the .iso
     const dl = s.events.find(e => e.id === "evt_ics_01_download");
     expect(dl?.event_type).toBe("http_request");
     expect(dl?.raw?.["data.subtype"]).toBe("filefilter");
     expect(dl?.raw?.["data.filetype"]).toBe("iso");
-    // the mount is a file-open by explorer (the parent of the shortcut's cmd)
+    // the mount is a file-open by explorer (the parent of the shortcut's LOLBin)
     const mount = s.events.find(e => e.id === "evt_ics_03_mount");
     expect(mount?.event_type).toBe("file_access");
     expect(mount?.raw?.["crowdstrike.event_simpleName"]).toBe("FileOpenInfo");
     expect(mount?.process?.pid).toBe(3184);
-    // the MotW-bypass crux: cmd launched from the mounted volume by explorer
+    // the crux: the MotW .lnk ran rundll32 against the bundled update.dat (user clicked through)
     const lnk = s.events.find(e => e.id === "evt_ics_04_lnk_cmd");
-    expect(lnk?.mitre_technique).toBe("T1553.005");
+    expect(lnk?.mitre_technique).toBe("T1218.011");
+    expect(lnk?.process?.name).toBe("rundll32.exe");
+    expect(lnk?.process?.cmdline).toContain("update.dat");
     expect(lnk?.process?.parent_pid).toBe(3184);
     // the encoded PowerShell is the alert-grade behaviour
     const ps = s.events.find(e => e.id === "evt_ics_05_powershell");
@@ -537,42 +539,55 @@ describe("emitter-authored scenario packs", () => {
     expect(inv.host.name).toBe("VNT-WKS-27");
   });
 
-  it("edgeVpnCveExploit builds a coherent edge-appliance→internal chain from emitters only (FortiGate + SSL-VPN + CrowdStrike + Sentinel)", () => {
+  it("edgeVpnCveExploit builds a coherent appliance→internal chain from emitters only (FortiGate + SSL-VPN + Windows Security + CrowdStrike + Sentinel)", () => {
     const s = buildEdgeVpnCveExploitScenario();
-    expect(s.events.length).toBe(8);
+    expect(s.events.length).toBe(10);
     expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
-      "FortiGate", "FortiGate SSL-VPN", "CrowdStrike Falcon", "Microsoft Sentinel",
+      "FortiGate", "FortiGate SSL-VPN", "Windows Security", "CrowdStrike Falcon", "Microsoft Sentinel",
     ]));
-    // initial access: pre-auth admin API hit, blank data.user, 200
-    const exploit = s.events.find(e => e.id === "evt_01_preauth_exploit");
-    expect(exploit?.raw?.["data.user"]).toBe("");
-    expect(exploit?.raw?.["http.response.status_code"]).toBe("200");
-    // persistence: portal web-shell written via the WAF PUT
-    const shell = s.events.find(e => e.id === "evt_02_webshell_write");
-    expect(shell?.event_type).toBe("file_create");
-    expect(shell?.file?.name).toBe("healthcheck.cgi");
-    // the pivot: SSL-VPN login under its own product vendor + source
+    // first alert: the appliance's own IPS signature for the CVE, inbound (WAN) and a detection
+    const ips = s.events.find(e => e.id === "evt_01_ips_cve_detection");
+    expect(ips?.source).toBe("ids");
+    expect(ips?.is_detection).toBe(true);
+    expect(String(ips?.raw?.["data.attack"] ?? ips?.raw?.["threat.name"])).toContain("Authentication.Bypass");
+    // the published CVE-2022-40684 indicator: an admin event-log session attributed to Local_Process_Access
+    const bypass = s.events.find(e => e.id === "evt_02_appliance_mgmt_access");
+    expect(bypass?.event_type).toBe("auth_success");
+    expect(bypass?.raw?.["data.user"]).toBe("Local_Process_Access");
+    expect(bypass?.raw?.["data.subtype"]).toBe("system");
+    // persistence: a rogue admin account the bypass added, logging in
+    const rogue = s.events.find(e => e.id === "evt_03_rogue_admin_login");
+    expect(rogue?.raw?.["data.user"]).toBe("fgadmin_svc");
+    // the pivot: SSL-VPN login under its own product vendor + source, with the tunnel IP
     const vpn = s.events.find(e => e.id === "evt_04_vpn_session");
     expect(vpn?.vendor).toBe("FortiGate SSL-VPN");
     expect(vpn?.event_type).toBe("vpn_login");
     expect(vpn?.raw?.["data.user"]).toBe("j.alvarez");
+    expect(vpn?.raw?.["data.tunnelip"]).toBe("10.60.200.14");
+    // the link: the tunnel IP appears as the IpAddress on the jump host's 4624 network logon
+    const jumpLogon = s.events.find(e => e.id === "evt_05_jump_logon");
+    expect(jumpLogon?.raw?.["winlog.event_id"]).toBe("4624");
+    expect(jumpLogon?.raw?.["winlog.event_data.LogonType"]).toBe("3");
+    expect(jumpLogon?.raw?.["winlog.event_data.IpAddress"]).toBe("10.60.200.14");
     // discovery: remote-WMI parented cmd (not an interactive shell)
-    const disc = s.events.find(e => e.id === "evt_05_internal_discovery");
+    const disc = s.events.find(e => e.id === "evt_06_internal_discovery");
     expect(disc?.process?.parent_name).toBe("WmiPrvSE.exe");
     // the crux: SAM-hive dump is the ticket-opening EDR detection
-    const sam = s.events.find(e => e.id === "evt_06_credential_access_sam");
+    const sam = s.events.find(e => e.id === "evt_07_credential_access_sam");
     expect(sam?.is_detection).toBe(true);
     expect(sam?.edr_scope).toBe("edr");
     expect(String(sam?.process?.cmdline)).toContain("save hklm\\sam");
-    // lateral: SMB to the file server, process-attributed
-    const smb = s.events.find(e => e.id === "evt_07_lateral_smb");
+    // lateral: SMB to the file server, process-attributed, with its own 4624 on the file server
+    const smb = s.events.find(e => e.id === "evt_08_lateral_smb");
     expect(smb?.event_type).toBe("net_connection");
     expect(smb?.dst_port).toBe(445);
     expect(smb?.process?.name).toBe("net.exe");
-    // the correlation joins the three planes by the external IP
-    const corr = s.events.find(e => e.id === "evt_08_siem_correlation");
+    const fsLogon = s.events.find(e => e.id === "evt_09_fileserver_logon");
+    expect(fsLogon?.raw?.["winlog.event_id"]).toBe("4624");
+    // the correlation joins the planes by the external IP, the account and the tunnel IP
+    const corr = s.events.find(e => e.id === "evt_10_siem_correlation");
     expect(corr?.event_type).toBe("ioc_hit");
-    expect(corr?.raw?.["ExtendedProperties.Linked Event IDs"]).toEqual(["evt_01_preauth_exploit", "evt_04_vpn_session", "evt_05_internal_discovery"]);
+    expect(corr?.raw?.["ExtendedProperties.Tunnel IP"]).toBe("10.60.200.14");
     // the internal foothold is where the EDR console opens
     const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
     expect(inv.host.name).toBe("SRV-JUMP-03");
@@ -828,9 +843,9 @@ describe("emitter-authored scenario packs", () => {
 
   it("helpdeskMfaReset builds a coherent helpdesk-social-engineering case from emitters only (Entra + ServiceNow + CrowdStrike)", () => {
     const s = buildHelpdeskMfaResetScenario();
-    expect(s.events.length).toBe(8);
+    expect(s.events.length).toBe(9);
     expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
-      "Microsoft Entra ID", "ServiceNow ITSM", "CrowdStrike Falcon",
+      "Microsoft Entra ID", "ServiceNow ITSM", "CrowdStrike Falcon", "Microsoft Sentinel",
     ]));
     // the ServiceNow ticket (source soar) with the verification note
     const ticket = s.events.find(e => e.id === "evt_hmr_02_ticket_created");
@@ -846,7 +861,7 @@ describe("emitter-authored scenario packs", () => {
     // victim but whose IP is the attacker's, not either of her real sign-in IPs
     const reg = s.events.find(e => e.id === "evt_hmr_06_new_device_registered");
     expect(reg?.raw?.["azure.auditlogs.properties.initiatedBy.user.userPrincipalName"]).toBe("l.ferreira@nexacorp.com");
-    expect(reg?.raw?.["azure.auditlogs.properties.initiatedBy.user.ipAddress"]).toBe("185.220.101.47");
+    expect(reg?.raw?.["azure.auditlogs.properties.initiatedBy.user.ipAddress"]).toBe("5.181.234.19");
     // the takeover sign-in: unmanaged device, new geo, control-plane detection
     const takeover = s.events.find(e => e.id === "evt_hmr_07_new_geo_signin");
     expect(takeover?.raw?.["azure.signinlogs.properties.deviceDetail.isManaged"]).toBe("false");
