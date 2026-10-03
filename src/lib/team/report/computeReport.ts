@@ -49,6 +49,21 @@ export const OVERLOAD_MIN_MS = 60_000;
 export const MIN_MEASURED_CELLS = 2;
 
 const ATTACK_VERDICTS = new Set(["tp", "escalate"]);
+
+// ── "Good catch" model (Tal, 2026-10-03). An incident is built from several logs, so a
+// binary "someone flagged one log" over-credits a shallow catch. Catch quality is graded
+// per incident: a detection FLOOR, then TIMELINESS (MTTD vs an SLA by severity), SCOPE
+// COVERAGE (how much of the incident's logs/hosts/techniques the team actually surfaced),
+// and VERDICT quality (a firm TP beats a hedged "suspicious"). Thresholds are defaults and
+// live here so they are easy to tune.
+const SEV_RANK: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1, informational: 0, info: 0 };
+/** Time-to-detect SLA per max-severity of the incident, in seconds. */
+const SLA_SEC: Record<string, number> = { critical: 300, high: 900, medium: 1800, low: 3600 };
+const sevRank = (s: string) => SEV_RANK[s.toLowerCase().trim()] ?? 0;
+const slaForSev = (s: string) => SLA_SEC[s.toLowerCase().trim()] ?? 1800;
+/** A catch is "caught well" only at or above these; "partial" needs one of them. */
+const SCOPE_GOOD = 60, SCOPE_PARTIAL = 40;
+export type IncidentGrade = "missed" | "noticed" | "partial" | "caught_well";
 /** Triage SLA per severity — the same table the live alert queue uses (minutes). */
 const SLA_MIN: Record<string, number> = { critical: 1, high: 3, medium: 10 };
 const slaSecFor = (sev: string) => (SLA_MIN[sev] ?? 30) * 60;
@@ -116,6 +131,11 @@ export interface IncidentReport {
   id: string; label: string; attackEvents: number;
   detected: boolean; escalated: boolean; contained: boolean;
   firstSeenS: number | null; detectS: number | null; dwellS: number | null;
+  /** How much of the incident the team surfaced (built from several logs). */
+  scopeCoverage: number | null; hostCoverage: number | null; techCoverage: number | null;
+  /** Timeliness inputs + overall catch grade. */
+  maxSeverity: string; slaSec: number; slaMet: boolean | null;
+  handlingScore: number; grade: IncidentGrade;
 }
 export interface InjectResult {
   kind: string; text: string; expected: string; objective: string;
@@ -363,7 +383,7 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
 
   // ── Ground truth (contract 1). A missing verdict ⇒ benign; a malicious event without
   // an incident_id ⇒ its own incident ("solo:<id>", legacy = one incident per attack event).
-  interface Truth { isAttack: boolean; incident: string | null; supports: string | null; ts: number | null; label: string; tokens: Set<string>; technique: string; tactic: string }
+  interface Truth { isAttack: boolean; incident: string | null; supports: string | null; ts: number | null; label: string; tokens: Set<string>; technique: string; tactic: string; severity: string; host: string }
   const truth = new Map<string, Truth>();
   for (const fe of feed) {
     const p = fe.payload as Record<string, unknown>;
@@ -373,6 +393,7 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
       isAttack, incident: asStr(p.incident_id) || (isAttack ? `solo:${id}` : null), supports: asStr(p.supports_inject) || null,
       ts: tsOf(fe), label: asStr(p.description) || asStr(p.event_type) || "event", tokens: entityTokens(p),
       technique: String(p.mitre_technique ?? ""), tactic: String(p.mitre_tactic ?? ""),
+      severity: asStr(p.severity), host: asStr(p.hostname),
     });
   }
   const attackIds = new Set([...truth].filter(([, t]) => t.isAttack).map(([k]) => k));
@@ -442,6 +463,16 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
     if (!attackIds.has(s.eid) || (s.v !== "true_positive" && s.v !== "suspicious")) continue;
     const t = s.t ?? Infinity; if (!markedAttack.has(s.eid) || t < markedAttack.get(s.eid)!) markedAttack.set(s.eid, t);
   }
+  // Best standing verdict per attack log: a firm true_positive beats a hedged suspicious
+  // (feeds each incident's verdict quality in the "good catch" grade).
+  const attackVerdictKind = new Map<string, "tp" | "susp">();
+  for (const s of standing.values()) {
+    if (!attackIds.has(s.eid)) continue;
+    if (s.v === "true_positive") attackVerdictKind.set(s.eid, "tp");
+    else if (s.v === "suspicious" && !attackVerdictKind.has(s.eid)) attackVerdictKind.set(s.eid, "susp");
+  }
+  /** A malicious log is "surfaced" when the team escalated it or gave it a TP/suspicious verdict. */
+  const flaggedAttack = (eid: string) => escalatedAttack.has(eid) || markedAttack.has(eid);
   const executedEids = new Set(events.filter(e => e.type === "containment.executed").map(eidOf));
 
   // ── v4: EDR host isolation (0082). A host is COMPROMISED when it carried at least one
@@ -483,14 +514,48 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
     const detTs = escalated ? escTs : markTs;
     const contained = [...executedEids].some(eid => incidentOfEid(eid) === inc.id) || isolatedIncidents.has(inc.id);
     const detS = detTs != null && Number.isFinite(detTs) ? relS(detTs) : null;
+    const dwellS = detTs != null && Number.isFinite(detTs) && inc.firstSeen != null ? Math.max(0, Math.round(runMs(inc.firstSeen, detTs) / 1000)) : null;
+
+    // ── "Good catch" grade — the incident is built from several logs, so measure how much
+    // of it the team surfaced, not just whether one log was flagged.
+    const totalLogs = inc.attackEids.length;
+    const flaggedEids = inc.attackEids.filter(flaggedAttack);
+    const scopeCoverage = totalLogs ? Math.round((100 * flaggedEids.length) / totalLogs) : null;
+    const hostsOf = (eids: string[]) => new Set(eids.map(e => hostKey(truth.get(e)?.host ?? "")).filter(Boolean));
+    const techsOf = (eids: string[]) => new Set(eids.flatMap(e => [...techIds(truth.get(e)?.technique ?? "")].map(techBase)).filter(Boolean));
+    const allHosts = hostsOf(inc.attackEids), flagHosts = hostsOf(flaggedEids);
+    const allTechs = techsOf(inc.attackEids), flagTechs = techsOf(flaggedEids);
+    const hostCoverage = allHosts.size ? Math.round((100 * flagHosts.size) / allHosts.size) : null;
+    const techCoverage = allTechs.size ? Math.round((100 * flagTechs.size) / allTechs.size) : null;
+    const maxSeverity = inc.attackEids.reduce((best, e) => { const s = truth.get(e)?.severity ?? ""; return sevRank(s) > sevRank(best) ? s : best; }, "");
+    const slaSec = slaForSev(maxSeverity);
+    const slaMet = dwellS == null ? null : dwellS <= slaSec;
+    const verdictQ = inc.attackEids.some(e => attackVerdictKind.get(e) === "tp") ? 1
+      : inc.attackEids.some(e => attackVerdictKind.get(e) === "susp") ? 0.5
+        : escalated ? 0.25 : 0;
+    const timeliness = dwellS == null ? 0 : dwellS <= slaSec ? 1 : dwellS <= 2 * slaSec ? 0.6 : 0.3;
+    const handlingScore = !detected ? 0
+      : Math.round(40 + 20 * timeliness + 25 * ((scopeCoverage ?? 0) / 100) + 15 * verdictQ);
+    const grade: IncidentGrade = !detected ? "missed"
+      : (slaMet === true && (scopeCoverage ?? 0) >= SCOPE_GOOD && verdictQ >= 1) ? "caught_well"
+        : ((scopeCoverage ?? 0) >= SCOPE_PARTIAL || slaMet === true || verdictQ >= 0.5) ? "partial"
+          : "noticed";
+
     return {
       id: inc.id, label: inc.label.slice(0, 140), attackEvents: inc.attackEids.length, detected, escalated, contained,
-      firstSeenS: relS(inc.firstSeen), detectS: detS,
-      dwellS: detTs != null && Number.isFinite(detTs) && inc.firstSeen != null ? Math.max(0, Math.round(runMs(inc.firstSeen, detTs) / 1000)) : null,
+      firstSeenS: relS(inc.firstSeen), detectS: detS, dwellS,
+      scopeCoverage, hostCoverage, techCoverage, maxSeverity, slaSec, slaMet, handlingScore, grade,
     };
   }).sort((a, b) => (a.firstSeenS ?? 0) - (b.firstSeenS ?? 0));
   const incidentsDetected = incidentList.filter(i => i.detected).length;
   const incidentRecall = pct(incidentsDetected, incidentList.length);
+  // Graded "good catch" tallies for the team headline.
+  const incidentsCaughtWell = incidentList.filter(i => i.grade === "caught_well").length;
+  const incidentsPartial = incidentList.filter(i => i.grade === "partial").length;
+  const incidentsNoticed = incidentList.filter(i => i.grade === "noticed").length;
+  const incidentsMissed = incidentList.filter(i => i.grade === "missed").length;
+  const avgScopeCoverage = incidentList.length ? Math.round(incidentList.reduce((s, i) => s + (i.scopeCoverage ?? 0), 0) / incidentList.length) : null;
+  const avgHandlingScore = incidentList.length ? Math.round(incidentList.reduce((s, i) => s + i.handlingScore, 0) / incidentList.length) : null;
 
   /** Escalation precision judged per INCIDENT: every distinct target is one row — a real
    *  incident (1, however many of its logs you escalated), the control log of a real
@@ -1058,6 +1123,9 @@ export function computeReport(events: Ev[], roster: RosterMember[]) {
     version: REPORT_VERSION,
     logs: feed.length, attacks: attackIds.size, detected, timeToDetectS,
     incidentsTotal: incidentList.length, incidentsDetected, incidentRecall, incidents: incidentList.slice(0, 12),
+    // ── "Good catch" grading (per incident, built from several logs) ──
+    incidentsCaughtWell, incidentsPartial, incidentsNoticed, incidentsMissed,
+    avgScopeCoverage, avgHandlingScore,
     escalations: escReq.length, acknowledged: events.filter(e => e.type === "escalation.acknowledged").length,
     containmentReq: events.filter(e => e.type === "containment.requested").length,
     contained: events.filter(e => e.type === "containment.approved").length,

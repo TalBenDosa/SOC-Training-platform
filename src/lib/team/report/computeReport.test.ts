@@ -795,3 +795,66 @@ describe("computeReport — v4: EDR host isolation judged against the answer key
     expect(r.team.hostsLeftOnline.map(h => h.host)).toEqual(["WS-FIN-2847", "SRV-DB-01"]);
   });
 });
+
+// ── "good catch" grading (an incident is built from several logs) ──────────────
+describe("computeReport — incident catch grade (scope coverage + timeliness + verdict)", () => {
+  // A 3-log incident on three hosts; vary what the team surfaces.
+  const incident = (api: ReturnType<typeof log>) => {
+    api.add("feed.event", null, 1, { id: "a1", expected_verdict: "tp", incident_id: "inc-1", severity: "high", hostname: "H1", mitre_technique: "T1059" });
+    api.add("feed.event", null, 2, { id: "a2", expected_verdict: "tp", incident_id: "inc-1", severity: "high", hostname: "H2", mitre_technique: "T1021" });
+    api.add("feed.event", null, 3, { id: "a3", expected_verdict: "tp", incident_id: "inc-1", severity: "high", hostname: "H3", mitre_technique: "T1048" });
+    api.add("feed.event", null, 4, { id: "n1", expected_verdict: "benign", severity: "low", hostname: "H9" });
+    return api;
+  };
+  const inc = (r: ReturnType<typeof computeReport>) => r.team.incidents.find(i => i.id === "inc-1")!;
+
+  it("caught_well: ≥60% scope, within SLA, firm TP verdict", () => {
+    const api = incident(log());
+    api.add("disposition.set", "a", 60, { event_id: "a1", verdict: "true_positive" }, "t1");
+    api.add("disposition.set", "a", 90, { event_id: "a2", verdict: "true_positive" }, "t1");
+    const i = inc(computeReport(api.events, [member("a", "t1")]));
+    expect(i.scopeCoverage).toBe(67);          // 2 of 3 logs
+    expect(i.slaMet).toBe(true);               // dwell 59s ≤ 900s (high)
+    expect(i.grade).toBe("caught_well");
+    expect(i.handlingScore).toBeGreaterThanOrEqual(85);
+  });
+
+  it("partial: within SLA but low scope (1 of 3)", () => {
+    const api = incident(log());
+    api.add("disposition.set", "a", 60, { event_id: "a1", verdict: "true_positive" }, "t1");
+    const i = inc(computeReport(api.events, [member("a", "t1")]));
+    expect(i.scopeCoverage).toBe(33);
+    expect(i.grade).toBe("partial");
+  });
+
+  it("noticed: a single late escalation, no firm verdict", () => {
+    const api = incident(log());
+    api.add("escalation.requested", "a", 2400, { event_id: "a1" }, "t1"); // >2×SLA, dwell ~2399s
+    const i = inc(computeReport(api.events, [member("a", "t1")]));
+    expect(i.detected).toBe(true);
+    expect(i.slaMet).toBe(false);
+    expect(i.scopeCoverage).toBe(33);
+    expect(i.grade).toBe("noticed");
+  });
+
+  it("missed: no action on any of the incident's logs", () => {
+    const api = incident(log());
+    const r = computeReport(api.events, [member("a", "t1")]);
+    const i = inc(r);
+    expect(i.detected).toBe(false);
+    expect(i.grade).toBe("missed");
+    expect(i.handlingScore).toBe(0);
+    expect(r.team.incidentsMissed).toBe(1);
+    expect(r.team.incidentsCaughtWell).toBe(0);
+  });
+
+  it("team tallies + averages aggregate per grade", () => {
+    const api = incident(log());
+    api.add("disposition.set", "a", 60, { event_id: "a1", verdict: "true_positive" }, "t1");
+    api.add("disposition.set", "a", 90, { event_id: "a2", verdict: "true_positive" }, "t1");
+    const r = computeReport(api.events, [member("a", "t1")]);
+    expect(r.team.incidentsCaughtWell).toBe(1);
+    expect(r.team.avgScopeCoverage).toBe(67);
+    expect(r.team.avgHandlingScore).toBeGreaterThanOrEqual(85);
+  });
+});

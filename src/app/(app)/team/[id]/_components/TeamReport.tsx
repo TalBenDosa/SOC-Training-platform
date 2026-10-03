@@ -505,23 +505,42 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
             <h3 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldAlert className="h-4 w-4 text-cyber-300" /> Incidents — did we catch each one?</h3>
             <span className="font-mono text-[10px] text-slate-400">{incDetected}/{incTotal} detected</span>
           </div>
-          <p className="mt-1 text-[11px] text-slate-400">Scored per incident, not per log: an incident counts as caught once <b className="text-slate-300">any</b> of its attack logs was escalated or marked true positive / suspicious.</p>
+          <p className="mt-1 text-[11px] text-slate-400">An incident is built from several logs, so a catch is <b className="text-slate-300">graded</b>, not yes/no: detection, timeliness vs SLA, how much of the incident you surfaced (scope), and verdict quality.</p>
+          {typeof team.incidentsCaughtWell === "number" && (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[9px] font-bold uppercase">
+              <span className="rounded border border-neon-green/40 bg-neon-green/10 px-1.5 py-0.5 text-neon-green">{team.incidentsCaughtWell} caught well</span>
+              <span className="rounded border border-neon-amber/40 bg-neon-amber/10 px-1.5 py-0.5 text-neon-amber">{team.incidentsPartial ?? 0} partial</span>
+              <span className="rounded border border-neon-amber/25 bg-neon-amber/5 px-1.5 py-0.5 text-neon-amber/70">{team.incidentsNoticed ?? 0} noticed</span>
+              <span className="rounded border border-severity-high/50 bg-severity-high/15 px-1.5 py-0.5 text-severity-high">{team.incidentsMissed ?? 0} missed</span>
+              {team.avgScopeCoverage != null && <span className="ml-auto font-mono normal-case text-slate-400">avg scope {team.avgScopeCoverage}%</span>}
+            </div>
+          )}
           <div className="mt-3 space-y-2">
-            {incidents.map(inc => (
+            {incidents.map(inc => {
+              const meta = inc.grade === "caught_well" ? { label: "caught well", cls: "border-neon-green/40 bg-neon-green/10 text-neon-green" }
+                : inc.grade === "partial" ? { label: "partial", cls: "border-neon-amber/40 bg-neon-amber/10 text-neon-amber" }
+                : inc.grade === "noticed" ? { label: "noticed", cls: "border-neon-amber/25 bg-neon-amber/5 text-neon-amber/80" }
+                : inc.grade === "missed" ? { label: "missed", cls: "border-severity-high/50 bg-severity-high/15 text-severity-high" }
+                // Fallback for reports cached before grading existed.
+                : { label: !inc.detected ? "missed" : inc.escalated ? "escalated" : "marked only", cls: !inc.detected ? "border-severity-high/50 bg-severity-high/15 text-severity-high" : inc.escalated ? "border-neon-green/40 bg-neon-green/10 text-neon-green" : "border-neon-amber/40 bg-neon-amber/10 text-neon-amber" };
+              return (
               <div key={inc.id} className="rounded-lg border border-border/50 bg-bg px-2.5 py-2">
                 <div className="flex items-start gap-2">
                   <span className="min-w-0 flex-1 text-[11px] text-slate-300">{inc.label}</span>
-                  <span className={`shrink-0 rounded border px-1 py-0.5 text-[9px] font-bold uppercase ${!inc.detected ? "border-severity-high/50 bg-severity-high/15 text-severity-high" : inc.escalated ? "border-neon-green/40 bg-neon-green/10 text-neon-green" : "border-neon-amber/40 bg-neon-amber/10 text-neon-amber"}`}>{!inc.detected ? "missed" : inc.escalated ? "escalated" : "marked only"}</span>
+                  <span className={`shrink-0 rounded border px-1 py-0.5 text-[9px] font-bold uppercase ${meta.cls}`}>{meta.label}</span>
                 </div>
                 <p className="mt-1 text-[10px] text-slate-500">
                   {inc.attackEvents} attack log{inc.attackEvents === 1 ? "" : "s"}
+                  {inc.scopeCoverage != null ? ` · scope ${inc.scopeCoverage}%` : ""}
                   {inc.firstSeenS != null ? ` · first seen ${inc.firstSeenS}s` : ""}
                   {inc.detected && inc.detectS != null ? ` · caught at ${inc.detectS}s` : ""}
-                  {inc.detected && inc.dwellS != null ? ` (${inc.dwellS}s after it surfaced)` : ""}
+                  {inc.detected && inc.dwellS != null ? ` (${inc.dwellS}s after it surfaced` : ""}
+                  {inc.detected && inc.dwellS != null && inc.slaMet != null ? `, ${inc.slaMet ? "within" : "past"} SLA)` : inc.detected && inc.dwellS != null ? ")" : ""}
                   {inc.contained ? " · contained" : ""}
                 </p>
               </div>
-            ))}
+              );
+            })}
           </div>
         </Card>
       )}
