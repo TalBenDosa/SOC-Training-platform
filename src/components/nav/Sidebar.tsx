@@ -7,6 +7,7 @@ import { Logo } from "../Logo";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useOrgContext } from "@/lib/auth/useOrgContext";
 import { EnvironmentSwitcher } from "./EnvironmentSwitcher";
+import { MyEnvironmentSwitcher } from "./MyEnvironmentSwitcher";
 import {
   LayoutDashboard, BookOpen, TrendingUp, Target, ClipboardList, Wrench, DoorOpen, Menu, X, LogOut, LogIn, Award, ShieldCheck, Building2, Flag, Library, Users,
 } from "lucide-react";
@@ -193,6 +194,9 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
             <span>Team Training</span>
           </Link>
         )}
+        {/* Switch environment — shown only to a regular member who belongs to ≥2
+            environments (e.g. individual + a college joined by access code). */}
+        <MyEnvironmentSwitcher onNavigate={onNavigate} />
         {/* Org-admin console — a college managing its own class. Claim-gated in
             the UI; enforced by middleware + the org-scoped API routes. */}
         {orgRole === "org_admin" && !isPlatformAdmin && (
