@@ -162,14 +162,20 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
           the learner nav above so it doesn't read as part of the student's
           own toolkit (see PLATFORM_REVIEW.md P2.2). */}
       <div className="border-t border-border px-3 py-2">
-        <Link
-          href={DEV_TOOLS_ITEM.href}
-          onClick={onNavigate}
-          className="flex items-center gap-2.5 rounded-md px-3 py-1.5 text-xs text-slate-400 hover:bg-white/5 hover:text-white transition-colors"
-        >
-          <DEV_TOOLS_ITEM.icon className="h-3.5 w-3.5 shrink-0" />
-          <span>{DEV_TOOLS_ITEM.label}</span>
-        </Link>
+        {/* Content-authoring tools are staff-only. Students must not see this (client
+            feedback): /admin is gated to profiles.role='admin' in middleware, so showing
+            the link to anyone else just bounces them with a confusing "forbidden". Gate the
+            link to the SAME claim the middleware enforces. */}
+        {isPlatformAdmin && (
+          <Link
+            href={DEV_TOOLS_ITEM.href}
+            onClick={onNavigate}
+            className="flex items-center gap-2.5 rounded-md px-3 py-1.5 text-xs text-slate-400 hover:bg-white/5 hover:text-white transition-colors"
+          >
+            <DEV_TOOLS_ITEM.icon className="h-3.5 w-3.5 shrink-0" />
+            <span>{DEV_TOOLS_ITEM.label}</span>
+          </Link>
+        )}
         {/* Student-reported content problems. Sits next to the other content
             tools because that's what it is — a work queue for the person who
             maintains the material. The count is the point: an unread report is

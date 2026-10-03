@@ -4,6 +4,7 @@ import { MotionProvider } from "@/components/MotionProvider";
 import { EarnMoment } from "@/components/EarnMoment";
 import { SyncStatus } from "@/components/system/SyncStatus";
 import { OrgContentNotice } from "@/components/system/OrgContentNotice";
+import { AccessDeniedNotice } from "@/components/system/AccessDeniedNotice";
 import { ReportProblem } from "@/components/feedback/ReportProblem";
 import { PlanAnnouncementModal } from "@/components/plans/PlanAnnouncementModal";
 import { affiliationExpired } from "@/lib/org/affiliationGate";
@@ -23,6 +24,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <main id="main-content" className="flex-1 min-w-0">{children}</main>
       </div>
       <EarnMoment />
+      {/* Clear notice when the middleware bounced the user off a staff-only area
+          (?reason=forbidden) — replaces the old silent redirect to the landing page. */}
+      <AccessDeniedNotice />
       {/* Silent unless a write actually failed — see syncState.ts */}
       <SyncStatus />
       <OrgContentNotice />

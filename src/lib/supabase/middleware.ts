@@ -171,7 +171,7 @@ export async function refreshSupabaseSession(req: NextRequest, res: NextResponse
     // Fail closed: a missing profile row, a read error, OR an auth-provider
     // timeout is NOT admin.
     if (profileResult === AUTH_TIMEOUT || profileResult.data?.role !== "admin") {
-      return NextResponse.redirect(new URL("/?reason=forbidden", req.url));
+      return NextResponse.redirect(new URL("/rooms?reason=forbidden", req.url));
     }
   }
 
@@ -184,12 +184,12 @@ export async function refreshSupabaseSession(req: NextRequest, res: NextResponse
 
   // The super-admin console is platform-admin only.
   if (isSuperadminPath(pathname) && !claim.isPlatformAdmin) {
-    return NextResponse.redirect(new URL("/?reason=forbidden", req.url));
+    return NextResponse.redirect(new URL("/rooms?reason=forbidden", req.url));
   }
 
   // The org-admin console is for org_admins (and the platform admin).
   if (isManagePath(pathname) && !claim.isPlatformAdmin && claim.orgRole !== "org_admin") {
-    return NextResponse.redirect(new URL("/?reason=forbidden", req.url));
+    return NextResponse.redirect(new URL("/rooms?reason=forbidden", req.url));
   }
 
   // A college whose license expired or was suspended is locked to the notice
