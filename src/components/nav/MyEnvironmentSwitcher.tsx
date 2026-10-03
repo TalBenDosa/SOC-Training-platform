@@ -1,15 +1,19 @@
 "use client";
 /**
- * Environment switcher for a REGULAR user who belongs to more than one environment
- * (e.g. an individual account that also redeemed a college's access code). A small
- * control next to "Team Training"; it only appears when the user actually has ≥2
- * environments, so a single-environment student never sees it.
+ * Multi-environment controls for a REGULAR user, next to "Team Training".
+ *
+ * The model (Tal): one access code per environment — a user who redeemed TWO codes
+ * belongs to two environments. So:
+ *   - "Join another environment" (→ /join, which redeems a code onto the signed-in
+ *     account) is offered to every member, so a single-environment user can add one.
+ *   - "Switch environment" appears ONLY once the user actually belongs to ≥2
+ *     environments (redeemed ≥2 codes) — a single-environment student never sees it.
  *
  * The platform super-admin has their own cross-tenant switcher (EnvironmentSwitcher),
- * so this renders nothing for them to avoid two switchers.
+ * so this renders nothing for them.
  */
 import { useEffect, useState } from "react";
-import { ChevronsUpDown, Check, Loader2, Layers } from "lucide-react";
+import { ChevronsUpDown, Check, Loader2, Layers, Plus } from "lucide-react";
 import { useOrgContext } from "@/lib/auth/useOrgContext";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -22,7 +26,7 @@ export function MyEnvironmentSwitcher({ onNavigate }: { onNavigate?: () => void 
   const [switching, setSwitching] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Only org members (not guests / no-org) and not the super-admin fetch the list.
+  // Only org members (not guests / no-org) and not the super-admin.
   const eligible = !loading && !isPlatformAdmin && !!orgRole;
   useEffect(() => {
     if (!eligible || envs !== null) return;
@@ -32,10 +36,24 @@ export function MyEnvironmentSwitcher({ onNavigate }: { onNavigate?: () => void 
       .catch(() => setEnvs([]));
   }, [eligible, envs]);
 
-  // Render nothing unless there's a real choice to make.
-  if (!eligible || !envs || envs.length < 2) return null;
-  const current = envs.find(e => e.is_current);
+  if (!eligible || !envs || envs.length === 0) return null;
 
+  const goJoin = () => { onNavigate?.(); window.location.href = "/join"; };
+
+  // Single environment → just the way to add a second (enter another access code).
+  if (envs.length < 2) {
+    return (
+      <button
+        onClick={goJoin}
+        className="mt-0.5 flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-xs text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
+      >
+        <Plus className="h-3.5 w-3.5 shrink-0" />
+        <span>Join another environment</span>
+      </button>
+    );
+  }
+
+  const current = envs.find(e => e.is_current);
   async function switchTo(orgId: string) {
     if (switching) return;
     setSwitching(orgId);
@@ -90,6 +108,13 @@ export function MyEnvironmentSwitcher({ onNavigate }: { onNavigate?: () => void 
             </button>
           ))}
           {error && <p className="px-2 py-1 text-[10px] text-severity-high">{error}</p>}
+          <button
+            onClick={goJoin}
+            className="flex w-full items-center gap-2 rounded border-t border-border/60 px-2 py-1.5 text-left text-xs text-cyber-300 transition hover:bg-white/5"
+          >
+            <Plus className="h-3.5 w-3.5 shrink-0" />
+            <span>Join another environment</span>
+          </button>
         </div>
       )}
     </div>
