@@ -432,9 +432,9 @@ const activeDirectory: Room = {
       type: "flag",
       id: "ad-flag2",
       prompt:
-        "Look at the NTLM relay log analysis event above. What is the exact PreAuthType-style detection field that revealed the mismatch — specifically, what IP address did the relayed authentication actually originate from (the 'IpAddress' field in the raw log)? Enter the exact IP address.",
+        "Look at the NTLM relay event in the 'Mismatched Workstation Name' log analysis above (Event ID 4624). Read the raw field 'winlog.event_data.IpAddress' — the true network source the logon arrived from. Note this is NOT the 10.20.4.47 address that the DHCP lease table assigns to WKS-L-HARPER. Enter the exact IP address from the IpAddress field.",
       answer: "10.20.4.91",
-      hint: "Look at the 'winlog.event_data.IpAddress' field in the raw log — this is the true network source of the NTLM authentication, which does not match the claimed WorkstationName's real device.",
+      hint: "Look at the 'winlog.event_data.IpAddress' field in the raw log — this is the true network source of the NTLM authentication, which does not match the claimed WorkstationName's real device. Do not use the address from the asset.dhcp_lease_WKS-L-HARPER field.",
       xp: 35,
     } satisfies FlagTask,
 

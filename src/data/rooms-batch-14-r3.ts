@@ -764,9 +764,9 @@ const edgeCaseRoom = {
       type: "flag" as const,
       id: "edge-f1",
       prompt:
-        "Look at the LOLBin regsvr32 event. Compare the change_management.scheduled_window start time to the change_management.actual_time the command actually ran. How many minutes EARLY did the command execute relative to the start of the approved maintenance window? (Enter a number only.)",
+        "Look at the LOLBin regsvr32 event. Compare the change_management.scheduled_window start time to the change_management.actual_time the command actually ran. How many minutes EARLY did the command execute relative to the start of the approved maintenance window? Round to the NEAREST whole minute. (Enter a number only.)",
       answer: "5",
-      hint: "Take the START of the scheduled window (the first timestamp in that field) and subtract the actual run time. Round down to whole minutes.",
+      hint: "Take the START of the scheduled window (the first timestamp in that field, 20:00:00Z) and subtract the actual run time (19:55:03Z). The gap is 4 minutes 57 seconds — round it to the nearest whole minute.",
       xp: 25,
     },
 

@@ -500,7 +500,7 @@ const vulnerabilityManagementRoom = {
       prompt:
         "Look at the Log Analysis finding on portal-web03. What is the exact value of the tenable.epss_score field in the raw log? Enter it exactly as shown (a decimal, not a percentage).",
       answer: "0.94",
-      hint: "Look inside the raw block of the vulnScanEvent for the field named tenable.epss_score.",
+      hint: "Look inside the raw block of the portal-web03 finding (the nightly authenticated scan, not the api-gw02 verdict scenario) for the field named tenable.epss_score.",
       xp: 25,
     },
   ],
