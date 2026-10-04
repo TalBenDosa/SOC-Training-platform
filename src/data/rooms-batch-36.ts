@@ -578,6 +578,11 @@ const macosSecurityFundamentalsRoom = {
     {
       type: "flag" as const,
       id: "macf-f1",
+      // Pin the TCC.db-write finding (macf-la1) this flag reads. Unpinned, the room
+      // shows the nearest preceding log — macf-ac1's benign notarized-install verdict
+      // event — a decoy; and even the nearest log_analysis is macf-la2 (the osascript
+      // chain), not the TCC.db write, so this flag must name its event explicitly.
+      event: tccWriteEvent,
       prompt:
         "Look at the Log Analysis finding on MAC-4471 (the TCC.db write). What is the exact value of the crowdstrike.ParentProcessName field in the raw log?",
       answer: "sh",

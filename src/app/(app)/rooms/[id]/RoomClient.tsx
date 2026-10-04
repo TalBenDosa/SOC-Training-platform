@@ -469,12 +469,25 @@ export function RoomClient({ room }: RoomClientProps) {
           if (t.type === "log_analysis") { n++; if (n === Number(m[1])) { prevLogEvent = t.event; break; } }
         }
       }
-      // Fallback: the nearest preceding log (log_analysis or analyst_choice).
+      // Fallback: the nearest preceding log. Normally that's whichever of
+      // log_analysis / analyst_choice comes last, but a flag whose prompt names a
+      // "log analysis" finding wants a log_analysis event specifically — an
+      // intervening "Verdict" analyst_choice must not shadow it (the decoy-log bug:
+      // the flag asks about an la event while the ac verdict event, often carrying a
+      // look-alike value, is shown instead). So when the prompt says "log analysis",
+      // prefer the nearest preceding log_analysis, falling back to the nearest log of
+      // either kind only if there is no log_analysis at all.
       if (!prevLogEvent) {
+        const wantsLogAnalysis = /log[-\s]?analysis/i.test(currentTask.prompt ?? "");
+        let nearestLog, nearestLogAnalysis;
         for (let i = currentTaskIndex - 1; i >= 0; i--) {
           const t = room.tasks[i];
-          if (t.type === "log_analysis" || t.type === "analyst_choice") { prevLogEvent = t.event; break; }
+          if (t.type === "log_analysis" || t.type === "analyst_choice") {
+            if (!nearestLog) nearestLog = t;
+            if (t.type === "log_analysis") { nearestLogAnalysis = t; break; }
+          }
         }
+        prevLogEvent = (wantsLogAnalysis && nearestLogAnalysis ? nearestLogAnalysis : nearestLog)?.event;
       }
     }
   }

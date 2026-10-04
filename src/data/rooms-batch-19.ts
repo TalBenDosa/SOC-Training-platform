@@ -497,6 +497,10 @@ const vulnerabilityManagementRoom = {
     {
       type: "flag" as const,
       id: "vm-f1",
+      // Pin the portal-web03 finding this flag reads. Unpinned, the room falls back to
+      // the nearest preceding log — vm-ac1's api-gw02 verdict event, whose
+      // tenable.epss_score is 0.02 — a decoy that doesn't match the answer (0.94).
+      event: vulnScanEvent,
       prompt:
         "Look at the Log Analysis finding on portal-web03. What is the exact value of the tenable.epss_score field in the raw log? Enter it exactly as shown (a decimal, not a percentage).",
       answer: "0.94",

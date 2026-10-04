@@ -580,6 +580,10 @@ const becInvestigationRoom = {
     {
       type: "flag" as const,
       id: "bec-f1",
+      // Pin the New-InboxRule finding this flag reads. Unpinned, the room falls back
+      // to the nearest preceding log — bec-ac1's legitimate-forward verdict event —
+      // which carries a different ClientIP and acts as a decoy.
+      event: becInboxRuleEvent,
       prompt:
         "Look at the Log Analysis finding on the New-InboxRule operation (the rule concealing Cascade Fabrication's replies). What is the exact value of the data.office365.ClientIP field in the raw log?",
       answer: "154.72.18.63",
