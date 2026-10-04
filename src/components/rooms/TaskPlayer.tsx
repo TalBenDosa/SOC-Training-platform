@@ -21,6 +21,7 @@ import { useTaskTelemetry, type TaskTelemetryEntry } from "@/lib/useTaskTelemetr
 import { MermaidDiagram } from "./MermaidDiagram";
 import { RichText } from "@/components/lessons/RichText";
 import { LessonFigure } from "@/components/lessons/LessonFigure";
+import { LessonVideo } from "@/components/lessons/LessonVideo";
 import { displayOptions, newShuffleSeed, optionDisplayOrder, remapOptionLetters, shuffleWithSeed } from "@/lib/rooms/shuffle";
 import { saveTaskReview, type ReviewRecord } from "./reviewStore";
 import { ListenButton } from "@/components/media/ListenButton";
@@ -431,6 +432,7 @@ export function ReadingBody({ task }: { task: ReadingTask }) {
         <h2 className="text-3xl font-bold text-white leading-tight">{task.heading}</h2>
         <ListenButton text={`${task.heading}.\n\n${task.content}`} />
       </div>
+      {task.video && <LessonVideo video={task.video} />}
       <RichContent content={task.content} />
       {task.diagram && <MermaidDiagram chart={task.diagram} caption={task.diagramCaption} />}
       {task.image && <LessonFigure image={task.image} />}

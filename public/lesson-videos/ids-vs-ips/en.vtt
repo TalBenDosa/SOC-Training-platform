@@ -1,0 +1,125 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:03.790
+These are two of the most confused tools in all of security.
+
+2
+00:00:03.790 --> 00:00:07.890
+One letter apart, and even experienced analysts mix them up.
+
+3
+00:00:07.890 --> 00:00:13.390
+But one simple fact separates them, and it has nothing to do with which one is smarter.
+
+4
+00:00:13.890 --> 00:00:15.930
+The whole secret is placement.
+
+5
+00:00:15.930 --> 00:00:20.590
+Not the signatures they know, not how clever the logic is, not the price.
+
+6
+00:00:20.590 --> 00:00:25.560
+Just one question: where does the box physically sit, relative to the traffic?
+
+7
+00:00:25.560 --> 00:00:32.450
+Think of protecting a building. You can put a guard in the only doorway, or mount a camera on the wall that watches it.
+
+8
+00:00:32.450 --> 00:00:35.980
+Same event, a completely different power to act.
+
+9
+00:00:36.480 --> 00:00:39.190
+The inline system is the guard in the doorway.
+
+10
+00:00:39.190 --> 00:00:44.830
+It sits directly in the path, so every packet must pass through it to reach its destination.
+
+11
+00:00:44.830 --> 00:00:52.850
+So it can inspect each packet in real time and decide on the spot: allow it, drop it, or reset the connection.
+
+12
+00:00:52.850 --> 00:00:56.670
+The malicious payload is stopped before it ever reaches its target.
+
+13
+00:00:56.670 --> 00:01:02.690
+On a modern next-generation firewall, this is usually just a threat-prevention profile, built right in.
+
+14
+00:01:03.190 --> 00:01:06.410
+The out-of-band system is the camera on the wall.
+
+15
+00:01:06.410 --> 00:01:09.360
+It sits off to the side, not in the path at all.
+
+16
+00:01:09.360 --> 00:01:17.300
+A network tap, or a switch's span port, feeds it a copy, while the original packets keep flowing to their destination.
+
+17
+00:01:17.300 --> 00:01:23.280
+So by the time it matches the copy and raises an alert, the real packet has already been delivered.
+
+18
+00:01:23.280 --> 00:01:28.460
+It can tell you an attack happened. It can never stop it. It only ever had a copy.
+
+19
+00:01:28.960 --> 00:01:31.770
+Now, here's the part that surprises people.
+
+20
+00:01:31.770 --> 00:01:34.390
+It is not that one of them has a better brain.
+
+21
+00:01:34.390 --> 00:01:37.270
+Both can run the exact same detection engine.
+
+22
+00:01:37.270 --> 00:01:42.720
+Suricata produces identical alerts whether it runs inline or out-of-band.
+
+23
+00:01:42.720 --> 00:01:50.590
+The only field that changes is the alert action: allowed when nothing could be blocked, versus blocked or dropped when it runs inline.
+
+24
+00:01:51.090 --> 00:01:55.340
+And because they share the detection method, they share the same weakness.
+
+25
+00:01:55.340 --> 00:02:02.040
+A signature broad enough to catch a real attack will sometimes match legitimate traffic that just looks similar.
+
+26
+00:02:02.040 --> 00:02:08.140
+A scanner's banner, a load balancer's health check, an old app using a deprecated protocol.
+
+27
+00:02:08.140 --> 00:02:13.660
+That false positive shows up in both of them, because it comes from the detection, not the placement.
+
+28
+00:02:14.160 --> 00:02:20.210
+So, prevent or detect? The answer was never about buying a smarter product.
+
+29
+00:02:20.210 --> 00:02:22.080
+It's about where you put it.
+
+30
+00:02:22.080 --> 00:02:29.140
+Inline, it stops the attack in real time. Out-of-band, it can only watch it go by and tell you afterward.
+
+31
+00:02:29.140 --> 00:02:34.180
+One guards the door. The other watches it. Same engine, different job.

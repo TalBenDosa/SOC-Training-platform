@@ -47,6 +47,15 @@ const protocolsMasterclass = {
       type: "reading" as const,
       id: "proto-r1",
       heading: "The OSI Model and TCP/IP: How Network Communication Is Organized",
+      video: {
+        src: "/lesson-videos/osi-model/osi-model.mp4",
+        caption: "Explainer — The OSI Model · subtitles: English · עברית · Español (CC menu)",
+        tracks: [
+          { srclang: "en", label: "English", src: "/lesson-videos/osi-model/en.vtt", default: true },
+          { srclang: "he", label: "עברית", src: "/lesson-videos/osi-model/he.vtt" },
+          { srclang: "es", label: "Español", src: "/lesson-videos/osi-model/es.vtt" },
+        ],
+      },
       content:
         `Every network conversation that happens in your organization — a user loading a webpage, an attacker exfiltrating data, a workstation querying Active Directory — follows a set of rules that organize how information travels from one machine to another. Those rules are captured in two related models: the OSI model and the TCP/IP model.\n\n` +
         `**The OSI Model (Open Systems Interconnection)**\n\n` +

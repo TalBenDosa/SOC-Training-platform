@@ -1,0 +1,125 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:03.790
+Estas son dos de las herramientas más confundidas de toda la seguridad.
+
+2
+00:00:03.790 --> 00:00:07.890
+Separadas por una sola letra, hasta los analistas con experiencia las confunden.
+
+3
+00:00:07.890 --> 00:00:13.390
+Pero un hecho simple las separa, y no tiene nada que ver con cuál es más inteligente.
+
+4
+00:00:13.890 --> 00:00:15.930
+Todo el secreto está en la ubicación.
+
+5
+00:00:15.930 --> 00:00:20.590
+No las firmas que conocen, ni lo lista que sea la lógica, ni el precio.
+
+6
+00:00:20.590 --> 00:00:25.560
+Solo una pregunta: ¿dónde se ubica físicamente el equipo respecto al tráfico?
+
+7
+00:00:25.560 --> 00:00:32.450
+Piensa en proteger un edificio. Puedes poner un guardia en la única puerta, o montar una cámara que la vigile.
+
+8
+00:00:32.450 --> 00:00:35.980
+El mismo evento, pero un poder de actuar completamente distinto.
+
+9
+00:00:36.480 --> 00:00:39.190
+El sistema en línea es el guardia en la puerta.
+
+10
+00:00:39.190 --> 00:00:44.830
+Se ubica directamente en la ruta, así que cada paquete debe atravesarla para llegar a su destino.
+
+11
+00:00:44.830 --> 00:00:52.850
+Por eso puede inspeccionar cada paquete en tiempo real y decidir al instante: permitir, descartar o reiniciar la conexión.
+
+12
+00:00:52.850 --> 00:00:56.670
+La carga maliciosa se detiene antes de llegar a su objetivo.
+
+13
+00:00:56.670 --> 00:01:02.690
+En un firewall moderno de nueva generación, suele ser un perfil de prevención de amenazas ya integrado.
+
+14
+00:01:03.190 --> 00:01:06.410
+El sistema fuera de banda es la cámara en la pared.
+
+15
+00:01:06.410 --> 00:01:09.360
+Está a un lado, no en la ruta en absoluto.
+
+16
+00:01:09.360 --> 00:01:17.300
+Un TAP de red, o un puerto SPAN de un switch, le entrega una copia, mientras los paquetes originales siguen hacia su destino.
+
+17
+00:01:17.300 --> 00:01:23.280
+Así que cuando detecta la copia y genera una alerta, el paquete real ya fue entregado.
+
+18
+00:01:23.280 --> 00:01:28.460
+Puede decirte que ocurrió un ataque. Nunca puede detenerlo. Solo tuvo una copia.
+
+19
+00:01:28.960 --> 00:01:31.770
+Ahora, aquí viene lo que sorprende a la gente.
+
+20
+00:01:31.770 --> 00:01:34.390
+No es que una tenga mejor cerebro.
+
+21
+00:01:34.390 --> 00:01:37.270
+Ambas pueden ejecutar exactamente el mismo motor de detección.
+
+22
+00:01:37.270 --> 00:01:42.720
+Suricata produce alertas idénticas, ya sea en línea o fuera de banda.
+
+23
+00:01:42.720 --> 00:01:50.590
+El único campo que cambia es la acción de la alerta: allowed cuando nada se pudo bloquear, frente a blocked o dropped cuando está en línea.
+
+24
+00:01:51.090 --> 00:01:55.340
+Y como comparten el método de detección, comparten la misma debilidad.
+
+25
+00:01:55.340 --> 00:02:02.040
+Una firma lo bastante amplia para atrapar un ataque real a veces coincide con tráfico legítimo que solo se parece.
+
+26
+00:02:02.040 --> 00:02:08.140
+El banner de un escáner, el chequeo de un balanceador de carga, una app vieja con un protocolo obsoleto.
+
+27
+00:02:08.140 --> 00:02:13.660
+Ese falso positivo aparece en ambas, porque viene de la detección, no de la ubicación.
+
+28
+00:02:14.160 --> 00:02:20.210
+Entonces, ¿prevenir o detectar? La respuesta nunca fue comprar un producto más inteligente.
+
+29
+00:02:20.210 --> 00:02:22.080
+Se trata de dónde lo colocas.
+
+30
+00:02:22.080 --> 00:02:29.140
+En línea, detiene el ataque en tiempo real. Fuera de banda, solo lo ve pasar y te avisa después.
+
+31
+00:02:29.140 --> 00:02:34.180
+Uno vigila la puerta. El otro la observa. El mismo motor, distinto trabajo.

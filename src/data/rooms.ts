@@ -111,6 +111,20 @@ export interface ReadingTask {
    */
   image?: { src: string; alt: string; caption?: string; credit?: string };
   /**
+   * Optional self-hosted explainer video, shown at the top of the reading as a
+   * supplement to (never a replacement for) the text. Same-origin only — the mp4
+   * and its WebVTT subtitle tracks live under /public (e.g.
+   * "/lesson-videos/ids-vs-ips/ids-vs-ips.mp4"), mirroring the `image` rule. No
+   * external/embedded players (YouTube etc.) — those were deliberately removed.
+   * `tracks` are selectable subtitle languages; mark one `default`.
+   */
+  video?: {
+    src: string;
+    poster?: string;
+    caption?: string;
+    tracks?: { srclang: string; label: string; src: string; default?: boolean }[];
+  };
+  /**
    * Optional inline comprehension check shown after the content — a quick,
    * UNGRADED retrieval prompt that turns passive reading into active recall.
    * The student must answer it correctly before the reading can be completed,

@@ -385,6 +385,15 @@ Because it sits inline, an NGFW's detection is always potentially preventive: it
       type: "reading",
       id: "secprod-r4",
       heading: "IDS vs IPS: The Pair Everyone Confuses",
+      video: {
+        src: "/lesson-videos/ids-vs-ips/ids-vs-ips.mp4",
+        caption: "Explainer — IDS vs IPS · subtitles: English · עברית · Español (CC menu)",
+        tracks: [
+          { srclang: "en", label: "English", src: "/lesson-videos/ids-vs-ips/en.vtt", default: true },
+          { srclang: "he", label: "עברית", src: "/lesson-videos/ids-vs-ips/he.vtt" },
+          { srclang: "es", label: "Español", src: "/lesson-videos/ids-vs-ips/es.vtt" },
+        ],
+      },
       content: `IDS and IPS are so often used interchangeably that many analysts never learn the one fact that actually separates them: it is entirely a question of physical placement, not of what signatures they know or how smart their detection logic is.
 
 An IDS (Intrusion Detection System) sits out-of-band. It does not sit in the path of the traffic; instead, a network TAP or a switch's SPAN/mirror port sends it a copy of the traffic while the original packets continue on their way, uninterrupted. This means an IDS always sees a session slightly after the fact, from a duplicate, and by the time it has evaluated that copy against its signatures and raised an alert, the original packets have already been delivered to their destination. Structurally, an IDS can only ever detect and alert. It cannot drop a packet it never had — it was only ever given a copy.
