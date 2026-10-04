@@ -854,9 +854,9 @@ A SOAR (Security Orchestration, Automation and Response) platform sits one layer
       type: "flag",
       id: "secprod-f1",
       prompt:
-        "Look back at the WAF log analysis task. What was the exact value, in bytes, of the Content-Length header on the request that received action: ALLOW?",
+        "In the WAF log-analysis task, the AWS WAF event records a POST to /api/v1/search with action: ALLOW. In that WAF event's raw log, what is the exact value — in bytes — of the Content-Length HEADER? (Read the header named Content-Length inside httpRequest.headers — not a 'length' field on any other log in this room.)",
       answer: "48213",
-      hint: "It's one of the header name/value pairs inside httpRequest.headers in the raw log.",
+      hint: "Open the WAF event (POST /api/v1/search, action ALLOW). In its raw log, expand httpRequest → headers and find the pair whose name is \"Content-Length\"; its value is the answer.",
       xp: 25,
     },
   ],
