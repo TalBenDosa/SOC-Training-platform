@@ -50,6 +50,7 @@ export default function OrgDetailPage() {
   const [loadFailed, setLoadFailed] = useState(false);
 
   // license form
+  const [orgName, setOrgName] = useState("");
   const [seatLimit, setSeatLimit] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [status, setStatus] = useState<OrgStatus>("active");
@@ -117,7 +118,7 @@ export default function OrgDetailPage() {
     const data = await res.json();
     setLoadFailed(false);
     setOrg(data.org); setMembers(data.members); setUsage(data.usage);
-    setSeatLimit(String(data.org.seat_limit)); setExpiresAt(toDateInput(data.org.expires_at)); setStatus(data.org.status);
+    setOrgName(data.org.name); setSeatLimit(String(data.org.seat_limit)); setExpiresAt(toDateInput(data.org.expires_at)); setStatus(data.org.status);
     const br = (data.org.branding ?? {}) as { color?: string; logo_url?: string };
     setBrandColor(br.color ?? "#22d3ee"); setBrandLogo(br.logo_url ?? "");
     const ct = (data.org.contract ?? {}) as {
@@ -272,6 +273,24 @@ export default function OrgDetailPage() {
               <Stat icon={<Target className="h-4 w-4" />} label="Scenarios" value={String(usage?.scenarios_completed ?? 0)} />
               <Stat icon={<DoorOpen className="h-4 w-4" />} label="Rooms" value={String(usage?.rooms_completed ?? 0)} />
             </div>
+
+            {/* Organization name — super-admin can rename any environment */}
+            <Card>
+              <h2 className="mb-4 text-sm font-bold text-white">Environment name</h2>
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="min-w-[16rem] flex-1">
+                  <label className={label} htmlFor="l-name">Name</label>
+                  <input id="l-name" type="text" maxLength={120} className={field} value={orgName}
+                    onChange={e => setOrgName(e.target.value)} placeholder="e.g. מערך הסייבר הלאומי" />
+                </div>
+                <Button variant="primary" size="sm"
+                  disabled={saving || !orgName.trim() || orgName.trim() === org.name}
+                  onClick={() => patch({ name: orgName.trim() }, "Environment name updated.")}>
+                  {saving ? "Saving…" : "Rename"}
+                </Button>
+              </div>
+              <p className="mt-2 text-[11px] text-slate-400">The display name shown to this environment&apos;s members and across the admin console. The URL slug ({org.slug}) does not change.</p>
+            </Card>
 
             {/* License */}
             <Card>
