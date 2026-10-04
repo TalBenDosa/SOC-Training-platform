@@ -109,19 +109,56 @@ function iocDef(type: IocType) {
 }
 
 // ─── Source badge colors ────────────────────────────────────────────────────────
+// One entry per LogSource (src/lib/sim/types.ts) so a card's badge always names
+// the real product, never the `log` fallback. Colors repeat across the palette —
+// the badge's job is to name the source, the hue only to group it at a glance.
 const SOURCE_COLORS: Record<string, { border: string; bg: string; text: string; label: string }> = {
-  ad:            { border: "border-blue-500/40",    bg: "bg-blue-500/10",    text: "text-blue-400",    label: "Active Directory" },
-  edr:           { border: "border-neon-amber/40",  bg: "bg-neon-amber/10",  text: "text-neon-amber",  label: "EDR"              },
-  cloudtrail:    { border: "border-orange-500/40",  bg: "bg-orange-500/10",  text: "text-orange-400",  label: "CloudTrail"       },
-  email_gateway: { border: "border-purple-500/40",  bg: "bg-purple-500/10",  text: "text-purple-400",  label: "Email Gateway"    },
-  o365:          { border: "border-sky-500/40",     bg: "bg-sky-500/10",     text: "text-sky-400",     label: "Microsoft 365"    },
-  firewall:      { border: "border-red-500/40",     bg: "bg-red-500/10",     text: "text-red-400",     label: "Firewall"         },
-  sysmon:        { border: "border-teal-500/40",    bg: "bg-teal-500/10",    text: "text-teal-400",    label: "Sysmon"           },
-  proxy:         { border: "border-lime-500/40",    bg: "bg-lime-500/10",    text: "text-lime-400",    label: "Proxy"            },
-  dns:           { border: "border-emerald-500/40", bg: "bg-emerald-500/10", text: "text-emerald-400", label: "DNS"              },
-  dlp:           { border: "border-pink-500/40",    bg: "bg-pink-500/10",    text: "text-pink-400",    label: "DLP"              },
-  ueba:          { border: "border-violet-500/40",  bg: "bg-violet-500/10",  text: "text-violet-400",  label: "UEBA"             },
-  iam:           { border: "border-indigo-500/40",  bg: "bg-indigo-500/10",  text: "text-indigo-400",  label: "IAM"              },
+  // Endpoint
+  edr:              { border: "border-neon-amber/40",  bg: "bg-neon-amber/10",  text: "text-neon-amber",  label: "EDR"              },
+  sysmon:           { border: "border-teal-500/40",    bg: "bg-teal-500/10",    text: "text-teal-400",    label: "Sysmon"           },
+  av:               { border: "border-rose-500/40",    bg: "bg-rose-500/10",    text: "text-rose-400",    label: "Antivirus"        },
+  windows_security: { border: "border-cyan-500/40",    bg: "bg-cyan-500/10",    text: "text-cyan-400",    label: "Windows Security" },
+  linux_audit:      { border: "border-yellow-500/40",  bg: "bg-yellow-500/10",  text: "text-yellow-400",  label: "Linux Audit"      },
+  // Network
+  firewall:         { border: "border-red-500/40",     bg: "bg-red-500/10",     text: "text-red-400",     label: "Firewall"         },
+  ids:              { border: "border-orange-500/40",  bg: "bg-orange-500/10",  text: "text-orange-400",  label: "IDS/IPS"          },
+  vpn:              { border: "border-green-500/40",   bg: "bg-green-500/10",   text: "text-green-400",   label: "VPN"              },
+  proxy:            { border: "border-lime-500/40",    bg: "bg-lime-500/10",    text: "text-lime-400",    label: "Proxy"            },
+  dns:              { border: "border-emerald-500/40", bg: "bg-emerald-500/10", text: "text-emerald-400", label: "DNS"              },
+  dhcp:             { border: "border-lime-500/40",    bg: "bg-lime-500/10",    text: "text-lime-400",    label: "DHCP"             },
+  nac:              { border: "border-teal-500/40",    bg: "bg-teal-500/10",    text: "text-teal-400",    label: "NAC"              },
+  waf:              { border: "border-fuchsia-500/40", bg: "bg-fuchsia-500/10", text: "text-fuchsia-400", label: "WAF"              },
+  // Identity
+  ad:               { border: "border-blue-500/40",    bg: "bg-blue-500/10",    text: "text-blue-400",    label: "Active Directory" },
+  okta:             { border: "border-blue-500/40",    bg: "bg-blue-500/10",    text: "text-blue-400",    label: "Okta"             },
+  iam:              { border: "border-indigo-500/40",  bg: "bg-indigo-500/10",  text: "text-indigo-400",  label: "IAM"              },
+  mfa:              { border: "border-indigo-500/40",  bg: "bg-indigo-500/10",  text: "text-indigo-400",  label: "MFA"              },
+  // Cloud / SaaS
+  o365:             { border: "border-sky-500/40",     bg: "bg-sky-500/10",     text: "text-sky-400",     label: "Microsoft 365"    },
+  gws:              { border: "border-emerald-500/40", bg: "bg-emerald-500/10", text: "text-emerald-400", label: "Google Workspace" },
+  cloudtrail:       { border: "border-orange-500/40",  bg: "bg-orange-500/10",  text: "text-orange-400",  label: "AWS CloudTrail"   },
+  cloud_azure:      { border: "border-sky-500/40",     bg: "bg-sky-500/10",     text: "text-sky-400",     label: "Azure"            },
+  cloud_gcp:        { border: "border-amber-500/40",   bg: "bg-amber-500/10",   text: "text-amber-400",   label: "GCP"              },
+  // Collaboration
+  exchange:         { border: "border-sky-500/40",     bg: "bg-sky-500/10",     text: "text-sky-400",     label: "Exchange"         },
+  sharepoint:       { border: "border-teal-500/40",    bg: "bg-teal-500/10",    text: "text-teal-400",    label: "SharePoint"       },
+  teams:            { border: "border-violet-500/40",  bg: "bg-violet-500/10",  text: "text-violet-400",  label: "Teams"            },
+  email_gateway:    { border: "border-purple-500/40",  bg: "bg-purple-500/10",  text: "text-purple-400",  label: "Email Gateway"    },
+  // Security tooling
+  dlp:              { border: "border-pink-500/40",    bg: "bg-pink-500/10",    text: "text-pink-400",    label: "DLP"              },
+  ueba:             { border: "border-violet-500/40",  bg: "bg-violet-500/10",  text: "text-violet-400",  label: "UEBA"             },
+  threat_intel:     { border: "border-red-500/40",     bg: "bg-red-500/10",     text: "text-red-400",     label: "Threat Intel"     },
+  db_monitor:       { border: "border-amber-500/40",   bg: "bg-amber-500/10",   text: "text-amber-400",   label: "Database"         },
+  siem:             { border: "border-cyan-500/40",    bg: "bg-cyan-500/10",    text: "text-cyan-400",    label: "SIEM"             },
+  soar:             { border: "border-purple-500/40",  bg: "bg-purple-500/10",  text: "text-purple-400",  label: "SOAR"             },
+  // Business systems / infrastructure
+  hr:               { border: "border-slate-500/40",   bg: "bg-slate-500/10",   text: "text-slate-300",   label: "HR"               },
+  vcs:              { border: "border-slate-500/40",   bg: "bg-slate-500/10",   text: "text-slate-300",   label: "Version Control"  },
+  virtualization:   { border: "border-zinc-500/40",    bg: "bg-zinc-500/10",    text: "text-zinc-300",    label: "Virtualization"   },
+  infra_monitor:    { border: "border-gray-500/40",    bg: "bg-gray-500/10",    text: "text-gray-300",    label: "Infra Monitor"    },
+  k8s_audit:        { border: "border-blue-500/40",    bg: "bg-blue-500/10",    text: "text-blue-400",    label: "Kubernetes"       },
+  // Neutral fallback for any source without a dedicated entry
+  log:              { border: "border-slate-500/40",   bg: "bg-slate-500/10",   text: "text-slate-300",   label: "Log"              },
 };
 
 // ─── IOC Tag Popover ────────────────────────────────────────────────────────────
@@ -230,7 +267,7 @@ function InteractiveLogEventCard({
   // Start fully expanded so no field the question depends on is hidden; the
   // Collapse control below drops back to the incremental RAW_REVEAL_INITIAL view.
   const [visibleCount, setVisibleCount] = useState(() => Object.keys(event.raw).length);
-  const colors = SOURCE_COLORS[event.source] ?? SOURCE_COLORS.edr;
+  const colors = SOURCE_COLORS[event.source] ?? SOURCE_COLORS.log;
 
   const rawEntries = Object.entries(event.raw);
   const progressive = rawEntries.length > RAW_REVEAL_INITIAL + 2; // don't bother for a couple extra
@@ -945,7 +982,7 @@ function FlagPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent, onRec
 // ─── Read-Only Event Card (used by AnalystChoicePlayer) ─────────────────────────
 export function ReadOnlyEventCard({ event }: { event: TelemetryEvent }) {
   const [expanded, setExpanded] = useState(true);
-  const colors = SOURCE_COLORS[event.source] ?? SOURCE_COLORS.edr;
+  const colors = SOURCE_COLORS[event.source] ?? SOURCE_COLORS.log;
   return (
     <div className={cn("rounded-lg border bg-[#080d14] overflow-hidden", colors.border)}>
       <div className={cn("flex items-center gap-2 px-4 py-2.5 border-b", colors.border, colors.bg)}>
