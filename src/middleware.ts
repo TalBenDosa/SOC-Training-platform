@@ -254,7 +254,11 @@ export async function middleware(req: NextRequest) {
 }
 
 // Run on API routes (rate limiting) and page routes (session refresh) — skip
-// static assets, images, and Next internals.
+// static assets, images, media, and Next internals. Media (mp4/webm/vtt) must be
+// excluded like images so self-hosted lesson videos stream publicly without the
+// auth middleware intercepting each byte-range request (otherwise an anonymous
+// request 307-redirects and seeking breaks); lesson assets are public by design,
+// the gating is at the page level.
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|mp4|webm|m4v|vtt)$).*)"],
 };
