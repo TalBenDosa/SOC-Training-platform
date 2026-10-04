@@ -213,10 +213,12 @@ function IocNotebook({ iocs, onRemove }: { iocs: IocEntry[]; onRemove: (i: numbe
 }
 
 // ─── Interactive Log Event Card ─────────────────────────────────────────────────
-// A large raw event shown all at once is a wall the eye glazes over. Reveal the
-// fields in batches so the student reads incrementally — investigating pivot by
-// pivot rather than skimming — while every already-revealed field stays fully
-// IOC-taggable. Only kicks in past this many fields; smaller events show whole.
+// This card backs the log_analysis task, where the student's job is to READ the
+// whole log and answer questions about its fields — so every field is shown by
+// default; a student who sees only part of the log reasonably concludes the
+// evidence is "missing" and that the question can't be answered. The field list
+// can still be collapsed into an incremental, batch-revealed view (pivot by pivot,
+// every revealed field IOC-taggable) for a long event the reader wants to skim.
 const RAW_REVEAL_INITIAL = 8;
 const RAW_REVEAL_STEP    = 8;
 
@@ -225,7 +227,9 @@ function InteractiveLogEventCard({
 }: { event: TelemetryEvent; iocs: IocEntry[]; onTag: (entry: IocEntry) => void; onUntag: (value: string) => void; }) {
   const [expanded, setExpanded] = useState(true);
   const [popover, setPopover] = useState<PopoverState | null>(null);
-  const [visibleCount, setVisibleCount] = useState(RAW_REVEAL_INITIAL);
+  // Start fully expanded so no field the question depends on is hidden; the
+  // Collapse control below drops back to the incremental RAW_REVEAL_INITIAL view.
+  const [visibleCount, setVisibleCount] = useState(() => Object.keys(event.raw).length);
   const colors = SOURCE_COLORS[event.source] ?? SOURCE_COLORS.edr;
 
   const rawEntries = Object.entries(event.raw);
