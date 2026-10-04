@@ -631,7 +631,7 @@ const rooms = [
         type: "question",
         id: "fw-q3",
         question:
-          "In a FortiGate firewall log, you see: action=block, srcip=10.40.22.55, dstip=185.220.101.47, dstport=443, proto=TCP, sentbyte=0, rcvdbyte=0. The firewall blocked this connection. What does sentbyte=0 and rcvdbyte=0 tell you about this specific event?",
+          "In a FortiGate firewall log, you see: action=block, srcip=10.10.22.87, dstip=185.220.101.47, dstport=443, proto=TCP, sentbyte=0, rcvdbyte=0. The firewall blocked this connection. What does sentbyte=0 and rcvdbyte=0 tell you about this specific event?",
         options: [
           "The connection was fully established before being blocked, so no data is logged",
           "The firewall blocked the connection attempt before any data was exchanged — the TCP handshake never completed",
@@ -640,7 +640,7 @@ const rooms = [
         ],
         answer: 1,
         explanation:
-          "When sentbyte=0 and rcvdbyte=0, it means the firewall denied the connection attempt before any data was actually transferred. The firewall matched the connection attributes (source IP, destination IP, port, protocol) against its deny rules and dropped or rejected the SYN packet before a TCP handshake could complete. This is the ideal outcome — the malware on 10.40.22.55 tried to reach its C2 server at 185.220.101.47:443 but the firewall prevented the connection from establishing. No data left your network. The next step is to investigate and remediate 10.40.22.55 (the infected internal host), even though the C2 communication was blocked.",
+          "When sentbyte=0 and rcvdbyte=0, it means the firewall denied the connection attempt before any data was actually transferred. The firewall matched the connection attributes (source IP, destination IP, port, protocol) against its deny rules and dropped or rejected the SYN packet before a TCP handshake could complete. This is the ideal outcome — the malware on 10.10.22.87 (WKSTN-ACCT-087) tried to reach its C2 server at 185.220.101.47:443 but the firewall prevented the connection from establishing. No data left your network. The next step is to investigate and remediate 10.10.22.87 (the infected internal host), even though the C2 communication was blocked.",
         xp: 20,
       },
 
