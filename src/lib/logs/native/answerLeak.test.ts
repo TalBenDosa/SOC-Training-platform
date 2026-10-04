@@ -38,5 +38,8 @@ describe("no authored conclusion in what the analyst sees before reporting", () 
       }
     }
     expect([...leaks].slice(0, 20)).toEqual([]);
-  });
+    // Brute-force scan over every attack event × 5 companies × 5 stacks; the realistic
+    // (richer) native records make each JSON.stringify heavier, so this guard needs more
+    // than the default 20s under full-suite load. The assertion itself passes well within it.
+  }, 60_000);
 });

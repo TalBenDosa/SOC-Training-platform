@@ -16,6 +16,21 @@ import { netbiosUser } from "../fabric";
 
 const VENDOR = "Microsoft Sentinel";
 
+/** Deterministic, GUID-shaped id from a seed — so the same event always renders the same
+ *  SystemAlertId / VendorOriginalId / TenantId (stable across re-renders, realistic shape). */
+function guidFrom(seed: string): string {
+  let h = 0x811c9dc5;
+  const hex: string[] = [];
+  for (let i = 0; i < 32; i++) {
+    h ^= (seed.charCodeAt(i % Math.max(1, seed.length)) || 7) + i * 131;
+    h = Math.imul(h, 0x01000193) >>> 0;
+    hex.push((h & 0xf).toString(16));
+  }
+  const s = hex.join("");
+  return `${s.slice(0, 8)}-${s.slice(8, 12)}-4${s.slice(13, 16)}-a${s.slice(17, 20)}-${s.slice(20, 32)}`;
+}
+const alertTypeSlug = (name: string) => name.replace(/[^A-Za-z0-9]+/g, "") || "CustomAlert";
+
 /**
  * Sentinel's alert/incident severity enum is High | Medium | Low | Informational —
  * there is no "Critical". A caller asking for critical gets the product's ceiling
@@ -43,29 +58,94 @@ export interface SentinelAlertOpts extends Ctx {
   eventAction?: string;        // default "correlation-alert"
   eventOutcome?: string;       // default "alerted"
   description?: string;
+  // ── SecurityAlert realism (Tal, 2026-10-04) — all optional; defaults are derived from
+  //    the event so a plain sentinelAlert({alertName}) already renders a realistic record.
+  tenantId?: string;
+  vendorName?: string;                 // SecurityAlert.VendorName — default "Microsoft"
+  productName?: string;                // SecurityAlert.ProductName — default per source
+  providerName?: string;               // SecurityAlert.ProviderName
+  alertType?: string;                  // default a slug of alertName
+  status?: "New" | "InProgress" | "Resolved" | "Dismissed";   // default "New"
+  tactics?: string[];                  // SecurityAlert.Tactics[] — else [tactic]
+  startTime?: string; endTime?: string;
+  remediationSteps?: string[];
+  alertLink?: string;
+  /** Explicit SecurityAlert Entities[]; else a host/account/ip set is built from the event. */
+  entities?: Record<string, unknown>[];
+  /** Defender (MDATP) custom columns, present when the alert originated in MDE. */
+  mde?: {
+    category?: string; detectionSource?: string; determination?: string;
+    classification?: string; investigationState?: string;
+    threatName?: string; threatFamilyName?: string;
+  };
 }
 export function sentinelAlert(o: SentinelAlertOpts): TelemetryEvent {
   const r = resolve(o);
   const sev = sentinelSev(o.severity);
   const ext: Record<string, string | string[] | number> = {};
   for (const [k, v] of Object.entries(o.extendedProperties ?? {})) ext[`ExtendedProperties.${k}`] = v;
+
+  const fromMde = !!o.mde;
+  const product = o.productName ?? (fromMde ? "Microsoft Defender Advanced Threat Protection" : "Azure Sentinel");
+  const provider = o.providerName ?? (fromMde ? "MDATP" : "ASI Scheduled Alerts");
+  const domain = r.email?.includes("@") ? r.email.split("@")[1] : undefined;
+  const sam = r.bareUser && r.bareUser !== "-" ? r.bareUser : undefined;
+  // SecurityAlert Entities — the real array-of-typed-objects shape (host / account / ip).
+  const entities = o.entities ?? [
+    ...(r.host ? [{ "$id": "1", Type: "host", HostName: r.host, ...(domain ? { DnsDomain: domain, FQDN: `${r.host}.${domain}` } : {}) }] : []),
+    ...(sam ? [{ "$id": "2", Type: "account", Name: sam, ...(domain ? { UPNSuffix: domain } : {}), ...(r.email ? { AadUserId: guidFrom(r.email) } : {}) }] : []),
+    ...(r.srcIp ? [{ "$id": "3", Type: "ip", Address: r.srcIp }] : []),
+  ];
+
   return {
     id: o.id, ts: o.ts, source: "siem", vendor: VENDOR, event_type: o.eventType ?? "ueba_anomaly",
     severity: sev, hostname: r.host, src_ip: r.srcIp, user_email: r.email,
     mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
     description: o.description ?? `${VENDOR} raised ${o.alertName} on ${r.host}`,
     raw: {
+      // ── Microsoft Sentinel SecurityAlert schema ──
+      "TimeGenerated": o.ts,
+      "TenantId": o.tenantId ?? guidFrom(`${o.companyId}:tenant`),
+      "DisplayName": o.alertName,
       "AlertName": o.alertName,
+      "AlertSeverity": SEV_NAME[sev],
+      ...(o.detail ? { "Description": o.detail } : {}),
+      "ProviderName": provider,
+      "VendorName": o.vendorName ?? "Microsoft",
+      "ProductName": product,
+      "DetectionProductName": product,
+      "AlertType": o.alertType ?? alertTypeSlug(o.alertName),
+      "VendorOriginalId": guidFrom(`${o.id}:vendor`),
+      "SystemAlertId": guidFrom(`${o.id}:system`),
+      "StartTime": o.startTime ?? o.ts,
+      "EndTime": o.endTime ?? o.ts,
+      "ProcessingEndTime": o.ts,
+      "Status": o.status ?? "New",
+      "Tactics": o.tactics ?? (o.tactic ? [o.tactic] : []),
+      ...(o.mitre ? { "Techniques": [o.mitre] } : {}),
+      "CompromisedEntity": r.host,
+      "Entities": entities,
+      "SourceSystem": "Detection",
+      ...(o.alertLink ? { "AlertLink": o.alertLink } : {}),
+      ...(o.remediationSteps ? { "RemediationSteps": o.remediationSteps } : {}),
+      // ── Defender (MDATP) custom columns, when the alert came from MDE ──
+      ...(o.mde?.threatName ? { "ThreatName": o.mde.threatName } : {}),
+      ...(o.mde?.threatFamilyName ? { "ThreatFamilyName": o.mde.threatFamilyName } : {}),
+      ...(o.mde?.category ? { "MicrosoftDefenderAtp.Category": o.mde.category } : {}),
+      ...(o.mde?.detectionSource ? { "MicrosoftDefenderAtp.DetectionSource": o.mde.detectionSource } : {}),
+      ...(o.mde?.determination ? { "MicrosoftDefenderAtp.Determination": o.mde.determination } : {}),
+      ...(o.mde?.classification ? { "MicrosoftDefenderAtp.Classification": o.mde.classification } : {}),
+      ...(o.mde?.investigationState ? { "MicrosoftDefenderAtp.InvestigationState": o.mde.investigationState } : {}),
+      // alert rule id + enrichment
       ...(o.ruleId ? { "alert.rule.id": o.ruleId } : {}),
-      ...(o.detail ? { "alert.description": o.detail } : {}),
-      "alert.severity": SEV_NAME[sev],
+      ...ext,
+      // ── ECS mirrors kept for cross-vendor enrichment / describeEvent ──
       "host.name": r.host,
       "host.ip": r.srcIp,
       "target.user.name": r.domainUser,
       ...(o.fullName ? { "user.full_name": o.fullName } : {}),
       ...(o.department ? { "user.department": o.department } : {}),
       ...(o.title ? { "user.title": o.title } : {}),
-      ...ext,
       "event.action": o.eventAction ?? "correlation-alert",
       "event.outcome": o.eventOutcome ?? "alerted",
     },
