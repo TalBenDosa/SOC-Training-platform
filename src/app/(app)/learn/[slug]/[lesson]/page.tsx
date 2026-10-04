@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/Button";
 import { findLesson, adjacentLessons } from "@/lib/lessons/paths";
 import { MermaidDiagram } from "@/components/rooms/MermaidDiagram";
 import { LessonFigure } from "@/components/lessons/LessonFigure";
+import { LessonVideo } from "@/components/lessons/LessonVideo";
 import { isMermaidSource } from "@/lib/lessons/mermaid";
 import { shuffleSeeded } from "@/lib/lessons/shuffle";
 import type { ClientLesson, LessonPage, ClientLessonQuizQuestion } from "@/app/api/lessons/[slug]/route";
@@ -282,6 +283,10 @@ function LessonPageView({ page }: { page: LessonPage }) {
         <h2 className="text-xl font-bold text-white">{page.title}</h2>
         <ListenButton text={speech} />
       </div>
+      {/* Authored explainer video leads the page (curated lessons only), rendered
+          through the shared LessonVideo so this reader and the /learn modal stay
+          in sync — the same reason codeExample/image are shared. */}
+      {page.video?.src && <LessonVideo video={page.video} />}
       <MarkdownBlock text={page.body} />
       {/* Mermaid source renders as a diagram; anything else (SPL/KQL queries,
           comparison tables) stays a code block. Without this branch a lesson

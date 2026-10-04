@@ -32,6 +32,16 @@ export interface LessonPage {
   // AI-generated lessons never populate this (they can't produce accurate
   // imagery) — it is for hand-authored/curated lessons only.
   image?: { src: string; alt: string; caption?: string };
+  // Optional self-hosted explainer video (hand-authored/curated lessons only),
+  // same-origin under /public, with selectable WebVTT subtitle tracks. Rendered
+  // above the body by the shared LessonVideo component. AI-generated lessons
+  // never populate this.
+  video?: {
+    src: string;
+    poster?: string;
+    caption?: string;
+    tracks?: { srclang: string; label: string; src: string; default?: boolean }[];
+  };
   keyPoints: string[];
 }
 

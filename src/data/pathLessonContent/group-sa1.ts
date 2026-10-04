@@ -6,6 +6,15 @@ export const lessons_sa1: Record<string, AuthoredPathLesson> = {
     "pages": [
       {
         "pageNumber": 1,
+        "video": {
+          "src": "/lesson-videos/what-is-a-soc/what-is-a-soc.mp4",
+          "caption": "Explainer — What is a SOC? · subtitles: English · עברית · Español (CC menu)",
+          "tracks": [
+            { "srclang": "en", "label": "English", "src": "/lesson-videos/what-is-a-soc/en.vtt", "default": true },
+            { "srclang": "he", "label": "עברית", "src": "/lesson-videos/what-is-a-soc/he.vtt" },
+            { "srclang": "es", "label": "Español", "src": "/lesson-videos/what-is-a-soc/es.vtt" }
+          ]
+        },
         "title": "What a SOC Is (and Why It Exists)",
         "body": "A **Security Operations Center (SOC)** is the team, the processes, and the technology an organization uses to continuously watch its systems for signs that someone is trying to break in, steal data, or disrupt operations — and to respond when they find one. If you have ever seen a bank lobby with a wall of camera monitors and a guard watching them around the clock, you already understand the core idea. A SOC is that security desk, except instead of watching hallways and doors, it watches endpoints, servers, cloud accounts, network traffic, and identity systems. The \"alert\" that appears on an analyst's screen is the digital equivalent of a motion sensor tripping or a door being forced open.\n\n### Why \"continuously\" matters\nAttackers do not work business hours. A SOC that only watches from 9-to-5 leaves sixteen hours a day, plus weekends, completely unguarded — which is exactly when many real intrusions happen, because attackers know defenders are more likely to be asleep. That is why mature SOCs run **24/7/365**, either with staff physically present around the clock, with automated detection plus an on-call rotation, or with a managed provider covering the gaps. The core commitment is the same either way: something is always watching.\n\n### What a SOC actually watches\nA SOC's visibility typically spans:\n- **Endpoints** — laptops, servers, workstations (via EDR agents)\n- **Network** — traffic between systems, north-south and east-west\n- **Identity** — logins, privilege changes, authentication failures\n- **Cloud** — SaaS applications, cloud infrastructure, APIs\n- **Applications** — web apps, databases, custom business systems\n\n### SOC vs. IT helpdesk\nThese are often confused by newcomers. An IT helpdesk exists to keep systems *working* — password resets, broken printers, slow laptops. A SOC exists to keep systems *safe* — it assumes systems are already working and asks a different question: is anyone in here who shouldn't be? The two teams frequently hand off to each other (a SOC analyst might ask helpdesk to reimage a compromised laptop), but their missions are distinct, and conflating them is a common first-week mistake.\n\nBy the end of this lesson you will be able to describe what a SOC monitors, why it runs continuously, and how it differs from general IT support — the foundation every later lesson in this path builds on.",
         "keyPoints": [
