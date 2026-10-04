@@ -2552,6 +2552,15 @@ const NEW_TOPIC_LESSONS = [
     "sections": [
       {
         "heading": "From Zero: What Is a Sensor Actually Watching?",
+        "video": {
+          "src": "/lesson-videos/ids-vs-ips/ids-vs-ips.mp4",
+          "caption": "Explainer — IDS vs IPS · subtitles: English · עברית · Español (CC menu)",
+          "tracks": [
+            { "srclang": "en", "label": "English", "src": "/lesson-videos/ids-vs-ips/en.vtt", "default": true },
+            { "srclang": "he", "label": "עברית", "src": "/lesson-videos/ids-vs-ips/he.vtt" },
+            { "srclang": "es", "label": "Español", "src": "/lesson-videos/ids-vs-ips/es.vtt" }
+          ]
+        },
         "content": "### Packets: the envelopes of network traffic\n\nEvery piece of network communication — a web page loading, a file transfer, a login — is broken into small chunks called **packets**. Think of a packet as a single envelope: it has a 'from' address, a 'to' address, and a small piece of the actual content inside, and a message is really dozens or thousands of these envelopes sent one after another and reassembled at the far end. Anything that watches network traffic — an IDS, an IPS, a full packet-capture tool — is really watching a stream of these envelopes flow past.\n\n### What 'monitoring' vs 'blocking' means at the packet level\n\nA **sensor** is any device or software positioned to look at (and possibly act on) that stream of packets. There are exactly two positions a sensor can be placed in relative to the actual flow of traffic, and this single positioning choice is the entire difference between an IDS and an IPS — which is why it is the very first thing this lesson explains in depth. Before getting to that, it helps to name the goal plainly: the whole point of an IDS or IPS is to look inside that stream of envelopes and recognize the ones that represent an attack — a known exploit, a malware download, a port scan — either flagging them after the fact or physically preventing them from being delivered.\n\n### Two philosophies, one goal\n\nThis lesson answers two separate design questions: *where does the sensor sit* (out-of-band and merely watching, vs inline and able to act), and *how does it decide something is malicious* (by matching known bad patterns, or by noticing something unusual). Keep those two questions separate in your head as you read — placement and detection method are independent choices that combine to describe any real IDS/IPS deployment."
       },
       {

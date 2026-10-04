@@ -13,6 +13,7 @@ import { useAssignedItems } from "@/lib/plans/useAssigned";
 import type { AssignedInfo } from "@/lib/plans/assigned";
 import { isMermaidSource } from "@/lib/lessons/mermaid";
 import { LessonFigure, type LessonImage } from "@/components/lessons/LessonFigure";
+import { LessonVideo, type LessonVideoData } from "@/components/lessons/LessonVideo";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -24,7 +25,7 @@ interface Lesson {
   difficulty: string;
   kind: "lesson";
   intro: string;
-  sections: { heading: string; content: string; codeExample?: string; imageQuery?: string; image?: LessonImage }[];
+  sections: { heading: string; content: string; codeExample?: string; imageQuery?: string; image?: LessonImage; video?: LessonVideoData }[];
   keyTakeaways: string[];
   quiz: { question: string; options: { label: string; value: string }[]; answer: string; explanation: string }[];
   references: string[];
@@ -316,7 +317,7 @@ function SectionPageContent({
   section,
 }: {
   lesson:  Lesson;
-  section: { heading: string; content: string; codeExample?: string; imageQuery?: string; image?: LessonImage };
+  section: { heading: string; content: string; codeExample?: string; imageQuery?: string; image?: LessonImage; video?: LessonVideoData };
 }) {
   return (
     <div className="space-y-6">
@@ -334,6 +335,12 @@ function SectionPageContent({
           before reading the description. Shared with the /learn/[slug]/[lesson]
           reader via LessonFigure — see that file for why. */}
       {section.image && <LessonFigure image={section.image} />}
+
+      {/* ── Authored explainer video (same-origin, curated) ─────────
+          Shown above the body like the figure — the video covers the lesson,
+          so it is attached to the first section only. Shared LessonVideo so this
+          modal and the /learn/[slug]/[lesson] reader cannot drift. */}
+      {section.video && <LessonVideo video={section.video} />}
 
       {/* ── Body text ──────────────────────────────────────────── */}
       {renderContent(section.content)}
