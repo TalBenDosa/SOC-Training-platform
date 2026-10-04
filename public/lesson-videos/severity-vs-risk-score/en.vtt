@@ -1,0 +1,57 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:09.380
+Every alert comes with a severity — High, Medium, Low. It's tempting to treat that as the one number that tells you how urgently to act.
+
+2
+00:00:09.380 --> 00:00:13.820
+Treating severity as the whole story is a mistake. Let's see why.
+
+3
+00:00:14.320 --> 00:00:18.330
+Severity is usually pre-assigned by the detection rule itself.
+
+4
+00:00:18.330 --> 00:00:25.650
+It tells you how the rule's designer categorized this type of behavior in general — not how serious this specific instance is right now.
+
+5
+00:00:26.150 --> 00:00:31.070
+Picture two alerts, both labeled Medium, arriving at the same moment.
+
+6
+00:00:31.070 --> 00:00:38.340
+One: a single failed login on a shared, read-only reporting account with no access to anything sensitive.
+
+7
+00:00:38.340 --> 00:00:48.300
+The other: a single failed login on a domain administrator account that has never failed a login in years. Same label — but nobody would treat them equally.
+
+8
+00:00:48.800 --> 00:00:56.340
+A mature SOC reads three numbers, not one. Severity — how the rule categorizes this type of behavior.
+
+9
+00:00:56.340 --> 00:01:01.880
+Confidence — how unusual this specific instance actually is for this account or host.
+
+10
+00:01:01.880 --> 00:01:07.710
+And risk — how much damage a real compromise of this specific asset or identity would cause.
+
+11
+00:01:08.210 --> 00:01:12.840
+Risk extends the triage thinking you already know: likelihood times impact.
+
+12
+00:01:12.840 --> 00:01:23.280
+Platforms like CrowdStrike, Splunk, and Sentinel add a layer on top — risk that accumulates on an entity as suspicious events pile up on the same user or host.
+
+13
+00:01:23.780 --> 00:01:27.480
+So don't let a single severity label set your priority.
+
+14
+00:01:27.480 --> 00:01:33.190
+Combine severity, confidence, and risk — and work the alert that can actually hurt you most.

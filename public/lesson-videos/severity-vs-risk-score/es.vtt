@@ -1,0 +1,57 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:09.380
+Cada alerta viene con una severidad: Alta, Media, Baja. Es tentador tratarla como el único número que te dice con qué urgencia actuar.
+
+2
+00:00:09.380 --> 00:00:13.820
+Tratar la severidad como toda la historia es un error. Veamos por qué.
+
+3
+00:00:14.320 --> 00:00:18.330
+La severidad suele asignarse de antemano por la propia regla de detección.
+
+4
+00:00:18.330 --> 00:00:25.650
+Te dice cómo el diseñador de la regla categorizó este tipo de comportamiento en general, no qué tan grave es esta instancia específica ahora.
+
+5
+00:00:26.150 --> 00:00:31.070
+Imagina dos alertas, ambas etiquetadas como Media, que llegan en el mismo momento.
+
+6
+00:00:31.070 --> 00:00:38.340
+Una: un único inicio de sesión fallido en una cuenta de reportes compartida, de solo lectura, sin acceso a nada sensible.
+
+7
+00:00:38.340 --> 00:00:48.300
+La otra: un único inicio de sesión fallido en una cuenta de administrador de dominio que nunca ha fallado un inicio en años. Misma etiqueta, pero nadie las trataría por igual.
+
+8
+00:00:48.800 --> 00:00:56.340
+Un SOC maduro lee tres números, no uno. Severidad: cómo la regla categoriza este tipo de comportamiento.
+
+9
+00:00:56.340 --> 00:01:01.880
+Confianza: qué tan inusual es realmente esta instancia específica para esta cuenta o host.
+
+10
+00:01:01.880 --> 00:01:07.710
+Y riesgo: cuánto daño causaría un compromiso real de este activo o identidad específicos.
+
+11
+00:01:08.210 --> 00:01:12.840
+El riesgo amplía el pensamiento de triaje que ya conoces: probabilidad por impacto.
+
+12
+00:01:12.840 --> 00:01:23.280
+Plataformas como CrowdStrike, Splunk y Sentinel añaden una capa encima: riesgo que se acumula en una entidad a medida que se apilan eventos sospechosos sobre el mismo usuario o host.
+
+13
+00:01:23.780 --> 00:01:27.480
+Así que no dejes que una sola etiqueta de severidad fije tu prioridad.
+
+14
+00:01:27.480 --> 00:01:33.190
+Combina severidad, confianza y riesgo, y atiende la alerta que de verdad puede hacerte más daño.

@@ -1,0 +1,61 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:08.350
+Cuando una alerta resulta ser un ataque real, el instinto es arreglarlo al instante: matar el proceso, borrar el archivo, formatear la máquina.
+
+2
+00:00:08.350 --> 00:00:13.170
+Los analistas expertos resisten ese instinto. El primer trabajo es la contención.
+
+3
+00:00:13.670 --> 00:00:23.410
+Contención significa impedir que el incidente empeore — cortar el acceso, el movimiento o la comunicación del atacante — mientras preservas la evidencia que necesitarás después.
+
+4
+00:00:23.410 --> 00:00:31.520
+La erradicación — eliminar el malware — y la recuperación — restaurar el servicio — vienen después, una vez que entiendes el alcance.
+
+5
+00:00:32.020 --> 00:00:35.550
+Piensa en un hospital que descubre a un paciente contagioso.
+
+6
+00:00:35.550 --> 00:00:44.690
+No empieza una cirugía. Primero traslada al paciente a una sala de aislamiento para que la infección no se propague, y solo entonces diagnostica y trata.
+
+7
+00:00:44.690 --> 00:00:53.160
+Trata antes de aislar y la infección se propaga mientras estás distraído. El mismo orden en un SOC: contén antes de limpiar.
+
+8
+00:00:53.660 --> 00:01:05.640
+Hay tres acciones de contención que un analista de Nivel 1 o 2 suele tener permiso para ejecutar directamente. Primero, aísla el host: desconéctalo de la red, pero mantenlo encendido para que la evidencia sobreviva.
+
+9
+00:01:05.640 --> 00:01:12.550
+Segundo, deshabilita la cuenta comprometida y revoca sus sesiones activas, para que las credenciales robadas dejen de funcionar.
+
+10
+00:01:12.550 --> 00:01:18.550
+Tercero, bloquea los indicadores — la IP, el dominio o el hash maliciosos — en el borde de la red.
+
+11
+00:01:19.050 --> 00:01:24.400
+Cada una de esas acciones se construye en torno a un IOC — un Indicador de Compromiso.
+
+12
+00:01:24.400 --> 00:01:34.240
+Un IOC es cualquier artefacto observable que sugiere actividad maliciosa: una dirección IP, un hash de archivo, un dominio, una clave de registro, una línea de comandos.
+
+13
+00:01:34.240 --> 00:01:42.280
+En la guía de respuesta a incidentes de NIST, estas acciones viven en la función Responder: contener, luego erradicar, luego recuperar.
+
+14
+00:01:42.780 --> 00:01:47.630
+Así que antes de limpiar nada: detén la hemorragia y conserva la evidencia.
+
+15
+00:01:47.630 --> 00:01:53.850
+Aísla el host, deshabilita la cuenta, bloquea el IOC; luego investiga y erradica.

@@ -1,0 +1,69 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:06.100
+On Windows, almost nothing runs on its own. Every process was started by another process.
+
+2
+00:00:06.100 --> 00:00:13.280
+That chain of "who launched whom" is a process tree — and it's one of the most valuable things EDR records.
+
+3
+00:00:13.780 --> 00:00:18.460
+Every running process has a PID — a numeric Process ID.
+
+4
+00:00:18.460 --> 00:00:27.030
+And it records its parent's ID — the PPID. Follow that chain back far enough and you reach the very first process at boot.
+
+5
+00:00:27.530 --> 00:00:31.870
+Here's why that lineage matters more than any single process.
+
+6
+00:00:31.870 --> 00:00:39.330
+Knowing powershell.exe ran tells you almost nothing — it's a normal admin tool on every Windows machine.
+
+7
+00:00:39.330 --> 00:00:47.540
+But knowing it was launched by Microsoft Word, three minutes after a user opened an email attachment — that tells you almost everything.
+
+8
+00:00:48.040 --> 00:00:55.360
+So you learn to read the tree for red flags. An Office app spawning a shell like PowerShell or cmd.
+
+9
+00:00:55.360 --> 00:00:59.440
+A shell launched by a parent that never legitimately would.
+
+10
+00:00:59.440 --> 00:01:06.230
+Trusted built-in tools — living-off-the-land binaries — chained together to run attacker code.
+
+11
+00:01:06.230 --> 00:01:09.810
+And a parent ID that simply doesn't match what really happened.
+
+12
+00:01:10.310 --> 00:01:20.340
+One subtlety to learn early: Windows reuses PIDs. Once a process exits, its number can be handed to an unrelated new one later.
+
+13
+00:01:20.340 --> 00:01:30.800
+So EDR pairs the PID with a process creation time — CrowdStrike calls it a process start key — and that pair uniquely identifies one specific instance.
+
+14
+00:01:31.300 --> 00:01:35.620
+One warning: the very lineage you're learning to trust can be faked.
+
+15
+00:01:35.620 --> 00:01:48.340
+In Parent PID Spoofing, an attacker makes a malicious process appear to have been launched by a legitimate parent — so always corroborate lineage with the command line and timing, not lineage alone.
+
+16
+00:01:48.840 --> 00:01:53.230
+The process tree is where the "how" of an incident usually lives.
+
+17
+00:01:53.230 --> 00:01:59.760
+Read the lineage, pair PID with time, and corroborate with the command line — then judge.

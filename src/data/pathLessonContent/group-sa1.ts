@@ -1141,6 +1141,15 @@ export const lessons_sa1: Record<string, AuthoredPathLesson> = {
     "pages": [
       {
         "pageNumber": 1,
+        "video": {
+          "src": "/lesson-videos/process-trees-in-depth/process-trees-in-depth.mp4",
+          "caption": "Explainer — Process Trees in Depth · subtitles: English · עברית · Español (CC menu)",
+          "tracks": [
+            { "srclang": "en", "label": "English", "src": "/lesson-videos/process-trees-in-depth/en.vtt", "default": true },
+            { "srclang": "he", "label": "עברית", "src": "/lesson-videos/process-trees-in-depth/he.vtt" },
+            { "srclang": "es", "label": "Español", "src": "/lesson-videos/process-trees-in-depth/es.vtt" }
+          ]
+        },
         "title": "What Is a Process Tree?",
         "body": "Every running program on a Windows system is a **process**, identified by a numeric **PID (Process ID)** unique to that running instance. Almost every process is launched by another process — its **parent** — identified by the child's **PPID (Parent Process ID)**. Follow that parent-child chain far enough back on any Windows machine and you eventually reach the very first user-mode process created at boot. This chain of \"who launched whom\" is called a **process tree** or **process lineage**, and it is one of the single most valuable pieces of context an EDR (Endpoint Detection and Response) platform records.\n\n### Why lineage matters more than any single process alone\nKnowing that powershell.exe ran tells you almost nothing on its own — PowerShell is a legitimate, heavily used administrative tool present on every modern Windows machine. Knowing that powershell.exe was launched **by Microsoft Word, three minutes after a user opened an email attachment** tells you almost everything you need for an initial verdict. The previous module's five investigative questions (who, what, when, where, how) depend heavily on the \"how\" — and lineage is usually where \"how\" lives.\n\n### PID reuse: a subtlety worth knowing early\nWindows reuses PIDs over time — once a process exits, its PID can be assigned to an entirely unrelated new process later. This means a PID alone, without a timestamp, is not a reliable unique identifier across a long time window. This is precisely why EDR platforms pair PID with a **process creation time** (or, in CrowdStrike's telemetry, a unique **process start key**) — the combination of PID and creation time uniquely identifies one specific process instance, never to be confused with an unrelated later process that happens to reuse the same number.\n\n### What this lesson builds toward\nThis lesson goes deeper than the previous module's brief mention of parent processes: you will learn what a normal Windows process tree actually looks like, how to read lineage fields in real telemetry, which lineage patterns are red flags, and a specific technique — Parent PID Spoofing — that attackers use to fake this very information you are learning to trust.",
         "keyPoints": [
@@ -1354,6 +1363,15 @@ export const lessons_sa1: Record<string, AuthoredPathLesson> = {
     "pages": [
       {
         "pageNumber": 1,
+        "video": {
+          "src": "/lesson-videos/severity-vs-risk-score/severity-vs-risk-score.mp4",
+          "caption": "Explainer — Severity vs. Risk Score · subtitles: English · עברית · Español (CC menu)",
+          "tracks": [
+            { "srclang": "en", "label": "English", "src": "/lesson-videos/severity-vs-risk-score/en.vtt", "default": true },
+            { "srclang": "he", "label": "עברית", "src": "/lesson-videos/severity-vs-risk-score/he.vtt" },
+            { "srclang": "es", "label": "Español", "src": "/lesson-videos/severity-vs-risk-score/es.vtt" }
+          ]
+        },
         "title": "Why Severity Alone Isn't Enough",
         "body": "Throughout this Learning Path, you have seen the word \"severity\" attached to alerts — a CrowdStrike Falcon detection with SeverityName \"High,\" a Microsoft Sentinel incident labeled \"Medium.\" It is tempting to treat severity as the single number that tells you how urgently to act. This lesson argues that treating severity as the whole story is a mistake, and introduces the additional concepts — confidence and risk score — that a mature SOC uses alongside it.\n\n### A motivating example\nImagine two alerts arrive in the queue at the same moment, both labeled Medium severity by their respective detection rules. Alert One: a single failed login attempt on a shared, read-only reporting account with no access to sensitive systems. Alert Two: a single failed login attempt on a domain administrator account — an account that, if compromised, could grant control over the entire network — that has never failed a login in its multi-year history. Both alerts carry the identical severity label. Almost every analyst's intuition immediately says these two alerts do not deserve equal attention, and that intuition is correct.\n\n### Where the gap comes from\nSeverity, as the previous module's lesson on reading EDR alerts explained, is typically pre-assigned by the detection rule itself — a static property of the rule, not of the specific instance that fired it. It tells you how the rule's designer categorized this *type* of behavior in general. It does not, by itself, capture how unusual this specific instance is for this specific account (that is closer to **confidence**), nor how much damage a real compromise of this specific asset or identity would cause (that is closer to **risk**).\n\n### What this lesson builds\nThe remaining pages define severity, confidence, and risk score precisely, walk through how three different real platforms — CrowdStrike Falcon, Splunk Enterprise Security, and Microsoft Sentinel — actually implement these ideas, and close with a practical mental formula for combining them into one prioritization judgment, extending the risk-based thinking (likelihood x impact) from the Mental Models for Triage lesson with the additional layer of accumulated, entity-level risk.",
         "keyPoints": [
