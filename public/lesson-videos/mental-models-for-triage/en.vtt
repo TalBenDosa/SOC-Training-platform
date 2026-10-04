@@ -1,0 +1,57 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:03.340
+A busy SIEM can fire thousands of alerts a day.
+
+2
+00:00:03.340 --> 00:00:09.200
+If you treated each one as a brand-new mystery, the SOC would grind to a halt by lunchtime.
+
+3
+00:00:09.200 --> 00:00:14.020
+The fix isn't working faster. It's working with a repeatable framework.
+
+4
+00:00:14.520 --> 00:00:17.570
+The word triage comes from emergency medicine.
+
+5
+00:00:17.570 --> 00:00:24.700
+When many patients arrive at once, a nurse makes a fast sort: who needs help now, who can wait, who's stable.
+
+6
+00:00:24.700 --> 00:00:35.450
+Nobody expects that first sort to be a full diagnosis. SOC triage is the same — a fast verdict with incomplete information, not a complete investigation.
+
+7
+00:00:35.950 --> 00:00:42.260
+First, classify accurately — using a consistent vocabulary instead of a vague gut feeling.
+
+8
+00:00:42.260 --> 00:00:49.560
+Second, resist fatigue — recognize how repetition wears down your judgment, and build habits that fight it.
+
+9
+00:00:49.560 --> 00:00:57.190
+Third, prioritize by risk, not just by alert type — the same alert can mean very different things depending on context.
+
+10
+00:00:57.690 --> 00:01:00.330
+That vocabulary has three verdicts.
+
+11
+00:01:00.330 --> 00:01:06.310
+A true positive is a real attack. A false positive matched the rule but isn't malicious.
+
+12
+00:01:06.310 --> 00:01:14.970
+And a benign true positive really happened and really matched — but it was authorized activity. Naming the verdict precisely is half the job.
+
+13
+00:01:15.470 --> 00:01:19.190
+This is why the framework comes before the technical lessons.
+
+14
+00:01:19.190 --> 00:01:27.130
+A beginner staring at an alert's dozens of fields has no way to know which ones matter — until they know the decision they're trying to reach.

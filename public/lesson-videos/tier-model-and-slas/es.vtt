@@ -1,0 +1,53 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:06.620
+Un SOC se organiza en niveles, y conocer los límites entre ellos es lo que te permite escalar correctamente.
+
+2
+00:00:06.620 --> 00:00:11.970
+Veamos qué separa realmente al Nivel 1, al Nivel 2 y al Nivel 3 en el día a día.
+
+3
+00:00:12.470 --> 00:00:23.270
+El Nivel 1 vigila las colas de SIEM y EDR, da a cada alerta un veredicto inicial rápido con playbooks y cierra las de bajo riesgo, pero no puede aislar un host por su cuenta.
+
+4
+00:00:23.270 --> 00:00:32.700
+El Nivel 2 recibe los escalamientos: correlaciona varias fuentes de registros, añade inteligencia de amenazas, determina el alcance e impacto reales y ejecuta la contención.
+
+5
+00:00:32.700 --> 00:00:41.440
+El Nivel 3 maneja los casos más difíciles: caza de amenazas, análisis de malware, liderar incidentes mayores y retroalimentar la ingeniería de detección.
+
+6
+00:00:41.940 --> 00:00:46.450
+Y aquí está lo que la gente malinterpreta: los niveles no tienen que ver con cuánto te esfuerzas.
+
+7
+00:00:46.450 --> 00:00:51.680
+Se trata del alcance de tu autoridad — qué puedes hacer por tu cuenta — y de la profundidad de la investigación.
+
+8
+00:00:51.680 --> 00:00:59.530
+Un analista de Nivel 1 que dedica veinte minutos concentrados a un falso positivo difícil está haciendo un excelente trabajo de Nivel 1, no de Nivel 2.
+
+9
+00:01:00.030 --> 00:01:04.250
+Y cada nivel corre contra un reloj, medido por dos números.
+
+10
+00:01:04.250 --> 00:01:13.370
+MTTD — tiempo medio de detección — cuánto tarda en detectarse un ataque. MTTR — tiempo medio de respuesta — cuánto tarda en contenerse.
+
+11
+00:01:13.370 --> 00:01:22.970
+Los SLA los convierten en objetivos — por ejemplo, una alerta crítica debe triarse en quince minutos — y se vuelven más estrictos cuanto mayor es la severidad.
+
+12
+00:01:23.470 --> 00:01:31.220
+Así que los niveles son una cadena: triaje rápido, investigación profunda y caza experta, cada uno con su propia autoridad.
+
+13
+00:01:31.220 --> 00:01:35.850
+Escala cuando el caso supere tu alcance, y mantén siempre un ojo en el reloj.

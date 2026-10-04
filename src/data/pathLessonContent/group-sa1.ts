@@ -226,6 +226,15 @@ export const lessons_sa1: Record<string, AuthoredPathLesson> = {
     "pages": [
       {
         "pageNumber": 1,
+        "video": {
+          "src": "/lesson-videos/tier-model-and-slas/tier-model-and-slas.mp4",
+          "caption": "Explainer — Tier Model & SLAs · subtitles: English · עברית · Español (CC menu)",
+          "tracks": [
+            { "srclang": "en", "label": "English", "src": "/lesson-videos/tier-model-and-slas/en.vtt", "default": true },
+            { "srclang": "he", "label": "עברית", "src": "/lesson-videos/tier-model-and-slas/he.vtt" },
+            { "srclang": "es", "label": "Español", "src": "/lesson-videos/tier-model-and-slas/es.vtt" }
+          ]
+        },
         "title": "The Three-Tier Analyst Model, In Depth",
         "body": "The previous lesson introduced Tier 1, Tier 2, and Tier 3 at a glance. This lesson goes deep on what actually separates them day-to-day, because understanding the boundaries between tiers is what lets you escalate correctly instead of either sitting on something too long or dumping every alert on someone busier than you.\n\n### Tier 1: speed and first judgment\nTier 1 (T1) analysts monitor the SIEM (Security Information and Event Management) and EDR (Endpoint Detection and Response) queues continuously, applying documented playbooks and standard operating procedures to perform an initial verdict on every alert: is this expected activity, an obvious false positive, or something that warrants deeper investigation? T1 typically has authority to close low-risk alerts outright but not to take containment actions like isolating a host or disabling a domain administrator account. Most SOC careers start here, and typical tenure before promotion is measured in months to a couple of years depending on the organization.\n\n### Tier 2: depth and correlation\nTier 2 (T2) analysts receive escalations from T1 and perform the investigation T1 could not: correlating events across multiple log sources, pulling in threat intelligence context, determining the actual scope and impact of an incident, and coordinating the technical response — including containment actions T1 typically cannot authorize alone. T2 analysts commonly hold two to five years of SOC experience and certifications such as GCIH (GIAC Certified Incident Handler) or CySA+ (CompTIA Cybersecurity Analyst).\n\n### Tier 3: hunting and leadership\nTier 3 (T3) analysts, sometimes titled threat hunters or senior incident responders, handle the hardest cases: advanced malware analysis, proactively hunting for attackers that automated detections missed entirely, leading major incident response, and feeding lessons learned back into detection engineering so the same gap does not recur.\n\n### The boundary is about authority and depth, not effort\nA common misconception is that tiers reflect how \"hard\" someone works. In reality they reflect scope of authority (what actions you can take unilaterally) and depth of investigation (how many sources and how much time a case justifies). A T1 analyst working a genuinely difficult false-positive investigation for twenty minutes is not doing \"T2 work\" — they are doing excellent T1 work within their scope.",
         "keyPoints": [
@@ -436,6 +445,15 @@ export const lessons_sa1: Record<string, AuthoredPathLesson> = {
     "pages": [
       {
         "pageNumber": 1,
+        "video": {
+          "src": "/lesson-videos/mental-models-for-triage/mental-models-for-triage.mp4",
+          "caption": "Explainer — Mental Models for Triage · subtitles: English · עברית · Español (CC menu)",
+          "tracks": [
+            { "srclang": "en", "label": "English", "src": "/lesson-videos/mental-models-for-triage/en.vtt", "default": true },
+            { "srclang": "he", "label": "עברית", "src": "/lesson-videos/mental-models-for-triage/he.vtt" },
+            { "srclang": "es", "label": "Español", "src": "/lesson-videos/mental-models-for-triage/es.vtt" }
+          ]
+        },
         "title": "Why Triage Needs a Framework",
         "body": "A well-instrumented enterprise SIEM (Security Information and Event Management platform) can generate thousands of alerts per day. If a Tier 1 analyst approached every single one as a brand-new mystery, reasoning from first principles each time, the SOC would grind to a halt within hours. This lesson teaches the structured way of thinking that lets an experienced analyst triage an unfamiliar alert in minutes instead of hours — not by working faster, but by working with a repeatable framework instead of raw intuition.\n\n### What \"triage\" borrows from its original meaning\nThe word triage comes from emergency medicine: when many patients arrive at once, a nurse or doctor makes a fast initial sort — who needs immediate attention, who can wait, who is already stable. Nobody expects that first sort to be a full diagnosis; it is a fast, structured judgment call made with incomplete information, designed to direct limited attention where it matters most. SOC triage works the same way: a fast initial verdict, not a complete investigation.\n\n### The three ingredients of good triage thinking\nEvery mental model in this lesson supports one of three goals:\n1. **Classify accurately** — using a consistent vocabulary (true positive, false positive, benign true positive) instead of a vague gut feeling\n2. **Resist fatigue** — recognizing how repetition degrades judgment, and building habits that counteract it\n3. **Prioritize by risk, not just by alert type** — understanding that the same alert can mean very different things depending on context\n\n### Why this lesson comes before the technical EDR lessons\nIt would be possible to teach you to read an EDR (Endpoint Detection and Response) alert's fields first and the thinking behind triage second. This path deliberately does the opposite, because the fields only matter in service of a decision — and without a decision-making framework, a beginner reading a real alert's dozens of fields has no way to know which ones matter for the verdict they are trying to reach. Frameworks first, then technical fluency, is the sequencing this entire path follows.",
         "keyPoints": [
@@ -903,6 +921,15 @@ export const lessons_sa1: Record<string, AuthoredPathLesson> = {
     "pages": [
       {
         "pageNumber": 1,
+        "video": {
+          "src": "/lesson-videos/reading-edr-alerts/reading-edr-alerts.mp4",
+          "caption": "Explainer — Reading EDR Alerts · subtitles: English · עברית · Español (CC menu)",
+          "tracks": [
+            { "srclang": "en", "label": "English", "src": "/lesson-videos/reading-edr-alerts/en.vtt", "default": true },
+            { "srclang": "he", "label": "עברית", "src": "/lesson-videos/reading-edr-alerts/he.vtt" },
+            { "srclang": "es", "label": "Español", "src": "/lesson-videos/reading-edr-alerts/es.vtt" }
+          ]
+        },
         "title": "What Is EDR, and What Is an Alert?",
         "body": "You have spent the SOC Foundations module learning how to think about triage. Now this module turns to the raw material you will actually triage: real telemetry from a real tool. **EDR (Endpoint Detection and Response)** is software — an agent installed on laptops, servers, and workstations — that continuously records what happens on that machine: every process that runs, every file that is created or modified, every network connection that is opened, and every registry change (on Windows). Leading examples include CrowdStrike Falcon and Microsoft Defender for Endpoint.\n\n### EDR vs. legacy antivirus\nTraditional antivirus (AV) mostly worked by signature matching: comparing a file against a database of known-malicious hashes or patterns, and blocking a match. This is fast but blind to anything new — a slightly modified piece of malware with a different hash sails right past a signature-only scanner. EDR takes a fundamentally different approach: rather than (or in addition to) matching known-bad signatures, it watches *behavior* — the sequence of actions a process takes — and retains a rolling window of that telemetry so analysts can look backward in time, not just react to the moment of infection.\n\n### What an \"alert\" (or \"detection\") actually is\nWhen EDR telemetry matches a pattern its vendor has defined as suspicious or malicious, it generates what is typically called a **detection** (CrowdStrike's term) or an **alert** (a more generic term also used by Microsoft Defender and most SIEMs). This is the vendor's synthesis — a claim that something specific happened and that the pattern matched is worth a human's attention. Critically, a detection is not automatically a verdict: as the previous module taught, it still has to go through triage to determine whether it is a True Positive, False Positive, or Benign True Positive.\n\n### Why this module goes deep on two specific vendors\nRather than teaching abstract EDR theory, the next two pages walk through the real field names and structure of alerts from CrowdStrike Falcon and Microsoft Defender for Endpoint — two of the most widely deployed EDR platforms in real SOCs. Learning to read one vendor's raw alert data fluently transfers readily to others, because the underlying concepts (process, parent process, command line, hash, severity) recur across virtually every EDR product, even when the exact field names differ.",
         "keyPoints": [

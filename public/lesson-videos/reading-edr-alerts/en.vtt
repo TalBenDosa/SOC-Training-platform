@@ -1,0 +1,73 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:05.760
+You've learned how to think about triage. Now for the raw material you'll actually triage.
+
+2
+00:00:05.760 --> 00:00:08.710
+Most of it comes from one tool: EDR.
+
+3
+00:00:09.210 --> 00:00:16.820
+EDR — Endpoint Detection and Response — is an agent installed on laptops, servers, and workstations.
+
+4
+00:00:16.820 --> 00:00:26.710
+It continuously records what happens on that machine: every process that runs, every file created, every network connection, every registry change.
+
+5
+00:00:26.710 --> 00:00:32.210
+CrowdStrike Falcon and Microsoft Defender for Endpoint are two of the most widely deployed.
+
+6
+00:00:32.710 --> 00:00:39.410
+Legacy antivirus mostly matched signatures — comparing a file to a database of known-bad hashes.
+
+7
+00:00:39.410 --> 00:00:45.290
+That's fast, but blind to anything new — change the malware slightly and it sails right past.
+
+8
+00:00:45.290 --> 00:00:54.460
+EDR watches behavior — the sequence of actions a process takes — and keeps a rolling window of telemetry, so you can look backward in time, not just react to the moment.
+
+9
+00:00:54.960 --> 00:01:00.580
+Whatever the vendor, the same fields recur. The process — the executable that ran.
+
+10
+00:01:00.580 --> 00:01:06.580
+The parent process — what launched it. This context is often what gives the whole alert away.
+
+11
+00:01:06.580 --> 00:01:11.040
+The command line — the arguments it ran with, frequently the smoking gun.
+
+12
+00:01:11.040 --> 00:01:15.220
+The hash — a fingerprint you can pivot on and look up in threat intel.
+
+13
+00:01:15.220 --> 00:01:21.000
+And severity — the vendor's confidence. A starting point, never the final verdict.
+
+14
+00:01:21.500 --> 00:01:28.170
+This is the trap to avoid. When EDR flags something, it generates a detection, or an alert.
+
+15
+00:01:28.170 --> 00:01:33.690
+That's the vendor's claim that a pattern worth your attention matched — not proof of an attack.
+
+16
+00:01:33.690 --> 00:01:39.350
+It still has to go through triage: true positive, false positive, or benign true positive.
+
+17
+00:01:39.850 --> 00:01:44.770
+Learn to read one vendor's alert fluently, and it transfers to the rest.
+
+18
+00:01:44.770 --> 00:01:49.520
+Process, parent, command line, hash, severity — read them, then decide.

@@ -1,0 +1,53 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:06.620
+A SOC is organized into tiers, and knowing the boundaries between them is what lets you escalate correctly.
+
+2
+00:00:06.620 --> 00:00:11.970
+Let's look at what actually separates Tier 1, Tier 2, and Tier 3 day to day.
+
+3
+00:00:12.470 --> 00:00:23.270
+Tier 1 watches the SIEM and EDR queues, gives every alert a fast first verdict using playbooks, and closes the low-risk ones — but can't isolate a host on its own.
+
+4
+00:00:23.270 --> 00:00:32.700
+Tier 2 takes the escalations: correlating multiple log sources, adding threat intel, working out the real scope and impact, and running containment.
+
+5
+00:00:32.700 --> 00:00:41.440
+Tier 3 handles the hardest cases — threat hunting, malware analysis, leading major incidents, and feeding fixes back into detection engineering.
+
+6
+00:00:41.940 --> 00:00:46.450
+Here's the part people get wrong: tiers are not about how hard you work.
+
+7
+00:00:46.450 --> 00:00:51.680
+They're about scope of authority — what you can do on your own — and depth of investigation.
+
+8
+00:00:51.680 --> 00:00:59.530
+A Tier 1 analyst spending twenty focused minutes on a tricky false positive is doing excellent Tier 1 work, not Tier 2 work.
+
+9
+00:01:00.030 --> 00:01:04.250
+And every tier runs against a clock, measured by two numbers.
+
+10
+00:01:04.250 --> 00:01:13.370
+MTTD — mean time to detect — how long until an attack is spotted. MTTR — mean time to respond — how long until it's contained.
+
+11
+00:01:13.370 --> 00:01:22.970
+SLAs turn these into targets — for example, a critical alert must be triaged within fifteen minutes — and they get tighter as severity rises.
+
+12
+00:01:23.470 --> 00:01:31.220
+So the tiers are a chain: fast triage, deep investigation, and expert hunting — each with its own authority.
+
+13
+00:01:31.220 --> 00:01:35.850
+Escalate when the case exceeds your scope, and always keep an eye on the clock.
