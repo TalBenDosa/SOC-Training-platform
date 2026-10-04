@@ -1,0 +1,49 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:08.300
+You know what tactics and techniques are. Now the harder skill: taking a real, messy alert and reasoning your way to the right technique ID.
+
+2
+00:00:08.800 --> 00:00:11.750
+Mapping isn't searching a list for a keyword.
+
+3
+00:00:11.750 --> 00:00:20.970
+It's a repeatable reasoning process you run on every alert — and done consistently across a team, it produces real metrics and faster handoffs.
+
+4
+00:00:21.470 --> 00:00:26.870
+Here's the method. Start with the raw, messy alert from your EDR or SIEM.
+
+5
+00:00:26.870 --> 00:00:34.570
+Step one: strip it down to the observable behavior — what technically happened, separate from any interpretation.
+
+6
+00:00:34.570 --> 00:00:39.830
+Step two: ask what goal that behavior serves. That gives you the tactic.
+
+7
+00:00:39.830 --> 00:00:52.240
+Step three: match the specific method to a technique ID — for example, credential dumping from memory maps to T1003.001, under the Credential Access tactic.
+
+8
+00:00:52.740 --> 00:01:01.280
+Why bother being precise? First, metrics — which techniques appear most in your environment, and which detections catch them well.
+
+9
+00:01:01.280 --> 00:01:11.580
+Second, faster handoffs — "T1003.001 detected" instantly tells the next analyst the tactic and where to read mitigation guidance.
+
+10
+00:01:11.580 --> 00:01:17.870
+Third, actor TTPs — spotting which techniques a threat group tends to use against your industry.
+
+11
+00:01:18.370 --> 00:01:24.440
+So every alert runs the same path: observable behavior, then goal, then technique.
+
+12
+00:01:24.440 --> 00:01:30.490
+Let the specificity of your evidence decide how far down the sub-technique tree you can confidently go.

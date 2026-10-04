@@ -1,0 +1,49 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:11.300
+Puedes mapear una sola alerta a ATT&CK. Ahora amplía la vista: en toda la matriz, ¿qué técnicas podrías detectar realmente — y cuáles pasarían desapercibidas?
+
+2
+00:00:11.300 --> 00:00:16.700
+Esa pregunta convierte el mapeo de alertas en una visión estratégica de todo tu programa de detección.
+
+3
+00:00:17.200 --> 00:00:21.570
+El error común es tratar la cobertura como un simple sí o no por técnica.
+
+4
+00:00:21.570 --> 00:00:28.820
+En realidad se divide en tres capas, y una brecha puede esconderse en cualquiera de ellas, aunque las demás parezcan bien.
+
+5
+00:00:29.320 --> 00:00:34.650
+Capa uno, visibilidad — ¿recopilamos siquiera la fuente de registro que mostraría esta técnica?
+
+6
+00:00:34.650 --> 00:00:39.910
+Capa dos, detección — si tenemos los datos, ¿existe una regla que realmente se dispare?
+
+7
+00:00:39.910 --> 00:00:48.810
+Capa tres, respuesta — si una detección se dispara, ¿puede un analista actuar lo bastante rápido? Una brecha en cualquier capa es un punto ciego.
+
+8
+00:00:49.310 --> 00:00:55.120
+Imagina tu cobertura pintada sobre la matriz. Las celdas verdes son técnicas que atraparías.
+
+9
+00:00:55.120 --> 00:01:03.210
+Las celdas rojas son las brechas — y esta es la imagen real en casi todo SOC. Nadie está cubierto en todas partes.
+
+10
+00:01:03.210 --> 00:01:15.980
+Una brecha clásica: recopilas datos de acceso a procesos de Sysmon en cada endpoint — hay visibilidad — pero nadie escribió una regla para el acceso a LSASS. Los datos están; la detección no.
+
+11
+00:01:16.480 --> 00:01:21.780
+Y esto no es solo trabajo del gerente. Los analistas de primera línea detectan las brechas primero.
+
+12
+00:01:21.780 --> 00:01:31.880
+Cuando piensas "no tenemos forma de ver qué contenía ese comando de PowerShell", eso es una brecha de cobertura — escálala y convierte una frustración puntual en una mejora permanente.

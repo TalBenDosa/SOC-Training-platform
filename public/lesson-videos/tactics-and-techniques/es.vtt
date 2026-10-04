@@ -1,0 +1,53 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:09.260
+"Entraron por el correo." "El atacante se movió por la red." Nada de eso es lo bastante preciso para comparar incidentes o crear detecciones.
+
+2
+00:00:09.260 --> 00:00:15.880
+MITRE ATT&CK lo resuelve: una base de conocimiento gratuita y global del comportamiento real de los adversarios.
+
+3
+00:00:16.380 --> 00:00:20.100
+Piénsalo como un sistema estandarizado de códigos médicos.
+
+4
+00:00:20.100 --> 00:00:34.330
+Igual que ICD-10 permite que dos hospitales describan la misma condición de forma idéntica, ATT&CK permite que dos analistas, en cualquier lugar, describan el mismo comportamiento con el mismo identificador exacto, sin importar qué proveedor generó la alerta.
+
+5
+00:00:34.830 --> 00:00:44.600
+ATT&CK viene en tres matrices. Enterprise — Windows, macOS, Linux, nube, red, contenedores — en la que vive un analista SOC.
+
+6
+00:00:44.600 --> 00:00:47.480
+Mobile — comportamiento en Android e iOS.
+
+7
+00:00:47.480 --> 00:00:52.400
+E ICS — sistemas de control industrial, el mundo de la tecnología operativa.
+
+8
+00:00:52.900 --> 00:01:01.560
+Esta es la matriz Enterprise. Cada columna es una táctica — el objetivo del atacante en un momento dado. Hay catorce en total.
+
+9
+00:01:01.560 --> 00:01:09.530
+Acceso Inicial, Ejecución, Persistencia, Escalada de Privilegios, Evasión de Defensas, Acceso a Credenciales, Mando y Control, y más.
+
+10
+00:01:09.530 --> 00:01:14.350
+Dentro de cada táctica están las técnicas: las formas específicas de lograr ese objetivo.
+
+11
+00:01:14.350 --> 00:01:26.400
+Cada una tiene un ID. T1566 es Phishing, una técnica bajo Acceso Inicial — y las subtécnicas bajan un nivel más, como T1566.001 para un adjunto malicioso.
+
+12
+00:01:26.900 --> 00:01:33.430
+Recuerda la división: una táctica es el porqué, una técnica es el cómo, y una subtécnica es el cómo exacto.
+
+13
+00:01:33.430 --> 00:01:39.530
+Aprende a hablar en IDs de ATT&CK y toda la industria te entiende al instante.

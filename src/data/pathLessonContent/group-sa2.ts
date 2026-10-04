@@ -232,6 +232,15 @@ export const lessons_sa2: Record<string, AuthoredPathLesson> = {
     "pages": [
       {
         "pageNumber": 1,
+        "video": {
+          "src": "/lesson-videos/tactics-and-techniques/tactics-and-techniques.mp4",
+          "caption": "Explainer — MITRE ATT&CK: Tactics & Techniques · subtitles: English · עברית · Español (CC menu)",
+          "tracks": [
+            { "srclang": "en", "label": "English", "src": "/lesson-videos/tactics-and-techniques/en.vtt", "default": true },
+            { "srclang": "he", "label": "עברית", "src": "/lesson-videos/tactics-and-techniques/he.vtt" },
+            { "srclang": "es", "label": "Español", "src": "/lesson-videos/tactics-and-techniques/es.vtt" }
+          ]
+        },
         "title": "A shared language for attacker behavior",
         "body": "Before a common framework existed, two SOC analysts describing the same intrusion might use completely different words: \"they hacked in through email,\" \"there was a malware infection,\" \"the attacker moved around the network.\" None of those phrases are wrong, but none of them are precise enough to compare across incidents, build detections from, or hand off cleanly between shifts. **MITRE ATT&CK** (Adversarial Tactics, Techniques, and Common Knowledge) solves that problem. It is a free, globally-used knowledge base, maintained by the MITRE Corporation, that catalogs real-world adversary behavior observed in actual intrusions and organizes it into a consistent structure.\n\nThink of ATT&CK as a shared vocabulary — the way a standardized medical coding system (like ICD-10 for diagnoses) lets any two hospitals describe the same condition the same way, ATT&CK lets any two SOC analysts, anywhere in the world, describe \"the attacker used a scheduled task to persist\" using the exact same identifier, no matter which product or vendor's alert generated the observation.\n\n### The three matrix domains\n\nATT&CK is organized into separate matrices for different environments, because the behaviors that matter differ by platform:\n\n| Domain | Covers |\n|---|---|\n| **Enterprise** | Windows, macOS, Linux, cloud (Azure AD, AWS, GCP, SaaS), network, containers — the matrix a SOC analyst uses day to day |\n| **Mobile** | Android and iOS-specific adversary behavior |\n| **ICS** | Industrial Control Systems — behaviors specific to operational technology environments like SCADA |\n\nThis lesson, and the rest of this module, focuses on the **Enterprise matrix**, since that is what nearly every SOC alert and SIEM detection maps against. The Enterprise matrix is built from two connected layers: **tactics**, which describe an attacker's *goal* at a given moment, and **techniques** (with **sub-techniques**), which describe *how* that goal is achieved. The next two pages cover each layer in depth.",
         "codeExample": "flowchart LR\n    A[\"Raw alert text:<br/>suspicious PowerShell activity\"] --> B[\"ATT&CK mapping:<br/>TA0002 Execution\"]\n    B --> C[\"Technique:<br/>T1059 Command and Scripting Interpreter\"]\n    C --> D[\"Sub-technique:<br/>T1059.001 PowerShell\"]",
@@ -437,6 +446,15 @@ export const lessons_sa2: Record<string, AuthoredPathLesson> = {
     "pages": [
       {
         "pageNumber": 1,
+        "video": {
+          "src": "/lesson-videos/mapping-alerts-to-attack/mapping-alerts-to-attack.mp4",
+          "caption": "Explainer — Mapping Alerts to ATT&CK · subtitles: English · עברית · Español (CC menu)",
+          "tracks": [
+            { "srclang": "en", "label": "English", "src": "/lesson-videos/mapping-alerts-to-attack/en.vtt", "default": true },
+            { "srclang": "he", "label": "עברית", "src": "/lesson-videos/mapping-alerts-to-attack/he.vtt" },
+            { "srclang": "es", "label": "Español", "src": "/lesson-videos/mapping-alerts-to-attack/es.vtt" }
+          ]
+        },
         "title": "Why mapping is a practiced skill, not a lookup",
         "body": "The previous lesson covered what tactics, techniques, and sub-techniques are. This lesson is about the harder, more practical skill: given a real, messy alert from an EDR (Endpoint Detection and Response) console or a SIEM (Security Information and Event Management — a platform that aggregates and correlates logs from across an environment), reasoning your way to the correct technique ID rather than looking one up from a list.\n\n### Why this matters operationally\n\nConsistent mapping across a SOC team produces real, usable metrics: which techniques appear most often in your environment, which ones your detections catch well versus poorly (the subject of the next lesson, Coverage thinking), and which techniques a given threat actor group tends to use against your industry. None of that is possible if every analyst maps loosely or skips the step, because the underlying data becomes inconsistent and unusable. Mapping also makes handoffs faster: a Tier-2 analyst picking up an escalation with \"T1003.001 detected\" already knows the tactic (Credential Access), can pull up the technique's ATT&CK page for detection/mitigation guidance, and does not have to re-derive what happened from scratch.\n\n### A three-step method\n\nEvery worked example in this lesson follows the same repeatable process:\n\n1. **Identify the observable behavior** — strip the alert down to what actually, technically happened (a specific process launched, a specific access pattern, a specific network pattern), separate from any interpretation.\n2. **Ask what goal that behavior serves** — this identifies the tactic.\n3. **Match the specific method to a technique or sub-technique** — using the specificity of the evidence to decide how far down the sub-technique tree you can confidently go.\n\nThe next several pages apply this method to four realistic alert types a Tier-1/Tier-2 analyst encounters regularly: credential dumping, phishing-to-execution, scheduled task persistence, and command-and-control beaconing.",
         "codeExample": "flowchart TD\n    A[Raw alert] --> B[\"Step 1: What actually happened,\\ntechnically?\"]\n    B --> C[\"Step 2: What goal does that\\nbehavior serve? (tactic)\"]\n    C --> D[\"Step 3: Which technique/\\nsub-technique matches the method?\"]\n    D --> E[Document technique ID + tactic in ticket]",
@@ -642,6 +660,15 @@ export const lessons_sa2: Record<string, AuthoredPathLesson> = {
     "pages": [
       {
         "pageNumber": 1,
+        "video": {
+          "src": "/lesson-videos/coverage-thinking/coverage-thinking.mp4",
+          "caption": "Explainer — Coverage Thinking · subtitles: English · עברית · Español (CC menu)",
+          "tracks": [
+            { "srclang": "en", "label": "English", "src": "/lesson-videos/coverage-thinking/en.vtt", "default": true },
+            { "srclang": "he", "label": "עברית", "src": "/lesson-videos/coverage-thinking/he.vtt" },
+            { "srclang": "es", "label": "Español", "src": "/lesson-videos/coverage-thinking/es.vtt" }
+          ]
+        },
         "title": "What 'coverage' actually means",
         "body": "After learning to map individual alerts to ATT&CK technique IDs, a natural next question emerges: across the *entire* ATT&CK matrix, which techniques could my organization actually detect if an attacker used them, and which would sail through unnoticed? That question is what \"coverage thinking\" is about, and it turns individual alert-mapping skill into a strategic view of an entire detection program.\n\n### Coverage is not one thing — it is three layers\n\nA common mistake is treating coverage as a single yes/no property per technique. In practice it breaks into three distinct layers, and a gap can exist at any one of them even if the others are fine:\n\n| Layer | Question it answers |\n|---|---|\n| **Visibility** | Do we even collect the log source that would show this technique happening? |\n| **Detection** | If we have the log source, do we have a rule or alert that would actually fire on it? |\n| **Response** | If a detection fires, can an analyst act on it fast enough to matter? |\n\nA concrete illustration: an organization might collect Sysmon Event ID 10 (Process Access) data across every endpoint (visibility exists), but never wrote a rule watching for LSASS access patterns (no detection despite having the data) — or the opposite, a well-tuned detection rule exists but nobody is staffed to review its alerts overnight (detection exists, response is the gap). Coverage thinking asks all three questions for every technique that matters to an organization's threat model, not just whether an alert once fired.\n\n### Why this matters for a SOC analyst, not just a manager\n\nIt is tempting to think of coverage analysis as purely a detection-engineering or SOC-manager responsibility. In practice, front-line analysts are often the first to notice a gap — during an investigation, realizing \"we have no way to see what that PowerShell command actually contained\" is a coverage observation, and knowing how to escalate it (covered later in this lesson) turns a one-off frustration into a permanent improvement for the whole team.",
         "codeExample": "flowchart TD\n    A[\"Technique: T1003.001 LSASS Memory\"] --> B{\"Visibility:\\ndo we collect Sysmon EID 10?\"}\n    B -- No --> C[GAP: blind to this technique]\n    B -- Yes --> D{\"Detection:\\ndo we have a rule for it?\"}\n    D -- No --> E[GAP: data exists but unused]\n    D -- Yes --> F{\"Response:\\ncan an analyst act on the alert?\"}\n    F -- No --> G[GAP: alert fires into a void]\n    F -- Yes --> H[Covered]",
