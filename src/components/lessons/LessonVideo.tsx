@@ -13,12 +13,13 @@ import React from "react";
  * vanish in another.
  */
 export interface LessonVideoData {
-  /** Same-origin path under /public, e.g. "/lesson-videos/ids-vs-ips/ids-vs-ips.mp4". */
+  /** Either a same-origin path under /public (e.g. "/lesson-videos/ids-vs-ips/ids-vs-ips.mp4")
+   *  or an absolute https URL in THIS project's Supabase Storage bucket. */
   src: string;
-  /** Optional same-origin poster image shown before play. */
+  /** Optional poster image shown before play. */
   poster?: string;
   caption?: string;
-  /** Selectable subtitle tracks (same-origin WebVTT). Mark one `default`. */
+  /** Selectable subtitle tracks (same-origin /public or Supabase WebVTT). Mark one `default`. */
   tracks?: { srclang: string; label: string; src: string; default?: boolean }[];
 }
 
@@ -31,6 +32,10 @@ export function LessonVideo({ video }: { video: LessonVideoData }) {
         controls
         preload="metadata"
         playsInline
+        // Required so cross-origin subtitle <track>s (served from this project's
+        // Supabase Storage bucket) are allowed to load; harmless for same-origin
+        // /public videos. Supabase public objects send Access-Control-Allow-Origin.
+        crossOrigin="anonymous"
         poster={video.poster}
         className="mx-auto w-full max-h-[520px] bg-black"
       >
