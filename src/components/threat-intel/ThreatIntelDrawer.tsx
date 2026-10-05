@@ -12,7 +12,8 @@
  * returns the same answer on every lookup surface (URL and domain included).
  */
 
-import { useEffect, useContext } from "react";
+import { useEffect, useContext, useState } from "react";
+import { createPortal } from "react-dom";
 import { IocTruthContext } from "./iocTruthContext";
 import { motion } from "framer-motion";
 import { Shield, X } from "lucide-react";
@@ -430,6 +431,13 @@ export function ThreatIntelDrawer({ query, onClose, truth }: {
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
 
+  // Render through a portal to <body> so the fixed overlay escapes any
+  // transformed / filtered / backdrop-blurred ancestor (e.g. the team consoles'
+  // panels) — otherwise position:fixed is relative to that ancestor and the
+  // drawer renders trapped inside a column, overlapping the UI (team-room bug).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   // A team room provides the server-built truth through context (its feed has no answer key).
   const ctxTruth = useContext(IocTruthContext);
   const opts = { event: query.event, truth: query.truth ?? truth ?? ctxTruth ?? null };
@@ -437,22 +445,24 @@ export function ThreatIntelDrawer({ query, onClose, truth }: {
   const ipData     = query.type === "ip"     ? ipIntel(query.value, opts)     : null;
   const domainData = query.type === "domain" ? domainIntel(query.value, opts) : null;
 
-  return (
+  if (!mounted) return null;
+  return createPortal(
     <>
       <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/50 z-40"
+        className="fixed inset-0 bg-black/50 z-[60]"
         onClick={onClose}
       />
       <motion.div
         initial={{ x: 460 }} animate={{ x: 0 }} exit={{ x: 460 }}
         transition={{ type: "spring", damping: 28, stiffness: 260 }}
-        className="fixed right-0 top-0 h-screen w-full sm:w-[440px] bg-[#080d14] border-l border-border/80 z-50 shadow-2xl"
+        className="fixed right-0 top-0 h-screen w-full sm:w-[440px] bg-[#080d14] border-l border-border/80 z-[70] shadow-2xl"
       >
         {hashData   && <HashPanel   data={hashData}   onClose={onClose} />}
         {ipData     && <IpPanel     data={ipData}     onClose={onClose} />}
         {domainData && <DomainPanel data={domainData} onClose={onClose} />}
       </motion.div>
-    </>
+    </>,
+    document.body,
   );
 }

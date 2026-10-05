@@ -9,7 +9,7 @@ import { useOrgContext } from "@/lib/auth/useOrgContext";
 import { EnvironmentSwitcher } from "./EnvironmentSwitcher";
 import { MyEnvironmentSwitcher } from "./MyEnvironmentSwitcher";
 import {
-  LayoutDashboard, BookOpen, TrendingUp, Target, ClipboardList, Wrench, DoorOpen, Menu, X, LogOut, LogIn, Award, ShieldCheck, Building2, Flag, Library, Users,
+  LayoutDashboard, BookOpen, TrendingUp, Target, ClipboardList, Wrench, DoorOpen, Menu, X, LogOut, LogIn, Award, ShieldCheck, Building2, Flag, Library, Users, ChevronsLeft, PanelLeft,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -232,6 +232,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
 export function Sidebar() {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const { user } = useAuth();
   // In-app logo returns a signed-in user to their app home (/rooms), never the
   // public marketing landing at "/" — which renders its logged-out view and made
@@ -241,18 +242,43 @@ export function Sidebar() {
   // Close the mobile drawer whenever the route changes (belt-and-suspenders
   // alongside the per-link onNavigate handler).
   useEffect(() => { setDrawerOpen(false); }, [pathname]);
+  // Desktop rail collapse — remembered per device so the choice sticks across
+  // pages and reloads. Read in an effect to avoid an SSR/first-paint mismatch.
+  useEffect(() => { try { setCollapsed(localStorage.getItem("soc_sidebar_collapsed") === "1"); } catch { /* storage blocked */ } }, []);
+  const toggleCollapsed = (v: boolean) => { setCollapsed(v); try { localStorage.setItem("soc_sidebar_collapsed", v ? "1" : "0"); } catch { /* storage blocked */ } };
 
   return (
     <>
-      {/* ── Desktop rail (unchanged) ─────────────────────────────────── */}
-      <aside className="hidden md:flex md:w-60 flex-col border-r border-border bg-[#0d1520] sticky top-0 h-screen">
-        <div className="px-5 py-5">
+      {/* ── Desktop rail (collapsible) ───────────────────────────────── */}
+      <aside className={cn("hidden md:flex md:w-60 flex-col border-r border-border bg-[#0d1520] sticky top-0 h-screen", collapsed && "md:hidden")}>
+        <div className="flex items-center justify-between px-5 py-5">
           <Link href={homeHref} className="block">
             <Logo />
           </Link>
+          <button
+            onClick={() => toggleCollapsed(true)}
+            aria-label="Collapse sidebar"
+            title="Collapse sidebar"
+            className="shrink-0 rounded p-1.5 text-slate-400 hover:bg-white/5 hover:text-slate-200 transition-colors"
+          >
+            <ChevronsLeft className="h-4 w-4" />
+          </button>
         </div>
         <NavList />
       </aside>
+
+      {/* Desktop: floating button to reopen the rail once it's collapsed, so the
+          dashboard (and every page) can use the full screen width. */}
+      {collapsed && (
+        <button
+          onClick={() => toggleCollapsed(false)}
+          aria-label="Expand sidebar"
+          title="Expand sidebar"
+          className="hidden md:flex fixed top-3 left-3 z-40 h-10 w-10 items-center justify-center rounded-lg border border-border bg-[#0d1520]/95 text-slate-200 shadow-lg backdrop-blur hover:text-white"
+        >
+          <PanelLeft className="h-5 w-5" />
+        </button>
+      )}
 
       {/* ── Mobile: floating hamburger + slide-in drawer ─────────────── */}
       <button
