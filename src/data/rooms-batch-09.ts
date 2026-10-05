@@ -1243,7 +1243,7 @@ When a suspicious email is reported (by a user, by your email gateway alert, or 
       ],
       answer: 1,
       explanation:
-        "SPF fail means the mail server that actually sent this email is NOT listed in corp.com's SPF record — in other words, it is not an authorised mail server for that domain. When combined with a From address showing ceo@corp.com, this strongly suggests email spoofing: an attacker fabricated the From address to look like the CEO, but sent the email from their own (unauthorised) mail server. SPF check results are based on the technical sending server IP, not what is displayed in the From field. An SPF fail on a high-value sender like the CEO is a high-priority alert.",
+        "SPF fail means the mail server that actually sent this email is NOT listed in corp.com's SPF record — in other words, it is not an authorised mail server for that domain. When combined with a From address showing ceo@corp.com, this strongly suggests email spoofing: an attacker fabricated the From address to look like the CEO, but sent the email from their own (unauthorised) mail server. SPF checks the sending server's IP against the domain in the envelope sender (the Return-Path), not the visible From address — DMARC alignment is what ties that result back to the From domain the user actually sees. An SPF fail on a high-value sender like the CEO is a high-priority alert.",
       xp: 25,
     },
 
@@ -1279,7 +1279,7 @@ When a suspicious email is reported (by a user, by your email gateway alert, or 
         user_email: "finance@corp.com",
         src_ip: "185.220.101.45",
         description: "Suspected BEC phishing: spoofed CEO email with SPF/DKIM/DMARC failure and suspicious Reply-To",
-        mitre_technique: "T1566.001 - Phishing: Spearphishing Attachment / T1078 - Valid Accounts",
+        mitre_technique: "T1566.001 - Phishing: Spearphishing Attachment",
         raw: {
           "email.from": "ceo@corp-secure.com",
           "email.reply_to": "r.donovan1985@gmail.com",
@@ -1338,7 +1338,7 @@ When a suspicious email is reported (by a user, by your email gateway alert, or 
     {
       type: "question" as const,
       id: "email-sec-q4",
-      question: "A domain publishes a DMARC policy of 'p=none'. What action does the receiving mail server take when an email from that domain fails SPF and DKIM?",
+      question: "A domain publishes a DMARC policy of 'p=none'. According to that DMARC policy, what should the receiving mail server do with an email from that domain that fails DMARC (both SPF and DKIM fail alignment)?",
       options: [
         "The email is immediately rejected and never delivered to the recipient",
         "The email is moved to the recipient's spam/junk folder",

@@ -868,10 +868,10 @@ const linuxFundamentals: Room = {
           question:
             "The auditd.log.uid is '33' and auditd.log.euid is '0'. What does this tell you about what just happened?",
           options: [
-            "UID 33 corresponds to the root account on this system, so the command simply ran with the privileges it already had by default — nothing about this event represents an escalation, since root running root-level commands is entirely expected behaviour",
-            "UID 33 is www-data (the web server service account). eUID 0 means the effective user ID after sudo ran is 0 (root). The web server process successfully elevated to root — this indicates the web server was compromised and an attacker used it to escalate privileges",
-            "UID 33 means the process invocation failed validation and the sudo attempt was blocked by the system's security policy before it could execute, which is why auditd.log.success shows the outcome of a denied privilege escalation attempt rather than a successful one",
-            "UID 33 is reserved for anonymous or guest network connections rather than any specific local account, so this event simply reflects ordinary anonymous web traffic being logged by the reverse proxy and carries no special significance for host-level privilege escalation",
+            "UID 33 and eUID 0 are two labels for the same session: 33 is www-data's audit ID and 0 is its login ID, so this is an ordinary unprivileged web process with no change of privilege at any point",
+            "UID 33 is www-data, the web-server service account, and eUID 0 is the effective user it ran as — root; a service account that should only serve web content has ended up executing with root privileges",
+            "The uid-euid pair records a blocked attempt: auditd logs eUID 0 as the privilege sudo requested, not one it was granted, so the web account asked for root but never actually obtained it",
+            "UID 33 falls in the range the kernel's audit subsystem reserves to tag privileged syscalls, so these numbers describe how auditd labelled the event rather than which account ran the command",
           ],
           answer: 1,
           explanation:

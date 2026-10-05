@@ -1820,10 +1820,10 @@ This is exactly why the indicators from the previous reading matter as much as t
         question:
           "A SOC analyst is investigating a Windows server. They notice a service called 'WindowsSecurityHelper' running from C:\\ProgramData\\wsh\\svchost.exe. What is suspicious about this?",
         options: [
-          "Services should not have human-readable descriptive names at all — the Windows Service Control Manager only accepts purely numeric identifiers for legitimate services",
-          "The real svchost.exe lives in C:\\Windows\\System32\\, not in C:\\ProgramData\\. Running a file named svchost.exe from a non-standard location is a classic malware masquerading technique. C:\\ProgramData\\ is writable without admin rights on some configurations.",
-          "Services are only ever allowed to run from directly inside the Windows directory itself, so C:\\ProgramData\\ is structurally rejected by the Service Control Manager before it can even start",
-          "The service name 'WindowsSecurityHelper' exceeds the maximum character limit Windows enforces for service names, which is why it should be flagged automatically",
+          "The name 'WindowsSecurityHelper' isn't a real built-in Windows service, and an invented Microsoft-sounding service name is by itself proof of malware, whatever path its binary happens to run from",
+          "Genuine svchost.exe only ever runs from C:\\Windows\\System32\\, so a file named svchost.exe executing from C:\\ProgramData\\ is masquerading — a trusted name sitting in an untrusted location",
+          "A real svchost.exe hosts several services at once, so one running a single service proves this process has been hollowed out and its in-memory code replaced by the attacker",
+          "C:\\ProgramData\\ is meant only for application configuration data and Windows blocks executables from launching there, so this service could only have started by first disabling that protection",
         ],
         answer: 1,
         explanation:
