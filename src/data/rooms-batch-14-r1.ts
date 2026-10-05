@@ -443,10 +443,10 @@ const awsSecurityRoom = {
       question:
         "Your organization has never explicitly enabled 'S3 data event logging.' A file was downloaded from a private S3 bucket last night. Which statement is TRUE?",
       options: [
-        "CloudTrail logs S3 GetObject calls automatically as part of the same management-event stream that records bucket creation and permission changes, with no extra configuration needed",
-        "The GetObject data event was very likely NOT logged, even though the bucket-level management events (like creating or deleting the bucket) would still appear",
-        "S3 keeps no record of object-level activity in any form — the only way to ever determine which objects were accessed is to enable full VPC Flow Logs on every subnet in the account",
-        "GuardDuty runs its own lightweight agent inside S3 that independently observes every object read and write, so it will still generate a finding for this download even with CloudTrail data events turned off",
+        "CloudTrail records S3 GetObject calls automatically alongside bucket creation and permission changes, with no extra configuration",
+        "The GetObject data event was most likely not logged, although bucket-level management events would still appear",
+        "S3 server access logging is enabled by default and captures the download, so CloudTrail is not needed for object-level visibility",
+        "VPC Flow Logs record the object key and bytes read, so the download is visible in network telemetry instead",
       ],
       answer: 1,
       explanation:
@@ -461,10 +461,10 @@ const awsSecurityRoom = {
       question:
         "An EC2 instance has an IAM role attached. A SOC analyst notices that role's temporary credentials being used to call the AWS API from a source IP address in Germany, while the EC2 instance itself is confirmed still running normally inside AWS in us-east-1. What does this most likely indicate?",
       options: [
-        "This is completely normal — IAM role credentials automatically work from any location worldwide",
-        "The instance's temporary credentials were stolen (for example via an SSRF attack against IMDS) and are now being used by an attacker from outside AWS",
-        "AWS load-balances API traffic through European data centers, so the source IP is expected to vary",
-        "The role must be misconfigured to allow multi-region access, which is a normal setting",
+        "Normal cross-region failover — AWS re-issues the role credentials to a standby instance in Germany when the primary is busy",
+        "The instance's temporary credentials were stolen, for example via SSRF against IMDS, and are used by an attacker from outside AWS",
+        "A developer testing the role's permissions from a workstation, which is expected since IAM roles can be used from any location",
+        "AWS routing API calls through European edge locations, so the source IP in CloudTrail can differ from the instance's region",
       ],
       answer: 1,
       explanation:

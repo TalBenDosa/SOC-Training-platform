@@ -98,10 +98,10 @@ const activeDirectory: Room = {
       question:
         "A company with 5,000 employees needs a way to manage all user accounts centrally so that one account works on all systems and IT can enforce password policies everywhere. Which Windows infrastructure does this?",
       options: [
-        "A Workgroup where each PC manages its own accounts",
-        "Active Directory Domain Services with a Domain Controller",
-        "A shared Excel spreadsheet listing all usernames and passwords",
-        "Windows Firewall with shared rules across all machines",
+        "A Workgroup with the same local account created on every PC",
+        "Active Directory Domain Services running on a Domain Controller",
+        "A DNS server with secure dynamic updates for every machine",
+        "WSUS pushing configuration and account settings to every PC",
       ],
       answer: 1,
       explanation:
@@ -118,10 +118,10 @@ const activeDirectory: Room = {
       question:
         "During Kerberos authentication, what does Event ID 4768 represent, and where is it logged?",
       options: [
-        "A Service Ticket (TGS) was issued — logged on the file server that was accessed",
+        "A Service Ticket (TGS) was issued — logged on the file server accessed",
         "A Ticket-Granting Ticket (TGT) was requested — logged on the Domain Controller",
-        "A user's password was reset — logged in the Application event log",
-        "A new computer joined the domain — logged on the workstation",
+        "An NTLM credential validation succeeded — logged on the member server",
+        "A user account was modified — logged on the workstation used",
       ],
       answer: 1,
       explanation:
@@ -138,10 +138,10 @@ const activeDirectory: Room = {
       question:
         "You are reviewing Event ID 4769 logs (Kerberos Service Ticket requests). Which field and value is the primary indicator of a Kerberoasting attack?",
       options: [
-        "TicketEncryptionType: 0x12 (AES-256) — modern, secure encryption",
-        "TicketEncryptionType: 0x17 (RC4-HMAC) — older, weaker encryption preferred by attackers for offline cracking",
-        "FailureCode: 0x12 — indicating the account is disabled",
-        "LogonType: 10 — indicating a remote interactive session",
+        "TicketEncryptionType 0x12 (AES-256) on tickets for service accounts",
+        "TicketEncryptionType 0x17 (RC4-HMAC) on tickets for service accounts",
+        "Status 0x12 (account disabled) on repeated service ticket requests",
+        "ServiceName krbtgt on repeated service ticket requests",
       ],
       answer: 1,
       explanation:
@@ -202,10 +202,10 @@ const activeDirectory: Room = {
           question:
             "What is the name of the service account whose ticket was requested, and why is that significant?",
           options: [
-            "j.harrison — TargetUserName always names the account the ticket was issued for, so that is the Kerberoast target here",
-            "svc_sqlbackup — a service account for SQL Server backup, which likely has elevated database privileges, making it a high-value Kerberoasting target",
-            "DC01 — ServiceName resolves to the Domain Controller that issued the ticket, so the DC is the account under attack",
-            "CORP.CONTOSO.COM — the realm in TargetDomainName is what the attacker is roasting, since Kerberos tickets are scoped per-realm",
+            "j.harrison — TargetUserName names the account the ticket was issued for, so that is the roast target",
+            "svc_sqlbackup — a SQL backup service account, likely privileged, so a high-value Kerberoast target",
+            "DC01 — ServiceName names the Domain Controller that issued the ticket, so the DC is under attack",
+            "CORP.CONTOSO.COM — the realm in TargetDomainName is the entity being roasted, as tickets are per-realm",
           ],
           answer: 1,
           explanation:
@@ -216,10 +216,10 @@ const activeDirectory: Room = {
           question:
             "The TicketEncryptionType is 0x17. What does this mean, and why is it suspicious at 02:17 AM?",
           options: [
-            "0x17 means AES-256 encryption was used — the most secure type available in modern Kerberos, so this specific encryption value is always expected and never worth investigating regardless of context",
-            "0x17 means RC4-HMAC encryption — an older algorithm that is faster to crack offline; combined with the 2 AM timestamp when no legitimate user would be working, this strongly suggests automated Kerberoasting",
-            "0x17 means the ticket request was denied by the KDC — the attacker's Kerberoasting attempt failed and no encrypted material was ever returned to be cracked offline",
-            "0x17 means the requesting account is a member of Domain Admins, since that specific encryption type is only ever assigned to tickets issued to highly privileged accounts by the KDC",
+            "0x17 means AES-256 — the strongest Kerberos type, so it is expected and not worth investigating",
+            "0x17 means RC4-HMAC — faster to crack offline; at 2 AM this suggests automated Kerberoasting",
+            "0x17 means the KDC denied the request — the attempt failed and no crackable ticket was returned",
+            "0x17 means the requester is a Domain Admin — only privileged accounts are issued that type",
           ],
           answer: 1,
           explanation:
@@ -238,10 +238,10 @@ const activeDirectory: Room = {
       question:
         "An IT admin creates a group in Active Directory and adds all Finance department users to it, giving the group Read/Write access to the Finance file share. What type of AD group is this?",
       options: [
-        "Distribution Group — used for controlling access to shared resources",
-        "Security Group — used for controlling access to resources and applying permissions",
-        "Universal Group — used only for email in Exchange Online",
-        "Computer Group — used for organising workstations",
+        "Distribution Group — can be added to a share's ACL to grant access",
+        "Security Group — can be placed on ACLs to grant access to resources",
+        "Organizational Unit — grants its permissions to every account placed in it",
+        "Built-in Group — a predefined group that admins cannot create themselves",
       ],
       answer: 1,
       explanation:
@@ -258,10 +258,10 @@ const activeDirectory: Room = {
       question:
         "An attacker has gained DS-Replication-Get-Changes-All permissions on the domain. What attack can they now perform, and what is the catastrophic result?",
       options: [
-        "Kerberoasting — they can crack service account passwords one at a time, but only after first obtaining Domain Admin rights, since Kerberoasting cannot be performed by an ordinary domain user",
-        "DCSync — they can impersonate a Domain Controller and pull ALL password hashes from Active Directory, effectively owning every account in the domain",
-        "Pass-the-Ticket — they can reuse a single stolen TGT to access one specific service, and the ticket becomes permanently invalid the moment it is used a second time, limiting the attacker to exactly one action",
-        "Golden Ticket — they can forge TGTs but only for accounts they already know about, and the forged tickets expire within the same 10-hour window as a normal legitimately-issued TGT",
+        "Kerberoasting — they can request service tickets and crack service account passwords offline",
+        "DCSync — they can impersonate a Domain Controller and pull password hashes for every account",
+        "Pass-the-Ticket — they can replay stolen TGTs to reach services as the ticket's owner",
+        "AdminSDHolder abuse — they can rewrite the ACLs on every protected group in the domain",
       ],
       answer: 1,
       explanation:
@@ -291,10 +291,10 @@ const activeDirectory: Room = {
       question:
         "What makes a Golden Ticket attack so uniquely dangerous compared to other Kerberos attacks?",
       options: [
-        "It only works against one specific user account, requires the attacker to already have that user's current password, and the forged ticket still expires after the standard 10-hour TGT lifetime like any normal Kerberos ticket",
-        "It requires the attacker to already know the plaintext password of every single account they want to impersonate, making it no more useful in practice than any other ordinary credential-based logon",
-        "It uses the krbtgt account's password hash to forge TGTs for ANY user with ANY expiry — including fake accounts — and can persist even after all user passwords are reset",
-        "It requires sustained physical, hands-on-keyboard access to the Domain Controller itself in order to inject the forged ticket directly into the KDC's memory, which is why Golden Ticket attacks are rarely performed remotely over the network",
+        "It forges tickets for one account at a time and needs that user's current password hash",
+        "It forges service tickets with a service account's hash, so it only reaches that one service",
+        "It signs forged TGTs with the krbtgt hash for any account, and survives user password resets",
+        "It abuses a DC replication permission to pull every hash, and ends once that permission is removed",
       ],
       answer: 2,
       explanation:
@@ -339,10 +339,10 @@ const activeDirectory: Room = {
       question:
         "You are reviewing Event ID 4768 (Kerberos TGT request) logs on a Domain Controller and see an entry for account 'svc-legacy-print' with PreAuthType = 0. What does this indicate, and why is it a high-value finding?",
       options: [
-        "PreAuthType 0 simply means the account used AES256 encryption for pre-authentication rather than the older RC4 algorithm — a stronger encryption choice that is completely normal and actually indicates better security hygiene on this account",
-        "PreAuthType 0 means Kerberos pre-authentication was not performed for this request — the account has 'Do not require Kerberos preauthentication' enabled, making it vulnerable to AS-REP Roasting: any attacker can request its AS-REP and crack the password offline with zero further logging",
-        "PreAuthType 0 means the account's password has expired and must be reset by the user before the KDC will issue a valid ticket, which is why the TGT request in this log entry ultimately failed rather than succeeding",
-        "PreAuthType 0 is a benign default value that appears on roughly half of all legitimate logins across a typical domain, since the KDC alternates between requiring and skipping pre-authentication as a routine load-balancing optimisation",
+        "PreAuthType 0 means smart-card (PKINIT) pre-authentication, which is routine for privileged service accounts",
+        "No pre-authentication was required: the account has 'Do not require Kerberos preauthentication' set, so its AS-REP can be cracked offline",
+        "PreAuthType 0 means the password expired, so the KDC refused to issue a TGT until the user resets it",
+        "PreAuthType 0 marks a cross-realm referral request, which is routine traffic in a multi-domain forest",
       ],
       answer: 1,
       explanation:
@@ -412,10 +412,10 @@ const activeDirectory: Room = {
           question:
             "Given that this is a suspected NTLM relay, what is the SOC analyst's most appropriate immediate action?",
           options: [
-            "Reset l.harper's password at the domain controller and consider the incident resolved: because NTLM relay is entirely dependent on capturing the current password hash during the handshake, forcing an immediate password change invalidates that hash, which retroactively closes the session already established on SRV-FILE02 and removes any further risk from this specific relay event",
-            "Isolate/quarantine the unmanaged device at 10.20.4.91 from the network, disable or reset l.harper's credentials and any sessions established via the relayed authentication, and open an investigation into how an unmanaged device is present on the internal subnet at all — since it must be running Responder or a similar poisoning tool to have captured the original LLMNR broadcast",
-            "Ignore this specific alert and close the ticket without further action: NTLM relay attacks are only viable when the targeted account already holds Domain Admin rights, so because l.harper is a standard user account with no elevated group memberships, the relayed authentication poses no meaningful risk to the environment and does not warrant containment",
-            "Block UDP port 5355 on SRV-FILE02 alone and consider the network secured: since the relayed authentication landed specifically on that file server, restricting LLMNR broadcast traffic at that single host removes the attacker's only viable path, even though the poisoning tool on 10.20.4.91 remains reachable by every other machine on the same subnet",
+            "Reset l.harper's password and close the incident — the change invalidates the captured hash and ends the session already open on SRV-FILE02",
+            "Isolate the unmanaged device at 10.20.4.91, reset l.harper's credentials and relayed sessions, and investigate how it reached the subnet",
+            "Downgrade the alert and close it — relay only works against Domain Admins, and l.harper is a standard user with no elevated groups",
+            "Block UDP 5355 on SRV-FILE02 and stop there — the poisoning tool can no longer reach the server it relayed to",
           ],
           answer: 1,
           explanation:
@@ -570,10 +570,10 @@ const windowsEventLogs: Room = {
       question:
         "You see Event ID 4624 on SERVER01. The LogonType field is 3, and the IpAddress is the IP of a user workstation (WKST22). Why is this potentially suspicious and what attack technique does it suggest?",
       options: [
-        "LogonType 3 means an interactive console logon, the same value Windows uses when an administrator is typing directly at SERVER01's physical keyboard, so this event simply reflects normal on-site administrative access to the server console",
-        "LogonType 3 is a network logon, meaning a process on WKST22 authenticated to SERVER01 over the network — this is unusual because users do not normally initiate network logons from their workstations to servers, suggesting lateral movement",
-        "LogonType 3 indicates that WKST22 attempted to authenticate but supplied the wrong password, making this nothing more than a routine failed login attempt that would appear as Event ID 4625 rather than a successful 4624 logon worth investigating",
-        "LogonType 3 is the value Windows assigns to RemoteInteractive sessions established over Remote Desktop Protocol, so this event simply shows WKST22's user opening an RDP session to SERVER01, which is completely normal remote administration",
+        "LogonType 3 is an interactive console logon, so an administrator was typing at SERVER01's keyboard",
+        "LogonType 3 is a network logon from WKST22 to SERVER01 — possible lateral movement if the account does not normally do this",
+        "LogonType 3 is a batch logon, so a scheduled task running on WKST22 authenticated to SERVER01",
+        "LogonType 3 is RemoteInteractive, so a user on WKST22 opened an RDP session to SERVER01",
       ],
       answer: 1,
       explanation:
@@ -633,10 +633,10 @@ const windowsEventLogs: Room = {
           question:
             "The SubStatus field shows 0xC000006A. What does this tell you about the account 'j.smith'?",
           options: [
-            "0xC000006A means the account does not exist at all in the domain — the attacker is blindly guessing random usernames with no prior knowledge of who actually works at the company",
-            "0xC000006A means the account exists but the password was wrong — j.smith is a real account in the domain, so the attacker already knows valid usernames",
-            "0xC000006A means the account is currently locked out after exceeding the maximum number of failed attempts, so this specific request was rejected purely because of the lockout policy rather than because of anything the attacker actually knows",
-            "0xC000006A means the account has been disabled by an administrator, so any authentication attempt against it — correct password or not — will always fail with this same status code regardless of who is attempting to log in",
+            "The account does not exist — the attacker is guessing usernames blindly",
+            "The account exists but the password was wrong — the attacker already knows valid usernames",
+            "The account is locked out — the request was rejected by lockout policy, not by what the attacker knows",
+            "The account is disabled — any attempt fails with this status whatever password is supplied",
           ],
           answer: 1,
           explanation:
@@ -647,10 +647,10 @@ const windowsEventLogs: Room = {
           question:
             "The LogonType is 3 and the IpAddress is 203.0.113.45 (geolocated to Moscow). What is the correct immediate response?",
           options: [
-            "Wait and see — one failed logon is not significant, and a single event like this rarely warrants any action beyond passive monitoring until a much larger pattern clearly emerges over the following days",
-            "Block 203.0.113.45 at the perimeter firewall, search the SIEM for any Event ID 4624 (success) from this IP in the same window, reset any compromised accounts, and alert the security team",
-            "Delete the j.smith account immediately without further investigation, since removing the targeted account is the fastest way to guarantee the attacker can never successfully authenticate as that user again",
-            "Clear the Security event log so the attacker does not know they were detected, which removes the evidence of the failed attempts from the local host and prevents the intrusion from being escalated any further up the chain",
+            "Monitor only — one failed logon from a single IP does not justify action yet",
+            "Block 203.0.113.45, search the SIEM for 4624 successes from it, reset any compromised accounts, alert the security team",
+            "Reset j.smith's password and close the alert — the failed logon shows the attacker never got in",
+            "Disable the j.smith account right away, which stops the attacker authenticating as that user",
           ],
           answer: 1,
           explanation:
@@ -670,9 +670,9 @@ const windowsEventLogs: Room = {
         "At 11:47 PM on a Saturday, Event ID 1102 appears in your SIEM from a Domain Controller. What does this mean and how urgent is it?",
       options: [
         "A new admin account was created — moderate urgency, verify with IT on Monday",
-        "The Security audit log was cleared — this is a critical P1 indicator that an attacker may be erasing their tracks; escalate immediately",
-        "A scheduled backup job cleared old logs as part of routine maintenance — this is expected",
-        "A user locked out their account — low urgency, unlock the account",
+        "The Security audit log was cleared — critical P1, possible track-covering; escalate now",
+        "The Security log hit its size limit and overwrote old events — low urgency, expected",
+        "Audit policy was changed to stop logging — medium urgency, review during business hours",
       ],
       answer: 1,
       explanation:
@@ -689,10 +689,10 @@ const windowsEventLogs: Room = {
       question:
         "Event ID 4688 shows a new process created: NewProcessName = 'C:\\Windows\\System32\\cmd.exe', ParentProcessName = 'C:\\Program Files\\Microsoft Office\\Office16\\WINWORD.EXE', CommandLine = 'cmd.exe /c powershell -EncodedCommand JABjACA9...'. What does this indicate?",
       options: [
-        "A user opened a command prompt window from inside Microsoft Word by using the built-in developer ribbon — this is a completely normal, well-documented workflow for office workers who need to run quick scripts during document editing",
-        "Microsoft Word spawned a Command Prompt which then ran an encoded PowerShell command — this is a classic indicator of a malicious macro executing a payload, consistent with a phishing email attack",
-        "The Windows Update service is running PowerShell as part of an automatic patch installation, and it is expected behaviour for Windows Update to spawn its helper processes as children of whatever application happened to be in focus at the time, including Microsoft Word",
-        "A developer compiled code inside Word using the built-in terminal that ships with Microsoft Office's VBA development environment, which legitimately shells out to cmd.exe and PowerShell during normal compilation and debugging tasks",
+        "A user launched a command prompt from Word's developer ribbon to run a quick script",
+        "Word spawned cmd.exe, which ran encoded PowerShell — consistent with a malicious macro payload",
+        "A signed Office add-in updater shelled out to PowerShell to refresh its templates",
+        "A developer's VBA project called cmd.exe and PowerShell during a normal debugging run",
       ],
       answer: 1,
       explanation:
@@ -805,10 +805,10 @@ const linuxFundamentals: Room = {
       question:
         "During a Linux investigation, you run 'find / -perm -4000 -type f 2>/dev/null' and find '/tmp/update_helper' in the results. Why is this significant?",
       options: [
-        "SUID files in /tmp are completely normal — many installers and update utilities routinely drop temporary helper binaries with the SUID bit set into /tmp during installation, and this is standard, well-documented behaviour on most Linux distributions",
-        "The SUID bit (/perm -4000) means this file runs as its owner (likely root) regardless of who executes it. A SUID executable in /tmp (not a standard system location) strongly suggests an attacker planted a privilege escalation backdoor",
-        "Files in /tmp cannot be executed at all because the filesystem is mounted with the noexec flag by default on every Linux distribution, so a SUID bit on a file there has no practical effect and is not a security concern",
-        "The find command found a corrupted file and it should be deleted immediately without investigation, since files with unusual permission bits like SUID are typically artefacts of a failed package installation rather than something worth preserving as evidence",
+        "Expected — installers often stage SUID helper binaries in /tmp during package updates",
+        "SUID runs the file as its owner (likely root), so a SUID binary in /tmp suggests a planted escalation backdoor",
+        "Harmless — /tmp is mounted noexec on every distribution, so the SUID bit has no effect there",
+        "A corrupted file left by a failed package install — delete it rather than preserve it",
       ],
       answer: 1,
       explanation:
@@ -903,10 +903,10 @@ const linuxFundamentals: Room = {
       question:
         "What does 'chmod 777 /etc/shadow' mean, and why would this be catastrophic on a Linux server?",
       options: [
-        "chmod 777 sets the file to read-only for everyone, stripping away write and execute permissions from the owner, group, and all other users on the system — making this the safest possible setting for a sensitive file like /etc/shadow",
-        "chmod 777 grants read, write, and execute permission to owner, group, AND every other user on the system. /etc/shadow contains password hashes for all users. Making it world-readable means any user — including an attacker with a low-privilege account — can read and attempt to crack every user's password hash offline",
-        "chmod 777 deletes the target file entirely and immediately, functionally equivalent to running rm on it — since /etc/shadow would no longer exist afterward, every user account on the system would be locked out until the file is restored from backup",
-        "chmod 777 only changes the file's registered owner in the filesystem metadata to root — it has no effect on the read, write, or execute permission bits, so who can actually open and read /etc/shadow remains completely unchanged",
+        "It makes the file read-only for all users, the safest setting for a file of password hashes",
+        "It gives read, write and execute to everyone, so any local user can read and crack every password hash",
+        "It changes only the file's owner to root and leaves the read/write permission bits as they were",
+        "It gives full access to the owner and group only, so ordinary users are still blocked from reading hashes",
       ],
       answer: 1,
       explanation:
@@ -923,10 +923,10 @@ const linuxFundamentals: Room = {
       question:
         "An analyst finds this line in /etc/cron.d/sysupdate on a compromised web server: '*/5 * * * * root /tmp/.cache 2>/dev/null'. What does this do and why is it malicious?",
       options: [
-        "It updates the system cache every 5 minutes as root, which is a completely normal and well-documented cron entry shipped by default with many Linux distributions to refresh package metadata and filesystem caches under /tmp — this is a legitimate maintenance task",
-        "Every 5 minutes, the root user executes /tmp/.cache (a hidden file in /tmp — note the dot prefix). The 2>/dev/null suppresses any error output. This is a persistent backdoor — even if the malware process is killed, cron will restart it within 5 minutes. Hiding in /tmp with a dotfile name is classic attacker tradecraft",
-        "The cron job actually runs as the 'root' group rather than the root user, and group-level cron entries in /etc/cron.d only ever receive read permission on files under /tmp, so this entry cannot execute anything — it can only inspect the contents of /tmp/.cache",
-        "In cron time syntax, '*/5' in the minute field actually means the job runs once every 5 hours rather than every 5 minutes, because cron evaluates the step value against the hour field by default when a command is present in the entry, so the real-world impact of this entry is far more limited than it first appears",
+        "A routine cron job that refreshes a package-metadata cache every 5 minutes as root",
+        "Root runs the hidden file /tmp/.cache every 5 minutes with errors silenced — a persistence backdoor",
+        "The entry runs as the 'root' group, which can only read /tmp/.cache and never execute it",
+        "The '*/5' step applies to the hour field, so the job runs only once every five hours",
       ],
       answer: 1,
       explanation:
@@ -1007,10 +1007,10 @@ const linuxLogAnalysis: Room = {
       question:
         "What is the key difference between /var/log/auth.log (Debian/Ubuntu) and /var/log/audit/audit.log (auditd), and why does a SOC team need both?",
       options: [
-        "They contain exactly the same information in two different formats — auth.log is simply a human-readable text export of the same underlying data that audit.log stores in a binary format, so a SOC team only ever needs to check one of them, and having both configured is pure redundancy that wastes disk space",
-        "auth.log contains authentication events logged by userspace daemons (sshd, sudo, PAM). audit.log is written by the Linux kernel via auditd and captures system calls — auth.log can be selectively cleared by a malicious process, but auditd is much harder to tamper with because it operates at kernel level. Together they give both readable context and tamper-resistant kernel-level detail",
-        "auth.log exclusively contains SSH-related events, while audit.log is generated only when a user runs sudo — no other authentication mechanism writes to either file, so together the two logs cover every possible authentication method on the system",
-        "audit.log is only available on RHEL/CentOS systems and auth.log only exists on Debian/Ubuntu, because auditd itself is a Red-Hat-specific subsystem that was never ported to Debian-based distributions — so which log you check depends entirely on which distribution family the server runs",
+        "Both hold the same data in text and binary form, so checking either one is enough",
+        "auth.log holds userspace auth events (sshd, sudo, PAM); audit.log holds kernel syscall records and is harder to tamper with",
+        "auth.log holds only remote logins, while audit.log holds only local console logins",
+        "audit.log exists only on RHEL-family systems and auth.log only on Debian-family ones",
       ],
       answer: 1,
       explanation:
@@ -1062,10 +1062,10 @@ const linuxLogAnalysis: Room = {
           question:
             "The target username is 'root' and the time is 03:41 AM. What is the immediate risk, and what should be the first containment action?",
           options: [
-            "There is no risk at all — root SSH login is disabled by default on every Linux distribution shipped in the last decade, so PermitRootLogin cannot be re-enabled by an administrator, and this wave of failed attempts is just harmless background internet noise that can be safely ignored",
-            "The risk is that the brute force may eventually find the root password if PermitRootLogin is enabled and the password is weak. The immediate containment action is to block 185.220.101.45 at the firewall, and verify that /etc/ssh/sshd_config has 'PermitRootLogin no' to prevent root login even if the password is discovered",
-            "Delete the root account immediately to prevent login, since removing the account entirely from /etc/passwd is the standard, recommended first response to any brute force campaign and permanently eliminates the account as an attack target going forward",
-            "Restart the SSH service to force all connections to drop, which resets any in-progress authentication attempts and permanently prevents the same source IP from being able to reconnect and resume the brute force campaign afterward",
+            "Low risk — PermitRootLogin is off by default on every distribution, so these failures are background noise to ignore",
+            "A weak root password could fall to the brute force; block 185.220.101.45 and verify sshd_config has 'PermitRootLogin no'",
+            "Rename the root account in /etc/passwd so the brute force keeps targeting a user that no longer exists",
+            "Restart sshd to drop all connections, which also stops the source IP from reconnecting",
           ],
           answer: 1,
           explanation:
@@ -1076,10 +1076,10 @@ const linuxLogAnalysis: Room = {
           question:
             "What log query would best help you determine if the brute force SUCCEEDED at any point and the attacker got in?",
           options: [
-            "grep 'Failed password' /var/log/auth.log | wc -l — to count how many failures there were",
-            "grep 'Accepted' /var/log/auth.log | grep '185.220.101.45' — to look for any successful authentication from the attacker's IP",
-            "cat /etc/shadow | grep root — to check if the root password is set",
-            "netstat -tulpn — to check which ports are open on the server",
+            "grep 'Failed password' /var/log/auth.log | wc -l — count the failed attempts",
+            "grep 'Accepted' /var/log/auth.log | grep '185.220.101.45' — find successful logins from the attacker's IP",
+            "grep 'Failed password' /var/log/auth.log | grep '185.220.101.45' | tail -1 — see when the attempts stopped",
+            "who -a — list the accounts logged in right now",
           ],
           answer: 1,
           explanation:
@@ -1112,9 +1112,9 @@ const linuxLogAnalysis: Room = {
         "You need to check what the SSH service logged on November 22, 2024 between midnight and 06:00 AM. Which journalctl command would filter for exactly this?",
       options: [
         "journalctl -u sshd --since '2024-11-22 00:00:00' --until '2024-11-22 06:00:00'",
-        "cat /var/log/auth.log | grep sshd | head -100 — auth.log is written one file per calendar day, so this returns only that date",
-        "systemctl status sshd --since '2024-11-22 00:00:00' — systemctl status accepts the same time-range flags as journalctl",
-        "ps aux | grep sshd — a process listing includes the connection history each daemon has handled since boot",
+        "cat /var/log/auth.log | grep sshd | head -100",
+        "systemctl status sshd --since '2024-11-22 00:00:00' --until '2024-11-22 06:00:00'",
+        "ps -eo lstart,cmd | grep sshd",
       ],
       answer: 0,
       explanation:
@@ -1131,10 +1131,10 @@ const linuxLogAnalysis: Room = {
       question:
         "An auditd event shows 'auid=1001' and 'euid=0'. The /etc/passwd file shows 'alice:x:1001:1001:Alice:/home/alice:/bin/bash'. What does this auditd record tell you?",
       options: [
-        "An anonymous user is logged as auid=1001 because any value above 1000 in the audit subsystem represents an unauthenticated or unknown network connection rather than a real local account, so this record simply reflects an anonymous process running with root privileges",
-        "Alice (UID 1001) is the original logged-in user (auid = audit user ID, stays constant through su/sudo). euid=0 means the command ran with effective root privileges. This means Alice used sudo or su to escalate to root and execute this command",
-        "Alice's account has UID 0 in /etc/passwd, which automatically makes her a superuser with permanent root privileges regardless of whether sudo or su is ever invoked, so this event simply reflects Alice's normal, unprivileged-looking daily activity",
-        "The command failed to execute because euid=0 is the specific auditd code indicating a permission denial, meaning the kernel blocked the privilege escalation attempt before the command could run at all",
+        "auid=1001 marks an anonymous network session, since IDs above 1000 are unauthenticated in auditd",
+        "Alice (UID 1001) is the original login, since auid persists through su/sudo; euid=0 means the command ran as root",
+        "euid=0 shows Alice's own account has UID 0 in /etc/passwd, so she is a permanent superuser",
+        "euid=0 is the auditd code for a denied privilege escalation, so the command never executed",
       ],
       answer: 1,
       explanation:
@@ -1151,10 +1151,10 @@ const linuxLogAnalysis: Room = {
       question:
         "While reviewing a compromised server's /var/log/auth.log, you notice the file has a 12-hour gap — entries go from 14:32 to 02:47 with nothing in between, then resume. The file modification time (from 'ls -la') is 02:47. What does this suggest?",
       options: [
-        "The server was offline during those 12 hours due to a routine power-saving shutdown, which is standard for servers configured to power down overnight and automatically resume at 02:47 — this fully accounts for the gap and requires no further investigation",
-        "An attacker likely edited or replaced auth.log to delete evidence of their activity during those 12 hours. The file modification time matching the last entry suggests the file was written-to at 02:47, which is when the editing stopped. Check SIEM for any log forwarding that captured the missing period before it was deleted",
-        "The syslog daemon crashed and silently restarted at 02:47, and rsyslogd crash-restarts are a well-known software bug on Debian systems that always produce exactly a 12-hour gap with no corresponding restart message logged anywhere else on the host",
-        "Log rotation occurred at 02:47 as part of the default daily logrotate schedule, and the missing 12 hours of entries are safely preserved in /var/log/auth.log.1, which is exactly what logrotate is designed to do every single day without exception",
+        "The server was shut down overnight for power saving and resumed at 02:47, so no further action is needed",
+        "An attacker likely edited auth.log to delete 12 hours of activity; check SIEM forwarding for the missing period",
+        "rsyslogd crashed and restarted at 02:47, a known Debian bug that leaves a 12-hour gap without a restart message",
+        "logrotate ran at 02:47 and moved the missing entries into auth.log.1, so the gap is expected",
       ],
       answer: 1,
       explanation:

@@ -150,10 +150,10 @@ Security uses three precisely different words for the pieces of that story, and 
       question:
         "Two findings land in the same prioritisation queue on the same day. SRV-APP12 has a high-severity, unpatched vulnerability, but no current threat intelligence indicates any threat actor is targeting it. SRV-VPN04 has a moderate-severity misconfiguration, but threat intelligence confirms a known ransomware-affiliated group is actively exploiting that exact weakness against organisations in your sector right now. Applying the Threat x Vulnerability x Impact view of risk, which statement is most accurate?",
       options: [
-        "Both findings carry identical risk, since risk is determined only by the assigned severity rating and nothing else",
-        "SRV-APP12 must always be prioritised first, because vulnerability severity alone determines risk regardless of any other factor",
-        "SRV-VPN04 likely represents the higher real-world risk right now, because an active, specific threat targeting the exact weakness drives risk upward even though the vulnerability itself is rated lower severity",
-        "Neither finding represents a real risk until the vulnerability has already been exploited somewhere inside the organisation",
+        "Both carry equal risk, because risk is fixed by the severity rating and threat intelligence only affects how fast to patch, not the risk itself",
+        "SRV-APP12 comes first, because a high-severity unpatched vulnerability is a certain weakness, while threat activity against SRV-VPN04 may never reach this organisation",
+        "SRV-VPN04 likely carries the higher real-world risk now, because an active threat targeting its exact weakness raises risk despite the lower severity rating",
+        "Neither is a real risk until exploitation has been observed inside the organisation, so both wait for a detection to fire",
       ],
       answer: 2,
       explanation:
@@ -168,10 +168,10 @@ Security uses three precisely different words for the pieces of that story, and 
       question:
         "A company's public website, VPN gateway, and email service are internet-facing, while its internal file shares and unpatched workstations are only reachable once inside the network. An attacker eventually breaks in through a phishing email that tricks an employee into entering their password on a fake login page. Which statement correctly distinguishes attack surface from attack vector in this scenario?",
       options: [
-        "The full set of internet-facing systems, internal systems, and employees who could theoretically be targeted is the attack surface; the specific phishing email that was actually used is the attack vector",
-        "The phishing email itself is the attack surface, since it is the single artifact investigators actually collected, while the VPN gateway counts as the attack vector because it is the most exposed internet-facing system",
-        "Attack surface and attack vector mean exactly the same thing and are used completely interchangeably in every professional security context, regardless of the framework or vendor documentation being referenced",
-        "An attack vector only comes into existence once a breach has been formally confirmed by the incident response team; before that confirmation point, only an attack surface can be said to exist at all",
+        "The full set of internet-facing systems, internal systems and employees who could be targeted is the attack surface; the phishing email actually used is the vector",
+        "The phishing email is the attack surface, being the one artifact investigators collected, and the VPN gateway is the vector because it is the most exposed system",
+        "The attack surface is the internal file shares and workstations reached after entry, and the vector is the set of internet-facing systems the attacker came through",
+        "An attack vector exists only once incident response has confirmed a breach; before that point, only an attack surface can be said to exist",
       ],
       answer: 0,
       explanation:
@@ -186,10 +186,10 @@ Security uses three precisely different words for the pieces of that story, and 
       question:
         "An employee begins using a personal, unapproved cloud storage account to share large client files, without informing the security team (Shadow IT). No vulnerability has yet been identified in that specific cloud service. Has the organisation's risk exposure changed, and why?",
       options: [
-        "No — risk exposure never changes at all until a specific, named vulnerability has actually been discovered and formally confirmed as present somewhere inside the new, unapproved cloud service",
-        "No — Shadow IT only becomes a genuine security concern once the unapproved service itself suffers a publicly disclosed data breach that names affected customer organisations",
-        "Yes, but only because personal cloud storage accounts of this kind are, essentially by definition, always operated by malicious actors seeking to harvest corporate data",
-        "Yes — the organisation's attack surface has already grown, because company data now flows through an unmanaged external service outside the security team's visibility, even though no specific vulnerability has been identified there yet",
+        "No: risk exposure changes only after a specific vulnerability has been discovered and confirmed in the new cloud service",
+        "No: Shadow IT becomes a security concern only once the unapproved service suffers a publicly disclosed breach naming affected customers",
+        "Yes, but only the impact component rose, since client files now sit in a third-party store, while the attack surface itself is unchanged until a vulnerability is found",
+        "Yes: the attack surface has grown, since company data now flows through an unmanaged external service outside security's visibility, even with no known vulnerability",
       ],
       answer: 3,
       explanation:

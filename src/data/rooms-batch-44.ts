@@ -160,14 +160,14 @@ const rmmAbuseRoom = {
       question:
         "Per this room's reading, what is the single biggest practical advantage a signed, legitimate RMM tool gives an attacker over building custom command-and-control malware?",
       options: [
-        "RMM software is always free to license, while custom malware development requires a large financial budget that most attackers cannot afford",
-        "It arrives pre-signed by a real vendor, blends into ordinary outbound traffic on the vendor's own infrastructure, and needs zero custom development to grant full interactive control",
-        "RMM tools are immune to detection by design, since no security vendor has ever built a rule capable of flagging any remote-access software",
-        "Custom malware is always technically more capable than any RMM product, so attackers only choose RMM tools when they lack the skill to write malware",
+        "RMM binaries are exempt from EDR inspection by default, because vendors pre-allowlist remote-support software to avoid breaking IT workflows",
+        "It arrives vendor-signed, blends into outbound traffic over the vendor's own infrastructure, and needs no custom development to give full control",
+        "RMM sessions are encrypted with vendor-held keys, so defenders cannot log any process or session activity on the endpoint itself",
+        "RMM installers elevate to SYSTEM automatically on first run, giving more privilege than a custom implant could obtain on its own",
       ],
       answer: 1,
       explanation:
-        "The reading names several concrete, compounding advantages — a valid vendor signature, traffic that rides real infrastructure and blends with legitimate sessions, and full interactive control with no development effort. None of this makes the tool immune to detection (that is precisely this room's later subject), and cost/licensing and relative 'capability' of malware versus RMM software are not the advantages the reading identifies.",
+        "The reading names several concrete, compounding advantages — a valid vendor signature, traffic that rides real infrastructure and blends with legitimate sessions, and full interactive control with no development effort. EDR is not blanket-exempt from RMM tools (detection is this room's later subject), endpoint process and service telemetry is still logged regardless of session encryption, and a portable RMM build inherits only the logged-on user's privilege rather than escalating by itself.",
       xp: 15,
     },
 
@@ -215,14 +215,14 @@ const rmmAbuseRoom = {
       question:
         "According to Microsoft's own reporting on Storm-1811, what was the FIRST step of the chain, before the vishing phone call was ever placed?",
       options: [
-        "Email-bombing the target — subscribing their address to a large number of mailing-list subscription services to flood their inbox with unwanted mail",
-        "Silently exploiting a vulnerability in Quick Assist itself to open a remote session without the victim's knowledge or any interaction at all",
-        "Directly deploying Black Basta ransomware onto the target's machine before ever making contact with the victim by phone",
-        "Compromising the organization's ConnectWise ScreenConnect server to push Quick Assist onto every managed endpoint at once",
+        "Email-bombing the target — subscribing their address to many mailing lists to flood the inbox and create a pretext for the call",
+        "Silently exploiting a Quick Assist vulnerability to open a session, with the vishing call added afterward as cover",
+        "Compromising the organization's ScreenConnect server to push Quick Assist onto managed endpoints ahead of the call",
+        "Spearphishing the victim with a malicious Office attachment whose loader staged tooling before the phone call",
       ],
       answer: 0,
       explanation:
-        "Microsoft's reporting describes email-bombing as the opening move: flooding the target's inbox with subscription spam, which sets up the pretext for the following vishing call offering to 'fix' the problem. Quick Assist itself is not exploited via a vulnerability in this chain — the victim is talked into opening it and granting access voluntarily. Ransomware deployment is the LAST stage of the chain, reached only after lateral movement, not the first. ScreenConnect and CVE-2024-1709 belong to this room's separate case study on attacking the RMM console directly, not the Storm-1811/Quick Assist chain.",
+        "Microsoft's reporting describes email-bombing as the opening move: flooding the target's inbox with subscription spam, which sets up the pretext for the following vishing call offering to 'fix' the problem. Quick Assist itself is not exploited via a vulnerability in this chain — the victim is talked into opening it and granting access voluntarily. ScreenConnect and CVE-2024-1709 belong to this room's separate case study on attacking the RMM console directly, not the Storm-1811/Quick Assist chain, and the reporting describes no attachment-based loader ahead of the call. Ransomware deployment was the LAST stage of the chain, after lateral movement.",
       xp: 15,
     },
 
@@ -272,14 +272,14 @@ const rmmAbuseRoom = {
       question:
         "An EDR alert fires for a process named AnyDesk.exe running interactively (not as a service) from C:\\Users\\<user>\\Downloads\\AnyDesk.exe, on a host where the organization's sanctioned RMM tool is ScreenConnect, installed under Program Files and running as a SYSTEM service. Which detail from this room's reading is the strongest standalone indicator of concern?",
       options: [
-        "The .exe file extension itself, since any executable file ending in .exe is inherently more suspicious than one with any other extension",
-        "It is a different, unsanctioned tool than the org's licensed ScreenConnect, running interactively from Downloads instead of installed as a service — a tool-identity mismatch plus a non-standard install location",
-        "AnyDesk.exe should always be treated as malware outright, since no legitimate business anywhere has ever had a genuine reason to use AnyDesk",
-        "The process being digitally signed by AnyDesk Software GmbH proves conclusively that this session is authorized and requires no further investigation",
+        "The process name AnyDesk.exe, since AnyDesk appears in CISA advisories and is therefore malicious wherever it runs",
+        "A tool other than the licensed ScreenConnect, running interactively from Downloads instead of as a managed service under Program Files",
+        "The Downloads path alone, since any executable launched from a user profile folder is malicious regardless of product",
+        "A valid AnyDesk Software GmbH signature on the binary, which confirms the session is authorized and needs no further checks",
       ],
       answer: 1,
       explanation:
-        "This combines two of the five concrete signals directly: tool-identity mismatch (AnyDesk versus the organization's actual sanctioned ScreenConnect) and install-location mismatch (an interactive user-run copy from Downloads versus a managed SYSTEM service under Program Files). The .exe extension is meaningless on its own — nearly all Windows executables share it. AnyDesk is a genuinely legitimate product used by countless real organizations, so 'always malware' over-generalizes exactly the lesson this room teaches against. A valid vendor signature, as reading r1 establishes, says the file is authentic — it says nothing about whether running it here is authorized.",
+        "This combines two of the five concrete signals directly: tool-identity mismatch (AnyDesk versus the organization's actual sanctioned ScreenConnect) and install-location mismatch (an interactive user-run copy from Downloads versus a managed SYSTEM service under Program Files). The tool name alone is not a verdict — AnyDesk is a legitimate product used by countless organizations, and appearing in an advisory does not make every instance malicious. A Downloads path on its own is only one weak signal, and the strongest indicator is the combination of mismatches. A valid vendor signature, as reading r1 establishes, says the file is authentic — it says nothing about whether running it here is authorized.",
       xp: 20,
     },
 
@@ -337,10 +337,10 @@ const rmmAbuseRoom = {
       question:
         "You are investigating an RMM session with no matching ITSM ticket, on a tool that is not the organization's sanctioned product, operated by an ordinary end-user account. The host's process tree shows the RMM process as the parent of cmd.exe, which ran net group \"Domain Admins\" /domain two minutes into the session. Per this room's workflow, what does this specific detail add to the case?",
       options: [
-        "Nothing new at all — since the tool was already unsanctioned and lacked a ticket, this additional discovery command adds no further analytic weight to the case either way",
-        "It proves beyond doubt that the session belongs to an external nation-state actor, since domain-enumeration commands are never run by financially motivated criminal groups",
-        "It shows the operator has moved from merely holding a session to performing domain reconnaissance — the same pattern seen in this room's own case studies — and it should push the case toward escalate/contain",
-        "It means the case should immediately be reclassified as a confirmed T1219 false positive, since Domain Admins group queries are always run only by IT staff themselves",
+        "Little new weight — the session was already unsanctioned and unticketed, so one more command adds nothing to the existing verdict",
+        "It attributes the session to a nation-state actor, since domain-group enumeration is rarely seen in financially motivated intrusions",
+        "It shows the operator moved from holding a session to domain reconnaissance, which pushes the case toward escalation and containment",
+        "It points back toward IT activity, since technicians routinely query Domain Admins, which lowers the priority of the case",
       ],
       answer: 2,
       explanation:

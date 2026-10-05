@@ -261,10 +261,10 @@ const investigateAlertRoom: Room = {
       question:
         "An EDR alert fires: 'Suspicious PowerShell Execution' on a single workstation, severity high. It is minute one. What is the single most useful action for Step 1 — Validate?",
       options: [
-        "Immediately isolate the host from the network before looking at anything else, treating a single unconfirmed alert with the same urgency as a fully scoped, validated intrusion",
-        "Enrich the alert against other data sources — was this process hash or command-line pattern seen elsewhere in the environment, does the parent process and account make sense together, is this a known-benign admin script — to confirm the record itself is real and not a parsing artefact or duplicate",
-        "Close the alert if its severity is only 'high' rather than 'critical', since lower severities rarely warrant a full validation pass and are usually safe to triage away without further review",
-        "Assume it is a true positive because the EDR already assigned it a severity, and move straight to Step 3 collection without first checking whether the record is even genuine",
+        "Isolate the host immediately, before looking at anything else, since a high-severity PowerShell alert should be contained first and validated afterwards",
+        "Enrich the alert: was this hash or command line seen elsewhere, do the parent process and account fit together, is it a known-benign admin script, so the record is confirmed real",
+        "Downgrade it to medium priority and queue it, since only 'critical' alerts justify a full validation pass in the first minute",
+        "Treat it as a true positive because the EDR assigned a severity, and go straight to Step 3 collection without checking the record is genuine",
       ],
       answer: 1,
       explanation:
@@ -385,9 +385,9 @@ const investigateAlertRoom: Room = {
         "You have identified a second, possibly-affected host and need to prioritise what to collect from it in your remaining time this shift. Which order correctly follows volatility, from most to least urgent to capture?",
       options: [
         "Disk artefacts first, then identity/SaaS logs, then network connections, then live memory state",
-        "Live memory state and running processes first, then active network connections, then identity/SaaS session logs, then disk artefacts",
-        "Identity/SaaS logs first, then disk, then live memory state, then network connections",
-        "All four should be collected simultaneously in one sweep, since volatility only matters for forensic labs, not SOC investigations",
+        "Live memory and running processes first, then active network connections, then identity/SaaS session logs, then disk artefacts",
+        "Identity/SaaS logs first, then disk artefacts, then live memory state, then network connections",
+        "All four in one automated sweep, in whatever order the collector runs them, since volatility ordering only matters in forensic labs",
       ],
       answer: 1,
       explanation:
@@ -513,14 +513,14 @@ const investigateAlertRoom: Room = {
       question:
         "The archive-creation record shows a PowerShell process invoking a compression utility against a folder of export files, producing a single large archive. Which ATT&CK tactic and technique does this specific behaviour map to?",
       options: [
-        "Tactic: Exfiltration; Technique: T1041 (Exfiltration Over C2 Channel) — the data has already left the environment at this point, since compressing files is understood as the first stage of a C2 transfer",
-        "Tactic: Collection; Technique: T1560.001 (Archive Collected Data via Utility) — files are being gathered and compressed into a single package, which is preparation for likely removal, not removal itself",
-        "Tactic: Discovery; Technique: T1083 (File and Directory Discovery) — the activity only involves identifying which files exist, and no content has actually been read or copied yet",
-        "Tactic: Persistence; Technique: T1547 (Boot or Logon Autostart Execution) — the archive is being staged in a location that will re-launch it automatically at the next system boot",
+        "Tactic: Exfiltration; Technique: T1041 (Exfiltration Over C2 Channel) — compressing the files is the first stage of the C2 transfer, so the data has already left",
+        "Tactic: Collection; Technique: T1560.001 (Archive Collected Data via Utility) — files are gathered and compressed into one package, preparing for removal rather than being removed",
+        "Tactic: Discovery; Technique: T1083 (File and Directory Discovery) — enumerating a folder of export files, with no evidence yet that any content was read or copied",
+        "Tactic: Defense Evasion; Technique: T1027 (Obfuscated Files or Information) — packing the files into an archive hides their content from DLP and content inspection",
       ],
       answer: 1,
       explanation:
-        "The specific, observable action — a utility compressing a folder of files into one archive — is exactly what T1560.001 describes: staging collected data via an archiving tool, under the Collection tactic. It is not yet Exfiltration; that tactic and T1041 specifically apply once data is observed actually leaving the environment over a command-and-control channel, which this record does not show. It is well past simple Discovery, which would only involve enumerating what files exist rather than compressing their contents into a package. And nothing about creating an archive relates to autostart persistence mechanisms, which concern how malicious code survives a reboot, not how data is packaged for removal.",
+        "The specific, observable action — a utility compressing a folder of files into one archive — is exactly what T1560.001 describes: staging collected data via an archiving tool, under the Collection tactic. It is not yet Exfiltration; that tactic and T1041 specifically apply once data is observed actually leaving the environment over a command-and-control channel, which this record does not show. It is well past simple Discovery, which would only involve enumerating what files exist rather than compressing their contents into a package. And T1027 concerns obfuscating payloads or tooling to evade detection, whereas here the archive is a staging package for collected data, which is what T1560.001 captures.",
       xp: 25,
     },
     // -----------------------------------------------------------------------
@@ -559,14 +559,14 @@ const investigateAlertRoom: Room = {
       question:
         "A colleague hands off a ticket with the note: 'Confirmed malicious PowerShell on one host, contained, closed.' Based on this room, what is missing from a complete Step 7 hand-off, and why does it matter?",
       options: [
-        "Nothing is missing — containment is the goal of an investigation, and once a host is contained the hand-off note has done its job regardless of what else it does or doesn't say",
-        "It is missing detection method, full timeline, root cause and corrective actions — without them, the next person (or the next shift) has no way to know how this was found, whether it could recur, or whether the scope claim was ever actually tested by pivoting beyond the one host named",
-        "It is missing only the exact time the ticket was closed, which is a formatting issue a ticketing system's audit trail already captures automatically anyway",
-        "It is missing nothing substantive, since the word 'confirmed' already implies every one of Step 7's five required elements was independently verified",
+        "Nothing is missing: containment is the goal of an investigation, and once a host is contained the hand-off note has done its job",
+        "Detection method, full timeline, root cause and corrective actions are missing, so the next shift cannot tell how it was found, whether it can recur, or whether scope beyond one host was tested",
+        "Mainly the list of affected users is missing, which is all the next shift needs to continue; the rest is already held in the SIEM's case history",
+        "Only the root cause is missing, since detection method, timeline and corrective actions can be reconstructed from the EDR console and ticket history",
       ],
       answer: 1,
       explanation:
-        "A one-line note like this answers none of the five things a complete hand-off needs: how it was actually found, the full ordered timeline, the specific root cause, and the corrective action that would prevent a repeat — and 'one host' is an unverified scope claim unless a pivot was actually run to check for more, which this room's own case shows does not hold up under scrutiny. This is not a formatting issue; a closing timestamp is a minor detail next to the substantive gaps here. And 'contained' describes an action taken, not proof that scoping happened correctly before that action — the whole point of Step 2 is that scope has to be established with evidence, not assumed from the fact that a response occurred.",
+        "A one-line note like this answers none of the five things a complete hand-off needs: how it was actually found, the full ordered timeline, the specific root cause, and the corrective action that would prevent a repeat — and 'one host' is an unverified scope claim unless a pivot was actually run to check for more, which this room's own case shows does not hold up under scrutiny. These gaps cannot be reconstructed reliably from tool history, because consoles and ticket logs record what happened, not why decisions were made or how scope was tested. And 'contained' describes an action taken, not proof that scoping happened correctly before that action — the whole point of Step 2 is that scope has to be established with evidence, not assumed from the fact that a response occurred.",
       xp: 25,
     },
     // -----------------------------------------------------------------------
@@ -768,10 +768,10 @@ const writingIncidentReportRoom: Room = {
       question:
         "A draft executive summary reads: 'T1053.005 persistence was established via a scheduled task on AP-SRV14 using svc-report credentials; ATT&CK mapping and MITRE technique classification are documented in Section 5.' What is the strongest criticism of this summary?",
       options: [
-        "It is too short and needs additional technical detail to be complete, including the full command-line strings and process tree Section 5 already documents",
-        "It reads as technical-lite rather than genuinely translated — ATT&CK IDs and technique names are not business language, and a non-technical reader still cannot answer 'what does this mean for us' from this text alone, which is the entire purpose of the section",
-        "It should not mention the affected hostname, since hostnames are always considered too sensitive for an executive summary and belong exclusively in the technical section",
-        "It is fine as written, since executives at a technology-driven company should be expected to understand MITRE ATT&CK terminology as part of general business literacy",
+        "It is too short and needs more technical detail, including the full command-line strings and process tree that Section 5 documents",
+        "It is technical shorthand rather than a translation: ATT&CK IDs are not business language, and a non-technical reader cannot tell what it means for the organisation",
+        "It should not name the affected hostname, since hostnames belong in the technical section and are too sensitive for an executive summary",
+        "It is fine as written, since citing a recognised standard like ATT&CK gives executives a credible reference and the plain-language detail belongs in Section 5",
       ],
       answer: 1,
       explanation:
@@ -890,10 +890,10 @@ const writingIncidentReportRoom: Room = {
       question:
         "Three weeks after the report is submitted, you're asked why AP-SRV14 was disabled for four hours during the response. Your notes on that decision were never written down and you're relying on memory. What does this room's principle of defensibility say about that situation?",
       options: [
-        "It's fine, as long as your memory of the decision is accurate, since a reviewer's job is to evaluate whether the decision itself was sound, not whether it was written down at the time",
-        "An undocumented decision is, for practical and defensibility purposes, indistinguishable from a decision with no basis at all — 'if it wasn't documented, it didn't happen' means a reviewer three weeks later has no way to verify your reasoning was sound at the time, regardless of whether it actually was",
-        "This only matters if the incident becomes a legal matter; for an internal-only review, memory is an acceptable substitute for contemporaneous notes since no outside party will ever scrutinize it",
-        "Defensibility only applies to evidence collected from logs, not to operational decisions like disabling a host, which are judgment calls that don't require the same documentation standard",
+        "It is acceptable if your recollection is accurate, since a reviewer evaluates whether the decision was sound, not whether it was written down at the time",
+        "An undocumented decision cannot be verified later, so a reviewer three weeks on has no way to confirm your reasoning was sound at the time, whether or not it was",
+        "It matters only if the incident becomes a legal matter; for an internal review, memory is an acceptable substitute for contemporaneous notes",
+        "Defensibility applies to evidence collected from logs, not to operational decisions like disabling a host, which are judgment calls needing no documentation",
       ],
       answer: 1,
       explanation:
@@ -1002,10 +1002,10 @@ const writingIncidentReportRoom: Room = {
       question:
         "A draft Recommendations section reads: 'Improve overall security awareness training' and 'Patch systems regularly,' with no reference to anything specific from this incident. What is the correct criticism, based on this room?",
       options: [
-        "These are strong recommendations because they are broadly applicable to any organization, and broad applicability is exactly what makes a recommendation valuable in a report",
-        "These recommendations don't trace back to the specific root cause identified in this incident — they read as generic filler that lets the actual gap (in this case, excess service-account privilege and missing detection coverage) go unaddressed while making the report look complete",
-        "Recommendations should never mention training or patching under any circumstances, regardless of the incident, since those two categories are considered out of scope for any SOC report by convention",
-        "This is fine as long as the Root Cause section above it is written well, since Recommendations are read independently and don't need to connect to it directly",
+        "These are strong recommendations: broad applicability is what makes a recommendation valuable, since it fits any organization and any future incident",
+        "They don't trace to this incident's root cause; they read as generic filler that leaves the actual gap, excess service-account privilege and missing detection, unaddressed",
+        "They are only too vague in wording; adding owners and target dates would make them valid, since accountability matters more than a link to the root cause",
+        "They are fine as long as the Root Cause section is well written, since Recommendations are read independently and need no direct link to it",
       ],
       answer: 1,
       explanation:
@@ -1029,10 +1029,10 @@ const writingIncidentReportRoom: Room = {
       question:
         "A reviewer asks why your Technical Timeline states 'no activity beyond AP-SRV14 was identified' rather than 'no activity beyond AP-SRV14 occurred.' Why does this room's approach to defensibility prefer the first phrasing?",
       options: [
-        "There is no meaningful difference between the two phrasings, and either is equally acceptable in a report since both convey the same finding to the reader",
-        "The first phrasing accurately states the boundary of what was actually searched and found, while the second asserts a fact about the entire environment that the investigation cannot actually prove — only what was checked, and what that check found, can be honestly claimed",
-        "The second phrasing should always be preferred, since a confident report is more useful to leadership than a hedged one, even when that confidence outruns what the evidence actually supports",
-        "This distinction only matters for reports that will be reviewed by outside legal counsel, and can be safely ignored for reports staying entirely inside the SOC",
+        "'Identified' is preferred only because it is shorter and keeps the timeline's tense consistent with the rest of the report, not because the meaning differs",
+        "'Identified' states the boundary of what was searched and found, while 'occurred' asserts a fact about the whole environment that the investigation cannot prove",
+        "'Occurred' is better in an executive-facing report, with 'identified' kept for the technical appendix, because leadership needs a definitive statement to act on",
+        "The distinction matters only for reports reviewed by outside legal counsel, and can be ignored for reports that stay inside the SOC",
       ],
       answer: 1,
       explanation:

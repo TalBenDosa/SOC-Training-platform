@@ -203,10 +203,10 @@ const vulnerabilityManagementRoom = {
       question:
         "A scan report line reads: 'CVE-2024-21762, CWE-787 (Out-of-bounds Write), CVSS 9.8.' A junior analyst writes in the ticket: 'CWE-787 findings are always critical, so I'm closing every other CWE-787 result in the backlog as high priority too.' What is wrong with that reasoning?",
       options: [
-        "Nothing — CWE categories do carry a fixed, universal severity rating, so if one CWE-787 finding scored 9.8 then every CWE-787 finding in the backlog should be treated as equally critical regardless of the specific CVE's reachability or impact",
-        "CWE-787 is only a category describing the type of coding mistake (writing past a buffer's bounds); it carries no severity of its own — two different CVEs both classified as CWE-787 can have completely different CVSS scores depending on reachability, privileges required, and impact",
-        "CVE-2024-21762 is not a real identifier format, so the whole scan line should be disregarded — CVE numbers always follow a four-digit year followed by exactly four digits in the sequence number, never five",
-        "CVSS 9.8 means the vulnerability has already been patched, so no action is needed either way — CVSS scores are automatically recalculated to zero once a vendor ships a fix, which is how you can tell a patch exists just from the score",
+        "Nothing — a CWE category carries a fixed severity, so every CWE-787 finding in the backlog should be treated as critical",
+        "CWE-787 only names a weakness class (writing past a buffer's bounds); two CWE-787 CVEs can score very differently on CVSS",
+        "CWE-787 is critical only when the CVE is also in KEV; otherwise the whole class should default to medium in the backlog",
+        "The severity is right, but the other CWE-787 rows should be deduplicated against the 9.8 CVE rather than ticketed separately",
       ],
       answer: 1,
       explanation:
@@ -273,10 +273,10 @@ const vulnerabilityManagementRoom = {
       question:
         "Your team has patch capacity for one emergency fix this week. Option 1: CVSS 8.1, internal build server reachable only from the CI/CD VLAN, no known exploit, not in KEV. Option 2: CVSS 5.4, internet-facing VPN gateway login page, listed in the CISA KEV catalog with a 14-day remediation deadline, EPSS 91%. Which do you patch first, and why?",
       options: [
-        "Option 1, because 8.1 is a higher CVSS score than 5.4 and CVSS is the industry-standard severity measure that should always be the sole deciding factor when patch capacity is limited",
-        "Option 2, because a confirmed active-exploitation listing (KEV) plus a very high exploitation probability (EPSS) on an internet-facing asset outweighs a higher base score on an internal, hard-to-reach system with no evidence of real-world exploitation",
-        "Neither — wait until next week's scan to see if either score changes, since acting on this week's numbers risks wasting patch capacity on a finding that might resolve itself",
-        "Option 1, because internal systems should always be patched before internet-facing ones, since internal assets sit closer to your most sensitive data and are inherently a bigger risk once compromised",
+        "Option 1 — the 8.1 base score is higher, and CVSS is the standard severity measure that decides when capacity is limited",
+        "Option 2 — KEV listing and a very high EPSS on an internet-facing asset outweigh a higher base score on a hard-to-reach internal system",
+        "Neither — defer both to the next scan, since CVSS and EPSS values may shift and capacity could be wasted on the wrong fix",
+        "Option 1 — internal systems sit closer to sensitive data, so they are inherently riskier once compromised than an exposed gateway",
       ],
       answer: 1,
       explanation:
@@ -482,10 +482,10 @@ const vulnerabilityManagementRoom = {
       question:
         "A CISA KEV-listed vulnerability on an internet-facing server has been sitting unpatched for three weeks, past its due date, and the SOC analyst who found it has no way to deploy the patch themselves. What is the correct action?",
       options: [
-        "Log into the server directly and apply the patch personally, since the SOC already understands the vulnerability best and waiting on a separate change-management process would only delay the fix further",
-        "Escalate clearly and repeatedly to the team that owns patch deployment, citing the KEV due date and the ongoing exposure, and keep tracking it until it's actually remediated and verified — this is squarely the SOC's job even though applying the patch is not",
-        "Close the finding as accepted risk on the SOC's own authority, since three weeks is long enough to wait and continuing to track a stalled finding wastes time better spent on new alerts",
-        "Do nothing further — once a finding is reported once, responsibility passes entirely to IT and the SOC's job is done, regardless of whether the fix ever actually gets deployed or verified",
+        "Log in and apply the patch personally — the SOC understands the vulnerability best, and change management would only delay the fix",
+        "Escalate to the patch-owning team, citing the KEV due date and the exposure, and keep tracking until remediation is verified",
+        "Mark it accepted risk after three weeks — the SOC cannot deploy the patch, and the KEV due date is advisory for exposed assets",
+        "Report it once and move on — after the initial ticket, responsibility passes to IT and the SOC's tracking duty ends",
       ],
       answer: 1,
       explanation:
@@ -679,10 +679,10 @@ const memoryDiskForensicsRoom = {
       question:
         "An incident responder images the disk of a suspected-compromised server but skips memory acquisition entirely, reasoning that 'the malware writes its files to disk, so disk imaging should find everything.' Six months later, the case stalls because the C2 domain and decryption key the malware used were never recovered. What went wrong?",
       options: [
-        "Nothing went wrong — disk imaging is always sufficient for any well-resourced investigation, since every artifact a malware sample uses eventually gets written to disk in some recoverable form",
-        "The malware very likely shipped its C2 configuration encrypted on disk specifically to defeat static analysis, and only decrypted it in memory at runtime — evidence that exists only in RAM for as long as the process runs and cannot be recovered from the encrypted file after the fact",
-        "The disk image must have been corrupted; a proper disk image always contains decrypted copies of any malware configuration, because forensic imaging tools automatically decrypt anything they encounter on the volume",
-        "C2 domains are always stored in the Windows registry, not in memory, so imaging the registry hive at the same time as the disk would have recovered the configuration without needing a memory capture at all",
+        "Nothing — disk imaging is sufficient, since every artifact the malware uses is eventually written to disk in recoverable form",
+        "The C2 config was likely stored encrypted on disk and decrypted only in RAM at runtime, so only a memory capture preserved it",
+        "The disk image was likely corrupted — imaging tools decrypt what they encounter, so a clean image would hold the plaintext config",
+        "The C2 domain sat in a registry hive that was never collected; imaging the hives alongside the disk would have recovered it",
       ],
       answer: 1,
       explanation:
@@ -739,10 +739,10 @@ const memoryDiskForensicsRoom = {
       question:
         "An analyst images the disk of a live, running production server during an active incident (it cannot be powered off) and records the SHA256 of the resulting image file. A colleague later challenges the finding, arguing 'you can't trust this image, the system was writing to its own disk the whole time you imaged it.' Which response is accurate?",
       options: [
-        "The colleague is wrong — a live system never writes to its own disk during active use, so a running production server is exactly as forensically static during imaging as one that has been powered down and connected to a hardware write blocker beforehand",
-        "The colleague is raising a real, acknowledged limitation of live imaging: a hardware write blocker isn't possible on a running system, so the OS's own background writes happened throughout collection — this should already be documented in the chain of custody, and the hash proves the resulting IMAGE FILE hasn't been altered since it finished, not that the source disk was static during collection",
-        "The hash is meaningless in this scenario and should be discarded, since a SHA256 computed on an image taken from a running system can never be used to prove anything about the file's integrity going forward",
-        "This proves the analyst made a critical error and the entire investigation should be restarted with a fresh disk image, ideally after powering down the production server so a hardware write blocker can finally be used",
+        "The colleague is wrong — the SHA256 taken at acquisition proves the source disk stayed unchanged throughout collection, despite OS background writes",
+        "The limitation is real — no write blocker on a live system, so OS writes occurred; document it, since the hash proves only that the image file is unaltered since completion",
+        "The limitation is real, and the hash should be discarded — a SHA256 of a live-system image cannot prove file integrity going forward",
+        "The limitation is fatal — the image is unusable, and collection must restart with the server powered down behind a hardware write blocker",
       ],
       answer: 1,
       explanation:
@@ -898,10 +898,10 @@ const memoryDiskForensicsRoom = {
       question:
         "An analyst opens the Security event log on a suspected-compromised host and finds it nearly empty, with a single Event ID 1102 as the newest entry. A colleague says 'the logs are gone, there's nothing more we can do here.' What is the correct next step?",
       options: [
-        "Agree — an Event 1102 with a cleared log means the investigation has hit a dead end, since the Windows Security log is the only source that ever records authentication and process activity on a host",
-        "Note the exact timestamp on the 1102 event and pivot to every OTHER available log source around that same window — Sysmon (if logged to a separate channel), EDR telemetry, network/firewall logs, and NTFS artifacts like $UsnJrnl — since the log-clearing action itself pinpoints exactly when to focus the search elsewhere",
-        "Restore the Security log from the most recent Volume Shadow Copy, which always contains an unmodified backup of every Windows event log regardless of whether shadow copies have also been deleted on this host",
-        "Conclude the finding must be a false positive, since a real attacker sophisticated enough to compromise a host would never leave an obvious artifact like a 1102 event behind for an analyst to find",
+        "Agree — a cleared Security log is a dead end, since it is the only source that records authentication and process activity on a host",
+        "Record the 1102 timestamp and pivot to other sources around that window — Sysmon, EDR, network logs, and NTFS artifacts like $UsnJrnl",
+        "Restore the log from the latest Volume Shadow Copy, which holds an intact copy of every event log even if shadow copies were also deleted",
+        "Treat the 1102 as routine maintenance — scheduled log rotation commonly emits it, so no escalation is needed without a ticket",
       ],
       answer: 1,
       explanation:

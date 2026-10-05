@@ -230,13 +230,13 @@ const dataStagingExfilRoom = {
       "id": "dsx-q2",
       "question": "A colleague argues: 'The moment the attacker password-protects and compresses the staged files with WinRAR, that IS the exfiltration step — that's clearly the theft.' What is wrong with this claim, and what tactic does T1560.001 (Archive via Utility) actually belong to per MITRE ATT&CK?",
       "options": [
-        "The colleague is wrong — T1560.001 belongs to the Collection tactic, since the files have only been packaged, not moved off the host; the tactic only becomes Exfiltration at the technique that actually removes the data from the compromised system",
-        "The colleague is correct — any password-protected archive automatically counts as Exfiltration under ATT&CK, since a password is the specific boundary the framework uses to separate the two tactics",
-        "The colleague is correct, but only for 7-Zip archives specifically — WinRAR archives are classified Collection while 7-Zip archives are always classified Exfiltration",
-        "The tactic cannot be determined without first knowing the archive's file extension, since ATT&CK assigns tactics purely from file extensions"
+        "The colleague is wrong — T1560.001 is Collection (TA0009), because packaging leaves the data on the host; Exfiltration begins only when data is moved off it",
+        "The colleague is right — T1560.001 becomes Exfiltration (TA0010) once the archive is encrypted, since encryption is where data stops being inspectable",
+        "The colleague is partly right — T1560.001 is Defense Evasion (TA0005), because encrypting the archive mainly hides contents from DLP rather than gathering data",
+        "The colleague is right only for split archives — volume splitting with -v is T1030 behaviour, so the archive step turns into Exfiltration once it is applied"
       ],
       "answer": 0,
-      "explanation": "T1560.001 sits under the Collection tactic (TA0009) precisely because packaging data does not move it anywhere — the archive still sits on the same host it was created on. The tactic changes to Exfiltration only at the technique that actually removes data from the compromised system (T1052.001, T1567.002, T1048, etc.). ATT&CK does not use password-protection as a tactic boundary at all (option b), does not classify archive tools differently by vendor/format (option c — WinRAR and 7-Zip are both named under the same T1560.001 technique), and tactic assignment has nothing to do with file extensions (option d).",
+      "explanation": "T1560.001 sits under the Collection tactic (TA0009) precisely because packaging data does not move it anywhere — the archive still sits on the same host it was created on. The tactic changes to Exfiltration only at the technique that actually removes data from the compromised system (T1052.001, T1567.002, T1048, etc.). ATT&CK does not use password-protection as a tactic boundary (option b); encryption's effect on DLP is a defender-side consequence, but the technique's assigned tactic remains Collection, not Defense Evasion (option c); and volume splitting alone does not move data, so it does not change the tactic of the archive step (option d — T1030 is a separate technique applied during the actual transfer).",
       "xp": 20
     },
     {
@@ -360,13 +360,13 @@ const dataStagingExfilRoom = {
       "id": "dsx-q3",
       "question": "A workstation with a strict USB-blocking policy shows a sudden burst of unique DNS queries to subdomains that look like encoded data, immediately after a large password-protected archive was created on that host — with no unusual HTTPS or cloud-storage traffic accompanying it. Which technique best fits this pattern, and why might an attacker prefer it over the cloud-storage channel covered earlier in this room?",
       "options": [
-        "T1048 (Exfiltration Over Alternative Protocol) via DNS tunnelling — chosen because DNS resolution traffic typically receives far less inspection than HTTP/S uploads, letting small amounts of data slip past detections tuned for large file transfers",
-        "T1567.002 (Exfiltration to Cloud Storage) — DNS lookups are simply the first step of any cloud upload, so this is functionally the same technique as an HTTPS upload to a service like MEGA",
-        "T1052.001 (Exfiltration Over USB) — a burst of DNS queries always confirms a USB device was just inserted, since Windows logs USB insertion events exclusively through DNS",
-        "T1074.001 (Local Data Staging) — a burst of DNS queries is itself a staging action, meaning the data has not actually left the host at any point in this scenario"
+        "T1048 (Exfiltration Over Alternative Protocol) via DNS tunnelling — DNS gets far less inspection than HTTP/S, so small encoded chunks slip past detections tuned for large transfers",
+        "T1567.002 (Exfiltration to Cloud Storage) — cloud sync clients resolve many unique subdomains per upload, which produces this same DNS burst",
+        "T1071.004 (Application Layer Protocol: DNS) — the encoded subdomains are C2 beacon check-ins, and the archive creation is coincidental timing",
+        "T1041 (Exfiltration Over C2 Channel) — the data leaves through the implant's existing C2 beacon, with DNS simply being its transport",
       ],
       "answer": 0,
-      "explanation": "DNS tunnelling under T1048 is exactly this pattern: data encoded into DNS query subdomains, chosen specifically because most network monitoring inspects DNS far less closely than HTTP/S traffic, and because a USB-blocking policy has already closed off the T1052.001 channel this attacker might otherwise have preferred. Option b confuses two unrelated things — a normal cloud-storage upload does not primarily manifest as a burst of unique encoded DNS subdomains; that pattern IS the DNS-tunnelling technique itself. Option c invents a mechanism that does not exist: USB device insertion is logged by the OS/EDR directly, never 'through DNS.' Option d misapplies staging, which by definition keeps data on the host — this scenario describes queries actively leaving the host over the network.",
+      "explanation": "DNS tunnelling under T1048 is exactly this pattern: data encoded into DNS query subdomains, chosen specifically because most network monitoring inspects DNS far less closely than HTTP/S traffic, and because a USB-blocking policy has already closed off the T1052.001 channel this attacker might otherwise have preferred. Option b confuses two things — a cloud-storage upload shows up as HTTPS traffic to the provider, and the scenario states no such traffic exists. Option c is a plausible neighbour (DNS-based C2), but the burst follows the archive creation and carries data-shaped subdomains, which fits exfiltration rather than beaconing. Option d (T1041) covers exfiltration over the existing C2 channel; T1048 is specifically the use of a DIFFERENT protocol from that channel, which is what DNS tunnelling here represents.",
       "xp": 25
     },
     {
@@ -410,13 +410,13 @@ const dataStagingExfilRoom = {
       "id": "dsx-q4",
       "question": "BKP-VEEAM-01 reads the entire Client Matters share every night at 02:00, compresses it, and uploads roughly 12GB to the organisation's own Azure Blob Storage backup container under a documented, approved change ticket, at a volume and time that has been identical for the past six months. Per this room's investigation workflow, which factor is the WEAKEST reason to rule this out as an attack, and which is the STRONGEST?",
       "options": [
-        "Weakest: that the job reads and compresses the entire share (an attacker's staging-and-archiving stage can look identical); Strongest: the combination of a dedicated service account, a documented change ticket, six months of consistent scheduling, and a sanctioned first-party destination",
-        "Weakest: the destination being Azure Blob Storage, since Microsoft-owned cloud infrastructure can never, under any circumstances, be used as an exfiltration destination by an attacker",
-        "Weakest: the 12GB volume, since this room establishes a universal rule that any transfer under a fixed size threshold can never be classified as exfiltration",
-        "Strongest: that the transfer happens at 02:00, since this room establishes that any nighttime transfer is, by definition, always a legitimate scheduled job"
+        "Weakest: that the job reads and compresses the whole share, which an attacker's chain also does; Strongest: the service account, ticket, six-month schedule, and first-party destination together",
+        "Weakest: the Azure Blob Storage destination, since Microsoft-hosted storage is also abused by attackers; Strongest: the 12GB volume, which is typical of backup jobs",
+        "Weakest: the change ticket, since tickets can be filed by anyone; Strongest: the 02:00 timing, since attackers rarely exfiltrate during off-hours",
+        "Weakest: the dedicated service account, since attackers also use compromised service accounts; Strongest: that the job reads the entire share rather than a subset"
       ],
       "answer": 0,
-      "explanation": "Reading big-share-access, staging, and archiving is exactly the SHAPE an attacker's chain also produces (this room says so explicitly), so that shape alone is the weakest discriminator. What actually rules this out is the CONTEXT this room's investigation workflow names directly: a dedicated service account, a documented ticket, months of consistent recurring scheduling, and a sanctioned first-party destination — together, not any one alone. Option b is false; Scattered Spider, among others documented in this room, has exfiltrated to major legitimate cloud providers precisely because that infrastructure is trusted. Option c invents a size rule this room never states — no fixed byte threshold decides a verdict anywhere in this material. Option d is equally invented; this room's readings state plainly that timing is only one of several factors, and an attacker's exfiltration is frequently timed for off-hours specifically to blend in, not ruled out by it.",
+      "explanation": "Reading big-share-access, staging, and archiving is exactly the SHAPE an attacker's chain also produces (this room says so explicitly), so that shape alone is the weakest discriminator. What actually rules this out is the CONTEXT this room's investigation workflow names directly: a dedicated service account, a documented ticket, months of consistent recurring scheduling, and a sanctioned first-party destination — together, not any one alone. The destination is strong precisely because it is the organisation's OWN storage, not merely 'a Microsoft cloud' (option b), and this room never treats transfer volume as a discriminator. A ticket is checked against IT's records, not taken at face value (option c), and attacker exfiltration is frequently timed for off-hours specifically to blend in, so timing is not a reliable rule-out. Reading the entire share is the weakest signal, not the strongest (option d), and the account is one of the four discriminators the workflow names.",
       "xp": 25
     },
     {

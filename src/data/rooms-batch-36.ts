@@ -227,14 +227,14 @@ const macosSecurityFundamentalsRoom = {
       question:
         "An analyst is comparing two macOS installs: one delivered as a .dmg where the user drags an app into /Applications, and one delivered as a .pkg with a postinstall script. Why does the .pkg install carry materially higher inherent risk per click, independent of anything the script actually does?",
       options: [
-        "Because .pkg files are always larger, and larger files are statistically more likely to be malicious",
-        "Because installing a package is itself a root-level operation on macOS, so a .pkg's preinstall/postinstall scripts inherit root privilege by design -- no separate privilege-escalation exploit is required",
-        "Because .dmg files cannot contain executable code of any kind, while .pkg files always can",
-        "Because Gatekeeper only ever inspects .pkg files and skips .dmg files entirely",
+        "Because a .pkg is exempt from the quarantine attribute browsers apply to downloads, so Gatekeeper never evaluates it the way it evaluates an app dragged out of a .dmg",
+        "Because installing a package is itself a root-level operation on macOS, so preinstall/postinstall scripts inherit root by design with no separate privilege-escalation exploit",
+        "Because a .dmg is a read-only disk image that cannot hold executable code, whereas a .pkg is the only macOS container able to carry a Mach-O binary",
+        "Because .pkg installers are distributed outside the Mac App Store and so can never pass Apple notarization, unlike a .dmg that holds a notarized app bundle",
       ],
       answer: 1,
       explanation:
-        "Reading 2 covered this directly: package installation is a root-level operation, so a .pkg's install scripts inherit root the moment the user clicks through the installer -- no exploit needed. File size (a) has no bearing on risk. DMGs can absolutely contain executable .app bundles (c), which is exactly what most legitimate DMG installs are. And Gatekeeper evaluates both container types at first launch (d), not just packages.",
+        "Reading 2 covered this directly: package installation is a root-level operation, so a .pkg's install scripts inherit root the moment the user clicks through the installer -- no exploit needed. Quarantine (a) is applied to downloaded files regardless of container, so Gatekeeper evaluates .pkg and .dmg alike. DMGs can absolutely contain executable .app bundles (c), which is exactly what most legitimate DMG installs are. And .pkg files can be signed and notarized just like apps (d) -- notarization status is not what drives the root-privilege difference.",
       xp: 20,
     },
     // ── Reading 3: Gatekeeper / quarantine / notarization ────────────────────
@@ -289,14 +289,14 @@ const macosSecurityFundamentalsRoom = {
       question:
         "An EDR event shows /usr/bin/osascript running with process.code_signature.status = valid and subject_name = Software Signing. A junior analyst concludes this process must be benign because its signature is valid. What is wrong with that reasoning?",
       options: [
-        "Nothing is wrong -- a valid Apple signature on a system binary always means the activity is benign",
-        "Apple's own system binaries like osascript are validly signed on every invocation, malicious or benign -- the signature says Apple built the binary, not that whatever it was instructed to do is legitimate; the parent process and command line matter just as much",
-        "osascript can never be validly signed, so this event must be spoofed or corrupted",
-        "A valid signature on a system binary means it is running with root privilege, which is itself the concerning fact",
+        "Nothing is wrong -- Apple system binaries are protected by System Integrity Protection, so a valid signature means the invocation cannot have been tampered with or misused",
+        "Apple's own binaries like osascript sign validly on every invocation, malicious or benign -- the signature shows Apple built the binary, not that its instructions are legitimate; parent and command line matter as much",
+        "A valid osascript event should show Apple Root CA as the subject, so 'Software Signing' indicates a repackaged or spoofed copy of the binary and the sample should be pulled for analysis",
+        "A valid signature is correct but incomplete -- the analyst must also confirm an Apple notarization ticket, since notarization rather than code signing is what proves the invoked script is safe",
       ],
       answer: 1,
       explanation:
-        "Reading 4 was explicit: osascript is a real Apple-signed binary and will show 'valid' every time it runs, regardless of what it was told to do. The signature attests to who built the binary, not to the intent behind a specific invocation -- which is why the parent process (what launched it) and the command line (what it was told to do) carry the real signal here, not the signature field alone. Options (c) and (d) both invent facts the event doesn't support.",
+        "Reading 4 was explicit: osascript is a real Apple-signed binary and will show 'valid' every time it runs, regardless of what it was told to do. The signature attests to who built the binary, not to the intent behind a specific invocation -- which is why the parent process (what launched it) and the command line (what it was told to do) carry the real signal here, not the signature field alone. SIP (a) protects the binary on disk, not how it is used; and (c) and (d) misstate the facts -- 'Software Signing' is the normal subject on Apple system binaries, and notarization applies to third-party software, not to what a script does.",
       xp: 20,
     },
     // ── Log Analysis 1: TCC.db root write ────────────────────────────────────
@@ -396,10 +396,10 @@ const macosSecurityFundamentalsRoom = {
       question:
         "An ad-hoc-signed app, freshly launched from a mounted disk image, spawns /usr/bin/osascript running a command line containing display dialog and with hidden answer, referencing the app's own name and the word password. What is the most accurate read of this single event?",
       options: [
-        "This is almost certainly a phishing prompt built to capture the user's password in cleartext, styled to look like a legitimate request from the app or the system",
-        "This is a harmless UI convenience feature, since display dialog is a standard and extremely common AppleScript command used constantly by legitimate installers",
-        "This proves the app has already read the user's Keychain, since osascript is the tool used to access it",
-        "This event cannot be evaluated at all without first checking whether osascript's own code signature is valid",
+        "A phishing prompt built to capture the user's password in cleartext, styled as a legitimate request from the app or the system",
+        "A routine installer UI step -- display dialog with a hidden answer is a standard AppleScript pattern that legitimate installers use to request admin credentials",
+        "Proof the app has already read the login Keychain, since a hidden-answer osascript prompt is how the Security framework requests a Keychain unlock password",
+        "Not evaluable until osascript's own signature is checked -- if it is valid, the dialog is an Apple-issued prompt and the event should be closed as benign",
       ],
       answer: 0,
       explanation:
@@ -458,10 +458,10 @@ const macosSecurityFundamentalsRoom = {
       question:
         "Two persistence items are found on two different Macs during an investigation: Item A is a plist in a specific user's own ~/Library/LaunchAgents folder; Item B is a plist in /Library/LaunchDaemons. Which statement correctly compares their impact?",
       options: [
-        "Item B is the more serious finding -- it runs as root, starts automatically at every boot before any user logs in, and its mere existence in that location proves the actor already had root privilege",
-        "Item A is more serious, because LaunchAgents are harder to detect than LaunchDaemons",
-        "They are functionally identical -- both run as root and both start at boot regardless of any user logging in",
-        "Item A is more serious because it persists even after the operating system is reinstalled, while Item B does not",
+        "Item B is the more serious finding -- it runs as root, starts at boot before any user logs in, and its location implies the actor already had root privilege to write it",
+        "Item A is more serious, because a LaunchAgent runs inside the user's GUI session with access to the Keychain and TCC-protected data, while a LaunchDaemon has no such access",
+        "They differ only in timing -- both run as root, and the only difference is that a LaunchAgent loads at user login while a LaunchDaemon loads at system boot",
+        "Item A is more serious because it persists after a macOS reinstall, since ~/Library sits on the preserved data volume, while Item B is wiped with the system volume",
       ],
       answer: 0,
       explanation:
@@ -596,14 +596,14 @@ const macosSecurityFundamentalsRoom = {
       question:
         "A help-desk ticket describes a Mac where a downloaded utility was run, the user was asked to type their password into an unfamiliar dialog, and shortly afterward the machine's fan spun up while the app was already closed. No new file appeared under /Library/LaunchDaemons. Which of this room's mechanisms most plausibly explains persistence surviving after the app itself was quit, and what should the analyst check first?",
       options: [
-        "A LaunchAgent under the user's own ~/Library/LaunchAgents folder -- check there first, since it requires no root privilege to create and would explain activity continuing for that user without a system-wide root daemon being present",
-        "It must be a LaunchDaemon that simply hasn't been found yet, so the analyst should assume root compromise regardless of what a search of /Library/LaunchDaemons actually shows",
-        "Persistence is impossible without a LaunchDaemon, so the described activity must be an unrelated, coincidental problem with the Mac",
-        "The Keychain itself must have been corrupted, which is what is causing the sustained fan activity",
+        "A LaunchAgent in the user's own ~/Library/LaunchAgents -- check there first, since it needs no root privilege to create and would explain activity continuing for that user without a system-wide daemon",
+        "A LaunchDaemon not yet found -- the typed password implies root was obtained, so assume root compromise and widen the search to other LaunchDaemons directories such as /System/Library first",
+        "A Login Item registered in System Settings -- check there first, since Login Items are the only mechanism that keeps a process running after its app window has been closed",
+        "A TCC database modification -- check TCC.db first, since a granted Accessibility entry would let the app relaunch itself after quitting without any launchd item at all",
       ],
       answer: 0,
       explanation:
-        "Reading 8 covered exactly this middle case: persistence does not require root at all -- a LaunchAgent under the user's own Library folder needs no elevated privilege to create and would fully explain something continuing to run for that user after the original app was quit. Jumping straight to 'it must be a LaunchDaemon we haven't found' (b) ignores the room's own evidence-based approach -- a clean search result is a real finding, not something to override with an assumption. Persistence is not impossible without a LaunchDaemon (c); that is exactly what a LaunchAgent is for. And nothing in this room ties Keychain state to CPU/fan activity (d) -- that combination describes a running process consuming resources, not a credential-store issue.",
+        "Reading 8 covered exactly this middle case: persistence does not require root at all -- a LaunchAgent under the user's own Library folder needs no elevated privilege to create and would fully explain something continuing to run for that user after the original app was quit. Jumping straight to 'it must be a LaunchDaemon we haven't found' (b) ignores the room's own evidence-based approach -- a clean search result is a real finding, not something to override with an assumption. Login Items (c) are one persistence option among several, not the only one -- launchd items are the mechanism this room taught. And TCC permissions (d) govern what an app may access, not whether it relaunches itself; nothing in the described activity points to a TCC change.",
       xp: 30,
     },
   ],

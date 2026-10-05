@@ -199,10 +199,10 @@ const kerberosRoom: Room = {
       question:
         "An analyst pulls Domain Controller logs to investigate a suspicious file-server session and finds no 4768 or 4769 events for the account in question anywhere on that DC. What does the absence of both events most likely indicate about where to look next?",
       options: [
-        "Kerberos was not used at all for this session — check the file server's own logs for a 4624 with AuthenticationPackageName other than Kerberos, or investigate an NTLM/forged-ticket path instead",
-        "The Domain Controller simply has verbose logging disabled by default and never records 4768/4769 under any circumstances",
-        "This proves the session never happened, since every Windows logon always produces a 4768 first",
-        "4768 and 4769 are only generated on the target file server itself, so the analyst is looking in the wrong location",
+        "Kerberos was probably not used — check the file server for a 4624 with a non-Kerberos AuthenticationPackageName, or an NTLM or forged-ticket path",
+        "The DC's Kerberos audit subcategories are likely disabled, so the absence says nothing about the session and the audit policy is the next place to look",
+        "The session used smart-card PKINIT, which is logged as 4771 on the DC instead of 4768/4769, so the analyst should search for 4771",
+        "4768 and 4769 are written on the target file server rather than the DC, so the analyst is searching the wrong host",
       ],
       answer: 0,
       explanation:
@@ -281,10 +281,10 @@ const kerberosRoom: Room = {
       question:
         "A junior analyst says 'this can't be Kerberoasting — the requesting user, k.alvarez, has no group membership or ACL entry granting them access to the SQL service they requested a ticket for.' Why does this reasoning not rule out Kerberoasting?",
       options: [
-        "It doesn't matter because Kerberoasting only works against Domain Admin accounts, which k.alvarez is not — the KDC specifically checks the requester's admin group membership before it will ever issue a TGS for any SPN",
-        "The KDC issuing a TGS-REQ/TGS-REP does not check the requesting user's authorization to actually use the target service at all — only that the SPN exists and the requester holds a valid TGT; authorization happens later, at the service itself, which the attacker never needs to reach if they only want to crack the ticket offline",
-        "Group membership and ACLs are only relevant to NTLM, not Kerberos, so the question is a category error — Kerberos tickets are never subject to any access-control evaluation at any stage, by either the KDC or the target service",
-        "TGS tickets can only be requested by accounts that are already local administrators on the target server, so k.alvarez must already hold elevated rights there for this ticket to have been issued at all",
+        "Kerberoasting targets only Domain Admin accounts, so k.alvarez's missing rights are irrelevant — the KDC checks admin group membership before issuing any TGS",
+        "The KDC issues a TGS for any existing SPN to any holder of a valid TGT; authorization is checked at the service, which an offline cracker never contacts",
+        "The KDC compares the requester's groups against the service ACL, so a successful 4769 proves k.alvarez actually had access to the SQL service",
+        "TGS tickets are issued only to local administrators of the target server, so k.alvarez must already hold elevated rights on that host",
       ],
       answer: 1,
       explanation:
@@ -472,10 +472,10 @@ const kerberosRoom: Room = {
       question:
         "You are triaging two separate DC log entries. Entry A: a 4769 for SPN MSSQLSvc/sqlrpt02.meridian.local:1433, TicketEncryptionType 0x17, requested by an account that also has 47 similar requests to other SPNs in the same two minutes. Entry B: a 4768 for account svc_legacyftp, PreAuthType 0, TicketEncryptionType 0x17, no prior activity from this account at all. Which is Kerberoasting and which is AS-REP roasting?",
       options: [
-        "Both are Kerberoasting, since both show RC4 (0x17) encryption, which is the defining signal for the technique regardless of which Event ID or precondition each entry shows",
-        "Entry A is Kerberoasting (a 4769, high volume of distinct SPN requests, from an account that already holds a valid TGT); Entry B is AS-REP roasting (a 4768 with PreAuthType 0, meaning pre-authentication was never required at all)",
-        "Entry A is AS-REP roasting and Entry B is Kerberoasting, because AS-REP roasting always involves multiple requests in a short window while Kerberoasting only ever produces a single request",
-        "Neither can be determined without the source IP address, since Event ID alone never distinguishes these two attacks and PreAuthType is not a reliable field on its own",
+        "Both are Kerberoasting — RC4 (0x17) is the defining signal, whichever Event ID or precondition each entry shows",
+        "A is Kerberoasting (4769, many distinct SPNs, valid TGT); B is AS-REP roasting (4768 with PreAuthType 0, no pre-authentication required)",
+        "A is AS-REP roasting and B is Kerberoasting — AS-REP roasting is a high-volume sweep, while Kerberoasting is one targeted request",
+        "Neither can be classified without the source IP and requesting process, since Event ID and PreAuthType alone cannot separate the two attacks",
       ],
       answer: 1,
       explanation:
@@ -717,10 +717,10 @@ const privescRoom: Room = {
       question:
         "An EDR alert shows a process at IntegrityLevel: Medium attempting to open lsass.exe with GrantedAccess: 0x1FFFFF, and the access request is logged as denied. What is the correct interpretation?",
       options: [
-        "The attempt still succeeded in reading LSASS memory, since the process explicitly requested full access — GrantedAccess always reflects what the requesting process obtained, never what was merely asked for",
-        "Windows correctly denied the request because a Medium-integrity process lacks the enabled SeDebugPrivilege and elevation required for PROCESS_ALL_ACCESS against a SYSTEM-protected process — the attacker (or tool) would need to escalate to High/System integrity first before this request could succeed",
-        "GrantedAccess only reflects what was requested, never what Windows actually allowed, so this field is not useful for triage — an analyst would need to separately confirm success or denial from an entirely different log source",
-        "Medium integrity processes can always read LSASS memory as long as the user account is a local administrator, since group membership alone determines what access mask Windows will grant regardless of integrity level",
+        "The read succeeded — GrantedAccess records the mask the process obtained, so 0x1FFFFF means LSASS memory was fully accessible",
+        "Windows denied it — Medium integrity lacks the enabled SeDebugPrivilege and elevation for PROCESS_ALL_ACCESS on LSASS, so the tool must reach High or SYSTEM first",
+        "Windows denied it only because Credential Guard is active; without it the same request at Medium integrity would have been granted",
+        "The mask is what was requested, not allowed, so GrantedAccess cannot confirm a denial and a separate log source is required",
       ],
       answer: 1,
       explanation:
@@ -863,10 +863,10 @@ const privescRoom: Room = {
       question:
         "A web shell is confirmed running under the IIS APPPOOL\\ContosoSite identity, which shows IntegrityLevel: Medium and holds SeImpersonatePrivilege by default. What is the accurate way to describe the attacker's current position?",
       options: [
-        "The attacker already has full SYSTEM-level control of the host, since any code execution on a Windows server is equivalent to SYSTEM access regardless of which account the process is actually running under",
-        "The attacker has code execution limited to a low-privileged virtual service account, but because that account holds SeImpersonatePrivilege, they are potentially one Potato-family exploit away from a SYSTEM token — the escalation still has to happen, it just has a short, well-known path available",
-        "IIS application pool identities never hold any privileges beyond serving HTTP requests, so no further escalation from this position is possible under any circumstances, including via impersonation-based exploits",
-        "SeImpersonatePrivilege only matters for Kerberos authentication and has no relevance to a locally running web shell, since impersonation privileges apply exclusively to network-based protocols",
+        "The attacker already has SYSTEM-level control — code execution on a Windows server is equivalent to SYSTEM whichever account runs the process",
+        "The attacker has low-privileged service-account execution, and SeImpersonatePrivilege puts a Potato-family escalation to SYSTEM within a short, known step",
+        "The attacker is contained — app pool identities hold nothing beyond serving HTTP, so no impersonation-based escalation applies from here",
+        "The attacker is limited, and SeImpersonatePrivilege is irrelevant to a local web shell because it only applies to network protocols such as Kerberos",
       ],
       answer: 1,
       explanation:
@@ -930,10 +930,10 @@ const privescRoom: Room = {
       question:
         "A service named MeridianSyncSvc is configured with ImagePath: C:\\Program Files\\Meridian Sync\\agent.exe (unquoted, containing spaces) and runs as LocalSystem. An analyst finds a newly created file at C:\\Program Files\\Meridian.exe that was not present last week. What is the most likely explanation and risk?",
       options: [
-        "This is unrelated to the service — Windows never attempts to resolve unquoted paths by trying space-delimited substrings, and ImagePath is always executed exactly as written regardless of spaces or quoting",
-        "An attacker placed a binary at exactly one of the intermediate paths Windows tries when resolving this unquoted ImagePath; the next time MeridianSyncSvc starts, Windows will likely execute C:\\Program Files\\Meridian.exe instead of the intended agent.exe, running the attacker's file as SYSTEM",
-        "The file is harmless because services only ever execute the exact final path listed in ImagePath, regardless of quoting, since Windows always validates the full string against the service's registered configuration first",
-        "This only becomes exploitable if the attacker also has SeImpersonatePrivilege, which is unrelated to unquoted service paths, since privilege escalation always requires impersonation regardless of the specific technique used",
+        "Unrelated to the service — Windows executes ImagePath exactly as written, so a new file in the Program Files root is coincidence",
+        "A binary planted at an intermediate path Windows tries for the unquoted ImagePath; at next start Meridian.exe will likely run as SYSTEM",
+        "Low risk — the Program Files root needs admin rights to write, so the file is most likely a vendor update staged for the agent",
+        "Exploitable only if the attacker also holds SeImpersonatePrivilege, since an unquoted-path hijack still depends on token impersonation",
       ],
       answer: 1,
       explanation:
@@ -1206,10 +1206,10 @@ const persistenceRoom: Room = {
       question:
         "A Sysmon process-creation event shows schtasks.exe /create /sc onstart /tn \"SyncHelper\" /tr \"C:\\ProgramData\\sync.exe\" /ru SYSTEM, launched by a process at IntegrityLevel: Medium. What does the integrity level tell you about whether this task registration would succeed?",
       options: [
-        "It would succeed regardless of integrity level, since /ru SYSTEM is only a label and Task Scheduler does not check the caller's privileges",
-        "It would most likely fail — registering a task to run as SYSTEM requires the calling process to already hold an elevated token, and a Medium-integrity process does not have one, so Task Scheduler should reject the request",
-        "Medium integrity is sufficient for any scheduled task, since scheduled tasks are a user-level feature unrelated to process integrity",
-        "The command would succeed but the resulting task would silently run as the original Medium-integrity user instead of SYSTEM",
+        "It would succeed — /ru SYSTEM is only a label and Task Scheduler does not check the caller's privileges",
+        "It would most likely fail — a SYSTEM task needs an elevated caller token, which a Medium-integrity process does not hold",
+        "It would fail only because C:\\ProgramData is not writable at Medium integrity; integrity is irrelevant to the registration itself",
+        "It would succeed, but the task would silently run as the original Medium-integrity user instead of SYSTEM",
       ],
       answer: 1,
       explanation:
@@ -1296,10 +1296,10 @@ const persistenceRoom: Room = {
       question:
         "An incident responder checks Run keys, the Startup folder, Task Scheduler, and Services on a compromised host and finds nothing unusual. They conclude the host has no persistence. What is wrong with this conclusion?",
       options: [
-        "Nothing is wrong — those four locations cover every possible Windows persistence mechanism, since Microsoft has never introduced any component capable of running code outside them",
-        "It's incomplete: BITS jobs (with a NotifyCmdLine payload) and WMI permanent event subscriptions are both common persistence mechanisms that live entirely outside those four locations, and a thorough sweep has to check the WMI repository and BITS job list specifically",
-        "The conclusion is wrong because Run keys and Startup folders are actually the same underlying location and were effectively only checked once, leaving Task Scheduler and Services unexamined",
-        "Persistence mechanisms are only relevant on Linux hosts, so this check was unnecessary on a Windows host to begin with, and Windows processes cannot be made to survive a reboot at all",
+        "Nothing is wrong — those four locations cover every Windows persistence mechanism that survives a reboot",
+        "It is incomplete — BITS jobs (NotifyCmdLine) and WMI permanent event subscriptions persist outside all four locations and need their own sweep",
+        "It is incomplete — Run keys and the Startup folder are one location checked twice, so Task Scheduler and Services were never examined",
+        "It is incomplete only for user-level persistence — all four locations are machine-wide, so SYSTEM-level persistence is fully ruled out",
       ],
       answer: 1,
       explanation:
@@ -1440,10 +1440,10 @@ const persistenceRoom: Room = {
       question:
         "During a cloud account compromise investigation, the SOC resets the affected user's password within minutes of detection and closes the incident. Three days later, the same user's mailbox is still leaking messages to an external address via a forwarding rule the attacker configured before the reset. What was missed, and why?",
       options: [
-        "Nothing was missed — password resets always immediately invalidate any mailbox rules configured under that account, since Exchange ties every mailbox setting directly to the account's current password",
-        "The mailbox forwarding rule is configured mailbox-side, not credential-side, so it survives a password reset by design, exactly as covered in Reading 5 — remediation needed to specifically check for and remove mailbox rules and revoke OAuth/session tokens, not stop at the password reset",
-        "The password reset should have been delayed until after business hours to avoid triggering the forwarding rule, since forwarding rules only activate during an active password-change event",
-        "Forwarding rules can only be created by administrators, so this indicates the attacker had domain admin rights, unrelated to the password reset question and the account's own mailbox settings",
+        "Nothing was missed — a password reset invalidates mailbox rules created under the account, so this must be a newly created rule",
+        "The rule lives mailbox-side, not credential-side, so it survives a reset — remediation also needs rule removal and OAuth/session token revocation",
+        "The MFA methods were not re-registered after the reset, so the old forwarding rule stayed active until the attacker's MFA device was removed",
+        "Forwarding rules can only be created by administrators, so the attacker held admin rights and the user's password reset was never the relevant control",
       ],
       answer: 1,
       explanation:

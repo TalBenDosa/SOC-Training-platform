@@ -335,10 +335,10 @@ const analystMindsetRoom = {
       question:
         "An analyst sees an alert titled 'Likely benign — known IT scanning tool' before looking at any raw evidence, and finds themselves agreeing with that label almost immediately without really checking the details. Which bias is most directly at play?",
       options: [
-        "Availability bias — recent memorable incidents are distorting the judgment",
-        "Anchoring — the pre-existing label is disproportionately shaping how the analyst reads everything that follows",
-        "Alert fatigue — too many alerts triaged in a row",
-        "Tunnel vision — locking onto one theory and ignoring alternative scope",
+        "Availability bias — a recent memorable incident is distorting the analyst's judgment of this alert",
+        "Anchoring — the pre-existing label is shaping how the analyst reads everything that follows",
+        "Alert fatigue — too many alerts triaged in a row are lowering the analyst's scrutiny of this one",
+        "Tunnel vision — the analyst has locked onto one theory and is ignoring alternative explanations of the activity",
       ],
       answer: 1,
       explanation:
@@ -353,10 +353,10 @@ const analystMindsetRoom = {
       question:
         "You are applying the 'so what?' chain to an alert about a host connecting to a domain registered yesterday. What is the correct NEXT step after concluding 'newly registered domains are often used for phishing/C2'?",
       options: [
-        "Immediately escalate the case as a confirmed compromise without further checks",
-        "Close the alert, since domain age alone rarely proves anything conclusively",
-        "Ask what evidence you would expect to find if this really is C2 (e.g. a repeating beacon pattern) and go check specifically for that",
-        "Ask the end user whether they visited the domain on purpose and accept their answer as the final word",
+        "Escalate the case as a probable compromise, since a newly registered domain is a high-confidence C2 indicator",
+        "Check the domain's WHOIS and reputation score, and close the alert if neither flags it as malicious",
+        "Ask what evidence you would expect if this really were C2 (e.g. a repeating beacon pattern) and check for exactly that",
+        "Ask the end user whether they visited the domain on purpose, and treat their answer as the deciding evidence",
       ],
       answer: 2,
       explanation:
@@ -371,10 +371,10 @@ const analystMindsetRoom = {
       question:
         "Two facts about an alert: (1) 'the process was svchost.exe' and (2) 'the user probably launched it by accident.' How should these two statements be treated in your investigation notes?",
       options: [
-        "Both should be written with equal confidence, since they both appeared during the same investigation",
-        "Statement 1 is a verifiable fact from the log; statement 2 is an assumption/inference and should be clearly labeled as such unless independently confirmed",
-        "Statement 2 is more important because it explains motive, so it should be listed first and treated as the primary conclusion",
-        "Neither statement matters until the case is escalated to Tier 3",
+        "Both should carry equal confidence, since both were observed by the same analyst during the same investigation",
+        "Statement 1 is a verifiable fact from the log; statement 2 is an inference about intent and should be labeled an assumption until confirmed",
+        "Statement 2 should lead the notes, since the likely motive explains the event better than a process name does",
+        "Neither belongs in the notes until escalation, since Tier 1 notes are limited to the alert title and verdict",
       ],
       answer: 1,
       explanation:

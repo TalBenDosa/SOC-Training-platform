@@ -322,10 +322,10 @@ const dlpRoom = {
       question:
         "Which DLP channel is the ONLY one capable of detecting a user copying a sensitive file directly to a USB thumb drive?",
       options: [
-        "Network DLP, because it inspects all traffic leaving the corporate network",
-        "Cloud/Email DLP, because Microsoft Purview covers all Microsoft 365 activity",
-        "Endpoint DLP, because it runs as an agent on the device itself and sees local activity that never touches the network",
-        "All three channels detect USB copy equally well since they share the same policy engine",
+        "Network DLP, because a USB-attached drive is just another egress path covered by its inspection of outbound traffic",
+        "Cloud/Email DLP, because Purview connectors log file-copy activity from any device signed in to the tenant",
+        "Endpoint DLP, because its on-device agent sees local file activity that never touches the network or a cloud workload",
+        "Network and Endpoint DLP together, because the endpoint agent relays USB events through the gateway for inspection",
       ],
       answer: 2,
       explanation:
@@ -419,10 +419,10 @@ const dlpRoom = {
       question:
         "A DLP alert shows SensitiveInfoType.Name = \"Credit Card Number\", Confidence = 58, Count = 1, for an internal email between two corporate employees. What is the MOST LIKELY explanation, and what should you check first?",
       options: [
-        "This is almost certainly a malicious insider — escalate immediately to the insider-threat team without further review",
-        "This is likely a false positive — a single low-confidence match on an internal email is the classic shape of a coincidental numeric pattern (e.g. an order ID or invoice number). Check the actual detected value and surrounding document context before escalating.",
-        "Credit card matches must always, without exception, be treated as confirmed PCI breaches requiring mandatory regulator notification and legal review, regardless of the classifier's confidence score or how many instances were actually matched",
-        "Because the action occurred entirely internal-to-internal between two corporate mailboxes, absolutely no further investigation of any kind is ever required, since internal email is structurally incapable of ever triggering a real data loss event under any DLP policy",
+        "A malicious insider staging card data — the match itself indicates intent, so escalate to the insider-threat team before reviewing the document",
+        "Likely a false positive — one low-confidence match in internal mail fits a coincidental number such as an order ID; check the detected value and document context first",
+        "A confirmed PCI exposure — any card-type match requires regulator notification and legal review regardless of confidence, so open a breach case before triage",
+        "Low risk by design — internal-to-internal mail is outside DLP scope, so close the alert and tune the policy to exclude internal recipients",
       ],
       answer: 1,
       explanation:
@@ -558,10 +558,10 @@ const dlpRoom = {
       question:
         "Why is a DLP alert alone often insufficient to prove malicious insider intent, and what additional context typically closes that gap?",
       options: [
-        "DLP alerts are never useful for insider-threat investigations of any kind and should always be ignored entirely in favor of relying exclusively on EDR alerts, since EDR alone can fully reconstruct both content and destination context",
-        "DLP tells you WHAT content matched and WHERE it was headed, but not WHY — closing the gap typically requires correlating the DLP event with behavioral context (timing, volume vs. baseline, first-time destination) and HR/organizational context (role appropriateness, resignation status, disciplinary history)",
-        "A DLP alert by itself is always complete and sufficient proof of malicious intent whenever the recorded action taken happens to be 'Blocked', with no need to ever check destination, user role, or any HR context",
-        "Malicious intent can only ever be conclusively proven through a direct confession obtained from the employee themselves, which makes every other DLP investigation step — content, destination, behavior, HR context — fundamentally irrelevant to the outcome",
+        "DLP lacks destination data, while EDR telemetry alone reconstructs content and destination, so insider cases should rest on EDR alerts rather than DLP",
+        "DLP shows WHAT matched and WHERE it went, not WHY; closing the gap takes behavioral context (timing, volume vs. baseline, new destination) plus HR context (role, resignation status)",
+        "A 'Blocked' DLP action is complete evidence, since a blocked transfer confirms the user deliberately attempted to move protected content out of the tenant",
+        "The sensitivity label settles intent: any Confidential-labelled file leaving the tenant proves deliberate exfiltration, whatever the timing, volume or HR context",
       ],
       answer: 1,
       explanation:

@@ -161,13 +161,13 @@ const otIcsSecurityRoom = {
       "id": "ot-q1",
       "question": "Meridian's process historian sits at Purdue Level 3, and plc-dose-03 sits at Level 1, communicating over Modbus/TCP. Which of the following correctly identifies the port Modbus/TCP uses, and the security property that traffic on that port lacks by design?",
       "options": [
-        "Port 502/TCP, and Modbus/TCP has no built-in authentication, encryption, or identity mechanism at all -- any host that reaches that port can issue the same read or write function codes as the plant's own engineering workstation",
-        "Port 20000/TCP, and Modbus/TCP requires a signed certificate for every write function code, which is why DNP3 is considered less secure",
-        "Port 102/TCP, and Modbus/TCP encrypts every session by default, though the encryption key is published in the device's manual",
-        "Port 44818/TCP, and Modbus/TCP is exclusively used for read-only telemetry, so no write function code exists in the protocol at all"
+        "Port 502/TCP, and Modbus/TCP has no built-in authentication or encryption, so any host reaching the port can issue the same function codes as the engineering workstation",
+        "Port 502/TCP, and Modbus/TCP authenticates each session by a source-IP allowlist enforced in the protocol itself, though it carries no encryption",
+        "Port 20000/TCP, and Modbus/TCP encrypts sessions with a static shared key, so it lacks only per-user identity",
+        "Port 102/TCP, and Modbus/TCP authenticates each session but has no integrity check on the register values it carries"
       ],
       "answer": 0,
-      "explanation": "Modbus/TCP uses port 502, and this room's protocol reading states plainly that it has no authentication, encryption, or identity mechanism at all -- source identity and function code are the only usable signals. Option b confuses the port with DNP3's port (20000) and invents a certificate requirement that does not exist. Option c confuses the port with S7comm's port (102) and invents default encryption Modbus/TCP does not have. Option d confuses the port with EtherNet/IP's port (44818) and is factually wrong that Modbus has no write function code -- function codes 6 and 16 are exactly the write codes this room's reading names.",
+      "explanation": "Modbus/TCP uses port 502, and this room's protocol reading states plainly that it has no authentication, encryption, or identity mechanism at all -- source identity and function code are the only usable signals. Source-IP allowlists exist only as optional device or firewall configuration, not as part of the protocol (option b). Port 20000 is DNP3's port, and Modbus has no encryption layer at all, shared key or otherwise (option c). Port 102 is S7comm's port, and Modbus/TCP authenticates nothing (option d).",
       "xp": 20
     },
     {
@@ -241,13 +241,13 @@ const otIcsSecurityRoom = {
       "id": "ot-q2",
       "question": "An investigator reconstructing the 2016 Ukraine substation incident finds: (1) a device dual-homed on both the IT and ICS networks was used to bridge into the ICS environment, and (2) once inside, the malware sent commands directly to protective relays, toggling breakers open, in a form those relays were never meant to accept from that source. Which two ATT&CK for ICS techniques describe steps (1) and (2), in order, and which tactic does step (2) belong to?",
       "options": [
-        "T0886 (Remote Services) for step (1), then T0855 (Unauthorized Command Message) for step (2) -- step (2) belongs to the Impair Process Control tactic (TA0106)",
-        "T0855 (Unauthorized Command Message) for step (1), then T0886 (Remote Services) for step (2) -- step (2) belongs to the Discovery tactic",
-        "T0836 (Modify Parameter) for step (1), then T0812 (Default Credentials) for step (2) -- step (2) belongs to the Initial Access tactic",
-        "T0846 (Remote System Discovery) for both steps, since this room documents only one technique for the entire 2016 Ukraine incident"
+        "T0886 (Remote Services) for step (1), then T0855 (Unauthorized Command Message) for step (2) -- step (2) belongs to Impair Process Control (TA0106)",
+        "T0886 (Remote Services) for step (1), then T0831 (Manipulation of Control) for step (2) -- step (2) belongs to Impact (TA0105)",
+        "T0855 (Unauthorized Command Message) for step (1), then T0886 (Remote Services) for step (2) -- step (2) belongs to Lateral Movement",
+        "T0883 (Internet Accessible Device) for step (1), then T0855 (Unauthorized Command Message) for step (2) -- step (2) belongs to Impair Process Control (TA0106)"
       ],
       "answer": 0,
-      "explanation": "Bridging into the ICS environment via a dual-homed device is T0886 (Remote Services), and the unauthorized breaker-open commands that followed are T0855 (Unauthorized Command Message), which sits under the Impair Process Control tactic (TA0106) -- exactly the order and mapping this room's reading on Industroyer walks. Option b reverses the order and wrongly assigns Discovery to T0886, which this room places under Initial Access and Lateral Movement, never Discovery. Option c substitutes T0836 (Stuxnet's technique) and T0812 (a credential-based Initial Access technique this incident does not involve) for the two real steps described. Option d is false -- this room documents Industroyer with two distinct techniques (T0855 and T0831, per the previous reading), not a single Discovery technique.",
+      "explanation": "Bridging into the ICS environment via a dual-homed device is T0886 (Remote Services), and the unauthorized breaker-open commands that followed are T0855 (Unauthorized Command Message), which sits under the Impair Process Control tactic (TA0106) -- exactly the order and mapping this room's reading on Industroyer walks. Option b picks T0831 (Manipulation of Control, Impact), which this room assigns to the resulting breaker-state change, not to the command message itself. Option c reverses the order. Option d treats the dual-homed bridge as T0883 (Internet Accessible Device), but the foothold here was an internal IT/ICS dual-homed host, not an internet-exposed one.",
       "xp": 25
     },
     {
@@ -438,13 +438,13 @@ const otIcsSecurityRoom = {
       "id": "ot-q3",
       "question": "You have confirmed an unauthorized Modbus write to plc-dose-03 from a corporate-VLAN address, and Meridian has no EDR agent on any controller. What response fits both the evidence and this room's guidance?",
       "options": [
-        "Cut the offending source off at the IT/OT boundary, and have Meridian's process engineers compare the written registers against their intended values and revert safely -- no agent exists on the PLC to isolate it directly",
-        "Push an EDR network-isolation action directly to plc-dose-03, exactly the containment you would apply to a compromised employee laptop",
-        "Immediately power-cycle plc-dose-03 to flush the written registers, and consider the incident closed once the controller resumes normal operation",
-        "Block all TCP port 502 traffic across the entire plant network at once, since that halts the write immediately with no need to coordinate with plant operations"
+        "Cut the offending source off at the IT/OT boundary, and have process engineers compare the written registers to intended values and revert them",
+        "Block the corporate VLAN at the IT/OT firewall, then power-cycle plc-dose-03 so it reloads its stored program and discards the written registers",
+        "Have OT-SENSOR-02 quarantine the source by injecting TCP resets, since the Zeek sensor can actively sever sessions it observes",
+        "Block TCP port 502 across the whole plant network to halt the write path at once, and coordinate with operations afterward"
       ],
       "answer": 0,
-      "explanation": "This room's response reading states exactly this: cut the unauthorized source off at the IT/OT boundary, and bring in process engineers to verify and revert the affected registers, because no agent exists on a PLC to isolate it directly. Option b is impossible -- a PLC runs no EDR sensor, so there is no isolation action to push. Option c is dangerous and destroys evidence -- blindly power-cycling a live controller can itself disrupt the physical process and loses volatile state a reboot cannot recover, and it does nothing to identify or stop the source. Option d breaks the plant -- blocking all of port 502 also blocks ENG-WS-02's own legitimate read-only polling, and this room's reading is explicit that any such block must be coordinated with plant operations, not done unilaterally.",
+      "explanation": "This room's response reading states exactly this: cut the unauthorized source off at the IT/OT boundary, and bring in process engineers to verify and revert the affected registers, because no agent exists on a PLC to isolate it directly. Option b gets the boundary block right but adds a blind power-cycle, which can itself disrupt the physical process and loses volatile state a reboot cannot recover. Option c assumes an active response capability the sensor does not have -- OT-SENSOR-02 is a passive SPAN-port monitor that only reads a copy of traffic and never sits inline. Option d breaks the plant -- blocking all of port 502 also blocks ENG-WS-02's own legitimate read-only polling, and this room's reading is explicit that any such block must be coordinated with plant operations beforehand, not afterward.",
       "xp": 25
     },
     {
@@ -452,13 +452,13 @@ const otIcsSecurityRoom = {
       "id": "ot-q4",
       "question": "Reconstruct this room's full chain in order: an unauthorized source reaches Meridian's OT segment, sweeps the controller range, then issues a register write to plc-dose-03. Which three ATT&CK for ICS technique IDs describe these three steps, in order, and which single fact -- true throughout the chain -- explains why Modbus/TCP itself never blocked any of them?",
       "options": [
-        "T0886 (crossing onto the segment), T0846 (the sweep), T0855 (the write) -- and Modbus/TCP has no authentication at all, so the protocol could not distinguish the unauthorized source from Meridian's own engineering workstation at any step",
-        "T0855 (crossing onto the segment), T0886 (the sweep), T0836 (the write) -- and Modbus/TCP encrypts every session, so the write must have used a stolen certificate",
-        "T0846 (crossing onto the segment), T0812 (the sweep), T0831 (the write) -- and Modbus/TCP requires a username and password for every function code",
-        "T0883 (crossing onto the segment), T0836 (the sweep), T0814 (the write) -- and Modbus/TCP silently blocks any write from outside the 172.20.5.0/24 range by design"
+        "T0886 (crossing onto the segment), T0846 (the sweep), T0855 (the write) -- Modbus/TCP has no authentication, so it could not tell the unauthorized source from the engineering workstation",
+        "T0886 (crossing onto the segment), T0846 (the sweep), T0855 (the write) -- Modbus/TCP authenticates by source IP, so the attacker must have spoofed an engineering address",
+        "T0883 (crossing onto the segment), T0846 (the sweep), T0855 (the write) -- Modbus/TCP has no authentication, so it could not tell the unauthorized source from the engineering workstation",
+        "T0846 (crossing onto the segment), T0886 (the sweep), T0855 (the write) -- Modbus/TCP has no authentication, so it could not tell the unauthorized source from the engineering workstation"
       ],
       "answer": 0,
-      "explanation": "This is the exact order this room's readings walked: T0886 (Remote Services) for reaching the OT segment, T0846 (Remote System Discovery) for the address sweep, and T0855 (Unauthorized Command Message) for the write -- and this room's protocol reading is explicit that Modbus/TCP has no authentication at all, so it cannot tell an unauthorized source apart from ENG-WS-02 at any step. Option b, c, and d all scramble the technique order and, worse, invent security properties this room's protocol reading explicitly denies Modbus/TCP has: universal encryption requiring a stolen certificate, a username/password requirement, or an automatic IP-range block -- none of these exist in the real protocol, which is the entire reason this room's signs-of-intrusion reading has to rely on source identity and function code instead.",
+      "explanation": "This is the exact order this room's readings walked: T0886 (Remote Services) for reaching the OT segment, T0846 (Remote System Discovery) for the address sweep, and T0855 (Unauthorized Command Message) for the write -- and this room's protocol reading is explicit that Modbus/TCP has no authentication at all, so it cannot tell an unauthorized source apart from ENG-WS-02 at any step. Option b has the right techniques but a false protocol claim: Modbus/TCP performs no source-IP authentication, so no spoofing is needed. Option c labels the crossing T0883 (Internet Accessible Device), but the pivot here is IT-to-OT remote access, not an internet-exposed device. Option d scrambles the order, placing discovery before the attacker has reached the segment.",
       "xp": 25
     },
     {

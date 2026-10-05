@@ -216,14 +216,14 @@ const sigmaYaraRuleAuthoringRoom = {
       question:
         "A Sigma detection block reads:\n\nselection:\n  Image|endswith: '\\powershell.exe'\n  CommandLine|contains|all:\n    - '-nop'\n    - '-enc'\ncondition: selection\n\nWhich of these command lines would this selection actually match?",
       options: [
-        "cmd.exe /c whoami",
-        "powershell.exe -Command Get-ChildItem C:\\Temp",
+        "cmd.exe /c powershell.exe -nop -enc JABzAGUAYwB1AHIAZQ...",
+        "powershell.exe -ep bypass -enc JABzAGUAYwB1AHIAZQ...",
         "powershell.exe -nop -w hidden -enc JABzAGUAYwB1AHIAZQ...",
         "powershell.exe -windowstyle hidden -encodedcommand JABzAGUAYwB1AHIAZQ...",
       ],
       answer: 2,
       explanation:
-        "Option a fails Image|endswith entirely — cmd.exe never ends in powershell.exe, so this selection cannot match it regardless of its command line. Option b is the right binary but its command line contains neither '-nop' nor '-enc' as substrings, so contains|all fails on both required items. Option c is the right binary and its command line contains both '-nop' and '-enc' as literal substrings, satisfying contains|all completely — this is the only match. Option d contains '-enc' as a substring of '-encodedcommand', but never contains '-nop' anywhere, so contains|all still fails on one of the two required items — a rule using |contains|all needs every listed substring present, not just one of them.",
+        "Option a fails Image|endswith entirely — the launched image is cmd.exe, which never ends in powershell.exe, so this selection cannot match it even though the nested command line contains both substrings. Option b is the right binary and contains '-enc', but it never contains '-nop', so contains|all fails on one of the two required items. Option c is the right binary and its command line contains both '-nop' and '-enc' as literal substrings, satisfying contains|all completely — this is the only match. Option d contains '-enc' as a substring of '-encodedcommand', but never contains '-nop' anywhere, so contains|all still fails on one of the two required items — a rule using |contains|all needs every listed substring present, not just one of them.",
       xp: 25,
     },
     // ── Reading 3: Sigma step-by-step case study ────────────────────────────
@@ -531,14 +531,14 @@ const sigmaYaraRuleAuthoringRoom = {
       question:
         "A YARA rule for a PHP webshell family is written with a single string and a single-string condition: strings: $s1 = \"eval(base64_decode(\" ascii; condition: $s1 — no filesize limit, no second required string. Deployed against the web server's file share, it fires on 340 files overnight, the large majority of which turn out to be legitimate WordPress and Composer vendor-library files that call the same two functions together for unrelated reasons. What is the most accurate diagnosis and fix?",
       options: [
-        "The rule is too broad: a single common function-call string, with no file-size bound and no requirement for a second corroborating signal, matches an enormous amount of unrelated legitimate code. Add a realistic file-size ceiling, require an additional string such as one of the superglobal input sources, and combine both with and in the condition.",
-        "The rule is too narrow: condition: $s1 alone should be replaced with all of them, since all of them always reduces the number of files a rule matches, regardless of how many strings are defined.",
-        "The false positives are unrelated to the rule and are caused entirely by the file share's antivirus scanner re-scanning the same files, so no change to the YARA rule is needed.",
-        "YARA rules cannot use filesize or the and operator inside a condition, so this rule is already as tight as the syntax allows, and 340 matches is an unavoidable outcome of scanning a large file share.",
+        "The rule is too broad: one common function-call string with no size bound or corroborating signal matches legitimate code. Add a filesize ceiling and a second required string, such as a superglobal input source, combined with and.",
+        "The rule is too narrow: a single string misses obfuscated variants, so more eval-style strings should be added to the strings block and joined with or in the condition to widen coverage.",
+        "The rule is working as designed: YARA should flag every candidate, so the 340 file hashes should be added to an exclusion list and triage of the remaining matches left to the analyst.",
+        "The rule is not matching correctly: ascii strings cannot match PHP source stored as UTF-16 on Windows web servers, so the fix is adding the wide modifier to $s1 and rescanning the share.",
       ],
       answer: 0,
       explanation:
-        "This is the false-positive-flood failure mode from Reading 1 and Reading 6, playing out exactly as described: one common signal with no corroborating requirement and no size bound matches everything that happens to share it for unrelated reasons. Option b is simply wrong about what all of them does when only one string is defined — it changes nothing, since there is nothing else to require. Option c invents an unrelated cause with no basis in what is described. Option d is factually wrong — Reading 5 covered both filesize and and directly, and they are exactly the tools that fix this rule.",
+        "This is the false-positive-flood failure mode from Reading 1 and Reading 6, playing out exactly as described: one common signal with no corroborating requirement and no size bound matches everything that happens to share it for unrelated reasons. Option b does the opposite of what is needed — adding more strings joined with or widens the match set and increases false positives. Option c allow-lists hashes, which hides the symptom without fixing the rule and fails on every new legitimate library version. Option d is wrong because the rule is clearly matching (340 hits); the problem is selectivity, not encoding. Reading 5 covered both filesize and and directly, and they are exactly the tools that fix this rule.",
       xp: 25,
     },
     // ── Log Analysis: verify a live alert against its own rule logic ────────

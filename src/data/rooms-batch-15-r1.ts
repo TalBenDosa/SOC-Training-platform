@@ -143,10 +143,10 @@ const k8sSecurityRoom = {
       question:
         "A pod specification includes 'hostPID: true'. What does this setting actually allow the container to do, and why is it dangerous?",
       options: [
-        "It allows the pod to use a fixed, predictable process ID instead of a randomly assigned one — a minor convenience setting with no security implications",
-        "It removes the container's process-namespace isolation, letting it see and potentially interact with every process running on the underlying node — including processes belonging to completely unrelated pods and the node's own system processes",
-        "It grants the pod permission to run as PID 1 inside its own container, which is required for most standard container images to start correctly",
-        "It restricts the pod to only viewing its own single process, which improves security by default",
+        "It pins the pod's main process to a fixed PID instead of a random one, which can affect PID-based monitoring but gives the container no extra visibility",
+        "It removes process-namespace isolation, letting the container see, and with other privileges act on, every process on the node including other pods' processes",
+        "It shares the host's network stack with the container, exposing node-level listening ports and the metadata endpoint without crossing the pod network",
+        "It mounts the node's /proc filesystem read-only for diagnostics, so the container can read host statistics but cannot see processes outside the pod",
       ],
       answer: 1,
       explanation:

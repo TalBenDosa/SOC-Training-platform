@@ -416,10 +416,10 @@ const tlsRoom = {
       question:
         "Why does the SNI (Server Name Indication) field remain visible in cleartext even in a fully modern TLS 1.3 connection (assuming ECH is not in use)?",
       options: [
-        "TLS 1.3 does not support encryption of any handshake fields at all, meaning the certificate, key exchange parameters, and every other handshake message remain fully visible in cleartext exactly as they were under TLS 1.2",
-        "The server must know which hostname the client is requesting BEFORE it can select and send the correct certificate for that hostname — and no encryption keys have been established yet at that point in the handshake, so this specific field is necessarily sent in the clear",
-        "SNI is fully encrypted by the TLS 1.3 protocol itself, but browsers and monitoring tools simply choose, by convention, to display it in cleartext in their logs purely for developer debugging convenience",
-        "SNI only appears as a field in TLS 1.2's ClientHello structure, not TLS 1.3's, because TLS 1.3 redesigned the handshake specifically to remove the hostname-indication mechanism entirely from the protocol",
+        "TLS 1.3 leaves every handshake message unencrypted, exactly as TLS 1.2 did, so SNI is visible along with the certificate and key exchange",
+        "SNI is sent in the ClientHello before any keys exist, because the server needs the hostname to choose which certificate to present",
+        "SNI is encrypted by TLS 1.3, but proxies and sensors log the name from the server certificate's subject and present it as SNI",
+        "SNI was dropped from the TLS 1.3 ClientHello, so the visible hostname is derived from the DNS query that preceded the connection",
       ],
       answer: 1,
       explanation:
@@ -434,10 +434,10 @@ const tlsRoom = {
       question:
         "A workstation makes repeated TLS sessions to the same external IP roughly every 60 seconds (with a small amount of jitter), each session's byte count nearly identical, using a self-signed certificate that was issued nine hours ago. Individually, which of these facts is the WEAKEST standalone evidence of malicious activity?",
       options: [
-        "The self-signed, 9-hour-old certificate, taken completely alone with no other context",
-        "The combination of all of the listed factors together",
-        "Nothing here is weak evidence — any single one of these facts alone is sufficient grounds for immediate incident declaration",
-        "The consistent session interval, taken completely alone with no other context",
+        "The self-signed certificate issued nine hours ago, taken alone with no other context",
+        "The near-identical byte count on every session, taken alone with no other context",
+        "The interval of roughly 60 seconds with small jitter, taken alone with no other context",
+        "The interval and the byte-count consistency together, without the certificate or destination context",
       ],
       answer: 0,
       explanation:
@@ -452,10 +452,10 @@ const tlsRoom = {
       question:
         "Your organization has full SSL/TLS interception deployed on all managed laptops. A specific application's outbound HTTPS connections consistently fail at the interception point with a certificate error, while working normally when tested from an unmanaged network with no interception. What does this most likely indicate?",
       options: [
-        "The interception appliance itself is broken and needs to be restarted immediately, since a certificate error at the interception point always indicates a hardware or software fault in the proxy rather than anything about the application's own behavior",
-        "The application implements certificate pinning against its expected server certificate, and is correctly rejecting the interception proxy's substitute certificate — meaning this specific application's traffic content will not be visible to your SSL inspection regardless of how it's configured, and metadata-based analysis remains your only option for it",
-        "The application is not using HTTPS at all, and the certificate error at the interception point is entirely unrelated to TLS, coincidentally happening at the exact same moment for some other unrelated networking reason",
-        "This proves conclusively, on its own and without any further investigation, that the application is malware, since only malicious software would ever have a legitimate reason to implement certificate pinning against its own server",
+        "The interception appliance's own CA certificate has expired, so every application on managed laptops should be failing, not just this one",
+        "The application pins its expected server certificate and rejects the proxy's substitute one, so its content stays opaque and only metadata is available",
+        "The application uses a TLS version or cipher suite the proxy cannot negotiate, so decryption fails the same way for every client on the network",
+        "The application's server presents a self-signed certificate, which proves the destination is attacker-controlled rather than a legitimate vendor",
       ],
       answer: 1,
       explanation:

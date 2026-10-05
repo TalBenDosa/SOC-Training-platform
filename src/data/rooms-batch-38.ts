@@ -216,14 +216,14 @@ const googleWorkspaceSecurityRoom = {
       question:
         "A Gmail message shows gws.spf_result PASS, gws.dkim_result PASS, and gws.dmarc_result PASS, and it arrived as a reply inside a real, ongoing invoice thread with a genuine long-term supplier. What is the most accurate interpretation?",
       options: [
-        "The domain that sent this message really did authorise it -- which is exactly what a compromised mailbox at that same real domain would also produce, so these three fields cannot by themselves establish that the message is safe",
-        "The message is proven safe, because all three authentication mechanisms passed",
-        "The passing results mean the sender's domain must have a misconfigured, overly permissive DMARC policy",
-        "SPF, DKIM and DMARC in Google Workspace check different things entirely than they do for any other mail provider, so no general conclusion is possible",
+        "The sending domain did authorise the message -- which a compromised mailbox at that same real domain would also produce, so these three fields alone cannot establish that it is safe",
+        "The message is very likely legitimate since all three mechanisms passed, so the only remaining risk is a lookalike display name, to be checked before the thread is trusted",
+        "The passes indicate a permissive DMARC policy such as p=none on the sender's domain, so the result is advisory only and the message should be treated as effectively unauthenticated",
+        "The three fields are Google's own re-evaluation of the message rather than the standard SPF, DKIM and DMARC outcomes, so no general conclusion can be drawn about the sender",
       ],
       answer: 0,
       explanation:
-        "Reading 3 covered this exactly: all three checks answer 'did this domain authorise the message,' and a genuinely compromised mailbox at a real domain answers that question correctly too. Concluding safety from authentication alone (b) is the precise trap. A pass says nothing about misconfiguration (c) -- it's working as intended, against a threat it isn't designed to catch. And the underlying mechanisms are the same industry-standard SPF/DKIM/DMARC everywhere (d); only the field names Google uses to record the result are specific to Google Workspace.",
+        "Reading 3 covered this exactly: all three checks answer 'did this domain authorise the message,' and a genuinely compromised mailbox at a real domain answers that question correctly too. Concluding safety from authentication alone (b) is the precise trap, even with a display-name check added. A DMARC pass says nothing about policy permissiveness (c) -- it is working as intended, against a threat it isn't designed to catch. And the underlying mechanisms are the same industry-standard SPF/DKIM/DMARC everywhere (d); only the field names Google uses to record the result are specific to Google Workspace.",
       xp: 25,
     },
     // ── Reading 4: OAuth ────────────────────────────────────────────────────────
@@ -397,10 +397,10 @@ const googleWorkspaceSecurityRoom = {
       question:
         "An admin's CHANGE_PASSWORD event for a compromised account shows gws.admin.oauth_tokens_revoked as 'false'. An analyst is about to close the OAuth-abuse ticket because a password reset was performed. What should this specific field change about that decision?",
       options: [
-        "Nothing -- a password reset is always sufficient regardless of what this field says",
-        "It should stop the analyst from closing the ticket -- the field confirms directly that the reset did NOT revoke the OAuth grant, meaning the malicious app's token is still valid and separate revocation action is still required",
-        "It means the password reset itself failed and must be retried before anything else can be checked",
-        "It only applies to Drive-scoped tokens, so Gmail-scoped access is unaffected either way",
+        "Nothing -- a reset invalidates the user's session cookies and the refresh tokens issued under them, so the field is informational and the ticket can be closed",
+        "It should stop the closure -- the field confirms the reset did NOT revoke the OAuth grant, so the malicious app's token stays valid and needs separate revocation",
+        "It means the reset only partly completed and must be retried by an admin, since token revocation is the final step of a successful password reset",
+        "It reflects revocation of Drive-scoped tokens only, so any Gmail access the grant held would already have been cut off by the reset",
       ],
       answer: 1,
       explanation:
@@ -512,14 +512,14 @@ const googleWorkspaceSecurityRoom = {
       question:
         "A Drive file's gws.drive.visibility changes from 'private' to 'anyone with the link', and shortly afterward the same file shows up as viewed from an unfamiliar external IP address. Which statement best matches how this platform teaches the same pattern in SharePoint/OneDrive?",
       options: [
-        "This is a distinct, Google-specific risk with no real counterpart in Microsoft 365",
-        "The underlying risk is identical to widening a SharePoint/OneDrive file's SharingCapability to anyone-with-the-link -- access no longer depends on who the recipient is, only on whether they hold the link -- just expressed through Google's own visibility field rather than Microsoft's",
-        "This can only ever indicate a benign administrative default and never needs review",
-        "Drive visibility settings have no bearing on who can actually open a file -- only Docs-level permissions do",
+        "A Google-specific risk with no Microsoft 365 counterpart, since Drive links can be publicly indexed whereas SharePoint links always require the recipient to sign in",
+        "The same risk as widening SharePoint/OneDrive SharingCapability to anyone-with-the-link -- access depends on holding the link, not on the recipient -- expressed through Google's visibility field",
+        "Usually benign, since link sharing is a default collaboration setting, and worth review only if the file carries a confidential classification label",
+        "A change affecting discoverability in search only, since who can actually open a file is decided by Docs-level permissions rather than Drive visibility",
       ],
       answer: 1,
       explanation:
-        "Reading 8's contrastive framing applies directly here: this is the same universal file-sharing risk this platform already teaches for SharePoint/OneDrive, expressed through Google's own gws.drive.visibility field rather than Microsoft's SharingCapability. It is not Google-specific (a), not something to wave off as always benign (c), and visibility genuinely does govern who can open the file without further permission checks (d).",
+        "Reading 8's contrastive framing applies directly here: this is the same universal file-sharing risk this platform already teaches for SharePoint/OneDrive, expressed through Google's own gws.drive.visibility field rather than Microsoft's SharingCapability. It is not Google-specific (a) -- SharePoint and OneDrive have anyone-with-the-link sharing too -- not something to treat as benign by default just because a label is absent (c), and visibility genuinely does govern who can open the file without further permission checks (d).",
       xp: 25,
     },
     // ── Question 4: synthesis ──────────────────────────────────────────────────
@@ -529,10 +529,10 @@ const googleWorkspaceSecurityRoom = {
       question:
         "Summarising this room: an OAuth grant with a broad, unverified scope is followed by a large download burst attributed to the same app token, and an admin's later password reset shows oauth_tokens_revoked = false. What is the single most accurate classification and required action?",
       options: [
-        "OAuth application abuse with confirmed collection and an incomplete remediation -- the grant must be explicitly revoked and blocklisted, since the password reset alone left the token, and therefore the access, fully intact",
-        "A fully resolved incident, since a password reset was already performed",
-        "A false positive, since OAuth consent is a normal, expected user action in any Workspace environment",
-        "An issue limited to Drive only, with no implication for the account's Gmail access"
+        "OAuth application abuse with confirmed collection and incomplete remediation -- the grant must be explicitly revoked and blocklisted, since the reset alone left the token and its access intact",
+        "A contained incident -- the password reset ended the compromised account's access, so only a review of what the app downloaded remains before the ticket is closed",
+        "A false positive pending review -- OAuth consent is a normal user action in Workspace, and the download burst is consistent with the app's declared sync purpose",
+        "An issue limited to Drive, since the download burst involved Drive files only, so the account's Gmail access needs no further review"
       ],
       answer: 0,
       explanation:

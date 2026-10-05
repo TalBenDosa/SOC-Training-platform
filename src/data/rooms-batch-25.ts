@@ -288,10 +288,10 @@ const webApplicationSecurityRoom: Room = {
       question:
         "An attacker sends a SQL injection payload in the BODY of a POST request to /login.aspx. You open the IIS access log for that exact second. What do you see?",
       options: [
-        "The full request payload appears directly in the csUriQuery field, since a W3C-format IIS access log is documented to record every parameter a request carries, no matter which HTTP method was used to send it",
-        "A csMethod of POST, a csUriStem of /login.aspx and a csUriQuery of '-' — the payload itself does not appear anywhere, because a W3C access log records the request line and selected headers, never the request body",
-        "Nothing at all is written to the log for this request, because IIS is documented to never create W3C access-log entries for any POST-method request under any configuration",
-        "The payload does appear, but only indirectly, inside the scBytes field, which the W3C log format is documented to encode as the total byte length of everything the client actually sent in the request body",
+        "The payload appears in the csUriQuery field, because a W3C access log records every parameter a request carries, whichever HTTP method delivered it",
+        "A csMethod of POST, csUriStem /login.aspx and csUriQuery '-', with no payload anywhere, because a W3C access log holds the request line and selected headers only",
+        "No entry at all, because IIS writes W3C access-log lines only for GET and HEAD requests unless failed request tracing is switched on",
+        "The payload appears indirectly in the scBytes field, which the W3C format records as the byte length of everything the client sent in the request body",
       ],
       answer: 1,
       explanation:
@@ -484,10 +484,10 @@ const webApplicationSecurityRoom: Room = {
       question:
         "A customer logs into Larkfield's portal legitimately, then edits the URL /invoice.aspx?id=88412 to id=88413 and receives another customer's invoice with a 200 response. The WAF logged the request with action ALLOW and terminatingRuleId NONE. Why did the WAF not stop it?",
       options: [
-        "The WAF's managed rule groups were simply disabled or misconfigured at deployment time, and re-enabling the full standard rule set would definitely catch and block this particular request",
-        "The request is perfectly well-formed with no malicious pattern to match — whether it is theft depends on whether that customer owns invoice 88413, a fact about the application's data the WAF has no access to",
-        "The WAF ignores and skips inspection of any request that carries a valid, already-authenticated session cookie, treating all authenticated user traffic as automatically trusted and safe by default",
-        "A WAF is only ever able to inspect POST request bodies by design, so any GET request that carries its parameters in a query string always passes through completely uninspected",
+        "The managed rule groups were not enabled on this web ACL, and switching on the full standard rule set would have blocked a request like this",
+        "The request is well-formed with nothing to match; whether it is theft depends on who owns invoice 88413, which the WAF cannot know",
+        "The WAF skips inspection of requests carrying a valid authenticated session cookie, treating logged-in traffic as trusted by default",
+        "The WAF inspects POST bodies but not query strings, so a GET request carrying id=88413 in its URL passes through uninspected",
       ],
       answer: 1,
       explanation:
@@ -626,10 +626,10 @@ const webApplicationSecurityRoom: Room = {
       question:
         "A Larkfield customer, still logged into the support portal in one browser tab, opens a link in another tab to an unrelated raffle site. Moments later your WAF log shows a POST to /account/change-email arriving at the portal, carrying the customer's genuine, valid session cookie, no anti-CSRF token in the body where one is expected, and a Referer header of https://win-a-prize.example/enter.html. What does this pattern indicate, and how does it differ from an IDOR or a stored-XSS attack?",
       options: [
-        "This is stored XSS: the raffle site's page must have injected a malicious script that ran inside Larkfield's own portal in the victim's browser, silently read the session cookie, and used it to forge the change-email request without the victim noticing anything happen",
-        "This is CSRF: the raffle site auto-submitted a hidden form to Larkfield's endpoint, and because the victim's browser automatically attaches cookies to requests to their target domain regardless of which page triggered the request, the change-email request arrived looking fully authenticated -- with no code ever needing to run on Larkfield's own site at all",
-        "This is IDOR: the customer must have deliberately changed an identifier in the URL or request body themselves to reach another account's email settings, and the WAF cannot detect it because the request is syntactically well-formed and carries no malicious pattern",
-        "This cannot be CSRF, because CSRF fundamentally requires the attacker to have already stolen the victim's actual session cookie in advance and replayed it themselves, and no evidence of any stolen or exfiltrated cookie appears anywhere in this record",
+        "Stored XSS: a script injected into the portal ran in the victim's browser, read the session cookie and forged the change-email request from inside Larkfield's own origin",
+        "CSRF: the raffle page auto-submitted a hidden form, and the browser attached the victim's cookie by itself, so no script ever ran on Larkfield's site",
+        "IDOR: the customer altered an identifier in the request to reach another account's email settings, and the WAF missed it because the request is well-formed",
+        "Not CSRF: that technique needs the attacker to have stolen the session cookie in advance and replayed it, and nothing in this record shows a stolen cookie",
       ],
       answer: 1,
       explanation:

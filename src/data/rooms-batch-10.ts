@@ -68,10 +68,10 @@ const rooms = [
         question:
           "An email arrives claiming to be from support@paypal.com. The Authentication-Results header shows: spf=fail, dkim=fail, dmarc=fail. What does this most likely indicate?",
         options: [
-          "PayPal's mail servers are temporarily offline",
-          "The email is spoofing the PayPal domain and was not sent by PayPal's authorised infrastructure",
-          "The receiving mail server has a misconfigured DNS resolver",
-          "DMARC failures are normal and can be safely ignored",
+          "PayPal's mail servers were temporarily offline, so the checks timed out",
+          "The email spoofs the PayPal domain and was not sent by PayPal's authorised infrastructure",
+          "The receiving server's DNS resolver is misconfigured, so all three checks failed",
+          "DMARC failures are routine for large brands and can be safely ignored",
         ],
         answer: 1,
         explanation:
@@ -86,10 +86,10 @@ const rooms = [
         question:
           "A user reports a suspicious email with an attachment named 'Invoice_Q4_2024.xlsm'. When they opened it, a yellow bar appeared asking them to 'Enable Content'. What happened and what should the SOC analyst do first?",
         options: [
-          "The file is a standard Excel spreadsheet with no scripting capability whatsoever — enabling content simply unlocks normal formulas and formatting, so it is safe to proceed without any further check",
-          "The .xlsm extension indicates a macro-enabled workbook; the analyst should check if the user clicked Enable Content and if so, check EDR telemetry for malicious process spawns",
-          "XLSM files cannot contain malware because Microsoft strips all executable code from Office documents automatically during the save process — only standalone .exe or .dll files are capable of running malicious code",
-          "Immediately wipe the user's machine without investigation, since any macro-enabled attachment received from an external sender is by definition confirmed malware and no further evidence needs to be collected before remediation begins",
+          "It is a plain Excel file with no scripting capability, so enabling content is safe",
+          ".xlsm means a macro-enabled workbook; check if the user clicked Enable Content, then check EDR for malicious process spawns",
+          "XLSM files cannot carry malware, because Office strips executable code when saving",
+          "Wipe the user's machine immediately, since any macro-enabled external attachment is confirmed malware",
         ],
         answer: 1,
         explanation:
@@ -185,10 +185,10 @@ const rooms = [
             question:
               "What combination of indicators makes this email most suspicious from a Business Email Compromise perspective?",
             options: [
-              "Large attachment size and Friday timing alone, since any email delivered on a Friday with an attachment over 400KB should automatically be treated as a confirmed phishing attempt regardless of any other evidence",
-              "Reply-To pointing to a Gmail-lookalike domain, SPF/DKIM/DMARC all failing, macro-enabled attachment with 38/72 VirusTotal detections, and Return-Path from a relay service unrelated to globalpartners.com",
-              "The email subject contains the word URGENT, and subject-line urgency language is by itself a definitive, standalone indicator of Business Email Compromise that outweighs authentication results and attachment analysis",
-              "The email was delivered to alice.chen who is likely in the finance department, and simply being a finance employee is sufficient on its own to make any email a confirmed targeted BEC attack without examining headers or attachments",
+              "Large attachment size and Friday timing — any Friday email with an attachment over 400KB should be treated as phishing",
+              "Reply-To on a Gmail-lookalike domain, SPF/DKIM/DMARC all failing, a macro attachment with 38/72 detections, and an unrelated relay in Return-Path",
+              "The subject contains URGENT — urgency language alone is a definitive BEC indicator that outweighs authentication results",
+              "The recipient alice.chen is probably in finance — being a finance employee alone makes the email a confirmed BEC",
             ],
             answer: 1,
             explanation:
@@ -332,10 +332,10 @@ const rooms = [
         question:
           "A user account shows the following VPN authentication events: 14:22 UTC — successful login from São Paulo, Brazil (IP: 177.84.x.x); 14:55 UTC — successful login from Tokyo, Japan (IP: 203.104.x.x). The distance between São Paulo and Tokyo is approximately 18,000 km. What is the correct assessment?",
         options: [
-          "This is normal — users can use split tunnelling, which changes their apparent geolocation on each request even while remaining connected to the exact same physical device the entire time",
-          "This is impossible travel — 18,000 km in 33 minutes requires a speed of ~32,727 km/h, far exceeding any known transport. This likely indicates credential compromise.",
-          "Only authentication failures indicate account compromise; successful logins, by definition, always originate from the legitimate account holder and should never be treated as suspicious",
-          "Geographic logins from two different countries are always expected for global companies, so no combination of distance and elapsed time between two sessions should ever be treated as suspicious on its own",
+          "Normal — split tunnelling changes a user's apparent geolocation on each request from the same device",
+          "Impossible travel — 18,000 km in 33 minutes needs ~32,727 km/h, so credentials are likely compromised",
+          "Only failed logons indicate compromise; successful logins always come from the legitimate user",
+          "Logins from two countries are expected at global companies, so distance and timing are not suspicious",
         ],
         answer: 1,
         explanation:
@@ -368,10 +368,10 @@ const rooms = [
         question:
           "Split tunnelling on a corporate VPN means that:",
         options: [
-          "The VPN connection is split between two different users simultaneously, allowing two separate employees to share one authenticated tunnel session to reduce the number of licenses the company needs to purchase",
-          "Only traffic destined for corporate resources goes through the VPN; all other internet traffic bypasses it and misses corporate security controls",
-          "The VPN tunnel is encrypted in two separate layers for additional security, doubling the encryption strength compared to a standard single-layer VPN tunnel used by non-split configurations",
-          "Corporate traffic is split equally between two redundant VPN gateways to balance load, so exactly half of all packets are routed through each gateway regardless of destination",
+          "The client builds a separate tunnel per application, each with its own authentication",
+          "Only traffic for corporate resources goes through the VPN; all other internet traffic bypasses it and misses corporate security controls",
+          "The tunnel is encrypted in two layers, doubling the encryption strength of a standard VPN",
+          "Corporate traffic is divided evenly between two redundant VPN gateways for load balancing",
         ],
         answer: 1,
         explanation:
@@ -436,10 +436,10 @@ const rooms = [
             question:
               "Looking at Session 1 (the Moscow session), what combination of factors makes this the suspicious session — not the Tel Aviv session?",
             options: [
-              "Session 1 used password_only authentication while Session 2 used MFA; Session 1 had nearly 10 MB bytes_out (possible data exfil) while Session 2 had 1.2 MB bytes_in (consistent with normal work); Session 1 lasted only 8 minutes and came from Russia",
-              "Session 1 had a shorter duration, which always indicates malicious activity regardless of any other factor — any VPN session lasting under 10 minutes should automatically be treated as a confirmed compromise on its own",
-              "Session 2 came from Israel, which is classified as a high-risk country by every major threat intelligence vendor, so any login originating from that region should be treated as inherently suspicious regardless of other context",
-              "Both sessions are equally suspicious and neither can be ruled out without more evidence, since the log provides no way to distinguish an attacker's session from the legitimate user's session using authentication method, byte counts, or geography",
+              "Session 1 used password_only while Session 2 used MFA; Session 1 sent nearly 10 MB out (possible exfil) versus 1.2 MB in for Session 2; it lasted 8 minutes and came from Russia",
+              "Session 1 was shorter, and any VPN session under 10 minutes is a confirmed compromise on its own",
+              "Session 2 came from Israel, which every major vendor rates high-risk, so it is inherently suspicious",
+              "Neither session can be separated from the user's own without more evidence; auth method, bytes and geography are uninformative",
             ],
             answer: 0,
             explanation:
@@ -615,10 +615,10 @@ const rooms = [
         question:
           "Firewall logs show that internal host 10.50.0.122 makes an outbound connection to 45.83.91.202:443 every 300 seconds (exactly 5 minutes) for the past 6 hours. Each connection transfers approximately 450 bytes out and 200 bytes in, then closes. What does this pattern indicate?",
         options: [
-          "Normal HTTPS web browsing to a content delivery network, since CDNs commonly serve cached content in small fixed-size chunks delivered at perfectly regular five-minute intervals to optimise caching efficiency",
-          "A scheduled Windows Update check, since Windows is configured by default to contact Microsoft's update servers every exactly 5 minutes to poll for new patches around the clock",
-          "C2 beaconing — malware on 10.50.0.122 is regularly checking in with a command and control server at regular intervals with small, consistent payloads",
-          "A network printer polling for print jobs, since office printers routinely maintain a persistent HTTPS connection to an external print-queue IP and check in every 5 minutes even overnight",
+          "Normal HTTPS to a CDN, which serves cached content in small chunks at regular five-minute intervals",
+          "A Windows Update check, since Windows polls Microsoft's servers exactly every 5 minutes by default",
+          "C2 beaconing — malware on 10.50.0.122 checking in with a C2 server at regular intervals with small payloads",
+          "A network printer polling an external print-queue IP every 5 minutes, even overnight",
         ],
         answer: 2,
         explanation:
@@ -633,10 +633,10 @@ const rooms = [
         question:
           "In a FortiGate firewall log, you see: action=block, srcip=10.10.22.87, dstip=185.220.101.47, dstport=443, proto=TCP, sentbyte=0, rcvdbyte=0. The firewall blocked this connection. What does sentbyte=0 and rcvdbyte=0 tell you about this specific event?",
         options: [
-          "The connection was fully established before being blocked, so no data is logged",
-          "The firewall blocked the connection attempt before any data was exchanged — the TCP handshake never completed",
-          "The log entry is corrupted and the byte values are missing",
-          "The firewall only blocks ICMP traffic; TCP is always allowed",
+          "The connection was fully established before the block, so byte counters are not logged",
+          "The firewall blocked the attempt before any data was exchanged — the TCP handshake never completed",
+          "The syslog forwarder truncated the byte fields, so the real transfer size is unknown",
+          "The destination returned an empty response, so the firewall counted zero bytes",
         ],
         answer: 1,
         explanation:
@@ -703,10 +703,10 @@ const rooms = [
             question:
               "The firewall blocked this connection. Does this mean the threat is resolved and no further action is needed?",
             options: [
-              "Yes — the firewall blocked the C2 connection, so the attacker has absolutely no remaining access to the network, and the incident can be closed immediately without any endpoint investigation or containment action",
-              "No — the firewall blocked the C2 communication, but the malware is still present and active on WKSTN-ACCT-087 (jennifer.walsh's machine). The malware will likely retry. The endpoint must be isolated and remediated.",
-              "No — the firewall rule should be removed entirely so security researchers can freely observe and track the malware's ongoing behaviour on the live production network before any containment steps are taken",
-              "Yes — a block action means the packet itself was permanently destroyed at the network layer, which by extension also terminates the originating malware process on the endpoint that generated it",
+              "Yes — the block means the attacker has no remaining access, so the incident can close without endpoint investigation",
+              "No — the malware is still active on WKSTN-ACCT-087 and will likely retry; the endpoint must be isolated and remediated",
+              "No — add the IP to the proxy blocklist and monitor for more attempts, leaving the endpoint untouched",
+              "Yes — the blocked attempt shows the malware failed to run, so the endpoint can stay in service",
             ],
             answer: 1,
             explanation:
@@ -868,10 +868,10 @@ const rooms = [
         question:
           "Your DNS monitoring detects that workstation 10.20.30.44 queried 312 domains in 4 minutes, 309 of which returned NXDOMAIN. The queried domains look like: q7xk2j9m.com, v4p8a3b1.net, r6m0n2k5.org. What is the most likely explanation?",
         options: [
-          "The user is browsing many websites simultaneously, which is completely normal during research-heavy work — modern browsers routinely open dozens of tabs and generate hundreds of background DNS lookups without it indicating anything malicious",
-          "DGA (Domain Generation Algorithm) malware infection — the malware is cycling through algorithmically generated domains to find its active C2 server, with almost all generated domains returning NXDOMAIN since only one is registered at a time",
-          "The DNS server is malfunctioning and incorrectly returning NXDOMAIN for legitimate, correctly-spelled domains, which is a known failure mode that occurs when a resolver's cache becomes corrupted after a routine software update",
-          "The user is running a penetration testing tool with their manager's permission, and unauthenticated subdomain enumeration tools like this routinely generate exactly this NXDOMAIN volume and random-looking naming pattern as part of standard reconnaissance",
+          "The user is browsing many sites at once; browsers routinely open dozens of tabs and generate hundreds of background lookups",
+          "DGA malware cycling through generated domains to find its C2 server, with almost all of them returning NXDOMAIN",
+          "The DNS server is malfunctioning and wrongly returning NXDOMAIN for legitimate domains after a cache corruption",
+          "An authorised penetration test using subdomain enumeration, which produces this NXDOMAIN volume and random naming",
         ],
         answer: 1,
         explanation:
@@ -886,10 +886,10 @@ const rooms = [
         question:
           "Sysmon Event ID 22 shows process C:\\Users\\frank\\AppData\\Roaming\\RuntimeBroker.exe making hundreds of DNS queries. RuntimeBroker.exe is a legitimate Windows process, but it normally lives in C:\\Windows\\System32\\. What technique does this most likely represent?",
         options: [
-          "A Windows update that moved RuntimeBroker.exe to a new location under AppData\\Roaming as part of a recent servicing change, which is documented Microsoft behaviour for background app broker components on newer Windows builds",
-          "Process masquerading (also called process name spoofing) — malware copied a legitimate Windows process name but placed itself in an unusual location to avoid detection",
-          "This is completely normal — Windows processes can exist in any directory on the filesystem, and the operating system dynamically decides where to place each executable at every boot for performance load-balancing reasons",
-          "The user manually moved the file for performance reasons, since relocating system executables to the user's own AppData folder is a commonly recommended troubleshooting step for speeding up background broker processes",
+          "A Windows update moved RuntimeBroker.exe under AppData\\Roaming as part of a servicing change",
+          "Process masquerading — malware copied a legitimate Windows process name and placed itself in an unusual location",
+          "Normal behaviour — Windows processes can live in any directory, and the OS picks placement at each boot",
+          "The user moved the file manually as a recommended troubleshooting step for slow broker processes",
         ],
         answer: 1,
         explanation:
@@ -904,10 +904,10 @@ const rooms = [
         question:
           "During a DNS investigation you notice that the domain c2.attacker-infra.net resolves to a different IP address every 90 seconds, and the IP addresses belong to residential ISPs in many different countries. What technique does this describe?",
         options: [
-          "CDN (Content Delivery Network) load balancing — completely normal for large websites, since major CDNs also rotate their edge server IP addresses every 60-90 seconds using the exact same residential-ISP address pools",
-          "Fast Flux — rapidly changing DNS records using many compromised machines (a botnet) as proxies, making the C2 infrastructure very difficult to block by IP address",
-          "DNS round-robin — a standard technique for distributing load across servers, which by design cycles through IP addresses from residential ISPs in different countries every 60-90 seconds to spread traffic globally",
-          "DNSSEC failure causing inconsistent resolution results, where a broken cryptographic validation chain returns a different, effectively random IP address from a global pool on almost every single query",
+          "CDN load balancing — large sites rotate their edge-server IPs frequently, so this is expected",
+          "Fast Flux — rapidly changing DNS records across botnet proxies, making the C2 hard to block by IP address",
+          "DNS round-robin — a normal load-spreading technique that cycles through a fixed pool of server IPs",
+          "DNSSEC failure — a broken validation chain returns a different random IP on almost every query",
         ],
         answer: 1,
         explanation:
@@ -971,10 +971,10 @@ const rooms = [
             question:
               "What is the suspicious process making the DNS queries, and why is its location a major red flag?",
             options: [
-              "svchost.exe in C:\\Windows\\System32\\ — this is suspicious purely because svchost.exe is a background service host and legitimate Windows processes of that type should never be seen initiating DNS queries under any circumstances",
-              "C:\\Users\\sarah.okafor\\AppData\\Local\\Temp\\WindowsUpdate\\svchost.exe — it is masquerading as the legitimate svchost.exe (a Windows system process) but is located in a user's Temp directory, which is never a valid location for Windows system processes",
-              "WinUpdate_Setup.exe — all executables with 'Windows Update' anywhere in their filename are inherently malicious impostors, since the real Windows Update client never uses a descriptive name like that",
-              "The process location is not suspicious — Windows Update legitimately downloads and stages temporary installer files, including renamed system binaries, inside AppData\\Local\\Temp\\WindowsUpdate\\ as part of its normal patching workflow",
+              "svchost.exe in C:\\Windows\\System32\\ — suspicious because service hosts should never initiate DNS queries",
+              "C:\\Users\\sarah.okafor\\AppData\\Local\\Temp\\WindowsUpdate\\svchost.exe — masquerading as the system svchost.exe from a user Temp directory, never a valid location",
+              "WinUpdate_Setup.exe — any file with 'Windows Update' in its name is an impostor, since the real client never uses such a name",
+              "The location is fine — Windows Update stages renamed system binaries under AppData\\Local\\Temp\\WindowsUpdate\\ while patching",
             ],
             answer: 1,
             explanation:
@@ -985,10 +985,10 @@ const rooms = [
             question:
               "Looking at the domain samples in the correlation fields and the QueryName, what characteristics confirm this is DGA activity rather than normal DNS failures?",
             options: [
-              "The domains use the .cc TLD, which is the country code for the Cocos Islands — every domain ever registered under .cc is confirmed malicious by definition, so the TLD alone is sufficient evidence without examining anything else",
-              "All 247 domains queried are unique, all returned NXDOMAIN, all have high-entropy random-looking names with consistent length and .cc TLD, and they are being queried at machine speed (~1.2 seconds apart) by a process masquerading as svchost.exe",
-              "The query interval of 1.2 seconds is suspicious purely because humans physically cannot type a full domain name and press enter faster than once every 1.2 seconds, so any interval below that threshold always proves automation",
-              "NXDOMAIN responses always indicate malware activity, since a properly functioning DNS resolver should never return NXDOMAIN for any query a legitimate application makes",
+              "The domains use the .cc TLD, and every .cc domain is malicious by definition, so the TLD alone is sufficient",
+              "All 247 domains are unique and NXDOMAIN, with high-entropy same-length names queried ~1.2 s apart by a process masquerading as svchost.exe",
+              "The 1.2-second interval alone proves automation, since no human can type a domain faster than that",
+              "NXDOMAIN responses always indicate malware, since a legitimate application never queries a name that fails to resolve",
             ],
             answer: 1,
             explanation:

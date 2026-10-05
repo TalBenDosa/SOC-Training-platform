@@ -418,10 +418,10 @@ const winProtoRoom = {
       question:
         "You observe a Windows workstation (not a server, not a designated file/print server) accessing another workstation's IPC$ share and opening \\PIPE\\svcctl. What is the single most important contextual fact needed to judge how suspicious this is?",
       options: [
-        "Whether the connection used TCP port 445 directly versus a NetBIOS-over-TCP connection on port 139 — since only port 445 traffic is capable of carrying named-pipe RPC calls like svcctl, while port 139 connections are limited to legacy file-sharing operations only",
-        "Whether this access pattern (workstation directly administering another workstation via svcctl) matches a known, approved IT administration workflow and account — versus an account/host pair with no legitimate reason to be remotely managing services on a peer workstation",
-        "The exact byte count of the SMB session — because the Service Control Manager RPC interface only accepts svcctl connections that transfer fewer than a fixed number of bytes, so any session exceeding that internal size threshold is automatically flagged as anomalous by Windows itself",
-        "Whether the target workstation is running Windows 10 or Windows 11 — because only Windows 11's redesigned Service Control Manager logs remote svcctl connections at all, meaning the same activity on a Windows 10 host would leave no named-pipe access record whatsoever",
+        "Whether the session ran over TCP 445 or NetBIOS on port 139 — only port 445 can carry named-pipe RPC such as svcctl",
+        "Whether the source account and host pair matches an approved IT administration workflow for remotely managing that peer workstation",
+        "The total byte count of the SMB session — large transfers over IPC$ indicate service binary staging, small ones indicate benign enumeration",
+        "Whether the target runs Windows 10 or Windows 11 — only Windows 11 records remote svcctl pipe access, so Windows 10 would show nothing",
       ],
       answer: 1,
       explanation:
@@ -436,10 +436,10 @@ const winProtoRoom = {
       question:
         "An analyst sees a 4624 logon (Kerberos, logon type 3) for account j.alvarez on SRV-DATA07, but j.alvarez's most recent 4768 (AS-REQ/TGT request) was logged 40 minutes earlier on a completely different host — a workstation j.alvarez has never used before, which itself shows signs of separate compromise. What does this pattern most strongly suggest?",
       options: [
-        "A normal Kerberos ticket renewal — TGT and service ticket renewals are always processed by re-contacting the KDC from a DIFFERENT host than the one that made the original request, specifically to spread authentication load across the domain's available domain controllers",
-        "Pass-the-Ticket — a valid Kerberos ticket has no binding to the machine that originally requested it, so a ticket obtained (likely stolen from LSASS memory) on one compromised host can be replayed to authenticate from an entirely different host",
-        "This is expected multi-factor authentication behavior — when MFA is enforced for Kerberos, the DC intentionally logs the TGT origin on a separate MFA validation server rather than the user's actual workstation, which is why the hostnames differ and why this needs no further investigation",
-        "The Domain Controller has a clock synchronization error — Kerberos silently substitutes a placeholder hostname in the 4624 logon event whenever the DC and the requesting host's clocks drift more than five minutes apart, producing this kind of mismatch",
+        "A routine Kerberos ticket renewal — renewals are processed from a different host than the original request to balance load across domain controllers",
+        "Pass-the-Ticket — a Kerberos ticket is not bound to the machine that requested it, so one stolen from LSASS can be replayed from another host",
+        "Expected MFA behavior — with MFA enforced on Kerberos, the TGT request is logged on a separate validation host instead of the user's workstation",
+        "A Kerberos clock-skew artifact — when host clocks drift beyond five minutes, the DC logs a substitute hostname in the 4624 event",
       ],
       answer: 1,
       explanation:
@@ -454,10 +454,10 @@ const winProtoRoom = {
       question:
         "An LDAP query with the filter (&(objectClass=user)(servicePrincipalName=*)) is observed being run from a standard user's workstation account. Why does this specific filter matter for an investigator's next steps, even though the query itself requires no special privileges?",
       options: [
-        "It doesn't matter at all — LDAP search filters like this one require Schema Admins-level directory permissions to execute against Active Directory, so no standard domain user account, service account, or workstation identity could ever actually run this specific query in a real environment",
-        "This filter returns exactly the list of accounts that have Service Principal Names set, which is precisely the candidate target list a Kerberoasting attack draws from — seeing this specific query run (especially at unusual volume or alongside other similar recon filters) is a strong precursor signal that a Kerberoasting attempt against one or more of the returned accounts may follow",
-        "This filter only returns accounts already flagged as compromised by Microsoft Defender for Identity, so seeing it run confirms MDI has already independently detected and remediated any resulting Kerberoasting attempt automatically",
-        "This filter modifies the returned accounts' passwords automatically — running (&(objectClass=user)(servicePrincipalName=*)) against the directory doesn't just read data, it also resets every matched account's password to a new random value as an LDAP side effect of the search operation itself",
+        "It matters little — this filter needs elevated directory rights, so a standard workstation identity running it is most likely a logging error",
+        "It enumerates accounts with SPNs, the candidate list for Kerberoasting, so it is a precursor signal to watch for follow-on TGS requests",
+        "It lists accounts MDI has already flagged as compromised, so seeing it run means the Kerberoasting attempt was automatically remediated",
+        "It lists service accounts with weak or non-expiring passwords, which only matters if the same host also queries the domain password policy",
       ],
       answer: 1,
       explanation:

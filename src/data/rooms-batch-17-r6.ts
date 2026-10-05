@@ -429,10 +429,10 @@ const tunnelingRoom = {
       question:
         "An internal server initiates an outbound SSH connection to an external host using the -R flag with arguments forwarding its own local port 3389. What does this specific flag and direction indicate, and why is it considered more dangerous than a -L forward?",
       options: [
-        "-R simply reverses the text direction of the terminal session and has no security implication — it is purely a cosmetic display option affecting whether characters render left-to-right or right-to-left in the SSH client's terminal emulator",
-        "-R (remote forwarding) exposes a LOCAL service on the internal server to a listener on the REMOTE (external) side — meaning the external party can now reach back INTO the internal network through the tunnel, using only an outbound connection the internal server itself initiated, entirely bypassing inbound firewall restrictions",
-        "-R can only be used to forward DNS traffic, making it irrelevant to RDP-related services — the flag is hardcoded to intercept and tunnel UDP port 53 queries exclusively, and rejects any other port number specified alongside it, including 3389",
-        "-R and -L are functionally identical; the flag choice is purely stylistic, and both create a listener on the SAME side (the machine initiating the SSH connection), tunneling traffic in the same direction regardless of which flag is used",
+        "-R is a dynamic SOCKS proxy that lets the internal server reach out through the external host, which is no riskier than -L",
+        "-R opens a listener on the external side that forwards to the server's local port 3389, giving the outside party inbound reach over an outbound connection",
+        "-R forwards the external host's own local port into the internal network, so it only matters if the internal server is the one listening",
+        "-R makes SSH use a restricted relay mode, tunneling only 3389 outbound; the danger is data leaving, not access coming in",
       ],
       answer: 1,
       explanation:
@@ -465,10 +465,10 @@ const tunnelingRoom = {
       question:
         "A production database server, which has never previously made outbound connections to any consumer SaaS platform, is observed making a TLS connection with SNI 'x7f2a9.ngrok-free.app'. Why is ngrok's own infrastructure being legitimate SaaS not enough to clear this finding on its own?",
       options: [
-        "It should be cleared automatically, since ngrok is a well-known and reputable company — no security team has ever documented a single instance of ngrok's tunneling infrastructure being used for malicious C2 or data exfiltration purposes in any publicly available incident report or threat intelligence source",
-        "Even though the underlying ngrok infrastructure and TLS traffic are genuinely legitimate from ngrok's own perspective, ngrok tunnels are also a well-documented technique for creating covert C2/exfiltration channels that blend into normal HTTPS-to-a-trusted-SaaS-provider traffic — the relevant question is whether THIS SPECIFIC HOST (a production database server with no ngrok usage history) has any legitimate business reason to be using a developer tunneling tool at all, not whether ngrok itself is a legitimate company",
-        "ngrok domains are always automatically blocked by every corporate firewall, so this traffic must indicate a firewall bypass exploit — no enterprise proxy or firewall product, including Zscaler, is technically capable of permitting an outbound TLS connection to any *.ngrok-free.app hostname under its default configuration",
-        "SNI values ending in .app are a reserved TLD that cannot be used for legitimate purposes — ICANN specifically restricts the .app top-level domain to internal testing and development environments only, prohibiting its use in any production TLS certificate issued for public-facing services",
+        "It can be cleared — ngrok is a reputable vendor, and traffic to a reputable SaaS provider carries no C2 or exfiltration risk",
+        "The question is the host's behavior — a production database server with no ngrok history has no business reason for a developer tunneling tool",
+        "It cannot be cleared because default proxy policies block *.ngrok-free.app, so a connection that succeeded implies a firewall bypass exploit",
+        "It cannot be cleared because .app is a restricted TLD limited to development use, so a production host should never resolve it",
       ],
       answer: 1,
       explanation:

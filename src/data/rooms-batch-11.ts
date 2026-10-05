@@ -91,14 +91,14 @@ const rooms = [
         question:
           "A user's account shows a successful logon (Event 4624) from London at 08:00 UTC, and another successful logon from Sydney at 08:50 UTC, 50 minutes later. The distance is approximately 17,000 km. What is this detection technique called, and what is the MOST likely conclusion?",
         options: [
-          "Kerberoasting — the attacker cracked a service account password offline",
-          "Impossible travel — the account is likely compromised since no human can cover 17,000 km in 50 minutes",
-          "Pass-the-Ticket — a golden ticket was used to forge the Sydney logon",
-          "Account sharing — the user legitimately gave their password to an overseas colleague",
+          "Atypical location — a first-seen country for this user, which is low severity and closes once the user confirms recent travel",
+          "Impossible travel — the implied speed between the two logons is physically unachievable, so the account is likely compromised",
+          "Pass-the-Ticket — a stolen Kerberos ticket was replayed from Sydney, and the two 4624 events alone prove ticket theft",
+          "Concurrent session — the user is legitimately signed in on two devices, so the Sydney logon is benign without further evidence",
         ],
         answer: 1,
         explanation:
-          "Impossible travel detection identifies when the implied speed between two consecutive successful logons is physically impossible. London to Sydney (17,000 km) in 50 minutes requires ~20,000 km/h — far beyond any aircraft. The most likely conclusion is account compromise: an attacker in Sydney obtained the user's credentials. Account sharing is a policy violation and would not explain the geographic distance without prior coordination. Kerberoasting and Pass-the-Ticket are different attack types not directly evidenced here.",
+          "Impossible travel detection identifies when the implied speed between two consecutive successful logons is physically impossible. London to Sydney (17,000 km) in 50 minutes requires ~20,000 km/h — far beyond any aircraft. The most likely conclusion is account compromise: an attacker in Sydney obtained the user's credentials. An atypical-location alert only flags a first-seen country and ignores the time between logons, so it does not capture the physical impossibility here. A concurrent session on a second device cannot explain two continents within 50 minutes, and two 4624 events alone do not prove Kerberos ticket theft (Pass-the-Ticket would need ticket-level evidence such as 4768/4769 anomalies).",
         xp: 20,
       },
       // ── Question 3 ──────────────────────────────────────────────
@@ -313,10 +313,10 @@ const rooms = [
         question:
           "A Sysmon Event 10 (ProcessAccess) fires showing that `powershell.exe` accessed `lsass.exe` with GrantedAccess value `0x1FFFFF`. What does this MOST likely indicate?",
         options: [
-          "Windows Defender performing a routine memory scan of LSASS for malware",
-          "A credential dumping tool (such as Mimikatz) attempting to extract password hashes and Kerberos tickets from LSASS memory",
-          "Normal PowerShell management activity — PowerShell routinely reads LSASS to manage user sessions",
-          "A backup agent performing a VSS snapshot that requires reading all process memory",
+          "A Windows Defender antimalware scan of LSASS memory, which legitimately opens the process with full access rights",
+          "A credential dumping tool such as Mimikatz extracting password hashes and Kerberos tickets from LSASS memory",
+          "PowerShell-based session administration, since querying logged-on users requires a full-access handle to LSASS",
+          "A backup agent's VSS snapshot job, which needs full access to every process in order to capture a consistent state",
         ],
         answer: 1,
         explanation:
@@ -347,10 +347,10 @@ const rooms = [
         question:
           "What is the PRIMARY security purpose of a PAM (Privileged Access Management) vault solution like CyberArk?",
         options: [
-          "To transparently encrypt all network traffic flowing between privileged users and the systems they remotely manage, similar to what a VPN concentrator already does",
-          "To store privileged account passwords so that human administrators never know the actual password — requiring vault checkout, logging all use, and automatically rotating credentials after each session",
-          "To centrally enforce multi-factor authentication on VPN connections for every employee in the organisation, privileged or not",
-          "To continuously scan Active Directory for accounts holding excessive privileges and automatically strip or remove those privileges without human review",
+          "To encrypt all traffic between privileged users and the remote systems they manage, acting as a VPN concentrator for administrator sessions",
+          "To vault privileged passwords so administrators never see them, with checkout, session logging and automatic rotation after each use",
+          "To enforce multi-factor authentication on VPN connections for every employee, privileged or not, and log each challenge result",
+          "To continuously scan Active Directory for over-privileged accounts and automatically remove their rights without any human review",
         ],
         answer: 1,
         explanation:
@@ -645,10 +645,10 @@ const rooms = [
         question:
           "An AWS CloudTrail query returns a `CreateUser` event for user `svc-cloudmonitor` followed 90 seconds later by an `AttachUserPolicy` event attaching policy `arn:aws:iam::aws:policy/AdministratorAccess` to that user. Both events originate from IP `185.220.101.45`. What is this MOST likely?",
         options: [
-          "A legitimate DevOps engineer creating a service account for cloud monitoring infrastructure",
-          "An IAM backdoor attack — an attacker with compromised credentials is creating a new admin user with permanent full access to the AWS account",
-          "AWS's own automation creating a monitoring account as part of a new service activation",
-          "A failed credential stuffing attempt that was blocked by AWS IAM policy restrictions",
+          "A DevOps engineer provisioning a monitoring service account, where attaching AdministratorAccess is a common CI shortcut",
+          "An IAM backdoor — compromised credentials used to create a new user and give it persistent administrator access",
+          "An AWS service-linked role being created automatically when a new monitoring feature is activated in the account",
+          "A scheduled IAM access-review automation recreating service users and reattaching policies to correct permission drift",
         ],
         answer: 1,
         explanation:
@@ -662,10 +662,10 @@ const rooms = [
         question:
           "A developer's EC2 instance running a web application is compromised via a Server-Side Request Forgery (SSRF) vulnerability. The attacker makes HTTP requests to `http://169.254.169.254/latest/meta-data/iam/security-credentials/`. What does this endpoint expose?",
         options: [
-          "The EC2 instance's operating system root password in plaintext",
-          "The AWS account's root access keys stored in the instance's local filesystem",
-          "Temporary AWS credentials (access key, secret key, and session token) for the IAM role attached to the EC2 instance",
-          "A list of all IAM users in the AWS account and their permission policies",
+          "The instance's local administrator password, returned in plaintext to any process running on the host",
+          "The long-term access keys of the IAM user who launched the instance, cached on the host by the AWS CLI",
+          "Temporary credentials (access key, secret key and session token) for the IAM role attached to the instance",
+          "A full inventory of the account's IAM users and their attached policies, returned to any caller on the instance",
         ],
         answer: 2,
         explanation:
@@ -679,10 +679,10 @@ const rooms = [
         question:
           "In AWS CloudTrail, what does `userIdentity.type = \"Root\"` in a CloudTrail event indicate, and why should SOC analysts treat this as high-priority?",
         options: [
-          "The action was performed by an ordinary IAM user whose username simply happens to contain the literal string 'root' — a fairly common naming convention among database administrators",
-          "The action was performed by the AWS account root user — the all-powerful account that bypasses all IAM policies. Root should almost never be used, and any root activity should be investigated immediately.",
-          "The action was performed by a containerised Lambda function that was granted root-level operating-system privileges inside its own isolated execution sandbox",
-          "The event was auto-generated by one of AWS's own internal automation systems that periodically performs routine housekeeping on account-level infrastructure",
+          "The action was made by an IAM user holding AdministratorAccess, which CloudTrail labels Root because that policy grants every permission",
+          "The action was performed by the account root user, which sits outside IAM policy limits and should almost never be used day to day",
+          "The call came from a Lambda function whose execution role has full-account permissions, which CloudTrail records as a Root identity",
+          "The action was made by a federated SSO user mapped to the top administrator permission set, recorded as the root of that session",
         ],
         answer: 1,
         explanation:
@@ -924,10 +924,10 @@ const rooms = [
         question:
           "Your SIEM has a rule with 95% accuracy (95% of alerts are true positives, 5% are false positives). The rule fires an average of 200 times per day. How many false positive alerts would your analyst team need to investigate daily, and what does this illustrate about detection accuracy requirements?",
         options: [
-          "5 false positives per day — this is a well-tuned rule that is perfectly acceptable for production use at any severity level",
-          "10 false positives per day — acceptable for medium severity but not for critical severity alerts",
-          "10 false positives per day — this illustrates that even 95% accuracy generates significant noise at scale, and high-severity rules need much higher precision (>99%) to remain actionable",
-          "190 false positives per day — the formula should invert the accuracy, giving 1 true positive per 5% false positive rate",
+          "5 false positives per day — the 5% error rate is the daily count, so the rule is well tuned and acceptable at any severity level",
+          "10 false positives per day — a manageable volume, so accuracy above 90% is sufficient even for critical-severity rules",
+          "10 false positives per day — even 95% accuracy produces significant noise at scale, so high-severity rules need much higher precision (>99%)",
+          "190 false positives per day — the 95% figure is the share of alerts that are false, leaving only 10 true positives",
         ],
         answer: 2,
         explanation:
@@ -941,10 +941,10 @@ const rooms = [
         question:
           "What is the PRIMARY advantage of writing detection rules in Sigma format instead of directly in your SIEM vendor's query language (e.g., Splunk SPL or Sentinel KQL)?",
         options: [
-          "Sigma rules execute faster than native SIEM queries because they are compiled to machine code before being stored in the SIEM",
-          "Sigma rules are vendor-neutral and portable — they can be compiled into the query language of any supported SIEM, allowing the organisation to share rules with the community and migrate between vendors without rewriting all detections",
-          "Sigma rules support artificial intelligence-based anomaly detection that native SIEM query languages do not provide",
-          "Sigma format automatically tests every rule against a year of historical data before deploying it to production, entirely eliminating the need for a separate manual testing or tuning phase",
+          "Sigma rules execute faster than native queries because the converter pre-compiles them into optimised search plans inside the SIEM",
+          "Sigma rules are vendor-neutral and convert to the query language of any supported SIEM, so detections can be shared and migrated between platforms",
+          "Sigma rules include built-in anomaly detection that learns each environment's baseline, which native SIEM query languages lack",
+          "Sigma format validates every rule against a year of historical logs before deployment, replacing the separate tuning phase",
         ],
         answer: 1,
         explanation:
@@ -958,10 +958,10 @@ const rooms = [
         question:
           "A detection engineer creates an ATT&CK coverage heatmap for their environment and discovers that techniques T1566 (Phishing), T1078 (Valid Accounts), and T1190 (Exploit Public-Facing Application) have zero detection rules assigned to them. What does this mean practically?",
         options: [
-          "These three techniques are so rare that no rule is needed — the probability of encountering them is statistically negligible",
-          "These three techniques represent blind spots — if an attacker uses any of them against the organisation, no SIEM alert will fire, and the intrusion may go undetected until another, later technique is caught",
-          "The SIEM vendor has already built-in default rules for these techniques, so a custom rule would be redundant and cause duplicate alerts",
-          "ATT&CK techniques can only be detected by endpoint detection tools (EDR), not by SIEM rules — these gaps do not apply to SIEM coverage",
+          "These techniques are mostly prevented upstream (email gateway, MFA, WAF), so the zero count reflects strong prevention rather than missing detection",
+          "These techniques are blind spots — if an attacker uses any of them, no SIEM alert will fire and the intrusion may go unnoticed until a later technique is caught",
+          "The SIEM vendor ships default rules for these techniques, so unassigned heatmap cells are expected and custom rules would only duplicate alerts",
+          "These techniques are detectable only through EDR telemetry, so the zero count reflects a SIEM scope limit rather than a coverage gap",
         ],
         answer: 1,
         explanation:

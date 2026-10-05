@@ -177,12 +177,12 @@ export const roomsBatch48 = [
       "question": "An analyst reconstructs a suspected vishing case: an attacker found an employee's name and manager on LinkedIn, then called the help desk claiming to be that employee, and the agent reset the account's password. Which two MITRE ATT&CK techniques describe the LinkedIn research step and the impersonation-during-the-call step, and under which tactics does each sit?",
       "options": [
         "T1589 (Gather Victim Identity Information) under Reconnaissance (TA0043) for the LinkedIn research, and T1656 (Impersonation) under Defense Evasion (TA0005) for claiming to be the employee during the call",
-        "T1566.004 (Spearphishing Voice) under Initial Access for the LinkedIn research, and T1078 (Valid Accounts) under Persistence for the impersonation during the call",
-        "T1591 (Gather Victim Org Information) under Collection for the LinkedIn research, and T1621 (MFA Request Generation) under Credential Access for the impersonation during the call",
-        "T1098.005 (Device Registration) under Persistence for the LinkedIn research, and T1589 (Gather Victim Identity Information) under Reconnaissance for the impersonation during the call"
+        "T1589 (Gather Victim Identity Information) under Reconnaissance (TA0043) for the LinkedIn research, and T1078 (Valid Accounts) under Initial Access (TA0001) for claiming to be the employee during the call",
+        "T1598.004 (Phishing for Information: Spearphishing Voice) under Reconnaissance (TA0043) for the LinkedIn research, and T1656 (Impersonation) under Defense Evasion (TA0005) for claiming to be the employee during the call",
+        "T1589 (Gather Victim Identity Information) under Reconnaissance (TA0043) for the LinkedIn research, and T1656 (Impersonation) under Initial Access (TA0001) for claiming to be the employee during the call"
       ],
       "answer": 0,
-      "explanation": "This room's attack-flow reading assigns these two steps exactly this way: LinkedIn-based research is T1589 (Gather Victim Identity Information) under Reconnaissance (TA0043), and claiming to be a real employee on the call is T1656 (Impersonation) under Defense Evasion (TA0005). Option b assigns the wrong technique to each step and the wrong tactic to T1078 (which carries Initial Access/Persistence/Privilege Escalation/Defense Evasion, never alone under Persistence for an impersonation act). Option c places T1591 under a nonexistent 'Collection' assignment for this technique and misapplies T1621, which describes MFA push generation, not a help-desk impersonation call. Option d swaps in T1098.005, a post-access persistence technique, for reconnaissance that happens before any access exists at all.",
+      "explanation": "This room's attack-flow reading assigns these two steps exactly this way: LinkedIn-based research is T1589 (Gather Victim Identity Information) under Reconnaissance (TA0043), and claiming to be a real employee on the call is T1656 (Impersonation) under Defense Evasion (TA0005). Option b gets the research right but maps the call to T1078 (Valid Accounts), which describes USING credentials after they are obtained, not the act of impersonating someone to get them. Option c treats passive LinkedIn research as T1598.004, an active phishing-for-information technique that requires contacting the target. Option d has both techniques right but assigns T1656 to the wrong tactic -- ATT&CK lists Impersonation under Defense Evasion.",
       "xp": 25
     },
     {
@@ -257,12 +257,12 @@ export const roomsBatch48 = [
       "question": "Incident A: an attacker who already held a stolen password called the employee directly to get them to approve a live MFA push. Incident B: an attacker called the company's help desk, impersonating the employee, to get an agent to reset the account's password and MFA method. Based on this room's incident readings, which technique and log-source pairing correctly matches each incident?",
       "options": [
         "Incident A matches T1621 (MFA Request Generation), visible in authentication/sign-in logs; Incident B matches T1656 (Impersonation) leading to T1078 (Valid Accounts), visible in identity-administration audit logs",
-        "Incident A matches T1078 (Valid Accounts), visible in identity-administration audit logs; Incident B matches T1621 (MFA Request Generation), visible in authentication/sign-in logs",
-        "Both incidents match T1566.004 (Spearphishing Voice) alone, and this room's readings state that both produce the identical log signature in the identical log source",
-        "Incident A matches T1098.005 (Device Registration), visible in DNS logs; Incident B matches T1589 (Gather Victim Identity Information), visible in firewall logs"
+        "Incident A matches T1621 (MFA Request Generation), visible in identity-administration audit logs; Incident B matches T1656 (Impersonation) leading to T1078 (Valid Accounts), visible in authentication/sign-in logs",
+        "Both incidents match T1621 (MFA Request Generation), since each ends with the attacker triggering an MFA prompt, and both are visible in authentication/sign-in logs",
+        "Incident A matches T1556.006 (Modify Authentication Process: MFA), visible in identity-administration audit logs; Incident B matches T1656 (Impersonation), visible in authentication/sign-in logs"
       ],
       "answer": 0,
-      "explanation": "This room's Twilio/Cisco reading covers exactly Incident A's pattern (calling the account owner directly to approve a push) as T1621, visible in authentication/sign-in logs. This room's MGM/Caesars reading covers exactly Incident B's pattern (calling the help desk to get someone else to act) as T1656 leading to T1078, visible in identity-administration audit logs. Option b swaps the two pairings entirely. Option c is false -- this room's post-call-fingerprints reading is explicit that these two flavors leave fingerprints in DIFFERENT log sources, not identical ones. Option d assigns technique IDs and log sources this room never connects to either incident (DNS and firewall logs play no role in either pattern as described).",
+      "explanation": "This room's Twilio/Cisco reading covers exactly Incident A's pattern (calling the account owner directly to approve a push) as T1621, visible in authentication/sign-in logs. This room's MGM/Caesars reading covers exactly Incident B's pattern (calling the help desk to get someone else to act) as T1656 leading to T1078, visible in identity-administration audit logs. Option b has the right techniques but swaps the log sources: the push approval shows up at sign-in, while the admin-performed reset shows up in the audit log. Option c collapses the two flavors into one -- Incident B never involves the attacker generating MFA prompts, and this room's post-call-fingerprints reading is explicit that the two leave fingerprints in DIFFERENT log sources. Option d applies T1556.006, which covers modifying MFA configuration, to Incident A, where the existing MFA is satisfied by the victim rather than altered.",
       "xp": 25
     },
     {
@@ -306,13 +306,13 @@ export const roomsBatch48 = [
       "id": "vish-q3",
       "question": "A help-desk agent resets an employee's password after a phone call. The audit record shows initiatedBy.user.roles containing Helpdesk Administrator, a target user different from the initiator, and a sign-in from a new device 20 minutes later. Per this room, what single additional fact would most reliably resolve whether this was a legitimate reset or a vishing-driven takeover?",
       "options": [
-        "Whether the agent completed and documented an out-of-band identity check -- a callback to the number already on file, a video/badge check, or manager confirmation -- before performing the reset",
-        "Whether the reset was completed during standard business hours rather than overnight, since this room establishes business-hours timing as the deciding factor in every comparable case",
-        "Whether the new device that signed in afterward is a mobile phone rather than a laptop, since this room establishes device category alone as sufficient to resolve any comparable case",
-        "Whether the employee whose account was reset has ever contacted the help desk before this specific incident, since this room treats prior contact history as the deciding factor"
+        "Whether the agent completed and documented an out-of-band identity check, such as a callback to the number on file, before the reset",
+        "Whether the new device is Entra-joined or hybrid-joined rather than unmanaged, since device trust type settles the case",
+        "Whether the sign-in country matches the location the caller stated during the call, since a matching location settles the case",
+        "Whether Entra's risk engine scored the later sign-in as medium or high risk, since riskLevelDuringSignIn is the deciding field"
       ],
       "answer": 0,
-      "explanation": "This room's discriminator reading is explicit: the fact that actually resolves the case is whether a documented out-of-band verification occurred, not anything visible in the audit record alone. Business-hours timing is never established as a deciding factor anywhere in this room (option b is invented, and this room's own analyst-choice and log-analysis cases do not turn on time of day). Device category (phone vs. laptop) is never treated as decisive either (option c). Prior help-desk contact history is not a fact this room names as relevant at all (option d).",
+      "explanation": "This room's discriminator reading is explicit: the fact that actually resolves the case is whether a documented out-of-band verification occurred, not anything visible in the audit record alone. Device trust type, sign-in location, and Entra's risk score are useful corroborating signals from the sign-in log (option b, c, d), but a legitimate reset on a replacement phone or a trip can produce the same values, and an attacker can pass them -- so none of them settles the case without knowing what verification the help desk performed.",
       "xp": 25
     },
     {
@@ -482,12 +482,12 @@ export const roomsBatch48 = [
       "question": "An organization wants to reduce vishing risk against its help desk after reading this room's MGM/Caesars case. Per this room, which control does CISA's own advisory on this threat cluster name as most directly resistant to push bombing and SIM swapping, because it removes voice, SMS, and simple approval taps from the authentication decision entirely?",
       "options": [
         "Phishing-resistant MFA using FIDO/WebAuthn or PKI-based authentication",
-        "Knowledge-based authentication (KBA) with a longer list of more detailed personal questions asked during each call",
-        "SMS-based one-time passcodes sent to the employee's registered phone number for every help-desk-assisted action",
-        "A mandatory 24-hour cooling-off period between a password reset request and the reset actually taking effect"
+        "Number-matching push MFA, where the authenticator app requires the user to type the code shown on the login screen",
+        "Time-based one-time passcodes from an authenticator app, entered at login in place of SMS codes",
+        "Out-of-band callback verification by the help desk before every password or MFA change"
       ],
       "answer": 0,
-      "explanation": "This room's hardening reading quotes CISA's own advisory directly: FIDO/WebAuthn or PKI-based MFA is resistant to phishing and not susceptible to push bombing or SIM swap attacks. Expanding KBA (option b) does not fix its core weakness, since more detailed questions are still answerable through the same reconnaissance this room covers. SMS one-time passcodes (option c) are exactly what a SIM swap defeats, per this room's MGM/Caesars reading. A 24-hour cooling-off period (option d) is never mentioned anywhere in this room's readings.",
+      "explanation": "This room's hardening reading quotes CISA's own advisory directly: FIDO/WebAuthn or PKI-based MFA is resistant to phishing and not susceptible to push bombing or SIM swap attacks. Number-matching push (option b) blunts blind push approval but a caller can still talk the victim into typing the code, and TOTP (option c) avoids SIM swap yet is still a code an employee can read aloud to a caller. Callback verification (option d) is a strong help-desk control this room recommends, but it is an industry best practice rather than the authenticator CISA names, and it does not remove voice from the process.",
       "xp": 25
     },
     {

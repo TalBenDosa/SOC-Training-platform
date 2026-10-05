@@ -215,10 +215,10 @@ You are about to join one of the most in-demand, dynamic, and impactful professi
       question:
         "A hospital's patient records system goes offline during surgery because attackers flooded it with fake traffic. Which principle of the CIA Triad has been violated?",
       options: [
-        "Confidentiality — private records became public",
-        "Integrity — the medical data was altered by attackers",
-        "Availability — authorised users cannot access the system when needed",
-        "Authentication — users cannot prove their identity",
+        "Confidentiality — patient records were exposed to outsiders",
+        "Integrity — patient records were altered or corrupted",
+        "Availability — authorised staff could not reach the system",
+        "Authentication — the system could not verify who was connecting",
       ],
       answer: 2,
       explanation:
@@ -295,10 +295,10 @@ You are about to join one of the most in-demand, dynamic, and impactful professi
           question:
             "The OriginUrl field shows where the file was downloaded from. What does this URL suggest about the nature of the attack?",
           options: [
-            "The file came from a trusted corporate server (acmecorp.com)",
-            "The file came from a suspicious external domain (invoice-portal-acme.ru) likely used for phishing",
-            "The file was created locally by the user and never downloaded",
-            "The URL shows the file came from Microsoft's official update servers",
+            "A trusted internal host — the 'acme' in the domain shows it belongs to the company",
+            "A look-alike external domain (invoice-portal-acme.ru) imitating the company, typical of phishing",
+            "A sanctioned vendor invoice portal — country-code domains like .ru are routine for accounting tools",
+            "Microsoft's update servers — Defender fetches signed executables from there during scans",
           ],
           answer: 1,
           explanation:
@@ -630,10 +630,10 @@ That entire sequence — from first email to automated response — might happen
       question:
         "Your SIEM generates 500 alerts during an overnight shift. A Tier-1 analyst's first job is to process these alerts. What is the primary activity a T1 analyst performs on each alert?",
       options: [
-        "Reverse engineer the malware associated with each alert",
-        "Triage the alert — determine whether it is a real threat (True Positive) or a false alarm (False Positive)",
-        "Immediately escalate every alert to Tier-3 for expert analysis",
-        "Write a new detection rule in the SIEM to prevent the alert from appearing again",
+        "Reverse engineer the malware sample linked to each alert",
+        "Triage each alert — decide True Positive or False Positive",
+        "Escalate every alert to Tier-3 so a senior analyst decides",
+        "Tune the SIEM rule behind each alert so it stops firing again",
       ],
       answer: 1,
       explanation:
@@ -670,10 +670,10 @@ That entire sequence — from first email to automated response — might happen
       question:
         "A SOC is investigating a confirmed ransomware outbreak. The malware has spread to 12 workstations and the attacker's tools are still running. Which tier of analyst is best suited to lead this response, and why?",
       options: [
-        "Tier 1 — they handle all incoming alerts and should manage this case",
-        "Tier 2 — they handle escalated incidents and can determine scope and implement containment",
-        "The SIEM system — it can automatically resolve ransomware outbreaks",
-        "The SOC Manager — they should personally investigate every serious incident",
+        "Tier 1 — they receive every alert first and own the case end to end",
+        "Tier 2 — they take escalated incidents, scope them and contain them",
+        "The SIEM — correlation rules can contain a spreading outbreak unaided",
+        "The SOC Manager — they run every serious incident hands-on themselves",
       ],
       answer: 1,
       explanation:
@@ -696,10 +696,10 @@ That entire sequence — from first email to automated response — might happen
           question:
             "The SIEM correlated 47 failures against this account in 2 minutes 33 seconds — roughly 18 per minute. What type of attack does that rate strongly suggest?",
           options: [
-            "Phishing attack — the user clicked a malicious link in an email",
-            "Ransomware attack — the attacker is encrypting files on the server",
-            "Brute-force / credential stuffing attack — automated tool is rapidly trying many passwords",
-            "Insider threat — an employee is deliberately causing login failures",
+            "Password spraying — one password tried across many accounts to avoid lockout",
+            "Account enumeration — an attacker probing which usernames exist in the domain",
+            "Brute force — an automated tool rapidly trying many passwords against one account",
+            "A misconfigured service — an application retrying a stale saved password",
           ],
           answer: 2,
           explanation:
@@ -710,10 +710,10 @@ That entire sequence — from first email to automated response — might happen
           question:
             "The log's IpAddress field shows '185.220.101.47'. The SIEM's threat-intelligence enrichment identifies that address as a Tor exit node in Amsterdam. What does this tell you, and how should it affect your triage decision?",
           options: [
-            "Tor is a legitimate corporate VPN — this is normal employee remote access",
-            "Tor is an anonymisation network used to hide attacker identity — this is a significant indicator of malicious intent",
-            "The IP address belongs to GlobalBank's office in Amsterdam — this is an employee working from there",
-            "Tor exit nodes are used by Microsoft for system updates — this is expected traffic",
+            "Tor exits carry a lot of benign traffic, so the enrichment should not change the verdict",
+            "Tor hides the true source, so the failures likely come from an attacker — raise suspicion",
+            "The Amsterdam location matches a GlobalBank office, so this is likely an employee on corporate egress",
+            "Tor exit nodes cannot complete logons to corporate services, so the source IP is probably spoofed",
           ],
           answer: 1,
           explanation:
@@ -1133,10 +1133,10 @@ The Kill Chain is not the only way to model attacker behaviour. Two other import
           question:
             "The domain field shows 'updates.microsoft-cdn-services.net' and dns_category shows 'newly_registered_domain' (registered only 14 days ago). The destination IP geolocates to Moscow, Russia. What technique is the attacker using, and what is the significance of the domain name?",
           options: [
-            "The domain is legitimate — Microsoft publishes Windows and Office update content from *.microsoft-cdn-services.net edge nodes, several of which are hosted in Moscow",
-            "The attacker is using domain squatting and typosquatting — the domain mimics Microsoft's naming to evade detection, while the recent registration and Russian IP confirm it is malicious infrastructure",
-            "The 14-day age is irrelevant here — Palo Alto's newly_registered_domain category only covers domains created in the previous 24 hours, so anything older has already aged out",
-            "Newly registered domains carry no inherent risk — URL filtering scores a domain purely on its registrar's reputation, and .net registrations are treated as trusted by default",
+            "The domain is legitimate — Microsoft serves update content from *.microsoft-cdn-services.net nodes, some hosted in Moscow",
+            "Typosquatting — the name mimics Microsoft, and the 14-day registration plus Russian IP point to malicious infrastructure",
+            "Fast-flux DNS — the 14-day age shows the IP keeps rotating, and the Microsoft-style name carries no meaning",
+            "Domain age is not a risk signal — URL filtering scores domains only by registrar reputation and TLD",
           ],
           answer: 1,
           explanation:
@@ -1177,10 +1177,10 @@ The Kill Chain is not the only way to model attacker behaviour. Two other import
       question:
         "The Cyber Kill Chain is a powerful framework but has acknowledged limitations. Which of the following is a recognised weakness of the Kill Chain model?",
       options: [
-        "It was created by a private company (Lockheed Martin) and therefore cannot be used by government agencies",
-        "It only applies to ransomware attacks and cannot model other types of threats",
-        "It does not adequately model insider threats, because an authorised user with direct access can skip most of the early stages",
-        "It requires a minimum of 3 analysts to use correctly and is too complex for small SOC teams",
+        "It covers only network-borne attacks and cannot describe endpoint malware execution",
+        "It was built around ransomware crews and does not fit espionage-style intrusions",
+        "It models insider threats poorly, since authorised users skip most of the early stages",
+        "It has no Delivery stage, so phishing and drive-by downloads cannot be mapped",
       ],
       answer: 2,
       explanation:
@@ -1484,9 +1484,9 @@ This is the ATT&CK framework in action: observation → identification → detec
       question:
         "In ATT&CK terminology, what is the difference between a Tactic and a Technique? Choose the most accurate answer.",
       options: [
-        "Tactics are used by advanced attackers; techniques are used by beginners",
-        "A Tactic is the attacker's high-level goal (the 'why'), while a Technique is the specific method used to achieve that goal (the 'how')",
-        "Tactics are defensive actions taken by SOC analysts; techniques are offensive actions taken by attackers",
+        "Tactics are the tools attackers use; techniques are the groups that use them",
+        "A Tactic is the attacker's goal (the 'why'); a Technique is the method used (the 'how')",
+        "Tactics are detection rules defenders write; techniques are the behaviours they catch",
         "Tactics are numbered with T (e.g., T1566); techniques are numbered with TA (e.g., TA0001)",
       ],
       answer: 1,
@@ -1524,10 +1524,10 @@ This is the ATT&CK framework in action: observation → identification → detec
       question:
         "Your SOC manager wants to improve your team's defences against APT29, a Russian threat group known to be targeting your industry. Which ATT&CK tool would you use to visualise which of APT29's known techniques are already covered by your detection rules — and which techniques represent blind spots?",
       options: [
-        "The ATT&CK technique detail page — read each of APT29's 40+ technique descriptions manually",
-        "ATT&CK Navigator — an interactive matrix tool that lets you colour-code techniques by coverage and adversary profile",
-        "The Kill Chain framework — map APT29's stages to the 7 Kill Chain phases",
-        "A SOAR playbook — automate the APT29 profile analysis and generate a report",
+        "The ATT&CK technique detail pages — read each of APT29's 40+ techniques manually",
+        "ATT&CK Navigator — colour-code APT29's techniques against your detection coverage",
+        "The Kill Chain framework — map APT29's activity onto the 7 Kill Chain phases",
+        "ATT&CK Evaluations — read vendor test results from the APT29 emulation round",
       ],
       answer: 1,
       explanation:
@@ -1564,10 +1564,10 @@ This is the ATT&CK framework in action: observation → identification → detec
           question:
             "The UserAgent field shows 'python-requests/2.31.0' and IsInteractive is false. What do these fields tell you about the nature of this attack?",
           options: [
-            "A legitimate Python developer at the company is testing the login API as part of normal software development",
-            "The authentication attempts are automated — a Python script is performing the spray, not a human manually typing at a keyboard",
-            "The attack is being performed from a company-managed device running Python development tools",
-            "The 'python-requests' user agent confirms this is a penetration tester conducting an authorised test",
+            "A developer is testing the login API from a company-managed device running Python tools",
+            "The attempts are automated — a Python script is driving the spray, not a person typing",
+            "A browser extension spoofed the user agent, so the client type cannot be determined",
+            "The 'python-requests' agent is typical of an authorised pen test, so it is expected activity",
           ],
           answer: 1,
           explanation:

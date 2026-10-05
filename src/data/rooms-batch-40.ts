@@ -164,14 +164,14 @@ const aiAttacksTasks = [
       question:
         "A SOC analyst is reviewing an alert: an internal AI ticket-triage agent, after reading a newly submitted customer ticket, sent an unexpected outbound email containing internal pricing data — no human ever typed a suspicious message into the chat interface. Based on the mechanism you just learned, what is this most consistent with?",
       options: [
-        "Direct prompt injection, since the ticket happened to come from an external customer account",
-        "Indirect prompt injection — malicious instructions were embedded in the ingested ticket, not typed by a user",
-        "Model theft, since the agent's observed behavior changed right after the ticket was processed",
-        "A false positive — AI agents are architecturally incapable of ever sending an email",
+        "Direct prompt injection — the ticket came from an external customer account, so the customer is effectively the user conversing with the agent",
+        "Indirect prompt injection — malicious instructions were embedded in the ingested ticket rather than typed into the chat by a user",
+        "Model theft — the agent's behavior changed right after the ticket was processed, which indicates its system prompt or weights were being extracted",
+        "Excessive agency alone (OWASP LLM06) — no injection occurred; the agent was simply over-permitted with email access and sent the data on its own initiative",
       ],
       answer: 1,
       explanation:
-        "The agent acted on instructions it never received from a user typing into a conversation — it ingested a ticket (external content) and then followed hidden instructions inside that content. That is the defining shape of indirect prompt injection (AML.T0051.001): the attacker never talks to the model directly. Direct injection requires the attacker to be the one conversing with the model. Model theft is about extracting the model itself, not about triggering an action. And agents with tool-use genuinely can send email — that capability (excessive agency, OWASP LLM06) is exactly why indirect injection against an agent is dangerous rather than just embarrassing.",
+        "The agent acted on instructions it never received from a user typing into a conversation — it ingested a ticket (external content) and then followed hidden instructions inside that content. That is the defining shape of indirect prompt injection (AML.T0051.001): the attacker never talks to the model directly. Direct injection requires the attacker to be the one conversing with the model. Model theft is about extracting the model itself, not about triggering an action. And excessive agency (LLM06) explains why the agent COULD send email, not why it did — something had to instruct it, and that was the injected ticket, which is exactly why indirect injection against an agent is dangerous rather than just embarrassing.",
       xp: 15,
     },
 
@@ -274,14 +274,14 @@ const aiAttacksTasks = [
       question:
         "You need to write a detection-engineering ticket referencing the correct framework IDs for a prompt injection finding. Which pairing is correct?",
       options: [
-        "OWASP LLM06:2025 (Excessive Agency) and MITRE ATT&CK T1566 (Phishing)",
+        "OWASP LLM01:2025 (Prompt Injection) and MITRE ATT&CK T1190 (Exploit Public-Facing Application)",
         "OWASP LLM01:2025 (Prompt Injection) and MITRE ATLAS AML.T0051 (LLM Prompt Injection)",
         "OWASP LLM04:2025 (Data and Model Poisoning) and MITRE ATLAS AML.T0020 (Poison Training Data)",
         "OWASP LLM02:2025 (Sensitive Information Disclosure) and MITRE ATLAS AML.T0024 (Exfiltration via AI Inference API)",
       ],
       answer: 1,
       explanation:
-        "LLM01:2025 is OWASP's own name and rank for prompt injection, and MITRE ATLAS tracks the identical concept as AML.T0051. Option C correctly pairs a DIFFERENT attack (data poisoning) with ITS correct ATLAS ID — accurate, but not prompt injection, so it does not answer this question. Option D similarly pairs sensitive-info disclosure with model-extraction's ATLAS ID, mismatched. Option A mixes an LLM-specific risk (excessive agency) with a classic ATT&CK technique (phishing) that describes neither prompt injection nor any LLM-specific mechanism.",
+        "LLM01:2025 is OWASP's own name and rank for prompt injection, and MITRE ATLAS tracks the identical concept as AML.T0051. Option C correctly pairs a DIFFERENT attack (data poisoning) with ITS correct ATLAS ID — accurate, but not prompt injection, so it does not answer this question. Option D similarly pairs sensitive-info disclosure with model-extraction's ATLAS ID, mismatched. Option A gets the OWASP half right but pairs it with a classic ATT&CK technique (exploiting a public-facing application) — ATT&CK has no LLM-specific prompt-injection technique, which is why the ATLAS matrix is the correct companion framework here.",
       xp: 15,
     },
 
@@ -317,12 +317,12 @@ const aiAttacksTasks = [
       options: [
         "Prompt injection — the employee's own phrasing somehow overrode the model's hidden system prompt",
         "A RAG authorization bypass — retrieval pulled a document the user was never permitted to see",
-        "Model theft — the employee managed to extract part of the model's underlying training data",
+        "Training data memorization — the model reproduced the document from its fine-tuning data, so the leak originates in the weights rather than in retrieval",
         "Excessive agency — the model took an unauthorized real-world action beyond its intended scope",
       ],
       answer: 1,
       explanation:
-        "Nothing in the prompt resembles an injection attempt (no override language, no persona hijack) — the query was innocent. The document came back because the RETRIEVAL layer pulled a document the RAG pipeline had indexed without checking the requesting user's actual permission on that specific file. That is exactly the LLM02 mechanism described in the reading: authorization has to be enforced at retrieval time, not assumed from the fact that the user is authenticated. Model theft concerns stealing the model itself, not a document; excessive agency concerns an agent taking unauthorized ACTIONS (sending an email, calling an API), not returning unauthorized text.",
+        "Nothing in the prompt resembles an injection attempt (no override language, no persona hijack) — the query was innocent. The document came back because the RETRIEVAL layer pulled a document the RAG pipeline had indexed without checking the requesting user's actual permission on that specific file. That is exactly the LLM02 mechanism described in the reading: authorization has to be enforced at retrieval time, not assumed from the fact that the user is authenticated. Memorized training data would not normally surface as a verbatim quote tied to a named, access-controlled document that sits in the RAG index — that points at the retrieval layer, not the weights; excessive agency concerns an agent taking unauthorized ACTIONS (sending an email, calling an API), not returning unauthorized text.",
       xp: 15,
     },
 
@@ -377,14 +377,14 @@ const aiAttacksTasks = [
       question:
         "An API-gateway dashboard shows that one customer account for your company's proprietary LLM product has issued 40,000 inference requests in six hours, at almost perfectly regular 500-millisecond intervals, with inputs that systematically vary a single template across a wide range of parameter values. What should the analyst suspect, and what is the correct FIRST detection lever, per this room's reading?",
       options: [
-        "Prompt injection — escalate to the LLM gateway's content classifier immediately",
-        "Possible model extraction via the inference API — investigate per-identity rate/volume baselining and query-pattern diversity before assuming malice",
-        "RAG poisoning — check which documents this account's queries retrieved",
-        "This is definitely a false positive, since API queries can never indicate an attack by themselves",
+        "Prompt injection — route the request volume to the LLM gateway's content classifier and review the account's inputs for override language",
+        "Possible model extraction via the inference API — start with per-identity rate and volume baselining and query-pattern diversity before assuming malice",
+        "RAG poisoning — check which documents this account's queries retrieved and whether any were recently modified in the index",
+        "Scripted account abuse — the machine-regular interval points to credential stuffing, so the first lever is the identity provider's failed-login and CAPTCHA telemetry",
       ],
       answer: 1,
       explanation:
-        "The volume, the machine-regular timing, and the systematic template-sweep pattern are exactly the extraction signature described in the reading — this is API-behavior telemetry, not a content-classification problem, so the LLM gateway's prompt-injection classifier is the wrong tool. RAG poisoning concerns what gets INTO the retrieval index, not query volume out of the API. And dismissing it outright ignores the specific, learned indicators (volume + regularity + systematic coverage) that distinguish this from an ordinary heavy legitimate integration — which is exactly why baselining, not a snap verdict, is the correct first move.",
+        "The volume, the machine-regular timing, and the systematic template-sweep pattern are exactly the extraction signature described in the reading — this is API-behavior telemetry, not a content-classification problem, so the LLM gateway's prompt-injection classifier is the wrong tool. RAG poisoning concerns what gets INTO the retrieval index, not query volume out of the API. And treating it as credential stuffing ignores that these are successful, authenticated inference calls whose input pattern (volume + regularity + systematic coverage) is the signal — which is exactly why per-identity baselining, not a login-telemetry check or a snap verdict, is the correct first move.",
       xp: 15,
     },
 
@@ -603,14 +603,14 @@ const aiAttacksTasks = [
       question:
         "Finance receives a video call from someone who looks and sounds exactly like the company's CEO, urgently requesting an off-cycle wire transfer and asking that it not be discussed with the CFO 'until after it closes, for confidentiality.' Per this room's reading, what is the single most important control to apply before any funds move?",
       options: [
-        "Ask the caller to simply state their employee ID number aloud during the call",
-        "Out-of-band verification — call back a known number never given on this call, or use a pre-agreed codeword",
-        "Proceed — video calls are inherently far harder to convincingly fake than plain emails",
-        "Request that the caller send a quick follow-up email confirming the same request",
+        "Ask the caller to confirm a detail only the real CEO would know, such as last quarter's board-approved budget figure, before releasing the funds",
+        "Out-of-band verification — call back on a known number not given during this call, or use a pre-agreed codeword",
+        "Ask the caller to pass a live liveness check, such as turning their head or raising a hand, and proceed if the video holds up",
+        "Request a written follow-up email from the CEO's corporate address confirming the same request before the funds are released",
       ],
       answer: 1,
       explanation:
-        "An employee ID number or a follow-up email are both information the attacker can also produce or spoof, and 'video calls are harder to fake' is exactly the false assumption the Arup case disproves — the entire call was fabricated. Out-of-band verification through an independently-sourced channel, or a codeword agreed upon in advance and never spoken over an untrusted channel, is the one control a deepfake cannot forge, because it depends on something established OUTSIDE the compromised communication entirely.",
+        "A knowledge question or a follow-up email are both things an attacker can research, produce or spoof, and a live liveness gesture is exactly what real-time deepfakes now handle — 'video is hard to fake' is the false assumption the Arup case disproves, since the entire call was fabricated. Out-of-band verification through an independently-sourced channel, or a codeword agreed upon in advance and never spoken over an untrusted channel, is the one control a deepfake cannot forge, because it depends on something established OUTSIDE the compromised communication entirely.",
       xp: 15,
     },
 
@@ -662,10 +662,10 @@ const aiAttacksTasks = [
       question:
         "Your mail gateway flags an email as suspicious: it has flawless grammar and a highly convincing, contextually appropriate tone referencing an actual ongoing project, but it fails DKIM/DMARC alignment and originates from a domain registered four days ago. A junior analyst argues it is probably legitimate 'because it reads too well to be phishing.' Based on this room's reading, what is the correct response?",
       options: [
-        "Agree — a well-written, contextually accurate email is reliable proof of legitimacy",
-        "Disagree — content quality no longer proves legitimacy; the auth failure and new domain are the stronger signals",
-        "Ignore the DKIM/DMARC failure, since it is probably just a sender-side configuration issue",
-        "Escalate only if the email explicitly requests a wire transfer; otherwise treat it as benign",
+        "Agree — the project-specific detail suggests a genuine sender with real context, so the authentication failure is likely a forwarding artifact",
+        "Disagree — content quality no longer proves legitimacy; the authentication failure and the four-day-old domain are the stronger signals",
+        "Ignore the DKIM/DMARC failure as a probable sender-side configuration issue, and judge the message on its content and project reference alone",
+        "Escalate only if the email explicitly requests a wire transfer; otherwise treat it as benign regardless of the authentication result",
       ],
       answer: 1,
       explanation:
@@ -841,10 +841,10 @@ const aiAttacksTasks = [
       question:
         "Your organization is about to deploy its first internal AI agent (an LLM with tool-use, able to query internal databases and send email on employees' behalf). Based on everything in this series so far, which single design decision would do the MOST to prevent an indirect-prompt-injection attempt from becoming an actual data-exfiltration incident?",
       options: [
-        "Training every employee to never type suspicious phrases into the chat interface",
+        "Training every employee to recognise and avoid typing suspicious phrases into the agent's chat interface",
         "Scoping the agent's tool permissions as narrowly as the task requires — least privilege for the agent itself",
-        "Relying on the mainstream model's built-in content filters, since those already block harmful requests",
-        "Blocking all external email domains from ever receiving anything the agent touches",
+        "Relying on the vendor model's built-in content filters plus a classifier on all ingested content, since together they block injected instructions before the agent acts",
+        "Blocking the agent from emailing any external domain, since email is the exfiltration channel an injected instruction would most likely use",
       ],
       answer: 1,
       explanation:

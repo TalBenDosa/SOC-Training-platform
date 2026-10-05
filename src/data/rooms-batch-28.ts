@@ -200,10 +200,10 @@ const edrDetectionInvestigationRoom = {
       question:
         "A CrowdStrike detection fires with crowdstrike.SeverityName: 'Critical' and crowdstrike.Tactic: 'Defense Evasion', tagged for a well-known LOLBin technique pattern. Based on Reading 2, what is the correct way to treat the SeverityName field at this stage of the investigation?",
       options: [
-        "Treat it as the final verdict — Critical severity means the detection is automatically a confirmed compromise requiring no further review",
-        "Treat it as the tool's own automatic rating, assigned the instant the technique pattern matched — useful for prioritizing your queue, but not a substitute for reading the process tree and surrounding context yourself",
-        "Ignore the field entirely, since severity ratings carry no useful information in any EDR platform",
-        "Treat it as proof the malicious action was already blocked, since higher severity always means the tool intervened automatically",
+        "Treat it as the final verdict: Critical severity means a confirmed compromise, so escalate without reviewing the process tree",
+        "Treat it as the tool's automatic rating, assigned when the pattern matched; useful for queue priority, but not a substitute for reading the tree and context",
+        "Set it aside during triage, since a technique-based rating says nothing about this host and carries no useful information",
+        "Treat it as evidence the action was already blocked, since Critical is only assigned to behaviors the sensor has intervened on",
       ],
       answer: 1,
       explanation:
@@ -313,10 +313,10 @@ const edrDetectionInvestigationRoom = {
       question:
         "A process tree shows OUTLOOK.EXE launching WINWORD.EXE after a user opened an email attachment, which then launches powershell.exe with an encoded command-line argument. Based on Reading 4, what is the correct read of this chain?",
       options: [
-        "Routine — Word's document-rendering engine frequently shells out to PowerShell internally to lay out complex formatting and embedded objects",
-        "This is the classic malicious-macro pattern: an Office application spawning a scripting engine essentially never happens in legitimate use, and the encoded PowerShell argument on top of it strengthens the case further",
-        "Nothing meaningful can be concluded from the process tree at all until the file's SHA256 hash comes back flagged in a threat intelligence feed",
-        "The tree is irrelevant here, because OUTLOOK.EXE launching WINWORD.EXE simply to open a normal attachment is itself already the malicious action",
+        "Likely routine: Word legitimately launches PowerShell to render embedded objects, and encoded arguments are common in enterprise add-ins",
+        "The classic malicious-macro pattern: an Office app spawning a scripting engine is rare in legitimate use, and the encoded argument strengthens the case",
+        "Inconclusive until the file's SHA256 returns flagged in a threat intelligence feed; the tree alone is not evidence",
+        "Malicious from the first link: OUTLOOK.EXE launching WINWORD.EXE for an attachment is itself the malicious action, and the PowerShell step is secondary",
       ],
       answer: 1,
       explanation:
@@ -421,10 +421,10 @@ const edrDetectionInvestigationRoom = {
       question:
         "Three Falcon behaviors fire against the same host within nine minutes, all sharing one IncidentId: a scheduled-task creation (Medium), a PowerShell download from an external site (Medium), and a credential-access attempt against lsass.exe (Critical). An analyst triages only the Critical one and closes the other two separately as routine, unrelated notices. What is wrong with this approach, based on Reading 5?",
       options: [
-        "Nothing — Falcon's own severity rating should always be the sole determining factor for triage priority, because the sensor assigns a severity only after weighing every other behavior already correlated under the same IncidentId, so a Medium rating means the correlation engine has itself ruled that behavior out of the Critical one's chain",
-        "Treating the three behaviors as separate, unrelated cases misses the actual sequence — the scheduled task and PowerShell download are plausibly the persistence and tooling steps of the same intrusion that ends in the credential-access attempt, and closing them separately can leave the persistence mechanism untouched even after the workstation is remediated",
-        "IncidentId is purely an internal CrowdStrike licensing identifier used to meter per-seat billing in the Falcon console, and it is reissued to every sensor at each subscription renewal, so two behaviors sharing one value tells an analyst nothing beyond the fact that both hosts sit under the same contract",
-        "A PowerShell download from an external site is, by definition, always unrelated to a credential-access detection, because Falcon groups behaviors into an IncidentId strictly by MITRE ATT&CK tactic — an Execution-tactic behavior and a Credential Access-tactic behavior can never share one, so the shared value here is a console display artifact",
+        "Nothing is wrong: triage should follow severity alone, since a Medium rating means Falcon has already ruled those behaviors out of the Critical one's chain",
+        "Separate triage misses the sequence: the scheduled task and download are plausibly the persistence and tooling steps before the credential access, and the task may survive remediation",
+        "IncidentId is an internal CrowdStrike identifier with no investigative meaning, so two behaviors sharing one value say nothing about whether they are related",
+        "The download is unrelated to the credential access, because Falcon assigns an IncidentId per MITRE tactic, so Execution and Credential Access behaviors cannot share one",
       ],
       answer: 1,
       explanation:
@@ -515,10 +515,10 @@ const edrDetectionInvestigationRoom = {
       question:
         "On WKS-FIN-0231, the credential-access behavior is confirmed as a true positive: PatternDispositionDescription showed 'Detected, no action taken', and the SHA256 hash pivots back as a known credential-dumping utility in your threat intelligence platform. What is the correct immediate containment action?",
       options: [
-        "Power the workstation down completely and unplug it from the network — a hard shutdown stops all further activity immediately and flushes the full contents of physical memory into the hibernation file on disk, so the volatile evidence is preserved for the forensics team exactly as it stood at the moment of the detection",
-        "Network-contain (isolate) the host through the EDR console so it can no longer communicate while staying reachable for forensic collection, kill the malicious process, and treat any credentials that were logged onto this host as potentially exposed pending rotation",
-        "Wait until the end of the business day to contain the host, since network containment in the Falcon console can only be applied inside a scheduled maintenance window and the sensor would otherwise lose its own connection back to the CrowdStrike cloud along with everything else",
-        "Email the finance analyst directly and ask them to close their laptop lid until IT can look at it, since suspending the machine to sleep terminates every running process and severs any active attacker session just as reliably as EDR network containment would",
+        "Power the host down and unplug it: a hard shutdown stops all activity at once and writes physical memory to the hibernation file, preserving volatile evidence",
+        "Network-contain the host through the EDR console so it stays reachable for forensics, kill the malicious process, and treat credentials used on the host as exposed pending rotation",
+        "Hold containment until the end of the business day, since Falcon network containment needs a maintenance window and would sever the sensor's link to the cloud",
+        "Email the analyst to close the laptop lid, since sleep suspends every process and cuts an active attacker session as reliably as EDR network containment",
       ],
       answer: 1,
       explanation:
@@ -532,10 +532,10 @@ const edrDetectionInvestigationRoom = {
       question:
         "Two days later, a new Falcon detection fires on a completely different host, and its crowdstrike.SHA256HashData exactly matches the hash from the WKS-FIN-0231 case. What does this tell you, and what should you do?",
       options: [
-        "It's a coincidence — identical SHA256 hashes across two unrelated hosts happen regularly and mean nothing",
-        "The exact same file is now confirmed present on a second host — treat this as part of the same incident rather than a brand-new case, and re-run the fleet-wide scoping step before assuming containment is complete",
-        "SHA256 hashes are commonly reused by Windows across many unrelated legitimate files, so this match carries no investigative weight",
-        "Since WKS-FIN-0231 was already contained, this new detection can be closed automatically without any further review",
+        "Treat it as a coincidence: SHA256 values of unrelated files collide across hosts often enough that a match alone proves little",
+        "The same file is now confirmed on a second host: treat it as part of the same incident and re-run fleet-wide scoping before assuming containment is complete",
+        "It points to a Windows system component, since the OS reuses one SHA256 across many legitimate files, so the match carries no investigative weight",
+        "Since WKS-FIN-0231 was already contained, treat this as a duplicate of a handled case and close it after a quick check of the process name",
       ],
       answer: 1,
       explanation:

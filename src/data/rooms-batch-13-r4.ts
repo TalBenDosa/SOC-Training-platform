@@ -643,10 +643,10 @@ const nacMasterclass = {
       question:
         "What happens to a network switch port configured for 802.1X BEFORE the endpoint has successfully authenticated?",
       options: [
-        "The port allows all traffic normally — authentication happens in the background while the user works",
-        "The port is in UNAUTHORIZED state and only allows EAPOL (authentication) frames to pass — no regular network traffic",
-        "The port blocks all traffic including authentication, requiring manual IT intervention to open",
-        "The port allows traffic on the management VLAN only while awaiting authentication",
+        "The port sits in a guest VLAN state, forwarding internet-bound traffic only until authentication completes",
+        "The port is UNAUTHORIZED and passes only EAPOL frames until the endpoint authenticates successfully",
+        "The port forwards DHCP and DNS only, so the endpoint can obtain an address before it authenticates",
+        "The port stays administratively down until the RADIUS server pushes an Access-Accept that enables it",
       ],
       answer: 1,
       explanation:
@@ -660,10 +660,10 @@ const nacMasterclass = {
       question:
         "A corporate laptop connecting to the office network fails Cisco ISE posture assessment because it has not received Windows security patches for 45 days. What is the MOST LIKELY outcome based on standard NAC policy?",
       options: [
-        "The laptop is fully blocked — it receives no network access until IT manually approves it",
-        "The laptop is placed in a quarantine VLAN with access only to a remediation server that can push Windows Update and AV updates. The user is redirected to a self-service portal.",
-        "The laptop receives full corporate network access with a warning notification to the user to update their system",
-        "The laptop is assigned to the Guest VLAN with internet-only access until patches are applied",
+        "The laptop is blocked outright with no network access until IT manually approves a policy exception",
+        "The laptop is moved to a quarantine VLAN reaching only a remediation server, and the user is redirected to a self-service portal",
+        "The laptop gets full corporate access, with a warning banner asking the user to install the missing patches",
+        "The laptop is moved to the Guest VLAN with internet-only access, so it can pull patches directly from Microsoft",
       ],
       answer: 1,
       explanation:
@@ -677,10 +677,10 @@ const nacMasterclass = {
       question:
         "What is the key difference between RADIUS and LDAP in the context of network authentication?",
       options: [
-        "RADIUS and LDAP are really just two different names for the exact same directory protocol, and most vendors let administrators use either term interchangeably in their configuration",
-        "RADIUS is the protocol the switch uses to ask the authentication server for an access decision; LDAP is the protocol the authentication server uses to query the user directory (like Active Directory)",
-        "LDAP is the protocol used specifically for wired 802.1X port authentication on Ethernet switches, while RADIUS is reserved only for wireless Wi-Fi authentication requests",
-        "RADIUS is the database that stores every user's account and password directly; LDAP is a separate system that manages which network resources and VLANs each user is allowed to reach",
+        "LDAP is how the switch asks ISE for an access decision, while RADIUS is how ISE reads group memberships from Active Directory",
+        "RADIUS carries the switch's access request to the authentication server; LDAP is how that server queries the user directory such as Active Directory",
+        "RADIUS authenticates only wired 802.1X ports, while LDAP handles wireless authentication through the controller",
+        "RADIUS stores account credentials in its own database, while LDAP only assigns VLANs and ACLs after authentication succeeds",
       ],
       answer: 1,
       explanation:

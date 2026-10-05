@@ -237,10 +237,10 @@ const malwareTypesRoom: Room = {
       question:
         "An EDR alert reports a worm-style outbreak beginning to spread machine-to-machine across an unpatched subnet with no user interaction required, at the same moment a phishing-based trojan is reported on a single user's laptop elsewhere in the company. Both are rated the same severity by the product. Why does the worm typically demand faster action?",
       options: [
-        "It doesn't — a single infected laptop and a spreading worm should always be treated with identical urgency since both are technically 'malware present' events, and severity should never be adjusted based on how many hosts a given technique could theoretically reach",
-        "The worm can spread to every reachable, unpatched machine on that subnet without anyone clicking anything, so the number of compromised hosts can grow dramatically in the time it takes to triage a single ticket, while the trojan's spread is capped by how many more people open the same phishing email",
-        "Trojans are always more dangerous than worms because they are disguised, and disguise is inherently worse than direct network propagation, since a hidden threat is by definition harder to remediate than one that announces itself by spreading visibly",
-        "Worms cannot actually execute a payload, so they are lower priority than a trojan that has already run, since self-propagating code is architecturally limited to the propagation mechanism itself and nothing more",
+        "It doesn't — both are malware-present events at the same product severity, and reachable-host count should not change urgency",
+        "The worm spreads to every reachable unpatched host with no user action, so scope grows during triage; the trojan is limited by who opens the email",
+        "The trojan does — a disguised, hidden threat is harder to remediate than a visibly propagating worm, so it needs the faster response",
+        "The trojan does — the worm's code only handles propagation, while the trojan has already executed a payload and caused more damage",
       ],
       answer: 1,
       explanation:
@@ -329,10 +329,10 @@ const malwareTypesRoom: Room = {
       question:
         "Which network pattern is the strongest indicator of an active RAT/backdoor rather than a one-time loader fetch?",
       options: [
-        "A single outbound connection immediately after execution that is never repeated again, since a RAT's beacon is strongest and most detectable in the very first few seconds after the implant lands, before the attacker has issued any commands",
-        "Recurring outbound connections to the same destination at regular or semi-regular intervals, continuing for hours or days after the initial process launch — the beaconing pattern of a live command-and-control channel still checking in for instructions",
-        "Any connection that uses port 443, since that port is reserved exclusively for command-and-control traffic and is never used by browsers, update services, or any other legitimate application",
-        "A connection that only ever occurs during normal business hours and never outside them, since RATs are specifically engineered to blend their check-in schedule with an organization's expected working hours",
+        "A single outbound connection right after execution that never repeats — a RAT's beacon is strongest before the attacker issues commands",
+        "Recurring outbound connections to one destination at regular or semi-regular intervals, continuing for hours or days after launch",
+        "A large one-time download of an executable right after launch, since that is the defining network fingerprint of a RAT",
+        "A connection that occurs only during business hours, since RATs schedule check-ins to blend with working hours",
       ],
       answer: 1,
       explanation:
@@ -414,10 +414,10 @@ const malwareTypesRoom: Room = {
       question:
         "A file server shows vssadmin.exe deleting shadow copies, the Security log being cleared (Event ID 1102), and one service account reading thousands of files across multiple shares within ten minutes. No files have been encrypted yet. What should an analyst do?",
       options: [
-        "Wait until files actually start appearing with a new extension before treating this as an incident, since nothing has technically been encrypted and pre-encryption indicators alone never justify escalation under most incident response frameworks",
-        "Treat this as an active pre-encryption ransomware sequence and escalate immediately — shadow copy deletion removes the easiest recovery path, log clearing is covering tracks, and file-access volume at this scale is very rarely legitimate; the goal is to contain before encryption begins, not after",
-        "This is normal end-of-quarter backup activity and can be closed without further review, since legitimate backup jobs routinely delete shadow copies and clear the security log as part of their standard cleanup routine",
-        "Only the log-clearing event is worth escalating; shadow copy deletion and file-access volume are unrelated administrative tasks that happen independently and don't need to be considered alongside it",
+        "Wait for the first encrypted files before escalating — pre-encryption indicators alone do not justify an incident",
+        "Escalate as an active pre-encryption ransomware sequence — the three signals together warrant containment before encryption begins",
+        "Close it as backup-job activity — backup software routinely deletes shadow copies and clears the Security log during cleanup",
+        "Escalate only the log clearing — shadow copy deletion and bulk file reads are independent admin tasks to review separately",
       ],
       answer: 1,
       explanation:
@@ -512,10 +512,10 @@ const malwareTypesRoom: Room = {
       question:
         "An analyst argues that a suspected fileless attack 'can't be malware — the antivirus scan came back completely clean, and no new file was ever created on disk.' What is wrong with that reasoning?",
       options: [
-        "It's correct — if antivirus finds nothing and no new file exists, there is nothing left to investigate, since every legitimate detection method a SOC has available ultimately depends on a file existing somewhere to scan",
-        "A clean signature-based scan proves nothing here: fileless techniques use legitimate, already-present tools (PowerShell, WMI, admin utilities) to achieve their objective without ever dropping a new file to hash, which is exactly what defeats traditional signature matching — behavior, not file presence, is the detection surface that matters",
-        "Fileless attacks are purely theoretical and have never been used in a real intrusion, existing only as a conference-talk concept rather than something that shows up in genuine incident response engagements",
-        "Antivirus always detects fileless activity through network scanning even when no file exists, so a clean scan in this specific case must mean the AV product itself is broken and needs to be reinstalled before the investigation can continue",
+        "It is correct — with a clean AV scan and no new file, no detection method remains, since all SOC detection depends on a file to scan",
+        "A clean signature scan proves little — fileless attacks abuse present tools like PowerShell and WMI, so behavior is the detection surface",
+        "The scan result is only unreliable if it was not a full scan — a full on-demand scan would catch the payload, so rerun it with updated signatures",
+        "Fileless attacks always leave a registry artifact that AV scans catch, so a clean result means the AV agent itself is broken",
       ],
       answer: 1,
       explanation:
@@ -684,10 +684,10 @@ const assetContextRoom: Room = {
       question:
         "Two identical malware detections fire at the same moment, with the exact same product-assigned severity: one on a receptionist's kiosk PC that can only ever access the visitor sign-in application, and one on a backup server that holds the only offline copies of the company's file shares. Which deserves the faster response, and why?",
       options: [
-        "The kiosk PC, because it's a public-facing device anyone in the lobby can physically touch, and physical accessibility to a device always outweighs whatever role it plays in the organization's operations",
-        "The backup server, because of what it controls: it is the organization's recovery capability, and losing it changes every other incident from 'recoverable' to 'potentially unrecoverable', regardless of how little the server itself might seem to 'hold' day to day",
-        "Neither — since the severity score is identical, the response should be identical, because asset context is already baked into how the product calculated that score in the first place",
-        "The kiosk PC, because kiosk devices always run outdated, unpatched software and are therefore inherently higher risk than any purpose-built server regardless of what that server holds or controls",
+        "The kiosk PC — it is publicly accessible to anyone in the lobby, and physical exposure outweighs the device's operational role",
+        "The backup server — it is the recovery capability, and losing it turns every other incident from recoverable to potentially unrecoverable",
+        "Neither — the identical product score already reflects asset context, so the response should be identical",
+        "The kiosk PC — kiosks usually run outdated, unpatched software, so they are riskier than any purpose-built server",
       ],
       answer: 1,
       explanation:
@@ -731,10 +731,10 @@ const assetContextRoom: Room = {
       question:
         "An attacker gains full control of a hypervisor hosting 40 virtual machines, including three domain controllers and the ticketing system's database server. Why does compromising the hypervisor represent a larger blast radius than compromising any single one of those 40 VMs individually?",
       options: [
-        "It doesn't — compromising one VM and compromising the hypervisor carry identical risk, since a hypervisor is just one more server on the network with no more reach into its guests than any of those guests has into each other",
-        "The hypervisor sits below every guest VM's own operating system and security controls, so a compromise at that layer can affect every one of the 40 VMs simultaneously and directly, regardless of how well-defended any individual guest is — a single point of failure for all of them at once, which is what makes it a force multiplier",
-        "Hypervisors are always less critical than the VMs running on them, because the VMs are where the actual applications and data live, and the layer underneath them is purely infrastructure with nothing of value to an attacker",
-        "Compromising 40 individual VMs one at a time is always faster for an attacker than compromising the single hypervisor underneath them, since each guest VM's own security stack is weaker than the hypervisor's combined defenses",
+        "It doesn't — a hypervisor is another server on the network, with no more reach into its guests than they have into each other",
+        "The hypervisor sits beneath every guest OS and its controls, so one compromise can reach all 40 VMs at once however well-defended each guest is",
+        "It matters mainly for the three domain controllers — the other guests are shielded from the hypervisor by their own endpoint agents",
+        "It is lower impact — the VMs hold the applications and data, and the layer underneath has little value to an attacker",
       ],
       answer: 1,
       explanation:
@@ -810,10 +810,10 @@ const assetContextRoom: Room = {
       question:
         "The exact same critical vulnerability (CVSS 9.8) is found on two servers: one is a customer-facing web portal reachable from the open internet, the other is an internal reporting server reachable only from a management VLAN that requires VPN plus MFA, with no route from ordinary user workstations. Both have identical CVSS scores. Why might these still warrant different urgency?",
       options: [
-        "They shouldn't — an identical CVSS score means identical urgency in every case, by definition, since the scoring system already factors in network topology and access requirements for the specific environment it's deployed in",
-        "Exposure differs: the internet-facing portal can be attempted by any attacker on the internet with no prior foothold at all, while reaching the segmented internal server first requires breaching a VPN and MFA-protected management network — CVSS measures theoretical severity, not how reachable the target actually is in this environment",
-        "CVSS scores are automatically lower for internal systems, so a 9.8 on an internal server is actually a scoring error that should be reported back to whichever team maintains the vulnerability scanner",
-        "The internal server should always be treated as more urgent, since internal systems are inherently more trusted and therefore more damaging to lose, regardless of how many additional controls stand between an attacker and actually reaching it",
+        "They shouldn't — identical CVSS means identical urgency, since the score already accounts for each environment's topology and access controls",
+        "Exposure differs — the portal needs no foothold, while the internal server first needs a VPN and MFA breach; CVSS rates severity, not reachability",
+        "The internal 9.8 is probably a scoring error — CVSS is automatically lower for internal systems, so report it to the scanner team",
+        "The internal server is more urgent — internal systems are more trusted and more damaging to lose, whatever controls stand in front of them",
       ],
       answer: 1,
       explanation:

@@ -647,10 +647,10 @@ const avVsEdrMasterclass = {
       question:
         "An attacker uses PowerShell with a base64-encoded payload to download and execute malware entirely in memory, without writing any file to disk. Which endpoint security technology is BEST suited to detect this?",
       options: [
-        "Traditional signature-based AV — it scans all running processes for known malware signatures",
-        "EDR with AMSI integration — it hooks into the PowerShell engine and scans the decoded script before execution",
-        "A perimeter firewall — it blocks the download of malicious payloads from the internet",
-        "Windows Defender Firewall — it blocks PowerShell from making outbound network connections",
+        "Traditional signature-based AV — it scans every running process in memory against its known malware signatures",
+        "EDR with AMSI integration — it scans the decoded PowerShell script content before the script executes",
+        "File-integrity monitoring — it alerts when the malicious executable is written into the Temp directory",
+        "A host-based firewall with application rules — it recognises the encoded command line and blocks the execution",
       ],
       answer: 1,
       explanation:
@@ -665,10 +665,10 @@ const avVsEdrMasterclass = {
       question:
         "In the context of EDR, what is a 'Living-Off-the-Land' (LOLBin) attack, and why does it evade traditional AV?",
       options: [
-        "An attack that relies on malware with no persistence mechanism at all, so a simple reboot of the infected machine is normally enough to fully remove it",
-        "An attack that abuses legitimate Windows tools like PowerShell, WMI, or certutil.exe to execute malicious code — the tools themselves are trusted by AV",
-        "An attack that specifically targets agricultural machinery and industrial control systems (ICS/SCADA), rather than standard Windows desktop and server environments",
-        "An attack launched entirely from a compromised host already inside the corporate network, deliberately designed to bypass perimeter firewalls and border defenses",
+        "Malware with no persistence mechanism, so a reboot clears it and AV never has a lasting file to scan",
+        "Abuse of trusted built-in Windows tools such as PowerShell, WMI or certutil.exe, which AV treats as legitimate",
+        "Malware packed with a custom crypter that changes its file hash on every build, so signature AV never matches it",
+        "An attack that stays entirely inside the victim network after the first foothold, so border sensors and AV never see it",
       ],
       answer: 1,
       explanation:
@@ -683,10 +683,10 @@ const avVsEdrMasterclass = {
       question:
         "What does GrantedAccess 0x1FFFFF mean in a CrowdStrike EDR alert about LSASS access?",
       options: [
-        "Read-only access was granted to LSASS — the attacker can read but not dump credentials",
-        "PROCESS_ALL_ACCESS was granted — the attacker has full control of LSASS and can dump all credential hashes",
-        "The access was denied — 0x1FFFFF is the Windows error code for ACCESS_DENIED",
-        "The process created a new thread in LSASS using standard thread creation permissions",
+        "PROCESS_VM_READ only — the process can read LSASS memory but cannot write to it or create threads in it",
+        "PROCESS_ALL_ACCESS was granted — the process has full control over LSASS, enough to dump its credential material",
+        "PROCESS_QUERY_LIMITED_INFORMATION — the process can enumerate LSASS metadata but cannot read its memory",
+        "The request was logged but blocked by Credential Guard — 0x1FFFFF marks the denied attempt",
       ],
       answer: 1,
       explanation:

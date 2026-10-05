@@ -396,10 +396,10 @@ const dnsDeepDiveRoom = {
       question:
         "A host issues 200 DNS TXT queries in three minutes, each to a different, never-repeated subdomain (average label length 41 characters, high measured entropy) under the same parent domain. Which single additional data point would most strengthen a tunneling determination versus a benign explanation?",
       options: [
-        "The parent domain's WHOIS registration date and country of registration, since a domain registered many years ago in a well-established jurisdiction can never legitimately be used for tunneling",
-        "Whether nearly all 200 subdomains are unique, never-repeated labels (a ratio near 1.0 of unique-to-total queries) rather than a small set of values being requested repeatedly",
-        "The TTL value returned in the DNS response, since a short TTL on its own — independent of subdomain uniqueness, entropy, or record type — is the defining characteristic that separates tunneling traffic from ordinary DNS lookups",
-        "Whether the query was sent over TCP rather than UDP, since tunneling tools always switch to TCP transport specifically to carry the larger volume of encoded payload data instead of using standard UDP for DNS",
+        "The parent domain's WHOIS registration age — a domain registered several years ago effectively rules out its use as a tunneling channel",
+        "The ratio of unique subdomains to total queries — near 1.0 means almost no label is ever requested twice",
+        "The TTL returned in the DNS responses — a short TTL is the defining trait that separates tunneling from ordinary lookups",
+        "The transport protocol of the queries — tunneling tools move to TCP for larger payloads, so UDP-only traffic indicates benign DNS",
       ],
       answer: 1,
       explanation:
@@ -414,10 +414,10 @@ const dnsDeepDiveRoom = {
       question:
         "One host generates a burst of 300 DNS queries to 300 different, freshly-changing second-level domains in five minutes, with a 96% NXDOMAIN rate. Another host resolves 40 different, high-entropy subdomains, all under d111abcd8ef9it.cloudfront.net, all of which resolve successfully. Which is more consistent with DGA malware, and why?",
       options: [
-        "The second host — high subdomain entropy is always the single strongest DGA signal on its own, regardless of whether the queries actually resolve successfully or fail, because randomness in the label is what malware analysts should weigh above every other available signal",
-        "The first host — the overwhelming NXDOMAIN rate against constantly-changing second-level domains is the DGA fingerprint (the malware doesn't know in advance which of its algorithmically-generated candidates the attacker has actually registered); the second host's pattern — successful resolutions under a small, stable, well-known CDN parent domain — is the fingerprint of ordinary CDN/cloud traffic",
-        "Neither host is suspicious at all, since both patterns involve a high volume of DNS queries in a short window, and high query volume by itself is completely normal, everyday behavior on any reasonably busy corporate network segment regardless of NXDOMAIN rate",
-        "The second host, because cloudfront.net itself is a well-known malware distribution platform commonly abused by threat actors specifically to host and serve C2 payloads directly from Amazon's infrastructure",
+        "The second host — label entropy is the strongest DGA signal on its own, and the successful resolutions show the generated domains are already registered",
+        "The first host — mass NXDOMAIN across ever-changing second-level domains fits DGA; the second host's resolving subdomains under one stable CDN parent look like ordinary cloud traffic",
+        "Neither host — both show high query volume in a short window, which on its own is normal for a busy segment and cannot separate DGA from legitimate use",
+        "The second host — cloudfront.net is frequently abused to serve C2 payloads, so any high-entropy subdomains beneath it should be treated as DGA output",
       ],
       answer: 1,
       explanation:
@@ -432,10 +432,10 @@ const dnsDeepDiveRoom = {
       question:
         "Your Zeek dns.log shows an aggregate NXDOMAIN burst from workstation 10.40.7.61 across dozens of freshly-registered domains. You want to know exactly what process on that workstation is generating these queries. Which log source answers that question, and why can Zeek's dns.log not answer it on its own?",
       options: [
-        "Zeek's dns.log itself can answer this — the id.orig_h field, once cross-referenced against the corporate DHCP lease table, already identifies the exact process that issued every query on that host",
-        "Sysmon Event ID 22 on that specific host, because it hooks DNS resolution at the process level (fields like Image and ProcessId) — Zeek only observes network traffic and has no visibility into which process on the sending host issued any given query",
-        "The corporate DHCP server logs, because they record which process on the endpoint requested each IP lease, and that same process identifier carries forward into every DNS query the host later makes",
-        "No log source can ever answer this question after the fact, since process attribution for a network event is only theoretically possible during a live, real-time memory dump of the endpoint's RAM at the exact moment the query was issued",
+        "Zeek dns.log itself — id.orig_h cross-referenced against the DHCP lease table identifies the process that issued each query",
+        "Sysmon Event ID 22 on that host (Image, ProcessId) — Zeek only sees packets on the wire, not which process sent them",
+        "The DHCP server logs — each lease request records the requesting process, and that identifier carries into later DNS queries",
+        "No source after the fact — process attribution for network events is only possible from a live memory dump at query time",
       ],
       answer: 1,
       explanation:

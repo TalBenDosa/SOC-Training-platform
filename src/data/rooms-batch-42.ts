@@ -212,14 +212,14 @@ const discoveryEnumerationRoom = {
       question:
         "An attacker has just landed on a workstation via a phished credential. Which MITRE ATT&CK technique describes them immediately running whoami and whoami /groups to establish who they are and what privileges they hold on the machine?",
       options: [
-        "T1087.002, Domain Account Discovery -- since any account-related command always maps to the domain-wide sub-technique regardless of scope",
-        "T1033, System Owner/User Discovery -- identifying the current user and their local standing on the specific machine just compromised",
-        "T1580, Cloud Infrastructure Discovery -- since whoami is a generic identity command usable in any environment, including the cloud",
-        "T1135, Network Share Discovery -- since establishing identity is a prerequisite step before any share can be enumerated",
+        "T1087.002, Domain Account Discovery -- enumerating accounts held by the Domain Controller to learn who exists in the environment",
+        "T1033, System Owner/User Discovery -- identifying the current user and their standing on the machine just compromised",
+        "T1082, System Information Discovery -- collecting the OS build, hostname, and patch level of the machine just compromised",
+        "T1087.001, Account Discovery: Local Account -- enumerating the accounts stored in the machine's local SAM database",
       ],
       answer: 1,
       explanation:
-        "T1033 is specifically about identifying the current user and local system context -- exactly what whoami and whoami /groups provide. T1087.002 is the domain-WIDE sub-technique covered later in this room, not a catch-all for any account-related command. T1580 is cloud-specific and unrelated to a local whoami. T1135 is about finding network shares, a separate later step.",
+        "T1033 is specifically about identifying the current user and local system context -- exactly what whoami and whoami /groups provide. T1087.002 is the domain-WIDE sub-technique covered later in this room and queries a Domain Controller. T1082 covers system attributes (OS, hostname, patches), not who the user is. T1087.001 lists the local account database (net user with no target), which whoami does not do.",
       xp: 15,
     },
 
@@ -255,14 +255,14 @@ const discoveryEnumerationRoom = {
       question:
         "A single instance of net group \"domain admins\" /domain runs once from a new IT hire's laptop while they are learning the environment. Per this room's detection discipline, how should this be weighted compared to the same command run 200 times against every privileged group from the same source in six minutes?",
       options: [
-        "Identically -- MITRE ATT&CK treats every instance of a technique as equally severe regardless of volume or breadth",
-        "The single instance should be weighted as the more severe finding, since a first-time occurrence is always more suspicious than repeated activity",
-        "The single instance is a lead, not a verdict; the 200-query burst in six minutes is the far stronger signal, since breadth and volume are what distinguish a sweep from an isolated legitimate query",
-        "Neither should be investigated at all, since both are examples of a fully built-in, unblockable Windows feature",
+        "Identically -- the command, technique ID, and target group are the same, so severity should not depend on how many times it ran",
+        "The single instance is more severe -- a first-ever execution has no baseline, whereas repeated activity resembles a scheduled job",
+        "The single query is a lead, not a verdict; the 200-query burst is the stronger signal because breadth and volume mark a sweep",
+        "The 200-query burst is likely a misconfigured script and can be closed as noise until a second source repeats the pattern",
       ],
       answer: 2,
       explanation:
-        "This is the breadth principle from the reading: a single query is ambiguous and could have an innocent explanation (a new hire exploring), while touching every privileged group in a tight window from one source is the enumeration signature. ATT&CK technique classification does not itself encode severity by volume -- that judgment is the analyst's job. Both remain worth investigating; being built-in does not mean unblockable or unworthy of monitoring.",
+        "This is the breadth principle from the reading: a single query is ambiguous and could have an innocent explanation (a new hire exploring), while touching every privileged group in a tight window from one source is the enumeration signature. ATT&CK technique classification does not itself encode severity by volume -- that judgment is the analyst's job. A first-time event has no baseline but little breadth, and a burst across every privileged group is not explained away by guessing at a misconfigured script without verifying the source.",
       xp: 15,
     },
 
@@ -352,14 +352,14 @@ const discoveryEnumerationRoom = {
       question:
         "Which AWS GuardDuty finding type is purpose-built to flag an S3 ListObjectsV2-family call originating from an IP address already known to be malicious?",
       options: [
-        "Recon:IAMUser/MaliciousIPCaller -- since this finding type covers every possible AWS API call regardless of which service it targets",
-        "Discovery:S3/MaliciousIPCaller -- the S3-specific finding built for exactly this call pattern from a threat-listed source",
-        "UnauthorizedAccess:EC2/RDPBruteForce -- since any malicious-IP-sourced finding in AWS falls under this single finding type",
-        "Impact:S3/AnomalousBehavior.Delete -- since object listing and object deletion are treated as the identical underlying action",
+        "Recon:IAMUser/MaliciousIPCaller -- account-level reconnaissance API calls made from an IP address on a threat list",
+        "Discovery:S3/MaliciousIPCaller -- S3 object-listing style API calls made from an IP address on a threat list",
+        "Discovery:S3/TorIPCaller -- S3 object-listing style API calls made from a Tor exit-node IP address",
+        "Exfiltration:S3/MaliciousIPCaller -- S3 data-retrieval calls such as GetObject made from an IP address on a threat list",
       ],
       answer: 1,
       explanation:
-        "Discovery:S3/MaliciousIPCaller is the S3-specific GuardDuty finding for this exact pattern. Recon:IAMUser/MaliciousIPCaller is the IAM-level equivalent, not S3-specific, and does not cover every AWS API call. UnauthorizedAccess:EC2/RDPBruteForce is an unrelated EC2/RDP finding. Impact:S3/AnomalousBehavior.Delete concerns anomalous deletion activity, not listing -- listing and deleting are different actions with different findings.",
+        "Discovery:S3/MaliciousIPCaller is the S3-specific GuardDuty finding for listing-style calls from a known-malicious IP. Recon:IAMUser/MaliciousIPCaller is the IAM-level reconnaissance equivalent, not S3-specific. Discovery:S3/TorIPCaller keys on Tor exit nodes rather than a malicious-IP list. Exfiltration:S3/MaliciousIPCaller concerns data retrieval (GetObject-style calls), not listing -- different action, different finding.",
       xp: 20,
     },
 
@@ -478,14 +478,14 @@ const discoveryEnumerationRoom = {
       question:
         "A burst of 200 net group /domain queries fires from two different sources in the same hour: Source A is a documented Qualys vulnerability-scanner service account running its Tuesday 2 AM job; Source B is a marketing department laptop with no prior domain-query history. Per this room's detection discipline, how should these be triaged?",
       options: [
-        "Identically -- since both sources produced the exact same command and volume, they must be treated as equally severe findings",
-        "Source A should be escalated as the higher-priority finding, since a security-team-owned account is inherently more suspicious than an ordinary employee laptop",
-        "Source A should be confirmed against the documented allowlist and closed as expected; Source B falls outside any authorized pattern and warrants investigation",
-        "Neither should be investigated, since net group /domain is a fully legitimate Windows command that no analyst can ever act on",
+        "Identically -- both sources ran the same command at the same volume within the hour, so source identity cannot change the verdict",
+        "Source A first -- a scanner account with broad domain read access is a higher-value target than an ordinary employee laptop",
+        "Source A is confirmed against the allowlist and closed; Source B falls outside any authorized pattern and warrants investigation",
+        "Source B can be closed as noise -- a standard marketing laptop lacks the privileges to enumerate privileged groups usefully",
       ],
       answer: 2,
       explanation:
-        "This is the allowlist discipline applied directly: Source A matches a documented, authorized account/host/schedule and should be confirmed and closed; Source B has no such match and no prior history, which is exactly the profile worth investigating. Identical command and volume do not mean identical risk once source and expectation are considered -- that is the whole point of baselining. A security-team-owned account being 'inherently more suspicious' inverts the actual reasoning taught here.",
+        "This is the allowlist discipline applied directly: Source A matches a documented, authorized account/host/schedule and should be confirmed and closed; Source B has no such match and no prior history, which is exactly the profile worth investigating. Identical command and volume do not mean identical risk once source and expectation are considered -- that is the whole point of baselining. Scanner accounts are worth securing, but an allowlisted, scheduled run is not the priority here; and ordinary domain users CAN enumerate domain groups over LDAP, so low privilege on the laptop does not make Source B harmless.",
       xp: 20,
     },
 

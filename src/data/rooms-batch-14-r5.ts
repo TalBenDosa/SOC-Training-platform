@@ -408,10 +408,10 @@ const gcpRoom = {
       question:
         "A file was downloaded from a Cloud Storage bucket last night, but Data Access audit logging was never explicitly enabled for Cloud Storage in this project. What is the most accurate statement about what the SOC will find?",
       options: [
-        "Cloud Audit Logs will still show the storage.objects.get call in full detail regardless of any configuration, because Google considers all Cloud Storage read activity part of the same always-on logging stream as bucket creation and permission changes",
-        "The storage.objects.get Data Access event was very likely NOT logged, even though Admin Activity events (like changing the bucket's IAM policy) would still appear, since Data Access logs are not enabled by default for most services",
-        "GCP does not support logging of any Cloud Storage activity under any configuration whatsoever, meaning there is no setting anywhere in the platform that could ever surface who read which object in a bucket",
-        "Security Command Center automatically captures the download regardless of Cloud Audit Logs settings",
+        "Cloud Audit Logs record the storage.objects.get call in full, because Cloud Storage reads sit in the same always-on stream as bucket creation and IAM changes",
+        "The storage.objects.get event was very likely not logged, though Admin Activity events like a bucket IAM change still appear, since Data Access logs are off by default",
+        "The download is captured only if VPC Flow Logs were enabled on the subnet, since Cloud Storage reads are recorded as network flows rather than audit events",
+        "Security Command Center records the download independently of the audit configuration, because Event Threat Detection reads the storage API directly",
       ],
       answer: 1,
       explanation:
@@ -426,10 +426,10 @@ const gcpRoom = {
       question:
         "A Compute Engine VM has a service account attached to it. A SOC analyst notices that service account's credentials being used to call GCP APIs from a source IP address in Russia, while the VM itself is confirmed still running normally inside GCP in us-central1. What does this most likely indicate?",
       options: [
-        "This is normal — service account credentials automatically work from anywhere in the world by design",
-        "The VM's short-lived metadata-server token was likely stolen (for example via an SSRF attack) and is now being used by an attacker from outside GCP",
-        "GCP load-balances API traffic through international points of presence, so varying source IPs are expected",
-        "The service account must be misconfigured to allow global access, which is a normal and harmless setting",
+        "Expected behavior — service account credentials are not bound to a network location, so use from any external IP is by design and needs no follow-up",
+        "The VM's short-lived metadata-server token was likely stolen (e.g. via SSRF) and is being replayed by an attacker from outside GCP",
+        "Cloud NAT or Private Google Access re-sources the VM's API traffic, so a foreign source IP is normal for a workload running in-region",
+        "Workload Identity Federation is mapping an external identity onto the account, a routine configuration that explains the foreign source IP",
       ],
       answer: 1,
       explanation:
@@ -444,10 +444,10 @@ const gcpRoom = {
       question:
         "Which Cloud Audit Logs method call, when it grants a broad role like roles/owner to an unexpected member, should ALWAYS be treated as a critical-severity event requiring immediate investigation?",
       options: [
-        "compute.instances.list — listing Compute Engine VMs",
+        "compute.instances.insert — creating a new Compute Engine VM in an existing project",
         "SetIamPolicy — replacing or modifying a resource's IAM policy bindings",
-        "storage.buckets.get — reading a bucket's metadata",
-        "cloudresourcemanager.projects.get — reading basic project information",
+        "storage.objects.create — uploading a new object to an existing bucket",
+        "cloudresourcemanager.projects.update — changing a project's display name or labels",
       ],
       answer: 1,
       explanation:

@@ -148,14 +148,14 @@ const powershellForSocRoom: Room = {
       question:
         "You run Get-Process | Where-Object {$_.CPU -gt 200} | Select-Object Name, Id on a workstation. A colleague who only knows batch scripting asks why you didn't need to write any text-parsing logic to pull out the CPU value before filtering on it. What is the correct technical answer?",
       options: [
-        "PowerShell secretly converts the console output into a spreadsheet-like grid behind the scenes, and Where-Object filters the rows of that grid instead of parsing text",
-        "Get-Process returns live process objects with real properties, including CPU; the pipe hands those objects to Where-Object directly, so it filters on the .CPU property with no string parsing at all",
-        "Where-Object only works here because CPU values always print at a fixed column width, so simple position-based text parsing happens to be enough",
-        "PowerShell doesn't actually filter anything in this command — it lists every process, and the {$_.CPU -gt 200} condition only changes which columns get displayed on screen",
+        "PowerShell converts the console output into a table behind the scenes, and Where-Object filters the rows of that table rather than parsing text",
+        "Get-Process emits live process objects with real properties, and the pipe hands them to Where-Object, which filters on .CPU with no string parsing",
+        "Where-Object does parse the formatted output, but PowerShell guarantees fixed column widths for CPU, so position-based parsing is built in and reliable",
+        "Get-Process emits only text lines, and Where-Object runs an implicit ConvertFrom-String on each one before comparing, which hides the parsing from the user",
       ],
       answer: 1,
       explanation:
-        "PowerShell's Get- cmdlets return structured objects with real, named properties — CPU is a property on the object Get-Process emits, not a formatted text column. The pipe passes those objects intact to Where-Object, which reads the .CPU property directly, which is exactly why no string-parsing logic was needed. There is no hidden 'grid' conversion, no reliance on fixed-width text formatting, and the command genuinely filters the object set — it does not merely change what is displayed.",
+        "PowerShell's Get- cmdlets return structured objects with real, named properties — CPU is a property on the object Get-Process emits, not a formatted text column. The pipe passes those objects intact to Where-Object, which reads the .CPU property directly, which is exactly why no string-parsing logic was needed. There is no hidden 'grid' conversion, no reliance on fixed-width text formatting, and no implicit text conversion in the pipeline — objects stay objects from the cmdlet to the filter.",
       xp: 25,
     },
 
@@ -169,13 +169,13 @@ const powershellForSocRoom: Room = {
         "A helpdesk ticket says a contractor's account may still have local admin rights on a shared workstation after their engagement ended. Which single cmdlet lets you check, directly on that workstation, exactly which accounts currently belong to the local Administrators group?",
       options: [
         "Get-LocalGroupMember -Group \"Administrators\"",
-        "Get-Service -Name \"Administrators\"",
-        "Get-Process -Name \"Administrators\"",
-        "Get-ScheduledTask -TaskPath \"\\Administrators\\\"",
+        "Get-LocalUser -Name \"Administrator\"",
+        "Get-LocalGroup -Name \"Administrators\"",
+        "Get-ADGroupMember -Identity \"Administrators\"",
       ],
       answer: 0,
       explanation:
-        "Get-LocalGroupMember -Group \"Administrators\" enumerates the exact members of the local Administrators group right now — the direct answer to 'who has admin rights on this box.' Get-Service lists Windows services, not group membership; there is no service literally named Administrators. Get-Process lists running processes, unrelated to group membership entirely. Get-ScheduledTask -TaskPath targets a folder of scheduled tasks, not a security group, and \\Administrators\\ is not a real task folder.",
+        "Get-LocalGroupMember -Group \"Administrators\" enumerates the exact members of the local Administrators group right now — the direct answer to 'who has admin rights on this box.' Get-LocalUser -Name \"Administrator\" returns the single built-in account, not who belongs to the group. Get-LocalGroup -Name \"Administrators\" returns the group object itself (name, description, SID) without listing its members. Get-ADGroupMember queries a domain group in Active Directory, not the workstation's own local group.",
       xp: 25,
     },
 
@@ -187,10 +187,10 @@ const powershellForSocRoom: Room = {
       id: "ps-soc-q3",
       question:
         "EDR flags a workstation for an established outbound connection to an unfamiliar external IP on port 4444, but the alert doesn't name which local process owns that connection. Which cmdlet lets you look up the live TCP connection and pull the owning process ID, so you can pivot that ID into Get-Process for the executable details?",
-      options: ["Get-NetTCPConnection", "Get-ChildItem", "Get-WinEvent", "Get-Service"],
+      options: ["Get-NetTCPConnection", "Get-NetIPAddress", "Get-NetFirewallRule", "Get-DnsClientCache"],
       answer: 0,
       explanation:
-        "Get-NetTCPConnection lists live TCP connections, including an OwningProcess property that holds the PID responsible for each one — exactly what's needed to pivot from 'a suspicious connection exists' to 'here is the process ID, now look up the executable with Get-Process -Id.' Get-ChildItem lists files, Get-WinEvent queries historical log entries rather than the live connection table, and Get-Service lists service states — none of them expose a live connection's owning process.",
+        "Get-NetTCPConnection lists live TCP connections, including an OwningProcess property that holds the PID responsible for each one — exactly what's needed to pivot from 'a suspicious connection exists' to 'here is the process ID, now look up the executable with Get-Process -Id.' Get-NetIPAddress shows the host's own interface addresses, Get-NetFirewallRule lists firewall policy rather than live sessions, and Get-DnsClientCache shows recently resolved names — none of them expose a live connection's owning process.",
       xp: 25,
     },
 

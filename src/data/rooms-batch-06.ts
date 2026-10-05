@@ -237,10 +237,10 @@ These rules appear in the **Exchange Unified Audit Log** as the \`UpdateInboxRul
       id: "exch-sec-q1",
       question: "An email arrives at your company with the following header:\n\n`Authentication-Results: spf=pass; dkim=pass; dmarc=fail action=quarantine`\n\nWhat does this indicate?",
       options: [
-        "Both SPF and DKIM passed, so DMARC must have also passed — this is a false alarm",
-        "SPF and DKIM passed but the domains do not align with the visible From: header, so DMARC failed",
-        "The email server could not reach DNS and had to quarantine the message as a precaution",
-        "DMARC failure means the email was definitely sent by an attacker"
+        "SPF and DKIM both passed, so DMARC must have passed too — this is a false alarm",
+        "SPF and DKIM passed, but neither domain aligns with the visible From: domain, so DMARC failed",
+        "The server could not retrieve the sender's DMARC record from DNS and quarantined the message as a precaution",
+        "DMARC fail with action=quarantine means the sender's own policy demanded the message be rejected outright"
       ],
       answer: 1,
       explanation: "DMARC can fail even if SPF and DKIM individually pass, because DMARC requires **alignment** — the SPF domain or DKIM signing domain must match the visible From: header domain. Without alignment, an attacker can pass SPF/DKIM on their own domain while spoofing a different domain in the From: header. The action=quarantine means the email went to spam/junk rather than the inbox.",
@@ -317,10 +317,10 @@ These rules appear in the **Exchange Unified Audit Log** as the \`UpdateInboxRul
         {
           question: "The email was delivered to the Finance inbox despite authentication failures. What is the most likely reason it was not blocked?",
           options: [
-            "Exchange Online Protection is not enabled for this tenant",
-            "The DMARC policy for the sender domain is p=none (monitor only), so no action was taken",
-            "The SCL score of 5 is below the threshold for blocking",
-            "SPF failure always results in delivery to the inbox"
+            "Exchange Online Protection is not enabled, so no policy was evaluated",
+            "The sender domain's DMARC policy is p=none (monitor only), so no enforcement action was taken",
+            "The SCL score of 5 is below the threshold at which mail is blocked",
+            "A tenant allow-list entry for the sender overrode the authentication failure"
           ],
           answer: 1,
           explanation: "The Authentication-Results header shows `dmarc=fail action=none`. The `action=none` means the sender's DMARC policy is set to `p=none` — monitoring only, no enforcement. This is common for domains that have just started deploying DMARC. EOP respects this policy and delivers the email. The SCL of 5 also contributed (borderline spam threshold), but the DMARC policy is the key reason a flagged BEC email was delivered.",
@@ -329,10 +329,10 @@ These rules appear in the **Exchange Unified Audit Log** as the \`UpdateInboxRul
         {
           question: "Looking at the raw log, what is the most suspicious indicator that this is a BEC (Business Email Compromise) attempt impersonating your CEO?",
           options: [
-            "The SCL score is 5, which is the highest possible value",
-            "The P2SenderDomain is c0rp.com (with a zero) instead of corp.com — a lookalike domain",
-            "The email was sent at 09:23 local time, outside business hours",
-            "The message was delivered to the Junk folder rather than the inbox"
+            "The SCL score of 5, a spam-confidence value that by itself proves impersonation",
+            "P2SenderDomain is c0rp.com (with a zero) instead of corp.com — a lookalike domain",
+            "The email arrived at 09:23 local time, an unusual hour for a CEO request",
+            "The message landed in the Finance inbox despite failing authentication"
           ],
           answer: 1,
           explanation: "The `P2SenderDomain` field shows `c0rp.com` — with the letter O replaced by the number zero (0). This is a classic **typosquatting** technique designed to visually fool users and bypass some email filters. The attacker registered this lookalike domain and configured email on it. From the Finance employee's perspective, the display name probably says 'CEO' and the domain looks legitimate at a glance. This is the primary BEC indicator in this log.",
@@ -567,10 +567,10 @@ When you receive a DLP alert or a bulk-download alert:
       id: "spt-teams-q1",
       question: "An attacker creates an anonymous 'Anyone' link for a sensitive financial spreadsheet in SharePoint and shares the URL externally. What is the primary security limitation of this sharing method from a SOC analyst's perspective?",
       options: [
-        "The file cannot be downloaded via an Anyone link, only viewed in browser",
-        "Anyone links expire after 24 hours by default and cannot be extended",
-        "There is no authentication requirement, so audit logs cannot track who accessed the file after the link is shared externally",
-        "Anyone links are restricted to SharePoint Online and do not work in OneDrive"
+        "Anyone links give view-only access, so the file cannot be downloaded",
+        "Anyone links expire after 24 hours by default, so evidence of access disappears",
+        "Anyone links need no authentication, so audit logs cannot attribute access to a named user",
+        "Anyone link creation is not recorded in the Unified Audit Log, so it cannot be traced"
       ],
       answer: 2,
       explanation: "**Anyone links** (anonymous links) are the most dangerous sharing mode because they require no authentication. The SharePoint audit log records when the link is **created** (`AnonymousLinkCreated`) and potentially when it is **used** (`AnonymousLinkUsed`), but if the attacker downloads the file using the link and then shares the file itself or its contents externally, there is no record of that. More critically, any person who receives the link can access the file — there is no identity binding, so the audit trail ends at the link creator.",
@@ -584,9 +584,9 @@ When you receive a DLP alert or a bulk-download alert:
       question: "You see a user with the UPN `vendor_externalco.com#EXT#@corp.onmicrosoft.com` downloading files from your Finance SharePoint site. What type of account is this?",
       options: [
         "A service account used by an automated process",
-        "An Azure AD guest account — an external user who was invited to your tenant",
-        "A compromised internal employee account that has been renamed by the attacker",
-        "A Microsoft Graph API account used for reporting"
+        "An Azure AD guest account — an external user invited to the tenant",
+        "A hybrid-synced on-premises account whose UPN was rewritten during sync",
+        "A shared mailbox identity that was granted SharePoint site access"
       ],
       answer: 1,
       explanation: "The `#EXT#` suffix in a UPN is the unmistakable marker of an **Azure AD B2B guest account**. When you invite an external user to your tenant (to a Team, SharePoint site, or application), Microsoft creates a guest account with this naming convention: `<original-email-with-@-replaced-by-underscore>#EXT#@<your-tenant>.onmicrosoft.com`. Seeing a guest account accessing sensitive Finance files is a red flag — guest accounts should have tightly scoped access and their activity should be reviewed.",
@@ -657,10 +657,10 @@ When you receive a DLP alert or a bulk-download alert:
         {
           question: "The alert only captures FileDownloaded operations inside SharePoint. Which MITRE ATT&CK tactic does this bulk-download activity fall under, and what would you still need to confirm to prove data actually left the organisation?",
           options: [
-            "Command and Control — a FileDownloaded operation in the Unified Audit Log is Microsoft's own indicator that a C2 channel has been established between the attacker and SharePoint Online",
-            "Collection — the downloads gather data locally onto the user's device; you would still need to check for a follow-on transfer (e.g. USB, personal cloud upload, or email) to confirm exfiltration",
-            "Initial Access — file downloads are the technique the attacker used to first obtain access to the SharePoint site, which is why the alert carries the T1213.002 mapping",
-            "Persistence — re-downloading the same documents repeatedly is how an attacker keeps a valid session token alive and retains access to the compromised account"
+            "Command and Control — a FileDownloaded operation shows a C2 channel between the attacker and SharePoint Online",
+            "Collection — data is gathered onto the device; still confirm a follow-on transfer (USB, personal cloud, email) to prove exfiltration",
+            "Initial Access — the downloads are how the attacker first reached the site, per the T1213.002 mapping",
+            "Persistence — repeated downloads keep a valid session token alive so the attacker retains access"
           ],
           answer: 1,
           explanation: "Downloading files out of a repository like SharePoint onto a local device is the **Collection** tactic — the attacker (or insider) is gathering data, not yet moving it out of the organisation. To confirm actual **exfiltration**, you would need corroborating evidence of the data leaving the network entirely, such as DLP alerts for USB transfer, uploads to personal cloud storage, or large outbound email attachments. Seeing only the download operation tells you data was collected locally — it does not by itself prove the data left the company.",
@@ -945,10 +945,10 @@ Based on your analysis:
       id: "ep-sec-q1",
       question: "What is the fundamental difference between traditional signature-based antivirus and EDR (Endpoint Detection & Response)?",
       options: [
-        "Traditional AV is a cloud-delivered service with no software installed on the device, while EDR runs entirely on the local machine with no cloud console behind it",
-        "Traditional AV matches files against a database of known-bad signatures; EDR continuously records all endpoint activity and detects threats through behavioural analysis and threat hunting",
-        "EDR only works on Windows because its telemetry depends on ETW, which is why traditional AV remains the only option available for Linux and macOS endpoints",
-        "Traditional AV can isolate an infected host from the network on demand, whereas EDR is a passive alerting tool with no containment or remediation capability"
+        "Traditional AV is a cloud-only service with no device software, while EDR runs wholly locally with no cloud console",
+        "Traditional AV matches files against known-bad signatures; EDR records endpoint activity and detects behaviour for hunting",
+        "EDR works only on Windows because it relies on ETW, so AV remains the only option for Linux and macOS",
+        "Traditional AV can isolate a host on demand, whereas EDR is passive alerting with no containment"
       ],
       answer: 1,
       explanation: "The key difference is **scope and approach**. Traditional AV relies on known-bad **signatures** — it cannot detect new malware it has never seen before. EDR continuously records all endpoint telemetry (processes, files, network connections, registry changes) and applies **behavioural analysis** to detect threats regardless of whether they have known signatures. EDR also provides **visibility** for investigation (process trees, command lines, timelines) and **response** capabilities (host isolation, remote shell) that traditional AV completely lacks.",
@@ -961,10 +961,10 @@ Based on your analysis:
       id: "ep-sec-q2",
       question: "An EDR alert shows the following process tree: `winword.exe → cmd.exe → powershell.exe -Enc JAB...`. What does this process chain most likely indicate?",
       options: [
-        "A legitimate Microsoft Office macro running a system administration script",
-        "A malicious Word document containing a macro that launched PowerShell with an obfuscated encoded command — a classic malware delivery technique",
-        "A Windows Update process triggered by Office that needs PowerShell to install patches",
-        "CrowdStrike EDR running a built-in diagnostic script"
+        "A legitimate Office macro running a system administration script",
+        "A malicious Word macro launching PowerShell with an obfuscated encoded command",
+        "An Office update component calling PowerShell through cmd.exe to install patches",
+        "A Word add-in installer running an encoded PowerShell setup routine"
       ],
       answer: 1,
       explanation: "**winword.exe spawning cmd.exe which spawns powershell.exe** is one of the most classic malicious process chains in endpoint security. Word does not normally spawn command prompts or PowerShell shells during legitimate use. This chain indicates a **malicious Office macro** (embedded in a document) that executed system commands. The `-Enc` flag on PowerShell means the actual command is Base64-encoded — a strong obfuscation indicator. This should be treated as a high-priority true positive.",
@@ -977,10 +977,10 @@ Based on your analysis:
       id: "ep-sec-q3",
       question: "A user's laptop is confirmed to be infected with malware that is actively spreading to other machines on the network. What is the most important immediate EDR response action?",
       options: [
-        "Delete the malware file from disk, which also terminates the running instance and tears down its open network connections",
-        "Run a full antivirus scan, since the scan blocks all outbound traffic from the host for as long as it is running",
-        "Isolate (network-isolate) the host from the network to prevent further lateral movement",
-        "Reboot the laptop — a restart clears the malware from memory and removes its registry Run-key persistence at the same time"
+        "Delete the malware file from disk, which also terminates the running instance",
+        "Run a full antivirus scan of the laptop before touching the network",
+        "Network-isolate the host with EDR to stop further lateral movement",
+        "Reboot the laptop so the malware is cleared from memory"
       ],
       answer: 2,
       explanation: "**Host isolation** (also called network isolation or containment) is the single most important immediate action when a host is actively spreading malware. Isolation cuts the device off from all network communication (except the EDR management channel), preventing the malware from reaching additional hosts, communicating with a command-and-control server, or exfiltrating data. Deleting the malware file and rebooting are secondary steps that come after containment. A full AV scan is also secondary and may miss fileless malware.\n\nNote what makes this an easy call: it is a **user's laptop**, and the spread is **confirmed and active**. Both halves matter. Change either one — a production database server instead of a laptop, or a single suspicious process instead of confirmed spreading — and the calculation shifts, because isolation is an outage you are deliberately causing. Reading 2 covers the questions to ask first when the asset is business-critical.",
@@ -993,10 +993,10 @@ Based on your analysis:
       id: "ep-sec-q4",
       question: "What does XDR (Extended Detection & Response) add compared to EDR (Endpoint Detection & Response)?",
       options: [
-        "XDR is the same endpoint-only telemetry as EDR, repackaged behind a graphical incident dashboard — the underlying data sources are identical",
-        "XDR extends telemetry collection beyond the endpoint to include network, identity, email, and cloud data — correlating across all sources in a single platform",
-        "XDR replaces EDR's behavioural detection with a far larger signature database, shipping roughly ten times the malware signatures an EDR agent carries",
-        "XDR is the mobile-device tier of EDR, covering the iOS and Android handsets that a standard EDR agent cannot be installed on"
+        "XDR is the same endpoint-only telemetry as EDR behind a nicer incident dashboard",
+        "XDR extends beyond the endpoint to network, identity, email and cloud data, correlated in one platform",
+        "XDR replaces EDR's behavioural detection with a much larger signature database",
+        "XDR is the mobile-device tier of EDR, covering iOS and Android handsets"
       ],
       answer: 1,
       explanation: "The 'X' in **XDR** stands for 'Extended' — it extends detection and response **across multiple security domains** beyond just the endpoint. While EDR sees only what happens on a single device, XDR correlates telemetry from endpoints, network traffic, identity systems (Active Directory, Entra ID), email (Exchange, phishing), and cloud workloads (AWS, Azure). This cross-domain correlation allows XDR to detect multi-stage attacks that would appear as disconnected, low-confidence signals in isolated tools. Microsoft Defender XDR, CrowdStrike Falcon XDR, and SentinelOne Singularity XDR are current examples.",
@@ -1059,10 +1059,10 @@ Based on your analysis:
         {
           question: "CrowdStrike's confidence score for this alert is 95. What does this score indicate?",
           options: [
-            "95 % of the malware's capabilities have been executed",
-            "CrowdStrike is 95 % confident this activity is malicious, based on its machine-learning models and threat intelligence",
-            "The malware has infected 95 % of files on the endpoint",
-            "The alert was triggered by 95 different detection rules simultaneously"
+            "95 % of the malware's capabilities have already executed on the host",
+            "CrowdStrike is 95 % confident the activity is malicious, based on ML models and threat intelligence",
+            "95 % of the detection engines the sensor consulted agreed it is malicious",
+            "The alert's business-impact severity is 95 on a 0–100 scale"
           ],
           answer: 1,
           explanation: "In CrowdStrike, the **Confidence score (0–100)** represents how certain CrowdStrike's detection models are that the observed activity is malicious, based on machine-learning analysis, Threat Graph intelligence, and pattern matching against known attack techniques. A score of 95 is very high — this is almost certainly malicious activity and should be treated as a true positive pending analyst confirmation. Low confidence scores (below 50) warrant more careful evaluation for false positives.",
@@ -1071,10 +1071,10 @@ Based on your analysis:
         {
           question: "The command line includes `-W Hidden`. What is the purpose of this flag in the context of this attack?",
           options: [
-            "It instructs PowerShell to run with higher system privileges (hidden from access controls)",
-            "It hides the PowerShell console window from the logged-in user so they cannot see it running",
-            "It enables hidden network mode to bypass firewall rules",
-            "It tells PowerShell to write output to a hidden log file instead of the screen"
+            "It runs PowerShell with elevated rights that are hidden from access controls",
+            "It hides the PowerShell console window so the logged-in user cannot see it running",
+            "It hides the script's network connections from the host firewall logs",
+            "It writes the command's output to a hidden file instead of the console"
           ],
           answer: 1,
           explanation: "`-WindowStyle Hidden` (shortened to `-W Hidden`) instructs PowerShell to launch with a hidden window style — meaning no black PowerShell console window appears on screen. Legitimate PowerShell scripts sometimes use this for cleaner UX, but in the context of malware, it is used to hide the malicious activity from the victim user sitting at the keyboard. Combined with `-NoP` (no profile), `-NonI` (non-interactive), and `-Exec Bypass` (bypass execution policy), this is a textbook malicious PowerShell execution pattern.",
@@ -1440,10 +1440,10 @@ SOC analysts often track Secure Score as a KPI for endpoint security health.`,
       id: "def-xdr-q3",
       question: "You receive a Defender XDR incident containing 12 alerts across 4 devices and 3 user accounts. What is the main advantage of Defender XDR automatically grouping these into one incident rather than 12 separate alerts?",
       options: [
-        "Grouping mainly lowers the SOC's reported alert count for metrics purposes — the 12 alerts still each need individual investigation and closure, so grouping by itself does not reduce the actual analyst workload",
-        "Grouping correlates related events from multiple sources into a unified attack story, allowing analysts to understand the full scope and chain of the attack rather than investigating 12 isolated signals",
-        "Grouping automatically closes the 11 lower-severity alerts once the highest-severity alert in the incident is resolved, on the assumption that the same root cause explains all of them",
-        "Grouping is a purely visual convenience for the incident queue — it has no effect on detection logic, alert correlation, or how much context an analyst has when investigating each individual alert"
+        "Grouping lowers the reported alert count for metrics, but all 12 alerts still need individual investigation",
+        "Grouping correlates events from several sources into one attack story showing the full scope and chain",
+        "Grouping auto-closes the 11 lower-severity alerts once the highest-severity one is resolved",
+        "Grouping is a visual convenience for the queue and adds no context for investigating each alert"
       ],
       answer: 1,
       explanation: "The core value of **XDR incident correlation** is **attack story reconstruction**. A single attacker's campaign might generate a phishing alert (Defender for Office 365), a suspicious logon alert (Defender for Identity), a PowerShell execution alert (MDE on Device 1), and a PsExec alert (MDE on Device 2). In isolation, each alert looks moderate. Correlated into one incident with an incident graph, they reveal a complete picture: phishing → credential compromise → lateral movement. This dramatically improves investigation efficiency and ensures analysts see the full scope, not just isolated symptoms.",
@@ -1495,10 +1495,10 @@ SOC analysts often track Secure Score as a KPI for endpoint security health.`,
         {
           question: "The command includes the `-s` flag: `psexec \\\\SRV-FILE01 -s cmd.exe`. What does the `-s` flag do in PsExec, and why is it significant from a security perspective?",
           options: [
-            "The -s flag suppresses the console window so the command runs without visible output — it is a display option, unrelated to which account the remote process executes under",
-            "The -s flag runs the remote process as the SYSTEM account — the highest-privilege account on a Windows system — escalating from the service account's privileges to SYSTEM on the target server",
-            "The -s flag identifies which remote host the command targets, acting as an alternative to typing \\\\computername — it affects targeting, not the privilege level the process runs with",
-            "The -s flag copies the target executable to the remote machine before running it, the same file-staging behaviour PsExec uses by default — it has no effect on account privileges"
+            "The -s flag suppresses the console window so the command runs with no visible output",
+            "The -s flag runs the remote process as SYSTEM, escalating from the service account to the highest privilege on the target",
+            "The -s flag selects the remote host, as an alternative to typing \\\\computername",
+            "The -s flag copies the executable to the remote machine before running it"
           ],
           answer: 1,
           explanation: "The **PsExec -s flag** runs the remote process as the **NT AUTHORITY\\SYSTEM** account — the most privileged account on a Windows machine, with complete control over the OS. By running `psexec \\\\SRV-FILE01 -s cmd.exe`, the attacker launches a command prompt on SRV-FILE01 that runs as SYSTEM, regardless of what privileges the `svc-backup` account had. This is a privilege escalation + lateral movement combination: compromise a service account → use PsExec -s to get SYSTEM on the target. This technique is heavily used by ransomware operators and APT groups.",
@@ -1507,10 +1507,10 @@ SOC analysts often track Secure Score as a KPI for endpoint security health.`,
         {
           question: "This activity occurred at 03:17 AM. The `svc-backup` account is a legitimate service account normally used only by the overnight backup job. What does this timing and account combination most likely indicate?",
           options: [
-            "The backup job is running overtime and using PsExec to access the file server — this is expected and should be closed as a false positive",
-            "A scheduled task was accidentally configured with the wrong account, causing the backup to run PsExec",
-            "The svc-backup account credentials have likely been compromised; an attacker is using them at 3 AM to perform lateral movement under the cover of expected backup activity",
-            "MDE alerts at off-hours are always false positives because legitimate security tools run during maintenance windows"
+            "The backup job is running overtime and using PsExec to reach the file server — expected, close as a false positive",
+            "A scheduled task was misconfigured with the wrong account, so the backup job launched PsExec",
+            "The svc-backup credentials were likely compromised; an attacker is moving laterally at 3 AM under cover of backup activity",
+            "MDE off-hours alerts are false positives, since security tools run during maintenance windows"
           ],
           answer: 2,
           explanation: "Service accounts are attractive targets for attackers precisely because their normal activity provides cover. The `svc-backup` account is expected to be active at 3 AM — but legitimate backup jobs do not use **PsExec to launch interactive command prompts**. Backup software uses specific APIs and protocols, not `cmd.exe` via PsExec. This is a classic attacker technique: steal a service account's credentials (via Kerberoasting, password spray, or credential dumping) and use it during its expected activity window. The account activity looks plausible at 3 AM, but the specific action (interactive cmd.exe via PsExec) is not consistent with legitimate backup behaviour.",
@@ -1535,10 +1535,10 @@ SOC analysts often track Secure Score as a KPI for endpoint security health.`,
       id: "def-xdr-q4",
       question: "A threat hunter writes the following KQL query in Advanced Hunting:\n\n```kql\nDeviceProcessEvents\n| where Timestamp > ago(7d)\n| where FileName =~ \"powershell.exe\"\n| where ProcessCommandLine has \"-Enc\"\n| project Timestamp, DeviceName, AccountName, ProcessCommandLine\n```\n\nWhat specific threat does this query hunt for?",
       options: [
-        "PowerShell processes that download files from the internet using WebClient or Invoke-WebRequest",
-        "PowerShell processes launched with Base64-encoded commands, which attackers use to obfuscate malicious scripts from simple text inspection",
-        "PowerShell processes running as the SYSTEM account on domain controllers",
-        "PowerShell processes that were blocked by Defender's script block logging"
+        "PowerShell processes that download files from the internet via WebClient or Invoke-WebRequest",
+        "PowerShell launched with Base64-encoded commands, which attackers use to obscure malicious scripts",
+        "PowerShell processes running as SYSTEM on domain controllers",
+        "PowerShell processes blocked by Defender's script block logging"
       ],
       answer: 1,
       explanation: "The query filters for `powershell.exe` processes where the command line **contains `-Enc`** (short for `-EncodedCommand`). The `-EncodedCommand` flag accepts a Base64-encoded string as the command to execute. Attackers use this to **obfuscate their malicious PowerShell** — the raw command line shows only `powershell.exe -Enc JABjAG...` rather than the actual code. Security tools that only look for obvious strings like `Invoke-Mimikatz` or `DownloadString` are bypassed. This is one of the most valuable and productive hunting queries for detecting post-exploitation PowerShell activity.",

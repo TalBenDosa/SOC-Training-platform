@@ -1,0 +1,57 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:06.980
+Everything you've learned about investigating assumes the server exists and you can image its disk and pull its logs.
+
+2
+00:00:06.980 --> 00:00:13.560
+The moment a workload moves to AWS, Azure, or Google Cloud, that assumption breaks.
+
+3
+00:00:14.060 --> 00:00:22.580
+In the cloud, the hypervisor isn't yours, the physical disk isn't yours, and often the OS underneath isn't even visible.
+
+4
+00:00:22.580 --> 00:00:26.010
+You can't walk to the box. So where does the evidence come from?
+
+5
+00:00:26.510 --> 00:00:34.090
+Four shifts. There's no disk to image — your evidence is snapshots and the provider's API records.
+
+6
+00:00:34.090 --> 00:00:41.480
+The logs live in the control plane — AWS CloudTrail, Azure Activity Log, GCP Audit Logs.
+
+7
+00:00:41.480 --> 00:00:48.100
+Identity is the new perimeter — a stolen key or role replaces the exploit entirely.
+
+8
+00:00:48.100 --> 00:00:54.820
+And shared responsibility — the provider secures the cloud itself; you secure everything you put in it.
+
+9
+00:00:55.320 --> 00:01:03.430
+The incidents keep happening. Stolen credentials — an access key leaks and the attacker simply calls the API.
+
+10
+00:01:03.430 --> 00:01:09.020
+Exposed storage — a public S3 bucket or blob container leaking data.
+
+11
+00:01:09.020 --> 00:01:14.800
+Account takeover — MFA bypass, OAuth consent abuse, or token theft.
+
+12
+00:01:14.800 --> 00:01:20.270
+And misconfiguration — over-permissive roles and wide-open security groups.
+
+13
+00:01:20.770 --> 00:01:24.270
+So a cloud investigation moves to the control plane.
+
+14
+00:01:24.270 --> 00:01:32.890
+Follow the identity, read the provider's API logs, and check the configuration — that's where cloud incidents are won or lost.

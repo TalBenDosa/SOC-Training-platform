@@ -216,10 +216,10 @@ const credentialAttacksRoom: Room = {
       question:
         "A 4625 burst against the same account shows SubStatus 0xC000006A for its first 30 attempts, then switches to 0xC0000234 for every attempt after that. What changed?",
       options: [
-        "The attacker switched from guessing passwords to guessing usernames",
-        "The account's lockout policy was triggered — the account is now locked out, so further attempts fail for a different reason than a wrong password",
-        "The password was guessed correctly on attempt 31, and 0xC0000234 confirms a successful logon",
-        "0xC0000234 means the source IP was blocked by a firewall rule, unrelated to the account itself",
+        "The attacker switched from guessing passwords to enumerating usernames, and the DC now reports the targeted names as nonexistent",
+        "The account crossed its lockout threshold, so the DC now rejects further attempts because of account state rather than a wrong password",
+        "The password was correct on attempt 31, but a logon restriction on the account (such as logon hours) made the DC refuse the session",
+        "The DC began throttling the source host after repeated failures, so the substatus describes the client rather than the targeted account",
       ],
       answer: 1,
       explanation:
@@ -349,10 +349,10 @@ const credentialAttacksRoom: Room = {
       question:
         "Two separate SIEM findings land on your queue on the same day. Finding A: 60 failed 4625 attempts against one account, sourced from one IP, over 90 minutes. Finding B: 8 failed 4625 attempts total, but spread across 6 different accounts (1-2 attempts each) from one IP over 5 minutes. Which is more likely a password spray, and why?",
       options: [
-        "Finding A, because it has the higher total attempt count, and total attempt count across the finding is the field a SIEM correlation rule uses to distinguish a spray from a brute-force burst",
-        "Finding B, because it distributes a small number of attempts across multiple distinct accounts from one source rather than concentrating them on one account — total volume is not the discriminator, account breadth is",
-        "Neither — sprays always involve at least 50 distinct accounts to qualify under the MITRE ATT&CK definition of T1110.003, so 6 accounts falls below the threshold for either technique",
-        "Both are equally likely to be either technique, since source IP is the only field that matters for this classification and both findings share the same originating IP",
+        "Finding A, because 60 failures in 90 minutes is a sustained volume, and high total volume is what separates a spray from a short brute-force burst",
+        "Finding B, because it spreads a few attempts across several accounts from one source; account breadth, not total volume, is the discriminator",
+        "Finding A, because a slow, steady pace against one account is how a spray stays under the lockout threshold, whereas Finding B's fast burst is brute force",
+        "Neither, because T1110.003 requires attempts across at least ten distinct accounts, and Finding B only touches six",
       ],
       answer: 1,
       explanation:
@@ -596,10 +596,10 @@ const lateralMovementRoom: Room = {
       question:
         "An analyst argues that because an account successfully installed a service via ADMIN$/svcctl on SRV-FIL02, that account must be a member of Domain Admins. What's wrong with that reasoning?",
       options: [
-        "Nothing — Domain Admin membership is the only way to write to ADMIN$ or create a service anywhere in a domain, since local Administrators groups are always populated exclusively through domain-level group nesting",
-        "The action only proves local administrator rights on SRV-FIL02 specifically; that can be granted narrowly (for example via a GPO Restricted Groups policy scoping a support account's admin rights to certain hosts) with no Domain Admin membership involved at all",
-        "ADMIN$ access actually requires no privilege whatsoever — any authenticated user, including a standard domain user with no group memberships beyond Domain Users, can write to it by default",
-        "Service creation requires SeDebugPrivilege specifically, and that privilege is granted only to accounts that are members of Domain Admins, never through a local Administrators group membership",
+        "Nothing is wrong: service creation over svcctl requires Domain Admins, the only group nested by default into every member server's local Administrators",
+        "It proves only local administrator rights on SRV-FIL02, which can be granted narrowly, for example by a GPO scoping a support account to specific hosts",
+        "ADMIN$ is writable by any authenticated domain user by default, so the install shows only that the account authenticated, not that it holds privilege",
+        "The install needed SeDebugPrivilege, which local Administrators membership does not grant on its own, so the account must hold a higher domain-level role",
       ],
       answer: 1,
       explanation:
@@ -713,14 +713,14 @@ const lateralMovementRoom: Room = {
       question:
         "Two records show byte-for-byte identical ADMIN$/IPC$-then-7045 mechanics on two different hosts. One is later confirmed to be an intrusion; the other, reviewed next, turns out to be legitimate. Since the technical mechanism was identical in both, what actually made the difference?",
       options: [
-        "Nothing could actually differ — if the mechanism is identical, both cases must have the same verdict, since Windows' own audit logging is specifically designed to encode intent, not just action, in every event it generates",
-        "Context outside the mechanism itself: the source host's known role and history, whether a change ticket or support session covers the activity, and whether the timing matches normal administrative patterns",
-        "The ServiceName field, since malicious services always use a randomly generated or obfuscated name, while legitimate deployment tools always register under a fixed, predictable name across every install",
-        "The LogonType value, since intrusions always authenticate using LogonType 10 (RemoteInteractive) while legitimate remote administration tools exclusively use LogonType 3 (Network)",
+        "The authentication package: intrusions fall back to NTLM, while legitimate remote administration always authenticates through Kerberos",
+        "Context outside the mechanism: the source host's role and history, whether a change ticket covers the activity, and whether the timing fits normal admin patterns",
+        "The ServiceName field: malicious services use randomly generated or obfuscated names, while legitimate deployment tools register a fixed, predictable name",
+        "The LogonType value: intrusions authenticate with LogonType 10 (RemoteInteractive), while legitimate remote administration uses LogonType 3 (Network)",
       ],
       answer: 1,
       explanation:
-        "This is the throughline of Reading 2 and Log Analysis 1/2: the mechanism is identical for legitimate remote administration and for an attacker using stolen but genuinely privileged credentials, so the verdict has to come from context that lives outside that mechanism — source host history, tickets, and timing. ServiceName and LogonType don't reliably differ between the two cases at all, since both legitimate tooling and attackers commonly use the same defaults and the same LogonType 3.",
+        "This is the throughline of Reading 2 and Log Analysis 1/2: the mechanism is identical for legitimate remote administration and for an attacker using stolen but genuinely privileged credentials, so the verdict has to come from context that lives outside that mechanism — source host history, tickets, and timing. ServiceName, LogonType and the authentication package don't reliably differ between the two cases at all, since both legitimate tooling and attackers commonly use the same defaults, the same LogonType 3, and NTLM or Kerberos depending only on how the target was addressed.",
       xp: 25,
     },
     {
@@ -1019,10 +1019,10 @@ const webAttacksRoom: Room = {
       question:
         "An access log shows a burst of 40 requests to /search.aspx?q=... from one source in two minutes: 37 return sc-status 500, and 3 return sc-status 200. What do the three 200 responses most likely represent, relative to the 37 failures?",
       options: [
-        "Nothing different — 500 and 200 both indicate the request was blocked, just with different wording",
-        "Syntactically valid injection payloads that actually executed against the application, unlike the 37 failures where malformed SQL syntax crashed the query parser before returning anything",
-        "The 3 requests with status 200 are certainly unrelated legitimate traffic that coincidentally landed inside the attack burst",
-        "A 500 status always means the server successfully blocked the attack, making the 37 failures the more serious finding",
+        "Payloads the application's input validation rejected gracefully with a normal page, while the 500s were the ones that got past validation and crashed the query",
+        "Payloads with valid SQL syntax that executed against the application, unlike the 37 where malformed syntax broke the query before it returned anything",
+        "Ordinary search terms the attacker's tool sent between payloads as a control, which return 200 because they are normal traffic inside the burst",
+        "Responses served from the application's cache, which return 200 regardless of payload, while the 500s show the server blocked the attack before processing",
       ],
       answer: 1,
       explanation:
@@ -1134,10 +1134,10 @@ const webAttacksRoom: Room = {
       question:
         "Two WAF-blocked bursts against the same endpoint look identical in payload shape — the same SQLi payload catalogue, similar volume. One turns out to be an authorized vulnerability scan; the other is a real attacker's calibration probing. What most reliably tells them apart?",
       options: [
-        "Nothing can reliably tell them apart — payload shape is the only signal a WAF record captures, and source IP, User-Agent, and change records are not fields either an authorized scanner or a real attacker's traffic would ever populate",
-        "A stable, non-rotating source IP with a self-identifying User-Agent and a matching change record on the scan side, versus a source that rotates across a range, an ordinary browser or scripting User-Agent, and no corresponding change record on the attack side",
-        "The scan will always use a lower HTTP status code than a real attack, since vulnerability-scanning tools are specifically built to avoid triggering the same terminatingRuleId a genuine attacker's payload would trip",
-        "Authorized scans never trigger a WAF's managed rule sets, so any WAF block is automatically a real attack, since scanning tools are pre-registered with the WAF vendor to bypass signature matching entirely",
+        "The request rate: authorized scanners throttle to a fixed requests-per-second, while attacker traffic arrives in irregular bursts visible in the timestamps alone",
+        "A stable source IP, self-identifying User-Agent and covering change record versus a rotating source range, a browser or scripting User-Agent, and no change record",
+        "The terminatingRuleId: scans trip generic rate-based rules while real attacks trip the managed SQLi rule group, so the rule that ended the request names the actor",
+        "The source country in the WAF record: authorized scanners originate from the organization's own region, while real attackers come from foreign ASNs",
       ],
       answer: 1,
       explanation:

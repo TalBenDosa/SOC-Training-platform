@@ -691,10 +691,10 @@ const firewallMasterclass = {
       question:
         "A firewall rule says: permit tcp 10.0.0.0/8 any eq 443. What does this rule do?",
       options: [
-        "Blocks all HTTPS traffic from the internal network",
-        "Allows HTTPS traffic (port 443) from any internal 10.x.x.x host to any destination",
-        "Blocks TCP traffic to port 443 for the 10.0.0.0/8 network",
-        "Only allows traffic from a specific internal host to port 443",
+        "Allows inbound HTTPS from any internet host to servers inside the 10.0.0.0/8 network",
+        "Allows HTTPS (TCP 443) from any internal 10.x.x.x host to any destination",
+        "Allows TCP 443 from 10.0.0.0/8 only toward other 10.x.x.x hosts, with external destinations still denied",
+        "Allows only the single host 10.0.0.0 to reach any destination on TCP port 443",
       ],
       answer: 1,
       explanation:
@@ -727,10 +727,10 @@ const firewallMasterclass = {
       question:
         "You see 15 outbound HTTPS connections in firewall logs from the same internal IP (10.0.3.88) to the same external IP (185.220.101.47) at almost exactly 60-second intervals, with 1024 bytes sent and 512 bytes received each time. What is the most likely explanation?",
       options: [
-        "A user streaming video — regular buffering intervals are common for media apps",
-        "A scheduled Windows Update check — Microsoft servers respond on this cadence",
-        "C2 (Command and Control) beaconing — malware checking in with its server at regular intervals",
-        "A web browser caching DNS responses — the 60-second interval matches DNS TTL",
+        "A streaming media session — players issue short HTTPS requests at fixed intervals to refill their playback buffer",
+        "A scheduled Windows Update check — the update client polls its endpoints at a fixed one-minute cadence",
+        "C2 beaconing — malware checking in with its server at fixed intervals with small, uniform payloads",
+        "A DNS-over-HTTPS client — a resolver re-querying its upstream every 60 seconds to match the record TTL",
       ],
       answer: 2,
       explanation:

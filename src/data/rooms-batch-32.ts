@@ -238,10 +238,10 @@ const commodityInitialAccessRoom = {
       question:
         "An EDR alert shows explorer.exe launching powershell.exe directly, with a hidden window and a one-line command that downloads and runs a script -- and there is no file_create event anywhere before it. What does the absence of an antecedent file_create event tell you?",
       options: [
-        "The command was executed directly -- most likely pasted into the Windows Run dialog -- rather than being a file the user downloaded and double-clicked",
-        "The EDR sensor missed logging the download event, which should be reported as a sensor gap",
-        "PowerShell always launches without creating a file first, so this is completely normal behavior",
-        "The file was downloaded and immediately deleted before the sensor could record it",
+        "The command was run directly, most likely pasted into the Run dialog, rather than being a file the user downloaded and opened",
+        "The sensor missed the download event, so the gap should be reported and the host treated as unmonitored for file activity",
+        "PowerShell fetches its script straight into memory by design, so a missing file_create is normal and says nothing about how the command was launched",
+        "The file was downloaded and deleted within milliseconds, faster than the sensor could log the create event",
       ],
       answer: 0,
       explanation:
@@ -268,14 +268,14 @@ const commodityInitialAccessRoom = {
       question:
         "A background process with no visible window has been running quietly on a laptop for two hours. It made no network connections and created no new files after it started, and there were no crashes or pop-ups. Two days later, a vendor reports a cryptocurrency payment from that laptop never arrived at the correct address. Based on this room, what should investigators specifically check for on the host?",
       options: [
-        "Whether the background process registered as a clipboard listener and was substituting copied wallet addresses with an attacker-controlled one",
-        "Whether the process was logging keystrokes, since that is the most common way credentials are stolen",
-        "Whether the laptop's webcam was accessed without the user's knowledge",
-        "Whether the process modified any Microsoft Office documents on the machine",
+        "Whether it registered as a clipboard listener and substituted copied wallet addresses with an attacker-controlled one",
+        "Whether it was logging keystrokes, since credential capture is the most common route to a stolen payment",
+        "Whether it was an infostealer that had harvested the browser's saved wallet credentials and sent them out",
+        "Whether it was a remote-access tool that let an attacker operate the wallet interactively",
       ],
       answer: 0,
       explanation:
-        "This is the exact pattern Reading 3 described: no crash, no visible symptom, and the only outcome anyone notices is a payment gone to the wrong place -- the specific artefact to check for is a clipboard-format listener substituting wallet addresses. Keylogging (b) would produce a very different downstream symptom (stolen credentials used elsewhere, not a misdirected crypto payment). Webcam access (c) and document tampering (d) have no connection to a missing cryptocurrency payment and aren't supported by anything in the scenario.",
+        "This is the exact pattern Reading 3 described: no crash, no visible symptom, and the only outcome anyone notices is a payment gone to the wrong place -- the specific artefact to check for is a clipboard-format listener substituting wallet addresses. Keylogging (b) would produce a very different downstream symptom (stolen credentials used elsewhere, not a misdirected crypto payment). An infostealer (c) and a remote-access tool (d) both need network connections to send data out or receive commands, and the scenario states the process made none.",
       xp: 20,
     },
     // ── Reading 4: SEO-poisoned / malvertised installers ──────────────────────
@@ -375,10 +375,10 @@ const commodityInitialAccessRoom = {
       question:
         "A user double-clicks a shortcut sitting inside a mounted ISO volume that came from a downloaded file, and it launches cmd.exe with no SmartScreen warning at all -- even though the ISO file itself was tagged with a Mark-of-the-Web zone identifier when it was downloaded. Why didn't the warning appear?",
       options: [
-        "Mark-of-the-Web is a property of the downloaded container file itself; files exposed once Windows mounts that container are read directly off the mounted volume and never receive their own zone tag",
-        "SmartScreen was manually disabled by an administrator on this specific machine as part of an earlier, unrelated troubleshooting ticket",
-        "The shortcut was digitally signed by a trusted publisher's certificate, and any signed file always bypasses SmartScreen entirely regardless of origin",
-        "ISO files as a format are always excluded from SmartScreen checks by Windows by design, regardless of what they actually contain",
+        "Mark-of-the-Web belongs to the downloaded container file; files exposed once Windows mounts it are read off the volume and never receive their own zone tag",
+        "A Group Policy on this machine disables SmartScreen for removable and virtual volumes, so nothing launched from a mounted ISO is ever checked",
+        "The shortcut launches cmd.exe, a Microsoft-signed binary, and SmartScreen skips any launch whose target carries a trusted publisher signature",
+        "SmartScreen cannot inspect container formats, so ISO files are excluded from checks by design, whatever zone tag they carry",
       ],
       answer: 0,
       explanation:
@@ -530,10 +530,10 @@ const commodityInitialAccessRoom = {
       question:
         "A user calls the helpdesk saying their laptop has been 'running a little hot' for the past hour. They used a free browser-based tool for routine work, nothing appears in their Downloads folder, and Task Manager shows no unfamiliar process outside the browser itself. Which of this room's five techniques best fits, and why?",
       options: [
-        "Drive-by browser cryptomining -- the entire 'payload' runs as WebAssembly inside the browser's own renderer process, so there is never a separate file or process to notice, only sustained CPU load tied to an open tab",
-        "ClickFix paste-and-run -- the user must have pasted a command into the Run dialog without ever noticing it happen, leaving no memory of doing so",
-        "Clipboard clipper -- the malware is quietly rewriting clipboard content in the background, which happens to produce a small but steady CPU cost",
-        "ISO container smuggling -- the user must have mounted a downloaded ISO file without realising it and never noticed the new drive letter appear",
+        "Drive-by browser cryptomining -- the payload runs as WebAssembly inside the browser's renderer, so there is no separate file or process, only sustained CPU load tied to an open tab",
+        "ClickFix paste-and-run -- a command was pasted into the Run dialog without the user registering it, leaving the browser as the only process they would notice",
+        "Clipboard clipper -- a background listener rewriting clipboard content is the only technique here that runs without a visible window, and its polling accounts for the heat",
+        "ISO container smuggling -- the user mounted a downloaded ISO from the free tool without registering the new drive letter, and the payload runs from that volume",
       ],
       answer: 0,
       explanation:

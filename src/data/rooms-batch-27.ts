@@ -175,14 +175,14 @@ const remoteEmailCollectionRoom = {
       question:
         "An attacker has obtained a valid, already-authenticated session token for a victim's mailbox — no password needed — and uses it through the Exchange REST API to search the Inbox for wire-transfer instructions. Which MITRE ATT&CK sub-technique best describes this specific action?",
       options: [
-        "T1114.001, Local Email Collection — reading mail files already stored on a compromised endpoint",
-        "T1114.002, Remote Email Collection — using the account's own remote access channel (here, an API) to read mail without touching the victim's device",
-        "T1071, Application Layer Protocol — a technique describing command-and-control traffic, not mailbox access",
-        "T1556, Modify Authentication Process — a technique describing tampering with how authentication itself is validated",
+        "T1114.001, Local Email Collection — reading mail stored in the victim's Outlook cache on a compromised endpoint",
+        "T1114.002, Remote Email Collection — reading mail through the account's remote access channel, here an API, without touching the victim's device",
+        "T1114.003, Email Forwarding Rule — redirecting the victim's mail to an external address so the attacker receives it automatically",
+        "T1213, Data from Information Repositories — mining a shared business repository such as SharePoint for sensitive documents",
       ],
       answer: 1,
       explanation:
-        "This is exactly T1114.002: the attacker never touches the victim's own computer or local mail files (which would be T1114.001) — they ride the account's existing remote access surface, here an API call, to read mail from anywhere. T1071 describes command-and-control communication patterns, not mailbox collection, and T1556 describes attacks against the authentication mechanism itself (like registering a rogue MFA method), which is a different technique covered in this platform's device-registration-persistence room.",
+        "This is exactly T1114.002: the attacker never touches the victim's own computer or local mail files (which would be T1114.001) — they ride the account's existing remote access surface, here an API call, to read mail from anywhere. T1114.003 is the forwarding-rule technique (a standing pipeline created by New-InboxRule, not an interactive search), and T1213 targets shared repositories such as SharePoint rather than a mailbox.",
       xp: 20,
     },
     // ── Reading 3: malicious inbox rules ────────────────────────────────────
@@ -206,10 +206,10 @@ const remoteEmailCollectionRoom = {
       question:
         "A New-InboxRule audit record shows: ForwardTo -> ap-invoices@northgate-logisitics.com (note the extra 'i'), DeleteMessage -> true, StopProcessingRules -> true, scoped to SubjectContainsWords: 'wire, invoice, ACH'. What makes this specific combination especially dangerous, beyond simply having an external forward?",
       options: [
-        "DeleteMessage:true erases the mailbox owner's copy after forwarding, and StopProcessingRules:true prevents any other rule — including a security team's own detection rule — from ever evaluating the same message, so the owner never sees it and no downstream rule gets a chance to flag it",
-        "ForwardTo rules pointed at any domain outside the tenant are automatically rejected by Exchange Online's default configuration, so this specific rule could never have actually taken effect",
-        "The keyword scoping to 'wire, invoice, ACH' makes the rule easier for Exchange to detect and auto-quarantine, since narrowly-scoped rules are held to stricter review than broad ones",
-        "StopProcessingRules is a display-only audit flag with no functional effect on which rules actually evaluate a given message",
+        "DeleteMessage:true erases the owner's copy after forwarding, and StopProcessingRules:true keeps any later rule, including a security team's detection rule, from evaluating the message",
+        "Exchange Online rejects ForwardTo targets outside the tenant by default, so this rule could never have taken effect and the record is only an attempted change",
+        "The keyword scoping to 'wire, invoice, ACH' makes the rule easier for Exchange to auto-quarantine, since narrowly scoped rules get stricter review than broad ones",
+        "StopProcessingRules:true only affects how the rule is displayed in Outlook's rule list, with no effect on which rules actually evaluate a given message",
       ],
       answer: 0,
       explanation:
@@ -366,10 +366,10 @@ const remoteEmailCollectionRoom = {
       question:
         "An analyst sees a single MailItemsAccessed Bind record from a known corporate IP during business hours, with no accompanying New-InboxRule, no sign-in anomaly on the SessionId, and a LogonType consistent with the account's owner. What is the appropriate response?",
       options: [
-        "Escalate immediately as a confirmed Business Email Compromise, matching the severity of the log analysis exercise",
-        "Treat it as routine mailbox activity unless further correlated evidence appears — a single, unremarkable MailItemsAccessed record on its own does not warrant escalation",
-        "Disable the account preventively regardless of the evidence, since mailbox access always carries some risk",
-        "Permanently stop reviewing any future MailItemsAccessed events from this user, since this one turned out to be fine",
+        "Escalate as a confirmed Business Email Compromise, since a MailItemsAccessed Bind record is the audit log's definitive sign of mailbox compromise",
+        "Treat it as routine mailbox activity unless correlated evidence appears; one unremarkable MailItemsAccessed record alone does not justify escalation",
+        "Disable the account as a precaution and open an incident, since any mailbox access not tied to a ticket should be contained first",
+        "Close it and suppress future MailItemsAccessed records from this user's corporate IP, since this one turned out to be benign",
       ],
       answer: 1,
       explanation:
@@ -413,10 +413,10 @@ const remoteEmailCollectionRoom = {
       question:
         "IR resets r.iversen's password and forces a global sign-out, but has not yet separately revoked the specific session/refresh token that was already used to read mail and could still be used to create an inbox rule. Based on Identity Basics and this room, what is the most accurate statement?",
       options: [
-        "Resetting the password alone is sufficient — passwords and active sessions are the same thing in Microsoft 365",
-        "A password reset does not automatically invalidate a session token that was issued before the reset; the token must be explicitly revoked, or a still-live session may keep working",
-        "Sessions expire automatically the instant a password changes, in every identity system, with no exceptions",
-        "None of this matters, because MailItemsAccessed only ever shows read access and can never lead to real financial harm",
+        "The password reset is sufficient, because in Microsoft 365 a password change immediately invalidates every session and refresh token issued under the old password",
+        "A password reset does not automatically invalidate a token issued before it; the token must be explicitly revoked, or a live session may keep working",
+        "The forced global sign-out guarantees the token is dead, since sign-out always revokes every refresh token in the same operation as the reset",
+        "The token stays valid, but only from the IP address it was issued to, so the attacker could not reuse it from a different location",
       ],
       answer: 1,
       explanation:
@@ -572,10 +572,10 @@ const deviceRegistrationPersistenceRoom = {
       question:
         "A targetResources[].modifiedProperties[0] entry shows oldValue as a single-element array (one PhoneAppNotification method, Default:true) and newValue as a two-element array (both PhoneAppNotification, one Default:true, one Default:false). What does this change represent?",
       options: [
-        "The original registered method was renamed — a routine, no-impact operation with no change in how many methods are registered",
-        "A second, additional Authenticator registration was added alongside the original — not a replacement — leaving two methods registered where there was previously one",
-        "The original registration was deleted, since the array's structure changed between oldValue and newValue",
-        "This field only tracks phone number changes and has no relationship to Authenticator app registrations",
+        "The original registration was re-enrolled on a new phone, so the array change is one registration replacing another with one method remaining",
+        "A second Authenticator registration was added alongside the original, leaving two methods registered where there was one",
+        "The original registration was renamed or refreshed in place, and the second element is a duplicate entry Entra writes during re-enrollment",
+        "The array tracks per-device push tokens, so the extra element shows the app refreshing its token rather than a second method being registered",
       ],
       answer: 1,
       explanation:
@@ -589,10 +589,10 @@ const deviceRegistrationPersistenceRoom = {
       question:
         "Entra ID logs two different self-service operations: 'User registered security info' and 'Register device' / 'Add registered owner to device'. What is the actual difference between what each one adds to an account's persistence surface?",
       options: [
-        "They are two display names generated by the same underlying audit event — Entra ID emits both rows together for every registration, so seeing either one always means the other happened in the same operation",
-        "'User registered security info' adds or changes an authentication method used to satisfy MFA; 'Register device' adds an entire device object to the tenant, which can separately satisfy Conditional Access policies requiring a compliant or hybrid-joined device — an attacker could pursue either, or both",
-        "'Register device' covers only mobile phone enrollment through the Authenticator app, while 'User registered security info' covers only desktops and laptops enrolled through Windows Autopilot",
-        "Both operations require a Global Administrator or Authentication Administrator to initiate them, so neither can ever appear in the audit log with a standard non-privileged user as the initiating actor",
+        "'User registered security info' logs MFA method changes made by the user, while 'Register device' logs the same change when an administrator performs it on the user's behalf",
+        "'User registered security info' adds an authentication method that satisfies MFA; 'Register device' adds a device object that can satisfy Conditional Access device requirements, and an attacker could use either or both",
+        "'Register device' covers mobile enrollment through the Authenticator app, while 'User registered security info' covers desktops and laptops enrolled through Windows Autopilot",
+        "Both operations need an Authentication Administrator to initiate them, so neither can appear in the audit log with a non-privileged user as the initiating actor",
       ],
       answer: 1,
       explanation:
@@ -771,10 +771,10 @@ const deviceRegistrationPersistenceRoom = {
       question:
         "In both the log analysis case and the analyst_choice case, initiatedBy.user.roles is an empty array. Why doesn't that field alone tell you whether a registration is malicious?",
       options: [
-        "Because an empty roles array simply means self-service registration, which is the normal path for the vast majority of legitimate device and method changes — you have to correlate it with sign-in risk, IP baseline, and timing to judge intent",
-        "Because Microsoft deprecated the initiatedBy.user.roles field in current Entra ID audit schemas, so it is never reliably populated regardless of who acted",
-        "Because self-service registration is inherently malicious in every single case, which makes the field's emptiness fully redundant with the malicious verdict",
-        "Because the roles field is scoped only to device-registration events like 'Register device' and is never populated for StrongAuthenticationMethod changes at all",
+        "An empty roles array means self-service registration, the normal path for most legitimate changes, so intent has to be judged by correlating sign-in risk, IP baseline, and timing",
+        "Microsoft deprecated initiatedBy.user.roles in current Entra ID audit schemas, so it is not reliably populated regardless of who acted",
+        "The roles field is populated only for Global Administrator actions, so an empty array means Entra did not record who initiated the change",
+        "The roles field is scoped to 'Register device' events and is never populated for StrongAuthenticationMethod changes at all",
       ],
       answer: 0,
       explanation:
@@ -817,10 +817,10 @@ const deviceRegistrationPersistenceRoom = {
       question:
         "This room's log analysis case was tagged mitre_technique T1098.005 (Account Manipulation: Device Registration). Which of these is the most accurate summary of why this sub-technique matters more than plain credential theft alone?",
       options: [
-        "It doesn't matter more than plain credential theft at all — both are always fully remediated by the exact same single remediation step, a password reset",
-        "It specifically survives the standard first remediation step (a password reset) because the added authentication method or device isn't touched by a password change at all, so it must be found and removed as its own explicit step",
-        "It is a purely on-premises Active Directory concern, with the technique having no equivalent mechanism or relevance inside a cloud identity provider like Entra ID",
-        "It is scoped narrowly to Windows Hello for Business enrollments specifically, with no bearing on any other authentication method type",
+        "It matters no more than plain credential theft, because a password reset plus a forced sign-out fully remediates both",
+        "It survives the standard first remediation step because the added method or device is untouched by a password change, so it must be found and removed explicitly",
+        "It is mainly an on-premises Active Directory concern, since cloud identity providers like Entra ID rebuild registered devices on every password change",
+        "It is scoped to Windows Hello for Business enrollments, with no bearing on other authentication method types",
       ],
       answer: 1,
       explanation:

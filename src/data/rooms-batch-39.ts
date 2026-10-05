@@ -201,10 +201,10 @@ const esxiVirtualizationSecurityRoom = {
       question:
         "Ninety-six guest VMs on an ESXi cluster were encrypted by ransomware that ran entirely on the hypervisor. Every guest's EDR sensor reported normally right up until the moment of impact, with no detection raised. What correctly explains this?",
       options: [
-        "The attacker must have disabled or uninstalled every guest's EDR sensor individually before the encryption began",
-        "No EDR sensor exists on the ESXi hypervisor itself, so activity that happens entirely at the host layer -- enabling services, opening a shell, running a binary against the shared datastore -- produces zero telemetry in any guest's sensor, since none of it ever touches a guest operating system",
-        "The EDR sensors were running, but in a passive detection-only mode that suppressed all alerting",
-        "EDR sensors on virtualized guests automatically extend their visibility to the underlying hypervisor and simply failed to do so in this specific case due to a bug",
+        "The attacker stopped each guest's EDR sensor service with stolen administrator credentials shortly before encryption, so no detection could fire during the impact itself",
+        "No EDR sensor exists on the ESXi hypervisor itself, so host-layer activity -- enabling services, opening a shell, running a binary against the datastore -- never touches a guest OS and yields no guest telemetry",
+        "The sensors were running in a passive detection-only mode that suppressed all alerting, so the activity was recorded in the console but never raised as a detection",
+        "Guest EDR sensors normally extend visibility to the hypervisor through the VMware Tools channel, and that visibility failed in this case because of a driver bug",
       ],
       answer: 1,
       explanation:
@@ -321,14 +321,14 @@ const esxiVirtualizationSecurityRoom = {
       question:
         "An account with no prior special access is later observed enabling SSH on a production ESXi host and, minutes after that, powering off a VM. Both actions require specific vSphere privileges the account did not previously hold. What single earlier event should an investigation look for to explain how this became possible?",
       options: [
-        "A PermissionAddedEvent granting that account a role carrying the relevant privileges (such as Host.Config.Settings and VirtualMachine.Interact.PowerOff), somewhere earlier in the timeline",
-        "There is no earlier event to look for -- vSphere privileges are inherited automatically the first time an account successfully authenticates",
-        "An esx.audit.ssh.enabled event, since that is what actually grants the account its privileges",
-        "A VmPoweredOffEvent, since that event itself is what authorises the power-off action it describes",
+        "A PermissionAddedEvent granting the account a role with the needed privileges (such as Host.Config.Settings and VirtualMachine.Interact.PowerOff) earlier in the timeline",
+        "A RoleAddedEvent creating a role with those privileges -- creating the role is what makes its privileges available to the account that later uses them",
+        "An esx.audit.ssh.enabled event -- it is the first privileged action recorded and so marks the moment the account acquired host-configuration rights",
+        "A UserLoginSessionEvent for the account -- vSphere establishes an account's effective privileges at first authentication, so the login source explains the access",
       ],
       answer: 0,
       explanation:
-        "Reading 3 was explicit that a role has to be attached as a permission before it grants anything -- a PermissionAddedEvent is the specific, findable event that marks exactly when and how an account became capable of these actions. Privileges are not granted automatically on login (b). esx.audit.ssh.enabled and VmPoweredOffEvent are the CONSEQUENCES of already having the needed privilege, not the events that granted it (c, d) -- confusing an action with its authorisation is exactly the root-cause-vs-symptom trap Reading 3 warned about.",
+        "Reading 3 was explicit that a role has to be attached as a permission before it grants anything -- a PermissionAddedEvent is the specific, findable event that marks exactly when and how an account became capable of these actions. Creating a role (b) grants nothing until it is attached to a principal through a permission. Privileges are not established at login (d). esx.audit.ssh.enabled (c) is a CONSEQUENCE of already having the needed privilege, not the event that granted it -- confusing an action with its authorisation is exactly the root-cause-vs-symptom trap Reading 3 warned about.",
       xp: 25,
     },
     // ── Log Analysis 2: esx.audit.ssh.enabled ────────────────────────────────
@@ -451,14 +451,14 @@ const esxiVirtualizationSecurityRoom = {
       question:
         "A detection engineer proposes a single rule that fires only once file-modification activity is observed directly on a VMFS datastore's -flat.vmdk files. Based on Reading 7, what is the main weakness of relying on ONLY that rule?",
       options: [
-        "It would fire only once encryption has already begun, missing the earlier, mechanically-required mass power-off step (T1489) that -- because it must happen first and is separately visible in vCenter and host logs -- offers a real detection and response window before the actual damage occurs",
-        "There is no weakness at all -- datastore file-modification activity is the only meaningful signal in this entire attack chain",
-        "The rule would never fire under any circumstances, since VMFS does not support any form of file-modification monitoring",
-        "The rule would generate constant false positives, since every VM constantly modifies its own -flat.vmdk file during ordinary operation, making the signal indistinguishable from normal use",
+        "It would fire only once encryption has begun, missing the earlier mass power-off step (T1489), which must happen first and is visible in vCenter and host logs, giving a real window to respond",
+        "Its weakness is scope: it would catch only the first datastore to be encrypted and miss VMs on other datastores, which the encryptor processes later in the run",
+        "It would see only encryption launched from inside a guest VM, since an encryptor running on the ESXi host writes through the hypervisor and bypasses file-modification telemetry",
+        "It would generate constant false positives, since every VM continually modifies its own -flat.vmdk during normal operation, making the signal indistinguishable from ordinary use",
       ],
       answer: 0,
       explanation:
-        "Reading 7 made this point directly: because the power-off step is a separate, earlier, mechanically-required precondition, it is visible before the encryption itself -- a rule watching only for the encryption step throws away that earlier warning window. Datastore monitoring is a real capability, not something VMFS lacks entirely (c). And while VMs do write to their own disk files during normal operation, the SPECIFIC pattern this room describes -- mass power-offs immediately followed by datastore-wide rewrites -- is a distinguishable shape, not indistinguishable noise (d); the weakness is timing, not false-positive volume.",
+        "Reading 7 made this point directly: because the power-off step is a separate, earlier, mechanically-required precondition, it is visible before the encryption itself -- a rule watching only for the encryption step throws away that earlier warning window. Datastore monitoring does observe host-side encryption (c), which is exactly how this room's attack runs, and the weakness is not a datastore-by-datastore coverage gap (b). And while VMs do write to their own disk files during normal operation, the SPECIFIC pattern this room describes -- mass power-offs immediately followed by datastore-wide rewrites -- is a distinguishable shape, not indistinguishable noise (d); the weakness is timing, not false-positive volume.",
       xp: 25,
     },
     // ── Reading 8: earliest high-fidelity signal ─────────────────────────────
@@ -492,10 +492,10 @@ const esxiVirtualizationSecurityRoom = {
       question:
         "Reviewing a full vSphere intrusion timeline for the single best place to build an alerting rule, an analyst is choosing between: (1) the initial VPN login used to reach the management network, (2) the esx.audit.ssh.enabled event, and (3) the burst of guest EDR sensors going offline. Which ranking best reflects this room's earliness-vs-fidelity reasoning?",
       options: [
-        "Rule primarily on (2) -- it offers the best balance of confidence and earliness; use (1) only as weak supporting context due to its high noise rate among legitimate remote access, and use (3) only to confirm and scope an incident already well underway",
-        "Rule primarily on (1), since the earliest possible event in any timeline is always the correct one to alert on regardless of its noise rate",
-        "Rule primarily on (3), since the highest-confidence signal is always the correct single point to detect an attack, regardless of how late it arrives",
-        "All three signals are equally suitable and interchangeable as the sole basis for a detection rule",
+        "Rule primarily on (2) -- the best balance of confidence and earliness; use (1) only as weak context given its noise among legitimate remote access, and (3) only to confirm and scope an incident already underway",
+        "Rule primarily on (1) -- the VPN login is the earliest point in the chain, so alerting there gives the most response time, and tuning on geography and device can cut its noise to an acceptable level",
+        "Rule primarily on (3) -- simultaneous EDR sensor loss is the highest-confidence signal in the chain and yields almost no false positives, which matters more than earliness for a Tier-1 queue",
+        "Rule on (1) and (3) together -- pairing the earliest signal with the most certain one covers the full chain and makes a dedicated SSH-enable rule redundant",
       ],
       answer: 0,
       explanation:

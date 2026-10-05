@@ -144,10 +144,10 @@ const rooms = [
         question:
           "A SOC analyst writes a detection rule in their SIEM's query language but never documents it anywhere. Six months later, the analyst leaves the company. What is the PRIMARY risk?",
         options: [
-          "The SIEM will automatically delete undocumented rules after 30 days",
-          "The detection coverage disappears with the analyst because it was never formalized in the Use Case Registry",
-          "The rule will generate too many false positives without documentation",
-          "Other analysts will accidentally trigger the rule and cause outages",
+          "The SIEM purges rules with no documented owner once the creating account is deactivated, so the detection stops running",
+          "Detection coverage is lost with the analyst, because the logic, purpose and tuning were never formalized in a Use Case Registry",
+          "The rule's alerts will route to the departed analyst's deactivated mailbox, so every future alert is silently dropped",
+          "Other analysts will edit the rule without understanding it and push a conflicting version that overloads the SIEM",
         ],
         answer: 1,
         explanation:
@@ -161,10 +161,10 @@ const rooms = [
         question:
           "What is the main advantage of writing detection logic as a Sigma rule instead of directly in a SIEM's native query language (like Splunk SPL or Microsoft Sentinel KQL)?",
         options: [
-          "Sigma rules run faster and generate fewer false positives",
-          "Sigma rules are vendor-neutral and can be converted to any SIEM's query language",
-          "Sigma rules are automatically approved by MITRE ATT&CK",
-          "Sigma rules can only be written by Tier 3 analysts",
+          "Sigma rules run faster and produce fewer false positives because the converter optimises the logic for each SIEM",
+          "Sigma rules are vendor-neutral and can be converted into the query language of many different SIEMs",
+          "Sigma rules are pre-validated against MITRE ATT&CK, so every rule is guaranteed to map to a documented technique",
+          "Sigma rules can query raw logs directly without ingestion, so they work on sources the SIEM never collected",
         ],
         answer: 1,
         explanation:
@@ -178,10 +178,10 @@ const rooms = [
         question:
           "Your use case for detecting brute-force attacks fires when 5 failed logins occur within 10 minutes from a single account. After a company merger, the rule now generates 500 false-positive alerts per day — all from legitimate password resets for newly onboarded users. What should you do FIRST?",
         options: [
-          "Disable the rule permanently to stop the noise, accepting that brute-force detection coverage will simply be gone until someone eventually revisits it",
-          "Escalate every one of the 500 daily alerts to Tier 3 for manual investigation until the merger's onboarding wave is fully complete",
-          "Tune the rule — adjust the threshold, add an exception for the onboarding process, or scope it to exclude known-good IP ranges for the migration period",
-          "Delete the rule and start over from scratch, rebuilding the detection logic from an empty file rather than adjusting the existing one",
+          "Disable the rule for the duration of the onboarding wave, then re-enable it once password-reset volume returns to normal",
+          "Route the daily alert batch to Tier 3 for manual review until the merger's onboarding wave completes and volume subsides",
+          "Tune the rule — adjust the threshold, add an exception for the onboarding process, or exclude known-good IP ranges during the migration",
+          "Rewrite the detection from scratch with a fixed threshold of 50 failures, and retire the original use case immediately",
         ],
         answer: 2,
         explanation:
@@ -473,10 +473,10 @@ const rooms = [
         question:
           "An analyst responds to a ransomware incident, successfully contains it, and closes the ticket with only the note: 'Ransomware. Cleaned up.' What is the PRIMARY problem with this documentation?",
         options: [
-          "The ticket should have been assigned to a different, more senior analyst before it was ever allowed to be closed",
-          "The note doesn't answer who/what/when/where/why/how — it provides no timeline, no IOCs, no affected systems, no root cause, and no lessons learned",
-          "The word 'Ransomware' should be capitalized differently and formatted according to the ticketing system's official style guide",
-          "The ticket was closed too quickly without obtaining formal Tier 3 sign-off, regardless of what the note itself actually said",
+          "The ticket should have been reassigned to a senior analyst for closure, since only senior staff may close ransomware incidents",
+          "The note gives no timeline, IOCs, affected systems, root cause or lessons learned, so nobody can reuse or audit the record",
+          "The note should have been delivered to the client by phone instead, since written closure notes are only needed for uncontained incidents",
+          "The ticket was closed before the mandatory 30-day post-containment monitoring period ended, regardless of what the note said",
         ],
         answer: 1,
         explanation:
@@ -489,10 +489,10 @@ const rooms = [
         id: "rep-q2",
         question: "What does MTTD stand for, and what does it measure?",
         options: [
-          "Mean Time to Destroy — how long it takes to wipe a compromised system",
+          "Mean Time to Dispatch — the average time from alert creation until a ticket is assigned to an analyst",
           "Mean Time to Detect — the average time from when an attack begins until the SOC identifies it",
-          "Mean Tickets to Determine — the average number of tickets reviewed before escalating",
-          "Mean Time to Document — the average time analysts spend writing incident reports",
+          "Mean Time to Diagnose — the average time an analyst spends finding root cause after an incident is declared",
+          "Mean Time to Disrupt — the average time from detection until the attacker's access is terminated",
         ],
         answer: 1,
         explanation:
@@ -506,10 +506,10 @@ const rooms = [
         question:
           "Your SOC's SIEM generates 10,000 alerts in a week. After investigation, analysts determine that 9,200 of those alerts were false positives. What is the false positive rate, and what does this indicate?",
         options: [
-          "0.8% — this is excellent and means detection rules are highly accurate",
-          "92% — this is very high and indicates poorly tuned detection rules that are wasting significant analyst time",
-          "8% — this is a normal false positive rate and requires no action",
-          "10,000% — the total alert count should be divided by the number of analysts",
+          "0.8% — computed by dividing the 800 true positives by ten thousand, which shows very few false alarms",
+          "92% — most alert volume is noise, which indicates poorly tuned rules that waste significant analyst time",
+          "92% — normal for a mature SOC, because broad rules deliberately trade precision for coverage and need no tuning",
+          "8% — the share of alerts that were true positives, which indicates accurate rules that need little tuning",
         ],
         answer: 1,
         explanation:
@@ -767,10 +767,10 @@ const rooms = [
         question:
           "A client's CEO account has been confirmed compromised and is actively being used to send wire transfer requests. According to standard SLA tiers, which notification method should you use and what is the typical time requirement?",
         options: [
-          "Send a P4 email and include it in the weekly report",
-          "Update the ticket and wait for the client to check the portal",
-          "Make a P1 phone call immediately — typically within 15 minutes of confirmation",
-          "Send a P3 ticket update within 4 hours",
+          "Send a P2 email to the client's security contact and follow up by phone if no reply arrives within 4 hours",
+          "Raise the ticket to P1 and rely on the portal notification to reach the client's on-call contact within the hour",
+          "Make a P1 phone call immediately, typically within 15 minutes of confirmation",
+          "Send a P1 email with the full IOC list and wait for the client's acknowledgement before attempting any call",
         ],
         answer: 2,
         explanation:
@@ -784,10 +784,10 @@ const rooms = [
         question:
           "An analyst drafts this client notification: 'We detected T1078 Valid Account usage with impossible travel IOA across your tenant.' What is the main problem with this notification?",
         options: [
-          "The notification is far too long for a client-facing message and needs to be trimmed down to a single short sentence",
-          "T1078 is not a real MITRE ATT&CK technique, so the entire notification is technically inaccurate and should be rewritten from scratch",
-          "The notification uses technical jargon (T1078, IOA, impossible travel) that most business contacts won't understand — it should be translated to plain language describing the impact",
-          "The notification should include the analyst's personal phone number so the client can reach them directly instead of going through the SOC's main line",
+          "It omits the full IOC list and the detection rule ID, which the client's security team needs before it can act on any alert",
+          "T1078 maps to Phishing rather than Valid Accounts, so the technique reference is inaccurate and the notice must be corrected",
+          "It uses jargon (T1078, IOA, impossible travel) that business contacts won't understand — it should describe the impact in plain language",
+          "It names the detection technique but not the SIEM product that raised it, so the client cannot verify the finding independently",
         ],
         answer: 2,
         explanation:
@@ -801,10 +801,10 @@ const rooms = [
         question:
           "A client says: 'We don't want you to isolate the infected machine. Our CFO needs it for a board presentation tomorrow morning.' What is the BEST response from the SOC analyst?",
         options: [
-          "Immediately comply without further discussion — the client's stated business needs always take absolute priority over any security concern the SOC might raise",
-          "Ignore the client's request entirely and isolate the machine anyway, without telling them it happened or why it was necessary",
-          "Explain the specific business risk of leaving the machine connected (potential spread, data exposure), offer alternatives (temporary device for the CFO), and document the client's decision if they insist on waiting",
-          "Escalate to Tier 3 immediately and let them handle the entire client conversation, without attempting to explain the risk yourself first",
+          "Comply without discussion and leave the machine connected, since the client's business deadline overrides the SOC's containment recommendation",
+          "Isolate the machine anyway as policy requires, and inform the client afterwards in the end-of-shift report",
+          "Explain the risk of leaving it connected (spread, data exposure), offer alternatives such as a temporary device for the CFO, and document the client's decision if they insist",
+          "Escalate to Tier 3 to handle the client conversation, since risk-acceptance discussions fall outside Tier 1's communication scope",
         ],
         answer: 2,
         explanation:
@@ -1060,10 +1060,10 @@ const rooms = [
         question:
           "A Tier 1 analyst receives an alert about a single failed login attempt on a user account. The analyst checks the playbook: this is a known false positive pattern during the company's morning VPN authentication (many users retry once if they mistype their password). What should the analyst do?",
         options: [
-          "Immediately escalate to Tier 2 — any authentication failure could indicate a brute-force attack",
-          "Escalate to Tier 3 and open a full forensic investigation",
-          "Document the investigation finding and close the ticket as a false positive — escalating every single failed login would flood Tier 2 with noise",
-          "Call the affected user and demand an explanation for the failed login",
+          "Escalate to Tier 2 — any authentication failure could be the first event of a brute-force attack and deserves senior review",
+          "Escalate to Tier 3 for a forensic check to rule out account takeover before the ticket may be closed",
+          "Document the finding and close as a false positive — the playbook lists this pattern, and escalating would flood Tier 2 with noise",
+          "Contact the affected user to confirm the attempt was theirs, and keep the ticket open until they reply",
         ],
         answer: 2,
         explanation:
@@ -1077,10 +1077,10 @@ const rooms = [
         question:
           "What is the PRIMARY purpose of an 'escalation bridge' in a major P1 incident?",
         options: [
-          "A network bridge device that physically separates the attacker's traffic from clean traffic",
-          "A conference call or war room meeting that brings all relevant stakeholders together for real-time coordination during a major incident",
-          "A document template used to formally hand over an incident from Tier 1 to Tier 2",
-          "A backup SIEM system that activates when the primary SIEM is overwhelmed",
+          "A dedicated channel that relays SIEM alerts into the client's own ticketing system during high-volume incidents",
+          "A conference call or war room that brings the relevant stakeholders together for real-time coordination during a major incident",
+          "A handover template that formally transfers an incident from Tier 1 to Tier 2, recording status and actions taken",
+          "A standby SIEM instance that takes over ingestion and correlation when the primary platform is overwhelmed",
         ],
         answer: 1,
         explanation:
@@ -1094,10 +1094,10 @@ const rooms = [
         question:
           "A Tier 1 analyst confirms active ransomware spreading across 12 endpoints. The analyst escalates to Tier 2. After handing over the ticket, what should the Tier 1 analyst do?",
         options: [
-          "Log off and end their shift immediately — the incident has been formally handed to Tier 2, so it is entirely no longer their responsibility in any capacity",
-          "Remain available as a resource, provide context to Tier 2 when asked, and use the experience as a learning opportunity — while continuing to monitor the alert queue for related activity",
-          "Immediately call the client directly to inform them of the ransomware personally, bypassing the Tier 2 and Tier 3 chain of command entirely",
-          "Delete their investigation notes right away to avoid confusing Tier 2 with what might turn out to be conflicting information",
+          "Log off once the handover is complete — after escalation the incident is no longer Tier 1's responsibility in any capacity",
+          "Stay available to Tier 2 for context, keep working the queue for related alerts, and treat the case as a learning opportunity",
+          "Call the client directly with the ransomware details, since early notification matters more than the escalation chain",
+          "Archive working notes privately and give Tier 2 only the final conclusion, to avoid confusion from uncertain intermediate findings",
         ],
         answer: 1,
         explanation:

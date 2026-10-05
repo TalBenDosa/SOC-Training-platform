@@ -778,10 +778,10 @@ const protocolsMasterclass = {
       question:
         "A SOC analyst sees hundreds of DNS queries from a single workstation, all going to subdomains of the same domain, with subdomain strings that are 50+ characters long and look like random base64 text. What is the most likely explanation?",
       options: [
-        "Normal web browsing activity — CDN providers use long subdomain names",
-        "DNS tunneling — the workstation is exfiltrating data by encoding it in DNS subdomain queries",
-        "The DNS resolver is having trouble and retrying queries",
-        "The user installed a new application that uses DNS for licence verification",
+        "Normal CDN activity — content delivery networks generate long, random-looking subdomains for cache-busting",
+        "DNS tunneling — the workstation encodes data into subdomain labels to exfiltrate it through DNS queries",
+        "A resolver retry storm — a failing upstream resolver causes repeated queries with mangled, base64-like hostnames",
+        "A software licence check — a newly installed application encodes machine identifiers into DNS lookups for activation",
       ],
       answer: 1,
       explanation:
@@ -795,10 +795,10 @@ const protocolsMasterclass = {
       question:
         "Port 445 is blocked on your perimeter firewall. An attacker has already gained access to a workstation inside the network. What risk does port 445 STILL pose INTERNALLY?",
       options: [
-        "No risk — if it is blocked at the perimeter the attacker cannot exploit it",
-        "Internal SMB traffic on port 445 can enable lateral movement between workstations, spreading ransomware and enabling credential relay attacks",
-        "Port 445 is only used for printing and poses minimal security risk",
-        "The attacker would need to open port 445 on the perimeter firewall before it becomes a risk",
+        "Minimal risk — the perimeter block makes SMB unreachable to anything inside the network as well",
+        "Internal SMB on port 445 enables lateral movement between workstations, spreading ransomware and enabling credential relay",
+        "Limited risk — port 445 only carries file and printer sharing, which cannot be used to execute code or move laterally",
+        "The risk only appears once the attacker opens port 445 on the perimeter firewall, since SMB abuse needs inbound internet access",
       ],
       answer: 1,
       explanation:

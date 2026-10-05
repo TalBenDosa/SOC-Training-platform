@@ -198,14 +198,14 @@ const oktaIdentityFundamentalsRoom = {
       question:
         "A ticket describes an Okta account that received 80 sign-in failures overnight, all outcome.result FAILURE, and zero sessions were ever created. The analyst closes it as 'blocked, no impact.' Based on this room, what is wrong with that closure, if even one of those 80 events carried outcome.reason MFA_REQUIRED rather than INVALID_CREDENTIALS?",
       options: [
-        "Nothing is wrong -- zero sessions created means zero impact by definition, regardless of any individual event's reason field",
-        "It ignores that MFA_REQUIRED can only appear after the password stage succeeded -- meaning the account's real password is now known to whoever was making the attempts, even though no session was ever created",
-        "The closure is correct, but only because Okta's own rate limiter would have already reset the password automatically",
-        "MFA_REQUIRED in this context only ever indicates a benign, expected password-manager autofill retry, never a real credential exposure",
+        "Nothing is wrong -- MFA_REQUIRED means the MFA stage blocked the attempt, so no password exposure occurred and zero sessions confirms the account was never actually reached",
+        "It ignores that MFA_REQUIRED appears only after the password stage succeeded, so whoever made the attempts now knows the real password even though no session was created",
+        "The closure needs revising only to flag a policy gap -- MFA_REQUIRED means the account has no enrolled factor, so the finding is an enrollment problem rather than credential exposure",
+        "The closure holds, since MFA_REQUIRED in a failing burst most often reflects a legitimate user's autofill retrying a stale credential, with no external party involved",
       ],
       answer: 1,
       explanation:
-        "Reading 3 built the whole point of this room around exactly this failure mode: 'blocked' and 'no impact' are not the same fact. A single MFA_REQUIRED reason inside an otherwise-failing burst proves the password was correct at least once, which is a live credential-exposure finding regardless of whether a session was ever created. Okta's rate limiter (c) does not reset passwords, and nothing supports assuming benign autofill (d) without checking the source IP and user agent against the account's normal pattern.",
+        "Reading 3 built the whole point of this room around exactly this failure mode: 'blocked' and 'no impact' are not the same fact. A single MFA_REQUIRED reason inside an otherwise-failing burst proves the password was correct at least once, which is a live credential-exposure finding regardless of whether a session was ever created. The MFA stage (a) only runs after primary authentication passed, so it does not mean the password stayed secret. MFA_REQUIRED (c) is a challenge issued after a correct password, not an enrollment-gap signal. And nothing supports assuming benign autofill (d) without checking the source IP and user agent against the account's normal pattern.",
       xp: 25,
     },
     // ── Reading 4: securityContext ────────────────────────────────────────────
@@ -240,14 +240,14 @@ const oktaIdentityFundamentalsRoom = {
       question:
         "Why is a WebAuthn/FIDO2 security key considered meaningfully stronger against phishing than an Okta Verify push notification, even though both count as a second factor?",
       options: [
-        "WebAuthn is cryptographically bound to the specific site being authenticated to, so it cannot be tricked into approving a login on a different, spoofed site -- a push notification only asks for a single tap with no such binding",
-        "WebAuthn keys never expire, while push notifications expire after 30 seconds",
-        "Push notifications are always sent over SMS, which is inherently insecure, while WebAuthn uses no network connection at all",
-        "There is no real difference -- both provide identical protection against every kind of phishing attempt",
+        "WebAuthn is cryptographically bound to the specific site being authenticated to, so it cannot approve a login on a spoofed site -- a push only asks for a single tap with no such binding",
+        "WebAuthn responses have a much shorter validity window than a push approval, so a phished credential expires before an attacker can relay it to the real site",
+        "Push approvals are delivered through the carrier network and are exposed to SIM swapping, while a WebAuthn key exchanges nothing over any network path that could be intercepted",
+        "WebAuthn keeps the user's password inside a hardware secure element, so a phishing page has no password to collect, whereas a push still requires typing one",
       ],
       answer: 0,
       explanation:
-        "Reading 5 named this precisely: WebAuthn's cryptographic binding to the requesting site is what makes it phishing-resistant, whereas a push approval is just a tap with no such binding -- which is exactly why push-fatigue attacks work at all against push but not against WebAuthn. Expiry timing (b) is not the actual security distinction being tested, and push notifications are not SMS-based (c) -- Okta Verify push uses the app's own secure channel, not SMS.",
+        "Reading 5 named this precisely: WebAuthn's cryptographic binding to the requesting site is what makes it phishing-resistant, whereas a push approval is just a tap with no such binding -- which is exactly why push-fatigue attacks work at all against push but not against WebAuthn. Validity-window timing (b) is not the actual security distinction, and push notifications are not carrier-delivered (c) -- Okta Verify push uses the app's own secure channel, not SMS. WebAuthn also does not store or replace the password (d); it is a second factor tied to the site's origin.",
       xp: 25,
     },
     // ── Reading 6: Okta vs Entra contrast ─────────────────────────────────────
@@ -371,14 +371,14 @@ const oktaIdentityFundamentalsRoom = {
       question:
         "At 03:19, five minutes after n.abara@globallogis.com's password was confirmed correct in the earlier finding, a system.org.rate_limit.warning event appears for the same source IP. A junior analyst reasons that this rate-limit event means the incident is now resolved. What is the correct assessment?",
       options: [
-        "Correct -- once Okta's rate limiter engages, no further risk exists from that source",
-        "Incorrect -- a rate limiter only slows down further requests from that source; it does not undo or evaluate anything that already succeeded before it engaged, such as the confirmed-correct password",
-        "Correct, but only because rate-limit events always follow, and therefore cause, an automatic password reset",
-        "Incorrect, but only because rate-limit warnings are exclusively cosmetic and never actually throttle any traffic",
+        "Correct -- once Okta's rate limiter engages for that IP, further authentication from it is blocked, so the confirmed password can no longer be used from that source",
+        "Incorrect -- a rate limiter only slows later requests from that source; it does not undo or assess the confirmed-correct password that was already obtained",
+        "Correct -- a system.org.rate_limit.warning means Okta's threat detection judged the source malicious and queued the account for a forced password reset",
+        "Incorrect, but only because the warning shows the attacker's tooling was fingerprinted, so blocking the source IP is the fix and the password question can be deferred",
       ],
       answer: 1,
       explanation:
-        "Reading 7 covered this precisely: a rate limiter's job is to slow down volume going forward -- it has no bearing on whether something inside that volume, like a correct password guess, already happened. Treating throttling as resolution is the exact mistake to avoid. Rate-limit events do not trigger password resets on their own (c), and they do genuinely throttle traffic, not merely log it cosmetically (d).",
+        "Reading 7 covered this precisely: a rate limiter's job is to slow down volume going forward -- it has no bearing on whether something inside that volume, like a correct password guess, already happened. Treating throttling as resolution is the exact mistake to avoid. Blocking one source (a) does not stop the same password being used from any other address; rate-limit events do not trigger password resets on their own (c); and blocking the IP while deferring the credential question (d) still leaves a known-correct password live.",
       xp: 25,
     },
     // ── Log Analysis 2: group membership self-add ────────────────────────────
@@ -487,14 +487,14 @@ const oktaIdentityFundamentalsRoom = {
       question:
         "An analyst is handed two tickets on the same morning: one from a company running Entra ID, one from a company running Okta. Both describe a suspicious sign-in. Which statement correctly reflects how the analyst should approach the two investigations?",
       options: [
-        "Treat both identically, since Entra ID and Okta share the exact same log schema and field names",
-        "Recognise the underlying identity concepts (authentication stages, MFA, risk signals) transfer between the two, but read each tenant's own native fields -- Entra's status codes and ConditionalAccessStatus versus Okta's outcome.result/outcome.reason and eventType taxonomy -- rather than assuming one platform's field names apply to the other",
-        "Refuse to investigate the Okta ticket at all, since this platform primarily teaches Entra ID",
-        "Assume Okta cannot produce any admin-level or policy-change logs, since Entra keeps those in a separate audit log and Okta must therefore lack an equivalent",
+        "Reuse the Entra query logic directly on the Okta tenant, since SIEM normalisation maps both vendors onto the same field names and no vendor-specific reading is needed",
+        "Carry the concepts (authentication stages, MFA, risk signals) across, but read each tenant's native fields -- Entra status codes and ConditionalAccessStatus versus Okta outcome.result/reason and eventType",
+        "Triage the Okta ticket from IP and geography only, since those are the only attributes both platforms share, and escalate anything that needs deeper field analysis",
+        "Assume Okta's System Log covers sign-in events only, since Entra keeps admin and policy changes in a separate audit log and Okta must therefore lack an equivalent",
       ],
       answer: 1,
       explanation:
-        "This is the exact synthesis Reading 6 built toward: the concepts rhyme (both are identity providers doing the same underlying job), but the schemas do not, and treating them as interchangeable is the mistake this room is designed to prevent. Refusing to investigate (c) isn't a real option a working analyst has, and Okta absolutely tracks admin and policy changes, just within its own unified System Log rather than a separate audit log (d).",
+        "This is the exact synthesis Reading 6 built toward: the concepts rhyme (both are identity providers doing the same underlying job), but the schemas do not, and treating them as interchangeable (a) is the mistake this room is designed to prevent. Reducing the Okta ticket to IP and geography (c) throws away the outcome.reason and eventType fields that carry the real signal, and Okta absolutely tracks admin and policy changes, just within its own unified System Log rather than a separate audit log (d).",
       xp: 25,
     },
     // ── Question 5: synthesis ──────────────────────────────────────────────────
@@ -504,14 +504,14 @@ const oktaIdentityFundamentalsRoom = {
       question:
         "Summarising this room's central lesson: an Okta account shows a run of INVALID_CREDENTIALS failures from a hosting-provider ASN, then one MFA_REQUIRED event from the same source, then a rate-limit warning, and no session is ever created. What is the single most accurate way to classify this incident?",
       options: [
-        "A blocked credential-stuffing attempt with a confirmed password exposure -- the account's password is now known to an outside party even though the attacker never obtained a session, so credential reset and further pivoting are still required",
-        "A fully resolved, no-impact event, since Okta's own defences (MFA and the rate limiter) prevented any session from being created",
-        "A false positive, since INVALID_CREDENTIALS is the dominant reason across the burst and should be treated as the only meaningful signal",
-        "An unrelated pair of coincidental system events with no connection to each other",
+        "A blocked credential-stuffing attempt with a confirmed password exposure -- the password is known to an outside party though no session was obtained, so reset and pivot checks are still required",
+        "A contained brute-force attempt -- MFA stopped the attacker and the rate limiter capped the volume, so the account only needs monitoring and no reset since no session ever existed",
+        "A false positive -- INVALID_CREDENTIALS dominates the burst, so the single MFA_REQUIRED event is most likely a legitimate user retry and the ticket can be closed",
+        "A misconfigured integration -- a datacenter-ASN burst plus a rate-limit warning is typical of a service retrying stale credentials, so the ticket belongs with the Okta admin team",
       ],
       answer: 0,
       explanation:
-        "This draws together the room's core threads: the reason-field flip (Reading 3) proves password exposure even without a session; the securityContext ASN (Reading 4) corroborates that this wasn't the legitimate user; and the rate-limit event (Reading 7) reflects Okta defending itself, not resolving the underlying exposure. Calling this 'no impact' (b) or dismissing the one differing reason value as noise (c) both repeat mistakes this room specifically addressed. And nothing here is coincidental (d) -- the events form one coherent, ordered chain.",
+        "This draws together the room's core threads: the reason-field flip (Reading 3) proves password exposure even without a session; the securityContext ASN (Reading 4) corroborates that this wasn't the legitimate user; and the rate-limit event (Reading 7) reflects Okta defending itself, not resolving the underlying exposure. Calling this contained or no-impact (b) or dismissing the one differing reason value as noise (c) both repeat mistakes this room specifically addressed. And this isn't a misconfigured integration (d): a service retrying stale credentials would never produce a correct-password MFA_REQUIRED, and the events form one coherent, ordered chain.",
       xp: 30,
     },
   ],

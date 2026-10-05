@@ -324,10 +324,10 @@ const ransomwareLifecycleRoom = {
       question:
         "A SOC analyst reviewing overnight VPN authentication logs sees a successful login to the corporate SSL-VPN from an unfamiliar residential IP address, followed six minutes later by that same account browsing internal file shares it has never touched before. The mail gateway logs show no phishing indicator anywhere for this user in the past month, and the VPN appliance's patch history shows it is three versions behind current, with a public CVE disclosed for that exact version eleven days ago. Based on Reading 2, what should the analyst's leading hypothesis be for the initial access vector?",
       options: [
-        "Phishing -- since ransomware almost always starts with an email, the absence of any phishing indicator just means the mail gateway silently missed it, so phishing should remain the default assumption regardless of the other evidence",
-        "Exploitation of the unpatched, internet-facing VPN appliance (T1190) -- the absence of a phishing indicator, the eleven-day-old public CVE, and the appliance running three versions behind current together point at edge-device exploitation rather than a user-driven action",
-        "RDP brute force -- a burst of repeated authentication failures is the defining signature of brute force, and any successful login to a remote-access service should always be attributed to brute forcing by default",
-        "The initial access vector doesn't matter for the investigation, since every ransomware intrusion eventually reaches the same later stages regardless of how it started",
+        "Phishing (T1566) -- a mail gateway can silently miss a delivered message, so the lack of a recorded indicator does not rule it out and the user should be handled as a phishing victim first",
+        "Exploitation of the unpatched, internet-facing VPN appliance (T1190) -- the version is behind current with a public CVE disclosed eleven days ago, and no phishing trace exists for this user",
+        "VPN brute force or password spraying (T1110) -- a first successful login from an unfamiliar residential IP is the typical outcome of credential guessing, so the vector should be treated as guessed credentials",
+        "Vector attribution is a post-incident task -- at triage the analyst should only contain the account and leave any initial-access hypothesis to the forensics team once the investigation closes",
       ],
       answer: 1,
       explanation:
@@ -470,10 +470,10 @@ const ransomwareLifecycleRoom = {
       question:
         "Two Windows Security logs land nine minutes apart on two different servers. On SRV-APP-14: Event 4624 (logon type 3, network logon) for NEXACORP\\j.reyes from source IP 10.30.4.61, immediately followed by Event 7045 recording a new service named PSEXESVC. Nine minutes later, the identical pattern repeats on SRV-DB-09 -- same account, same source IP, another PSEXESVC service creation. Based on Reading 5 and this room's earlier findings, what does this pair of events most likely represent?",
       options: [
-        "Nothing worth investigating -- PsExec is a legitimate Sysinternals tool, so any PSEXESVC service creation should be closed automatically without further review",
-        "A single administrator remotely managing two servers in the ordinary course of IT work -- logon type 3 is used constantly for routine administration, so no further check is needed",
-        "The classic PsExec lateral-movement signature -- a repeating network-logon-then-PSEXESVC pattern across two hosts nine minutes apart, from the same j.reyes account this room's credential-access finding already flagged as plausibly carrying domain-wide access -- the analyst should treat this as the affiliate spreading with the stolen credential and check every other host that account has touched tonight",
-        "This must already be the ransomware encryption stage in progress, since PsExec is exclusively an attacker tool and its use on two hosts means the impact stage has already begun",
+        "Reconnaissance rather than lateral movement -- a type 3 logon plus a service creation only enumerates hosts for later targeting, and no attacker code has actually executed on either server yet",
+        "A single administrator managing two servers -- logon type 3 is routine for remote administration, and two hosts nine minutes apart from one source IP fits ordinary patching cadence",
+        "PsExec lateral movement with the j.reyes credential flagged earlier -- the same account and source IP repeating the type 3 logon then PSEXESVC pattern across servers, so scope every host it touched tonight",
+        "The ransomware encryption stage already in progress -- a PSEXESVC service on a second server means the encryptor is being pushed fleet-wide, so this should be handled as detonation",
       ],
       answer: 2,
       explanation:
@@ -749,14 +749,14 @@ const ransomwareLifecycleRoom = {
       question:
         "It's now confirmed: credentials were dumped from an IT workstation, a domain-privileged account staged and exfiltrated roughly 85 GB of the Finance share to an unrecognized cloud remote, and an encryptor has begun running on dozens of hosts -- some successfully blocked by EDR, some not. A ransom note referencing a leak site has appeared. Based on Reading 8's playbook, what is the correct sequence of actions for the SOC right now?",
       options: [
-        "Immediately negotiate with the attacker through the leak-site chat to buy time, since the SOC is best positioned to make the payment decision on the organization's behalf without waiting for legal or executive input",
-        "Network-isolate every host still showing active or attempted encryption, scope which hosts were actually hit versus merely targeted, preserve evidence, and hand IR/legal/executives a clear technical picture -- blast radius, confirmed exfiltrated data, and IOCs -- since the payment decision itself belongs to them, not the SOC",
-        "Power off every server in the environment immediately, including hosts with no sign of compromise at all, since a full shutdown is always the safest first move regardless of what has or hasn't been confirmed as affected",
-        "Do nothing further until an attacker-supplied decryption tool is verified to work, since there is no remaining value in containment once encryption has already started on some hosts",
+        "Open a negotiation channel through the leak-site portal in parallel with isolation, since the SOC holds the technical detail needed to judge the attacker's proof and can buy the business time",
+        "Network-isolate hosts with active or attempted encryption, scope hit versus merely targeted hosts, preserve evidence, and give IR, legal and executives the blast radius, confirmed exfiltration and IOCs for the payment decision",
+        "Hard power-off every host showing encryption plus the file servers and domain controllers, then rebuild everything from backup, since a full shutdown stops the spread fastest and evidence can be rebuilt from logs",
+        "Start restoring the already-encrypted hosts from backup first, since recovery time drives the business impact and containment of the remaining hosts can follow once critical services are running again",
       ],
       answer: 1,
       explanation:
-        "Option b matches Reading 8's playbook directly: contain the still-active spread, scope accurately, preserve evidence, and deliver facts -- not a payment decision -- to the people actually authorized to make that call. Option a hands the SOC a decision and a level of external contact it should never have. Option c is disproportionate: it destroys volatile evidence on unaffected hosts for no benefit, and shutting down hosts still mid-encryption doesn't undo damage already done while complicating recovery. Option d wrongly treats containment as pointless once some hosts are hit, when stopping the spread to the hosts NOT yet encrypted is exactly the highest-value action still available.",
+        "Option b matches Reading 8's playbook directly: contain the still-active spread, scope accurately, preserve evidence, and deliver facts -- not a payment decision -- to the people actually authorized to make that call. Option a hands the SOC a decision and a level of external contact it should never have. Option c is disproportionate: powering off hosts destroys volatile evidence (memory, live connections) and the domain controllers needed for recovery, without scoping which hosts were actually affected. Option d gets the order wrong: restoring onto a network where the encryptor is still spreading just feeds it new victims, and stopping the spread to hosts NOT yet encrypted is the highest-value action still available.",
       xp: 30,
     },
     // ── Flag ───────────────────────────────────────────────────────────────

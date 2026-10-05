@@ -205,14 +205,14 @@ export const roomsBatch43 = [
         question:
           "An analyst finds a Groups.xml file in SYSVOL with a cpassword attribute, on a domain that applied MS14-025 eighteen months ago. Is the value still decryptable, and why?",
         options: [
-          "No — the patch retroactively re-encrypted every existing cpassword value across the entire domain with a brand new, non-public key the moment it was installed on the domain controller",
-          "Yes — MS14-025 only stops NEW cpassword values from being created through the GPP UI; it never purges or re-encrypts old XML files already in SYSVOL, so a surviving pre-patch file stays fully decryptable with the same public AES key",
-          "No — SYSVOL access itself was fully and permanently disabled for all domain users the moment the patch was applied, so the file can no longer be read by anyone at all",
-          "Yes, but only for domain administrators — regular domain users lost all SYSVOL read access entirely as part of that very same security patch rollout",
+          "No — MS14-025 re-encrypted existing cpassword values under a new non-public key at the next Group Policy refresh cycle",
+          "Yes — MS14-025 only blocks creating new cpassword values in the GPP UI; old files in SYSVOL stay decryptable with the same public AES key",
+          "No — MS14-025 tightened SYSVOL permissions so only Domain Admins can read existing Policies XML files, blocking ordinary users",
+          "Yes, but only when read from a Domain Controller, since the patch moved the AES key into the DC's protected LSA secrets",
         ],
         answer: 1,
         explanation:
-          "MS14-025 prevents creating new cpassword values through the GPP interface going forward; it does not touch files that already existed in SYSVOL, and the AES key itself was never changed or made secret. SYSVOL remains readable by any domain user by design (that is the whole point of Group Policy distribution), both before and after the patch.",
+          "MS14-025 prevents creating new cpassword values through the GPP interface going forward; it does not touch files that already existed in SYSVOL, and the AES key itself was never changed, relocated, or made secret. SYSVOL remains readable by any domain user by design (that is the whole point of Group Policy distribution), both before and after the patch, so no Domain Controller or admin access is needed.",
         xp: 25,
       },
       {
@@ -244,14 +244,14 @@ export const roomsBatch43 = [
         question:
           "A DLP rule flags an outbound file upload containing the literal string '-----BEGIN OPENSSH PRIVATE KEY-----'. Why is this specific string such a high-fidelity detection signature?",
         options: [
-          "It is not actually reliable at all — that exact header string appears constantly in ordinary business text documents and email templates, producing overwhelming false positives in practice",
-          "It is a fixed, unambiguous marker that only ever appears at the start of genuine unencrypted private-key material — almost nothing else produces that exact string, making it a rare, near-certain positive rather than a probabilistic heuristic",
-          "It only ever appears in files that were deliberately created by malware authors, so any single match automatically and conclusively proves a compromise has already occurred",
-          "It indicates the key has already been successfully used to authenticate somewhere on the network, not merely that key material happens to exist in the uploaded content",
+          "The header also appears in ordinary PEM certificate and CSR files that teams upload constantly, so it fires on routine traffic",
+          "It is a fixed marker that appears only in genuine private-key files, so a match is a rare, near-certain positive",
+          "It is produced mainly by attacker tooling rather than by legitimate admins, so a single match conclusively proves a compromise",
+          "The header is written to a file only after the key has been used to authenticate, so a match means the key is already in active use",
         ],
         answer: 1,
         explanation:
-          "The PEM header format is a fixed, standardized marker specific to key material -- it is not common ordinary-document text, so a match is a rare, high-confidence signal rather than noise. It says nothing about who created the file (legitimate developers write real keys constantly) and nothing about whether the key was ever actually used to authenticate -- it only confirms key material is present in the outbound content.",
+          "The PEM header format is a fixed, standardized marker specific to private-key material -- public certificates and CSRs use different BEGIN CERTIFICATE / BEGIN CERTIFICATE REQUEST headers -- so a match is a rare, high-confidence signal rather than noise. It says nothing about who created the file (legitimate developers generate real keys constantly) and nothing about whether the key was ever actually used to authenticate -- the header exists from the moment the key is generated. It only confirms key material is present in the outbound content.",
         xp: 25,
       },
       {
@@ -273,14 +273,14 @@ export const roomsBatch43 = [
         question:
           "Why is macOS Keychain theft (T1555.001) usually the SECOND step in a real attack chain, rather than the first?",
         options: [
-          "Because extracting most Keychain items' actual secret values requires the keychain to already be unlocked or the account's login password supplied — so an earlier step (often a spoofed password prompt) must capture that password first",
-          "Because the security command-line tool does not ship with macOS by default at all and must be manually installed separately through the full Xcode developer tools package",
-          "Because Apple requires a separate two-factor authentication challenge to complete before any Keychain API call can succeed on the device, regardless of local access level",
-          "Because dump-keychain -d only ever works on keychains that have already been synced to iCloud Keychain across a user's other Apple devices beforehand",
+          "Because extracting most items' secret values needs the keychain unlocked or the login password supplied, so a prior step must capture that password",
+          "Because the security command-line tool is installed only with the Xcode Command Line Tools, which an attacker must first deploy to the host",
+          "Because System Integrity Protection blocks Keychain reads until it is disabled, which requires a prior step of booting into recovery mode",
+          "Because dump-keychain -d only works on keychains synced to iCloud Keychain, so the attacker must first compromise the user's Apple ID",
         ],
         answer: 0,
         explanation:
-          "The keychain's own protection (needing it unlocked or the login password) is exactly why theft is normally staged in two steps: capture the login password some other way, then use it to unlock and dump the keychain. The security tool ships with the OS, no macOS-wide 2FA gate exists on local Keychain API calls, and dump-keychain -d works on the local login keychain regardless of iCloud sync status.",
+          "The keychain's own protection (needing it unlocked or the login password) is exactly why theft is normally staged in two steps: capture the login password some other way, then use it to unlock and dump the keychain. The security tool ships with macOS itself, SIP protects system files and processes but does not gate a user's own login keychain, and dump-keychain -d works on the local login keychain regardless of iCloud sync status.",
         xp: 25,
       },
       {
@@ -400,14 +400,14 @@ export const roomsBatch43 = [
         question:
           "Why does routine, legitimate Active Directory replication between two Domain Controllers never generate a Windows Event 4663 record against ntds.dit?",
         options: [
-          "Because replication is a protocol-level exchange between the AD DS processes on each Domain Controller (DRSUAPI) — it never reads the ntds.dit FILE directly at the file-access level, so there is no file object-access event to generate at all",
-          "Because replication traffic is always encrypted, and encrypted traffic is automatically exempt from Windows object-access auditing regardless of what it accesses",
-          "Because replication only ever happens through Volume Shadow Copy snapshots, which Windows explicitly excludes from all object-access auditing",
-          "Because 4663 auditing is only ever enabled on member servers, never on Domain Controllers, by Windows' own default security baseline",
+          "Because replication is a protocol-level DRSUAPI exchange between AD DS processes and never reads the ntds.dit file itself",
+          "Because replication reads ntds.dit through a Volume Shadow Copy, whose device paths are excluded from object-access auditing by default",
+          "Because replication runs as the SYSTEM account, and Windows suppresses 4663 for SYSTEM-initiated access to protected AD database files",
+          "Because 4663 is only generated for reads in interactive logon sessions, and replication runs in a non-interactive service session",
         ],
         answer: 0,
         explanation:
-          "AD replication operates through the DRSUAPI protocol between the AD DS processes themselves -- it is a service-to-service data exchange, not a file-system-level read of ntds.dit, so it produces no 4663 record regardless of whether SACL auditing is enabled. Encryption has no bearing on whether object-access auditing fires, replication does not route through VSS snapshots, and 4663 auditing can be enabled on any system including Domain Controllers -- it simply is not on by default anywhere.",
+          "AD replication operates through the DRSUAPI protocol between the AD DS processes themselves -- it is a service-to-service data exchange, not a file-system-level read of ntds.dit, so it produces no 4663 record regardless of whether SACL auditing is enabled. Replication does not route through VSS snapshots, Windows does not exempt SYSTEM or non-interactive sessions from 4663 when a SACL matches, and 4663 auditing can be enabled on any system including Domain Controllers -- it simply is not on by default anywhere.",
         xp: 25,
       },
       {

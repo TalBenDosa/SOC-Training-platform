@@ -214,10 +214,10 @@ A good case ticket contains:
       id: "inv-method-q2",
       question: "You find a suspicious external IP address in one log. What is the first pivot you should perform?",
       options: [
-        "Immediately block the IP in the firewall and close the ticket",
+        "Block the IP at the firewall and close the ticket",
         "Search every host in the environment that communicated with that IP",
-        "Look up the IP in Google Maps to find the attacker's location",
-        "Run a port scan against that IP to see what services it is running",
+        "Report the IP to the hosting provider's abuse contact and wait for a reply",
+        "Run a port scan against that IP to see which services it is running",
       ],
       answer: 1,
       explanation:
@@ -288,10 +288,10 @@ A good case ticket contains:
         {
           question: "Why is the NTLM authentication package significant in this alert?",
           options: [
-            "NTLM is a newer protocol and always more secure than Kerberos",
-            "NTLM is legacy and attackers often use Pass-the-Hash attacks that produce NTLM authentication",
-            "NTLM means the logon was denied and no access was gained",
-            "NTLM authentication only works from outside the network",
+            "NTLM is the modern default and is always more secure than Kerberos",
+            "NTLM is a legacy protocol, and Pass-the-Hash attacks produce NTLM authentications",
+            "NTLM here means the logon used a Golden Ticket forged for the account",
+            "NTLM authentication occurs only for logons coming from outside the network",
           ],
           answer: 1,
           explanation:
@@ -334,10 +334,10 @@ A good case ticket contains:
       id: "inv-method-q5",
       question: "You complete an investigation and determine it is a true positive. What belongs in your case documentation?",
       options: [
-        "Only the final verdict — true positive or false positive",
-        "Timeline, evidence links, affected assets, chain of events, conclusion, and recommendations",
-        "A screenshot of the alert and a note that the host was rebooted",
-        "The attacker's IP address and a request to block it",
+        "The final verdict and the ticket closure time",
+        "Timeline, evidence links, affected assets, chain of events, conclusion and recommendations",
+        "A screenshot of the alert, the SIEM query used, and a note that the host was rebooted",
+        "The attacker's IP address, the block request, and the name of the handling analyst",
       ],
       answer: 1,
       explanation:
@@ -520,10 +520,10 @@ The key insight: the platform does not matter as much as the hypothesis and the 
       id: "threat-hunt-q1",
       question: "Industry dwell-time figures have fallen a long way over the last decade — from roughly 200 days to a global median now measured in days-to-weeks. Why does that improvement NOT remove the case for proactive threat hunting?",
       options: [
-        "Because dwell time only measures how long containment and recovery take once an incident has been declared, so it says nothing at all about how quickly the original intrusion was detected",
-        "Because the median is dragged down by loud, fast ransomware that effectively announces itself, while the patient low-and-slow intruder — exactly what hunting is built to find — is still the case that goes undetected for months",
-        "Because the reported improvement was measured only in cloud environments, while on-premises enterprise networks have actually seen their dwell times increase over the same period",
-        "Because proactive threat hunting is a mandatory compliance requirement under most regulatory frameworks, regardless of how quickly a SOC actually detects intrusions in practice",
+        "Because dwell time measures only containment and recovery after an incident is declared, saying nothing about detection speed",
+        "Because the median is pulled down by loud, fast ransomware, while the low-and-slow intruder that hunting targets still goes undetected for months",
+        "Because the improvement was measured only in cloud environments, while on-premises dwell times have actually increased",
+        "Because proactive hunting is a compliance requirement under most frameworks, regardless of how fast detection is",
       ],
       answer: 1,
       explanation:
@@ -537,10 +537,10 @@ The key insight: the platform does not matter as much as the hypothesis and the 
       id: "threat-hunt-q2",
       question: "What is the key advantage of TTP-based hunting (Level 2) over IOC-based hunting (Level 1)?",
       options: [
-        "TTP-based hunting is faster because it uses fewer queries",
-        "TTPs describe attacker behaviour, which is harder to change than indicators like IP addresses or file hashes",
-        "IOC-based hunting requires more expensive tools",
-        "TTP-based hunting only works with threat intelligence subscriptions",
+        "TTP-based hunting is faster because it needs fewer queries",
+        "TTPs describe attacker behaviour, which is harder to change than IPs or file hashes",
+        "IOC-based hunting needs more expensive tooling and longer log retention",
+        "TTP-based hunting works only with a paid threat-intelligence subscription",
       ],
       answer: 1,
       explanation:
@@ -554,10 +554,10 @@ The key insight: the platform does not matter as much as the hypothesis and the 
       id: "threat-hunt-q3",
       question: "What should you do with a confirmed threat hunting finding?",
       options: [
-        "Keep it secret so the attacker does not know you found them",
-        "Delete the logs and reimage the machine immediately",
-        "Document it and convert it into a new SIEM detection rule for automatic future detection",
-        "Submit it to a bug bounty program",
+        "Keep it inside the hunt team so the attacker is not alerted",
+        "Reimage the machine immediately, before collecting any evidence",
+        "Document it and turn it into a SIEM detection rule for automatic future coverage",
+        "Close the hunt ticket as resolved once the host is contained",
       ],
       answer: 2,
       explanation:
@@ -597,10 +597,10 @@ The key insight: the platform does not matter as much as the hypothesis and the 
         {
           question: "What is the purpose of the number '640' in the command line 'rundll32.exe comsvcs.dll MiniDump 640 lsass.dmp full'?",
           options: [
-            "It is the port number the dump will be sent to",
-            "It is the Process ID (PID) of the LSASS process to dump",
-            "It is the maximum size of the dump file in megabytes",
-            "It is a random session identifier generated by the attacker's tool",
+            "It is the TCP port the dump file will be sent to",
+            "It is the Process ID (PID) of the LSASS process being dumped",
+            "It is the access mask the tool requests on the target process",
+            "It is the session ID of the logon that owns the dumped process",
           ],
           answer: 1,
           explanation:
@@ -639,10 +639,10 @@ The key insight: the platform does not matter as much as the hypothesis and the 
       id: "threat-hunt-q4",
       question: "You observe powershell.exe launching from winword.exe (Microsoft Word) on an endpoint. Why is this suspicious?",
       options: [
-        "Microsoft Word is not allowed to use the network",
-        "Word documents can legitimately contain PowerShell macros, so this is expected",
-        "Word should never spawn PowerShell — this is a classic macro-based malware execution pattern",
-        "PowerShell is not installed on standard workstations",
+        "Word is blocked from the network, so any child process proves a policy bypass",
+        "Word documents can legitimately embed PowerShell macros, so this is expected",
+        "Word should not spawn PowerShell — a classic macro-based execution pattern",
+        "PowerShell is not installed on standard workstations, so malware must have dropped it",
       ],
       answer: 2,
       explanation:
@@ -656,10 +656,10 @@ The key insight: the platform does not matter as much as the hypothesis and the 
       id: "threat-hunt-q5",
       question: "What is C2 beaconing and what pattern distinguishes it from normal web browsing traffic?",
       options: [
-        "C2 beaconing is HTTPS traffic; normal browsing uses HTTP — you detect it by the port number",
-        "C2 beaconing makes requests at very regular, predictable intervals to the same destination; normal browsing is irregular and visits many different sites",
-        "C2 beaconing only occurs during business hours; attacks outside business hours are always APT activity",
-        "C2 beaconing uses IPv6 while normal browsing uses IPv4",
+        "Beaconing is HTTPS traffic while normal browsing uses HTTP — you detect it by the port number",
+        "Beaconing makes requests at very regular intervals to the same destination; browsing is irregular across many sites",
+        "Beaconing occurs only outside business hours, so any off-hours traffic is APT activity",
+        "Beaconing sends large uploads at random intervals, while browsing mostly downloads small pages",
       ],
       answer: 1,
       explanation:
@@ -855,10 +855,10 @@ By combining memory forensics (what was running), disk forensics (what files exi
       id: "dfir-q1",
       question: "Why must you collect RAM before imaging the hard disk when responding to a live incident?",
       options: [
-        "RAM contains the disk encryption key, which you need to read the disk",
-        "RAM is more volatile than disk — it is lost when the machine powers off, while disk data persists",
-        "Disk imaging tools require RAM analysis results to function correctly",
-        "RAM collection is optional; disk imaging should always be the first step",
+        "RAM holds the disk encryption key, which you need before the disk can be read",
+        "RAM is volatile and lost at power-off, while disk data persists",
+        "Disk imaging tools need the RAM capture's output to run correctly",
+        "RAM capture is faster than disk imaging, so it goes first to save time",
       ],
       answer: 1,
       explanation:
@@ -889,10 +889,10 @@ By combining memory forensics (what was running), disk forensics (what files exi
       id: "dfir-q3",
       question: "An analyst finds a file named 'svchost.exe' running from 'C:\\Users\\jsmith\\AppData\\Roaming\\'. What is the significance of this location?",
       options: [
-        "AppData\\Roaming is a standard location for Windows system processes",
-        "This is suspicious because legitimate svchost.exe only runs from C:\\Windows\\System32\\",
-        "The file is a recently installed Windows update and can be ignored",
-        "AppData files are protected by Windows Defender and cannot be malicious",
+        "AppData\\Roaming is the standard location for svchost.exe on domain-joined machines",
+        "It is suspicious because legitimate svchost.exe only runs from C:\\Windows\\System32\\",
+        "A per-user svchost.exe copy in the profile is an update staging file and can be ignored",
+        "Defender scans AppData files on creation, so one running there has already been cleared",
       ],
       answer: 1,
       explanation:
@@ -972,10 +972,10 @@ By combining memory forensics (what was running), disk forensics (what files exi
       id: "dfir-q4",
       question: "Windows Prefetch files can help identify malware even after it has been deleted from disk. Why?",
       options: [
-        "Prefetch files store a full compressed copy of the executable itself, so investigators can extract and re-run the original binary directly from the Prefetch file",
-        "Prefetch files record evidence that a program was executed — including its name, path, and last run times — even after the executable is deleted",
-        "Prefetch files are cleared automatically every time Windows Defender runs a scan, so they only reflect activity from the last few minutes",
-        "Prefetch files are stored only in RAM and volatile cache, so like other memory artefacts they are lost the moment the machine reboots or loses power",
+        "Prefetch files store a compressed copy of the executable, so it can be re-run from the Prefetch file",
+        "Prefetch files record that a program ran — its name, path and last run times — even after the executable is deleted",
+        "Prefetch files are cleared whenever Defender scans, so they only show activity from the last few minutes",
+        "Prefetch files live only in RAM and are lost on reboot, like other volatile artefacts",
       ],
       answer: 1,
       explanation:
@@ -989,10 +989,10 @@ By combining memory forensics (what was running), disk forensics (what files exi
       id: "dfir-q5",
       question: "What does it mean when Volatility's 'windows.malfind' plugin flags a memory region?",
       options: [
-        "The memory region contains a virus that Windows Defender missed",
-        "The memory region is executable but not backed by a file on disk — a potential sign of process injection or shellcode",
-        "The memory region is corrupted and the RAM stick needs to be replaced",
-        "The memory region is encrypted, which all modern applications do for security",
+        "The region contains a virus signature that Windows Defender missed",
+        "The region is executable but not backed by a file on disk — possible injection or shellcode",
+        "The region is shared writable memory between processes, which is normal for IPC",
+        "The region was paged out to disk and could not be read during acquisition",
       ],
       answer: 1,
       explanation:
@@ -1221,8 +1221,8 @@ When a suspicious email is reported (by a user, by your email gateway alert, or 
       options: [
         "Top to bottom — the first Received header shows the original sender",
         "Bottom to top — the bottom-most Received header is where the email originated",
-        "The order does not matter — all Received headers contain the same information",
-        "Left to right within each header — the leftmost IP is always the sender",
+        "The order does not matter — every Received header contains the same information",
+        "Skip them — only the X-Originating-IP header shows the sender",
       ],
       answer: 1,
       explanation:
@@ -1236,10 +1236,10 @@ When a suspicious email is reported (by a user, by your email gateway alert, or 
       id: "email-sec-q2",
       question: "An email shows 'From: CEO John Smith <ceo@corp.com>' but the Authentication-Results header shows 'spf=fail'. What does this most likely mean?",
       options: [
-        "The CEO's email account was hacked — change the password immediately",
-        "The email was sent from a server not authorised in corp.com's SPF record, suggesting spoofing",
-        "SPF is an optional check and the fail can be ignored",
-        "The email was delayed in transit, causing the SPF check to time out",
+        "The CEO's mailbox was hacked — reset the password immediately",
+        "The sending server is not authorised in corp.com's SPF record, suggesting spoofing",
+        "SPF is advisory only, so a fail can be ignored when the display name matches",
+        "The message was delayed in transit, so the SPF lookup timed out",
       ],
       answer: 1,
       explanation:
@@ -1253,10 +1253,10 @@ When a suspicious email is reported (by a user, by your email gateway alert, or 
       id: "email-sec-q3",
       question: "What is a BEC (Business Email Compromise) attack?",
       options: [
-        "A brute-force attack against the company's email server login page",
-        "Malware that encrypts all email attachments for ransom",
-        "An attack where the attacker impersonates an executive to trick employees into wire transfers or data disclosure",
-        "A phishing campaign targeting business email providers like Microsoft 365",
+        "A brute-force attack against the company's mail server login page",
+        "Ransomware that encrypts mailbox contents and demands payment",
+        "An attacker impersonates an executive to trick staff into wire transfers or data disclosure",
+        "A phishing campaign aimed at email providers like Microsoft 365 to steal admin tokens",
       ],
       answer: 2,
       explanation:
@@ -1298,10 +1298,10 @@ When a suspicious email is reported (by a user, by your email gateway alert, or 
         {
           question: "The email shows 'CEO John Smith <ceo@corp-secure.com>' in the From field. Which header field reveals that replies would actually go to an attacker's address?",
           options: [
-            "email.message_id — the Message-ID shows the real destination",
-            "email.reply_to — set to r.donovan1985@gmail.com instead of the company domain",
-            "email.x_originating_ip — the IP address reveals the attacker's identity",
-            "email.authentication_results — the DMARC fail reveals the reply destination",
+            "email.message_id — the Message-ID shows where replies will be delivered",
+            "email.reply_to — set to an external address instead of the company domain",
+            "email.x_originating_ip — the IP address shows who receives the replies",
+            "email.authentication_results — the DMARC fail names the reply destination",
           ],
           answer: 1,
           explanation:
@@ -1343,7 +1343,7 @@ When a suspicious email is reported (by a user, by your email gateway alert, or 
         "The email is immediately rejected and never delivered to the recipient",
         "The email is moved to the recipient's spam/junk folder",
         "The email is delivered normally — p=none means 'take no action, just report'",
-        "The email is held in quarantine for 24 hours before delivery",
+        "The email is quarantined for administrator review before any delivery",
       ],
       answer: 2,
       explanation:

@@ -240,8 +240,8 @@ Storing logs is expensive. A busy environment can generate **millions of events 
       options: [
         "Log collection",
         "Log normalisation",
-        "Log retention",
-        "Log deletion",
+        "Log enrichment",
+        "Log correlation",
       ],
       answer: 1,
       explanation:
@@ -378,10 +378,10 @@ In summary: a log aggregator is a **storage and search engine**. A SIEM is a **d
           question:
             "What is the best immediate action for a SOC analyst upon seeing this alert?",
           options: [
-            "Mark it as a false positive — log clearing is a normal admin task",
-            "Escalate to Tier 2 or incident response — this is a potential active compromise on a domain controller",
-            "Wait 24 hours to see if more events appear",
-            "Reboot the domain controller to clear any malware",
+            "Close it as a false positive — admins routinely clear logs during maintenance",
+            "Escalate to Tier 2 or IR — possible active compromise of a domain controller",
+            "Wait for a second suspicious event on the DC before escalating",
+            "Reset the svc-helpdesk02 password and close the ticket as remediated",
           ],
           answer: 1,
           explanation:
@@ -422,10 +422,10 @@ In summary: a log aggregator is a **storage and search engine**. A SIEM is a **d
       question:
         "Which log collection method is most appropriate for a Palo Alto firewall that cannot have third-party software installed on it?",
       options: [
-        "Agent-based — installing Filebeat directly onto PAN-OS through its underlying Linux shell",
-        "Agentless Syslog — the firewall sends logs to a remote syslog server over UDP/TCP port 514",
-        "Manual CSV export from the PAN-OS web UI each morning, the only method that preserves original timestamps",
-        "API polling from the analyst's laptop, since the PAN-OS XML API needs no key or credentials",
+        "Agent-based — install Filebeat on PAN-OS through its underlying Linux shell",
+        "Agentless syslog — the firewall forwards logs to a remote syslog server on port 514",
+        "Scheduled CSV export — an admin exports logs from the PAN-OS web UI each morning",
+        "SNMP polling — the SIEM reads traffic and threat logs from the firewall's MIB",
       ],
       answer: 1,
       explanation:
@@ -672,10 +672,10 @@ Good rule tuning is an ongoing process, not a one-time task. A mature SOC has a 
           question:
             "The source IP is flagged as a Tor network exit node from the Netherlands. What does this contextual information suggest about this alert?",
           options: [
-            "It is almost certainly a false positive — VPN users often use Tor",
-            "It increases the likelihood this is a true positive — attackers use Tor to hide their real location",
-            "Tor exit nodes are whitelisted by most organisations so this alert should be closed",
-            "The Netherlands is in the EU so this is likely GDPR-related testing",
+            "Probably a false positive — privacy-conscious employees often browse through Tor",
+            "More likely a true positive — attackers use Tor to hide their real location",
+            "Tor exits sit on most organisations' allowlists, so the alert can be closed",
+            "The Dutch location suggests a European partner login, so check the contract first",
           ],
           answer: 1,
           explanation:
@@ -717,10 +717,10 @@ Good rule tuning is an ongoing process, not a one-time task. A mature SOC has a 
       question:
         "A SOC team has a rule that fires every time a user downloads more than 50 MB in an hour from SharePoint. The rule fires 200 times per day, but after investigation, 190 of those are the automated backup service. What is the correct action?",
       options: [
-        "Delete the rule — it generates too many false positives",
-        "Tune the rule by adding a whitelist exception for the backup service account so it no longer triggers",
-        "Raise the severity of the rule so analysts notice real incidents faster",
-        "Alert fatigue is unavoidable — train analysts to work faster",
+        "Delete the rule and rely on DLP alerts, since it produces mostly false positives",
+        "Tune the rule — exclude the backup service account so it stops triggering",
+        "Raise the rule's severity so analysts pay closer attention to real incidents",
+        "Leave it unchanged and have analysts close the backup alerts each day",
       ],
       answer: 1,
       explanation:

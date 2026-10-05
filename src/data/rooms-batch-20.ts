@@ -203,10 +203,10 @@ const encodingRoom: Room = {
       question:
         "A proxy rule blocks any request whose body contains the plaintext string 'DownloadString'. An attacker's PowerShell command uses -EncodedCommand and the payload still runs, even though the analyst can plainly see the literal text '-EncodedCommand' sitting right there in the process log. Why does encoding defeat this particular rule even though the flag itself isn't hidden at all?",
       options: [
-        "The rule matched literal substrings inside the payload, like DownloadString — encoded, those characters never appear in the command line at all, even though -EncodedCommand itself stays fully visible",
-        "The -EncodedCommand flag switches PowerShell into a special logging-exempt mode, so Windows never records anything about the command that actually ran",
-        "Encoding here actually functions as encryption, scrambling the payload with a secret key only the attacker possesses, which is why no tool can read it",
-        "Any command using -EncodedCommand automatically executes with SYSTEM-level privileges, which bypasses Windows' logging and detection pipeline entirely",
+        "The rule matched literal text like DownloadString; once Base64-encoded those characters never appear in the command line, though -EncodedCommand stays visible",
+        "-EncodedCommand puts PowerShell in a mode that skips process and script-block logging, so the executed command is never recorded",
+        "-EncodedCommand encrypts the payload under a per-session key, so no inspection rule can read the plaintext content",
+        "-EncodedCommand runs the payload under a different token, so the proxy attributes the request to a trusted system process and exempts it",
       ],
       answer: 0,
       explanation:
@@ -272,10 +272,10 @@ const encodingRoom: Room = {
       question:
         "You hash the text string 'invoice.pdf' and separately hash 'Invoice.pdf' — the two inputs differ by exactly one bit (the case of a single letter). What does the fact that the resulting SHA-256 outputs share no visible pattern tell you about hashing's ability to detect 'similar but not identical' inputs?",
       options: [
-        "Nothing similar shows in the output — the avalanche effect means a single-bit change flips roughly half the output bits, so hash comparison only ever answers 'identical' or 'different,' never 'close' enough for fuzzy matching",
-        "It proves SHA-256 itself is broken, since two nearly identical inputs should logically produce nearly identical outputs if the algorithm were functioning correctly",
-        "It means the two strings were accidentally hashed using two different algorithms, which is why their outputs look completely unrelated to each other",
-        "It means the hash function hit an internal error and failed to fully process one of the two input strings correctly",
+        "The avalanche effect — one flipped input bit changes about half the output bits, so hashes answer 'identical' or 'different', never 'close'",
+        "The two strings were probably encoded differently before hashing, such as UTF-8 versus UTF-16, not merely differing in the case of one letter",
+        "A salt was likely applied to one of the inputs, since near-identical inputs normally produce near-identical digests",
+        "The output is a keyed MAC rather than plain SHA-256, since an unkeyed hash would preserve similarity between near-identical inputs",
       ],
       answer: 0,
       explanation:
@@ -470,10 +470,10 @@ const encodingRoom: Room = {
       question:
         "An analyst can't decrypt a workstation's outbound TLS connection to an unfamiliar domain, but still flags it as a likely beacon to a command-and-control server. What could the analyst have legitimately observed without ever breaking the encryption?",
       options: [
-        "The plaintext SNI hostname from the handshake, the server's certificate details, a JA3/JA3S fingerprint of the negotiation itself, and the connection's timing and byte-volume pattern — none of which require decrypting the application data",
-        "Nothing meaningful at all — TLS is understood to hide every observable detail of a connection completely until it is decrypted by an intercepting proxy somewhere in the path",
-        "The full HTTP request path and the entire response body, since TLS is commonly understood to only encrypt request headers, leaving the body itself in the clear",
-        "The plaintext password submitted during login, since TLS is understood to only begin protecting data after the authentication step has already completed",
+        "The SNI hostname, certificate details, JA3/JA3S fingerprints, and the connection's timing and byte-volume pattern, none of which require decryption",
+        "Nothing beyond the destination IP and port — TLS hides everything else, so a beacon hypothesis needs decryption first",
+        "The full HTTP request path and headers, since TLS protects only the response body and leaves request metadata visible",
+        "The names of files being transferred, which appear in cleartext in the TLS record headers of each session",
       ],
       answer: 0,
       explanation:
@@ -612,10 +612,10 @@ const timelineRoom: Room = {
       question:
         "A log field holds the value 1746500000000 — a plain integer with no separators. Using the digit-count heuristic from Reading 1, what unit is this most likely expressed in, and roughly how would you convert it toward a human-readable date?",
       options: [
-        "Milliseconds — the value has 13 digits, the expected length for a current-era epoch timestamp in milliseconds; dividing by 1,000 converts it to the familiar 10-digit epoch-in-seconds form first",
-        "Seconds — any all-digit timestamp with more than 8 characters should always be read directly as epoch seconds, with no further conversion needed",
-        "This must be a Windows FILETIME value, since FILETIME is also a large plain integer with no separators between any of its digits",
-        "There's no way to tell the unit from digit count alone — the number of digits never carries any information about whether a value is seconds or milliseconds",
+        "Milliseconds — 13 digits is the current-era length; divide by 1,000 to get epoch seconds, then convert",
+        "Seconds — a plain integer of this size is epoch seconds, and a date converter can read it directly with no scaling",
+        "A Windows FILETIME value — a long plain integer of 100-nanosecond ticks, converted by removing the 1601 epoch offset",
+        "Microseconds — 13 digits is the current-era length for microseconds; divide by 1,000,000 to get epoch seconds, then convert",
       ],
       answer: 0,
       explanation:
@@ -689,11 +689,11 @@ const timelineRoom: Room = {
       question:
         "During an investigation, three alerts land in your queue in this order: (1) a data-exfiltration alert from DLP, (2) a phishing-click alert from the email gateway, (3) a suspicious-process alert from EDR. After normalizing all three underlying events to UTC, the process execution actually occurred first, the phishing click second, and the exfiltration third. What does this discrepancy illustrate, and what should you do with it?",
       options: [
-        "Detection order isn't the same as when events actually happened — different tools have different detection latency, so the investigation timeline and any dwell-time figure should be built from each event's own normalized timestamp, not queue arrival order",
-        "This means one of the three tools has an incorrect system clock and urgently needs to be resynced with NTP before any of its alerts can be trusted at all",
-        "The queue arrival order should be treated as authoritative, since alerts come from the SOC's own trusted tooling and should outweigh raw event timestamps",
-        "This discrepancy is only possible if one of the events came from a compromised or tampered log source, since normalized timestamps should always match arrival order exactly",
-        "The three tools must be misconfigured to use three different logging severity levels, since same-severity alerts should always arrive in the exact order their triggering events occurred",
+        "Alert arrival order is not event order — tools differ in detection latency, so build the timeline and dwell time from each event's normalized timestamp",
+        "One tool has a skewed system clock — resync it with NTP before trusting any of its alerts in the timeline",
+        "Queue order is authoritative, since the SIEM stamped each alert on ingestion and ingestion time is the most consistent clock available",
+        "One log source was tampered with — normalized timestamps should match arrival order, so a mismatch implies an altered event time",
+        "The tools map severity inconsistently — same-severity alerts always arrive in event order, so the mismatch points to a severity-mapping fault",
       ],
       answer: 0,
       explanation:

@@ -250,10 +250,10 @@ const becInvestigationRoom = {
       question:
         "Your organization's own tenant shows zero indicators — no anomalous sign-in, no inbox rule creation, no forwarding, nothing unusual in your Unified Audit Log — yet your CFO receives a bank-detail-change instruction from the correct, genuine email address of a long-standing supplier, later confirmed fraudulent. Which BEC vector best explains this?",
       options: [
-        "Account takeover (ATO) of an internal Meridian mailbox — the evidence simply wasn't logged correctly",
-        "A lookalike domain impersonating the supplier, one character off from their real domain",
-        "Thread hijacking within your own organization's mail system",
-        "Vendor Email Compromise (VEC) — the supplier's own mailbox was compromised, so nothing in your tenant's telemetry was ever touched",
+        "Account takeover (ATO) of an internal Meridian mailbox — an attacker with a valid session replied from within the thread, and the Unified Audit Log simply lagged or dropped the evidence",
+        "A lookalike domain impersonating the supplier — the sending address differs by one character from their real domain, and the CFO's mail client displayed only the name",
+        "Thread hijacking inside Meridian's own tenant — an internal mailbox replied in the genuine supplier thread, with the telemetry hidden by a quietly created inbox rule",
+        "Vendor Email Compromise (VEC) — the supplier's own mailbox was compromised, so the request arrived from their genuine address without touching your tenant",
       ],
       answer: 3,
       explanation:
@@ -345,10 +345,10 @@ const becInvestigationRoom = {
       question:
         "A colleague argues that because conditionalAccessStatus reads 'success' and riskLevelDuringSignIn reads 'none' on the sign-in from the log analysis exercise, it should be closed as routine. What is the strongest counter-argument, based on this room?",
       options: [
-        "Those fields are frequently unreliable software bugs in Entra ID and should be ignored on every sign-in record, not just this one",
-        "A replayed, already-MFA-satisfied token routinely produces exactly those 'clean' values, because the identity provider is validating a legitimate token, not verifying who currently holds it — the impossible travel and device mismatch are the facts that actually matter",
-        "Conditional Access and risk scoring only apply to interactive sign-ins, so they are meaningless on this non-interactive record regardless of the underlying facts",
-        "The colleague is right, and no further action should be taken on this specific sign-in",
+        "Risk levels are computed asynchronously and often read 'none' at ingestion time, so the colleague should wait for Entra ID to re-score the sign-in before any decision is made",
+        "A replayed token with an MFA claim already satisfied yields exactly those clean values, since the identity provider validates the token and not its holder — impossible travel and device mismatch are what matter",
+        "Conditional Access and risk scoring are only evaluated on interactive sign-ins, so these fields carry no meaning on this non-interactive record and the decision should rest on application ID alone",
+        "The colleague is right, since success with no detected risk means Conditional Access evaluated the session and found it compliant, so geography alone is not enough to escalate",
       ],
       answer: 1,
       explanation:
@@ -525,10 +525,10 @@ const becInvestigationRoom = {
       question:
         "The SOC confirms p.nair's account was compromised, revokes her sessions, resets her credentials, and removes the concealment rule. Should this investigation now be considered closed?",
       options: [
-        "Yes — once the confirmed mailbox is contained and the rule is removed, the incident is fully resolved",
-        "No — the same source IP, correlationId pattern, or concealment-rule shape should be hunted across other mailboxes, since real BEC campaigns frequently touch several accounts (especially other finance-adjacent staff) before an attacker chooses which one to weaponize",
-        "No, but only because Cascade Fabrication's own mailbox must also be reset by Meridian's IT team, since VEC is always involved alongside ATO",
-        "Yes, provided David Okonkwo personally confirms he will scrutinize future wire requests more carefully going forward",
+        "Yes — once sessions are revoked, credentials reset and the rule removed, the attacker's access is gone and the remaining work is writing up the incident summary",
+        "No — hunt the same source IP, correlationId pattern or rule shape across other mailboxes, especially finance-adjacent staff, since BEC campaigns often touch several accounts first",
+        "No — the supplier's own mailbox must also be reset by Meridian's IT team, since a BEC that reaches an invoice thread is always a combined ATO and VEC compromise",
+        "Yes, provided the CFO and Accounts Payable are briefed to verify bank-detail changes out of band from now on, since that process gap was the real root cause",
       ],
       answer: 1,
       explanation:
@@ -566,10 +566,10 @@ const becInvestigationRoom = {
       question:
         "Investigators confirm the fraudulent wire was sent roughly six hours ago. Technical containment (session revocation, password reset, rule removal) is underway. Based on Reading 5 and Reading 6, what should happen to the bank-recall notification while that technical work continues?",
       options: [
-        "It should wait until the full technical investigation and incident report are complete, so the bank receives one consolidated, final account of what happened",
-        "It should be initiated immediately, in parallel with technical containment — the bank's recall window is measured in hours from the moment funds moved, not from when the technical investigation finishes",
-        "It isn't necessary at all once the compromised account itself has been contained, since containment prevents any further financial loss",
-        "It should be delayed until the vendor (Cascade Fabrication) is formally notified first, since their confirmation is a prerequisite for any bank recall request",
+        "It should wait until the technical investigation is complete, so the bank receives one consolidated, accurate account instead of a partial one that may later need correcting",
+        "It should be initiated immediately, in parallel with containment — the recall window runs from the moment funds moved, not from the end of the investigation",
+        "It adds little once the account is contained, since after six hours the funds are normally beyond recall and the bank can only flag the beneficiary account for monitoring",
+        "It should follow the vendor's formal notification, since the bank typically requires Cascade Fabrication's written confirmation that their details were not changed before starting a recall",
       ],
       answer: 1,
       explanation:

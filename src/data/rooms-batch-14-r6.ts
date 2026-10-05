@@ -290,10 +290,10 @@ const soarRoom = {
       question:
         "Using the smoke detector / sprinkler analogy from this room, which statement correctly describes the relationship between a SIEM and a SOAR platform?",
       options: [
-        "SOAR replaces the SIEM entirely and makes it obsolete — once an organization deploys SOAR, log correlation, event aggregation, and alerting become completely unnecessary since the playbooks handle detection on their own",
-        "The SIEM detects and raises the alert (the smoke detector going off); the SOAR platform takes the automated response actions and coordinates the workflow (the sprinkler activating and the call to the fire department) — they work together, not as substitutes for each other",
-        "SOAR is simply a nicer, more modern user interface layered on top of the same underlying SIEM alerts, with no automation, orchestration, or response capability of its own beyond prettier dashboards",
-        "The SIEM only ever matters for after-the-fact compliance reporting and audit trails, while the SOAR platform is the one doing all of the real, meaningful detection and correlation work"
+        "SOAR supersedes the SIEM — once playbooks run, log correlation and alerting are redundant because the playbook logic performs the detection itself",
+        "The SIEM detects and raises the alert (the smoke detector); SOAR coordinates the workflow and response actions (the sprinkler and the fire-department call) — complementary tools",
+        "SOAR is a dashboard layer over the SIEM's alerts that adds case views and reporting, but has no orchestration or response capability of its own",
+        "The SIEM mainly serves compliance reporting and audit retention, while SOAR performs the live correlation that decides which events become alerts"
       ],
       answer: 1,
       explanation:
@@ -326,10 +326,10 @@ const soarRoom = {
       question:
         "Why do mature SOC teams typically insist on a human approval gate before a playbook auto-blocks an IP address or disables a user account, even though the technology is capable of doing it instantly with no human involved?",
       options: [
-        "Because SOAR platforms as a technology category are fundamentally and permanently incapable of ever taking any containment action without a human physically clicking a button first, regardless of how the playbook is configured",
-        "Because containment actions change something in the live environment, and if the enrichment/confidence behind the recommendation is wrong, the automation itself can cause an outage or business disruption — the approval gate limits the blast radius of an incorrect automated decision",
-        "Because compliance regulations such as PCI-DSS, HIPAA, and SOC 2 universally and explicitly forbid any form of security automation from ever taking action without an open, human-assigned ticket number attached to it",
-        "Because human analysts, even when tired or under heavy alert load, are always meaningfully faster than any automated playbook could ever be at making containment decisions under real-world time pressure"
+        "Because most SOAR products can only execute containment through a manual console click, so the approval gate reflects a platform limitation rather than a design choice",
+        "Because containment changes the live environment, and if the confidence behind it is wrong the automation itself can cause an outage — the gate limits the blast radius of a bad decision",
+        "Because PCI-DSS, HIPAA and SOC 2 each require a human-assigned ticket before any automated security action, so unattended containment is a compliance violation",
+        "Because an analyst reviewing the alert reaches a containment decision faster than a playbook can, so the gate shortens time-to-contain rather than lengthening it"
       ],
       answer: 1,
       explanation:

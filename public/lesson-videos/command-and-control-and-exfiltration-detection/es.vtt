@@ -1,0 +1,53 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:07.250
+Toda intrusión tiene un momento en que el atacante deja de ser una carga en disco y se convierte en un operador con las manos en el teclado.
+
+2
+00:00:07.250 --> 00:00:13.370
+Eso ocurre por un canal de mando y control, y detectarlo es cómo atrapas la intrusión en pleno vuelo.
+
+3
+00:00:13.870 --> 00:00:22.080
+Primero tres palabras. Un beacon, o implante, es el componente de malware que mantiene vivo el enlace C2, consultando órdenes.
+
+4
+00:00:22.080 --> 00:00:26.980
+El jitter es el retraso aleatorio que añade entre consultas para no verse demasiado regular.
+
+5
+00:00:26.980 --> 00:00:31.130
+Y exfil es simplemente datos robados saliendo de la red.
+
+6
+00:00:31.630 --> 00:00:39.000
+¿Qué delata un canal C2? Beaconing regular: conexiones a intervalo constante al mismo host.
+
+7
+00:00:39.000 --> 00:00:43.780
+Tiempos con jitter: casi regulares, pero con un bamboleo aleatorio deliberado.
+
+8
+00:00:43.780 --> 00:00:50.790
+Un destino raro: un dominio recién registrado, un ASN poco común o mala reputación.
+
+9
+00:00:50.790 --> 00:00:55.280
+Y una conexión de larga duración que simplemente se niega a cerrarse.
+
+10
+00:00:55.780 --> 00:00:59.600
+La exfiltración es el premio: los datos saliendo por la puerta.
+
+11
+00:00:59.600 --> 00:01:09.010
+Vigila una transferencia saliente grande, datos tunelizados por un protocolo raro como DNS, o una subida a un destino al que nadie en tu organización debería enviar.
+
+12
+00:01:09.510 --> 00:01:12.560
+Así que encuentra el latido y luego sigue los datos.
+
+13
+00:01:12.560 --> 00:01:22.660
+Conexiones regulares-pero-con-jitter a un host raro son el C2; una gran salida a un lugar extraño es la exfil. Atrapa cualquiera y estás en plena intrusión.

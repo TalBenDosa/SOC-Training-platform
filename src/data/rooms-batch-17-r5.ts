@@ -407,10 +407,10 @@ const emailRoom = {
       question:
         "An email's Return-Path shows bounce@random-marketing-relay.net while the header From shows billing@solvix.com. What does this mismatch, by itself, tell an analyst?",
       options: [
-        "Nothing at all — Return-Path and header From are always identical by protocol design, since SMTP requires the MAIL FROM command and the From: header written later in the DATA block to be automatically synchronized by the sending server before the message can be queued for delivery",
-        "The envelope sender (what SPF actually checks) and the header sender (what the recipient sees displayed) are different domains — this alone doesn't prove malicious intent (some legitimate bulk-mail/marketing platforms send on a domain's behalf this way), but it means SPF passing for random-marketing-relay.net says nothing about whether billing@solvix.com is legitimate, and DMARC alignment specifically is what needs to be checked next",
-            "This proves the message passed both SPF and DKIM successfully — a Return-Path domain different from the header From domain is only possible after a message has already been cryptographically verified by SPF and DKIM, since verification is what generates the Return-Path field in the first place",
-        "This mismatch can only occur if the message was manually forwarded by the recipient — a Return-Path domain differing from the header From domain never happens on original, non-forwarded inbound mail, since sending servers are required to keep both fields identical unless a human forwards the message afterward",
+        "Nothing — Return-Path and header From are synchronized by the sending server under SMTP, so a differing domain is a display quirk",
+        "The envelope and header senders differ — SPF checks the envelope domain only, so DMARC alignment against solvix.com is the next check",
+        "The message passed SPF and DKIM — the Return-Path is written by the verifier, so a different domain confirms successful validation",
+        "The message was forwarded or relayed by a mailing list — a differing Return-Path never occurs on direct, original inbound mail",
       ],
       answer: 1,
       explanation:
@@ -425,10 +425,10 @@ const emailRoom = {
       question:
         "A message shows spf=pass, dkim=fail, dmarc=pass in its Authentication-Results header. Given that DMARC only requires ONE of SPF or DKIM to pass and align, and recalling that mailing-list forwarding commonly breaks DKIM specifically, what is the most reasonable initial interpretation?",
       options: [
-        "This is impossible — DMARC cannot pass if DKIM fails, under any circumstances, because DMARC's specification treats a DKIM failure as an unconditional, non-overridable veto that blocks a passing verdict regardless of what SPF independently reports",
-        "SPF passed and aligned with the header From domain, which alone is sufficient for DMARC to pass even with DKIM failing — this pattern is fully consistent with legitimate mail (including forwarded mail where DKIM broke due to in-transit modification) and should not be treated as inherently suspicious on this basis alone",
-        "DKIM failing always indicates the message was sent by an attacker regardless of what SPF or DMARC report — a broken DKIM signature can only ever result from deliberate tampering with message content in transit, never from routine, expected causes like mailing-list reformatting",
-        "This combination means the message bypassed all authentication checks entirely — spf=pass, dkim=fail, and dmarc=pass together indicate that the receiving server's authentication engine encountered an internal error and skipped evaluating the message altogether",
+        "Not possible — a DKIM failure vetoes DMARC regardless of SPF, so the header was altered or the DMARC result is wrong",
+        "Consistent with legitimate mail — SPF passed and aligned with the From domain, which satisfies DMARC even though DKIM broke in transit",
+        "Evidence of in-transit tampering — a failed DKIM signature points to deliberate content modification, which SPF and DMARC cannot rule out",
+        "A gateway evaluation error — a pass/fail/pass combination means the engine skipped DKIM evaluation, so DMARC reflects SPF only",
       ],
       answer: 1,
       explanation:
@@ -443,10 +443,10 @@ const emailRoom = {
       question:
         "You are reading a Received-header chain with three hops. Which header in the chain should you generally trust the MOST regarding the true, verified connecting IP address, and why?",
       options: [
-        "The bottom-most header, because attackers never bother forging the earliest hop — since the true originating server always adds this header before the attacker gains any ability to influence message content, it is structurally guaranteed to be accurate in every case",
-        "Whichever header contains the word 'ESMTPS', since that always indicates an encrypted, verified connection whose reported source IP has been independently authenticated by a trusted certificate authority before the header was ever written",
-        "The header your OWN organization's mail infrastructure added (typically the topmost one) — because while an attacker fully controls what they write into headers and content during their own SMTP session, they cannot control what YOUR server independently observed and recorded about the actual TCP connection it received",
-        "All headers in the chain are equally trustworthy since Received headers cannot be forged by design — every mail server, including ones fully controlled by an attacker, is constrained by the SMTP specification to write only truthful, independently verifiable connection data into every header it adds",
+        "The bottom-most header — it is added first, before the sender can influence anything, so the originating hop is accurate",
+        "The header marked ESMTPS — the encrypted session means the source IP was authenticated against a trusted certificate",
+        "The header added by your own mail infrastructure (typically the topmost) — it records the TCP connection your server actually received",
+        "The header from the largest relay in the chain — big providers stamp the connecting IP from their own logs, so it cannot be forged",
       ],
       answer: 2,
       explanation:

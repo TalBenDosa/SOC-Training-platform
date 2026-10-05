@@ -465,10 +465,10 @@ const edgeCaseRoom = {
       question:
         "Why does a dependency-confusion attack routinely bypass EDR tools that would normally flag suspicious child processes?",
       options: [
-        "Because npm and pip processes, along with everything they spawn, are always excluded from EDR monitoring entirely by default in every commercial EDR product on the market today",
-        "Because the malicious code executes inside a normal, expected process lineage (npm/pip spawning a runtime like node.exe or python.exe), so the process tree shape itself looks routine — the malicious intent is only visible in the command-line content and network destination",
-        "Because dependency-confusion attacks never actually spawn a visible child process at all — the malicious code runs silently inside npm's own process memory, so there is structurally nothing for any EDR sensor to observe or record",
-        "Because the attack always uses a digitally signed binary as the spawned process, and EDR tools are designed to unconditionally trust and never inspect the behavior of any binary carrying a valid code-signing certificate",
+        "Because EDR sensors do not hook child-process creation for package managers such as npm and pip, so runtimes they spawn never reach the telemetry stream",
+        "Because the code runs inside an expected lineage (npm or pip spawning node.exe or python.exe), so the tree looks routine and intent shows only in command line and destination",
+        "Because the payload arrives over HTTPS from the public registry, and EDR cannot inspect encrypted package downloads, so the install step produces no alertable process activity",
+        "Because the spawned runtime is vendor-signed (OpenJS Foundation or Python Software Foundation), and EDR reputation scoring suppresses alerts for any validly signed binary",
       ],
       answer: 1,
       explanation:
@@ -483,10 +483,10 @@ const edgeCaseRoom = {
       question:
         "An OAuth consent-grant phishing attack succeeds without the attacker ever obtaining the victim's password and without triggering any MFA challenge on subsequent access. Why does MFA never fire for the attacker's ongoing access to the mailbox?",
       options: [
-        "Because the attacker cracked the MFA seed value during the initial phishing email",
-        "Because Microsoft and Google both automatically and permanently disable MFA enforcement tenant-wide for any account that has ever granted consent to a newly registered third-party application",
-        "Because the OAuth token issued at consent time becomes the ongoing credential for API access — subsequent calls authenticate with the token itself, not a fresh username/password/MFA challenge, so there is no login event to protect",
-        "Because the victim's account did not have MFA enabled on it in the first place, and having MFA already disabled is treated as a hard prerequisite for an OAuth consent-phishing attack to succeed at all",
+        "Because the phishing page captured the victim's TOTP seed, so the attacker can generate valid codes whenever the mailbox API requests a second factor",
+        "Because the attacker replays the victim's browser session cookie from the consent step, and that cookie stays valid until the account password is next changed",
+        "Because the token issued at consent becomes the credential for API access — each call authenticates with the token itself, so no password or MFA challenge is presented",
+        "Because the victim's MFA claim was satisfied at consent time and is cached for the life of the account, so every later sign-in from any app inherits it",
       ],
       answer: 2,
       explanation:
@@ -501,10 +501,10 @@ const edgeCaseRoom = {
       question:
         "A password-reset endpoint returns HTTP 200 for every request regardless of whether the submitted email exists, and no single request is malformed. What makes this endpoint exploitable for account enumeration, and what is the correct detection layer to catch it?",
       options: [
-        "It cannot be exploited in any way if every single HTTP response returns status code 200 with identical status codes across the board — real account enumeration strictly requires the application to return an explicit, differently worded error message for each case",
-        "The endpoint leaks information through a side channel (response-time variance between the 'user exists' and 'user does not exist' code paths); catching it requires application/business-logic-layer monitoring of response timing and request velocity per source, not network signature detection",
-        "This can only be detected by a WAF rule blocking POST requests to any endpoint containing the word 'password'",
-        "It is not actually exploitable at all — response time variance between two code paths is not considered a meaningful, security-relevant signal in any realistic production attack scenario, regardless of how consistently it can be measured",
+        "Enumeration needs differing status codes or error text per case; with a uniform HTTP 200 there is no distinguishing signal, so the endpoint is not meaningfully exploitable",
+        "Response-time variance between the 'user exists' and 'user does not exist' paths leaks validity; detect it with application-layer monitoring of timing and per-source request velocity",
+        "Response body length differs slightly between the two paths; the right detection layer is a WAF managed signature for credential-stuffing patterns on the reset URL",
+        "Unknown emails return 200 through a misconfigured redirect that exposes valid users; the right detection layer is a WAF rule blocking repeated POSTs once a source passes the rate limit",
       ],
       answer: 1,
       explanation:

@@ -251,10 +251,10 @@ But EDR's blind spot is not about behaviour — it's about coverage. An EDR agen
       question:
         "Ninety-six VMs on an ESXi host were encrypted by ransomware that ran directly on the hypervisor. Which statement correctly identifies what each host-based product could and could not have caught?",
       options: [
-        "Neither AV nor EDR could possibly have detected this, because both are structurally installed only on guest or endpoint operating systems, and no agent has ever run on the ESXi hypervisor itself — this is a coverage gap by design, not a missed detection",
-        "AV would have caught it because file-scanning products can inspect any storage volume, including a hypervisor's datastore, regardless of whether an agent is installed there",
-        "EDR would have caught it because EDR's kernel hooks extend automatically to any virtual machine hosted on the same physical server, agent or not",
-        "Both AV and EDR would have caught it, but only if the ransomware had a known file signature",
+        "Neither product could have caught it: both install only on guest or endpoint operating systems, so the hypervisor layer was outside their coverage",
+        "AV could have caught it: file-scanning engines read any mounted storage volume, so the shared VMFS datastore would have been scanned even without a local agent",
+        "EDR could have caught it: the sensors on the guest VMs hook the shared host kernel, so encryption executed by the hypervisor is visible to each sensor",
+        "Only EDR could have caught it, by flagging the encryptor's behavior; AV would have missed it because the binary had no known file signature",
       ],
       answer: 0,
       explanation:
@@ -777,10 +777,10 @@ A SOAR (Security Orchestration, Automation and Response) platform sits one layer
       question:
         "An incident responder confirms an attacker moved laterally through a segment of the network for three days, but the SIEM shows zero alerts for that segment during the entire window. A junior analyst concludes 'the SIEM proves nothing happened here before day three.' What's wrong with that conclusion?",
       options: [
-        "Nothing is wrong with it — a SIEM ingests a full packet-level copy of every network segment through its own built-in collector, entirely independently of whatever log sources happen to be onboarded, so zero alerts across a three-day window is conclusive proof that no attack activity occurred on that segment",
-        "The SIEM has no sensor of its own; an absence of alerts for a segment is at least as likely to mean that segment's logs were never being forwarded to the SIEM at all, as it is to mean nothing happened — the first step is checking whether that source was actually onboarded, not treating silence as proof of safety",
-        "SIEM platforms are structurally incapable of correlating lateral movement, whatever logs are flowing into them, because a correlation rule can only ever evaluate events drawn from a single source type at a time and no SIEM supports a rule that joins authentication, network and endpoint telemetry together",
-        "The silence can only be explained by the attacker encrypting their lateral-movement traffic, which by itself defeats a SIEM completely — Windows suppresses logon events such as 4624 and 4648 whenever the session that produced them was carried over an encrypted channel, so nothing existed to forward in the first place",
+        "Nothing is wrong with it: the SIEM's own collectors capture traffic from every segment regardless of which log sources are onboarded, so three days of zero alerts reliably indicates no attack activity",
+        "A SIEM only sees what is forwarded to it, so silence from that segment may mean its logs were never onboarded; the analyst should verify the source's ingestion status first",
+        "A SIEM correlates lateral movement only inside a single log source type, so an attack spanning authentication, network and endpoint telemetry would never produce an alert in any segment",
+        "The silence points to the attacker encrypting lateral-movement traffic, which suppresses the Windows logon events (4624, 4648) that the SIEM's correlation rules depend on",
       ],
       answer: 1,
       explanation:
@@ -797,10 +797,10 @@ A SOAR (Security Orchestration, Automation and Response) platform sits one layer
       question:
         "CrowdStrike's EDR sensor on a file server identified wu_update.exe as LockBit 3.0 ransomware, scored the payload 91 out of 100 (well above the platform's block threshold), and logged a detection — but the ransomware ran to completion and encrypted the server anyway. Given that EDR is generally described as an inline, prevention-capable product, what explains this outcome?",
       options: [
-        "This means EDR products as a category are structurally incapable of ever blocking ransomware in real time, regardless of configuration, on any host",
-        "The sensor's prevention policy for this server was set to Detection Only — being inline and technically capable of blocking is not the same as being configured to block; a product can sit in a position where prevention is possible and still be deliberately set to only observe",
-        "A score of 91/100 was simply below whatever this particular sensor's minimum action threshold happens to be, and only a perfect 100 would have triggered a block",
-        "The detection must have actually been a false positive, since Falcon would have blocked any genuine LockBit match automatically no matter what policy governed that host",
+        "The sensor on a Windows file server runs in user mode only, so it can score and log a payload but has no hook point from which to stop an encryptor",
+        "The server's prevention policy was set to Detection Only, so the sensor identified and logged the threat but was configured not to act on it",
+        "The sensor's block threshold for server host groups is typically set at 95 or above, so a 91 was logged as a detection but fell short of triggering prevention",
+        "The sensor blocked the original dropper, and the encryption seen was a second payload that Falcon scores in a separate detection chain from the first",
       ],
       answer: 1,
       explanation:

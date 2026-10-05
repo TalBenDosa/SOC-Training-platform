@@ -154,10 +154,10 @@ const logEntryAnatomyRoom: Room = {
       question:
         "Using the five-question frame, what is the WHO in this syslog line: <134>Jun 24 14:32:11 fw-edge-01 sshd[19442]: Failed password for invalid user admin from 203.0.113.55 port 51422 ssh2 ?",
       options: [
-        "fw-edge-01 — this is WHERE, the host that logged the event, not the WHO",
-        "\"admin\" — the username the failed login attempt used, buried inside the free-text message",
-        "sshd — this is the process/service name, not an identity",
-        "203.0.113.55 — this is WHERE (the source), not WHO",
+        "fw-edge-01 — the device that generated and logged the event",
+        "\"admin\" — the account name the attempt tried, inside the free-text message",
+        "sshd[19442] — the service process that handled the attempt",
+        "203.0.113.55 — the remote endpoint that originated the attempt",
       ],
       answer: 1,
       explanation:
@@ -185,10 +185,10 @@ const logEntryAnatomyRoom: Room = {
       question:
         "In the key=value line above (FortiGate traffic log), which field tells you the outcome of the connection attempt, and what does it show?",
       options: [
-        "devid=FG100F — identifies the logging device, not the outcome",
-        "action=deny — the connection was blocked by the firewall",
-        "proto=6 — just the protocol number for TCP, not an outcome",
-        "policyid=12 — identifies which policy matched, not what happened as a result",
+        "devid=FG100F — the device that processed the session, showing it reached the firewall's policy engine",
+        "action=deny — the firewall blocked the connection",
+        "proto=6 — the protocol value, showing the session completed as TCP",
+        "policyid=12 — the matched rule, which shows the connection was permitted",
       ],
       answer: 1,
       explanation:
@@ -321,10 +321,10 @@ const logEntryAnatomyRoom: Room = {
       question:
         "A SIEM correlation rule needs to check whether the same IP address appears in both your firewall logs (which use srcip) and your identity provider's sign-in logs (which use ClientIP). What makes this possible without writing two separate field names into the rule?",
       options: [
-        "It isn't possible — each log source must always be queried separately with its own native field name",
-        "The SIEM's normalisation layer maps both srcip and ClientIP onto one common schema field (for example, source.ip), so a single query condition matches both",
-        "Firewalls and identity providers never record IP-related fields, so this correlation can't be built at all",
-        "You must manually rename the field inside the identity provider's own product settings before the two logs can ever be compared",
+        "Both products must export logs in one vendor-neutral format such as CEF at the source before the SIEM can correlate them",
+        "The SIEM's normalisation layer maps srcip and ClientIP onto a common schema field such as source.ip, so one condition matches both",
+        "The SIEM matches on the raw IP value regardless of which field holds it, so field names play no part in correlation",
+        "The identity provider must be configured to log the address in a field named srcip, since correlation needs exact name matches at the source",
       ],
       answer: 1,
       explanation:
@@ -563,10 +563,10 @@ const identityBasicsRoom: Room = {
       question:
         "An application requires a password to log in, and then a second screen asking the user to answer their mother's maiden name before granting access. Does this qualify as multi-factor authentication?",
       options: [
-        "Yes — two separate prompts were required before access was granted",
-        "No — both the password and a security-question answer are 'something you know', so this is still single-factor authentication with two steps, not two categories",
-        "Yes, because the second prompt appears on a separate screen, which counts as a second factor by definition",
-        "No, because MFA always requires a smartphone app specifically",
+        "Yes — two separate prompts were required, so access depended on two independent authentication steps",
+        "No — both are 'something you know', so this is two steps of a single factor",
+        "Yes — a security question is a recovery factor, which counts as a second factor when enforced at login",
+        "No — MFA requires the second step to be a one-time code from SMS or an authenticator app",
       ],
       answer: 1,
       explanation:
@@ -646,10 +646,10 @@ const identityBasicsRoom: Room = {
       question:
         "An attacker uses a malicious proxy to intercept a user's login and steals the session token issued right after the user completes MFA. What is true about this attacker's access?",
       options: [
-        "The attacker still needs to separately obtain the user's actual password to do anything useful with the stolen token, since the password itself is what gets re-checked on every subsequent request",
-        "The attacker's access with the stolen token is automatically limited to harmless, read-only actions only, since session tokens are designed to never carry the same write permissions a live interactive login would have",
-        "The attacker can present the stolen token as if they were the already-authenticated user, bypassing MFA entirely, because MFA already succeeded before the theft — no password or second factor is required from this point",
-        "MFA will automatically notice, detect, and block the stolen token the very next time it gets used by someone else, since a proper MFA implementation re-checks the second factor on every single request",
+        "The attacker still needs the user's password, since it is re-verified on each request alongside the token",
+        "The attacker is limited to read-only actions, since session tokens carry lower permissions than a live interactive login",
+        "The attacker can present the token as the authenticated user, since MFA already succeeded before the theft",
+        "MFA blocks the token the next time it is used from a different device, since the second factor is re-checked on every request",
       ],
       answer: 2,
       explanation:
@@ -765,10 +765,10 @@ const identityBasicsRoom: Room = {
       question:
         "Why do attackers who gain an initial foothold frequently pivot toward compromising a service account rather than continuing to target user accounts?",
       options: [
-        "Service accounts are always disabled by default in any well-run environment, and therefore represent essentially no real risk to an attacker even if fully compromised",
-        "Service accounts are often over-privileged for their actual task, rarely have their passwords rotated, and are frequently exempted from MFA since no human is present to approve a prompt — making them a high-value, comparatively undefended target",
-        "Service accounts are structurally incapable of authenticating over a network connection at all, meaning that compromising one has essentially no practical value to any attacker",
-        "Service accounts are, in virtually every organisation, subject to noticeably stricter logging and monitoring than ordinary human user accounts, which makes them a comparatively poor and unattractive target",
+        "Service accounts hold only standard-user permissions by design, so attackers favour them to blend in with ordinary user traffic",
+        "Service accounts are often over-privileged, rarely rotated, and frequently exempt from MFA because no human can approve a prompt",
+        "Service accounts cannot authenticate over the network, so compromising one mainly helps with local persistence on a single host",
+        "Service accounts generate no authentication events when used non-interactively, so attackers pivot to them to avoid leaving logs",
       ],
       answer: 1,
       explanation:

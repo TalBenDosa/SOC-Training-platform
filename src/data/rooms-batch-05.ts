@@ -318,10 +318,10 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
       question:
         "An analyst notices that a password spray detection rule fires 200 times per day — mostly for individual users who forgot their passwords on Monday mornings. Which change is the BEST way to tune the rule and reduce these false positives without losing coverage of real spray attacks?",
       options: [
-        "Delete the rule entirely to stop the noise",
-        "Tighten the rule logic so it counts distinct accounts failing from the same source IP (the real spray pattern, e.g. more than 10 different users within 5 minutes) and add an exception only for known corporate/VPN egress IP ranges, then monitor the alert volume",
-        "Investigate all 200 alerts manually every day",
-        "Lower the threshold from 10 failures to 5 failures",
+        "Suppress the rule on Monday mornings, when forgotten passwords peak",
+        "Count distinct accounts failing per source IP (e.g. 10+ users in 5 minutes) and exclude only known corporate/VPN egress ranges",
+        "Exclude every account that has already triggered this alert from the rule",
+        "Lower the per-account threshold from 10 failures to 5 failures",
       ],
       answer: 1,
       explanation:
@@ -354,10 +354,10 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
       question:
         "What is the main advantage of writing detection rules in Sigma format instead of directly in your SIEM's native query language?",
       options: [
-        "Sigma rules run faster than native SIEM queries",
-        "Sigma rules are encrypted and cannot be stolen by attackers",
-        "Sigma rules are vendor-neutral and can be converted to any SIEM platform's query language",
-        "Sigma rules automatically block attacks without analyst review",
+        "Sigma rules execute faster than native queries on large datasets",
+        "Sigma rules ship with built-in threat intelligence feeds for enrichment",
+        "Sigma rules are vendor-neutral and convert to any SIEM's query language",
+        "Sigma rules embed a response playbook that auto-contains matching hosts",
       ],
       answer: 2,
       explanation:
@@ -404,10 +404,10 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
           question:
             "Looking at the user ('svc-wsus'), hostname ('WSUS-SERVER-01'), destination domain ('updates.microsoft.com'), and time (02:14 UTC), what is your assessment of this alert?",
           options: [
-            "Critical threat — PowerShell downloading .msp files is always malicious",
-            "False positive — this is the Windows Update service downloading a legitimate Microsoft patch on the patch management server",
-            "Needs escalation — the .msp file extension is highly suspicious",
-            "False positive but acceptable — no action needed since it happens at night",
+            "Critical threat — PowerShell downloading .msp files from the internet is malicious",
+            "False positive — the patch server's service account downloading a legitimate Microsoft patch",
+            "Needs escalation — the .msp file type is rarely used by legitimate patching",
+            "Suspicious — a service account running PowerShell at 02:14 UTC is anomalous on its own",
           ],
           answer: 1,
           explanation:
@@ -418,10 +418,10 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
           question:
             "What specific change should you make to this detection rule to prevent this false positive from recurring, while still catching real malicious PowerShell downloads?",
           options: [
-            "Delete the rule — it produces too many false positives",
-            "Change the severity from High to Low",
-            "Add an exception to exclude user 'svc-wsus' AND hostname 'WSUS-SERVER-01' AND destination domain 'updates.microsoft.com'",
-            "Increase the detection threshold to only alert after 100 download attempts",
+            "Exclude the whole server OU from the rule, since patch servers cause most of the noise",
+            "Lower the rule's severity from High to Low so these alerts stop paging analysts",
+            "Exclude user 'svc-wsus' AND host 'WSUS-SERVER-01' AND destination 'updates.microsoft.com'",
+            "Raise the detection threshold so it only alerts after 100 download attempts",
           ],
           answer: 2,
           explanation:
@@ -440,8 +440,8 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
       options: [
         "The percentage of alerts that are real threats (precision)",
         "The percentage of real attacks that the rule successfully detected",
-        "The number of alerts generated per hour",
-        "The speed at which the rule processes log events",
+        "The percentage of benign events the rule correctly leaves unalerted",
+        "The average time between the start of an attack and the alert firing",
       ],
       answer: 1,
       explanation:
@@ -776,10 +776,10 @@ If the test event appears: integration is working. If not: check the agent statu
       question:
         "Why is log normalization important in a SIEM that receives logs from multiple vendors?",
       options: [
-        "It encrypts logs to protect sensitive data",
-        "It compresses logs to save storage space",
-        "It maps vendor-specific field names to a common schema so logs can be searched and correlated across sources using the same field names",
-        "It automatically deletes logs older than 90 days to meet compliance requirements",
+        "It encrypts sensitive fields in transit so analysts never see raw credentials",
+        "It compresses logs so more events fit within the licensed storage quota",
+        "It maps vendor-specific field names to one schema so logs can be searched and correlated across sources",
+        "It filters out low-severity events at ingestion so only alert-worthy logs reach the SIEM",
       ],
       answer: 2,
       explanation:
@@ -794,10 +794,10 @@ If the test event appears: integration is working. If not: check the agent statu
       question:
         "A Windows endpoint is generating Security Event Logs that you want to ship to an Elasticsearch SIEM. Which agent is purpose-built for this task?",
       options: [
-        "Fluentd — it is the most popular log shipper for Windows",
-        "Winlogbeat — specifically designed to ship Windows Event Logs to Elastic/OpenSearch",
-        "NXLog — it is the only agent that reads Windows Event Logs",
-        "Logstash — it reads Windows Event Logs and parses them",
+        "Fluentd — a general-purpose forwarder that most teams run on Windows endpoints",
+        "Winlogbeat — Elastic's agent built to ship Windows Event Logs",
+        "Filebeat — Elastic's agent for reading log files from disk on any host",
+        "Logstash — a pipeline server that pulls Windows Event Logs from endpoints",
       ],
       answer: 1,
       explanation:
@@ -887,10 +887,10 @@ If the test event appears: integration is working. If not: check the agent statu
       question:
         "Your SIEM receives Syslog events from a Linux server in Tokyo. The log timestamps show '14:30:00' but the analyst in London (UTC) needs accurate timeline analysis. What is the best practice for handling timestamps in log ingestion?",
       options: [
-        "Leave timestamps as-is — the analyst should manually add the time difference",
-        "Delete the timestamp from the log and use the time the SIEM received it",
-        "Normalize all timestamps to UTC at the point of ingestion, preserving the original timezone information in a separate field",
-        "Ignore timestamps — they are not important for security analysis",
+        "Leave timestamps as logged — analysts add the offset when comparing sources",
+        "Replace the log's own timestamp with the time the SIEM received it",
+        "Normalize to UTC at ingestion and keep the original timezone in a separate field",
+        "Convert to the SOC's local time at ingestion and discard the original value",
       ],
       answer: 2,
       explanation:
@@ -1183,10 +1183,10 @@ The Sentinel rule fires → creates an incident → analyst investigates → wor
       question:
         "An attacker compromises a Finance Manager's M365 account. The first thing they do is create an inbox rule. What is the most likely purpose of this inbox rule in a Business Email Compromise (BEC) attack?",
       options: [
-        "To set an out-of-office auto-reply to hide the compromise from the attacker",
-        "To forward incoming emails about invoices and payments to an external attacker-controlled email address, while deleting the forwarded copies",
-        "To change the Finance Manager's email signature to include the attacker's bank account details",
-        "To block all incoming emails so the victim cannot receive security alerts",
+        "To set an out-of-office reply so colleagues delay contacting the victim",
+        "To forward invoice and payment emails to an attacker-controlled address and delete the copies",
+        "To add the attacker's bank details to the Finance Manager's signature on outgoing mail",
+        "To label all external mail as safe so the gateway skips scanning it",
       ],
       answer: 1,
       explanation:
@@ -1285,9 +1285,9 @@ The Sentinel rule fires → creates an incident → analyst investigates → wor
             "This audit log shows a New-InboxRule was created by j.chen@corp.com. What two parameters make this rule particularly dangerous from a BEC perspective?",
           options: [
             "The rule name is 'Archive' and the workload is Exchange",
-            "ForwardTo is set to an external ProtonMail address AND DeleteMessage is set to True — email silently forwarded and deleted",
+            "ForwardTo is an external ProtonMail address AND DeleteMessage is True — mail silently leaves and vanishes",
             "The IP address is unusual and the operation happened in the middle of the night",
-            "The OrganizationName is corp.com and the ResultStatus is True",
+            "StopProcessingRules is True and the rule applies only to the Inbox folder",
           ],
           answer: 1,
           explanation:
@@ -1298,10 +1298,10 @@ The Sentinel rule fires → creates an incident → analyst investigates → wor
           question:
             "The source IP 185.220.101.45 is from Moscow, Russia. The user j.chen@corp.com is a Finance Manager who works in New York. What should the SOC analyst do FIRST?",
           options: [
-            "Wait 24 hours and monitor for a wire-transfer attempt before taking any containment action on the account",
-            "Send j.chen@corp.com an email at their corp.com address asking whether they created this rule, and wait for a reply before acting",
-            "Immediately disable j.chen's account, revoke active sessions, remove the forwarding rule, and begin incident response — this is a confirmed BEC indicator",
-            "Delete the forwarding rule only, leave the account enabled, and close the alert as resolved once the rule is gone",
+            "Wait 24 hours and watch for a wire-transfer attempt before any containment",
+            "Email j.chen at the corp.com address to ask whether they created the rule, and wait for a reply",
+            "Disable the account, revoke sessions, remove the forwarding rule and start incident response",
+            "Delete the forwarding rule only, leave the account enabled and close the alert as resolved",
           ],
           answer: 2,
           explanation:
@@ -1329,10 +1329,10 @@ The Sentinel rule fires → creates an incident → analyst investigates → wor
       question:
         "What is 'OAuth consent phishing' in the context of Microsoft 365 attacks?",
       options: [
-        "An attacker sends a phishing email that steals the victim's OAuth password through a fake login page",
-        "An attacker tricks a user into granting permissions to a malicious OAuth application, which then has access to the user's M365 data without needing the user's password",
-        "An attacker intercepts OAuth tokens in transit using a man-in-the-middle attack",
-        "An attacker creates fake OAuth documentation to confuse developers",
+        "A phishing email that steals the victim's password through a fake OAuth login page",
+        "Tricking a user into granting a malicious OAuth app permissions, so it reads M365 data without the password",
+        "Intercepting OAuth tokens in transit with a man-in-the-middle attack",
+        "Abusing an OAuth client secret that a developer leaked in a public repository",
       ],
       answer: 1,
       explanation:
@@ -1691,8 +1691,8 @@ When sign-in logs show authentication from two locations too far apart to travel
       question:
         "What is 'MFA Fatigue' (also called Push Bombing) and why does it work?",
       options: [
-        "An attack where the attacker floods the victim's Authenticator app with requests specifically to drain the phone's battery and force it offline",
-        "An attack where the attacker already has the victim's password and repeatedly sends MFA push notifications until the frustrated victim taps 'Approve' to make them stop",
+        "An attack where the attacker triggers repeated password-reset emails until the victim clicks the reset link to make them stop",
+        "An attack where the attacker already has the victim's password and repeatedly sends MFA push notifications until the frustrated victim taps 'Approve'",
         "An attack where the attacker captures a valid MFA code in transit and resubmits that exact same code again before it expires",
         "An attack where the attacker social-engineers the mobile carrier into porting the victim's phone number onto a SIM card the attacker controls",
       ],
@@ -1763,10 +1763,10 @@ When sign-in logs show authentication from two locations too far apart to travel
           question:
             "The ErrorNumber in this log is 50126. The sign-in FAILED. Does this mean the CEO's account is safe and no further investigation is needed?",
           options: [
-            "Yes — a failed login attempt with ErrorNumber 50126 means the credential offered was wrong, so nothing about the account itself was ever actually exposed",
-            "No — a failed attempt from a high-risk location still indicates the attacker has the CEO's username. They may try again, and successful logins to other services with the same credentials should be checked. Password reset is recommended.",
-            "Yes — Entra ID automatically adds any source IP behind a failed sign-in to a permanent tenant-wide block list after a single attempt",
-            "No — but only because the CEO is a high-value target; for a regular employee's account, a single failed login from an unusual country would be safe to close without any further review",
+            "Yes — a 50126 failure means the credential offered was wrong, so nothing about the account was exposed",
+            "No — the attacker evidently has the CEO's username; check other services for matching successful logins and reset the password",
+            "Yes — Entra ID blocks any source IP behind a failed sign-in tenant-wide after a single attempt",
+            "No — but only because the CEO is high-value; a regular employee's single failed login from an unusual country is safe to close",
           ],
           answer: 1,
           explanation:
@@ -1794,10 +1794,10 @@ When sign-in logs show authentication from two locations too far apart to travel
       question:
         "A Conditional Access policy is configured: Conditions = All users + All cloud apps + Location = 'Untrusted locations'. Grant control = 'Require MFA'. An employee tries to sign in from a hotel in Paris (not a corporate office). What happens?",
       options: [
-        "The sign-in is blocked with no option to authenticate",
-        "The sign-in proceeds with just username and password because the policy only applies to admins",
-        "The user is prompted for MFA in addition to their password. If they complete MFA, they get access. If they skip MFA, they are blocked.",
-        "The policy only applies during business hours, so the result depends on the time",
+        "The sign-in is blocked outright, because untrusted locations are denied access",
+        "The sign-in succeeds with the password alone, because the policy applies only to administrators",
+        "The user must complete MFA on top of the password; without it, access is denied",
+        "Only legacy-auth clients are challenged; modern browsers sign in with the password alone",
       ],
       answer: 2,
       explanation:

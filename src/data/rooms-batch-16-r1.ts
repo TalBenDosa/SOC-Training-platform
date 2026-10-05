@@ -423,10 +423,10 @@ const azureSecurityRoom = {
       question:
         "A SOC analyst confirms the Azure Activity Log shows a Key Vault's access policy was updated (a control-plane event), but wants to know exactly WHICH secret was read and WHEN. The Activity Log alone does not show this. What is the most likely reason, and what should the analyst do?",
       options: [
-        "Azure never logs individual secret reads under any circumstances, for any Key Vault, regardless of configuration — this information is considered permanently unavailable and cannot be retrieved through any Azure logging or auditing mechanism",
-        "The Activity Log only records control-plane (management) operations by default; secret-level read events require diagnostic settings to be explicitly enabled on that specific Key Vault to forward detailed audit events into Log Analytics",
-        "The analyst must open a formal support case with Microsoft directly, since secret-level read data inside a customer's own Key Vault is never accessible to the customer through any first-party Azure logging or auditing tool",
-        "Secret reads are actually recorded in the Azure AD sign-in logs instead of anywhere within Key Vault's own logging, because Key Vault authentication is treated purely as a sign-in event rather than a resource-access event",
+        "Secret reads are written only to the Entra ID sign-in logs, since vault authentication counts as a sign-in event rather than a resource-access event",
+        "The Activity Log records control-plane operations only; secret-level reads need diagnostic settings enabled on that vault to send audit events to Log Analytics",
+        "Secret reads reach the Activity Log only for the Premium (HSM-backed) tier, so the analyst should first check whether the vault is Standard or Premium",
+        "Data-plane audit records stay on the platform side, so the analyst must request the secret-access history from Microsoft support",
       ],
       answer: 1,
       explanation:
@@ -441,10 +441,10 @@ const azureSecurityRoom = {
       question:
         "An analyst sees azure.activitylogs.identity.claims.idtyp: 'app' and azure.activitylogs.identity.authorization.evidence.principalType: 'ServicePrincipal' on a suspicious event. What is the KEY investigative difference versus if this had instead shown principalType: 'ManagedIdentity'?",
       options: [
-        "There is no meaningful difference at all — both identity types behave identically in every respect, so the investigation would proceed exactly the same way regardless of which one is shown",
-        "A service principal typically authenticates with a client secret or certificate that can be independently leaked (e.g. committed to a code repository) and reused from anywhere, whereas a managed identity has no such extractable credential — its risk is entirely about over-granted permissions and the security of the resource it's attached to",
-        "Managed identities are architecturally restricted to performing only read-only operations against Azure resources, while service principals are the only identity type capable of performing write operations",
-        "Service principals are, by Azure design, exclusively reserved for Microsoft's own first-party internal services, so a service principal can always be safely ruled out as a possible compromise vector",
+        "Both authenticate with portable client secrets, so the difference is only naming; the steps (rotate the secret, review sign-ins) are identical for each",
+        "A service principal usually holds a client secret or certificate that can leak (e.g. committed to a repo) and be reused anywhere; a managed identity has no extractable credential, so risk lies in its permissions and host",
+        "A managed identity is limited to read-only operations against Azure resources, while a service principal is the only identity type able to perform writes",
+        "Service principals are reserved for Microsoft first-party services, so one in an event is a platform component; customer-created managed identities are the ones to scrutinize",
       ],
       answer: 1,
       explanation:
@@ -459,10 +459,10 @@ const azureSecurityRoom = {
       question:
         "You see a burst of read-only operations (roleAssignments/read, vaults/read, storageAccounts/listKeys/action, virtualMachines/read) across dozens of different resources, all from one service principal that normally only ever calls one specific API. How should a SOC analyst interpret this pattern?",
       options: [
-        "Ignore it completely — every one of these operations is individually read-only, and read-only Azure Resource Manager calls can, by definition, never form part of a genuine attack sequence",
-        "This is a classic reconnaissance pattern: an identity enumerating what it has access to across many resource types is a common early-stage attacker behavior, even though no single call is destructive on its own — the anomaly is in the breadth and deviation from that identity's normal behavior",
-        "This conclusively confirms the service principal's credentials have definitely NOT been compromised, since compromise can only ever be proven once at least one destructive write operation has occurred",
-        "This exact pattern only ever occurs during planned, pre-scheduled infrastructure audits, so any occurrence of it should be automatically suppressed by the SIEM without analyst review",
+        "Low priority — every call is read-only, and read-only Resource Manager calls are not a stage of an attack sequence, so note it and close",
+        "Likely reconnaissance: one identity enumerating many resource types is common early attacker behavior; the anomaly is its breadth and deviation from the identity's baseline",
+        "Most likely a broken automation retry loop, since stolen credentials are used for targeted write actions rather than broad reads; check the pipeline's last deployment first",
+        "Expected output of a posture-management scan that enumerates resources under a service principal, so suppress it without checking that principal's baseline",
       ],
       answer: 1,
       explanation:

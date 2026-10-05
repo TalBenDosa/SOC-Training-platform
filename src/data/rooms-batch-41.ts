@@ -209,14 +209,14 @@ const mfaSessionTokenAttacksRoom = {
       question:
         "Why is a burst of 11 denied Okta pushes followed by one accepted push, all within 12 minutes, treated as far more significant than a single accidental approval on its own?",
       options: [
-        "It isn't more significant -- one approval is one approval, regardless of what came before it",
-        "The pattern over time -- many denials tied to the same source, then one acceptance -- is the actual evidence; every individual push looked completely legitimate on its own",
-        "Okta automatically blocks accounts after exactly 10 denials, so an 11th denial should be technically impossible",
-        "MFA fatigue only works if the attacker also already knows the victim's home address",
+        "It isn't more significant -- the 11 denials show the user was being careful, which makes the final approval more likely to be a considered, genuine one",
+        "The pattern over time -- many denials tied to the same source, then one acceptance -- is the evidence; every individual push looked legitimate on its own",
+        "Okta's default policy locks an account after 10 denied pushes, so an 11th denial plus an acceptance proves the lockout control was bypassed",
+        "MFA fatigue only works when the attacker also holds the victim's session cookie, so an acceptance after denials proves a stolen token was in play",
       ],
       answer: 1,
       explanation:
-        "Every single push in the sequence is genuinely legitimate -- it really came from a correct-password login attempt. What flags the pattern is the burst shape over time: many denials from one correlated source followed by an acceptance, which an isolated accidental tap would never produce. Option c is false (no such automatic block exists at that count), and option d misunderstands the attack entirely -- it requires only a working password, not any personal address information.",
+        "Every single push in the sequence is genuinely legitimate -- it really came from a correct-password login attempt. What flags the pattern is the burst shape over time: many denials from one correlated source followed by an acceptance, which an isolated accidental tap would never produce. The denials do not make the approval more trustworthy (a) -- they are what an attacker's repeated attempts look like. Option c is false (no such automatic block exists at that count), and option d misunderstands the attack entirely -- it requires only a working password, not a stolen session cookie or any other artifact.",
       xp: 15,
     },
 
@@ -440,14 +440,14 @@ const mfaSessionTokenAttacksRoom = {
       question:
         "A ticket is labeled 'T1134.001' but its only evidence is an Entra ID audit log entry titled 'Consent to application' showing a newly registered app requesting full mailbox read access. What is the most accurate assessment?",
       options: [
-        "The label is correct -- any token-related finding appearing anywhere in a cloud audit log automatically qualifies as T1134.001 by definition",
-        "The label is likely wrong -- T1134.001 needs endpoint Sysmon/Windows Security telemetry, while this consent-grant evidence actually matches T1528, Steal Application Access Token",
-        "The label is correct, but only in the specific case where the requesting application also happens to be unsigned by any recognized publisher",
-        "Neither T1134.001 nor T1528 apply here -- this specific evidence can only ever indicate T1606.002, the Golden SAML technique",
+        "The label is correct -- T1134.001 covers token theft in general, so a consent grant that yields an access token qualifies whenever the evidence appears in a cloud audit log",
+        "The label is likely wrong -- T1134.001 is endpoint token impersonation seen in Sysmon/Windows Security telemetry, while a consent grant matches T1528, Steal Application Access Token",
+        "The label is wrong, but the correct ID is T1566.002 (Spearphishing Link), since an illicit consent grant is the initial-access step that delivers the attacker's app",
+        "Neither T1134.001 nor T1528 applies -- a consent record for a newly registered app is the footprint of forged SAML tokens, so T1606.002 (Golden SAML) is the accurate technique",
       ],
       answer: 1,
       explanation:
-        "T1134.001's telemetry lives entirely on the endpoint (Sysmon Event 10/18, Windows 4672/4673) -- it has no relationship to a cloud consent-grant event. A 'Consent to application' entry describing a newly registered app requesting broad mailbox permissions is the textbook signature of T1528's illicit-consent-grant variant, not T1134.001. Signing status is irrelevant to which technique ID applies. T1606.002 (Golden SAML) is a different technique again, identified by a federated sign-in with no matching on-prem token issuance -- not by a consent-grant record.",
+        "T1134.001's telemetry lives entirely on the endpoint (Sysmon Event 10/18, Windows 4672/4673) -- it has no relationship to a cloud consent-grant event. A 'Consent to application' entry describing a newly registered app requesting broad mailbox permissions is the textbook signature of T1528's illicit-consent-grant variant, not T1134.001. A phishing lure may well have delivered the consent link, but the evidence here is the grant itself, which maps to T1528 rather than to the lure (T1566.002). T1606.002 (Golden SAML) is a different technique again, identified by a federated sign-in with no matching on-prem token issuance -- not by a consent-grant record.",
       xp: 20,
     },
 
@@ -534,14 +534,14 @@ const mfaSessionTokenAttacksRoom = {
       question:
         "A tenant has deployed Microsoft's Token Protection, binding Primary Refresh Tokens to the requesting device, but has NOT deployed FIDO2 security keys. Which of this room's attacks would still most plausibly succeed?",
       options: [
-        "T1621 MFA fatigue -- Token Protection has no effect on it, since fatigue never involves stealing a token at all; the human being worn down is the entire attack surface",
-        "None of the room's attacks would succeed, since Token Protection closes every technique that relies on a stolen artifact",
-        "T1550.004 session replay -- Token Protection binds tokens to a device, so it would fully prevent this specific technique with no exceptions",
-        "T1621 MFA fatigue would be fully prevented, since Token Protection also enforces number matching as part of the same feature",
+        "T1621 MFA fatigue -- Token Protection does not affect it, since fatigue never involves a stolen token and the worn-down human is the attack surface",
+        "None of the room's attacks would succeed, since Token Protection closes every technique that depends on a stolen or replayed authentication artifact",
+        "T1550.004 session replay -- Token Protection binds only the PRT, so a cookie lifted from the browser would still work, while fatigue is stopped by the same device binding",
+        "T1621 MFA fatigue is the attack that fails -- Token Protection bundles number matching, so reflex approvals can no longer succeed and only token-based attacks remain",
       ],
       answer: 0,
       explanation:
-        "Token Protection addresses artifact theft (binding a token to a device so a stolen copy fails elsewhere) -- it has nothing to do with fatigue, which targets the HUMAN during a live authentication attempt, not a token afterward. Option c overstates Token Protection's coverage: browser-based scenarios and non-covered resources remain exposed even with it deployed. Option d incorrectly bundles two unrelated features -- Token Protection and number matching are separate controls addressing separate techniques.",
+        "Token Protection addresses artifact theft (binding a token to a device so a stolen copy fails elsewhere) -- it has nothing to do with fatigue, which targets the HUMAN during a live authentication attempt, not a token afterward. Option b overstates Token Protection's coverage: browser-based scenarios and non-covered resources remain exposed even with it deployed. Option c credits device binding with stopping fatigue, which it cannot do, since no token exists yet at that point. Option d incorrectly bundles two unrelated features -- Token Protection and number matching are separate controls addressing separate techniques.",
       xp: 20,
     },
 

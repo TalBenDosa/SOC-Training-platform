@@ -398,10 +398,10 @@ const playbookExecutionRoom: Room = {
       question:
         "A colleague reviewing your ticket says: 'You had enough at Step 2 to reset the password. Collecting mailbox rules and app consents first just gave the intruder ten more minutes.' What is the strongest reply?",
       options: [
-        "They are right that speed matters most here — collection is a nice-to-have step that becomes optional the moment a sign-in is confirmed malicious, and the faster the password gets reset, the faster the intruder loses access, full stop",
-        "Collection is what makes the response correct rather than merely fast: the password reset is irreversible for evidence purposes, ends your visibility into what the intruder was doing, and warns them they are seen — and if a mailbox rule or app consent was planted, resetting the password alone leaves it in place",
-        "They are right, but only in Northvale's specific case, because this organisation happens to carry no regulatory or compliance requirement whatsoever to preserve identity evidence before remediating an account",
-        "Collection genuinely matters, but only for incidents that are eventually escalated and formally reported to an external regulator, so on routine internal tickets that never reach that threshold, it can safely be skipped entirely",
+        "They are right: once a sign-in is confirmed malicious, collection becomes optional, and the sooner the reset lands the sooner the intruder loses access",
+        "Collection is what makes the response correct, not just fast: a reset ends your visibility, tips off the intruder, and leaves any planted mailbox rule or app consent in place",
+        "They are right for Northvale, because collecting identity evidence before remediation only matters where a regulation or audit requirement demands it",
+        "Collection matters, but the SIEM already holds the sign-in logs, so Step 2 evidence is enough and mailbox and consent checks add nothing for a password-only compromise",
       ],
       answer: 1,
       explanation:
@@ -526,10 +526,10 @@ const playbookExecutionRoom: Room = {
       question:
         "You have decided to stop at Step 3 and page the on-call IR lead. What separates a correct deviation from an incorrect one — given that you are, factually, not completing the procedure you were assigned?",
       options: [
-        "Nothing needs to happen procedurally in the moment — deviating from an officially assigned playbook is always treated as a process error, and the correct action is to quietly complete every step anyway and only raise concerns afterwards",
-        "The deviation is documented and communicated in the moment: the ticket records which step you stopped at, the specific evidence that broke the scope condition, and the escalation you raised — so the next person inherits your reasoning rather than an unexplained gap",
-        "The deviation is only acceptable and appropriate as long as you personally go back and complete every one of the remaining steps yourself, once the IR lead has separately confirmed your assessment of the situation",
-        "The deviation is justified purely by being correct in hindsight — if the analyst's assessment turns out to have been right all along, then no written record of the decision or its reasoning is actually needed",
+        "Nothing in the moment: deviating from an assigned playbook is a process error, so complete every step anyway and raise concerns afterwards",
+        "The deviation is documented and communicated at the time: the ticket records the step you stopped at, the evidence that broke the scope condition, and the escalation raised",
+        "The deviation is acceptable only if you personally complete the remaining steps yourself once the IR lead has independently confirmed your assessment",
+        "The deviation is justified by being right: once the IR lead confirms the assessment, that confirmation serves as the record and the ticket needs no separate note",
       ],
       answer: 1,
       explanation:
