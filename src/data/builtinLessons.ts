@@ -969,6 +969,7 @@ const CORE_LESSONS = [
 import { ATTACK_TYPE_LESSONS } from "./attackTypeLessons";
 import { PLAYBOOK_LESSONS } from "./playbookLessons";
 import { NEW_TOPIC_LESSONS } from "./newTopicLessons";
+import { LESSON_VIDEOS } from "./lessonVideos";
 
 export const BUILTIN_LESSONS = [
   pathA[0], pathA[1],   // 1-2  What a SOC is · How computers & networks work
@@ -1047,3 +1048,16 @@ export const BUILTIN_LESSONS = [
   ...PLAYBOOK_LESSONS,
   ...NEW_TOPIC_LESSONS,
 ];
+
+// Attach self-hosted explainer videos (Supabase Storage) to the first section of
+// each lesson that has one, from the central slug→video map. Keeps per-lesson
+// files free of video wiring and guarantees the /learn reader shows the video.
+// Only fills when the first section has no inline video of its own (the handful
+// of lessons that wire video directly still win).
+for (const lesson of BUILTIN_LESSONS as Array<{ slug?: string; sections?: Array<{ video?: unknown }> }>) {
+  const vid = lesson.slug ? LESSON_VIDEOS[lesson.slug] : undefined;
+  const first = lesson.sections?.[0];
+  if (vid && first && !first.video) {
+    first.video = vid;
+  }
+}
