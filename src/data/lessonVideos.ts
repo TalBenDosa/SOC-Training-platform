@@ -79,4 +79,40 @@ export const LESSON_VIDEOS: Record<string, LessonVideoData> = {
       { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/threat-intelligence-in-practice/es.vtt" },
     ],
   },
+  "phishing-email-analysis-and-investigation-workflow": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/phishing-email-analysis-and-investigation-workflow/phishing-email-analysis-and-investigation-workflow.mp4",
+    caption: "Explainer — Phishing Email Analysis and Investigation Workflow for SOC Analysts Using Microsoft Defender XDR (Microsoft 365 Defender) · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/phishing-email-analysis-and-investigation-workflow/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/phishing-email-analysis-and-investigation-workflow/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/phishing-email-analysis-and-investigation-workflow/es.vtt" },
+    ],
+  },
+  "credential-attacks-explained": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/credential-attacks-explained/credential-attacks-explained.mp4",
+    caption: "Explainer — Credential Attacks · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/credential-attacks-explained/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/credential-attacks-explained/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/credential-attacks-explained/es.vtt" },
+    ],
+  },
+  "lateral-movement-explained": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/lateral-movement-explained/lateral-movement-explained.mp4",
+    caption: "Explainer — Lateral Movement · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/lateral-movement-explained/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/lateral-movement-explained/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/lateral-movement-explained/es.vtt" },
+    ],
+  },
+  "web-application-attacks-explained": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/web-application-attacks-explained/web-application-attacks-explained.mp4",
+    caption: "Explainer — Web Application Attacks · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/web-application-attacks-explained/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/web-application-attacks-explained/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/web-application-attacks-explained/es.vtt" },
+    ],
+  },
 };
