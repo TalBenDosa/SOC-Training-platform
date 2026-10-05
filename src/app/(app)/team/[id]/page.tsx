@@ -854,7 +854,9 @@ export default function TeamRoomPage() {
     <NativeLogProvider value={nativeRender}>
     <div>
       <Topbar title={phase === "running" ? "Live team exercise" : phase === "ended" ? "Shift review" : "Team lobby"} subtitle={session ? `${session.tenant?.name ?? session.company_id} · ${session.difficulty}` : ""} />
-      <div className={`container mx-auto ${phase === "running" ? "max-w-[1600px]" : "max-w-[1100px]"} px-6 py-6 space-y-5`}>
+      {/* Running: use the WHOLE screen width (a customer saw the centre column clipped
+          with a sideways scroll on a laptop) — no max-width cap, slimmer side padding. */}
+      <div className={`mx-auto ${phase === "running" ? "w-full max-w-none px-4 xl:px-6" : "container max-w-[1100px] px-6"} py-6 space-y-5`}>
         <Link href="/team" className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-white"><ArrowLeft className="h-3.5 w-3.5" /> Team training</Link>
         {error && <div className="flex items-center gap-2 rounded-lg border border-severity-high/40 bg-severity-high/10 px-4 py-3 text-sm text-severity-high"><AlertTriangle className="h-4 w-4" />{error}</div>}
         {note && phase !== "running" && <div className="rounded-lg border border-neon-green/30 bg-neon-green/10 px-4 py-3 text-sm text-neon-green">{note}</div>}
@@ -1089,13 +1091,15 @@ export default function TeamRoomPage() {
                 logs and writing reports in the role column — get an even split instead
                 of a narrow side rail. The left column is sticky so the feed and the team
                 chat stay in view while the role column scrolls (no empty half-page). */}
-            <div className={`grid gap-4 ${me.role === "t2" || me.role === "t3" ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" : "lg:grid-cols-[minmax(0,1fr)_minmax(400px,36%)]"}`}>
+            <div className={`grid gap-4 ${me.role === "t2" || me.role === "t3" ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" : "lg:grid-cols-[minmax(0,1fr)_minmax(360px,32%)]"}`}>
               {/* Left column: raw feed for analysts; a summaries-only Situation Board
                   for the coordinator SEAT (Lead/Mgr) — §3.7 keeps coordinators OUT of
                   raw (G-08). Decided by the seat, not org rights (U9): a Manager who
                   also has instructor rights still commands from summaries. The
                   instructor seat (role "instructor") keeps the raw feed for oversight. */}
-              <div className="min-w-0 space-y-3 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
+              {/* overflow-x-hidden: overflow-y:auto alone silently turns X into a scroll
+                  container too, which is how the feed ended up clipped + sideways-scrolled. */}
+              <div className="min-w-0 space-y-3 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto lg:overflow-x-hidden lg:pr-1">
                 {(me.role === "lead" || me.role === "mgr") ? (
                   <SituationBoard liveFeed={liveFeed} events={events} feed={feed} nameOf={nameOf} roster={roster} online={online} act={act} />
                 ) : (

@@ -1008,12 +1008,12 @@ const EventRow = memo(function EventRow({
         <td className="w-6 pl-3">
           <ChevronRight className={cn("h-3 w-3 text-slate-400 transition-transform", expanded && "rotate-90")} />
         </td>
-        <td className="py-2.5 pr-3 font-mono text-[11px] text-slate-400">{timeStr}</td>
-        <td className="py-2.5 pr-3 font-mono text-xs text-slate-200">{event.hostname ?? "—"}</td>
-        <td className="py-2.5 pr-3">
+        <td className="py-2.5 pr-3 font-mono text-[11px] text-slate-400 truncate">{timeStr}</td>
+        <td className="py-2.5 pr-3 font-mono text-xs text-slate-200 truncate" title={event.hostname ?? undefined}>{event.hostname ?? "—"}</td>
+        <td className="py-2.5 pr-3 overflow-hidden">
           <LogSourceCard source={event.source} vendor={event.vendor} />
         </td>
-        <td className="py-2 pr-3 text-xs text-slate-300 max-w-[400px]">
+        <td className="py-2 pr-3 text-xs text-slate-300 overflow-hidden">
           <div className="flex items-start gap-1.5">
             {/* Fired-times counter badge */}
             {(() => {
@@ -1106,7 +1106,7 @@ const EventRow = memo(function EventRow({
                 Showing it in the always-visible row would flag which rows are the
                 attack without expanding. The technique is revealed inside the
                 expanded DetailPanel instead. */}
-            <span className="font-mono text-[10px] text-slate-400">{event.ruleId}</span>
+            <span className="min-w-0 truncate font-mono text-[10px] text-slate-400" title={event.ruleId ? String(event.ruleId) : undefined}>{event.ruleId}</span>
           </div>
         </td>
       </motion.tr>
@@ -1241,7 +1241,20 @@ export function EventFeed({
       <SocMethodologyBanner />
 
       <div id="ef-event-table" className="max-h-[530px] overflow-y-auto overflow-x-auto">
-        <table className="w-full min-w-[720px] text-xs">
+        {/* Fixed column widths so the table FITS its container (the team exercise puts it
+            in a ~650px column): Description takes whatever is left and the narrow cells
+            truncate, instead of the table forcing a sideways scroll. min-w only kicks in
+            on phone widths, where horizontal scroll is the lesser evil. */}
+        <table className="w-full min-w-[560px] table-fixed text-xs">
+          <colgroup>
+            <col className="w-6" />
+            <col className="w-[76px]" />
+            <col className="w-[118px]" />
+            <col className="w-[116px]" />
+            <col />
+            <col className="w-[56px]" />
+            <col className="w-[84px]" />
+          </colgroup>
           <thead className="sticky top-0 bg-bg-elevated/95 backdrop-blur">
             <tr className="text-left text-[10px] font-semibold uppercase tracking-widest text-slate-400">
               <th className="w-6 pl-3 py-2" />
