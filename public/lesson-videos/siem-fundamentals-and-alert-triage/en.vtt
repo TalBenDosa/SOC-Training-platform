@@ -1,0 +1,65 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:05.260
+Every shift in a SOC begins and ends at the same place: the SIEM.
+
+2
+00:00:05.260 --> 00:00:10.490
+When an alert lands in your queue, it didn't appear by magic. Let's follow its whole journey.
+
+3
+00:00:10.990 --> 00:00:18.020
+A SIEM — Security Information and Event Management — is the single pane of glass for the whole environment.
+
+4
+00:00:18.020 --> 00:00:26.950
+Logs from firewalls, endpoints, identity providers, and cloud all converge here, get normalized, and get evaluated against detection logic.
+
+5
+00:00:27.450 --> 00:00:32.780
+Every log takes the same journey into the SIEM. First it's collected from the source.
+
+6
+00:00:32.780 --> 00:00:40.460
+Then it's parsed — broken into fields — and normalized, so a username from a firewall and from a cloud log share one field name.
+
+7
+00:00:40.460 --> 00:00:45.160
+It's stored so it can be queried, and made searchable across millions of events.
+
+8
+00:00:45.160 --> 00:00:52.050
+Collect, parse, normalize, store, search — that pipeline is what makes detection possible at all.
+
+9
+00:00:52.550 --> 00:01:00.570
+Detection rules turn stored events into alerts in four main ways. A signature matches a known-bad pattern.
+
+10
+00:01:00.570 --> 00:01:06.210
+A threshold fires when a count crosses a line — ten failed logins in a minute.
+
+11
+00:01:06.210 --> 00:01:13.670
+Correlation ties events across different sources into one story — a login, then a download, then an upload.
+
+12
+00:01:13.670 --> 00:01:21.350
+And anomaly detection flags a deviation from the baseline — something simply unusual for this host or user.
+
+13
+00:01:21.850 --> 00:01:26.990
+Here's the mindset shift. An alert is not a verdict handed down from an oracle.
+
+14
+00:01:26.990 --> 00:01:35.340
+It's a question the SIEM is asking you — this pattern matched; is it real? Your job is to answer it, not just to close it.
+
+15
+00:01:35.840 --> 00:01:43.090
+Understand the full journey — raw log, pipeline, rule, alert — and you triage faster.
+
+16
+00:01:43.090 --> 00:01:49.640
+You stop treating alerts as truth, and start treating them as the starting point of an investigation.
