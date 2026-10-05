@@ -34,7 +34,10 @@ export function LessonVideo({ video }: { video: LessonVideoData }) {
         poster={video.poster}
         className="mx-auto w-full max-h-[520px] bg-black"
       >
-        <source src={video.src} type="video/mp4" />
+        {/* Without a poster, append a #t media fragment so the browser seeks to the
+            first frame and paints it as the still — otherwise preload="metadata"
+            shows only a black box until the viewer presses play. */}
+        <source src={video.poster ? video.src : `${video.src}#t=0.1`} type="video/mp4" />
         {(video.tracks ?? []).map((t) => (
           <track
             key={t.srclang}
