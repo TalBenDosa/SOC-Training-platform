@@ -89,7 +89,7 @@ export function buildMacosTccPkgScenario(
 
   const cx = "northwind-collab" as const;
   const osx = { "host.os.name": host.os, "host.os.version": host.osVersion };
-  const appleSigned = { "process.code_signature.status": "valid", "process.code_signature.subject_name": "Software Signing" };
+  const appleSigned = { "process.code_signature.exists": true, "process.code_signature.trusted": true, "process.code_signature.subject_name": "Software Signing" };
 
   const events: TelemetryEvent[] = [
     // 0. BENIGN CONTROL — a legitimately-signed, notarized .pkg install (fp).
@@ -99,7 +99,7 @@ export function buildMacosTccPkgScenario(
       cmdline: "installer -pkg /Users/j.okafor/Downloads/Zoom.pkg -target /", parentName: "Installer", parentPid: 1, pid: 3182,
       severity: "informational", expectedVerdict: "fp",
       fpExplanation: "The control case for the whole scenario. Zoom was installed the day before from a downloaded .pkg — the same 'an installer runs and registers a launch item' shape as the intrusion. What makes it benign is written in the signature and the script behaviour: the package carries a VALID Developer ID Installer signature, it is notarized, and Gatekeeper passed, so macOS let it install cleanly. Its postinstall did nothing unusual — it registered a per-user LaunchAgent under ~/Library/LaunchAgents for auto-update and never ran as root against the privacy database. An analyst who alerts on 'a .pkg installed an app and a launch item' alone will flag this and be wrong; the discriminator is Developer ID + notarization + a benign per-user script, not the install shape.",
-      extra: { ...osx, ...appleSigned, "file.name": "Zoom.pkg", "file.path": "/Users/j.okafor/Downloads/Zoom.pkg", "file.signature.status": "valid", "file.signature.subject_name": "Developer ID Installer: Zoom Video Communications, Inc. (BJ4HAAB9B3)", "file.signature.trusted": "true" },
+      extra: { ...osx, ...appleSigned, "file.name": "Zoom.pkg", "file.path": "/Users/j.okafor/Downloads/Zoom.pkg", "file.code_signature.exists": true, "file.code_signature.subject_name": "Developer ID Installer: Zoom Video Communications, Inc. (BJ4HAAB9B3)", "file.code_signature.trusted": true },
       description: "/usr/sbin/installer installed Zoom.pkg to the system. Falcon recorded a valid Developer ID Installer signature (Zoom Video Communications) and a passed Gatekeeper assessment; the package is notarized. Its postinstall registered a per-user LaunchAgent for the updater and touched no root-owned locations or the TCC database.",
     }),
 
@@ -109,7 +109,7 @@ export function buildMacosTccPkgScenario(
       processName: "installer", processPath: "/usr/sbin/installer", cmdline: `installer -pkg ${pkgPath} -target /`,
       parentName: "Installer", parentPid: 1, pid: 4207, sha256: installerHash,
       mitre: "T1204.002", tactic: "Execution", severity: "high", incidentId: INCIDENT,
-      extra: { ...osx, ...appleSigned, "file.name": pkgName, "file.path": pkgPath, "file.hash.sha256": pkgHash, "file.signature.status": "revoked", "file.signature.subject_name": "Developer ID Installer: Bright Meridian Ltd (7Q9K2M4X8Z)", "file.signature.trusted": "false", "threat.technique.id": "T1204.002", "threat.technique.name": "User Execution: Malicious File", "threat.tactic.name": "Execution", "threat.tactic.id": "TA0002" },
+      extra: { ...osx, ...appleSigned, "file.name": pkgName, "file.path": pkgPath, "file.hash.sha256": pkgHash, "file.code_signature.exists": true, "file.code_signature.status": "errSecCertificateRevoked", "file.code_signature.subject_name": "Developer ID Installer: Bright Meridian Ltd (7Q9K2M4X8Z)", "file.code_signature.trusted": false, "threat.technique.id": "T1204", "threat.technique.subtechnique.id": "T1204.002", "threat.technique.name": "User Execution: Malicious File", "threat.tactic.name": "Execution", "threat.tactic.id": "TA0002" },
       description: "/usr/sbin/installer installed MeetSync-Installer.pkg (from ~/Downloads) to the system. Falcon recorded the package's Developer ID Installer signature as REVOKED and the file still carrying the com.apple.quarantine attribute; the payload SHA256 is the one seen again in the later events.",
     }),
 
@@ -119,7 +119,7 @@ export function buildMacosTccPkgScenario(
       processName: "sh", processPath: "/bin/sh", cmdline: `/bin/sh /private/tmp/PKInstallSandbox.7fA2/Scripts/${bundleId}.Qk8Lp/postinstall`,
       parentName: "installer", parentPid: 4207, pid: 4221,
       mitre: "T1059.004", tactic: "Execution", severity: "high", incidentId: INCIDENT,
-      extra: { ...osx, ...appleSigned, "threat.technique.id": "T1059.004", "threat.technique.name": "Command and Scripting Interpreter: Unix Shell", "threat.tactic.name": "Execution", "threat.tactic.id": "TA0002" },
+      extra: { ...osx, ...appleSigned, "threat.technique.id": "T1059", "threat.technique.subtechnique.id": "T1059.004", "threat.technique.name": "Command and Scripting Interpreter: Unix Shell", "threat.tactic.name": "Execution", "threat.tactic.id": "TA0002" },
       description: "The installer executed the package's postinstall script: /bin/sh running from the PKInstallSandbox Scripts directory, spawned by installer and running as root. Package install scripts run with root privilege, so anything this script does inherits it.",
     }),
 
@@ -129,7 +129,7 @@ export function buildMacosTccPkgScenario(
       processName: "sh", processPath: "/bin/sh", cmdline: `/bin/sh /private/tmp/PKInstallSandbox.7fA2/Scripts/${bundleId}.Qk8Lp/postinstall`,
       parentName: "installer", pid: 4221, parentPid: 4207, runAsUser: "root", accountName: "root", accountDomain: host.name,
       mitre: "T1059.004", tactic: "Execution", severity: "high", incidentId: INCIDENT,
-      extra: { "Timestamp": T(5 * SEC), "DeviceId": host.id, "InitiatingProcessFolderPath": "/usr/sbin/installer", "InitiatingProcessCommandLine": `installer -pkg ${pkgPath} -target /`, "InitiatingProcessId": "4207", "InitiatingProcessSHA256": installerHash, "ReportId": "88301744", "threat.technique.id": "T1059.004", "threat.technique.name": "Command and Scripting Interpreter: Unix Shell", "threat.tactic.name": "Execution", "threat.tactic.id": "TA0002" },
+      extra: { "Timestamp": T(5 * SEC), "DeviceId": host.id, "InitiatingProcessFolderPath": "/usr/sbin/installer", "InitiatingProcessCommandLine": `installer -pkg ${pkgPath} -target /`, "InitiatingProcessId": "4207", "InitiatingProcessSHA256": installerHash, "ReportId": "88301744", "threat.technique.id": "T1059", "threat.technique.subtechnique.id": "T1059.004", "threat.technique.name": "Command and Scripting Interpreter: Unix Shell", "threat.tactic.name": "Execution", "threat.tactic.id": "TA0002" },
       description: "Defender for Endpoint, also deployed on this Mac, independently recorded the same postinstall /bin/sh child of the installer running under the root account. Its DeviceProcessEvents row ties the shell to the same initiating package payload SHA256.",
     }),
 
@@ -139,7 +139,7 @@ export function buildMacosTccPkgScenario(
       path: tccDb, sha256: null, actorProcess: "sqlite3", actorPath: "/usr/bin/sqlite3", actorPid: 4238,
       actorParentName: "sh", actorParentPid: 4221, actorSigned: "valid", runAsUser: "root",
       mitre: "T1548.006", tactic: "Privilege Escalation", severity: "critical", incidentId: INCIDENT,
-      extra: { ...osx, "crowdstrike.CommandLine": `sqlite3 ${tccDb} INSERT OR REPLACE INTO access VALUES('kTCCServiceSystemPolicyAllFiles','${bundleId}',0,2,4,1,NULL,NULL,NULL,'UNUSED',NULL,0,1);`, "process.code_signature.subject_name": "Software Signing", "threat.technique.id": "T1548.006", "threat.technique.name": "Abuse Elevation Control Mechanism: TCC Manipulation", "threat.tactic.name": "Privilege Escalation", "threat.tactic.id": "TA0004" },
+      extra: { ...osx, "crowdstrike.CommandLine": `sqlite3 ${tccDb} INSERT OR REPLACE INTO access VALUES('kTCCServiceSystemPolicyAllFiles','${bundleId}',0,2,4,1,NULL,NULL,NULL,'UNUSED',NULL,0,1);`, "process.code_signature.subject_name": "Software Signing", "threat.technique.id": "T1548", "threat.technique.subtechnique.id": "T1548.006", "threat.technique.name": "Abuse Elevation Control Mechanism: TCC Manipulation", "threat.tactic.name": "Privilege Escalation", "threat.tactic.id": "TA0004" },
       description: "The root postinstall used /usr/bin/sqlite3 to write allow-rows into the user's TCC privacy database at ~/Library/Application Support/com.apple.TCC/TCC.db — one for kTCCServiceSystemPolicyAllFiles (Full Disk Access) and one for kTCCServiceScreenCapture (Screen Recording), keyed to the com.meetsync.app bundle. No macOS consent prompt was shown to the user.",
     }),
 
@@ -149,7 +149,7 @@ export function buildMacosTccPkgScenario(
       processName: "launchctl", processPath: "/bin/launchctl", cmdline: `launchctl load -w ${daemonPlist}`,
       parentName: "sh", parentPid: 4221, pid: 4256,
       mitre: "T1543.004", tactic: "Persistence", severity: "high", incidentId: INCIDENT,
-      extra: { ...osx, ...appleSigned, "file.name": "com.meetsync.helper.plist", "file.path": daemonPlist, "file.signature.status": "adhoc", "file.signature.trusted": "false", "threat.technique.id": "T1543.004", "threat.technique.name": "Create or Modify System Process: Launch Daemon", "threat.tactic.name": "Persistence", "threat.tactic.id": "TA0003" },
+      extra: { ...osx, ...appleSigned, "file.name": "com.meetsync.helper.plist", "file.path": daemonPlist, "file.code_signature.exists": true, "file.code_signature.trusted": false, "threat.technique.id": "T1543", "threat.technique.subtechnique.id": "T1543.004", "threat.technique.name": "Create or Modify System Process: Launch Daemon", "threat.tactic.name": "Persistence", "threat.tactic.id": "TA0003" },
       description: "The root script wrote a system LaunchDaemon plist at /Library/LaunchDaemons/com.meetsync.helper.plist and ran launchctl load -w on it. The plist's Program points at /Library/Application Support/MeetSync/meetsyncd, an ad-hoc-signed binary that now runs as root; a LaunchDaemon in this directory is started by launchd on every boot, before any user logs in.",
     }),
 
@@ -169,7 +169,7 @@ export function buildMacosTccPkgScenario(
         companyId: cx, id: "mtp_07_edr_detection", ts: T(1 * MIN), host: host.name, user: user.email, runAsUser: "root",
         threatName: "MacOS_PkgPostinstall_TCCManipulation_LaunchDaemon", mitre: "T1548.006", tactic: "Privilege Escalation",
         technique: "TCC Manipulation", action: "detected", severity: "critical", incidentId: INCIDENT,
-        extra: { ...osx, "crowdstrike.IncidentType": "MacOS Privilege Escalation", "crowdstrike.Objective": "Falcon Detection Method", "threat.technique.id": "T1548.006", "threat.technique.name": "Abuse Elevation Control Mechanism: TCC Manipulation", "threat.tactic.name": "Privilege Escalation", "threat.tactic.id": "TA0004" },
+        extra: { ...osx, "crowdstrike.IncidentType": "MacOS Privilege Escalation", "crowdstrike.Objective": "Falcon Detection Method", "threat.technique.id": "T1548", "threat.technique.subtechnique.id": "T1548.006", "threat.technique.name": "Abuse Elevation Control Mechanism: TCC Manipulation", "threat.tactic.name": "Privilege Escalation", "threat.tactic.id": "TA0004" },
         detail: "A package with a revoked Developer ID installer signature ran a root postinstall that wrote to the TCC privacy database and installed a root LaunchDaemon, followed by reads of the user's protected folders.",
         description: "Falcon raised a Critical detection on MB-PM-07: a package with a revoked Developer ID installer signature ran a root postinstall that wrote to the TCC privacy database and installed a root LaunchDaemon, followed by reads of the user's protected folders — a macOS TCC-manipulation and persistence pattern.",
       }),
@@ -230,7 +230,7 @@ export function buildMacosTccPkgScenario(
       ],
       answer: "sig_rootscript",
       explanation:
-        "The discriminator is the signature plus what the install script does, not the fact that a .pkg installed something. Zoom has a valid Developer ID Installer signature and is notarized, and its postinstall only registers a per-user LaunchAgent. MeetSync's Developer ID Installer signature is REVOKED (file.signature.status revoked, trusted false), and its postinstall runs as root — writing allow-rows into TCC.db and installing a root LaunchDaemon. Both packages ran through /usr/sbin/installer, which is normal, so the installer path is not a verdict. Both downloaded files would carry com.apple.quarantine — that is set on anything downloaded, benign or not — so its presence proves nothing. And package size is irrelevant. The real tells are a valid+notarized signature with a benign per-user script on one side, and a revoked signature with a root script that rewrites the privacy database on the other.",
+        "The discriminator is the signature plus what the install script does, not the fact that a .pkg installed something. Zoom has a valid Developer ID Installer signature and is notarized, and its postinstall only registers a per-user LaunchAgent. MeetSync's Developer ID Installer signature is REVOKED (file.code_signature.status errSecCertificateRevoked, trusted false), and its postinstall runs as root — writing allow-rows into TCC.db and installing a root LaunchDaemon. Both packages ran through /usr/sbin/installer, which is normal, so the installer path is not a verdict. Both downloaded files would carry com.apple.quarantine — that is set on anything downloaded, benign or not — so its presence proves nothing. And package size is irrelevant. The real tells are a valid+notarized signature with a benign per-user script on one side, and a revoked signature with a root script that rewrites the privacy database on the other.",
     },
     {
       id: "mtp_q2",

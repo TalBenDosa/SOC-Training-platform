@@ -30,8 +30,10 @@ const supplyChainEvent: TelemetryEvent = {
   raw: {
     "crowdstrike.event_simpleName": "ProcessRollup2",
     "crowdstrike.Tactic": "Initial Access",
-    "crowdstrike.TacticId": "TA0001",
-    "crowdstrike.TechniqueId": "T1195.001",
+    "threat.tactic.id": "TA0001",
+    "threat.technique.id": "T1195",
+
+    "threat.technique.subtechnique.id": "T1195.001",
     "crowdstrike.Severity": "High",
     "crowdstrike.PatternDispositionDescription": "Detection, No Action",
     "crowdstrike.FileName": "node.exe",

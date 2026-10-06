@@ -532,6 +532,32 @@ Notes: key set = the real elastic `userinfo` line (15 keys). `User` uses the `DO
 
 ---
 
+## 4b. Platform surfaces — which representation each one shows (decided 2026-10-06)
+
+| Surface | Representation | Field names |
+|---|---|---|
+| Native log view (Live feed / scenario "native" toggle, `src/lib/logs/native/sources/crowdstrike.ts`) | FDR record for telemetry, Alerts API v2 resource for detections | exactly as sections 3–4 above |
+| Authored `raw` blocks (emitters `src/lib/sim/emitters/crowdstrike.ts`, `scenarioEvents.ts`, scenario packs, rooms) | The SIEM view of Falcon data as Elastic's CrowdStrike integration (FDR data stream) indexes it: the Falcon name under `crowdstrike.` + ECS fields | below |
+
+In the SIEM view a detection is a `DetectionSummaryEvent` whose Falcon fields keep their own names:
+`crowdstrike.DetectName`, `crowdstrike.DetectDescription`, `crowdstrike.SeverityName`, `crowdstrike.Tactic`,
+`crowdstrike.Technique`, `crowdstrike.Objective`, `crowdstrike.PatternDispositionValue` /
+`crowdstrike.PatternDispositionDescription`, `crowdstrike.PatternId`, `crowdstrike.DetectId`,
+`crowdstrike.FalconHostLink`, and the chain as `crowdstrike.FileName` / `crowdstrike.ParentImageFileName` /
+`crowdstrike.GrandparentImageFileName` (all in the integration's `data_stream/fdr/fields/fields.yml`). Falcon's flat
+records carry no MITRE ids and no confidence: ids are ECS — `threat.tactic.id`, `threat.technique.id` (parent, `T1059`)
+and `threat.technique.subtechnique.id` (`T1059.001`). Code-signing state is ECS — `process.code_signature.exists` /
+`.trusted` / `.subject_name` (and `file.` / `process.parent.` equivalents), with `.status` only for a validation error
+(e.g. `errSecCertificateRevoked`); this is how the integration maps Falcon's signature info (unsigned → exists false;
+signed-untrusted, e.g. a macOS ad-hoc signature → exists true / trusted false; trusted → both true). An Event Streams
+feed indexed by the same integration (`data_stream/falcon`) nests the same PascalCase names one level down,
+`crowdstrike.event.SeverityName` / `crowdstrike.event.Tactic` — same fields, different data stream.
+
+Not real, rejected by the field gate (`deniedFields`): `crowdstrike.detection.*`, `crowdstrike.Confidence`,
+`crowdstrike.TechniqueId`, `crowdstrike.TacticId`, `process.code_signature.notarized`, `file.signature.*`, `code.signature.*`.
+
+---
+
 ## 5. Investigation notes (how an analyst pivots)
 
 - **Process tree**: ProcessRollup2.`TargetProcessId` is the node ID. Child PR2.`ParentProcessId` = parent's

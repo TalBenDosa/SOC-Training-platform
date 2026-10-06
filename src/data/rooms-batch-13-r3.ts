@@ -32,9 +32,9 @@ const edrInjectEvent: TelemetryEvent = {
     "crowdstrike.DetectDescription":
       "A process opened a handle to another running process with elevated access rights",
     "crowdstrike.Tactic": "Defense Evasion",
-    "crowdstrike.TacticId": "TA0005",
+    "threat.tactic.id": "TA0005",
     "crowdstrike.Technique": "Process Injection",
-    "crowdstrike.TechniqueId": "T1055",
+    "threat.technique.id": "T1055",
     "crowdstrike.Severity": "4",
     "crowdstrike.SeverityName": "Critical",
     "crowdstrike.FileName": "powershell.exe",
@@ -428,9 +428,10 @@ const avVsEdrMasterclass = {
         '  "crowdstrike.DetectDescription": "Process injection: powershell.exe injected shellcode into explorer.exe",\n\n' +
         "  // MITRE ATT&CK mapping\n" +
         '  "crowdstrike.Tactic": "Defense Evasion",\n' +
-        '  "crowdstrike.TacticId": "TA0005",\n' +
+        '  "threat.tactic.id": "TA0005",\n' +
         '  "crowdstrike.Technique": "Process Injection: Portable Executable Injection",\n' +
-        '  "crowdstrike.TechniqueId": "T1055.002",\n\n' +
+        '  "threat.technique.id": "T1055",\n' +
+        '  "threat.technique.subtechnique.id": "T1055.002",\n\n' +
         "  // Severity\n" +
         '  "crowdstrike.Severity": "4",\n' +
         '  "crowdstrike.SeverityName": "Critical",\n\n' +

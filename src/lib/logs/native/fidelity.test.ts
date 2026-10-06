@@ -95,7 +95,7 @@ describe("#8/#16 Falcon dispositions follow what the sensor did", () => {
     expect(disp(blocked)).toEqual({ code: 16, flags: ["process_blocked"] });
   });
   it("the description is Falcon's detection wording, never an action claim that could contradict the flags", () => {
-    const a = render("crowdstrike", anydesk({ action_result: "process_killed", "crowdstrike.detection.description": "The file and its parent process were quarantined and killed." }));
+    const a = render("crowdstrike", anydesk({ action_result: "process_killed", "crowdstrike.DetectDescription": "The file and its parent process were quarantined and killed." }));
     expect(String(a.record.description)).not.toMatch(/kill|quarantin|terminat/i);
   });
   it("a download is a file write, not an alert (a reshape's generic DetectionSummaryEvent name is not a verdict)", () => {

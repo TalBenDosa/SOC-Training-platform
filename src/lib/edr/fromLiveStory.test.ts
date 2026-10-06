@@ -5,6 +5,7 @@ import { buildHostBaseline } from "./hostBaseline";
 import { buildMultiHostIntrusionScenario } from "@/lib/sim/scenario-packs/multiHostIntrusion";
 import { lookupHash } from "@/lib/sim/hashDatabase";
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { isConclusionRawKey } from "@/lib/scenarios/withheld";
 import {
   buildPhishingMalwareScenario, buildMaliciousMacroScenario, buildCrackedSoftwareScenario,
   buildUsbMalwareScenario, buildImpossibleTravelScenario, buildOAuthScenario,
@@ -128,7 +129,7 @@ describe("buildInvestigationFromStory", () => {
 // mapping, no expected verdict — the EDR console is built from THIS in the browser.
 const project = (events: TelemetryEvent[]): TelemetryEvent[] => events.map(e => {
   const raw: Record<string, unknown> = { ...(e.raw ?? {}) };
-  for (const k of Object.keys(raw)) if (/\.description$/i.test(k)) delete raw[k];
+  for (const k of Object.keys(raw)) if (isConclusionRawKey(k)) delete raw[k];
   return { ...e, description: undefined, mitre_technique: undefined, mitre_tactic: undefined, expected_verdict: undefined, raw };
 });
 

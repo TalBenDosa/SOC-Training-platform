@@ -11,6 +11,7 @@
 import type { TelemetryEvent, Severity, ExpectedVerdict } from "../types";
 import { makeSha256 } from "../iocs";
 import { type Ctx, resolve, pidFrom, downloadsPath } from "./_core";
+import { ecsCodeSignature } from "@/lib/logs/ecsFields";
 
 const VENDOR = "SentinelOne Singularity";
 
@@ -120,7 +121,7 @@ export function s1Process(o: S1ProcessOpts): TelemetryEvent {
       "s1.srcProcUser": r.domainUser,
       "s1.srcProcPid": String(pid),
       ...(o.sha256 ? { "process.hash.sha256": o.sha256 } : {}),
-      ...(o.signed !== undefined ? { "process.code_signature.status": o.signed ? "trusted" : "unsigned" } : {}),
+      ...ecsCodeSignature("process", o.signed === undefined ? undefined : o.signed ? "trusted" : "unsigned"),
       ...(reg ? { "registry.hive": hive!, "registry.path": reg.keyPath, "registry.value": reg.valueName, "registry.data.strings": reg.valueData } : {}),
       "process.command_line": o.cmdline,
     },
@@ -175,7 +176,7 @@ export function s1ProcessAccess(o: S1ProcessAccessOpts): TelemetryEvent {
       "s1.mitigation_status": "not_mitigated",
       "s1.srcProcName": o.processName,
       ...(o.sha256 ? { "process.hash.sha256": o.sha256 } : {}),
-      ...(o.signed !== undefined ? { "process.code_signature.status": o.signed ? "trusted" : "unsigned" } : {}),
+      ...ecsCodeSignature("process", o.signed === undefined ? undefined : o.signed ? "trusted" : "unsigned"),
     },
   };
 }

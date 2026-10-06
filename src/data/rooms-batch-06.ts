@@ -1039,7 +1039,6 @@ Based on your analysis:
           "crowdstrike.event_simpleName": "DetectionSummaryEvent",
           "crowdstrike.DetectionId": "ldt:8f3c1a92b7e44d05:44117",
           "crowdstrike.SeverityName": "High",
-          "crowdstrike.Confidence": "95",
           "crowdstrike.Tactic": "Execution",
           "crowdstrike.Technique": "T1059.001",
           "crowdstrike.TechniqueName": "PowerShell",

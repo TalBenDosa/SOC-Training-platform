@@ -20,6 +20,7 @@ import type { TelemetryEvent, Severity, ExpectedVerdict, EventType } from "../ty
 import { makeSha256 } from "../iocs";
 import { hashString } from "../rng";
 import { type Ctx, resolve, pidFrom, SEV_NAME, downloadsPath } from "./_core";
+import { ecsTechnique, ecsCodeSignature, type SignState } from "@/lib/logs/ecsFields";
 
 const VENDOR = "CrowdStrike Falcon";
 
@@ -66,19 +67,18 @@ const INTEG_RID = { low: "4096", medium: "8192", high: "12288", system: "16384" 
 // concrete flagged process+hash; use csAlert when it is a behavioural summary.
 export interface CsAlertOpts extends Ctx {
   threatName: string;           // crowdstrike.DetectName
-  detail?: string;              // crowdstrike.detection.description
+  detail?: string;              // crowdstrike.DetectDescription
   mitre?: string;
   tactic?: string;
   technique?: string;
   malwareCategory?: string;     // e.g. "cryptominer"
   action?: "detected" | "killed" | "quarantined" | "prevented";
-  processTree?: string;
-  confidence?: number;
+  processTree?: string;         // "explorer.exe > WINWORD.EXE > powershell.exe" → FileName / ParentImageFileName / GrandparentImageFileName
   severity?: Severity;
   expectedVerdict?: ExpectedVerdict;
   isDetection?: boolean;        // default true; set false for a precursor summary that isn't the ticket-opener
   runAsUser?: string;           // UserName override (verbatim, e.g. "root")
-  extra?: Record<string, string | number>; // extra registry-valid raw fields (host.os.*, crowdstrike.*)
+  extra?: Record<string, string | number | boolean>; // extra registry-valid raw fields (host.os.*, crowdstrike.*)
   // The triggering process, as the DetectionSummaryEvent records it. A real Falcon
   // detection always names the process + its hashes; pass these so the alert is
   // pivotable on its own (FileName / FilePath / CommandLine / SHA256String / MD5String).
@@ -101,6 +101,12 @@ export function csAlert(o: CsAlertOpts): TelemetryEvent {
     : "Detection, No Action";
   const result = o.action === "killed" || o.action === "quarantined" ? "process_killed"
     : o.action === "prevented" ? "prevented" : "detected";
+  // A detection names at most three generations of its chain — the triggering process
+  // (FileName) and its Parent/Grandparent image — never a free-text "process tree".
+  const chain = (o.processTree ?? "").split(/\s*>\s*/).map(n => n.replace(/\s*\(.*\)\s*$/, "").trim()).filter(Boolean);
+  const fileName = o.processName ?? chain.at(-1);
+  const parentImage = o.parentPath ?? (chain.length > 1 ? chain.at(-2) : undefined);
+  const grandparentImage = o.grandparentPath ?? (chain.length > 2 ? chain.at(-3) : undefined);
   return {
     id: o.id, ts: o.ts, source: "edr", vendor: VENDOR, event_type: "edr_alert",
     severity: sev, hostname: r.host, src_ip: r.srcIp, user_email: r.email,
@@ -114,27 +120,25 @@ export function csAlert(o: CsAlertOpts): TelemetryEvent {
     raw: {
       "crowdstrike.event_simpleName": "DetectionSummaryEvent",
       "crowdstrike.DetectName": o.threatName,
-      ...(o.detail ? { "crowdstrike.detection.description": o.detail } : {}),
+      ...(o.detail ? { "crowdstrike.DetectDescription": o.detail } : {}),
       ...(o.tactic ? { "crowdstrike.Tactic": o.tactic } : {}),
       ...(o.technique ? { "crowdstrike.Technique": o.technique } : {}),
       "crowdstrike.PatternDispositionDescription": dispoDesc,
       "crowdstrike.SeverityName": SEV_NAME[sev],
-      ...(o.confidence !== undefined ? { "crowdstrike.detection.confidence": String(o.confidence) } : {}),
-      ...(o.processTree ? { "crowdstrike.detection.process_tree": o.processTree } : {}),
       "crowdstrike.ComputerName": r.host,
       "crowdstrike.UserName": o.runAsUser ?? r.domainUser,
       "crowdstrike.aid": r.sensorId,
-      ...(o.processName ? { "crowdstrike.FileName": o.processName } : {}),
+      ...(fileName ? { "crowdstrike.FileName": fileName } : {}),
       ...(o.processPath ? { "crowdstrike.FilePath": dirOf(o.processPath) } : {}),
       ...(o.cmdline ? { "crowdstrike.CommandLine": o.cmdline } : {}),
       ...(o.pid !== undefined ? { "crowdstrike.ProcessId": falconUpid(r.sensorId, o.pid) } : {}),
-      ...(o.parentPath ? { "crowdstrike.ParentImageFileName": o.parentPath } : {}),
+      ...(parentImage ? { "crowdstrike.ParentImageFileName": parentImage } : {}),
       ...(o.parentCmdline ? { "crowdstrike.ParentCommandLine": o.parentCmdline } : {}),
-      ...(o.grandparentPath ? { "crowdstrike.GrandparentImageFileName": o.grandparentPath } : {}),
+      ...(grandparentImage ? { "crowdstrike.GrandparentImageFileName": grandparentImage } : {}),
       ...(o.sha256 ? { "crowdstrike.SHA256String": o.sha256, "crowdstrike.MD5String": md5For(o.sha256) } : {}),
       "threat.name": o.threatName,
       ...(o.extra ?? {}),
-      ...(o.mitre ? { "threat.technique.id": o.mitre } : {}),
+      ...ecsTechnique(o.mitre),
       ...(o.technique ? { "threat.technique.name": o.technique } : {}),
       ...(o.malwareCategory ? { "malware.category": o.malwareCategory } : {}),
       "action_result": result,
@@ -226,7 +230,7 @@ export interface CsProcessOpts extends Ctx {
   simpleName?: string;          // override crowdstrike.event_simpleName (e.g. "RawDiskAccess")
   expectedVerdict?: ExpectedVerdict;
   fpExplanation?: string;       // benign-control rationale (a decoy that resolves fp)
-  extra?: Record<string, string | number>; // extra registry-valid raw fields (threat.*, host.os.*, OperationType…)
+  extra?: Record<string, string | number | boolean>; // extra registry-valid raw fields (threat.*, host.os.*, OperationType…)
   mitre?: string;
   tactic?: string;
   severity?: Severity;
@@ -269,9 +273,11 @@ export function csProcess(o: CsProcessOpts): TelemetryEvent {
       // process details panel) — the rename tell.
       ...(o.originalFileName ? { "crowdstrike.OriginalFilename": o.originalFileName } : {}),
       // Authenticode result as shown on Falcon's process-details panel. ProcessRollup2
-      // itself has no signing field; this is the one normalized attribute kept, because
-      // several benign-control scenarios hinge on "signed by Microsoft" vs "unsigned".
-      ...(o.signed !== undefined ? { "process.code_signature.status": o.signed ? "trusted" : "unsigned" } : {}),
+      // itself has no readable signing field (SignInfoFlags is an undocumented bitmask);
+      // this is the one ECS attribute kept — process.code_signature.exists / .trusted, as
+      // Elastic's CrowdStrike integration maps it — because several benign-control
+      // scenarios hinge on "signed by Microsoft" vs "unsigned".
+      ...ecsCodeSignature("process", o.signed === undefined ? undefined : o.signed ? "trusted" : "unsigned"),
       ...(o.signatureSubject ? { "process.code_signature.subject_name": o.signatureSubject } : {}),
       ...(o.extra ?? {}),
     },
@@ -371,7 +377,7 @@ export function csProcessAccess(o: CsProcessAccessOpts): TelemetryEvent {
       ...(o.targetPid ? { "crowdstrike.CrossProcessTargetPid": String(o.targetPid) } : {}),
       ...(o.grantedAccess ? { "crowdstrike.GrantedAccess": o.grantedAccess } : {}),
       ...(o.sha256 ? { "crowdstrike.SHA256HashData": o.sha256, "crowdstrike.MD5HashData": md5For(o.sha256) } : {}),
-      ...(o.signed !== undefined ? { "process.code_signature.status": o.signed ? "trusted" : "unsigned" } : {}),
+      ...ecsCodeSignature("process", o.signed === undefined ? undefined : o.signed ? "trusted" : "unsigned"),
     },
   };
 }
@@ -394,7 +400,7 @@ export interface CsNetworkOpts extends Ctx {
   sha256?: string;
   bytesOut?: number;            // transferred volume — shown in the console, not a CS raw field
   bytesIn?: number;
-  extra?: Record<string, string | number>; // extra crowdstrike.* fields (DetectName, threat.*…)
+  extra?: Record<string, string | number | boolean>; // extra crowdstrike.* fields (DetectName, threat.*…)
   mitre?: string;
   tactic?: string;
   severity?: Severity;
@@ -496,13 +502,17 @@ export interface CsFileOpts extends Ctx {
   actorSigned?: "trusted" | "unsigned" | "adhoc" | "valid" | "revoked";
   actorIntegrity?: "high" | "medium" | "low" | "system";
   runAsUser?: string;           // actor token owner (verbatim, e.g. "root" / "NT AUTHORITY\\SYSTEM")
-  extra?: Record<string, string | number>; // extra registry-valid raw fields (threat.*, host.os.*, code_signature…)
+  extra?: Record<string, string | number | boolean>; // extra registry-valid raw fields (threat.*, host.os.*, code_signature…)
   mitre?: string;
   tactic?: string;
   severity?: Severity;
   isDetection?: boolean;
   description?: string;
 }
+/** Author-facing signing words → the ECS signing state (adhoc = a signature with no trusted publisher). */
+const ACTOR_SIGN: Record<NonNullable<CsFileOpts["actorSigned"]>, SignState> = {
+  trusted: "trusted", valid: "trusted", unsigned: "unsigned", adhoc: "untrusted", revoked: "revoked",
+};
 export function csFile(o: CsFileOpts): TelemetryEvent {
   const r = resolve(o);
   const name = o.path.split(/[\\/]/).pop() ?? o.path;
@@ -538,8 +548,8 @@ export function csFile(o: CsFileOpts): TelemetryEvent {
       ...(o.size ? { "file.size": String(o.size) } : {}),
       ...(sha256 ? { "file.hash.sha256": sha256 } : {}),
       ...(o.actorSha256 ? { "process.hash.sha256": o.actorSha256 } : {}),
-      ...(o.signed !== undefined ? { "file.signature.status": o.signed ? "trusted" : "unsigned" } : {}),
-      ...(o.actorSigned ? { "process.code_signature.status": o.actorSigned } : {}),
+      ...ecsCodeSignature("file", o.signed === undefined ? undefined : o.signed ? "trusted" : "unsigned"),
+      ...ecsCodeSignature("process", o.actorSigned ? ACTOR_SIGN[o.actorSigned] : undefined),
       "event.action": actionResult,
       ...(o.extra ?? {}),
     },

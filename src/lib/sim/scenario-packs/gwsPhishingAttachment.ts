@@ -108,7 +108,7 @@ export function buildGwsPhishingAttachmentScenario(
     {
       id: "q3",
       prompt:
-        "osascript is a signed Apple binary (code_signature.status: trusted). Why did Falcon treat evt_gws_04 as Critical anyway?",
+        "osascript is a signed Apple binary (process.code_signature.trusted: true). Why did Falcon treat evt_gws_04 as Critical anyway?",
       kind: "single",
       options: [
         { value: "parent_and_cmd", label: "Its parent is an unnotarized app on a mounted volume, and its arguments pipe a password prompt to a remote host" },

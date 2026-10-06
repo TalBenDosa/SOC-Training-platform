@@ -10,6 +10,7 @@ import type { AttackStory } from "./attackStories";
 import { appendDashboardSession } from "@/lib/storage/progress";
 import { withRebasedTime } from "@/lib/sim/rebaseTime";
 import { describeEvent } from "@/lib/sim/describeEvent";
+import { ecsTechnique } from "@/lib/logs/ecsFields";
 
 
 /**
@@ -112,7 +113,7 @@ export function siemMirror(e: LiveEvent, index: number): LiveEvent | null {
     // Drop the top-level technique/tactic so the mirror is NOT mapped to a
     // kill-chain stage in AttackChainBoard (it would otherwise duplicate the
     // EDR event's card). The technique is still shown to the analyst via
-    // raw["threat.technique.id"] below.
+    // raw["threat.technique.id"] / ["threat.technique.subtechnique.id"] below.
     mitre_technique: undefined,
     mitre_tactic: undefined,
     description: desc,
@@ -123,7 +124,7 @@ export function siemMirror(e: LiveEvent, index: number): LiveEvent | null {
       ...(e.hostname ? { "host.name": e.hostname } : {}),
       ...(e.src_ip ? { "host.ip": e.src_ip } : {}),
       ...(e.user_email ? { "target.user.name": e.user_email } : {}),
-      ...(e.mitre_technique ? { "threat.technique.id": e.mitre_technique } : {}),
+      ...ecsTechnique(e.mitre_technique),
       "ExtendedProperties.Source EDR Vendor": vendor,
       "ExtendedProperties.Original Detection": observed,
       "event.action": "edr-alert-forwarded",

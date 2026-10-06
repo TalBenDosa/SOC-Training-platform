@@ -60,7 +60,8 @@ const tccWriteEvent: TelemetryEvent = {
     "process.executable": "/usr/bin/sqlite3",
     "process.parent.name": "sh",
     "process.parent.pid": "6104",
-    "process.code_signature.status": "valid",
+    "process.code_signature.exists": true,
+    "process.code_signature.trusted": true,
     "process.code_signature.subject_name": "Software Signing",
     "file.name": "TCC.db",
     "file.path": "/Users/l.tavor/Library/Application Support/com.apple.TCC/TCC.db",
@@ -68,7 +69,8 @@ const tccWriteEvent: TelemetryEvent = {
     "host.os.name": "macOS",
     "host.os.version": "14.5",
     "user.name": "root",
-    "threat.technique.id": "T1548.006",
+    "threat.technique.id": "T1548",
+    "threat.technique.subtechnique.id": "T1548.006",
     "threat.technique.name": "Abuse Elevation Control Mechanism: TCC Manipulation",
     "threat.tactic.name": "Privilege Escalation",
     "threat.tactic.id": "TA0004",
@@ -114,15 +116,18 @@ const osascriptChainEvent: TelemetryEvent = {
     "process.parent.name": "BatteryBoost Pro",
     "process.parent.pid": "7710",
     "process.parent.executable": "/Volumes/BatteryBoost Pro/BatteryBoost Pro.app/Contents/MacOS/BatteryBoost Pro",
-    "process.parent.code_signature.status": "adhoc",
+    "process.parent.code_signature.exists": true,
+    "process.parent.code_signature.trusted": false,
     "process.parent.code_signature.subject_name": "-",
-    "process.code_signature.status": "valid",
+    "process.code_signature.exists": true,
+    "process.code_signature.trusted": true,
     "process.code_signature.subject_name": "Software Signing",
     "host.name": "MAC-2298",
     "host.os.name": "macOS",
     "host.os.version": "14.5",
     "user.name": "d.peretz",
-    "threat.technique.id": "T1059.002",
+    "threat.technique.id": "T1059",
+    "threat.technique.subtechnique.id": "T1059.002",
     "threat.technique.name": "Command and Scripting Interpreter: AppleScript",
     "threat.tactic.name": "Execution",
     "threat.tactic.id": "TA0002",
@@ -160,9 +165,10 @@ const benignNotarizedInstallEvent: TelemetryEvent = {
     "crowdstrike.OperationType": "ProcessRollup2",
     "process.name": "Notion",
     "process.executable": "/Applications/Notion.app/Contents/MacOS/Notion",
-    "process.code_signature.status": "valid",
+    "process.code_signature.exists": true,
+    "process.code_signature.trusted": true,
     "process.code_signature.subject_name": "Developer ID Application: Notion Labs, Inc. (LBQG3xxxxx)",
-    "file.signature.trusted": "true",
+    "file.code_signature.trusted": true,
     "host.name": "MAC-6610",
     "host.os.name": "macOS",
     "host.os.version": "14.5",
@@ -275,19 +281,19 @@ const macosSecurityFundamentalsRoom = {
       id: "macf-r4",
       heading: "Code Signing: Developer ID, Ad-Hoc, and Revoked",
       content:
-        "The single most useful field in a macOS EDR event is almost always the code-signature status, and it comes in a handful of distinct states an analyst needs to be able to tell apart on sight.\n\n" +
+        "The single most useful field in a macOS EDR event is almost always the code-signature status, and it comes in a handful of distinct states an analyst needs to be able to tell apart on sight. In an ECS-normalised SIEM view (Elastic Common Schema) those states are spelled with two true/false fields, process.code_signature.exists (is there a signature at all) and process.code_signature.trusted (does it chain to a publisher Apple trusts), plus the signer in process.code_signature.subject_name; process.code_signature.status is filled only when validation failed with an error.\n\n" +
         "**Developer ID signed.** Apple issues Developer ID certificates to registered developers (individuals or companies) who pay for and maintain an Apple Developer Program membership. A binary signed this way carries a subject name identifying the real developer or company — for example, a certificate string naming a specific company and a unique developer identifier. This is the strongest legitimate-software signal available outside the Mac App Store itself, and it's what most reputable commercial and open-source Mac software carries.\n\n" +
-        "**Ad-hoc signed.** macOS requires every executable to carry some form of code signature to run at all on modern versions, even one with no real identity behind it. An ad-hoc signature satisfies that technical requirement without asserting who built the software — in EDR telemetry this typically shows up as a code-signature status of ad-hoc with a subject name of a single dash, meaning no identity claim exists at all. Malware distributed outside official channels overwhelmingly falls into this bucket: it is technically signed (macOS requires it), but the signature carries zero attribution and zero of Apple's trust.\n\n" +
-        "**Revoked.** Sometimes a real Developer ID certificate does exist behind a signature, but Apple has since revoked it — typically because Apple found it being used to distribute malware and pulled its trust retroactively. A revoked signature is a strong signal in its own right: it means the software once had a real identity attached that Apple has since disowned. It is a materially different, and often more suspicious, state than ad-hoc, because it implies a developer account was compromised or was knowingly used for abuse.\n\n" +
-        "**Unsigned.** Rare on modern macOS because the operating system actively resists running completely unsigned code, but it appears occasionally, particularly for scripts or files that were never bundled as a proper signed application at all.\n\n" +
-        "**Reading these states together with the parent process.** A signature status is never the whole story on its own. Apple's own system binaries — /usr/bin/osascript, /bin/sh, /usr/bin/security — are validly signed by Apple itself (subject name Software Signing) and will show status valid on every single invocation, malicious or benign. A valid signature on a system binary says nothing about whether what it was told to do is legitimate; it only says Apple built that particular binary. This is exactly why the parent process and the command line matter as much as the signature field itself — a point the next reading builds on directly.",
+        "**Ad-hoc signed.** macOS requires every executable to carry some form of code signature to run at all on modern versions, even one with no real identity behind it. An ad-hoc signature satisfies that technical requirement without asserting who built the software — in EDR telemetry this typically shows up as a signature that exists but is not trusted (exists: true, trusted: false) with a subject name of a single dash and no certificate error, meaning no identity claim exists at all. Malware distributed outside official channels overwhelmingly falls into this bucket: it is technically signed (macOS requires it), but the signature carries zero attribution and zero of Apple's trust.\n\n" +
+        "**Revoked.** Sometimes a real Developer ID certificate does exist behind a signature, but Apple has since revoked it — typically because Apple found it being used to distribute malware and pulled its trust retroactively. A revoked signature is a strong signal in its own right: it means the software once had a real identity attached that Apple has since disowned. It is a materially different, and often more suspicious, state than ad-hoc, because it implies a developer account was compromised or was knowingly used for abuse. In an ECS view it is exists: true, trusted: false, a real Developer ID subject name, and a status error such as errSecCertificateRevoked.\n\n" +
+        "**Unsigned.** Rare on modern macOS because the operating system actively resists running completely unsigned code, but it appears occasionally, particularly for scripts or files that were never bundled as a proper signed application at all (exists: false).\n\n" +
+        "**Reading these states together with the parent process.** A signature status is never the whole story on its own. Apple's own system binaries — /usr/bin/osascript, /bin/sh, /usr/bin/security — are validly signed by Apple itself (subject name Software Signing) and will show a trusted signature (trusted: true) on every single invocation, malicious or benign. A valid signature on a system binary says nothing about whether what it was told to do is legitimate; it only says Apple built that particular binary. This is exactly why the parent process and the command line matter as much as the signature field itself — a point the next reading builds on directly.",
     },
     // ── Question 2 ───────────────────────────────────────────────────────────
     {
       type: "question" as const,
       id: "macf-q2",
       question:
-        "An EDR event shows /usr/bin/osascript running with process.code_signature.status = valid and subject_name = Software Signing. A junior analyst concludes this process must be benign because its signature is valid. What is wrong with that reasoning?",
+        "An EDR event shows /usr/bin/osascript running with process.code_signature.trusted = true and subject_name = Software Signing. A junior analyst concludes this process must be benign because its signature is valid. What is wrong with that reasoning?",
       options: [
         "Nothing is wrong -- Apple system binaries are protected by System Integrity Protection, so a valid signature means the invocation cannot have been tampered with or misused",
         "Apple's own binaries like osascript sign validly on every invocation, malicious or benign -- the signature shows Apple built the binary, not that its instructions are legitimate; parent and command line matter as much",
@@ -296,7 +302,7 @@ const macosSecurityFundamentalsRoom = {
       ],
       answer: 1,
       explanation:
-        "Reading 4 was explicit: osascript is a real Apple-signed binary and will show 'valid' every time it runs, regardless of what it was told to do. The signature attests to who built the binary, not to the intent behind a specific invocation -- which is why the parent process (what launched it) and the command line (what it was told to do) carry the real signal here, not the signature field alone. SIP (a) protects the binary on disk, not how it is used; and (c) and (d) misstate the facts -- 'Software Signing' is the normal subject on Apple system binaries, and notarization applies to third-party software, not to what a script does.",
+        "Reading 4 was explicit: osascript is a real Apple-signed binary and will show a valid, trusted signature (process.code_signature.trusted: true) every time it runs, regardless of what it was told to do. The signature attests to who built the binary, not to the intent behind a specific invocation -- which is why the parent process (what launched it) and the command line (what it was told to do) carry the real signal here, not the signature field alone. SIP (a) protects the binary on disk, not how it is used; and (c) and (d) misstate the facts -- 'Software Signing' is the normal subject on Apple system binaries, and notarization applies to third-party software, not to what a script does.",
       xp: 20,
     },
     // ── Log Analysis 1: TCC.db root write ────────────────────────────────────
@@ -479,7 +485,7 @@ const macosSecurityFundamentalsRoom = {
       questions: [
         {
           question:
-            "process.parent.code_signature.status for BatteryBoost Pro reads 'adhoc' with subject_name '-'. Based on Reading 4, what does that tell you about this app's provenance?",
+            "process.parent.code_signature for BatteryBoost Pro reads exists: true but trusted: false, with subject_name '-' and no certificate error -- an ad-hoc signature. Based on Reading 4, what does that tell you about this app's provenance?",
           options: [
             "The app carries no real developer identity at all -- it is technically signed because macOS requires it, but the signature makes zero attribution claim and carries none of Apple's trust",
             "The app was built by Apple itself and shipped as part of the operating system",
@@ -493,11 +499,11 @@ const macosSecurityFundamentalsRoom = {
         },
         {
           question:
-            "The osascript process itself shows code_signature.status 'valid' with subject_name 'Software Signing'. Why doesn't that valid signature make this event benign?",
+            "The osascript process itself shows code_signature.trusted: true with subject_name 'Software Signing'. Why doesn't that valid signature make this event benign?",
           options: [
             "Apple's own system binaries like osascript are validly signed on every invocation regardless of intent -- the signal here is the ad-hoc-signed parent and the credential-prompt command line, not osascript's own signature",
             "It does make the event benign -- a valid Apple signature on any process is sufficient on its own to clear it",
-            "The 'valid' status must be a logging error, since osascript should never appear in a malicious process chain",
+            "The trusted signature must be a logging error, since osascript should never appear in a malicious process chain",
             "A valid signature only applies to the process's first few seconds of execution before it can be considered fully trusted",
           ],
           answer: 0,
@@ -531,7 +537,7 @@ const macosSecurityFundamentalsRoom = {
       event: benignNotarizedInstallEvent,
       correct_verdict: "false_positive",
       explanation:
-        "The install shape (a .pkg followed by a new launch item) is real, but every discriminator this room taught points to benign: process.code_signature.status is valid with a genuine Developer ID Application subject naming a real, identifiable company, file.signature.trusted is true, and the description states plainly that the registered item is a per-user LaunchAgent for the app's own updater -- not a system-wide LaunchDaemon. A LaunchAgent created by the app's own installer, under the current user's own privilege, to manage its own future update checks, is exactly the routine pattern Reading 8 described as unremarkable. There is no ad-hoc or revoked signature here, no root-owned script doing anything unusual, and no TCC or Keychain activity anywhere in the record.",
+        "The install shape (a .pkg followed by a new launch item) is real, but every discriminator this room taught points to benign: process.code_signature.trusted is true with a genuine Developer ID Application subject naming a real, identifiable company, file.code_signature.trusted is true, and the description states plainly that the registered item is a per-user LaunchAgent for the app's own updater -- not a system-wide LaunchDaemon. A LaunchAgent created by the app's own installer, under the current user's own privilege, to manage its own future update checks, is exactly the routine pattern Reading 8 described as unremarkable. There is no ad-hoc or revoked signature here, no root-owned script doing anything unusual, and no TCC or Keychain activity anywhere in the record.",
       fp_trap:
         "A .pkg install followed by a new launchd registration is precisely the shape this room has taught you to scrutinize -- installer scripts can run as root, and a LaunchDaemon can persist as root at boot. But real, entirely legitimate commercial software installs this way constantly, registering a per-user LaunchAgent to check for its own updates. Escalating every install-plus-launch-item pattern on shape alone, without checking the signature state and which of the two launchd locations was actually used, trains a team to drown in noise on the one pattern that most needs real scrutiny when it is genuinely malicious.",
       xp: 30,

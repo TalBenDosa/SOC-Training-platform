@@ -942,7 +942,8 @@ const playbookRansomware: AttackPlaybook = {
                   "user.name": `${adDomain}\\${victim.id}`,
                   "host.name": victim.hostname,
                   "file.path": `C:\\Users\\${victim.id}\\AppData\\Local\\Temp\\svchost32.exe`,
-                  "file.signature.status": "unsigned",
+                  "file.code_signature.exists": false,
+                  "file.code_signature.trusted": false,
                 }
               : {
                   // Sysmon fallback (Event ID 1 — ProcessCreate)

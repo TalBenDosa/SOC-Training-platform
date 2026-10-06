@@ -96,6 +96,7 @@ import { AI_FOUNDATION_STORIES } from "./ai-stories/foundation";
 import { AI_ADVANCED_A_STORIES } from "./ai-stories/advanced-a";
 import { aiLlmJackingScenarioEvents } from "@/lib/sim/scenario-packs/aiLlmJacking.events";
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { ecsTechnique } from "@/lib/logs/ecsFields";
 
 /**
  * Real difficulty for STORY SELECTION — how simple the attack itself is for a
@@ -1219,7 +1220,6 @@ function reshapeEdrRaw(e: TelemetryEvent, target: EdrNs): Record<string, unknown
       : et === "registry_set" ? "AsepValueUpdate"
       : et === "file_create" || et === "file_modify" ? "NewExecutableWritten"
       : "ProcessRollup2";
-    if (isDetection && e.mitre_technique) block["crowdstrike.detection.technique_id"] = e.mitre_technique;
     if (e.severity) block["crowdstrike.SeverityName"] = e.severity.toUpperCase();
   } else if (target === "s1") {
     // Authentic SentinelOne Deep Visibility / threatInfo schema (no invented flat keys).
@@ -1249,7 +1249,7 @@ function reshapeEdrRaw(e: TelemetryEvent, target: EdrNs): Record<string, unknown
     if (e.hostname) block["DeviceName"] = e.hostname.toLowerCase();
     if (isDetection) {
       block["mde.AlertTitle"] = String(src["threat.name"] ?? src["malware.name"] ?? "") || "Suspicious activity detected";
-      if (e.mitre_technique) block["threat.technique.id"] = e.mitre_technique;
+      Object.assign(block, ecsTechnique(e.mitre_technique));
     }
   }
   // The authored vendor's keys carried the evidence; where the target EDR has no native
@@ -1264,7 +1264,7 @@ function reshapeEdrRaw(e: TelemetryEvent, target: EdrNs): Record<string, unknown
   put("file.path", e.file?.path); put("file.hash.sha256", e.file?.sha256); put("file.size", e.file?.size);
   put("url.full", e.network?.url); put("destination.ip", e.dst_ip); put("destination.port", e.dst_port);
   put("registry.path", e.registry?.path); put("registry.value", e.registry?.value);
-  if (e.mitre_technique) put("threat.technique.id", e.mitre_technique);
+  for (const [k, v] of Object.entries(ecsTechnique(e.mitre_technique))) put(k, v);
   return { ...block, ...ecs, ...neutral };
 }
 

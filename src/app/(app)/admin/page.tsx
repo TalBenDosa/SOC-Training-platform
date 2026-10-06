@@ -21,6 +21,7 @@ import type { GeneratedQuiz } from "@/app/api/quizzes/generate/route";
 import { BUILTIN_LESSONS } from "@/data/builtinLessons";
 
 import { safeFetch, NETWORK_ERROR } from "@/lib/http/safeFetch";
+import { ecsTechnique } from "@/lib/logs/ecsFields";
 
 /**
  * Writes to the admin content API and REPORTS failure (QA P5-06). The handlers
@@ -707,7 +708,7 @@ function AdminEventRow({ ev, idx }: { ev: TelemetryEvent; idx: number }) {
     ["event.provider", ev.vendor ?? ev.source.toUpperCase()],
     ["event.severity", (ev.severity ?? "informational").toUpperCase()],
     ["@timestamp",     new Date(ev.ts).toISOString()],
-    ...(ev.mitre_technique ? [["threat.technique.id", ev.mitre_technique]] as [string,string][] : []),
+    ...(Object.entries(ecsTechnique(ev.mitre_technique)) as [string, string][]),
     ...(ev.user_email  ? [["user.email",           ev.user_email]]   as [string,string][] : []),
     ...(ev.hostname    ? [["host.name",             ev.hostname]]     as [string,string][] : []),
     ...(ev.src_ip      ? [["source.ip",             ev.src_ip]]       as [string,string][] : []),

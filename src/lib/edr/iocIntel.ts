@@ -33,6 +33,7 @@
 import type { IOC, TelemetryEvent } from "@/lib/sim/types";
 import { lookupHash } from "@/lib/sim/hashDatabase";
 import { knownGeoForIp } from "@/lib/geo/resolveGeo";
+import { ecsTechniqueId, signState, type SignState } from "@/lib/logs/ecsFields";
 
 export type IocType = "ip" | "domain" | "hash";
 export type IocVerdict = "malicious" | "suspicious" | "clean" | "internal";
@@ -180,13 +181,20 @@ function rawStr(raw: Record<string, unknown> | undefined, ...keys: string[]): st
  * a clean file: blocking its hash would break Windows, so it must never inherit an
  * incident's guilt by association (review of finding #2, content C1).
  */
+/** ECS signing state as the one word the heuristics below match on (adhoc = signed, no trusted publisher). */
+const SIGN_WORD: Record<SignState, string> = { trusted: "trusted", untrusted: "adhoc", revoked: "revoked", unsigned: "unsigned" };
+function signWord(raw: Record<string, unknown> | undefined, ...prefixes: string[]): string {
+  for (const p of prefixes) { const st = signState(raw, p); if (st) return SIGN_WORD[st]; }
+  return rawStr(raw, "mde.SignatureStatus").toLowerCase();
+}
+
 function isTrustedSystemImage(e: TelemetryEvent, hash: string): boolean {
   const raw = e.raw;
   const own = [e.process?.hash?.sha256, rawStr(raw, "crowdstrike.SHA256HashData"), rawStr(raw, "process.hash.sha256"),
     rawStr(raw, "SHA256"), rawStr(raw, "InitiatingProcessSHA256")]
     .filter((x): x is string => !!x).map(x => x.toLowerCase());
   if (!own.includes(hash.toLowerCase())) return false;
-  const sig = rawStr(raw, "process.code_signature.status", "mde.SignatureStatus").toLowerCase();
+  const sig = signWord(raw, "process");
   if (/unsigned|invalid|revoked|adhoc/.test(sig)) return false;
   const subject = rawStr(raw, "process.code_signature.subject_name", "mde.Signer");
   const path = (e.process?.path ?? rawStr(raw, "process.executable", "crowdstrike.ImageFileName", "FolderPath")).toLowerCase();
@@ -218,7 +226,7 @@ function authoredHashes(e: TelemetryEvent): Set<string> {
 /** The attack role an event plays, from its MITRE tactic/technique (typed or raw). */
 export function roleFromEvent(e: TelemetryEvent): IocRole | undefined {
   const tactic = `${e.mitre_tactic ?? ""} ${rawStr(e.raw, "crowdstrike.Tactic", "threat.tactic.name")}`.toLowerCase();
-  const tech = e.mitre_technique ?? rawStr(e.raw, "threat.technique.id");
+  const tech = e.mitre_technique ?? ecsTechniqueId(e.raw) ?? "";
   if (/exfiltration/.test(tactic) || /^T(1567|1041|1048|1537)/.test(tech)) return "exfil";
   if (/command and control/.test(tactic) || /^T(1071|1573|1090|1095|1102|1219|1572)/.test(tech)) return "c2";
   if (/initial access/.test(tactic) || /^T(1566|1189|1204|1195)/.test(tech)) return "delivery";
@@ -246,7 +254,12 @@ const HIGH = (e: TelemetryEvent) => e.severity === "high" || e.severity === "cri
  * young registration for a domain), plus the event's expected_verdict when the
  * surface carries one (the live feed does; the scenario page strips it).
  */
-export function eventHeuristic(type: IocType, value: string, e: TelemetryEvent): { v: IocVerdict; r?: IocRole } {
+export function eventHeuristic(
+  type: IocType, value: string, e: TelemetryEvent,
+  // false when the surface holds no attack at all (a pure false-positive case): an unsigned
+  // in-house binary on an alert-grade event is exactly what such a case teaches to clear.
+  opts: { signatureConvicts?: boolean } = {},
+): { v: IocVerdict; r?: IocRole } {
   const raw = e.raw ?? {};
   let res: { v: IocVerdict; r?: IocRole } = { v: "clean" };
   if (type === "ip") {
@@ -265,7 +278,7 @@ export function eventHeuristic(type: IocType, value: string, e: TelemetryEvent):
     else if (/botnet|\bc2\b|malware|cobalt/.test(text)) res = { v: "malicious", r: "c2" };
     else if (blocked) res = { v: "malicious", r: "blocked" };
   } else if (type === "domain") {
-    const mitre = e.mitre_technique ?? rawStr(raw, "threat.technique.id");
+    const mitre = e.mitre_technique ?? ecsTechniqueId(raw) ?? "";
     const desc = (e.description ?? "").toLowerCase();
     const cat = String(raw["threat.category"] ?? raw["threat.name"] ?? "").toLowerCase();
     const age = Number(raw["domain.registration_age_days"] ?? NaN);
@@ -291,15 +304,15 @@ export function eventHeuristic(type: IocType, value: string, e: TelemetryEvent):
     const fileVerdict = rawStr(raw, "data.office365.AttachmentData.FileVerdict", "AttachmentData.FileVerdict", "file.verdict").toLowerCase();
     const quarantine = rawStr(raw, "quarantine.status");
     const result = rawStr(raw, "action_result");
-    const vendorDet = rawStr(raw, "crowdstrike.detection.description", "crowdstrike.detection.scenario",
-      "crowdstrike.detection.technique", "crowdstrike.Technique");
-    const dispo = rawStr(raw, "crowdstrike.detection.pattern_disposition_description", "crowdstrike.PatternDispositionDescription");
-    const sig = rawStr(raw, "process.code_signature.status", "file.signature.status", "mde.SignatureStatus").toLowerCase();
+    const vendorDet = rawStr(raw, "crowdstrike.DetectDescription", "crowdstrike.Technique");
+    const dispo = rawStr(raw, "crowdstrike.PatternDispositionDescription");
+    // The image's own signature; a written file's on a file event, where the hash IS that file.
+    const sig = signWord(raw, ...(/^file_/.test(e.event_type ?? "") ? ["process", "file"] : ["process"]));
     const isPUP = mtype === "PUP" || name.toLowerCase().includes("pup");
     // A behavioural alert + an explicit clean AV reputation and no named family is the
     // textbook false-positive signature (in-house tool) — never read it as malware.
     const cleanRep = av === "clean" && !family && !name;
-    const unsignedFlagged = /unsigned|invalid|revoked/.test(sig) && (e.is_detection === true || HIGH(e));
+    const unsignedFlagged = opts.signatureConvicts !== false && /unsigned|invalid|revoked/.test(sig) && (e.is_detection === true || HIGH(e));
     if (isPUP) res = { v: "suspicious", r: "pup" };
     else if (!cleanRep && (family || name || vendorDet || quarantine === "quarantined" || quarantine === "deleted" ||
         result === "quarantined" || result === "process_killed" || /quarantine|kill process|prevention|block/i.test(dispo) ||
@@ -386,7 +399,7 @@ export function buildIocTruth(bundle: { events: TelemetryEvent[]; iocs?: IOC[] }
   for (const e of events) {
     const benignEvent = e.expected_verdict === "fp" || e.expected_verdict === "informational" || e.is_baseline === true;
     const inAttack = attackScenario && !benignEvent && (e.incident_id ? attackIncidents.has(e.incident_id) : TP(e));
-    const attackGrade = TP(e) || e.is_detection === true || HIGH(e) || !!e.mitre_technique || !!rawStr(e.raw, "threat.technique.id");
+    const attackGrade = TP(e) || e.is_detection === true || HIGH(e) || !!e.mitre_technique || !!ecsTechniqueId(e.raw);
     const day = (e.ts ?? "").slice(0, 10) || undefined;
     for (const { type, value } of extractIocs(e)) {
       const key = iocDigest(type, value);
@@ -395,7 +408,7 @@ export function buildIocTruth(bundle: { events: TelemetryEvent[]; iocs?: IOC[] }
       else if (type === "domain" && isCompanyDomain(value)) cand = { v: "internal" };
       else if (type === "domain" && BENIGN_DOMAIN.test(value)) cand = { v: "clean" };
       else {
-        const h = eventHeuristic(type, value, e);
+        const h = eventHeuristic(type, value, e, { signatureConvicts: attackScenario });
         cand = { v: h.v, r: h.r };
         const shared = type === "ip" && isSharedProviderIp(value);
         // A file hash only inherits the incident's guilt from an attack-grade event —

@@ -76,13 +76,13 @@ export function buildTrojanizedInstallerKeyloggerScenario(
       id: "q1",
       prompt:
         "The installer was signed with a trusted certificate and the PDF tool it installed genuinely works. What does that tell you about whether this is malicious?",
-      hint: "Look at process.code_signature.valid_from in evt_tik_02, and at what else the same installer wrote.",
+      hint: "Look at process.code_signature.trusted in evt_tik_02, and at what else the same installer wrote.",
       kind: "single",
       options: [
         { value: "nothing", label: "Nothing — a valid signature proves who built and signed the file, not that the file or what it installs is safe to run" },
         { value: "benign", label: "It is strong evidence the software is benign; signed installers are vetted before a certificate is issued" },
         { value: "stolen", label: "The certificate must have been stolen from a real vendor, since no legitimate publisher would sign malware" },
-        { value: "revoked", label: "The signature is actually invalid — a status of 'trusted' only means Windows was able to parse the certificate" },
+        { value: "revoked", label: "The signature is actually invalid — process.code_signature.trusted: true only means Windows was able to parse the certificate" },
       ],
       answer: "nothing",
       xp: 50,

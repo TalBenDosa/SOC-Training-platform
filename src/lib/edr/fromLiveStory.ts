@@ -19,6 +19,7 @@ import { lookupHash } from "@/lib/sim/hashDatabase";
 import { classifyScope } from "./classifyScope";
 import { baselinePid, edrAgentFor, isServerHost } from "./hostBaseline";
 import type { IocTruth } from "./iocIntel";
+import { ecsTechniqueId, signState } from "@/lib/logs/ecsFields";
 import type { EdrInvestigation, EdrProcess, EdrDetection, EdrFileOp, EdrTimelineEvent, Verdict } from "./investigations";
 
 const USER_WRITABLE = /\\(AppData|Temp|Users\\[^\\]+\\Downloads|ProgramData)\\|\/tmp\/|\/home\/[^/]+\//i;
@@ -292,13 +293,18 @@ const HIGH = (e: TelemetryEvent) => e.severity === "high" || e.severity === "cri
 /** MITRE technique id — typed field, else the vendor raw copy (it survives the
  *  scenario page's F-02 projection, which strips only the typed mapping). */
 function techniqueOf(e: TelemetryEvent): string | undefined {
-  return e.mitre_technique ?? pickRaw(e.raw, ["threat.technique.id", "crowdstrike.TechniqueId", "AttackTechniques"]);
+  return e.mitre_technique ?? ecsTechniqueId(e.raw) ?? pickRaw(e.raw, ["AttackTechniques"]);
 }
 
-/** The process chain a behavioural detection names ("services.exe > PSEXESVC.exe > cmd.exe"). */
+/** The process chain a behavioural detection names: a Falcon detection's Grandparent → Parent →
+ *  triggering image (GrandparentImageFileName / ParentImageFileName / FileName), else a
+ *  free-text tree ("services.exe > PSEXESVC.exe > cmd.exe") from another product. */
 function detectionChain(e: TelemetryEvent): string[] {
-  const v = pickRaw(e.raw, ["crowdstrike.detection.process_tree", "process_tree", "ProcessTree"]);
-  return v ? v.split(/\s*(?:>|›|→)\s*/).map(s => baseName(s.trim())).filter(Boolean) : [];
+  const v = pickRaw(e.raw, ["process_tree", "ProcessTree"]);
+  if (v) return v.split(/\s*(?:>|›|→)\s*/).map(s => baseName(s.trim())).filter(Boolean);
+  if (!pickRaw(e.raw, ["crowdstrike.ParentImageFileName"])) return [];
+  return ["crowdstrike.GrandparentImageFileName", "crowdstrike.ParentImageFileName", "crowdstrike.FileName"]
+    .map(k => pickRaw(e.raw, [k])).filter((s): s is string => !!s).map(s => baseName(s));
 }
 
 function tsMs(ts?: string): number {
@@ -324,7 +330,7 @@ function describeEvent(e: TelemetryEvent): string {
   if (e.description) return e.description;
   const p = e.process;
   const raw = e.raw ?? {};
-  const det = pickRaw(raw, ["crowdstrike.DetectName", "threat.name", "AlertTitle", "alert.name", "crowdstrike.detection.name"]);
+  const det = pickRaw(raw, ["crowdstrike.DetectName", "threat.name", "AlertTitle", "alert.name"]);
   const chain = detectionChain(e);
   const t = e.event_type;
   if (t === "edr_alert" || t === "av_detection" || (!p && det && e.is_detection)) {
@@ -525,10 +531,13 @@ export function buildInvestigationFromStory(
     const userWritable = USER_WRITABLE.test(imagePath);
     // E-02: signing is authoritative when the log states it (the log always wins over
     // the heuristic); only when the log is silent do we fall back to it.
+    // ECS process.code_signature.*: any signature (trusted or not) counts as signed; a
+    // revoked certificate or no signature at all does not.
+    const sign = signState(e.raw, "process");
     const rawSigned =
       (e.raw?.["process.signed"] ?? e.raw?.["file.signed"] ?? e.raw?.["code_signature.signed"] ??
-       e.raw?.["process.code_signature.exists"] ?? e.raw?.["file.code_signature.valid"] ??
-       e.raw?.["process.code_signature.status"] ?? e.raw?.["mde.SignatureStatus"]) as unknown;
+       (sign ? sign === "trusted" || sign === "untrusted" : undefined) ?? e.raw?.["file.code_signature.valid"] ??
+       e.raw?.["mde.SignatureStatus"]) as unknown;
     const signed = rawSigned != null
       ? !/^(false|no|0|unsigned|invalid|revoked|untrusted)$/i.test(String(rawSigned).trim())
       : !malicious && !userWritable;
@@ -700,7 +709,7 @@ export function buildInvestigationFromStory(
   const detectionName = (e: TelemetryEvent, pid: number): string => {
     const rule = e.rule?.name?.trim();
     if (rule && rule.length >= 4) return rule.slice(0, 80);
-    const threat = pickRaw(e.raw, ["crowdstrike.DetectName", "threat.name", "crowdstrike.detection.name", "s1.threat_name", "detection_name", "alert.name", "AlertTitle"]);
+    const threat = pickRaw(e.raw, ["crowdstrike.DetectName", "threat.name", "s1.threat_name", "detection_name", "alert.name", "AlertTitle"]);
     if (threat && threat.length >= 4) return threat.slice(0, 80);
     const d = (e.description ?? "").trim();
     if (d) {
@@ -772,7 +781,7 @@ export function buildInvestigationFromStory(
       technique,
       name: detectionName(e, pid),
       severity,
-      ioa: e.description ?? pickRaw(e.raw, ["crowdstrike.detection.description", "threat.technique.name", "crowdstrike.Technique"]),
+      ioa: e.description ?? pickRaw(e.raw, ["crowdstrike.DetectDescription", "threat.technique.name", "crowdstrike.Technique"]),
     });
   }
   // One behaviour, one row: a generic "EDR Detection" on a pid that also carries a

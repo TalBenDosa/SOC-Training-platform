@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo, memo, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronRight, Info, AlertTriangle, Clock, ExternalLink, Shield, X, PhoneCall, CheckCircle2, Copy, BookOpen } from "lucide-react";
+import { ecsTechnique } from "@/lib/logs/ecsFields";
 
 export type TimeFilter = "15m" | "1h" | "4h" | "all";
 import { cn } from "@/lib/utils";
@@ -468,7 +469,7 @@ export function DetailPanelBody({
     ["event.id",       opaqueEventId(event.id)],
     ["event.provider", event.vendor ?? event.source.toUpperCase()],
     ["event.type",     event.event_type.replace(/_/g, " ")],
-    ...(event.mitre_technique ? [["threat.technique.id", event.mitre_technique] as [string, string]] : []),
+    ...(Object.entries(ecsTechnique(event.mitre_technique)) as [string, string][]),
     ...(event.user_email ? [["user.email",  event.user_email]           as [string, string]] : []),
     ...(event.hostname   ? [["host.name",   event.hostname]             as [string, string]] : []),
     ...(event.src_ip   ? [["source.ip",         event.src_ip]           as [string, string]] : []),

@@ -139,7 +139,8 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
         "process.command_line": `"${scEnclave}" "?e=Access&y=Guest&h=instance-qb.screenconnect.com&p=443"`,
         "process.parent.name": "services.exe",
         "process.parent.pid": "728",
-        "process.code_signature.status": "trusted",
+        "process.code_signature.exists": true,
+        "process.code_signature.trusted": true,
         "process.code_signature.subject_name": "ConnectWise, LLC",
         "process.integrity_level": "System",
         "destination.domain": "relay.screenconnect.com",
@@ -270,7 +271,8 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
         "process.parent.name": "explorer.exe",
         "process.parent.pid": "4180",
         "process.hash.sha256": anydeskHash,
-        "process.code_signature.status": "trusted",
+        "process.code_signature.exists": true,
+        "process.code_signature.trusted": true,
         "process.code_signature.subject_name": "AnyDesk Software GmbH",
         "process.integrity_level": "Medium",
         "user.name": `${domain}\\${victim.sam}`,
@@ -716,7 +718,7 @@ export function buildVishingRmmScenario(scenarioId = "vishing-rmm-2026"): Scenar
     {
       id: "q2",
       prompt:
-        "Falcon reports AnyDesk.exe as signed and trusted — code_signature.status 'trusted', subject 'AnyDesk Software GmbH'. The binary is a genuine, legitimate remote-access product. So why is it correct to treat this as malicious?",
+        "Falcon reports AnyDesk.exe as signed and trusted — process.code_signature.trusted: true, subject 'AnyDesk Software GmbH'. The binary is a genuine, legitimate remote-access product. So why is it correct to treat this as malicious?",
       hint: "A tool is not the same as its use. Ask what is different here versus the ScreenConnect session in evt_vrmm_00.",
       kind: "single",
       options: [

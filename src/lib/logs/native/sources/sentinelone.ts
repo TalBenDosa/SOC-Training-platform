@@ -29,6 +29,7 @@
 import { techniqueName } from "./_edr_mde_sophos_common";
 import type { NativeSource, NativeLog, KindSchema, UseCase, NativeCtx } from "../types";
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { signState } from "@/lib/logs/ecsFields";
 import { edrFacts, actionFlags, taskFacts, schtasksTask, type EdrFacts, type EdrProc, type TaskFacts } from "./edr-normalize";
 import {
   osOf, rhex, hostIpOf, egressIp, hostRole, companyDisplay, digits, iso, isoMicro, userOf, procName, imagePath, drivePath,
@@ -337,11 +338,13 @@ function file(b: Base, ev: TelemetryEvent): { type: string; rec: Record<string, 
   const meta = type === "File Deletion" ? "FILEDELETION" : type === "File Modification" ? "FILEMODIFICATION" : "FILECREATION";
   const ext = (f.file.extension ?? (/\.([A-Za-z0-9]+)$/.exec(path)?.[1] ?? "")).replace(/^\./, "").toLowerCase();
   const exe = PE_EXT.has(ext);
-  const fileSigned = (ev.raw?.["file.signed"] ?? ev.raw?.["file.signature.status"]) as unknown;
+  const fileSigned = ev.raw?.["file.signed"] as unknown;
+  const fileSign = signState(ev.raw, "file");
   // No writer on the event: a user's hand copy into a profile folder is Explorer's write.
   const writer = procName(f.proc) ? f.proc : inferredFileWriter(raw, b.os, b.u.system);
   const parent = procName(f.proc) ? f.parent : {};
-  const isSigned = fileSigned === undefined ? undefined : /unsigned|false|not/i.test(String(fileSigned)) ? "unsigned" : "signed";
+  const isSigned = fileSigned !== undefined ? (/unsigned|false|not/i.test(String(fileSigned)) ? "unsigned" : "signed")
+    : fileSign ? (fileSign === "unsigned" ? "unsigned" : "signed") : undefined;
   return {
     type,
     rec: {

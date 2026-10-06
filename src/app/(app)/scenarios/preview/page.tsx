@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { lookupHash, vtLabel, vtColor } from "@/lib/sim/hashDatabase";
+import { ecsTechnique } from "@/lib/logs/ecsFields";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -164,7 +165,7 @@ function EventRow({
     ["event.id",       ev.id],
     ["event.provider", ev.vendor ?? ev.source.toUpperCase()],
     ["event.type",     ev.event_type.replace(/_/g, " ")],
-    ...(ev.mitre_technique ? [["threat.technique.id", ev.mitre_technique] as [string, string]] : []),
+    ...(Object.entries(ecsTechnique(ev.mitre_technique)) as [string, string][]),
     ...(ev.user_email  ? [["user.email",             ev.user_email]   as [string, string]] : []),
     ...(ev.hostname    ? [["host.name",               ev.hostname]     as [string, string]] : []),
     ...(ev.src_ip      ? [["source.ip",               ev.src_ip]       as [string, string]] : []),
