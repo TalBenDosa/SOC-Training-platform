@@ -295,4 +295,40 @@ export const LESSON_VIDEOS: Record<string, LessonVideoData> = {
       { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/impossible-travel-signin-anomalies/es.vtt" },
     ],
   },
+  "cloud-iam-privilege-escalation": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/cloud-iam-privilege-escalation/cloud-iam-privilege-escalation.mp4",
+    caption: "Explainer — Cloud IAM and Privilege Escalation · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/cloud-iam-privilege-escalation/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/cloud-iam-privilege-escalation/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/cloud-iam-privilege-escalation/es.vtt" },
+    ],
+  },
+  "conditional-access-risky-signins-entra": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/conditional-access-risky-signins-entra/conditional-access-risky-signins-entra.mp4",
+    caption: "Explainer — Conditional Access and Risky Sign-ins in Entra ID · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/conditional-access-risky-signins-entra/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/conditional-access-risky-signins-entra/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/conditional-access-risky-signins-entra/es.vtt" },
+    ],
+  },
+  "oauth-consent-phishing": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/oauth-consent-phishing/oauth-consent-phishing.mp4",
+    caption: "Explainer — OAuth Consent Phishing (Illicit Consent Grants) · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/oauth-consent-phishing/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/oauth-consent-phishing/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/oauth-consent-phishing/es.vtt" },
+    ],
+  },
+  "cia-triad-core-security-principles": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/cia-triad-core-security-principles/cia-triad-core-security-principles.mp4",
+    caption: "Explainer — The CIA Triad and Core Security Principles · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/cia-triad-core-security-principles/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/cia-triad-core-security-principles/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/cia-triad-core-security-principles/es.vtt" },
+    ],
+  },
 };
