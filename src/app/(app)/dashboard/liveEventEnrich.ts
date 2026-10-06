@@ -16,7 +16,7 @@ import { knownGeoForIp } from "@/lib/geo/resolveGeo";
 // ─── Display-enriched event ───────────────────────────────────────────────────
 
 export interface LiveEvent extends TelemetryEvent {
-  ruleLevel: number;                                    // 1-10 Wazuh-style
+  ruleLevel: number;                                    // 3-15 Wazuh-style (see LEVEL_BANDS)
   ruleId: string;                                       // RULE_XXXX
   displayDescription: string;                           // human-readable
 }
@@ -98,18 +98,36 @@ function calculateRuleLevel(event: TelemetryEvent): number {
   // isolated the attack without reading a single log. Tying level to severity, and
   // keeping genuine high-severity NOISE in the pool, closes that leak: an 8 or a 10
   // now appears on real incidents and benign decoys alike.
-  return severityBase(event.severity ?? "informational");
+  // Owner rule (2026-10-06, after the team-training review): Wazuh's real 0-15 scale, used
+  // 3-15 here — nothing a SOC is shown sits below 3. Each severity owns a band; WHICH level in
+  // the band is fixed per RULE (source + event type), never per event, so one rule always fires
+  // at one level (E-08) and the level still tracks severity identically for attack and noise (L-06).
+  const sev = event.severity ?? "informational";
+  const [lo, hi] = LEVEL_BANDS[sev] ?? LEVEL_BANDS.informational;
+  const ruleKey = `${event.source ?? ""}|${event.event_type ?? ""}`;
+  let h = 0; for (const c of ruleKey) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return lo + (h % (hi - lo + 1));
 }
 
+/** Rule-level band per severity on the 3-15 scale (Wazuh-style). */
+export const LEVEL_BANDS: Record<string, [number, number]> = {
+  informational: [3, 4],
+  low:           [5, 6],
+  medium:        [7, 9],
+  high:          [10, 12],
+  critical:      [13, 15],
+};
+/** Display thresholds shared by every view (feed filter, stats, situation board). */
+export const LEVEL_MEDIUM_MIN = 7;
+export const LEVEL_HIGH_MIN = 10;
+/** Severity bucket of a rule level — the inverse of LEVEL_BANDS. */
+export function levelBucket(level: number): "critical" | "high" | "medium" | "low" | "informational" {
+  return level >= 13 ? "critical" : level >= LEVEL_HIGH_MIN ? "high" : level >= LEVEL_MEDIUM_MIN ? "medium" : level >= 5 ? "low" : "informational";
+}
+
+/** Lowest level of a severity's band — for events built without a rule identity. */
 export function severityBase(sev: string): number {
-  switch (sev) {
-    case "critical":      return 10;
-    case "high":          return 8;
-    case "medium":        return 5;
-    case "low":           return 3;
-    case "informational": return 1;
-    default:              return 1;
-  }
+  return (LEVEL_BANDS[sev] ?? LEVEL_BANDS.informational)[0];
 }
 
 // ── L-02: realistic timing (no metronome) ─────────────────────────────────────

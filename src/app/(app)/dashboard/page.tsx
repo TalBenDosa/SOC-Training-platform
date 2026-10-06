@@ -175,9 +175,9 @@ function SOCWelcomeModal({ onStart, onTakeTour }: { onStart: () => void; onTakeT
           <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-border/50 bg-bg/50 px-4 py-3">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Severity</span>
             {[
-              { v: "1", label: "1–3 routine",    cls: "border-slate-500/50 bg-slate-600/50 text-slate-300" },
-              { v: "5", label: "4–6 look closer", cls: "border-severity-medium/80 bg-severity-medium/70 text-white" },
-              { v: "9", label: "7–10 act now",    cls: "border-severity-critical bg-severity-critical text-white" },
+              { v: "4", label: "3–6 routine",    cls: "border-slate-500/50 bg-slate-600/50 text-slate-300" },
+              { v: "8", label: "7–9 look closer", cls: "border-severity-medium/80 bg-severity-medium/70 text-white" },
+              { v: "12", label: "10–15 act now",  cls: "border-severity-critical bg-severity-critical text-white" },
             ].map(({ v, label, cls }) => (
               <span key={v} className="flex items-center gap-1.5 text-[12px] text-slate-300">
                 <span className={cn("inline-flex h-5 w-5 items-center justify-center rounded border font-mono text-[10px] font-bold", cls)}>{v}</span>
@@ -800,8 +800,8 @@ export default function DashboardPage() {
   // ── Dynamic KPIs ─────────────────────────────────────────────────────────────
   const threatLevel = useMemo(() => {
     const recent = live.events.slice(0, 20);
-    const highCount = recent.filter(e => e.ruleLevel >= 7).length;
-    const medCount  = recent.filter(e => e.ruleLevel >= 4 && e.ruleLevel < 7).length;
+    const highCount = recent.filter(e => e.ruleLevel >= 10).length;
+    const medCount  = recent.filter(e => e.ruleLevel >= 7 && e.ruleLevel < 10).length;
     if (highCount / recent.length > 0.4) return "High";
     if ((highCount + medCount) / recent.length > 0.3) return "Medium";
     return "Low";
@@ -1525,7 +1525,7 @@ export default function DashboardPage() {
                       : "border-border text-slate-400 hover:border-border-strong hover:text-slate-300"
                   )}
                 >
-                  {lv === "all" ? "All" : lv === "low" ? "1-3 Low" : lv === "medium" ? "4-6 Med" : "7-10 High"}
+                  {lv === "all" ? "All" : lv === "low" ? "3-6 Low" : lv === "medium" ? "7-9 Med" : "10-15 High"}
                 </button>
               ))}
             </div>
