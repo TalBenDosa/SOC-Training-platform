@@ -492,7 +492,7 @@ const jumpHostEvent: TelemetryEvent = {
   it_verify_message:
     "JMP-ITSUPPORT01 is the documented IT administrative jump host. Change ticket CHG-61840 covers a scheduled monitoring-agent redeployment to SRV-APP11 during this window.",
   authentication: { method: "NTLM", result: "Success", logon_type: 3 },
-  description: "SRV-APP11 recorded a network logon from JMP-ITSUPPORT01 as sysmgr_svc, followed by a new service installation matching the deployment tool's expected footprint.",
+  description: "SRV-APP11 recorded a network logon from JMP-ITSUPPORT01 as sysmgr_svc at 11:20 on a weekday, followed by a new service installation.",
   raw: {
     "event.code": "7045",
     "winlog.channel": "System",
@@ -527,7 +527,7 @@ const lateralMovementRoom: Room = {
         `**Why one host's view is always incomplete**\n\n` +
         `When an attacker moves from host A to host B, host A's logs show the outbound side — a process reaching out, a session being initiated — while host B's logs show the inbound side: an authentication event, then whatever the attacker did once inside. Neither host, on its own, tells the full story. Host B in particular cannot tell you where its visitor's credentials actually came from; a network logon (LogonType 3, authenticated via NTLM's NtLmSsp mechanism) looks identical whether it originated from a legitimate remote-administration tool running on an approved jump host, or from an attacker who stole those exact credentials on a completely different, already-compromised machine ten minutes earlier. Settling which one you're looking at requires evidence that doesn't live in that one 4624 record at all — the source host's own history, a change ticket, or what happens immediately afterward.\n\n` +
         `**The chain you'll reconstruct in this room**\n\n` +
-        `A realistic movement chain looks like this: a workstation is compromised first (through phishing, an exposed service, or stolen credentials); from there, the attacker authenticates outward to a first server, using the stolen account's genuine privileges to write to an administrative share and install a service; that new service becomes their execution point on the first server, from which they pivot again — often within minutes — to a second server, repeating the pattern. Each hop leaves its own, independently incomplete set of artefacts, and SIEM ingestion delay means those artefacts frequently do not arrive in your queue in the order they actually happened. Reconstructing the true order, from timestamps rather than arrival order or which alert fired loudest, is exactly what this room's ordering exercise will ask you to do.\n\n` +
+        `A realistic movement chain looks like this: a workstation is compromised first (through phishing, an exposed service, or stolen credentials); from there, the attacker authenticates outward to a first server, using the stolen account's genuine privileges to write to an administrative share and install a service; that new service becomes their execution point on the first server, from which they pivot again — often within minutes — to a second server, repeating the pattern. Each hop leaves its own, independently incomplete set of artefacts, and SIEM ingestion delay means those artefacts frequently do not arrive in your queue in the order they actually happened. Reconstructing the true order, from timestamps rather than arrival order or which alert fired loudest, is exactly what this room's ordering exercise will ask you to do. Timestamps need care too: one host's forwarder may stamp events in UTC while another sends local time with an offset, so convert every timestamp to UTC before comparing records across hosts.\n\n` +
         `**Reading this room's evidence**\n\n` +
         `Throughout this room, you'll be handed individual, independently-real log records — a 4624, a 7045, a process event — the same way a real investigation hands them to you: one host, one log source, one moment at a time. Nothing in any single record will tell you 'this is the second hop of an attack.' That conclusion only exists once you've placed each record next to the others by host, account, and time, exactly the discipline the rest of this room drills.`,
       diagram:
@@ -547,14 +547,14 @@ const lateralMovementRoom: Room = {
         question:
           "Per Reading 1, why can host B's logs never tell you, on their own, whether a network logon came from a legitimate admin tool or an attacker with stolen credentials?",
         options: [
-          "Because host B never logs failed logons, only successful ones -- so a 4624 success record can never be distinguished from an attacker's use of stolen credentials, only from a failed attempt that was never captured in the first place",
-          "Because a network logon (LogonType 3, NTLM) looks structurally identical whether it originated from an approved jump host or an attacker using stolen but genuine credentials -- settling which one requires evidence from outside that single record",
-          "Because host B only stores logs for 24 hours before purging them, meaning any evidence of source legitimacy would have already rolled off before an analyst could review the session that just occurred",
-          "Because NTLM authentication does not generate any log at all, unlike Kerberos, which is the only authentication package that ever produces a 4624 or 4625 event on the target host",
+          "An NTLM network logon omits the source workstation name and IP address, so host B has no record of where the session came from",
+          "An NTLM network logon (LogonType 3) looks the same from an approved jump host as from an attacker holding stolen but valid credentials",
+          "Approved admin tooling authenticates with Kerberos, so only a Kerberos logon on host B could be cleared without any outside evidence",
+          "Host B records the inbound logon but not the actions that follow it, so what the visitor did next must come from host A's logs",
         ],
         answer: 1,
         explanation:
-          "The mechanism is the same either way -- Reading 1's point is that host B's own 4624 record can't distinguish source legitimacy on its own; that answer has to come from the source host's own history, a change ticket, or what happens immediately afterward.",
+          "The mechanism is the same either way — host B's own 4624 can't distinguish source legitimacy; that answer has to come from the source host's history, a change ticket, or what happens immediately afterward. The 4624 does carry WorkstationName and IpAddress for an NTLM network logon, so host B knows where the session came from — just not whether that source should have been using the account. Legitimate tooling uses NTLM too (it depends on how the target is addressed), so a Kerberos logon would be no more self-clearing. And host B logs what happens after the logon (the service install in this room is a target-side record), so the follow-on actions do not have to come from host A.",
       },
     },
     {
@@ -619,40 +619,40 @@ const lateralMovementRoom: Room = {
           question:
             "TargetUserName is sysmgr_svc, LogonType is 3, and LogonProcessName is 'NtLmSsp ' — an NTLM network logon. Given that sysmgr_svc genuinely holds local admin rights broadly, does this event by itself prove an intrusion?",
           options: [
-            "Yes — NTLM network logons by an admin-capable account are always malicious, because legitimate remote administration exclusively uses Kerberos and never falls back to the NtLmSsp authentication package",
-            "No — this exact mechanism (an NTLM network logon by an account with legitimate local admin rights) is also precisely how normal remote administration and support tooling works; the event alone doesn't distinguish the two",
-            "Yes, because LogonType 3 is exclusive to attacker tooling and is never used by legitimate remote administration, file sharing, or any of Kestrel's approved management software",
-            "No, because sysmgr_svc is a service account, and Windows service accounts are excluded from credential theft by design since their passwords are never held in memory once a session is established",
+            "Yes — in a Kerberos domain, remote administration authenticates by Kerberos, so an NTLM network logon by an admin-capable account points to stolen credentials",
+            "No — an NTLM network logon by an account with genuine local admin is also what routine remote administration looks like; this record alone can't separate the two",
+            "Yes — sysmgr_svc is a service-type account, and a 4624 network logon by a service-type account is itself misuse, whatever host it originates from",
+            "No — LogonType 3 records only a file-share connection, so without a LogonType 10 session there is no remote execution on SRV-FIL02 to investigate",
           ],
           answer: 1,
           explanation:
-            "Reading 2's point applies directly: the mechanism sysmgr_svc just used is identical whether a legitimate support session or an attacker with stolen credentials triggered it. LogonType 3 is the standard, extremely common network-logon type used constantly by legitimate remote administration, not an attacker-exclusive signal, and service accounts are compromised routinely — their credentials are just as stealable as any user's.",
+            "Reading 2's point applies directly: the mechanism sysmgr_svc just used is identical whether a legitimate support session or an attacker with stolen credentials triggered it. NTLM is not an intrusion marker — legitimate tools fall back to it routinely (for example when a target is addressed by IP), so the authentication package can't carry the verdict. sysmgr_svc is a support-tooling account whose whole job is network logons to the hosts it administers, so a 4624 from it is expected, not misuse in itself. And LogonType 3 is exactly the logon behind SMB/ADMIN$/svcctl remote execution (PsExec-style), so its presence does not rule execution out — LogonType 10 is RDP, a different technique.",
           xp: 25,
         },
         {
           question: "What one additional piece of evidence would most efficiently settle whether this is legitimate administration or an intrusion?",
           options: [
-            "Whether WKS-SALES14 has any history of being used as a source for administrative logons to servers like SRV-FIL02, and whether an open change ticket or support session covers this timeframe",
-            "Re-confirming that LogonType is exactly 3, since that value alone is the deciding factor between legitimate remote administration and an attacker riding stolen credentials, regardless of what else the two hosts' histories show",
-            "Nothing further is needed — the presence of NtLmSsp in LogonProcessName already settles it, because that authentication package is only ever selected by trusted, pre-approved administrative tooling",
-            "Whether SRV-FIL02 has ever been rebooted in the past year, since a recent reboot would explain why an unfamiliar workstation was able to authenticate as sysmgr_svc in the first place",
+            "Whether WKS-SALES14 has a history as an admin source toward servers like SRV-FIL02, and whether a change ticket or support session covers this window",
+            "Whether the GPO Restricted Groups policy actually scopes sysmgr_svc to SRV-FIL02, since that grant decides whether this logon was authorized",
+            "Whether SRV-FIL02 logged 4625 failures for sysmgr_svc just before this success, since use of stolen credentials starts with failed guesses",
+            "Whether the logon negotiated NTLM rather than Kerberos, since sanctioned tooling here would use Kerberos and NTLM suggests a pass-the-hash replay",
           ],
           answer: 0,
           explanation:
-            "This is Reading 2's answer: the privilege itself won't tell you whether this specific use was authorized, so the discriminator has to come from the source host's history and any documented change — a designated jump host or an open ticket points toward legitimate administration, while a source with no such history, like WKS-SALES14 here, points toward compromise. Re-checking LogonType or LogonProcessName adds nothing new, and SRV-FIL02's reboot history is unrelated.",
+            "This is Reading 2's answer: the privilege itself won't tell you whether this specific use was authorized, so the discriminator has to come from the source host's history and any documented change — a designated jump host or an open ticket points toward legitimate administration, while a source with no such history, like WKS-SALES14 here, points toward compromise. Checking the GPO scope only re-confirms the privilege (the right to do it), which is exactly the question Reading 2 separates from authorization. Looking for preceding 4625s assumes guessing — an attacker holding valid stolen credentials logs on successfully the first time. And NTLM versus Kerberos is already visible in this record and does not distinguish legitimate tooling from misuse.",
           xp: 25,
         },
         {
           question: "WKS-SALES14 has no history of admin-source activity toward SRV-FIL02, and no change ticket exists for this timeframe. What should the analyst do?",
           options: [
-            "Close as benign, since sysmgr_svc genuinely holds the local admin rights that made this succeed, and a successful, privileged action is itself sufficient evidence that it was authorized",
-            "Treat this as a likely intrusion using sysmgr_svc's credentials: investigate WKS-SALES14 as the probable point of compromise, and continue tracing what sysmgr_svc did next on SRV-FIL02",
-            "Disable sysmgr_svc's local admin rights domain-wide immediately, without further investigation, since any use of a broadly-scoped support account from an unexpected source is definitionally malicious and requires no corroboration",
-            "Take no action until a full 90-day audit of every account's logon history across the domain is complete, since a single unexplained session in isolation is never enough to justify starting an investigation",
+            "Close as authorized: sysmgr_svc holds GPO-granted local admin on SRV-FIL02, and a successful logon shows the access was within its rights",
+            "Treat it as likely credential misuse: investigate WKS-SALES14 as the probable compromise and trace what sysmgr_svc did next on SRV-FIL02",
+            "Reset sysmgr_svc's password and close the case, since rotating the credential removes the attacker's access without any further tracing",
+            "Escalate SRV-FIL02 for reimaging as the origin of the intrusion, since the session was recorded on that host and the activity started there",
           ],
           answer: 1,
           explanation:
-            "Holding the right to do something is not the same as this specific use being authorized (Reading 2's core distinction) — with no source history and no ticket, the reasonable read is that sysmgr_svc's credentials are being used from a host that was never meant to originate this kind of session, meaning WKS-SALES14 itself is the more likely actual point of compromise and needs its own investigation, while tracing forward what happened on SRV-FIL02 next. Revoking rights domain-wide is heavy before confirming anything, and waiting for a full audit abandons an active lead.",
+            "Holding the right to do something is not the same as this specific use being authorized (Reading 2's core distinction) — with no source history and no ticket, the reasonable read is that sysmgr_svc's credentials are being used from a host that was never meant to originate this kind of session, so WKS-SALES14 is the likely point of compromise and needs its own investigation, while you trace forward what happened on SRV-FIL02. Closing because the account holds local admin repeats the privilege-equals-authorization error. Resetting the password and closing is containment without scoping: it leaves the compromised workstation and anything already done on SRV-FIL02 unexamined. And SRV-FIL02 is the target of this logon, not its origin — the 4624 records WKS-SALES14 as the source.",
           xp: 30,
         },
       ],
@@ -669,41 +669,41 @@ const lateralMovementRoom: Room = {
           question:
             "This event's computer_name is SRV-FIL02 and its timestamp is 02:20:11 — 27 seconds after the 4624 logon from Log Analysis 1 on the same host. What does connecting these two records tell you that neither one tells you alone?",
           options: [
-            "Nothing new — a service installation and a network logon on the same host are unrelated by default, since Windows assigns each new service its own independent audit trail with no connection back to whichever session created it",
-            "Together they show the NTLM session from WKS-SALES14 wasn't just a connection attempt — it was followed, within half a minute, by a real new service being created and started on SRV-FIL02, consistent with the ADMIN$/IPC$/svcctl mechanism from Reading 2",
-            "The 27-second gap proves this service installation is unrelated to sysmgr_svc's session, since real attacks happen instantly and any gap longer than a few seconds rules out a causal connection between the two events",
-            "This event alone proves domain-wide compromise, without needing Log Analysis 1 at all, because any new service installed via svcctl automatically replicates its registration to every domain controller in the forest",
+            "That the service was started locally on SRV-FIL02, since a 7045 carries no source host or account, so it can't be tied to any network session",
+            "That the session from WKS-SALES14 went beyond a connection: within half a minute a new service was created and started, matching ADMIN$/svcctl",
+            "That PSEXESVC ran on WKS-SALES14, since a remotely created service executes on the workstation that requested it, not on the target",
+            "That sysmgr_svc holds Domain Admin, since a remote service install right after a network logon needs domain-level rights on a member server",
           ],
           answer: 1,
           explanation:
-            "Neither record alone tells the full story — Reading 1's whole point — but placed together, a network logon immediately followed by a new service on the same host is exactly the observable signature of the ADMIN$-write-then-svcctl-install mechanism from Reading 2, whether performed by legitimate tooling or an attacker. A 27-second gap is well within how quickly this mechanism actually executes, and this single service record says nothing about domain-wide scope on its own.",
+            "Neither record alone tells the full story — Reading 1's whole point — but placed together, a network logon immediately followed by a new service on the same host is exactly the observable signature of the ADMIN$-write-then-svcctl-install mechanism from Reading 2, whether performed by legitimate tooling or an attacker. It's true the 7045 has no source fields, but that is precisely why you correlate by host, account context and time instead of concluding the install was local. The service runs where it was registered — computer_name is SRV-FIL02, not the workstation. And the install proves local admin on SRV-FIL02 only, not Domain Admin membership.",
           xp: 25,
         },
         {
           question: "ServiceName is 'PSEXESVC' and ImagePath is its literal, unmodified default value. Why is it common to see a tool's real default name here rather than something disguised?",
           options: [
-            "PSEXESVC cannot be renamed under any circumstances, so this is the only name that could ever appear regardless of which command-line flags were passed to the tool that installed it",
-            "Operators frequently don't bother renaming default tooling, especially when moving quickly — which cuts both ways: instantly recognizable to an analyst who knows the default, but easy to miss if you don't already know what PSEXESVC.exe's presence typically means",
-            "The default name proves this specific installation was legitimate, since attackers always rename their tools to avoid detection and would never risk deploying PsExec under its own recognizable service name",
-            "The ImagePath field doesn't actually exist on a 7045 event, so this value is unreliable and was most likely synthesized by the SIEM's own enrichment pipeline rather than read from the original Windows event",
+            "PsExec offers no switch to change the service it registers, so every PsExec session, legitimate or not, leaves a service named PSEXESVC",
+            "Operators often skip renaming default tools when moving fast — easy to spot if you know the default, easy to miss if you don't know it",
+            "A default tool name points to sanctioned IT use, since attackers rename their tooling to evade detection before they deploy it on a target",
+            "The Service Control Manager derives ServiceName from the binary's file name, so the installer had no chance to choose a different name",
           ],
           answer: 1,
           explanation:
-            "PsExec's service name and path can be customized, but plenty of real intrusions simply don't bother — which is exactly why recognizing PSEXESVC.exe's default footprint is worth memorizing rather than assuming disguise. Seeing the literal default proves nothing about legitimacy either way, since both legitimate admins and attackers use PsExec constantly, often without renaming it, and ImagePath is a genuine, standard field on 7045.",
+            "PsExec's service name and path can be customized, but plenty of real intrusions simply don't bother — which is exactly why recognizing PSEXESVC.exe's default footprint is worth memorizing rather than assuming disguise. PsExec does support a custom service name, and ServiceName is whatever the creating program passes to the Service Control Manager, not something derived from the file name — so neither of the 'no choice' explanations holds. And the literal default proves nothing about legitimacy, since legitimate admins and attackers both use PsExec constantly, often without renaming it.",
           xp: 25,
         },
         {
           question:
-            "Given that this service installation required local admin on SRV-FIL02, and sysmgr_svc genuinely holds that right, what does the successful installation add to your understanding beyond what Reading 2 already told you to expect?",
+            "This installation required local admin on SRV-FIL02, and sysmgr_svc genuinely holds that right. What does the install's success add to the AUTHORIZATION question — whether this use of sysmgr_svc, from WKS-SALES14, should have happened?",
           options: [
-            "It changes nothing — the privilege question was already settled by Reading 2, and this event doesn't affect the authorization question at all",
-            "It proves, on its own, that sysmgr_svc's use here was authorized, since the action succeeded",
-            "It proves sysmgr_svc must actually be a Domain Admin account",
-            "It proves WKS-SALES14 is a legitimate jump host, since the downstream action worked",
+            "Nothing: success confirms a privilege you already knew of; authorization still rests on the source's history and the missing ticket",
+            "It settles it as authorized, because Windows refuses an svcctl install from any account not permitted to administer SRV-FIL02",
+            "It shows WKS-SALES14 is an approved admin source, because the GPO grant only lets sysmgr_svc install services from listed hosts",
+            "It settles it as misuse, because a sanctioned support session would push an internal agent rather than PsExec's default service",
           ],
           answer: 0,
           explanation:
-            "This is the distinction Reading 2 built toward: a successful ADMIN$/svcctl action confirms the privilege existed (which you already knew from sysmgr_svc's known GPO-granted rights) but adds nothing to the separate question of whether this specific use, from this specific source, was authorized — that answer still depends on WKS-SALES14's history and the absence of a change ticket, established in Log Analysis 1, not on this event succeeding.",
+            "This is the distinction Reading 2 built toward: a successful ADMIN$/svcctl action confirms the privilege existed (which you already knew from sysmgr_svc's GPO-granted rights) but adds nothing to the separate question of whether this specific use, from this specific source, was authorized — that still depends on WKS-SALES14's history and the absence of a change ticket, from Log Analysis 1. (It does add evidence that execution happened — the first question here — just not evidence about authorization.) Windows checks permission, not authorization, so success cannot settle it as authorized. A Restricted Groups grant scopes which TARGET hosts the account administers, not which sources it may connect from. And legitimate admins use PsExec under its default name too, so the tool choice cannot settle it as misuse.",
           xp: 30,
         },
       ],
@@ -714,8 +714,8 @@ const lateralMovementRoom: Room = {
       question:
         "Two records show byte-for-byte identical ADMIN$/IPC$-then-7045 mechanics on two different hosts. One is later confirmed to be an intrusion; the other, reviewed next, turns out to be legitimate. Since the technical mechanism was identical in both, what actually made the difference?",
       options: [
-        "The authentication package: intrusions fall back to NTLM, while legitimate remote administration always authenticates through Kerberos",
-        "Context outside the mechanism: the source host's role and history, whether a change ticket covers the activity, and whether the timing fits normal admin patterns",
+        "The authentication package: intrusions fall back to NTLM, while legitimate remote administration inside the domain authenticates through Kerberos tickets",
+        "Context outside the mechanism: the source host's role and history, whether a change ticket covers it, and whether the timing fits normal admin patterns",
         "The ServiceName field: malicious services use randomly generated or obfuscated names, while legitimate deployment tools register a fixed, predictable name",
         "The LogonType value: intrusions authenticate with LogonType 10 (RemoteInteractive), while legitimate remote administration uses LogonType 3 (Network)",
       ],
@@ -729,7 +729,7 @@ const lateralMovementRoom: Room = {
       id: "lat-ac1",
       heading: "Verdict: The Same Mechanism From the Designated Jump Host",
       scenario:
-        "A detection rule fired on IPC$/svcctl access followed by a new service installation, this time on SRV-APP11, originating from JMP-ITSUPPORT01. IT records confirm JMP-ITSUPPORT01 is Kestrel's designated administrative jump host, and the access occurred at 11:20 AM on a weekday, matching an open change ticket for a scheduled agent redeployment.",
+        "A detection rule fired on IPC$/svcctl access followed by a new service installation, this time on SRV-APP11, originating from JMP-ITSUPPORT01 and again using sysmgr_svc — the same account as the SRV-FIL02 chain. Review the record, its source and timing, and the IT verification note attached to it, then decide.",
       event: jumpHostEvent,
       correct_verdict: "false_positive",
       explanation:
@@ -757,18 +757,18 @@ const lateralMovementRoom: Room = {
       type: "ordering",
       id: "lat-o1",
       heading: "Reconstruct the Chain Across Three Hosts, By Timestamp",
-      instructions: "Your SIEM received these six records out of arrival order because of an ingestion delay on one host's log forwarder. Arrange them by their actual timestamps, not by when they reached your queue.",
+      instructions: "Your SIEM received these six records out of arrival order, and Kestrel's forwarders don't stamp time the same way: SRV-FIL02 sends UTC, while WKS-SALES14 and SRV-APP09 send local time with an offset. Arrange the records in the order they actually happened.",
       items: [
-        { id: "wks-logon", text: "WKS-SALES14, 02:14 — sysmgr_svc's credentials are used to establish a session on this workstation, a host with no prior record of initiating administrative activity" },
-        { id: "fil-4624", text: "SRV-FIL02, 02:19 — a network logon (LogonType 3, NtLmSsp) from WKS-SALES14 authenticates as sysmgr_svc" },
-        { id: "fil-7045", text: "SRV-FIL02, 02:20 — a new service is registered and started, 27 seconds after the network logon above" },
-        { id: "fil-outbound", text: "SRV-FIL02, 02:31 — the newly-installed service's process opens an outbound connection toward SRV-APP09" },
-        { id: "app-4624", text: "SRV-APP09, 02:32 — a network logon (LogonType 3) from SRV-FIL02 authenticates as sysmgr_svc, followed by its own ADMIN$/service-install sequence" },
-        { id: "app-lsass", text: "SRV-APP09, 02:41 — a process consistent with credential-access tooling briefly accesses lsass.exe" },
+        { id: "wks-logon", text: "WKS-SALES14, 05:14 local (UTC+03:00) — sysmgr_svc's credentials are used to open a session on this sales workstation, which has never initiated administrative activity before" },
+        { id: "fil-4624", text: "SRV-FIL02, 02:19:44 UTC — a network logon (LogonType 3, NtLmSsp) from WKS-SALES14 authenticates as sysmgr_svc" },
+        { id: "fil-7045", text: "SRV-FIL02, 02:20:11 UTC — a new service, PSEXESVC, is registered and started through svcctl" },
+        { id: "fil-outbound", text: "SRV-FIL02, 02:31 UTC — the PSEXESVC process opens an outbound connection toward SRV-APP09" },
+        { id: "app-4624", text: "SRV-APP09, 05:32 local (UTC+03:00) — a network logon (LogonType 3) from SRV-FIL02 authenticates as sysmgr_svc, followed by its own ADMIN$/service-install sequence" },
+        { id: "app-lsass", text: "SRV-APP09, 05:41 local (UTC+03:00) — a process launched by the newly installed service briefly opens lsass.exe with memory-read access" },
       ],
       correct_order: ["wks-logon", "fil-4624", "fil-7045", "fil-outbound", "app-4624", "app-lsass"],
       explanation:
-        "Laid out by timestamp rather than arrival order, the chain reads exactly as Reading 1 described: the workstation compromise comes first, then the first hop's logon-then-service-install pair (the same two records from Log Analysis 1 and 2), then the pivot outbound from that new foothold, then the second hop repeating the identical logon-then-install pattern, and finally credential-access activity on the second server — the natural next step once an attacker has a new foothold worth harvesting more credentials from. Ordering these by which alert fired first in your queue instead would have put the second hop's evidence ahead of the first hop's, exactly the trap this exercise is built to catch.",
+        "Normalized to UTC (subtract three hours from the local stamps: 05:14 → 02:14, 05:32 → 02:32, 05:41 → 02:41), the chain reads exactly as Reading 1 described, and causality agrees at every step: the credentials are in use on the workstation first, then the first hop's logon-then-service-install pair (the same two records from Log Analysis 1 and 2 — the service can only be installed through an authenticated session), then the pivot outbound from that new service, then the second hop repeating the logon-then-install pattern, and finally credential access by a process the second hop's service launched. Sorting the raw clock values instead would have put all three SRV-FIL02 records ahead of the workstation compromise that made them possible — the mixed-time-zone trap this exercise is built to catch.",
       xp: 35,
     },
     {
@@ -776,25 +776,40 @@ const lateralMovementRoom: Room = {
       id: "lat-qf1",
       heading: "Write It Yourself: Correlate a Network Logon With a Following Service Install",
       language: "kql",
-      context: KQL_PRIMER + "Using the pattern confirmed in Log Analysis 1 and 2 — an NTLM network logon immediately followed by a new service on the same host — write the KQL that flags this sequence for any account not on an approved admin-source allowlist.",
+      context: KQL_PRIMER + "**For this query you also need:** `let` names a value for reuse (here, a list of approved admin-source IPs); `x in (list)` is true when x is in the list and `x !in (list)` when it is not (`in~` / `!in~` ignore case); `join kind=inner (...) on Computer` keeps only rows whose Computer appears on both sides; and a time gap is written as a timespan literal such as `2min` or `90s`, tested with `between (0min .. 2min)`.\n\nUsing the pattern confirmed in Log Analysis 1 and 2 — an NTLM network logon immediately followed by a new service on the same host — write the KQL that flags this sequence whenever the logon came from a source NOT on the approved admin-source allowlist (JMP-ITSUPPORT01 is 10.60.1.9). Keep the logon-to-install window between one and five minutes. Note that Windows writes LogonProcessName for NTLM with a trailing space, which is why the template matches it with `has` rather than `==`.",
       template:
-        "SecurityEvent\n| where EventID == {{logonid}} and LogonProcessName == \"{{logonproc}}\"\n| project Computer, Account = TargetUserName, LogonTime = TimeGenerated\n| join kind=inner (\n    Event\n    | where EventLog == \"System\" and EventID == {{svcid}}\n    | project Computer, InstallTime = TimeGenerated\n) on Computer\n| where InstallTime - LogonTime between (0min .. {{window}})",
+        "let AdminSources = dynamic([\"10.60.1.9\"]);\nSecurityEvent\n| where EventID == {{logonid}} and LogonType == {{logontype}} and LogonProcessName has \"{{logonproc}}\"\n| where IpAddress {{allowop}} (AdminSources)\n| project Computer, Account = TargetUserName, SourceIp = IpAddress, LogonTime = TimeGenerated\n| join kind=inner (\n    Event\n    | where EventLog == \"System\" and EventID == {{svcid}}\n    | project Computer, InstallTime = TimeGenerated\n) on Computer\n| where InstallTime - LogonTime between (0min .. {{window}})",
       blanks: [
-        { id: "logonid", answers: ["4624"], placeholder: "successful network logon Event ID" },
-        { id: "logonproc", answers: ["NtLmSsp", "NtLmSsp "], placeholder: "LogonProcessName value for an NTLM network logon" },
-        { id: "svcid", answers: ["7045"], placeholder: "new service installed Event ID" },
-        { id: "window", answers: ["2min", "5min", "1min", "3min"], placeholder: "how tight the logon-to-install gap should be to count" },
+        { id: "logonid", answers: ["4624"], placeholder: "successful logon Event ID" },
+        { id: "logontype", answers: ["3"], placeholder: "LogonType number for a network logon" },
+        { id: "logonproc", answers: ["NtLmSsp"], placeholder: "LogonProcessName value for an NTLM network logon" },
+        { id: "allowop", answers: ["!in", "!in~"], placeholder: "operator: source NOT in the allowlist" },
+        { id: "svcid", answers: ["7045"], placeholder: "new service installed Event ID (System log)" },
+        {
+          id: "window",
+          answers: [
+            "1min", "2min", "3min", "4min", "5min",
+            "1m", "2m", "3m", "4m", "5m",
+            "1minute", "2minutes", "3minutes", "4minutes", "5minutes",
+            "60s", "90s", "120s", "180s", "240s", "300s",
+            "60sec", "90sec", "120sec", "180sec", "240sec", "300sec",
+          ],
+          placeholder: "max logon-to-install gap (1-5 minutes)",
+        },
       ],
       explanation:
-        "This operationalizes exactly the correlation you did by hand in Log Analysis 1 and 2: join a network logon on one host to a service installation on the SAME host within a tight window, which turns a byte-for-byte-identical mechanism (Reading 2's central point) into a detection that still needs the same context check — an admin-source allowlist — to separate SRV-APP11's legitimate deployment from WKS-SALES14's unexplained one. Note the two different tables: the 4624 logon lives in the Security log (Sentinel's SecurityEvent table), but 7045 is written by the Service Control Manager to the System log, which Sentinel stores in the Event table — querying SecurityEvent for 7045 returns nothing. (The Security-log equivalent of a service install is Event ID 4697, which requires 'Audit Security System Extension' to be enabled.)",
+        "This operationalizes exactly the correlation you did by hand in Log Analysis 1 and 2: join a network logon (4624, LogonType 3, NTLM) on one host to a service installation on the SAME host within a tight window, and drop sources on the admin allowlist with `!in` — the same context check Reading 2 calls for, which is what separates SRV-APP11's deployment from the jump host (10.60.1.9, filtered out) from WKS-SALES14's unexplained session (kept). Using `in` instead would invert the rule and alert only on the sanctioned jump host. Note the two different tables: the 4624 logon lives in the Security log (Sentinel's SecurityEvent table), but 7045 is written by the Service Control Manager to the System log, which Sentinel stores in the Event table — querying SecurityEvent for 7045 returns nothing. (The Security-log equivalent of a service install is Event ID 4697, which requires 'Audit Security System Extension' to be enabled.) Any window from one to five minutes catches the 27-second gap seen on SRV-FIL02 while staying tight enough to avoid joining unrelated logons.",
       xp: 35,
     },
     {
       type: "flag",
       id: "lat-f1",
-      prompt: "Look at Log Analysis 2, the service installation on SRV-FIL02. What is the exact value of the ServiceName field recorded in the raw log? Enter it exactly as shown.",
-      answer: "PSEXESVC",
-      hint: "It's in the raw block's winlog.event_data.ServiceName field — the same real, unmodified default name Reading 2's codeExample warned you to recognize.",
+      // Pin the logon record: the service record itself carries no source fields,
+      // so the student has to pivot to the session that caused the install.
+      event: kestrelLogonEvent,
+      prompt: "The firewall team wants to isolate the machine that opened the session which installed PSEXESVC on SRV-FIL02, but their console accepts IP addresses only. Using the record shown, enter that machine's IP address.",
+      answer: "10.60.14.22",
+      hint: "The 7045 has no source fields — the session that caused it is the network logon on the same host seconds earlier. Find the field in that logon that records where the connection came from.",
       xp: 25,
     },
   ],
@@ -909,7 +924,7 @@ const orbitlineScanEvent: TelemetryEvent = {
   it_verify_message: "Change record CHG-70119 authorizes Orbitline's quarterly external PCI ASV scan from the Qualys cloud scanner range, window 09:00-12:00 UTC on 14 Jun.",
   network: { url: "https://www.orbitline.com/products/detail.aspx", domain: "www.orbitline.com", method: "GET", status: 403, user_agent: "Qualys-Scanner/9.5" },
   description:
-    "AWS WAF blocked a SQL injection payload from 64.39.106.190. Representative of a sustained burst from this single address across many parameters and endpoints, all carrying the same self-identifying User-Agent.",
+    "AWS WAF blocked a SQL injection payload from 64.39.106.190. Representative of a sustained burst from this single address across many parameters and endpoints, all carrying the same User-Agent.",
   raw: {
     formatVersion: 1,
     timestamp: 1781431327000,
@@ -1004,30 +1019,30 @@ const webAttacksRoom: Room = {
         question:
           "Per Reading 2, why does a web server's own access log typically show the load balancer's IP instead of the real client's IP?",
         options: [
-          "Because the load balancer opens its own connection to the web server, using its own address, unless the environment is specifically configured to forward and log the original client's address via X-Forwarded-For",
-          "Because web servers never log client IP addresses at all, relying entirely on the WAF's own record to supply that field whenever an investigation needs it",
-          "Because the WAF strips the client IP before forwarding the request, replacing it with the load balancer's address specifically to comply with data-minimization requirements in transit",
-          "Because IIS randomly substitutes a placeholder IP for privacy reasons, cycling through a pool of internal addresses so no single client's browsing pattern can be reconstructed from its own access log",
+          "The load balancer opens its own connection to the server, so c-ip is the balancer's address unless X-Forwarded-For is captured",
+          "IIS logs the X-Forwarded-For value as c-ip by default, and the load balancer overwrites that header with its own address",
+          "The WAF rewrites each request's source to its own address before forwarding, so IIS records the WAF's IP rather than the client's",
+          "IIS fills c-ip from a reverse-DNS lookup of the connection, and internal DNS resolves every caller to the load balancer's name",
         ],
         answer: 0,
         explanation:
-          "The load balancer re-establishes its own connection to the web server, so unless X-Forwarded-For is specifically configured and captured, the web server's log shows the load balancer's own address for every request, regardless of the real source.",
+          "The load balancer re-establishes its own connection to the web server, so unless X-Forwarded-For is specifically configured and captured, the web server's log shows the load balancer's own address for every request, regardless of the real source. IIS does not put X-Forwarded-For into c-ip by default — capturing it takes deliberate configuration, and the load balancer appends to that header rather than replacing the client. The address IIS sees belongs to the load balancer that opened the connection, not the WAF. And c-ip is the TCP peer's IP address, not the result of a DNS lookup.",
       },
     },
     {
       type: "question",
       id: "web-q1",
       question:
-        "An access log shows a burst of 40 requests to /search.aspx?q=... from one source in two minutes: 37 return sc-status 500, and 3 return sc-status 200. What do the three 200 responses most likely represent, relative to the 37 failures?",
+        "An access log shows a burst of 40 requests to /search.aspx?q=... from one source in two minutes: 37 return sc-status 500, and 3 return sc-status 200. Status codes alone can't tell you whether those 200s are UNION payloads that executed or harmless requests that got a normal page. Which check most directly separates the two?",
       options: [
-        "Payloads the application's input validation rejected gracefully with a normal page, while the 500s were the ones that got past validation and crashed the query",
-        "Payloads with valid SQL syntax that executed against the application, unlike the 37 where malformed syntax broke the query before it returned anything",
-        "Ordinary search terms the attacker's tool sent between payloads as a control, which return 200 because they are normal traffic inside the burst",
-        "Responses served from the application's cache, which return 200 regardless of payload, while the 500s show the server blocked the attack before processing",
+        "Confirm the WAF logged ALLOW for those three requests, since an injection payload the WAF lets through to the application is one that executed",
+        "Compare the 200s' sc-bytes with this endpoint's normal response size, since an executed UNION returns far more data than a real search",
+        "Confirm the three 200s share a source IP with the 37 500s, since a shared source shows the 200s were the same tool's working payloads",
+        "Check sc-substatus and sc-win32-status on the 200s, since a non-zero value there marks a request whose SQL statement actually ran",
       ],
       answer: 1,
       explanation:
-        "500 means the server-side application broke processing the request — for injection attempts, that's usually the query parser choking on malformed syntax — a failed extraction (though proof the input reaches the SQL parser unsanitized), not a block. The three 200 responses inside the same burst, from the same source, in the same short window, are far more consistent with payloads that were syntactically valid and executed than with unrelated coincidental traffic, and a 500 is not evidence of successful blocking; it's an application error.",
+        "Reading 1's response-size point: a 200 only says the request completed, so what separates an executed UNION from a harmless page is sc-bytes against the endpoint's baseline — tens of kilobytes where a real search returns a few. (For blind/time-based payloads the equivalent tell is time-taken.) A WAF ALLOW means only that no rule blocked the request; the 37 requests that crashed with 500s were allowed too. A shared source shows the same actor, not that any particular request worked — a tool interleaving control searches would share it as well. And sc-substatus / sc-win32-status describe IIS's own handling of the request, not whether the application's SQL executed.",
       xp: 20,
     },
     {
@@ -1042,40 +1057,40 @@ const webAttacksRoom: Room = {
           question:
             "scStatus here is 200 and scBytes is 48,231 — against a baseline of roughly 2,000-3,000 bytes for a normal search result on this endpoint. Combined with the fact that 37 of the 40 requests in this burst returned 500, what does this specific record most likely represent?",
           options: [
-            "A normal search that happened to return a large result set, since search terms with many matching products routinely produce responses in the tens of kilobytes on this endpoint",
-            "The one payload in the burst whose SQL syntax was valid enough to execute, returning far more data than a real search ever would — consistent with a successful UNION-based extraction, unlike the 37 failed attempts that crashed the query parser",
-            "Evidence that the WAF successfully blocked this specific request, since it returned a non-error status, and a 200 from a WAF-protected endpoint always confirms the managed rule set intervened before the application ever saw the payload",
-            "A caching artifact, since scBytes reflects the size of a cached response rather than the actual query result, and this endpoint serves cached search results by default for any repeated query string",
+            "A legitimate search that matched many products, since a broad search term can return a result page in the tens of kilobytes",
+            "A payload whose SQL syntax was valid enough to execute, returning far more rows than a real search — a UNION-based extraction",
+            "Error-based injection: the database error text in the body leaks data, which is why this response is far larger than baseline",
+            "Time-based blind injection: the 812 ms TimeTaken shows the database was made to pause, confirming the parameter executes SQL",
           ],
           answer: 1,
           explanation:
-            "A response roughly 16-24x this endpoint's normal size, on the one successful status code inside a burst where everything else failed, is the signature of a UNION-based injection that actually executed and pulled back extra columns/rows — not a coincidentally large legitimate search, not a block (200 means the request went through, not that it was stopped), and scBytes reflects the actual response size sent to the client, not a caching layer's own bookkeeping.",
+            "A response roughly 16-24x this endpoint's normal size, on a 200 inside a burst where nearly everything else failed, carrying a UNION SELECT in csUriQuery, is the signature of a UNION-based injection that executed and pulled back extra rows. A legitimate broad search doesn't fit: the query string is an injection payload, not a product term, and the baseline for real searches is 2-3 KB. Error-based injection leaks data through 500 error pages — this response is a 200. And time-based blind injection needs a delay payload (a SLEEP/WAITFOR) and returns normal-sized pages; this payload has no delay and 812 ms is unremarkable, while the size jump is the tell here.",
           xp: 25,
         },
         {
           question: "csUriQuery contains a UNION SELECT payload targeting a users table. Does the presence of that payload text, by itself, prove the injection succeeded?",
           options: [
-            "Yes — the payload text appearing in the log is sufficient proof on its own, since IIS only records a query string in csUriQuery once the application layer has actually parsed and executed it",
-            "No — the payload only shows what was attempted; scStatus and scBytes are what confirm whether it actually executed and returned data, which is exactly why this record needs to be read for outcome, not just for the query string",
-            "No — csUriQuery is never actually logged for GET requests, so this field can't be trusted, and its presence here means the record was fabricated or tampered with somewhere in the log pipeline",
-            "Yes, but only because the User-Agent string in this record is unusually suspicious, and IIS only records SQL-shaped query strings from clients whose User-Agent has already been flagged as untrustworthy",
+            "Yes — the WAF allowed this request through, and an allowed UNION payload that reaches IIS is one the database went on to execute",
+            "No — the query string shows what was attempted; scStatus and scBytes are what show whether it executed and returned data",
+            "No — the payload is still URL-encoded (%27), so the application received a literal %27 and the quote never broke out of the string",
+            "Yes — naming the users table and its username and password columns shows the attacker knew the schema, so the query must have run",
           ],
           answer: 1,
           explanation:
-            "This is Reading 1's central point: the query string tells you intent, not outcome. Plenty of the 37 failed attempts in this same burst almost certainly carried similarly aggressive-looking payload text and still crashed on syntax — the codes and size are what separate the one that worked from the 37 that didn't. csUriQuery is a completely standard field for GET requests with query parameters, and the User-Agent here is an ordinary browser string, not itself suspicious.",
+            "This is Reading 1's central point: the query string tells you intent, not outcome. The 37 failed attempts in this same burst were also allowed by the WAF and carried similar payload text, yet crashed on syntax — so neither the WAF's ALLOW nor the payload's presence separates the one that worked; the status and size do. IIS logs the query string as it arrived on the wire, still percent-encoded, but the application decodes it before use, so %27 reaches the code as a real quote. And guessing table and column names like users/username/password is a standard first attempt — naming them shows intent, not knowledge or success.",
           xp: 25,
         },
         {
           question: "What is the appropriate next step given this finding?",
           options: [
-            "Close this as one more blocked injection attempt, consistent with the other 37 requests in the burst, since scStatus 200 from an IIS access log still just means the WAF layer upstream ultimately handled it",
-            "Treat this as a confirmed, successful SQL injection rather than just an attempt: pull the database's own query/audit log for this timeframe to determine what was actually read, and move to contain the source",
-            "No further action is needed since the WAF already logged the request, and a WAF logging a request -- regardless of the status code IIS itself returned -- is Orbitline's confirmation that nothing reached the database",
-            "Reset every user's password site-wide as the only appropriate response to a database query, since any successful SELECT against the users table is functionally equivalent to every account being compromised at once",
+            "Block 91.203.44.187 at the WAF and close the case, since once the source is cut off the attacker can no longer reach the application",
+            "Treat it as a successful injection: pull the database audit log for this window to scope what was read, and contain the source",
+            "Force a password reset for every account now, since a SELECT against the users table means every stored credential is exposed",
+            "Fix /search.aspx with parameterized queries first, and decide whether to escalate once the patched page is deployed to production",
           ],
           answer: 1,
           explanation:
-            "The evidence points to actual data exposure, not just an attempted-and-failed request like the other 37 — that calls for pulling the database's own audit trail to scope exactly what the query returned, not treating this record the same as the failures around it. This record being logged is not the same as it being handled, and a site-wide password reset is disconnected from what this specific finding (a users-table read) actually calls for until the database audit confirms scope.",
+            "The evidence points to actual data exposure, not an attempted-and-failed request like the other 37 — that calls for pulling the database's own audit trail to scope exactly what the query returned, alongside containing the source. Blocking the IP and closing is containment without scoping: the data already read is still unknown, and the attacker can return from another address. A site-wide reset may follow, but deciding it before the audit shows what rows and columns were actually returned is acting ahead of scope. And fixing the code first is the right remediation at the wrong time — escalation and scoping of a confirmed breach cannot wait for a deployment.",
           xp: 30,
         },
       ],
@@ -1091,40 +1106,40 @@ const webAttacksRoom: Room = {
         {
           question: "waf.httpRequest.clientIp shows 91.203.44.187, but iis.cIP for the same request shows 10.12.4.9. Which one is the true originating client, and why do they differ?",
           options: [
-            "91.203.44.187 is the true client — the WAF sees the raw internet-facing connection, while 10.12.4.9 is the internal Application Load Balancer's own address, which is what IIS sees because the request reaches it already re-proxied",
-            "10.12.4.9 is the true client, since the web server is always closer to the source than a WAF in a standard reverse-proxy deployment, making its own recorded address the more authoritative one",
-            "They're both equally valid representations of the same external address, just recorded in different formats -- one as a dotted-decimal string and the other as a hexadecimal-encoded value that happens to render identically",
-            "This is a logging error — a single request can only ever have one recorded IP, so one of these two fields must be wrong, most likely due to a timestamp collision between the WAF and IIS's own logging pipelines",
+            "91.203.44.187: the WAF evaluates the request as it arrived from the internet, while 10.12.4.9 is the internal ALB that connected to IIS",
+            "10.12.4.9: IIS logs the TCP peer that actually connected to it, so its cIP is the address that sent the request to the application",
+            "Both: 10.12.4.9 is the attacker's private address behind their NAT, and 91.203.44.187 is the public address their traffic exits from",
+            "Neither: the WAF's clientIp is copied from the client-supplied X-Forwarded-For header, so the real source can't be established here",
           ],
           answer: 0,
           explanation:
-            "This is Reading 2's core mechanism: the WAF is the last hop that sees the real client's raw connection, while everything downstream (the load balancer, then IIS) sees a re-established connection using the load balancer's own address — that's not a logging error, it's simply how a proxied architecture works, and it's exactly why 10.12.4.9 is not, and never will be, the real client for any request through this path.",
+            "This is Reading 2's core mechanism: the WAF records the real client's address, while everything downstream (the load balancer, then IIS) sees a re-established connection using the load balancer's own address — Orbitline's ALB, as the WAF record's httpSourceName/httpSourceId show. IIS does log the TCP peer, but that peer is the ALB, not the sender. 10.12.4.9 is in Orbitline's own internal range (the same 10.12.4.x subnet as the web server, sIP 10.12.4.30) — an attacker's private NAT address would never appear in your logs. And AWS WAF's httpRequest.clientIp is the connecting client's address as seen at the edge, not a value read from a header.",
           xp: 25,
         },
         {
           question: "If an analyst tried to build a source-IP block list purely from IIS's own cIP field across many requests, what would go wrong?",
           options: [
-            "Nothing — cIP reliably reflects the true external source for every request, since IIS is configured to read the original client address straight through any load balancer or proxy sitting in front of it",
-            "Every request proxied through the same load balancer shows the identical internal address (10.12.4.9) regardless of which external client actually sent it, making cIP useless for attribution on its own — this is exactly why the WAF record has to be pulled for the same request",
-            "cIP only appears on requests that were blocked, so it can't be used for a block list of allowed traffic, meaning any request that reached the application successfully would have no cIP value logged at all",
-            "cIP rotates randomly on every request, making it impossible to build any list from it at all, since Orbitline's load balancer is configured to round-robin across a pool of outbound addresses for each new connection",
+            "Nothing, provided the list is built only from requests carrying injection payloads, since filtering by payload isolates the attacker",
+            "Every proxied request shows the same internal address, 10.12.4.9, so the list would target Orbitline's own ALB rather than an attacker",
+            "The list would hold the attacker's NAT-translated private address, which has to be mapped back to its public IP before it can be used",
+            "The list would be accurate but slow, since cIP is correct and the only problem is that IIS logs reach the SIEM minutes after the WAF's",
           ],
           answer: 1,
           explanation:
-            "Reading 2's central warning: because every request passes through the same load balancer, IIS's cIP field shows the same internal address across the board — legitimate and malicious traffic alike — which makes it structurally incapable of supporting source attribution by itself, regardless of how many requests you pull. It's not restricted to blocked requests, and it doesn't rotate randomly; it's simply, consistently, the load balancer's own fixed address.",
+            "Reading 2's central warning: because every request passes through the same load balancer, IIS's cIP field shows the same internal address for legitimate and malicious traffic alike, so it cannot support source attribution by itself. Filtering to payload-bearing requests doesn't help — those requests show 10.12.4.9 too, so the list would still name the ALB. 10.12.4.9 is not the attacker's NAT address; it is Orbitline's own load balancer, and there is nothing to map back from it. And cIP is not 'correct but late' — ingestion lag is not the problem; the value itself never identifies the client.",
           xp: 25,
         },
         {
           question: "Both records now confirm 91.203.44.187 as the true source of the successful injection from Log Analysis 1. What should the analyst do with this IP specifically?",
           options: [
-            "Add a block/deny rule for it at the web server's own configuration, since that's where the request was ultimately processed and IIS-level IP restrictions apply before the load balancer ever reroutes anything",
-            "Add a targeted block/deny rule for it at the WAF (the only point in the chain that actually sees this address), and search WAF logs broadly for this same clientIp across the full incident window to scope its other activity",
-            "Take no further action, since the injection has already been logged, and a WAF record combined with an IIS record together already constitute full containment of the threat",
-            "Block the internal load balancer address 10.12.4.9 instead, since that's the IP IIS itself recorded, and blocking it at the WAF would immediately stop this specific attacker's traffic from reaching the application",
+            "Add it to IIS IP Address and Domain Restrictions on WEB-ORB03, since IIS is the server that processed the injected query",
+            "Block it at the WAF, the one layer that sees this address, and search WAF logs for the same clientIp across the incident window",
+            "Block it at the WAF and close the case, since the confirmed request is the full extent of what this address sent to Orbitline",
+            "Search the IIS logs for cIP 91.203.44.187 to find its other requests, then decide at which layer the block should be applied",
           ],
           answer: 1,
           explanation:
-            "Since the web server never sees the real client address at all, blocking has to happen at the WAF — the only point in the chain capable of matching on 91.203.44.187 in the first place — and the same clientIp field should be searched across the broader window to find any other requests this actor made, not just the one already confirmed. Blocking 10.12.4.9 would block Orbitline's own load balancer, cutting off all legitimate traffic through it.",
+            "Since the web server never sees the real client address, blocking has to happen at the WAF — the only point in the chain that can match on 91.203.44.187 — and the same clientIp should be searched across the broader window to find this actor's other requests. An IIS IP restriction would never match: IIS only ever sees 10.12.4.9. Blocking and closing skips scoping — this address sent a 40-request burst, and possibly more outside it. And searching IIS logs for 91.203.44.187 returns nothing for the same reason, so the scoping search has to run on the WAF logs.",
           xp: 30,
         },
       ],
@@ -1142,18 +1157,18 @@ const webAttacksRoom: Room = {
       ],
       answer: 1,
       explanation:
-        "Payload shape alone is exactly what makes these look identical — the real discriminators: a scanner is typically one stable, unchanging source IP, often with a self-identifying User-Agent (many scanning tools announce themselves), backed by a documented change record covering the window; a real attacker's probing more often rotates source addresses, uses generic or scripted User-Agents, and has no matching authorization on file. HTTP status codes don't reliably differ between the two, and authorized scans absolutely do trigger WAF rules — that's the point of running them.",
+        "Payload shape alone is exactly what makes these look identical — the real discriminators: a scanner is typically one stable, unchanging source IP, often with a self-identifying User-Agent (many scanning tools announce themselves), backed by a documented change record covering the window; a real attacker's probing more often rotates source addresses, uses generic or scripted User-Agents, and has no matching authorization on file. Request rate doesn't separate them — scanners and attack tools are both configurable, and both can run steady or bursty. The terminatingRuleId won't either: an authorized scan sends real SQLi payloads, so it trips the same managed SQLi rule group a real attack does — that's the point of running it. And source country is no discriminator: commercial scanners run from their vendor's cloud ranges, often abroad, while attackers frequently route through infrastructure in the target's own region.",
       xp: 25,
     },
     {
       type: "analyst_choice",
       id: "web-ac1",
       heading: "Verdict: A Scheduled Vulnerability Scan Firing the Same Signatures",
-      scenario: "AWS WAF blocked a sustained burst of SQL injection payloads against multiple Orbitline endpoints from a single source. Review the record below alongside the associated change record.",
+      scenario: "AWS WAF blocked a sustained burst of SQL injection payloads against multiple Orbitline endpoints from a single source. Review the record below together with the IT verification note attached to it (the change-record lookup for this source and window), then decide.",
       event: orbitlineScanEvent,
       correct_verdict: "false_positive",
       explanation:
-        "Every payload here matches the same managed SQLi signature set a real attack would trigger — which is exactly why the discriminators from Reading 2 and Question 2 matter: 64.39.106.190 is a single, stable source inside the documented Qualys scanner range, the User-Agent self-identifies as the scanning tool rather than disguising itself, a confirmed change record covers this exact window, and — critically — nothing in this burst resembles Log Analysis 1's pattern (a 200 with an anomalous response size); every request here was BLOCKed at the WAF, meaning none of it ever reached the application or the database.",
+        "Every payload here matches the same managed SQLi signature set a real attack would trigger — which is exactly why the discriminators from Question 2 matter: 64.39.106.190 is a single, stable source inside the documented Qualys scanner range, the User-Agent self-identifies as the scanning tool rather than disguising itself, a confirmed change record covers this exact window, and — critically — nothing in this burst resembles Log Analysis 1's pattern (a 200 with an anomalous response size); every request here was BLOCKed at the WAF, meaning none of it ever reached the application or the database.",
       fp_trap:
         "It's tempting to escalate any SQLi-signature WAF block as a potential attack, since that's the exact rule category behind Log Analysis 1's real finding. But the discriminators are context, not payload shape: a source IP that never rotates, a User-Agent that announces itself as scanning tooling instead of disguising it, a change record confirming authorization, and — the most important check — no downstream success at all, since every request in this burst was blocked, unlike Log Analysis 1's lone 200 that got through. Escalating every blocked SQLi signature without checking source stability, the User-Agent, and whether anything actually reached the database is exactly the over-alerting trap that buries a real finding like Log Analysis 1's under routine scanning noise.",
       xp: 30,
@@ -1172,7 +1187,7 @@ const webAttacksRoom: Room = {
       ],
       correct_order: ["probe", "success", "oversize-post", "file-write", "shell-exec"],
       explanation:
-        "This is the full arc from Reading 1 and Log Analysis 1/2 through to code execution: the WAF-blocked burst is the attacker calibrating their injection against the application's parser; the lone 200 with an oversized response is the moment one payload actually executed, most likely disclosing enough to enable the next stage; the oversized POST getting past the WAF's inspection limit is how a malicious file upload can slip through even a well-configured WAF; the file write by w3wp.exe itself (not an administrator, not a deployment tool) is the web shell landing on disk; and w3wp.exe parenting cmd.exe is that shell finally being used to execute commands.",
+        "This is the full arc from Reading 1 and Log Analysis 1/2 through to code execution: the burst the WAF allowed through to the application is the attacker calibrating their injection against the application's parser; the lone 200 with an oversized response is the moment one payload actually executed, most likely disclosing enough to enable the next stage; the oversized POST getting past the WAF's inspection limit is how a malicious file upload can slip through even a well-configured WAF; the file write by w3wp.exe itself (not an administrator, not a deployment tool) is the web shell landing on disk; and w3wp.exe parenting cmd.exe is that shell finally being used to execute commands.",
       xp: 35,
     },
     {
@@ -1185,23 +1200,31 @@ const webAttacksRoom: Room = {
         "DeviceProcessEvents\n| where InitiatingProcessFileName =~ \"{{parent}}\"\n| where FileName in~ (\"{{child1}}\", \"{{child2}}\", \"{{child3}}\")\n| project Timestamp, DeviceName, InitiatingProcessFileName, FileName, ProcessCommandLine, AccountName",
       blanks: [
         { id: "parent", answers: ["w3wp.exe"], placeholder: "the IIS worker process" },
-        { id: "child1", answers: ["cmd.exe", "powershell.exe"], placeholder: "a command interpreter a web worker should never spawn" },
-        { id: "child2", answers: ["powershell.exe", "cmd.exe"], placeholder: "a second shell to watch for" },
-        { id: "child3", answers: ["cscript.exe", "wscript.exe"], placeholder: "a scripting host to watch for" },
+        { id: "child1", answers: ["cmd.exe", "powershell.exe", "pwsh.exe"], placeholder: "a command interpreter a web worker should never spawn" },
+        { id: "child2", answers: ["powershell.exe", "pwsh.exe", "cmd.exe"], placeholder: "a second shell to watch for" },
+        {
+          id: "child3",
+          answers: [
+            "cscript.exe", "wscript.exe", "mshta.exe", "rundll32.exe", "regsvr32.exe",
+            "certutil.exe", "bitsadmin.exe", "whoami.exe", "net.exe", "net1.exe",
+            "cmd.exe", "powershell.exe", "pwsh.exe",
+          ],
+          placeholder: "a script host or living-off-the-land binary to watch for",
+        },
       ],
       explanation:
-        "A web worker process spawning any command interpreter or scripting host — not just cmd.exe — is never expected in normal IIS operation, exactly the pattern the final item in this room's ordering task showed you. Filtering DeviceProcessEvents on InitiatingProcessFileName = w3wp.exe against a short list of shell/script hosts is a far more targeted detection than trying to catch the web shell's file write itself, since file names and paths are trivial for an attacker to vary while the parent-child relationship is not.",
+        "A web worker process spawning any command interpreter, scripting host or living-off-the-land binary (mshta, rundll32, certutil, whoami, net and the like) is never expected in normal IIS operation, exactly the pattern the final item in this room's ordering task showed you. Any of those is a correct entry, as long as each blank names a different binary. Filtering DeviceProcessEvents on InitiatingProcessFileName = w3wp.exe against a short list of shell/script hosts is a far more targeted detection than trying to catch the web shell's file write itself, since file names and paths are trivial for an attacker to vary while the parent-child relationship is not.",
       xp: 35,
     },
     {
       type: "flag",
       id: "web-f1",
-      // Recall flag — the answer is in the ordering task (o1), not a log; show no log
-      // so the unrelated WAF-block event isn't rendered as if it were the source.
-      event: null,
-      prompt: "Look at the ordering task's attack chain (Task o1). What is the exact filename of the web shell that w3wp.exe wrote into the site's assets directory? Enter it exactly as shown, including the extension.",
-      answer: "checkout-widget.min.aspx",
-      hint: "It's named to blend in with the site's other minified JavaScript assets — check the ordering item describing the file write, right before w3wp.exe spawns cmd.exe.",
+      // Pin the correlated WAF+IIS record: the answer is derived from the WAF half
+      // (httpSourceId), not copied from any stem.
+      event: orbitlineCorrelationEvent,
+      prompt: "IIS's cIP for the successful injection points at Orbitline's own load balancer, not the attacker. The WAF half of this correlated record identifies which load balancer handed it the request. Enter that load balancer's name as AWS records it — the name only, without the type prefix or the trailing ID.",
+      answer: "orbitline-prod-alb",
+      hint: "One WAF field says what kind of resource the request came through; another gives that resource's full identifier, in the form type/name/id.",
       xp: 25,
     },
   ],

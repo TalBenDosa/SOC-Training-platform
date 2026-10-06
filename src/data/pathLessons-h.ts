@@ -343,7 +343,7 @@ const lessons = [
         "question": "You are a SOC threat hunter about to start a new hunt. You have not yet written anything down, and your plan is to open the SIEM and browse recent process-creation logs to see if anything looks unusual. What is the most important thing missing before you begin?",
         "options": [
           {
-            "label": "Nothing; browsing broadly is exactly how experienced hunters find the most creative leads",
+            "label": "A 30-day baseline of process-creation logs, so anything unusual stands out as you browse",
             "value": "a"
           },
           {
@@ -351,39 +351,39 @@ const lessons = [
             "value": "b"
           },
           {
-            "label": "Approval from the incident response team, since hunting needs the same authorization as containment",
+            "label": "Approval from the incident response team, since hunting needs the same sign-off as containment",
             "value": "c"
           },
           {
-            "label": "A confirmed alert to start from, since hunting should always begin from something that fired",
+            "label": "A list of known-bad hashes from threat intel, so you have concrete values to search for first",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Threat hunting borrows the scientific method's discipline: a specific, falsifiable hypothesis defined before touching the data is what separates a structured hunt from unguided browsing, which does not scale in high-volume environments. The option “Nothing; browsing broadly is exactly how experienced…” describes exactly the failure mode this lesson warns against. The option “Approval from the incident response team, since…” confuses hunting with a containment action requiring authorization. The option “A confirmed alert to start from, since…” contradicts the core definition of hunting as proactive, not alert-driven."
+        "explanation": "Threat hunting borrows the scientific method's discipline: a specific, falsifiable hypothesis written before touching the data is what separates a structured hunt from unguided browsing, which does not scale. “A 30-day baseline of process-creation logs” is genuinely useful for rarity analysis, but a baseline answers “what is normal” — without a hypothesis you are still browsing, just with better context. “Approval from the incident response team” confuses hunting, a read-only search, with a containment action that needs authorization. “A list of known-bad hashes” turns the hunt into an IOC sweep at the bottom of the Pyramid of Pain; it still names no technique, scope or reason your detections might miss it."
       },
       {
-        "question": "You are a SOC hunter running a stacking query on parent-child process pairs across a 5,000-host fleet. Which result is most likely to represent a genuine finding worth investigating first?",
+        "question": "You are a SOC hunter running a stacking query on parent-child process pairs across a 5,000-host fleet, sorted rarest first. Your 30-day baseline notes say the IT team administers servers from two jump hosts, and one file server runs the nightly backup job. Which result should you investigate first?",
         "options": [
           {
-            "label": "svchost.exe with parent services.exe, occurring on 4,812 of the 5,000 hosts",
+            "label": "backup_agent.exe with parent services.exe, on 1 host — the file server that runs nightly backups",
             "value": "a"
           },
           {
-            "label": "rundll32.exe with parent winword.exe, occurring on exactly 1 host in the entire fleet",
+            "label": "rundll32.exe with parent winword.exe, on 3 hosts — all of them finance laptops",
             "value": "b"
           },
           {
-            "label": "explorer.exe with parent userinit.exe, occurring on 4,990 of the 5,000 hosts",
+            "label": "mmc.exe with parent explorer.exe, on 2 hosts — both of them IT admin jump servers",
             "value": "c"
           },
           {
-            "label": "cmd.exe with parent explorer.exe, occurring on 3,102 of the 5,000 hosts",
+            "label": "svchost.exe with parent services.exe, on 4,812 of the 5,000 hosts in the fleet",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Rarity analysis is the hunter's core technique: a parent-child pair occurring on exactly one host out of thousands is statistically anomalous and, in this case, also behaviorally suspicious (a document-editing process spawning a script-hosting utility). The options “svchost.exe with parent services.exe, occurring on 4,812…” and “explorer.exe with parent userinit.exe, occurring on 4,990…”, and d all describe pairs occurring on the overwhelming majority of the fleet, which is the profile of routine, organic Windows behavior rather than a long-tail anomaly."
+        "explanation": "Rarity tells you where to look; the baseline and the behaviour tell you what matters. A Word process spawning rundll32 is a document launching a code-loading utility — a classic malicious-document pattern — and finance laptops have no business reason for it, so it is rare AND unexplained. “backup_agent.exe … on 1 host” is the rarest row, but the baseline already explains it: one file server runs the backup job, so a single occurrence is expected. “mmc.exe … on 2 hosts” is rare for the same benign reason — an admin console on the two jump servers the IT team uses. “svchost.exe with parent services.exe” sits at the head of the distribution, the profile of routine Windows behaviour. Treating every single-occurrence value as suspicious, without the baseline, is the false-positive trap the lesson warns about."
       },
       {
         "question": "You are a SOC hunter choosing between two ways to operationalize a finding from a successful hunt: writing a detection rule that matches the exact malware hash you found, or writing one that matches the behavioral sequence of process injection followed by an outbound connection within 30 seconds. According to the Pyramid of Pain, why is the behavioral rule the better long-term investment?",
@@ -412,24 +412,24 @@ const lessons = [
         "question": "In the worked LSASS-access hunt in this lesson, the query returns a single hit: a process named svchost.exe requesting GrantedAccess 0x1FFFFF against lsass.exe. What detail, beyond the access level itself, makes this result worth escalating rather than dismissing as a false positive?",
         "options": [
           {
-            "label": "The process is running from the Temp directory rather than System32, meaning it is not the legitimate svchost.exe despite sharing its name",
+            "label": "Its SourceImage sits in the Temp directory, so it is not the real svchost.exe, whatever its name",
             "value": "a"
           },
           {
-            "label": "The GrantedAccess field is formatted in hexadecimal, which only ever appears in confirmed-malicious Sysmon events",
+            "label": "Its occurrence_count is 1, which shows the process had never run on that host before that day",
             "value": "b"
           },
           {
-            "label": "Sysmon Event ID 10 is reserved exclusively for events that antivirus has already flagged as malware",
+            "label": "No existing rule fired on it, so nothing in the detection pipeline has ever vetted this process",
             "value": "c"
           },
           {
-            "label": "An occurrence_count of 1 proves by itself that the process has never run on that host before this moment",
+            "label": "It was found on one host only, which shows the actor has not yet spread past the first endpoint",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "The real svchost.exe always runs from System32; a process using that name but running from a user-writable Temp directory is impersonating a trusted name rather than being it, which is the second confirming detail alongside the unusual access level. The option “The GrantedAccess field is formatted in hexadecimal…” is false — hexadecimal is the normal, routine format for GrantedAccess. The option “Sysmon Event ID 10 is reserved exclusively…” misrepresents what Sysmon Event ID 10 records. The option “An occurrence_count of 1 proves by itself…” over-reads a fleet-wide rarity count as proof about a single host's history."
+        "explanation": "The real svchost.exe runs from System32; a binary with that name in a user-writable Temp directory is borrowing a trusted name, which is the second detail — alongside the access request — that makes the hit worth escalating. “Its occurrence_count is 1” misreads the stack: the count is how many times this SourceImage/GrantedAccess pair appeared across the fleet in the query window, not that host's process history. “No existing rule fired on it” is true of every hunt result — that is why it is a hunt — so it cannot separate this hit from a false positive. “It was found on one host only” confuses the rarity of a hunt result with the scope of an intrusion; scoping comes after escalation, from the process tree and the other pivots in Step 4."
       },
       {
         "question": "A hunting program has excellent, well-indexed telemetry across its entire fleet, but every hunt its analysts run is a reproduction of a technique described in a public blog post or conference talk - none of the analysts have ever built an original hypothesis from scratch. According to the Hunting Maturity Model, what is the binding constraint holding this program back from HM3?",
@@ -439,7 +439,7 @@ const lessons = [
             "value": "a"
           },
           {
-            "label": "Analyst skill - the program can follow published procedures but cannot yet create original ones, which is exactly the HM2-to-HM3 boundary",
+            "label": "Analyst skill - the team can follow published hunts but cannot yet create original ones",
             "value": "b"
           },
           {
@@ -452,30 +452,30 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "The HMM scores a program on data collection, data accessibility, and analyst skill. This program's telemetry is already excellent and well-indexed, ruling out collection and accessibility as the constraint. The described gap - following published procedures but never creating original ones - is precisely the boundary between HM2 (Procedural) and HM3 (Innovative). The options “Data collection - the program needs to…”, “Data collection - the program needs to…”, “Automation - the program lacks the engineering…” and “Data accessibility - the logs exist but…” misdiagnose a data problem that the scenario explicitly rules out. The option “Automation - the program lacks the engineering…” describes the HM3-to-HM4 boundary, not HM2-to-HM3."
+        "explanation": "The HMM scores a program on data collection, data accessibility, and analyst skill. This program's telemetry is already excellent and well-indexed, ruling out collection and accessibility as the constraint. The described gap - following published procedures but never creating original ones - is precisely the boundary between HM2 (Procedural) and HM3 (Innovative). “Data collection - the program needs to…” and “Data accessibility - the logs exist but…” misdiagnose a data problem that the scenario explicitly rules out. “Automation - the program lacks the engineering…” describes the HM3-to-HM4 boundary, not HM2-to-HM3."
       },
       {
-        "question": "A hunt confirms a specific credential-dumping capability on one victim host, sourced from a threat intel report about a known adversary group. Using the Diamond Model of Intrusion Analysis, which of the following is the most disciplined next step?",
+        "question": "A hunt confirms a specific credential-dumping capability on one victim host. The hypothesis came from a threat intel report about a known adversary group, but no C2 domain or IP linked to this activity has been observed yet. Using the Diamond Model of Intrusion Analysis, what is the most disciplined next hunt?",
         "options": [
           {
-            "label": "Close the hunt, since a single confirmed victim and capability is the full scope the model requires you to investigate",
+            "label": "Block the dropped file's hash across the fleet and close the hunt, since the capability is now known",
             "value": "a"
           },
           {
-            "label": "Pivot from the known adversary and capability to hypothesize likely infrastructure, then hunt the fleet for that infrastructure paired with the same capability",
+            "label": "Hypothesise the infrastructure this actor pairs with that capability, then hunt the fleet for it",
             "value": "b"
           },
           {
-            "label": "Escalate directly to law enforcement, since the Diamond Model requires attribution to be reported externally before any further internal hunting occurs",
+            "label": "Confirm attribution of the adversary first, since the model cannot be used to pivot until it is proven",
             "value": "c"
           },
           {
-            "label": "Rebuild the victim host immediately and skip further hunting, since the Diamond Model's purpose is remediation speed rather than generating new hypotheses",
+            "label": "Re-image the victim host, then rerun the same LSASS-access hunt to prove the capability is gone",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "The Diamond Model's core analytical value is that knowing three of its four features (here: adversary, capability, victim) with confidence gives a structured basis for hypothesizing the fourth (infrastructure), and that new hypothesis becomes the next hunt. The option “Close the hunt, since a single confirmed…” stops short of the model's actual purpose. The option “Escalate directly to law enforcement, since the…” invents a reporting requirement the model does not impose. The option “Rebuild the victim host immediately and skip…” confuses the model's analytical function with an unrelated remediation step."
+        "explanation": "Three corners are known well enough — victim (the host), capability (the dumping technique) and a suspected adversary (from the intel report) — and the fourth, infrastructure, is the unknown. The Diamond Model's pivoting rule turns that gap into the next hypothesis: what C2 infrastructure has this actor paired with this capability, and does it appear anywhere else in the fleet? “Block the dropped file's hash” works at the bottom of the Pyramid of Pain and ends the hunt before scoping other victims. “Confirm attribution of the adversary first” gets the model backwards — the lesson's own worked pivot proceeds with the adversary only suspected, and pivoting is how you build that confidence. “Re-image the victim host” is a remediation step; rerunning the same hunt only re-tests one corner and generates no new hypothesis."
       }
     ],
     "references": [

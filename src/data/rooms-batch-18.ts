@@ -154,16 +154,16 @@ const kerberosRoom: Room = {
       diagramCaption: "The Kerberos AS/TGS exchange",
       checkpoint: {
         question:
-          "According to the reading, what does the AS (Authentication Service) exchange give the client?",
+          "A client has just completed the AS exchange and has not yet contacted any service. What does it now hold?",
         options: [
-          "A service ticket usable against one specific service",
-          "A Ticket Granting Ticket (TGT) — proof to the KDC that the client already authenticated once",
-          "A plaintext copy of the user's password for later reuse",
-          "Direct access to the target service's own memory",
+          "A service ticket for the first SPN the user will need that day",
+          "A TGT encrypted with the krbtgt key, plus a session key it can read",
+          "A TGT encrypted with the user's own key, so the client can read it",
+          "Only a session key — the TGT itself is issued in the TGS exchange",
         ],
         answer: 1,
         explanation:
-          "Phase one, the AS exchange, gets the client a TGT — proof to the KDC itself that the client already authenticated once. Phase two, the TGS exchange, uses that TGT to get a service ticket for one specific service.",
+          "The AS-REP returns a TGT encrypted with the krbtgt-derived key (only the KDC can read it) and a session key encrypted with the client's key. “Encrypted with the user's own key” mixes up the two parts: only the session key is wrapped with the user's key — the TGT is opaque to the client. “A service ticket” comes later, from the TGS exchange, one per SPN. “Only a session key” reverses the phases: the TGT is the product of the AS exchange and is what the client presents in the TGS-REQ.",
       },
     },
     {
@@ -197,16 +197,16 @@ const kerberosRoom: Room = {
       type: "question",
       id: "krb-q1",
       question:
-        "An analyst pulls Domain Controller logs to investigate a suspicious file-server session and finds no 4768 or 4769 events for the account in question anywhere on that DC. What does the absence of both events most likely indicate about where to look next?",
+        "To investigate a suspicious file-server session, an analyst searches the Security logs of EVERY Domain Controller in the domain (Kerberos auditing confirmed on each) across the full ticket lifetime, and finds no 4768 or 4769 for the account. Where should the investigation go next?",
       options: [
-        "Kerberos was probably not used — check the file server for a 4624 with a non-Kerberos AuthenticationPackageName, or an NTLM or forged-ticket path",
-        "The DC's Kerberos audit subcategories are likely disabled, so the absence says nothing about the session and the audit policy is the next place to look",
-        "The session used smart-card PKINIT, which is logged as 4771 on the DC instead of 4768/4769, so the analyst should search for 4771",
-        "4768 and 4769 are written on the target file server rather than the DC, so the analyst is searching the wrong host",
+        "No KDC issued a ticket — check the file server's 4624 for NTLM, or suspect a ticket forged offline",
+        "Another DC probably issued the ticket, so the next step is to widen the search to the other DCs",
+        "Search the DCs for 4771 instead, because a successful smart-card logon is recorded under that ID",
+        "Search the file server for 4769, because the service host records the TGS it was presented with",
       ],
       answer: 0,
       explanation:
-        "4768/4769 are logged exclusively on the Domain Controller acting as KDC, so if they're genuinely absent there, the session either didn't use a legitimately-issued Kerberos ticket at all (worth checking the file server's own 4624 for AuthenticationPackageName: NTLM instead) or, as Reading 6 covers, used a forged ticket that never touched the KDC in the first place. It does not prove the session never happened — the file server's own logon event is independent evidence — and 4768/4769 are core, always-on audit events on a properly configured DC, not something disabled by default.",
+        "4768/4769 are written only by the DC acting as KDC, so with every DC searched and auditing confirmed, no KDC issued this ticket: either the session did not use Kerberos (check the file server's own 4624 AuthenticationPackageName for NTLM) or it used a forged ticket that never touched a KDC (Reading 6). “Another DC probably issued it” is normally the right first check in a multi-DC domain, but the stem says every DC was already searched. “Search for 4771” misreads that event — it records a FAILED pre-authentication, not a successful logon. “Search the file server for 4769” is wrong because the service host logs a 4624 when it accepts a ticket; 4769 exists only on the KDC.",
       xp: 20,
     },
     {
@@ -238,11 +238,16 @@ const kerberosRoom: Room = {
         "=======================================================",
       checkpoint: {
         question:
-          "According to the reading, which Kerberos encryption type value indicates RC4-HMAC, the weaker legacy cipher favored by Kerberoasting tools?",
-        options: ["0x12", "0x11", "0x17", "0x1"],
+          "Kerberoasting tools ask the KDC for 0x17 tickets even in domains that default to 0x12. What do they gain from that request?",
+        options: [
+          "RC4 tickets skip the service-account key, so no cracking step is needed",
+          "The KDC logs RC4 requests under 4768, so the sweep avoids 4769 alerts",
+          "Each password guess against an RC4 ticket is far cheaper than against AES",
+          "RC4 tickets use the requester's key, which the attacker already knows",
+        ],
         answer: 2,
         explanation:
-          "0x17 is RC4-HMAC — an older, much weaker cipher whose key is derived far more directly from the account's NTLM hash, making it dramatically faster to crack offline than 0x12 (AES256).",
+          "0x17 is RC4-HMAC, whose key derives almost directly from the account's NTLM hash, so testing each guess costs far less than against AES256 (0x12) — the same password cracks orders of magnitude faster. “Skip the service-account key” and “use the requester's key” are both wrong: every TGS, whatever its cipher, is encrypted with the target service account's key, which is the whole reason it is worth cracking. “Logs RC4 requests under 4768” is wrong because the event ID reflects the message type (4769 for any TGS), not the cipher — the RC4 value appears in that 4769's TicketEncryptionType field.",
       },
     },
     {
@@ -281,14 +286,14 @@ const kerberosRoom: Room = {
       question:
         "A junior analyst says 'this can't be Kerberoasting — the requesting user, k.alvarez, has no group membership or ACL entry granting them access to the SQL service they requested a ticket for.' Why does this reasoning not rule out Kerberoasting?",
       options: [
-        "Kerberoasting targets only Domain Admin accounts, so k.alvarez's missing rights are irrelevant — the KDC checks admin group membership before issuing any TGS",
-        "The KDC issues a TGS for any existing SPN to any holder of a valid TGT; authorization is checked at the service, which an offline cracker never contacts",
-        "The KDC compares the requester's groups against the service ACL, so a successful 4769 proves k.alvarez actually had access to the SQL service",
-        "TGS tickets are issued only to local administrators of the target server, so k.alvarez must already hold elevated rights on that host",
+        "Kerberoasting needs no TGT or domain account at all, so k.alvarez's rights on the SQL service never come into play",
+        "The KDC issues a TGS for any existing SPN to any TGT holder; access is checked at the service, which a cracker never contacts",
+        "The KDC compares the requester's groups with the service ACL, so a successful 4769 proves k.alvarez had access",
+        "A user who is a local admin on the SQL host can request its tickets, so k.alvarez must hold rights on that server",
       ],
       answer: 1,
       explanation:
-        "This is the mechanism from Reading 4: the KDC's TGS-REQ processing checks only that the SPN exists and the requester holds a valid TGT — it performs no authorization check on whether the requesting user has any legitimate business reason to reach that service. The attacker never needs the service to grant them access; they only need the ticket to crack offline. Kerberoasting works against any account with a registered SPN and a weak password, regardless of rank, and group membership/ACLs are very much a Kerberos-relevant concept, just not one checked at this particular step.",
+        "Reading 4: before issuing a TGS the KDC checks only that the SPN exists and the requester holds a valid TGT; authorization is the service's job, and a Kerberoaster never presents the ticket to the service — they crack it offline. “Needs no TGT or domain account” describes AS-REP roasting, not Kerberoasting, which does need a valid TGT. “Compares the requester's groups with the service ACL” and “must hold rights on that server” both invent an authorization step the KDC does not perform at TGS-REQ time, so a successful 4769 proves nothing about access.",
       xp: 20,
     },
     {
@@ -321,16 +326,16 @@ const kerberosRoom: Room = {
         "=======================================================",
       checkpoint: {
         question:
-          "According to the reading, what is the fastest way to distinguish Kerberoasting from AS-REP roasting in DC logs?",
+          "An attacker AS-REP roasts svc_legacyftp and later cracks the blob offline. Whose password have they recovered?",
         options: [
-          "The encryption type recorded — Kerberoasting always uses AES-256 and AS-REP roasting always uses RC4, so TicketEncryptionType alone is sufficient to tell them apart without checking the Event ID at all",
-          "The Event ID and precondition: a 4769 from an account that already holds a TGT is Kerberoasting; a 4768 with PreAuthType 0 requiring no prior credentials is AS-REP roasting",
-          "The source IP address, since only Kerberoasting requests log a source IP field at all — AS-REP roasting requests are recorded without any IpAddress value on the 4768",
-          "The time of day the ticket was requested, since Kerberoasting only occurs during business hours and AS-REP roasting only occurs overnight when monitoring is reduced",
+          "krbtgt's — the TGT inside every AS-REP is encrypted with the krbtgt key",
+          "svc_legacyftp's — the crackable AS-REP part uses that account's own key",
+          "The requesting user's — an AS-REP is always encrypted for whoever asked",
+          "The service account's behind whichever SPN the attacker named in the request",
         ],
         answer: 1,
         explanation:
-          "RC4 encryption alone never determines which attack you're looking at — it's a downgrade signal common to both. The determining factor is the Event ID and precondition: 4769 for Kerberoasting (attacker already holds a TGT) versus 4768 with PreAuthType 0 for AS-REP roasting (no credentials needed at all).",
+          "The crackable portion of an AS-REP is encrypted with the TARGET account's password-derived key (Reading 1's session key; Reading 5's side-by-side table), so cracking it yields svc_legacyftp's password. “krbtgt's” is a real part of the AS-REP — the TGT is krbtgt-encrypted — but that key is far too strong to crack and is not what roasting targets. “The requesting user's” fails because in AS-REP roasting the attacker asks for a TGT in the target's name, needing no account of their own. “The SPN's service account” describes Kerberoasting, which attacks the TGS-REP, not the AS-REP.",
       },
     },
     {
@@ -345,42 +350,42 @@ const kerberosRoom: Room = {
           question:
             "TargetUserName — the requesting account on a 4769 — is 'k.alvarez', TicketEncryptionType is 0x17 (RC4), Status is 0x0 (success), and per the SIEM correlation noted above this account requested 59 distinct SPNs in the preceding three minutes. What does this combination indicate?",
           options: [
-            "This is routine behavior — Kerberos clients always request tickets in bulk when a workstation first joins the network each morning, regardless of how many distinct services are involved or which account is requesting them",
-            "k.alvarez is Kerberoasting: an authenticated user with no apparent business need for these services requested RC4-encrypted TGS tickets across 59 distinct SPNs in three minutes, matching the volume, encryption-downgrade, and breadth-across-services signature from Reading 5",
-            "TicketEncryptionType 0x17 means the request failed and no ticket was actually issued, so Status: 0x0 in this event must refer to an unrelated system check rather than the Kerberos exchange itself",
-            "Nothing has actually been captured yet — the ticket is encrypted, so the KDC has not disclosed any secret to k.alvarez at this stage, and no further action is needed until an actual decryption attempt is observed",
+            "Overpass-the-hash — an RC4 ticket in an AES domain shows k.alvarez's NTLM hash was used to log on",
+            "Kerberoasting — one account pulled RC4 service tickets for 59 SPNs it has no business need for",
+            "Routine logon behaviour — a client fetching tickets for mapped drives and apps as the session starts",
+            "Nothing captured yet — the tickets are encrypted, so no secret has left the KDC until cracking is seen",
           ],
           answer: 1,
           explanation:
-            "0x17 does not mean failure — Status: 0x0 shows the request succeeded, and a valid RC4 ticket was returned. The ticket itself already IS the captured material: it's encrypted with a key derived from the service account's password, and RC4's key-derivation is weak enough to attack offline with no further contact with the domain — 'encrypted' does not mean 'not yet obtained.' What is genuinely anomalous is the volume: 59 unique SPNs requested by one account in three minutes, at the RC4 encryption level, is exactly the Kerberoasting fingerprint from Reading 5.",
+            "A successful (Status 0x0) RC4 TGS for 59 distinct SPNs in three minutes from one account with no business need is the Kerberoasting fingerprint from Reading 5. “Overpass-the-hash” is the confusable one: its RC4 tell appears on a 4768 (a TGT), whereas this is a 4769 for a service ticket, and overpass does not explain the breadth across 59 SPNs. “Routine logon behaviour” does not fit 59 unrelated services at 03:11 for a marketing analyst, nor RC4 in an AES baseline. “Nothing captured yet” misunderstands the attack: the issued ticket IS the captured material, crackable offline with no further contact with the domain.",
           xp: 25,
         },
         {
           question:
-            "A colleague argues this can't be Kerberoasting because k.alvarez has no permissions on the reporting service and would be denied access if they tried to actually use the ticket. Why is that argument incomplete?",
+            "Using only the fields in this 4769, which value tells you whose password the attacker can now attempt to crack offline?",
           options: [
-            "It's correct — without permission to use the service, the ticket has no value to an attacker at all, since Kerberos tickets can only be decrypted by whoever the KDC intended to grant access to",
-            "Whether k.alvarez could ever successfully use the service is irrelevant to Kerberoasting: the attacker's goal is to crack the ticket offline to recover svc_reporting's password, which requires no further interaction with the service or the domain at all",
-            "Permissions on the target service are checked by the KDC before it issues the 4769, so this event proves k.alvarez does have some legitimate form of access to the reporting service already",
-            "This argument would be correct for AS-REP roasting but Kerberoasting works differently and never requires cracking anything at all, since the TGS itself already contains the plaintext password",
+            "TargetUserName (k.alvarez) — the TGS is encrypted with the requesting account's key",
+            "ServiceName (HTTPRpt/rpt04) — the TGS uses the key of the account that owns that SPN",
+            "TicketEncryptionType (0x17) — RC4 tickets are encrypted with the domain's NTLM key",
+            "None of its fields — every TGS is encrypted with krbtgt, so only krbtgt is exposed",
           ],
           answer: 1,
           explanation:
-            "This is the core point of Reading 4: the attacker doesn't need to ever successfully authenticate to the target service. They already have everything of value the moment the TGS-REP arrives — a blob encrypted with the service account's password-derived key that can be cracked entirely offline. Whether k.alvarez's identity would later be denied by the service is irrelevant to whether the password can be recovered.",
+            "A TGS is encrypted with a key derived from the password of the account the SPN is registered to, so ServiceName points you to the exposed account — here the service account behind HTTPRpt/rpt04 (svc_reporting in Reading 4's example); you resolve it with an SPN lookup. “TargetUserName” is the requester on a 4769; k.alvarez's own key never protects the service ticket. “TicketEncryptionType” tells you how cheap cracking will be, not whose key it is — there is no domain-wide NTLM key. “Every TGS is encrypted with krbtgt” confuses the TGS with the TGT, which is the krbtgt-encrypted one.",
           xp: 25,
         },
         {
           question:
             "What is the correct response given this pattern?",
           options: [
-            "No action needed — since the request succeeded normally, this is expected Kerberos behavior, and a single account requesting many distinct SPNs in a short window is a routine, well-documented pattern with no security implications",
-            "Treat svc_reporting's password as potentially compromised: rotate it immediately, review k.alvarez's account and host for how it came to enumerate and request 59 SPNs (likely automated tooling, not manual activity), and audit domain-wide for other accounts still permitted to request RC4 tickets that should be AES-only",
-            "Disable Kerberos domain-wide until the investigation concludes, since there is no way to isolate this behavior to one account without turning off the authentication protocol for the entire environment",
-            "Add svc_reporting to a Kerberos allowlist so future ticket requests for it are automatically denied, since an allowlist is how the KDC restricts which accounts may request a ticket for a given SPN",
+            "Reset k.alvarez's password and close — the requesting account is the one whose secret was exposed",
+            "Rotate the roasted service accounts' passwords, find the tool on k.alvarez's host, and curb RC4 use",
+            "Rotate krbtgt twice — a burst of service tickets like this means the domain-wide key is exposed",
+            "Disable k.alvarez and wait — rotate nothing until a cracked password is actually seen in use",
           ],
           answer: 1,
           explanation:
-            "The immediate risk is that svc_reporting's password may already be crackable from the captured ticket, so rotating it is the priority action, alongside investigating how k.alvarez's session generated this volume of requests (almost certainly a tool, not manual clicking) and checking whether msDS-SupportedEncryptionTypes should be tightened domain-wide to stop RC4 downgrades. Disabling Kerberos domain-wide is not a proportionate response, and a ticket-request 'allowlist' isn't how SPN authorization works — any client is always entitled to request a ticket for a registered SPN.",
+            "The tickets are encrypted with the service accounts' keys, so their passwords (svc_reporting first, then the other weak ones among the 59 SPNs) must be rotated before cracking finishes; the host needs investigating for the tooling, and msDS-SupportedEncryptionTypes should be tightened to stop RC4 downgrades. “Reset k.alvarez's password” protects the wrong secret — the requester's key never encrypted these tickets — though the account does need investigating as compromised. “Rotate krbtgt twice” is the Golden Ticket response; nothing here exposes krbtgt. “Wait until a cracked password is seen” is the wrong timing: offline cracking leaves no trail, so by the time you see the password used, the attacker already has it.",
           xp: 30,
         },
       ],
@@ -426,42 +431,42 @@ const kerberosRoom: Room = {
           question:
             "PreAuthType is recorded as 0, TicketEncryptionType is 0x17, and Status is 0x0 (success), with no 4771 (pre-authentication failure) preceding it for this account. What does this combination indicate?",
           options: [
-            "PreAuthType 0 simply means AES was used instead of RC4, which is unrelated to encryption type and not a concern — TicketEncryptionType and PreAuthType describe the exact same underlying cipher choice",
-            "This account has Kerberos pre-authentication disabled (PreAuthType: 0, normal is 2), meaning the KDC issued this AS-REP to anyone who requested a TGT by username, with no proof of the password at all — a textbook AS-REP roasting target, and the RC4 encryption further means any recovered password is cheap to crack",
-            "The absence of a 4771 proves the request definitely came from the legitimate service and should be closed as benign, since any illegitimate pre-authentication attempt would always generate a 4771 first",
-            "Status: 0x0 combined with PreAuthType: 0 indicates the account is locked and the request was automatically rejected, meaning no AS-REP was actually returned to the requester at all",
+            "Overpass-the-hash — an RC4 TGT in an AES domain means a stolen NTLM hash built this AS-REQ",
+            "Pre-auth is disabled for svc_reports, so the KDC returned a crackable AS-REP with no password proof",
+            "A normal password logon — PreAuthType 0 is the standard value for a successful AS-REQ",
+            "Likely benign — an attacker's attempt would have produced a 4771 before this success",
           ],
           answer: 1,
           explanation:
-            "Status 0x0 means success, not rejection or lockout — the AS-REP was genuinely issued. PreAuthType 0 is the specific tell from Reading 5: this account never required proof of a password before the KDC handed back a crackable AS-REP. The absence of a 4771 doesn't prove legitimacy — a 4771 only fires when pre-authentication is attempted and fails, and here it was never attempted at all, which is the whole point of the DONT_REQ_PREAUTH misconfiguration.",
+            "PreAuthType 0 (normal is 2) means the KDC issued the AS-REP without any proof of the password — the DONT_REQ_PREAUTH condition AS-REP roasting needs, and 0x17 makes the result cheap to crack. “Overpass-the-hash” is the tempting confusion because it also shows RC4 on a 4768, but overpass still performs pre-authentication (the stolen hash encrypts the timestamp), so it would show PreAuthType 2, not 0. “A normal password logon” has the values reversed. “An attacker would have produced a 4771” is wrong: 4771 records pre-authentication that was attempted and failed, and here it was never attempted at all.",
           xp: 25,
         },
         {
           question:
             "The requesting IP, 10.55.2.211, has no prior association with svc_reports in any log, and the account belongs to a tool the asset inventory says was decommissioned eight months ago. Why does that context matter here specifically, more than it would for a normal service account?",
           options: [
-            "It doesn't matter — decommissioned accounts are automatically disabled in Active Directory the moment they are retired, so a successful AS-REP for this account is itself proof the asset inventory's 'decommissioned eight months ago' note must be incorrect and can be safely disregarded",
-            "A decommissioned account with pre-authentication disabled is exactly the kind of forgotten, unmonitored credential AS-REP roasting targets — nobody is watching its password, nobody expected it to ever authenticate again, and unlike Kerberoasting, this attack requires no valid domain credentials at all, so this event alone could represent the very first foothold of an intrusion rather than lateral movement from an already-compromised account",
-            "The IP address field is not logged for 4768 events at all, so this detail cannot be verified from the Domain Controller's own audit trail, and the analyst has no reliable way to determine whether the request originated from an internal host or an external attacker",
-            "AS-REP roasting can only be performed by an account that is already a Domain Administrator, so an unprivileged, decommissioned service account like svc_reports could never realistically be a viable target for this specific technique regardless of its pre-authentication settings",
+            "It points to an insider — only someone who knew svc_reports' password could have obtained this TGT",
+            "A forgotten account with pre-auth off can be roasted with no credentials, so this may be a first foothold",
+            "It proves the inventory is wrong — AD disables an account automatically once its tool is retired",
+            "It shows lateral movement — the request needed a valid TGT already held on 10.55.2.211",
           ],
           answer: 1,
           explanation:
-            "Decommissioned accounts are frequently left enabled by accident, and if this one's password has never been rotated since the tool was retired, it's a high-value, low-effort target: pre-auth disabled means an attacker doesn't need any credentials at all to pull a crackable AS-REP for it, which makes this event a plausible initial-access indicator, not just lateral movement. IpAddress is a real, logged field on 4768 events, and AS-REP roasting specifically requires no privilege whatsoever — that's what distinguishes it from Kerberoasting.",
+            "A retired account nobody watches, with pre-authentication disabled, can be roasted by anyone who knows its name — no credentials needed — so this event could be the intrusion's very first foothold rather than movement from an already-compromised account. “Only someone who knew the password” ignores what PreAuthType 0 means: the KDC asked for no password. “AD disables it automatically” is false — retiring a tool does not touch its AD account, which is exactly why such accounts linger enabled. “Needed a valid TGT already held” describes Kerberoasting's precondition; AS-REP roasting requests the TGT itself and needs none.",
           xp: 25,
         },
         {
           question:
             "What is the correct next step?",
           options: [
-            "Disable svc_reports immediately if it is confirmed genuinely unused, rotate its password regardless as a precaution, and check whether it (or the DONT_REQ_PREAUTH flag) also appears on any other still-active account, since this misconfiguration is rarely limited to one account",
-            "No action is needed since the ticket was only issued, not necessarily cracked yet, and Kerberos tickets cannot be brute-forced offline without also compromising the Domain Controller directly",
-            "Re-enable pre-authentication is impossible once an account is created, so the only fix is deleting the account entirely without further review or confirmation that it is truly unused",
-            "Escalate as a confirmed Golden Ticket incident, since PreAuthType 0 is the definitive Golden Ticket indicator described in Reading 6, requiring immediate krbtgt password rotation",
+            "Disable svc_reports if confirmed unused, rotate its password anyway, and sweep for other DONT_REQ_PREAUTH accounts",
+            "Wait for signs of cracking — an issued AS-REP is harmless until the password is used somewhere",
+            "Rotate krbtgt twice — a TGT issued without pre-authentication suggests the ticket was forged",
+            "Re-enable pre-authentication on svc_reports and close — the flag was the whole problem",
           ],
           answer: 0,
           explanation:
-            "The right move is decisive: disable the account if it's truly decommissioned, rotate the password as a precaution regardless of whether cracking is confirmed (the offline attempt already succeeded in obtaining crackable material, and you can't verify from logs alone whether it was cracked), and sweep for other accounts sharing this misconfiguration, since it's a domain-wide setting attackers specifically enumerate for. Pre-authentication CAN be re-enabled (it's a simple account flag), and PreAuthType 0 is the AS-REP roasting indicator from Reading 5, not the Golden Ticket indicator, which is a 4769 with no preceding 4768.",
+            "Disable the account if it is truly retired, rotate its password regardless (the crackable material has already left, and logs cannot tell you whether it was cracked), and sweep for other accounts with the same flag, which attackers enumerate for. “Re-enable pre-authentication and close” is a correct fix applied too late: it stops future roasting but does nothing about the AS-REP already taken. “Wait for signs of cracking” fails because offline cracking leaves no trace. “Rotate krbtgt” is the Golden Ticket response; this TGT was really issued by the KDC (a 4768 exists), and the Golden Ticket tell is a 4769 with no preceding 4768.",
           xp: 30,
         },
       ],
@@ -543,8 +548,8 @@ const kerberosRoom: Room = {
       blanks: [
         { id: "eventid", answers: ["4769"], placeholder: "TGS-REQ event ID" },
         { id: "enc", answers: ["0x17"], placeholder: "encryption type Kerberoasting tools request" },
-        { id: "window", answers: ["5m", "10m", "3m"], placeholder: "aggregation window" },
-        { id: "threshold", answers: ["10", "15", "20", "5"], placeholder: "minimum distinct-SPN count to consider suspicious" },
+        { id: "window", answers: ["5m", "10m", "3m", "1m", "2m", "15m", "30m", "60m", "1h", "1hr", "5min", "10min", "3min", "1min", "2min", "15min", "30min", "60min"], placeholder: "aggregation window (a KQL timespan, up to 1h)" },
+        { id: "threshold", answers: ["10", "15", "20", "5", "8", "25", "30", "40", "50"], placeholder: "minimum distinct-SPN count to consider suspicious (5–50)" },
       ],
       explanation:
         "This mirrors the exact case from Log Analysis 1: filter to 4769 (TGS-REQ, not 4768) events with RC4 encryption, group by the requesting account over a short window, and alert when the count of distinct SPNs requested is itself abnormally high — because one legitimate service request looks nothing like a sweep across dozens of unrelated SPNs from the same account in minutes.",
@@ -554,9 +559,9 @@ const kerberosRoom: Room = {
       type: "flag",
       id: "krb-f1",
       prompt:
-        "Look at Log Analysis 1, the Kerberoasting sweep. How many distinct services did k.alvarez request tickets for in the three-minute window described in the alert? Enter the exact number.",
-      answer: "59",
-      hint: "It's stated in the task's opening context, and again in Question 1's stem and explanation.",
+        "In Log Analysis 1, the roasting tool ran on whichever client sent the TGS-REQs, not on DC02. Enter the IP address of the host you would pivot to next to find that tool.",
+      answer: "10.55.14.203",
+      hint: "One field in the 4769 records where the request came from. The DC's own name is not it.",
       xp: 25,
     },
   ],
@@ -679,11 +684,11 @@ const privescRoom: Room = {
         "=======================================================",
       checkpoint: {
         question:
-          "According to the reading, what integrity level does an administrator's own ordinary applications run at by default, even though the user is a member of the Administrators group?",
+          "r.levi is a member of the local Administrators group on a workstation with UAC active. She opens cmd.exe from the Start menu the ordinary way (no “Run as administrator”, no prompt). What IntegrityLevel will Sysmon record for that cmd.exe?",
         options: ["System", "High", "Medium", "Low"],
         answer: 2,
         explanation:
-          "Medium integrity is the default for an administrator's own processes when UAC is active — being a member of the Administrators group does not, by itself, run everything at full privilege. It has to be explicitly elevated to reach High.",
+          "Medium — under UAC Admin Approval Mode an administrator's ordinary processes run at Medium; group membership only gives the ability to elevate. “High” would need an explicit elevation (consent prompt or an auto-elevate binary), which did not happen here. “System” is reserved for OS components and services running as SYSTEM, and “Low” is for sandboxed processes such as a browser renderer, not a normal command prompt.",
       },
     },
     {
@@ -721,14 +726,14 @@ const privescRoom: Room = {
       question:
         "With kernel-object auditing enabled, Windows Security Event 4656 (Audit Failure) shows a process at IntegrityLevel: Medium requesting a handle to lsass.exe with access mask 0x1FFFFF, and the request failed. What is the correct interpretation?",
       options: [
-        "The read succeeded — the 0x1FFFFF mask in the event records what the process obtained, so LSASS memory was fully accessible",
-        "Windows denied it — Medium integrity lacks the enabled SeDebugPrivilege and elevation for PROCESS_ALL_ACCESS on LSASS, so the tool must reach High or SYSTEM first",
-        "Windows denied it only because Credential Guard is active; without it the same request at Medium integrity would have been granted",
-        "The failure is only about the oversized mask — retrying the same Medium-integrity process with a smaller read mask such as 0x1010 would have been granted",
+        "The read succeeded — the 0x1FFFFF mask in the event is what the process obtained, so LSASS memory was accessible",
+        "Windows denied it — a Medium process lacks elevation and an enabled SeDebugPrivilege, so the tool must reach High or SYSTEM first",
+        "Windows denied it because Credential Guard is active; without it the same Medium-integrity request would have been granted",
+        "The oversized mask caused the denial — the same Medium process asking for a smaller read mask such as 0x1010 would be granted",
       ],
       answer: 1,
       explanation:
-        "A denied access request means exactly what it says — no memory was read, because Windows enforced the SeDebugPrivilege/integrity-level requirement from Reading 2. That requirement applies to ANY memory-read mask, so a smaller mask like 0x1010 would have been refused just the same, and Credential Guard is not what produced this denial. Note the log source: Event 4656 records handle requests including failures, whereas Sysmon Event 10's GrantedAccess only appears for handles that were actually opened. A denial here is still valuable: it tells you an attempt occurred and that the attacker had not yet escalated. Being a local admin account does not bypass this check on its own — the process itself has to be running elevated.",
+        "A denied access request means exactly what it says — no memory was read, because Windows enforced the SeDebugPrivilege/integrity-level requirement from Reading 2. “The oversized mask caused the denial” is wrong because that requirement applies to ANY memory-read mask, so 0x1010 would have been refused just the same. “Credential Guard is active” is wrong too: Credential Guard isolates secrets inside LsaIso.exe, it is not the handle check that denied this request. “The read succeeded” misreads the event — 4656 here is an Audit Failure for a request, not a granted handle. Note the log source: Event 4656 records handle requests including failures, whereas Sysmon Event 10's GrantedAccess only appears for handles that were actually opened. A denial here is still valuable: it tells you an attempt occurred and that the attacker had not yet escalated. Being a local admin account does not bypass this check on its own — the process itself has to be running elevated.",
       xp: 20,
     },
     {
@@ -768,16 +773,16 @@ const privescRoom: Room = {
         "=======================================================",
       checkpoint: {
         question:
-          "According to the reading, what precondition must already be true for the fodhelper UAC bypass to work at all?",
+          "An attacker has code execution as a Medium-integrity process and plans the fodhelper registry hijack. Which condition must already be true for it to yield a High-integrity process?",
         options: [
-          "The account must already be a member of the local Administrators group in Admin Approval Mode",
-          "The account must hold SeImpersonatePrivilege, since that privilege alone is what allows any auto-elevate binary to skip the UAC consent prompt",
-          "The target machine must have UAC completely disabled, since fodhelper only silently auto-elevates when UAC enforcement itself has been turned off",
-          "The attacker must already have dumped LSASS memory, since the credentials recovered there are what fodhelper uses to authenticate the elevation request",
+          "The account is already a local administrator running in Admin Approval Mode",
+          "The account holds SeImpersonatePrivilege, which fodhelper uses to borrow an elevated token",
+          "The process is already at High integrity, which it needs to write the ms-settings key",
+          "Any standard user qualifies, provided they can write to their own HKCU hive",
         ],
         answer: 0,
         explanation:
-          "The technique escalates a process from Medium to High integrity for an account that is already a local administrator — it does not turn a standard, non-administrator user into an administrator. A genuinely standard user gains nothing from the same registry hijack.",
+          "The bypass lifts an existing administrator's session from Medium to High; it needs the elevated token that Admin Approval Mode keeps in reserve. “Any standard user qualifies” is the classic mistake — a standard user can write the HKCU key, but there is no elevated token for fodhelper to hand over, so nothing is gained. “Already at High integrity” reverses the logic: the HKCU write is an ordinary Medium-integrity operation, and an attacker already at High would not need a bypass. “SeImpersonatePrivilege” belongs to the Potato technique in Reading 4, not to auto-elevation.",
       },
     },
     {
@@ -792,42 +797,42 @@ const privescRoom: Room = {
           question:
             "ParentImage is fodhelper.exe with IntegrityLevel: High, but this session's own explorer.exe (the process that would have launched fodhelper.exe) is running at Medium integrity, and no consent.exe process appears anywhere in the session. What does this combination indicate?",
           options: [
-            "fodhelper.exe legitimately requires no elevation at all under any circumstances, so IntegrityLevel: High here is completely unremarkable and no different from any other ordinary process this user might launch during a normal workday",
-            "fodhelper.exe is one of a small set of Microsoft binaries that silently auto-elevate; the missing consent.exe combined with the immediately preceding HKCU registry write matches the fodhelper UAC bypass (T1548.002) — a hijacked command handler planted in the user's own writable hive was executed at High integrity the moment fodhelper.exe auto-elevated and read it",
-            "IntegrityLevel is only a cosmetic Sysmon display field with no real relationship to whether a UAC prompt was actually shown, so its value here provides no useful information about how this process actually reached High integrity",
-            "This always happens automatically whenever Windows Update silently restarts explorer.exe in the background, re-elevating every child process fodhelper.exe subsequently launches regardless of any registry state",
+            "d.oyelaran accepted a UAC prompt for fodhelper.exe, and the cmd.exe child simply inherited that approved High token",
+            "An auto-elevating binary ran a command planted in the user's HKCU ms-settings key — a UAC bypass (T1548.002)",
+            "A Potato-style tool impersonated a SYSTEM token inside fodhelper.exe, which is why its child reached High integrity",
+            "fodhelper.exe auto-elevates by design, so a High-integrity child of it is expected and needs no further correlation",
           ],
           answer: 1,
           explanation:
-            "fodhelper.exe is genuinely on Microsoft's auto-elevate whitelist, which is precisely why it can reach High integrity with no prompt — that behavior is expected for fodhelper itself. What's abnormal is the combination: a registry write to the specific ms-settings hijack path immediately beforehand, and the total absence of consent.exe, which is the process that would appear if a normal, visible UAC prompt had been shown instead.",
+            "fodhelper.exe is on the auto-elevate list, so its own High integrity is expected — what is abnormal is the HKCU ms-settings write seconds earlier followed by fodhelper parenting a shell, the exact T1548.002 sequence. “Accepted a UAC prompt” is ruled out by the evidence: a real prompt starts consent.exe in the session, and none appears. “A Potato-style tool” does not fit: Potato abuses SeImpersonatePrivilege from a service account and lands at SYSTEM, not an admin user's High-integrity shell, and nothing here shows coercion. “Expected by design” stops one step short: auto-elevation explains fodhelper's level, but fodhelper does not normally launch cmd.exe — the planted registry command is what made it do so.",
           xp: 25,
         },
         {
           question:
             "Why was d.oyelaran able to write to HKCU\\Software\\Classes\\ms-settings\\Shell\\Open\\command in the first place, without needing any elevated privilege at all?",
           options: [
-            "HKCU is the user's own per-user registry hive and is always fully writable by that user regardless of administrator status — it is not a protected system location the way HKLM's equivalent paths are",
-            "This specific key is a known Windows bug that Microsoft has never patched despite being writable by anyone on the machine",
-            "Because d.oyelaran is a local administrator, all registry writes anywhere on the machine are automatically permitted without any integrity check",
-            "The key only became writable because SeDebugPrivilege was already enabled in this session",
+            "HKCU is the user's own per-user hive, so a Medium-integrity process can write it with no elevation",
+            "As a local administrator, d.oyelaran's Medium processes may write protected keys anywhere in the registry",
+            "SeDebugPrivilege was enabled in the session, and that privilege grants write access to protected keys",
+            "fodhelper.exe wrote the key itself after it auto-elevated, so the write ran at High integrity",
           ],
           answer: 0,
           explanation:
-            "HKCU is the currently logged-on user's own hive — writable by that user as a completely ordinary, unprivileged registry operation, with no elevation or special privilege needed at all, since it isn't a protected system location. Being a local admin doesn't change this (HKCU writes were never restricted for this user to begin with), and SeDebugPrivilege — from Reading 2 — is unrelated to registry write access.",
+            "HKCU is the logged-on user's own hive, so writing to it is an ordinary Medium-integrity operation — that is what makes this bypass possible for an attacker who has not yet elevated. “Medium processes may write protected keys anywhere” confuses admin membership with elevation: Reading 1 showed an admin's Medium processes cannot do everything the account could. “SeDebugPrivilege” governs opening other processes' memory (Reading 2), not registry writes. “fodhelper wrote the key itself” reverses the order: the Sysmon 13 write came before fodhelper launched, which is why the hijack was already in place when fodhelper read it.",
           xp: 25,
         },
         {
           question:
             "What is the correct response, given this pattern is confirmed?",
           options: [
-            "Kill the resulting process tree, remove the hijacked HKCU registry value, pull the full Sysmon ancestry for ProcessGuid to determine what the High-integrity process actually did, and separately review why/how d.oyelaran's account holds local administrator rights on this endpoint at all, since the technique only works against an already-privileged account",
-            "No action needed since fodhelper.exe is a legitimate, digitally signed Microsoft binary, and any process it subsequently launches automatically inherits that same trusted, verified status regardless of what registry key actually directed it",
-            "Immediately revoke d.oyelaran's domain account entirely, since local admin rights alone are always sufficient proof of malicious intent and no further investigation of what actually executed is ever necessary",
-            "Disable UAC domain-wide so future auto-elevate whitelisting can never again be abused by anyone, even though this permanently removes a control layer for every other legitimate elevation across every endpoint in the domain",
+            "Kill the tree, remove the HKCU value, trace what the High child did, and review why this user is a local admin",
+            "Close as benign — fodhelper.exe is a signed Microsoft binary, so the processes it launches share its trust",
+            "Delete the hijacked HKCU value and close — removing the planted key fully undoes the escalation",
+            "Re-image WKS-OPS14 at once, before pulling the Sysmon ancestry of the High-integrity process",
           ],
           answer: 0,
           explanation:
-            "The response needs to address both the immediate escalation (kill the process tree, clean the hijacked registry value, and trace what the resulting High-integrity process actually executed) and the underlying precondition this technique depends on — local administrator rights — which is worth reviewing rather than assuming is fine. fodhelper.exe being legitimate and signed is exactly what makes this technique effective, not a reason to dismiss it; disabling UAC entirely would remove a control layer rather than close the specific gap being abused.",
+            "The response must contain the escalation (kill the tree, clean the hijacked value), scope it (trace what the High-integrity process did via its Sysmon ancestry) and address the precondition (local admin rights the technique depends on). “Close as benign” mistakes the tool's signature for trust in what it ran — a signed auto-elevate binary is exactly what this technique abuses. “Delete the value and close” cleans up the method but ignores what already ran at High integrity, which may have planted persistence or dumped credentials. “Re-image at once” is a reasonable later step at the wrong time: wiping first destroys the evidence you need to learn what the elevated shell did.",
           xp: 30,
         },
       ],
@@ -871,12 +876,12 @@ const privescRoom: Room = {
       options: [
         "The attacker already has SYSTEM-level control — code execution on a Windows server is equivalent to SYSTEM whichever account runs the process",
         "The attacker has low-privileged service-account execution, and SeImpersonatePrivilege puts a Potato-family escalation to SYSTEM within a short, known step",
-        "The attacker is contained — app pool identities hold nothing beyond serving HTTP, so no impersonation-based escalation applies from here",
-        "The attacker is limited, and SeImpersonatePrivilege is irrelevant to a local web shell because it only applies to network protocols such as Kerberos",
+        "The attacker is contained — an app-pool virtual account has no privilege an impersonation exploit could abuse",
+        "The attacker must dump LSASS before escalating, because impersonating SYSTEM needs a captured hash first",
       ],
       answer: 1,
       explanation:
-        "IIS APPPOOL identities are deliberately low-privileged, Medium-integrity virtual accounts — code execution there is not equivalent to SYSTEM. What makes this position dangerous is specifically that these accounts commonly hold SeImpersonatePrivilege by default for legitimate operational reasons, which is exactly the precondition the Potato family exploits to reach SYSTEM without needing a password or LSASS access at all.",
+        "IIS APPPOOL identities are deliberately low-privileged, Medium-integrity virtual accounts, but they commonly hold SeImpersonatePrivilege by default — exactly the precondition the Potato family abuses to reach SYSTEM. “Already has SYSTEM-level control” confuses code execution with privilege; the stem itself shows Medium integrity. “Contained” ignores the SeImpersonatePrivilege the stem lists. “Must dump LSASS first” gets the order backwards: Potato captures a coerced SYSTEM authentication and impersonates it with no password or hash, and a Medium process could not open LSASS anyway (Reading 2).",
       xp: 20,
     },
     {
@@ -919,16 +924,16 @@ const privescRoom: Room = {
         "=======================================================",
       checkpoint: {
         question:
-          "According to the reading, for an unquoted ImagePath of C:\\Program Files\\Meridian App\\service.exe, which path does Windows attempt to execute FIRST?",
+          "A SYSTEM service has the unquoted ImagePath C:\\Apps\\Data Sync\\Bin Tools\\sync.exe. Applying the resolution order from this reading, which path does Windows attempt to execute FIRST?",
         options: [
-          "C:\\Program Files\\Meridian App\\service.exe (the intended path)",
+          "C:\\Apps\\Data Sync\\Bin.exe",
+          "C:\\Apps\\Data.exe",
           "C:\\Program.exe",
-          "C:\\Program Files\\Meridian.exe",
-          "C:\\service.exe",
+          "C:\\Apps\\Data Sync\\Bin Tools\\sync.exe",
         ],
         answer: 1,
         explanation:
-          "Windows resolves an unquoted path by trying each space-delimited segment in order until one exists: first C:\\Program.exe, then C:\\Program Files\\Meridian.exe, and only then the real, intended path.",
+          "Windows cuts the unquoted path at the first space and appends .exe, so C:\\Apps\\Data.exe is tried first; next comes C:\\Apps\\Data Sync\\Bin.exe (the second space), and only then the real sync.exe. “C:\\Program.exe” is the first candidate only when the path starts with C:\\Program Files — it is the reading's example, not a fixed rule. The intended path is tried last, which is exactly why a planted binary at an earlier candidate wins.",
       },
     },
     {
@@ -939,18 +944,18 @@ const privescRoom: Room = {
       options: [
         "Unrelated to the service — Windows executes ImagePath exactly as written, so a new file in the Program Files root is coincidence",
         "A binary planted at an intermediate path Windows tries for the unquoted ImagePath; at next start Meridian.exe will likely run as SYSTEM",
-        "Low risk — the Program Files root needs admin rights to write, so the file is most likely a vendor update staged for the agent",
-        "Exploitable only if the attacker also holds SeImpersonatePrivilege, since an unquoted-path hijack still depends on token impersonation",
+        "Low risk — writing to the Program Files root already needs admin rights, so the file gains an attacker nothing",
+        "A risk once the attacker also holds SeImpersonatePrivilege, which the hijack needs to adopt the service token",
       ],
       answer: 1,
       explanation:
-        "This is exactly the unquoted-path resolution order from this reading: Windows tries each space-delimited candidate in sequence, and C:\\Program Files\\Meridian.exe is precisely one of the paths it would attempt before ever reaching the real, intended agent.exe. Since the service runs as LocalSystem, whatever launches from that hijacked path runs with SYSTEM privileges the next time the service starts — no SeImpersonatePrivilege or Potato-style tooling is needed for this particular technique.",
+        "Windows tries each space-delimited candidate in order, and C:\\Program Files\\Meridian.exe is one it attempts before the real agent.exe; because the service runs as LocalSystem, the planted file runs as SYSTEM at the next service start. “Executes ImagePath exactly as written” is true only for quoted paths. “Low risk because writing there needs admin” starts from a true fact — on modern Windows a standard user cannot normally write to the Program Files root, so whoever placed it had admin rights or found a weak folder ACL — but the hijack still turns that into SYSTEM execution plus persistence on every start. “Needs SeImpersonatePrivilege” mixes in the Potato technique; the service itself launches the binary, so no token impersonation is involved.",
       xp: 25,
     },
     {
       type: "analyst_choice",
       id: "privesc-ac1",
-      heading: "Verdict: An Administrator Elevating an Approved Installer",
+      heading: "Verdict: A Medium-to-High Jump on WKS-FIN08",
       scenario:
         "A detection rule flagged a Medium-to-High integrity jump on WKS-FIN08: MeridianExpenseInstaller.exe launched at IntegrityLevel: High under r.chukwu's session (r.chukwu is a local administrator in Admin Approval Mode). Pivoting on the host, you find a Sysmon Event 1 for C:\\Windows\\System32\\consent.exe (ParentImage: svchost.exe) in r.chukwu's session at 10:04:58 — four seconds before the event below. Review the event and the deployment record attached to it.",
       event: uacConsentEvent,
@@ -1000,9 +1005,9 @@ const privescRoom: Room = {
       type: "flag",
       id: "privesc-f1",
       prompt:
-        "Look at Log Analysis 1's first question. What integrity level does the question stem say this session's own explorer.exe was running at (the process that would have launched fodhelper.exe)? Enter it exactly as shown.",
-      answer: "Medium",
-      hint: "It's stated in the first question's stem, contrasted with the High integrity level recorded for the cmd.exe process created via fodhelper.exe.",
+        "In the fodhelper bypass on WKS-OPS14, one artefact is written BEFORE fodhelper.exe is ever launched. Which Sysmon Event ID records that artefact? Enter the number only.",
+      answer: "13",
+      hint: "Work out which step of the bypass has to be in place before the auto-elevate binary starts, then recall which Sysmon event type records that kind of change.",
       xp: 25,
     },
     {
@@ -1013,10 +1018,10 @@ const privescRoom: Room = {
       context: KQL_PRIMER +
         "Using the pattern from Log Analysis 1 (an auto-elevate binary as parent, a High-integrity child, no consent.exe prompt at that moment), write the KQL that would surface candidate UAC bypasses across the fleet. The join pairs each candidate with any UAC-prompt process on the same device; the summarize then keeps only candidates with NO such prompt within 60 seconds — excluding a whole device just because it once showed a UAC prompt would hide real bypasses.",
       template:
-        "DeviceProcessEvents\n| where InitiatingProcessFileName in~ (\"{{binary1}}\", \"computerdefaults.exe\", \"eventvwr.exe\", \"sdclt.exe\")\n| where ProcessIntegrityLevel == \"{{level}}\"\n| where InitiatingProcessAccountName !contains \"SYSTEM\"\n| join kind=leftouter (DeviceProcessEvents | where FileName =~ \"{{consentproc}}\" | project DeviceId, PromptTime = Timestamp) on DeviceId\n| summarize PromptsNearby = countif(isnotempty(PromptTime) and abs(datetime_diff('second', Timestamp, PromptTime)) <= 60) by DeviceId, ReportId, Timestamp, FileName, ProcessCommandLine, InitiatingProcessFileName\n| where PromptsNearby == 0",
+        "DeviceProcessEvents\n| where InitiatingProcessFileName in~ (\"{{binary1}}\", \"computerdefaults.exe\", \"eventvwr.exe\", \"sdclt.exe\")\n| where ProcessIntegrityLevel =~ \"{{level}}\"\n| where InitiatingProcessAccountName !contains \"SYSTEM\"\n| join kind=leftouter (DeviceProcessEvents | where FileName =~ \"{{consentproc}}\" | project DeviceId, PromptTime = Timestamp) on DeviceId\n| summarize PromptsNearby = countif(isnotempty(PromptTime) and abs(datetime_diff('second', Timestamp, PromptTime)) <= 60) by DeviceId, ReportId, Timestamp, FileName, ProcessCommandLine, InitiatingProcessFileName\n| where PromptsNearby == 0",
       blanks: [
-        { id: "binary1", answers: ["fodhelper.exe"], placeholder: "auto-elevate binary from this room's example" },
-        { id: "level", answers: ["High", "high"], placeholder: "integrity level the child process shows" },
+        { id: "binary1", answers: ["fodhelper.exe", "FodHelper.exe"], placeholder: "auto-elevate binary from this room's example" },
+        { id: "level", answers: ["High", "high", "HIGH"], placeholder: "integrity level the child process shows" },
         { id: "consentproc", answers: ["consent.exe"], placeholder: "process that appears during a normal UAC prompt" },
       ],
       explanation:

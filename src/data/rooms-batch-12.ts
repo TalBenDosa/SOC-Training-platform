@@ -47,14 +47,14 @@ const rooms = [
         checkpoint: {
           question: "According to the reading, what are the six core components of a use case?",
           options: [
-            "Hypothesis, Data Source, Detection Logic, Severity, Response Playbook, Exceptions/Suppressions",
-            "Log Source, Index, Sourcetype, Field Extraction, Lookup Table, Saved Search",
-            "Alert Name, Ticket ID, SLA Timer, Escalation Path, On-call Contact, Signature Hash",
-            "IOC, TTP, Kill Chain Stage, MITRE ATT&CK ID, CVE Number, Patch Status",
+            "Hypothesis, Data Source, Detection Logic, Severity, Response Playbook, Exceptions",
+            "Hypothesis, Data Source, Detection Logic, Unit Testing, Tuning, Deployment",
+            "Rule ID, ATT&CK Technique, Data Sources, Status, False-Positive Rate, Owner",
+            "Title, Logsource, Detection Logic, False Positives, Severity Level, ATT&CK Tags",
           ],
           answer: 0,
           explanation:
-            "The reading lists six core components: Hypothesis (what behavior you're trying to catch), Data Source, Detection Logic, Severity, Response Playbook, and Exceptions/Suppressions for known-good patterns.",
+            "The reading's six components are Hypothesis, Data Source, Detection Logic, Severity, Response Playbook and Exceptions/Suppressions. “Hypothesis ... Testing, Tuning, Deployment” mixes in stages of the use-case lifecycle, which describe how a use case is built, not what it contains. “Rule ID ... Owner” lists fields of the Use Case Registry that tracks use cases. “Title, Logsource, Detection ...” are sections of a Sigma rule, which is only one way to express the Detection Logic component.",
         },
       },
       // ── Reading 2 ─────────────────────────────────────────────────────────
@@ -93,14 +93,14 @@ const rooms = [
         checkpoint: {
           question: "According to the reading, what problem does Sigma solve for detection engineers?",
           options: [
-            "It automatically tests every rule against a full year of production traffic with no manual work required from the analyst at any stage",
-            "It provides a vendor-neutral YAML rule format that can be converted into the query language of different SIEMs, avoiding vendor lock-in",
-            "It replaces the need for the MITRE ATT&CK framework entirely, since Sigma rules already encode their own complete tactic and technique taxonomy",
-            "It only works with Splunk's SPL query language and cannot be converted to any other SIEM's native syntax",
+            "It tests each rule against production traffic, so red- and purple-team validation is no longer needed",
+            "It gives a vendor-neutral YAML format that converters turn into each SIEM's own query language",
+            "It replaces ATT&CK as the technique catalogue, because each rule carries its own tactic taxonomy",
+            "It makes rules run faster, because the SIEM executes the YAML instead of its native query language",
           ],
           answer: 1,
           explanation:
-            "Sigma is a vendor-neutral rule format — a rule written once in Sigma's YAML syntax can be converted by tools like sigmac or pySigma into Splunk SPL, Sentinel KQL, or Elastic EQL, solving the vendor lock-in problem.",
+            "The reading frames Sigma's job as ending vendor lock-in: write the logic once in YAML, and converters such as pySigma translate it for Splunk, Sentinel or Elastic. “Tests each rule against production traffic” is wrong — the same reading says every rule still needs unit, red-team, purple-team or replay testing. “Replaces ATT&CK” reverses the relationship: rules reference ATT&CK technique IDs rather than replacing the catalogue. “Makes rules run faster” is wrong because the SIEM runs the converted native query, never the YAML.",
         },
       },
       // ── Reading 3 ─────────────────────────────────────────────────────────
@@ -151,7 +151,7 @@ const rooms = [
         ],
         answer: 1,
         explanation:
-          "Undocumented detection rules are a major SOC risk. When the analyst who created the rule leaves, nobody else knows it exists, what it does, how it should behave, or how to maintain it. Over time the rule may silently break, generate noise, or miss attacks — and no one will know why. This is why every use case must be formally documented in a Use Case Registry.",
+          "The reading's point is “if it's not documented, it doesn't exist”: when the author leaves, nobody knows the rule exists, what it is for, or how to maintain it. As the environment changes, it decays unnoticed, and nobody can answer “are we detecting this threat?”. The other options invent platform behaviour. “The SIEM purges rules with no documented owner” and “alerts will route to the departed analyst's deactivated mailbox” are not how SIEM rules work, and neither is the risk the reading describes. “Other analysts will edit the rule ... overloads the SIEM” is a change-control worry, not the loss of knowledge that undocumented rules cause.",
         xp: 20,
       },
       // ── Question 2 ────────────────────────────────────────────────────────
@@ -159,16 +159,16 @@ const rooms = [
         type: "question",
         id: "ucd-q2",
         question:
-          "What is the main advantage of writing detection logic as a Sigma rule instead of directly in a SIEM's native query language (like Splunk SPL or Microsoft Sentinel KQL)?",
+          "You are writing the Sigma version of the Encoded PowerShell use case. Your IT team legitimately runs encoded PowerShell during patching, and you want analysts to know to rule that out first — WITHOUT changing what the rule matches. Which Sigma section does this go in?",
         options: [
-          "Sigma rules run faster and produce fewer false positives because the converter optimises the logic for each SIEM",
-          "Sigma rules are vendor-neutral and can be converted into the query language of many different SIEMs",
-          "Sigma rules are pre-validated against MITRE ATT&CK, so every rule is guaranteed to map to a documented technique",
-          "Sigma rules can query raw logs directly without ingestion, so they work on sources the SIEM never collected",
+          "detection — add the patching scripts there so the rule records them as known activity",
+          "falsepositives — list the IT patching scripts as a known benign trigger to check first",
+          "references — link the IT patching runbook so analysts can look up the scripts later",
+          "logsource — scope the rule to the IT team's patch servers so their logs are labelled",
         ],
         answer: 1,
         explanation:
-          "Sigma is a vendor-neutral, open rule format written in YAML. The same Sigma rule can be converted to Splunk SPL, Microsoft Sentinel KQL, Elastic EQL, or many other formats using converter tools. This avoids vendor lock-in and makes it easy to share detection logic with the broader security community.",
+          "Reading 2 defines `falsepositives` as known benign triggers to be aware of — documentation for the analyst that leaves the matching logic untouched. “detection” is where the field values that trigger the alert live, so anything placed there changes what fires, which the stem rules out. “references” holds CVE links, blog posts and ATT&CK IDs about the threat, not triage guidance. “logsource” selects which product or category of logs the rule searches; changing it would alter (and here, break) what the rule matches.",
         xp: 20,
       },
       // ── Question 3 ────────────────────────────────────────────────────────
@@ -180,12 +180,12 @@ const rooms = [
         options: [
           "Disable the rule for the duration of the onboarding wave, then re-enable it once password-reset volume returns to normal",
           "Route the daily alert batch to Tier 3 for manual review until the merger's onboarding wave completes and volume subsides",
-          "Tune the rule — adjust the threshold, add an exception for the onboarding process, or exclude known-good IP ranges during the migration",
+          "Tune the rule: add a scoped exception for the onboarding reset process or adjust the threshold, keeping it live",
           "Rewrite the detection from scratch with a fixed threshold of 50 failures, and retire the original use case immediately",
         ],
         answer: 2,
         explanation:
-          "This is a classic example of use case decay due to an organizational change (merger). The correct response is to tune the rule, not disable it. Tuning options include raising the threshold, adding exceptions for the migration period, or excluding the known-good IP range used for bulk password resets. Disabling the rule entirely would leave you blind to real brute-force attacks.",
+          "A merger is one of the reading's named causes of use-case decay, and the lifecycle's answer is to tune: a scoped exception for the onboarding reset flow, or an adjusted threshold, keeps the detection running. “Disable the rule for the duration of the onboarding wave” leaves you blind to real brute force exactly when new, unfamiliar accounts are most exposed. “Route the daily alert batch to Tier 3” buries senior analysts in 500 known false positives instead of fixing the cause. “Rewrite the detection from scratch with a fixed threshold of 50” overcorrects: a fixed 50 would miss most real attacks, and an untested rewrite skips the lifecycle.",
         xp: 25,
       },
       // ── Log Analysis ──────────────────────────────────────────────────────
@@ -230,30 +230,30 @@ const rooms = [
         questions: [
           {
             question:
-              "Which command-line flag in the process.cmdline field is the specific indicator that triggered use case UC-ENDPOINT-0089 (Encoded PowerShell Execution), and why?",
+              "Triage later shows that your IT patching tool also launches encoded PowerShell on every workstation each Tuesday, flooding UC-ENDPOINT-0089. Which suppression cuts that noise WITHOUT blinding the rule to an alert like this one?",
             options: [
-              "-NoProfile — it skips the user's PowerShell profile, which this rule does not key on",
-              "-NonInteractive — it suppresses prompts during a script run, not an encoding indicator",
-              "-WindowStyle Hidden — it hides the console window, not an encoding indicator",
-              "-enc — it accepts a Base64-encoded command string, exactly what this rule detects",
+              "Suppress any alert where the parent process is cmd.exe, since patching scripts are usually started from a shell",
+              "Suppress alerts from hosts outside the IT department, since only IT is expected to run encoded PowerShell",
+              "Suppress alerts whose command line includes -WindowStyle Hidden, since patch jobs run without a visible window",
+              "Suppress only the patching tool's own parent process and service account, scoped to its patch window",
             ],
             answer: 3,
             explanation:
-              "The -enc flag (short for -EncodedCommand) is the PowerShell parameter that accepts a Base64-encoded command string. Attackers use this to obfuscate their payloads — the encoded blob after -enc decodes to a command that downloads and executes a payload from 192.168.1.100. The other flags (-NoProfile, -NonInteractive, -WindowStyle Hidden) are also suspicious but are not the specific trigger for the 'Encoded PowerShell Execution' use case.",
+              "A good exception describes the known-good activity as narrowly as possible: the patch tool's specific parent process and account, inside its window. Anything else still alerts, including this event. “Parent process is cmd.exe” would silence this very alert, whose parent is cmd.exe. “Hosts outside the IT department” is backwards — it would suppress WS-FINANCE-042, where this alert fired. “-WindowStyle Hidden” would also hide this event, which uses exactly that flag. Every exclusion is a potential blind spot, so it should be scoped to what was observed and documented in the registry.",
             xp: 25,
           },
           {
             question:
               "The process is running from C:\\Windows\\Temp and its parent is cmd.exe. Why does this combination increase the severity of this alert?",
             options: [
-              "C:\\Windows\\Temp is a protected directory that requires administrator rights to access, so any process launching from it must already hold elevated privileges",
-              "cmd.exe is a deprecated program on modern Windows and should never be capable of spawning PowerShell as a child process under any circumstance",
-              "Legitimate PowerShell scripts typically run from application or user directories, not Temp; and spawning PowerShell from cmd.exe is a common attacker pattern for staging and executing payloads",
-              "The parent-child relationship between cmd.exe and powershell.exe is blocked by default Windows Firewall rules, so this process chain should never have been able to execute",
+              "Running from C:\\Windows\\Temp shows the process already holds admin rights, so privilege escalation has happened",
+              "A cmd.exe parent shows the user typed this at a prompt by hand, which points to a deliberate insider action",
+              "Real scripts rarely run from Temp, and cmd.exe starting hidden, encoded PowerShell is a common staging chain",
+              "Temp is where browsers save downloads, so the working directory proves the user opened a phishing attachment",
             ],
             answer: 2,
             explanation:
-              "The combination of working directory (C:\\Windows\\Temp), parent process (cmd.exe), and encoded command is a classic attacker staging pattern. Legitimate enterprise scripts run from known directories like C:\\Scripts\\ or the application's own folder. Attackers use Temp because it is writable by all users and often overlooked. This combination of contextual indicators elevates confidence that this is malicious rather than a false positive.",
+              "Legitimate enterprise scripts run from known script or application folders. A writable Temp directory plus a cmd.exe parent launching hidden, encoded PowerShell is a common attacker staging chain, so the context raises confidence beyond the -enc match alone. “Already holds admin rights” is wrong: ordinary users can write to and run from Temp, which is exactly why attackers use it. “Typed this at a prompt by hand” misreads the parent: scripts, macros and droppers start cmd.exe all the time. “Temp is where browsers save downloads” is false — browsers use the user's Downloads folder, and the working directory alone proves nothing about phishing.",
             xp: 25,
           },
         ],
@@ -268,7 +268,7 @@ const rooms = [
           {
             id: "ps_enc",
             left: "PowerShell launched with Base64 argument (-enc or -EncodedCommand)",
-            right: "T1027 — Obfuscated Files or Information",
+            right: "T1027.010 — Obfuscated Files or Information: Command Obfuscation",
           },
           {
             id: "lsass",
@@ -291,7 +291,7 @@ const rooms = [
             right: "T1071.001 — Application Layer Protocol: Web Protocols (C2)",
           },
         ],
-        explanation: "Mapping observables to ATT&CK techniques is the foundation of use case development. A good use case starts with 'what can I actually see in logs?' and maps that observable to ATT&CK. This matters because: (1) it tells you whether you have log coverage for that technique; (2) it enables MITRE ATT&CK Navigator heatmaps showing your detection gaps; (3) it provides standardized language for reporting across teams. The mapping is not always 1:1 — some techniques (like T1059 Command and Scripting Interpreter) appear in dozens of use cases depending on the specific command interpreter used.",
+        explanation: "Mapping observables to ATT&CK techniques is the foundation of use case development. A good use case starts with 'what can I actually see in logs?' and maps that observable to ATT&CK. This matters because: (1) it tells you whether you have log coverage for that technique; (2) it enables MITRE ATT&CK Navigator heatmaps showing your detection gaps; (3) it provides standardized language for reporting across teams. The mapping is not always 1:1 — some techniques (like T1059 Command and Scripting Interpreter) appear in dozens of use cases depending on the specific command interpreter used. The encoded-PowerShell observable is an example: the obfuscation itself maps to T1027.010, while the same use case (UC-ENDPOINT-0089 in the log analysis) is also tagged T1059.001 for the PowerShell execution it rides on — both tags are correct.",
         xp: 40,
       },
     ],

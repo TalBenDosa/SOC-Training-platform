@@ -141,14 +141,14 @@ const sigmaYaraRuleAuthoringRoom = {
       checkpoint: {
         question: "Per Reading 1, what are the two failure modes that most detection-rule authoring mistakes fall into?",
         options: [
-          "Writing the rule in the wrong file format, and forgetting to add a title field",
-          "Writing the logic too broadly, which floods the queue with legitimate matches, and writing it too narrowly, which lets the next variant of the same attack through untouched",
-          "Choosing the wrong severity level, and forgetting to add MITRE ATT&CK tags",
-          "Testing the rule against too much historical data, and deploying it too quickly after writing it",
+          "Testing a draft only against malicious samples, and testing it only against benign data",
+          "Logic too broad, flooding the queue, and logic too narrow, letting the next variant slip through",
+          "Reaching for |re when a simpler modifier would do, and leaving the Image field unanchored",
+          "Setting the level before tuning is done, and leaving out the ATT&CK tags coverage reports need",
         ],
         answer: 1,
         explanation:
-          "Reading 1 named these as the two directions almost every authoring mistake falls into: too broad drowns the queue in false positives and trains analysts to stop reading that rule's alerts; too narrow misses the very next variant of the technique it was written to catch. The other options describe real but much smaller mistakes that Reading 1 did not identify as the core recurring failure modes.",
+          "Reading 1 says almost every authoring mistake goes one of two directions: too broad (one common trait, so legitimate activity floods the queue) or too narrow (one literal string or byte sequence, so the next variant sails through). “Testing a draft only against malicious samples ...” describes a testing gap the room covers later, not the two directions. “Reaching for |re ... unanchored” names two specific Reading 2 mistakes, each just a cause of drifting too broad. “Setting the level before tuning ...” is a process slip from the tuning loop, not one of the two failure modes.",
       },
     },
     // ── Reading 2: Sigma modifiers & quantifiers ────────────────────────────
@@ -199,14 +199,14 @@ const sigmaYaraRuleAuthoringRoom = {
       checkpoint: {
         question: "Per Reading 2, what is the difference between CommandLine|contains: ['-nop', '-enc'] and CommandLine|contains|all: ['-nop', '-enc']?",
         options: [
-          "There is no difference — both syntaxes are interchangeable ways of writing the exact same logic",
-          "The first requires either substring to be present (OR); the second requires both substrings to be present somewhere in the same command line (AND)",
-          "The first only matches PowerShell processes; the second matches any process regardless of binary",
-          "The first is case-sensitive by default; the second is case-insensitive by default",
+          "The first requires both substrings (AND); the second matches if either one appears (OR)",
+          "The first matches if either substring appears (OR); the second requires both in the same line (AND)",
+          "The first matches the substrings in any order; the second requires them in the order listed",
+          "The first matches either substring; the second needs each item to equal the whole field exactly",
         ],
         answer: 1,
         explanation:
-          "A list under a plain field|modifier is evaluated as OR by default — matching if any one item is present. Adding |all changes that to AND — every item in the list must be present. Confusing the two, as Reading 2 pointed out, is one of the most common ways a rule ends up looser than the author intended. Neither syntax restricts which binary it applies to (that is the Image field's job) or changes case sensitivity, which is a separate, unrelated setting.",
+          "A list under one field is OR by default; adding |all makes it AND, so every item must appear somewhere in the same value. “The first requires both substrings (AND)” inverts the default, which is exactly the confusion Reading 2 warns turns a tight rule loose. “Requires them in the order listed” is wrong: |all checks presence, not order — order or position needs |re. “Equal the whole field exactly” confuses |all with dropping |contains; it is the contains modifier that keeps this a substring match.",
       },
     },
     // ── Question 1 — condition operators applied ─────────────────────────────
@@ -273,14 +273,14 @@ const sigmaYaraRuleAuthoringRoom = {
       checkpoint: {
         question: "Per Reading 3, why does the selection use CommandLine|contains|all: ['delete', 'shadows'] instead of a single CommandLine|contains: 'delete shadows' phrase match?",
         options: [
-          "Because |contains|all runs faster than a single phrase match, which matters for high-volume log sources",
-          "Because requiring both words to be present, in any order, survives minor phrasing or word-order differences while still anchoring to the real binary — a single exact phrase would miss any variant that phrases the command slightly differently",
-          "Because Sigma does not support multi-word phrase matching inside a single contains modifier under any circumstances",
-          "Because 'delete' and 'shadows' need to be evaluated by two entirely separate detection rules, not one",
+          "Because |contains|all runs faster than one phrase match on high-volume process logs",
+          "Because both words must appear in any order, so small phrasing differences still match",
+          "Because Sigma's contains can't match a value with a space in it, so phrases must be split",
+          "Because splitting the phrase widens the rule to command lines containing either word",
         ],
         answer: 1,
         explanation:
-          "Reading 3 was explicit: two words that must both be present, in any order, survive small variations in exact phrasing that a single literal phrase match would miss entirely. The 'runs faster' option invents a performance claim the reading never made; the claim that Sigma cannot phrase-match is simply false — Sigma's contains modifier can absolutely match a literal multi-word phrase, that is just not the best choice here; and the 'two separate rules' option misdescribes what a single selection block does.",
+          "Reading 3: two words that must both appear, in any order, survive phrasing variations that one literal phrase would miss, while the Image anchor keeps the rule tied to vssadmin.exe. “Runs faster” is a performance claim the reading never makes. “Can't match a value with a space” is contradicted by the same rule: selection_wmic matches 'shadowcopy delete' as one phrase. “Widens the rule to command lines containing either word” describes a plain |contains list (OR); |all requires both.",
       },
     },
     // ── Query Fill: complete the Sigma selection block ──────────────────────
@@ -290,16 +290,16 @@ const sigmaYaraRuleAuthoringRoom = {
       heading: "Write It Yourself: Complete the Selection Block for Shadow Copy Deletion",
       language: "kql" as const,
       context:
-        "This task type's language badge only supports KQL, SPL, or PowerShell — the content below is Sigma YAML, not KQL. Reading 3 built the vssadmin branch of the shadow-copy-deletion rule step by step. Reproduce its selection_vssadmin block from memory: the field that identifies the binary itself, the modifier that requires every listed word to be present, and the condition value that fires on this block alone.",
+        "The snippet below is Sigma YAML. Reading 3 built the vssadmin branch of the shadow-copy-deletion rule step by step. Reproduce its selection_vssadmin block from memory: the field that identifies the binary itself, the modifier that requires every listed word to be present, and the condition value that fires on this block alone.",
       template:
         "selection_vssadmin:\n  {{field}}|endswith: '\\vssadmin.exe'\n  CommandLine|contains|{{modifier}}:\n    - 'delete'\n    - 'shadows'\ncondition: {{condition}}",
       blanks: [
         { id: "field", answers: ["Image"], placeholder: "field name for the process binary path" },
         { id: "modifier", answers: ["all"], placeholder: "modifier requiring every listed word present" },
-        { id: "condition", answers: ["selection_vssadmin"], placeholder: "condition value for this block alone" },
+        { id: "condition", answers: ["selection_vssadmin", "1 of selection_vssadmin", "all of selection_vssadmin", "1 of selection_*", "1 of them", "all of them"], placeholder: "condition value for this block alone" },
       ],
       explanation:
-        "Image is the field Sigma's process_creation category uses for the binary path, and |endswith anchors the match to the actual executable rather than any substring anywhere in a string. |contains|all is what requires both 'delete' and 'shadows' to be present, in any order, surviving small phrasing differences the way Reading 3 described. condition: selection_vssadmin fires on this single named block alone — the full rule later combines it with selection_wmic using or, but this exercise is just the vssadmin branch on its own.",
+        "Image is the field Sigma's process_creation category uses for the binary path, and |endswith anchors the match to the actual executable rather than any substring anywhere in a string. |contains|all is what requires both 'delete' and 'shadows' to be present, in any order, surviving small phrasing differences the way Reading 3 described. condition: selection_vssadmin fires on this single named block alone — the full rule later combines it with selection_wmic using or, but this exercise is just the vssadmin branch on its own. Because this snippet defines only one block, quantifier forms such as 1 of selection_* or 1 of them are equivalent here and are accepted too.",
       xp: 30,
     },
     // ── Reading 4: compiling Sigma to KQL/SPL ───────────────────────────────
@@ -337,14 +337,14 @@ const sigmaYaraRuleAuthoringRoom = {
       checkpoint: {
         question: "Per Reading 4, when a Sigma rule is compiled to Splunk SPL instead of Microsoft Sentinel KQL, what actually changes?",
         options: [
-          "The underlying detection logic has to be rewritten by hand for each SIEM, since Sigma only ever targets one backend at a time",
-          "The field names, table names, and query syntax change to match the target backend's schema, but the analyst's detection reasoning captured in the Sigma rule itself does not need to be rewritten",
-          "Nothing changes at all — Sigma rules are already valid SPL and KQL simultaneously with no conversion step required",
-          "Only the rule's severity level changes between backends, since KQL and SPL score severity differently",
+          "The selection and filter blocks are rewritten per SIEM, since each backend needs its own detection logic",
+          "Field and table names and query syntax follow the backend; the rule's detection reasoning stays as written",
+          "Only the logsource block changes, since Splunk and Sentinel need different product and category values",
+          "Only the condition changes, since SPL and KQL express and/or differently and the field names stay put",
         ],
         answer: 1,
         explanation:
-          "This is the entire point of writing detection logic in Sigma rather than directly in one SIEM's query language: the backend and pipeline choice handles the mechanical translation of field and table names, while the actual reasoning — which technique, which values, which exclusions — is captured once in the Sigma rule and does not need to be rethought for every SIEM the organization happens to run.",
+          "The backend sets the query syntax and the pipeline maps generic fields and logsources onto the target's schema (Image becomes FolderPath and the table becomes DeviceProcessEvents in Sentinel; Splunk often keeps Image). The reasoning stays in the Sigma rule. “The selection and filter blocks are rewritten per SIEM” is the vendor lock-in Sigma exists to avoid. “Only the logsource block changes” is wrong: logsource stays the same in the rule, and the pipeline maps it. “Only the condition changes” misses the field-name and table mapping shown in the reading's own example.",
       },
     },
     // ── Query Fill: compile the full OR condition to KQL ────────────────────
@@ -420,7 +420,7 @@ const sigmaYaraRuleAuthoringRoom = {
       explanation:
         "winlog.event_data.ParentImage is WINWORD.EXE, not a deployment tool, and an Office application spawning a scripting engine has essentially no legitimate business reason to occur. winlog.event_data.CommandLine carries -enc with a long base64 blob, and winlog.event_data.User is a regular employee account, not a service or automation identity. This alert only exists because Rule B was written to match the structural pattern — the flag itself, case-insensitively — rather than one literal historical string. Rule A, hardcoded to the exact command line from a previous incident, would not have matched this event at all: the base64 payload here is entirely different content, so a byte-for-byte string match fails even though the underlying technique is identical. This is Reading 1's too-narrow failure mode made concrete — a rule that looked precise on the day it was written quietly stopped detecting the technique it was named after the moment a different payload was used.",
       fp_trap:
-        "It is tempting to reflexively trust Rule A's tighter-looking match as higher confidence precisely because it is so specific — but that specificity is exactly the flaw. A rule anchored to one sample's literal bytes is not more precise about the technique; it is precise about a single historical artifact that will never recur exactly. Rule B's broader match on the structural pattern (Office parent, scripting engine, encoded-command flag) is what actually keeps catching the technique across different campaigns and different payloads — the SCCM-deployment exclusion is what keeps it from also flooding the queue with legitimate automated use of the same flag.",
+        "It is tempting to reflexively trust Rule A's tighter-looking match as higher confidence precisely because it is so specific — but that specificity is exactly the flaw. A rule anchored to one sample's literal bytes is not more precise about the technique; it is precise about a single historical artifact that will never recur exactly. Rule B's broader match on the structural pattern (the PowerShell image plus the encoded-command flag, whatever the payload) is what actually keeps catching the technique — the Office parent is context the analyst adds at triage, not part of either rule — across different campaigns and different payloads — the SCCM-deployment exclusion is what keeps it from also flooding the queue with legitimate automated use of the same flag.",
       xp: 35,
     },
     // ── Reading 5: YARA sharper operators ────────────────────────────────────
@@ -450,14 +450,14 @@ const sigmaYaraRuleAuthoringRoom = {
       checkpoint: {
         question: "Per Reading 5, what does the hex pattern { 40 00 00 00 [4-8] 50 45 00 00 } mean?",
         options: [
-          "Match the four bytes 40 00 00 00, then any 4 to 8 unknown bytes, then the four bytes 50 45 00 00",
-          "Match exactly 4 to 8 occurrences of the byte sequence 40 00 00 00 50 45 00 00 repeated in a row",
-          "Match a file that is between 4 and 8 kilobytes in size, containing those two byte sequences anywhere",
-          "This syntax is invalid in YARA; hex strings cannot contain wildcard byte ranges",
+          "The bytes 40 00 00 00, then any 4 to 8 unknown bytes, then the bytes 50 45 00 00",
+          "The sequence 40 00 00 00 50 45 00 00, repeated back to back between 4 and 8 times",
+          "Both byte sequences anywhere, in a file between 4 and 8 kilobytes in size",
+          "The bytes 40 00 00 00, with 50 45 00 00 starting at byte offset 4 to 8 of the file",
         ],
         answer: 0,
         explanation:
-          "The bracketed range [4-8] inside a hex string is YARA's wildcard-gap syntax: match this many unknown bytes between two fixed byte sequences. It is exactly what Reading 5 used it for — bridging a gap between two structural landmarks that varies slightly between build versions of the same tool. It has nothing to do with file size (that is the separate filesize keyword) or repetition count.",
+          "A bracketed range inside a hex string is YARA's wildcard gap: any 4 to 8 unknown bytes between two fixed landmarks, so the pattern survives small layout differences between builds. “Repeated back to back” confuses the gap with a repetition count (counting occurrences is the #string operator). “A file between 4 and 8 kilobytes” confuses it with the separate filesize keyword. “Starting at byte offset 4 to 8 of the file” confuses it with offset anchoring (at / @string), which pins a match to a file position.",
       },
     },
     // ── Reading 6: YARA step-by-step case study ─────────────────────────────
@@ -495,14 +495,14 @@ const sigmaYaraRuleAuthoringRoom = {
       checkpoint: {
         question: "Per Reading 6, what is wrong with a YARA rule that hardcodes the exact byte-for-byte obfuscated payload string from one already-found webshell sample?",
         options: [
-          "Nothing is wrong with it — an exact byte-for-byte match is always the strongest possible detection a YARA rule can offer",
-          "It is too brittle: the very next variant, with even a single byte of the encoded payload changed, will not match at all, even though the underlying technique is identical",
-          "It is too broad: matching one exact known-bad sample will flood the queue with unrelated legitimate files",
-          "YARA rules cannot match exact byte sequences longer than 64 bytes, so this rule would fail to compile",
+          "It is too broad: other legitimate PHP files that happen to share those payload bytes will match too",
+          "It is too brittle: change one byte of the encoded payload and the next variant no longer matches",
+          "It is fine for hunting but too slow for production, since long literal strings make scans crawl",
+          "It needs the nocase modifier, since attackers vary letter case in the payload to slip past it",
         ],
         answer: 1,
         explanation:
-          "Reading 6 called this out directly: a rule that specific is really just a hash lookup wearing a YARA rule's clothing — it will never fire on the next sample once even one byte of the obfuscated blob changes, which happens constantly. The opposite mistake, matching too broadly, is the false-positive-flood failure mode, not this one — an exact copy of one sample cannot flood the queue. There is no 64-byte length restriction in YARA, and an exact match is not 'always the strongest' detection.",
+          "Reading 6: a rule that specific is a hash lookup wearing a YARA rule's clothing — the next sample changes a byte of the encoded blob and the match fails. “It is too broad” inverts the problem: a long, exact obfuscated payload is essentially unique, so it matches almost nothing, including the next attack. “Too slow for production” is not the reading's objection; the issue is what the rule misses, not speed. “It needs the nocase modifier” fixes only case changes, while the next variant changes the encoded bytes themselves, and base64 content is case-sensitive anyway.",
       },
     },
     // ── Query Fill: complete the YARA webshell condition ────────────────────
@@ -512,16 +512,16 @@ const sigmaYaraRuleAuthoringRoom = {
       heading: "Write It Yourself: Complete the Webshell YARA Condition",
       language: "powershell" as const,
       context:
-        "This task type's language badge only supports KQL, SPL, or PowerShell — the content below is a YARA rule, not PowerShell. Reading 6 built a PHP webshell rule around three joined signals: the PHP open tag, one of two decode-and-eval wrappers, and one of two superglobal input sources, plus a file-size ceiling. Complete the final condition block from memory using the string names already defined in Reading 6's strings section.",
+        "The snippet below is the condition section of a YARA rule. Reading 6 built a PHP webshell rule around three joined signals: the PHP open tag, one of two decode-and-eval wrappers, and one of two superglobal input sources, plus a file-size ceiling. Complete the final condition block from memory using the string names already defined in Reading 6's strings section.",
       template:
         "condition:\n  filesize {{sizeop}} 150KB\n  and $php_tag\n  and {{n1}} of ($eval_b64, $eval_gz)\n  and {{n2}} of ($post_in, $req_in)",
       blanks: [
-        { id: "sizeop", answers: ["<"], placeholder: "comparison operator for the file-size ceiling" },
-        { id: "n1", answers: ["1"], placeholder: "quantifier over the eval-wrapper strings" },
-        { id: "n2", answers: ["1"], placeholder: "quantifier over the superglobal-input strings" },
+        { id: "sizeop", answers: ["<", "<="], placeholder: "comparison operator for the file-size ceiling" },
+        { id: "n1", answers: ["1", "any"], placeholder: "quantifier over the eval-wrapper strings" },
+        { id: "n2", answers: ["1", "any"], placeholder: "quantifier over the superglobal-input strings" },
       ],
       explanation:
-        "filesize < 150KB keeps the rule scoped to a realistic single-file dropped script rather than an entire application. 1 of ($eval_b64, $eval_gz) matches either obfuscation wrapper, since a given sample only ever uses one. 1 of ($post_in, $req_in) matches either input source the same way. Together these three individually-common signals combine into something jointly rare, exactly as Reading 6 built up step by step.",
+        "filesize < 150KB (or <= 150KB, practically the same) keeps the rule scoped to a realistic single-file dropped script rather than an entire application. 1 of ($eval_b64, $eval_gz) — written equivalently as any of (...) — matches either obfuscation wrapper, since a given sample only ever uses one. 1 of ($post_in, $req_in) matches either input source the same way. Together these three individually-common signals combine into something jointly rare, exactly as Reading 6 built up step by step.",
       xp: 30,
     },
     // ── Question 2 — too broad / FP flood ────────────────────────────────────
@@ -547,59 +547,59 @@ const sigmaYaraRuleAuthoringRoom = {
       id: "sigyara-la1",
       heading: "Reading a Live Alert Back Against the Rule That Wrote It",
       context:
-        "Solvara Health's SIEM runs a custom Sigma rule mapped onto its CrowdStrike Falcon data source, tagged T1003.001. Its selection block requires TargetProcessName equal to lsass.exe together with GrantedAccess equal to 0x1FFFFF. Its filter block excludes any event where the file path starts inside the CrowdStrike installation directory or the Windows System32 directory — legitimate AV self-scan and OS-owned processes. Its condition is selection and not filter, and its level is set to critical. This rule just fired on WKS-CLM-1187, a claims-processing workstation. Work through the raw fields against the rule's own logic the way a real investigation would.",
+        "Solvara Health's SIEM runs a custom Sigma rule mapped onto its CrowdStrike Falcon data source, tagged T1003.001. Its selection block requires TargetProcessName equal to lsass.exe together with GrantedAccess equal to any one of a list of masks credential dumpers request: 0x1010, 0x1410, 0x1438 or 0x1FFFFF. Its filter block excludes events whose file path is exactly one of two named, signed security binaries — the CrowdStrike Falcon sensor service and Microsoft Defender's MsMpEng.exe — the documented AV self-scan false positives. (An earlier draft excluded all of C:\\Windows\\System32 and was rejected, because the common LOLBin dump — rundll32.exe calling comsvcs.dll MiniDump — runs from that directory.) Its condition is selection and not filter, and its level is set to critical. This rule just fired on WKS-CLM-1187, a claims-processing workstation. Work through the raw fields against the rule's own logic the way a real investigation would.",
       event: lsassSigmaAlertEvent,
       questions: [
         {
           question: "crowdstrike.TargetProcessName reads lsass.exe and crowdstrike.GrantedAccess reads 0x1FFFFF. Does the rule's selection block actually match this event?",
           options: [
-            "No — GrantedAccess would need to read a lower-privilege value like 0x1400 for the selection to match; 0x1FFFFF is out of range for this field",
-            "Yes — both required values are present exactly as the selection specifies, so the selection block matches regardless of anything else in the event",
-            "No — the selection also silently requires the process name of the accessing process to match a known hash, which is not shown here",
-            "It cannot be determined without first checking the filter block, since selection and filter are always evaluated together as a single condition",
+            "No — the mask list exists for the narrower access rights dumpers request, and 0x1FFFFF is full access",
+            "Yes — the target is lsass.exe and 0x1FFFFF is one of the listed masks; a list under one field is OR",
+            "No — a list under one field is AND, so GrantedAccess would have to contain every mask in the list",
+            "Not yet — the selection can't be judged on its own until the filter block has been evaluated",
           ],
           answer: 1,
           explanation:
-            "The selection is evaluated independently of the filter; both fields hold exactly the required literal values. The 'lower-privilege value like 0x1400' option invents a false GrantedAccess range — 0x1FFFFF is PROCESS_ALL_ACCESS, the value the rule is actually looking for. The 'known hash' option invents a requirement not stated in the rule. The 'must check the filter first' option wrongly claims selection cannot be judged alone — Sigma explicitly evaluates named blocks independently, then the condition combines them.",
+            "Both selection fields are satisfied: TargetProcessName is lsass.exe, and GrantedAccess equals one of the listed values — a list under one field is OR, as Reading 2 taught. “The mask list exists for the narrower access rights” forgets that 0x1FFFFF (PROCESS_ALL_ACCESS) is itself in the list. “A list under one field is AND” is the |all behaviour, which the rule doesn't use, and one field can't hold four values at once anyway. “Not yet — ... until the filter block has been evaluated” is wrong because Sigma evaluates each named block on its own; the condition combines the results afterwards.",
           xp: 30,
         },
         {
           question: "crowdstrike.FilePath reads C:\\Users\\n.brandt\\AppData\\Roaming\\SysHealthMon\\SysHealthMon.exe. Given the rule's filter block, does the filter suppress this alert?",
           options: [
-            "Yes — AppData is a subfolder of the user's profile, which Windows treats as trusted by default, so the filter's System32 exclusion covers it",
-            "No — the path starts inside neither the CrowdStrike installation directory nor Windows\\System32, so the filter block does not match, and the alert correctly still fires",
-            "Yes — SysHealthMon.exe is a plausible-sounding monitoring utility name, and the filter is written to exclude any process whose name suggests legitimate system monitoring software",
-            "It cannot be determined, because Sigma filter blocks can only reference the Image field, never FilePath",
+            "Yes — AppData sits inside the user's own profile, a location the filter treats as trusted",
+            "No — the path is neither of the two named sensor binaries, so the filter doesn't match and the alert fires",
+            "Yes — SysHealthMon.exe reads like monitoring software, the kind of tool the filter exists to exclude",
+            "No — but only because Sigma filters can reference the Image field alone, never a file path",
           ],
           answer: 1,
           explanation:
-            "The filter only excludes the two literal path prefixes actually defined, not user-profile paths generally, so the 'AppData is trusted by default' option is wrong. The 'plausible monitoring-tool name' option is wrong for the same reason this room has repeated throughout: a filter matches fields and values, not how plausible a filename sounds — a file's name proves nothing about what it actually is. Sigma filters can reference any field the logsource provides, including FilePath, so the 'filters can only reference Image' option is also wrong.",
+            "The filter excludes exactly two named binaries, and a user-writable AppData path is neither, so the filter block does not match and the alert stands. “AppData ... a location the filter treats as trusted” invents a scope the filter doesn't have — and user-writable folders are where dropped tools live. “Reads like monitoring software” is the trap this room keeps warning about: filters match field values, not how plausible a filename sounds. “No — but only because Sigma filters can reference the Image field alone” gets the outcome right for a false reason: filters can use any field the logsource provides.",
           xp: 35,
         },
         {
           question: "crowdstrike.CallStackModuleNames again lists dbghelp.dll among the loaded modules. A colleague proposes tightening the rule's condition to also require dbghelp.dll appear in CallStackModuleNames before firing at all. Based on this room's tuning principles, what is the risk in that specific change?",
           options: [
-            "No risk — dbghelp.dll appears in literally every LSASS-access attempt ever recorded, so requiring it would have zero effect on the rule either way",
-            "It would make the rule too narrow: some credential-dumping techniques access LSASS without loading dbghelp.dll at all, so hard-requiring it in the condition would let those variants evade detection entirely, even when their access to LSASS matches the GrantedAccess-based selection",
-            "It would make the rule too broad: adding any additional required string to a condition always increases, never decreases, the number of events a rule matches",
-            "It would have no effect on detection quality, only on rule readability, since YARA and Sigma always evaluate every possible string regardless of what the condition requires",
+            "Little risk — LSASS dumpers all load dbghelp.dll, so the extra requirement would change almost nothing",
+            "Too narrow: dumpers that read LSASS without dbghelp.dll would slip past despite a matching access mask",
+            "Too broad: many debuggers load dbghelp.dll, so requiring it would add benign matches to the queue",
+            "Fine, as long as dbghelp.dll is matched with |contains rather than as an exact field value",
           ],
           answer: 1,
           explanation:
-            "The 'no risk' option overclaims universality — dbghelp.dll does not always appear. The 'too broad' option inverts how adding a required AND condition works — it narrows the set of matching events, it does not broaden it. The 'readability only' option conflates YARA's evaluation model with Sigma's and is simply false regardless. The correct narrowing risk exactly mirrors the specific-vs-brittle lesson from the YARA readings, applied here to Sigma: the access-mask selection is the core signal, and call-stack modules are corroborating detail, not something the core condition should hard-require. (The same lesson applies to the selection itself: requiring GrantedAccess to be exactly 0x1FFFFF is already narrow, because common dumpers such as Mimikatz request smaller masks like 0x1010 or 0x1410 — a production rule should list those masks too.)",
+            "Hard-requiring one corroborating detail is the too-narrow failure from Reading 1: tools that read LSASS memory without dbghelp.dll (direct syscalls, custom readers) would pass a matching access mask and still never fire. The access-mask selection is the core signal; call-stack modules are corroboration. “LSASS dumpers all load dbghelp.dll” overclaims — that assumption is exactly what makes the change dangerous. “Too broad” inverts the logic: adding an AND requirement can only remove matches, never add them. “Matched with |contains” only changes how the module name is compared; the rule would still need dbghelp.dll present, so the blind spot stays.",
           xp: 35,
         },
         {
           question: "crowdstrike.PatternDispositionDescription reads 'Detected, no action taken', the rule's level is critical, and this workstation belongs to a claims-processing employee at a healthcare company with access to patient records. Selection matched, filter did not suppress it. What should the analyst do next?",
           options: [
-            "Close the alert as informational, since 'Detected, no action taken' means Falcon's own analysis already concluded the behavior was not a real threat",
-            "Escalate as a likely true positive: the tool only observed rather than blocked the access, the confirmed selection/filter match rules out the two documented false-positive sources, and the sensitivity of this specific asset raises the cost of being wrong in the direction of under-reacting — move toward containment and treat locally-stored credentials as potentially exposed",
-            "Downgrade the rule's own level field from critical to low directly in the SIEM before finishing the investigation, since one hit on a non-executive workstation is evidence the severity was set too high",
-            "Wait for the same rule to fire a second time on this host before taking any action, since a single Sigma match is never considered sufficient grounds to begin containment",
+            "Close it as informational, since 'Detected, no action taken' means Falcon judged the access harmless",
+            "Escalate as a likely true positive and move to containment: the access was observed, not blocked",
+            "Hold containment until a dump file is found on disk, since LSASS access alone doesn't prove theft",
+            "Ask n.brandt whether they installed SysHealthMon.exe, and decide on containment from their answer",
           ],
           answer: 1,
           explanation:
-            "'Detected, no action taken' means the access was only observed, not stopped — that raises urgency rather than lowering it, the opposite of what closing it as informational assumes. Downgrading the rule's level wrongly treats one triage outcome as grounds to retune a rule's global severity — that is a tuning decision made from many observations over time, not something to change mid-investigation. Waiting for a second hit invents a duplicate-hit policy this room never taught. The correct move is exactly what a confirmed selection match, an unsuppressed filter, and a sensitive asset all point toward together.",
+            "Selection matched, the filter (which covers the documented AV false positives) didn't suppress it, Falcon only observed the access, and the host can reach patient records — so escalate, contain, and treat credentials cached on it as exposed. “'Detected, no action taken' means Falcon judged the access harmless” misreads the disposition: it means the access was allowed to happen. “Hold containment until a dump file is found” waits on evidence that may never exist — memory can be read and sent off without a file ever touching disk. “Ask n.brandt” lets an unverified user statement decide a critical credential-access alert, and alerts whoever controls the account if it is compromised.",
           xp: 40,
         },
       ],
@@ -608,9 +608,9 @@ const sigmaYaraRuleAuthoringRoom = {
     {
       type: "flag" as const,
       id: "sigyara-f1",
-      prompt: "In Reading 3's completed Sigma rule for shadow copy deletion, what is the exact value of the rule's id field (the UUID)?",
-      answer: "4b6a1f2e-9c3d-4a7b-8e21-6f0a9d3c5b17",
-      hint: "It is the id: field right under title: in the YAML front matter of the completed rule shown in Reading 3.",
+      prompt: "Reading 3's shadow-copy rule ends with condition: selection_vssadmin or selection_wmic. A teammate wants a condition that will also pick up a future selection_powershell block without anyone editing it again. Using the wildcard quantifier form from Reading 2, enter the replacement condition value exactly.",
+      answer: "1 of selection_*",
+      hint: "Reading 2's LOLBin rule combined selection_regsvr32 and selection_rundll32 with a quantifier and a wildcard on the shared name prefix.",
       xp: 20,
     },
   ],

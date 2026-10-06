@@ -147,14 +147,14 @@ const tcpipDeepDiveRoom = {
         question:
           "According to the reading, why does a TCP connection hold in the TIME_WAIT state after closing?",
         options: [
-          "So that the operating system's audit subsystem has time to permanently log the connection's start and end timestamps for compliance before the socket is released",
-          "So that any stray, delayed duplicate packets from the old connection are recognized and discarded rather than confused with a new connection reusing the same port pair",
-          "Because the SYN flag carries a mandatory cooldown timer enforced by the TCP/IP stack, preventing the same initial sequence number from being reused by a new connection",
-          "To wait for the destination host to send one final SYN-ACK acknowledging that all previously transmitted data segments were received intact",
+          "To wait for the peer's own FIN, because the connection isn't closed until both sides have sent one",
+          "So delayed duplicate packets from the old connection are discarded, not mistaken for a new one on the same port pair",
+          "To keep the port pair reserved so a connection-exhaustion attack can't immediately reuse it",
+          "To give the peer time to retransmit any data segments that were still in flight when the close began",
         ],
         answer: 1,
         explanation:
-          "TIME_WAIT exists purely so any late-arriving duplicate packets from the just-closed connection are recognized as stale rather than misinterpreted by a brand-new connection reusing the same port pair. It commonly lasts around 2 minutes. It has nothing to do with audit logging, a SYN-reuse cooldown timer (no such mechanism exists), or waiting on a further SYN-ACK — the connection is already fully closed by this point.",
+          "The reading gives TIME_WAIT one job: hold the closed connection (commonly about 2 minutes) so late, duplicate packets from it are recognised as stale instead of being read as part of a new connection on the same port pair. “To wait for the peer's own FIN” describes FIN_WAIT_2, an earlier state — by TIME_WAIT both FINs have already been exchanged. “Keep the port pair reserved” against exhaustion gets it backwards: the reading says huge TIME_WAIT counts are a SYMPTOM of exhaustion attacks or heavy load. “Retransmit any data segments” is wrong because all data was sent and acknowledged before the FIN exchange finished.",
       },
     },
 
@@ -210,14 +210,14 @@ const tcpipDeepDiveRoom = {
         question:
           "According to the reading, what does the Zeek conn_state value 'REJ' indicate?",
         options: [
-          "The connection was established, then the originator sent an RST",
-          "A connection attempt was rejected — the SYN was answered with RST,ACK, meaning the port is closed",
-          "The connection completed a normal handshake and graceful teardown",
-          "No SYN was ever observed by the sensor",
+          "The connection was established, and then the originator sent an RST",
+          "The attempt was rejected: the SYN was answered with RST,ACK (closed port)",
+          "The attempt got no reply at all, so the SYN was dropped or filtered",
+          "The originator sent a SYN, then its own RST, with no SYN-ACK seen",
         ],
         answer: 1,
         explanation:
-          "REJ specifically means the SYN was answered with RST,ACK — the port is closed. This differs from S0 (no reply at all, i.e. filtered/dropped) and from RSTO/RSTR (RST after the connection was already established).",
+          "REJ means the SYN was answered with RST,ACK — the port is closed but the host is reachable. “Established, and then the originator sent an RST” is RSTO. “No reply at all” is S0, the filtered/dropped signature. “A SYN, then its own RST, with no SYN-ACK seen” is RSTOS0, the half-open scan artefact.",
       },
     },
 
@@ -306,16 +306,16 @@ const tcpipDeepDiveRoom = {
         "=======================================================",
       checkpoint: {
         question:
-          "According to the reading, an observed initial TTL of about 118-125 on an inbound packet most likely indicates the sending host's OS started at which initial TTL value?",
+          "Your team only has a stock NetFlow/IPFIX export from the core switches. A colleague wants to run this reading's TTL and window-size OS check against it. According to the reading, what should you tell them?",
         options: [
-          "64 (Linux/BSD/macOS default)",
-          "128 (Windows default)",
-          "255 (Cisco IOS/Solaris default)",
-          "32 (a legacy embedded-device default)",
+          "It works: TTL is in every IP header, so every flow export records it for each flow by default",
+          "It won't work: plain flow exports don't keep TTL or SYN window; you need an enriched sensor, p0f or a PCAP",
+          "It works for TTL only: NetFlow stores the first packet of each flow, so its TTL can be read from there",
+          "It won't work: routers rewrite TTL to a fixed value at each hop, so it carries no OS information",
         ],
         answer: 1,
         explanation:
-          "TTL 118-125 sits just below 128, the standard Windows initial TTL, after 3-10 hops of decrementing. 64 is the Linux/BSD/macOS default, and 255 is common on Cisco IOS/Solaris.",
+          "The reading's practical note: stock Zeek conn.log and plain NetFlow/IPFIX do not record per-packet TTL or the SYN window — those come from a sensor enriched to add them, from p0f reading packets, or from a full capture. “TTL is in every IP header, so every flow export records it” mixes the packet with the flow summary: being in the header doesn't mean the exporter keeps it. “NetFlow stores the first packet of each flow” is false — a flow record is counters and the 5-tuple, not stored packets. “Routers rewrite TTL to a fixed value” contradicts the reading: routers only decrement it, which is why it fingerprints the sender at all.",
       },
     },
 
@@ -376,7 +376,7 @@ const tcpipDeepDiveRoom = {
         `**Duplicate ACKs and fast retransmit**\n\n` +
         `When a receiver gets segments out of order (one segment was lost, but later ones arrived), it re-sends an ACK for the last byte it received correctly, once for every out-of-order segment it gets — these are duplicate ACKs. Three duplicate ACKs in a row conventionally triggers "fast retransmit," where the sender resends the missing segment without waiting for a full timeout. A burst of duplicate ACKs in a flow log is a fingerprint of packet loss or reordering on that specific path — useful context when you're trying to distinguish "this connection looks weird because of a bad network link" from "this connection looks weird because something is actively interfering with it."\n\n` +
         `**Asymmetric byte counts: reading the shape of a conversation**\n\n` +
-        `A normal web browsing session is asymmetric in a predictable way: a small request (orig_bytes, a few hundred bytes) produces a much larger response (resp_bytes, tens of kilobytes of HTML/images/scripts). A connection with the opposite shape — large orig_bytes, tiny resp_bytes, especially over a long duration — is the shape of an upload, and on an unexpected destination or at an unexpected hour, is exactly the shape you'd expect from data being pushed out during exfiltration. A connection with both directions carrying small, remarkably **consistent** byte counts, repeating at regular intervals against the same destination, is the shape of a heartbeat or check-in — legitimate software does this constantly (update checkers, telemetry, license validation) but so does C2 beaconing, which is why byte-count shape alone is never proof, only a prioritization signal.\n\n` +
+        `A normal web browsing session is asymmetric in a predictable way: a small request (orig_bytes, a few hundred bytes) produces a much larger response (resp_bytes, tens of kilobytes of HTML/images/scripts). A connection with the opposite shape — large orig_bytes, tiny resp_bytes, especially over a long duration — is the shape of an upload, and on an unexpected destination or at an unexpected hour, is exactly the shape you'd expect from data being pushed out during exfiltration. A connection with both directions carrying small, remarkably **consistent** byte counts, repeating at regular intervals against the same destination, is the shape of a heartbeat or check-in — legitimate software does this constantly (update checkers, telemetry, license validation) but so does C2 beaconing, which is why byte-count shape alone is never proof, only a prioritization signal. Infrastructure monitoring has the same rhythm: a load balancer's health checker connects to every server in its backend pool every few seconds, fetches a small status response, and often closes with an RST rather than a FIN to free the socket quickly — the difference from a beacon is who and where (a known infrastructure source, internal to internal, hitting exactly the pool it fronts), not the shape.\n\n` +
         `**Putting it together — the analyst's flow-record triage pass**\n\n` +
         `Given any single suspicious flow record, ask in order: (1) What does conn_state/history tell me about how this connection started and ended? (2) Is the flag pattern one that legitimate traffic would ever produce (a bare SYN, a bare FIN/NULL/XMAS with no prior SYN, is inherently abnormal; a full SF close is not)? (3) Is the byte-count shape consistent with the stated protocol/service, and is it symmetric (browsing-like), upload-shaped, or beacon-shaped? (4) Does the initial TTL/window size match what I'd expect from the claimed source asset's known OS? (5) Is this one flow, or one of many identical flows repeating across ports, hosts, or time — and if repeating over time, at what interval? Answering these five questions, in this order, is usually enough to triage a raw flow record into "benign," "needs a second look," or "escalate," before you ever need to touch a full packet capture.`,
       codeExample:
@@ -410,10 +410,10 @@ const tcpipDeepDiveRoom = {
         question:
           "According to the reading, what byte-count shape is typical of C2 beaconing or a legitimate check-in/heartbeat, as opposed to a normal browsing session or a data-exfiltration upload?",
         options: [
-          "Small request followed by a much larger response, occurring once as a single, non-repeating connection — the shape of ordinary web browsing, not a beacon",
-          "Large orig_bytes paired with a comparatively tiny resp_bytes sustained over one long-lived connection — the asymmetric shape the reading associates with an outbound data upload, not a periodic check-in",
-          "Small, remarkably consistent byte counts in both directions, repeating at regular intervals against the same destination",
-          "Zero bytes transferred in both directions, with the connection stuck in conn_state S0 because no reply was ever observed — the signature of a failed scan attempt, not an active, established beacon",
+          "A small request and a much larger response, seen once as a single connection to the destination",
+          "Large orig_bytes with a tiny resp_bytes, sustained over one long-lived connection to the destination",
+          "Small, consistent byte counts in both directions, repeating at regular intervals to one destination",
+          "Zero bytes both ways with conn_state S0, repeated quickly across many ports on the same destination",
         ],
         answer: 2,
         explanation:
@@ -476,14 +476,14 @@ const tcpipDeepDiveRoom = {
         question:
           "An analyst has a full packet capture already saved from earlier in the day. They want to narrow the view down to just one suspicious host's traffic, then a few minutes later narrow it differently to look at a different protocol instead — without losing any of the originally captured data. Which filter type should they use, and why?",
         options: [
-          "A capture filter, because BPF syntax like tcp port 445 is more precise than Wireshark's own filter syntax and will isolate the suspicious host's traffic more reliably",
-          "A display filter, because it only controls which already-captured rows are currently shown, never discards anything, and can be typed, cleared, and retyped as many times as needed after the fact",
-          "A capture filter, because it can be reapplied at any time after capture has finished, exactly like a display filter, so either one works equally well here",
-          "Neither — once a capture is saved, Wireshark's filtering options are locked to whatever filter, if any, was set at the moment the capture was started",
+          "A capture filter, since BPF expressions like host 10.0.0.5 isolate one host more precisely",
+          "A display filter, since it only changes which captured packets are shown and can be changed freely",
+          "A capture filter, since it can be run against the saved file to keep only the matching packets",
+          "A display filter, but saved to a new file each time, since clearing one drops the hidden packets",
         ],
         answer: 1,
         explanation:
-          "Because the capture already exists and the analyst wants to change what they're looking at repeatedly without losing data, a display filter is the right tool: it only hides/shows rows in an already-recorded capture and can be changed freely, any number of times. A capture filter only applies before or during capture and permanently discards anything that doesn't match — it cannot be applied retroactively to a capture that's already finished, which rules out both capture-filter options. Wireshark's filtering is not locked after capture either; display filters remain fully available on a saved file indefinitely.",
+          "The capture already exists and the analyst wants to re-narrow it repeatedly, so a display filter is right: it only hides or shows rows and never deletes anything. “Since BPF expressions ... isolate one host more precisely” is not the deciding factor — both syntaxes can isolate a host, and capture filters only act while capturing. “Run against the saved file” is the core misconception: a capture filter works before or during capture and cannot be applied retroactively. “Saved to a new file each time, since clearing one drops the hidden packets” gets the tool right but the reason wrong — clearing a display filter brings every packet back.",
       },
     },
 
@@ -501,7 +501,7 @@ const tcpipDeepDiveRoom = {
       ],
       answer: 1,
       explanation:
-        "RST,ACK in direct response to a bare SYN (with no prior SYN-ACK) is the standard TCP behavior when a SYN arrives at a port with nothing listening — or a firewall configured to REJECT (rather than silently DROP) spoofing that same response. This exact reply is what lets a SYN scanner distinguish a closed port (RST,ACK) from an open one (SYN,ACK) or a filtered one (no reply at all). A FIN close requires an established connection to already exist first, which never happened here — and RST is never interchangeable with FIN: RST is an abrupt abort with no negotiation, while FIN is a graceful, four-step close. Nothing in this exchange indicates a client-side crash either; the RST,ACK came from the server side.",
+        "RST,ACK in direct response to a bare SYN (with no prior SYN-ACK) is the standard TCP behavior when a SYN arrives at a port with nothing listening — or a firewall configured to REJECT (rather than silently DROP) spoofing that same response. This exact reply is what lets a SYN scanner distinguish a closed port (RST,ACK) from an open one (SYN,ACK) or a filtered one (no reply at all). “A graceful teardown” is wrong twice: a FIN close needs an established connection, which never existed here, and RST is an abrupt abort, never interchangeable with FIN. “Accepted the probe on an open port” would first produce a SYN-ACK, which the log does not show. “A stateful firewall ... silently dropped the SYN” would leave no reply at all, and here the RST,ACK came from the server side, not from the client's own stack.",
       xp: 20,
     },
 
@@ -519,7 +519,7 @@ const tcpipDeepDiveRoom = {
       ],
       answer: 1,
       explanation:
-        "RSTOS0 decodes as: the Originator sent a SYN, and an RST was seen, but the responder's SYN-ACK (the 'S0' portion) was never observed — meaning the originator itself tore the attempt down rather than completing or waiting for a normal handshake outcome. This is a recognizable artefact of certain scanning tool behavior and is a stronger, more specific signal than just 'many ports touched' — it tells you something about how the scanning client itself is built, which can help fingerprint the tool in use. It is not a graceful close (no FIN was ever exchanged), it doesn't indicate an application-level refusal (the responder's SYN-ACK was never even seen), and Zeek's conn_state codes describe TCP connections specifically, not UDP flows.",
+        "RSTOS0 decodes as: the Originator sent a SYN, and an RST was seen, but the responder's SYN-ACK (the 'S0' portion) was never observed — meaning the originator itself tore the attempt down rather than completing or waiting for a normal handshake outcome. This is a recognizable artefact of certain scanning tool behavior and is a stronger, more specific signal than just 'many ports touched' — it tells you something about how the scanning client itself is built, which can help fingerprint the tool in use. “The responder answered each SYN with an RST” describes REJ, a different code. “Completed the handshake and then reset the session” would be RSTO, with a SYN-ACK in the history. “The responder reset them after a protocol error” would be RSTR — both require an established connection, which the S0 part of RSTOS0 rules out.",
       xp: 25,
     },
 
@@ -537,7 +537,7 @@ const tcpipDeepDiveRoom = {
       ],
       answer: 1,
       explanation:
-        "The RFC 793 behavior these scans depend on (silence on open ports, RST on closed ports for segments without SYN) is followed inconsistently across real-world TCP/IP stack implementations. Windows in particular is well known for replying RST to malformed/flagless segments regardless of the underlying port's actual state, which collapses the open-vs-closed signal the scan is trying to extract. This is exactly why nmap documentation flags these scan types as unreliable against Windows targets specifically, while they remain more useful against many Unix-like TCP/IP stacks that follow the older behavior more faithfully. It isn't a firewall blocking traffic outright (the scan still gets a reply, just not the RFC 793-predicted one), it has nothing to do with UDP, and Windows processes flagless TCP segments perfectly well — it just answers them with RST.",
+        "The RFC 793 behavior these scans depend on (silence on open ports, RST on closed ports for segments without SYN) is followed inconsistently across real-world TCP/IP stack implementations. Windows in particular is well known for replying RST to malformed/flagless segments regardless of the underlying port's actual state, which collapses the open-vs-closed signal the scan is trying to extract. This is exactly why nmap documentation flags these scan types as unreliable against Windows targets specifically, while they remain more useful against many Unix-like TCP/IP stacks that follow the older behavior more faithfully. “Windows Defender Firewall drops all unsolicited inbound TCP” would leave every probe unanswered, but the reading's point is that Windows stacks DO reply — with RST. “Windows rate-limits RST replies” is not the reason the reading gives: the problem is RST on open ports too, not missing RSTs on closed ones. “Windows requires a SYN flag before processing any TCP segment” fails for the same reason: Windows does process flagless segments — it just answers them with RST.",
       xp: 25,
     },
 
@@ -554,42 +554,42 @@ const tcpipDeepDiveRoom = {
           question:
             "The record shows conn_state: 'S0' and history: 'S', with orig_bytes and resp_bytes both 0. What does this single flow record tell you happened on the wire?",
           options: [
-            "A full TCP session was established and connected normally, with the server replying SYN,ACK before the handshake completed and 0 bytes of application data simply happened to be exchanged in either direction that time",
-            "The originator (WKS-ENG14) sent a lone SYN and the sensor never observed any reply at all — the connection never progressed past the very first packet",
-            "The destination actively refused the connection with an RST — the same RST,ACK behavior you'd see whenever a stateful firewall or the destination's own OS deliberately rejects an unwanted incoming request",
-            "This was a UDP connection, so no TCP three-way handshake was ever expected in the first place, and the S0 label here simply reflects Zeek's default state for any non-TCP protocol flow",
+            "A full handshake completed, but neither side sent any application data before the connection closed",
+            "WKS-ENG14 sent a lone SYN and the sensor saw no reply of any kind — no SYN-ACK and no RST",
+            "SRV-CORE02 refused the connection with RST,ACK, the normal reply from a port with nothing listening",
+            "SRV-CORE02 replied SYN-ACK, but WKS-ENG14 never sent the final ACK, leaving the connection half-open",
           ],
           answer: 1,
           explanation:
-            "history 'S' means literally one event was observed: a SYN from the originator. conn_state S0 confirms no reply was seen — not a SYN-ACK (open) and not an RST (closed/rejected). Zero bytes in both directions confirms no data ever flowed. This is the signature of either a filtered destination port or a scanner that fires SYNs faster than it waits for replies. Nothing here indicates a completed handshake, an RST reply (that would show as REJ, not S0), or UDP traffic — the record's own proto field reads 'tcp'.",
+            "history 'S' means exactly one event was observed: a SYN from the originator, and conn_state S0 confirms no reply was seen. That is the signature of a filtered port or a scanner that does not wait for replies. “A full handshake completed” would show an h and A in the history and a state like SF, not a lone S. “Refused the connection with RST,ACK” would be REJ, with an r in the history. “Replied SYN-ACK, but ... never sent the final ACK” would put the responder's h in the history string — and there is none.",
           xp: 25,
         },
         {
           question:
-            "The task's opening context states this sample is one of 1,024 connections in 38 seconds, of which 1,017 got the same S0 (no reply) outcome, 6 got REJ, and 1 got SF (full handshake). How should that aggregate change your read of the single sample record above?",
+            "Now weigh the sample against the aggregate counts given in the task context. How should that aggregate change your read of the single record?",
           options: [
-            "It shouldn't — every connection attempt should be scored purely on its own individual flag pattern and byte count, since aggregating separate flow records together only introduces noise and cannot itself reveal a coordinated reconnaissance pattern",
-            "It confirms this sample record is one of a systematic sweep across essentially the entire well-known port range from a single internal source against a single target in under a minute — individually ambiguous flow records become an unambiguous scan pattern in aggregate",
-            "It proves SRV-CORE02 itself has been compromised and is now the one actively scanning other internal hosts across the network, rather than being the passive target the connections were aimed at",
-            "It indicates the sensor mis-attributed all 1,024 connection attempts to a single source address by mistake, when in reality they were generated by 1,024 separate internal hosts acting independently",
+            "It shouldn't: score each record on its own, since combining separate flows adds noise, not evidence",
+            "One source hitting 1,024 ports on one target in 38s turns an ambiguous record into a clear port sweep",
+            "The single SF shows the sweep found an open service, so SRV-CORE02 is now the likely compromised host",
+            "The 6 REJ results show a firewall stopped the sweep, so it failed and needs no further follow-up",
           ],
           answer: 1,
           explanation:
-            "One S0 record in isolation could plausibly be an application retry against a temporarily unavailable service. 1,024 attempts across that many distinct destination ports, from one source, against one target, inside 38 seconds — with the overwhelming majority landing S0 and a handful getting REJ (those ports answered the SYN with RST,ACK, meaning closed-but-reachable) and exactly one SF (one port, likely one of the three normally-open services, completed a real handshake) — is not something any legitimate application does. This is the textbook aggregate shape of a SYN/port sweep, and it's the aggregate view, not any single record, that turns ambiguous into conclusive. Aggregation is exactly what reveals the pattern (not noise), SRV-CORE02 is the target here, not the source (10.40.6.114/WKS-ENG14 is), and the context is explicit that this is one source's 1,024 attempts, not 1,024 distinct sources.",
+            "One S0 record alone could be an application retry against a busy service. 1,024 distinct ports from one source to one target in 38 seconds is the breadth the reading calls unmistakable — the aggregate, not any single record, makes it a scan. “Score each record on its own” throws away the breadth signal that defines a scan. “SRV-CORE02 is now the likely compromised host” mixes up roles: the server is the target; an SF only means one normally-open service answered. “A firewall stopped the sweep” misreads REJ — a REJ is the target host answering RST,ACK from a closed port, and a reconnaissance sweep matters whether or not it found much.",
           xp: 30,
         },
         {
           question:
             "Given WKS-ENG14 is a regular engineering workstation with no business reason to be scanning SRV-CORE02, what is the correct next investigative step?",
           options: [
-            "Close the alert — since only one of the 1,024 attempted ports (RDP, 3389) actually completed a handshake and the rest all failed with S0, the sweep clearly didn't succeed at anything, and a failed reconnaissance attempt carries no investigative value worth an analyst's time (unlike a successful lateral-movement hop, which would justify escalation)",
-            "Treat WKS-ENG14 itself as the priority to investigate — pull its EDR/process telemetry for the scan time window to identify what process initiated the sweep (attacker tooling, or a compromised legitimate app), and check whether this is an isolated event or one host of several exhibiting the same pattern (lateral-movement reconnaissance often sweeps multiple internal targets from a freshly compromised host)",
-            "Block SRV-CORE02's IP address at the perimeter firewall, since it is the target being scanned — this stops nothing, because the sweep originates entirely from inside the network at WKS-ENG14, and a perimeter firewall rule has no effect whatsoever on internal, east-west traffic between two hosts on the same LAN",
-            "Reset WKS-ENG14's DNS cache, since port scans are typically caused by stale or corrupted DNS entries pointing the resolver to the wrong destination host, and clearing the cache will force the workstation to re-resolve SRV-CORE02's address correctly and stop the scanning behavior",
+            "Close it: only one port completed a handshake, so the reconnaissance gained the attacker almost nothing",
+            "Investigate WKS-ENG14: find the process behind the sweep in EDR and check other hosts for the same pattern",
+            "Investigate SRV-CORE02 first, since the one completed handshake means the target may already be breached",
+            "Block WKS-ENG14 at the perimeter firewall, so the sweep is cut off before it reaches any more servers",
           ],
           answer: 1,
           explanation:
-            "A port sweep originating from an internal workstation against an internal server is a strong internal-reconnaissance signal — commonly seen right after a workstation is compromised, as an attacker (or automated worm/tooling) maps out what's reachable and what's listening before attempting lateral movement. The priority is understanding what's running on WKS-ENG14 that initiated the sweep (via EDR process ancestry, not just the network layer), and checking whether other internal hosts show the same pattern against the same or other targets in the same window, which would indicate a broader compromise rather than an isolated event.",
+            "An internal workstation sweeping an internal server is classic post-compromise reconnaissance before lateral movement. The source is where the attacker is, so find the process behind the sweep (EDR process ancestry) and check whether other hosts show the same pattern. “Close it” ignores that reconnaissance is the warning before the next step — the attacker now knows which services answer. “Investigate SRV-CORE02 first” misreads the SF: one normally-open service answering a SYN is not a breach of the target. “Block WKS-ENG14 at the perimeter firewall” cannot work: the sweep is east-west traffic inside the LAN and never crosses the perimeter.",
           xp: 30,
         },
       ],
@@ -606,44 +606,44 @@ const tcpipDeepDiveRoom = {
       questions: [
         {
           question:
-            "This session's orig_ttl is 125, well outside BASTION-01's established 58-61 baseline. Based on typical initial TTL values by OS family, what does 125 most likely indicate about the traffic's true origin?",
+            "Compare the originator TTL recorded for this session with BASTION-01's established baseline. Based on typical initial TTL values by OS family, what does it most likely indicate about the traffic's true origin?",
           options: [
-            "125 is well within the normal variance a Linux TTL can show across different network paths and routing conditions, so this single session requires no further analyst attention beyond noting it in the routine log",
-            "An initial TTL of 125 rounds up to 128 (the standard Windows default) minus roughly 3 hops — meaning these packets most likely did not originate from BASTION-01's known Linux TCP/IP stack at all",
-            "TTL values above 100 always indicate the packet was fragmented somewhere along its path, since fragmentation itself is what causes the field to jump upward from a host's normal baseline value",
-            "The TTL field is randomized per-connection by design as an anti-fingerprinting measure in modern operating systems, so it carries no forensic meaning and cannot be used to infer anything about a packet's true origin",
+            "Normal path variation: a Linux host's observed TTL can drift that far when routing changes between sessions",
+            "The sender's stack most likely starts at 128 (Windows), not 64, so it is unlikely to be BASTION-01's Linux stack",
+            "Fragmentation on the path, since reassembling fragmented packets resets their TTL to a higher value",
+            "The SSH server's settings, since each session negotiates the TTL that both sides then use for its packets",
           ],
           answer: 1,
           explanation:
-            "Observed TTLs cluster just below their sending OS's initial value, decremented once per hop. 125 sits just below 128 (Windows' standard initial TTL), not anywhere near 64 (Linux/BSD/macOS). Combined with BASTION-01's own established 58-61 baseline over 40 prior sessions, this single session stands out as inconsistent with the same source device having generated it — a strong passive indicator that this traffic did not originate from BASTION-01's actual, known Linux stack. TTL is not randomized (it's a deterministic hop counter), and a high TTL is not evidence of fragmentation — those are two unrelated IP header fields entirely.",
+            "Observed TTLs sit just below the sender's initial value, minus one per hop. This session's orig_ttl rounds up to 128, the Windows default, not 64 like BASTION-01's 40 baseline sessions. “Normal path variation” is impossible in this direction: routers only decrement TTL, so a host that starts at 64 can never be seen above 64. “Fragmentation” is a separate IP mechanism and never raises TTL. “Negotiates the TTL” is wrong: each side sets its own initial TTL, which is exactly why orig_ttl and resp_ttl differ in this record.",
           xp: 25,
         },
         {
           question:
             "Which explanations, taken together, should the analyst consider BEFORE concluding this is definitely a spoofed or hijacked source — recognizing that TTL is a corroborating signal, not standalone proof?",
           options: [
-            "There is no other explanation worth considering — a TTL mismatch this large, by itself and without any further corroborating telemetry from EDR or the change log, is already conclusive, courtroom-grade proof that the source IP address has been spoofed by an external attacker",
-            "Legitimate explanations to rule out first include: BASTION-01 was re-imaged or its OS was legitimately changed, or the source IP is now NAT'd/shared with a different physical device — alongside the malicious explanation that another host is spoofing or otherwise using BASTION-01's expected source address",
-            "TTL fields cannot be observed at all on already-established connections, only on the very first SYN packet of a session, so any finding based on this session's TTL value must be dismissed as an artifact of incomplete logging rather than investigated further",
-            "Since the destination is a finance server, this must automatically be escalated and processed purely as a regulatory compliance violation rather than as a security incident, and the technical TTL evidence itself becomes irrelevant to a compliance-driven case",
+            "None — a TTL mismatch this large is proof on its own that an outside attacker spoofed the source address",
+            "A re-image or approved OS change on BASTION-01, or a NAT change sharing its IP — as well as spoofing or misuse",
+            "A longer routing path tonight, which can push the observed TTL above the host's usual baseline range",
+            "A sensor enrichment fault, since stock Zeek conn.log never records TTL, so the field can't be trusted here",
           ],
           answer: 1,
           explanation:
-            "A single passive fingerprinting signal is corroborating evidence, not a verdict. Before escalating this as spoofing or compromise, a careful analyst rules out mundane explanations: was BASTION-01 recently reimaged or migrated to a different OS as part of an approved change, or is there a NAT/infrastructure change sharing that IP. (A routing-path change is NOT on the list: every hop only decrements TTL, so a longer or different path can lower an observed TTL that started at 64 but can never raise it to 125.) Ruling these out first is what turns a hunch into a defensible finding either way.",
+            "A passive fingerprint is corroborating evidence, not a verdict, so first rule out mundane causes: a re-image or approved OS change on BASTION-01, or a NAT/infrastructure change that puts a different device behind its IP — while keeping spoofing or misuse on the table. “Proof on its own” over-reads a single signal. “A longer routing path” cannot raise TTL; every hop only decrements it, so a path change could lower 64 but never lift it to 125. “A sensor enrichment fault” misapplies the reading: stock conn.log lacks TTL, but this is an enriched Corelight record, which is exactly where the reading says TTL appears.",
           xp: 25,
         },
         {
           question:
             "After checking the change log and confirming BASTION-01 was NOT re-imaged, no routing changes occurred, and no NAT change was made, what is the correct next step?",
           options: [
-            "Dismiss the finding entirely, since a TTL value is 'only metadata' with no forensic weight of its own, and metadata-only findings should never be escalated or correlated against other telemetry sources regardless of how unusual the value looks",
-            "Escalate for further investigation: correlate BASTION-01's own endpoint telemetry (EDR/host logs) for signs of compromise or unauthorized use, check whether other sessions from 10.40.1.9 around the same time also show the anomalous TTL, and treat the finding as evidence the source address may not correspond to the expected physical device until proven otherwise",
-            "Immediately terminate all SSH access company-wide, since any single TTL mismatch on any host is a reliable enough indicator, on its own, to declare an active worm outbreak spreading across the entire environment",
-            "Change SRV-FIN03's IP address to resolve the discrepancy, since reassigning the destination server a new address will force BASTION-01's real TCP/IP stack to renegotiate its TTL baseline on the next connection",
+            "Dismiss it: TTL is only metadata, so with no change found, the value is most likely a one-off sensor glitch",
+            "Escalate: check BASTION-01's EDR/host logs and other sessions from 10.40.1.9 for the same anomalous TTL",
+            "Declare a breach and block 10.40.1.9 everywhere, since the mismatch now proves the bastion is compromised",
+            "Ask the sensor team to recalibrate TTL enrichment, then re-check the next session BASTION-01 makes",
           ],
           answer: 1,
           explanation:
-            "With the mundane explanations ruled out, this now warrants deeper investigation rather than dismissal or an overreaction: pull BASTION-01's own host-level telemetry to check for signs of tampering or unauthorized access, check whether the TTL anomaly is isolated to this one session or appears across others from the same source IP in the same period, and treat the address-to-device mapping as unverified until the discrepancy is explained. This is exactly the kind of finding that starts as a single flow-record anomaly and, through careful follow-up, either resolves into a benign explanation or into evidence of a genuine device impersonation or spoofing incident.",
+            "With the benign causes ruled out, the address-to-device mapping is unverified, so escalate: look at BASTION-01's own host telemetry for tampering or unauthorised use, and check whether other sessions from 10.40.1.9 in the same period carry the same anomaly. “Dismiss it ... sensor glitch” is an assumption with no evidence; the enrichment matched 40 previous sessions. “Declare a breach and block 10.40.1.9 everywhere” overreacts to one corroborating signal and cuts IT's admin path before anything is confirmed. “Recalibrate TTL enrichment” and waiting for the next session loses time while a 41-minute session into the finance server stays unexplained.",
           xp: 30,
         },
       ],
@@ -768,16 +768,16 @@ const tcpipDeepDiveRoom = {
       heading: "Write It Yourself: Detect a Port Sweep in KQL",
       language: "kql",
       context: KQL_PRIMER +
-        "Using the pattern from Log Analysis 1 (one source touching many destination ports on one target, mostly ending in S0/no reply, within a short window), write the KQL that would surface this pattern across your whole network flow table, the way a detection engineer would before shipping it as a scheduled analytics rule.",
+        "Using the pattern from Log Analysis 1 (one source touching many destination ports on one target, mostly ending in S0/no reply, within a short window), write the KQL that would surface this pattern across your whole network flow table, the way a detection engineer would before shipping it as a scheduled analytics rule. List the conn_state value(s) that mean the handshake never completed (S0 must be included; REJ and RSTOS0 are optional extras), pick a short time window (30 seconds to 10 minutes), and set a distinct-port threshold between 20 and 500, rounded to a multiple of 5.",
       template:
         "NetworkFlowEvents\n| where ConnectionState in ({{states}})\n| summarize DistinctPorts = dcount(DestinationPort) by SourceIp, DestinationIp, bin(TimeGenerated, {{window}})\n| where DistinctPorts > {{threshold}}",
       blanks: [
-        { id: "states", answers: ["\"S0\"", "'S0'", "\"S0\", \"RSTOS0\"", "'S0', 'RSTOS0'"], placeholder: "conn_state values indicating no completed handshake" },
-        { id: "window", answers: ["1m", "60s", "1min"], placeholder: "aggregation time window" },
-        { id: "threshold", answers: ["100", "50"], placeholder: "distinct-port count threshold" },
+        { id: "states", answers: ["\"S0\"","'S0'","\"S0\", \"REJ\"","\"S0\",\"REJ\"","'S0', 'REJ'","'S0','REJ'","\"REJ\", \"S0\"","\"REJ\",\"S0\"","'REJ', 'S0'","'REJ','S0'","\"S0\", \"RSTOS0\"","\"S0\",\"RSTOS0\"","'S0', 'RSTOS0'","'S0','RSTOS0'","\"RSTOS0\", \"S0\"","\"RSTOS0\",\"S0\"","'RSTOS0', 'S0'","'RSTOS0','S0'","\"S0\", \"REJ\", \"RSTOS0\"","\"S0\",\"REJ\",\"RSTOS0\"","'S0', 'REJ', 'RSTOS0'","'S0','REJ','RSTOS0'","\"S0\", \"RSTOS0\", \"REJ\"","\"S0\",\"RSTOS0\",\"REJ\"","'S0', 'RSTOS0', 'REJ'","'S0','RSTOS0','REJ'","\"REJ\", \"S0\", \"RSTOS0\"","\"REJ\",\"S0\",\"RSTOS0\"","'REJ', 'S0', 'RSTOS0'","'REJ','S0','RSTOS0'","\"REJ\", \"RSTOS0\", \"S0\"","\"REJ\",\"RSTOS0\",\"S0\"","'REJ', 'RSTOS0', 'S0'","'REJ','RSTOS0','S0'","\"RSTOS0\", \"S0\", \"REJ\"","\"RSTOS0\",\"S0\",\"REJ\"","'RSTOS0', 'S0', 'REJ'","'RSTOS0','S0','REJ'","\"RSTOS0\", \"REJ\", \"S0\"","\"RSTOS0\",\"REJ\",\"S0\"","'RSTOS0', 'REJ', 'S0'","'RSTOS0','REJ','S0'"], placeholder: "conn_state values indicating no completed handshake" },
+        { id: "window", answers: ["30s", "45s", "60s", "90s", "120s", "180s", "300s", "600s", "1m", "2m", "3m", "5m", "10m", "1min", "2min", "3min", "5min", "10min"], placeholder: "aggregation time window" },
+        { id: "threshold", answers: ["20","25","30","35","40","45","50","55","60","65","70","75","80","85","90","95","100","105","110","115","120","125","130","135","140","145","150","155","160","165","170","175","180","185","190","195","200","205","210","215","220","225","230","235","240","245","250","255","260","265","270","275","280","285","290","295","300","305","310","315","320","325","330","335","340","345","350","355","360","365","370","375","380","385","390","395","400","405","410","415","420","425","430","435","440","445","450","455","460","465","470","475","480","485","490","495","500"], placeholder: "distinct-port count threshold" },
       ],
       explanation:
-        "The core detection logic mirrors what you read directly off the flow record in Log Analysis 1: filter to connection states that mean 'no completed handshake' (S0 at minimum, optionally RSTOS0), group by the source-to-destination pair within a short rolling window (one minute is tight enough to catch a fast sweep like the 38-second one you investigated), count the DISTINCT destination ports touched, and alert when that count crosses a threshold no legitimate application would ever produce in that time frame. A real deployment would also exclude known, approved scanners (vulnerability management tools) by source IP to avoid constant false positives from authorized scanning.",
+        "The core detection logic mirrors what you read directly off the flow record in Log Analysis 1: filter to connection states that mean 'no completed handshake' (S0 at minimum; REJ — closed ports answering RST — and RSTOS0 are also scan evidence), group by the source-to-destination pair within a short window (one minute is tight enough to catch a fast sweep like the 38-second one you investigated; a few minutes also works but catches slower sweeps at the cost of more noise), count the DISTINCT destination ports touched, and alert when that count crosses a threshold no legitimate application would reach in that time frame. Lower thresholds catch slower or narrower sweeps but fire more often; higher ones are quieter but miss small scans. A real deployment would also exclude known, approved scanners (vulnerability management tools) by source IP to avoid constant false positives from authorized scanning.",
       xp: 35,
     },
 
@@ -786,9 +786,9 @@ const tcpipDeepDiveRoom = {
       type: "flag" as const,
       id: "tcpip-f1",
       prompt:
-        "Look at the TTL-mismatch investigation (Log Analysis 2). What is the exact orig_ttl value recorded in the raw log for the suspicious BASTION-01 session? Enter the number only.",
-      answer: "125",
-      hint: "Look for the orig_ttl field in the raw block of the SRV-FIN03 SSH session event.",
+        "In the TTL-mismatch session against SRV-FIN03, assume the originator's initial TTL was its OS family's default. Using the fingerprinting reading's rule of thumb, how many router hops did that traffic cross before reaching the sensor? Enter the number only.",
+      answer: "3",
+      hint: "Round the observed originator TTL up to the nearest of 64, 128 or 255. The difference between the two is the hop count.",
       xp: 25,
     },
   ],

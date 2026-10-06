@@ -146,14 +146,14 @@ const edrDetectionInvestigationRoom = {
       checkpoint: {
         question: "Per Reading 1, what does an EDR agent see that a firewall log or a single Windows event cannot?",
         options: [
-          "Nothing more -- a firewall log, a single Windows event, and EDR telemetry all capture exactly the same fields for the same activity",
-          "The full causal chain of a process: its parent, its exact command-line arguments, and every file, registry, or network action tied specifically to that process as one continuous story",
-          "Only the destination IP address of outbound connections, the same single field a firewall log would already provide",
-          "Only whether a file was digitally signed, with no visibility into what that process actually did afterward",
+          "Packets crossing the network boundary, with the ports and IPs each side of the session used",
+          "Which process did each action: its parent, exact command line, and the files and connections it made",
+          "One action such as a single logon, recorded on its own with its account and its timestamp",
+          "Whether a file is on a threat-intel blocklist, checked before it is allowed to execute at all",
         ],
         answer: 1,
         explanation:
-          "A firewall only sees packets crossing a boundary with no idea which process generated them, and a single Windows event captures one isolated action with no causal thread -- the EDR agent, sitting on the endpoint itself, is the one source that sees the entire chain as one continuous story.",
+          "The EDR agent sits on the endpoint and ties every action to the process that did it, with its parent, arguments, files, registry keys and connections, as one continuous story. “Packets crossing the network boundary…” is what a firewall log already records, without knowing which process sent them. “One action such as a single logon…” is a single Windows event, with no thread to what happened before or after. “Whether a file is on a threat-intel blocklist…” describes signature-style blocking, not the causal visibility Reading 1 describes.",
       },
     },
     // ── Reading 2: field anatomy across CrowdStrike + MDE ───────────────────
@@ -165,7 +165,7 @@ const edrDetectionInvestigationRoom = {
         "Every major EDR platform reduces 'what happened' down to a specific, learnable set of fields. Reading them fluently — instead of skimming a detection's title and severity color — is the actual difference between an analyst who investigates and one who just reacts to labels.\n\n" +
         "**CrowdStrike Falcon's core fields.** Tactic and Technique are the MITRE ATT&CK category and specific method Falcon's behavioral engine matched — useful for framing what kind of goal the activity serves, but not a verdict by itself, since a single technique like Signed Binary Proxy Execution fires just as reliably against a benign internal deployment script as against a real attacker. SeverityName is Falcon's own automatic rating (Critical, High, Medium, Low), assigned the instant the behavior pattern matches — before any human has added context, which is exactly why Reading 6 later spends a full reading on why this field is not the analyst's final word. PatternDispositionDescription answers a different, sharper question: what did Falcon actually do about it. A value like 'Detected, no action taken' means the behavior was only observed; 'Prevented' or 'Detected, kill process' means Falcon actually intervened. Severity tells you how seriously the tool rated the pattern; PatternDispositionDescription tells you whether the potentially malicious action already ran to completion.\n\n" +
         "**The process-identity fields.** ContextProcessName and ParentProcessName identify the process that launched the one being flagged — one link of the process tree, readable without opening the full graphical view. CommandLine is the exact string of arguments the flagged process executed with, including any Base64 encoding, unusual file paths, or suspicious destination arguments. FileName, FilePath, and SHA256HashData identify the specific binary, where it lives on disk, and its cryptographic fingerprint — the fingerprint being the single most useful field for pivoting entirely outside the console, into hash-reputation lookups and fleet-wide hunting, which Reading 7 builds on directly.\n\n" +
-        "**Microsoft Defender for Endpoint's equivalents.** The underlying questions are identical; only the field names change. mde.AlertTitle and mde.Category summarize what fired and its broad classification. mde.InitiatingProcessFileName and mde.InitiatingProcessCommandLine are Defender's version of ContextProcessName and CommandLine. mde.SHA256 and mde.DeviceName complete the identification, and mde.DetectionSource tells you which Defender component — the EDR behavioral engine, the antivirus scanning engine, or another — actually generated the alert in the first place.\n\n" +
+        "**Microsoft Defender for Endpoint's equivalents.** The underlying questions are identical; only the field names change. mde.AlertTitle and mde.Category summarize what fired and its broad classification. mde.InitiatingProcessFileName and mde.InitiatingProcessCommandLine describe the process that LAUNCHED the flagged one, Defender's version of ContextProcessName / ParentProcessName; the flagged process's own name, command line and hash are FileName, ProcessCommandLine and SHA256, and every InitiatingProcess* column (InitiatingProcessSHA256 included) points one level up the tree. mde.SHA256 and mde.DeviceName complete the identification, and mde.DetectionSource tells you which Defender component — the EDR behavioral engine, the antivirus scanning engine, or another — actually generated the alert in the first place.\n\n" +
         "**Why this matters before anything else in the room.** Whichever vendor's console is open in front of you, the questions are the same: what ran, launched by what, with what exact arguments, identified by what hash, and what did the tool actually do in response. Every later reading in this room builds directly on top of these fields.",
       codeExample:
         "CrowdStrike Falcon                         Microsoft Defender for Endpoint\n" +
@@ -174,23 +174,23 @@ const edrDetectionInvestigationRoom = {
         "SeverityName                                mde.AlertTitle (severity is a sibling field)\n" +
         "PatternDispositionDescription                mde.DetectionSource\n" +
         "ContextProcessName / ParentProcessName        mde.InitiatingProcessFileName\n" +
-        "CommandLine                                  mde.InitiatingProcessCommandLine\n" +
-        "FileName / FilePath                          mde.InitiatingProcessFolderPath\n" +
+        "CommandLine                                  mde.ProcessCommandLine\n" +
+        "FileName / FilePath                          mde.FileName / mde.FolderPath\n" +
         "SHA256HashData                               mde.SHA256\n" +
         "HostName                                     mde.DeviceName\n" +
         "IncidentId                                   mde.IncidentId",
       checkpoint: {
         question:
-          "What is the difference between what SeverityName and PatternDispositionDescription each tell you about a CrowdStrike detection?",
+          "A Falcon detection shows SeverityName ‘Critical’ and PatternDispositionDescription ‘Detected, no action taken’. What do these two fields tell you together?",
         options: [
-          "They are simply two display labels generated from the same underlying value, so reading either one tells you exactly the same thing",
-          "SeverityName is the tool's automatic rating of how seriously it scored the matched pattern; PatternDispositionDescription tells you whether the tool actually intervened (e.g. blocked it) or merely observed it",
-          "SeverityName is scoped only to network-based detections, while PatternDispositionDescription is scoped only to file-based detections",
-          "PatternDispositionDescription is automatically set to 'Critical' as its value whenever SeverityName happens to also read 'Critical'",
+          "Falcon rated the pattern Critical and blocked it, so the action never completed",
+          "Falcon rated the pattern Critical but only observed it, so the action likely ran",
+          "Falcon is unsure: Critical with no action taken marks a low-confidence pattern match",
+          "An analyst has reviewed it and decided no action was needed, so the case is closed",
         ],
         answer: 1,
         explanation:
-          "Severity tells you how seriously the tool rated the pattern; PatternDispositionDescription tells you whether the potentially malicious action already ran to completion or was stopped -- two genuinely separate questions that both matter for triage.",
+          "SeverityName is the tool’s automatic rating of the matched pattern; PatternDispositionDescription says what the tool did about it. ‘Detected, no action taken’ means it only observed, so the potentially malicious action ran to completion. “…and blocked it…” would need a disposition such as ‘Prevented’ or ‘Detected, kill process’. “Falcon is unsure…” confuses disposition with confidence: whether Falcon intervenes depends on policy, not on doubt. “An analyst has reviewed it…” misreads a sensor field as a case status; no human has touched it yet.",
       },
     },
     // ── Question 1 — severity is not the verdict (conceptual) ───────────────
@@ -200,14 +200,14 @@ const edrDetectionInvestigationRoom = {
       question:
         "A CrowdStrike detection fires with crowdstrike.SeverityName: 'Critical' and crowdstrike.Tactic: 'Defense Evasion', tagged for a well-known LOLBin technique pattern. Based on Reading 2, what is the correct way to treat the SeverityName field at this stage of the investigation?",
       options: [
-        "Treat it as the final verdict: Critical severity means a confirmed compromise, so escalate without reviewing the process tree",
-        "Treat it as the tool's automatic rating, assigned when the pattern matched; useful for queue priority, but not a substitute for reading the tree and context",
-        "Set it aside during triage, since a technique-based rating says nothing about this host and carries no useful information",
-        "Treat it as evidence the action was already blocked, since Critical is only assigned to behaviors the sensor has intervened on",
+        "As the final verdict: Critical means confirmed compromise, so escalate without reading the tree",
+        "As the tool's automatic rating at match time: good for queue order, not a substitute for the tree",
+        "As noise to set aside, since a technique-based rating says little about this specific host",
+        "As proof the action was blocked, since Critical is given to behaviour the sensor has stopped",
       ],
       answer: 1,
       explanation:
-        "Reading 2 was explicit: SeverityName is assigned the moment a behavior pattern matches, before any human has added organizational context — it's a prioritization signal, not a verdict. Whether the tool actually intervened is a separate question answered by PatternDispositionDescription, not SeverityName, which is exactly why 'Critical means it was already blocked' is wrong. Severity is far from useless, so setting it aside entirely is also a mistake — it's just not sufficient on its own, which is the entire point of this room's workflow.",
+        "SeverityName is assigned the moment the pattern matches, before anyone adds context, so it helps you order the queue but does not replace reading the process tree, command line and context. “As the final verdict…” skips the investigation entirely. “As noise to set aside…” overcorrects: the rating is still a useful prioritisation signal. “As proof the action was blocked…” confuses severity with disposition; whether Falcon intervened is recorded in PatternDispositionDescription.",
       xp: 25,
     },
     // ── Matching: fields to meaning ──────────────────────────────────────────
@@ -282,7 +282,7 @@ const edrDetectionInvestigationRoom = {
         "Every process has a parent — the process that launched it — and tracing that chain backward tells you the real story of how something started running, not just the fact that it ran. Most parent-child pairings are completely unremarkable: explorer.exe launching a user-opened application, svchost.exe hosting a Windows service, outlook.exe opening an attachment in Word. The skill this reading builds is recognizing the specific pairings and patterns that essentially never occur in legitimate business use.\n\n" +
         "**The anomaly that matters most: an Office application spawning a shell or scripting engine.** WINWORD.EXE, EXCEL.EXE, or OUTLOOK.EXE launching powershell.exe, cmd.exe, or wscript.exe is a pairing that has no legitimate business reason to exist — Word does not need to open PowerShell to display a document. When a process tree shows this exact pairing, it is the classic signature of a malicious macro firing its payload the moment a user enabled macro content on a phishing attachment. The chain itself, before any hash lookup, is already strong evidence.\n\n" +
         "**LOLBins: legitimate tools abused for something else.** rundll32.exe, regsvr32.exe, mshta.exe, and certutil.exe are all signed, legitimate Windows utilities that can be abused for purposes other than their intended one — this is why they're called Living-off-the-Land Binaries. None of them is inherently malicious; what matters is the combination of parent process, command-line arguments, and destination. rundll32.exe launched by cmd.exe with an argument referencing comsvcs.dll and a target of lsass.exe is a well-documented credential-dumping pattern. The exact same binary, launched by a signed software installer with a routine DLL-registration argument pointing at an internal application path, is completely ordinary — the file name tells you almost nothing on its own; the full command line and parent process tell you nearly everything.\n\n" +
-        "**Process injection: when the anomaly isn't in the parent-child chain at all.** Sometimes the suspicious activity is one process reaching directly into a second, entirely unrelated process's memory — with no parent-child relationship between the two whatsoever. EDR telemetry captures this as an access event: an 'accessing' process requesting a handle to a 'target' process, with an access mask like GrantedAccess 0x1FFFFF granting full control. The anomaly here is the handle access itself, together with what's loaded in the accessing process's call stack at that exact moment — which is precisely what the CallStackModuleNames field, covered in this room's log analysis task, is built to reveal.\n\n" +
+        "**Process injection: when the anomaly isn't in the parent-child chain at all.** Sometimes the suspicious activity is one process reaching directly into a second, entirely unrelated process's memory — with no parent-child relationship between the two whatsoever. EDR telemetry captures this as an access event: an 'accessing' process requesting a handle to a 'target' process, with an access mask like GrantedAccess 0x1FFFFF granting full control. The anomaly here is the handle access itself, together with what's loaded in the accessing process's call stack at that exact moment — which is precisely what the CallStackModuleNames field, covered in this room's log analysis task, is built to reveal. One module worth knowing there: dbghelp.dll exports MiniDumpWriteDump, the routine that writes a process's memory to a dump file. Credential dumpers load it to dump LSASS, but legitimate crash-reporting and diagnostic tools such as Windows Error Reporting and ProcDump load it too, so it strengthens a case rather than proving one.\n\n" +
         "**The three questions a process tree should always answer.** Does this specific parent-child pairing happen anywhere in legitimate business use? Does the command line contain anything that shouldn't need to be there — encoding, an unusual path, an unexpected destination file? And is there any sensitive object being touched — another process's memory, LSASS, a domain controller's credential store — that has no legitimate reason to be reached by this particular chain at all?",
       codeExample:
         "Example tree read as a chain, not isolated events:\n\n" +
@@ -296,14 +296,14 @@ const edrDetectionInvestigationRoom = {
       checkpoint: {
         question: "Per Reading 4, what determines whether a LOLBin like rundll32.exe or regsvr32.exe is worth escalating?",
         options: [
-          "The binary's file name alone -- any process named rundll32.exe or regsvr32.exe should always be treated as malicious regardless of context",
-          "The combination of parent process, command-line arguments, and destination -- the file name alone tells you almost nothing, since these are legitimate, signed Windows utilities that can also be abused",
-          "Whether the binary's on-disk file size exceeds roughly 1MB, since legitimate Windows utilities are always smaller than that",
-          "Whether the binary happened to be launched before or after standard business hours for that specific workstation",
+          "Its signature: a Microsoft-signed rundll32.exe or regsvr32.exe can be trusted as benign",
+          "Its parent, command-line arguments and target together, since the name alone says little",
+          "Its hash reputation: a clean VirusTotal result on the binary clears the launch as benign",
+          "Its location: running from C:\\Windows\\System32 rather than elsewhere marks it as genuine",
         ],
         answer: 1,
         explanation:
-          "LOLBins are legitimate signed Windows utilities that can be abused for other purposes -- what actually matters is the full combination of parent process, command-line arguments, and destination, not the binary's name in isolation.",
+          "A LOLBin is a legitimate, signed Windows utility, so what matters is how it was used: which parent launched it, with what arguments, against what target (for example cmd.exe → rundll32.exe comsvcs.dll MiniDump against lsass.exe). “Its signature…” is the very property attackers rely on; the binary is genuinely Microsoft-signed either way. “Its hash reputation…” fails for the same reason: the real rundll32.exe always comes back clean. “Its location…” is also true of the abused copy, which runs from System32 like the legitimate one.",
       },
     },
     // ── Question 2 — parent-child anomaly ────────────────────────────────────
@@ -313,14 +313,14 @@ const edrDetectionInvestigationRoom = {
       question:
         "A process tree shows OUTLOOK.EXE launching WINWORD.EXE after a user opened an email attachment, which then launches powershell.exe with an encoded command-line argument. Based on Reading 4, what is the correct read of this chain?",
       options: [
-        "Likely routine: Word legitimately launches PowerShell to render embedded objects, and encoded arguments are common in enterprise add-ins",
-        "The classic malicious-macro pattern: an Office app spawning a scripting engine is rare in legitimate use, and the encoded argument strengthens the case",
-        "Inconclusive until the file's SHA256 returns flagged in a threat intelligence feed; the tree alone is not evidence",
-        "Malicious from the first link: OUTLOOK.EXE launching WINWORD.EXE for an attachment is itself the malicious action, and the PowerShell step is secondary",
+        "Likely routine: Word starts PowerShell to render embedded objects, and add-ins often encode arguments",
+        "The malicious-macro pattern: Office spawning a scripting engine is rare, and the encoding adds weight",
+        "Inconclusive until the SHA256 is flagged in a threat-intel feed, since a tree alone is not evidence",
+        "Malicious from the first link: Outlook opening Word for an attachment is itself the attack step",
       ],
       answer: 1,
       explanation:
-        "Reading 4 was direct about this exact pairing: Word has no legitimate reason to spawn PowerShell, and an encoded argument on top of that pairing reinforces the read further. Opening an attachment in Word (OUTLOOK.EXE to WINWORD.EXE) is itself completely routine, which is why calling that first link the malicious action overclaims. And Reading 4 was explicit that the tree anomaly itself is already strong evidence — hash reputation is a later pivot step (Reading 7), not a prerequisite for recognizing what this chain already shows.",
+        "Word launching PowerShell is the classic signature of a macro firing its payload, and an encoded command on top of that strengthens the read. “Likely routine…” invents a rendering mechanism; Word does not need PowerShell to display a document. “Inconclusive until the SHA256 is flagged…” puts a later pivot (Reading 7) ahead of evidence the tree already shows, and the PowerShell binary itself would come back clean anyway. “Malicious from the first link…” overclaims: Outlook opening an attachment in Word is routine; the anomaly is the next link.",
       xp: 25,
     },
     // ── Log Analysis: LSASS process-tree investigation ──────────────────────
@@ -336,56 +336,56 @@ const edrDetectionInvestigationRoom = {
           question:
             "crowdstrike.FilePath shows the flagged binary running from a user's AppData\\Local\\Temp folder, launched directly under explorer.exe (crowdstrike.ContextProcessName), and crowdstrike.FileName suggests a routine update utility. What should this combination make you want to check first, based on the process-tree reasoning in Reading 4?",
           options: [
-            "Nothing — explorer.exe launching any process is always completely routine and needs no further review",
-            "Whether this specific file is actually a signed, known update utility installed on this machine, or an unsigned binary using a generic name to blend in — the file name alone is not evidence either way",
-            "The file name alone confirms this is legitimate update software, since real malware never uses names that sound like routine utilities",
-            "The file path alone confirms this is malicious, since Temp folders are used exclusively by attackers",
+            "Nothing: explorer.exe is the normal parent of anything a user starts, so the tree is clean",
+            "Whether it is a signed, known updater installed here, or an unsigned binary with a bland name",
+            "Nothing yet: a name like UpdateHelper.exe matches routine software, so the hash can wait",
+            "Escalate on the path alone, since a binary running from a user's Temp folder is proof enough",
           ],
           answer: 1,
           explanation:
-            "explorer.exe is the normal parent for anything a user launches directly, so that link alone isn't the anomaly — but that doesn't mean nothing needs checking, which is why 'explorer.exe launching anything is always routine' goes too far. A plausible-sounding file name proves nothing on its own (masquerading as a routine utility is a well-known tactic), and Temp/AppData folders legitimately host countless installers and browser downloads too, so 'Temp means malicious' overclaims just as much as 'a routine-sounding name means legitimate' does. The correct habit is checking whether this specific binary is actually signed and known-good — exactly the pivot the rest of this task performs.",
+            "explorer.exe is the normal parent for anything a user launches, so the parent link is not the anomaly; the open question is whether this file is the legitimate signed updater it claims to be or something masquerading under a routine name. “Nothing: explorer.exe is the normal parent…” stops at the parent and ignores the file itself. “Nothing yet: a name like UpdateHelper.exe…” trusts the name, and masquerading as a routine utility is a well-known tactic. “Escalate on the path alone…” overclaims the other way: installers and browser downloads run from Temp folders every day.",
           xp: 30,
         },
         {
           question:
             "crowdstrike.TargetProcessName reads lsass.exe and crowdstrike.GrantedAccess reads 0x1FFFFF. What does this access mask represent, and why is it significant against this specific target?",
           options: [
-            "0x1FFFFF is a standard Windows API error code specifically indicating that the requested handle access was denied by the operating system",
-            "0x1FFFFF is PROCESS_ALL_ACCESS — full control over the target process — and against lsass.exe, the process holding Windows credential material in memory, that level of access is exactly what a credential-dumping tool needs to read and extract it",
-            "0x1FFFFF is a value that only has meaning when the requesting object is a Windows service, and carries no significance against an ordinary process like lsass.exe",
-            "GrantedAccess is internal Falcon sensor telemetry noise, logged for engineering diagnostics only, with no operational meaning for a SOC analyst",
+            "PROCESS_VM_READ only: enough to read LSASS memory, but not to write to it or to control it",
+            "PROCESS_ALL_ACCESS, full control of lsass.exe, which holds the credentials a dumper reads",
+            "An access-denied code: the handle request was refused, so LSASS memory was not read",
+            "The rights lsass.exe requested on UpdateHelper.exe, so LSASS is the process acting here",
           ],
           answer: 1,
           explanation:
-            "0x1FFFFF is the PROCESS_ALL_ACCESS mask — full control over the target process's handle. LSASS specifically stores credential material (NTLM hashes, Kerberos tickets, sometimes plaintext passwords), so full access to it is the access level credential-dumping tools like Mimikatz require. GrantedAccess isn't an error code and isn't service-specific — it's a directly meaningful field for exactly this kind of triage.",
+            "0x1FFFFF is PROCESS_ALL_ACCESS, full control of the target process, and lsass.exe holds credential material (NTLM hashes, Kerberos tickets), so that access is what a dumping tool needs. “PROCESS_VM_READ only…” understates the mask: read access is a small part of it, not the whole of 0x1FFFFF. “An access-denied code…” misreads the field, and the record’s event.outcome is success. “The rights lsass.exe requested…” reverses the direction: UpdateHelper.exe is the accessing process and lsass.exe (TargetProcessName) is the target.",
           xp: 35,
         },
         {
           question:
             "crowdstrike.CallStackModuleNames lists dbghelp.dll among the modules loaded at the moment of the LSASS access. Why does this specific detail matter on top of the GrantedAccess value alone?",
           options: [
-            "dbghelp.dll is mapped into every Windows process automatically by the loader at startup, exactly the way ntdll.dll and kernel32.dll are, so its appearance in CallStackModuleNames is a constant of the sensor's telemetry and carries no investigative meaning on any host",
-            "dbghelp.dll contains the MiniDumpWriteDump function used to create process memory dumps — its presence in the call stack of a process requesting full access to lsass.exe is consistent with the exact mechanism Mimikatz-style credential dumpers use, though the same DLL is also loaded by legitimate diagnostic and crash-dump tools",
-            "dbghelp.dll is the Windows sockets and name-resolution library backing the WSAStartup and getaddrinfo calls, so seeing it in the call stack means the flagged process had already opened an outbound channel and was preparing to exfiltrate the credential material over the network",
-            "CallStackModuleNames is populated by Falcon only for behaviors its cloud has already scored as benign, so the presence of any module list at all — whichever DLLs it happens to name — is the sensor's own built-in indication that the detection was auto-classified as a false positive",
+            "Nothing: dbghelp.dll is mapped into every process at startup, like ntdll.dll, so it is constant noise",
+            "dbghelp.dll provides MiniDumpWriteDump, the routine dumpers use, though crash tools load it too",
+            "dbghelp.dll is the networking library behind getaddrinfo, so the process was about to exfiltrate",
+            "It shows the dump already finished, since dbghelp.dll appears only after a dump file is written",
           ],
           answer: 1,
           explanation:
-            "dbghelp.dll's role in producing memory dumps is exactly why its presence alongside a full-access LSASS request lines up with known credential-dumping mechanics. The reading is careful to note the dual nature of this signal: legitimate diagnostic tooling creating a crash dump can load the same DLL, which is precisely why this detail strengthens the case rather than closing it — it still needs to be weighed alongside the unsigned, generically-named binary and its unusual Temp-folder path, not read in isolation.",
+            "dbghelp.dll exports MiniDumpWriteDump, the routine that writes a process’s memory to a file, so seeing it in the call stack of a full-access request on lsass.exe matches credential-dumping mechanics; Reading 4 notes that crash-reporting tools such as Windows Error Reporting and ProcDump load it too, which is why it strengthens the case rather than closing it. “Nothing: dbghelp.dll is mapped into every process…” confuses it with ntdll.dll, which really is loaded everywhere. “…the networking library behind getaddrinfo…” describes the Winsock libraries, not dbghelp. “It shows the dump already finished…” misreads a call stack, which shows what was loaded at the moment of the access, not what happened afterwards.",
           xp: 40,
         },
         {
           question:
-            "crowdstrike.PatternDispositionDescription reads 'Detected, no action taken', and this is the third behavior in twenty-two minutes on this host sharing the same IncidentId, following a scheduled-task creation and a PowerShell download. Taken together with the unsigned, generically-named binary requesting full access to lsass.exe, what should the analyst do next?",
+            "crowdstrike.PatternDispositionDescription reads ‘Detected, no action taken’, and this is the third behavior in twenty-two minutes on this host sharing the same IncidentId, after a scheduled-task creation and a PowerShell download. Together with a generically named binary from a Temp folder requesting full access to lsass.exe, what should the analyst do next?",
           options: [
-            "Close the detection as purely informational, since a 'Detected, no action taken' disposition is Falcon's own signal that the pattern wasn't actually worth worrying about",
-            "Treat this as a likely true positive credential-access attempt that Falcon only observed rather than stopped — pull the full sibling behaviors under this IncidentId, check the file hash's reputation, then move toward containing the host and treating credentials on it as potentially exposed",
-            "Wait for a fourth correlated behavior to appear before taking any action at all, since three behaviors sharing one IncidentId in twenty-two minutes still isn't a strong enough pattern to act on",
-            "Immediately force a password reset for every domain user across the entire company, before doing any further investigation specific to this one host",
+            "Close it as informational: ‘no action taken’ is Falcon's signal it was not worth stopping",
+            "Likely true positive Falcon only observed: pull the sibling behaviours, check the hash, then contain",
+            "Wait for a fourth behaviour under the IncidentId before acting, since three is still a weak pattern",
+            "Isolate the host and close the case, since containment ends the incident without further scoping",
           ],
           answer: 1,
           explanation:
-            "'Detected, no action taken' means Falcon only observed the behavior — it did not stop it, which raises urgency rather than lowering it, the opposite of what closing it as purely informational assumes. Reading 5 (covered right after this task) treats three correlated behaviors sharing one IncidentId inside twenty-two minutes as already a strong, actionable pattern, not a reason to wait. And resetting every domain password company-wide, before scoping has even confirmed what's actually compromised, is a wildly disproportionate first move — the correct next steps are exactly the pivot, scope, and contain phases of this room's workflow.",
+            "‘Detected, no action taken’ means Falcon watched the LSASS access happen without stopping it, which raises urgency. With three correlated behaviours forming persistence, tooling and credential access, you pull the siblings, pivot on the hash and move to containment with the host’s credentials treated as exposed. “Close it as informational…” misreads disposition as a verdict: it says whether the action ran, not whether it was benign. “Wait for a fourth behaviour…” ignores that three correlated steps already form the story Reading 5 describes. “Isolate the host and close the case…” contains one host but skips the hash pivot and fleet scoping, and the scheduled task would survive.",
           xp: 40,
         },
       ],
@@ -421,14 +421,14 @@ const edrDetectionInvestigationRoom = {
       question:
         "Three Falcon behaviors fire against the same host within nine minutes, all sharing one IncidentId: a scheduled-task creation (Medium), a PowerShell download from an external site (Medium), and a credential-access attempt against lsass.exe (Critical). An analyst triages only the Critical one and closes the other two separately as routine, unrelated notices. What is wrong with this approach, based on Reading 5?",
       options: [
-        "Nothing is wrong: triage should follow severity alone, since a Medium rating means Falcon has already ruled those behaviors out of the Critical one's chain",
-        "Separate triage misses the sequence: the scheduled task and download are plausibly the persistence and tooling steps before the credential access, and the task may survive remediation",
-        "IncidentId is an internal CrowdStrike identifier with no investigative meaning, so two behaviors sharing one value say nothing about whether they are related",
-        "The download is unrelated to the credential access, because Falcon assigns an IncidentId per MITRE tactic, so Execution and Credential Access behaviors cannot share one",
+        "Nothing: Medium behaviours belong in their own queue, and the Critical one carries the case",
+        "It misses the sequence: the task and download are likely persistence and tooling, and the task can survive",
+        "Nothing, provided the Critical case ends in host isolation, since that stops the three behaviours",
+        "Merge same-tactic behaviours, since Execution and Credential Access serve separate attacker goals",
       ],
       answer: 1,
       explanation:
-        "Reading 5's core point is exactly this: severity alone doesn't establish whether behaviors are related, and the risk of triaging them separately is leaving an actual persistence mechanism in place. IncidentId is a correlation field with real investigative value, not a billing artifact. And the claim that Falcon assigns one IncidentId per MITRE tactic gets it backwards — behaviors from different tactics can share an IncidentId, and timing plus a shared IncidentId is precisely the signal Reading 5 said to weigh, not dismiss automatically.",
+        "Read together and in order, the three behaviours are one intrusion: persistence (the scheduled task), tooling (the download) and use of that tool against LSASS. Closing the first two separately can leave the scheduled task in place after the headline detection is remediated. “Nothing: Medium behaviours belong in their own queue…” lets severity decide relatedness, which Reading 5 warns against. “Nothing, provided the Critical case ends in host isolation…” confuses containment with remediation: isolation cuts the network, but the scheduled task still runs when the host is released. “Merge same-tactic behaviours…” misunderstands correlation: an intrusion moves through different tactics, and the shared IncidentId and timing are the evidence that ties them.",
       xp: 30,
     },
     // ── Reading 6: severity reassessment ─────────────────────────────────────
@@ -449,13 +449,13 @@ const edrDetectionInvestigationRoom = {
       id: "edr-ac1",
       heading: "Verdict: A High-Severity LOLBin Detection During a Deployment Window",
       scenario:
-        "Falcon fires a High-severity detection on SRV-DEPLOY-07, tagged Tactic: Defense Evasion and Technique: Signed Binary Proxy Execution — the exact technique family covered earlier in this room as a well-known LOLBin pattern, and the same family the log analysis task's credential-access case belonged to as well. Review the detection before deciding whether this is a true positive or a false positive.",
+        "Falcon fires a High-severity detection on SRV-DEPLOY-07, tagged Tactic: Defense Evasion and Technique: Signed Binary Proxy Execution — the LOLBin technique family covered earlier in this room. Review the detection before deciding whether this is a true positive or a false positive.",
       event: regsvr32DeploymentEvent,
       correct_verdict: "false_positive",
       explanation:
-        "crowdstrike.UserName is NEXACORP\\svc-sccm, a known deployment service account, not a human user's account behaving unusually. crowdstrike.CommandLine points at an internal deployment path (C:\\ProgramData\\NexaDeploy\\Modules\\...) rather than a generic Temp or AppData location. crowdstrike.PatternDispositionDescription reads 'Detected, no action taken', consistent with a tuned, expected deployment pattern that Falcon itself didn't judge worth blocking. And it_verify_result confirms change ticket CHG0052291 authorizing exactly this rollout, on this host, during this window. SeverityName 'High' and Tactic 'Defense Evasion' were assigned automatically the instant the regsvr32 pattern matched — Reading 6's exact point — regardless of who ran it or why.",
+        "crowdstrike.UserName is NEXACORP\\svc-sccm, a known deployment service account, not a human user's account behaving unusually. crowdstrike.CommandLine points at an internal deployment path (C:\\ProgramData\\NexaDeploy\\Modules\\...) rather than a generic Temp or AppData location. crowdstrike.PatternDispositionDescription reads 'Detected, no action taken', which only tells you the command ran; as in the log analysis task, a disposition says whether the action happened, not whether it was benign, so it neither clears nor condemns this case. What decides it is the IT verification note: change ticket CHG0052291 authorizing exactly this rollout, on this host, during this window. SeverityName 'High' and Tactic 'Defense Evasion' were assigned automatically the instant the regsvr32 pattern matched — Reading 6's exact point — regardless of who ran it or why.",
       fp_trap:
-        "A High-severity Signed Binary Proxy Execution detection is precisely the kind of alert that gets escalated on reflex, because this room's earlier reading and log analysis task both taught you to take LOLBin patterns and credential-access attempts seriously. But High severity here is the tool's automatic technique-based rating, not a verdict on its own — the service account, the internal (not generic) deployment path, the matching change ticket, and Falcon's own choice not to block it are the specific fields that separate this case from the log analysis task's genuine credential-access attempt. Escalating every LOLBin detection without checking these fields either buries a SOC in noise on every deployment night, or — just as dangerously — teaches the team to stop reading past the technique name entirely.",
+        "A High-severity Signed Binary Proxy Execution detection is precisely the kind of alert that gets escalated on reflex, because this room's earlier reading and log analysis task both taught you to take LOLBin patterns and credential-access attempts seriously. But High severity here is the tool's automatic technique-based rating, not a verdict on its own — the service account, the internal (not generic) deployment path and the matching change ticket are the specific fields that separate this case from the log analysis task's genuine credential-access attempt. Escalating every LOLBin detection without checking these fields either buries a SOC in noise on every deployment night, or — just as dangerously — teaches the team to stop reading past the technique name entirely.",
       xp: 35,
     },
     // ── Reading 7: pivot & scope ──────────────────────────────────────────────
@@ -482,19 +482,19 @@ const edrDetectionInvestigationRoom = {
     {
       type: "query_fill" as const,
       id: "edr-qf1",
-      heading: "Write It Yourself: Hunt the Same File Hash Across Every Other Host",
+      heading: "Write It Yourself: Hunt What the Dumper Launched, Fleet-Wide",
       language: "kql" as const,
       context:
-        "Before closing the WKS-FIN-0231 case, the team wants to know whether the exact same file has executed anywhere else in the fleet. Using Microsoft Defender's Advanced Hunting schema, fill in the table name, the hash column, and the exact hash value from this room's log analysis finding.",
+        "Reading 7's hunt already asks whether the file from WKS-FIN-0231 ran anywhere else. The team now wants the next question: on any host, which processes did that binary itself START (its children, such as a second-stage tool or an exfiltration helper)? Using Microsoft Defender's Advanced Hunting schema, fill in the table, the column that holds the hash of the process that launched each row's process, and the exact hash from this room's log analysis finding.",
       template:
         "{{table}}\n| where {{field}} == \"{{hash}}\"\n| project Timestamp, DeviceName, AccountName, FileName, ProcessCommandLine",
       blanks: [
         { id: "table", answers: ["DeviceProcessEvents"], placeholder: "Advanced Hunting table for process execution telemetry" },
-        { id: "field", answers: ["SHA256"], placeholder: "column holding the file's hash" },
+        { id: "field", answers: ["InitiatingProcessSHA256"], placeholder: "column holding the launching (parent) process's hash" },
         { id: "hash", answers: ["b7f3a92c518e6d4f0a1b8c37d2e9f645a1c8b3d7e2f094c6a8b1d3e5f7092c4a"], placeholder: "exact hash from the log analysis finding" },
       ],
       explanation:
-        "DeviceProcessEvents is the Advanced Hunting table for process execution telemetry, and SHA256 is the column carrying the file's cryptographic fingerprint. Using the exact hash from the WKS-FIN-0231 detection turns a single-host finding into a fleet-wide answer — precisely the scoping step Reading 7 described. Even though this specific hunt is written in Defender's KQL, the identical logic applies inside the CrowdStrike console using Falcon's own query language against SHA256HashData.",
+        "DeviceProcessEvents is the Advanced Hunting table for process execution. In each row, SHA256 is the hash of the process that started, while InitiatingProcessSHA256 is the hash of the process that launched it, so filtering InitiatingProcessSHA256 on the dumper's hash returns every child it spawned, on any host. Filtering SHA256 instead would repeat Reading 7's question (where did the dumper itself run). Together the two hunts scope both the file and what it did next, which is the scoping step Reading 7 described. Inside the CrowdStrike console the same idea uses Falcon's own query language and parent-process fields.",
       xp: 30,
     },
     // ── Flag ──────────────────────────────────────────────────────────────
@@ -503,9 +503,9 @@ const edrDetectionInvestigationRoom = {
       id: "edr-f1",
       event: lsassAccessEvent, // show the WKS-FIN-0231 log this flag reads
       prompt:
-        "Look at the log analysis finding on WKS-FIN-0231. What is the exact value of the crowdstrike.DetectId field in the raw log?",
-      answer: "ldt:9f2ab6c4de3f4a1c8b7e2d5f0a9c3b6e:88213",
-      hint: "Look inside the raw block of the log analysis event for the field named crowdstrike.DetectId.",
+        "The credential-access behavior on WKS-FIN-0231 ran unblocked, so the account whose session ran the dumper is the first credential to rotate. Which account was it? Enter the account name without the domain prefix.",
+      answer: "r.callahan",
+      hint: "The raw event records the user context of the flagged process; drop the part before the backslash.",
       xp: 20,
     },
     // ── Question 4 — containment decision ────────────────────────────────────
@@ -515,14 +515,14 @@ const edrDetectionInvestigationRoom = {
       question:
         "On WKS-FIN-0231, the credential-access behavior is confirmed as a true positive: PatternDispositionDescription showed 'Detected, no action taken', and the SHA256 hash pivots back as a known credential-dumping utility in your threat intelligence platform. What is the correct immediate containment action?",
       options: [
-        "Power the host down and unplug it: a hard shutdown stops all activity at once and writes physical memory to the hibernation file, preserving volatile evidence",
-        "Network-contain the host through the EDR console so it stays reachable for forensics, kill the malicious process, and treat credentials used on the host as exposed pending rotation",
-        "Hold containment until the end of the business day, since Falcon network containment needs a maintenance window and would sever the sensor's link to the cloud",
-        "Email the analyst to close the laptop lid, since sleep suspends every process and cuts an active attacker session as reliably as EDR network containment",
+        "Power the host off: a hard shutdown stops all activity and keeps memory in the hibernation file",
+        "Network-contain it via the EDR console, kill the process, and treat its credentials as exposed",
+        "Kill the process and delete the binary, but leave the network up so the user can keep working",
+        "Re-image the host right away, since a clean rebuild removes the dumper and any persistence",
       ],
       answer: 1,
       explanation:
-        "Shutting the host down destroys volatile memory evidence and offers no guarantee that a persistence mechanism already written to disk is actually stopped. Network containment through the EDR console cuts off further communication while keeping the host reachable for continued forensic work through the same channel — the balance a real incident response actually needs. Since PatternDispositionDescription showed the access was never blocked, credentials on this host should be treated as compromised without delay, ruling out waiting for end of day. Emailing the user risks tipping off an attacker if the session is still active, and doesn't actually contain anything on its own.",
+        "EDR network containment cuts the host off while keeping it reachable through the console for forensics; killing the process stops the activity, and because the LSASS access was never blocked, credentials used on the host are treated as exposed. “Power the host off…” destroys volatile memory: a hard shutdown is not hibernation, and nothing is written to a hibernation file. “Kill the process and delete the binary…” leaves an attacker with a foothold free to relaunch over the network, and does nothing about the stolen credentials. “Re-image the host right away…” destroys the evidence needed to scope the incident, and the stolen credentials remain valid after the rebuild.",
       xp: 30,
     },
     // ── Question 5 — cross-host hash scoping escalation ─────────────────────
@@ -532,14 +532,14 @@ const edrDetectionInvestigationRoom = {
       question:
         "Two days later, a new Falcon detection fires on a completely different host, and its crowdstrike.SHA256HashData exactly matches the hash from the WKS-FIN-0231 case. What does this tell you, and what should you do?",
       options: [
-        "Treat it as a coincidence: SHA256 values of unrelated files collide across hosts often enough that a match alone proves little",
-        "The same file is now confirmed on a second host: treat it as part of the same incident and re-run fleet-wide scoping before assuming containment is complete",
-        "It points to a Windows system component, since the OS reuses one SHA256 across many legitimate files, so the match carries no investigative weight",
-        "Since WKS-FIN-0231 was already contained, treat this as a duplicate of a handled case and close it after a quick check of the process name",
+        "A separate incident on that host: open a new case and handle it independently of the first",
+        "The same file on a second host: one incident, so re-scope the fleet before calling it contained",
+        "Re-image the second host straight away and close, since the hash is already known to be bad",
+        "A duplicate of the handled case: WKS-FIN-0231 is contained, so close it after a quick look",
       ],
       answer: 1,
       explanation:
-        "SHA256 is a cryptographic fingerprint specifically designed so that two different files essentially never produce the same value — a match means, for all practical purposes, the same file, not a coincidence and not a reused generic hash. That's exactly the scoping step from Reading 7 and the six-step workflow bearing out: the incident is larger than first believed, so it should be treated as one ongoing case and scoped further, not closed automatically because the first host was already handled.",
+        "An identical SHA256 means, for practical purposes, the same file, so the incident is larger than the first host and you re-run fleet-wide scoping before treating it as contained. “A separate incident…” splits one attacker’s activity into unconnected cases and loses the link to the first investigation. “Re-image the second host straight away and close…” skips scoping: if the file reached a second host, it may be on others. “A duplicate of the handled case…” assumes containing the first host contained the incident, which the new detection disproves.",
       xp: 30,
     },
   ],

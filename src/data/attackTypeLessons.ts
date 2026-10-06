@@ -1290,200 +1290,200 @@ export const ATTACK_TYPE_LESSONS = [
             "value": "b"
           },
           {
-            "label": "This pattern is most consistent with a routine, scheduled log-retention maintenance task",
+            "label": "A scheduled maintenance job is clearing old logs and pruning shadow copies overnight",
             "value": "c"
           },
           {
-            "label": "This indicates the ransomware has already fully encrypted the environment and response should shift entirely to recovery",
+            "label": "Encryption has already finished across the fleet, so response should move to recovery",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Shadow copy deletion combined with log clearing across multiple hosts in a tight window is the textbook signature of the pre-encryption sabotage phase — the last real opportunity to intervene before mass encryption begins. It's inconsistent with early reconnaissance, which is typically much quieter and doesn't involve destructive commands at all. Legitimate log retention maintenance doesn't clear logs via wevtutil cl combined with shadow copy deletion — that combination has essentially no benign explanation. And this doesn't mean encryption has already completed — it means it's about to start, which is exactly why this window still matters for response."
+        "explanation": "Shadow-copy deletion plus Security-log clearing across several hosts in a tight window is the pre-encryption sabotage phase — the last real chance to intervene before mass encryption. “The intrusion is in its earliest reconnaissance stage” does not fit: discovery is quiet and does not destroy recovery points or logs. “A scheduled maintenance job” is the narrow benign case the lesson describes, but that case is a single host; the same destructive commands on six servers within 20 minutes have no maintenance explanation, and backup products do not clear the Security log. “Encryption has already finished” gets the order wrong: sabotage clears the way for encryption, so this is the moment just before it, when isolation still prevents the outage."
       },
       {
         "question": "Two incidents, both attributed to the same ransomware brand, show completely different initial access vectors — one via a phished credential, the other via an exploited VPN appliance CVE — and different operational tempos. What best explains this?",
         "options": [
           {
-            "label": "One of the two attributions must be incorrect, since a single ransomware group always uses one consistent initial access method",
+            "label": "One attribution is likely wrong — a ransomware group sticks to the entry method it is known for",
             "value": "a"
           },
           {
-            "label": "The Ransomware-as-a-Service model means many independent affiliates use the same branded encryptor with different methods",
+            "label": "RaaS — independent affiliates rent the same branded encryptor and bring their own access methods",
             "value": "b"
           },
           {
-            "label": "Ransomware groups randomly rotate their techniques on a fixed schedule to evade detection",
+            "label": "The group bought one of the footholds from an access broker, so only the entry route differed",
             "value": "c"
           },
           {
-            "label": "This is expected because all ransomware brands are technically the same malware family with different names",
+            "label": "The core developers shipped a new encryptor version between the two, which changed the playbook",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Under the RaaS affiliate model, a single branded encryptor and leak-site infrastructure is licensed out to numerous independent affiliates, who bring their own initial access methods, skill level, and operational style — explaining exactly this kind of variance under one brand name. Both attributions can be correct simultaneously; a brand isn't tied to one operator or one method. There's no fixed rotation schedule driving this variance — it reflects genuinely different people operating independently. Different ransomware brands are not the same malware family; they are distinct codebases built and maintained by different core developer groups."
+        "explanation": "Under Ransomware-as-a-Service, one branded encryptor and leak site are licensed to many independent affiliates, each with their own entry methods, skills and tempo — exactly the variance described. “One attribution is likely wrong” assumes a brand is one operator; under RaaS both attributions can be right. “The group bought one of the footholds from an access broker” is a real part of the ecosystem and explains a different entry route, but not a different operational tempo after entry, which is set by whoever operates inside — here, different affiliates. “The core developers shipped a new encryptor version” changes the payload, not how an intruder gets in or how fast they move."
       },
       {
         "question": "Why does data exfiltration monitoring matter specifically as a ransomware detection control, not just as a generic data-loss-prevention concern?",
         "options": [
           {
-            "label": "Because ransomware never actually encrypts data and relies purely on the threat of publishing stolen data",
+            "label": "Because the exfiltrated volume shows which file shares the encryptor will target, so you can protect them",
             "value": "a"
           },
           {
-            "label": "Because exfiltration usually happens during lateral movement, before encryption, making it detectable early",
+            "label": "Because the theft usually happens before encryption, so it can be caught while the outage is preventable",
             "value": "b"
           },
           {
-            "label": "Because exfiltration and encryption always happen through the exact same process and share identical log signatures",
+            "label": "Because exfiltration is the one ransomware phase that crosses the perimeter, so it is the network-visible one",
             "value": "c"
           },
           {
-            "label": "Because DLP tools automatically stop ransomware encryption once triggered",
+            "label": "Because blocking the exfiltration removes the attacker's leverage, so the encryption is usually called off",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Double extortion relies on stealing data before encrypting it, and that theft typically happens during the earlier lateral-movement phase — meaning a SOC watching for unusual outbound transfers can catch the intrusion before the encryption outage even starts. Modern ransomware absolutely still encrypts data; double extortion adds a data-theft threat on top of encryption, it doesn't replace it. Exfiltration and encryption are separate, distinct actions with different tooling and different log evidence. DLP detecting exfiltration doesn't automatically stop a separate encryption process from running."
+        "explanation": "Double extortion means data is stolen before anything is encrypted, typically during lateral movement and the pre-encryption phase — so a SOC watching for large outbound transfers to unfamiliar destinations can catch the intrusion while the outage is still preventable. “The exfiltrated volume shows which file shares the encryptor will target” confuses the two actions: attackers steal what is valuable to leak and encrypt as widely as their access allows. “Exfiltration is the one ransomware phase that crosses the perimeter” ignores initial access through edge devices and the C2 traffic that runs throughout. “Blocking the exfiltration removes the attacker's leverage” is wishful: encryption is a separate step that does not depend on the theft succeeding, so the response must still isolate and contain."
       },
       {
-        "question": "Why has hypervisor-targeting (ESXi-focused encryptors) become such an effective force multiplier for ransomware operators?",
+        "question": "An affiliate has admin access to one ESXi host running 50 virtual servers. What makes going after the hypervisor a force MULTIPLIER — why does one compromised ESXi host cause far more damage than one compromised Windows server?",
         "options": [
           {
-            "label": "Because ESXi hosts are always left completely unpatched by every organisation",
+            "label": "Hypervisor management interfaces get lighter monitoring than domain controllers, so attacks there go unnoticed",
             "value": "a"
           },
           {
-            "label": "Because encrypting the hypervisor's datastore files encrypts every guest VM in a single pass",
+            "label": "Encrypting the datastore files that back the VMs takes out every guest on that host in a single pass",
             "value": "b"
           },
           {
-            "label": "Because hypervisors have no logging capability at all, making detection technically impossible",
+            "label": "Encrypted virtual machines cannot be restored from backup, unlike files encrypted on a Windows server",
             "value": "c"
           },
           {
-            "label": "Because ESXi hosts cannot run any endpoint security tooling under any circumstances",
+            "label": "The domain controllers run as VMs on that host, so encrypting it hands the attacker domain admin rights",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Targeting the hypervisor's own datastore files means every virtual machine backed by that datastore gets encrypted in one operation, dramatically multiplying the blast radius compared to encrypting each guest OS individually. It's not that ESXi hosts are universally unpatched — they're simply often under-prioritized relative to Windows infrastructure, which is a risk-management gap, not an absolute. Hypervisors do produce logs and audit trails; detection is possible, just often under-monitored. Endpoint tooling options for hypervisors are more limited than for guest OSes, but 'cannot run any under any circumstances' overstates it — the real issue is under-monitoring, not technical impossibility."
+        "explanation": "An ESXi encryptor goes after the datastore files that back every VM on the host, so 50 servers are encrypted in about the time one physical Windows server would take — that is the multiplier. “Hypervisor management interfaces get lighter monitoring” is true and is why they are attractive targets, but it explains stealth, not why the impact multiplies. “Encrypted virtual machines cannot be restored from backup” is false: an offline or immutable VM backup restores like any other; the problem is losing everything on the host at once. “Encrypting it hands the attacker domain admin” confuses destruction with privilege: encrypting a domain controller's VM files destroys it, it does not give its credentials to anyone."
       },
       {
-        "question": "An organisation hit by ransomware says confidently, 'we're fine, we have nightly backups to a network drive that the backup server writes to automatically.' Why might this reassurance be dangerously misplaced, and what property actually determines whether a backup survives?",
+        "question": "An attacker already holds domain admin and is preparing to encrypt. The organisation has four backup copies of its file servers. Which one is most likely to still be usable after the attack?",
         "options": [
           {
-            "label": "They are completely safe, because any backup that runs on an automated nightly schedule is by definition immune to ransomware regardless of where it is stored or how it is connected to the network",
+            "label": "Hourly snapshots kept on the same storage array (SAN) that hosts the production virtual machines",
             "value": "a"
           },
           {
-            "label": "A network drive the backup server writes to is online and reachable, so an attacker at domain admin can encrypt or delete it with everything else (vssadmin delete shadows); survival depends on a copy being offline or immutable, not on the schedule",
+            "label": "A copy in cloud object storage with object-lock immutability that not even an admin can alter",
             "value": "b"
           },
           {
-            "label": "The only real problem is that nightly backups are simply too infrequent, and switching the exact same connected network drive to hourly backups would fully solve the ransomware recovery risk",
+            "label": "Nightly backups to a domain-joined NAS share, kept for 90 days so older clean versions exist",
             "value": "c"
           },
           {
-            "label": "Backups are irrelevant to ransomware entirely, because modern ransomware always steals data rather than encrypting it, so recovery from any backup copy is never actually part of the response",
+            "label": "A second backup server at the DR site, replicating every hour over the WAN from the first one",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A backup destination the server can write to over the network is reachable, and a competent attacker with domain admin deliberately encrypts or deletes such backups (often after removing shadow copies) before detonating. What determines survival is reachability: only an offline/air-gapped or immutable copy is safe. The option “They are completely safe, because any backup…” is false — connectivity, not schedule, decides. The option “The only real problem is that nightly…” fixes frequency but leaves the fatal connectivity problem. The option “Backups are irrelevant to ransomware entirely, because…” overstates exfiltration; encryption is still central, and backups remain the recovery path (they just don't cure a data leak)."
+        "explanation": "What decides survival is reachability, not schedule or retention: the 3-2-1 rule's last copy must be offline or immutable. Object-lock storage cannot be altered or deleted from the compromised network, even with admin rights, so it is the copy that restores you. “Hourly snapshots … on the same storage array” live next to production and are reachable by an attacker who controls it — frequency does not help. “Nightly backups to a domain-joined NAS share” are online and reachable with domain admin, so long retention just means more versions to delete. “A second backup server at the DR site, replicating every hour” is still connected; replication faithfully copies deletion or encryption to the second site."
       },
       {
-        "question": "In a ransomware incident the same family (say, LockBit) is identified, and an executive asks whether the organisation should pay to get a decryptor. Which statement best reflects a mature understanding of both attribution and the pay decision?",
+        "question": "Encrypted servers can be rebuilt from intact immutable backups, but the attacker exfiltrated 200 GB of customer records before encrypting and now demands payment to “delete the data”. An executive asks whether paying would end the incident. Which answer reflects the lesson?",
         "options": [
           {
-            "label": "Identifying the ransomware family precisely names the individual attacker, and paying always guarantees a fast, complete decryptor, so paying is simply the most efficient recovery option",
+            "label": "Yes for the leak — payment buys deletion of the stolen copy, so only the encrypted servers remain an issue",
             "value": "a"
           },
           {
-            "label": "The family name identifies the rented tool, not reliably who is behind it (RaaS affiliates + access brokers); and paying is neither guaranteed nor clean — it may be slow/buggy, may violate sanctions, and under double extortion does not un-leak stolen data, so it is a legal/executive decision, not a technician's",
+            "label": "No — nothing proves the stolen copy is deleted, payment may breach sanctions, and it is a legal/executive call",
             "value": "b"
           },
           {
-            "label": "Because ransomware is a single individual acting alone, the family name is a full attribution, and the pay decision is a routine technical task the SOC analyst should carry out immediately without escalation",
+            "label": "Pay only after proof-of-life, since a working sample decryption shows the attacker will honour the deal",
             "value": "c"
           },
           {
-            "label": "Paying is always illegal in every jurisdiction and under all circumstances, so attribution is irrelevant and the only correct response is to refuse and immediately wipe every affected system without any further analysis",
+            "label": "Restore from the immutable backups and stop there — once restored, the extortion no longer has any leverage",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A ransomware family is rented by many affiliates who often buy access from brokers, so the brand identifies the tool, not the operator — treat tradecraft as evidence. And paying is fraught: no guarantee of a working decryptor, potential sanctions violations, and double extortion means paying cannot un-publish stolen data — making it a business/legal/executive decision with law-enforcement input, not a SOC action. The option “Identifying the ransomware family precisely names the…” is wrong on both counts. The option “Because ransomware is a single individual acting…” misattributes and dangerously puts the pay call on the analyst. The option “Paying is always illegal in every jurisdiction…” overstates the legality (it is situational/sanctions-dependent, not universally illegal) and prescribes reckless wiping."
+        "explanation": "Under double extortion there is no reliable way to prove the attacker deleted the stolen copy, payment to a sanctioned group can itself be illegal, and the decision belongs to legal and executive leadership with law-enforcement input — not to the SOC. “Payment buys deletion of the stolen copy” takes the criminal's promise at face value; the Medusa case shows victims being extorted again after paying. “Pay only after proof-of-life” misreads what proof-of-life tests: it shows a decryption key works, not that stolen data will be deleted or that no second demand will follow. “Restore from the immutable backups and stop there” is the lesson's key distinction: backups beat encryption, not extortion — restoring does nothing to un-leak 200 GB of customer records."
       },
       {
-        "question": "In a worked timeline, a kernel driver install (Event ID 7045) fires at 03:14, the Security log is cleared (Event ID 1102) at 03:16, `vssadmin delete shadows /all /quiet` runs at 03:17, and mass file-write activity (Sysmon Event ID 11) begins at 03:22 — all under the same service account on the same host, within an eleven-minute window. What does this correlation most strongly indicate, and what should the analyst do?",
+        "question": "A new timeline from HR-FS01, all under the account CORP\\it-deploy: 01:02 Sysmon Event ID 1 runs `net group \"Domain Admins\" /domain`; 01:40 System Event ID 7036 shows the Veeam Backup Service entering the stopped state; 01:41 Sysmon Event ID 1 runs `wmic shadowcopy delete`; 01:44 Sysmon Event ID 11 records HR_Payroll_2026.xlsx.akira and README.txt being created, followed by 18,000 more file-create events by 01:47. Which single event marks the point where sabotage became encryption?",
         "options": [
           {
-            "label": "It is an isolated driver update that happened to coincide with unrelated scheduled maintenance and log rotation, so no action is needed",
+            "label": "01:40 — the backup service stopping (7036), because the encryptor stops services to start",
             "value": "a"
           },
           {
-            "label": "The correlated sequence — a BYOVD-style driver install, audit-log clearing, shadow-copy deletion, then mass file writes within minutes on one account and host — is pre-encryption sabotage transitioning into encryption, and warrants immediate isolation of the host and account",
+            "label": "01:44 — the first file rewritten with a new extension plus a ransom note (Event ID 11)",
             "value": "b"
           },
           {
-            "label": "Each event is individually notable, but because a backup service account is involved, the entire chain is automatically benign since backup accounts routinely touch many files",
+            "label": "01:41 — the shadow-copy deletion, because removing recovery points is the encryption step",
             "value": "c"
           },
           {
-            "label": "This pattern only matters if FIN-SQL02 is a domain controller; on an ordinary file server, the same sequence carries no urgency",
+            "label": "01:02 — the Domain Admins enumeration, because the target list for encryption is built there",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "No single event proves anything alone, but the same account and host producing a driver install, a cleared audit log, a shadow-copy deletion, and a burst of tens of thousands of file writes within an eleven-minute window is the textbook correlated signature of pre-encryption sabotage rolling straight into encryption — exactly the moment to isolate the host and disable the account, not wait for confirmation. The option “It is an isolated driver update that…”'s 'unrelated maintenance' explanation collapses once you notice all four events share one account and a tight time window. The option “Each event is individually notable, but because…” is wrong precisely because a service account has no legitimate reason to interactively delete shadow copies or install kernel drivers — that mismatch is a key tell, not a reason to dismiss it. The option “This pattern only matters if FIN-SQL02 is…” is wrong because file servers holding sensitive shared data are high-value ransomware targets in their own right; urgency doesn't require a domain controller."
+        "explanation": "Encryption (T1486) begins at the first file rewritten with a ransomware extension and the ransom note dropped beside it — the 01:44 Event ID 11 records — followed by thousands more file creates in minutes. Everything before it prepares the ground. “The backup service stopping (7036)” is the service-stop step (T1489) the lesson places immediately BEFORE encryption, freeing locked files; nothing has been encrypted yet. “The shadow-copy deletion” is T1490, Inhibit System Recovery — pre-encryption sabotage that removes the way back, not encryption itself. “The Domain Admins enumeration” is discovery from the dwell phase, roughly 40 minutes earlier. Being able to place each event in its phase is what tells you how much time is left: once the 01:44 records appear, isolate immediately."
       },
       {
         "question": "BianLian shifted to an exclusively exfiltration-based extortion model (no encryption at all) by early 2024. Why is this trend particularly dangerous for a SOC that has tuned its ransomware detections primarily around T1486, T1490, T1562.001, and T1070.001?",
         "options": [
           {
-            "label": "It isn't actually dangerous, since exfiltration-only groups still trigger the exact same shadow-copy and log-clearing signals as encryption-based ransomware",
+            "label": "These groups disable EDR more aggressively to hide the theft, so T1562.001 becomes the main signal",
             "value": "a"
           },
           {
-            "label": "None of those signals depend on an encryption step occurring, so exfiltration-only extortion is caught by them just as reliably as traditional ransomware",
+            "label": "With no encryption there is no rewrite burst, so entropy and canary-file detections become the key layer",
             "value": "b"
           },
           {
-            "label": "Those detections all assume an encryption event is coming, so an exfiltration-only intrusion never triggers shadow-copy deletion, EDR tampering, or log clearing — leaving exfiltration monitoring as the primary detection layer",
+            "label": "Those signals exist to clear the way for encryption; with no encryption step they never fire at all",
             "value": "c"
           },
           {
-            "label": "Exfiltration-only extortion is only a concern for cloud environments and has no relevance to on-premises SOC detection strategy",
+            "label": "The risk sits with SaaS data, since exfiltration-only groups go after cloud apps, not on-premises systems",
             "value": "d"
           }
         ],
         "answer": "c",
-        "explanation": "T1490 (shadow copy deletion), T1562.001 (tool tampering), and T1070.001 (log clearing) are all pre-encryption sabotage steps that exist to enable a smooth encryption run — an operation that skips encryption entirely, like BianLian's current model, never generates them. That makes outbound-transfer and exfiltration monitoring a mandatory, co-equal detection layer, not a backup for when encryption-phase detections fail. The options “It isn't actually dangerous, since exfiltration-only groups…”, “It isn't actually dangerous, since exfiltration-only groups…”, “Exfiltration-only extortion is only a concern for…” and “None of those signals depend on an…” are wrong because exfiltration-only intrusions specifically do not need to touch shadow copies or logs the way an encryption run does. The option “Exfiltration-only extortion is only a concern for…” is wrong — the technique targets any internet-facing data repository, on-premises file-transfer appliances included, as the MOVEit/Cl0p campaigns showed."
+        "explanation": "T1490 (shadow-copy deletion), T1562.001 (tool tampering) and T1070.001 (log clearing) are pre-encryption sabotage — they exist to make the encryption run succeed — and T1486 is the encryption itself. An operation that never encrypts, like BianLian's current model, has no reason to generate any of them, which leaves exfiltration monitoring as the layer that has to catch it. “These groups disable EDR more aggressively” has no basis in the lesson; tool tampering serves the encryption run, and the Cl0p campaigns needed no endpoint access at all. “Entropy and canary-file detections become the key layer” confuses this trend with intermittent encryption: those controls watch for files being encrypted, which never happens here. “The risk sits with SaaS data” is wrong — MOVEit and GoAnywhere were file-transfer appliances that many victims ran themselves."
       },
       {
         "question": "During ransomware incident response, why is 'eradicate the attacker's access, then restore from backup' the correct sequence rather than restoring first and investigating afterward?",
         "options": [
           {
-            "label": "Restoring first is actually safer because it gets the business running again fastest, and the entry point can be investigated at leisure afterward with no added risk",
+            "label": "Restoring first is fine as long as the backups used were taken before the intrusion began",
             "value": "a"
           },
           {
-            "label": "If the initial access vector is not identified and closed first, restoring simply hands the attacker a freshly-rebuilt environment to re-compromise and re-encrypt through the same unpatched entry point",
+            "label": "The entry point stays open after a restore, so the rebuilt hosts can be re-compromised the same way",
             "value": "b"
           },
           {
-            "label": "There is no meaningful difference in outcome between the two sequences, so the order is purely a matter of organisational preference",
+            "label": "Restoring first is fine once the compromised accounts are disabled, as the attacker has no login left",
             "value": "c"
           },
           {
-            "label": "Backups should never be used at all during ransomware response, regardless of sequence, because they always contain the same malware that caused the original encryption",
+            "label": "Restoring first is fine once the encrypted hosts are isolated, since isolation cut the attacker off",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A ransomware intrusion's entry point (an unpatched VPN appliance, a phished credential, a leftover web shell) still exists after a restore unless it's specifically closed — restoring without eradication just gives the attacker a clean environment to re-encrypt. The option “Restoring first is actually safer because it…” ignores this exact re-compromise risk. The option “There is no meaningful difference in outcome…” is wrong; sequence materially changes outcome. The option “Backups should never be used at all…” overstates the risk — clean offline/immutable backups predating the compromise are the intended recovery path once the entry point is closed, not something to avoid altogether."
+        "explanation": "The entry point — an unpatched VPN appliance, a phished credential that was never rotated, a web shell left behind — survives a restore unless it is found and closed, so restoring first hands the attacker a freshly rebuilt environment to re-encrypt. “The backups used were taken before the intrusion began” is the right kind of backup, but a clean image says nothing about the unpatched appliance in front of it. “Once the compromised accounts are disabled” helps, yet an exploited VPN CVE or a web shell needs none of those accounts, and the lesson says to rotate every credential the attacker may have touched, not only the known ones. “Once the encrypted hosts are isolated” stops spread from those hosts, but the attacker's way in sits elsewhere and is still open."
       }
     ],
     "references": [

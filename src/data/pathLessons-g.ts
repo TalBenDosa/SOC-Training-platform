@@ -92,165 +92,165 @@ const lessons = [
     ],
     "quiz": [
       {
-        "question": "You are a SOC analyst who has just confirmed that host WKS-4471 is running a Cobalt Strike beacon. Your team lead asks whether you should immediately isolate the host. Following the investigation workflow, what should you do first?",
+        "question": "You are a SOC analyst who has just confirmed that host WKS-4471 is running a Cobalt Strike beacon. Nothing shows encryption or data leaving the network yet. Your team lead asks whether to isolate the host now. Following the investigation workflow, what should you do first?",
         "options": [
           {
-            "label": "Isolate WKS-4471 immediately, because any confirmed beacon is an emergency that overrides all other steps",
+            "label": "Isolate WKS-4471 now — a live beacon may be staging ransomware, and isolation stops active damage",
             "value": "a"
           },
           {
-            "label": "Scope the incident first — pivot across users and other hosts to find the full blast radius — so containment is coordinated rather than piecemeal",
+            "label": "Scope first — pivot across users, hosts and time so every affected asset is contained in one move",
             "value": "b"
           },
           {
-            "label": "Close the alert as a true positive and move on to the next item in the queue",
+            "label": "Re-image WKS-4471 now — removing the beacon quickly matters more than what its disk holds",
             "value": "c"
           },
           {
-            "label": "Re-image WKS-4471 right away to remove the malware as fast as possible",
+            "label": "Block the C2 domain at the proxy first, then start scoping while the beacon is cut off",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Isolating one host before scoping is the classic junior mistake: if the adversary has spread, the other compromised hosts keep them in the network and you have merely tipped them off. Scoping (pivoting across users, hosts, and time, plus an IOC sweep) must precede containment so the whole set can be contained at once. The option “Isolate WKS-4471 immediately, because any confirmed beacon…” skips scoping. The option “Close the alert as a true positive…” abandons a confirmed intrusion. The option “Re-image WKS-4471 right away to remove the…” re-images before scoping and before preserving evidence, destroying forensic artifacts."
+        "explanation": "With no active encryption or exfiltration in progress, scoping comes before containment: if the adversary has spread, isolating one host only tips them off while the other footholds stay live. “Isolate now — a live beacon may be staging ransomware” misapplies the lesson's exception: immediate isolation is right when ransomware IS encrypting or exfiltration IS under way, not on the possibility of it. “Block the C2 domain first” is a containment action taken before scoping, so it alerts the adversary just the same. “Re-image now” contains before scoping and also destroys the forensic evidence on the host."
       },
       {
         "question": "You are a SOC analyst building a timeline and you notice the firewall shows a C2 callback at 04:12 while the phishing email that supposedly delivered the payload arrived at 09:14 the same day. Both timestamps come from different systems. What is the most likely explanation and correct action?",
         "options": [
           {
-            "label": "The adversary used time travel; escalate to the FBI immediately",
+            "label": "The gateway queued the email, so 09:14 is its release time; keep the order as recorded",
             "value": "a"
           },
           {
-            "label": "The timestamps are in different time zones or clock sources; normalize everything to UTC before drawing conclusions",
+            "label": "The sources use different time zones or clocks; normalize both to UTC before concluding",
             "value": "b"
           },
           {
-            "label": "The firewall log is fabricated and should be deleted from the timeline",
+            "label": "The beacon predates this email, so open a second case for an earlier infection",
             "value": "c"
           },
           {
-            "label": "The phishing email is irrelevant, so remove it from the timeline",
+            "label": "The firewall is NTP-synced, so trust its time and move the email before 04:12",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "An effect appearing before its cause is almost always a time-normalization error, not a real ordering. Different sources (firewall local time vs. cloud UTC) must be converted to a single reference — usually UTC — before the timeline can be trusted. Publishing a timeline where the callback precedes the delivery will destroy your credibility. The options “The adversary used time travel; escalate to…” and “The firewall log is fabricated and should…”, and d all react to the symptom instead of fixing the root cause, which is un-normalized timestamps."
+        "explanation": "An effect appearing before its cause is almost always a time-normalization error: a firewall logging local time and a mail platform logging UTC can easily sit hours apart. Normalize every source to UTC first, then judge the order. “The gateway queued the email” resolves nothing — a delayed release still puts delivery after the callback. “Open a second case for an earlier infection” may turn out to be true, but concluding it before normalizing the clocks is exactly the error the lesson warns about. “Trust the firewall because it is NTP-synced” confuses an accurate clock with a shared time zone, and moving the email's time by hand falsifies the evidence."
       },
       {
         "question": "You are a SOC analyst and scoping has revealed that the compromised service account svc_backup was used for lateral movement from three different hosts. Your manager wants to contain the incident. Which containment action gives you the highest leverage to shrink the scope?",
         "options": [
           {
-            "label": "Isolate the three hosts one at a time over the next several days as you get to each one",
+            "label": "Isolate all three hosts at once, since they are where the attacker's tooling is running",
             "value": "a"
           },
           {
-            "label": "Reset the svc_backup credential everywhere it is valid, in coordination with isolating the affected hosts and blocking the C2 as one move",
+            "label": "Reset svc_backup everywhere it is valid, together with isolating the hosts and blocking C2",
             "value": "b"
           },
           {
-            "label": "Block only the C2 IP at the firewall and consider the incident contained",
+            "label": "Disable svc_backup now and isolate the hosts in the next maintenance window",
             "value": "c"
           },
           {
-            "label": "Delete the malicious files from each host so the sample cannot spread further",
+            "label": "Block the C2 IP at the firewall, since cutting the channel removes the attacker's control",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A compromised credential is an identity that works from anywhere, so resetting it everywhere it is valid shrinks the blast radius faster than isolating machines one by one — but it must be done in a coordinated move with host isolation and C2 blocking so the adversary loses everything at once. The option “Isolate the three hosts one at a…” is piecemeal and gives the adversary days to react. The option “Block only the C2 IP at the…” ignores the credential entirely. The option “Delete the malicious files from each host…” destroys the malware sample you needed for analysis and sweeping, and still leaves the credential usable."
+        "explanation": "A compromised credential is an identity that works from anywhere, so resetting it everywhere it is valid shrinks the blast radius more than any host action — and doing it in the same coordinated move as host isolation and C2 blocking leaves the adversary nothing to fall back on. “Isolate all three hosts at once” is coordinated but leaves svc_backup usable from any other machine. “Disable svc_backup now and isolate the hosts later” splits the move, giving the adversary time to react on the hosts. “Block the C2 IP” cuts one channel, but the stolen credential still works and the attacker can switch infrastructure."
       },
       {
-        "question": "You are a SOC analyst about to power off a compromised workstation to stop an active infection. Before you take this irreversible action, which consideration is most important according to the containment workflow?",
+        "question": "On Monday at 10:00 you confirm that customer personal data was exfiltrated from an EU-facing system. Scoping and root-cause work will run until Thursday. Under GDPR Article 33, from when does the 72-hour notification clock run?",
         "options": [
           {
-            "label": "Whether the host has a fast enough CPU to re-image quickly afterward",
+            "label": "From Thursday, once the investigation has established scope and root cause",
             "value": "a"
           },
           {
-            "label": "Whether you have preserved the volatile evidence — a memory capture — that powering off will permanently destroy",
+            "label": "From Monday 10:00, when the organization became aware of the breach",
             "value": "b"
           },
           {
-            "label": "Whether the workstation's antivirus definitions are up to date",
+            "label": "From the attacker's first access to the data, as the timeline establishes it",
             "value": "c"
           },
           {
-            "label": "Whether the user has saved their open documents",
+            "label": "From the moment legal counsel formally classifies it as a reportable breach",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Powering off a host wipes RAM, which may hold injected payloads, decryption keys, live C2 connections, and other artifacts that exist nowhere else. The rule is capture before you contain: take a memory capture (or an EDR forensic package) before any evidence-destroying action, or prefer EDR network-isolation which keeps the host live for forensics. The options “Whether the host has a fast enough…” and “Whether the workstation's antivirus definitions are up…”, and d are irrelevant to the irreversible loss of volatile evidence that a power-off causes."
+        "explanation": "Article 33's 72 hours run from awareness of a personal-data breach — here, the Monday confirmation — not from the end of the investigation, which is why an honest, fast severity call and early escalation to legal matter. “From Thursday” is the most common mistake: waiting for a finished investigation can blow the deadline. “From the attacker's first access” confuses dwell time with the notification trigger; the organization cannot act before it knows. “From when legal formally classifies it” lets an internal formality delay a clock that has already started at awareness."
       },
       {
         "question": "In the worked example, a login-history pivot shows r.alvarez has only ever logged into FIN-WKS-118, yet the lesson says scope 'stays open pending eradication.' What is the best reasoning for not declaring scope closed at this point?",
         "options": [
           {
-            "label": "A login-history pivot rules out only one path; a persistence artifact could still surface during eradication, so scope stays open until every check is clean",
+            "label": "One clean pivot rules out one path; persistence found during eradication could still widen scope",
             "value": "a"
           },
           {
-            "label": "Scope can only be closed after the incident report's executive summary has been written and approved by a manager",
+            "label": "Scope stays open until the incident report is reviewed, because the report defines final scope",
             "value": "b"
           },
           {
-            "label": "The pivot alone was sufficient — closing scoping now and moving straight to recovery would have been the correct call",
+            "label": "It could close — the pivot showed no other hosts, so the case is ready to move to recovery",
             "value": "c"
           },
           {
-            "label": "Scope should never close while a host remains connected to the network, regardless of what any pivot or sweep shows",
+            "label": "Scope stays open while FIN-WKS-118 is on the network, because a connected host can spread",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Scoping ends only when every pivot axis — hosts, users, time, and the IOC sweep — comes back clean, not after a single check. A clean login-history pivot rules out one path (network logons for this account) but says nothing about persistence mechanisms eradication might still find, so the lesson keeps scope open until those are checked too. The option “Scope can only be closed after the…” invents a dependency on the report that does not exist at this stage. The option “The pivot alone was sufficient — closing…” is exactly the premature-closure mistake the lesson warns against. The option “Scope should never close while a host…” overstates the rule — connectivity alone is not what keeps scope open, incomplete sweeps are."
+        "explanation": "Scoping ends only when every pivot axis — hosts, users, time, and the IOC sweep — comes back clean. A clean login-history pivot rules out one path (network logons for this account) but says nothing about persistence that eradication might still uncover. “Until the incident report is reviewed” invents a dependency: the report records scope, it does not define it. “It could close” is the premature-closure mistake the lesson warns against. “While the host is on the network” confuses containment with scoping — what keeps scope open is incomplete checks, not connectivity."
       },
       {
-        "question": "You are a SOC analyst about to respond to an actively beaconing host and you are debating whether to pull the power cable to stop it immediately. Which order-of-volatility principle from RFC 3227 should change your plan?",
+        "question": "You are a SOC analyst responding to an actively beaconing host. You can image its disk, capture its memory, isolate it via EDR, pull the power, or collect its logs from the SIEM. Applying RFC 3227's order of volatility, which plan is correct?",
         "options": [
           {
-            "label": "Pulling power destroys RAM contents (near the top of the volatility order), so memory should be captured before the host is powered off or isolated that way",
+            "label": "Capture memory before any power-off — RAM is near the top of the order and is lost with power",
             "value": "a"
           },
           {
-            "label": "RFC 3227 says disk evidence must always be collected before any network evidence, regardless of the situation",
+            "label": "Image the disk first — disk is the evidence of record, so memory can be captured afterwards",
             "value": "b"
           },
           {
-            "label": "Order of volatility only applies to servers, not to workstations, so pulling power on a workstation is always safe",
+            "label": "Collect the remote SIEM logs first — remote logging data is the most fragile evidence here",
             "value": "c"
           },
           {
-            "label": "RFC 3227 recommends powering off first to freeze the disk state, then worrying about memory afterward",
+            "label": "Pull the power first to freeze the disk state, then capture whatever memory evidence remains",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "RFC 3227's order of volatility places CPU registers/cache and then RAM near the top — the most fragile evidence, gone the instant power is lost. Pulling the plug destroys any injected payload, decryption key, or live connection state that existed only in memory. The correct action is to capture memory (or use EDR network-isolation, which keeps the host live) before any power-off. The option “RFC 3227 says disk evidence must always…” reverses the actual order. The option “Order of volatility only applies to servers…” invents a workstation exception that does not exist. The option “RFC 3227 recommends powering off first to…” gets the sequence backwards."
+        "explanation": "RFC 3227 collects the most fragile evidence first: registers and cache, then process tables, network state and RAM — all lost at power-off — and only later temporary files, disk, and remote logs. So memory is captured before any power-off; EDR network isolation fits this because it keeps the host running. “Image the disk first” inverts the order: disk evidence waits safely, while RAM changes every second the beacon keeps running. “Remote SIEM logs first” has it backwards — remote logging data sits near the bottom of the order because it is already stored off the host. “Pull the power first” destroys the memory evidence outright; nothing remains to capture afterwards."
       },
       {
         "question": "You are a SOC analyst scoring the severity of a confirmed incident using a NCISS-style rubric. The affected system is a single non-critical workstation, no data exposure has been confirmed, and recovery is expected within the hour using existing tools. What severity does this combination point to?",
         "options": [
           {
-            "label": "Emergency, because any confirmed intrusion automatically qualifies as the highest severity level regardless of impact",
+            "label": "High — a confirmed intrusion is itself a demonstrable impact to security, which defines High",
             "value": "a"
           },
           {
-            "label": "Medium or lower, since Functional Impact is low, Information Impact is none confirmed, and Recoverability is regular",
+            "label": "Medium — low functional impact, no confirmed information impact, and regular recoverability",
             "value": "b"
           },
           {
-            "label": "Severe, because severity should always be estimated pessimistically without waiting for the scoring factors",
+            "label": "Low — no data exposure was confirmed, so the event counts as routine with no real impact",
             "value": "c"
           },
           {
-            "label": "The severity cannot be scored at all until a full incident report has been written and submitted",
+            "label": "Unscored for now — the factors are not final until the incident report has been written",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "NCISS-style scoring combines Functional Impact, Information Impact, and Recoverability independently. Low functional impact (one non-critical host), no confirmed information impact, and regular recoverability (in-house, within the hour) together point to Medium or lower — not the extreme end of the scale. The option “Emergency, because any confirmed intrusion automatically qualifies…” wrongly treats any intrusion as automatically Emergency. The option “Severe, because severity should always be estimated…” abandons the rubric for pessimistic guessing, which corrupts the score. The option “The severity cannot be scored at all…” is wrong because severity is scored early, during triage, precisely to drive response decisions before the final report exists."
+        "explanation": "The three factors are scored independently: low functional impact (one non-critical host), no confirmed information impact, and regular recoverability (in-house, within the hour) — the same combination the lesson's FIN-WKS-118 worked example scores as Medium, a real but contained impact. “High” stretches its definition: High is the level that stands up the full IR team, not the default for any single-host intrusion. “Low” is for routine events with no meaningful impact, which a confirmed intrusion is not, even without confirmed data loss. “Unscored for now” gets the timing wrong: severity is scored early, during triage, precisely so it can drive response decisions before any report exists."
       }
     ],
     "references": [

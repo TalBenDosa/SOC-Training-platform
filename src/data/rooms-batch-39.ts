@@ -74,7 +74,7 @@ const sshEnabledEvent: TelemetryEvent = {
   user_email: "svc-backup@vsphere.local",
   src_ip: "10.60.9.14",
   description:
-    "TSM-SSH was started on esx-prod-07 through vCenter by svc-backup, and its startup policy was set to 'on'; no change record exists for a maintenance window at this time.",
+    "TSM-SSH was started on esx-prod-07 and its startup policy was set to 'on'; the SIEM attributes the change to svc-backup, and no change record exists for a maintenance window at this time.",
   raw: {
     "vsphere.event.eventTypeId": "esx.audit.ssh.enabled",
     "vsphere.event.severity": "info",
@@ -83,7 +83,6 @@ const sshEnabledEvent: TelemetryEvent = {
     "vsphere.event.host.moref": "host-2091",
     "vsphere.event.computeResource.name": "PROD-CLUSTER-B",
     "vsphere.event.datacenter.name": "MEDCORE-DC",
-    "vsphere.event.userName": "VSPHERE.LOCAL\\svc-backup",
     "vsphere.event.fullFormattedMessage": "SSH access has been enabled.",
     "esxi.service.key": "TSM-SSH",
     "esxi.service.label": "SSH",
@@ -100,7 +99,7 @@ const sshEnabledEvent: TelemetryEvent = {
 
 const benignMaintenanceSshEvent: TelemetryEvent = {
   id: "evt-esxf-ac1-001",
-  ts: "2026-07-14T02:10:00.000Z",
+  ts: "2026-07-11T02:10:00.000Z",
   source: "linux_audit",
   vendor: "VMware ESXi",
   event_type: "policy_modification",
@@ -115,12 +114,11 @@ const benignMaintenanceSshEvent: TelemetryEvent = {
   raw: {
     "vsphere.event.eventTypeId": "esx.audit.ssh.enabled",
     "vsphere.event.severity": "info",
-    "vsphere.event.createdTime": "2026-07-14T02:10:00.000Z",
+    "vsphere.event.createdTime": "2026-07-11T02:10:00.000Z",
     "vsphere.event.host.name": "esx-prod-02.medcorehealth.org",
     "vsphere.event.host.moref": "host-2033",
     "vsphere.event.computeResource.name": "PROD-CLUSTER-A",
     "vsphere.event.datacenter.name": "MEDCORE-DC",
-    "vsphere.event.userName": "MEDCORE\\j.marchetti",
     "vsphere.event.fullFormattedMessage": "SSH access has been enabled.",
     "esxi.service.key": "TSM-SSH",
     "esxi.service.label": "SSH",
@@ -137,7 +135,7 @@ const esxiVirtualizationSecurityRoom = {
   id: "esxi-virtualization-security",
   title: "ESXi & Virtualization Security",
   description:
-    "What no other room covers: the vSphere permission model (roles, propagation, and the PermissionAddedEvent that proves when a grant actually happened), the two distinct hypervisor log sources (vCenter's vpxd.log and each ESXi host's own vobd.log and shell.log), the mechanical reason a running VM must be powered off before its datastore can be encrypted, and the single fact that shapes every hypervisor investigation: no EDR agent can run on ESXi at all, so detection has to come from these native audit trails instead.",
+    "What no other room covers: the vSphere permission model (roles, propagation, and the PermissionAddedEvent that proves when a grant actually happened), the two distinct hypervisor log sources (vCenter's vpxd.log and each ESXi host's own vobd.log and shell.log), the mechanical reason a running VM must be powered off before its datastore can be encrypted, and the single fact that shapes every hypervisor investigation: no supported EDR agent runs on ESXi itself, so detection has to come from these native audit trails instead.",
   difficulty: "advanced" as const,
   category: "Cloud Security",
   estimatedMinutes: 65,
@@ -169,30 +167,30 @@ const esxiVirtualizationSecurityRoom = {
         "  H3 --> DS\n",
       diagramCaption: "vCenter manages the fleet; every host in a cluster shares the same underlying datastore",
       checkpoint: {
-        question: "What is the relationship between vCenter Server and an individual ESXi host?",
+        question: "An administrator changes the same setting on 40 ESXi hosts from one console, in one action. Which component did they most likely use, and how does it relate to those hosts?",
         options: [
-          "They are the same product with two different names for the same software",
-          "vCenter Server is the centralised management plane -- typically its own virtual appliance -- that administers and enforces policy across a whole fleet of separate ESXi hosts, rather than an administrator logging into each host individually",
-          "ESXi hosts manage vCenter, the reverse of the actual relationship",
-          "vCenter only exists for licensing purposes and has no administrative function",
+          "The DCUI console of one host, which pushes the setting to the other cluster members through their shared VMFS datastore",
+          "vCenter Server, the management plane -- usually its own virtual appliance -- that administers the whole fleet of separate hosts",
+          "vCenter Server, which is the name of the hypervisor itself as installed on each of those 40 physical hosts",
+          "A Type 2 hypervisor console on the admin's workstation, which manages the bare-metal hosts as if they were local VMs",
         ],
         answer: 1,
         explanation:
-          "vCenter is the fleet-wide management layer sitting above individual ESXi hosts -- one console, one auth layer, centralised policy -- which is exactly why almost every real administrative action in a vSphere environment is recorded at the vCenter level, not host by host.",
+          "vCenter is the fleet-wide management layer sitting above individual ESXi hosts -- one console, one auth layer, centralised policy -- which is exactly why almost every real administrative action in a vSphere environment is recorded at the vCenter level, not host by host. The DCUI is a single host's local console, and a VMFS datastore holds VM disk files, not a channel for pushing host configuration. vCenter is not another name for the hypervisor: ESXi is the hypervisor on each host, and vCenter is a separate application managing them. A Type 2 hypervisor runs as an app on top of a desktop OS and has nothing to do with managing bare-metal ESXi hosts.",
       },
     },
     // ── Reading 2: no EDR on the hypervisor ──────────────────────────────────
     {
       type: "reading" as const,
       id: "esxf-r2",
-      heading: "The Central Fact: No EDR Can Run on the Hypervisor",
+      heading: "The Central Fact: No Supported EDR Runs on the Hypervisor",
       content:
         "This is the single most important fact in this entire room, and everything else here exists to compensate for it.\n\n" +
         "**Why, mechanically, no EDR agent exists for ESXi.** Endpoint detection and response products work by installing a sensor deep inside a general-purpose operating system — hooking process creation, file writes, and network activity through documented (or semi-documented) kernel and user-space interfaces that Windows, macOS, and general Linux distributions all expose for exactly this purpose. ESXi is not a general-purpose operating system. It is a minimal, purpose-built, closed platform with no supported mechanism for a third-party vendor to install a deep, kernel-level monitoring agent the way they can on a guest's operating system. VMware does not offer that surface, by design — the entire point of a hypervisor's minimalism is a smaller attack surface and a more predictable, supportable platform, and that same minimalism is exactly what leaves no room for a general-purpose security agent to attach to.\n\n" +
         "**Where EDR sensors DO run in a virtualized environment.** Every guest VM is, from its own perspective, a complete, ordinary operating system — an EDR sensor installed inside a Windows or Linux guest works exactly the way it would on physical hardware, because from that sensor's point of view, nothing about being virtualized is even visible. The sensor sees the guest's own processes, the guest's own files, the guest's own network stack. It has no visibility whatsoever into the hypervisor layer underneath it, the other guests sharing the same host, or the shared datastore they all sit on.\n\n" +
         "**The consequence.** An attacker who gains administrative access to vCenter or an ESXi host directly, and acts entirely at that layer — enabling a service, opening a shell, running a binary against the datastore — produces zero telemetry in any guest's EDR sensor, because none of that activity ever touches any guest's operating system at all. Every guest can be functioning completely normally, with its EDR sensor reporting a clean bill of health, while the datastore underneath every one of those guests is actively being encrypted.\n\n" +
         "**What actually surfaces the attack, and when.** The one signal that eventually reaches guest-level tooling is indirect and late: when a VM is forcibly powered off (a step covered later in this room as a mechanical requirement of the attack itself), that guest's EDR sensor simply stops checking in — an agent-offline event, not a ransomware detection of any kind. By the time that signal appears, the attack has already reached its final stage.\n\n" +
-        "**Why this is a permanent architectural gap, not a temporary product limitation.** This room's job is not to wait for EDR vendors to solve this — they structurally cannot, on this specific platform, the way they do on general-purpose operating systems. The compensating strategy, covered in the readings that follow, is to treat vCenter's and ESXi's own native audit logs as the primary detection surface for this layer, the same way Sysmon or EDR telemetry is the primary detection surface for a Windows endpoint.",
+        "**Why this is not a gap to wait out.** There is no supported in-hypervisor EDR for ESXi today — a consequence of VMware's closed-platform policy rather than a technical impossibility, and log-based, agentless ESXi monitoring products do exist — so this room's job is not to wait for EDR vendors to solve it. The compensating strategy, covered in the readings that follow, is to treat vCenter's and ESXi's own native audit logs as the primary detection surface for this layer, the same way Sysmon or EDR telemetry is the primary detection surface for a Windows endpoint.",
     },
     // ── Question 1 ───────────────────────────────────────────────────────────
     {
@@ -202,13 +200,13 @@ const esxiVirtualizationSecurityRoom = {
         "Ninety-six guest VMs on an ESXi cluster were encrypted by ransomware that ran entirely on the hypervisor. Every guest's EDR sensor reported normally right up until the moment of impact, with no detection raised. What correctly explains this?",
       options: [
         "The attacker stopped each guest's EDR sensor service with stolen administrator credentials shortly before encryption, so no detection could fire during the impact itself",
-        "No EDR sensor exists on the ESXi hypervisor itself, so host-layer activity -- enabling services, opening a shell, running a binary against the datastore -- never touches a guest OS and yields no guest telemetry",
+        "No supported EDR runs on ESXi itself, and host-layer actions -- enabling a service, opening a shell, running a binary on the datastore -- never touch a guest OS",
         "The sensors were running in a passive detection-only mode that suppressed all alerting, so the activity was recorded in the console but never raised as a detection",
         "Guest EDR sensors normally extend visibility to the hypervisor through the VMware Tools channel, and that visibility failed in this case because of a driver bug",
       ],
       answer: 1,
       explanation:
-        "Reading 2 was explicit: this is a structural, architectural gap, not a bypass or a misconfiguration. The sensors were never stopped -- stopping them with stolen credentials would itself generate distinct sensor-offline or tamper events across 96 hosts, which did not happen; they simply have no visibility into a layer they were never able to reach in the first place. It is not a detection-only mode suppressing alerts, and guest EDR sensors do not and cannot extend into the hypervisor layer through VMware Tools or any other channel, driver bug or not -- that capability does not exist on this platform by design.",
+        "Reading 2 was explicit: this is a visibility gap, not a bypass or a misconfiguration -- there is no supported EDR inside ESXi, and guest sensors see only their own guest. The sensors were never stopped: stopping them with stolen credentials would itself generate distinct sensor-offline or tamper events across 96 guests, which did not happen. Nor was it a detection-only mode hiding alerts: such a mode still records telemetry in the console, yet here there was no guest-side activity to record at all. And guest EDR sensors do not extend into the hypervisor layer through VMware Tools or any other channel, so there was no such visibility for a driver bug to break.",
       xp: 25,
     },
     // ── Reading 3: vSphere permission model ──────────────────────────────────
@@ -224,16 +222,16 @@ const esxiVirtualizationSecurityRoom = {
         "**PermissionAddedEvent: the moment authorization actually happened.** Every time a permission is created, vCenter logs a PermissionAddedEvent naming the affected entity, the principal being granted access, the roleId and roleName, and the propagate flag. This is not a side detail — it is the single event in a vCenter-based investigation that pinpoints exactly when a given account first became capable of the privileged actions that followed. An account that later enables SSH on a host, or powers off a VM, was only ABLE to do either of those things because some earlier PermissionAddedEvent granted it a role carrying the corresponding privilege — and that earlier event is precisely what an investigation needs to find to establish how the actor got there.\n\n" +
         "**Why this matters more than the more visible steps that follow.** An analyst who focuses only on the visible, dramatic actions — SSH being turned on, a VM being stopped — without tracing back to the specific permission grant that authorised them, is investigating symptoms without finding the actual root cause: which account was empowered, over what scope, and by whom.",
       checkpoint: {
-        question: "What does a PermissionAddedEvent with roleId -1 (Administrator) attached to the root Datacenters folder, with propagate set to true, actually grant?",
+        question: "The Administrator role (roleId -1) is attached to a principal on the cluster PROD-CLUSTER-B -- not on the root folder -- with propagate set to true. What can that principal now administer?",
         options: [
-          "Administrator-level privileges only over the single Datacenters folder object itself, with no effect on anything inside it",
-          "Every privilege the Administrator role bundles, cascading down to every object inside the entire vSphere inventory -- every datacenter, cluster, host and VM, current and future -- because it was granted at the very top of the hierarchy with propagation enabled",
-          "Nothing at all, since roleId -1 is reserved and cannot actually be assigned to any real principal",
-          "Read-only visibility into the inventory, with no ability to change any configuration",
+          "Every object in the whole inventory, because the Administrator role carries its privileges globally wherever it is attached",
+          "The cluster and every object beneath it, such as its hosts and their VMs, but nothing in other clusters or datacenters",
+          "Only objects added to the cluster after the grant; hosts and VMs that were already there keep their earlier permissions",
+          "Only the cluster object itself, since child objects inherit a permission only when it is granted on a folder",
         ],
         answer: 1,
         explanation:
-          "Propagation plus a grant at the very top of the inventory hierarchy is what makes this event so consequential -- the Administrator role's full privilege bundle cascades to everything beneath that point, which in this case is the entire environment.",
+          "A permission is a role attached at an entity, and propagate=true cascades it to every child beneath that entity -- current and future. Attached to a cluster, it therefore covers that cluster's hosts and VMs but nothing above or beside it. The role does not apply globally wherever it is attached: the entity sets the scope, which is why the same role at the root Datacenters folder is so much more dangerous. Propagation covers existing children as well as future ones, not only objects added later. And propagation works from any entity in the hierarchy, not only from folders.",
       },
     },
     // ── Reading 4: vpxd.log ──────────────────────────────────────────────────
@@ -259,7 +257,7 @@ const esxiVirtualizationSecurityRoom = {
         "**vobd: the VMkernel Observation Daemon.** vobd is a process running on each ESXi host that watches for and logs significant host-level events into its own log file, conventionally at /var/log/vobd.log on that specific host. This is a genuinely separate log source from vpxd.log — it lives on the host, not on the vCenter appliance, and it captures host-local activity regardless of whether that activity was ever reflected up into vCenter's own event feed.\n\n" +
         "**The esx.audit.* naming convention.** A large and important category of vobd-logged events uses a consistent esx.audit. prefix, naming a specific host-level security-relevant change: esx.audit.ssh.enabled records the SSH service being turned on, esx.audit.net.firewall.config.changed records a host firewall ruleset being modified, esx.audit.account.password.updated records a local account's password being changed. As with every other event-taxonomy system in this room, the naming pattern itself carries information — the esx.audit prefix specifically flags 'this is a security-relevant host configuration change,' distinct from vobd's other, more routine housekeeping entries.\n\n" +
         "**Why esx.audit.ssh.enabled specifically is such a high-confidence signal.** ESXi ships with SSH disabled by default, and VMware's own hardening guidance recommends leaving it disabled except during specific, deliberate maintenance activity. Because of that default-off posture, any occurrence of this event at all is a deviation from the host's normal running state — it is not a routine, frequently-occurring event the way a login attempt is. An esx.audit.ssh.enabled event with no corresponding, pre-approved change record is about as close to a certain finding as a single log line gets in this entire room.\n\n" +
-        "**Why an analyst needs both vpxd.log and vobd.log, not just one.** vCenter's own event feed shows the administrative action that ultimately CAUSED SSH to be enabled — the permission grant, the login session that used it — but the actual esx.audit.ssh.enabled confirmation that the change genuinely took effect on that specific host lives in that host's own vobd.log. An investigation that only reads one of the two logs is missing either the authorization chain (vpxd.log) or the on-host confirmation and exact timing (vobd.log) — both matter, and they are genuinely different files, often on genuinely different machines.",
+        "**Why an analyst needs both vpxd.log and vobd.log, not just one.** vCenter's own event feed shows the administrative action that ultimately CAUSED SSH to be enabled — the permission grant, the login session that used it — but the actual esx.audit.ssh.enabled confirmation that the change genuinely took effect on that specific host lives in that host's own vobd.log. An investigation that only reads one of the two logs is missing either the authorization chain (vpxd.log) or the on-host confirmation and exact timing (vobd.log) — both matter, and they are genuinely different files, often on genuinely different machines. Note what vobd.log does NOT give you: a change pushed through vCenter executes on the host as vCenter's own agent account, vpxuser, so the vobd entry names no vCenter SSO user — attribution comes from matching the host and timestamp to the vCenter task that made the change (for SSH, the start of the TSM-SSH service) recorded in vpxd.log.",
     },
     // ── Log Analysis 1: PermissionAddedEvent ─────────────────────────────────
     {
@@ -274,42 +272,42 @@ const esxiVirtualizationSecurityRoom = {
           question:
             "vsphere.event.permission.roleId is -1 and vsphere.event.permission.propagate is 'true', attached to the entity 'Datacenters' (a Folder). What does this combination actually grant to VSPHERE.LOCAL\\svc-backup?",
           options: [
-            "Full Administrator-role privileges cascading to every object in the entire vSphere inventory beneath the Datacenters folder -- effectively the whole environment",
-            "Read-only access to a single named virtual machine",
-            "The ability only to view the Datacenters folder's name in the inventory tree, with no other capability",
-            "Nothing yet -- roleId -1 requires a separate activation step before it takes effect",
+            "Full Administrator privileges over the Datacenters folder and every datacenter, cluster, host and VM beneath it -- effectively the whole environment",
+            "Administrator privileges over the Datacenters folder and its direct child datacenters only, since propagation extends one level down the tree",
+            "Administrator privileges only over objects created after the grant; hosts and VMs that already exist keep their earlier permissions",
+            "Administrator privileges over the folder object only, because permission.group is false and propagation applies only to group principals",
           ],
           answer: 0,
           explanation:
-            "Reading 3 covered exactly this combination: roleId -1 is the built-in Administrator role bundling essentially every privilege, and propagate true at the very top of the inventory (the Datacenters folder) cascades that full privilege set to everything beneath it -- effectively the entire environment, current and future.",
+            "Reading 3 covered this combination: roleId -1 is the built-in Administrator role bundling essentially every privilege, and propagate=true at the very top of the inventory (the Datacenters folder) cascades that full privilege set to everything beneath it -- effectively the entire environment, current and future. Propagation is not limited to one level: it reaches every descendant, down to individual hosts and VMs. It is not limited to newly created objects either; existing children inherit it too. And permission.group=false only says the principal is a single user rather than a group -- it has no bearing on whether the grant propagates.",
           xp: 25,
         },
         {
           question:
-            "The event's log.file.path is /var/log/vmware/vpxd/vpxd.log. Based on Reading 4, what does that tell you about where this event was generated?",
+            "This event names two accounts: vsphere.event.userName is VSPHERE.LOCAL\\Administrator and vsphere.event.permission.principal is VSPHERE.LOCAL\\svc-backup. Which reading of these fields is correct?",
           options: [
-            "This is a vCenter-level event, recorded by the vpxd daemon on the vCenter Server Appliance itself -- distinct from a host-local vobd.log entry",
-            "This event actually originated on the ESXi host esx-prod-07, not on vCenter at all",
-            "vpxd.log is a firewall log unrelated to vSphere administration",
-            "This path indicates the event was generated by a guest VM's own operating system",
+            "Administrator issued the grant from a session at 10.60.9.14, and svc-backup is the account that received the new role",
+            "svc-backup issued the grant to itself, and the Administrator value in userName is the role it requested for its own account",
+            "Administrator received the new role, and svc-backup is the service account vCenter used to execute the change for it",
+            "Both name one session: svc-backup signed in through the built-in Administrator SSO identity, so the actor is the same",
           ],
           answer: 0,
           explanation:
-            "Reading 4 named vpxd.log specifically as the vCenter Server daemon's own log, recording management-plane actions -- distinct from a specific ESXi host's own vobd.log, which is where host-local esx.audit.* events (covered in Reading 5) are recorded instead.",
+            "In a vCenter event, userName (with ipAddress) identifies the session that performed the action, while permission.principal names who the permission was granted to -- so Administrator, from 10.60.9.14, granted the role to svc-backup. The role appears separately in permission.roleName, so the Administrator in userName is the acting account, not a requested role, and svc-backup did not grant itself anything. The direction is not reversed either: the principal field is the recipient, not a service account executing on someone's behalf. And the two fields name two distinct identities; nothing in the event indicates svc-backup authenticated as Administrator -- which is exactly why the granting session needs its own investigation.",
           xp: 25,
         },
         {
           question:
             "Given that this permission grant is dated 23:41 with no visible business justification in this event, what is the correct immediate next investigative step?",
           options: [
-            "Trace backward to how VSPHERE.LOCAL\\Administrator's own session was established (the login event and its source), and forward to what svc-backup subsequently did with this new privilege",
-            "Immediately power off every VM in the environment as a precaution, regardless of any further evidence",
-            "Assume the grant is legitimate because it was issued by an account literally named Administrator",
-            "Take no action, since PermissionAddedEvent's own severity field reads 'info'",
+            "Trace back to how the Administrator session at 10.60.9.14 was established, and forward to what svc-backup did next with its new rights",
+            "Wait for a burst of VmPoweredOffEvent records before escalating, since a permission grant on its own is routine administrative activity",
+            "Pull guest EDR telemetry from PROD-CLUSTER-B's VMs, since anything svc-backup does with the new role will surface there first",
+            "Delete the new permission and close the alert, since reverting the grant removes the access and its origin no longer matters",
           ],
           answer: 0,
           explanation:
-            "This is the root-cause tracing this room emphasises: establishing how the granting account itself got its access, and what the newly-privileged account did next, is what actually reconstructs the incident. Powering off every VM pre-emptively is a drastic, disproportionate action given the evidence gathered so far. The account name 'Administrator' is the BUILT-IN SSO account name, not proof of legitimate use -- Reading 3's own framing treats any grant on this scope as worth scrutinising regardless of which account issued it. And the 'info' severity is no reason to stand down: vCenter logs routine successful administrative actions at 'info' severity by design; that field reflects vCenter's own logging convention, not an analyst's risk assessment.",
+            "This is the root-cause tracing this room emphasises: establishing how the granting session came to exist, and what the newly-privileged account did next, is what reconstructs the incident. Waiting for a power-off burst is the right signal at the wrong time -- by then the VMs are already stopped, and a root-level Administrator grant at 23:41 is anything but routine. Guest EDR telemetry will not show what svc-backup does at the vCenter or host layer, as Reading 2 established. And deleting the permission without finding how the Administrator session was obtained leaves that access path open and loses sight of whatever svc-backup has already done.",
           xp: 30,
         },
       ],
@@ -344,42 +342,42 @@ const esxiVirtualizationSecurityRoom = {
           question:
             "This event's log.file.path is /var/log/vobd.log, on the host esx-prod-07 itself -- a different file, on a different machine, from the vpxd.log event investigated earlier. Why does an analyst need to check this log SEPARATELY from vCenter's own event feed?",
           options: [
-            "Because vobd.log is where host-local, on-host confirmation and exact timing of a change like this actually lives -- it is a genuinely distinct log source from vCenter's management-plane record, not a duplicate of it",
-            "Because vobd.log is simply a backup copy of vpxd.log stored in case the primary log is deleted",
-            "Because vCenter never actually records anything related to SSH being enabled on a host, making vobd.log the only source for this at all",
-            "There is no real reason -- the two logs always contain identical information",
+            "It is the host's own record that the change actually took effect there, with the on-host time -- a separate source from vCenter's management-plane record",
+            "It is the host's local replica of vpxd.log, kept so events survive while vCenter is unreachable, so it mainly matters when vCenter is down",
+            "It names the vCenter user who requested the change, which vpxd.log does not record for host service starts, so attribution depends on it",
+            "It holds a copy of the PermissionAddedEvent pushed to each host, so the authorization chain and the change can be read in one file",
           ],
           answer: 0,
           explanation:
-            "Reading 5 made this distinction directly: vpxd.log shows the vCenter-side authorization chain, while vobd.log on the specific host provides the on-host confirmation that the change genuinely took effect there, with its own exact timestamp. vobd.log is neither a backup copy of vpxd.log nor a log with identical contents, and it is not the only source either: vCenter's own event feed typically does reflect related activity too -- but the host-local confirmation is what this specific event provides.",
+            "Reading 5 made this distinction directly: vpxd.log shows the vCenter-side authorization chain, while vobd.log on the specific host confirms that the change took effect there, with its own exact timestamp. It is not a replica of vpxd.log -- the two are different files written by different daemons on different machines. Attribution runs the other way round: the vobd entry names no vCenter user (the change ran on the host as vpxuser), and the requesting SSO user comes from the vCenter task in vpxd.log. And permission grants are vCenter objects recorded in vpxd.log only; they are not copied into each host's vobd.log.",
           xp: 25,
         },
         {
           question:
             "Given that ESXi ships with SSH disabled by default, why does esx.audit.ssh.enabled carry such high confidence as a detection signal on its own, even before checking who triggered it?",
           options: [
-            "Because any occurrence of this event at all is a deviation from the host's normal, default-off running state -- it is not a routine, frequently-occurring event the way a login attempt is",
-            "Because SSH is inherently malicious software that should never exist on any type of server",
-            "Because vCenter automatically blocks every attempt to enable SSH, so a logged occurrence means that block somehow failed",
-            "Because this event can only ever be generated by an external attacker, never by a legitimate administrator",
+            "SSH is off by default and hardening keeps it off outside planned work, so any enablement is a departure from the host's normal state",
+            "Administrators manage hosts through vCenter rather than SSH, so an enablement is itself evidence that an unauthorised party is involved",
+            "It is logged when someone completes an SSH login, so it shows that an interactive shell is already open on the host",
+            "ESXi raises it at critical severity, unlike routine vobd entries, so the host itself has already judged the change malicious",
           ],
           answer: 0,
           explanation:
-            "Reading 5 covered this precisely: the default-off posture is what makes any occurrence a genuine deviation worth flagging, independent of attribution -- unlike a login attempt, which happens constantly and legitimately. SSH itself is a legitimate, widely-used administrative protocol, not malicious software. vCenter does not auto-block SSH enablement -- it's a deliberate, permitted host configuration action when done properly. And the event is not attacker-only: legitimate administrators do sometimes need to enable SSH too, which is exactly why the NEXT task in this room specifically covers a benign case.",
+            "Reading 5 covered this precisely: the default-off posture is what makes any occurrence a genuine deviation worth flagging, independent of attribution -- unlike a login attempt, which happens constantly and legitimately. It is not proof of an unauthorised party: virtualization teams do enable SSH during planned maintenance, which is exactly why the next task covers a benign case. The event records the service being enabled, not a login -- Reading 6 separates the two, and a shell session only starts when someone actually connects. And the raw vsphere.event.severity is 'info'; the 'critical' rating is the SIEM's own triage severity, not a verdict from ESXi.",
           xp: 25,
         },
         {
           question:
-            "Comparing this event to the permission grant investigated in the previous log analysis: what does the shared account name (svc-backup / the same principal from the PermissionAddedEvent) across both events establish?",
+            "This vobd record names the host and the time but no vCenter user, yet the SIEM attributes it to svc-backup -- the account granted Administrator minutes earlier. Given that the change was pushed through vCenter, how is that attribution properly established?",
           options: [
-            "That the account which received the broad Administrator-scoped permission grant is the same account that went on to actually use it to change host configuration -- linking the authorization step to the action it enabled",
-            "Nothing -- account names appearing in two different logs is purely coincidental and carries no investigative value",
-            "That vCenter and ESXi share a single, unified log file rather than two separate ones",
-            "That the SSH-enable action must have originated from a completely different, unrelated account than the one granted permission",
+            "Match esx-prod-07 and 23:44:52 to the vCenter task that started TSM-SSH, which records the SSO user behind the request",
+            "Take the host-side account the change executed as, vpxuser, and treat that account as the actor to investigate",
+            "Pull esx-prod-07's shell.log, which records each SSH service change together with the local account that issued it",
+            "Map syslog.pid 3310217 to the login session that owns it, since vobd writes under the requesting user's process",
           ],
           answer: 0,
           explanation:
-            "This is the payoff of tracing root cause to consequence across the two distinct logs this room has taught: the same principal (svc-backup) appears first receiving broad privilege in vpxd.log, then exercising exactly the kind of privilege it was just granted in vobd.log minutes later -- tying the authorization event to the action it made possible. This is a meaningful correlation, not a coincidence; the two logs remain genuinely separate files on separate systems (they are not one unified log), and the shared principal points to the same account, not a different one, acting in both.",
+            "As Reading 5 noted, a vCenter-pushed change runs on the host as vpxuser, so attribution comes from correlating the host and timestamp with the vCenter task that started TSM-SSH -- that record names the SSO user (here svc-backup), which ties the grant to the action it enabled. vpxuser is vCenter's own agent account on every managed host, so naming it as the actor attributes nothing. shell.log records commands typed in an interactive shell session; a service start requested through vCenter never passes through a shell. And syslog.pid is the process ID of the vobd daemon itself, not of any user session.",
           xp: 30,
         },
       ],
@@ -390,7 +388,7 @@ const esxiVirtualizationSecurityRoom = {
       id: "esxf-ac1",
       heading: "Verdict: SSH Enabled at 02:10 on a Saturday",
       scenario:
-        "An automated rule flags every esx.audit.ssh.enabled event for review, exactly the pattern this room has taught you to treat as high-confidence. The event below fired five days before the incident investigated above, on a different host in a different cluster. The identity directory lists the acting account, j.marchetti, as a named member of the virtualization team. Review it before deciding how to handle it.",
+        "An automated rule flags every esx.audit.ssh.enabled event for review, exactly the pattern this room has taught you to treat as high-confidence. The event below fired on Saturday 11 July, eight days before the incident investigated above, on a different host in a different cluster. Matching the host and timestamp to vCenter's task list attributes the TSM-SSH start to j.marchetti, whom the identity directory lists as a named member of the virtualization team. Review it before deciding how to handle it.",
       event: benignMaintenanceSshEvent,
       correct_verdict: "false_positive",
       explanation:
@@ -434,14 +432,14 @@ const esxiVirtualizationSecurityRoom = {
       checkpoint: {
         question: "Why, mechanically, must a VM be powered off before its -flat.vmdk file on a shared datastore can be encrypted by an attacker's tooling?",
         options: [
-          "Because ESXi holds an exclusive lock on a running VM's disk file to prevent corruption from concurrent writes, and that lock blocks any other process -- including an attacker's encryptor -- from rewriting the file while the VM is powered on",
-          "Because powering off a VM automatically deletes any existing malware running inside it, so the host must be 'reset' before the attack can proceed",
-          "There is no technical reason at all -- attackers power off VMs purely as an intimidation tactic with no bearing on whether encryption can succeed",
-          "Because VMFS datastores are only writable during a specific maintenance-mode window that requires all VMs to be off",
+          "While a VM runs, ESXi holds an exclusive lock on its -flat.vmdk to prevent concurrent writes, and that lock also blocks the encryptor",
+          "The guest's EDR sensor would see its own disk being encrypted and alert, so the VM must be off to keep that sensor from reporting it",
+          "Powering off stops the VM's scheduled snapshots and backups, so the encryptor can finish before a clean recovery point is taken",
+          "VMFS lets only one host write to a datastore at a time, so every VM must stop to free the volume for the host running the encryptor",
         ],
         answer: 0,
         explanation:
-          "This is the mechanical requirement Reading 7 built the whole section around: the exclusive lock exists to prevent corruption, and it applies to any process, malicious or not -- which is exactly why power-off precedes encryption in this attack pattern, as a technical precondition rather than a stylistic or intimidation choice.",
+          "This is the mechanical requirement Reading 7 built the whole section around: the exclusive lock exists to prevent corruption, and it applies to any process, malicious or not -- which is exactly why power-off precedes encryption, as a technical precondition. Silencing the guest's EDR is not the reason: Reading 2 established that a guest sensor has no view of the datastore underneath it. Reading 7 also rules out recovery-prevention as the purpose of the power-off -- it is about releasing the lock, not about backups. And VMFS is a clustered filesystem shared by every host in the cluster at once, so there is no single-writer volume to free.",
       },
     },
     // ── Question 3 ───────────────────────────────────────────────────────────
@@ -451,7 +449,7 @@ const esxiVirtualizationSecurityRoom = {
       question:
         "A detection engineer proposes a single rule that fires only once a mass rename/rewrite of a datastore's -flat.vmdk files is observed (e.g., many disk files suddenly gaining a new extension), using the storage array's or NAS's own file-audit telemetry. Based on Reading 7, what is the main weakness of relying on ONLY that rule?",
       options: [
-        "It would fire only once encryption has begun, missing the earlier mass power-off step (T1489), which must happen first and is visible in vCenter and host logs, giving a real window to respond",
+        "It fires only once encryption is under way, missing the earlier mass power-off (T1489) that must come first and is visible in vCenter and host logs",
         "Its weakness is scope: it would catch only the first datastore to be encrypted and miss VMs on other datastores, which the encryptor processes later in the run",
         "It would see only encryption launched from inside a guest VM, since an encryptor running on the ESXi host writes through the hypervisor and bypasses file-modification telemetry",
         "It would generate constant false positives, since every VM continually modifies its own -flat.vmdk during normal operation, making the signal indistinguishable from ordinary use",
@@ -469,20 +467,20 @@ const esxiVirtualizationSecurityRoom = {
       content:
         "This room has now covered several genuinely different signals across a hypervisor intrusion — a VPN or initial access event, an authentication attempt, a permission grant, an SSH-enable event, a shell session, and a mass power-off. A skill worth teaching explicitly, on top of recognising each one individually, is how to rank them by which combination of earliness and confidence actually makes the best detection rule.\n\n" +
         "**Earliness and fidelity are different qualities, and the best rule needs both.** The very first event in a real intrusion timeline is often the lowest-confidence one — initial network access alone (a VPN login, a reachable management interface) is usually far too common and far too weakly correlated with an actual attack to alert on by itself; nearly every legitimate remote worker or contractor produces the same shape of event constantly. Waiting for the highest-confidence signal available, on the other hand, often means waiting until the attack has already caused its impact.\n\n" +
-        "**Where esx.audit.ssh.enabled sits on that spectrum.** This event is not the earliest possible signal in a real intrusion — a permission grant or an authentication event typically precedes it. But it combines unusually high confidence (Reading 5's default-off posture argument) with still being well ahead of any actual damage: it names the specific host and the specific vSphere principal responsible, it can be automatically checked against a change-management calendar, and — critically — it still occurs before the mass power-off and before any encryption. A detection rule built around this event captures most of the achievable earliness without sacrificing much confidence at all.\n\n" +
+        "**Where esx.audit.ssh.enabled sits on that spectrum.** This event is not the earliest possible signal in a real intrusion — a permission grant or an authentication event typically precedes it. But it combines unusually high confidence (Reading 5's default-off posture argument) with still being well ahead of any actual damage: it names the specific host and the specific vSphere principal responsible, it can be automatically checked against a change-management calendar, and — critically — it still occurs before the mass power-off and before any encryption. A detection rule built around this event captures most of the achievable earliness without sacrificing much confidence at all. A root-level Administrator grant with propagation, like the one in this room's first log, deserves a complementary rule of its own alongside it.\n\n" +
         "**Why the loudest, most certain signal is often also the latest.** A burst of guest EDR sensors going offline simultaneously (the consequence of the mass power-off covered in Reading 7) is about as close to certain as a signal gets — but by the time it fires, every VM on that host has already been forcibly stopped, and the encryptor may already be running. It is an excellent signal for confirming and scoping an incident already underway; it is a poor signal for preventing one.\n\n" +
         "**The general skill, beyond this one attack chain.** Any hypervisor investigation — not just the ransomware pattern this room has walked through — benefits from asking the same question about whatever candidate signals are available: which one combines the earliest position in the chain with the least legitimate-activity noise. That is a genuinely transferable reasoning skill, not something specific to memorising this one scenario's exact timeline.",
       checkpoint: {
-        question: "Why does this room recommend esx.audit.ssh.enabled as a strong detection rule, rather than either the earliest possible signal (initial VPN/network access) or the latest, most certain one (mass guest EDR sensor offline)?",
+        question: "This reading suggests running a rule on root-level Administrator grants with propagation alongside the SSH-enable rule. Applying its earliness-vs-fidelity reasoning, where does such a grant sit?",
         options: [
-          "Because it is the only event in the entire chain that vSphere actually logs at all",
-          "Because it combines unusually high confidence (SSH is off by default, so any occurrence is a deviation) with still occurring well before any actual damage -- the earliest network-access event is too common and low-confidence to alert on alone, while the EDR-offline signal is highly certain but arrives only after the VMs are already stopped",
-          "Because it is completely impossible for any legitimate administrator to ever trigger this event under any circumstances",
-          "Because esx.audit.ssh.enabled is the ONLY signal capable of stopping an attack automatically, without any human review",
+          "Early but noisy, like a VPN login, since permission changes happen constantly in a busy vCenter and mean little without context",
+          "Earlier than the SSH-enable event and still high-confidence, since full Administrator grants at the inventory root are rare",
+          "Late but certain, like the EDR-offline burst, since a grant is logged only once the new rights have actually been exercised",
+          "Outside the spectrum, since a grant changes nothing until it is used and so belongs to post-incident scoping, not alerting",
         ],
         answer: 1,
         explanation:
-          "This is the earliness-versus-fidelity tradeoff Reading 8 built the whole reading around: the best available rule in this chain is the one balancing both qualities well, not the one maximising either alone. It is not the only event vSphere logs -- every other step in this room's chain is a real, logged event too; it is not impossible for legitimate administrators to trigger it -- they genuinely can and do during proper maintenance, which is exactly why the earlier analyst-choice task existed; and this room never claims any single log event stops an attack automatically without human review.",
+          "Reading 3 showed that the grant is what made the later SSH-enable possible, so in this chain it comes earlier -- and a propagating Administrator grant at the very top of the inventory hands over the entire environment, which is a rare, narrow shape rather than everyday activity. That combination of earliness and confidence is what earns it a rule of its own. Routine permission changes do happen in vCenter, but they are not root-level Administrator grants with propagation, so the VPN-login comparison does not hold. The event is not late: PermissionAddedEvent is logged when the permission is created, before the rights are ever used. And precisely because the grant is the moment the account became capable of what followed, alerting on it gives the earliest high-confidence window rather than belonging only to after-the-fact scoping.",
       },
     },
     // ── Question 4 ───────────────────────────────────────────────────────────
@@ -492,14 +490,14 @@ const esxiVirtualizationSecurityRoom = {
       question:
         "Reviewing a full vSphere intrusion timeline for the single best place to build an alerting rule, an analyst is choosing between: (1) the initial VPN login used to reach the management network, (2) the esx.audit.ssh.enabled event, and (3) the burst of guest EDR sensors going offline. Which ranking best reflects this room's earliness-vs-fidelity reasoning?",
       options: [
-        "Rule primarily on (2) -- the best balance of confidence and earliness; use (1) only as weak context given its noise among legitimate remote access, and (3) only to confirm and scope an incident already underway",
+        "Rule primarily on (2) for its balance of confidence and earliness; treat (1) as weak context given legitimate remote-access noise, and use (3) to confirm and scope",
         "Rule primarily on (1) -- the VPN login is the earliest point in the chain, so alerting there gives the most response time, and tuning on geography and device can cut its noise to an acceptable level",
         "Rule primarily on (3) -- simultaneous EDR sensor loss is the highest-confidence signal in the chain and yields almost no false positives, which matters more than earliness for a Tier-1 queue",
-        "Rule on (1) and (3) together -- pairing the earliest signal with the most certain one covers the full chain and makes a dedicated SSH-enable rule redundant",
+        "Rule on (1) and (3) together -- pairing the earliest signal with the most certain one covers both ends of the chain and makes a dedicated SSH-enable rule redundant",
       ],
       answer: 0,
       explanation:
-        "This is the direct synthesis of Reading 8's core lesson: neither pure earliness nor pure certainty alone makes the best rule -- the SSH-enable event's combination of both qualities is what earns it the primary role, with the VPN login serving only as weak corroborating context (given how common and low-confidence it is alone) and the EDR-offline burst serving only to confirm and scope an incident that has already progressed past the point where alerting on it could have changed the outcome.",
+        "This is the direct synthesis of Reading 8's core lesson: neither pure earliness nor pure certainty alone makes the best rule -- the SSH-enable event's combination of both qualities is what earns it the primary role, with the VPN login serving only as weak corroborating context (given how common and low-confidence it is alone) and the EDR-offline burst serving only to confirm and scope an incident that has already progressed past the point where alerting on it could have changed the outcome. Ruling primarily on the VPN login overestimates how far tuning can cut the noise of legitimate remote access; ruling primarily on the EDR-offline burst trades away the response window for certainty; and pairing those two does not make the SSH-enable rule redundant, because neither of them offers its combination of high confidence before any damage.",
       xp: 30,
     },
     // ── Matching: term to log source ─────────────────────────────────────────
@@ -524,19 +522,19 @@ const esxiVirtualizationSecurityRoom = {
     {
       type: "ordering" as const,
       id: "esxf-o1",
-      heading: "Order the Triage of a Suspected vSphere Intrusion",
-      instructions: "Arrange these steps in the order an analyst should actually work them when investigating suspicious activity in a vSphere environment.",
+      heading: "Order the Post-Incident Reconstruction of a vSphere Intrusion",
+      instructions: "The intrusion has been contained and you are writing the post-incident report. Arrange these reconstruction steps so the report follows the attack chain itself -- each step covering the stage that the previous one made possible -- and closes with the check that confirms none of the privileged actions was sanctioned.",
       items: [
         { id: "initial", text: "Identify the initial access vector into the management network (VPN, exposed interface) and the identity it used" },
         { id: "permcheck", text: "Search vpxd.log for the PermissionAddedEvent that explains how the acting account became capable of what followed" },
         { id: "hostcheck", text: "Search the affected ESXi host's own vobd.log for esx.audit.* events confirming what configuration changes actually took effect, and when" },
         { id: "shellcheck", text: "Pull shell.log from any host where an interactive session occurred, to get the verbatim command record" },
         { id: "impactscope", text: "Scope impact through vCenter's VmPoweredOffEvent records and any datastore-level file changes" },
-        { id: "changecheck", text: "Cross-check every privileged action found against the change-management calendar before finalising a verdict" },
+        { id: "changecheck", text: "Cross-check every privileged action found against the change-management calendar before finalising the report's verdict" },
       ],
       correct_order: ["initial", "permcheck", "hostcheck", "shellcheck", "impactscope", "changecheck"],
       explanation:
-        "Start with how the actor got into the management network at all, then trace the authorization chain in vpxd.log -- the PermissionAddedEvent is the root cause of everything that follows. From there, the host's own vobd.log confirms what actually took effect locally, and shell.log fills in the verbatim detail of anything done interactively. Only once the technical chain is reconstructed does it make sense to scope the actual impact through power-off and datastore events, and only after ALL of that is in hand should the change-management calendar be checked -- checking it too early, before the full technical picture is clear, is exactly how a real intrusion gets waved through as 'probably an approved maintenance window,' the same reasoning error the analyst-choice task in this room was built to test.",
+        "The report follows causality: the actor first needed a way into the management network, then a PermissionAddedEvent gave the acting account the rights it used, then those rights enabled SSH on the host (confirmed in vobd.log), the enabled SSH made the interactive session possible (recorded verbatim in shell.log), and that session drove the power-off loop and datastore changes that make up the impact. The change-calendar cross-check closes the report because it is the confirmation applied to the full list of privileged actions just reconstructed. This is a reconstruction order, not a live-response order: during an active intrusion, containment and scoping come first, and the change calendar is often checked early -- in the analyst-choice task, the change ticket is what settles the verdict.",
       xp: 35,
     },
     // ── Flag ──────────────────────────────────────────────────────────────────
@@ -545,9 +543,9 @@ const esxiVirtualizationSecurityRoom = {
       id: "esxf-f1",
       event: permissionGrantEvent, // show the vcsa-04 permission-grant log this flag reads
       prompt:
-        "Look at the permission-grant finding on vcsa-04.medcorehealth.org. What is the exact value of the vsphere.event.permission.roleName field in the raw log?",
-      answer: "Administrator",
-      hint: "Look inside the raw block of the log analysis event for the field named vsphere.event.permission.roleName.",
+        "The danger in the vcsa-04 permission grant is its scope. To search vCenter for every other permission ever attached to that same inventory object, you would pivot on the object's managed-object reference (moref), vCenter's internal ID for it. Enter that moref.",
+      answer: "group-d1",
+      hint: "A permission is attached to an entity; the principal is who receives it.",
       xp: 20,
     },
   ],

@@ -268,14 +268,14 @@ const rooms = [
           question:
             "A Domain Admin account creates a new user account and adds it to the Domain Admins group at 2 AM. The account's group membership fully permits this action. What is the correct next analyst step?",
           options: [
-            "Close the alert immediately — the account is a Domain Admin and is therefore authorised to perform any administrative action at any time",
-            "Check whether a change ticket, maintenance window and identifiable business reason exist for this specific action — permission to act is not the same as authorisation for this action",
-            "Escalate automatically without any further checking, since all Domain Admin activity outside 9-to-5 is definitionally malicious",
-            "Ignore the event, since Event 4728 only fires for legitimate, pre-approved group changes",
+            "Confirm the acting account is a current member of Domain Admins, since valid membership means the change was approved",
+            "Look for a change ticket, maintenance window and named owner covering this specific addition before deciding",
+            "Declare a confirmed compromise, since a privileged-group addition at 2 AM is enough evidence of malice on its own",
+            "Close it as benign, since Windows only writes Event 4728 after verifying the actor had rights to make the change",
           ],
           answer: 1,
           explanation:
-            "The account being permitted (its group membership technically allows the action) says nothing about whether the action was authorised (approved through the organisation's own change process, in an agreed window, by a traceable owner). The correct move is to check for that separate evidence — a change ticket, a maintenance window, a business reason — not to assume either that Domain Admin status excuses everything or that an unusual hour alone proves malice.",
+            "Group membership only proves the action was permitted; authorisation lives outside Windows — a change ticket, an agreed maintenance window and an owner who can explain it. “Confirm the acting account is a current member of Domain Admins” re-checks permission, which the stem already established. “Declare a confirmed compromise” over-reads the hour: a planned 2 AM change is normal if a ticket backs it. “Close it as benign, since Windows only writes Event 4728 after verifying the actor had rights” is true about the log but again only proves permission, not approval.",
         },
       },
       // ── Reading 2 ──────────────────────────────────────────────
@@ -296,14 +296,14 @@ const rooms = [
         checkpoint: {
           question: "According to the reading's attack chain, what does the attacker use in Step 5 (DCSync / NTDS extraction) to pull all password hashes from Active Directory?",
           options: [
-            "A sustained brute-force password-guessing attack launched directly against the Domain Controller's exposed RDP listener on port 3389",
-            "A mimicked legitimate Domain Controller replication request that pulls hashes without touching NTDS.DIT on disk",
-            "A targeted phishing email sent directly to the Domain Admin, tricking them into typing their credentials into a fake login portal",
-            "A golden ticket forged from the previously extracted krbtgt hash, used here to authenticate directly to the DC as any user",
+            "A Pass-the-Hash logon to the DC with the Domain Admin's NTLM hash, followed by copying NTDS.DIT off its disk",
+            "A request that mimics DC-to-DC replication, pulling every hash without touching NTDS.DIT on disk",
+            "A Mimikatz sekurlsa::logonpasswords run on the DC, reading every domain hash out of its LSASS memory",
+            "A golden ticket forged from the krbtgt hash, used to authenticate to the DC as any user it chooses",
           ],
           answer: 1,
           explanation:
-            "DCSync (mimikatz lsadump::dcsync) impersonates a legitimate DC replication request to pull all password hashes from Active Directory without ever touching the NTDS.DIT file — the golden ticket forgery described in Step 6 is a later, separate persistence step that uses the krbtgt hash obtained here.",
+            "DCSync (mimikatz lsadump::dcsync) impersonates a DC replication request and can run from any host holding replication rights. “A Pass-the-Hash logon to the DC ... copying NTDS.DIT” merges Step 4 with a file-copy approach the reading explicitly says DCSync avoids. “sekurlsa::logonpasswords” is the Step 3 LSASS harvest of logged-on sessions, not directory replication. “A golden ticket forged from the krbtgt hash” is Step 6 persistence, which depends on the krbtgt hash that DCSync obtains.",
         },
       },
       // ── Question 1 ──────────────────────────────────────────────
@@ -313,14 +313,14 @@ const rooms = [
         question:
           "A Sysmon Event 10 (ProcessAccess) fires showing that `powershell.exe` accessed `lsass.exe` with GrantedAccess value `0x1FFFFF`. What does this MOST likely indicate?",
         options: [
-          "A Windows Defender antimalware scan of LSASS memory, which legitimately opens the process with full access rights",
-          "A credential dumping tool such as Mimikatz extracting password hashes and Kerberos tickets from LSASS memory",
-          "PowerShell-based session administration, since querying logged-on users requires a full-access handle to LSASS",
-          "A backup agent's VSS snapshot job, which needs full access to every process in order to capture a consistent state",
+          "A Windows Defender scan of LSASS memory, which routinely opens the process with a full-access handle",
+          "Credential dumping, e.g. Mimikatz loaded in PowerShell, reading hashes and tickets from LSASS memory",
+          "Session administration in PowerShell, since listing logged-on users needs a full-access LSASS handle",
+          "A VSS backup snapshot, since capturing a consistent state requires opening each process with full access",
         ],
         answer: 1,
         explanation:
-          "GrantedAccess 0x1FFFFF is PROCESS_ALL_ACCESS — the broadest possible access level to another process. Legitimate system processes that access LSASS (like Windows Defender's antimalware service) use much more restricted access masks. PowerShell has no legitimate reason to open full access to LSASS. This pattern — powershell.exe + LSASS + 0x1FFFFF — is the most common signature of Mimikatz's `sekurlsa::logonpasswords` command being executed in a PowerShell session.",
+          "GrantedAccess 0x1FFFFF is PROCESS_ALL_ACCESS, and the reading names it as the classic Mimikatz access mask against LSASS. “A Windows Defender scan” is wrong because legitimate system processes that touch LSASS use far narrower masks, and the source here is powershell.exe, not a Defender binary. “Session administration in PowerShell” is wrong: listing logged-on users uses query APIs, not a handle into LSASS memory. “A VSS backup snapshot” works at the volume level and does not open process memory at all.",
         xp: 20,
       },
       // ── Question 2 ──────────────────────────────────────────────
@@ -328,16 +328,16 @@ const rooms = [
         type: "question",
         id: "priv-q2",
         question:
-          "Which combination of Windows Event IDs would BEST help a SOC analyst detect an attacker adding a newly created account to the Domain Admins group?",
+          "In the reading's Step 6, the attacker sets up persistence with a brand-new backdoor identity placed in Domain Admins. Which pair of DC events should your correlation rule join to catch that step?",
         options: [
-          "4625 (failed logon) + 4672 (special logon)",
-          "4720 (account created) + 4728 (added to security-enabled global group)",
-          "4769 (Kerberos service ticket) + 4662 (directory service access)",
-          "4673 (sensitive privilege use) + 4688 (process creation)",
+          "4720 (user account created) + 4732 (member added to a security-enabled local group)",
+          "4720 (user account created) + 4728 (member added to a security-enabled global group)",
+          "4672 (special logon) + 4728 (member added to a security-enabled global group)",
+          "4662 (directory service access) + 4756 (member added to a security-enabled universal group)",
         ],
         answer: 1,
         explanation:
-          "Creating a backdoor admin account generates Event 4720 (a user account was created) followed almost immediately by Event 4728 (a member was added to a security-enabled global group) where the target group is 'Domain Admins'. This two-event sequence with a new SID being added to a highly privileged group in quick succession is a strong indicator of persistence via account creation. Correlating 4720 → 4728 → (checking if target group is a privileged group) is a core SIEM detection rule.",
+          "Step 6 generates 4720 for the new account and 4728, because Domain Admins is a global group. “4720 + 4732” picks the local-group event, which covers groups like a server's local Administrators, not Domain Admins. “4672 + 4728” swaps creation for a special logon: 4672 only appears once the new account logs on, so it misses the creation itself. “4662 + 4756” pairs the DCSync-style directory-access event with the universal-group event — neither records creating a user or adding it to Domain Admins.",
         xp: 20,
       },
       // ── Question 3 ──────────────────────────────────────────────
@@ -347,14 +347,14 @@ const rooms = [
         question:
           "What is the PRIMARY security purpose of a PAM (Privileged Access Management) vault solution like CyberArk?",
         options: [
-          "To encrypt all traffic between privileged users and the remote systems they manage, acting as a VPN concentrator for administrator sessions",
-          "To vault privileged passwords so administrators never see them, with checkout, session logging and automatic rotation after each use",
-          "To enforce multi-factor authentication on VPN connections for every employee, privileged or not, and log each challenge result",
-          "To continuously scan Active Directory for over-privileged accounts and automatically remove their rights without any human review",
+          "To keep a shared, encrypted store of admin passwords that administrators look up and type in when needed",
+          "To hold privileged credentials so admins never learn them, with justified checkout, session recording and rotation",
+          "To make admin rights temporary by adding accounts to Domain Admins for a fixed window, then removing them",
+          "To detect credential dumping by alerting whenever a non-system process opens a handle to LSASS",
         ],
         answer: 1,
         explanation:
-          "A PAM vault's core function is credential vaulting and session management: admin passwords are stored encrypted in the vault, users must check out credentials (with a justification) to use them, the actual password is injected into the session automatically (so the human never sees it and cannot share or reuse it), all session activity is recorded, and credentials are rotated after each checkout. This means a compromised human account cannot directly access privileged systems — the attacker would also need to compromise the vault itself.",
+          "The reading lists the PAM vault's functions: encrypted storage where analysts never know the password, checkout with a reason, rotation after each use and recording of every privileged session. “A shared, encrypted store ... administrators look up and type in” is a plain password manager: the human learns the password and can reuse it, which PAM is designed to prevent. “Make admin rights temporary” describes just-in-time (JIT) access, a related pattern the reading treats separately. “Detect credential dumping” is LSASS-access telemetry (Sysmon Event 10 / EDR), not a vault.",
         xp: 20,
       },
       // ── Log Analysis ───────────────────────────────────────────
@@ -382,7 +382,6 @@ const rooms = [
             "winlog.event_data.SubjectLogonId": "0x7F4A21C",
             "winlog.event_data.PrivilegeList":
               "SeBackupPrivilege\nSeRestorePrivilege\nSeDebugPrivilege\nSeTcbPrivilege",
-            "winlog.event_data.LogonType": "3",
             "event.created": "2026-06-24T03:22:11.004Z",
             "log.level": "critical",
             "tags": ["privileged-access", "service-account", "DC"],
@@ -391,30 +390,30 @@ const rooms = [
         questions: [
           {
             question:
-              "The backup service account `svc-backup` is expected to hold SeBackupPrivilege and SeRestorePrivilege. What is anomalous about the PrivilegeList in this event?",
+              "This 4672 shows svc-backup's token HOLDS SeDebugPrivilege. Sensitive Privilege Use auditing is not enabled on DC01. Which evidence would best show whether that privilege was actually used to read credentials?",
             options: [
-              "SeBackupPrivilege is missing from the list — the account cannot perform backups",
-              "The account also holds SeDebugPrivilege and SeTcbPrivilege, which are not needed for backup operations and are extremely dangerous privileges",
-              "LogonType 3 is unexpected — backup accounts should only use interactive logons (Type 2)",
-              "The SubjectDomainName shows CORP which means this is a local account that should not have domain privileges",
+              "Event 4673 entries for svc-backup on DC01 around 03:22, which record each use of a sensitive privilege",
+              "Sysmon Event 10 on DC01 around 03:22 with TargetImage lsass.exe, showing which process opened it and how",
+              "Events 4728/4732 naming svc-backup, showing which group change gave the account its extra privileges",
+              "A second 4672 for svc-backup later that night, since a repeated special logon shows the privilege in use",
             ],
             answer: 1,
             explanation:
-              "A backup account legitimately needs SeBackupPrivilege (read any file for backup) and SeRestorePrivilege (write any file for restore). SeDebugPrivilege allows reading memory of any process — including LSASS for credential dumping — which backup software has no reason to hold. SeTcbPrivilege ('Act as part of the OS') is one of the highest privileges in Windows. These two extra privileges on a service account on a Domain Controller at 3 AM is a critical indicator that the account has been compromised or its token has been manipulated.",
+              "Debug-privilege abuse means a tool opening LSASS memory, and the reading names Sysmon Event 10 (TargetImage lsass.exe, GrantedAccess) as the practical detection. “Event 4673 entries” would record use, but the stem says Sensitive Privilege Use auditing is off, so none will exist. “Events 4728/4732” could explain how the account gained rights, but not whether they were used. “A second 4672” confuses holding with using: 4672 is written at logon and lists what the token carries, whether or not it is ever exercised.",
             xp: 25,
           },
           {
             question:
               "This event was generated at 03:22 AM on a Domain Controller, outside the scheduled backup window. What is the MOST dangerous potential attack scenario indicated by the combination of DC01 hostname + svc-backup account + SeDebugPrivilege + off-hours timing?",
             options: [
-              "The backup scheduler ran slightly late due to a server load issue and the privileges are a legacy misconfiguration that poses no immediate threat",
-              "An attacker who compromised the svc-backup account (or its credentials) is operating on the Domain Controller, and with SeDebugPrivilege they can dump LSASS memory to extract all domain user password hashes and Kerberos ticket material",
-              "A legitimate administrator enabled SeDebugPrivilege temporarily for troubleshooting and forgot to remove it — this is a policy violation but not an active attack",
-              "The Domain Controller is experiencing a replication failure and Windows automatically elevates service account privileges during replication recovery",
+              "A backup job that started late, with the extra privileges a stale misconfiguration to fix in a hygiene ticket",
+              "Someone acting as svc-backup on the DC who can open LSASS and harvest domain credential material",
+              "An admin who granted SeDebugPrivilege for troubleshooting and forgot to remove it — a policy gap",
+              "A Kerberoasting attempt on svc-backup, with this 4672 being the DC logging the service-ticket request",
             ],
             answer: 1,
             explanation:
-              "A service account with SeDebugPrivilege on a Domain Controller is one of the most dangerous combinations in Windows environments. SeDebugPrivilege allows reading LSASS.EXE memory — which on a Domain Controller contains cached credentials for every recently authenticated domain user. An attacker in this position can run Mimikatz to extract the krbtgt hash (enabling golden ticket creation) and all other domain account hashes. The off-hours timing confirms this is not a scheduled operation. This is a Tier 1 escalation — the DC should be treated as fully compromised until proven otherwise.",
+              "On a DC, a token with SeDebugPrivilege can read LSASS memory, which holds credential material for domain accounts — including what an attacker needs for golden tickets. That is the most dangerous reading. “A backup job that started late” ignores that 03:22 is hours outside the 22:00–23:30 window and does not explain the two extra privileges. “An admin who ... forgot to remove it” could explain how the rights appeared, but not who is using the account at 03:22, and it is not an attack scenario. “A Kerberoasting attempt” confuses events: a service-ticket request is Event 4769, not a 4672 special logon.",
             xp: 25,
           },
         ],
@@ -447,7 +446,7 @@ const rooms = [
             "pam.reason_provided": "Emergency maintenance",
             "db.host": "DB-PROD-01",
             "db.type": "postgresql",
-            "db.statement": "SELECT * FROM customers WHERE region = ALL",
+            "db.statement": "SELECT * FROM customers",
             "db.rows_returned": 250000,
             "db.query_duration_ms": 8420,
             "user.department": "Database Administration",
@@ -470,9 +469,9 @@ const rooms = [
         type: "flag",
         id: "priv-flag1",
         prompt:
-          "In Log Analysis 1 (the log analysis event above), the `svc-backup` service account was granted several privileges. Two of them are expected for a backup account. Identify the single most dangerous UNEXPECTED privilege that was assigned — the one that allows reading memory of any process on the system. Enter the exact privilege name as it appears in the PrivilegeList field.",
-        answer: "SeDebugPrivilege",
-        hint: "Look at the PrivilegeList field. A backup account needs SeBackupPrivilege and SeRestorePrivilege. One of the remaining two privileges specifically allows debugging (reading/writing) the memory of any process — including LSASS.",
+          "In the svc-backup special-logon event on DC01, you now want the matching 4624 logon event to see which machine this session came from. Enter the exact value you would search for in DC01's logon events to tie them to this 4672.",
+        answer: "0x7F4A21C",
+        hint: "A 4672 and the 4624 that started the same session share one identifier. The “Key Windows Events” reading names the 4672 field that carries it.",
         xp: 40,
       },
 
@@ -535,28 +534,28 @@ const rooms = [
             question:
               "The process.parent.name is 'sqlservr.exe' and the process.name is 'powershell.exe'. Why is this parent-child relationship, on its own, enough to escalate this alert to critical — even before reading the sql.stored_procedure field?",
             options: [
-              "It isn't unusual at all — DBAs routinely launch PowerShell maintenance scripts as a direct child process of sqlservr.exe itself during scheduled overnight maintenance windows, so this parent-child pairing is expected and benign on any production database server, and Microsoft ships xp_cmdshell enabled by default on SQL Server for exactly that purpose",
-              "sqlservr.exe (the SQL Server database engine process) has no legitimate reason to spawn a shell interpreter like PowerShell — real database administration happens through management tools or scheduled SQL Agent jobs, not through the database engine process itself launching cmd.exe or powershell.exe. This parent-child pattern is functionally identical to the 'Office app spawns shell' red flag you learned earlier, just with a database process instead of Word or Excel",
-              "PowerShell itself should never be allowed to run on any database server under any circumstances whatsoever, entirely independent of which process launched it or why, since PowerShell's mere presence is the actual indicator here — this is why the SQL Server installer removes powershell.exe from every database host it provisions",
-              "The alert is only rated critical because the EDR happened to record an integrity level of 'High' on this particular process — the identity of the parent process itself carries no real investigative meaning on its own, and the T1059.001 mapping is derived purely from that integrity level rather than from the interpreter that executed",
+              "Because PowerShell running on a database server is the indicator in itself, whichever process launched it",
+              "Because the database engine has no routine reason to launch a shell; real DBA work runs through tools or SQL Agent jobs",
+              "Because the High integrity level shows the shell escalated beyond the rights of the svc-mssql service account",
+              "Because sqlservr.exe runs as SYSTEM, so any shell it spawns starts with full control of the host",
             ],
             answer: 1,
             explanation:
-              "Just like winword.exe spawning cmd.exe is a hallmark of a malicious Office macro, sqlservr.exe spawning powershell.exe is a hallmark of xp_cmdshell abuse. The SQL Server database engine process's job is to serve queries — it has no legitimate operational reason to launch a scripting shell as a child process. This parent-child relationship alone, independent of the command line content, is a near-certain sign that a SQL query executed xp_cmdshell to break out of the database and run OS-level commands.",
+              "The reading's signature is the parent-child pair: the SQL Server engine serves queries and has no routine reason to start a shell, so sqlservr.exe → powershell.exe points to xp_cmdshell, much like winword.exe → cmd.exe points to a macro. “PowerShell running on a database server is the indicator in itself” ignores that admins legitimately run PowerShell there; the parent is what makes it abnormal. “The High integrity level shows the shell escalated” misreads the log: the child simply inherits the service account's token, and the user field still shows CORP\\svc-mssql. “sqlservr.exe runs as SYSTEM” is contradicted by the same field — the shell runs as svc-mssql.",
             xp: 30,
           },
           {
             question:
               "The event occurred 6 hours after a Kerberoasting alert against the same account, svc-mssql. What does this timing gap tell you about what happened in between, and what should the analyst's investigation timeline include?",
             options: [
-              "The 6-hour gap is entirely irrelevant to the investigation, because SIEM correlation only ever matters within the same 5-10 minute alerting window — the two events happened to involve the same account purely by coincidence, and standard SOC practice is to open, triage, and close them as two completely separate, unrelated tickets rather than trying to connect them into a single incident timeline",
-              "The gap is consistent with offline password cracking: the attacker captured svc-mssql's Kerberos service ticket (RC4-encrypted) via Kerberoasting, spent time cracking it offline on their own hardware (generating zero logs during that period), and once cracked, authenticated as svc-mssql to the SQL Server instance and abused its sysadmin privileges via xp_cmdshell. The investigation timeline should span from the original 4769 Kerberoasting event through to this process creation, treating both as one continuous incident",
-              "The gap most likely indicates that the SQL Server instance underwent a routine reboot for scheduled patching sometime during that six-hour window, and it was specifically that reboot process which reset the service account's underlying database-level permissions back to an overly broad default configuration, unrelated to any credential theft",
-              "A 6-hour gap between the two events is simply far too long for them to plausibly belong to the same attack chain, since Kerberoasting exploitation must always follow the initial ticket capture within a few minutes at most, or the captured ticket is considered to have expired and become useless to the attacker",
+              "Two unrelated incidents: correlation should only join alerts a few minutes apart, so triage them as separate tickets",
+              "Offline cracking of the captured RC4 ticket, which logs nothing; build one timeline from the 4769 to this spawn",
+              "AS-REP roasting rather than Kerberoasting, so scope the timeline to svc-mssql's 4768 events only",
+              "A second, separate credential theft, since a captured ticket expires minutes after capture and can't be cracked later",
             ],
             answer: 1,
             explanation:
-              "This is the exact 'silent gap' pattern taught in the Active Directory room's AS-REP Roasting reading, applied to Kerberoasting: cracking an RC4-encrypted Kerberos ticket offline can take anywhere from minutes to many hours depending on password strength and attacker hardware, and it generates no logs at all because it happens entirely outside the domain's visibility. A mature SOC investigation treats the original Kerberoasting alert and this xp_cmdshell escalation as a single incident timeline, not two unrelated events — the multi-hour gap is itself diagnostic evidence of offline cracking having occurred in between. SIEM correlation absolutely can and should span hours, not just minutes, when the same account is involved. There is no Windows or SQL Server behaviour that resets database permissions on reboot. And Kerberos service tickets remain crackable offline for as long as the attacker holds the captured ticket — there is no built-in expiry that forces exploitation within minutes.",
+              "Cracking a captured RC4 service ticket happens on the attacker's own hardware and leaves no logs; once the password falls, the attacker logs in as svc-mssql and uses its sysadmin role for xp_cmdshell. The gap itself is evidence, so the timeline runs from the 4769 through this event. “Two unrelated incidents” assumes correlation windows of minutes; same-account correlation should span hours. “AS-REP roasting” is wrong because the alert was a service-ticket (4769, EncryptionType 0x17) request — AS-REP roasting targets accounts without pre-authentication through 4768. “A captured ticket expires minutes after capture” is false: offline cracking works on the captured ticket however long it takes.",
             xp: 30,
           },
         ],
@@ -567,9 +566,9 @@ const rooms = [
         type: "flag",
         id: "priv-flag2",
         prompt:
-          "Look at the sqlservr.exe log analysis event above. What is the exact name of the SQL Server extended stored procedure the attacker used to break out of the database and execute operating-system commands? Enter it exactly as it appears in the sql.stored_procedure field.",
-        answer: "xp_cmdshell",
-        hint: "Look at the 'sql.stored_procedure' field in the raw log. It is a built-in SQL Server feature, disabled by default, that lets a database user run OS shell commands.",
+          "In the sqlservr.exe → powershell.exe event, the cracked login could only run its shell breakout because of one server-level permission it held. Find that permission in the correlated SQL audit evidence and enter its name exactly.",
+        answer: "sysadmin",
+        hint: "The xp_cmdshell reading explains which SQL Server role a cracked SQL service account often belongs to, and why that is what turns a Windows logon into full control of the instance.",
         xp: 30,
       },
     ],
@@ -598,16 +597,16 @@ const rooms = [
         content:
           "**Analogy:** When you rent office space in a building, the building management installs cameras in the lobby, elevators, and corridors. They don't install cameras inside your office — that's your responsibility. Cloud providers work the same way: they record every API call made to their infrastructure (their 'lobby'), but you are responsible for enabling detailed logging inside your own workloads.\n\n**AWS CloudTrail** is Amazon's audit log for every API call made to your AWS account. When you create an EC2 server, delete an S3 bucket, or change an IAM policy — CloudTrail writes a record. Key fields in every CloudTrail event:\n- `eventName` — what action was performed (e.g., `CreateUser`, `PutBucketPolicy`, `GetObject`)\n- `sourceIPAddress` — where the call came from. Could be an AWS service (`lambda.amazonaws.com`), a corporate IP, or an attacker's IP.\n- `userIdentity.type` — the type of caller: `IAMUser` (a human with permanent keys), `AssumedRole` (someone who used STS to assume a role — common for applications and cross-account access), `Root` (the all-powerful account root user — should almost never appear in CloudTrail)\n- `userIdentity.arn` — the full ARN of the caller, e.g., `arn:aws:iam::123456789012:assumed-role/DevRole/session-name`\n- `requestParameters` — the arguments passed to the API (e.g., `{\"userName\": \"backdoor-admin\"}` for a CreateUser call)\n- `responseElements` — the result returned by AWS (e.g., the ARN of the newly created user)\n- `awsRegion` — which region the action occurred in. Activity in regions you never use (e.g. EC2 instances launched in `sa-east-1` by a company that only runs in Europe) is suspicious. Exception: global services — IAM, the STS global endpoint, Organizations, CloudFront — always log as `us-east-1`, wherever the caller is, so `us-east-1` on an IAM event is expected and proves nothing.\n- `errorCode` — if the API call failed, why (e.g., `AccessDenied`, `NoSuchBucket`). Many `AccessDenied` errors from the same identity indicate reconnaissance.\n\n**Azure Activity Log** records all control-plane operations in Azure (creating VMs, changing NSGs, modifying role assignments). **Microsoft Entra ID (formerly Azure AD) Sign-in Logs** record every authentication event. **Microsoft Defender for Cloud** (formerly Azure Security Center) provides security posture and threat detection. **Microsoft Sentinel** is Azure's cloud-native SIEM that ingests all of these.\n\n**GCP Cloud Audit Logs** work similarly — Admin Activity logs (always on, free), Data Access logs (must be enabled, can be expensive), and System Event logs. GCP's **Security Command Center** is the equivalent of AWS GuardDuty for threat detection.\n\n**What makes cloud monitoring different from on-premises:**\n1. **No perimeter** — anyone on the internet can attempt API calls against your cloud account. There's no corporate firewall limiting who can *try*.\n2. **Credentials live in code** — developers accidentally commit AWS access keys to GitHub regularly. A leaked key gives an attacker the same access as the developer, from anywhere.\n3. **Scale and speed** — an attacker with valid cloud credentials can provision 1,000 crypto-mining servers, exfiltrate a 10 TB database, or create 50 backdoor accounts in seconds. The blast radius is enormous.\n4. **Misconfiguration is the leading cause** — open S3 buckets, overly permissive IAM roles, publicly accessible databases. Attackers scan for these continuously.",
         checkpoint: {
-          question: "You are triaging four CloudTrail events, each carrying a different userIdentity.type. Based on the reading, which caller identity is a major red flag on its own, and why?",
+          question: "In five minutes, one identity produces 60 CloudTrail events spread across IAM, S3, EC2 and Secrets Manager, and nearly all carry errorCode `AccessDenied`. Based on the reading, what does this pattern most likely indicate?",
           options: [
-            "`IAMUser` — the type AWS records when one of its own services calls an API on your behalf",
-            "`AssumedRole` — the type recorded when a role session ends and its temporary credentials expire",
-            "`Root` — the all-powerful account root user, which should almost never appear performing day-to-day actions",
-            "`ServicePrincipal` — the type recorded for a human signing in to the AWS console with a password",
+            "A misconfigured application retrying one API call it was never granted permission to make",
+            "CloudTrail failing to deliver these events to its S3 bucket, recorded as AccessDenied on each",
+            "Reconnaissance — someone probing what a credential can do by trying many different calls",
+            "A password-guessing attack on the identity's console login, logging each wrong guess as AccessDenied",
           ],
           answer: 2,
           explanation:
-            "Root is the all-powerful account root user, which should almost never appear performing routine actions in CloudTrail — best practice is to lock the root account away and use IAM users/roles for day-to-day work, so root activity is a strong signal worth investigating. `IAMUser` is a human with permanent access keys, and `AssumedRole` covers any STS role session — including an EC2 instance role used entirely inside your own account.",
+            "The reading says many `AccessDenied` errors from the same identity indicate reconnaissance — an attacker testing what a stolen credential is allowed to do. The spread across four services is the tell. “A misconfigured application retrying one API call” would repeat a single eventName, not dozens of calls across IAM, S3, EC2 and Secrets Manager. “CloudTrail failing to deliver these events” misreads the field: `errorCode` records why the API call itself failed, not a logging problem. “A password-guessing attack on the console login” would appear as failed ConsoleLogin events, not as AccessDenied on API calls to other services.",
         },
       },
       // ── Reading 2 ──────────────────────────────────────────────
@@ -621,13 +620,13 @@ const rooms = [
           question: "According to the reading, what endpoint does an attacker query on a compromised EC2 instance to retrieve live, temporary AWS credentials for the instance's IAM role?",
           options: [
             "http://169.254.169.254/latest/meta-data/iam/security-credentials/",
-            "https://console.aws.amazon.com/iam/credentials",
-            "http://localhost:8080/aws/creds",
-            "https://s3.amazonaws.com/credentials",
+            "http://169.254.169.254/latest/dynamic/instance-identity/document",
+            "https://sts.amazonaws.com/?Action=GetSessionToken&Version=2011-06-15",
+            "https://iam.amazonaws.com/?Action=ListAccessKeys&Version=2010-05-08",
           ],
           answer: 0,
           explanation:
-            "The EC2 Instance Metadata Service at 169.254.169.254 returns temporary credentials for the instance's attached IAM role. IMDSv1 has no protection against this being queried by any code running on the instance, which is why IMDSv2 (requiring a session token) is the recommended mitigation.",
+            "The metadata service's `iam/security-credentials/` path returns temporary credentials for the instance's attached IAM role, and under IMDSv1 any code on the instance can query it. “/dynamic/instance-identity/document” is on the same metadata service but returns the instance's identity (account, region, instance ID), not role credentials. “sts.amazonaws.com ... GetSessionToken” is an API that needs valid credentials before it will answer. “iam.amazonaws.com ... ListAccessKeys” only lists key IDs, never secrets, and also needs credentials first.",
         },
       },
       // ── Reading 3 ──────────────────────────────────────────────
@@ -643,7 +642,7 @@ const rooms = [
         type: "question",
         id: "cloud-q1",
         question:
-          "An AWS CloudTrail query returns a `CreateUser` event for user `svc-cloudmonitor` followed 90 seconds later by an `AttachUserPolicy` event attaching policy `arn:aws:iam::aws:policy/AdministratorAccess` to that user. Both events originate from IP `185.220.101.45`. What is this MOST likely?",
+          "An AWS CloudTrail query returns a `CreateUser` event for user `svc-cloudmonitor` followed 90 seconds later by an `AttachUserPolicy` event attaching policy `arn:aws:iam::aws:policy/AdministratorAccess` to that user. Both events originate from IP `185.220.101.45`, which your threat-intel enrichment tags as a Tor exit node. What is this MOST likely?",
         options: [
           "A DevOps engineer provisioning a monitoring service account, where attaching AdministratorAccess is a common CI shortcut",
           "An IAM backdoor — compromised credentials used to create a new user and give it persistent administrator access",
@@ -652,7 +651,7 @@ const rooms = [
         ],
         answer: 1,
         explanation:
-          "`CreateUser` immediately followed by `AttachUserPolicy` with `AdministratorAccess` is the textbook IAM backdoor sequence. Legitimate service accounts are created through version-controlled Infrastructure-as-Code (Terraform, CloudFormation) from known CI/CD IPs, not via direct API calls from an anonymous IP. The IP 185.220.101.45 is a known Tor exit node — no legitimate automated system or engineer uses Tor to manage production AWS. The `AdministratorAccess` policy grant to a newly created account is the most dangerous possible outcome of an AWS compromise.",
+          "`CreateUser` followed within minutes by `AttachUserPolicy` with `AdministratorAccess` is the reading's IAM backdoor sequence, and a Tor source IP is one of the aggravating signs it names. “A DevOps engineer provisioning a monitoring service account” does not fit a Tor source — engineers and CI work from corporate, home or known pipeline ranges. “An AWS service-linked role” is created by AWS as a role, not through `CreateUser`, and never from an external Tor IP. “A scheduled IAM access-review automation” would run from your own known infrastructure and would not hand a brand-new user full administrator rights.",
         xp: 20,
       },
       // ── Question 2 ──────────────────────────────────────────────
@@ -660,16 +659,16 @@ const rooms = [
         type: "question",
         id: "cloud-q2",
         question:
-          "A developer's EC2 instance running a web application is compromised via a Server-Side Request Forgery (SSRF) vulnerability. The attacker makes HTTP requests to `http://169.254.169.254/latest/meta-data/iam/security-credentials/`. What does this endpoint expose?",
+          "A web application on EC2 has a Server-Side Request Forgery (SSRF) flaw, and the instance still runs IMDSv1. Your team cannot patch the application this week. Which change most directly stops an attacker from using the SSRF to pull the instance role's temporary credentials?",
         options: [
-          "The instance's local administrator password, returned in plaintext to any process running on the host",
-          "The long-term access keys of the IAM user who launched the instance, cached on the host by the AWS CLI",
-          "Temporary credentials (access key, secret key and session token) for the IAM role attached to the instance",
-          "A full inventory of the account's IAM users and their attached policies, returned to any caller on the instance",
+          "Remove the instance's public IP so the metadata endpoint can no longer be reached from the internet",
+          "Enable GuardDuty in the region so credential theft from the metadata service is caught as it happens",
+          "Require IMDSv2 on the instance, so the metadata service only answers requests carrying a session token",
+          "Tighten the security group to allow only inbound 443, closing the path the attacker uses to reach IMDS",
         ],
         answer: 2,
         explanation:
-          "The EC2 Instance Metadata Service (IMDS) at 169.254.169.254 is a link-local address accessible only from within the EC2 instance. The IAM credentials endpoint returns temporary AWS credentials (AccessKeyId, SecretAccessKey, Token) issued by STS for the role attached to the instance profile. An SSRF vulnerability that can reach this endpoint gives the attacker full use of the instance's IAM role — often with significant permissions like S3FullAccess. These credentials appear valid in CloudTrail but come from the EC2 instance's IP, which may seem legitimate unless analysts correlate it with the web app's SSRF vulnerability.",
+          "The reading names IMDSv2 (session token required) as the mitigation for metadata credential theft: a token must first be obtained with a separate request, which a simple SSRF that only makes the app fetch a URL usually cannot do. “Remove the instance's public IP” misses how SSRF works: the vulnerable app makes the request from inside the instance, and 169.254.169.254 is link-local, never reached from the internet. “Enable GuardDuty” detects abuse but blocks nothing. “Tighten the security group” is also wrong — security groups filter traffic to the instance, not the instance's own calls to its link-local metadata endpoint.",
         xp: 20,
       },
       // ── Question 3 ──────────────────────────────────────────────
@@ -686,7 +685,7 @@ const rooms = [
         ],
         answer: 1,
         explanation:
-          "The AWS root account is the email/password account used to originally create the AWS account. It cannot be restricted by IAM policies (Service Control Policies restrict it only in member accounts of an AWS Organization — never in the management account), and it has access to billing and account closure. AWS's own best practices say root should be used only for a handful of specific tasks (e.g., closing the account, restoring a locked-out admin) and should have MFA enabled with the access keys deleted. Any `Root` event in CloudTrail — especially API calls rather than console logins — is a Tier 1 alert. Attackers who obtain root access own that account — and if it is the Organization's management account, effectively the whole organization.",
+          "The AWS root account is the email/password account used to originally create the AWS account. It cannot be restricted by IAM policies (Service Control Policies restrict it only in member accounts of an AWS Organization — never in the management account), and it has access to billing and account closure. AWS's own best practices say root should be used only for a handful of specific tasks (e.g., closing the account, restoring a locked-out admin) and should have MFA enabled with the access keys deleted. Any `Root` event in CloudTrail — especially API calls rather than console logins — is a Tier 1 alert. Attackers who obtain root access own that account — and if it is the Organization's management account, effectively the whole organization. The distractors describe other identities that CloudTrail labels differently: an IAM user holding AdministratorAccess is still type `IAMUser`; a Lambda execution role and a federated SSO session are both `AssumedRole`. Broad permissions never turn an identity into `Root`.",
         xp: 20,
       },
       // ── Log Analysis ───────────────────────────────────────────
@@ -695,7 +694,7 @@ const rooms = [
         id: "cloud-la1",
         heading: "AWS CloudTrail — IAM Backdoor User Creation",
         context:
-          "AWS GuardDuty generated finding: `PrivilegeEscalation:IAMUser/AdministrativePermissions`. CloudTrail has the underlying events. The event below is the `CreateUser` call. A second event (not shown) captured `AttachUserPolicy` with PolicyArn `arn:aws:iam::aws:policy/AdministratorAccess` targeting the same username, 47 seconds later from the same source IP. Your organisation operates only from EU-WEST-1 and AP-SOUTHEAST-1 regions. No change ticket exists for this activity.",
+          "AWS GuardDuty generated finding: `PrivilegeEscalation:IAMUser/AdministrativePermissions`. CloudTrail has the underlying events. The event below is the `CreateUser` call. A second event (not shown) captured `AttachUserPolicy` with PolicyArn `arn:aws:iam::aws:policy/AdministratorAccess` targeting the same username, 47 seconds later from the same source IP. Your organisation operates only from EU-WEST-1 and AP-SOUTHEAST-1 regions. Your CI pipeline calls AWS from a documented set of runner IP ranges. SIEM threat-intel enrichment tags the source IP 185.220.101.45 as a known Tor exit node. No change ticket exists for this activity.",
         event: {
           id: "evt-cloud-iam-001",
           ts: "2026-06-24T04:51:22.391Z",
@@ -733,44 +732,44 @@ const rooms = [
         questions: [
           {
             question:
-              "The `userIdentity.type` is `AssumedRole` and the ARN shows `DevOps-Deploy-Role/ci-session-prod`. The call comes from IP `185.220.101.45`. What is anomalous about this, and why does it indicate compromise rather than legitimate DevOps automation?",
+              "The caller is an `AssumedRole` session of `DevOps-Deploy-Role` named `ci-session-prod`, and the call came from `185.220.101.45`. Which interpretation of the caller and source fields is correct?",
             options: [
-              "AssumedRole is not allowed to call IAM CreateUser — only IAMUser type can create users, so this event must be a CloudTrail error",
-              "Legitimate CI/CD pipelines run from fixed corporate or cloud-provider IP ranges (GitHub Actions, Jenkins servers, etc.) — not from Tor exit nodes like 185.220.101.45. The DevOps-Deploy-Role's session has been hijacked and used from an attacker-controlled IP.",
-              "The session name 'ci-session-prod' is too short to be a legitimate CI pipeline — production sessions always include the full pipeline ID and build number",
-              "AssumedRole credentials expire after 15 minutes, so this event is impossible — the session would have timed out before CreateUser could be called",
+              "An AssumedRole session can't call CreateUser — only an IAMUser can create users, so this must be a logging error",
+              "The CI role's session credentials are being used from a Tor exit node, not the pipeline's runners — they were stolen",
+              "The session name ci-session-prod marks a production pipeline run, so the CreateUser is expected automation",
+              "The aws-cli userAgent proves a human typed the command, so this is an insider using their own access",
             ],
             answer: 1,
             explanation:
-              "AssumedRole via a CI/CD role is entirely legitimate — it's the correct way for pipelines to authenticate to AWS. The red flag is the sourceIPAddress. CI/CD systems (GitHub Actions, GitLab, Jenkins, CircleCI) call AWS APIs from known, documented IP ranges. They do not originate from 185.220.101.45, a well-known Tor exit node. This pattern — legitimate role, illegitimate source IP — indicates the role's credentials were stolen (e.g., from a leaked GitHub Actions secret, a compromised developer machine, or an SSRF on the CI server) and are now being used by an attacker.",
+              "Pipelines legitimately use `AssumedRole`; the anomaly is where the session is used from. The context says the CI calls AWS from documented runner ranges, and this call came from a Tor exit node, so the role's temporary credentials were stolen and replayed. “An AssumedRole session can't call CreateUser” is false — any identity whose policy allows `iam:CreateUser` can call it. “The session name ci-session-prod marks a production pipeline run” trusts a label the caller chooses when assuming the role. “The aws-cli userAgent proves a human typed the command” over-reads the field: the user agent is set by the client, and an attacker or a script can use the CLI just as easily.",
             xp: 25,
           },
           {
             question:
               "The `awsRegion` field shows `us-east-1`, but your organisation only operates in `eu-west-1` and `ap-southeast-1`. What is the significance of this detail?",
             options: [
-              "IAM is a global service and always logs to us-east-1 regardless of where the call originated — this is expected behavior and not suspicious",
-              "Activity in an unexpected region indicates the attacker chose a region your monitoring may not cover, or where your organisation has no legitimate resources and therefore no CloudTrail alerts configured for that region",
-              "AWS automatically routes all API calls through us-east-1 for latency optimisation — the actual region would be shown in a different field",
-              "awsRegion records where the caller is physically located, so us-east-1 means the attacker's exit node sits in North Virginia",
+              "IAM is a global service whose events always log as us-east-1, so this field is expected and proves nothing",
+              "The attacker picked a region outside your footprint, hoping region-scoped monitoring would not see it",
+              "The call was made in us-east-1, so the backdoor user exists only there and can't be used in your regions",
+              "awsRegion records where the caller is, so us-east-1 places the attacker's exit node in North Virginia",
             ],
             answer: 0,
             explanation:
-              "IAM is a global service, and CloudTrail records every IAM API call — like calls to the STS global endpoint and to Organizations — with `awsRegion: us-east-1`, no matter where the caller is or which regions your organisation uses. So `us-east-1` on this CreateUser is expected and is not evidence of anything. It is not a latency trick, and awsRegion is not the caller's location — the caller's address is `sourceIPAddress`. The practical lesson is a coverage one: if your SIEM only ingests trails for eu-west-1 and ap-southeast-1, you would miss every IAM event, so make sure your trail is multi-region (or at least includes global service events). The genuine red flags in this event are elsewhere: the Tor source IP, a new user that receives AdministratorAccess 47 seconds later, and no change ticket. Region only becomes a signal for regional services — for example EC2 RunInstances in a region you never use.",
+              "IAM is a global service, and CloudTrail records every IAM API call — like calls to the STS global endpoint and to Organizations — with `awsRegion: us-east-1`, no matter where the caller is or which regions your organisation uses. So `us-east-1` on this CreateUser is expected and is not evidence of anything. “The attacker picked a region outside your footprint” would only make sense for a regional service; nobody chooses a region for an IAM call. “The backdoor user exists only there” is wrong for the same reason: IAM users are global and work in every region. “awsRegion records where the caller is” confuses fields — the caller's address is `sourceIPAddress`. The practical lesson is a coverage one: if your SIEM only ingests trails for eu-west-1 and ap-southeast-1, you would miss every IAM event, so make sure your trail is multi-region (or at least includes global service events). The genuine red flags in this event are elsewhere: the Tor source IP, a new user that receives AdministratorAccess 47 seconds later, and no change ticket. Region only becomes a signal for regional services — for example EC2 RunInstances in a region you never use.",
             xp: 20,
           },
           {
             question:
-              "Looking at the `requestParameters.userName` field: what was the name of the IAM user that the attacker created?",
+              "Following Step 2 of the investigation reading, you want every other API call made by this same hijacked session, without pulling in the pipeline's legitimate runs of the role. Which value should you search CloudTrail for?",
             options: [
-              "DevOps-Deploy-Role",
-              "ci-session-prod",
-              "svc-cloudmonitor-prod",
-              "AIDA4XYZABC123DEF456G",
+              "responseElements.user.arn — the ARN AWS returned for the newly created user",
+              "responseElements.user.userId — the unique AIDA… ID assigned to that user",
+              "userIdentity.arn — the assumed-role ARN that ends in the session name",
+              "sessionIssuer.userName — the name of the role that issued the session",
             ],
             answer: 2,
             explanation:
-              "`requestParameters.userName` is the argument the caller passed to the `CreateUser` API — it is the name of the new IAM user being created. In this case: `svc-cloudmonitor-prod`. Attackers typically choose names that blend in with legitimate service accounts (prefixed with `svc-`, ending in `-prod` or `-monitor`). The `userId` value `AIDA4XYZABC123DEF456G` is the AWS-generated unique identifier for the user — not the human-readable name. `DevOps-Deploy-Role` and `ci-session-prod` are the identity of the *caller* who made the API call, not the newly created account.",
+              "Step 2 says to query all events from the attacker's ARN or IP. The caller's `userIdentity.arn` is the assumed-role session ARN, which includes the session name, so it isolates this session. The `responseElements` values — the user ARN and the `AIDA…` userId — identify the NEW backdoor user: they find what that user does later, not what this session did. `sessionIssuer.userName` (DevOps-Deploy-Role) matches every session of the role, so it would mix the attacker's calls with the pipeline's legitimate ones.",
             xp: 15,
           },
         ],
@@ -780,7 +779,7 @@ const rooms = [
         type: "analyst_choice" as const,
         id: "cloud-ac1",
         heading: "Verdict: Routine Cloud Admin or IAM Privilege Escalation?",
-        scenario: "AWS GuardDuty fired: IAM user 'ci-session-dev' called GetCallerIdentity, then ListRoles, then passed a role to an EC2 instance that previously had no IAM role. All API calls originated from IP 34.215.110.32 (AWS us-west-2 NAT gateway — internal). The user was created 2 weeks ago. No CloudTrail alerts fired previously on this account. What is your verdict?",
+        scenario: "AWS GuardDuty fired: IAM user 'ci-session-dev' called GetCallerIdentity, then ListRoles, then passed a role to an EC2 instance that previously had no IAM role. All API calls originated from IP 34.215.110.32 (an AWS-owned public EC2 address in us-west-2). The user was created 2 weeks ago. No CloudTrail alerts fired previously on this account. What is your verdict?",
         event: {
           id: "evt-cloud-ac-001",
           ts: "2026-06-23T11:47:33.000Z",
@@ -816,7 +815,7 @@ const rooms = [
         },
         correct_verdict: "true_positive",
         explanation: "This is a true positive privilege escalation. The three-step sequence is the textbook IAM privilege escalation pattern: (1) GetCallerIdentity — confirming own identity, standard first step for attacker to understand their position; (2) ListRoles — enumerating what roles exist and their permissions, which is reconnaissance; (3) AssociateIamInstanceProfile — attaching a higher-privileged role (through its instance profile) to an EC2 instance the attacker controls. Note that CloudTrail never logs 'PassRole' as an event of its own: iam:PassRole is a permission AWS checks silently inside calls such as AssociateIamInstanceProfile and RunInstances, so this record IS the evidence of the role being passed. The fact that ci-session-dev had never attached an instance profile before and the role 'ec2-prod-s3-full-access' grants S3 full access confirms this: a low-privilege identity that held just iam:PassRole and ec2:AssociateIamInstanceProfile (plus the read permissions it used for recon) escalated to full S3 access by handing a more powerful role to an instance it can run code on. The AWS-owned source IP is not a false-positive indicator — attackers operating from inside AWS frequently egress through NAT gateways.",
-        fp_trap: "The source IP is a legitimate AWS NAT gateway IP (34.215.x.x) — not an attacker IP. Many analysts see an internal AWS IP and assume the activity is from a legitimate internal process. But 34.215.x.x is public EC2 address space that any AWS customer can use, and even when it is your own NAT gateway it only tells you the call left from a workload inside your VPC — it says nothing about whether the action was authorized.",
+        fp_trap: "The source IP is AWS-owned (34.215.x.x), so it looks like infrastructure rather than an attacker IP. Many analysts see an AWS address and assume the activity is from a legitimate internal process. But 34.215.x.x is public EC2 address space that any AWS customer can use, and even when it is your own NAT gateway it only tells you the call left from a workload inside your VPC — it says nothing about whether the action was authorized.",
         xp: 30,
       },
 
@@ -825,9 +824,9 @@ const rooms = [
         type: "flag",
         id: "cloud-flag1",
         prompt:
-          "In Log Analysis 1 (the CloudTrail log event above), look at the `requestParameters.userName` field. This is the name of the backdoor IAM user the attacker created. Enter the exact username as it appears in the log.",
+          "Containment Step 5 says to disable or delete any backdoor identity the attacker created. In the CloudTrail CreateUser event, find the name of the IAM user that will need to be removed — the one that received AdministratorAccess 47 seconds later — and enter it exactly.",
         answer: "svc-cloudmonitor-prod",
-        hint: "The username is in the `aws.cloudtrail.requestParameters.userName` field of the raw log — it looks like a legitimate service account name, which is exactly why attackers choose names like this.",
+        hint: "The event holds two identities: the one making the call and the one being created. Only one of them is a brand-new IAM user, and the arguments sent to the API sit in a different field group from the caller.",
         xp: 45,
       },
     ],
@@ -858,14 +857,14 @@ const rooms = [
         checkpoint: {
           question: "According to the reading, why can't a SOC just rely on a SIEM vendor's default detection rules?",
           options: [
-            "Default rules are licensed per rule and always cost more than rules a detection engineer writes in-house",
-            "Default rules are built for the average environment, not the specific tools, assets, and behaviours unique to your organisation",
-            "Default rules only query network sources such as firewall and proxy logs, and never touch authentication or endpoint telemetry",
-            "Vendors intentionally disable their default rule packs after a 30-day trial, so the rules stop firing unless each one is repurchased",
+            "They are tuned too sensitively, so raising every threshold fixes the noise without writing new rules",
+            "They are built for an average environment, not your own tools, assets, naming and user behaviour",
+            "They match only known malware signatures, so behaviour-based techniques are never covered by them",
+            "They are locked by the vendor, so exclusions such as the IT team's own PsExec use can't be added",
           ],
           answer: 1,
           explanation:
-            "Default rules are tuned for a generic environment, so they often fire on legitimate local tools (like PsExec used by IT) or miss organisation-specific context — detection engineers must tune and build rules for their own environment's actual behaviour.",
+            "The reading's reason is fit: defaults target the average environment, so they fire on your legitimate tools (IT's PsExec), miss your critical assets, and misread your users' habits. “Raising every threshold” would cut noise but also blind the rules, and does nothing for assets that need custom monitoring. “Match only known malware signatures” is not what the reading says — signature logic is one of four detection types, and vendor packs are not limited to it. “Locked by the vendor” is wrong: the tuning stage in Reading 3 adds exactly these exclusions.",
         },
       },
       // ── Reading 2 ──────────────────────────────────────────────
@@ -878,14 +877,14 @@ const rooms = [
         checkpoint: {
           question: "According to the reading, what is the main advantage of writing a detection rule in Sigma format instead of directly in a specific SIEM's query language?",
           options: [
-            "Sigma rules execute faster than native SIEM queries, because the SIEM runs the YAML directly instead of parsing its own query language",
-            "Sigma is a vendor-neutral format that can be compiled for Splunk, Elastic, Sentinel, QRadar and other SIEMs, making rules portable and shareable",
-            "Sigma rules ship pre-validated by the SigmaHQ project, so a rule taken from the public repository can go straight to production severity untested",
-            "Sigma derives the MITRE ATT&CK technique for every rule automatically from its detection logic, so the tags section never has to be written by hand",
+            "Sigma rules run faster than native queries, because the SIEM executes the YAML instead of parsing its own language",
+            "Sigma is vendor-neutral: one rule compiles to Splunk, Elastic, Sentinel, QRadar and more, so it can be shared",
+            "SigmaHQ pre-validates its rules, so a downloaded rule can skip historical testing and go straight to production",
+            "Sigma infers each rule's ATT&CK technique from its detection logic, so the tags section is filled in for you",
           ],
           answer: 1,
           explanation:
-            "Sigma is a vendor-neutral YAML specification for detection logic; the same rule can be compiled into Splunk SPL, Elastic KQL, Sentinel KQL, or QRadar AQL, which is why the security community can share and adapt Sigma rules across completely different SIEM platforms.",
+            "Sigma is a vendor-neutral YAML specification; one rule converts to SPL, KQL, AQL and other languages, which is what makes community sharing work. “Run faster” is wrong — the SIEM never runs YAML; it runs the converted native query. “SigmaHQ pre-validates its rules” skips the reading's lifecycle: every rule, wherever it came from, still needs testing and tuning against your own data. “Infers each rule's ATT&CK technique” is wrong too: the `tags` in the example are written by the author.",
         },
       },
       // ── Reading 3 ──────────────────────────────────────────────
@@ -922,16 +921,16 @@ const rooms = [
         type: "question",
         id: "deteng-q1",
         question:
-          "Your SIEM has a rule with 95% accuracy (95% of alerts are true positives, 5% are false positives). The rule fires an average of 200 times per day. How many false positive alerts would your analyst team need to investigate daily, and what does this illustrate about detection accuracy requirements?",
+          "Your SIEM has a rule with 95% precision (95% of its alerts are true positives, 5% are false positives). It fires about 200 times per day. How many false positives does the team investigate daily, and what does that imply?",
         options: [
-          "5 false positives per day — the 5% error rate is the daily count, so the rule is well tuned and acceptable at any severity level",
-          "10 false positives per day — a manageable volume, so accuracy above 90% is sufficient even for critical-severity rules",
-          "10 false positives per day — even 95% accuracy produces significant noise at scale, so high-severity rules need much higher precision (>99%)",
-          "190 false positives per day — the 95% figure is the share of alerts that are false, leaving only 10 true positives",
+          "5 per day — the 5% rate is the daily count, so the rule is already precise enough for high severity",
+          "10 per day — a small number, so 95% precision is good enough to run the rule at critical severity",
+          "10 per day — small for one rule, but it adds up across many rules; high-severity rules need higher precision",
+          "190 per day — 95% is the false share, so only 10 of the 200 daily alerts are true positives",
         ],
         answer: 2,
         explanation:
-          "200 alerts/day × 5% false positive rate = 10 false positives per day. This seems manageable, but consider: if your team has 50 such rules, that's 500 false positive investigations per day before handling any real incidents. High-severity rules that require rapid response must have very high precision — at 99% precision with 200 daily alerts, you have only 2 false positives per day. The 95% number illustrates that accuracy requirements scale with alert volume: a rule that fires 10 times/day at 95% accuracy (0.5 FP/day) is fine; the same accuracy at 10,000 events/day (500 FP/day) is catastrophic for analyst workload.",
+          "Precision is TP/(TP+FP) over alerts: 200 × 5% = 10 false positives a day. One rule's 10 looks harmless, but 50 such rules mean 500 dead-end investigations a day, which is why the reading sets a much higher bar before a rule is promoted to high/critical severity. “5 per day” applies the percentage as a count. “10 per day ... good enough to run at critical severity” gets the arithmetic right but ignores the cumulative alert-fatigue effect. “190 per day” inverts the definition given in the stem.",
         xp: 20,
       },
       // ── Question 2 ──────────────────────────────────────────────
@@ -939,16 +938,16 @@ const rooms = [
         type: "question",
         id: "deteng-q2",
         question:
-          "What is the PRIMARY advantage of writing detection rules in Sigma format instead of directly in your SIEM vendor's query language (e.g., Splunk SPL or Sentinel KQL)?",
+          "A colleague copies the encoded-PowerShell Sigma rule from Reading 4 but changes its logsource to `category: firewall`. It converts and deploys without errors. A red-team test then runs `powershell.exe -enc ...` on a workstation that sends Sysmon process-creation logs to the SIEM. What happens?",
         options: [
-          "Sigma rules execute faster than native queries because the converter pre-compiles them into optimised search plans inside the SIEM",
-          "Sigma rules are vendor-neutral and convert to the query language of any supported SIEM, so detections can be shared and migrated between platforms",
-          "Sigma rules include built-in anomaly detection that learns each environment's baseline, which native SIEM query languages lack",
-          "Sigma format validates every rule against a year of historical logs before deployment, replacing the separate tuning phase",
+          "The SIEM refuses the rule at deploy time, because firewall logs have no CommandLine field to match",
+          "No alert: the converted query searches firewall data, which never holds process command lines",
+          "An alert fires as usual, since the CommandLine condition matches whichever log carries that string",
+          "An alert fires on the firewall's record of the connection, which carries the PowerShell command line",
         ],
         answer: 1,
         explanation:
-          "Sigma's core value proposition is portability and community sharing. A rule written in Sigma YAML can be compiled via `sigma-cli` into Splunk SPL, Elastic ESQL, Microsoft Sentinel KQL, IBM QRadar AQL, and many others. This means: (1) a detection engineer can share rules publicly (GitHub, SigmaHQ community repo) that any organisation with any SIEM can use; (2) if your organisation migrates from Splunk to Sentinel, your Sigma rules don't need to be rewritten from scratch; (3) threat intel vendors can publish Sigma rules for newly discovered attack techniques that your team can immediately compile and deploy. Sigma does not execute faster, does not include AI anomaly detection, and does not automatically test rules.",
+          "Reading 4: getting `logsource` wrong means the compiled query searches the wrong index entirely, and the rule silently never fires. That is why the test is what catches it. “The SIEM refuses the rule” is the dangerous assumption — the stem says it deployed cleanly, and a query over missing fields simply returns nothing. “An alert fires as usual” ignores that logsource decides where the query looks, so the Sysmon events are never searched. “The firewall's record of the connection” is wrong because network logs hold addresses, ports and actions, not process command lines.",
         xp: 20,
       },
       // ── Question 3 ──────────────────────────────────────────────
@@ -958,14 +957,14 @@ const rooms = [
         question:
           "A detection engineer creates an ATT&CK coverage heatmap for their environment and discovers that techniques T1566 (Phishing), T1078 (Valid Accounts), and T1190 (Exploit Public-Facing Application) have zero detection rules assigned to them. What does this mean practically?",
         options: [
-          "These techniques are mostly prevented upstream (email gateway, MFA, WAF), so the zero count reflects strong prevention rather than missing detection",
-          "These techniques are blind spots — if an attacker uses any of them, no SIEM alert will fire and the intrusion may go unnoticed until a later technique is caught",
-          "The SIEM vendor ships default rules for these techniques, so unassigned heatmap cells are expected and custom rules would only duplicate alerts",
-          "These techniques are detectable only through EDR telemetry, so the zero count reflects a SIEM scope limit rather than a coverage gap",
+          "They are mostly stopped upstream (mail gateway, MFA, WAF), so the zero count reflects prevention, not a gap",
+          "They are blind spots: an attacker using one of them triggers no rule, so the intrusion may surface only at a later step",
+          "The SIEM vendor ships default rules for them, so empty cells are expected and custom rules would only duplicate alerts",
+          "They can only be seen in EDR telemetry, so the zero count reflects the SIEM's scope rather than a coverage gap",
         ],
         answer: 1,
         explanation:
-          "A coverage gap on an ATT&CK heatmap means: if an attacker uses that technique, your detection infrastructure will be silent. T1566 (Phishing), T1078 (Valid Accounts used by attackers), and T1190 (exploiting a web-facing application) are three of the most common initial access techniques. Having no detection for them means an attacker's initial compromise could go entirely unnoticed. The ATT&CK heatmap's purpose is exactly to surface these gaps so detection engineers can prioritise writing rules for uncovered techniques — especially those used by threat actors relevant to the organisation's industry and geography.",
+          "A technique with no coverage is, in the reading's words, a gap an attacker can exploit without triggering any alert — and these three are among the most common initial-access routes. “Mostly stopped upstream” confuses prevention with detection: gateways, MFA and WAFs get bypassed, and the heatmap measures whether you would SEE it. “The SIEM vendor ships default rules” — if they existed and were mapped, the cells would not be empty. “They can only be seen in EDR telemetry” is false: phishing is visible in mail logs, valid-account abuse in authentication logs and web exploitation in WAF/web logs, all of which a SIEM ingests.",
         xp: 20,
       },
       // ── Log Analysis ───────────────────────────────────────────
@@ -1014,42 +1013,42 @@ const rooms = [
             question:
               "The rule's `mitre.technique` field shows `T1110.003`. Based on the reading material, what does the breakdown of T1110 → .003 represent in the MITRE ATT&CK framework?",
             options: [
-              "T1110 is the tactic (Credential Access) and .003 is the specific technique (Password Spraying)",
-              "T1110 is the parent technique (Brute Force) and .003 is the sub-technique (Password Spraying) — a more specific variant of the broader brute force category",
-              "T1110 is the rule version number and .003 is the detection confidence level on a scale of 0.000 to 1.000",
-              "T1110 is the SIEM vendor's internal technique code and .003 is the MITRE-assigned identifier for that vendor's mapping",
+              "T1110 is the tactic (Credential Access); .003 is the technique under it (Password Spraying)",
+              "T1110 is the parent technique (Brute Force); .003 is a sub-technique of it (Password Spraying)",
+              "T1110 is the technique (Brute Force); .003 is the severity tier ATT&CK gives this variant",
+              "T1110 is the technique (Brute Force); .003 is the data source that detects it (logon events)",
             ],
             answer: 1,
             explanation:
-              "In MITRE ATT&CK, techniques are organised hierarchically: T1110 is 'Brute Force' — the parent technique covering all forms of trying many passwords to gain access. Sub-techniques add specificity: T1110.001 is Password Guessing (random passwords against one account), T1110.002 is Password Cracking (offline hash cracking), T1110.003 is Password Spraying (one password against many accounts), T1110.004 is Credential Stuffing (breached credential pairs). The sub-technique tells you exactly *what* the attacker did, which helps with both investigation (what to look for) and response (what to contain).",
+              "Reading 2: techniques carry T-numbers, and sub-techniques add a suffix — T1110.003 is Password Spraying under the Brute Force technique. “T1110 is the tactic” confuses levels: tactics are the matrix columns (the goal, here Credential Access) and are not T-numbered. “The severity tier” and “the data source” both invent a meaning for the suffix; ATT&CK assigns no severity to techniques, and data sources are documented separately from the ID. Siblings such as T1110.001 (Password Guessing) and T1110.004 (Credential Stuffing) show the suffix just enumerates variants.",
             xp: 20,
           },
           {
             question:
-              "The alert shows `auth.failure_count: 94` failures against `target.user.distinct_count: 47` accounts, followed by `auth.success_count: 3` successes, all within `auth.timespan_minutes: 8`. What does the ratio of ~2 failures per distinct account tell you about this attack?",
+              "Work out how the failures are spread across the targeted accounts using the auth.* and target.user.* fields. What does that spread tell you about the attacker's method?",
             options: [
-              "The attacker tried 2 passwords per account, which is a brute force approach that would trigger lockout policies on most systems",
-              "Each account was attempted approximately twice, staying at or below the typical lockout threshold (often 3-5 attempts), which is deliberately designed to avoid triggering account lockout while still testing multiple accounts",
-              "The 2:1 ratio is statistically normal for legitimate authentication errors and does not indicate a spray pattern",
-              "The 94 failures are too many for a spray — real sprays attempt each account exactly once. This is actually a brute force attack on 2 accounts with 47 attempts each",
+              "About two guesses per account — a brute-force run that most lockout policies would have stopped",
+              "About two guesses per account — kept under typical lockout thresholds so many accounts can be tried",
+              "About two failures per account — ordinary background noise from users mistyping their passwords",
+              "Two accounts hit about 47 times each — a focused brute force against a couple of chosen users",
             ],
             answer: 1,
             explanation:
-              "94 failures / 47 accounts = approximately 2 attempts per account. Many organisations set lockout thresholds at 3-10 failed attempts. By keeping attempts per account below the lockout threshold, the attacker avoids triggering Event 4740 (account lockout) while still testing many accounts. This low-attempt-per-account pattern is the defining characteristic of a password spray versus brute force. The 3 successes out of 47 tested accounts (6.4% success rate) is also realistic for a spray using a common password against a large user base.",
+              "94 failures across 47 distinct accounts is about 2 per account, under common lockout thresholds (often 3–10), so no lockouts fire while many accounts are tested — the defining shape of a password spray. “A brute-force run that most lockout policies would have stopped” has the arithmetic but the wrong conclusion: two tries stays below those policies. “Ordinary background noise” can't explain 47 different accounts failing from one source IP inside 8 minutes. “Two accounts hit about 47 times each” misreads `target.user.distinct_count` (47 accounts) as an attempt count.",
             xp: 20,
           },
           {
             question:
               "Given the alert details above — 3 accounts with confirmed successful logons after the spray, all within an 8-minute window — what is the MOST time-critical action and why?",
             options: [
-              "Block the source IP — preventing the attacker from making further API calls is the fastest way to stop the attack and should always be the first step",
-              "Escalate to Tier 2 — only senior analysts can make decisions about compromised accounts, so no action should be taken until escalation is complete",
-              "Disable the 3 accounts in `target.user.success_list` (r.huang, m.patel, d.oconnor) — these are accounts where the attacker already succeeded and may currently be active in the environment, making every minute of continued access dangerous",
-              "Run a forensic image of all servers before touching anything — evidence preservation takes priority over containment when attackers are already inside",
+              "Block 91.108.56.177 at the perimeter, since cutting that source ends the attacker's access in one step",
+              "Escalate to Tier 2 and hold off on changing the three accounts until a senior analyst signs off",
+              "Disable or reset the three accounts in the success list and end their sessions, wherever they log in from",
+              "Image the domain controllers first, so evidence of the three successful logons is preserved intact",
             ],
             answer: 2,
             explanation:
-              "When a spray has already succeeded, the compromised accounts are the active threat vector — the attacker may already be logged in, moving laterally, or exfiltrating data right now. Disabling those 3 accounts immediately stops their current and future use by the attacker. Blocking the source IP is valuable but secondary — the attacker can switch IPs, but they cannot use the disabled accounts regardless of IP. Evidence preservation is important but not more important than stopping an active intrusion. Tier 2 escalation should happen in parallel with, not instead of, immediate containment.",
+              "Once a spray has succeeded, the three compromised accounts are the live threat: the attacker can use them from any IP, right now. Disabling or resetting them and ending their sessions removes that access. “Block 91.108.56.177” is worth doing, but the attacker holds valid credentials and can simply switch IPs. “Escalate to Tier 2 and hold off” — escalation should run in parallel with containment, not delay it. “Image the domain controllers first” puts evidence ahead of stopping an active intrusion; logon records already sit in the SIEM, and imaging takes hours.",
             xp: 25,
           },
         ],
@@ -1096,9 +1095,9 @@ const rooms = [
         type: "flag",
         id: "deteng-flag1",
         prompt:
-          "The SIEM correlation rule that fired in the log analysis above contains a MITRE ATT&CK technique identifier in the `mitre.technique` field. This technique ID specifically identifies 'Password Spraying' as a sub-technique of Brute Force. Enter the exact technique ID as it appears in the raw log (format: T followed by 7 digits with a decimal point, e.g., T1234.567).",
-        answer: "T1110.003",
-        hint: "Look at the `mitre.technique` field in the raw log event. It follows the standard ATT&CK format: T followed by 4 digits, a dot, and 3 more digits.",
+          "Before writing the containment note, you confirm that the attacker was trying real usernames with wrong passwords, rather than guessing at accounts that don't exist. Find the status code in the Spray-then-Success alert that proves this, and enter it exactly.",
+        answer: "0xC000006A",
+        hint: "The reading's password-spray filter condition pairs Event 4625 with one specific sub-status value. The correlated alert carries the same value for its failures.",
         xp: 40,
       },
       // ── Query Fill: compile the Sigma rule to SPL ────────────────
@@ -1108,16 +1107,15 @@ const rooms = [
         heading: "Write It Yourself: Compile the Password Spray Sigma Rule to SPL",
         language: "spl",
         context:
-          "Reading 2 showed the password-spray Sigma rule as EventID: 4625, SubStatus: 0xC000006A, condition: count(TargetUserName) by IpAddress > 10. Compile that same detection logic into Splunk SPL yourself, the way a detection engineer would before deploying it.",
+          "Reading 2's password-spray Sigma rule fires when one source address fails logons against more than 10 DIFFERENT accounts. Hand-compile that aggregation into Splunk SPL. In this index the failed-logon events (4625) carry these extracted fields: TargetUserName (the account tried), src_ip (the machine the logon came from) and ComputerName (the domain controller that logged it). Fill in the stats function and the grouping field.",
         template:
-          "index=security sourcetype=WinEventLog:Security\n| where EventCode={{eventcode}}\n| where Sub_Status=\"{{substatus}}\"\n| stats dc(TargetUserName) as accounts_targeted by src_ip\n| where accounts_targeted > {{threshold}}",
+          "index=security sourcetype=WinEventLog:Security EventCode=4625 Sub_Status=\"0xC000006A\"\n| stats {{func}}(TargetUserName) as accounts_targeted by {{groupby}}\n| where accounts_targeted > 10",
         blanks: [
-          { id: "eventcode", answers: ["4625"], placeholder: "Event ID" },
-          { id: "substatus", answers: ["0xC000006A", "0xc000006a"], placeholder: "wrong-password SubStatus" },
-          { id: "threshold", answers: ["10"], placeholder: "account count threshold" },
+          { id: "func", answers: ["dc", "distinct_count"], placeholder: "stats function" },
+          { id: "groupby", answers: ["src_ip"], placeholder: "group-by field" },
         ],
         explanation:
-          "EventCode 4625 is a failed logon; Sub_Status 0xC000006A specifically means \"wrong password\" (as opposed to 0xC0000064, unknown username). dc(TargetUserName) — distinct count — by src_ip mirrors the Sigma rule's \"count(TargetUserName) by IpAddress\", and the > 10 threshold is the same one specified in the Sigma condition. This is exactly what a sigmac/sigma-cli compile step produces for a Splunk backend.",
+          "`dc()` (long form `distinct_count()`) counts DIFFERENT TargetUserName values, which is what a spray threshold needs; `count()` would count every failure, so one user mistyping a password 11 times would trip it. Grouping `by src_ip` keeps one counter per attacking source, mirroring the Sigma rule's `by IpAddress`. Grouping by ComputerName would instead count accounts per domain controller, merging every source together. Sub_Status 0xC000006A means wrong password for a real account (as opposed to 0xC0000064, unknown username). This is a hand-compiled equivalent; current pySigma tooling handles aggregations through separate Sigma correlation rules.",
         xp: 30,
       },
     ],

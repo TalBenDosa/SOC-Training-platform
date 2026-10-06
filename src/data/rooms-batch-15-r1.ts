@@ -50,9 +50,9 @@ const k8sExecEvent: TelemetryEvent = {
     "kubernetes.audit.objectRef.namespace": "prod",
     "kubernetes.audit.objectRef.name": "prod-checkout-6f9c",
     "kubernetes.audit.user.username": "d.abrams@nexacorp.com",
-    "kubernetes.audit.requestObject.command": ["/bin/sh", "-c", "apt-get install -y curl"],
+    "kubernetes.audit.requestURI": "/api/v1/namespaces/prod/pods/prod-checkout-6f9c/exec?command=%2Fbin%2Fsh&command=-c&command=apt-get+install+-y+curl&container=checkout&stdin=true&stdout=true&tty=true",
     "kubernetes.audit.sourceIPs": ["10.20.14.55"],
-    "kubernetes.audit.responseStatus.code": 200,
+    "kubernetes.audit.responseStatus.code": 101,
   },
 };
 
@@ -80,13 +80,13 @@ const k8sSecurityRoom = {
       checkpoint: {
         question: "According to the reading, what is the kubelet, and why is it a high-value target for an attacker?",
         options: [
-          "The agent running on every node that takes instructions from the control plane and starts/stops containers — controlling it means controlling every pod on that node",
-          "The kubectl command-line tool that human administrators install locally to issue commands against a cluster",
-          "A network policy engine deployed as its own pod that enforces firewall-style rules governing traffic between other pods",
-          "The cloud provider's managed load balancer service that routes external traffic into the cluster's ingress",
+          "The per-node agent that starts and stops containers on control-plane orders — own it and you own every pod on that node",
+          "The kubectl tool admins run on their workstations — steal it and you can send commands to the whole cluster as them",
+          "The pod-level network policy engine — disable it and every pod can reach every other pod without restriction",
+          "The control-plane scheduler that places pods onto nodes — own it and you choose where every new workload runs",
         ],
         answer: 0,
-        explanation: "The reading defines the kubelet as the agent on every node that takes instructions from the control plane and starts/stops containers — controlling the kubelet means controlling every pod scheduled on that node.",
+        explanation: "The reading defines the kubelet as the agent on every node that takes instructions from the control plane and starts/stops containers, so controlling it means controlling every pod on that node. “The kubectl tool” is the admin's client, not something running on nodes, and it is the admin's credentials that matter, not the tool. “The pod-level network policy engine” and “the control-plane scheduler” are real cluster components, but neither is the per-node agent the reading calls the kubelet.",
       },
     },
 
@@ -115,11 +115,11 @@ const k8sSecurityRoom = {
         options: [
           "/var/run/secrets/kubernetes.io/serviceaccount/token",
           "/etc/kubernetes/pki/apiserver-kubelet-client.crt",
-          "/root/.kube/config, the same config file kubectl reads on an administrator's own workstation",
+          "/etc/kubernetes/kubelet.conf",
           "/var/lib/kubelet/pods/<pod-uid>/volumes/serviceaccount.token",
         ],
         answer: 0,
-        explanation: "The reading states that every pod, by default, has its ServiceAccount token automatically mounted at /var/run/secrets/kubernetes.io/serviceaccount/token unless explicitly disabled — which is how a compromised application inherits its ServiceAccount's permissions.",
+        explanation: "The reading states that every pod, by default, has its ServiceAccount token automatically mounted at /var/run/secrets/kubernetes.io/serviceaccount/token unless explicitly disabled — which is how a compromised application inherits its ServiceAccount's permissions. The other paths belong elsewhere: /etc/kubernetes/pki holds control-plane certificates, /etc/kubernetes/kubelet.conf is the kubelet's own credentials file on the node, and /var/lib/kubelet/pods/... is the node-side directory, not the path the container sees.",
       },
     },
 
@@ -131,7 +131,7 @@ const k8sSecurityRoom = {
       id: "k8s-r4",
       heading: "From Compromised Container to Stolen Cloud Credentials — The Full Chain",
       content:
-        "This reading connects everything in this room back to the AWS and GCP security rooms you've already completed, because container compromise rarely stays contained to the cluster — it is one of the most common on-ramps into a full cloud account takeover.\n\n**The chain, step by step:**\n\n**Step 1 — Initial foothold inside a container.** An attacker gains code execution inside a single application container — through a vulnerable web application dependency, a supply-chain-compromised package (exactly like the dependency-confusion attack you studied in the edge-case-usecases room), or a stolen CI/CD credential that lets them deploy their own pod.\n\n**Step 2 — Escalate from container to node.** If the pod the attacker controls has 'privileged: true', 'hostPID: true', or a dangerous 'hostPath' mount (Reading 2), they use it to break out of the container's isolation and gain code execution directly on the **node** — the underlying virtual machine, no longer just a fenced-off slice of it.\n\n**Step 3 — Steal the node's cloud identity via the metadata service.** Here is the connection to what you already learned in the AWS and GCP rooms: Kubernetes nodes are themselves cloud compute instances (EC2 instances, GCE VMs), and cloud compute instances have their own IAM role/service-account identity, retrievable from the **instance metadata service** at the well-known link-local address '169.254.169.254' — the exact same IMDS endpoint you studied for EC2 credential theft. From inside a process running directly on the node (achieved in Step 2), the attacker simply queries 'http://169.254.169.254/latest/meta-data/iam/security-credentials/' (AWS) or the GCP metadata equivalent, and receives live, valid cloud credentials for whatever role is attached to that node.\n\n**Step 4 — Full cloud account access.** Kubernetes nodes are frequently granted broad IAM permissions — to pull container images, write logs, or manage other cluster resources — because it is operationally easier than scoping permissions tightly per-workload. An attacker who has stolen the node's role credentials via Step 3 can now make AWS/GCP API calls with those permissions: enumerating S3 buckets, reading secrets from Secrets Manager, or — in the worst-documented real-world cases — pivoting to create their own IAM backdoor user, exactly as covered in the AWS Security room's IAM backdoor pattern.\n\n**Why this chain is uniquely dangerous:** each individual step, viewed in isolation, can look like unremarkable infrastructure activity. A pod being created (Step 1/2) is routine. A process on a node querying the instance metadata service (Step 3) is *also* routine — legitimate applications query IMDS constantly to refresh their own credentials. The only way to catch Step 3 as malicious is context: does this specific process, on this specific node, at this specific time, have any legitimate reason to be querying the metadata endpoint? If the querying process traces back to a container that was created moments earlier with 'hostPID'/'privileged' set, and that container's image came from an unrecognised external registry, the metadata-service query is the last, most damning link in a chain that was suspicious from Step 1 — but only if the analyst has already connected Steps 1 through 3 together.\n\n**The SOC takeaway:** never evaluate a Kubernetes alert, an AWS/GCP metadata-service alert, and a suspicious-pod alert as three separate tickets. If they involve the same node, the same time window, and the same identity chain, they are almost certainly one incident — container escape leading to cloud credential theft — and should be investigated, contained, and reported as a single continuous kill chain.",
+        "This reading connects everything in this room back to the AWS and GCP security rooms you've already completed, because container compromise rarely stays contained to the cluster — it is one of the most common on-ramps into a full cloud account takeover.\n\n**The chain, step by step:**\n\n**Step 1 — Initial foothold inside a container.** An attacker gains code execution inside a single application container — through a vulnerable web application dependency, a supply-chain-compromised package (exactly like the dependency-confusion attack you studied in the edge-case-usecases room), or a stolen CI/CD credential that lets them deploy their own pod.\n\n**Step 2 — Escalate from container to node.** If the pod the attacker controls has 'privileged: true', 'hostPID: true', or a dangerous 'hostPath' mount (Reading 2), they use it to break out of the container's isolation and gain code execution directly on the **node** — the underlying virtual machine, no longer just a fenced-off slice of it.\n\n**Step 3 — Steal the node's cloud identity via the metadata service.** Here is the connection to what you already learned in the AWS and GCP rooms: Kubernetes nodes are themselves cloud compute instances (EC2 instances, GCE VMs), and cloud compute instances have their own IAM role/service-account identity, retrievable from the **instance metadata service** at the well-known link-local address '169.254.169.254' — the exact same IMDS endpoint you studied for EC2 credential theft. From inside a process running directly on the node (achieved in Step 2), the attacker simply queries 'http://169.254.169.254/latest/meta-data/iam/security-credentials/' (AWS) or the GCP metadata equivalent, and receives live, valid cloud credentials for whatever role is attached to that node.\n\n**Step 4 — Full cloud account access.** Kubernetes nodes are frequently granted broad IAM permissions — to pull container images, write logs, or manage other cluster resources — because it is operationally easier than scoping permissions tightly per-workload. An attacker who has stolen the node's role credentials via Step 3 can now make AWS/GCP API calls with those permissions: enumerating S3 buckets, reading secrets from Secrets Manager, or — in the worst-documented real-world cases — pivoting to create their own IAM backdoor user, exactly as covered in the AWS Security room's IAM backdoor pattern.\n\n**Why this chain is uniquely dangerous:** each individual step, viewed in isolation, can look like unremarkable infrastructure activity. A pod being created (Step 1/2) is routine. A process on a node querying the instance metadata service (Step 3) is *also* routine — legitimate applications query IMDS constantly to refresh their own credentials. The only way to catch Step 3 as malicious is context: does this specific process, on this specific node, at this specific time, have any legitimate reason to be querying the metadata endpoint? If the querying process traces back to a container that was created moments earlier with 'hostPID'/'privileged' set, and that container's image came from an unrecognised external registry (production clusters pull from named, approved registries such as ECR or an internal mirror; an image reference that starts with a bare IP and port, like '203.0.113.9:5000/tool:latest', points at a server with no DNS name, certificate or reputation behind it), the metadata-service query is the last, most damning link in a chain that was suspicious from Step 1 — but only if the analyst has already connected Steps 1 through 3 together.\n\n**The SOC takeaway:** never evaluate a Kubernetes alert, an AWS/GCP metadata-service alert, and a suspicious-pod alert as three separate tickets. If they involve the same node, the same time window, and the same identity chain, they are almost certainly one incident — container escape leading to cloud credential theft — and should be investigated, contained, and reported as a single continuous kill chain.",
     },
 
     // -------------------------------------------------------------------------
@@ -150,7 +150,7 @@ const k8sSecurityRoom = {
       ],
       answer: 1,
       explanation:
-        "hostPID: true removes the process-namespace boundary that normally isolates a container so it can only see its own processes. With this setting, the container can see (and depending on other privileges, interact with) every process on the node — a serious escalation because it breaks the fundamental assumption that a container is isolated from its neighbours and from the host itself.",
+        "hostPID: true removes the process-namespace boundary that normally isolates a container so it can only see its own processes. With this setting, the container can see (and depending on other privileges, interact with) every process on the node — a serious escalation because it breaks the fundamental assumption that a container is isolated from its neighbours and from the host itself. “It shares the host's network stack” describes hostNetwork, a different setting. “It pins the pod's main process to a fixed PID” and “It mounts the node's /proc filesystem read-only” both assume the container's view stays limited to its own pod, which is exactly the boundary hostPID removes.",
       xp: 25,
     },
 
@@ -163,14 +163,14 @@ const k8sSecurityRoom = {
       question:
         "Why can't a SOC analyst rely on the Kubernetes audit log's 'verb' and 'objectRef.resource' fields alone (e.g. verb=create, resource=pods) to decide whether a pod-creation event is malicious?",
       options: [
-        "Because a Kubernetes audit policy set to the Metadata level records only the requestObject.spec block and strips verb and objectRef.resource out entirely, so the two fields an analyst would most want to pivot on are precisely the ones that never survive to reach the SIEM",
-        "Because a completely ordinary, successfully authorised 'create pods' API call looks identical whether the pod being created is a harmless application container or a privileged, hostPID, hostNetwork pod designed to escape to the node — the dangerous settings only appear inside the requestObject.spec fields, which must be inspected directly",
-        "Because the API server populates verb and objectRef.resource only on requests it rejects — an RBAC denial recorded with responseStatus.code 403 carries the full metadata, while any request that succeeds is written to the audit log with both fields blanked out by the admission-controller chain",
-        "Because every request is audited twice, at the RequestReceived and the ResponseComplete stage, and the API server rewrites verb to 'update' on the second copy — so a search filtered on verb=create returns only half the pod creations, and the remainder have to be recovered by joining on auditID",
+        "Because attackers usually hit RBAC denials first, so the 403 failures before the create matter more than the create itself",
+        "Because a benign pod and a node-escape pod both log the same create/pods/201 entry; the risk is only in requestObject.spec",
+        "Because the namespace, not the verb or resource, decides whether a new pod runs privileged, so check the namespace instead",
+        "Because sourceIPs decides it: a create arriving from inside the cluster network comes from trusted infrastructure",
       ],
       answer: 1,
       explanation:
-        "The verb (create) and resource (pods) fields only tell you that a pod-creation request succeeded — they say nothing about what that pod is actually configured to do. A benign application pod and an attacker's node-escape pod both produce an identical create/pods/201 audit entry. The only way to tell them apart is to inspect the actual pod specification in requestObject.spec for dangerous settings like privileged, hostPID, hostNetwork, or hostPath mounts.",
+        "Verb and resource only say a pod-creation request succeeded; a harmless application pod and a privileged hostPID/hostNetwork escape pod produce identical create/pods/201 entries, so the settings in requestObject.spec must be inspected. “Attackers usually hit RBAC denials first” is the Windows failed-logon habit; the reading stresses that Kubernetes attackers mostly use over-permissioned identities, so every request succeeds. “The namespace ... decides whether a new pod runs privileged” is false — privilege comes from the pod spec's securityContext and host settings. “A create arriving from inside the cluster network” is not proof of trust: stolen tokens and compromised pods also call the API from inside.",
       xp: 25,
     },
 
@@ -189,42 +189,42 @@ const k8sSecurityRoom = {
           question:
             "Looking at the requestObject.spec fields together with who created the pod and from where, what makes this pod creation look like a node-escape attempt rather than routine deployment activity?",
           options: [
-            "The pod was scheduled into the kube-system namespace, and the built-in system:kube-system ClusterRoleBinding automatically grants cluster-admin to every workload placed there — so the namespace choice by itself is the privilege escalation, whatever the securityContext block happens to contain",
-            "The spec sets hostPID: true, hostNetwork: true, and privileged: true together — stripping process, network, and capability isolation at once; real node agents (CNI, Falco) also do this, but here a CI deploy token creates it with an image pulled from a bare-IP external registry",
-            "The responseStatus.code field reads 201 rather than 202 — the API server returns 202 Accepted for any pod that clears the full ValidatingAdmissionWebhook chain, so a bare 201 Created is proof this request skipped admission control and was written straight into etcd",
-            "The pod name 'svc-monitoring-backup' does not carry the 'kube-' prefix that the API server enforces on every workload admitted to the kube-system namespace, and it is that naming-policy violation, rather than anything in the container spec, that marks the request as an escape attempt",
+            "Its kube-system placement alone, since every pod created in that namespace runs with cluster-admin rights",
+            "hostPID, hostNetwork and privileged together, created by a CI token with an image from a bare-IP registry",
+            "The hostPID, hostNetwork and privileged settings alone, since real workloads never combine all three",
+            "Its in-cluster source IP, since a create sent from inside the cluster network means a pod was compromised",
           ],
           answer: 1,
           explanation:
-            "All three together — hostPID, hostNetwork, and privileged:true — on a single pod break every isolation boundary Kubernetes provides, which is exactly what an attacker needs to pivot from the container to the node. But be careful: that combination alone is not proof — legitimate node-level DaemonSets such as CNI agents (Cilium, Calico) and runtime sensors (Falco) run with exactly these settings. What makes this one suspicious is the context around the spec: it was created by a CI/CD deploy token (not the platform team's normal tooling), as a one-off pod rather than a managed DaemonSet, with an image pulled from an external, unauthenticated registry at a bare IP address (185.220.101.47:5000) instead of your approved registry. The kube-system namespace additionally means this pod runs with elevated trust by convention, making the combination even more severe.",
+            "hostPID, hostNetwork and privileged:true together remove process, network and capability isolation — what an attacker needs to reach the node. The context makes it suspicious: a CI deploy token, a one-off pod rather than a managed DaemonSet, and an image from an external registry addressed by bare IP instead of your approved registry. “The hostPID, hostNetwork and privileged settings alone” overclaims: legitimate DaemonSets such as CNI agents (Cilium, Calico) and runtime sensors (Falco) run with exactly this combination. “Its kube-system placement alone” is wrong — a pod's API rights come from its ServiceAccount's RBAC bindings, not the namespace. “Its in-cluster source IP” is normal: CI runners and controllers call the API from inside the network.",
           xp: 30,
         },
         {
           question:
-            "The container image is pulled from '185.220.101.47:5000/monitor:latest' — a bare IP address rather than a named registry like docker.io or a private ECR repository. Why does this detail matter for your investigation?",
+            "Look at where the container image reference in this event points. Why does the registry part of that reference matter for your investigation?",
           options: [
-            "It doesn't matter at all — the kubelet verifies every image against its cosign/Notary signature chain before pulling it, no matter which registry the reference points at, so an image that was successfully pulled and started has already been cryptographically proven to come from an approved publisher and the registry address adds nothing to the investigation",
-            "A bare IP address acting as a container registry, with no corporate DNS name and no association with any approved image source, is exactly the same red flag pattern as a raw-IP-over-plain-HTTP payload download you learned about in the supply-chain reading — legitimate container infrastructure uses named, trusted registries with proper certificates, not disposable IP-addressed servers",
-            "Port 5000 is reserved by the Kubernetes project for the kubelet's own read-only metrics endpoint, so an image reference ending in :5000 is by definition pointing at a kubelet rather than at a registry, the pull could never have succeeded, and the entry is a logging artefact rather than a real deployment",
-            "A bare IP in an image reference means the pull was served over the cluster's internal pod network by the in-cluster registry addon rather than through the node's egress path, so no external infrastructure was ever contacted and the address is not an indicator worth pivoting on",
+            "It adds little: the kubelet checks image signatures before pulling, so an image that started is already trusted",
+            "Approved clusters pull from named registries; a bare IP:port has no DNS name, certificate or reputation behind it",
+            "It shows the image came from an in-cluster registry over the pod network, so nothing external was contacted",
+            "Its port points to a plain-HTTP pull, so the risk is interception in transit rather than who runs the registry",
           ],
           answer: 1,
           explanation:
-            "This mirrors the exact detection principle from the edge-case-usecases room: raw IP addresses hosting payloads or, here, container images, are cheap, disposable attacker infrastructure with no legitimate registry reputation, TLS certificate, or DNS presence. Combined with the privileged/hostPID/hostNetwork pod specification, an image pulled from an unrecognised bare-IP registry confirms this is very unlikely to be legitimate monitoring tooling.",
+            "Reading 4 points out that production clusters pull from named, approved registries, while an image reference starting with a bare IP and port leads to a server with no DNS name, certificate or reputation — cheap, disposable infrastructure. Together with the privileged spec, that makes legitimate monitoring tooling very unlikely. “The kubelet checks image signatures” is not default behaviour; signature enforcement needs an admission policy you would have to deploy. “An in-cluster registry over the pod network” does not fit a public internet address like the one in this reference. “The risk is interception in transit” misses the point: the danger is that an unknown party chose and served the image.",
           xp: 30,
         },
         {
           question:
-            "The requesting identity is 'system:serviceaccount:kube-system:ci-deploy-token'. What should the analyst check next, based on what you learned about RBAC over-permissioning?",
+            "Look at the identity that made this request. Based on what you learned about RBAC over-permissioning, what is the most useful next step?",
           options: [
-            "Nothing further is needed — a ServiceAccount whose name ends in '-token' is a bound token reference rather than a real identity, and the API server excludes those principals from RBAC evaluation entirely, authorising them through the control plane's own trust chain instead",
-            "Whether this ServiceAccount's RBAC bindings grant it the ability to create privileged pods at all, and whether a CI/CD deployment pipeline has any legitimate business reason to hold that level of permission — an over-permissioned CI ServiceAccount is the Kubernetes equivalent of the over-permissioned CI IAM role you studied in the AWS room",
-            "Whether the ServiceAccount's password satisfies the cluster's configured complexity and rotation requirements, since ServiceAccount credentials are stored as bcrypt hashes inside the kube-system 'basic-auth' Secret and expire on exactly the same schedule as a human user's password does",
-            "Whether the ServiceAccount object is a member of the Windows Active Directory Domain Admins security group, because EKS resolves every system:serviceaccount principal onto an on-premises AD security group through the aws-auth ConfigMap before any RBAC rule is ever evaluated",
+            "Check when the ServiceAccount's token was last rotated, since a stale token is how a pod becomes privileged",
+            "Check whether its RBAC bindings let it create privileged pods in kube-system, and whether CI should hold that right",
+            "Compare the pod's image digest with the last approved build, and close the alert if the two match",
+            "Delete the pod and close the alert, since removing the workload removes the attacker's foothold",
           ],
           answer: 1,
           explanation:
-            "ServiceAccounts don't have passwords — they authenticate via mounted tokens, and their permissions come entirely from RBAC RoleBindings/ClusterRoleBindings. The critical follow-up question is whether ci-deploy-token was ever supposed to be able to create privileged pods with hostPID/hostNetwork in kube-system — if its RBAC grants far exceed what a deployment pipeline needs (a common real-world misconfiguration, exactly like an over-permissioned cloud IAM role), that over-permissioning is itself a finding requiring remediation, independent of whether this specific pod turns out to be a confirmed compromise.",
+            "The requester is the ci-deploy-token ServiceAccount, and a ServiceAccount's power comes entirely from its RoleBindings/ClusterRoleBindings. If a deployment pipeline can create privileged pods in kube-system, that over-permissioning is a finding in its own right, and it is what an attacker with the token would exploit again. “Token was last rotated” confuses credential age with privilege: a pod's privileges come from its spec and the creator's RBAC, not token age. “Compare the pod's image digest” can't clear a pod pulled from an unapproved bare-IP registry. “Delete the pod and close the alert” leaves the over-permissioned token in place for the next attempt.",
           xp: 25,
         },
       ],
@@ -245,28 +245,28 @@ const k8sSecurityRoom = {
           question:
             "The event shows objectRef.subresource = 'exec' rather than a plain pod creation. What does this specifically mean happened, and why is it functionally similar to an interactive remote-desktop or SSH session in a traditional Windows/Linux environment?",
           options: [
-            "It means a brand-new pod was created and then immediately torn down again — 'exec' is the subresource the API server writes when a Job's pod runs to completion, so the entry describes the lifecycle of a short-lived pod that no longer existed by the time the audit event was flushed",
-            "It means the user opened an interactive command session inside an already-running production pod, executing shell commands directly inside a live workload — the direct container equivalent of an interactive RDP or SSH session onto a running server, and just as significant an event to have visibility into",
-            "It means the pod's exec permission was revoked for this user as a direct result of this event, because the API server automatically strips the pods/exec verb out of any RoleBinding the first time an interactive session is opened against a production namespace",
-            "It means the pod automatically restarted on its own after a failed liveness or readiness health-check probe, since the kubelet records every probe-driven container restart as a pods/exec subresource event attributed to the node's own kubelet identity",
+            "A short-lived pod was created to run one command, Job-style, and was removed once it finished",
+            "A command session was opened inside an already-running pod — like SSH or RDP onto a live server",
+            "The kubelet ran a liveness-probe command inside the container as part of a routine health check",
+            "The user read the pod's output with kubectl logs, which the audit log records under this subresource",
           ],
           answer: 1,
           explanation:
-            "kubectl exec (logged as the 'exec' subresource of the pods resource) opens an interactive shell session directly inside a running container — conceptually identical to RDP'ing into a Windows server or SSH'ing into a Linux host. This gives whoever runs it live, interactive command execution inside a production workload, which is exactly the kind of high-impact action that deserves the same scrutiny as any other interactive privileged session in your environment.",
+            "kubectl exec, logged as the 'exec' subresource of pods (verb create, response 101 as the connection upgrades to a stream), runs commands inside a container that is already running — the container equivalent of SSH or RDP onto a live server. “A short-lived pod was created” would be a plain create on pods with no subresource. “A liveness-probe command” is run by the kubelet through the container runtime on the node, not through an API-server exec, and would not carry a human username like d.abrams. “kubectl logs” is recorded under the separate 'log' subresource.",
           xp: 25,
         },
         {
           question:
-            "Given that d.abrams' command was 'apt-get install -y curl' inside a production checkout-service pod, what is the most appropriate analyst action, consistent with the investigative habits taught elsewhere in this platform?",
+            "Read the command carried in the exec request URI and who issued it. What is the most appropriate analyst action for this medium-severity alert?",
           options: [
-            "Close the alert immediately as benign: under the Kubernetes Pod Security Standards 'baseline' profile every container filesystem is mounted read-only, so an 'apt-get install' issued inside a running production pod always fails outright — the command could not have changed anything on the workload, which is why interactive package-install commands are filtered out of the audit pipeline by default in production clusters",
-            "Escalate this directly to external law enforcement immediately, without performing any internal verification first, because interactive access to a production namespace is a mandatory-reporting event under the CIS Kubernetes Benchmark, which obliges the operator of a PCI-scoped cluster to notify a national CERT within twenty-four hours of any pods/exec entry appearing in the API server audit log",
-            "Treat this as worth verifying rather than an automatic false positive or automatic true positive: confirm whether d.abrams has a legitimate, documented reason (an open incident ticket, a debugging task) to be interactively execing into a production pod outside their normal working pattern, since installing network tooling like curl inside a production container is unusual even when the actor is a real, known engineer — and unverified interactive access to production is exactly the kind of event the 'IT verify' workflow exists for",
-            "Automatically and immediately revoke every one of d.abrams' Kubernetes RBAC permissions across the whole cluster before performing any investigation into whether this specific action was legitimate, since deleting a user's ClusterRoleBindings retroactively terminates any exec stream already in flight and rolls back the filesystem changes that session made inside the container",
+            "Close it as benign: d.abrams is a known engineer, and a package install in a cluster they work on is routine",
+            "Declare a confirmed compromise and isolate the node, since curl is a common attacker tool for fetching payloads",
+            "Verify with d.abrams or their manager whether a ticket or debugging task explains this exec before deciding",
+            "Revoke all of d.abrams' cluster access now and investigate afterwards, since that is the safest default",
           ],
           answer: 2,
           explanation:
-            "This mirrors the exact triage discipline taught throughout the platform (DLP triage, privileged access monitoring, analyst mindset): a known, real user performing an unusual action is neither an automatic false positive nor an automatic true positive. Installing curl inside a production pod could be legitimate incident debugging — or could be an attacker who has compromised d.abrams' credentials staging further tooling. The correct step is verification against a ticket or manager confirmation before closing the alert either way.",
+            "The request URI shows a shell running 'apt-get install -y curl' inside a production pod, issued by a real, known engineer outside their usual pattern. That could be incident debugging or a stolen account staging tooling, so the next step is to verify against a ticket or with a manager before closing either way. “Close it as benign” trusts the identity without checking it, which is exactly how a compromised engineer account gets waved through. “Declare a confirmed compromise” jumps past the evidence: curl is also a standard debugging tool. “Revoke all of d.abrams' cluster access now” is a disproportionate first move for an unverified medium alert and could break live production support.",
           xp: 25,
         },
       ],
@@ -320,9 +320,9 @@ const k8sSecurityRoom = {
       type: "flag" as const,
       id: "k8s-f1",
       prompt:
-        "Look at the privileged pod creation event analysed earlier in this room. What is the exact IP address (including port) that the malicious container image was pulled from? Enter it exactly as it appears in the requestObject.spec.containers[0].image field.",
+        "To block the attacker's image source at the egress firewall, you need the registry endpoint behind the privileged pod in kube-system. Enter only the registry host and port (host:port) — not the image name or tag.",
       answer: "185.220.101.47:5000",
-      hint: "Look at the 'kubernetes.audit.requestObject.spec.containers[0].image' field in the raw log. It is an IP address followed by a colon and a port number, not a normal registry domain name.",
+      hint: "An image reference has the form registry/repository:tag. Find the image the privileged pod pulled and keep only the part before the first slash.",
       xp: 30,
     },
   ],

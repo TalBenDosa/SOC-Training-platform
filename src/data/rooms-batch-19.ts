@@ -626,16 +626,16 @@ const memoryDiskForensicsRoom = {
         "=======================================================",
       checkpoint: {
         question:
-          "According to the reading, what should be captured FIRST during live acquisition, before a full memory dump?",
+          "You reach a live, suspected-compromised host with a write-protected USB of trusted tools. What should your FIRST collection step be?",
         options: [
-          "A full disk image, since imaging the drive first preserves the largest volume of evidence before anything else changes",
-          "Active network connections and the process list — fast, low-footprint queries",
-          "A complete registry export, because registry hives change less often than memory and should be prioritized ahead of anything else",
-          "An antivirus full system scan, so any active malware is identified and flagged before other volatile evidence is touched",
+          "Start the full memory dump at once, since RAM is the most volatile evidence",
+          "Record active network connections and the process list with quick queries",
+          "Image the disk first, since imaging does not change the running system's state",
+          "Install the forensic agent on C: so every later collection step is logged centrally",
         ],
         answer: 1,
         explanation:
-          "Capture the most volatile, least-footprint information first — active network connections and the process list — before kicking off a full memory dump, which is the highest-impact step and takes several minutes.",
+          "Network connections and the process list come first: they are the most fleeting state and can be captured in seconds with minimal footprint. “Start the full memory dump at once” is the tempting answer, but the dump is the highest-footprint step and takes minutes, during which connections can close — it comes next. “Image the disk first” has the order backwards: disk is the least volatile source and can wait until memory is safe. “Install the forensic agent on C:” breaks the never-install rule — it writes registry keys and Prefetch entries onto the evidence you are about to read.",
       },
     },
 
@@ -681,14 +681,14 @@ const memoryDiskForensicsRoom = {
       question:
         "An incident responder images the disk of a suspected-compromised server but skips memory acquisition entirely, reasoning that 'the malware writes its files to disk, so disk imaging should find everything.' Six months later, the case stalls because the C2 domain and decryption key the malware used were never recovered. What went wrong?",
       options: [
-        "Nothing — disk imaging is sufficient, since every artifact the malware uses is eventually written to disk in recoverable form",
-        "The C2 config was likely stored encrypted on disk and decrypted only in RAM at runtime, so only a memory capture preserved it",
-        "The disk image was likely corrupted — imaging tools decrypt what they encounter, so a clean image would hold the plaintext config",
-        "The C2 domain sat in a registry hive that was never collected; imaging the hives alongside the disk would have recovered it",
+        "The $UsnJrnl was never parsed — it logs the data written to each file, so it held the config",
+        "The config sat encrypted on disk and was decrypted only in RAM at runtime, so only memory held it",
+        "The C2 domain was in a registry hive, and a disk image does not include the registry hives",
+        "The image was hashed only after it was copied, so the config inside it is no longer usable",
       ],
       answer: 1,
       explanation:
-        "This is exactly the decrypted-strings gap from Reading 2: malware commonly ships encrypted specifically to defeat the kind of static, disk-based analysis this responder relied on exclusively, and decrypts itself only in memory at runtime. Without a memory capture taken while the process was still running, that plaintext configuration is gone — the encrypted file on disk doesn't help without the key, which also only ever existed in memory. This isn't a disk-image-corruption problem or something the registry would incidentally contain; it's a fundamental gap that only live memory acquisition closes.",
+        "This is the decrypted-strings gap from Reading 2: malware ships encrypted to defeat disk-based analysis and decrypts its configuration — and holds its key — only in memory while running, so once the process ended without a memory capture, both were gone. “The $UsnJrnl logs the data written” misdescribes it: the journal records change events and reason codes, not file contents. “A disk image does not include the registry hives” is false — hives are files on the volume, so a full image already contains them. “Hashed only after copying” is a chain-of-custody weakness, but it cannot make information disappear from the image.",
       xp: 30,
     },
 
@@ -721,16 +721,16 @@ const memoryDiskForensicsRoom = {
         "=======================================================",
       checkpoint: {
         question:
-          "According to the reading, when should you compute the SHA256 hash of a freshly completed memory dump or disk image?",
+          "A winpmem memory dump has just finished writing to your evidence drive. You still need to copy it to the case share and open it in Volatility. When do you compute its SHA256?",
         options: [
-          "At the end of the investigation, once all analysis is complete",
-          "Immediately after the file finishes writing — before copying it, opening it in a tool, or even renaming it",
-          "Only if the case ends up going to court",
-          "Hashing is unnecessary for live acquisitions since the system was already running",
+          "After copying it to the case share, so the hash describes the copy analysts use",
+          "Immediately, before copying or opening it, so the hash is the integrity baseline",
+          "Before the dump starts, so the hash records the system state at acquisition time",
+          "After the first Volatility pass, once you know the dump is worth preserving",
         ],
         answer: 1,
         explanation:
-          "Hash the moment the file finishes writing, before any other action — that hash is your baseline, proving whether the file has been altered since that exact moment.",
+          "Hash the file the moment it finishes writing, before any other action — that hash is the baseline that proves whether the file has changed since. “After copying it” leaves a gap in which the original could change unnoticed; you hash the original, then verify each copy against it. “Before the dump starts” misunderstands what is hashed: the hash covers the dump FILE, not the running system, which keeps changing. “After the first Volatility pass” lets an analysis tool touch the evidence before integrity is fixed.",
       },
     },
 
@@ -742,7 +742,7 @@ const memoryDiskForensicsRoom = {
         "An analyst images the disk of a live, running production server during an active incident (it cannot be powered off) and records the SHA256 of the resulting image file. A colleague later challenges the finding, arguing 'you can't trust this image, the system was writing to its own disk the whole time you imaged it.' Which response is accurate?",
       options: [
         "The colleague is wrong — the SHA256 taken at acquisition proves the source disk stayed unchanged throughout collection, despite OS background writes",
-        "The limitation is real — no write blocker on a live system, so OS writes occurred; document it, since the hash proves only that the image file is unaltered since completion",
+        "The limitation is real — no write blocker is possible live, so document it; the hash proves only the image is unaltered since completion",
         "The limitation is real, and the hash should be discarded — a SHA256 of a live-system image cannot prove file integrity going forward",
         "The limitation is fatal — the image is unusable, and collection must restart with the server powered down behind a hardware write blocker",
       ],
@@ -795,35 +795,35 @@ const memoryDiskForensicsRoom = {
       id: "mdf-la1",
       heading: "One File, Two Timestamp Stories",
       context:
-        "During a live forensic sweep of HOST-ACCT-19, an executable was found in a user's Downloads folder that the user says they've 'never seen before.' Velociraptor pulled the raw $STANDARD_INFORMATION and $FILE_NAME timestamps for its MFT record, along with the most recent $UsnJrnl entry for the same file. Review the finding and decide what actually happened.",
+        "During a live forensic sweep of HOST-ACCT-19, an executable was found in a user's Downloads folder that the user says they've 'never seen before.' Velociraptor pulled the raw $STANDARD_INFORMATION and $FILE_NAME timestamps for its MFT record, along with the first and the most recent $UsnJrnl entries for the same file. Review the finding and decide what actually happened.",
       event: mftTimestompEvent,
       questions: [
         {
           question:
             "mft.si_created reads 2019-03-11, while mft.fn_created reads 2026-04-19 — a difference of over seven years. Given what you learned about which attribute common timestomping tools actually modify, what does this gap most likely indicate?",
           options: [
-            "A normal file copy operation, which always ages the $STANDARD_INFORMATION timestamp to reflect the original source file's creation date while leaving $FILE_NAME pointing at the copy time",
-            "The file's $STANDARD_INFORMATION timestamps were deliberately set to an old date using a timestomping tool, while the harder-to-forge $FILE_NAME attribute — which the tool didn't touch — still reflects the file's real creation time in 2026",
-            "The system clock on HOST-ACCT-19 must have been wrong back in 2019, unrelated to this specific file, and every file created around that period on this host would show the same seven-year gap",
-            "This is expected behavior any time a file is downloaded from the internet, since browsers routinely preserve the original web server's file creation date in $STANDARD_INFORMATION during a download",
+            "$FN was rewritten to 2026 to make an old file look new, while $SI keeps the true 2019 creation",
+            "$SI was back-dated by a timestomping tool, while the untouched $FN keeps the real 2026 creation",
+            "A file copy carried the source's 2019 creation time into $SI, while $FN records the copy time",
+            "The host clock was wrong in 2019, so files created back then carry a skewed $SI creation date",
           ],
           answer: 1,
           explanation:
-            "As covered in Reading 4, this is exactly the classic timestomping signature: common tools modify $STANDARD_INFORMATION (what every normal tool displays) to make a file appear old and unremarkable, but leave $FILE_NAME untouched because forging it requires direct MFT editing most tools don't attempt. A seven-year gap between the two, on a file the user says they've never seen, in the Downloads folder, is not something a normal copy operation, a clock error, or ordinary download behavior would produce.",
+            "Common timestomping tools rewrite $STANDARD_INFORMATION (what every normal tool displays) to make a file look old and unremarkable, and leave $FILE_NAME alone because forging it needs direct MFT editing. “$FN was rewritten to 2026” reverses the attributes: $FN is the harder one to forge, and an attacker gains nothing by making malware look newly created. “A file copy carried the source's 2019 creation time” misdescribes copying — a copy gets a fresh creation time in both attributes, so the two would agree. “The host clock was wrong in 2019” cannot explain a file whose $FN and first $UsnJrnl entry both say it was created in 2026.",
           xp: 35,
         },
         {
           question:
-            "mft.usnjrnl_first_reason shows 'FILE_CREATE|DATA_EXTEND' with mft.usnjrnl_first_timestamp matching the $FILE_NAME time (2026-04-19), not the $STANDARD_INFORMATION time (2019). Why does this specific piece of corroborating evidence matter to the investigation?",
+            "Now read the two $UsnJrnl fields in the record: a first entry FILE_CREATE|DATA_EXTEND and a last entry BASIC_INFO_CHANGE. What do they add to the $SI/$FN comparison?",
           options: [
-            "It doesn't add anything beyond what the $FILE_NAME timestamp already showed, since $UsnJrnl and $FILE_NAME are both generated from the exact same underlying MFT record update and will therefore always agree with each other by design regardless of what actually happened to the file",
-            "The $UsnJrnl is an independent, append-only log of what actually happened to the file, not just a static timestamp field — its FILE_CREATE entry landing on the same 2026 date as $FILE_NAME, rather than the fabricated 2019 date, is a second, structurally different source confirming the real creation time, which strengthens the finding beyond a single attribute comparison",
-            "It proves the file was created by a scheduled task rather than a user, since the FILE_CREATE reason code is only ever generated when Windows Task Scheduler creates a file programmatically",
-            "FILE_CREATE|DATA_EXTEND is a reason code reserved exclusively for malware installers, so seeing it here already confirms the file is malicious independent of any timestamp comparison",
+            "Nothing new — the journal is written from the same MFT update as $FN, so it always mirrors $FN",
+            "An independent log confirms 2026 creation, and the later BASIC_INFO_CHANGE records the timestomp",
+            "BASIC_INFO_CHANGE shows the file was renamed after creation, so its original name must be traced",
+            "DATA_EXTEND at creation shows a downloader wrote the file, which confirms the file is malware",
           ],
           answer: 1,
           explanation:
-            "As covered in Reading 4, a defensible timeline correlates multiple independent sources rather than trusting one attribute. The $UsnJrnl is a fundamentally different kind of artifact — an append-only change log, not a mutable timestamp field — and its entry agreeing with $FILE_NAME rather than the fabricated $STANDARD_INFORMATION date is exactly the kind of cross-source corroboration that turns 'these two fields disagree' into a well-supported conclusion. The journal even records the timestomp itself: the later BASIC_INFO_CHANGE entry (02:06:38, under two minutes after creation) is the reason code NTFS writes when a file's timestamps are changed. The FILE_CREATE reason code doesn't imply anything about who created the file or that it's malware-specific, and this evidence is meaningfully additive, not redundant.",
+            "$UsnJrnl is an independent, append-only change log: its FILE_CREATE on 2026-04-19 agrees with $FN, not with the 2019 $SI dates, and the BASIC_INFO_CHANGE at 02:06:38 — under two minutes after creation — is the reason code NTFS writes when a file's timestamps are changed, the direct trace of the timestomp (Reading 4). “Mirrors $FN by design” is wrong: the journal is a separate log of events, which is exactly why its agreement strengthens the finding. “Shows the file was renamed” confuses reason codes — BASIC_INFO_CHANGE marks a change to basic attributes such as timestamps, not a rename. “DATA_EXTEND confirms malware” over-reads it: data being written at creation is normal for any new file and says nothing about intent.",
           xp: 35,
         },
       ],
@@ -863,16 +863,16 @@ const memoryDiskForensicsRoom = {
         "=======================================================",
       checkpoint: {
         question:
-          "According to the reading, what does clearing the Windows Security event log (wevtutil cl Security) still leave behind?",
+          "An attacker ran wevtutil cl against EVERY event-log channel on a host, Sysmon's included. Which source most likely still holds their earlier process activity?",
         options: [
-          "Nothing at all — a cleared log is a completely clean erasure that leaves absolutely no trace of the clearing action anywhere on the system",
-          "A fresh Event ID 1102 recording who cleared the log and when, which pinpoints exactly where to focus the search in every other log source",
-          "An automatic full backup of the log restored moments later by the Windows Event Log service, which always re-populates a cleared log from its own internal backup",
-          "A duplicate copy of the cleared log hidden automatically in the registry, which any analyst can recover by exporting the relevant registry hive",
+          "Sysmon's Operational log, because Sysmon writes to a channel of its own",
+          "EDR telemetry, which is normally stored off the host rather than locally",
+          "The 1102 entry, which records the processes that ran before the clear",
+          "The $UsnJrnl, which records the command line of each process launched",
         ],
         answer: 1,
         explanation:
-          "The act of clearing the log is itself logged: Windows writes a fresh Event ID 1102 as the new first entry, recording the account and timestamp — proof something was hidden, at a precise, known time.",
+          "EDR telemetry is usually streamed to the vendor's console as events happen, so clearing local logs does not reach it. “Sysmon writes to a channel of its own” is true and is why Sysmon often survives a Security-only clear — but this attacker cleared every channel, Sysmon's included. “The 1102 entry records the processes” overstates it: 1102 records only who cleared the log and when, which is what tells you where to search. “The $UsnJrnl records command lines” misdescribes it: it survives log clearing, but it logs file-system changes with reason codes, not process command lines.",
       },
     },
 
@@ -886,10 +886,10 @@ const memoryDiskForensicsRoom = {
         { id: "clearlog", left: "Security log cleared (wevtutil cl Security)", right: "A fresh Event ID 1102 recording who cleared it and when — proof the erasure happened, at a known timestamp" },
         { id: "timestomp", left: "Timestomping $STANDARD_INFORMATION", right: "The $FILE_NAME attribute and $UsnJrnl entries, rarely touched by common tools, still reflect the real timeline" },
         { id: "shadowdel", left: "Shadow copy deletion (vssadmin/WMI)", right: "The deletion process itself — command line, parent process, executing account — captured by Sysmon/EDR process telemetry" },
-        { id: "diskwipe", left: "Secure-deleting a specific file", right: "The file's now-orphaned MFT entry and $UsnJrnl history may persist even after the file's data is unrecoverable" },
+        { id: "dkom", left: "Hiding a process by unlinking it from the OS process list (DKOM)", right: "The process's EPROCESS structure still in memory, found by a signature scan such as windows.psscan" },
       ],
       explanation:
-        "The pattern across every anti-forensics technique: attacking one evidence source almost always creates a new artifact in a different source. Investigative discipline means treating an empty obvious location as a prompt to look elsewhere, not as a dead end.",
+        "The pattern across every anti-forensics technique: attacking one evidence source almost always creates a new artifact in, or leaves one untouched in, a different source. Clearing a log writes 1102; timestomping $SI leaves $FN and $UsnJrnl; deleting shadow copies leaves the deletion process in EDR telemetry; and a DKOM-hidden process stays findable because psscan searches memory for the structure itself rather than walking the tampered list (Reading 2). Investigative discipline means treating an empty obvious location as a prompt to look elsewhere, not as a dead end.",
       xp: 40,
     },
 
@@ -900,14 +900,14 @@ const memoryDiskForensicsRoom = {
       question:
         "An analyst opens the Security event log on a suspected-compromised host and finds it nearly empty, with a single Event ID 1102 as the newest entry. A colleague says 'the logs are gone, there's nothing more we can do here.' What is the correct next step?",
       options: [
-        "Agree — a cleared Security log is a dead end, since it is the only source that records authentication and process activity on a host",
-        "Record the 1102 timestamp and pivot to other sources around that window — Sysmon, EDR, network logs, and NTFS artifacts like $UsnJrnl",
-        "Restore the log from the latest Volume Shadow Copy, which holds an intact copy of every event log even if shadow copies were also deleted",
-        "Treat the 1102 as routine maintenance — scheduled log rotation commonly emits it, so no escalation is needed without a ticket",
+        "Agree — with the Security log cleared, the host's logon and process history is lost",
+        "Note the 1102 time and pivot to Sysmon, EDR, network logs and $UsnJrnl around that window",
+        "Re-enable Security auditing and wait for the attacker's next action to be recorded",
+        "Treat the 1102 as log rotation — the log was archived on schedule, so nothing is missing",
       ],
       answer: 1,
       explanation:
-        "As covered in Reading 5, Event 1102 is not a dead end — it's a precise timestamp telling you exactly when to focus your search in every OTHER log source that the attacker didn't (or couldn't) also clear. EDR telemetry in particular is usually stored off-host entirely, unaffected by clearing the local Windows event log. Assuming a shadow copy always contains an untouched backup ignores that shadow-copy deletion is a real, separate anti-forensics technique attackers frequently pair with log clearing. And 1102 appearing is not evidence of a false positive — it's the expected, well-documented artifact of a genuine log-clearing action.",
+        "Event 1102 is a precise timestamp telling you where to search every OTHER source the attacker did not (or could not) clear — EDR telemetry in particular usually lives off-host and is untouched (Reading 5). “The history is lost” treats the Security log as the only record, which is exactly the dead-end thinking the reading warns against. “Re-enable auditing and wait” is the wrong timing: it gives up on what already happened and lets the attacker keep working. “Treat it as log rotation” misreads the event: 1102 records someone clearing the log, not a scheduled archive, so it is evidence of hiding, not of routine maintenance.",
       xp: 30,
     },
 
@@ -991,9 +991,9 @@ const memoryDiskForensicsRoom = {
       id: "mdf-f1",
       event: mftTimestompEvent, // show the HOST-ACCT-19 MFT log this flag reads
       prompt:
-        "Look at the Log Analysis finding on HOST-ACCT-19. What is the exact value of the mft.fn_created field (the real creation timestamp, not the timestomped one)? Enter it exactly as shown.",
-      answer: "2026-04-19T02:04:51.000Z",
-      hint: "Look in the raw block for mft.fn_created — the $FILE_NAME attribute's creation time, which the timestomping tool did not touch.",
+        "On HOST-ACCT-19, how many seconds passed between the file's REAL creation and the moment NTFS recorded its timestamps being changed? Enter a whole number of seconds.",
+      answer: "107",
+      hint: "Decide which timestamp set the tool did not touch, then find the journal reason code that NTFS writes when timestamps change, and subtract.",
       xp: 45,
     },
   ],

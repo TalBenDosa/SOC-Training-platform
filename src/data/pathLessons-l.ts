@@ -92,162 +92,162 @@ const lessons = [
         "question": "You are a Falcon analyst. A Critical detection fires for Credential Access on lsass.exe on SRV-DC01, and two minutes later a second Critical detection fires for a scheduled task creation on the same host, under the same process lineage. Falcon groups both under one Incident with a single combined severity score. What is the main practical benefit of that grouping for your triage?",
         "options": [
           {
-            "label": "It lets you assess and respond to the full attack chain as one case instead of triaging two detections separately",
+            "label": "You read the whole chain as one case, at the urgency of its most severe step",
             "value": "a"
           },
           {
-            "label": "It automatically blocks every process involved without any analyst review, regardless of the prevention policy",
+            "label": "You can close the lower-severity detection, since the combined score already covers it",
             "value": "b"
           },
           {
-            "label": "It permanently deletes the individual detections once they are merged, keeping only the incident record",
+            "label": "It confirms both detections share one attacker, so the cards underneath need no review",
             "value": "c"
           },
           {
-            "label": "It reassigns the host's antivirus signature database to match the newest threat intelligence release",
+            "label": "Falcon blocks every process in the Incident once grouped, whatever the prevention policy",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Incident grouping exists specifically so an analyst reviews one connected attack chain, in order, rather than several disconnected-looking cards that might each be individually closed as low-priority. The option “It automatically blocks every process involved without…” confuses detection with prevention policy, which is a separate setting. The option “It permanently deletes the individual detections once…” is false — the underlying Detections remain intact and reviewable inside the Incident. The option “It reassigns the host's antivirus signature database…” describes something Falcon's grouping does not do at all."
+        "explanation": "Grouping exists so you triage one connected attack chain in order, and the Incident carries the severity of its worst step. “You can close the lower-severity detection…” is the shortcut the lesson warns against: individually low-looking detections are exactly what gets wrongly closed when nobody sees the chain. “It confirms both detections share one attacker…” overstates it: grouping is the correlation engine’s best guess, a strong hypothesis, so you still read the Detections underneath. “Falcon blocks every process in the Incident…” confuses grouping with prevention, which is decided by the Host Group’s Prevention Policy, not by correlation."
       },
       {
-        "question": "A Falcon custom IOA rule fires because a process opened a handle to lsass.exe with PROCESS_ALL_ACCESS after being spawned by an unusual parent, regardless of which specific malware family or file hash was involved. Why does this behavior-based approach survive attacker retooling better than a hash-based IOC block?",
+        "question": "A Falcon IOA fires when a process opens lsass.exe with GrantedAccess 0x1FFFFF shortly after being spawned by an unusual parent. A week later the same intruder returns with a freshly recompiled dumper whose hash has never been seen anywhere. Why is the IOA still expected to fire when a hash-based IOC would not?",
         "options": [
           {
-            "label": "The attacker must abuse the same privileged access pattern to steal credentials, and changing tools does not change that behavior",
+            "label": "Dumping credentials still needs that same LSASS access pattern, whichever binary performs it",
             "value": "a"
           },
           {
-            "label": "Falcon automatically updates the hash database in the cloud every time a new sample is submitted by any customer worldwide",
+            "label": "The Threat Graph shares each new hash across customers, so the IOC list already includes it",
             "value": "b"
           },
           {
-            "label": "IOA rules only run on domain controllers, so workstation-based attackers never trigger this specific detection at all",
+            "label": "Falcon's ML engine scores the new file as malicious, and the IOA inherits that file verdict",
             "value": "c"
           },
           {
-            "label": "Behavior-based rules require the analyst to manually approve every single execution before the process is allowed to run",
+            "label": "The IOA keys on the dumper's process name and path, which recompiling the binary leaves intact",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "An IOA targets the behavior the attacker's goal actually requires, not a specific file's fingerprint — recompiling or swapping tools does not change the access pattern credential theft needs, so the detection still fires. The option “Falcon automatically updates the hash database in…” describes IOC-list maintenance, the opposite mechanism being contrasted here. The option “IOA rules only run on domain controllers…” is a false scope restriction Falcon does not impose. The option “Behavior-based rules require the analyst to manually…” misdescribes IOAs as requiring manual pre-approval, which is not how detection scoring works."
+        "explanation": "An IOA describes the behaviour the goal requires (broad access to LSASS memory from an odd lineage), so a new binary doing the same thing matches again. “The Threat Graph shares each new hash…” fails because a never-seen hash has no reputation anywhere yet, which is exactly why IOCs go blind after recompilation. “Falcon's ML engine scores the new file…” mixes up two engines: an IOA is a behavioural match, not a verdict inherited from static file scoring. “The IOA keys on the dumper's process name and path…” describes an artifact match, which an attacker defeats just as easily by renaming or moving the file."
       },
       {
-        "question": "During an active incident, you open Real Time Response on a compromised endpoint to collect evidence before deeper containment. Which action is squarely within RTR's intended, audited scope?",
+        "question": "A Falcon Incident shows an active C2 beacon and a credential dump on WKS-FIN-014, and the attacker still has a live foothold. You need to stop the attacker and still collect evidence from the host. Which sequence matches how Falcon’s response tools are meant to fit together?",
         "options": [
           {
-            "label": "Running investigative commands like ps and netstat, then retrieving a suspicious file for offline analysis",
+            "label": "Network-contain the host first, then use RTR on the contained host to collect evidence",
             "value": "a"
           },
           {
-            "label": "Editing the Falcon Prevent machine-learning threshold directly from the RTR command shell on that single host",
+            "label": "Use RTR kill and rm on the beacon first, and network-contain if it comes back later",
             "value": "b"
           },
           {
-            "label": "Rewriting the organization's Active Directory Group Policy objects to disable all domain user logons",
+            "label": "Keep the host online so RTR keeps working, and network-contain once evidence is pulled",
             "value": "c"
           },
           {
-            "label": "Issuing a certificate revocation request to the corporate public key infrastructure from the endpoint shell",
+            "label": "Have a read-only RTR responder put and run a cleanup script, then network-contain the host",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "RTR's core purpose is endpoint-scoped investigation and evidence collection through commands like ps, netstat, and get, plus narrow containment actions like kill and rm. The options “Editing the Falcon Prevent machine-learning threshold directly…” and “Rewriting the organization's Active Directory Group Policy…”, and d describe organization-wide administrative changes (prevention policy tuning, AD configuration, PKI operations) that are managed through entirely separate consoles and processes, not through a single endpoint's RTR shell."
+        "explanation": "Network Containment cuts the host off from everything except the CrowdStrike cloud, so RTR still works on a contained host; containing first stops the attacker while you investigate. “Use RTR kill and rm on the beacon first…” treats narrow containment as enough, but killing a process does nothing about persistence you have not found, and an attacker with a foothold can simply relaunch. “Keep the host online so RTR keeps working…” rests on a false belief: containment deliberately preserves the cloud channel RTR uses. “Have a read-only RTR responder put and run…” ignores the privilege tiers: put and run belong to the administrator tier, while the read-only tier can only run commands such as ps and netstat."
       },
       {
-        "question": "An analyst wants to find every host in the fleet where a Microsoft Office application spawned PowerShell over the past week, but no CrowdStrike detection has fired for this. What Falcon capability answers this, and what does it illustrate about detections versus raw telemetry?",
+        "question": "You want every host where a Microsoft Office application spawned PowerShell over the past week. No Falcon detection fired for any of it. Which Falcon capability answers this question?",
         "options": [
           {
-            "label": "Nothing can answer it, because Falcon only stores data for events that triggered a detection, so activity with no detection leaves no record anywhere in the platform to search against",
+            "label": "A new custom IOA rule for Office spawning PowerShell, which then lists last week's matches",
             "value": "a"
           },
           {
-            "label": "Event Search over the raw sensor telemetry (e.g. process-creation events): the sensor streams every process and connection regardless of detections, so you can hunt for a behaviour (Office spawning PowerShell) even with no rule for it — detections are curated highlights, the raw events are ground truth",
+            "label": "Event Search over raw ProcessRollup2 events, which the sensor streams even when nothing fires",
             "value": "b"
           },
           {
-            "label": "The analyst must open a support ticket with CrowdStrike and request that they manually search their cloud, because customers have no ability to query raw endpoint telemetry themselves within the console",
+            "label": "Falcon Intelligence, which links Office-to-PowerShell activity to known adversary campaigns",
             "value": "c"
           },
           {
-            "label": "This requires deploying a completely separate SIEM product, since the Falcon console itself contains only finished detections and offers no way to search underlying process or network events",
+            "label": "Spotlight, which uses the same sensor to inventory each host's software and exposures",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "The Falcon sensor streams raw events — every process, connection, DNS lookup, file write — to the cloud whether or not a detection fires, and Event Search queries that ground truth directly. So you can hunt for a behaviour like Office spawning PowerShell with no pre-existing rule, exactly the proactive, pyramid-top hunting the curriculum emphasises. The option “Nothing can answer it, because Falcon only…” is false — raw telemetry is retained independent of detections. The option “The analyst must open a support ticket…” wrongly claims customers cannot self-serve queries. The option “This requires deploying a completely separate SIEM…” ignores that Event Search exists inside the console."
+        "explanation": "The sensor streams every process launch to the cloud whether or not a detection fires, and Event Search queries those raw ProcessRollup2 events, so you can hunt a behaviour that no rule covered. “A new custom IOA rule…” is the step after a hunt pays off: a rule watches activity from now on, it does not search last week’s telemetry for you. “Falcon Intelligence…” adds adversary context to something you have already found; it does not search your hosts. “Spotlight…” reports vulnerabilities and exposure, not which processes ran."
       },
       {
-        "question": "A frequently-flagged but legitimate internal admin tool keeps generating Falcon detections. A junior analyst wants to add its hash to the IOC list with an 'allow' action to stop the noise. What is the correct framing of this action?",
+        "question": "A legitimate internal admin tool keeps generating Falcon detections. A junior analyst proposes adding its hash to IOC management with the action ‘allow’. Which assessment is correct?",
         "options": [
           {
-            "label": "It is a trivial, risk-free cleanup that any analyst should do immediately without documentation, because allowlisting a noisy indicator has no downside and simply makes the annoying alerts disappear for good",
+            "label": "Low risk: an allow entry only lowers the severity of future detections, which still reach the queue",
             "value": "a"
           },
           {
-            "label": "Allowlisting is a loaded gun: an 'allow' IOC silences all future detections on that indicator permanently, which is the right way to kill a confirmed false positive but dangerous if the tool later turns malicious — so it must be a deliberate, documented, verified decision",
+            "label": "Valid for a confirmed false positive, but it silences that hash from then on, so verify and document it",
             "value": "b"
           },
           {
-            "label": "The analyst should instead set the hash to 'prevent/block', because blocking a legitimate internal admin tool is the standard and correct way to reduce the volume of false-positive detections it generates",
+            "label": "Better to add a Sensor Visibility Exclusion for the tool's folder, a narrower fix than an allow IOC",
             "value": "c"
           },
           {
-            "label": "IOC actions have no real effect on detections at all, so whether the analyst chooses allow, detect, or prevent is purely cosmetic and none of the options carry any operational consequence worth considering",
+            "label": "Better to use an IOA Exclusion on the hash, since IOA Exclusions are built for artifact-based noise",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "An IOC set to allow permanently suppresses detections on that indicator — essential for eliminating a confirmed false positive, but risky, because if that hash is ever abused or the tool is trojanised, Falcon will stay silent. So allowlisting must be a deliberate, documented, verified decision, not a reflex to quiet an alert. The option “It is a trivial, risk-free cleanup that…” dismisses that real risk. The option “The analyst should instead set the hash…” would block a legitimate business tool, breaking work. The option “IOC actions have no real effect on…” is false — IOC actions (detect/prevent/allow) directly govern Falcon's behaviour."
+        "explanation": "An allow IOC stops detections on that exact hash. That is the right fix for a confirmed false positive, but Falcon stays silent if the hash is later abused or the tool is trojanised, so it must be a verified, documented decision. “Low risk: an allow entry only lowers the severity…” misreads the action: allow suppresses detections on the indicator rather than downgrading them. “Better to add a Sensor Visibility Exclusion…” has it backwards: that is the broadest exclusion type, and it stops the sensor recording anything in the path. “Better to use an IOA Exclusion on the hash…” confuses the tools: IOA Exclusions target a behavioural IOA pattern for a process or path, while hashes are managed as IOCs."
       },
       {
         "question": "You run this Falcon Event Search query: event_simpleName=ProcessRollup2 FileName=rundll32.exe | table([ComputerName, UserName, ParentBaseFileName, CommandLine, timestamp]) | sort(timestamp, order=desc) | head(20). Two rows come back for the same FileName value: one with ParentBaseFileName=cmd.exe and a MiniDump command line, the other with ParentBaseFileName=explorer.exe calling printui.dll. What should this teach you about hunting in Event Search?",
         "options": [
           {
-            "label": "The CommandLine and ParentBaseFileName values — not the matching FileName alone — are what separate real credential dumping from a coincidental, benign printer-dialog launch",
+            "label": "The CommandLine and parent, not the shared FileName, separate the dump from the printer launch",
             "value": "a"
           },
           {
-            "label": "Both rows are automatically Detections, because Event Search only returns events Falcon has already classified as malicious",
+            "label": "Both rows are Detections, because Event Search returns only events Falcon has already scored",
             "value": "b"
           },
           {
-            "label": "The query is too broad to be useful, because filtering on FileName without a hash means Event Search returns any process that merely loaded rundll32.exe",
+            "label": "The explorer.exe row deserves escalation, since a user-launched rundll32.exe is the rarer shape",
             "value": "c"
           },
           {
-            "label": "Since rundll32.exe appears in both rows, every launch of that binary should be treated as a confirmed LSASS dump and escalated without review",
+            "label": "Both rows run the same signed rundll32.exe, so a hash lookup decides which one to escalate",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Event Search returns raw sensor telemetry regardless of whether any Detection ever fired, so a matching FileName is only a starting point — the CommandLine content and ParentBaseFileName are what actually distinguish real credential-dumping behavior from a coincidentally similar, benign process launch. Calling both rows Detections is wrong because Event Search queries raw events, not only classified Detections. The claim that a FileName filter also returns processes that merely loaded rundll32.exe is wrong: in ProcessRollup2, FileName is the launched process's own image name, so both rows really are rundll32.exe launches. Escalating every rundll32.exe launch ignores that context, not the binary name alone, determines whether activity is malicious."
+        "explanation": "Event Search returns raw launches whether or not anything was detected, so a matching FileName is only the starting point: the comsvcs.dll MiniDump command line under cmd.exe is the LSASS-dump pattern, while printui.dll under explorer.exe is an ordinary printer dialog. “Both rows are Detections…” is wrong because Event Search queries raw telemetry, not only scored events. “The explorer.exe row deserves escalation…” reverses the evidence: that row is a routine printer-dialog launch, and the MiniDump command line is the dangerous one. “Both rows run the same signed rundll32.exe…” is the trap: both rows share the same legitimate binary, so its hash cannot tell them apart; only the command line and parent can."
       },
       {
-        "question": "A junior analyst applies a Sensor Visibility Exclusion to an entire application vendor's folder because one installer kept triggering a Machine Learning detection. Why is this the wrong exclusion type for that problem, and what should have been used instead?",
+        "question": "A junior analyst applied a Sensor Visibility Exclusion to an entire application vendor's folder because one installer kept triggering a Machine Learning detection. What is wrong with that, and what fits the problem?",
         "options": [
           {
-            "label": "Sensor Visibility Exclusions stop the sensor from even recording activity in that path, making any future attacker activity there invisible — a Machine Learning Exclusion scoped to the specific binary would have silenced the false-positive verdict without losing all visibility into that path",
+            "label": "The sensor stops recording anything in the folder; an ML Exclusion on the one installer fits",
             "value": "a"
           },
           {
-            "label": "There is no meaningful difference between the exclusion types, so the choice made no practical difference to Falcon's visibility into that folder",
+            "label": "Right type, too wide a scope; a Sensor Visibility Exclusion on just the installer would fit",
             "value": "b"
           },
           {
-            "label": "Sensor Visibility Exclusions only govern the host's inbound and outbound network firewall rules, so they could not have influenced a Machine Learning verdict at all, and the analyst should have built a dedicated Firewall Management policy rule scoped to that vendor's installer instead",
+            "label": "It has no effect on ML verdicts; an IOA Exclusion on the installer's path clears them",
             "value": "c"
           },
           {
-            "label": "The analyst should have used an IOA Exclusion instead, because IOA Exclusions are the only exclusion type that can ever be applied to a Machine Learning verdict",
+            "label": "It stops prevention but keeps detections; an allow IOC for the folder path silences the alerts",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Sensor Visibility Exclusions are the broadest and most dangerous exclusion type — they stop the sensor from recording, detecting, or preventing anything in the excluded path, so any attacker activity that later occurs there becomes invisible, not just unblocked. A Machine Learning Exclusion scoped narrowly to the specific known-clean binary would have silenced the false-positive static verdict while leaving Sensor Visibility recording and other detection engines fully intact. The option “There is no meaningful difference between the…” denies a real and significant difference. The option “Sensor Visibility Exclusions only govern the host's…” misdescribes what Sensor Visibility Exclusions govern. The option “The analyst should have used an IOA…” wrongly claims IOA Exclusions are required for ML verdicts, when a Machine Learning Exclusion is the matching tool for a Machine Learning detection."
+        "explanation": "A Sensor Visibility Exclusion stops the sensor recording, detecting and preventing anything in the path, so the whole vendor folder becomes a blind spot; a Machine Learning Exclusion scoped to the one installer clears the static ML verdict while recording and the other engines stay on. “Right type, too wide a scope…” still leaves the installer’s path unrecorded, a bigger hole than an ML false positive needs. “It has no effect on ML verdicts…” is wrong twice: Sensor Visibility stops all detections in the path, and IOA Exclusions cover behavioural IOA patterns, not ML verdicts. “It stops prevention but keeps detections…” misstates what Sensor Visibility does, and IOCs are hashes, IPs and domains, not folder paths."
       }
     ],
     "references": [
@@ -310,7 +310,7 @@ const lessons = [
       },
       {
         "heading": "Worked Example: Hunting Office-to-PowerShell with PowerQuery",
-        "content": "Reading about PowerQuery is not the same as running one. Here is a real hunt, step by step, in SentinelOne's own field-naming scheme — dot-notation fields like `src.process.name` and `endpoint.name` are the real names PowerQuery exposes over Deep Visibility telemetry, not invented shorthand.\n\nSuppose you want every case, across the fleet, where a Microsoft Office application spawned PowerShell in the last 7 days — the exact fileless-attack pattern the Behavioral AI section described, but here you are hunting for it directly instead of waiting for a Threat to fire:\n\n```\nevent.type = 'Process Creation'\nand src.process.name = 'powershell.exe'\nand src.process.parent.name in ('winword.exe', 'excel.exe', 'outlook.exe')\n| columns endpoint.name, src.process.parent.name, src.process.cmdline, event.time\n| sort event.time desc\n| limit 20\n```\n\nRead it exactly like the AQL and Event Search pipelines from earlier lessons — top to bottom, each line narrowing the last:\n\n- `event.type = 'Process Creation'` — scope to process-launch events only, the PowerQuery event category for 'something started running'.\n- `src.process.name = 'powershell.exe' and src.process.parent.name in (...)` — keep only PowerShell launches whose parent was Word, Excel, or Outlook, a shape with no legitimate reason to occur during normal document editing.\n- `| columns ...` — show only the fields useful for triage, not the entire raw event.\n- `| sort event.time desc` then `| limit 20` — newest first, capped so the result stays skimmable.\n\nSample result rows might look like this:\n\n```\nendpoint.name   src.process.parent.name   src.process.cmdline                                     event.time\nLT-SALES-08     winword.exe               powershell.exe -nop -w hidden -enc SQBFAFgA...           2026-08-15T11:14:02Z\nLT-LEGAL-19     outlook.exe               powershell.exe -Command Get-Mailbox -Identity user1      2026-08-14T16:30:45Z\n```\n\nSame parent-child shape, two very different stories. The first has a `-w hidden` flag and a base64-encoded (`-enc`) command — a textbook obfuscation pattern with no legitimate business reason to appear after opening a document. The second runs a plain, readable Exchange administrative cmdlet from Outlook, most likely a scheduled mailbox-maintenance script wired through Outlook's automation rather than an attack. This is the habit PowerQuery is built to train: the query gets you a short, relevant list fast, but the `src.process.cmdline` content — not the mere fact that PowerShell has an Office parent — is what actually separates the row worth escalating from the one that is not."
+        "content": "Reading about PowerQuery is not the same as running one. Here is a real hunt, step by step, in SentinelOne's own field-naming scheme — dot-notation fields like `src.process.name` and `endpoint.name` are the real names PowerQuery exposes over Deep Visibility telemetry, not invented shorthand.\n\nSuppose you want every case, across the fleet, where a Microsoft Office application spawned PowerShell in the last 7 days — the exact fileless-attack pattern the Behavioral AI section described, but here you are hunting for it directly instead of waiting for a Threat to fire:\n\n```\nevent.type = 'Process Creation'\nand src.process.name = 'powershell.exe'\nand src.process.parent.name in ('winword.exe', 'excel.exe', 'outlook.exe')\n| columns endpoint.name, src.process.parent.name, src.process.cmdline, event.time\n| sort event.time desc\n| limit 20\n```\n\nRead it exactly like the AQL and Event Search pipelines from earlier lessons — top to bottom, each line narrowing the last:\n\n- `event.type = 'Process Creation'` — scope to process-launch events only, the PowerQuery event category for 'something started running'.\n- `src.process.name = 'powershell.exe' and src.process.parent.name in (...)` — keep only PowerShell launches whose parent was Word, Excel, or Outlook, a shape with no legitimate reason to occur during normal document editing.\n- `| columns ...` — show only the fields useful for triage, not the entire raw event.\n- `| sort event.time desc` then `| limit 20` — newest first, capped so the result stays skimmable.\n\nSample result rows might look like this:\n\n```\nendpoint.name   src.process.parent.name   src.process.cmdline                                     event.time\nLT-SALES-08     winword.exe               powershell.exe -nop -w hidden -enc SQBFAFgA...           2026-08-15T11:14:02Z\nLT-LEGAL-19     outlook.exe               powershell.exe -Command Get-Mailbox -Identity user1      2026-08-14T16:30:45Z\n```\n\nSame parent-child shape, two very different stories. The first has a `-w hidden` flag and a base64-encoded (`-enc`) command — a textbook obfuscation pattern with no legitimate business reason to appear after opening a document. The second runs a plain, readable Exchange administrative cmdlet from Outlook. It is far less alarming, but readable is not the same as benign: Outlook does not normally launch admin scripts, so this row is checked against context (the user's role, an approved add-in or a change record) before it is closed. This is the habit PowerQuery is built to train: the query gets you a short, relevant list fast, but the `src.process.cmdline` content — not the mere fact that PowerShell has an Office parent — is what actually separates the row worth escalating from the one that is not."
       },
       {
         "heading": "STAR: Turning a Hunt Into an Automated Custom Detection Rule",
@@ -354,162 +354,162 @@ const lessons = [
         "question": "SentinelOne tags every event in a single attack chain - the initial macro, the PowerShell child process, the file write, and the outbound connection - with the same StorylineID. Compared to receiving four separate, disconnected alerts, what does this primarily save the analyst?",
         "options": [
           {
-            "label": "The manual work of correlating unrelated-looking alerts into one timeline before understanding what actually happened",
+            "label": "Rebuilding the chain by hand, matching timestamps and process IDs across separate logs",
             "value": "a"
           },
           {
-            "label": "The need to ever open the Deep Visibility query interface again for any future investigation on that endpoint",
+            "label": "Checking each step's command line, since a shared StorylineID proves every event is malicious",
             "value": "b"
           },
           {
-            "label": "The requirement to assign a severity level to the threat, since Storyline sets severity independently of alerts",
+            "label": "Hunting in Deep Visibility, since the Storyline already holds every event on that endpoint",
             "value": "c"
           },
           {
-            "label": "The obligation to isolate the endpoint, since Storyline automatically isolates any host with a live StorylineID",
+            "label": "Choosing a response, since Storyline itself applies Kill or Rollback to the whole tagged chain",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Storyline's core value is automating the correlation work an analyst would otherwise do by hand, reconstructing which events belong to the same chain from timestamps and process IDs. The option “The need to ever open the Deep…” overstates the feature — Deep Visibility remains useful for hunting beyond a single Storyline. The options “The requirement to assign a severity level…”, “The manual work of correlating unrelated-looking alerts…”, “The obligation to isolate the endpoint, since…” and “The obligation to isolate the endpoint, since…” describe capabilities Storyline does not have; it links events, it does not set severity or trigger isolation on its own."
+        "explanation": "Storyline does the correlation an analyst would otherwise do by hand, linking the macro, the PowerShell child, the file write and the connection under one StorylineID as they happen. “Checking each step's command line…” is still your job: Storyline is a strong reconstruction, but you verify the step your response decision depends on. “Hunting in Deep Visibility…” overstates it: a Storyline is one attack’s chain, while hunting across the fleet and outside that chain still needs Deep Visibility. “Choosing a response…” confuses correlation with response: Storyline links events; the agent’s mode and the analyst decide whether Kill, Quarantine or Rollback happens."
       },
       {
         "question": "A SentinelOne agent successfully rolls back a ransomware encryption event on a laptop using its VSS-based snapshots, restoring the encrypted files. The attacker had also exfiltrated a copy of those files to an external server twelve minutes before encryption began. What does Rollback accomplish here, and what does it not?",
         "options": [
           {
-            "label": "It restores local file contents to their pre-attack state, but cannot undo the exfiltration that already left the network",
+            "label": "It restores the local files; the stolen copy and any persistence still need separate handling",
             "value": "a"
           },
           {
-            "label": "It reverses the exfiltration by remotely deleting the stolen copy from the attacker's external server automatically",
+            "label": "It restores the local files, so the exfiltration drops to low priority because no data was lost",
             "value": "b"
           },
           {
-            "label": "It reinstalls the operating system from a factory image, which also blocks any future connection attempts",
+            "label": "It restores the files and removes the persistence that launched the encryption, ending the case",
             "value": "c"
           },
           {
-            "label": "It permanently revokes the attacker's stolen credentials across every connected identity provider instantly",
+            "label": "It cannot help, because Rollback works only if the threat is stopped before any data is copied",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Rollback restores file content from local snapshots — it has no mechanism to reach an external server the attacker controls, so exfiltrated data already off the network stays exfiltrated regardless of a successful local restore. The option “It reverses the exfiltration by remotely deleting…” describes a capability Rollback does not have. The options “It reinstalls the operating system from a…”, “It restores local file contents to their…”, “It permanently revokes the attacker's stolen credentials…” and “It permanently revokes the attacker's stolen credentials…” describe unrelated actions no version of Rollback performs."
+        "explanation": "Rollback restores local file content from the agent’s snapshots. It cannot reach the copy already on the attacker’s server, and it does not remove backdoors or scheduled tasks, so the case continues. “…so the exfiltration drops to low priority…” is the double-extortion trap: the files are back, but the attacker still holds a copy. “…and removes the persistence…” confuses Rollback with Remediate; restoring file content does not clean a rogue service or registry key. “It cannot help…” invents a limit: Rollback depends on intact snapshot data, not on whether data was copied out first."
       },
       {
-        "question": "A SentinelOne alert is confirmed malicious but the file has already written several additional files to disk and modified two of them via encryption. Which response action addresses the encrypted files specifically, beyond simply stopping the running process?",
+        "question": "A Threat card shows a dropper that wrote one payload file, set a Run-key for persistence and encrypted two documents before the agent killed its process. Which response action addresses the two encrypted documents?",
         "options": [
           {
-            "label": "Rollback, since it is the action designed to restore file content that was already changed, not just stop execution",
+            "label": "Rollback, which restores file content the threat changed, using the agent's VSS snapshots",
             "value": "a"
           },
           {
-            "label": "Kill Process, since terminating the process automatically restores every file it had already modified on disk",
+            "label": "Remediate, which reverses system changes the threat made, such as the Run-key persistence",
             "value": "b"
           },
           {
-            "label": "Quarantine, since moving the malicious file to an isolated folder also reverts any files it previously encrypted",
+            "label": "Quarantine, which moves the dropped payload into an isolated folder so it cannot run again",
             "value": "c"
           },
           {
-            "label": "Isolate Network, since cutting network access retroactively decrypts files that were already locked by ransomware",
+            "label": "Kill Process, which stops the threat's running process so it cannot encrypt more documents",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Rollback is the only action on the response ladder that restores file content already changed, using VSS-based snapshots taken before the modification. Kill Process and Quarantine stop further damage but do not reverse damage already done, and Isolate Network only cuts connectivity — none of the three distractors actually touches already-encrypted file content."
+        "explanation": "Each option describes its action correctly, but only Rollback restores file content that has already changed; it is the one rung on the ladder that addresses the encrypted documents. “Remediate…” is still needed here, for the Run key, but it reverses configuration changes, not file content. “Quarantine…” deals with the dropped payload file, not with what it already did. “Kill Process…” stops further damage; the process is already dead, and killing never restores encrypted files."
       },
       {
-        "question": "An analyst develops a Deep Visibility / PowerQuery search that reliably catches a specific malicious behaviour in their environment. They want this behaviour to be caught automatically in the future without re-running the hunt manually. Which SentinelOne capability does this, and what principle does it embody?",
+        "question": "An analyst has a Deep Visibility PowerQuery search that reliably catches a specific malicious behaviour in their environment. They want future occurrences caught automatically, without re-running the hunt. What should they do?",
         "options": [
           {
-            "label": "There is no such capability, so the analyst must manually re-run the Deep Visibility query by hand every single day forever, because SentinelOne hunts cannot be saved or automated in any form",
+            "label": "Switch the endpoints' Group to Protect mode, so the agent starts blocking that behaviour itself",
             "value": "a"
           },
           {
-            "label": "STAR (Storyline Active Response): save the validated query as a custom rule that the platform evaluates continuously against incoming telemetry, auto-alerting (and optionally responding) on future matches — embodying 'a hunt that works should graduate into a standing detection'",
+            "label": "Save the validated query as a STAR rule that runs continuously and alerts on every new match",
             "value": "b"
           },
           {
-            "label": "Rollback, because rolling back the endpoint to a snapshot is the standard way to make a one-time hunting query permanently monitor for a behaviour across the whole fleet going forward",
+            "label": "Rely on Storyline, which turns any query run once into a standing watch on the endpoints it hit",
             "value": "c"
           },
           {
-            "label": "The only option is to email the query text to every other analyst so they can each memorise it, since automated custom detection from a hunt is not something any EDR platform supports",
+            "label": "Save it as a STAR rule with automatic response from day one, since the hunt is already proven",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "STAR (Storyline Active Response) lets you save a validated Deep Visibility / PowerQuery search as a custom rule that runs continuously against incoming telemetry, auto-alerting or responding on future matches — turning a one-time hunt into permanent automated coverage. That embodies the detection-engineering principle that a good hunt should graduate into a standing detection, with the usual tuning obligation. The option “There is no such capability, so the…” denies the capability exists. The option “Rollback, because rolling back the endpoint to…” confuses Rollback (undoing endpoint changes via snapshots) with detection authoring. The option “The only option is to email the…” wrongly claims no platform supports hunt-to-detection."
+        "explanation": "STAR (Storyline Active Response) saves a validated PowerQuery as a custom rule that is evaluated continuously against incoming telemetry and alerts, or responds, on future matches; a hunt that works graduates into a standing detection. “Switch the endpoints' Group to Protect mode…” lets the agent act on its own engines’ verdicts, not on your query. “Rely on Storyline…” confuses correlation with detection authoring: Storyline links related events, it does not keep re-running your hunts. “…with automatic response from day one…” skips the tuning discipline: start a STAR rule in an alert posture and enable automated response only once its fidelity is proven."
       },
       {
         "question": "SentinelOne shows no malicious activity on any managed endpoint, but you suspect a rogue unmanaged device was plugged into the network and that identity/cloud activity may be involved. Which SentinelOne extensions address these gaps, and what EDR principle do they reflect?",
         "options": [
           {
-            "label": "None are needed, because a clean view of managed endpoints in SentinelOne is complete proof that the entire environment — including unmanaged devices, identity, and cloud — is definitively free of any compromise",
+            "label": "Raise the agents' detection sensitivity, so managed hosts start flagging the rogue device",
             "value": "a"
           },
           {
-            "label": "Ranger uses existing agents to discover unmanaged/rogue devices on the network, and Singularity XDR correlates telemetry from identity, cloud, and other domains — reflecting that an EDR has structural blind spots, so a clean endpoint view is not a clean environment view; change to the sensors that can see",
+            "label": "Ranger to find unmanaged devices via existing agents, and Singularity XDR for identity and cloud",
             "value": "b"
           },
           {
-            "label": "The correct fix is to increase the sensitivity of the endpoint agents until they detect the rogue device, since a sufficiently sensitive endpoint agent will eventually see unmanaged devices and cloud logins that never touch a managed host",
+            "label": "A fleet-wide Deep Visibility query, since it records every device and login seen on the network",
             "value": "c"
           },
           {
-            "label": "This situation is impossible, because any device on the network necessarily runs a SentinelOne agent and all identity and cloud activity is automatically visible to the endpoint agent by default",
+            "label": "Ranger for the rogue device, and STAR rules on the endpoint agents to watch identity and cloud",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "An EDR is structurally blind to unmanaged devices and to the identity/cloud plane, so a clean endpoint view is not a clean environment view. Ranger turns existing agents into network sensors to discover unmanaged and rogue devices, and Singularity XDR correlates identity, cloud, and other telemetry into one view — SentinelOne's way of implementing the EDR lesson's 'change sensors when you hit a blind spot.' The option “None are needed, because a clean view…” wrongly treats a clean endpoint view as total assurance. The option “The correct fix is to increase the…” misunderstands that agent sensitivity cannot see devices with no agent. The option “This situation is impossible, because any device…” denies the reality of unmanaged devices and identity/cloud attacks."
+        "explanation": "An EDR agent sees only the hosts it runs on, so a clean endpoint view is not a clean environment view. Ranger uses the existing agents as network sensors to discover unmanaged devices, and Singularity XDR brings identity, cloud and other telemetry into the same correlated view. “Raise the agents' detection sensitivity…” cannot help: sensitivity changes how agents judge their own host, not what they can see of a device with no agent. “A fleet-wide Deep Visibility query…” overstates Deep Visibility, which holds telemetry from managed agents only. “…STAR rules on the endpoint agents…” gets Ranger right but still runs on endpoint telemetry, which never contains the cloud or identity activity."
       },
       {
-        "question": "A PowerQuery search filters for src.process.parent.name in ('winword.exe','excel.exe','outlook.exe') and src.process.name = 'powershell.exe'. Two matching rows come back with an identical parent-child shape, but one has a plain, readable Exchange cmdlet on its command line and the other has a base64-encoded, hidden-window command line. What does this illustrate about hunting with PowerQuery?",
+        "question": "A PowerQuery hunt for Office applications spawning PowerShell returns two rows with the same parent-child shape. One is winword.exe launching powershell.exe -nop -w hidden -enc …; the other is outlook.exe launching a plain, readable Get-Mailbox command. How should you handle the results?",
         "options": [
           {
-            "label": "The parent-child relationship alone confirms an attack, so both rows should be treated as confirmed malicious without further review",
+            "label": "Treat both as confirmed attacks, since an Office parent alone proves malice, and isolate both",
             "value": "a"
           },
           {
-            "label": "The src.process.cmdline content, not just the fact that PowerShell has an Office parent, is what separates a routine script from an obfuscated attack, so the query narrows the search but does not replace reading the result",
+            "label": "Escalate the hidden -enc row, and check the readable one against context before closing it",
             "value": "b"
           },
           {
-            "label": "PowerQuery cannot legitimately return two rows sharing the same parent-child shape, so this result signals a bug in the query",
+            "label": "Close the readable row as routine admin work, since a clear Exchange cmdlet rules out attack",
             "value": "c"
           },
           {
-            "label": "Deep Visibility only stores events already tied to a Threat, so both rows must already be classified Threats before the query could return them",
+            "label": "Treat both as Threats already, since Deep Visibility returns only events the engines classified",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Deep Visibility stores raw telemetry regardless of any Threat classification, so a matching parent-child shape is only a starting point — the src.process.cmdline content (a plain admin cmdlet versus a hidden, base64-encoded payload) is what actually distinguishes routine activity from an obfuscated attack. The option “The parent-child relationship alone confirms an attack…” wrongly treats the shape alone as proof. The option “PowerQuery cannot legitimately return two rows sharing…” invents a limitation PowerQuery does not have. The option “Deep Visibility only stores events already tied…” misdescribes Deep Visibility, which records raw events independent of Threat status."
+        "explanation": "The query narrows the fleet to a short list; the command line then separates the rows. The hidden window and base64 -enc payload are textbook obfuscation and get escalated. The readable row is less alarming, but Outlook launching PowerShell is still unusual, so you confirm it against context (the user’s role, an approved add-in or change record) before closing it. “Treat both as confirmed attacks…” acts on the shape alone and ignores what each command does. “Close the readable row as routine…” is the dangerous habit: readable is not the same as benign. “Treat both as Threats already…” misdescribes Deep Visibility, which stores raw events whether or not any Threat was raised."
       },
       {
-        "question": "An endpoint in the 'Legacy App Servers' Group is running in Detect mode, but the Site and Account levels above it both show Protect mode configured. Why does this endpoint still behave as Detect-only, and what does this illustrate about SentinelOne's console structure?",
+        "question": "An endpoint’s effective policy shows Detect mode, yet the Site and Account policy pages above its ‘Legacy App Servers’ Group both show Protect mode. What explains this?",
         "options": [
           {
-            "label": "A Group-level policy override takes precedence over the inherited Site and Account settings for endpoints in that specific Group, so checking only the Site or Account level would miss the actual configuration applied",
+            "label": "A Group-level override applies to that Group's endpoints instead of the inherited Site setting",
             "value": "a"
           },
           {
-            "label": "SentinelOne always applies the most permissive setting found anywhere in the hierarchy to every endpoint in the tenant, regardless of which level defined it",
+            "label": "A Site exclusion for the legacy application covers the endpoint, which forces it into Detect mode",
             "value": "b"
           },
           {
-            "label": "Detect mode versus Protect mode is set per individual endpoint at random and has no relationship to the Global, Account, Site, or Group hierarchy at all",
+            "label": "The endpoint lost connectivity, so its agent falls back to Detect mode until the cloud returns",
             "value": "c"
           },
           {
-            "label": "The Group-level setting is a display error, since SentinelOne policy can only ever be configured at the Global level and every lower level always shows identical inherited values",
+            "label": "Global outranks the lower levels, and its Detect default overrides what the Site and Account set",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "SentinelOne's scope hierarchy (Global > Account > Site > Group) allows any level to override the policy it would otherwise inherit from above, and an override defined at the Group level applies specifically to that Group regardless of what the Site or Account above it shows. This means an analyst must check the actual effective policy at the endpoint's own Group level, not assume the Site or Account setting applies uniformly. The options “SentinelOne always applies the most permissive setting…” and “Detect mode versus Protect mode is set…”, and d each misdescribe how the inheritance and override model actually works."
+        "explanation": "Each level inherits from the one above unless it defines its own policy, and an override at the Group level applies to that Group’s endpoints whatever the Site and Account pages show, so you check the effective policy at the endpoint’s own Group. “A Site exclusion for the legacy application…” confuses exclusions with mode: an exclusion stops detection for what it covers, it does not switch the agent between Detect and Protect. “The endpoint lost connectivity…” contradicts the autonomous design: the agent keeps its configured mode and keeps acting on-device while offline. “Global outranks the lower levels…” inverts inheritance: lower levels inherit from Global and can override it, not the reverse."
       }
     ],
     "references": [
@@ -607,162 +607,162 @@ const lessons = [
         "question": "You want to hunt for a suspicious process that made an outbound connection to a rare external IP address shortly after it was created. Which two Advanced Hunting tables do you need to join to answer that specific question?",
         "options": [
           {
-            "label": "DeviceProcessEvents joined with DeviceNetworkEvents, correlated on the same device and a matching process identifier",
+            "label": "DeviceProcessEvents with DeviceNetworkEvents, on the same device and a matching process ID",
             "value": "a"
           },
           {
-            "label": "DeviceRegistryEvents joined with DeviceFileEvents, correlated on the registry key path and the file's SHA256 hash",
+            "label": "DeviceProcessEvents with DeviceFileEvents, on the same device and the file the process wrote",
             "value": "b"
           },
           {
-            "label": "EmailEvents joined with EmailAttachmentInfo, correlated on the message identifier and the attachment file name",
+            "label": "DeviceNetworkEvents with DeviceLogonEvents, on the same device and the account that logged on",
             "value": "c"
           },
           {
-            "label": "IdentityLogonEvents joined with CloudAppEvents, correlated on the user's sign-in session and app consent grant",
+            "label": "DeviceProcessEvents alone, since each process creation row already holds its remote IP and port",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Process creation lives in DeviceProcessEvents and outbound network connections live in DeviceNetworkEvents, so answering a question that spans both process context and network behavior requires joining exactly those two tables on the device and process identifier. The options “DeviceRegistryEvents joined with DeviceFileEvents, correlated on the…” and “EmailEvents joined with EmailAttachmentInfo, correlated on the…”, and d each pair tables relevant to different investigation types (persistence hunting, email-based delivery, and identity/cloud app activity) that do not answer this specific process-to-network question."
+        "explanation": "Process creation (file name, command line, parent) lives in DeviceProcessEvents, and the remote IP and port live in DeviceNetworkEvents, so the compound question needs those two tables joined on the device and process identifier. “…with DeviceFileEvents…” traces where a payload landed, not what the process talked to. “DeviceNetworkEvents with DeviceLogonEvents…” ties connections to logons, which answers a lateral-movement question, not which newly created process made the connection. “DeviceProcessEvents alone…” is the misconception the join exists to fix: process rows carry no remote IP; connections are recorded in DeviceNetworkEvents."
       },
       {
         "question": "Automated Investigation and Response (AIR) in Defender XDR analyzes an incident and, based on its confidence in the verdict, can automatically remediate certain entities without waiting for an analyst. What is the correct way to think about AIR's role in the workflow?",
         "options": [
           {
-            "label": "It handles high-confidence, well-understood remediations automatically, while lower-confidence findings still wait for analyst approval",
+            "label": "It remediates high-confidence cases itself and queues ambiguous or risky ones for approval",
             "value": "a"
           },
           {
-            "label": "It replaces the entire SOC analyst role for every incident, since Defender XDR is designed to run without any human review",
+            "label": "It remediates findings itself; the Action Center just records what it has already done",
             "value": "b"
           },
           {
-            "label": "It only generates a written report describing the incident, without taking any remediation action on any entity",
+            "label": "It investigates but does not act; each remediation it proposes waits for analyst approval",
             "value": "c"
           },
           {
-            "label": "It requires a Global Administrator to manually approve each individual step before AIR is allowed to begin analysis",
+            "label": "An Incident with an AIR investigation attached is handled, so its pending items need no review",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "AIR's design deliberately splits work by confidence: unambiguous, high-confidence cases are remediated automatically, while ambiguous or high-risk cases are queued in the Action Center for a human decision. The option “It replaces the entire SOC analyst role…” overstates AIR as a full replacement for analyst judgment, which contradicts its own design. The option “It only generates a written report describing…” understates AIR, which does take automatic remediation action in high-confidence cases. The option “It requires a Global Administrator to manually…” misdescribes the workflow — AIR's investigation runs automatically; only the higher-risk remediation actions require approval."
+        "explanation": "AIR splits work by confidence: clear, well-understood cases are remediated automatically, while ambiguous findings or actions on business-critical systems wait in the Action Center for an analyst. “It remediates findings itself…” removes the approval step that AIR deliberately keeps for risky actions. “It investigates but does not act…” understates AIR, which does quarantine files or stop processes on its own when confidence is high. “An Incident with an AIR investigation attached is handled…” is the mistake the lesson warns about: one unreviewed pending action leaves the Incident as open as an unactioned alert."
       },
       {
         "question": "You need to both cut a compromised device off from the rest of the network immediately and separately run investigative commands like tasklist and netstat on that same device while it stays contained. Which pairing of MDE capabilities does this?",
         "options": [
           {
-            "label": "Device Isolation for the network cutoff, and Live Response for the remote command execution once the device is contained",
+            "label": "Device Isolation for the cutoff, then Live Response to run tasklist and netstat on the device",
             "value": "a"
           },
           {
-            "label": "Advanced Hunting for the network cutoff, and Automated Investigation and Response for running the remote commands",
+            "label": "Restrict app execution for the cutoff, then Collect investigation package to run the commands",
             "value": "b"
           },
           {
-            "label": "Attack Surface Reduction rules for the network cutoff, and the Device Inventory page for running the remote commands",
+            "label": "Network Protection for the cutoff, then Live Response to run tasklist and netstat on the device",
             "value": "c"
           },
           {
-            "label": "The Incident Graph for the network cutoff, and the Alert Queue for running the remote commands directly on the device",
+            "label": "Device Isolation for the cutoff, then an Advanced Hunting query to run tasklist and netstat there",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Device Isolation is the specific action that cuts network access while preserving the console's connection to the device, and Live Response is the specific tool for running interactive investigative commands on that device afterward. Advanced Hunting and AIR are hunting and automated-remediation tools, not isolation or shell mechanisms. ASR rules block specific behaviors rather than isolate a device. The Incident Graph and Alert Queue are visualization and triage views, not response actions."
+        "explanation": "Device Isolation blocks the device’s network traffic while keeping its channel to the Defender cloud, and Live Response is the interactive shell that runs commands such as tasklist and netstat on that contained device. “Restrict app execution…” controls which programs may run rather than cutting the network, and collecting an investigation package gathers a bundle of data without giving you a shell. “Network Protection…” only blocks connections to low-reputation destinations, so the device stays reachable on the network. “…an Advanced Hunting query…” searches recorded telemetry; it cannot execute commands on a device."
       },
       {
-        "question": "An analyst writes an Advanced Hunting (KQL) query in Microsoft Defender for Endpoint that reliably catches a specific malicious behaviour. They want it to alert automatically going forward and, for clear cases, isolate the affected device. What capability does this, and what discipline must accompany it?",
+        "question": "An analyst has an Advanced Hunting (KQL) query that reliably catches a specific malicious behaviour. They want it to alert automatically from now on and, for clear cases, isolate the device. What is the right way to set this up?",
         "options": [
           {
-            "label": "There is no way to automate an Advanced Hunting query, so the analyst can only re-run it by hand periodically; MDE queries are strictly for one-off manual investigations and can never generate alerts or actions",
+            "label": "Add the behaviour as a file-hash Indicator with a Block action, so it is stopped tenant-wide",
             "value": "a"
           },
           {
-            "label": "Save it as a custom detection rule: Defender runs the query on a schedule, generates an alert on each match, and can take response actions (like isolation) — but the query must project the right entity columns, and you validate fidelity and start alert-only before enabling automatic actions",
+            "label": "A custom detection rule that projects the device entity, run alert-only before adding isolation",
             "value": "b"
           },
           {
-            "label": "The analyst should convert the KQL into an Attack Surface Reduction rule, because ASR rules are the mechanism for turning any custom hunting query into a scheduled, automatically-responding detection in Defender",
+            "label": "Turn the query into an ASR rule in Block mode, since ASR is how KQL becomes automatic prevention",
             "value": "c"
           },
           {
-            "label": "The correct approach is to set the whole tenant's automation level to fully automatic so every Advanced Hunting query the analyst has ever run begins isolating devices immediately without any further configuration",
+            "label": "A custom detection rule with automatic isolation from day one, since the query is already proven",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A validated Advanced Hunting query becomes a custom detection rule that Defender runs on a schedule, alerting on each match and optionally taking response actions such as device isolation — provided the query projects the entity columns (device, account, file) the rule needs to act on. The discipline is the recurring one: validate fidelity, start alert-only, then consider automated actions, exactly the ASR audit-first principle. The option “There is no way to automate an…” wrongly claims no automation exists. The option “The analyst should convert the KQL into…” confuses ASR (behaviour-blocking rules) with custom detections. The option “The correct approach is to set the…” is reckless, wiring untested queries to automatic isolation tenant-wide."
+        "explanation": "A validated query becomes a custom detection rule that Defender runs on a schedule; it must project entity columns such as the device so alerts and actions attach to the right machine, and it starts alert-only before automatic isolation is added. “Add the behaviour as a file-hash Indicator…” blocks one known artifact, not a behaviour a query describes. “Turn the query into an ASR rule…” confuses the two: ASR rules are Microsoft’s pre-built list of named behaviours, not a container for your KQL. “…with automatic isolation from day one…” skips the audit-first discipline: a hunt that looked clean can still fire on legitimate rows once it runs on every new event."
       },
       {
-        "question": "In Microsoft Defender XDR, a low-severity endpoint alert (MDE) appears alongside, and correlated into the same incident as, a phishing detection (MDO), a suspicious AD authentication (MDI), and an anomalous cloud-app login (MDCA). Why is working the correlated incident superior to triaging the endpoint alert alone?",
+        "question": "Your team enabled the ASR rule that blocks Office applications from creating child processes, in Audit mode, two weeks ago. Hunting in DeviceEvents, you find an ASR audit event for winword.exe launching powershell.exe on a finance laptop. What does this event mean for you?",
         "options": [
           {
-            "label": "It is not superior; the analyst should ignore the other products entirely and assess only the endpoint alert, because MDE is the only Defender component whose alerts carry any real security meaning",
+            "label": "Nothing ran: Audit mode records the attempt, so the PowerShell child was stopped before it began",
             "value": "a"
           },
           {
-            "label": "Defender XDR stitches the four products' fragments into one incident with a unified timeline, revealing a cross-domain attack (phish → endpoint → identity → cloud); the endpoint alert looks minor alone but is one step of a real intrusion, so triaging the incident shows true scope and severity",
+            "label": "PowerShell did run, since Audit only logs; investigate it like any other detection on that laptop",
             "value": "b"
           },
           {
-            "label": "The correlation is meaningless coincidence, so the four alerts should each be investigated by four different teams with no communication between them, exactly as if the XDR portal did not correlate them at all",
+            "label": "It is rollout data only, reviewed for exclusions before Block mode, rather than an alert to work",
             "value": "c"
           },
           {
-            "label": "Working the incident is worse than the single alert, because combining alerts from email, identity, and cloud always inflates severity artificially and the endpoint alert's original low rating is the only trustworthy signal",
+            "label": "The rule is misfiring, so exclude winword.exe from it and then switch the rule over to Block mode",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Defender XDR correlates MDE, MDO, MDI, and MDCA into a single incident with a unified timeline, so a phishing email → endpoint payload → AD credential abuse → cloud exfiltration appears as one connected attack. The endpoint alert that looks minor in isolation is revealed as one step of a real cross-domain intrusion, which is exactly why you triage the correlated incident, not the lone alert — the true scope and severity are only visible together. The option “It is not superior; the analyst should…” discards the other domains' evidence. The option “The correlation is meaningless coincidence, so the…” fragments a single attack across siloed teams. The option “Working the incident is worse than the…” wrongly treats correlation as inflating rather than revealing severity."
+        "explanation": "In Audit mode the rule logs what it would have blocked and lets the behaviour proceed, so Word really did start PowerShell on that laptop, and the event deserves the same investigation as any other detection. “Nothing ran…” describes Block mode, not Audit. “It is rollout data only…” is half true: audit events are reviewed for exclusions before enforcing, but that does not make a real Word-to-PowerShell launch safe to ignore. “The rule is misfiring…” assumes the hit is a false positive without investigating, and excluding winword.exe would blind the rule to exactly the macro pattern it exists to stop."
       },
       {
         "question": "You run the certutil.exe hunting query from the worked example and get two matching rows: one from a finance workstation at 3:12 AM against a raw IP address, dropping its output into a Users\\Public folder, and one from a known patch-management service account against an internal domain during business hours. What is the correct next step?",
         "options": [
           {
-            "label": "Isolate both devices immediately, since any process matching this exact command-line pattern is automatically confirmed as compromise requiring no further review",
+            "label": "Escalate both rows, since -urlcache -split downloads are LOLBin abuse whoever runs them",
             "value": "a"
           },
           {
-            "label": "Flag the first row for investigation given its odd hour, raw IP, and unusual drop path, while treating the second as likely legitimate given the known service account",
+            "label": "Escalate the 3:12 AM finance row and treat the patch-account row as likely routine IT work",
             "value": "b"
           },
           {
-            "label": "Discard both matches without further review, since certutil -urlcache -split is a signed Microsoft binary and therefore can never be malicious",
+            "label": "Close both rows, since certutil is a signed Microsoft binary and no malicious hash came back",
             "value": "c"
           },
           {
-            "label": "Convert the query directly into an Attack Surface Reduction rule set to Block mode, since ASR is the correct way to act on hunting results",
+            "label": "Save the query as a detection with auto-isolation now, since it has already found a real hit",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "The query surfaces candidates; reading each row's surrounding context is what separates a real threat from routine noise. The first row's off-hours timing, raw IP destination, and use of a world-writable drop folder are strong indicators worth escalating, while the second row's known service account, internal domain, and business-hours timing match ordinary patch-management activity. The option “Isolate both devices immediately, since any process…” ignores context and would isolate a legitimate patching workflow. The option “Discard both matches without further review, since…” wrongly assumes a signed binary can never be abused — LOLBin abuse is exactly the technique of misusing signed, trusted tools. The option “Convert the query directly into an Attack…” confuses ASR (a behavior-blocking rule) with the custom detection workflow this query is meant to feed."
+        "explanation": "The query only surfaces candidates; the surrounding fields decide. The finance row ran at 3 AM, fetched from a raw IP and dropped into C:\\Users\\Public, while the second came from a known patch-management account, in business hours, from an internal domain. “Escalate both rows…” treats the command pattern as a verdict and would chase a legitimate patching job. “Close both rows…” assumes a signed binary cannot be abused, which is the whole point of LOLBins. “Save the query as a detection with auto-isolation now…” wires an untuned query to isolation; as written it would also isolate the patching host, which is why the rule starts alert-only after the known account is excluded."
       },
       {
-        "question": "A SOC analyst wants to make sure a confirmed-malicious file hash is blocked from executing anywhere in the environment the moment it is identified, without waiting to write and validate a custom KQL detection rule first. Which MDE capability directly does this, and how does it relate to custom detection rules?",
+        "question": "A SOC analyst wants a confirmed-malicious file hash blocked from executing anywhere in the environment, starting the moment it is identified. Which MDE capability does this directly?",
         "options": [
           {
-            "label": "Indicators: adding the file hash under Settings > Endpoints > Indicators with a Block action stops it from executing tenant-wide immediately, addressing a known artifact directly rather than requiring a behavioral query",
+            "label": "An Indicator: add the hash under Settings > Endpoints > Indicators with a Block action",
             "value": "a"
           },
           {
-            "label": "Attack Surface Reduction rules, since ASR is the only mechanism in MDE capable of blocking a specific known file hash from executing anywhere in the tenant",
+            "label": "An ASR rule in Block mode, since ASR rules are how MDE stops specific executables running",
             "value": "b"
           },
           {
-            "label": "Threat Analytics, because publishing a report about the file hash automatically blocks it from executing on every onboarded device without further configuration",
+            "label": "A custom detection on the SHA256 in DeviceProcessEvents, with device isolation as its action",
             "value": "c"
           },
           {
-            "label": "There is no way to block a specific known-bad file hash directly in MDE; a custom KQL detection rule with an automated isolation action is the only available mechanism",
+            "label": "Network Protection, which blocks the hash system-wide using its SmartScreen reputation check",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Indicators are MDE's artifact-based blocking mechanism — a file hash added with a Block action is blocked tenant-wide immediately, addressing a known-bad artifact directly rather than requiring a behavioral pattern match. This is the IOC-management counterpart to the behavior-based custom detection rules and ASR rules covered elsewhere in the lesson. The option “Attack Surface Reduction rules, since ASR is…” misassigns this capability to ASR, which blocks named behaviors, not arbitrary specific hashes. The option “Threat Analytics, because publishing a report about…” misdescribes Threat Analytics, which is a reporting and context feature, not a blocking mechanism. The option “There is no way to block a…” wrongly claims no direct blocking mechanism exists."
+        "explanation": "Indicators are MDE’s artifact-based control: a file hash added with a Block action is blocked from executing across the tenant, and renaming the file does not evade it. “An ASR rule in Block mode…” misplaces the capability: ASR rules block named behaviours, not arbitrary hashes. “A custom detection on the SHA256…” runs on a schedule against data already recorded, so it alerts and isolates after the file has run instead of preventing execution. “Network Protection…” blocks connections to low-reputation destinations; it does not evaluate file hashes."
       }
     ],
     "references": [

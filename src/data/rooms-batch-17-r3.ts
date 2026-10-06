@@ -75,7 +75,6 @@ const certInvestigationEvent: TelemetryEvent = {
     "ssl.not_valid_after": "2027-04-04T08:00:00Z",
     "ssl.validation_status": "self signed certificate",
     "ssl.ja3": "72a589da586844d7f0818ce684948eea",
-    "ssl.jarm": "27d3ed3ed0003ed1dc42d43d00041d5d6e2ecd3b0d0e2f6f2c0c0c0c0c0c0c",
     cert_age_hours_at_connection: 25.8,
     destination_hosts_seen_before_today: 0,
   },
@@ -150,14 +149,14 @@ const tlsRoom = {
         question:
           "According to the reading, how many round trips does a typical TLS 1.3 handshake require in the common case, compared to TLS 1.2?",
         options: [
-          "Two round trips, the same as TLS 1.2",
-          "A single round trip (1-RTT)",
-          "Three round trips, one more than TLS 1.2",
-          "Zero round trips — TLS 1.3 requires no handshake at all",
+          "Two round trips, the same count as TLS 1.2",
+          "One round trip (1-RTT), with a key share sent in the ClientHello",
+          "Zero round trips (0-RTT) on every connection, including the first",
+          "Three round trips, since the encrypted certificate needs its own flight",
         ],
         answer: 1,
         explanation:
-          "TLS 1.3 collapses the handshake into a single round trip (1-RTT) in the common case: the ClientHello includes a guessed key share directly, letting the server reply with ServerHello, its certificate, and Finished all at once.",
+          "TLS 1.3 collapses the handshake into a single round trip (1-RTT) in the common case: the ClientHello includes a guessed key share directly, letting the server reply with ServerHello, its certificate, and Finished all at once. “Two round trips, the same count as TLS 1.2” is the older protocol's count. “Zero round trips (0-RTT) on every connection” confuses the common case with 0-RTT resumption, which only applies to servers the client has visited before and is restricted to idempotent requests. “Three round trips, since the encrypted certificate needs its own flight” is backwards — the encrypted certificate travels in the same server flight as ServerHello.",
       },
     },
 
@@ -205,14 +204,14 @@ const tlsRoom = {
         question:
           "According to the reading, what makes a self-signed certificate that is ALSO very recently issued a stronger combined signal than either fact alone?",
         options: [
-          "Legitimate infrastructure certificates are typically provisioned once and left in place for a long time, so pairing 'self-signed' with 'issued yesterday' departs from that norm",
-          "Self-signed certificates are illegal to issue under most jurisdictions' computer security regulations, so recency alone proves fraudulent intent regardless of any other context surrounding the certificate",
-          "A recently issued certificate always means the TLS version being negotiated for that connection is necessarily outdated, since certificate issuance date and protocol version are directly tied together by the TLS specification",
-          "Self-signed certificates automatically expire within 24 hours of issuance by design, which is why any self-signed certificate observed still functioning after that window must actually be a forged or fraudulently backdated one",
+          "Legitimate certs, even self-signed internal ones, are issued once and kept a long time; a day-old one breaks that norm",
+          "Short-lived, recently issued certificates are rare on legitimate sites, so a new issue date is suspicious on its own",
+          "A brand-new certificate has no revocation history yet, so CRL and OCSP checks have nothing to clear it against",
+          "Self-signed already marks C2 infrastructure on its own, so the recent date only adds a minor confirming detail",
         ],
         answer: 0,
         explanation:
-          "The reading explains that legitimate infrastructure, even self-signed internal tools, is typically provisioned once and left in place for a long time — not regenerated every session or every day. A self-signed cert that's also brand new is a much stronger combined signal than either fact alone. Self-signed certificates are entirely legal, certificate issuance date has no bearing on negotiated TLS version, and validity periods are set explicitly by whoever generates the certificate — nothing forces a 24-hour expiry.",
+          "The reading explains that legitimate infrastructure, even self-signed internal tools, is provisioned once and left in place for a long time — not regenerated every session or every day — while attacker certificates are cheap to generate and discard. That is why the pair is far stronger than either fact. “Short-lived, recently issued certificates are rare on legitimate sites” contradicts the Let's Encrypt nuance: short validity is now the industry norm. “A brand-new certificate has no revocation history yet” is beside the point — a self-signed certificate has no CA behind it to publish revocations at all. “Self-signed already marks C2 infrastructure on its own” over-weights one fact: the reading lists internal tools, appliances and lab gear that legitimately use self-signed certificates.",
       },
     },
 
@@ -266,14 +265,14 @@ const tlsRoom = {
         question:
           "According to the reading, what is the key difference between JA3 and JARM?",
         options: [
-          "JA3 is active and JARM is passive — JA3 requires the analyst to send crafted probe packets to a target server, while JARM can only ever be computed retroactively from traffic that was already captured passively on the wire",
-          "JA3 is a passive fingerprint built from observed ClientHello traffic, while JARM is an active technique that sends crafted probes to a target server, letting defenders fingerprint infrastructure they haven't seen real traffic from yet",
-          "They are identical techniques with different names, both computed the exact same way from the exact same ClientHello data, and either term can be used interchangeably in any investigation without any loss of meaning",
-          "JARM only works on UDP traffic, because the ten crafted probe packets it sends rely specifically on UDP's connectionless nature and cannot be constructed or transmitted at all over a TCP-based TLS session",
+          "JA3 fingerprints the server's ServerHello reply, while JARM fingerprints the client's ClientHello",
+          "JA3 is passive, from observed ClientHellos; JARM actively probes a server you may never have talked to",
+          "JA3 hashes the lists in the order offered, while JARM sorts them first so browser randomisation can't change it",
+          "JA3 needs decrypted traffic to compute, while JARM works from unencrypted handshake metadata alone",
         ],
         answer: 1,
         explanation:
-          "JA3 is passive — computable only from traffic you've actually observed. JARM is active — the scanning tool sends ten crafted ClientHello probes to a target server and fingerprints the pattern of responses, which works even against infrastructure your network hasn't contacted yet. That's the reverse of what option one claims, they are not the same technique, and JARM's probes run over standard TCP-based TLS just like any other HTTPS connection — there is nothing UDP-specific about it.",
+          "JA3 is passive — computed only from ClientHellos you have actually observed. JARM is active — a scanner sends ten crafted ClientHello probes to a target server and fingerprints how it responds, which works even against infrastructure your network has never contacted. “JA3 fingerprints the server's ServerHello reply” describes JA3S, not JA3. “JARM sorts them first so browser randomisation can't change it” describes JA4, the sorted replacement for JA3. “JA3 needs decrypted traffic” is wrong: the ClientHello is sent before any encryption exists, so JA3 needs no decryption at all.",
       },
     },
 
@@ -362,14 +361,14 @@ const tlsRoom = {
         question:
           "According to the reading, why does certificate pinning defeat TLS interception even on a managed device where the internal CA is trusted?",
         options: [
-          "Pinned applications ignore the device's trust store entirely and refuse any certificate that isn't the exact one they hard-coded, including the interception proxy's substitute certificate",
-          "Pinning only applies to UDP-based protocols and connectionless transports, which interception appliances are architecturally incapable of terminating or inspecting the way they can standard TCP-based TLS sessions",
-          "Pinning forces the connection to silently downgrade to the older, weaker TLS 1.0 protocol version, which interception proxies are technically unable to decrypt even though they can decrypt TLS 1.2 and 1.3 without issue",
-          "Pinned certificates are always self-signed by definition, and interception proxies are hard-coded to automatically block any self-signed certificate they encounter regardless of whether it's actually the pinned one",
+          "The app accepts only the certificate or key it hard-coded, so the proxy's trust-store-valid substitute is refused",
+          "Pinned apps insist on TLS 1.3, which encrypts the certificate so the proxy cannot see which one to substitute",
+          "Pinning makes the app check revocation over OCSP, and the proxy's on-the-fly certificates have no OCSP responder",
+          "Pinned apps send Encrypted Client Hello, so the proxy never learns the hostname it would need to forge a cert for",
         ],
         answer: 0,
         explanation:
-          "Certificate pinning hard-codes the exact certificate or public key an application expects and refuses anything else — even a certificate that would otherwise validate fine against the device's trust store. This is exactly what makes it defeat interception by design. Pinning is not UDP-specific (TLS itself runs over TCP), it doesn't force a downgrade to TLS 1.0, and pinned certificates are frequently CA-issued, not always self-signed — interception proxies don't have a blanket rule against self-signed certificates either.",
+          "Certificate pinning hard-codes the exact certificate or public key an application expects and refuses anything else — even the proxy's substitute certificate, which validates fine against the device's trust store. That is what defeats interception by design. “Pinned apps insist on TLS 1.3” misunderstands interception: the proxy terminates the client's TLS session itself, so the protocol version does not hide anything from it. “Pinning makes the app check revocation over OCSP” describes a different, inconsistently enforced check that the reading never ties to pinning. “Pinned apps send Encrypted Client Hello” confuses pinning with ECH; ECH hides SNI from passive observers, and a forward proxy still sees the destination it connects to.",
       },
     },
 
@@ -476,42 +475,42 @@ const tlsRoom = {
           question:
             "The raw record shows ssl.validation_status: 'self signed certificate' with ssl.issuer and ssl.subject both 'CN=cdn-assets-static.net'. Combined with the 96-sessions-in-96-minutes timing pattern stated above, what does this combination suggest?",
           options: [
-            "This is routine CDN asset-loading traffic — CDN domains are always trustworthy regardless of certificate details, and any TLS session presenting even a generic CDN-sounding server name should never be scrutinized further for certificate validity or session-timing patterns",
-            "A self-signed certificate on a destination presenting itself with a generic CDN-style name, combined with 96 sessions repeating at a tightly consistent ~60-second interval (a standard deviation of only 5.1 seconds around that average), matches the beacon-timing and certificate-anomaly patterns described in this room's detection checklist far more closely than ordinary asset-loading traffic, which would not repeat at such a fixed interval",
-            "The stddev value proves this traffic is completely random and therefore benign, since a tight standard deviation around a fixed average interval is itself statistical proof that no automated or scripted process could possibly be involved, regardless of what the byte-count pattern separately shows",
-            "Self-signed certificates are always issued by Let's Encrypt, which is always safe by definition, meaning a self-signed certificate observed anywhere on the network can be immediately dismissed without any further verification of its actual issuer",
+            "Routine CDN asset loading — pages refresh assets on a timer, and CDN edge nodes often present self-signed certificates",
+            "A likely beacon — a self-signed cert under a generic CDN-style name, plus a ~60 s interval with only a 5.1 s spread",
+            "An appliance health check — self-signed certificates and fixed intervals are normal for device management traffic",
+            "A client retrying a failed TLS handshake every minute, which a misconfigured certificate on the server would cause",
           ],
           answer: 1,
           explanation:
-            "A tight standard deviation (5.1 seconds) around a ~60-second average interval, sustained across 96 sessions, is exactly the jittered-but-clustered pattern described in Reading 4 — genuine human-driven asset loading does not repeat at a fixed interval like this. Combined with a self-signed certificate on a domain whose name is generic and CDN-suggestive but unverified by any trusted CA, this is a strong combined signal, not a single weak one. A tight standard deviation is the opposite of random — it's evidence of a scripted, regular process — and Let's Encrypt issues CA-signed certificates, never self-signed ones, so that pairing is a contradiction in terms.",
+            "A 5.1-second standard deviation around a ~60-second mean, held across 96 sessions, is the jittered-but-clustered rhythm Reading 4 describes; paired with a self-signed certificate behind a generic, CDN-sounding name, it is a strong combined signal. “Routine CDN asset loading” fails twice: real CDNs present publicly trusted certificates, and asset loading follows page views, not a 60-second clock. “An appliance health check” is the right explanation for the internal backup appliance later in this room, but this destination is an external IP with no history on the network before today. “A client retrying a failed TLS handshake” is contradicted by the record itself: each session lasts about a second and carries data both ways (orig_bytes 216, resp_bytes 198), so the handshakes completed.",
           xp: 25,
         },
         {
           question:
             "The byte-count standard deviation across sessions is 4.2, stated above — a very small variation in bytes sent, session after session. Why does this specific metric matter alongside the timing pattern?",
           options: [
-            "It doesn't add anything meaningfully new beyond what the timing interval already shows, since byte-count consistency and session-timing consistency are really just two different ways of measuring the exact same underlying signal",
-            "Near-identical byte counts session after session is the shape of a simple, repeated check-in request rather than ordinary browsing, which would show highly variable request/response sizes depending on what content is actually being loaded each time — this is the session-size-consistency signal from Reading 4, independent of and reinforcing the timing signal",
-            "A low byte-count standard deviation always indicates the connection failed to transmit any real data at all, since genuine data transfer inherently requires variable, unpredictable byte counts from one session to the next",
-            "This metric can only ever be computed after full TLS decryption of the session content itself, so it should be disregarded entirely as unusable in any metadata-only investigation like the one this room teaches, regardless of the traffic's source or destination",
+            "It re-measures the timing signal in another unit, so it adds confidence only when the timing evidence is weak",
+            "Uniform sizes fit a repeated check-in, not browsing; it is a separate signal that reinforces the timing",
+            "It shows the sessions carried no real payload, so the beacon is idle and the host can wait for routine review",
+            "TLS padding hides true sizes, so byte counts are unreliable and the timing evidence should carry the decision",
           ],
           answer: 1,
           explanation:
-            "Byte-count consistency across many sessions to the same destination is a distinct signal from timing consistency, and both are fully derivable from connection metadata alone — no decryption required. A repeated, simple 'anything for me?' beacon check-in naturally produces near-identical sizes every time, unlike real content loading, which varies with what's actually being requested. Seeing both the timing AND the size pattern together substantially strengthens the case beyond either alone — orig_bytes and resp_bytes are ordinary connection metadata, visible right in this event's raw fields without any decryption.",
+            "Byte-count consistency is a distinct signal from timing consistency, and both come from connection metadata alone. A simple 'anything for me?' check-in produces near-identical sizes every time, while real content loading varies with what is requested — so seeing both patterns together is much stronger than either. “It re-measures the timing signal in another unit” is wrong: a process could connect on a clock while sending very different payloads, or vice versa, so the two are independent. “The beacon is idle and the host can wait” treats a working C2 channel as harmless; an idle beacon is waiting for tasking, which is exactly when you want to catch it. “TLS padding hides true sizes” overstates padding: it adds a few bytes, and a 4.2-byte spread across 96 sessions is still a clear shape.",
           xp: 25,
         },
         {
           question:
             "Given everything observed, what is the correct next step?",
           options: [
-            "Close the finding, since HTTPS traffic on port 443 to a domain with a CDN-style name is expected on any corporate network, and any certificate or timing anomalies observed alongside it can safely be treated as coincidental noise not worth a second look",
-            "Escalate for endpoint investigation on WKS-MKT09 (pull EDR process telemetry to identify what process is generating these sessions), compute or pull the JA3/JA3S fingerprint for this traffic to check it against known toolkit signatures, and treat 146.70.87.201 / cdn-assets-static.net as a high-priority indicator pending further review, given the combined certificate, timing, and byte-consistency signals",
-            "Add cdn-assets-static.net to the corporate CDN allowlist so the alerts stop, since a domain's naming convention alone is sufficient grounds to treat it as fully trusted regardless of its certificate or connection pattern, closing this and any future alert about it automatically",
-            "Contact the marketing team member by email asking if they personally initiated 96 connections in 96 minutes, and take no further technical action regardless of the answer, since a user's own self-report is always sufficient to close a technical finding",
+            "Block 146.70.87.201 at the perimeter and close the case, since the combined signals already confirm C2",
+            "Find the owning process via EDR on WKS-MKT09 and check the JA3/JA3S against known toolkits before deciding",
+            "Ask the marketing user whether they installed a new tool, and close the finding if they confirm they did",
+            "Collect another 24 hours of sessions so the interval statistics are more reliable before taking any action",
           ],
           answer: 1,
           explanation:
-            "With a self-signed, recently-observed certificate, a tightly clustered check-in interval, and near-identical session sizes all pointing the same direction, this warrants real investigation rather than dismissal: identify the responsible process on the endpoint via EDR, pull a JA3/JA3S fingerprint to check against known malicious toolkit signatures, and treat the destination as a high-priority indicator. Allowlisting the very domain under investigation, or relying solely on a user's self-report without technical verification, would both be premature and risky given the strength of the combined evidence.",
+            "The certificate, timing and byte-size signals all point the same way, so this needs endpoint investigation: EDR shows which process owns the sessions, and the JA3/JA3S can be checked against known toolkit fingerprints, while the destination is treated as a priority indicator. “Block … and close the case” acts before finding the process — the implant stays on the host and can fall back to other infrastructure, and any other infected hosts go unscoped. “Ask the marketing user” relies on a self-report a user cannot verify; even a yes does not tell you what the tool is doing. “Collect another 24 hours of sessions” waits for statistics that are already decisive at 96 sessions — what is missing is attribution to a process, not more samples.",
           xp: 30,
         },
       ],
@@ -530,42 +529,42 @@ const tlsRoom = {
           question:
             "ssl.not_valid_before and ssl.not_valid_after both show exactly one year apart, but cert_age_hours_at_connection is only 25.8 — meaning the certificate was issued roughly a day before this connection occurred, for a destination the build segment has never contacted before. Why does the certificate's AGE matter here more than its total validity PERIOD (one year)?",
           options: [
-            "A one-year validity period is unusually short compared to industry norms and is, by itself and without any other supporting context, conclusive, standalone proof that this is malicious attacker-operated infrastructure, regardless of the certificate's actual age at the time of connection",
-            "The one-year total validity period is unremarkable on its own (plenty of legitimate self-issued or internal certificates use similar periods) — what's notable is that the cert was issued only about a day before this very first-ever connection from this network segment, suggesting infrastructure that was stood up specifically and recently, shortly before being contacted, rather than long-standing, established infrastructure",
-            "Certificate age can never be determined from a TLS session's own fields at all, since not_valid_before and not_valid_after only describe the future expiration window, so an analyst would need a separate DNS WHOIS lookup to know how old the certificate actually is",
-            "The exact one-year gap between not_valid_before and not_valid_after proves the certificate was issued by a trusted public CA and independently validated, since self-signed certificates are technically incapable of specifying a full one-year validity window",
+            "A one-year validity is unusually long for a self-signed cert, and that length is the main sign of attacker infrastructure",
+            "The one-year period is unremarkable; issuing it about a day before the first-ever contact points to newly built infrastructure",
+            "The period matters more: a one-year cert signals a long-term plan, while its age only reflects the most recent rotation",
+            "A day-old certificate is normal under Let's Encrypt-style 90-day rotation, so here the age is the weaker of the two signals",
           ],
           answer: 1,
           explanation:
-            "As Reading 2 explains, short validity periods (like Let's Encrypt's 90 days) are now completely normal for legitimate infrastructure, so validity PERIOD alone isn't the signal. What matters here is AGE relative to first contact: this certificate is barely a day old at the moment SRV-BUILD04 — which has never talked to this destination before — connects to it. That timing is far more consistent with infrastructure recently stood up for a specific purpose than with an established, long-running legitimate service SRV-BUILD04 would have a documented reason to depend on. A one-year period is unremarkable, not proof of anything; cert_age_hours_at_connection is computed directly from the certificate's own not_valid_before field with no WHOIS needed; and this very certificate is both self-signed AND one year long, disproving the claim that self-signed certs can't carry that validity period.",
+            "As Reading 2 explains, validity PERIOD is not the signal — short and long periods are both common on legitimate infrastructure. What matters is AGE relative to first contact: the certificate is about 26 hours old when SRV-BUILD04, which has never talked to this destination, connects to it — consistent with infrastructure stood up for this purpose rather than an established service the build server depends on. “A one-year validity is unusually long for a self-signed cert” invents a norm: whoever generates a self-signed certificate picks any period, and internal tools often use a year or more. “A one-year cert signals a long-term plan” reads intent into a number the issuer chose at will. “Normal under Let's Encrypt-style 90-day rotation” misreads the record: this certificate is self-signed (issuer equals subject), not issued by Let's Encrypt or any public CA, so that rotation pattern does not apply.",
           xp: 25,
         },
         {
           question:
-            "The record includes both a JA3 value and a JARM value. Given that this is the FIRST connection ever observed to this destination, why is JARM the more immediately actionable field to pivot on next?",
+            "The record carries a passive JA3 for SRV-BUILD04's ClientHello but no JARM. Given that this is the FIRST connection ever observed to 185.183.96.14, why is running a JARM scan the more useful next pivot?",
           options: [
-            "JARM and JA3 answer the exact same investigative question in exactly the same way, both requiring previously-observed passive traffic before they can be computed, so either technique is equally useful and interchangeable here",
-            "JARM is an active fingerprinting technique — an analyst can independently query 185.183.96.14 directly right now and compare the resulting JARM signature against known threat-intelligence-published JARM hashes for C2 frameworks, without needing to wait for or rely on any additional passive traffic to be observed from this one session",
-            "JA3 values expire after 24 hours from when they were first captured and are no longer usable for threat-intelligence lookups after that window closes, unlike JARM signatures which never expire under any circumstances",
-            "JARM can only ever be computed by the destination server itself as part of its own configuration process, never independently by a defender probing that server from the outside, which is why it requires cooperation from the server's own administrator",
+            "Zeek derives JARM from the ServerHello, so it will appear in the record once a second session is captured",
+            "JARM is active: you can probe 185.183.96.14 now and compare the result with published C2 server JARMs",
+            "JA3 describes the server's TLS stack, so on its own it cannot say whether the destination is C2 infrastructure",
+            "JARM sorts the cipher list before hashing, so it survives the randomisation that breaks JA3 matching on browsers",
           ],
           answer: 1,
           explanation:
-            "This is exactly the distinction from Reading 3: JA3 is passive and reflects only what was captured in this one session's ClientHello (still useful, but limited to what you've already observed). JARM is active — an analyst can independently probe 185.183.96.14 right now, generate a fresh JARM signature for it, and compare that against published threat-intel JARM signatures for known C2 frameworks, entirely independent of whatever else does or doesn't get captured passively from SRV-BUILD04's traffic going forward. JA3 and JARM are not interchangeable, JA3 hashes don't expire on a clock, and JARM is specifically a defender-side active probing technique, not something the server computes about itself.",
+            "This is the distinction from Reading 3: JA3 is passive and only describes the CLIENT side of the session you already captured — here, the build server's TLS library. JARM is active: you probe 185.183.96.14 yourself, now, and compare the result with published JARM signatures for C2 team servers, without waiting for more traffic. “Zeek derives JARM from the ServerHello” is wrong — JARM needs ten crafted probes, so no passive sensor produces it however many sessions it sees; the server-side passive fingerprint is JA3S. “JA3 describes the server's TLS stack” swaps JA3 and JA3S. “JARM sorts the cipher list before hashing” describes JA4, not JARM.",
           xp: 25,
         },
         {
           question:
             "What is the appropriate response, balancing the genuine risk signals against the fact that CI/CD systems do sometimes legitimately need to reach new third-party services (e.g. a newly adopted build dependency or artifact mirror)?",
           options: [
-            "Immediately treat this as a confirmed incident and wipe SRV-BUILD04 without any further investigation, since a first-ever connection to a new destination from a build server is, on its own, always sufficient grounds for a full wipe-and-rebuild",
-            "Dismiss it entirely — CI/CD systems routinely reach new destinations, so a first-time connection alone is never worth reviewing regardless of any accompanying certificate anomalies, destination rarity, or lack of documented change justification",
-            "Actively fingerprint 185.183.96.14 with JARM and check it against threat intel, review SRV-BUILD04's build/pipeline configuration and recent change history to see whether any legitimate new dependency explains this destination, and if no documented business justification is found, treat it as a priority finding requiring endpoint investigation on SRV-BUILD04",
-            "Allowlist ci-artifact-sync.io immediately so the pipeline doesn't break, since any destination a build server successfully connects to should always be trusted permanently without any further verification of its actual purpose or ownership",
+            "Block 185.183.96.14 and rebuild SRV-BUILD04 now — a first-ever destination with a day-old self-signed cert is enough",
+            "Allow it for now, since build servers add new dependencies all the time, and raise it at the next change-board review",
+            "JARM-scan it and check threat intel, check pipeline changes for a new dependency, and escalate if nothing explains it",
+            "Ask the build team whether they recognise ci-artifact-sync.io, add it to the allowlist if they do, and close the alert",
           ],
           answer: 2,
           explanation:
-            "The correct balance here is verification before either dismissal or overreaction: a first-time connection from a build server is genuinely ambiguous on its own (new dependencies and artifact sources do get added legitimately), which is exactly why you check the pipeline's own configuration and recent change history for a documented explanation, WHILE ALSO actively fingerprinting the destination and checking it against threat intelligence in parallel. If no legitimate business justification turns up, the combination of a same-day-issued self-signed certificate, a rare/first-ever destination, and no explanatory change record is enough to escalate for full endpoint investigation.",
+            "A first-time connection from a build server is genuinely ambiguous — new dependencies and artifact mirrors are added legitimately — so you verify before either dismissing or over-reacting: fingerprint the destination and check threat intelligence, and in parallel check the pipeline configuration and change history for a documented new dependency. If nothing explains it, the day-old self-signed certificate on a never-seen destination is enough to escalate for endpoint investigation. “Block … and rebuild SRV-BUILD04 now” destroys the evidence and breaks the pipeline before you know whether a legitimate change explains it. “Allow it for now … and raise it at the next change-board review” leaves a possible C2 channel open on the build server for days. “Ask the build team whether they recognise” the name trusts recognition of a domain anyone could register; a plausible name is not a documented change.",
           xp: 30,
         },
       ],
@@ -672,16 +671,16 @@ const tlsRoom = {
       heading: "Write It Yourself: Surface Beacon-Shaped TLS Sessions in KQL",
       language: "kql",
       context: KQL_PRIMER +
-        "Using the pattern confirmed in Log Analysis 1 (repeated sessions to one destination, tight interval clustering, near-identical byte counts), write the KQL that would flag this pattern across the whole network without needing to inspect any single session manually first.",
+        "Using the pattern confirmed in Log Analysis 1 (96 sessions to one destination, tight interval clustering, and a byte-count standard deviation of 4.2), write the KQL that flags the session-count and byte-consistency parts of that pattern across the whole network, so candidates surface without inspecting any single session first. Choose thresholds that would still catch the Log Analysis 1 host. (Interval clustering needs a separate time-delta step and is not part of this query.)",
       template:
         "NetworkSessionEvents\n| where DestinationPort == {{port}}\n| summarize SessionCount = count(), AvgBytesOut = avg(BytesSent), StdevBytesOut = stdev(BytesSent) by SourceIp, DestinationIp, JA3Hash\n| where SessionCount > {{threshold}}\n| where StdevBytesOut < {{stdevlimit}}",
       blanks: [
         { id: "port", answers: ["443"], placeholder: "standard HTTPS port" },
-        { id: "threshold", answers: ["20", "30", "50"], placeholder: "minimum session count to consider a repeating pattern" },
-        { id: "stdevlimit", answers: ["10", "15", "20"], placeholder: "byte-count standard deviation ceiling (low = suspiciously consistent)" },
+        { id: "threshold", answers: ["10", "12", "15", "20", "24", "25", "30", "40", "48", "50", "60", "70", "75", "80", "90"], placeholder: "minimum session count to consider a repeating pattern" },
+        { id: "stdevlimit", answers: ["5", "6", "7", "8", "9", "10", "12", "15", "20"], placeholder: "byte-count standard deviation ceiling (low = suspiciously consistent)" },
       ],
       explanation:
-        "This mirrors exactly the two signals you evaluated in Log Analysis 1: a high SessionCount to the same destination/JA3 pair, combined with a LOW standard deviation in bytes sent per session. Ordinary browsing produces high variance in request sizes; a beacon's repeated, near-identical check-in produces the opposite — many sessions, tightly clustered byte counts. Grouping by JA3Hash alongside source/destination also lets this same query catch the case where a beacon rotates its destination IP or domain but keeps using the same underlying TLS library/configuration.",
+        "This mirrors exactly the two signals you evaluated in Log Analysis 1: a high SessionCount to the same destination/JA3 pair, combined with a LOW standard deviation in bytes sent per session. Any session-count floor from 10 up to 90 and any stdev ceiling from 5 to 20 is accepted: each still catches the 96-session, 4.2-byte-stdev host, while a floor of 96 or more, or a ceiling of 4 or less, would miss it. Ordinary browsing produces high variance in request sizes; a beacon's repeated, near-identical check-in produces the opposite — many sessions, tightly clustered byte counts. Grouping by JA3Hash alongside source/destination also lets this same query catch the case where a beacon rotates its destination IP or domain but keeps using the same underlying TLS library/configuration.",
       xp: 35,
     },
 
@@ -690,9 +689,9 @@ const tlsRoom = {
       type: "flag" as const,
       id: "tls-f1",
       prompt:
-        "Look at Log Analysis 1, the repeating TLS session investigation. What is the exact ssl.ja3 hash value recorded in the raw log for the WKS-MKT09 sessions? Enter it exactly as shown.",
-      answer: "e7d705a3286e19ea42f587b344ee6865",
-      hint: "Look for the ssl.ja3 field in the raw block of the WKS-MKT09 session event.",
+        "Reading 6 suggests a quick first pass before computing any JA3: does the negotiated cipher suite look like a modern browser or a thin, legacy TLS stack? In Log Analysis 1, which cipher suite did the WKS-MKT09 session actually negotiate? Enter it exactly as recorded.",
+      answer: "TLS_RSA_WITH_AES_128_CBC_SHA",
+      hint: "It is one of the handshake fields in the raw record, next to the negotiated TLS version — not a fingerprint hash.",
       xp: 25,
     },
   ],

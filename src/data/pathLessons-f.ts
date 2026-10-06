@@ -98,73 +98,73 @@ const lessons = [
     ],
     "quiz": [
       {
-        "question": "You are a SOC analyst reviewing Zeek conn.log for a workstation flagged by threat intel. You compute, per (src, dst, port), the mean and standard deviation of the time deltas between consecutive connections. For one destination you find 480 connections over 8 hours, a mean interval of 60 seconds, and a coefficient of variation (stdev/mean) of 0.14, with tightly clustered outbound byte sizes. What is the most likely explanation?",
+        "question": "You are a SOC analyst reviewing Zeek conn.log for a workstation flagged by threat intel. You compute, per (src, dst, port), the mean and standard deviation of the time deltas between consecutive connections. For one destination — an IP that appears in no asset or vendor inventory — you find 480 connections over 8 hours, a mean interval of 60 seconds, and a coefficient of variation (stdev/mean) of 0.14, with tightly clustered outbound byte sizes. What is the most likely explanation?",
         "options": [
           {
-            "label": "A legitimate user browsing the web, because 480 connections is a normal browsing volume",
+            "label": "An update or telemetry agent polling home — regular polling is normal, so allow-list the IP",
             "value": "a"
           },
           {
-            "label": "An active C2 beacon, because the very low timing variance plus consistent byte sizes over hours is machine-like, not human",
+            "label": "A C2 beacon — a CV of 0.14 with uniform byte sizes over hours is machine timing",
             "value": "b"
           },
           {
-            "label": "A misconfigured firewall generating duplicate logs",
+            "label": "A user with a web app open — one connection a minute for 8 hours is ordinary volume",
             "value": "c"
           },
           {
-            "label": "Nothing suspicious, because port-based analysis is the only valid method for C2 detection",
+            "label": "Too early to tell — a CV this low means little until the count passes several thousand",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A coefficient of variation of 0.14 means the inter-connection intervals barely deviate from their 60-second mean — an extraordinarily regular rhythm that human browsing (bursty, CV well above 1) never produces. Combined with tightly clustered payload sizes and an 8-hour duration, this is the textbook signature of an implant check-in loop (beaconing), even accounting for jitter. Browsing is bursty, not periodic; duplicate logs would not produce a consistent 60s cadence; and dismissing behavioral timing analysis in favor of ports ignores the strongest available signal."
+        "explanation": "A coefficient of variation of 0.14 means the intervals barely move around their 60-second mean, and the byte sizes are just as uniform — a machine keeping time, which is what an implant check-in loop looks like even with jitter. “An update or telemetry agent polling home” is the false-positive class the lesson says to allow-list only when the destination is known vendor infrastructure; this IP is in no inventory. “A user with a web app open” confuses volume with rhythm: human traffic is bursty (CV well above 1), not metronomic. “Too early to tell” misreads the sample-size rule: the hunt query's floor is 30 connections, and 480 is far past it."
       },
       {
         "question": "You are a SOC analyst investigating DNS logs for a host that made 1,300 queries in one hour to the parent domain 'sync-cdn.example-corp.net'. Each query has a unique 95-character subdomain of random-looking characters, and the query type is overwhelmingly TXT. Which MITRE technique and channel does this indicate?",
         "options": [
           {
-            "label": "T1071.001 Web Protocols — the traffic is HTTP-based C2",
+            "label": "T1568.002 Domain Generation Algorithm — the random-looking names are generated domains",
             "value": "a"
           },
           {
-            "label": "T1567 Exfiltration to Cloud Storage — the data is going to a SaaS provider",
+            "label": "T1567 Exfiltration Over Web Service — data is going to a hosted provider's CDN domain",
             "value": "b"
           },
           {
-            "label": "T1071.004 Application Layer Protocol: DNS — this is DNS tunneling used for C2 and/or exfil",
+            "label": "T1071.004 Application Layer Protocol: DNS — data rides inside the subdomain labels",
             "value": "c"
           },
           {
-            "label": "T1048 Exfiltration Over Alternative Protocol via FTP",
+            "label": "T1568.001 Fast Flux — one domain is cycling through many short-lived DNS answers",
             "value": "d"
           }
         ],
         "answer": "c",
-        "explanation": "Long, high-entropy, unique subdomains under a single parent domain plus heavy TXT record usage are the defining fingerprints of DNS tunneling, which maps to T1071.004 (Application Layer Protocol: DNS). T1071.001 is web protocols, not DNS. T1567 is cloud storage upload, which uses HTTPS to SaaS domains, not encoded DNS queries. T1048/FTP would appear as FTP flows, not DNS. The encoded subdomains carry the data and TXT responses carry tasking back."
+        "explanation": "Long, high-entropy, unique subdomains under ONE parent domain, with TXT-heavy traffic, are the fingerprints of DNS tunnelling (T1071.004): the labels carry the data out and the TXT answers carry tasking back. “Domain Generation Algorithm” is the confusable one, but a DGA produces many different registered-looking domains that mostly return NXDOMAIN, not thousands of unique subdomains under a single parent. “Exfiltration Over Web Service” (T1567) means HTTPS uploads to a SaaS or cloud service, not encoded DNS queries — the CDN-sounding name is not evidence of that. “Fast Flux” describes one name resolving to many rotating IPs with short TTLs; the tell is in the A records, not in unique, random subdomains."
       },
       {
         "question": "You are a SOC analyst and a finance workstation shows a session sending 4 GB outbound while receiving only 30 KB inbound, to an external IP the host has never contacted before, at 3 a.m. on a Saturday. Which analytical approach gives you the highest-confidence exfiltration determination?",
         "options": [
           {
-            "label": "Alert on the destination port alone, since the port identifies the exfil protocol",
+            "label": "Pivot to the session's JA3 first — a known-bad client fingerprint is what confirms exfil",
             "value": "a"
           },
           {
-            "label": "Correlate the inverted byte_out/byte_in ratio with the new-destination novelty, the off-hours timing, and any DLP/CASB hit on the same host and time window",
+            "label": "Check the ratio, novelty and timing against DLP/CASB hits for that host and window",
             "value": "b"
           },
           {
-            "label": "Ignore it, because 4 GB could be a legitimate backup and large transfers are never suspicious",
+            "label": "Look up the destination IP's reputation — a clean result points to a new vendor",
             "value": "c"
           },
           {
-            "label": "Alert only if the JA3 fingerprint matches a known-bad value",
+            "label": "Treat the ratio and 3 a.m. timing as proof, block the IP and close it as exfiltration",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "No single indicator is decisive — a large upload could be a backup, a new destination could be a new vendor, and off-hours could be a scheduled job. High-confidence determination comes from correlation: an inverted byte ratio with large absolute volume, a destination brand-new to the host, off-hours timing, and content-aware DLP/CASB confirmation converging together. Port alone is meaningless for encrypted egress, dismissing all large transfers guarantees missed breaches, and JA3 is an HTTPS-only C2 signal that may be entirely absent for cloud (T1567) or alternative-protocol (T1048) exfil."
+        "explanation": "No single indicator is decisive — a large upload could be a backup, a new destination a new vendor, off-hours a scheduled job. Confidence comes from correlation: an inverted ratio with large volume, a first-seen destination and off-hours timing, confirmed by content-aware DLP/CASB telemetry for the same host and window. “Pivot to the session's JA3 first” mistakes a tool fingerprint for proof of data theft; JA3 says what software made the connection, not what left, and is absent for non-TLS routes. “Look up the destination IP's reputation” fails exactly where the lesson warns: attacker-owned and freshly stood-up destinations have no bad reputation yet. “Treat the ratio and 3 a.m. timing as proof” overclaims from flow data alone and skips the content check that tells exfiltration from a misrouted backup."
       },
       {
         "question": "You are a SOC analyst who has confirmed an active C2 beacon on a host and is preparing containment. The intrusion appears to still be in the collection phase, before any confirmed data has left. Why does immediately isolating the host from the network neutralize the intruder's control even if the implant is not yet removed from disk?",
@@ -190,73 +190,73 @@ const lessons = [
         "explanation": "An implant is inert without its command-and-control link — every attacker action after initial access (enumeration, privilege escalation, lateral movement, exfiltration) requires issuing a command and receiving the result over C2. Severing the channel makes the operator blind and deaf even though the code still sits on disk, which is exactly why network isolation is the fastest way to neutralize a live intruder before full eradication. Isolation does not delete files, it cuts all network channels (not selectively DNS or HTTPS), and its greatest value is preventing exfil, not reacting after it."
       },
       {
-        "question": "You investigate a workstation and find it makes an HTTPS connection to github.com's API roughly every 90 seconds (±20 seconds) for six hours straight, with small, similarly-sized requests and responses. GitHub is allow-listed and used company-wide. Why is 'the destination is a trusted, allow-listed service' not enough to clear this, and what is the likely explanation?",
+        "question": "A finance workstation makes an HTTPS request to api.github.com roughly every 90 seconds (±20 seconds) for six hours straight, with small, near-identical request and response sizes. EDR shows the owning process is powershell.exe launched by a scheduled task created yesterday, and your TLS inspection shows the Host header matches the SNI. GitHub is allow-listed and used company-wide. What is the most likely explanation?",
         "options": [
           {
-            "label": "It is definitely benign, because any traffic to an allow-listed, widely-used service such as GitHub is trusted by definition and its destination alone conclusively proves there is no command-and-control activity",
+            "label": "Domain fronting — the SNI names GitHub while the real request is routed to the attacker",
             "value": "a"
           },
           {
-            "label": "C2 over a legitimate service: attackers use trusted SaaS (GitHub, Slack, Discord) as the control channel precisely so the destination looks normal — so you judge the behaviour: a metronomic ~90s beacon rhythm with uniform small request/response sizes over hours is a machine phoning home, not human use",
+            "label": "C2 over a trusted service — a metronomic beacon hidden behind an allow-listed domain",
             "value": "b"
           },
           {
-            "label": "The regular timing simply proves GitHub's servers are efficient, so the consistent 90-second interval is a performance characteristic of the API and carries no security meaning for the analyst at all",
+            "label": "Exfiltration over web service (T1567) — data is being pushed up to a GitHub repository",
             "value": "c"
           },
           {
-            "label": "This must be DNS tunnelling, because any repeated connection to an external domain is by definition data being exfiltrated inside DNS queries regardless of the protocol or port actually being used",
+            "label": "Benign — GitHub is allow-listed and widely used, so its reputation already rules out C2",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Modern C2 deliberately routes through trusted, allow-listed services so the destination raises no flag — which is exactly why a trusted destination is not exoneration. The tell is behavioural: a near-metronomic ~90-second beacon with uniform small request/response sizes for hours is machine-to-machine, unlike a human's bursty, irregular GitHub use. The option “It is definitely benign, because any traffic…” is the trusted-destination fallacy the section warns against. The option “The regular timing simply proves GitHub's servers…” rationalises a beacon rhythm as server efficiency. The option “This must be DNS tunnelling, because any…” misapplies DNS tunnelling to what is described as HTTPS traffic."
+        "explanation": "Modern C2 deliberately routes through trusted SaaS so the destination raises no flag; the tell is behavioural — a ~90-second rhythm with uniform small requests and responses for hours, owned by a script launched from a day-old scheduled task, is a machine phoning home, not a person using GitHub. “Domain fronting” is ruled out by the evidence: TLS inspection shows the Host header matches the SNI, and the lesson notes fronting is now rare on major providers; direct SaaS abuse is the common form. “Exfiltration over web service” needs the byte ratio to invert with large uploads; here traffic is small and similar in both directions. “Benign — GitHub is allow-listed” is the trusted-destination fallacy the lesson warns against: reputation tells you nothing when the service itself is the channel."
       },
       {
-        "question": "An internal host is making thousands of DNS queries per hour to subdomains of one external domain, where the subdomains are long, random-looking strings like `f9a2c...b71.data.attacker-domain.com`, using TXT records, and the host rarely then connects anywhere as a result. What is this, and why does it work?",
+        "question": "Your DGA hunt flags one host: in 10 minutes it queried 140 different, lexically odd domains such as `qkzvtrmwplx[.]info` and `hbnxwqsdlv[.]biz` — each a separate registered-domain name, not subdomains of one parent — and 92% returned NXDOMAIN. One name resolved, and the host has contacted that IP over HTTPS every few minutes since. What is happening?",
         "options": [
           {
-            "label": "Normal, healthy DNS caching behaviour, because busy hosts routinely generate thousands of long random subdomain lookups to a single domain as part of standard name-resolution performance optimisation",
+            "label": "DNS tunnelling (T1071.004) — the random-looking names carry encoded data out of the network",
             "value": "a"
           },
           {
-            "label": "DNS tunnelling for C2/exfiltration: data is encoded into the subdomain labels and delivered to the attacker's authoritative DNS server; it works because DNS (port 53) is almost always allowed and rarely inspected, and the long high-entropy labels plus TXT records plus no follow-on connection are the tells",
+            "label": "A DGA (T1568.002) — the implant walked its candidate list until it hit the registered one",
             "value": "b"
           },
           {
-            "label": "A misconfigured application retrying a lookup, which is purely an availability problem for the networking team and never has any security relevance or connection to data exfiltration under any circumstances",
+            "label": "Fast flux (T1568.001) — the domain keeps changing its answers to dodge IP-based blocking",
             "value": "c"
           },
           {
-            "label": "Evidence of a DDoS attack the host is launching, since a high volume of DNS queries can only ever indicate the host is being used to flood a target rather than to move data covertly",
+            "label": "A user mistyping URLs — NXDOMAIN answers are what failed lookups for typos look like",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Encoding data into long subdomain labels sent to a domain whose authoritative server the attacker controls is DNS tunnelling — used for stealthy C2 and low-and-slow exfiltration. It works because DNS is nearly always permitted and seldom inspected. The signatures are exactly those described: abnormally long, high-entropy subdomains, a flood of queries to one domain, data-carrying record types like TXT, and lookups that never lead to an actual connection (the lookup itself was the payload). The option “Normal, healthy DNS caching behaviour, because busy…” invents benign caching behaviour that does not produce this pattern. The option “A misconfigured application retrying a lookup, which…” ignores the exfiltration signature. The option “Evidence of a DDoS attack the host…” confuses a covert channel with a volumetric DDoS."
+        "explanation": "Many distinct, high-entropy domain names, most of them NXDOMAIN, followed by steady contact with the one name that resolved, is the DGA pattern from the infrastructure section: implant and attacker compute the same daily candidate list, the attacker registers only a few, and the implant works through the list until one answers. That surviving domain is your likely live C2 — pivot it into the beaconing hunt. “DNS tunnelling” needs many unique SUBDOMAINS under one parent the attacker controls, with answers that come back; here the names are separate domains and most do not exist. “Fast flux” is one name resolving to many rotating IPs with short TTLs, not 140 different names. “A user mistyping URLs” cannot produce 140 algorithmic-looking names in 10 minutes followed by machine-regular HTTPS to the one that resolved."
       },
       {
         "question": "You are a SOC analyst reviewing raw proxy log lines for FINANCE-07 to one external IP. The connection deltas are 62s, 63s, 58s, 63s, 58s, the bytes_out values are 487, 491, 488, 485, 493, 489, and all six connections land between 03:14 and 03:19 to a destination this host has never contacted in its 90-day history. What is the most defensible next step?",
         "options": [
           {
-            "label": "Close it as benign immediately, because six connections is too small a sample size to draw any conclusion",
+            "label": "Allow-list it — a steady ~60 s poll with fixed sizes is how NTP-style pollers behave",
             "value": "a"
           },
           {
-            "label": "Report it as confirmed malware and file a breach notification, since the tight timing and byte sizes alone are sufficient proof by themselves",
+            "label": "Block the destination IP at the firewall and close the case as a confirmed beacon",
             "value": "b"
           },
           {
-            "label": "Treat it as a high-confidence beacon candidate from the tight timing/byte consistency and off-hours new destination, then pivot to the process tree and JA3 fingerprint before calling it confirmed",
+            "label": "Treat it as a strong beacon candidate and confirm via the owning process and JA3",
             "value": "c"
           },
           {
-            "label": "Ignore the timing and byte sizes entirely and decide only from whether the destination IP appears on a public geo-IP block list",
+            "label": "Hold off — rerun the CV hunt over the next 8 hours before taking any other step",
             "value": "d"
           }
         ],
         "answer": "c",
-        "explanation": "A mean interval of roughly 60.8 seconds with only a 5-second spread, combined with near-identical byte sizes and a brand-new, off-hours destination, is a high-confidence beacon pattern — but rhythm and context alone are not proof, since a legitimate poller can also look periodic. The defensible step is to pivot to an independent source (process ancestry or JA3) before writing it up as confirmed. The option “Close it as benign immediately, because six…” dismisses a strong statistical and contextual signal. The option “Report it as confirmed malware and file…” overclaims certainty from behavioral signals alone, skipping the corroborating pivot the lesson requires. The option “Ignore the timing and byte sizes entirely…” discards the two strongest available signals in favor of a weak, easily-evaded one."
+        "explanation": "A mean of about 60.8 seconds with a 5-second spread, near-identical byte sizes and a brand-new destination at 3 a.m. make a strong beacon candidate — but the lesson's Step 4 is explicit that rhythm and context are not yet proof, because a legitimate poller can also look periodic. The next step is one independent confirming source: the process that owns the connection (EDR) or the TLS fingerprint (JA3). “Allow-list it” applies the poller exception to a destination this host has never contacted in 90 days, which is exactly what that exception does not cover. “Block the destination IP … and close the case” acts before confirming and scoping: the implant stays on the host and can fall back to other infrastructure. “Hold off — rerun the CV hunt” wastes time on statistics that are already decisive; what is missing is corroboration, not more samples."
       }
     ],
     "references": [

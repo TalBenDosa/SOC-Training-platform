@@ -453,17 +453,17 @@ Notice that each hypothesis is **specific, testable, and falsifiable** — you c
 6. **Document** findings. Even a negative result is valuable — it means you have coverage.
 7. **Convert** confirmed detections into new SIEM rules so the next occurrence is caught automatically.
 
-This last step is crucial: threat hunting improves your detection capability over time. Every confirmed hunt finding should produce a new detection rule.`,
+This last step is crucial: threat hunting improves your detection capability over time. Every confirmed hunt finding should produce a new detection rule. A confirmed finding is also a live incident, so it is handed to incident response first, with the evidence preserved, and the rule is written alongside.`,
       checkpoint: {
-        question: "According to the reading, what is the crucial last step of the Hunt Cycle after a finding is confirmed?",
+        question: "Your hunt confirmed rundll32.exe dumping LSASS on one laptop, and IR has taken the case. Which Hunt Cycle step turns this one hunt into a lasting improvement in the SOC’s coverage?",
         options: [
-          "Delete the hunt query so the same hypothesis is never re-tested and every future hunt stays novel",
-          "Convert the confirmed finding into a new SIEM rule so the next occurrence is caught automatically",
-          "Escalate directly to law enforcement before any internal containment or documentation is attempted",
-          "Wait 90 days before acting, so the attacker's full dwell time can be measured before the hunt closes",
+          "Document the hunt so the next hunter can re-run the same query by hand each quarter",
+          "Convert the finding into a SIEM detection rule that fires on the next occurrence",
+          "Add the dump file's hash to the EDR blocklist so that exact file cannot run again",
+          "Schedule the same hunt as a recurring monthly hunt across the whole estate",
         ],
         answer: 1,
-        explanation: "The Hunt Cycle's final step converts a confirmed hunt finding into a new detection rule — this is how threat hunting improves the SOC's automated detection capability over time.",
+        explanation: "The last step of the Hunt Cycle converts a confirmed finding into a new detection rule, so the next occurrence raises an alert automatically and hunters can move on to new hypotheses. “Document the hunt…” is a real step (documentation), but a query someone re-runs by hand is still manual coverage. “Add the dump file's hash…” sits at the bottom of the Pyramid of Pain: a renamed or regenerated dump file has a different hash. “Schedule the same hunt as a recurring monthly hunt…” leaves up to a month of blindness between runs, where a rule watches continuously.",
       },
     },
 
@@ -486,7 +486,7 @@ LSASS (Local Security Authority Subsystem Service) is the Windows process that h
 
 Attackers abuse PowerShell constantly. Hunt for:
 - PowerShell with -EncodedCommand or -enc flags (hides the real command)
-- PowerShell launching from unusual parents (Word, Excel, Outlook, mshta.exe)
+- PowerShell launching from unusual parents (Word, Excel, Outlook, mshta.exe). Find them by **stacking**: count each parent → child pair across the fleet and read the rare end first. A pair seen on thousands of hosts is usually baseline; a pair on a handful of hosts is where the hunt starts, and you then check those hosts against known add-ins or scripts.
 - Download cradles: IEX (New-Object Net.WebClient).DownloadString('http://...')
 - PowerShell connecting to external IPs (network events where parent is powershell.exe)
 - ScriptBlock logging (Event ID 4104) capturing obfuscated or unusual code
@@ -524,14 +524,14 @@ The key insight: the platform does not matter as much as the hypothesis and the 
       id: "threat-hunt-q1",
       question: "Industry dwell-time figures have fallen a long way over the last decade — from roughly 200 days to a global median now measured in days-to-weeks. Why does that improvement NOT remove the case for proactive threat hunting?",
       options: [
-        "Because dwell time measures only containment and recovery after an incident is declared, saying nothing about detection speed",
-        "Because the median is pulled down by loud, fast ransomware, while the low-and-slow intruder that hunting targets still goes undetected for months",
-        "Because the improvement was measured only in cloud environments, while on-premises dwell times have actually increased",
-        "Because proactive hunting is a compliance requirement under most frameworks, regardless of how fast detection is",
+        "Dwell time measures containment after an incident is declared, so it says nothing about detection",
+        "The median mixes two populations: noisy ransomware pulls it down while quiet intruders stay hidden",
+        "The drop comes mostly from cloud workloads, while on-premises dwell times have barely improved",
+        "Hunting is required by most compliance frameworks, so faster detection does not change the need",
       ],
       answer: 1,
       explanation:
-        "A median is not a description of every case — it is the middle of a distribution, and this particular distribution has two very different populations in it. Ransomware detonates, encrypts, and demands payment; it is detected in hours or days because it makes itself impossible to miss, and it is common enough to pull the median down hard. An espionage actor with good operational security is the opposite: no encryption, no ransom note, valid credentials, living off the land — and months of dwell time. Threat hunting is aimed squarely at that second population, so a falling median is not evidence that hunting has stopped paying for itself. Note also that dwell time measures compromise-to-detection specifically; how long containment then takes is a separate metric.",
+        "A median is the middle of a distribution, and this one holds two very different populations. Ransomware announces itself within hours or days and is common enough to pull the median down, while a careful espionage actor using valid credentials and built-in tools can still go unnoticed for months; hunting targets that second group. “Dwell time measures containment…” gets the definition wrong: dwell time is the gap between compromise and detection. “The drop comes mostly from cloud workloads…” is not what the reading says and does not explain why hunting is still needed. “Hunting is required by most compliance frameworks…” swaps the security reason for a compliance claim the reading never makes.",
       xp: 30,
     },
 
@@ -539,16 +539,16 @@ The key insight: the platform does not matter as much as the hypothesis and the 
     {
       type: "question" as const,
       id: "threat-hunt-q2",
-      question: "What is the key advantage of TTP-based hunting over IOC-based hunting?",
+      question: "Last month you blocked the IPs, domains and file hashes from a threat report on an intrusion group. This month the same group returns with new servers and a recompiled loader, but still dumps LSASS with rundll32.exe and comsvcs.dll. Which hunt is most likely to find them, and why?",
       options: [
-        "TTP-based hunting is faster because it needs fewer queries",
-        "TTPs describe attacker behaviour, which is harder to change than IPs or file hashes",
-        "IOC-based hunting needs more expensive tooling and longer log retention",
-        "TTP-based hunting works only with a paid threat-intelligence subscription",
+        "A hunt for last month's IPs, domains and hashes, since groups tend to reuse their infrastructure",
+        "A hunt for rundll32.exe loading comsvcs.dll MiniDump, since that behaviour is costly to change",
+        "A hunt for newly registered domains, since fresh infrastructure is the trace a returning group leaves",
+        "A hunt for the new loader's hash once a vendor publishes it, since hashes are the most precise match",
       ],
       answer: 1,
       explanation:
-        "IOCs (Indicators of Compromise) like IP addresses, domain names, and file hashes are trivially easy for attackers to change — they spin up a new server, register a new domain, or repack their malware. TTPs (Tactics, Techniques, and Procedures) describe *how* attackers behave at a fundamental level — e.g., they dump LSASS to steal credentials. Changing behaviour requires completely redesigning the attack, which is expensive. This is the 'Pyramid of Pain' concept: the higher you go on the pyramid (from file hashes up to TTPs), the more pain you inflict on the attacker when you detect and block them.",
+        "This is the Pyramid of Pain in practice: the group changed what is cheap to change (IPs, domains, hashes) and kept what is expensive (the technique), so a hunt for the comsvcs.dll MiniDump behaviour still finds them. “A hunt for last month's IPs, domains and hashes…” targets exactly the indicators they replaced. “A hunt for newly registered domains…” is a useful lead in general, but it is broad and noisy and finds no specific trace of this group. “A hunt for the new loader's hash once a vendor publishes it…” waits for someone else to catch the sample first and fails again at the next recompile.",
       xp: 30,
     },
 
@@ -556,16 +556,16 @@ The key insight: the platform does not matter as much as the hypothesis and the 
     {
       type: "question" as const,
       id: "threat-hunt-q3",
-      question: "What should you do with a confirmed threat hunting finding?",
+      question: "A hunt confirms that an attacker dumped LSASS on FIN-LAPTOP-07 yesterday, and the laptop is still online. What should happen first with this finding?",
       options: [
-        "Keep it inside the hunt team so the attacker is not alerted",
-        "Reimage the machine immediately, before collecting any evidence",
-        "Document it and turn it into a SIEM detection rule for automatic future coverage",
-        "Close the hunt ticket as resolved once the host is contained",
+        "Keep it within the hunt team for now, so a wider response does not tip off the attacker",
+        "Reimage the laptop at once, so the attacker loses the foothold before doing more damage",
+        "Open an incident case for IR with the evidence preserved, then write the detection rule",
+        "Write the detection rule first, so the case is opened when the rule fires on the activity",
       ],
       answer: 2,
       explanation:
-        "A confirmed hunt finding has two immediate values: it tells you there is an active threat to respond to, and it reveals a gap in your automated detection coverage. If you caught it by hunting, your SIEM rules would not have caught it automatically. The immediate action after confirming a finding is to open a response case (investigate, contain, remediate) AND write a new SIEM rule so the next occurrence triggers an automatic alert. This is how threat hunting improves your detection posture over time — every hunt makes your SOC smarter.",
+        "A confirmed finding is a live incident: the stolen credentials may already be in use, so it goes to incident response with the evidence preserved, and the detection rule follows. “Keep it within the hunt team…” leaves an active compromise unhandled. “Reimage the laptop at once…” destroys the memory and disk evidence IR needs to scope what else the stolen credentials touched. “Write the detection rule first…” gets the order wrong: the rule protects against the next occurrence, while this one is happening now.",
       xp: 30,
     },
 
@@ -612,16 +612,16 @@ The key insight: the platform does not matter as much as the hypothesis and the 
           xp: 40,
         },
         {
-          question: "This technique uses a legitimate Windows DLL (comsvcs.dll) to perform the dump. What category does this fall under in attacker tradecraft?",
+          question: "Your EDR blocks known credential-dumping tools such as mimikatz.exe and procdump.exe by name and hash. Why can this comsvcs.dll technique still get through?",
           options: [
-            "Zero-day exploitation — a previously unknown vulnerability",
-            "Living Off the Land (LOLBin) — abusing legitimate system tools for malicious purposes",
-            "Rootkit installation — hiding processes from the operating system",
-            "Ransomware deployment — encrypting files for extortion",
+            "comsvcs.dll exploits an unpatched LSASS flaw, so signature updates cannot cover it yet",
+            "It runs signed Windows components, so name and hash blocklists for dumping tools never match",
+            "It injects code into lsass.exe, so the dump is written by a trusted process and is not logged",
+            "It renames procdump.exe to rundll32.exe, so name-based rules end up checking the wrong file",
           ],
           answer: 1,
           explanation:
-            "LOLBins (Living Off the Land Binaries) are legitimate Windows system tools that attackers abuse to perform malicious actions. Because these tools are signed by Microsoft and are part of the operating system, many security products whitelist them. Common LOLBins include rundll32.exe, certutil.exe, mshta.exe, regsvr32.exe, and wscript.exe. The comsvcs.dll MiniDump technique is a well-documented LOLBin technique (it even has its own entry in the LOLBAS project at lolbas-project.github.io). Defenders must look at what a LOLBin is *doing*, not just what it *is*.",
+            "This is living off the land: rundll32.exe and comsvcs.dll are legitimate, Microsoft-signed parts of Windows, so a blocklist of dumping-tool names and hashes has nothing to match, and defenders have to judge what the binary is doing (MiniDump of LSASS) rather than what it is. “…exploits an unpatched LSASS flaw…” describes a zero-day; MiniDump is a documented export working as designed. “It injects code into lsass.exe…” is process injection, a different technique; here rundll32.exe reads LSASS and writes the dump itself, and the EDR logged it. “It renames procdump.exe…” is masquerading; the command line shows the real rundll32.exe calling comsvcs.dll.",
           xp: 40,
         },
       ],
@@ -631,9 +631,9 @@ The key insight: the platform does not matter as much as the hypothesis and the 
     {
       type: "flag" as const,
       id: "threat-hunt-flag1",
-      prompt: `The log analysis event above is a confirmed detection of credential dumping from LSASS memory. Enter the MITRE ATT&CK technique ID that covers this specific sub-technique (LSASS Memory Dumping). Format: T followed by numbers and a dot and three more numbers (e.g. T1234.001).`,
-      answer: "T1003.001",
-      hint: "The technique is OS Credential Dumping — specifically the LSASS Memory sub-technique. Look at the mitre_technique field in the raw log.",
+      prompt: `The log analysis event above is a confirmed LSASS dump. Your next pivot is one level up the process tree: whatever launched rundll32.exe is how the attacker got a command line on this laptop. Enter the image name of that launching process, including the .exe extension.`,
+      answer: "cmd.exe",
+      hint: "The raw event records the process that started rundll32.exe as well as rundll32.exe itself.",
       xp: 50,
     },
 
@@ -641,16 +641,16 @@ The key insight: the platform does not matter as much as the hypothesis and the 
     {
       type: "question" as const,
       id: "threat-hunt-q4",
-      question: "You observe powershell.exe launching from winword.exe (Microsoft Word) on an endpoint. Why is this suspicious?",
+      question: "You stack 30 days of process-creation events from 2,000 workstations by parent → child pair and count the hosts per pair. Which result is the strongest lead for a macro-execution hunt?",
       options: [
-        "Word is blocked from the network, so any child process proves a policy bypass",
-        "Word documents can legitimately embed PowerShell macros, so this is expected",
-        "Word should not spawn PowerShell — a classic macro-based execution pattern",
-        "PowerShell is not installed on standard workstations, so malware must have dropped it",
+        "explorer.exe → powershell.exe on 1,412 hosts, spread evenly across the month",
+        "svchost.exe → powershell.exe on 1,980 hosts, recurring nightly at the same time",
+        "winword.exe → powershell.exe on 3 hosts, all within the last six days",
+        "outlook.exe → msedge.exe on 1,655 hosts, during working hours every day",
       ],
       answer: 2,
       explanation:
-        "Microsoft Word spawning PowerShell (winword.exe → powershell.exe) is one of the most classic malware execution chains. An attacker sends a phishing email with a malicious Word document that contains an embedded macro. When the user enables macros, the macro runs and launches PowerShell to download and execute malware. Word has absolutely no legitimate reason to spawn a PowerShell process in a normal business workflow. This parent-child relationship is a high-fidelity detection that should always generate a critical alert. Hunting for unusual parent-child process relationships is one of the most effective TTP-based hunt strategies.",
+        "Stacking puts the rare end of the distribution first. Word starting PowerShell is the classic macro-execution chain, and three hosts in one week stands out against a fleet of 2,000. Some enterprise add-ins do launch scripts, which is why you baseline and check those three hosts rather than alert blindly. “explorer.exe → powershell.exe on 1,412 hosts…” is users and admins opening PowerShell themselves, which is baseline at that volume. “svchost.exe → powershell.exe on 1,980 hosts…” is a fleet-wide scheduled job. “outlook.exe → msedge.exe on 1,655 hosts…” is people clicking links in mail, which is normal behaviour.",
       xp: 30,
     },
 
@@ -658,16 +658,16 @@ The key insight: the platform does not matter as much as the hypothesis and the 
     {
       type: "question" as const,
       id: "threat-hunt-q5",
-      question: "What is C2 beaconing and what pattern distinguishes it from normal web browsing traffic?",
+      question: "Proxy logs show four workstations talking to external hosts during the same hour. Which one is most likely beaconing to C2?",
       options: [
-        "Beaconing is HTTPS traffic while normal browsing uses HTTP — you detect it by the port number",
-        "Beaconing makes requests at very regular intervals to the same destination; browsing is irregular across many sites",
-        "Beaconing occurs only outside business hours, so any off-hours traffic is APT activity",
-        "Beaconing sends large uploads at random intervals, while browsing mostly downloads small pages",
+        "WS-11: 14 requests at gaps of 2 s to 9 min, varied response sizes, many other sites visited",
+        "WS-27: 60 requests at gaps of 55–65 s, every response 220 bytes, one IP and nothing else",
+        "WS-34: three 40–60 MB uploads to a file-sharing site at 09:00, 09:30 and 10:00 exactly",
+        "WS-42: 200 requests to a CDN within 5 minutes while a page loads, then no traffic at all",
       ],
       answer: 1,
       explanation:
-        "C2 (Command and Control) beaconing is malware checking in with the attacker's server to receive instructions. It is characterised by very regular, periodic HTTP/HTTPS requests to the same external destination — often every 30, 60, or 300 seconds like clockwork. Normal human browsing is highly irregular: you visit many different sites, at random intervals, with varying response sizes. When you see a process making identical HTTP GET requests to the same IP every 60 seconds at 3am, that is almost certainly malware, not a human. Hunting for this pattern in network logs (often called 'jitter analysis' or 'beacon analysis') is a powerful hunting technique.",
+        "Beaconing is malware checking in on a schedule: many small requests to the same destination at near-regular intervals (small jitter around 60 s here) with tiny, uniform responses. That describes WS-27. “WS-11…” is human browsing: irregular gaps, varied sizes and many sites. “WS-34…” is regular, but three large uploads is a data-transfer pattern (possibly a sync job, possibly exfiltration), not a check-in. “WS-42…” is a single burst from loading one page, with no repetition.",
       xp: 30,
     },
   ],
