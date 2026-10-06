@@ -28,6 +28,7 @@ import { IocTruthContext } from "@/components/threat-intel/iocTruthContext";
 import { Loader2, AlertTriangle, CheckCircle2, Circle, Radio, Play, ShieldCheck, ArrowLeft, Users, Siren, X, UserMinus, PauseCircle, LogOut } from "lucide-react";
 import type { RosterMember, SessionMeta, Me, Ev, Ioc } from "@/lib/team/types";
 import { asStr, detectIocType, friendlyActionError, hashString, actionErrorCode, type ActOutcome, type ActionErrorCode } from "@/lib/team/format";
+import { deriveReadyMap } from "@/lib/team/lobbyReady";
 import { withRebasedTime } from "@/lib/sim/rebaseTime";
 import { useTeamHeartbeat } from "@/lib/team/useTeamHeartbeat";
 import { calibrateFromDateHeader, noteServerTimestamp, useServerNow } from "@/lib/team/clock";
@@ -76,11 +77,14 @@ export default function TeamRoomPage() {
   const [edrNote, setEdrNote] = useState<string | null>(null); // B8: EDR open feedback (shown in any phase, incl. running)
 
   const [online, setOnline] = useState<Set<string>>(new Set());
-  const [readyMap, setReadyMap] = useState<Record<string, boolean>>({});
+  // Lobby readiness is DERIVED from the server's event log (+ the roster status at load) — see
+  // readyMap below. Presence used to overwrite it on every sync with each client's own tracked
+  // flag (m[0].ready — often stale or not yet updated), so a ready mark vanished whenever anyone
+  // joined or clicked and players had to click again (prod logs: repeated member.ready per user).
+  const [pendingReady, setPendingReady] = useState<boolean | null>(null);
   // P5-10: presence re-tracks on every (re)subscribe. It must send MY CURRENT
   // ready state — the subscribe callback is created once, so reading the roster
   // there sent the state from page load and flipped the lobby back on reconnect.
-  const myReadyRef = useRef(false);
   const [phase, setPhase] = useState<"lobby" | "running" | "ended">("lobby");
   const [countdown, setCountdown] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
@@ -202,7 +206,6 @@ export default function TeamRoomPage() {
       const data = await res.json();
       if (cancelled) return;
       setSession(data.session); setRoster(data.roster); setMe(data.me);
-      setReadyMap(Object.fromEntries((data.roster as RosterMember[]).map(m => [m.user_id, m.status === "ready" || m.status === "active"])));
       // A session paused AFTER it started resumes into the running screen (blocked
       // by the halt overlay); paused-before-start stays in the lobby.
       const st = data.session.status as string;
@@ -306,7 +309,6 @@ export default function TeamRoomPage() {
           lastRealtimeAtRef.current = Date.now(); // realtime is alive
           const state = channel.presenceState() as Record<string, { ready?: boolean }[]>;
           setOnline(new Set(Object.keys(state)));
-          setReadyMap(prev => { const n = { ...prev }; for (const [uid, m] of Object.entries(state)) { const r = m[0]?.ready; if (typeof r === "boolean") n[uid] = r; } return n; });
         })
         .on("broadcast", { event: "session_event" }, ({ payload }) => {
           lastRealtimeAtRef.current = Date.now(); // realtime is alive → the reconcile pull can stay idle
@@ -316,9 +318,7 @@ export default function TeamRoomPage() {
           // can't broadcast at all): never trust a seq far beyond our log head — one
           // forged huge seq would otherwise blind the gap-fill pull for the session.
           if (typeof p.seq === "number" && maxSeqRef.current > 0 && p.seq > maxSeqRef.current + 1000) return;
-          if (p.type === "member.ready" && p.actor_id) setReadyMap(m => ({ ...m, [p.actor_id!]: true }));
-          else if (p.type === "member.unready" && p.actor_id) setReadyMap(m => ({ ...m, [p.actor_id!]: false }));
-          else if (p.type === "session.started") { setSession(s => s ? { ...s, status: "running" } : s); startCountdown(); }
+          if (p.type === "session.started") { setSession(s => s ? { ...s, status: "running" } : s); startCountdown(); }
           else if (p.type === "session.ended") { setSession(s => s ? { ...s, status: "ended" } : s); setCountdown(null); setPhase("ended"); const rr = (p.payload as { reason?: string })?.reason; if (rr) setEndReason(rr); }
           else if (p.type === "session.paused") { setSession(s => s ? { ...s, status: "paused" } : s); setPaused(true); const pl = p.payload as { reason?: string; detail?: string }; setPausedReason(pl?.reason ?? "manual"); setPausedDetail(pl?.detail ?? null); }
           else if (p.type === "session.resumed") { setSession(s => s ? { ...s, status: "running" } : s); setPaused(false); setPausedReason(null); setPausedDetail(null); }
@@ -331,7 +331,7 @@ export default function TeamRoomPage() {
             lastRealtimeAtRef.current = Date.now();
             // C1: every (re)join may have missed broadcasts — fill the gap immediately.
             void pullRef.current?.();
-            await channel.track({ ready: myReadyRef.current });
+            await channel.track({ online: true });
           }
         });
       // C4: if we unmounted while awaiting/subscribing, tear the just-created channel down now.
@@ -385,10 +385,11 @@ export default function TeamRoomPage() {
   const act = useCallback(async (type: string, payload: Record<string, unknown>) => (await actR(type, payload)).ok, [actR]);
 
   async function setReady(ready: boolean) {
-    setBusy(true); setError(null);
-    const ok = await act(ready ? "member.ready" : "member.unready", {}).catch(() => false);
-    setBusy(false);
-    if (ok) { setReadyMap(m => ({ ...m, [me!.id]: ready })); await channelRef.current?.track({ ready }); }
+    setBusy(true); setError(null); setPendingReady(ready);   // flip the button at once
+    await act(ready ? "member.ready" : "member.unready", {}).catch(() => false);
+    // actR merged the server's own row on success, so the derived readyMap already holds the
+    // truth; on failure the error banner shows and the button falls back to the server state.
+    setPendingReady(null); setBusy(false);
   }
   // P5-07: a rejected fetch (network drop) used to skip setBusy(false) and leave
   // Start / End / Pause disabled for the rest of a live exercise.
@@ -423,6 +424,7 @@ export default function TeamRoomPage() {
   // ── derived ─────────────────────────────────────────────────────────────────
   // Observers watch only — they never "ready up", so they must not count toward the
   // ready-check (otherwise an observer wedges Start forever) nor the coverage set.
+  const readyMap = useMemo(() => deriveReadyMap(roster, events, me, pendingReady), [roster, events, me, pendingReady]);
   const players = roster.filter(r => r.role !== "instructor" && r.role !== "observer" && r.status !== "left");   // a removed no-show never wedges Start
   const allReady = players.length > 0 && players.every(p => readyMap[p.user_id]);
   // Only the SOC Manager / Lead can send a SITREP — without one, management requests can't be answered.
@@ -810,7 +812,6 @@ export default function TeamRoomPage() {
     } catch { setEdrNote("Couldn't open the EDR console for this incident."); }
   }, [feed, escalations, id, me?.id, iocTruth]);
 
-  myReadyRef.current = !!(me && readyMap[me.id]);
 
   // The shift's load for the team currently in the lobby — the same numbers /start
   // will seed from (src/lib/team/load.ts), so the instructor sees them before starting.
