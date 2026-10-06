@@ -133,7 +133,7 @@ const legitPasteRunEvent: TelemetryEvent = {
   it_verify_message:
     "Change ticket CHG-44190 approves the DevOps team's rollout of the Chocolatey package manager across engineering workstations this week; y.cohen's install falls inside the approved rollout window.",
   description:
-    "explorer.exe launched a hidden-window PowerShell process on WS-6820 that downloaded and ran the official Chocolatey install script from community.chocolatey.org.",
+    "explorer.exe launched a hidden-window PowerShell process on WS-6820 that downloaded a script from community.chocolatey.org and ran it in memory.",
   process: {
     name: "powershell.exe",
     pid: 5502,
@@ -214,21 +214,21 @@ const commodityInitialAccessRoom = {
       content:
         "Real CAPTCHAs — the 'prove you're human' puzzles most people have solved a thousand times — ask you to click a checkbox, pick out traffic lights, or type distorted letters. They never, under any circumstance, ask you to open the Windows Run dialog and paste something. That single fact is the entire weakness ClickFix exploits.\n\n" +
         "**How it works, step by step.** A victim lands on a page — sometimes a fake download site, sometimes a compromised legitimate page — that displays a convincing 'Verify you are human' overlay. The moment that overlay loads, a small piece of JavaScript silently copies a command to the victim's clipboard. The overlay then instructs the victim, in plain language, to press Windows+R (opening the Run dialog), press Ctrl+V (pasting the clipboard), and press Enter. The victim never sees the command itself — they only see three simple instructions that feel like completing a normal verification step.\n\n" +
-        "**What actually runs.** The pasted text is almost always a PowerShell one-liner using a pattern like Invoke-WebRequest piped straight into Invoke-Expression — fetching a script from attacker infrastructure and executing its text directly in the current PowerShell session, without ever writing that script to disk. This is called 'fileless execution,' and it matters enormously for detection: a file that never exists cannot be scanned, cannot be hashed, and leaves no file-creation event for an analyst to find. The command frequently launches with a hidden window, so the victim never even sees a PowerShell console appear.\n\n" +
+        "**What actually runs.** The pasted text is almost always a PowerShell one-liner using a pattern like Invoke-WebRequest piped straight into Invoke-Expression — fetching a script from attacker infrastructure and executing its text directly in the current PowerShell session, without ever writing that script to disk. This is called 'fileless execution,' and it matters enormously for detection: a file that never exists cannot be hashed or scanned on disk, and leaves no file-creation event for an analyst to find. Fileless does not mean invisible, though: Windows' Antimalware Scan Interface (AMSI) hands the script's text to the antivirus engine in memory before PowerShell runs it, PowerShell Script Block Logging records that text as Event ID 4104 where the policy is enabled, and the Run dialog itself saves what was typed or pasted into it in the user's registry under HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\RunMRU — so the pasted command can often be read back after the fact. The command frequently launches with a hidden window, so the victim never even sees a PowerShell console appear.\n\n" +
         "**The tell in the process tree.** Because the Run dialog is part of Windows Explorer, the resulting PowerShell process shows explorer.exe as its direct parent — with no antecedent file_create event anywhere before it. That absence is the signature. An analyst trained to hunt for 'what file did the user download and run' will search this exact chain for a file that was never there, and conclude, wrongly, that nothing happened before the PowerShell process appeared.\n\n" +
-        "**Why perimeter controls can't see the important part.** A firewall or proxy inspects things that cross the network as files or flagged URLs. The clipboard write happens entirely inside the browser's own JavaScript sandbox — nothing is downloaded, so there is nothing to scan, and the command the victim pastes never crosses the network as a distinct object at all. This is exactly why ClickFix (also reported as ClearFake) became one of the most common commodity-malware delivery methods from 2024 onward: it is specifically engineered to slip past controls built to catch a download, by never producing one.\n\n" +
+        "**Why perimeter controls can't see the important part.** A firewall or proxy inspects things that cross the network as files or flagged URLs. The clipboard write happens entirely inside the browser's own JavaScript sandbox — nothing is downloaded, so there is nothing to scan, and the command the victim pastes never crosses the network as a distinct object at all. This is exactly why ClickFix (used by campaigns such as ClearFake) became one of the most common commodity-malware delivery methods from 2024 onward: it is specifically engineered to slip past controls built to catch a download, by never producing one.\n\n" +
         "**MITRE ATT&CK coverage.** This technique maps to T1204.004 (User Execution: Malicious Copy and Paste) for the moment the victim pastes and runs the command, T1059.001 (Command and Scripting Interpreter: PowerShell) for the interpreter doing the work, and T1105 (Ingress Tool Transfer) for the follow-on stage that fetches whatever payload runs next.",
       checkpoint: {
-        question: "What makes the first PowerShell process in a ClickFix chain unusual compared to a normal malicious download?",
+        question: "A ClickFix chain ran on a workstation and left no downloaded file behind. Where can an analyst still recover the command the user pasted?",
         options: [
-          "It is always digitally signed by a well-known publisher, which is what makes victims trust the fake verification page enough to comply",
-          "There is no antecedent file_create event anywhere before it -- the process launches directly from explorer.exe with no file ever downloaded first",
-          "It always runs under a SYSTEM-level service account rather than the currently logged-in user's own session and privileges",
-          "It only ever appears on Linux workstations running a Bash-compatible shell interpreter, never on Windows",
+          "In the browser's download history, which records the text a page copies to the clipboard as a download entry",
+          "In the user's RunMRU registry key, which keeps Run-dialog entries, and in PowerShell Event ID 4104 where logging is on",
+          "In the firewall's URL log, which captures the clipboard text when the page's JavaScript copies it to the victim",
+          "In a file_create event for the script under %TEMP%, because PowerShell saves each fetched script to disk before running it",
         ],
         answer: 1,
         explanation:
-          "The Run dialog executes exactly the text sitting on the clipboard -- there was never a file to download in the first place, which is why no file_create event precedes the process.",
+          "Reading 2 named the places a 'fileless' paste-and-run still leaves traces: the Run dialog saves what was entered into it under HKCU\\...\\Explorer\\RunMRU, and Script Block Logging records the script text as Event ID 4104 (AMSI also sees it in memory). The browser's download history only lists files the browser saved; a clipboard write is not a download, so nothing appears there. The firewall cannot see the clipboard text either: the copy happens inside the browser's JavaScript sandbox and never crosses the network as its own object. And the one-liner pattern Reading 2 described runs the fetched script's text directly in memory, so there is no %TEMP% file_create to look for -- that absence is the ClickFix tell, not a gap to fill.",
       },
     },
     // ── Question 1 (applied — ClickFix process signature) ────────────────────
@@ -240,12 +240,12 @@ const commodityInitialAccessRoom = {
       options: [
         "The command was run directly, most likely pasted into the Run dialog, rather than being a file the user downloaded and opened",
         "The sensor missed the download event, so the gap should be reported and the host treated as unmonitored for file activity",
-        "PowerShell fetches its script straight into memory by design, so a missing file_create is normal and says nothing about how the command was launched",
+        "PowerShell loads fetched scripts into memory by design, so a missing file_create is normal and says nothing about the launch",
         "The file was downloaded and deleted within milliseconds, faster than the sensor could log the create event",
       ],
       answer: 0,
       explanation:
-        "Reading 2 covered exactly this signature: a command run through the Run dialog never exists as a file at all, so there is nothing for a file_create event to record. Assuming the sensor missed the download invents a failure with no supporting evidence. PowerShell processes routinely follow a preceding download in ordinary malicious chains, so the claim that a missing file_create is normal and says nothing is false. The download-then-instant-delete theory requires a delete event that also isn't present -- there is no evidence anything was ever written and removed.",
+        "Reading 2 covered exactly this signature: a command run through the Run dialog never exists as a file at all, so there is nothing for a file_create event to record -- and explorer.exe as the direct parent fits, because the Run dialog belongs to Explorer. Assuming the sensor missed the download invents a failure with no supporting evidence. The in-memory argument mixes up two different files: fetching the second script into memory explains why that script leaves no file afterwards, but the question is what started PowerShell in the first place -- in a classic download chain a file is created and opened before PowerShell appears, and here none was. The download-then-instant-delete theory requires a delete event that also isn't present -- there is no evidence anything was ever written and removed.",
       xp: 20,
     },
     // ── Reading 3: Clipboard clippers ─────────────────────────────────────────
@@ -268,14 +268,14 @@ const commodityInitialAccessRoom = {
       question:
         "A background process with no visible window has been running quietly on a laptop for two hours. It made no network connections and created no new files after it started, and there were no crashes or pop-ups. Two days later, a vendor reports a cryptocurrency payment from that laptop never arrived at the correct address. Based on this room, what should investigators specifically check for on the host?",
       options: [
-        "Whether it registered as a clipboard listener and substituted copied wallet addresses with an attacker-controlled one",
+        "Whether it registered as a clipboard listener and swapped copied wallet addresses for an attacker's address",
         "Whether it was logging keystrokes, since credential capture is the most common route to a stolen payment",
         "Whether it was an infostealer that had harvested the browser's saved wallet credentials and sent them out",
-        "Whether it was a remote-access tool that let an attacker operate the wallet interactively",
+        "Whether it was a remote-access tool that let an attacker open and operate the wallet app interactively",
       ],
       answer: 0,
       explanation:
-        "This is the exact pattern Reading 3 described: no crash, no visible symptom, and the only outcome anyone notices is a payment gone to the wrong place -- the specific artefact to check for is a clipboard-format listener substituting wallet addresses. Keylogging would produce a very different downstream symptom (stolen credentials used elsewhere, not a misdirected crypto payment). An infostealer and a remote-access tool both need network connections to send data out or receive commands, and the scenario states the process made none.",
+        "This is the exact pattern Reading 3 described: no crash, no visible symptom, and the only outcome anyone notices is a payment gone to the wrong place -- the specific artefact to check for is a clipboard-format listener substituting wallet addresses. Keylogging would produce a different downstream symptom (stolen credentials later used to log in, not a payment that went to a swapped address), and a keylogger also has to send what it captures somewhere. An infostealer and a remote-access tool both need network connections to send data out or receive commands, and the scenario states the process made none. A clipper is the one option that needs no network at all: it changes the address locally, and the victim's own payment does the rest.",
       xp: 20,
     },
     // ── Reading 4: SEO-poisoned / malvertised installers ──────────────────────
@@ -290,16 +290,16 @@ const commodityInitialAccessRoom = {
         "**What the second stage frequently goes after.** A large share of these campaigns deliver an infostealer, and one of the most reliable things to check for afterward is browser credential theft: Chrome (and Chromium-based browsers generally) stores saved passwords in a SQLite database file literally named 'Login Data,' inside the browser's own profile folder. Because Chrome holds that file open and locked while it's running, a stealer typically can't read it directly, so it copies the file instead — and that copy frequently lands somewhere with no legitimate relationship to Chrome at all, such as a Temp subfolder created by the loader itself. Finding a file named exactly 'Login Data' outside Chrome's own profile path is one of the strongest single artefacts for this specific technique, tracked as T1555.003, Credentials from Password Stores: Credentials from Web Browsers.\n\n" +
         "**Why the blast radius is bigger than one corporate account.** A browser credential store isn't scoped to any one site — it holds whatever the user saved, personal accounts included. Once that store has left the machine, remediation has to assume every saved account is exposed, not only the corporate login.",
       checkpoint: {
-        question: "Per Reading 4, why does a fetch-after-execution pattern -- the installer reaching out to unrelated infrastructure seconds after it starts -- specifically identify a loader rather than a standalone trojan?",
+        question: "A user downloaded a fake SSH-client installer from a sponsored search result. A teammate starts hunting for the legitimate website that must have been broken into. Why is that the wrong starting assumption?",
         options: [
-          "Because a standalone trojan only ever runs code that was already inside the original downloaded file, while a loader's real job is retrieving a separate second-stage file from different infrastructure",
-          "Because loaders are always digitally signed by a recognisable software publisher, while standalone trojans are never signed by anyone at all",
-          "Because a loader always specifically targets Linux systems running a compatible shell, and never runs on any version of Windows at all",
-          "There is no real difference between the two terms at all -- security researchers use 'loader' and 'trojan' completely interchangeably in every report",
+          "SEO poisoning needs no break-in: the attacker registers a lookalike domain and buys or games a search placement",
+          "It is the right assumption: SEO poisoning works by injecting a script into a trusted site, as a drive-by does",
+          "The break-in happened at the search engine, whose ad platform was compromised so the attacker's link was shown",
+          "The real installer was swapped in transit by an attacker on the network, so no website was involved at all",
         ],
         answer: 0,
         explanation:
-          "A plain trojan simply runs the malicious code already inside the file the user downloaded. A loader's defining behaviour is reaching out, right after execution, to entirely separate infrastructure to retrieve a different file -- that fetch is what earns it the T1105 label.",
+          "Reading 4 drew exactly this line: a drive-by compromise requires breaking into a legitimate site, while SEO poisoning only needs a recently registered lookalike domain plus a bought or manipulated search placement -- which is also why its domain often has no abuse history. Treating it as a script injected into a trusted site is the drive-by story from Reading 6, not this one. Nothing about a sponsored result implies the search engine itself was breached; the attacker simply bid for the ad slot like any advertiser. And an in-transit swap is a different attack altogether -- here the user went to the attacker's own domain, so the file was malicious before it ever left the server.",
       },
     },
     // ── Log Analysis 1: SEO-poisoned installer fetch ──────────────────────────
@@ -308,49 +308,49 @@ const commodityInitialAccessRoom = {
       id: "mcia-la1",
       heading: "A Sponsored Result, Four Seconds After the Installer Ran",
       context:
-        "NexaCorp's IT support technician Dor Mizrahi searched for a common archiving tool and downloaded 7zSetup-2026.exe from a sponsored search result rather than the official project site. He ran the installer, accepted the elevation prompt, and briefly saw a setup window before it closed with a generic error — he never actually got a working copy of the tool. The event below is what the firewall recorded four seconds after the installer process started.",
+        "NexaCorp's IT support technician Dor Mizrahi searched for a common archiving tool and downloaded 7zSetup-2026.exe from a sponsored search result rather than the official project site. He ran the installer on his laptop, LAP-9021, accepted the elevation prompt, and briefly saw a setup window before it closed with a generic error — he never actually got a working copy of the tool. The event below is what the firewall recorded four seconds after the installer process started.",
       event: seoInstallerEvent,
       questions: [
         {
           question:
-            "The domain this request went to, cdn-pkg-mirror19.net, has no relationship at all to the site 7zSetup-2026.exe was originally downloaded from. What does a freshly-launched installer immediately reaching out to unrelated infrastructure for another file tell you about what kind of program it actually is?",
+            "Read the context and the record together: the installer showed a setup window, failed with a generic error, and four seconds after it started pulled helper_upd.exe from a domain unrelated to where it was downloaded. What kind of program is 7zSetup-2026.exe most likely to be?",
           options: [
-            "It is a loader -- its real job is to fetch and run a second-stage payload from separate infrastructure, not to install the software it claimed to be",
-            "It is normal installer behavior -- most legitimate installers reach out to unrelated third-party domains to fetch components",
-            "The firewall must be misattributing this connection to the wrong process",
-            "It confirms the original download site, not this second domain, is the actual attacker infrastructure",
+            "A loader: its real job is fetching a second-stage payload from separate infrastructure, not installing 7-Zip",
+            "A genuine installer pulling an optional component from a mirror CDN, then failing on an unrelated setup error",
+            "A standalone trojan carrying its payload inside itself, with this request being a routine update check",
+            "A bundled utility with a hidden second binary riding inside the same download, as with clipboard clippers",
           ],
           answer: 0,
           explanation:
-            "Reading 4 covered exactly this shape: an installer whose only real job is fetching a second, unrelated file is a loader, tracked as T1105. Legitimate installers occasionally fetch redistributable components, but not from infrastructure with zero naming or ownership relationship to the download site, which rules out 'normal installer behavior' as the default explanation here. Nothing in the event suggests the firewall misattributed the connection to the wrong process, and the original download site being the delivery vector doesn't mean the second domain isn't also attacker-controlled -- both can be true at once.",
+            "Reading 4 described exactly this shape: a fake installer that briefly shows a setup window, fails with a generic error, and in those few seconds fetches a different file from unrelated infrastructure is a loader -- the fetch-after-execution step is T1105. A genuine installer that fetches components does so from its own vendor's infrastructure and then installs a working product; here the domain is unrelated and the user never got a working copy. A standalone trojan already carries its malicious code, so it would not need to download a new executable seconds after launch, and helper_upd.exe is a full PE file, not an update check. Bundling (Reading 3) means the hidden binary arrives inside the original download; here the second file arrived afterwards, over the network, which is the loader pattern.",
           xp: 25,
         },
         {
           question:
-            "pan.category on this event is 'newly-registered-domain' and pan.action is 'alert', not 'block'. What does that combination tell you about this firewall's policy?",
+            "pan.category on this record is 'newly-registered-domain'. How does that value fit what Reading 4 taught about the infrastructure behind SEO-poisoned installers?",
           options: [
-            "The policy logs and allows traffic to newly-registered domains rather than blocking it outright -- visibility without prevention",
-            "The rule is broken and should be fixed immediately to auto-block this entire category",
-            "TLS inspection must have failed, so the firewall could only log a generic alert",
-            "cdn-pkg-mirror19.net must be on an internal allowlist",
+            "It fits: these domains are registered recently for one campaign, so they have no abuse history for reputation checks to catch",
+            "It suggests a legitimate mirror: software projects register new download mirrors constantly, so a new domain is expected here",
+            "It means the firewall has already judged the domain malicious, so the reputation check this room describes is done",
+            "It marks a typosquat of the real project's domain, which is the defining feature of SEO poisoning in Reading 4",
           ],
           answer: 0,
           explanation:
-            "pan.action 'alert' is a deliberate policy outcome many organisations choose for risky-but-unconfirmed categories, because blocking every newly-registered domain wholesale breaks a large number of legitimate new sites. Full URLs and filenames are present in the log, which contradicts a TLS inspection failure. Nothing supports an internal allowlist entry for a domain the log still categorises as risky, and assuming the rule is broken isn't warranted by a single alert-not-block decision.",
+            "Reading 4 explained that the attacker's domain 'often has no abuse history at all, because it was registered specifically and recently for this one purpose' -- exactly what a newly-registered-domain category reflects, and why reputation checks alone often miss it on first contact. A new domain is not evidence of a legitimate mirror: nothing ties cdn-pkg-mirror19.net to the 7-Zip project, and the installer failed without installing anything. The category describes the domain's age, not a verdict -- the firewall logged the download rather than stopping it, so the analyst still has to judge it. And cdn-pkg-mirror19.net does not resemble 7-Zip's name at all; Reading 4 describes lookalike domains, but a typosquat is not what this category value tells you.",
           xp: 25,
         },
         {
           question:
-            "Given what Reading 4 taught about what this kind of second-stage payload usually goes after, what should investigators check for next on LAP-9021?",
+            "Assume helper_upd.exe is an infostealer, as Reading 4 says these second stages often are. Which finding on LAP-9021 would most directly show that Chrome's saved passwords were taken?",
           options: [
-            "Whether a browser credential-store filename, such as Chrome's own 'Login Data' file, has been copied to a folder outside the browser's own profile",
-            "Whether the Windows Registry Run key has a new autostart entry pointing at a completely unrelated program",
-            "Whether the domain controller's Kerberos ticket-granting service issued any unusual tickets",
-            "Whether a scheduled task was created to run PowerShell every night at 2 AM",
+            "A file named 'Login Data' inside a Temp subfolder created by the installer, outside Chrome's own profile path",
+            "A 'Login Data' file inside Chrome's own profile folder showing a modification time from this morning",
+            "Chrome's own process holding its 'Login Data' file open and locked while the browser was running",
+            "helper_upd.exe's SHA-256 recorded in pan.file_hash, proving the stealer reached the laptop intact",
           ],
           answer: 0,
           explanation:
-            "Reading 4 was specific: a large share of these loader campaigns deliver an infostealer that copies the browser's own credential database under a filename like 'Login Data', outside the browser's own profile path -- that is the artefact this exact chain most commonly produces next. The other options describe real persistence or credential-attack patterns taught elsewhere on this platform, but none of them are what this room's SEO-installer reading specifically pointed toward.",
+            "Reading 4 named the strongest single artefact: because Chrome keeps 'Login Data' locked while it runs, a stealer copies it, and that copy lands somewhere with no relationship to Chrome, such as a Temp subfolder the loader created. The same file inside Chrome's own profile is exactly where it belongs, and Chrome updates it during normal use, so a fresh modification time proves nothing. Chrome holding the file locked is normal browser behaviour -- it is the reason a stealer has to copy the file, not evidence that one did. The hash in pan.file_hash shows the second stage was downloaded, which you already know from this record; it says nothing about whether credentials were read.",
           xp: 30,
         },
       ],
@@ -375,7 +375,7 @@ const commodityInitialAccessRoom = {
       question:
         "A user on a Windows 10 workstation that has not received security updates since mid-2022 double-clicks a shortcut sitting inside a mounted ISO volume that came from a downloaded file, and it launches cmd.exe with no SmartScreen warning at all -- even though the ISO file itself was tagged with a Mark-of-the-Web zone identifier when it was downloaded. Why didn't the warning appear?",
       options: [
-        "Mark-of-the-Web belongs to the downloaded container file; files exposed once Windows mounts it are read off the volume and never receive their own zone tag",
+        "Mark-of-the-Web belongs to the downloaded container; files exposed once Windows mounts it are read off the volume and get no tag of their own",
         "A Group Policy on this machine disables SmartScreen for removable and virtual volumes, so nothing launched from a mounted ISO is ever checked",
         "The shortcut launches cmd.exe, a Microsoft-signed binary, and SmartScreen skips any launch whose target carries a trusted publisher signature",
         "SmartScreen cannot inspect container formats, so ISO files are excluded from checks by design, whatever zone tag they carry",
@@ -397,16 +397,16 @@ const commodityInitialAccessRoom = {
         "**Why the traffic looks like nothing in particular.** A browser tab cannot open a raw TCP connection straight to a cryptocurrency mining pool the way desktop mining software can — browsers only support standard web protocols. So browser-based miners tunnel the mining protocol (commonly called Stratum) over a WebSocket connection to a relay server, which speaks Stratum to the real pool on the miner's behalf. The result, at the firewall, is a connection categorised as ordinary 'websocket' application traffic to a domain with no established reputation yet — both extremely common, unremarkable classifications on their own. What actually stands out is the shape: one destination held open continuously for many minutes, exchanging small, steady bidirectional bursts, unlike a typical page's WebSocket connections which tend to close or go idle quickly. MITRE ATT&CK tracks the resource impact itself as T1496, Resource Hijacking.\n\n" +
         "**Why remediation is unusually simple, and unusually easy to under-scope.** Because nothing here writes a persistence mechanism or touches a credential, closing the browser tab and its renderer process ends the entire technical impact immediately — there is no lingering process or file to remove. What remains is scoping the delivery: identifying and blocking the injected script's domain and the mining relay, and notifying the legitimate site's owner that it is unknowingly serving attacker-controlled content to its own visitors.",
       checkpoint: {
-        question: "Per Reading 6, why is a browser-based miner's WebSocket connection to its mining relay hard to distinguish from ordinary traffic using category or app-type fields alone?",
+        question: "Why does a browser-based miner talk to a relay over a WebSocket instead of connecting straight to the mining pool?",
         options: [
-          "WebSocket and an unclassified category both cover huge amounts of ordinary traffic -- the duration and destination pattern, a single relay held open continuously, is what actually stands out",
-          "Because the connection is always encrypted end-to-end with a proprietary protocol that no firewall or proxy is technically able to log at all",
-          "Because mining relays always deliberately use port 22 instead of port 443, which most firewalls simply don't inspect by default",
-          "There is genuinely no way to distinguish this traffic from ordinary browsing under any circumstances, at the firewall layer or anywhere else",
+          "A browser tab can only use standard web protocols, so the Stratum traffic is tunnelled over a WebSocket to a relay that talks to the pool",
+          "The relay hides each victim's IP address from the mining pool, so the pool cannot spot and ban the abusive miners connecting to it",
+          "The relay does the mining computation itself, and the browser tab only forwards work requests to it over the WebSocket connection",
+          "WebSocket encryption stops the firewall reading the traffic, whereas a direct pool connection would match a mining signature and be blocked",
         ],
         answer: 0,
         explanation:
-          "Both fields describe huge swaths of normal browsing -- chat apps and dashboards use WebSocket constantly, and 'unknown' just means no category has been assigned yet. What actually stands out is behavioural: one destination held open continuously with steady small bursts, unlike how a page's WebSocket connections normally behave.",
+          "Reading 6 gave the reason directly: a browser cannot open a raw TCP connection to a pool the way desktop mining software can, so the mining protocol (Stratum) is wrapped in a WebSocket to a relay, which speaks Stratum to the real pool on the miner's behalf. Hiding victims from the pool is not the purpose the reading describes -- the relay exists because of what a browser can and cannot do. The computation happens in the tab: the WebAssembly module runs inside the renderer, which is why that renderer process burns CPU. And encryption is not the reason either; the firewall still classified the session as 'websocket', and what gives it away is its long, steady shape, not its content.",
       },
     },
     // ── Analyst Choice: legitimate paste-run install ────────────────────────────
@@ -415,7 +415,7 @@ const commodityInitialAccessRoom = {
       id: "mcia-ac1",
       heading: "Verdict: A Hidden PowerShell Window, Launched by explorer.exe",
       scenario:
-        "A Falcon detection fires on WS-6820 for a High-severity PowerShell Command and Scripting Interpreter pattern: explorer.exe launching a hidden-window powershell.exe process that downloads and runs a script from the internet. On the surface this is exactly the shape this room has spent several readings teaching you to escalate. Review the record before deciding how to handle it.",
+        "A Falcon detection fires on WS-6820 for a High-severity PowerShell Command and Scripting Interpreter pattern: explorer.exe launching a hidden-window powershell.exe process that downloads a script from the internet and runs it in memory. Read the command line, the destination it pulls from, the user and host, and the IT verification note under the record, then give your verdict.",
       event: legitPasteRunEvent,
       correct_verdict: "false_positive",
       explanation:
@@ -438,7 +438,7 @@ const commodityInitialAccessRoom = {
         { id: "miner", left: "Drive-by Browser Cryptomining", right: "T1496 -- a browser's own renderer process opens a long-lived tunnel to a mining relay" },
       ],
       explanation:
-        "Notice what all five have in common: none of them require a malicious document macro, and three of the five never write a downloaded payload to disk before the first suspicious activity begins. That's exactly why file-download-focused controls, on their own, aren't enough to catch any of them.",
+        "Notice what all five have in common: none of them require a malicious document macro, and two of the five -- ClickFix and the browser miner -- begin without any downloaded file on disk before the first suspicious activity. That's exactly why file-download-focused controls, on their own, aren't enough to catch any of them.",
       xp: 35,
     },
     // ── Ordering: triage sequence for a fileless-looking initial-access alert ──
@@ -448,16 +448,14 @@ const commodityInitialAccessRoom = {
       heading: "Order the Triage of an Alert With No Obviously Malicious Downloaded File",
       instructions: "Arrange these steps in the order an analyst should actually work them for an alert where a legitimate-looking process chain led to unexpected activity, with no obviously malicious file ever downloaded.",
       items: [
-        { id: "ancestry", text: "Check the full process ancestry -- which process actually launched the first suspicious process, and is that parent-child relationship itself normal" },
-        { id: "fileless", text: "Check whether any file existed on disk before the first suspicious process started, or whether execution began with no antecedent download at all" },
-        { id: "domain", text: "Check the destination domain's category, registration age, and reputation" },
-        { id: "outcome", text: "Check whether the outbound connection actually succeeded or was blocked, and what -- if anything -- left the host" },
+        { id: "ancestry", text: "Reconstruct how execution started -- which process launched the first suspicious one, whether that parent-child pair is normal, and whether any file existed on disk before it" },
+        { id: "domain", text: "Assess where it went -- the destination's category, registration age and reputation, whether the connection succeeded or was blocked, and what (if anything) left the host" },
         { id: "context", text: "Check for a verified IT ticket, change record, or other known legitimate business reason before deciding on a verdict" },
         { id: "verdict", text: "Assign a verdict and document the full timeline for the incident record" },
       ],
-      correct_order: ["ancestry", "fileless", "domain", "outcome", "context", "verdict"],
+      correct_order: ["ancestry", "domain", "context", "verdict"],
       explanation:
-        "Start by reconstructing exactly what launched what -- an unusual parent-child pair, like explorer.exe launching a command interpreter directly, is the first fact worth establishing. From there, check whether a file was ever involved at all, since several of this room's techniques never touch disk the way a classic download does. Only once you know the technical shape of what happened does the destination's reputation and the connection's outcome tell you how far it actually got. Checking for a verified business reason comes after the technical picture is complete, not before it -- deciding 'there's probably a ticket for this' too early is exactly how a real compromise gets waved through, while checking it before finalising a verdict is exactly what turned the Chocolatey install in this room's analyst-choice task from an alarming-looking pattern into a correctly-closed false positive. Only with all of that in hand should you commit to a verdict and write it up.",
+        "Start by reconstructing exactly what launched what -- an unusual parent-child pair, like explorer.exe launching a command interpreter directly, is the first fact worth establishing, together with whether a file was ever involved at all, since several of this room's techniques never touch disk the way a classic download does. Only once you know the technical shape of what happened does the destination's reputation and the connection's outcome tell you how far it actually got (those destination checks can be done in either order, so they form one step here). Checking for a verified business reason comes after the technical picture is complete, not before it -- deciding 'there's probably a ticket for this' too early is exactly how a real compromise gets waved through, while checking it before finalising a verdict is exactly what turned the Chocolatey install in this room's analyst-choice task from an alarming-looking pattern into a correctly-closed false positive. Only with all of that in hand should you commit to a verdict and write it up.",
       xp: 35,
     },
     // ── Log Analysis 2: drive-by browser miner connection ───────────────────────
@@ -473,42 +471,42 @@ const commodityInitialAccessRoom = {
           question:
             "pan.app on this connection is 'websocket' and pan.category is 'unknown' -- both extremely common for ordinary web traffic. What actually makes this specific connection worth a second look?",
           options: [
-            "The duration and shape -- a single destination held open continuously for nineteen minutes with steady small bidirectional bursts, which is not how a typical page's WebSocket connections behave",
-            "WebSocket connections are inherently malicious by design and should always be escalated as an incident the moment one appears in the firewall log",
-            "The 'unknown' category value means the firewall has already independently confirmed this specific domain is malicious infrastructure",
-            "Port 443 is an unusual and suspicious choice for WebSocket traffic to use, since WebSocket normally only runs over port 80",
+            "pan.elapsed_time of 1140 s to one destination, with small byte counts both ways -- a session pages rarely hold open",
+            "pan.bytes_received is more than three times pan.bytes_sent, which shows a payload was downloaded onto the laptop",
+            "pan.subtype 'end' shows the firewall cut the session off after recognising mining traffic partway through it",
+            "pan.category 'unknown' means the firewall has flagged the destination as suspicious and wants it reviewed",
           ],
           answer: 0,
           explanation:
-            "Reading 6 was explicit that neither field rules anything in or out on its own -- what stands out is behavioural: pan.elapsed_time of 1140 seconds against one destination, with steady bytes_sent/bytes_received, is not how a typical page's WebSocket connections behave. WebSocket is mainstream, legitimate web infrastructure, not inherently malicious; 'unknown' is simply an absence of classification rather than a verdict; and 443 is the standard HTTPS/WebSocket port, not an anomaly.",
+            "Reading 6 said the classification fields rule nothing in or out on their own -- what stands out is the shape: pan.elapsed_time of 1140 seconds (nineteen minutes) against a single destination, with only about 15 KB sent and 51 KB received, is the long-lived, small-burst pattern of a mining relay, not a page's usual short-lived WebSocket. The received-versus-sent ratio is a misreading: 51 KB over nineteen minutes is far too little for a payload download, and steady two-way exchange is the point. pan.subtype 'end' only means this is the summary written when the session closed; pan.action is 'allow', and the description says it closed when the tab went to the background. 'unknown' means no category has been assigned yet, not that the firewall reached a verdict.",
           xp: 25,
         },
         {
           question:
-            "Per this room's Reading 6, why can this technique run entirely without a single file ever appearing in the user's Downloads folder or a new process appearing outside the browser itself?",
+            "The context says CrowdStrike tied the CPU load to a single browser renderer process, and no new file or unfamiliar process appeared on LAP-4471. What explains that combination?",
           options: [
-            "The mining code is a WebAssembly module that a legitimate, unmodified browser process compiles and executes inside its own sandbox -- no separate executable is ever required",
-            "The malware disables the EDR sensor before running, which prevents any file or process events from being logged at all",
-            "The browser process itself is replaced by a malicious lookalike binary with the same name",
-            "Cryptomining code cannot be executed inside a browser at all, so this connection must be something else entirely",
+            "The page loaded a WebAssembly miner that the browser's ordinary renderer process compiles and runs in its sandbox",
+            "The page installed a browser extension that runs the miner, and extensions do not appear as processes or files",
+            "The page's script injected the miner into explorer.exe, so the work ran under an existing, trusted process name",
+            "The page registered a background service that keeps mining after the tab closes, hidden from Task Manager",
           ],
           answer: 0,
           explanation:
-            "Reading 6 covered this directly: the 'payload' is a WebAssembly module the browser's own renderer process compiles and runs inside its existing sandbox -- no separate executable, and therefore no new file or unfamiliar process name to notice. Nothing here shows a disabled EDR sensor or a lookalike replacement browser binary, and the claim that cryptomining cannot run inside a browser is simply false -- WebAssembly is specifically designed to run compute-heavy code inside a browser at near-native speed.",
+            "Reading 6 covered this directly: the 'payload' is a WebAssembly module that the browser's own renderer process -- a process every tab already gets -- compiles and runs inside its existing sandbox, so there is no separate executable and no unfamiliar process name, only one renderer using far more CPU than its page needs. An extension is installed into the browser's profile as files on disk, which is exactly what was not seen here. Injection into explorer.exe would put the CPU load on explorer.exe, not on a browser renderer, which contradicts CrowdStrike's finding. And a miner that survived the tab closing contradicts the record: the session ended when the tab went to the background, and Reading 6 notes that closing the tab ends the technical impact.",
           xp: 25,
         },
         {
           question:
             "Given that closing the browser tab ends this technique's entire impact -- there is no separate process or file to remove -- what does that mean for how you scope the response?",
           options: [
-            "Confirm the tab/renderer is actually closed, and treat the two attacker domains (the script host and the relay) as the artefacts worth blocking, since nothing persists beyond the browser session itself",
-            "Reimage the laptop regardless of the evidence, since any unknown code execution on a corporate asset always requires a complete rebuild",
-            "Reset the user's domain password immediately, since arbitrary code executed inside their authenticated browser session",
-            "No action is needed at all once the tab is closed, including no domain blocking, since Falcon's own action was 'No Action' by design",
+            "Confirm the tab is closed, block both the injected script's host and the relay, and tell the site's owner",
+            "Confirm the tab is closed and close the case, since nothing persisted and so nothing is left to block or report",
+            "Isolate LAP-4471 and search its disk for the miner's binary before the browser tab is allowed to close",
+            "Reset Maya Harel's password, since the miner's code ran inside her logged-in browser session for nineteen minutes",
           ],
           answer: 0,
           explanation:
-            "Reading 6 made this explicit: nothing here writes a persistence mechanism or touches a credential, so closing the tab and renderer ends the technical impact -- the remaining work is scoping the delivery, meaning the injected script's domain and the mining relay both belong on a blocklist so the same tab doesn't reconnect on reload. Reimaging the laptop is disproportionate when nothing reached disk outside the browser's own ordinary caching. Resetting the user's password has no basis -- no credential store or token was touched anywhere in this evidence. Doing nothing at all leaves the delivery domains live for the next visitor.",
+            "Reading 6 made this explicit: nothing here writes a persistence mechanism or touches a credential, so closing the tab ends the technical impact, and what remains is scoping the delivery -- blocking the injected script's domain and the mining relay, and notifying the legitimate site's owner that it is serving attacker content to its visitors. Closing the case once the tab is shut is the right first step stopped too early: both domains stay live for the next visit and the next visitor. Hunting the disk for a miner binary looks for something this technique never creates -- the code ran as WebAssembly inside the renderer -- and keeping the tab open only lets the mining continue. A password reset has no basis: no credential store or token was touched anywhere in this evidence.",
           xp: 30,
         },
       ],
@@ -518,9 +516,9 @@ const commodityInitialAccessRoom = {
       type: "flag" as const,
       id: "mcia-f1",
       prompt:
-        "Look at the Log Analysis finding on LAP-4471. What is the exact value of the url.domain field in the raw log?",
-      answer: "relay-ws-pool3.net",
-      hint: "Look inside the raw block of the log analysis event for the field named url.domain.",
+        "The network team will block the mining relay from the LAP-4471 investigation by domain and by IP address. From that session's firewall record, enter the relay's IP address.",
+      answer: "45.155.207.88",
+      hint: "The record lists both ends of the session. One address is the laptop itself; you need the other end.",
       xp: 20,
     },
     // ── Question 4 (synthesis — cross-technique differentiation) ───────────────
@@ -530,14 +528,14 @@ const commodityInitialAccessRoom = {
       question:
         "A user calls the helpdesk saying their laptop has been 'running a little hot' for the past hour. They used a free browser-based tool for routine work, nothing appears in their Downloads folder, and Task Manager shows no unfamiliar process outside the browser itself. Which of this room's five techniques best fits, and why?",
       options: [
-        "Drive-by browser cryptomining -- the payload runs as WebAssembly inside the browser's renderer, so there is no separate file or process, only sustained CPU load tied to an open tab",
+        "Drive-by browser cryptomining -- the payload runs as WebAssembly in the browser's renderer, so there is no separate file or process, only CPU load tied to a tab",
         "ClickFix paste-and-run -- a command was pasted into the Run dialog without the user registering it, leaving the browser as the only process they would notice",
-        "Clipboard clipper -- a background listener rewriting clipboard content is the only technique here that runs without a visible window, and its polling accounts for the heat",
+        "Clipboard clipper -- a background listener rewriting clipboard content runs with no visible window, and its constant clipboard polling accounts for the heat",
         "ISO container smuggling -- the user mounted a downloaded ISO from the free tool without registering the new drive letter, and the payload runs from that volume",
       ],
       answer: 0,
       explanation:
-        "Only drive-by browser cryptomining matches every detail given: no downloaded file, no separate process outside the browser, and a symptom (heat, meaning sustained CPU) tied directly to an open tab. ClickFix would leave a distinct powershell.exe process outside the browser. A clipboard clipper produces no heat symptom at all -- its only sign is a misdirected payment, not CPU load. ISO smuggling requires a downloaded container file, which the scenario explicitly rules out by saying Downloads is empty.",
+        "Only drive-by browser cryptomining matches every detail given: no downloaded file, no separate process outside the browser, and a symptom (heat, meaning sustained CPU) tied directly to an open tab. ClickFix would leave a distinct powershell.exe process outside the browser, even with its window hidden. A clipboard clipper is its own background binary (Reading 3), so Task Manager would show an unfamiliar process; it also waits quietly for copy events rather than burning CPU, and its only noticed sign is a misdirected payment. ISO smuggling requires a downloaded container file, which the scenario explicitly rules out by saying Downloads is empty.",
       xp: 30,
     },
   ],

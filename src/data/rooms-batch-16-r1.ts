@@ -137,10 +137,6 @@ const storagePublicSasEvent: TelemetryEvent = {
     "azure.activitylogs.caller": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
     "azure.activitylogs.callerIpAddress": "203.0.113.44",
     "azure.activitylogs.properties.requestbody": "{\"properties\":{\"publicAccess\":\"Container\"}}",
-    "azure.storage.sasTokenExpiry": "2027-06-15T00:00:00Z",
-    "azure.storage.sasTokenPermissions": "rwdl",
-    "azure.storage.accountName": "nexacorpprodsa",
-    "azure.storage.containerName": "customer-exports",
     "cloud.provider": "azure",
     "cloud.subscription_id": "8f3a9c2e-4b1d-4e7a-9c6f-1a2b3c4d5e6f",
     "action_result": "allowed",
@@ -207,11 +203,16 @@ const azureSecurityRoom = {
         "=======================================================",
       checkpoint: {
         question:
-          "What is the basic unit of billing and access management in Azure — the closest equivalent to an AWS account or a GCP project?",
-        options: ["Resource Group", "Subscription", "Management Group", "Resource ID"],
+          "An alert's resourceId is '/subscriptions/8f3a9c2e-…/resourceGroups/nexacorp-prod-rg/providers/Microsoft.KeyVault/vaults/nexacorp-prod-kv'. Which part names the billing and access-management boundary — the AWS-account equivalent you will investigate within?",
+        options: [
+          "The resource group, nexacorp-prod-rg",
+          "The subscription, 8f3a9c2e-…",
+          "The provider, Microsoft.KeyVault",
+          "The vault name, nexacorp-prod-kv",
+        ],
         answer: 1,
         explanation:
-          "A subscription is the basic unit of billing and access management in Azure, equivalent to an AWS account or GCP project. Resource groups are logical containers inside a subscription, and management groups sit above subscriptions to organize many of them together.",
+          "Every Azure resource ID starts with /subscriptions/{id}: the subscription is the basic unit of billing and access management, equivalent to an AWS account or GCP project. The resource group is a logical container inside that subscription, grouping related resources — useful for scoping, but not the account boundary. Microsoft.KeyVault is the provider namespace, which only says what kind of resource this is. nexacorp-prod-kv is the individual resource itself.",
       },
     },
 
@@ -304,11 +305,16 @@ const azureSecurityRoom = {
         "=======================================================",
       checkpoint: {
         question:
-          "According to the reading, which non-human Azure identity type authenticates using a client secret or certificate that can be leaked and reused from anywhere, unlike a managed identity?",
-        options: ["Managed Identity", "Service Principal", "Security Principal", "Role Assignment"],
+          "Two Activity Log events both show principalType 'ServicePrincipal' and idtyp 'app'. The first token carries an xms_mirid claim naming a web app; the second has no xms_mirid. What does that tell you?",
+        options: [
+          "Both are app registrations — principalType 'ServicePrincipal' settles it",
+          "The first is a managed identity; the second is likely an app registration",
+          "The first is a user acting through the web app; the second is an identity",
+          "Both are managed identities — no xms_mirid just means a VM-hosted identity",
+        ],
         answer: 1,
         explanation:
-          "A service principal typically authenticates with a client secret or certificate — a leakable, portable credential, just like an AWS IAM access key. A managed identity has no such extractable secret; Azure issues it short-lived tokens automatically.",
+          "Managed identities are service principals too, so principalType reads 'ServicePrincipal' for both — it cannot tell them apart. The xms_mirid claim is what marks a managed identity: it names the Azure resource the identity is attached to. No xms_mirid points to an app registration, which typically authenticates with a client secret or certificate that can leak (confirm via the Entra object's servicePrincipalType). 'principalType settles it' is the trap. 'A user acting through the web app' is wrong because idtyp 'app' marks a non-human caller. 'No xms_mirid means a VM-hosted identity' is wrong: managed identities on VMs, functions and other resources carry xms_mirid too, naming their own resource.",
       },
     },
 
@@ -358,11 +364,16 @@ const azureSecurityRoom = {
         "=======================================================",
       checkpoint: {
         question:
-          "Which Azure Storage container public access level allows anonymous users to both read individual blobs AND list every blob in the container?",
-        options: ["Private", "Blob", "Container", "Shared Access Signature"],
+          "A container's public access level is set to 'Blob'. What can an anonymous outsider who knows none of the file names do?",
+        options: [
+          "List every blob in the container and download any of them",
+          "List the blob names, but not download any file contents",
+          "Read a blob only if they already know its exact URL",
+          "Nothing at all, unless they also hold a SAS token",
+        ],
         answer: 2,
         explanation:
-          "The 'Container' public access level is the most dangerous setting — it allows anonymous read AND lists all blobs in the container, unlike 'Blob' (read only, requires knowing the exact URL) or 'Private' (no anonymous access at all).",
+          "'Blob' level allows anonymous read of an individual blob, but only if you know its exact URL — anonymous listing is not allowed, so an outsider with no file names has nothing to request. 'List and download everything' describes the 'Container' level, the worst setting. 'List names but not download' reverses how 'Blob' works: reading is allowed, listing is not. 'Nothing without a SAS token' describes 'Private'; with 'Blob', a known URL is enough, no token needed.",
       },
     },
 
@@ -409,16 +420,16 @@ const azureSecurityRoom = {
         "=======================================================",
       checkpoint: {
         question:
-          "According to the reading, why is Azure's VM Run Command feature such a powerful attack tool once an attacker holds Contributor-level RBAC access?",
+          "A VM's NSG blocks all inbound traffic and nobody outside IT knows its admin password. Yet the Activity Log shows RUNCOMMAND/ACTION on it by an identity with Contributor rights, followed by a new local account appearing on the VM. How was that possible?",
         options: [
-          "It still requires the attacker to authenticate over SSH or RDP with a valid username and password before any script can be delivered through the Run Command channel",
-          "It executes code on the VM through the Azure control plane (Resource Manager API), completely bypassing NSGs, network firewalls, and the need for login credentials",
-          "It only functions on VMs that have no Network Security Group attached at all, since the NSG's default rules would otherwise block the Azure VM Agent's outbound heartbeat",
-          "It is restricted to a fixed library of Microsoft-signed, read-only diagnostic commands and has no capability to execute arbitrary PowerShell or Bash scripts supplied by the caller",
+          "The caller must also have had the VM's admin password to log in before running it",
+          "Run Command executes through the Azure control plane, so NSGs and VM logins don't apply",
+          "The NSG must have been detached first, since its rules would block the VM agent",
+          "Run Command creates accounts itself as part of its built-in diagnostic command set",
         ],
         answer: 1,
         explanation:
-          "Run Command executes through the Azure Resource Manager API using the Azure VM Agent, not over the network — so it bypasses NSGs, firewalls, and the need to know any login credentials entirely. Anyone with Contributor or Virtual Machine Contributor rights can use it. It does not require SSH/RDP authentication (that's exactly the point — it skips the network path entirely), it works regardless of whether an NSG is attached (NSGs only govern network traffic, not the control-plane API path Run Command uses), and it can execute arbitrary attacker-supplied scripts, not just a fixed read-only command set.",
+          "Run Command goes through the Azure Resource Manager API and the VM Agent, not the network — so NSG rules, firewalls and the VM's own login credentials never come into play. Anyone with Contributor or Virtual Machine Contributor rights on the VM can push a script, which is why the new local account could appear. 'Needed the admin password' misses the point: Run Command needs no login at all. 'The NSG was detached' is not required — NSGs govern network traffic, not the control-plane path. 'Built-in diagnostics create accounts' is wrong: Run Command executes whatever script the caller supplies, and that script created the account.",
       },
     },
 
@@ -447,14 +458,14 @@ const azureSecurityRoom = {
       question:
         "A suspicious Activity Log event shows idtyp 'app' and principalType 'ServicePrincipal', and carries no xms_mirid claim; looking the object up in Entra ID, its servicePrincipalType is 'Application' (an app registration). What is the KEY investigative difference versus an event whose token carried an xms_mirid claim and whose Entra object is of servicePrincipalType 'ManagedIdentity'?",
       options: [
-        "Both authenticate with portable client secrets, so the difference is only naming; the steps (rotate the secret, review sign-ins) are identical for each",
-        "A service principal usually holds a client secret or certificate that can leak (e.g. committed to a repo) and be reused anywhere; a managed identity has no extractable credential, so risk lies in its permissions and host",
-        "A managed identity is limited to read-only operations against Azure resources, while a service principal is the only identity type able to perform writes",
+        "Both authenticate with portable client secrets, so the difference is naming; the steps (rotate the secret, review sign-ins) are the same for each",
+        "An app registration's secret or certificate can leak and be reused anywhere; a managed identity has none, so its risk sits in its host and its roles",
+        "A managed identity is limited to read-only operations against Azure resources, while an app registration can also perform writes",
         "Service principals are reserved for Microsoft first-party services, so one in an event is a platform component; customer-created managed identities are the ones to scrutinize",
       ],
       answer: 1,
       explanation:
-        "This distinction changes the entire investigation path. A leaked service principal client secret works from anywhere, exactly like a leaked AWS IAM access key, until it's rotated. A managed identity has no portable secret to steal — an attacker can only abuse it by compromising the specific resource (VM, web app, function) it's attached to, or by exploiting the fact that it was granted excessive permissions in the first place.",
+        "This distinction changes the entire investigation path. A leaked app-registration client secret works from anywhere, exactly like a leaked AWS IAM access key, until it's rotated — so you hunt for where it leaked and rotate it. A managed identity has no portable secret to steal — an attacker can only abuse it by compromising the resource (VM, web app, function) it's attached to and using its token, so you investigate that host and the identity's role assignments. 'Both use portable secrets' is wrong for managed identities, which have no secret to rotate. 'Managed identities are read-only' is false: they can do anything their RBAC roles allow, writes included. 'Service principals are Microsoft first-party only' is wrong: customers create app registrations all the time, and those are exactly what leak.",
       xp: 20,
     },
 
@@ -489,42 +500,42 @@ const azureSecurityRoom = {
           question:
             "The event's identity.claims.xms_mirid names the web app (nexacorp-webapp) — marking the caller as that app's managed identity — with role 'Key Vault Secrets User', calling SECRETS.GET from callerIpAddress 203.0.113.44. Why is the source IP the most important anomaly here, given the identity type?",
           options: [
-            "Managed identities are explicitly designed by Microsoft to be usable securely from any IP address anywhere on the public internet, so the specific source IP carries no investigative significance here",
-            "Managed identities issue tokens that are meant to be used only from within Azure's own infrastructure serving that specific resource — legitimate use should originate from the web app's own outbound IP or Azure's internal ranges, not from an external, unfamiliar public IP like 203.0.113.44",
-            "The callerIpAddress field is only ever populated when a human user account performs the action, and is always left blank or null for any managed identity, so its presence here must indicate a logging bug",
-            "This external IP address is fully expected and benign, because all Key Vault API traffic in Azure is always routed through Microsoft's global content-delivery network, which legitimately uses public-facing IPs",
+            "It adds little — managed identity tokens are built to be used from any network",
+            "Its token belongs to the web app, so a call from outside the app's addresses suggests theft",
+            "It points to a logging fault, since callerIpAddress is left blank for managed identities",
+            "It is expected — Key Vault calls are routed through Microsoft's CDN on public IPs",
           ],
           answer: 1,
           explanation:
-            "A managed identity's tokens are scoped to the resource they're attached to (here, a public-facing web app) and are meant to be used by that resource itself, from within Azure's infrastructure. Seeing the identity's token used to call Key Vault from an external IP like 203.0.113.44 — rather than the web app's expected outbound IP — is a strong signal the web application itself has been compromised and its managed identity token is being exfiltrated and reused externally, similar to stolen EC2 IMDS credentials being used from outside AWS.",
+            "A managed identity's token is issued to the resource it is attached to (here, the web app) and should be used by that resource itself — from its VNet or its own known outbound IPs. A Key Vault call from 203.0.113.44, outside those addresses, suggests the web app was compromised and its token was taken and reused elsewhere, like stolen EC2 instance credentials used from outside AWS. 'Built to be used from any network' confuses a managed identity with an app registration's portable secret. 'callerIpAddress is blank for managed identities' is false — the field is populated here, as it is for any caller. 'Routed through a CDN' is invented; Key Vault records the real client address.",
           xp: 25,
         },
         {
           question:
-            "The requestUri shows 'https://nexacorp-prod-kv.vault.azure.net/secrets/sql-connection-string' with httpStatusCode 200 and azure.activitylogs.resultType 'Success'. What does this confirm about the outcome?",
+            "The requestUri names secrets/sql-connection-string, the Key Vault operation is SecretGet, and httpStatusCode is 200. What does that tell you about the outcome?",
           options: [
-            "The request actually failed silently despite appearances, since a 200 status code in the Azure REST API family conventionally signals a rejected or throttled request rather than success",
-            "The request succeeded — the attacker (via the compromised web app's managed identity) successfully retrieved the actual value of the sql-connection-string secret, meaning database credentials have very likely been compromised",
-            "A 200 status code here only confirms that the HTTP request was received and acknowledged by the Key Vault endpoint, without proving that any actual secret data was returned in the response body",
-            "The resultType field of 'Success' is a control-plane-only concept in Azure logging and simply does not apply to, or carry any meaning for, a data-plane operation like Key Vault secret retrieval",
+            "The secret's metadata was listed; a 200 here does not mean its value came back",
+            "The secret's value was returned, so treat the database credentials it holds as exposed",
+            "Key Vault received the request, but whether any value was returned cannot be known",
+            "The read worked, but a connection string is low value because it holds no password",
           ],
           answer: 1,
           explanation:
-            "An HTTP 200 status combined with resultType 'Success' on a SecretGet/SECRETS.GET operation confirms the secret value was actually returned to the caller — this is not a failed or denied attempt. Because the secret is named sql-connection-string, the analyst should treat the underlying database credentials as compromised and assume the attacker can now directly access the database itself.",
+            "SecretGet on a named secret (…/secrets/sql-connection-string) with HTTP 200 means Key Vault returned that secret's value to the caller — a completed read, not an attempt. Treat the database credentials inside it as compromised. 'Metadata was listed' describes a different operation (SecretList, against /secrets without a name). 'Received but unknown' misreads 200: for SecretGet, success is the return of the value. 'Low value' is wrong — SQL connection strings commonly embed the database username and password.",
           xp: 25,
         },
         {
           question:
             "What should the analyst's immediate containment actions be?",
           options: [
-            "Take no immediate action and simply wait for the organisation's already-scheduled monthly secret-rotation cycle to run on its normal calendar, since that process will eventually rotate this secret along with all the others",
-            "Immediately rotate the sql-connection-string secret (and the underlying database credential it represents), restrict or remove the managed identity's Key Vault Secrets User role to only the minimum required scope, investigate the web app itself for the initial compromise vector (e.g. a vulnerability that allowed token exfiltration), and review Key Vault access logs for any other secrets the same identity may have retrieved",
-            "Simply delete the entire Key Vault resource outright and provision a brand-new empty vault in its place, on the reasoning that once any single secret inside it has been read by an attacker, the whole vault and every secret it ever contained must be considered permanently and irrecoverably compromised beyond any possibility of remediation",
-            "Block callerIpAddress 203.0.113.44 at the network layer and consider the incident fully resolved, since Key Vault access is a control-plane-only concern that by definition cannot be abused any further once the source IP is blocked",
+            "Leave it to the monthly rotation cycle, which will rotate this secret along with the rest",
+            "Rotate the secret and its DB credential, narrow the identity's role, and investigate the web app",
+            "Delete the Key Vault and build a new one, since every secret it held is now permanently lost",
+            "Block 203.0.113.44 at the edge and close, since the attacker can no longer reach the vault",
           ],
           answer: 1,
           explanation:
-            "A confirmed secret compromise requires immediate credential rotation of the exposed secret (and whatever system it authenticates to, here a database), scoping down the managed identity's over-broad role assignment, root-causing how the web app itself was compromised (since that's how the attacker reached the managed identity's token in the first place), and auditing the full scope of what else the same identity accessed. Blocking a single IP does nothing since the attacker can trivially rotate infrastructure, and the underlying web app compromise plus leaked secret both remain live risks until addressed.",
+            "A confirmed secret read needs the secret and the database credential behind it rotated now, the managed identity's role narrowed, the web app investigated for how its token was taken, and the vault's diagnostic logs reviewed for any other secrets the identity read. Waiting for the monthly rotation leaves a working database credential in the attacker's hands for weeks. Deleting the vault destroys evidence and breaks every app that uses it, while the stolen value still works until it is rotated. Blocking one IP does little: the attacker can change address, the compromised web app can still hand out tokens, and the stolen credential is still valid.",
           xp: 30,
         },
       ],
@@ -536,49 +547,49 @@ const azureSecurityRoom = {
       id: "azure-la2",
       heading: "Investigating an NSG Rule Change That Exposed RDP to the Internet",
       context:
-        "Continuing the same incident timeline: 23 minutes after the Key Vault access, the Azure Activity Log recorded a network security rule change on the production VM's NSG, from the SAME managed identity involved in the earlier event. NSG Flow Logs shortly after show a successful inbound connection matching the new rule. Review the event below.",
+        "Continuing the same incident timeline: 23 minutes after the Key Vault access, the Azure Activity Log recorded a network security rule change on the production VM's NSG, from the SAME managed identity involved in the earlier event (besides Key Vault Secrets User, the identity also holds an over-broad Contributor role on the resource group, which is what lets it edit NSG rules). The NSG flow log for that VM is shown alongside the change. Review the event below.",
       event: nsgRdpExposureEvent,
       questions: [
         {
           question:
-            "The requestbody shows direction 'Inbound', access 'Allow', destinationPortRange '3389', sourceAddressPrefix '*', and priority 100 for a new rule named 'allow-rdp-temp', created by the same managed identity as the Key Vault event. Why is sourceAddressPrefix '*' combined with destinationPortRange '3389' especially dangerous?",
+            "Read the requestbody of the new rule 'allow-rdp-temp'. What does this rule do to the VM's exposure?",
           options: [
-            "Port 3389 is actually a harmless, extremely commonly-used web port comparable to port 80 or 443, carrying no special security sensitivity of its own",
-            "sourceAddressPrefix '*' means ANY IP address on the entire internet is allowed to attempt this connection, and port 3389 is RDP (Remote Desktop Protocol) — this rule effectively opens direct remote-desktop access to the VM from anywhere in the world",
-            "The priority value of 100 means this particular rule has been assigned the LOWEST possible priority in the entire NSG and will therefore almost never actually be evaluated against incoming traffic",
-            "The direction field marks this rule as affecting outbound traffic exclusively, so any inbound connection attempts to the VM remain completely unaffected by this specific rule change",
+            "'*' covers hosts inside the VNet, so RDP stays reachable from internal addresses",
+            "'*' means any internet address and 3389 is RDP, so remote desktop is open to the world",
+            "Priority 100 is evaluated last, so the rule will rarely match before the existing rules do",
+            "It opens 3389 outbound from the VM, so inbound connections to the VM are not affected",
           ],
           answer: 1,
           explanation:
-            "sourceAddressPrefix '*' is Azure's wildcard for 'any source,' meaning the rule allows connections from literally any internet-connected host. Port 3389 is RDP, a highly sensitive remote-access protocol frequently targeted by brute-force and credential-stuffing attacks. Additionally, priority 100 is a LOW number, and Azure NSG rules evaluate lower priority numbers FIRST — meaning this permissive rule would be evaluated before more restrictive higher-priority-number rules, making it highly likely to take effect immediately.",
+            "sourceAddressPrefix '*' is Azure's wildcard for any source — including every host on the internet — and destinationPortRange 3389 is RDP, a remote-access service constantly targeted by password guessing. So the rule opens remote desktop on 10.40.2.15 to the whole world. A VNet-only rule would use a prefix such as 'VirtualNetwork' or a private range, not '*'. Priority works the other way round: lower numbers are evaluated FIRST, so 100 makes this rule win over most existing rules. The direction is 'Inbound', so it governs connections coming in to the VM, not traffic leaving it.",
           xp: 25,
         },
         {
           question:
-            "The NSG Flow Log flowTuples field reads '1781490891,203.0.113.44,10.40.2.15,51422,3389,T,I,A' — decode this and explain its significance given the earlier Key Vault event.",
+            "Decode the azure.nsgflowlogs.flowTuples value in this event. What does it show?",
           options: [
-            "This tuple decodes to an outbound connection that was explicitly denied by the NSG, meaning it carries essentially no relevance to the ongoing Key Vault and RDP-exposure investigation",
-            "This decodes to a TCP (T) inbound (I) connection from 203.0.113.44 (the SAME external IP seen abusing the managed identity's Key Vault access) to 10.40.2.15 on port 3389, and it was ALLOWED (A) — confirming the attacker didn't just open the door, they walked through it and successfully connected to the VM's RDP port",
-            "NSG Flow Log entries only ever prove that a matching rule technically exists in the NSG's rule set; they are structurally incapable of showing whether any actual network traffic ever flowed",
-            "This particular IP address, 203.0.113.44, actually belongs to NexaCorp's own internal corporate network range, so this connection is fully expected, routine, and entirely benign",
+            "An outbound RDP connection from the VM to 203.0.113.44 that the NSG denied",
+            "An inbound TCP connection from 203.0.113.44 to 10.40.2.15:3389 that was allowed",
+            "That a matching rule exists; flow logs cannot show that traffic really flowed",
+            "An inbound attempt that was blocked, with 'A' marking that an alert was raised",
           ],
           answer: 1,
           explanation:
-            "The flowTuples format is timestamp,srcIP,dstIP,srcPort,dstPort,protocol,direction,decision. Decoding it: TCP, Inbound, from 203.0.113.44 to 10.40.2.15 on port 3389, Allowed. Critically, 203.0.113.44 is the exact same external IP that abused the managed identity's Key Vault access minutes earlier, tying both events to the same attacker and confirming they didn't just create a permissive rule — they actively exploited it to reach the VM's RDP service.",
+            "The tuple format is timestamp, source IP, destination IP, source port, destination port, protocol, direction, decision (version-2 logs add a flow state; the trailing B means the flow began). So: TCP (T), inbound (I), from 203.0.113.44 port 51422 to 10.40.2.15 port 3389, allowed (A). 203.0.113.44 is the same external IP that read the Key Vault secret — the attacker opened the door and then walked through it. 'Outbound and denied' misreads I and A: I is inbound, and the source is the external IP. 'That a rule exists' is wrong — flow logs record actual flows. 'A marks an alert' is a misreading: A is the Allow decision (D would be Deny).",
           xp: 25,
         },
         {
           question:
             "Given both the Key Vault secret theft and the successful RDP connection are now tied to the same attacker and the same compromised managed identity, what is the correct escalation path?",
           options: [
-            "Treat this purely as a routine, low-priority network configuration change ticket for the infrastructure team to pick up during their next normal sprint, since NSG rule modifications of this kind happen frequently as part of everyday day-to-day cloud operations and rarely warrant security review",
-            "Escalate immediately as an active, multi-stage cloud compromise: remove or restrict the malicious NSG rule, isolate the affected VM from the network, rotate the managed identity's permissions and any credentials it exposed, forensically investigate the VM for what the attacker did after connecting via RDP, and audit all other resources reachable by the same identity and resource group",
-            "Only revoke the Key Vault access for the compromised managed identity and consider that sufficient, since the separate NSG rule change is best treated as entirely unrelated infrastructure work to be handled independently by a different networking team",
-            "No further action from the SOC is needed at all in this case, since Microsoft Defender for Cloud is expected to automatically detect and silently remediate the risky NSG rule on its own within roughly the next 24 hours without any human intervention",
+            "Hand it to the infrastructure team as a config ticket, since NSG rule edits are routine work",
+            "Escalate as a multi-stage compromise: remove the rule, isolate the VM, curb the identity, investigate",
+            "Revoke the identity's Key Vault access, and treat the NSG change as separate network work",
+            "Delete the RDP rule and close the case — with that door shut, the attacker has no way back in",
           ],
           answer: 1,
           explanation:
-            "This is now a confirmed, multi-stage active compromise: a compromised managed identity was used first to steal a Key Vault secret, then to open a network path (RDP) into a production VM, which was then actively connected to from the same external attacker IP. This requires full incident response: immediately remove/restrict the malicious NSG rule, isolate the VM to stop further attacker access, rotate every credential the managed identity could reach, forensically examine the VM for post-RDP-access activity (webshells, new accounts, persistence), and audit the full blast radius of what else this identity and resource group expose.",
+            "One compromised identity stole a secret, opened RDP to a production VM, and the same external IP then connected — an active, multi-stage compromise. Remove the rule, isolate the VM (without deleting it), cut back the identity's roles and rotate what it could reach, investigate what happened on the VM after the RDP session, and audit everything else the identity and resource group expose. 'A routine config ticket' ignores that the change came from a compromised identity and was used minutes later. 'Key Vault access only' leaves the identity's Contributor rights and the open RDP path in place. 'Delete the rule and close' ignores that the attacker already logged on to the VM and may have left persistence there.",
           xp: 30,
         },
       ],
@@ -711,21 +722,21 @@ const azureSecurityRoom = {
       id: "azure-la-storage",
       heading: "Data Exposure: A Container Is Opened to the World",
       context:
-        "Following the SAS-token generation described in the reading above, this Activity Log record shows the storage-account change the attacker made next. Read it before answering the flag.",
+        "Twenty minutes after the RDP connection, the same managed identity made this storage change. Read it before answering the question and the flag.",
       event: storagePublicSasEvent,
       questions: [
         {
           question:
-            "The requestbody sets publicAccess to 'Container', the operation succeeded, and the same account just issued a SAS token expiring in 2027 (azure.storage.sasTokenExpiry). Why is this combination a confirmed data-exposure incident rather than a config tweak?",
+            "The requestbody sets publicAccess to 'Container' on the customer-exports container, and resultType is Success. What does this mean for the data inside it?",
           options: [
-            "'Container' public access only exposes the container's metadata and name, never the blobs themselves, so no customer data can actually be read and this is informational",
-            "publicAccess 'Container' allows anonymous, unauthenticated read of every blob in customer-exports, and the multi-year SAS token is a second, portable way in — together they mean the data is reachable by anyone with the URL, indefinitely, with no sign-in",
-            "The change is safe because a SAS token is required in addition to public access, and this token expires, so access will automatically be revoked within the hour",
-            "Activity Log only records the request, not whether it succeeded, so an analyst cannot yet conclude the container was actually exposed from this event alone",
+            "The container's name and metadata are exposed; the files themselves stay private",
+            "Anyone can now list and read every blob in it anonymously, with no sign-in or token",
+            "Anonymous reads still need a valid SAS token, so the files stay safe unless one leaks",
+            "Files can be read by someone who knows a blob's exact URL, but not listed",
           ],
           answer: 1,
           explanation:
-            "Setting a blob container's publicAccess to 'Container' permits anonymous, unauthenticated read of all blobs in it — no credential, no SAS needed — so customer-exports is now readable by anyone who knows or guesses the URL. On top of that, the attacker minted a SAS token valid until 2027 (rwdl), a long-lived portable credential that survives the public-access being closed again. The resultType is Success, so this is a confirmed exposure, not an attempt: close public access immediately, revoke the SAS (rotate the account keys that signed it), and review storage-analytics logs for anonymous GETs against the container.",
+            "'Container' is the most open public-access level: anonymous users can list every blob in the container and read any of them, with no credential at all — and resultType Success means the change took effect. Close public access at once, then review the storage logs for anonymous reads of customer-exports to learn what was taken. 'Only metadata' understates it — the blobs themselves are readable. 'Still needs a SAS token' confuses public access with SAS: public access needs no token at all. 'Readable with the exact URL but not listed' describes the 'Blob' level, which does not allow listing; 'Container' does.",
           xp: 25,
         },
       ],
@@ -736,9 +747,9 @@ const azureSecurityRoom = {
       type: "flag" as const,
       id: "azure-f1",
       prompt:
-        "Review the event above where blob container public access was changed shortly after a long-lived SAS token was generated for the storage account. What is the exact value of the azure.storage.containerName field — i.e. the name of the container whose public access was widened? Enter it exactly as shown.",
-      answer: "customer-exports",
-      hint: "Look inside the raw block of the storage/SAS event for the azure.storage.containerName field — this identifies which specific blob container the attacker exposed.",
+        "To shut off any SAS tokens the attacker signed with the account keys, you will need to rotate the keys of the storage account that holds the exposed container. From the event above, enter the name of that storage account.",
+      answer: "nexacorpprodsa",
+      hint: "Every Azure resource ID lists the parent resources on its path, from the subscription down to the resource itself.",
       xp: 25,
     },
 
@@ -784,12 +795,12 @@ const azureSecurityRoom = {
         "=======================================================",
       checkpoint: {
         question:
-          "According to the reading, what is the only way to fully invalidate an account-key-based SAS token before its stated expiry?",
+          "The attacker holds a SAS token for nexacorpprodsa, signed with an account key and valid until 2027. You have already set the container back to Private. What actually invalidates the token now?",
         options: [
-          "Delete the specific blob or container the SAS token points to, so the signed URL has nothing left to return — though the token itself remains cryptographically valid and would work again if a resource with the same name were re-created before the token's stated expiry",
-          "Wait for Microsoft Defender for Storage to automatically detect the anomalous access pattern and revoke the token on your behalf, since Defender's real-time protection includes automatic credential revocation for storage resources",
-          "Regenerate the storage account's access keys that the token was signed with — which also breaks every other SAS token and app using those same keys",
-          "Change the container's public access level back to Private, which also invalidates any SAS tokens already issued for that container, since a SAS token's validity is tied to the container's current public-access setting",
+          "Delete the container it points to, so the signed URL has nothing left to return",
+          "Let Defender for Storage handle it, since it revokes risky SAS tokens on detection",
+          "Regenerate the account key that signed it — which also breaks every app using that key",
+          "Nothing more — setting the container to Private already cancelled tokens issued for it",
         ],
         answer: 2,
         explanation:
@@ -853,16 +864,16 @@ const azureSecurityRoom = {
         "=======================================================",
       checkpoint: {
         question:
-          "A SOC analyst resets a compromised user's password in Entra ID but does not separately revoke the user's sessions or refresh tokens. What is the risk?",
+          "An analyst resets a compromised user's password at 09:00 and closes the task. At 09:40 Graph calls under that user are still arriving from the attacker's IP. What is the most likely explanation?",
         options: [
-          "None -- a password reset in Entra ID automatically and immediately invalidates every refresh token and active session the user had, so no further action is needed",
-          "A token or session issued to the attacker before the reset can remain valid and continue working against Graph, Azure Resource Manager, or Outlook Web Access, independent of the password change, until it is explicitly revoked",
-          "The risk only applies to service principals, not human users, since human user sessions in Entra ID are always tied directly to the current password and expire the instant it changes",
-          "The account will be automatically disabled by Microsoft Defender for Cloud within minutes of the password reset, so the analyst does not need to take any further containment action",
+          "The reset has not replicated yet — Entra password changes take hours to apply",
+          "A refresh token or session issued before the reset was never revoked, so it still works",
+          "The attacker guessed the new password, because a reset always ends all existing sessions",
+          "The calls come from a service principal, since user tokens die with a password change",
         ],
         answer: 1,
         explanation:
-          "A password reset alone does not invalidate tokens or sessions already issued before the reset — an attacker holding a stolen refresh token or active session can keep using it until it is explicitly revoked (via 'Revoke sessions' in the Entra admin center, or Revoke-MgUserSignInSession / the legacy Revoke-AzureADUserAllRefreshToken). This applies to human users too, not just service principals, and there is no automatic revocation triggered by a password change alone.",
+          "A password reset does not invalidate tokens or sessions issued before it. A stolen refresh token keeps working against Graph, Azure Resource Manager or Outlook Web Access until it is explicitly revoked — 'Revoke sessions' in the Entra admin center, or Revoke-MgUserSignInSession. (Even after revocation, an access token already issued can work until it expires, about an hour, unless the service supports Continuous Access Evaluation.) 'Replication takes hours' is not the cause — the new password applies quickly; the old tokens simply do not depend on it. 'Guessed the new password' rests on the false belief that a reset ends sessions. 'A service principal' is contradicted by the calls running as the user.",
       },
     },
   ],

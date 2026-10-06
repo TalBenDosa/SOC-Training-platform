@@ -12099,6 +12099,8 @@
         "data.logdesc",
         "data.logid",
         "data.msg",
+        "data.policyid",
+        "data.policyname",
         "data.proto",
         "data.rcvdbyte",
         "data.rule_name",

@@ -183,7 +183,7 @@ const webApplicationSecurityRoom: Room = {
   id: "web-application-security",
   title: "How Web Applications Work — and How They Break",
   description:
-    "Before you can investigate a web attack you have to know what a web request actually is. This room builds that from zero: what travels in an HTTP request and response, why nothing the browser sends can ever be trusted, the browser-to-server-to-application-to-database path every request takes, the attack classes that live at each stop mapped onto the OWASP Top 10 2021, what a WAF genuinely catches versus what it is blind to, and how to read a real IIS access-log line field by field — including the two things it never records: the request body, and the true client IP.",
+    "Before you can investigate a web attack you have to know what a web request actually is. This room builds that from zero: what travels in an HTTP request and response, why nothing the browser sends can ever be trusted, the browser-to-server-to-application-to-database path every request takes, the attack classes that live at each stop mapped onto the OWASP Top 10 2021, what a WAF genuinely catches versus what it is blind to, and how to read a real IIS access-log line field by field — including two things it does not record by default: the request body, and, behind a load balancer, the true client IP.",
   difficulty: "beginner",
   category: "Application Security",
   estimatedMinutes: 60,
@@ -205,6 +205,7 @@ const webApplicationSecurityRoom: Room = {
         `The response comes back with a STATUS CODE, a three-digit number stating what happened (200 succeeded, 403 refused, 404 not found, 500 the server broke), its own headers, and the body — the HTML, image or file you actually wanted. Think of it as a counter at a records office: the method is whether you are collecting or dropping off, the path is which counter, the query string is what you shouted across it, the cookie is the ticket stub proving you already queued once, and the status code is the clerk telling you whether you got it.\n\n` +
         `**Where the request goes: the three-tier path**\n\n` +
         `On the other side of that request, almost no real site is one machine. The classic shape has three distinct jobs, usually on different servers. The WEB SERVER (Microsoft IIS, Apache, nginx) speaks HTTP: it accepts the connection, hands back static files like images by itself, writes the access log, and passes anything that needs thinking about to the next tier. The APPLICATION is the actual code somebody at the company wrote — .NET, Java, PHP, Python — and it is the tier that takes those name=value pairs from the query string and decides what to do with them. The DATABASE stores the data and executes whatever query the application hands it. It does not know or care where that query came from.\n\n` +
+        `The web server's access log is one line per request: the method, the path, the query string, the address of the machine that opened the connection, a few headers such as User-Agent, the status code and the response size — but not the body. In the W3C format IIS uses, the field-name prefix gives the direction: cs- is client-to-server (csMethod, csUriStem, csUriQuery, csBytes), sc- is server-to-client (scStatus, scBytes), and cIP is the address of whichever machine connected to the web server.\n\n` +
         `That handoff chain is the whole game. The web server trusts the request enough to pass it on, the application trusts the parameters enough to build a query from them, and the database trusts the query enough to run it. Every single attack class in this room is a case of one of those tiers trusting the previous one a little more than it should have. Hold that sentence — the rest of the room is a tour of exactly where it goes wrong.`,
       diagram:
         "flowchart LR\n" +
@@ -216,11 +217,11 @@ const webApplicationSecurityRoom: Room = {
         '  S -.->|"status code plus response body"| B',
       diagramCaption: "The three-tier path every web request takes, and the return journey",
       checkpoint: {
-        question: "In the three-tier path, which component actually executes the query and has no idea where it originally came from?",
-        options: ["The web server", "The application", "The database", "The browser"],
+        question: "A product page turns the id value from the query string into a lookup for that product's row. Which tier runs that lookup with no way to tell whether a real shopper or an attacker sent the request behind it?",
+        options: ["The web server (IIS)", "The application code", "The database server", "The visitor's browser"],
         answer: 2,
         explanation:
-          "The web server hands off to the application, which builds a query from the request parameters and hands it to the database -- the database just executes whatever query it's given and has no visibility into the original client request at all.",
+          "The database server runs whatever query it is handed and never sees the HTTP request that caused it, so it cannot judge who sent it. The web server (IIS) does see the request — it accepts the connection and logs it — but it only passes the request on and does not run the lookup. The application code is the tier that builds the query from the id value, so it is where the trust decision is made, but building a query is not running it. The visitor's browser only sends the id value; it is where untrusted input starts, not where the lookup runs.",
       },
     },
 
@@ -266,16 +267,16 @@ const webApplicationSecurityRoom: Room = {
         "something that was not the page.\n" +
         "=======================================================",
       checkpoint: {
-        question: "Per Reading 2, why does JavaScript form validation have zero value as a security control?",
+        question: "A checkout page uses JavaScript to stop shoppers entering a quantity above 10. Your log shows an order request carrying quantity=500, which the server accepted. What is the best explanation?",
         options: [
-          "Because most browsers disable JavaScript by default",
-          "Because it runs on the attacker's own machine, so anyone can simply not run it and send the request some other way",
-          "Because JavaScript cannot check the format of user input at all",
-          "Because servers ignore any request that includes JavaScript-validated fields",
+          "The JavaScript check had a bug, since a value the form blocks could not otherwise reach the server",
+          "The request was sent without running the page's check, which runs on the client and can be skipped",
+          "The log line is probably corrupted, since the form itself cannot produce a quantity above 10",
+          "The request came from an administrator account, whose sessions are exempt from the page's checks",
         ],
         answer: 1,
         explanation:
-          "JavaScript validation is genuinely useful for catching honest mistakes, but it runs entirely on the client's own machine -- an attacker can simply not run it, or send the request directly with any tool that speaks HTTP, bypassing it completely.",
+          "JavaScript validation runs on the client's own machine, so anyone can skip it and send the request directly with a proxy, a command-line tool or a short script. A value the form forbids is therefore exactly what you should expect from a request that did not come from the form. Blaming a bug in the check assumes the form is the only way to reach the server, which Reading 2 says it is not. Calling the log corrupt is the mistake Reading 2 warns against: assume the value was sent on purpose. An administrator account does not explain it either: the page applies the same check to every visitor, and the value got through because the check never ran, not because of who was logged in.",
       },
     },
 
@@ -286,16 +287,16 @@ const webApplicationSecurityRoom: Room = {
       type: "question",
       id: "webapp-q1",
       question:
-        "An attacker sends a SQL injection payload in the BODY of a POST request to /login.aspx. You open the IIS access log for that exact second. What do you see?",
+        "A login form submits its fields in the body of a POST request to /login.aspx, and one submission carries SQL keywords in the username field. You open the IIS access log for that exact second. What do you see?",
       options: [
-        "The payload appears in the csUriQuery field, because a W3C access log records every parameter a request carries, whichever HTTP method delivered it",
-        "A csMethod of POST, csUriStem /login.aspx and csUriQuery '-', with no payload anywhere, because a W3C access log holds the request line and selected headers only",
-        "No entry at all, because IIS writes W3C access-log lines only for GET and HEAD requests unless failed request tracing is switched on",
-        "The payload appears indirectly in the scBytes field, which the W3C format records as the byte length of everything the client sent in the request body",
+        "The SQL text, in the line's csUriQuery field, because the access log records every parameter whichever method carried it",
+        "A POST to /login.aspx with csUriQuery empty (“-”) and no SQL text anywhere, because the log keeps the request line and a few headers",
+        "No line at all, because IIS writes access-log lines for GET requests only unless an extra tracing feature is switched on",
+        "The SQL text, appended to /login.aspx in the csUriStem field, because a POST sends its form fields as part of the URL",
       ],
       answer: 1,
       explanation:
-        "A W3C access log line records the request line and a selection of headers — method, URI stem, query string, client IP, User-Agent, status, byte counts — and the request body is not among them, so a POST-delivered payload leaves a line that looks completely ordinary. IIS absolutely does log POST requests, they just look unremarkable; csUriQuery holds only the query string, which a POST typically leaves empty; and scBytes is the size of the RESPONSE the server sent back, not an encoding of the request payload. This is why POST-based attacks are nearly invisible in web-server logs alone and why you need WAF logs, application logs, or database audit logs to see them.",
+        "As Reading 1 lists, a W3C access-log line holds the method, path, query string, client address, a few headers, the status and the sizes — not the body — so a POST that carries SQL text in its form fields leaves a line that looks completely ordinary. csUriQuery holds only the query string after the question mark, which a POST form usually leaves empty, so the SQL text cannot show up there. IIS does log POST requests; they simply look unremarkable. And a POST does not put its form fields into the URL — that is how a GET form behaves — so csUriStem shows just /login.aspx. This is why POST-delivered attacks are nearly invisible in web-server logs alone, and why you need WAF, application or database audit logs to see them.",
       xp: 20,
     },
 
@@ -307,7 +308,7 @@ const webApplicationSecurityRoom: Room = {
       id: "webapp-r3",
       heading: "The Attack Classes, and Where Each One Lands on the Path",
       content:
-        `Now put Reading 1's three-tier path together with Reading 2's rule that everything from the client is hostile, and the attack classes almost derive themselves. Each one is untrusted input reaching a tier that treats it as instruction rather than as data. What changes between them is WHICH tier gets fooled, and therefore which log holds the evidence. The category names below are the OWASP Top 10 2021, the industry's standard list of the ten most critical web application security risks — knowing which bucket an attack falls into is how you talk to a developer about it.\n\n` +
+        `Now put Reading 1's three-tier path together with Reading 2's rule that everything from the client is hostile, and the attack classes almost derive themselves. Each one is untrusted input reaching a tier that treats it as instruction rather than as data. What changes between them is WHICH tier gets fooled, and therefore which log holds the evidence. The category names below are the OWASP (Open Worldwide Application Security Project) Top 10 2021, the industry's standard list of the ten most critical web application security risks — knowing which bucket an attack falls into is how you talk to a developer about it.\n\n` +
         `**SQL INJECTION** (OWASP A03:2021 Injection, ATT&CK T1190). One sentence: untrusted input reaches a database query and changes its meaning. The application glues a parameter into a query string, and a value carrying its own quote characters and SQL keywords turns one query into two. The log tell lives in the parameter — quote characters, UNION, SELECT, OR 1=1 — and, crucially, in the OUTCOME: a burst of 500 errors is malformed syntax crashing the query parser, whereas a 200 with a response size unlike anything that endpoint normally returns is a query that actually ran.\n\n` +
         `**CROSS-SITE SCRIPTING, XSS** (A03:2021 Injection, ATT&CK T1059.007). One sentence: untrusted input is written back into a page, and the victim's browser executes it as script. REFLECTED XSS bounces off a single response: the payload is in the link, so the attacker has to get each victim to click a crafted URL, and the damage is one victim at a time. STORED XSS is put into the application's own data — a comment, a profile field, a support-ticket subject — and served to every user who later views that page, with no link to click and no action required from the victim. That is why stored is far worse: reflected needs a lure per victim, stored fires automatically at everyone, including the administrator who opens the ticket queue. The tell for reflected is script-shaped text in a query parameter; the tell for stored is often a single POST that looks like nothing, followed later by the payload appearing in ordinary responses to entirely different users.\n\n` +
         `**PATH TRAVERSAL / LOCAL FILE INCLUSION** (A01:2021 Broken Access Control, ATT&CK T1083). One sentence: a parameter that names a file is given a value that climbs out of the intended folder. The tell is dot-dot-slash sequences, plain or URL-encoded as %2e%2e%2f or ..%2f, in a parameter whose name suggests a file, page, template or path — and again, a 200 response with a size unlike the endpoint's normal payload means something got read and returned.\n\n` +
@@ -381,49 +382,49 @@ const webApplicationSecurityRoom: Room = {
       id: "webapp-la1",
       heading: "Reading an IIS Access-Log Line, Field by Field",
       context:
-        "Larkfield's online shop has a datasheet download page at /download.aspx, which takes a file parameter and returns the requested product PDF. Normal responses from this endpoint run between 240,000 and 900,000 bytes. Over four minutes on 19 May, this endpoint received 31 requests from the same session, each carrying a different value in the file parameter. The record below is one of them. Work through the fields one at a time.",
+        "Larkfield's online shop has a datasheet download page at /download.aspx, which takes a file parameter and returns the requested product PDF. Visitors do not reach the web server WEB-LKF01 (10.44.2.30) directly: an AWS Application Load Balancer (ALB) accepts every visitor's connection and forwards each request on to it. Normal responses from this endpoint run between 240,000 and 900,000 bytes. Over four minutes on 19 May, this endpoint received 31 requests from the same session, each carrying a different value in the file parameter. The record below is one of them. Work through the fields one at a time.",
       event: larkfieldDownloadEvent,
       questions: [
         {
           question:
             "Start with the request itself. csMethod is GET, csUriStem is /download.aspx and csUriQuery is 'file=..%2f..%2f..%2fWindows%2fwin.ini'. What is the client asking for, once you decode it?",
           options: [
-            "A product datasheet file named win.ini, sitting in the exact same normal public download folder as every other legitimate document the site is designed to serve to any visitor",
-            "A file path that uses URL-encoded dot-dot-slash sequences (%2f is a forward slash) to climb three folders up out of the intended download directory and reach a file elsewhere on the server's filesystem",
-            "Nothing meaningful is being requested at all — %2f is documented to not be a valid URL encoding anywhere, so the web server would reject this parameter outright before ever reaching the application",
-            "A second entire web page meant to be loaded and rendered inside the first one, which is completely standard, expected behaviour for any page that legitimately takes a file parameter from the user",
+            "A datasheet named win.ini, read from the usual download folder that the file parameter normally points to",
+            "A file outside the download folder: %2f decodes to “/”, so the value climbs three folders up to Windows/win.ini",
+            "Nothing usable: %2f is an encoding error, so the server would treat the value as plain text and show an error page",
+            "Several files at once: each ..%2f separates one requested name, and win.ini is simply the last name in the list",
           ],
           answer: 1,
           explanation:
-            "%2f is simply the URL encoding of a forward slash, so the decoded value reads ../../../Windows/win.ini — three dot-dot-slash steps climbing out of whatever folder the application intended, then a path to somewhere else entirely on the server. That is the classic path traversal shape from Reading 3, and encoding it is a routine way of getting past naive filters that only look for literal dot-dot-slash text. It is not a datasheet, %2f is a completely valid and extremely common encoding, and loading arbitrary filesystem paths is not standard behaviour for anything.",
+            "%2f is the standard URL encoding of a forward slash, so the decoded value reads ../../../Windows/win.ini: three “go up one folder” steps out of the folder the application intended, then a path to a system file elsewhere on the server. That is the path traversal shape from Reading 3, and encoding the slashes is a common way to slip past filters that look only for literal dot-dot-slash text. It is not a datasheet in the download folder, because the ../ steps move the lookup out of that folder before win.ini is named. %2f is not an encoding error — it is valid and very common — and the 200 status shows the server did not answer with an error. And ..%2f is not a list separator: decoded it is ../, one step up the folder tree, so the value names one file, not several.",
           xp: 25,
         },
         {
           question:
             "Now read the outcome fields. scStatus is 200 and scBytes is 5,312, against this endpoint's normal range of 240,000 to 900,000 bytes. Why is this pairing more serious than the same request returning 403?",
           options: [
-            "It is not actually more serious at all — a 200 status simply confirms the web server received and processed the request normally, while a 403 would mean the request never even arrived at the application layer",
-            "A 403 would mean the request was refused before the application did anything; a 200 means the application ANSWERED, and a byte count nowhere near this endpoint's normal PDF size is consistent with it having returned a small text file rather than a datasheet",
-            "A 200 status on a download endpoint always and specifically means a cached response was served straight from a proxy layer, so nothing on the file system was actually read for this particular request",
-            "scBytes counts the total size of the incoming client request rather than the response, so a small recorded value here actually proves the malicious payload itself was truncated before it could execute",
+            "It is not more serious: a 200 only shows the web server received the request, and the application may still have refused it",
+            "A 403 means it was refused; a 200 means the application answered, and 5,312 bytes is far too small to be a datasheet PDF",
+            "A 200 means a security check inspected the request and approved it, so the traversal text was judged harmless before it ran",
+            "scBytes is the size of what the client sent, so 5,312 reflects the long query string and says nothing about what came back",
           ],
           answer: 1,
           explanation:
-            "This is the single most important reading skill in the room: status code is OUTCOME, not intent. A 403 means something in the chain refused the request and the application never acted on it — an attempt, and a blocked one. A 200 means the request went all the way through and the server returned a body, so the question stops being whether it was tried and becomes what was returned. The byte count settles that: 5,312 bytes is nowhere near a product PDF, but is entirely consistent with a small system text file. A 200 does not imply caching, and scBytes is the size of the RESPONSE the server sent, not the request.",
+            "Status code is OUTCOME, not intent — the most important reading skill in this room. A 403 means something refused the request and the application never acted on it: an attempt, and a blocked one. A 200 means the request went all the way through and a body came back, so the question becomes what was returned, and the byte count answers it: 5,312 bytes is nowhere near a 240,000-byte-plus PDF, but fits a small system text file. A 200 is not a mere receipt — a refusal by the application would show as an error code such as 403 or 500, not 200. Nor is a 200 a security approval: it is the web server's report of what it sent back, and nothing in a status code says any check judged the content safe. And by Reading 1's prefix rule, sc- means server-to-client, so scBytes is the size of the response; the client's side is csBytes (488 here).",
           xp: 25,
         },
         {
           question:
             "One more field before you escalate. cIP shows 10.44.2.7 — a private, internal address, even though shop.larkfield.com is a public internet-facing site. What should you conclude?",
           options: [
-            "The attack traffic came from somewhere inside the corporate network itself, so the investigation should start immediately on the internal host sitting at address 10.44.2.7",
-            "The public site sits behind a load balancer, which opened its own connection to the web server — so cIP is the load balancer's internal address, not the real client, and the true source has to come from an upstream log such as the WAF's",
-            "The cIP field must have been silently corrupted somewhere during log ingestion or transport, and the entire record should simply be ignored rather than investigated further",
-            "A private RFC1918 address appearing in cIP conclusively proves the request never actually reached the application at all, since internal addresses can never route to a public-facing site by definition",
+            "The request came from a machine inside Larkfield's network, so the investigation should start on the host at 10.44.2.7",
+            "cIP is the load balancer, which made its own connection to IIS; the real client has to come from an upstream log",
+            "cIP is the web server's own address, which IIS records as the network interface that the request arrived on",
+            "cIP was forged: by Reading 2 the client controls the whole request, so this value is unreliable and should be ignored",
           ],
           answer: 1,
           explanation:
-            "A private RFC1918 address in the client-IP field of a public-facing site is the signature of a proxied architecture, not an insider: the load balancer terminates the client's connection and opens a fresh one to the web server using its own address, so IIS faithfully logs the machine it is actually talking to. Chasing 10.44.2.7 as the attacker would send you to investigate your own load balancer, which is exactly the wrong-host mistake this room exists to prevent. The field is not corrupt — it is accurate and simply answers a different question than the one you asked — and the 200 status already proves the request very much reached the application.",
+            "Per Reading 1, cIP is the address of whichever machine connected to the web server, and the task context says every visitor reaches WEB-LKF01 through the ALB. So IIS has correctly logged the ALB's own internal address (a private, RFC 1918 range address), and the real client must come from a log written further upstream. Starting on 10.44.2.7 as an insider would send you to investigate your own load balancer — the wrong-host mistake this room exists to prevent. cIP is not the web server's address: that is sIP, which reads 10.44.2.30 on this same line. And cIP is not a value the client writes: it comes from the network connection itself, not from a header or parameter, so Reading 2's rule about attacker-controlled request content does not apply to it — it is accurate, it simply names the wrong machine for attribution.",
           xp: 30,
         },
       ],
@@ -511,42 +512,42 @@ const webApplicationSecurityRoom: Room = {
           question:
             "httpRequest.clientIp here is 45.147.230.19, while cIP on the IIS record for the same request was 10.44.2.7. Which address should the investigation follow, and why do the two records disagree?",
           options: [
-            "10.44.2.7, because the internal web server sits physically and logically closer to the application code, and therefore always has the more technically accurate view of any incoming request's true origin",
-            "45.147.230.19 — the WAF sits at the edge and saw the real client connection, whereas the load balancer opened a separate connection to IIS using its own address, which is what IIS correctly recorded",
-            "Neither address can be trusted at all, since a single incoming client request can never legitimately produce two genuinely different recorded source addresses appearing across two separate log files",
-            "Both recorded addresses are equally valid views of the exact same external client, simply expressed in slightly different notations and formats by two different security vendors' logging systems",
+            "10.44.2.7, because the web server sits nearer the application and so records the more accurate source address",
+            "45.147.230.19: the WAF saw the client's own connection, while IIS logged the load balancer's onward connection",
+            "Neither: one request with two different source addresses means one of the logs was altered, so both are suspect",
+            "45.147.230.19, because the WAF record is one second earlier, and the earlier of two logs is the original record",
           ],
           answer: 1,
           explanation:
-            "The two records disagree because they are describing two different TCP connections that together carry one logical request: the client-to-WAF connection, where the real source is visible, and the load-balancer-to-IIS connection, where the source is the load balancer itself. Neither log is wrong, and neither is closer to the truth by virtue of being nearer the application — proximity to the app is exactly what destroys source visibility here. Following 10.44.2.7 would mean investigating Larkfield's own load balancer while the real actor at 45.147.230.19 continues unbothered.",
+            "The two records describe two different connections that together carry one request: the client-to-WAF connection, where the real source is visible, and the load-balancer-to-IIS connection, where the source is the load balancer itself. Being nearer the application is exactly what loses source visibility here, so 10.44.2.7 is the less useful address, not the more accurate one — following it means investigating Larkfield's own load balancer. Two addresses for one request are expected on a proxied site, not a sign of tampering; both logs are correct about the connection each one saw. And the one-second gap is not the reason: timestamps only helped match the two records, while trust comes from which component saw the real connection — had the earlier record been IIS's, it would still show the load balancer.",
           xp: 25,
         },
         {
           question:
             "action is ALLOW and terminatingRuleId is Default_Action. What does that combination actually mean, and what does it tell you about how much protection the WAF provided here?",
           options: [
-            "A specific rule was evaluated against this exact request, judged the traffic entirely safe, and explicitly permitted it through, so the WAF has already confirmed with certainty that this traffic is benign",
-            "No rule fired at all — the encoded traversal sequence did not match any signature in the deployed rule set, so the request passed straight through to the application, which then answered it with a 200",
-            "ALLOW with no terminating rule ID present means the request was fully logged for visibility but was never actually forwarded onward to the backend application server for processing",
-            "A terminatingRuleId value of Default_Action indicates the WAF itself suffered a configuration error during evaluation, and this specific record should be discarded entirely as fundamentally unreliable",
+            "A rule inspected the request, judged it safe and explicitly allowed it, so the WAF has vouched for this traffic",
+            "No rule matched: the encoded traversal hit no signature, so the default action let it through to the application",
+            "The request was logged for visibility but held back at the WAF, so it never reached the application behind it",
+            "A managed rule blocked it, but the web ACL's default action then overrode that block and let the request through",
           ],
           answer: 1,
           explanation:
-            "This is the distinction Reading 4 flagged: a terminatingRuleId of Default_Action means evaluation ran to the end without anything matching and the web ACL's default action was applied, which is a statement about the rule set's coverage, not a clean bill of health for the request. Combined with the IIS record's 200 and its anomalous byte count, it says plainly that a traversal attempt reached the application and got an answer. A WAF never certifies traffic as benign; ALLOW means the request was forwarded, not withheld; and Default_Action is an entirely normal, correctly-emitted value that appears on the overwhelming majority of ordinary traffic.",
+            "This is the distinction Reading 4 flagged: terminatingRuleId Default_Action means evaluation ran to the end without any rule matching, and the web ACL's default action — here ALLOW — was applied. That is a statement about the rule set's coverage, not a clean bill of health; combined with the IIS record's 200 and tiny byte count, it says a traversal attempt reached the application and got an answer. No rule vouched for the request: had a rule decided it, its own name would appear in terminatingRuleId instead of Default_Action. ALLOW means forwarded, not held back — and the matching IIS line proves the request arrived. And a rule that blocks ends evaluation there (that is what “terminating” means), so the default action never gets a chance to override it; a blocked request would show action BLOCK and that rule's ID.",
           xp: 25,
         },
         {
           question:
             "You now have a confirmed source and confirmed evidence the application answered. What is the right next step?",
           options: [
-            "Add a deny rule for 45.147.230.19 directly in the web server's own local configuration, since IIS is where the request was finally received, parsed, and fully processed end to end",
-            "Block 45.147.230.19 at the WAF — the only component in the path that can actually match on that address — then search WAF logs for that same clientIp across the wider window to scope everything else it touched, and get the download endpoint's file parameter fixed",
-            "Take no action at all right now, since the WAF has already recorded the full request permanently, and that record will remain available and searchable for whenever a later review happens",
-            "Block 10.44.2.7 at the network perimeter firewall, since that is the address the web server itself faithfully recorded as the source of the incoming request in its own local access log",
+            "Add a deny rule for 45.147.230.19 in IIS, since IIS is the server that received and processed the request",
+            "Block 45.147.230.19 at the WAF, which sees that address; scope its other requests; get the file parameter fixed",
+            "Block 10.44.2.7 at the perimeter firewall, since that is the source address the web server logged for the request",
+            "Get the file parameter fixed but leave the address unblocked, since a source-IP block is easy to evade anyway",
           ],
           answer: 1,
           explanation:
-            "Blocking has to happen where the real address is actually visible, and that is the WAF — the web server never sees 45.147.230.19 at all, so a deny rule there would have nothing to match against. Scoping matters just as much as blocking: the same clientIp field is your pivot for finding every other request this actor made, and none of that is a substitute for fixing the underlying parameter handling, since a source-IP block is trivially defeated by moving to another address. Logging a request is not responding to one, and blocking 10.44.2.7 would sever Larkfield's own load balancer and take the whole site offline for everyone.",
+            "Block where the real address is visible: the WAF is the first component that sees 45.147.230.19, and its clientIp field is also your pivot for finding every other request this source made. Fixing the file parameter is still needed, because an IP block alone is easy to evade by moving address. A deny rule in IIS would have nothing to match, because IIS never sees 45.147.230.19 — every request reaches it from the load balancer's address. Blocking 10.44.2.7 would cut off Larkfield's own load balancer and take the site offline for every visitor. And fixing the parameter while leaving the source unblocked is the right fix with the wrong timing: the code change takes time, and until it ships an active source that the application is already answering keeps its access, while you still have not scoped what else it touched.",
           xp: 30,
         },
       ],
@@ -564,7 +565,7 @@ const webApplicationSecurityRoom: Room = {
       event: larkfieldSearchBlockEvent,
       correct_verdict: "false_positive",
       explanation:
-        "Decode the argument string and the picture resolves: surname=O%27Brien is simply the surname O'Brien, where %27 is the URL encoding of an apostrophe. An apostrophe is the exact character SQL injection uses to break out of a string literal, so a signature scanning for it in a parameter fires on a genuine Irish surname just as readily as on a payload — and there is no second SQL keyword, no UNION, no comment marker, no OR 1=1 anywhere in the request. Everything else corroborates the mundane reading: the source is the Bristol branch office egress address rather than an unfamiliar external one, the Referer shows the request came from the lookup page itself rather than being crafted externally, the branch parameter carries an ordinary value, and a helpdesk ticket raised the same afternoon describes staff hitting an error page on exactly this search. The correct outcome is not an escalation but a rule tuning request, because until it is fixed, staff cannot serve any customer whose surname contains an apostrophe.",
+        "Decode the argument string and the picture resolves: surname=O%27Brien is simply the surname O'Brien, where %27 is the URL encoding of an apostrophe. An apostrophe is the exact character SQL injection uses to break out of a string literal, so a signature scanning for it in a parameter fires on a genuine Irish surname just as readily as on a payload — and there is no second SQL keyword, no UNION, no comment marker, no OR 1=1 anywhere in the request. Everything else corroborates the mundane reading: the Referer header shows the request came from the lookup page itself, the branch parameter carries an ordinary value (BRS), and the helpdesk note attached under the record identifies 198.51.100.62 as the Bristol branch office egress address and quotes ticket HD-44127, raised the same afternoon, describing staff hitting an error page on exactly this kind of search. The correct outcome is not an escalation but a rule tuning request, because until it is fixed, staff cannot serve any customer whose surname contains an apostrophe.",
       fp_trap:
         "Everything about the surface of this record argues for escalation: a BLOCK action, the SQL injection managed rule group as the terminating rule, and an encoded quote character sitting in a parameter — which is genuinely the first thing real SQL injection looks like. The habit that saves you is decoding the argument string and asking what the value would mean if it were innocent, before asking what it would mean if it were hostile. Real injection needs more than a quote: it needs SQL that does something once the quote has broken out of the string, and none is present here. Escalating every SQLi-signature block without decoding the parameter and checking the source and the Referer is how analysts spend a day on a customer surname — and, worse, how a genuinely broken business function stays broken for weeks because it was filed as an attack instead of as a rule that needs tuning.",
       xp: 30,
@@ -582,7 +583,7 @@ const webApplicationSecurityRoom: Room = {
         `**The Attack, Worked Through**\n\n` +
         `A Larkfield customer is logged into the support portal; their browser is holding a valid, genuine session cookie. They then visit an unrelated site -- perhaps a link from a phishing email, perhaps just an ordinary page carrying a malicious ad -- and that page contains a form the victim never sees, styled to be invisible, with its action pointed at Larkfield's own money-handling endpoint: something equivalent to POST https://portal.larkfield.com/account/transfer with fields amount=5000 and to=attacker. A small script on the malicious page submits that form the instant the page loads, with no click required from the victim at all. The victim's browser builds the request exactly as it would for any legitimate request to that domain, attaches the real session cookie automatically, and sends it. From Larkfield's server's point of view, this is indistinguishable from the customer clicking a genuine transfer button on Larkfield's own site: the session is valid, the user is authenticated, the request is well-formed. Nothing in the request itself says it was not the customer's own idea.\n\n` +
         `**CSRF vs XSS: The Distinction That Actually Matters**\n\n` +
-        `It is easy to blur CSRF into XSS from Reading 3, and the two get confused constantly, but the mechanism is genuinely opposite. Stored or reflected XSS needs the attacker's script to actually execute inside the vulnerable site's own origin -- it is a code-injection problem, and the payload has to reach the target application's pages before it can do anything. CSRF needs none of that: no script ever runs on portal.larkfield.com, no output is ever injected into a Larkfield page, and the malicious form lives entirely on the attacker's own unrelated site the whole time. What CSRF exploits is not a flaw in what Larkfield renders, but a structural property of how browsers handle cookies -- trust that was never conditional on which page asked for the request in the first place. It is also worth separating from IDOR, from the same room: IDOR is the victim's own authenticated browser, deliberately walking through record identifiers it should not have access to. CSRF is the attacker's page, silently forcing the victim's browser to make a request the victim never intended to send at all. Same broad family -- OWASP retired CSRF as a standalone Top 10 category in 2017 because modern frameworks now default to CSRF protection, but the vulnerability itself still belongs conceptually inside A01:2021 Broken Access Control, the exact category IDOR sits in from Reading 3, because both are failures to confirm that this specific action was actually authorized for this specific request, rather than just trusting that the session is valid.\n\n` +
+        `It is easy to blur CSRF into XSS from Reading 3, and the two get confused constantly, but the mechanism is genuinely opposite. Stored or reflected XSS needs the attacker's script to actually execute inside the vulnerable site's own origin -- it is a code-injection problem, and the payload has to reach the target application's pages before it can do anything. CSRF needs none of that: no script ever runs on portal.larkfield.com, no output is ever injected into a Larkfield page, and the malicious form lives entirely on the attacker's own unrelated site the whole time. What CSRF exploits is not a flaw in what Larkfield renders, but a structural property of how browsers handle cookies -- trust that was never conditional on which page asked for the request in the first place. It is also worth separating from IDOR, from the same room: in IDOR the logged-in user IS the attacker, deliberately walking through record identifiers in their own session, and the victims are the people who own those records. CSRF is the attacker's page, silently forcing the victim's browser to make a request the victim never intended to send at all. Same broad family -- OWASP retired CSRF as a standalone Top 10 category in 2017 because modern frameworks now default to CSRF protection, but the vulnerability itself still belongs conceptually inside A01:2021 Broken Access Control, the exact category IDOR sits in from Reading 3, because both are failures to confirm that this specific action was actually authorized for this specific request, rather than just trusting that the session is valid.\n\n` +
         `**The Real Defenses**\n\n` +
         `A CSRF token is the standard fix: the server embeds a random, unpredictable value in a hidden field or a custom header on every form it renders, and checks that the same value comes back with the submission. An attacker's page, sitting on a different origin, has no way to read that token off Larkfield's page to include it -- the browser's same-origin policy blocks JavaScript on one site from reading the content of a page loaded from another -- so a forged form can send the victim's cookie automatically, but it cannot produce a valid token to go with it. The second defense sits in the cookie itself: the SameSite attribute tells the browser under what conditions to attach a cookie to a cross-site request at all. SameSite=Strict never attaches the cookie to any request that did not originate on the same site, which blocks CSRF outright but can break legitimate cross-site links into the app. SameSite=Lax, which Chrome and Edge apply by default to cookies that don't set the attribute (Firefox and Safari do not, relying on other tracking protections), still attaches the cookie to plain top-level navigation -- clicking a genuine link -- but withholds it from the kind of background, auto-submitted POST a CSRF attack relies on, which is why classic CSRF against modern, unmodified browsers is far rarer than it was a decade ago. The third layer is server-side: checking that the Origin or Referer header on a state-changing request actually matches Larkfield's own domain, rejecting anything that does not.\n\n` +
         `**Reading This in Logs**\n\n` +
@@ -612,9 +613,9 @@ const webApplicationSecurityRoom: Room = {
         "       never executes anything on the target site --\n" +
         "       it just rides the victim's browser's own\n" +
         "       automatic cookie attachment.\n" +
-        "IDOR   The victim's OWN authenticated browser, used\n" +
-        "       deliberately by the logged-in user to walk\n" +
-        "       through record identifiers they should not see.\n" +
+        "IDOR   The ATTACKER's own logged-in session, used\n" +
+        "       deliberately to walk through record identifiers\n" +
+        "       that belong to other people.\n" +
         "=======================================================",
     },
 
@@ -625,7 +626,7 @@ const webApplicationSecurityRoom: Room = {
       type: "question",
       id: "webapp-q3",
       question:
-        "A Larkfield customer, still logged into the support portal in one browser tab, opens a link in another tab to an unrelated raffle site. Moments later your WAF log shows a POST to /account/change-email arriving at the portal, carrying the customer's genuine, valid session cookie, no anti-CSRF token in the body where one is expected, and a Referer header of https://win-a-prize.example/enter.html. What does this pattern indicate, and how does it differ from an IDOR or a stored-XSS attack?",
+        "A Larkfield customer, still logged into the support portal in one browser tab, opens a link in another tab to an unrelated raffle site. Moments later your WAF log shows a POST to /account/change-email arriving at the portal with a Referer header of https://win-a-prize.example/enter.html, and the portal's application log records that the request carried the customer's genuine, valid session but not the anti-CSRF token the change-email form normally includes. What does this pattern indicate, and how does it differ from an IDOR or a stored-XSS attack?",
       options: [
         "Stored XSS: a script injected into the portal ran in the victim's browser, read the session cookie and forged the change-email request from inside Larkfield's own origin",
         "CSRF: the raffle page auto-submitted a hidden form, and the browser attached the victim's cookie by itself, so no script ever ran on Larkfield's site",
@@ -634,7 +635,7 @@ const webApplicationSecurityRoom: Room = {
       ],
       answer: 1,
       explanation:
-        "This is the textbook CSRF shape from Reading 5: a genuinely valid session cookie, a well-formed state-changing request, and the one anomaly sitting in the Referer header, which points at a domain with no legitimate business talking to Larkfield at all. It is not stored XSS, because XSS requires the attacker's script to actually execute inside the target site's own origin -- nothing here shows any injected content ever running on portal.larkfield.com, only a request that arrived FROM an unrelated external site. It is not IDOR, because IDOR is the victim's own authenticated browser being used deliberately to alter an identifier it controls; here the request was silently triggered by a page the victim never intentionally interacted with, from a domain the victim never asked to talk to Larkfield. And the claim that this is 'not CSRF' because no stolen cookie is shown gets the entire mechanism backwards: CSRF's whole premise is that the attacker never needs to steal anything -- the victim's own browser hands over the genuine cookie automatically, which is exactly what makes CSRF dangerous and exactly why a missing or invalid CSRF token, combined with a stray Referer, is the tell rather than the cookie itself.",
+        "This is the CSRF shape from Reading 5: a genuinely valid session, a well-formed state-changing request, a Referer pointing at a domain with no legitimate business talking to Larkfield, and a missing anti-CSRF token — the forged form on the raffle page could send the cookie but could not read the token from Larkfield's page. It is not stored XSS: a script running inside the portal would send the request from Larkfield's own pages, so the Referer would be a Larkfield page, and nothing here shows injected content running on portal.larkfield.com — the request arrived FROM an unrelated external site. It is not IDOR: in IDOR the logged-in user is the attacker, deliberately changing an identifier to reach someone else's record, whereas here the customer did not intend the request at all, and it acts on the customer's own account rather than on someone else's record. And “not CSRF because no stolen cookie is shown” gets the mechanism backwards: CSRF never needs to steal the cookie, because the victim's own browser attaches it automatically — which is why the missing token and the stray Referer are the tell, not the cookie.",
       xp: 25,
     },
 
@@ -650,19 +651,19 @@ const webApplicationSecurityRoom: Room = {
       items: [
         {
           id: "build",
-          text: "The browser builds the request — method, path, query string, headers and cookies — and sends it over TLS to the site's public address",
+          text: "The browser builds the request — method, path, query string, headers and cookies — and sends it over TLS (the encryption behind HTTPS) to the site's public address",
         },
         {
           id: "waf",
-          text: "The WAF terminates TLS, inspects the decrypted request against its signatures and anomaly score, and records the real client IP along with an ALLOW or BLOCK decision",
+          text: "The load balancer decrypts the TLS connection, and the WAF attached to it inspects the request, recording the real client IP and an ALLOW or BLOCK decision",
         },
         {
           id: "lb",
-          text: "The load balancer opens its own separate connection to a backend web server, placing the original client address into an X-Forwarded-For header",
+          text: "If the WAF allowed it, the load balancer opens its own separate connection to a backend web server, placing the original client address into an X-Forwarded-For header",
         },
         {
           id: "iis",
-          text: "The web server receives the request and writes an access-log line — csUriStem and csUriQuery are captured, cIP records the load balancer, and the request body is not recorded at all",
+          text: "The web server accepts that connection from the load balancer and hands the request to the application code behind it",
         },
         {
           id: "app",
@@ -674,12 +675,12 @@ const webApplicationSecurityRoom: Room = {
         },
         {
           id: "response",
-          text: "The response travels back out, and the web server completes that same log line with scStatus and scBytes",
+          text: "The web server sends the response back out and only then writes the request's single access-log line — scStatus, scBytes, query string, cIP of the load balancer, and no body",
         },
       ],
       correct_order: ["build", "waf", "lb", "iis", "app", "db", "response"],
       explanation:
-        "This ordering is the whole room in one sequence, and every lesson hangs off a specific step. The client builds the request, so by Reading 2 every part of it is attacker-controlled. The WAF is second, which is why it is the last component to see the real client IP and why its clientIp field is authoritative for attribution. The load balancer's new connection is the exact moment source visibility is lost, which is why the web server's cIP is its own infrastructure rather than the client. The access line is written with the query string but never the body, which is why POST-delivered attacks are nearly invisible there. The application is where the parameters become instructions, and the database is where an injected query finally executes — which is why the database's own audit log, not the web log, is what confirms what was actually read. And the status code and byte count are written last, which is exactly why they describe outcome rather than intent: they are the only fields in the line that know how the story ended.",
+        "This ordering is the whole room in one sequence, and every lesson hangs off a specific step. The client builds the request, so by Reading 2 every part of it is attacker-controlled. The load balancer decrypts the traffic and its attached WAF inspects the request before anything is forwarded, which is why the WAF still sees the real client IP and why its clientIp field is authoritative for attribution. The load balancer's new connection to the backend is the exact moment source visibility is lost, which is why the web server's cIP is Larkfield's own infrastructure rather than the client. The application is where the parameters become instructions, and the database is where an injected query finally executes — which is why the database's own audit log, not the web log, confirms what was actually read. And IIS writes its access-log line once, after the response has been sent: that is why the line can contain the status code and byte count, why those fields describe outcome rather than intent, and why — holding the query string but never the body — it leaves POST-delivered attacks nearly invisible.",
       xp: 35,
     },
   ],

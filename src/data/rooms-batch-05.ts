@@ -318,14 +318,14 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
       question:
         "An analyst notices that a password spray detection rule fires 200 times per day — mostly for individual users who forgot their passwords on Monday mornings. Which change is the BEST way to tune the rule and reduce these false positives without losing coverage of real spray attacks?",
       options: [
-        "Suppress the rule on Monday mornings, when forgotten passwords peak",
+        "Suppress the rule on Monday mornings, when forgotten-password failures naturally peak after the weekend",
         "Count distinct accounts failing per source IP (e.g. 10+ users in 5 minutes) and exclude only known corporate/VPN egress ranges",
-        "Exclude every account that has already triggered this alert from the rule",
-        "Lower the per-account threshold from 10 failures to 5 failures",
+        "Exclude every account that has already triggered this alert, so repeat alerts on those accounts stop firing",
+        "Lower the per-account failure threshold from 10 down to 5 so the rule reacts sooner to each account",
       ],
       answer: 1,
       explanation:
-        "A password spray is one password tried against MANY accounts from the same source, so the rule should count distinct accounts per source IP. A single user mistyping their password on Monday morning is not spraying — requiring many distinct accounts removes that noise while still catching the real attack, and a narrow exception for known-good egress IPs handles shared-NAT office traffic. Document the change and watch the alert volume afterwards. Deleting the rule entirely removes protection. Investigating all 200 alerts manually is unsustainable and defeats the purpose of automation. Lowering the threshold to 5 would make the rule even noisier, not quieter.",
+        "A password spray is one password tried against MANY accounts from the same source, so the rule should count distinct accounts per source IP. A single user mistyping their password on Monday morning is not spraying — requiring many distinct accounts removes that noise while still catching the real attack, and a narrow exception for known-good egress IPs handles shared-NAT office traffic. Suppressing the rule on Monday mornings blinds the SOC exactly when a Monday-morning spray would land, so that option trades noise for a coverage gap. Excluding every account that has already triggered the alert removes precisely the victims an attacker is targeting, so repeat attempts against them would go unseen. Lowering the per-account threshold from 10 to 5 makes the rule fire on even more forgetful users, increasing noise rather than reducing it.",
       xp: 30,
     },
 
@@ -383,6 +383,7 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
         description: "PowerShell downloading file from internet",
         mitre_technique: "T1059.001",
         raw: {
+          "@timestamp": "2025-06-24T02:14:33Z",
           "rule.name": "Suspicious PowerShell Download",
           "rule.level": "10",
           "rule.description":
@@ -395,8 +396,6 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
           "data.file.extension": ".msp",
           "data.network.dst_domain": "updates.microsoft.com",
           "rule.groups": ["powershell", "download", "network"],
-          "alert.context":
-            "svc-wsus is the Windows Server Update Services service account. WSUS-SERVER-01 is the internal patch management server. It downloads Microsoft patches nightly at 02:00 UTC.",
         },
       } as TelemetryEvent,
       questions: [
@@ -411,7 +410,7 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
           ],
           answer: 1,
           explanation:
-            "This is a classic false positive. All the context indicators point to legitimate activity: svc-wsus is the WSUS patch-management service account (not a human user), WSUS-SERVER-01 is the dedicated patch management server (as named), updates.microsoft.com is Microsoft's legitimate update domain, the parent process is wuauserv.exe (Windows Update service), and the timing (02:14 AM) matches the nightly patch download schedule. The rule is correct to flag 'PowerShell download' generically, but it lacks context awareness.",
+            "The telemetry fields themselves point to legitimate activity, with no prose verdict needed: the actor is a service account (svc-wsus), not a human; the host is named as a patch-management server (WSUS-SERVER-01); the destination is Microsoft's own update domain (updates.microsoft.com); the parent is svchost.exe, where the Windows Update service legitimately runs; and the 02:14 timing fits an overnight patch window. Note too that hashing powershell.exe in VirusTotal would return zero detections — it is a signed Microsoft binary — so the command line and destination, not the hash, are the evidence here. The rule correctly flags 'PowerShell download' generically but lacks the context to tell this benign pattern apart.",
           xp: 40,
         },
         {
@@ -425,7 +424,7 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
           ],
           answer: 2,
           explanation:
-            "The correct tuning approach is to add a specific exception (allow list entry) that excludes this exact legitimate combination: service account 'svc-wsus' on host 'WSUS-SERVER-01' downloading from 'updates.microsoft.com'. Using all three conditions together prevents attackers from abusing the exception — they would need to be on that specific machine, using that specific account, AND downloading from Microsoft's domain. Never use broad exceptions like 'exclude all PowerShell' or 'exclude svc-wsus everywhere'.",
+            "The correct tuning approach is a specific exception that excludes this exact legitimate combination: service account 'svc-wsus' on host 'WSUS-SERVER-01' downloading from 'updates.microsoft.com'. All three conditions together keep the exception tight — an attacker would need that machine, that account, and Microsoft's domain all at once to slip through. Excluding the whole server OU is far too broad: it blinds the rule across every server in the OU, not just this one benign case. Lowering the severity from High to Low only hides the alert without fixing the false positive, so analysts still wade through it. Raising the threshold to 100 download attempts would let a real dropper run 99 times before alerting, destroying coverage.",
           xp: 40,
         },
       ],
@@ -438,7 +437,7 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
       question:
         "In the context of detection rule quality, what does 'True Positive Rate' (also called Recall) measure?",
       options: [
-        "The percentage of alerts that are real threats (precision)",
+        "The percentage of the alerts it fired that turned out to be real threats",
         "The percentage of real attacks that the rule successfully detected",
         "The percentage of benign events the rule correctly leaves unalerted",
         "The average time between the start of an attack and the alert firing",
@@ -454,16 +453,16 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
       type: "question" as const,
       id: "det-rules-q5",
       question:
-        "Which MITRE ATT&CK technique does a 'Password Spray' attack fall under?",
+        "A rule flags one source IP that tried a single common password against 60 different user accounts in ten minutes, hitting each account only once. Which MITRE ATT&CK sub-technique best matches this, and what sets it apart from its neighbours?",
       options: [
-        "T1078 — Valid Accounts",
-        "T1110.001 — Password Guessing",
-        "T1110.003 — Password Spraying",
-        "T1566 — Phishing",
+        "T1110.001 — Password Guessing: many candidate passwords aimed at one targeted account",
+        "T1110.004 — Credential Stuffing: username and password pairs from prior breaches replayed",
+        "T1110.003 — Password Spraying: one shared password spread across many accounts to dodge lockout",
+        "T1078 — Valid Accounts: signing in with credentials the attacker already legitimately holds",
       ],
       answer: 2,
       explanation:
-        "Password Spraying is specifically categorized as T1110.003 in the MITRE ATT&CK framework. T1110 is the parent technique 'Brute Force', with sub-techniques: .001 Password Guessing (many passwords, one account), .002 Password Cracking (offline hash cracking), .003 Password Spraying (one password, many accounts), and .004 Credential Stuffing (username:password pairs from breaches). Spraying avoids account lockouts by trying only 1-3 passwords per account.",
+        "One password against many accounts, each hit only once, is the defining shape of Password Spraying (T1110.003) — spreading a single guess thinly avoids the per-account lockout threshold. Password Guessing (.001) is the inverse: many passwords against one account, which would trip lockout fast and does not match 60 accounts hit once each. Credential Stuffing (.004) replays full username:password pairs harvested from breaches rather than one shared password, so it would not show the same password reused everywhere. Valid Accounts (T1078) is logging in with already-obtained working credentials, which produces successes, not a wave of single failures across many accounts.",
       xp: 30,
     },
 
@@ -472,9 +471,9 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
       type: "flag" as const,
       id: "det-rules-flag1",
       prompt:
-        "You are tuning a detection rule for PowerShell downloads. The rule keeps firing on the WSUS server downloading Microsoft patches. What is the standard term for the configuration you add to a detection rule to prevent specific known-good activity from triggering an alert? (Common equivalent terms are accepted — enter any one.)",
+        "You are tuning a detection rule for PowerShell downloads that keeps firing on the patch server's known-good nightly job. Reading [3] gives a two-word term (the first word is 'exception') for the configuration you add so a specific known-good pattern no longer triggers the alert. Enter that two-word term.",
       answer: "exception list",
-      hint: "It's sometimes also called a 'whitelist' or 'allow list'. You're telling the rule: 'I already know about this activity, and it is safe — ignore it.'",
+      hint: "Reading [3]'s tuning methodology, Step 2, names it: the thing you add to a rule to say 'I already know this activity and it is safe.' Two words, beginning with 'exception'.",
       xp: 50,
     },
   ],
@@ -756,16 +755,16 @@ If the test event appears: integration is working. If not: check the agent statu
       type: "question" as const,
       id: "log-src-q1",
       question:
-        "Which log transport format uses this structure: 'CEF:Version|Vendor|Product|Version|EventClassID|Name|Severity|Extension'?",
+        "A PAN-OS firewall is sending CEF over Syslog UDP 514, and the events arrive in your SIEM — but every field is crammed into one 'message' blob instead of being broken out into src, dst, dpt, and so on. Where does the problem most likely sit, and what distinguishes transport from format here?",
       options: [
-        "Syslog RFC 5424",
-        "Common Event Format (CEF)",
-        "Log Event Extended Format (LEEF)",
-        "JSON over HTTPS",
+        "Transport — Syslog UDP 514 encrypts the payload, so the collector cannot separate the fields until a TLS session terminates the encryption first",
+        "Format parsing — Syslog (the transport) delivered the bytes fine, but no CEF parser is applied, so the CEF header and key=value extension are never split into fields",
+        "Normalization — the CEF fields were parsed correctly but not yet mapped to the common schema, which is why they still show as a single blob",
+        "Transport — the source is actually emitting LEEF, and Syslog is unable to carry LEEF, so the whole record collapses into one field",
       ],
       answer: 1,
       explanation:
-        "CEF (Common Event Format) uses exactly this pipe-delimited header structure, developed by ArcSight. The header has 7 fixed pipe-separated fields (version, vendor, product, product version, event class ID, event name, severity), followed by the extension section containing key=value pairs. CEF messages are typically transported over Syslog (UDP/TCP 514). LEEF is IBM QRadar's competing format with tab-separated fields. RFC 5424 Syslog has its own structured data format using bracket notation.",
+        "Transport and format are different layers: Syslog is how the bytes travel, CEF is how those bytes are structured. The events arrived, so transport worked; a single unparsed blob means no CEF parser broke out the pipe-delimited header and key=value extension, which is the format layer. Syslog UDP 514 is plain text, not encrypted, so the TLS explanation is wrong. A normalization gap would show parsed-but-oddly-named fields, not one undifferentiated blob, so that option misreads the symptom. Syslog carries CEF and LEEF alike, and the source here is sending CEF, so the LEEF explanation is wrong on both counts.",
       xp: 30,
     },
 
@@ -792,16 +791,16 @@ If the test event appears: integration is working. If not: check the agent statu
       type: "question" as const,
       id: "log-src-q3",
       question:
-        "A Windows endpoint is generating Security Event Logs that you want to ship to an Elasticsearch SIEM. Which agent is purpose-built for this task?",
+        "A Windows endpoint that normally ships Security events to your Elastic SIEM via Winlogbeat has sent nothing for 12 hours, yet the host is online and users are working on it. What is the best first step to diagnose the silent source?",
       options: [
-        "Fluentd — a general-purpose forwarder that most teams run on Windows endpoints",
-        "Winlogbeat — Elastic's agent built to ship Windows Event Logs",
-        "Filebeat — Elastic's agent for reading log files from disk on any host",
-        "Logstash — a pipeline server that pulls Windows Event Logs from endpoints",
+        "Assume the host is just quiet and take no action until a user reports a problem, since an ingestion gap under a day is well within normal variation",
+        "Confirm the Winlogbeat service is running on the host and can reach the SIEM, since a stopped agent or blocked outbound port is the usual cause of a silent source",
+        "Re-point the host to Filebeat, since Filebeat reads the Security event channel more reliably than Winlogbeat does over long collection periods",
+        "Rebuild the SIEM index for that host, since a corrupt destination index is the most common reason a single source stops sending events",
       ],
       answer: 1,
       explanation:
-        "Winlogbeat is specifically designed by Elastic to read Windows Event Log channels (Security, System, Application, PowerShell, Sysmon) and ship them to Elasticsearch or OpenSearch. It's the purpose-built tool for this exact use case. While NXLog and Logstash can also handle Windows Event Logs, Winlogbeat is the right tool for this specific scenario. Fluentd is more common in Linux/container environments, and Logstash is a pipeline processor (it typically receives from an agent like Winlogbeat, not directly from Windows Event Logs).",
+        "A source that was reliably sending and then went silent while the host stays online points first to the collection path on the endpoint: check that the Winlogbeat service is up and its outbound connection to the SIEM is not blocked. Treating a 12-hour gap on a monitored host as normal is exactly the complacency that lets a disabled agent hide an attack, so taking no action is wrong. Filebeat reads files on disk, not the Windows Event Log channels, so it is not a more reliable replacement for this source. A corrupt destination index would affect ingestion broadly and is diagnosed at the SIEM, not the likeliest cause of one host going quiet, so rebuilding the index is the wrong first move.",
       xp: 30,
     },
 
@@ -840,16 +839,16 @@ If the test event appears: integration is working. If not: check the agent statu
       questions: [
         {
           question:
-            "Looking at the raw CEF message, what action did the firewall take on this connection?",
+            "Reading the direction, action and ports in this single CEF record, what can you correctly conclude — and what would it be a mistake to conclude — from this one event?",
           options: [
-            "allow — the connection was permitted",
-            "block — the connection was denied",
-            "reset — the connection was terminated after being established",
-            "monitor — the connection was logged but not blocked",
+            "The attacker successfully authenticated over SSH, because act=block only means the event was written to the log, not that the connection was stopped",
+            "The firewall blocked one inbound SSH attempt (external src to dpt=22 on 10.0.1.50); to call it a brute force you would corroborate the volume of similar blocked attempts from that source over time",
+            "The internal host 10.0.1.50 is compromised, because a connection reached it on destination port 22 from an external address",
+            "This is outbound command-and-control from 10.0.1.50 to 185.220.101.45 over port 22, because the internal host initiated the session",
           ],
           answer: 1,
           explanation:
-            "The CEF extension field 'act=block' tells us the firewall action was 'block'. In CEF format, 'act' is the standard field for 'device action'. The firewall blocked the connection from external IP 185.220.101.45 to internal server 10.0.1.50 on destination port 22 (SSH). The rule that triggered is named 'block-ssh-brute' (from cs1=block-ssh-brute, cs1Label=RuleName), confirming this is a brute force blocking rule.",
+            "The fields show an external source (185.220.101.45) reaching dpt=22 on internal 10.0.1.50, with act=block, so one inbound SSH attempt was stopped — a single blocked packet is evidence of an attempt, not yet a confirmed brute force despite the rule name, which many identical attempts over time would establish. act=block means the firewall denied the connection, so the claim that it only logged and the attacker got in is wrong. Receiving one blocked attempt does not make the target compromised, so that conclusion overreaches. The source IP is the external address and the destination is internal, so reading it as outbound C2 reverses the direction.",
           xp: 40,
         },
         {
@@ -874,9 +873,9 @@ If the test event appears: integration is working. If not: check the agent statu
       type: "flag" as const,
       id: "log-src-flag1",
       prompt:
-        "Parse the CEF message below and find the destination port number:\n\n`CEF:0|Palo Alto Networks|PAN-OS|10.1|threat|general|7|rt=2025-06-24T14:32:11Z src=185.220.101.45 dst=10.0.1.50 spt=54321 dpt=22 proto=TCP act=block cs1=block-ssh-brute cs1Label=RuleName`\n\nThe destination port (dpt) is the port on the TARGET server that the attacker was trying to connect to. Enter just the number.",
-      answer: "22",
-      hint: "In CEF extension fields, 'dpt' stands for destination port. Look for 'dpt=<number>' in the extension section after the 7th pipe character.",
+        "Parse the CEF message below. The firewall blocked a connection to a destination port on the internal server. Name the application-layer service that listens on that destination port by default — the service the external source was trying to reach.\n\n`CEF:0|Palo Alto Networks|PAN-OS|10.1|threat|general|7|rt=2025-06-24T14:32:11Z src=185.220.101.45 dst=10.0.1.50 spt=54321 dpt=22 proto=TCP act=block cs1=block-ssh-brute cs1Label=RuleName`\n\nEnter the service name.",
+      answer: "SSH",
+      hint: "First locate the destination port in the extension, then recall which well-known service listens on that port by default. The answer is a protocol, not a number.",
       xp: 50,
     },
 
@@ -1708,7 +1707,7 @@ When sign-in logs show authentication from two locations too far apart to travel
       id: "entra-la1",
       heading: "Analyze This Entra ID Sign-In Log: Impossible Travel Alert",
       context:
-        "Entra ID Protection has flagged a high-risk sign-in event. The sign-in attempt was for a CEO-level account (ceo@corp.com). Examine the log details below and answer the investigation questions.",
+        "Entra ID Protection flagged this sign-in as High risk (the risk score lives in the Entra sign-in log, separate from this O365 audit record). This is the failed sign-in record for ceo@corp.com. For context, the same account had a successful, routine sign-in from New York, NY at 07:55 UTC — about 38 minutes before the event below. Examine the record and answer the investigation questions.",
       event: {
         id: "evt-entra-001",
         ts: "2025-06-24T08:33:17Z",
@@ -1733,8 +1732,6 @@ When sign-in logs show authentication from two locations too far apart to travel
           "GeoLocation.latitude": 31.2304,
           "GeoLocation.longitude": 121.4737,
           "data.office365.ExtendedProperties": [
-            { Name: "RiskLevel", Value: "High" },
-            { Name: "RiskDetail", Value: "ImpossibleTravel" },
             { Name: "UserAgent", Value: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
             { Name: "RequestType", Value: "Login:login" },
             { Name: "ResultStatusDetail", Value: "InvalidUserNameOrPassword" },
@@ -1747,16 +1744,16 @@ When sign-in logs show authentication from two locations too far apart to travel
       questions: [
         {
           question:
-            "The CEO's account shows a failed login from Shanghai, China. The CEO was confirmed to be in New York at the time of this event. Which Entra ID Protection risk detection type does this trigger?",
+            "Compare the location and timing of this sign-in with the earlier one noted in the context. Which Entra ID Protection risk detection type do those two events, taken together, most directly indicate?",
           options: [
-            "Leaked credentials — Microsoft matched this username and password against a known breach or dark-web paste site",
-            "Anonymous IP — the sign-in originates from a known Tor exit node or public anonymization proxy service",
-            "Impossible travel — the sign-in is from a location too far away to reach in the time since the last sign-in",
-            "Malware-linked IP — the source IP address appears on a threat-intelligence botnet command-and-control blocklist",
+            "Leaked credentials — Microsoft matched this username and password against a known breach corpus or dark-web paste",
+            "Anonymous IP — the sign-in originates from a known Tor exit node or a public anonymization proxy service",
+            "Impossible travel — a New York sign-in then a Shanghai one 38 minutes later is too far apart to be the same traveller",
+            "Malware-linked IP — the source address appears on a threat-intelligence botnet command-and-control blocklist",
           ],
           answer: 2,
           explanation:
-            "The ExtendedProperties in this log confirm 'RiskDetail: ImpossibleTravel'. This risk detection fires when Entra ID Protection calculates that it's physically impossible for the user to be in both their normal location (New York) and the new location (Shanghai) within the time elapsed between sign-ins. Typically this means the second sign-in is from a different person — either an attacker using stolen credentials, or someone sharing credentials. The other options (leaked credentials, anonymous IP, malware IP) are other valid detection types but are not indicated by this specific log.",
+            "The two events together are the tell: a routine New York sign-in at 07:55, then a Shanghai attempt 38 minutes later, is a distance no person could cover in that time — the definition of impossible travel, which usually means the second sign-in is a different person using the account. Leaked credentials would require a breach match, which nothing here shows. Anonymous IP would require evidence the source is a Tor or proxy node, which this record does not provide. Malware-linked IP would require the address to appear on a C2 blocklist, again not shown — so impossible travel is the only type the two events actually support.",
           xp: 40,
         },
         {
@@ -1781,9 +1778,9 @@ When sign-in logs show authentication from two locations too far apart to travel
       type: "flag" as const,
       id: "entra-flag1",
       prompt:
-        "Look at the Entra ID sign-in log above. A failed login attempt was made against the CEO's account. According to the GeoLocation fields in the log, which country did this sign-in attempt originate from?",
-      answer: "China",
-      hint: "Look at the GeoLocation fields in the raw log data. The field 'GeoLocation.country_name' contains the answer.",
+        "This sign-in failed with ErrorNumber 50126 (invalid credentials). Per this room's reading, which five-digit Entra error code would instead have appeared if the password were correct but a Conditional Access MFA requirement blocked the sign-in? Enter the code.",
+      answer: "50076",
+      hint: "Reading the error-code distinction: 50126 is a wrong-credential failure, while a different 500xx code means the credential was accepted but MFA was then demanded. Enter that MFA-required code.",
       xp: 50,
     },
 

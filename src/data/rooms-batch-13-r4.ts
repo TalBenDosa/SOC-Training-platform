@@ -102,15 +102,15 @@ const nacMasterclass = {
         "   Unknown device                 --> VLAN 30 (Guest / Internet Only)\n" +
         "   Authentication failure         --> Port blocked entirely",
       checkpoint: {
-        question: "According to the reading, what are the three principles NAC enforces, in order, before granting network access?",
+        question: "A company enables 802.1X with Active Directory credentials but deploys no posture agent. An employee connects a personal laptop whose antivirus is disabled, logs in successfully and lands in VLAN 10 (full corporate access). Which of the three NAC principles did this deployment skip?",
         options: [
-          "Authenticate, assess, authorize",
-          "Authorize, authenticate, assess",
-          "Assess, authenticate, authorize",
-          "Encrypt, authenticate, log",
+          "Assess — nothing verified that the laptop itself was healthy",
+          "Authenticate — a password proves the user but not the device",
+          "Authorize — ISE granted VLAN 10 before the user had logged in",
+          "Encrypt — 802.1X never protected the laptop's network traffic",
         ],
         answer: 0,
-        explanation: "The reading lists the three NAC principles in order: first authenticate (prove identity), second assess (verify device health), and third authorize (grant minimum necessary access based on identity and health).",
+        explanation: "The reading's three principles are authenticate (prove identity), assess (verify device health) and authorize (grant minimum access based on identity AND health). Here the AD login proved who the user is, so authentication happened — the reading accepts user identity via AD credentials OR device identity via certificate, so ‘a password proves the user but not the device’ does not mean authentication was skipped. Authorization also happened after the login (VLAN 10 was assigned once the user authenticated), so ‘granted before the user logged in’ contradicts the scenario. ‘Encrypt’ is not one of the three NAC principles at all. What was missing is assessment: with no posture agent, nobody checked that AV was running, so a disabled-AV personal laptop received the same access as a compliant corporate one.",
       },
     },
     // ── Reading 2 ──────────────────────────────────────────────────────────────
@@ -210,15 +210,15 @@ const nacMasterclass = {
         "  EAP-FAST    Not needed    Optional      PAC        Moderate\n\n" +
         "  * PEAP is vulnerable if clients do not validate the server certificate.",
       checkpoint: {
-        question: "According to the reading, why is EAP-TLS considered the 'gold standard' EAP method?",
+        question: "Wireless monitoring reports an unknown access point broadcasting the corporate SSID in the lobby. Some laptops use EAP-TLS, others use PEAP with MS-CHAPv2. Which group is least exposed to credential capture if a user connects to that AP, and why?",
         options: [
-          "It uses mutual certificate authentication with no password required, making it resistant to password spray, phishing, and credential theft",
-          "It is simply the fastest of all EAP authentication methods available in 802.1X, typically completing the entire handshake in well under one second",
-          "It requires no PKI infrastructure at all — it authenticates using a single shared secret configured on the RADIUS server rather than per-device certificates, which makes it far simpler to roll out",
-          "It is the only EAP method supported by Cisco ISE, so any organisation running a different NAC vendor cannot implement this authentication type at all",
+          "EAP-TLS — the client proves identity with a certificate, so no password is sent",
+          "PEAP — the TLS tunnel hides the password from any server sitting on the path",
+          "PEAP-MSCHAPv2 — challenge-response means the password itself is never exposed",
+          "All are equal — a rogue AP cannot reach Active Directory to check any login",
         ],
         answer: 0,
-        explanation: "The reading states that EAP-TLS uses mutual authentication via client and server certificates with no username or password needed, making it resistant to password spray, phishing, and credential theft — though it requires a PKI to issue certificates.",
+        explanation: "EAP-TLS uses mutual certificate authentication with no username or password, so a rogue server has no reusable password to collect — the reading calls it resistant to password spray, phishing and credential theft. ‘The TLS tunnel hides the password’ is the classic PEAP misconception: the tunnel is built to whatever server answers, so if the client does not validate the server certificate the rogue RADIUS server is the tunnel endpoint and receives the inner exchange (the reading lists this rogue-RADIUS weakness for PEAP). ‘Challenge-response means the password is never exposed’ ignores that the captured MS-CHAPv2 exchange is exactly the credential material the reading’s evil-RADIUS technique harvests. ‘A rogue AP cannot reach AD’ confuses validating a login with capturing it — the attacker does not need AD, only the credentials the supplicant hands over.",
       },
     },
     // ── Reading 4 ──────────────────────────────────────────────────────────────
@@ -336,15 +336,15 @@ const nacMasterclass = {
         "  Corp EDR agent               Running              NonCompliant\n" +
         "  Unauthorized VPN software    Absent               Warning only",
       checkpoint: {
-        question: "According to the reading, what is the difference between a 'persistent agent' and a 'temporal agent' in NAC posture assessment?",
+        question: "A visiting auditor's unmanaged laptop must pass a posture check before it receives limited access. IT will not leave any software installed on it. Which posture mechanism fits this case?",
         options: [
-          "The persistent agent is installed permanently on managed corporate devices and reports continuously; the temporal agent is a dissolvable executable used for unmanaged/guest devices that deletes itself after the check",
-          "The persistent agent runs once per year during an annual compliance audit and then goes dormant, while the temporal agent runs continuously in the background on every single network connection a device makes",
-          "The temporal agent is permanently installed only on managed corporate laptops and desktops, while the persistent agent is the disposable, browser-based tool used for unmanaged guest and BYOD devices",
-          "There is no functional or technical difference between them at all — persistent and temporal are simply two interchangeable marketing terms different NAC vendors use for the exact same posture-check agent",
+          "A temporal (dissolvable) agent from the captive portal that deletes itself after the check",
+          "A persistent agent pushed by IT that reports to the ISE policy node over HTTPS",
+          "No agent — the RADIUS Access-Request from the switch already carries the posture data",
+          "The built-in Wired AutoConfig supplicant, which runs posture checks during 802.1X",
         ],
         answer: 0,
-        explanation: "The reading explains that the persistent agent runs continuously on managed corporate devices for real-time posture monitoring, while the temporal (dissolvable/web) agent is a small executable downloaded for unmanaged or guest devices that runs the check once and then deletes itself.",
+        explanation: "For unmanaged or guest devices the reading describes the temporal (dissolvable/web) agent: ISE redirects the browser to a captive portal, the user runs a small executable, it reports the results and deletes itself — nothing stays installed. A persistent agent is the right tool for managed corporate devices, but it is permanently installed, which this case rules out. ‘RADIUS already carries the posture data’ is wrong: the reading says RADIUS carries only the authentication exchange between switch and ISE, and the posture report comes from an agent. The native Wired AutoConfig supplicant handles authentication only; posture capability is what a vendor agent adds on top of it.",
       },
     },
     // ── Reading 6 ──────────────────────────────────────────────────────────────
@@ -448,15 +448,15 @@ const nacMasterclass = {
         "  CDP/LLDP data from switch -> Device model identified\n" +
         "  Profile matched          --> AuthZ policy conditions updated",
       checkpoint: {
-        question: "According to the reading, which Cisco ISE node role handles live RADIUS authentication requests and posture assessment queries?",
+        question: "802.1X logins on two floors are timing out, and the access switches log that their configured RADIUS servers are not responding. Administrators can still open the ISE configuration console, and yesterday's authentication reports load normally. Which component is the most likely point of failure?",
         options: [
           "Policy Service Node (PSN)",
           "Policy Administration Node (PAN)",
           "Monitoring and Troubleshooting Node (MnT)",
-          "Guest Portal Node (GPN)",
+          "The access switch (authenticator)",
         ],
         answer: 0,
-        explanation: "The reading describes the Policy Service Node (PSN) as 'the workhorse' that handles all live RADIUS authentication requests and runs posture assessment queries, while the PAN hosts the configuration interface and the MnT collects logs and reports.",
+        explanation: "The PSN is the node that answers live RADIUS requests and runs posture queries, so ‘RADIUS servers not responding’ points to it. The PAN hosts the configuration interface, which still opens, so it is not the bottleneck. The MnT collects logs and serves reports, which still load, and it does not answer RADIUS anyway. The access switch is the component reporting the timeout — it is sending requests and waiting for replies, so the enforcement side is working; the missing piece is the node that should be making the decision.",
       },
     },
     // ── Reading 8 ──────────────────────────────────────────────────────────────
@@ -565,15 +565,15 @@ const nacMasterclass = {
         "  Cloud NAC (Entra CA + Intune):   SaaS apps, remote workers\n" +
         "  SASE:                             All-location, all-app unified",
       checkpoint: {
-        question: "According to the reading, which technologies does SASE (Secure Access Service Edge) converge into a unified cloud-delivered service?",
+        question: "Which set of components matches the reading's definition of SASE (Secure Access Service Edge)?",
         options: [
-          "SD-WAN plus the cloud security stack: SWG, CASB, ZTNA, and FWaaS",
-          "EDR, SIEM, SOAR, and UEBA",
-          "Firewall, IDS, IPS, and WAF",
-          "RADIUS, LDAP, Kerberos, and SAML",
+          "SD-WAN plus a cloud security stack of SWG, CASB, ZTNA, and FWaaS",
+          "SD-WAN plus a cloud security stack of SWG, CASB, NAC, and FWaaS",
+          "SWG, CASB, and ZTNA delivered from the cloud, with no SD-WAN part",
+          "On-premises NAC, a SIEM, and a cloud firewall managed in one console",
         ],
         answer: 0,
-        explanation: "SASE (Gartner, 2019) converges SD-WAN networking with a cloud-delivered security stack — SWG (Secure Web Gateway), CASB (Cloud Access Security Broker), ZTNA (Zero Trust Network Access) and FWaaS (Firewall as a Service). NAC is not a SASE pillar; ZTNA is the piece that makes the per-session 'user + device' access decision for applications. EDR/SIEM/SOAR/UEBA are SOC detection-and-response tools, IDS/IPS/WAF are individual inspection controls, and RADIUS/LDAP/Kerberos/SAML are authentication protocols — none of those sets describes SASE.",
+        explanation: "The reading defines SASE (Gartner, 2019) as converging networking — SD-WAN — with a cloud-delivered security stack: SWG, CASB, ZTNA and FWaaS. Swapping ZTNA for NAC is the common mistake the reading calls out: NAC is not a SASE pillar; ZTNA is the component that takes over the per-session ‘user + device’ access decision for applications, while on-premises NAC keeps guarding physical ports. The cloud security stack without SD-WAN is only half of the convergence — SASE is defined by bringing the networking side and the security side together. On-premises NAC plus a SIEM in one console is a management consolidation, not the cloud-delivered, per-session enforcement the reading describes.",
       },
     },
     // ── Reading 10 ─────────────────────────────────────────────────────────────
@@ -641,16 +641,16 @@ const nacMasterclass = {
       type: "question" as const,
       id: "nac-q1",
       question:
-        "What happens to a network switch port configured for 802.1X BEFORE the endpoint has successfully authenticated?",
+        "An engineer connects a laptop to an 802.1X-enabled access port. While authentication is still in progress, the laptop's DHCP Discover messages get no reply and it has no IP address. What best explains this?",
       options: [
-        "The port sits in a guest VLAN state, forwarding internet-bound traffic only until authentication completes",
-        "The port is UNAUTHORIZED and passes only EAPOL frames until the endpoint authenticates successfully",
-        "The port forwards DHCP and DNS only, so the endpoint can obtain an address before it authenticates",
-        "The port stays administratively down until the RADIUS server pushes an Access-Accept that enables it",
+        "The port sits in a guest VLAN whose DHCP scope stays closed until authentication completes",
+        "The port is UNAUTHORIZED and forwards only EAPOL frames until the endpoint authenticates",
+        "The switch holds DHCP back until ISE has profiled the device from its CDP and LLDP data",
+        "The port stays administratively down until ISE sends an Access-Accept that enables it",
       ],
       answer: 1,
       explanation:
-        "In 802.1X, a switch port is configured in UNAUTHORIZED state by default. In this state, the port ONLY passes EAPOL (EAP over LAN) frames — the authentication messages between the supplicant and the switch. No regular network traffic (IP, DHCP, HTTP) can pass until authentication succeeds. Once the RADIUS server sends an Access-Accept, the switch transitions the port to AUTHORIZED state and traffic flows normally.",
+        "Before authentication succeeds, an 802.1X port is UNAUTHORIZED and passes only EAPOL (EAP over LAN) frames — no IP, DHCP, DNS or HTTP — so the DHCP Discover is dropped; after the Access-Accept the port becomes AUTHORIZED and DHCP works. A guest VLAN is an authorization RESULT that ISE or the switch assigns, not the pre-authentication state, and the reading puts guests on an internet-capable VLAN with working DHCP. Profiling does not gate DHCP — ISE profiling is passive and actually uses DHCP options as one of its inputs. An administratively down port would carry no frames at all, including EAPOL, so authentication could never start.",
       xp: 20,
     },
     // ── Question 2 ─────────────────────────────────────────────────────────────
@@ -658,16 +658,16 @@ const nacMasterclass = {
       type: "question" as const,
       id: "nac-q2",
       question:
-        "A corporate laptop connecting to the office network fails Cisco ISE posture assessment because it has not received Windows security patches for 45 days. What is the MOST LIKELY outcome based on standard NAC policy?",
+        "For months ISE has profiled the endpoint behind MAB entry 0C:4B:7E:21:9A:F3 as a network printer in VLAN 40. Today that same MAC authenticates via MAB on a switch port on another floor, and the ISE profiler now reports Windows DHCP options and a desktop browser User-Agent for it. What is the most likely explanation?",
       options: [
-        "The laptop is blocked outright with no network access until IT manually approves a policy exception",
-        "The laptop is moved to a quarantine VLAN reaching only a remediation server, and the user is redirected to a self-service portal",
-        "The laptop gets full corporate access, with a warning banner asking the user to install the missing patches",
-        "The laptop is moved to the Guest VLAN with internet-only access, so it can pull patches directly from Microsoft",
+        "A printer firmware update changed the DHCP fingerprint the device sends",
+        "A Windows host has copied the printer's MAC to pass MAC Authentication Bypass",
+        "A hub was inserted on the printer's port, adding a second MAC behind it",
+        "The printer's 802.1X certificate expired, so ISE fell back to profiling it",
       ],
       answer: 1,
       explanation:
-        "Standard NAC posture policy places non-compliant devices in a Quarantine VLAN (not full block, not guest). The quarantine VLAN restricts access to ONLY the remediation infrastructure: Windows Update servers, AV update servers, and the ISE self-service remediation portal. The user is redirected to a web page explaining what is wrong and how to fix it. Full block would prevent remediation; guest VLAN is for unknown devices; quarantine with remediation path is the industry-standard approach.",
+        "This is the MAC-spoofing pattern from the NAC-bypass reading: MAB only checks that the MAC is on the approved list, so a laptop using the printer's MAC is admitted, but the profiler sees traffic inconsistent with a printer (Windows DHCP options, a browser User-Agent) and raises a profile mismatch — the alert the SIEM should fire on for a MAB endpoint. A firmware update might alter some DHCP details, but it would not make a printer send a Windows option set and a desktop browser User-Agent, nor move it to another floor. Hub insertion shows up as an EXTRA MAC on the same port (a SECURITY_VIOLATION / multiple-MAC condition), not the same MAC with a new profile on a different port. Printers sit on MAB precisely because they cannot do 802.1X, so there is no 802.1X certificate to expire.",
       xp: 25,
     },
     // ── Question 3 ─────────────────────────────────────────────────────────────
@@ -675,16 +675,16 @@ const nacMasterclass = {
       type: "question" as const,
       id: "nac-q3",
       question:
-        "What is the key difference between RADIUS and LDAP in the context of network authentication?",
+        "During an outage review, the access switches show RADIUS replies arriving promptly from ISE, yet every user login is rejected and ISE reports that it cannot reach the user directory. Which statement correctly places the failure?",
       options: [
-        "LDAP is how the switch asks ISE for an access decision, while RADIUS is how ISE reads group memberships from Active Directory",
-        "RADIUS carries the switch's access request to the authentication server; LDAP is how that server queries the user directory such as Active Directory",
-        "RADIUS authenticates only wired 802.1X ports, while LDAP handles wireless authentication through the controller",
-        "RADIUS stores account credentials in its own database, while LDAP only assigns VLANs and ACLs after authentication succeeds",
+        "The switch-to-ISE RADIUS leg failed; ISE's lookup to the directory is unaffected",
+        "The RADIUS leg works; the failure is ISE's own back-end query to Active Directory",
+        "The switch queries AD directly over LDAP, so the switch's LDAP settings are broken",
+        "The endpoint's supplicant lost its LDAP session to the domain controller mid-login",
       ],
       answer: 1,
       explanation:
-        "RADIUS and LDAP serve different roles in the authentication chain. The switch (authenticator) speaks RADIUS to Cisco ISE: 'Should this user be allowed in?' ISE then speaks LDAP (or Kerberos) to Active Directory to validate the user's credentials and group memberships. LDAP is a directory protocol for reading user data; RADIUS is an authentication and authorization protocol for network access decisions. ISE sits between them: RADIUS inbound from switches, LDAP outbound to AD.",
+        "RADIUS is the access-decision protocol between the switch and ISE; LDAP is the directory protocol ISE itself uses toward Active Directory. Prompt RADIUS replies prove the switch-to-ISE leg is healthy, and ISE’s own ‘cannot reach the directory’ error places the break on its back-end AD query — so ‘the RADIUS leg failed’ contradicts the evidence. The switch never talks to AD: it only forwards the request to ISE, which is the whole point of separating enforcement from decision. The supplicant also never holds an LDAP session — it sends its credentials inside EAP to the switch, which relays them to ISE.",
       xp: 25,
     },
     // ── Log Analysis ───────────────────────────────────────────────────────────
@@ -700,42 +700,42 @@ const nacMasterclass = {
           question:
             "The cisco.ise.selected_vlan field shows VLAN-50-QUARANTINE and cisco.ise.acl shows ACL-QUARANTINE-REMEDIATION. Together, what do these two fields tell you about the access this device has received?",
           options: [
-            "The device has been completely and permanently blocked from the network — VLAN-50 provides no network access whatsoever and the ACL denies every single packet, including remediation traffic",
-            "The device is in quarantine VLAN 50 with access restricted by an ACL — likely allowing only remediation server traffic (Windows Update, AV updates, ISE portal) and blocking all corporate resources",
-            "The device has full, unrestricted corporate network access identical to a fully compliant machine, with the only difference being that its activity is logged more verbosely for later audit review",
-            "The device has been moved into the guest WiFi network, which provides unrestricted internet-only access with no visibility into or restriction on the corporate LAN segments",
+            "The port is effectively blocked: VLAN 50 has no routes and the ACL drops all traffic",
+            "The device is isolated in VLAN 50, and the ACL limits it to remediation services",
+            "The device keeps corporate access; the ACL merely tags its traffic for audit logging",
+            "The device is in the guest segment with internet-only access until it re-authenticates",
           ],
           answer: 1,
           explanation:
-            "VLAN-50-QUARANTINE isolates the device into a restricted network segment. The ACL-QUARANTINE-REMEDIATION Access Control List then further limits what traffic is permitted within that VLAN — typically allowing only: the ISE remediation portal, Windows Update servers (port 443 to microsoft.com), and the corporate AV update server. This gives the device enough access to fix its compliance issues without allowing it to touch corporate servers or other endpoints.",
+            "VLAN-50-QUARANTINE places the device in the quarantine segment, and ACL-QUARANTINE-REMEDIATION limits it to remediation resources — the reading lists the ISE portal, Windows Update and the AV update server — while corporate servers stay out of reach. ‘Effectively blocked’ does not fit this event: an authentication failure would be an Access-Reject with no VLAN at all, whereas here ISE returned a VLAN, an ACL and a url-redirect to its own portal, which would be pointless if no traffic could pass. ‘Keeps corporate access’ contradicts the QUARANTINE authorization profile ISE selected — a remediation ACL restricts traffic, it does not just log it. The guest segment is a different result (VLAN 30, internet only); quarantine does not give general internet access.",
           xp: 25,
         },
         {
           question:
-            "The cisco.ise.posture_failure_reasons field shows 'AntivirusDefinitionOutOfDate, MissingWindowsPatches'. From a SOC analyst perspective, why is an out-of-date AV definition a significant security concern that justifies quarantine?",
+            "The cisco.ise.posture_failure_reasons field shows 'AntivirusDefinitionOutOfDate, MissingWindowsPatches'. Which triage assessment of this combination is most accurate?",
           options: [
-            "It is not a significant concern at all — antivirus signature updates only affect low-skill commodity malware, and modern, sophisticated attacks never rely on any malware that traditional signature-based AV could ever catch",
-            "Out-of-date AV definitions mean the endpoint cannot detect malware variants released in the past 45 days. Combined with missing patches, this device is highly vulnerable and could be a vector for introducing malware into the corporate network",
-            "Out-of-date AV is primarily a documentation and compliance issue that auditors care about for the annual report, not something that creates any real operational security risk to the organisation",
-            "AV definitions are always automatically and silently updated in the background by Windows Update on every endpoint, so an out-of-date signature is likely just a temporary reporting lag that resolves itself within minutes",
+            "Low risk: current attacks seldom use malware that signature-based AV would detect",
+            "Elevated risk: AV may miss recent malware and missing patches leave known flaws open",
+            "Audit finding only: it matters for compliance reports but not for live network risk",
+            "Confirmed compromise: stale AV plus missing patches shows malware disabled updates",
           ],
           answer: 1,
           explanation:
-            "AV signatures are released multiple times per day to address newly discovered malware. A device with 45-day-old signatures cannot detect any malware family introduced in the past 45 days. Combined with missing Windows patches (which fix exploitable vulnerabilities), this device presents a high risk: if it connects to the corporate network, it could be exploited by recently patched vulnerabilities and could spread malware that its AV cannot detect. Quarantine until remediation is the correct security posture.",
+            "Stale signatures mean the AV may not recognise recently released malware, and missing patches leave publicly known vulnerabilities exploitable — together the device is both easier to infect and less likely to notice it, which is why the policy quarantines it. ‘Low risk because attacks seldom use detectable malware’ overstates one truth: plenty of intrusions still drop commodity tooling that current signatures catch, and the patch gap is a separate exposure. ‘Audit finding only’ ignores that the reading treats posture failures as high-value SOC signals, not paperwork. ‘Confirmed compromise’ goes too far the other way: the reading lists a disabled AV as a possible ransomware indicator and long-offline devices as possible dormant compromises — leads to investigate (check EDR and when the device was last seen), not proof from this log alone.",
           xp: 20,
         },
         {
           question:
             "The cisco.ise.cisco_av_pair field contains 'url-redirect=https://ise-psn-01.corp.local/guestportal/gateway'. What is the purpose of this attribute, and what will the user experience?",
           options: [
-            "This is simply an error message — the url-redirect attribute only appears when authentication has already failed, and its sole purpose is to point the user's browser to the IT helpdesk contact page",
-            "When the user opens a web browser, their HTTP requests will be intercepted by the switch and redirected to the ISE remediation portal. The portal will explain what failed and provide instructions or automated tools to fix the compliance issues",
-            "This cisco_av_pair attribute is used only to trigger an automated email to the device owner explaining the quarantine reason, but it has no effect on what the user's web browser actually displays",
-            "The URL simply points to the address of the corporate Windows Update server, and the device is expected to connect there directly and silently to download its own remediation updates without further redirection",
+            "It marks a failed authentication and sends the browser to the IT helpdesk page",
+            "The switch intercepts the user's web requests and sends them to the ISE remediation portal",
+            "The switch rewrites DNS replies so that every hostname resolves to the ISE portal",
+            "It is the patch server's address, which the agent contacts silently to fetch updates",
           ],
           answer: 1,
           explanation:
-            "The url-redirect Cisco AV-pair is a RADIUS attribute sent by ISE to the switch. The switch is instructed to intercept all HTTP (port 80) requests from this endpoint and redirect the browser to the ISE captive portal URL. The user opens a browser, tries to visit any website, and instead sees the ISE remediation page: 'Your device was quarantined for the following reasons: AV out of date, missing patches. Click here to update.' Some organizations configure the portal to automatically push updates; others provide instructions for IT to remediate manually.",
+            "url-redirect is a Cisco AV-pair that ISE returns inside the Access-Accept; the switch intercepts the endpoint's web traffic (the traffic selected by url-redirect-acl) and sends the browser to the ISE portal, where the user sees why the device was quarantined and how to remediate it. It is not a failure marker: a failed authentication is an Access-Reject that leaves the port unauthorized, and a reject carries no redirect — this event matched an authorization rule and returned a VLAN and ACL. DNS rewriting is a different captive-portal technique; the reading’s mechanism is the switch redirecting web requests, while name resolution itself is untouched. The URL points to ise-psn-01, an ISE policy node’s guest/remediation portal, not to a Windows Update or AV update server.",
           xp: 25,
         },
       ],
@@ -745,9 +745,9 @@ const nacMasterclass = {
       type: "flag" as const,
       id: "nac-f1",
       prompt:
-        "Look at the NAC log event. What is the MAC address of the quarantined endpoint? (Find it in the cisco.ise.endpoint_mac_address field. Enter it exactly as shown.)",
-      answer: "3C:22:FB:A1:D7:09",
-      hint: "Look for cisco.ise.endpoint_mac_address in the raw field of the event.",
+        "In ISE, an authorization RULE holds the conditions a request must match, and the authorization PROFILE is the result that rule returns to the switch (VLAN, ACL, redirect). In the quarantine event, which authorization rule did this endpoint match? Enter the rule name exactly as logged.",
+      answer: "Posture-NonCompliant",
+      hint: "Two cisco.ise.* fields describe the authorization step: one names the policy match, the other names what was sent to the switch.",
       xp: 30,
     },
   ],

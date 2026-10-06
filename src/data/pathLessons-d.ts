@@ -202,80 +202,80 @@ const lessons = [
         "question": "A detection engineer writes a rule once in Sigma (a vendor-neutral YAML format), stores it in git, has it peer-reviewed, and then converts it to both KQL for Sentinel and SPL for Splunk. What is the primary advantage of this 'detection-as-code' approach over typing the rule directly into a SIEM's web console?",
         "options": [
           {
-            "label": "There is no real advantage; typing rules straight into each SIEM's console by hand is functionally identical and the extra Sigma and git steps only add pointless overhead with no benefit to the SOC",
+            "label": "Sigma rules run natively inside every SIEM with no conversion step, so the team skips writing any KQL or SPL and deploys the YAML file directly",
             "value": "a"
           },
           {
-            "label": "The rule becomes portable across SIEMs, version-controlled with a reviewable history, testable before deployment, and shareable with the community — detections become durable, reproducible engineering artifacts instead of fragile, invisible console clicks",
+            "label": "The rule becomes portable across SIEMs, version-controlled and reviewable, and testable before deployment — detections become durable engineering artifacts rather than fragile, invisible console clicks",
             "value": "b"
           },
           {
-            "label": "It makes the detection rule run faster inside the SIEM at query time, because YAML executes more efficiently than native KQL or SPL and therefore reduces the load on the search cluster",
+            "label": "One converted rule queries every connected SIEM at once from a single console, so the team no longer maintains a separate deployment per platform",
             "value": "c"
           },
           {
-            "label": "It automatically guarantees the detection has zero false positives, since any rule written in Sigma format is mathematically proven correct by the conversion process before it is ever deployed",
+            "label": "It removes the need to tune the rule after deployment, because the peer review in git catches and resolves every false positive before the rule is ever released",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Detection-as-code with Sigma gives portability (one rule converts to KQL, SPL, Elastic), a version-controlled and reviewable history, testing before deployment, and community sharing — turning detections into durable, reproducible engineering artifacts rather than fragile console clicks that vanish when their author leaves. The option “There is no real advantage; typing rules…” dismisses those concrete benefits. The option “It makes the detection rule run faster…” invents a runtime-performance claim; Sigma is authoring-time, then converted to native queries. The option “It automatically guarantees the detection has zero…” is false — no format proves a detection correct or free of false positives."
+        "explanation": "Detection-as-code with Sigma gives portability (one rule converts to KQL, SPL, Elastic), a version-controlled and reviewable history, testing before deployment, and community sharing — turning detections into durable, reproducible engineering artifacts rather than fragile console clicks that vanish when their author leaves. The option that Sigma “run[s] natively inside every SIEM with no conversion step” is wrong: Sigma is an authoring format that must be converted into each platform's native query language. The option that one converted rule “queries every connected SIEM at once from a single console” is wrong: conversion still produces per-platform rules that are deployed and maintained separately. The option that it “removes the need to tune the rule after deployment” is wrong: peer review improves quality but does not eliminate the real-world tuning every rule needs once it meets live data."
       },
       {
         "question": "An investigation stalls: the analyst cannot determine how the attacker first got in because the organisation never onboarded logs from its internet-facing VPN appliance into the SIEM. What is the correct professional output, and what does this illustrate about SIEMs?",
         "options": [
           {
-            "label": "Simply close the case as 'inconclusive' with no further note, because if the SIEM has no data on the initial access then there is genuinely nothing more the analyst can meaningfully contribute to the organisation",
+            "label": "Close the case as 'inconclusive' without recording why, since the missing initial-access data cannot be recovered after the fact and noting the gap changes nothing now",
             "value": "a"
           },
           {
-            "label": "Report a named coverage gap — 'could not confirm initial access because we do not ingest the VPN appliance's logs' — which drives onboarding that source; it illustrates that a SIEM can only detect what it collects, so a visibility gap is itself a finding",
+            "label": "Report a named coverage gap — initial access cannot be confirmed because the VPN appliance's logs are not ingested — which drives onboarding that source; a SIEM only detects what it collects, so the gap is itself a finding",
             "value": "b"
           },
           {
-            "label": "Write a more sophisticated correlation rule against the existing data, because with a sufficiently clever query the analyst can always reconstruct events from a source that was never actually collected",
+            "label": "Reconstruct the initial access from the endpoint and firewall logs you do hold by correlating the VPN concentrator's internal peers, since adjacent sources usually stand in for the missing one",
             "value": "c"
           },
           {
-            "label": "Assume the VPN appliance was not involved, since anything important would obviously have been collected already, and therefore rule out that entire path from the investigation with confidence",
+            "label": "Treat the empty result as a short-term retention issue, enable packet capture going forward, and simply re-run the same query next week once more data has aged in",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A SIEM can only detect what it ingests, so an un-onboarded source is a blind spot no query can recover. The professional output is to name the coverage gap explicitly, which is more valuable than 'inconclusive' because it drives onboarding the missing source and tells the organisation exactly where it is defenceless. The option “Simply close the case as 'inconclusive' with…” wastes that contribution. The option “Write a more sophisticated correlation rule against…” is impossible — no rule reconstructs data that was never collected. The option “Assume the VPN appliance was not involved…” makes an unfounded assumption from the very gap that needs closing, exactly the wrong inference."
+        "explanation": "A SIEM can only detect what it ingests, so an un-onboarded source is a blind spot no query can recover. The professional output is to name the coverage gap explicitly, which is more valuable than 'inconclusive' because it drives onboarding the missing source and tells the organisation exactly where it is defenceless. Closing as 'inconclusive' without recording why wastes that contribution and leaves the blind spot in place. Reconstructing initial access from adjacent endpoint and firewall logs cannot substitute for a source that was never collected — the VPN appliance's own authentication record simply is not there. Treating it as a retention issue misdiagnoses the cause: the data is missing because the source was never onboarded, not because it aged out, so re-running the query next week changes nothing."
       },
       {
-        "question": "In the worked password-spray example, after enrichment you find that one of the fourteen targeted accounts, a finance manager, shows a successful sign-in in the middle of the failures with no MFA challenge recorded, from an IP flagged as a Tor exit node. What is the correct read of this evidence?",
+        "question": "A post-incident review finds that a real data-theft intrusion ran undetected for days, and none of your SIEM rules ever alerted on it even though the relevant logs were being collected. In detection terms, which outcome is this, and what should it drive?",
         "options": [
           {
-            "label": "The single success is noise, since thirteen of fourteen accounts failed, so the alert should close as a false positive",
+            "label": "A true negative — the rules correctly stayed silent because nothing in the collected data matched them, so no detection change is warranted",
             "value": "a"
           },
           {
-            "label": "The success sits inside the spray window, comes from a flagged IP, and bypassed MFA — that combination is strong evidence of account compromise and should be escalated",
+            "label": "A false negative — a real attack went undetected, which should drive a detection-gap review of whether the data, the rules, or the thresholds let it through",
             "value": "b"
           },
           {
-            "label": "Nothing can be concluded until the rule fires a second time from the same IP, so the alert should stay open with no action taken",
+            "label": "A benign true positive — the activity was real but authorized, so it is closed with a written justification and the rules are left unchanged",
             "value": "c"
           },
           {
-            "label": "The finance manager's laptop should be isolated immediately, since isolating the endpoint is the correct response to any identity-based alert",
+            "label": "A false positive — the rules were too broad and fired on activity that later turned out to be ordinary background noise rather than an intrusion",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A success embedded inside a failure stream, from a threat-intel-flagged IP, with no MFA challenge recorded, is exactly the kind of corroborating evidence that turns a volume-based alert into a likely compromise — the correct disposition is escalation with that evidence cited. The option “The single success is noise, since thirteen…” ignores the one data point that matters most. The option “Nothing can be concluded until the rule…” gives the attacker free dwell time waiting on a second trigger. The option “The finance manager's laptop should be isolated…” confuses domains: this is an identity/sign-in alert with no host entity identified, so endpoint isolation is not the applicable response — the action here is credential reset and session revocation."
+        "explanation": "A real attack that occurred but produced no alert is a false negative — the most expensive disposition, because it is a miss no one saw at the time. With the logs confirmed as collected, it should drive a detection-gap review: were the right rules present, were their thresholds too loose, was the behaviour simply not modelled. A true negative is the correct absence of an alert when nothing malicious happened, which is not the case here. A benign true positive describes an alert that fired on real but authorized activity, but here nothing fired at all. A false positive describes an alert that fired on benign activity, again the opposite of a silent miss."
       },
       {
         "question": "A firewall vendor offers to export its logs in either CEF or LEEF format to your SIEM. What is the most accurate description of the difference between the two, and why does it matter for ingestion?",
         "options": [
           {
-            "label": "CEF and LEEF are two names for the exact same byte-for-byte format, so either export option can be ingested by the same parser with zero configuration change",
+            "label": "CEF and LEEF share one pipe-delimited header, so a single parser ingests either as long as you remap the key names afterwards — the export choice is cosmetic",
             "value": "a"
           },
           {
-            "label": "CEF (ArcSight's format) and LEEF (QRadar's format) both use a pipe-delimited header plus structured key-value pairs, but they are distinct, incompatible dialects, so the SIEM needs a parser that matches whichever one the device actually sends",
+            "label": "CEF (ArcSight) and LEEF (QRadar) both use a pipe-delimited header plus structured key-value pairs, but they are distinct, incompatible dialects, so the SIEM needs a parser matching whichever one the device sends",
             "value": "b"
           },
           {
@@ -283,35 +283,35 @@ const lessons = [
             "value": "c"
           },
           {
-            "label": "LEEF is an encrypted superset of CEF, so choosing LEEF automatically provides transport security that CEF cannot, regardless of whether the connection itself uses TLS",
+            "label": "CEF carries the full raw event while LEEF carries only a normalized summary, so choosing LEEF silently drops fields the SIEM would otherwise index",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "CEF (developed by ArcSight) and LEEF (IBM QRadar's format) solve the same problem — a predictable header plus structured key=value attributes — but they are distinct, incompatible standards with different header layouts and delimiters. A SIEM needs a parser written for whichever format the device actually emits. They are not identical, not tied to a specific log subject matter, and neither format inherently provides encryption — that is a property of the transport (e.g., TLS over TCP/6514), not the payload format."
+        "explanation": "CEF (developed by ArcSight) and LEEF (IBM QRadar's format) solve the same problem — a predictable header plus structured key=value attributes — but they are distinct, incompatible standards with different header layouts and delimiters, so the SIEM needs a parser written for whichever format the device actually emits. They do not share one header that a key-remap can reconcile, so the 'cosmetic, same parser' option is wrong. Neither is tied to a specific log subject matter, so the 'CEF for traffic, LEEF for auth' split is invented. And LEEF is not a normalized summary that drops fields — both formats can carry the event's full attribute set — so the 'LEEF drops fields' option is wrong."
       },
       {
         "question": "In MITRE ATT&CK, T1110 is 'Brute Force' and T1110.003 is 'Password Spraying'. What is the correct relationship between these two identifiers, and what does a tactic add on top of them?",
         "options": [
           {
-            "label": "T1110.003 is an unrelated, newer replacement for T1110, and neither identifier has any connection to a tactic",
+            "label": "T1110.003 is a standalone technique filed under the Initial Access tactic, with no parent-child relationship to the Brute Force technique T1110",
             "value": "a"
           },
           {
-            "label": "T1110 is the technique (the general method) and T1110.003 is one of its sub-techniques (a specific variant); a tactic sits above both and represents the adversary's goal at that phase, such as Credential Access",
+            "label": "T1110 is the technique (the general method) and T1110.003 one of its sub-techniques; a tactic sits above both and names the adversary's goal at that phase, such as Credential Access",
             "value": "b"
           },
           {
-            "label": "T1110 and T1110.003 both describe tactics, and techniques are a level below sub-techniques in the ATT&CK hierarchy",
+            "label": "T1110 is the tactic and T1110.003 is the technique beneath it, with sub-techniques sitting at the very top of the ATT&CK hierarchy",
             "value": "c"
           },
           {
-            "label": "The numeric suffix .003 indicates the third mitigation available for the T1110 technique, not a variant of the technique itself",
+            "label": "The .003 suffix marks the third data source that can detect T1110, rather than a specific sub-technique or variant of the method",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "T1110 is the technique 'Brute Force,' and T1110.003 is its sub-technique 'Password Spraying' — a more granular variant of the same general method. A tactic (such as Credential Access) sits above both in the hierarchy and represents the adversary's goal at that phase of the intrusion, not a specific method. The other options invert or fabricate the relationship between tactics, techniques, sub-techniques, and mitigations."
+        "explanation": "T1110 is the technique 'Brute Force,' and T1110.003 is its sub-technique 'Password Spraying' — a more granular variant of the same general method. A tactic (such as Credential Access) sits above both in the hierarchy and represents the adversary's goal at that phase of the intrusion, not a specific method. Calling .003 a standalone Initial Access technique severs the real parent-child link and misplaces its tactic (Brute Force sits under Credential Access). Calling T1110 the tactic and putting sub-techniques at the top inverts the hierarchy, which runs tactic → technique → sub-technique. And the .003 suffix denotes a sub-technique, not a data source, so that reading is invented."
       }
     ],
     "references": [
@@ -532,76 +532,76 @@ const lessons = [
         "question": "During an incident, the EDR console shows no detections on a compromised server, and shortly before the suspected activity the server's EDR sensor stopped reporting to the console and a known-vulnerable signed driver was loaded. Why is 'no EDR detections' NOT reassurance here, and what likely happened?",
         "options": [
           {
-            "label": "No detections means the server is clean and healthy, because a modern EDR agent is incapable of being disabled or blinded, so its silence is always definitive proof that no malicious activity occurred",
+            "label": "The silence is reassuring: the EDR would have alerted before it went offline, so the gap is most likely a scheduled agent update restarting the sensor service around that time",
             "value": "a"
           },
           {
-            "label": "The sensor going offline plus a vulnerable driver loading points to EDR evasion (likely BYOVD, blinding the agent from the kernel); the EDR's silence may be manufactured, so the attack on visibility — the offline sensor and the driver load — is itself the high-signal evidence",
+            "label": "The sensor going offline plus a vulnerable driver loading points to EDR evasion, likely BYOVD blinding the agent from the kernel; the silence may be manufactured, so the attack on visibility is itself the evidence",
             "value": "b"
           },
           {
-            "label": "The vulnerable driver is irrelevant, and the sensor simply lost network connectivity for unrelated reasons, so the correct action is to file an IT ticket and close the security investigation as a false alarm",
+            "label": "The sensor dropped off for routine network reasons and the driver load is unrelated, so this is best handled as an IT connectivity ticket rather than a security investigation",
             "value": "c"
           },
           {
-            "label": "It only indicates the EDR licence expired on that server, which is a purely administrative billing matter with no possible connection to the suspected compromise or to any attacker behaviour",
+            "label": "A validly signed driver cannot be part of an attack because Windows checks its signature at load time, so the driver load is benign and only the offline sensor is worth noting",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "The sensor is software the attacker may control, so absence of detections on a compromised host can be manufactured. A sensor going offline together with a known-vulnerable signed driver loading is the classic BYOVD pattern — using a vulnerable driver to gain kernel control and blind the EDR from below. The attack on visibility (offline sensor, driver load, tamper attempts) is itself the evidence, exactly like a cleared log. The option “No detections means the server is clean…” wrongly assumes EDR cannot be blinded. The options “The vulnerable driver is irrelevant, and the…”, “No detections means the server is clean…”, “It only indicates the EDR licence expired…” and “It only indicates the EDR licence expired…” invent benign explanations the paired signals do not support."
+        "explanation": "The sensor is software the attacker may control, so absence of detections on a compromised host can be manufactured. A sensor going offline together with a known-vulnerable signed driver loading is the classic BYOVD pattern — using a vulnerable driver to gain kernel control and blind the EDR from below. The attack on visibility (offline sensor, driver load, tamper attempts) is itself the evidence, exactly like a cleared log. Reading the silence as reassurance and blaming a scheduled agent update ignores that the gap coincides with a vulnerable-driver load. Writing it off as a routine connectivity ticket dismisses the very pairing that makes this high-signal. And a valid signature does not make a driver safe — BYOVD deliberately abuses legitimately signed but vulnerable drivers — so the signed-driver-is-benign reasoning is exactly the trap."
       },
       {
         "question": "An investigation shows an attacker used stolen credentials to log into the company's cloud admin console and exfiltrate data from a SaaS application, with no malware ever running on a managed laptop. The EDR shows nothing relevant. What does this illustrate, and where should the analyst look?",
         "options": [
           {
-            "label": "Because the EDR shows nothing, no real attack occurred; EDR has complete visibility into all activity everywhere in the environment, so a clean EDR conclusively rules out any compromise of any kind",
+            "label": "A clean EDR here is strong reassurance, because the stolen-credential login would still surface as an anomalous process on whichever managed laptop the attacker ultimately used",
             "value": "a"
           },
           {
-            "label": "It illustrates an EDR structural blind spot — the cloud/SaaS/identity plane has no endpoint involved — so 'EDR shows nothing' only means nothing happened on managed endpoints; the analyst must change sensors and pull cloud audit logs and identity-provider logs",
+            "label": "It illustrates an EDR structural blind spot — the cloud/SaaS/identity plane has no endpoint — so 'EDR shows nothing' only means nothing happened on managed endpoints; pull cloud audit and identity-provider logs instead",
             "value": "b"
           },
           {
-            "label": "The right response is to install EDR agents on the cloud servers themselves, because with enough endpoint agents deployed the EDR will retroactively capture the cloud console logins and SaaS exfiltration that already happened",
+            "label": "Deploy EDR agents onto the servers hosting the SaaS application, since agent coverage there is what would have recorded the admin-console logins and the data export",
             "value": "c"
           },
           {
-            "label": "This is impossible, since any attack that matters must by definition execute a malicious process on a managed endpoint, so an attack with no endpoint activity cannot actually cause any harm worth investigating",
+            "label": "Treat it as low priority, because an intrusion that never ran code on a managed endpoint has no path to move laterally into the systems the SOC is responsible for",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "EDR is an endpoint sensor; the cloud, SaaS, and identity plane is a structural blind spot where no managed endpoint is involved, so a clean EDR only means nothing happened on the endpoints it covers. The correct move is to change sensors — cloud audit logs and identity-provider logs hold this story, exactly as the log-source-coverage lesson teaches. The option “Because the EDR shows nothing, no real…” wrongly credits EDR with total visibility. The option “The right response is to install EDR…” misunderstands where the activity happened (a console/SaaS, not the servers' OS). The option “This is impossible, since any attack that…” denies the reality of identity- and cloud-based attacks that never touch an endpoint."
+        "explanation": "EDR is an endpoint sensor; the cloud, SaaS, and identity plane is a structural blind spot where no managed endpoint is involved, so a clean EDR only means nothing happened on the endpoints it covers. The correct move is to change sensors — cloud audit logs and identity-provider logs hold this story, exactly as the log-source-coverage lesson teaches. Expecting the stolen-credential login to surface as a process on a managed laptop misreads the attack: it happened in a browser against a cloud console, with no endpoint process to see. Installing agents on the SaaS servers is not possible for a vendor-run SaaS app and could not capture logins that already occurred anyway. And treating it as low priority ignores that cloud and identity intrusions exfiltrate real data without ever touching an endpoint."
       },
       {
         "question": "In the worked Falcon detection example, the field PatternDispositionDescription reads 'Detected' rather than 'Prevented', and ParentBaseFileName shows WINWORD.EXE launching a powershell.exe with a base64-encoded command line. What is the most important implication of 'Detected' for your next step?",
         "options": [
           {
-            "label": "'Detected' means the file was hashed but never executed, so no further action is needed beyond closing the alert",
+            "label": "'Detected' means the file was hashed and recorded but never actually executed, so the behavior was only logged and no further action is needed beyond closing the alert",
             "value": "a"
           },
           {
-            "label": "'Detected' means the sensor observed and logged the behavior but took no blocking action, so the process likely ran to completion — check for dropped files, persistence, and live connections before considering it contained",
+            "label": "'Detected' means the sensor observed and logged the behavior but did not block it, so the process likely ran — check for dropped files, persistence, and live connections before calling it contained",
             "value": "b"
           },
           {
-            "label": "'Detected' and 'Prevented' are two names for the identical outcome in Falcon, so the distinction carries no operational meaning for triage",
+            "label": "'Detected' means the sensor blocked the parent process but let its already-spawned child processes keep running, so only those surviving children still need to be chased",
             "value": "c"
           },
           {
-            "label": "'Detected' means the antivirus engine, not the EDR sensor, generated the alert, so the case should be reassigned to the antivirus vendor's support team",
+            "label": "'Detected' means this rule was in detect-only (audit) mode, so the right step is to flip the policy to prevent and re-run — no live investigation is needed yet",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A 'Detected' (detect-only) disposition means the sensor observed and logged the behavior without blocking it, so the encoded PowerShell command very likely executed — the analyst must chase what already happened: dropped files, persistence, network connections, and any surviving child processes, exactly the reasoning from the Detections-vs-Preventions section. Reading 'Detected' as hashed-but-never-executed wrongly assumes detection implies no execution. Treating 'Detected' and 'Prevented' as the same outcome collapses a distinction that changes urgency. Reassigning the case to the antivirus vendor invents an irrelevant routing rule; Falcon's behavioral detections are EDR telemetry, not a separate antivirus vendor concern."
+        "explanation": "A 'Detected' (detect-only) disposition means the sensor observed and logged the behavior without blocking it, so the encoded PowerShell command very likely executed — the analyst must chase what already happened: dropped files, persistence, network connections, and any surviving child processes, exactly the reasoning from the Detections-vs-Preventions section. Reading 'Detected' as hashed-but-never-executed wrongly assumes detection implies no execution. Reading it as a partial block that stopped the parent but spared the children invents a blocking action that 'Detected' did not take — nothing was blocked. And reading it as merely a detect-only policy to flip to prevent still skips the fact that this instance already ran, so a live investigation is exactly what is needed now, not just a policy change for next time."
       },
       {
         "question": "You are investigating a mixed fleet and need to understand what underlying mechanism an EDR agent uses to collect deep telemetry on a macOS laptop, as opposed to a Windows workstation. Which statement is accurate?",
         "options": [
           {
-            "label": "macOS EDR agents use ETW, the exact same Windows kernel logging infrastructure, because Apple licensed it directly from Microsoft for security tooling compatibility",
+            "label": "macOS EDR agents use ETW, the same event-tracing mechanism as Windows, because the two operating systems expose a shared cross-platform kernel logging API",
             "value": "a"
           },
           {
@@ -609,7 +609,7 @@ const lessons = [
             "value": "b"
           },
           {
-            "label": "macOS provides no telemetry interface at all for third-party security vendors, so EDR products cannot see process, file, or network activity on macOS under any circumstances",
+            "label": "macOS EDR agents still load third-party kernel extensions (KEXTs) as their primary collection mechanism, since Apple continues to support KEXTs as the supported path for security vendors",
             "value": "c"
           },
           {
@@ -618,30 +618,30 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "macOS EDR telemetry is built on Apple's Endpoint Security Framework (ESF), introduced in macOS 10.15 (Catalina) specifically to give vendors a supported, user-space, entitlement-gated way to get real-time telemetry, replacing the older unsupported kernel-extension (KEXT) approach. ETW is a Windows-specific mechanism, not shared with macOS. macOS does provide telemetry via ESF, so the claim that it offers no telemetry interface at all is false. And eBPF is the modern Linux mechanism, not what macOS agents use."
+        "explanation": "macOS EDR telemetry is built on Apple's Endpoint Security Framework (ESF), introduced in macOS 10.15 (Catalina) specifically to give vendors a supported, user-space, entitlement-gated way to get real-time telemetry, replacing the older unsupported kernel-extension (KEXT) approach. ETW is a Windows-specific mechanism, not a shared cross-platform API, so the ETW option is wrong. KEXTs are exactly what ESF replaced — Apple has steered vendors away from kernel extensions — so the 'KEXTs as the primary supported mechanism' option is outdated and wrong. And eBPF is the modern Linux mechanism, not what macOS agents use."
       },
       {
         "question": "A vendor's MITRE ATT&CK Evaluation summary advertises a 98% overall detection rate, but the detailed step-by-step results show most steps scored in the 'Telemetry' category rather than 'Tactic/Technique'. What does this distinction actually tell a SOC evaluating the product?",
         "options": [
           {
-            "label": "There is no meaningful difference; 'Telemetry' and 'Tactic/Technique' are just two labels for an identical outcome, so the 98% headline number fully describes the product's real-world value",
+            "label": "The two categories differ only in MITRE's internal bookkeeping, so for a SOC buyer the 98% headline already accounts for both and fully describes the product's value",
             "value": "a"
           },
           {
-            "label": "'Telemetry' means the tool recorded the event without naming it malicious, while 'Tactic/Technique' means it correctly named the specific attacker behavior — a Telemetry-heavy result gives analysts raw data, not clear alerts, despite the strong headline number",
+            "label": "'Telemetry' means the event was recorded but not named malicious, while 'Technique' means the tool named the specific behavior — a Telemetry-heavy result gives analysts raw data, not clear alerts",
             "value": "b"
           },
           {
-            "label": "'Telemetry' is a strictly higher score than 'Tactic/Technique' in MITRE's scoring system, so a Telemetry-heavy result is actually the best possible outcome a vendor can achieve",
+            "label": "In MITRE's model a Telemetry score outranks a Tactic/Technique score, so a Telemetry-heavy result is the stronger of the two outcomes for a vendor",
             "value": "c"
           },
           {
-            "label": "The distinction only applies to network appliances and has no bearing on endpoint detection and response products or their evaluation results",
+            "label": "The Telemetry-versus-Technique split was part of an older evaluation round's methodology and has since been removed, so it no longer affects how current results are read",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "The MITRE ATT&CK Evaluations score each step into precise categories: Telemetry means the event was recorded but not assessed as malicious, while Tactic/Technique means the tool correctly and specifically named the actual attacker behavior. A vendor whose steps mostly land in Telemetry is technically 'detecting' in the loosest sense, but analysts using that product would see raw recorded data rather than a clear, actionable, named alert for most of the emulation — a materially different real-world experience than the aggregate percentage implies. The categories are not interchangeable and Telemetry is not a higher score than Tactic/Technique; the distinction is central to how EDR evaluation results should be read, and it applies directly to endpoint products."
+        "explanation": "The MITRE ATT&CK Evaluations score each step into precise categories: Telemetry means the event was recorded but not assessed as malicious, while Technique means the tool correctly and specifically named the actual attacker behavior (the richest detection). A vendor whose steps mostly land in Telemetry is 'detecting' only in the loosest sense — analysts would see raw recorded data rather than a clear, named alert for most of the emulation, a materially different experience than the aggregate percentage implies. The categories are not mere bookkeeping behind one headline number. Telemetry is a lower-context result than Technique, not a higher one, so ranking it above Technique is backwards. And the Telemetry/Technique distinction is a current, central part of how these evaluations are scored, not a removed legacy detail."
       }
     ],
     "references": [

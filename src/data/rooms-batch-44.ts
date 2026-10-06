@@ -361,28 +361,28 @@ const rmmAbuseRoom = {
           question:
             "Given Cascadia Freight's allowlist (ScreenConnect only, two named technician accounts), which single field in this record is the clearest tool-identity mismatch?",
           options: [
-            "zscaler.action, since it reads \"Allowed\" — but any allowed connection through the proxy should automatically be treated as a confirmed mismatch regardless of which product it names",
-            "zscaler.appname, reading \"TeamViewer\" — a product that is not Cascadia Freight's sanctioned RMM tool at all, per the allowlist described in the context",
-            "zscaler.destport, reading \"5938\" — since this specific port number is inherently malicious on any network regardless of what application uses it",
-            "zscaler.urlcategory, reading \"Remote Access Tools\" — since this category by itself always indicates malicious traffic on any network",
+            "zscaler.action, reading \"Allowed\" — showing the proxy permitted the connection, which tells you the session went through but not which product it was",
+            "zscaler.appname, reading \"TeamViewer\" — a product that is not Cascadia Freight's sanctioned RMM tool at all, per the allowlist in the context",
+            "zscaler.destport, reading \"5938\" — TeamViewer's documented port, which helps confirm the app but is not itself the identity field",
+            "zscaler.urlcategory, reading \"Remote Access Tools\" — the correct category, but one that also covers the sanctioned ScreenConnect traffic",
           ],
           answer: 1,
           explanation:
-            "zscaler.appname naming TeamViewer is the direct tool-identity mismatch: the organization's allowlist names only ScreenConnect. zscaler.action \"Allowed\" simply reflects that the proxy permitted this traffic category — the same value appears on the benign ScreenConnect control case in this room, so it carries no verdict by itself. Port 5938 is TeamViewer's own documented, legitimate port — not inherently malicious. The urlcategory \"Remote Access Tools\" correctly describes many entirely legitimate sessions (including Cascadia's own sanctioned ScreenConnect traffic) and is not a mismatch signal on its own.",
+            "zscaler.appname naming TeamViewer is the direct tool-identity mismatch: the allowlist names only ScreenConnect. zscaler.action \"Allowed\" just means the proxy permitted this category — the same value appears on the benign ScreenConnect control case, so it names no product. Port 5938 corroborates that this is TeamViewer but is a property of the traffic, not the field that states the product's identity. The urlcategory \"Remote Access Tools\" is accurate yet also describes Cascadia's own sanctioned ScreenConnect sessions, so it does not single out a mismatch.",
           xp: 15,
         },
         {
           question:
             "Following this room's allowlist-based detection discipline, what is the single most important record to check next before reaching a verdict?",
           options: [
-            "Whether TeamViewer's code signature is valid, since an invalid signature would be the only fact capable of establishing this session as unauthorized",
-            "Whether the connection used an encrypted transport, since encryption is what actually separates a legitimate remote-support session from a malicious one",
+            "Whether TeamViewer's code signature is valid — a valid signature confirms the binary is authentic, not that its use here was authorized",
+            "Whether the session used an encrypted transport — but both legitimate and malicious RMM sessions are routinely encrypted",
             "Whether Cascadia Freight's ITSM ticketing system has any ticket referencing this exact session, user, and time window",
-            "Whether the destination IP address resolves to a residential internet provider, since that check is what determines whether any RMM session is malicious",
+            "Whether the destination IP resolves to a residential ISP — a signal for other techniques, not for an allowlist verdict",
           ],
           answer: 2,
           explanation:
-            "The allowlist-plus-ticket discipline from reading r6 names the ITSM check as the decisive next step: a matching ticket for this exact session, user, and timeframe is what separates confirmed IT activity from an investigation. TeamViewer's signature is almost certainly genuinely valid regardless of authorization — a valid signature says the file is authentic, not that its use here is sanctioned. Both legitimate and malicious RMM sessions are routinely encrypted, so encryption alone distinguishes nothing. The residential-ISP IP check is the fast-flux/DGA (Domain Generation Algorithm) indicator taught in the DNS Investigation room for a different technique entirely, not the relevant check for an allowlist-based RMM verdict.",
+            "The allowlist-plus-ticket discipline taught in “Detection Discipline: The Allowlist, Not the Tool” names the ITSM check as the decisive next step: a matching ticket for this exact session, user, and timeframe is what separates confirmed IT activity from an investigation. TeamViewer's signature is almost certainly valid regardless of authorization — a valid signature says the file is authentic, not that its use here is sanctioned. Both legitimate and malicious RMM sessions are routinely encrypted, so encryption distinguishes nothing. A residential-ISP destination matters for other techniques, but it is not what settles an allowlist-based RMM verdict.",
           xp: 20,
         },
       ],
@@ -443,7 +443,7 @@ const rmmAbuseRoom = {
       ],
       correct_order: ["step-identify", "step-allowlist", "step-account", "step-ticket", "step-destination", "step-tree", "step-verdict"],
       explanation:
-        "This is the exact sequence this room's investigation-workflow reading teaches: start with what the tool actually is and how it was run, check it against the allowlist, then establish who is operating it and whether a ticket accounts for the session, then widen out to the network destination and the host's own process tree for follow-on activity, and only then reach a verdict. Each step narrows or confirms the picture the previous step built — jumping straight to a verdict without first checking the allowlist, account, and ticket is exactly the mistake this room's false-positive control case (rmm-ac1) is built to correct.",
+        "This is the exact sequence this room's investigation-workflow reading teaches: start with what the tool actually is and how it was run, check it against the allowlist, then establish who is operating it and whether a ticket accounts for the session, then widen out to the network destination and the host's own process tree for follow-on activity, and only then reach a verdict. Each step narrows or confirms the picture the previous step built — jumping straight to a verdict without first checking the allowlist, account, and ticket is exactly the mistake this room's false-positive control case is built to correct.",
       xp: 25,
     },
 
@@ -452,9 +452,9 @@ const rmmAbuseRoom = {
       type: "flag" as const,
       id: "rmm-f1",
       prompt:
-        "This room's case study names the CVE assigned to the ConnectWise ScreenConnect authentication-bypass vulnerability (CVSS 10.0) that let an unauthenticated attacker reach the server's own setup wizard and create a new administrator account on unpatched, self-hosted instances. What is that CVE ID? Answer in the exact CVE-YYYY-NNNN format.",
-      answer: "CVE-2024-1709",
-      hint: "Covered in the reading 'Case Study: Attacking the RMM Console Itself' — distinct from its companion path-traversal vulnerability, CVE-2024-1708.",
+        "A self-hosted ConnectWise ScreenConnect server is running version 23.9.7 and is therefore exposed to the authentication-bypass vulnerability from this room's console case study. According to that case study, which exact version must the administrator upgrade to in order to remediate it? Answer in the exact major.minor.patch format.",
+      answer: "23.9.8",
+      hint: "The reading 'Case Study: Attacking the RMM Console Itself' states the affected versions and the single version self-hosted deployments had to patch up to.",
       xp: 15,
     },
   ],

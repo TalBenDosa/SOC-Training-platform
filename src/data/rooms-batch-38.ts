@@ -123,9 +123,9 @@ const benignAllowlistedGrantEvent: TelemetryEvent = {
   geo: { country: "United States", city: "Chicago" },
   expected_verdict: "fp",
   fp_explanation:
-    "p.duval authorized Grammarly, an admin-allowlisted, marketplace-verified app, requesting only a narrow document-content scope for its writing-assistance feature -- a routine, sanctioned OAuth grant. The act of granting an app is identical in shape to the FormFlow Sync incident; the discriminators are scope breadth, allowlist status, and publisher verification, not the act of consenting itself.",
+    "p.duval authorized Grammarly, an admin-allowlisted, marketplace-verified app, requesting only a narrow document-content scope for its writing-assistance feature -- a routine, sanctioned OAuth grant. It does receive an offline refresh token, but a refresh token limited to drive.file on a vetted app is a small, sanctioned footprint. The act of granting an app is identical in shape to the FormFlow Sync incident; the discriminators are scope breadth, allowlist status, and publisher verification, not the act of consenting itself.",
   description:
-    "p.duval authorized Grammarly, an admin-allowlisted, marketplace-verified app, requesting a single narrow document-editing scope.",
+    "A token audit 'authorize' event recorded p.duval@medcorehealth.org granting the app Grammarly one Drive scope, with an offline refresh token issued.",
   raw: {
     "gws.event.type": "token",
     "gws.event.name": "authorize",
@@ -135,7 +135,7 @@ const benignAllowlistedGrantEvent: TelemetryEvent = {
     "gws.token.client_type": "WEB",
     "gws.token.scope": ["https://www.googleapis.com/auth/drive.file"],
     "gws.token.api_name": "drive",
-    "gws.token.access_type": "online",
+    "gws.token.access_type": "offline",
     "gws.app.allowlist_status": "TRUSTED",
     "gws.app.marketplace_verified": "true",
     "gws.app.publisher": "Grammarly Inc.",
@@ -173,16 +173,16 @@ const googleWorkspaceSecurityRoom = {
         "**Why an analyst who knows Microsoft 365 still needs this room.** The concepts genuinely rhyme — mail security, file-sharing risk, OAuth consent abuse, and admin-console governance are universal SOC concerns regardless of vendor. But the field names, the event structure, and a handful of real behavioural differences do not carry over automatically. An analyst who assumes Google Workspace logs look like Exchange Online's Unified Audit Log, just with different field names sprinkled on top, will misread real evidence — this room exists specifically to prevent that.\n\n" +
         "**What this room does and does not cover.** Email-security fundamentals — what phishing looks like, what SPF/DKIM/DMARC exist to prove, how to read a suspicious message — are already taught in this platform's Email Security room, and those concepts transfer directly. What's new here is Google's own audit-log vocabulary for expressing them, the specific structure of Google's OAuth consent audit (a genuinely different and more consequential attack surface than most analysts expect), and where Google Workspace's own concepts map onto — and diverge from — the Microsoft 365 ecosystem this platform already teaches in depth.",
       checkpoint: {
-        question: "What is this room's central claim about an analyst who already knows Microsoft 365 security well, encountering a Google Workspace tenant for the first time?",
+        question: "An analyst who knows Microsoft 365 well is handed a Google Workspace tenant. Which part of their knowledge carries over directly?",
         options: [
-          "They need no adjustment at all, since Google Workspace logs are a reformatted copy of the Microsoft 365 Unified Audit Log",
-          "The underlying SOC concepts (mail security, sharing risk, OAuth abuse, admin governance) transfer directly, but the actual field names and event structure do not, and assuming otherwise risks misreading real evidence",
-          "Google Workspace does not produce any audit logs at all, so no adjustment is possible",
-          "Microsoft 365 knowledge is actively counterproductive and should be set aside entirely before learning Google Workspace",
+          "The field names, since Workspace reuses the Unified Audit Log schema",
+          "The judgement about what makes mail, sharing, OAuth or admin activity risky",
+          "The event structure, since every Workspace app writes into one shared log",
+          "Very little, because cloud-suite security concepts are vendor-specific",
         ],
         answer: 1,
         explanation:
-          "The concepts rhyme; the schemas don't. That's the whole premise of this room -- transferable judgment, non-transferable field names.",
+          "The concepts rhyme; the schemas don't. Mail security, sharing risk, OAuth abuse and admin governance are the same SOC concerns on either suite, so that judgement transfers. The field names do not — Workspace has its own vocabulary — and neither does the structure: each Workspace app writes its own audit trail rather than one shared log. Saying very little transfers throws away exactly the judgement that does carry over.",
       },
     },
     // ── Reading 2: audit log model ─────────────────────────────────────────────
@@ -250,14 +250,14 @@ const googleWorkspaceSecurityRoom = {
       checkpoint: {
         question: "Why does resetting a compromised user's password NOT stop an OAuth app that was already granted an offline (refresh) token for Drive and Calendar?",
         options: [
-          "A refresh token is a separate, durable credential the app presents on its own -- it is not derived from the user's password, and Google only invalidates refresh tokens on a password change when they hold Gmail scopes, so a Drive/Calendar token keeps working",
-          "Password resets always automatically revoke every OAuth grant a user has ever made, so this scenario cannot actually occur",
-          "Offline tokens expire automatically within a few minutes regardless of any admin action, making the password reset irrelevant either way",
-          "Because Gmail and Drive are not covered by password-based authentication at all, even before any OAuth grant exists",
+          "The refresh token is its own credential; a reset kills only Gmail-scoped ones",
+          "The reset does revoke it, but only after the current access token expires",
+          "The reset ends her browser sessions, and the app keeps the session it already had",
+          "Offline tokens are bound to the device that consented, which a reset ignores",
         ],
         answer: 0,
         explanation:
-          "This is the crux of Reading 4: an offline refresh token is a bearer credential in its own right, independent of the password. The one documented exception is Gmail: a password change invalidates refresh tokens that contain Gmail scopes. A Drive/Calendar grant has no such link, so only revoking the specific grant -- not resetting the password -- actually removes the app's access.",
+          "This is the crux of Reading 4: an offline refresh token is a bearer credential in its own right, independent of the password. The one documented exception is Gmail: a password change invalidates refresh tokens that contain Gmail scopes. A Drive/Calendar grant has no such link, so only revoking the specific grant -- not resetting the password -- removes the app's access. The reset does not revoke it “later” either: the app simply uses the refresh token to get a fresh access token. The app never shared the user's browser session, so ending sessions does not touch it. And a refresh token is held by the app's own servers, not bound to the user's device.",
       },
     },
     // ── Log Analysis 1: OAuth consent grant ──────────────────────────────────
@@ -273,42 +273,42 @@ const googleWorkspaceSecurityRoom = {
           question:
             "gws.token.scope lists https://www.googleapis.com/auth/calendar and https://www.googleapis.com/auth/drive, and gws.token.access_type is 'offline'. What did this single event actually grant FormFlow Sync?",
           options: [
-            "Durable, indefinite read/write access to the entire Calendar and the entire Drive, via a refresh token that -- holding no Gmail scope -- keeps working even after a password reset",
-            "One-time read access to a single file the user had open at the moment of consent",
-            "Temporary access that automatically expires the moment the user's browser tab is closed",
-            "No actual access at all -- only a preview of what the app would request if it were later approved by an admin",
+            "Lasting read/write access to all of Calendar and Drive, via a refresh token",
+            "Access only to Drive files the user creates or opens with FormFlow Sync",
+            "Full Calendar and Drive access that ends when k.stensrud's session ends",
+            "Full Calendar and Drive access, but read-only until an admin approves it",
           ],
           answer: 0,
           explanation:
-            "Reading 4 covered exactly this combination: the two scopes listed are among the broadest Google issues (full Calendar, full Drive), and 'offline' access_type means a refresh token was issued -- a durable credential independent of the browser session, not a one-time or session-scoped grant. Because neither scope is a Gmail scope, a password change does not invalidate it either.",
+            "The two scopes are among the broadest Google issues (full Calendar, full Drive), and 'offline' means a refresh token was issued — a durable credential the app's servers can use without the user present. Because neither scope is a Gmail scope, a password change does not invalidate it either. “Only files the user opens with the app” describes the narrow drive.file scope, which is not what was granted. “Ends with her session” describes an online token, not offline. And the governance fields do not turn a grant into read-only pending approval — the scopes requested are the access the app got.",
           xp: 25,
         },
         {
           question:
             "gws.app.allowlist_status is 'NOT_CONFIGURED' and gws.app.marketplace_verified is 'false'. What do these two fields tell you, distinct from the scope itself?",
           options: [
-            "The app has not been explicitly vetted or approved by the organisation's admins, and Google has not verified its publisher identity -- a governance red flag independent of what permissions it happened to request",
-            "The app is technically incapable of making any API calls until an admin manually approves it",
-            "These fields are purely cosmetic labels shown to the end user and have no bearing on the app's actual access",
-            "NOT_CONFIGURED means the exact opposite of what it says -- that the app has already been fully vetted and approved",
+            "Admins have not approved the app, and Google has not verified its publisher",
+            "The app cannot call any Google API until an admin approves it in the console",
+            "Admins reviewed the app and deliberately chose to leave it unrestricted",
+            "Google has judged the app malicious and removed it from the Marketplace",
           ],
           answer: 0,
           explanation:
-            "Reading 4 named these as governance fields distinct from scope: allowlist_status reflects whether the org's admins have explicitly approved the app (they haven't here), and marketplace_verified reflects Google's own review of the publisher (absent here too). Neither field blocks API calls by itself -- the token audit's next event shows exactly that. And NOT_CONFIGURED means unrestricted-by-default, not 'already vetted'.",
+            "These are governance fields, separate from scope: allowlist_status shows the org's admins never explicitly approved the app, and marketplace_verified shows Google has not reviewed its publisher — a red flag independent of the permissions requested. Neither field blocks API calls; the Drive audit later in this room shows the app using its token. NOT_CONFIGURED means unrestricted by default policy, not a reviewed decision to allow it. And “not verified” means no review happened, not that Google found it malicious.",
           xp: 25,
         },
         {
           question:
             "Given everything in this event, what should the analyst check next?",
           options: [
-            "Whether the token has actually been used to call the Drive or Calendar APIs, and from where",
-            "Whether k.stensrud's password was typed correctly during the consent flow",
-            "Whether Gmail's spam filter flagged the message that invited her to connect the app",
-            "Whether the app requested a scope for Gmail as well",
+            "Whether the token has been used against Drive or Calendar, and from where",
+            "Whether her sign-in before the consent passed 2-Step Verification",
+            "Whether Gmail flagged the invitation email that led her to the app as spam",
+            "Whether her password appears in a known breach, before resetting it",
           ],
           answer: 0,
           explanation:
-            "The consent grant is the foothold; the natural next question is whether and how it has been used -- exactly what the next task in this room investigates. No password was involved in the OAuth consent flow at all -- that is the point of delegated access. The inviting message's spam disposition is a secondary, less urgent question at this stage. And no Gmail scope appears in this event, so speculating about one isn't supported by the evidence.",
+            "The consent grant is the foothold; the next question is whether and how the token has been used — exactly what the next task investigates. Her own sign-in is not the issue: consent is delegation, so a perfectly MFA-protected session can still grant a malicious app. Whether Gmail flagged the lure is worth knowing later, but it does not tell you what the app is doing now. And her password plays no part in the grant — a breach check and a reset do not touch a Drive/Calendar refresh token.",
           xp: 30,
         },
       ],
@@ -331,49 +331,49 @@ const googleWorkspaceSecurityRoom = {
       id: "gwsf-la2",
       heading: "Three Hundred and Forty Downloads in Eleven Minutes",
       context:
-        "Seventeen minutes after the FormFlow Sync consent grant, the Drive audit log for k.stensrud@medcorehealth.org shows the event below.",
+        "Later that afternoon, the Drive audit log for k.stensrud@medcorehealth.org shows the event below.",
       event: driveDownloadBurstEvent,
       questions: [
         {
           question:
             "gws.access.via_oauth_app names FormFlow Sync, and source.ip is 146.148.92.14 (Amsterdam) -- not k.stensrud's own device or location. What does that combination establish?",
           options: [
-            "These downloads were performed by the app's own backend servers using the token from the earlier consent grant, not by k.stensrud interactively using her own browser or device",
-            "k.stensrud must have travelled to Amsterdam and performed the downloads herself in person",
-            "The event is definitely corrupted, since a Drive download must always originate from the file owner's registered device",
-            "via_oauth_app is a cosmetic label with no bearing on where the request actually originated",
+            "The app's servers used the grant's token; her own browser was not involved",
+            "She was travelling and downloaded the files herself from a hotel network",
+            "Her session cookie was stolen and replayed from a server in Amsterdam",
+            "Google's own servers prefetched the files so they would open faster",
           ],
           answer: 0,
           explanation:
-            "Reading 5 named this exact pattern: via_oauth_app plus a source IP that doesn't match the user's own device or normal location is the tell that an app's own backend, not the user, is driving the activity -- using the token issued in the earlier consent grant. Nothing here requires (or evidences) physical travel to Amsterdam, the event is a coherent, expected shape for OAuth-token-driven access rather than corruption, and via_oauth_app is directly informative about origin, not cosmetic.",
+            "via_oauth_app names FormFlow Sync and the same client_id as the consent grant, and the IP belongs to a hosting provider rather than her device: the app's backend is using its token. If she had downloaded the files herself while travelling, the events would not be attributed to an OAuth app. A stolen session cookie replays her browser session, which would also show no via_oauth_app attribution. And Google-side caching is not logged as hundreds of downloads by a third-party app.",
           xp: 25,
         },
         {
           question:
             "340 downloads in 11 minutes is far above k.stensrud's ordinary daily volume. Combined with the earlier OAuth grant, how should this be classified?",
           options: [
-            "Collection/impact carried out using the persistent access obtained in the consent grant -- the grant was the foothold, this download burst is what was done with it",
-            "A routine, expected Drive backup process that every Workspace account performs automatically overnight",
-            "An unrelated coincidence with no connection to the earlier OAuth event",
-            "Proof that k.stensrud's password, not just her OAuth grant, has been compromised",
+            "Collection using the access from the consent grant: the grant was the foothold",
+            "Her own Drive syncing to a new laptop, which pulls many files in one go",
+            "A sign her password was stolen too, since app tokens cannot download files",
+            "A separate insider downloading under her account, unrelated to the grant",
           ],
           answer: 0,
           explanation:
-            "This mirrors the persistence-vs-impact split this platform's OAuth-abuse content emphasises: the consent grant (Reading 4/Log Analysis 1) is the durable foothold, and this download burst is the collection carried out using it -- two different jobs, tied together by the same client_id and via_oauth_app value. Google Workspace does not run an automatic bulk-download 'backup' process attributed to a third-party app token, the shared client_id/timing rules out coincidence, and nothing here evidences or requires a separate password compromise -- the OAuth token alone fully explains the activity.",
+            "The consent grant is the durable foothold and this burst is the collection carried out with it — two jobs tied together by the same client_id and via_oauth_app value. A sync to her own laptop would run as her, from her device, with no third-party app attribution. App tokens with the drive scope can download files — that is what the scope grants — so nothing here requires a stolen password. And the shared client_id rules out an unrelated insider.",
           xp: 25,
         },
         {
           question:
             "What is the correct combined remediation, given both findings together?",
           options: [
-            "Revoke FormFlow Sync's OAuth grant for k.stensrud (and blocklist the client id tenant-wide), then scope exactly which files and calendar data were accessed using the token",
-            "Reset k.stensrud's password and consider the incident closed, since a password reset revokes any associated OAuth tokens automatically",
-            "Block the source IP 146.148.92.14 at the network perimeter and take no further action",
-            "Ask k.stensrud to manually delete the downloaded files from her own Drive to undo the exposure",
+            "Revoke the grant, blocklist the client ID, then scope what the token touched",
+            "Reset k.stensrud's password, sign her out of all sessions, then close the case",
+            "Block 146.148.92.14 at the perimeter firewall, then watch for new downloads",
+            "Scope every file the token touched first, then revoke once scoping is done",
           ],
           answer: 0,
           explanation:
-            "As Reading 4 established, only revoking the grant actually ends the app's access -- a password reset does not touch an already-issued offline token that holds only Drive/Calendar scopes (Google invalidates only Gmail-scoped refresh tokens on a password change). Relying on the reset is the specific trap this room has repeated for a reason. The API traffic goes to Google's own servers, not through the organisation's perimeter, so blocking one IP neither reaches the app's infrastructure nor revokes anything. And deleting files from Drive does nothing about data already downloaded to the app's own servers -- the exposure already happened.",
+            "Only revoking the grant ends the app's access, and blocklisting the client_id stops it being re-authorized; then scope what was taken. A password reset and sign-out do not touch an offline token that holds only Drive/Calendar scopes. The app's API calls go to Google's servers, not through your perimeter, so blocking the IP neither reaches the app nor revokes anything. Scoping first is the right work at the wrong time: exfiltration is live, and revoking does not erase the audit history you need for scoping.",
           xp: 30,
         },
       ],
@@ -397,10 +397,10 @@ const googleWorkspaceSecurityRoom = {
       question:
         "An admin's CHANGE_PASSWORD event for a compromised account shows gws.admin.oauth_tokens_revoked as 'false'. An analyst is about to close the OAuth-abuse ticket because a password reset was performed. What should this specific field change about that decision?",
       options: [
-        "Nothing -- a reset invalidates the user's session cookies and every refresh token issued under them, so the field is informational and the ticket can be closed",
+        "Nothing -- a reset invalidates the user's session cookies and the refresh tokens issued under them, so the field is informational and the ticket can be closed",
         "It should stop the closure -- the field confirms the reset did NOT revoke the OAuth grant, so the malicious app's token stays valid and needs separate revocation",
-        "It means the reset only partly completed and must be retried by an admin, since token revocation is the final step of a successful password reset",
-        "It only matters for marketplace-verified apps -- for an unverified app like this one, the reset already blocks further API calls on its own",
+        "It means the reset partly failed and must be retried by an admin, since token revocation is the last step of a successful password reset",
+        "It matters for marketplace-verified apps -- for an unverified app like this one, the reset already blocks further API calls on its own",
       ],
       answer: 1,
       explanation:
@@ -432,16 +432,16 @@ const googleWorkspaceSecurityRoom = {
         "**Pre-built alerting.** Alert Center is Google's analogue to Microsoft Defender's own alerting layered over Entra ID and M365 telemetry — same role, same reason to still check the raw logs behind it, different specific alert catalogue and field names.\n\n" +
         "**The one habit this reading is trying to build.** Before running a single query against an unfamiliar tenant, confirm which productivity suite actually issues its logs. If it's Google Workspace, expect gws.event.type/gws.event.name and Google's own scope strings. If it's Microsoft 365, expect the Unified Audit Log's Operation field and Microsoft Graph permission names. Treating the two as interchangeable is the single most avoidable mistake this room can prevent.",
       checkpoint: {
-        question: "An analyst notices a Google Workspace OAuth grant listing the scope https://www.googleapis.com/auth/drive and assumes it is directly equivalent, string-for-string, to a Microsoft Graph permission they already recognise from Entra ID. What is the correct adjustment per this reading?",
+        question: "An analyst who knows Microsoft Graph permissions sees a Workspace grant with the scope https://www.googleapis.com/auth/drive and needs to judge how broad it is. What is the right approach?",
         options: [
-          "No adjustment needed -- Google and Microsoft standardised on identical permission-string vocabularies years ago",
-          "Recognise that both platforms support conceptually similar OAuth risk (broad scope, unverified publisher, offline access), but the specific scope/permission strings are each platform's own vocabulary and must be learned and judged on their own terms, not pattern-matched across vendors",
-          "Assume the Google scope must be a typo, since only Microsoft Graph permissions are valid OAuth scope strings",
-          "Conclude that Google Workspace does not support OAuth consent at all, since its scope naming looks unfamiliar",
+          "Map it to the closest-looking Graph permission name and judge it from that",
+          "Judge it in Google's own scope vocabulary, e.g. drive versus drive.file",
+          "Treat googleapis.com scopes as low risk until Alert Center raises an alert",
+          "Skip the scope and judge only the publisher field, since scopes don't compare",
         ],
         answer: 1,
         explanation:
-          "Reading 8 was explicit about OAuth specifically: the risk pattern is universal, but the scope/permission vocabulary is vendor-specific. Assuming string-level equivalence, or dismissing the unfamiliar format as a typo or as proof Google lacks OAuth, both miss the actual lesson -- learn each platform's own naming and judge breadth on its own terms.",
+          "The risk pattern is universal but the scope vocabulary is vendor-specific, so breadth must be read in Google's own terms: drive is the whole Drive, drive.file only the app's own or opened files. Pattern-matching to a similar-looking Graph name is exactly the cross-vendor guess this reading warns against. Alert Center is a starting point, not a substitute for reading the scope. And the publisher field is a governance signal that sits alongside scope breadth — it does not replace it.",
       },
     },
     // ── Analyst Choice: benign narrow-scope grant ─────────────────────────────
@@ -450,13 +450,13 @@ const googleWorkspaceSecurityRoom = {
       id: "gwsf-ac1",
       heading: "Verdict: Another User Authorizes Another Third-Party App",
       scenario:
-        "MedCore's Alert Center generates a routine notification every time any OAuth authorize event occurs above a low sensitivity threshold. The event below fired for a different user, two days before the FormFlow Sync grant. Review it before deciding how to handle it.",
+        "MedCore's SIEM has a rule that raises an alert for every OAuth authorize event in the Workspace token audit. The event below fired for a different user, two days before the FormFlow Sync grant. Review it before deciding how to handle it.",
       event: benignAllowlistedGrantEvent,
       correct_verdict: "false_positive",
       explanation:
-        "The shape is identical to the FormFlow Sync incident -- a user consenting to a third-party OAuth app -- but every discriminator points the other way. gws.token.scope lists only drive.file, a narrow scope limited to files the app itself created or the user explicitly opened with it, nowhere near the breadth of full Calendar plus full Drive. gws.app.allowlist_status is TRUSTED (the org's admins have explicitly approved this app) and gws.app.marketplace_verified is true, naming a real, identifiable publisher. gws.token.access_type is 'online', not the persistent offline/refresh pattern that made FormFlow Sync's grant a durable foothold. None of the governance red flags from Reading 4 are present here.",
+        "The shape is identical to the FormFlow Sync incident -- a user consenting to a third-party OAuth app -- but every discriminator points the other way. gws.token.scope lists only drive.file, a narrow scope limited to files the app itself created or the user explicitly opened with it, nowhere near the breadth of full Calendar plus full Drive. gws.app.allowlist_status is TRUSTED (the org's admins have explicitly approved this app) and gws.app.marketplace_verified is true, naming a real, identifiable publisher. gws.token.access_type is 'offline', so the app does hold a refresh token -- the one signal it shares with FormFlow Sync. On its own that is not suspicious: sanctioned add-ons often need to work while the user is away. What decides it is what that refresh token can reach (only drive.file) and who holds it (an approved, verified publisher). None of the governance red flags from Reading 4 are present here.",
       fp_trap:
-        "A token 'authorize' event is precisely the shape this room has taught you to scrutinize closely, since it's exactly how the FormFlow Sync compromise began. But real, legitimate productivity add-ons authorize this way constantly, requesting narrow, purpose-specific scopes and carrying real publisher verification. Escalating every OAuth consent event on shape alone, without reading scope breadth, allowlist status, and access_type, trains a team to drown in noise on the one pattern that most needs real scrutiny when it's genuinely malicious.",
+        "A token 'authorize' event is precisely the shape this room has taught you to scrutinize closely, since it's exactly how the FormFlow Sync compromise began. But real, legitimate productivity add-ons authorize this way constantly, requesting narrow, purpose-specific scopes and carrying real publisher verification. Escalating every OAuth consent event on shape alone -- or on the offline token alone -- without weighing scope breadth, allowlist status and publisher together, trains a team to drown in noise on the one pattern that most needs real scrutiny when it's genuinely malicious.",
       xp: 30,
     },
     // ── Matching: GWS term to M365 equivalent ─────────────────────────────────
@@ -498,11 +498,11 @@ const googleWorkspaceSecurityRoom = {
     {
       type: "flag" as const,
       id: "gwsf-f1",
-      event: oauthConsentEvent, // show the k.stensrud OAuth-consent log this flag reads
+      event: driveDownloadBurstEvent, // the collection event; the consent event is in 'One Click on a Consent Screen'
       prompt:
-        "Look at the OAuth consent finding for k.stensrud@medcorehealth.org. What is the exact value of the gws.token.access_type field in the raw log?",
-      answer: "offline",
-      hint: "Look inside the raw block of the log analysis event for the field named gws.token.access_type.",
+        "How long did the attacker take to go from foothold to collection? Using the timestamp of FormFlow Sync's consent grant ('One Click on a Consent Screen') and the timestamp of the Drive download event shown here, how many complete minutes passed between them? Drop any leftover seconds and enter a whole number.",
+      answer: "16",
+      hint: "Both events carry a UTC timestamp on the log card. Subtract the earlier one from the later one.",
       xp: 20,
     },
     // ── Question 3 ───────────────────────────────────────────────────────────
@@ -512,10 +512,10 @@ const googleWorkspaceSecurityRoom = {
       question:
         "A Drive file's gws.drive.visibility changes from 'private' to 'anyone with the link', and shortly afterward the same file shows up as viewed from an unfamiliar external IP address. Which statement best matches how this platform teaches the same pattern in SharePoint/OneDrive?",
       options: [
-        "A Google-specific risk with no Microsoft 365 counterpart, since Drive links can be publicly indexed whereas SharePoint links always require the recipient to sign in",
-        "The same risk as widening SharePoint/OneDrive SharingCapability to anyone-with-the-link -- access depends on holding the link, not on the recipient -- expressed through Google's visibility field",
-        "Usually benign, since link sharing is a default collaboration setting, and worth review only if the file carries a confidential classification label",
-        "A change affecting discoverability in search only, since who can actually open a file is decided by Docs-level permissions rather than Drive visibility",
+        "A Google-specific risk with no Microsoft 365 counterpart, since Drive links can be publicly indexed whereas SharePoint links require the recipient to sign in",
+        "The same risk as sharing a SharePoint/OneDrive file with anyone-with-the-link: access depends on holding the link, not on who the recipient is",
+        "Usually benign, since link sharing is a default collaboration setting, and worth review when the file carries a confidential classification label",
+        "A change to discoverability in search, since who can actually open a file is decided by Docs-level permissions rather than by Drive visibility",
       ],
       answer: 1,
       explanation:

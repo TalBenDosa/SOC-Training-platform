@@ -48,16 +48,16 @@ const activeDirectory: Room = {
       content: `Imagine a large company with 2,000 employees. Each employee needs to log in to their computer, access shared folders on the file server, print to the office printer, and open the HR application. Without any central system, an IT administrator would have to create a separate account on every single computer, every server, and every application for every employee — 2,000 accounts multiplied by dozens of systems. Changing one person's password or revoking access when they leave the company would be a nightmare.\n\n**Active Directory (AD)** solves this problem. Think of it as the company's central HR department combined with a master security badge system. Every employee gets one account in Active Directory. That single account controls what they can log in to, what files they can open, what printers they can use, and what applications they can access — everywhere in the company. When an employee leaves, IT disables their one AD account and access is revoked everywhere instantly.\n\nMicrosoft introduced Active Directory in Windows 2000, and it now runs in the vast majority of enterprises worldwide. As a SOC analyst, almost every investigation you do in a Windows environment will touch Active Directory in some way. Understanding it is not optional — it is foundational.\n\n**Domain vs. Workgroup**\n\nWindows computers can operate in one of two modes:\n\n- **Workgroup**: Each computer manages its own accounts locally. Fine for home use or a tiny office of 3–5 people. There is no central control. If you change your password on your laptop, it has no effect on your desktop PC.\n- **Domain**: All computers are joined to a central directory (Active Directory). One account works everywhere. IT can enforce policies on all machines from a single location. This is how every company with more than a handful of staff operates.\n\n**The Domain Controller (DC) — The Brain of AD**\n\nA **Domain Controller** is a Windows Server that runs Active Directory Domain Services (AD DS). It is the most critical server in the entire company. Here is what it does:\n\n- Stores the directory database — every user account, computer account, and group\n- Authenticates users when they log in (are you who you say you are?)\n- Authorises access (are you allowed to open that file?)\n- Runs the **Kerberos Key Distribution Center (KDC)** — the authentication engine\n- Hosts the **SYSVOL** share — where Group Policy settings are stored and replicated\n\nIf the Domain Controller goes down, users cannot log in to new sessions, printers stop working, and shared drives become inaccessible. This is why companies always have at least two Domain Controllers for redundancy, and why attackers target them so aggressively. Compromising a DC typically means owning the entire company.\n\n**Forest, Domain, Organizational Units (OUs)**\n\nActive Directory has a hierarchical structure, like a set of nested containers:\n\n- **Forest**: The outermost boundary. A forest can contain one or more domains. The first domain created is the **forest root domain**. All domains in a forest share a common schema (the list of attribute types that objects can have) and a Global Catalog.\n- **Domain**: The main administrative unit. Has a DNS name like **corp.contoso.com**. Users, computers, and groups live inside domains.\n- **Domain Tree**: Multiple domains sharing a contiguous DNS namespace (e.g., contoso.com with child domains us.contoso.com and eu.contoso.com form a tree).\n- **Organizational Units (OUs)**: Folders inside a domain used to organise objects. A company might have OUs for each department: IT, Finance, HR, Marketing. OUs are important because **Group Policies can be applied to an OU**, affecting all objects inside it.\n\n**Users, Computers, and Groups**\n\nThree core object types live in Active Directory:\n\n- **User objects**: Represent people. Have a username (sAMAccountName like j.smith), a password, email, phone number, department, and dozens of other attributes.\n- **Computer objects**: Every Windows PC or server joined to the domain gets a computer object in AD. This allows policies to be applied to machines, not just people.\n- **Group objects**: Collections of users and/or computers. Two types matter:\n  - **Security Groups**: Used for access control. Add a user to the "Finance" security group and they automatically gain access to finance file shares. Remove them from the group and access is revoked immediately.\n  - **Distribution Groups**: Used only for email distribution lists in Exchange/Outlook. They do NOT control access to anything. A common beginner mistake is confusing these two.\n\n**Group Policy Objects (GPOs)**\n\nGroup Policy is AD's remote configuration and enforcement system. A **GPO** is a collection of settings that Active Directory pushes down to computers and users. Examples:\n\n- Force all computers to lock the screen after 5 minutes of inactivity\n- Require passwords to be at least 12 characters long\n- Prevent users from installing software\n- Map a network drive automatically when a user logs in\n- Deploy software updates\n\nGPOs are linked to OUs, domains, or sites. Every time a user logs in or a computer starts up, it contacts the DC and applies any GPOs that apply to it. This is a common attacker target: if an attacker can modify a GPO linked to "All Computers", they can push a malicious script to every machine in the company simultaneously.\n\n**Trust Relationships**\n\nSometimes two separate domains or forests need to let their users access each other's resources. This is done with **trusts**:\n\n- **One-way trust**: Domain A trusts Domain B. Users in B can access resources in A, but not vice versa.\n- **Two-way trust**: Both domains trust each other's users.\n- **Transitive trust**: If A trusts B and B trusts C, then A implicitly trusts C. All trusts within a forest are automatically transitive.\n\nTrusts can be dangerous if misconfigured — a compromise in a less-secure trusted domain can be a path into a more-secure domain.`,
       checkpoint: {
         question:
-          "According to the reading, what does the Domain Controller run that serves as the 'brain' authenticating users and issuing Kerberos tickets?",
+          "Every user in the company suddenly fails to sign in to new sessions and no one can obtain Kerberos tickets, yet the file servers themselves are still running. Which Domain Controller function has stopped working?",
         options: [
           "The Kerberos Key Distribution Center (KDC)",
           "The Organizational Unit (OU) hierarchy",
-          "The Global Catalog replication service",
-          "The Distribution Group mailing list",
+          "The SYSVOL share holding Group Policy",
+          "The schema shared across the forest",
         ],
         answer: 0,
         explanation:
-          "The Domain Controller runs the Kerberos Key Distribution Center (KDC), stores the directory database, authenticates and authorises users, and hosts SYSVOL — making it the single most critical server in the company.",
+          "The KDC is the authentication engine on the Domain Controller: it checks who you are and issues the Kerberos tickets, so when it fails nobody can authenticate. The OU hierarchy only organises objects so GPOs can be targeted; it does not authenticate anyone. SYSVOL stores and replicates Group Policy settings — losing it would stop policies applying, not stop ticket issuance. The schema is the list of attribute types objects can have; it defines structure, not logons.",
       },
     } satisfies ReadingTask,
 
@@ -71,11 +71,11 @@ const activeDirectory: Room = {
       content: `When you type your username and password at a Windows login screen, you are starting a process called **Kerberos authentication**. Kerberos is a network authentication protocol invented at MIT in the 1980s and still the primary authentication method in Active Directory today. Understanding it is critical because many of the most dangerous AD attacks specifically target the Kerberos system.\n\nThe analogy: imagine a theme park. When you arrive, you show your ID at the front gate (the KDC). The gate gives you a **wristband** (a Kerberos ticket). For the rest of the day, you show your wristband to get into individual rides (services) without showing your ID again. The wristband proves the gate already checked you.\n\n**The Key Players**\n\n- **KDC (Key Distribution Center)**: Runs on every Domain Controller. Has two components: the **Authentication Server (AS)** and the **Ticket-Granting Service (TGS)**. The KDC knows the secret keys of every user and service in the domain.\n- **TGT (Ticket-Granting Ticket)**: A ticket you receive after proving your password. This is your wristband. It proves to the KDC that you already authenticated. TGTs are typically valid for 10 hours.\n- **Service Ticket / TGS ticket**: A ticket for a specific service (like the file server or the web application). Obtained by presenting your TGT.\n\n**Step-by-Step Kerberos Flow**\n\n**Step 1 — AS-REQ (Authentication Service Request)**\nYour computer sends an AS-REQ to the KDC saying "I am user j.smith". It includes a timestamp encrypted with a key derived from j.smith's password. This proves you know the password without sending the password over the network.\n\n**Step 2 — AS-REP (Authentication Service Response)**\nIf the KDC validates the encrypted timestamp, it sends back a **TGT** encrypted with the KDC's own secret key (the krbtgt account key). Only the KDC can read or forge a TGT. The KDC also sends a session key your computer can use for further communication.\nWindows Event ID **4768** is logged when a TGT is issued.\n\n**Step 3 — TGS-REQ (Ticket-Granting Service Request)**\nWhen you try to access a service (say, the file server FS01), your computer presents your TGT to the KDC and says "I need a ticket for the CIFS service on FS01".\n\n**Step 4 — TGS-REP (Ticket-Granting Service Response)**\nThe KDC returns a **Service Ticket** encrypted with the file server's secret key. Your computer cannot read this ticket — only FS01 can.\nWindows Event ID **4769** is logged when a service ticket is issued.\n\n**Step 5 — AP-REQ (Application Request)**\nYour computer sends the service ticket to FS01. FS01 decrypts it with its own key, reads your identity and privileges, and decides whether to let you in. No password ever crosses the wire after step 1.\n\n**Why Kerberos Tickets Are Attack Targets**\n\nBecause Kerberos tickets are the proof of identity, stealing or forging them bypasses the need for passwords entirely:\n\n- **Pass-the-Ticket**: An attacker steals a valid TGT from memory (using tools like Mimikatz) and injects it into their own session. They become that user without knowing their password.\n- **Kerberoasting**: Service tickets for accounts that run services are encrypted with the service account's password key. An attacker requests a service ticket for a high-privilege service account, takes the encrypted blob offline, and uses a password cracker to brute-force the original password. Any domain user can request service tickets, so this attack requires no special privileges.\n  - Indicator: **EncryptionType 0x17 (RC4-HMAC)** in Event ID 4769. Modern environments use AES (0x11 = AES-128 / 0x12 = AES-256). RC4 ticket requests are highly suspicious because attackers prefer RC4 — it is faster to crack.\n- **Golden Ticket**: The KDC signs all TGTs with the **krbtgt** account password. If an attacker can extract the krbtgt password hash (which requires DC-level access), they can forge TGTs for any user, including fake accounts, with any expiry time — even years in the future. This is one of the most powerful attacks in Windows environments.\n- **Silver Ticket**: Instead of forging a TGT, the attacker forges a service ticket directly using the service account's password hash. More limited in scope but harder to detect because it never touches the KDC.\n\n**LDAP — Querying Active Directory**\n\n**LDAP (Lightweight Directory Access Protocol)** is the protocol used to query and modify the Active Directory database. Every time something looks up a user's details, checks group membership, or searches for computers, it uses LDAP.\n\nLDAP queries follow a format like: \`(objectClass=user)(sAMAccountName=j.smith)\`\n\n**Attackers use LDAP enumeration** (tools like BloodHound, ldapsearch, or ADExplorer) to map the entire AD environment — all users, all groups, all trust relationships, all GPOs. This gives them a roadmap for privilege escalation before they ever touch a sensitive system. Seeing large volumes of LDAP queries from an unusual host or service account is a red flag.\n\n**DCSync — The Most Dangerous AD Attack**\n\nDomain Controllers replicate their data to each other using the **Directory Replication Service (DRS) protocol**. An attacker with specific permissions (DS-Replication-Get-Changes) can impersonate a Domain Controller and request a copy of all password hashes from the real DC. This is called **DCSync**. With all password hashes, the attacker owns every account in the domain. Mimikatz can perform DCSync with the command \`lsadump::dcsync /user:krbtgt\`. Event ID **4662** with the specific GUID for replication rights is the indicator.`,
       checkpoint: {
         question:
-          "Which Windows Event ID is logged on the Domain Controller when a Kerberos TGT (Ticket-Granting Ticket) is issued?",
-        options: ["4769", "4768", "4624", "4672"],
+          "At 08:00 j.smith signs in to her domain workstation. At 08:05 she opens the share \\\\FS01\\finance for the first time that day. Which event on the Domain Controller records the 08:05 step?",
+        options: ["4768", "4769", "4624", "4672"],
         answer: 1,
         explanation:
-          "Event ID 4768 marks TGT issuance during the AS-REQ/AS-REP exchange — the very first step of Kerberos authentication. Event 4769 is the later step, logged when a service ticket (TGS) is requested.",
+          "Opening the share means her computer presents its TGT and asks the KDC for a service ticket for FS01 (TGS-REQ/TGS-REP), which the DC logs as 4769. 4768 is the earlier 08:00 step, when she proved her password and received the TGT. 4624 is a logon event, and for the share access it is written on FS01 itself, not by the KDC on the DC. 4672 records special privileges assigned at an admin logon and has nothing to do with requesting a service ticket.",
       },
     } satisfies ReadingTask,
 
@@ -105,7 +105,7 @@ const activeDirectory: Room = {
       ],
       answer: 1,
       explanation:
-        "Active Directory Domain Services (AD DS), running on Domain Controllers, provides centralised identity management. One account per user works across all domain-joined systems, and Group Policy enforces settings on all machines simultaneously. A Workgroup has no central control — each machine is independent.",
+        "Active Directory Domain Services (AD DS), running on Domain Controllers, provides centralised identity management. One account per user works across all domain-joined systems, and Group Policy enforces settings on all machines simultaneously. A Workgroup has no central control — the same local account on every PC is still 5,000 separate accounts, and a password change on one machine does nothing on the others. A DNS server resolves names to addresses; it does not hold user accounts or enforce password policy. WSUS distributes Windows updates, not identities or account settings.",
       xp: 20,
     } satisfies QuestionTask,
 
@@ -116,16 +116,16 @@ const activeDirectory: Room = {
       type: "question",
       id: "ad-q2",
       question:
-        "During Kerberos authentication, what does Event ID 4768 represent, and where is it logged?",
+        "In step 4 of the Kerberos flow, the KDC returns a service ticket for the CIFS service on FS01. Which key is that ticket encrypted with, and who can therefore read it?",
       options: [
-        "A Service Ticket (TGS) was issued — logged on the file server accessed",
-        "A Ticket-Granting Ticket (TGT) was requested — logged on the Domain Controller",
-        "An NTLM credential validation succeeded — logged on the member server",
-        "A user account was modified — logged on the workstation used",
+        "The krbtgt account's key — only the KDC can read the ticket",
+        "FS01's own secret key — only the file server can decrypt it",
+        "The user's password-derived key — the user's PC decrypts it",
+        "The AS-REP session key — both the PC and the KDC can read it",
       ],
       answer: 1,
       explanation:
-        "Event ID 4768 is a Kerberos Authentication Service request — the very first step where a user requests a TGT from the KDC. It is always logged on the Domain Controller in the Security event log, because the KDC runs on the DC. Event ID 4769 is the Service Ticket request (TGS).",
+        "The service ticket is encrypted with the secret key of the service it is for (FS01), so the client just carries it and only FS01 can open it, read the user's identity and decide access. This is also why Kerberoasting works: a ticket for a service account is encrypted with that account's password-derived key and can be cracked offline. The krbtgt key encrypts the TGT, not service tickets. The user's password-derived key is used in step 1 for the pre-authentication timestamp. The session key lets the PC and the KDC talk securely, but the service ticket itself is sealed for the service.",
       xp: 25,
     } satisfies QuestionTask,
 
@@ -145,7 +145,7 @@ const activeDirectory: Room = {
       ],
       answer: 1,
       explanation:
-        "Kerberoasting works by requesting service tickets encrypted with RC4 (EncryptionType 0x17) because RC4 hashes are much faster to crack offline than AES. Modern Windows environments default to AES (0x11 = AES-128, 0x12 = AES-256). Seeing RC4 ticket requests for service accounts — especially in large numbers — is a strong Kerberoasting indicator.",
+        "Kerberoasting works by requesting service tickets encrypted with RC4 (EncryptionType 0x17) because RC4 is much faster to crack offline than AES. Modern Windows environments default to AES (0x11 = AES-128, 0x12 = AES-256), so 0x12 is the normal, expected value rather than a warning sign. 'Status 0x12' on 4769 is a failure code (the account is disabled or locked), so no crackable ticket was issued. Tickets whose ServiceName is krbtgt are routine TGT renewals, not service tickets for a service account. Seeing RC4 ticket requests for service accounts — especially many from one requester — is the Kerberoasting indicator.",
       xp: 30,
     } satisfies QuestionTask,
 
@@ -214,16 +214,16 @@ const activeDirectory: Room = {
         },
         {
           question:
-            "The TicketEncryptionType is 0x17. What does this mean, and why is it suspicious at 02:17 AM?",
+            "You hunt in the DC's logs around this event. Which additional finding would most strengthen the Kerberoasting hypothesis?",
           options: [
-            "0x17 means AES-256 — the strongest Kerberos type, so it is expected and not worth investigating",
-            "0x17 means RC4-HMAC — faster to crack offline; at 2 AM this suggests automated Kerberoasting",
-            "0x17 means the KDC denied the request — the attempt failed and no crackable ticket was returned",
-            "0x17 means the requester is a Domain Admin — only privileged accounts are issued that type",
+            "A 4768 for j.harrison with PreAuthType 2, from the same host, a minute before this event",
+            "More 4769s from the same source host within minutes, each for a different service account, in RC4",
+            "A 4769 for svc_sqlbackup in AES (0x12), requested by the SQL server's own computer account",
+            "A 4672 for j.harrison at 02:17, showing special privileges were assigned at the logon",
           ],
           answer: 1,
           explanation:
-            "EncryptionType 0x17 = RC4-HMAC, which is much weaker than AES and specifically sought out by Kerberoasting tools (Rubeus, Impacket GetUserSPNs). RC4 hashes can be cracked orders of magnitude faster than AES. Combined with the unusual 02:17 AM timestamp — when legitimate SQL backup jobs would use automated service accounts, not interactive user sessions — this pattern is highly indicative of Kerberoasting.",
+            "Kerberoasting tools usually ask for tickets for many service accounts in one burst, and ask for RC4 because it cracks faster — so a run of RC4 4769s from the same host for different ServiceNames turns one odd request into a pattern. A 4768 with PreAuthType 2 just before is expected: the requester needs a TGT before any service ticket, so it proves nothing either way. An AES 4769 from the SQL server's own account is the normal, healthy pattern for that service. A 4672 would mean j.harrison logged on with admin-level privileges — worth noting, but it is not part of the Kerberoasting signature, which needs no special privileges at all. The 02:17 timing matters too: a human user account asking for an RC4 ticket to a backup service account in the middle of the night fits neither the user nor the job.",
           xp: 35,
         },
       ],
@@ -245,7 +245,7 @@ const activeDirectory: Room = {
       ],
       answer: 1,
       explanation:
-        "Security Groups are the AD group type used to control access to resources like file shares, printers, and applications. Distribution Groups are only used for email distribution lists and cannot be assigned permissions. This is a common point of confusion — if a group controls access to anything, it must be a Security Group.",
+        "Security Groups are the AD group type used to control access to resources like file shares, printers, and applications. Distribution Groups are only used for email distribution lists and cannot be assigned permissions, so they cannot grant share access. An OU is a folder for organising objects and targeting GPOs; it is not a group and does not grant resource permissions to its members. Built-in Groups are predefined, which is true, but this group was created by the admin for Finance. If a group controls access to anything, it is a Security Group.",
       xp: 20,
     } satisfies QuestionTask,
 
@@ -256,16 +256,16 @@ const activeDirectory: Room = {
       type: "question",
       id: "ad-q5",
       question:
-        "An attacker has gained DS-Replication-Get-Changes-All permissions on the domain. What attack can they now perform, and what is the catastrophic result?",
+        "DC01 logs Event ID 4662 for the domain object. The properties accessed include the GUIDs for DS-Replication-Get-Changes and DS-Replication-Get-Changes-All, and the account is 'svc-backup', which is not a Domain Controller. What does this most likely show?",
       options: [
-        "Kerberoasting — they can request service tickets and crack service account passwords offline",
-        "DCSync — they can impersonate a Domain Controller and pull password hashes for every account",
-        "Pass-the-Ticket — they can replay stolen TGTs to reach services as the ticket's owner",
-        "AdminSDHolder abuse — they can rewrite the ACLs on every protected group in the domain",
+        "Routine replication — 4662 with these GUIDs is what DCs log whenever they sync",
+        "DCSync — the account is replicating like a DC to pull every account's password hash",
+        "AdminSDHolder abuse — the account is rewriting ACLs on the protected admin groups",
+        "Golden Ticket use — the account is presenting a forged TGT to the DC for access",
       ],
       answer: 1,
       explanation:
-        "DCSync exploits the legitimate DC replication protocol (DRS). With DS-Replication-Get-Changes-All permission, an attacker uses Mimikatz's 'lsadump::dcsync' command to pull the NTLM hash and Kerberos keys of any account — including krbtgt — from a live DC without ever logging into it. This is catastrophic because it gives the attacker every credential in the domain. Detected via Event ID 4662 with replication GUIDs from a non-DC host.",
+        "4662 with both replication-rights GUIDs from an account that is NOT a known Domain Controller is the DCSync detection taught in this room: the account is using the DC replication protocol (DRS) to request password hashes — including krbtgt — without logging on to the DC, which hands over every credential in the domain. 'Routine replication' would be true only if the requester were a DC; svc-backup is not. AdminSDHolder abuse is about writing permissions on protected groups, not reading replication data. A Golden Ticket is a forged TGT presented for access; it does not appear as replication-rights access on the domain object (and the krbtgt hash it needs is exactly what a DCSync can steal).",
       xp: 30,
     } satisfies QuestionTask,
 
@@ -276,9 +276,9 @@ const activeDirectory: Room = {
       type: "flag",
       id: "ad-flag1",
       prompt:
-        "Look at the log analysis event above (Event ID 4769). What is the exact TicketEncryptionType value in hexadecimal that indicates Kerberoasting? Enter it exactly as shown in the raw log (format: 0x followed by two hex digits).",
-      answer: "0x17",
-      hint: "Look at the 'winlog.event_data.TicketEncryptionType' field in the raw log. It should be a hexadecimal value starting with '0x'. RC4-HMAC is the older, weaker algorithm.",
+        "In the Kerberos ticket event above (Event ID 4769), find the network address of the machine that asked for the RC4 ticket — the host you would examine next for the tool that made the request. Enter the IP address.",
+      answer: "10.10.25.88",
+      hint: "The DC records where each ticket request came from, not only who made it.",
       xp: 40,
     } satisfies FlagTask,
 
@@ -298,7 +298,7 @@ const activeDirectory: Room = {
       ],
       answer: 2,
       explanation:
-        "The krbtgt account is used to sign all TGTs in the domain. If an attacker obtains its hash (via DCSync or extracting it from DC memory), they can forge TGTs for any user — real or fictional — with any expiry date and any privileges. Even resetting all user passwords does not help, because the Golden Ticket is signed with krbtgt's key, not the user's key. The only remediation is resetting the krbtgt password twice (to invalidate all outstanding tickets).",
+        "The krbtgt account is used to sign all TGTs in the domain. If an attacker obtains its hash (via DCSync or extracting it from DC memory), they can forge TGTs for any user — real or fictional — with any expiry date and any privileges. Even resetting all user passwords does not help, because the Golden Ticket is signed with krbtgt's key, not the user's key. The only remediation is resetting the krbtgt password twice (to invalidate all outstanding tickets). 'One account at a time with that user's current hash' describes Pass-the-Hash, not forging with krbtgt. 'Service tickets with a service account's hash' is a Silver Ticket, limited to one service. 'Abuses a replication permission to pull every hash' is DCSync — often the way the krbtgt hash is stolen, but a different technique.",
       xp: 30,
     } satisfies QuestionTask,
 
@@ -312,11 +312,16 @@ const activeDirectory: Room = {
       content: `You already learned Kerberoasting: an attacker requests a service ticket (TGS) for a service account and cracks the encrypted reply offline. **AS-REP Roasting** is Kerberoasting's quieter sibling — it targets the very first step of Kerberos authentication instead, and it works without the attacker ever needing to authenticate at all.\n\nRecall from Reading 2: the normal Kerberos flow starts with an **AS-REQ**, where your computer proves it knows your password by sending the KDC a timestamp encrypted with a key derived from that password. This encrypted timestamp is called **Kerberos pre-authentication**, and it exists specifically to stop an attacker from requesting a TGT for an account without knowing that account's password first.\n\n**The vulnerability: pre-authentication can be disabled.** Every AD user account has an attribute called 'DONT_REQ_PREAUTH' (visible in AD as the "Do not require Kerberos preauthentication" checkbox under the account's Account tab). When this flag is set, the KDC will hand out an **AS-REP** (the encrypted TGT reply) to *anyone* who asks for that specific username — no password, no proof of identity, nothing. This setting is rare in a well-run domain, but it turns up more often than you'd expect: legacy applications that predate modern Kerberos tooling, accounts migrated from older domains, or simple misconfiguration.\n\n**How the attack works, step by step:**\n1. The attacker does **not** need any credentials or domain access beyond basic network connectivity to a Domain Controller — this can even be run pre-authentication from an unauthenticated position in some configurations, but is most commonly run by an attacker who already has a low-privilege foothold and wants to escalate quietly.\n2. Using a tool like Impacket's 'GetNPUsers.py' or Rubeus's 'asreproast' module, the attacker requests a list of usernames — pulled from earlier LDAP enumeration — and asks the KDC for an AS-REP for each one.\n3. For any account with 'DONT_REQ_PREAUTH' set, the KDC replies immediately with an AS-REP. Part of that reply — the encrypted portion — is encrypted using a key derived from the target account's password (RC4-HMAC in older/misconfigured domains, which is fast to crack; AES in hardened domains, which is much slower).\n4. The attacker takes this encrypted blob **offline** and runs it through a password cracker (Hashcat mode 18200, or John the Ripper). Because there is no live connection to the KDC during cracking, there is **no lockout, no rate limit, and no additional log entries** — the entire cracking process is invisible to the SOC.\n5. Once cracked, the attacker has that account's plaintext password and can log in normally — which is where the attack chain becomes visible again.\n\n**Why AS-REP Roasting is dangerous specifically because it's quiet:** Kerberoasting requires requesting a *service* ticket (Event ID 4769), which at least proves the requesting account was authenticated. AS-REP Roasting requests happen at the very first, pre-authentication stage — before any password is checked — so a successful roast against a vulnerable account produces exactly **one** Kerberos event (an Event ID 4768 AS-REQ/AS-REP exchange) with nothing else to correlate against. The actual password cracking that follows generates **zero logs of any kind**, because it happens entirely on the attacker's own machine.\n\n**The detection signature — Event ID 4768, field PreAuthType:** When a Domain Controller issues a TGT, it logs Event ID 4768 (the same event ID used for every normal, legitimate login). The field that tells you whether pre-authentication was actually used is **PreAuthType**:\n- **PreAuthType = 2** — Normal: the client proved knowledge of the password with an encrypted timestamp. This is what 99% of your 4768 events should look like.\n- **PreAuthType = 0** — No pre-authentication was used. Either this is a legitimately misconfigured account being probed by an attacker, or — even worse — you are looking at an actual AS-REP Roasting attempt in progress.\n\nA single 4768 with PreAuthType 0 for an account that should never have that flag set is a strong indicator someone just requested a roastable AS-REP. If the *same account* generates a normal, PreAuthType=2 login hours later from a different, unrelated host, that gap is consistent with offline cracking having succeeded in between.\n\n**Prevention and remediation:** Audit AD for any account with 'DONT_REQ_PREAUTH' set (the PowerShell cmdlet 'Get-ADUser -Filter {DoesNotRequirePreAuth -eq $true}') and disable the flag unless there is a documented legacy-application reason for it. For any account that must keep it disabled, enforce a long, high-entropy password so offline cracking is infeasible even with the AS-REP in hand.`,
       checkpoint: {
         question:
-          "According to the reading, which PreAuthType value on Event ID 4768 indicates that Kerberos pre-authentication was skipped entirely — the signature of a possible AS-REP Roasting attempt?",
-        options: ["PreAuthType 2", "PreAuthType 0", "PreAuthType 17", "PreAuthType 11"],
+          "At 01:10 the DC logs a 4768 for 'svc-legacy-print' with PreAuthType 0 from 10.1.9.77, a host that has never used that account. At 06:40 the same account gets a 4768 with PreAuthType 2 from a different, unrelated server. What does this sequence suggest?",
+        options: [
+          "Nothing yet — offline cracking would show up as failed logons on the DC, and none appear",
+          "The AS-REP may have been cracked offline in between, and the account is now in use elsewhere",
+          "The 06:40 event is the attacker retrying after the roast failed, so the password is still safe",
+          "PreAuthType 2 at 06:40 means the DC refused that request, so the account was not actually used",
+        ],
         answer: 1,
         explanation:
-          "PreAuthType 0 means no pre-authentication occurred, which only happens when the account has 'DONT_REQ_PREAUTH' set. PreAuthType 2 is the normal, expected value seen in roughly 99% of legitimate 4768 events.",
+          "PreAuthType 0 from an unexpected host is the roastable AS-REP being handed out; a later PreAuthType 2 logon from an unrelated host means someone proved they know the password — the gap fits offline cracking that succeeded. 'Cracking would show failed logons' is the key misconception: cracking happens on the attacker's own machine and produces no logs at all. 'The roast failed and this is a retry' misreads PreAuthType 2, which means the client proved knowledge of the password with an encrypted timestamp. 'PreAuthType 2 means refused' is also wrong — 4768 records a TGT that was issued, and 2 is the normal, successful pre-authentication value.",
       },
     } satisfies ReadingTask,
 
@@ -339,14 +344,14 @@ const activeDirectory: Room = {
       question:
         "You are reviewing Event ID 4768 (Kerberos TGT request) logs on a Domain Controller and see an entry for account 'svc-legacy-print' with PreAuthType = 0. What does this indicate, and why is it a high-value finding?",
       options: [
-        "PreAuthType 0 means smart-card (PKINIT) pre-authentication, which is routine for privileged service accounts",
-        "No pre-authentication was required: the account has 'Do not require Kerberos preauthentication' set, so its AS-REP can be cracked offline",
-        "PreAuthType 0 means the password expired, so the KDC refused to issue a TGT until the user resets it",
-        "PreAuthType 0 marks a cross-realm referral request, which is routine traffic in a multi-domain forest",
+        "It shows smart-card (PKINIT) pre-authentication, which is routine for privileged service accounts",
+        "Pre-authentication is disabled on the account, so anyone can request its AS-REP and crack it offline",
+        "It means the password has expired, so the KDC refused to issue a TGT until the password is reset",
+        "It marks a cross-realm referral request, which is routine traffic in a forest with several domains",
       ],
       answer: 1,
       explanation:
-        "PreAuthType 2 is the normal, expected value — it means the client proved knowledge of the password via an encrypted timestamp before the KDC issued a TGT. PreAuthType 0 means pre-authentication was skipped entirely, which only happens when the account has the 'DONT_REQ_PREAUTH' flag set. Any domain user — with no special privileges — can request an AS-REP for such an account and crack the encrypted reply offline (Hashcat mode 18200), with no further Kerberos events generated during the cracking phase. This is functionally the same class of attack as Kerberoasting but targets the very first authentication step instead of a service ticket, and requires even less attacker access to pull off.",
+        "PreAuthType 2 is the normal, expected value — it means the client proved knowledge of the password via an encrypted timestamp before the KDC issued a TGT. PreAuthType 0 means pre-authentication was skipped entirely, which only happens when the account has the 'DONT_REQ_PREAUTH' flag set. Anyone who can reach a DC and knows the username can request an AS-REP for such an account and crack the encrypted reply offline, with no further events generated during cracking. 'Smart-card (PKINIT)' is a different pre-authentication method — it is still pre-authentication, not its absence. 'Password expired, TGT refused' cannot fit: 4768 here records a TGT that was issued. 'Cross-realm referral' confuses PreAuthType with ticket routing between domains. Legacy accounts with the flag set will log PreAuthType 0 on every logon, so confirm whether this account is a known exception — but either way it is roastable and its flag or password needs fixing.",
       xp: 30,
     } satisfies QuestionTask,
 
@@ -356,9 +361,9 @@ const activeDirectory: Room = {
     {
       type: "log_analysis",
       id: "ad-la2",
-      heading: "Mismatched Workstation Name — Possible NTLM Relay",
+      heading: "Unusual NTLM Network Logon on SRV-FILE02",
       context:
-        "Your SIEM has correlated two events on the internal network within an 8-second window: a burst of LLMNR broadcast traffic on UDP port 5355, followed immediately by a Windows authentication event where the WorkstationName field does not match the IP address the logon actually originated from. Review the authentication event below and answer the questions.",
+        "Your SIEM has correlated two events on the internal network within an 8-second window: a burst of LLMNR broadcast traffic on UDP port 5355, followed by an NTLM network logon for l.harper on the file server SRV-FILE02. The SIEM has enriched the logon with asset-inventory and DHCP lookups. Review the authentication event below and answer the questions.",
       event: {
         id: "ad-ntlm-evt-001",
         ts: "2024-11-18T14:02:37.000Z",
@@ -396,30 +401,30 @@ const activeDirectory: Room = {
       questions: [
         {
           question:
-            "The WorkstationName field says 'WKS-L-HARPER', but the DHCP lease table shows l.harper's real machine is assigned IP 10.20.4.47 — not 10.20.4.91, the IpAddress this login actually came from. What does this mismatch indicate?",
+            "Compare WorkstationName and IpAddress with the two asset-enrichment fields. What is the most likely explanation for this logon?",
           options: [
-            "l.harper's own machine could have reconnected under a fresh DHCP lease while the client's local NetBIOS name cache — which Windows keeps for roughly ten minutes by default — still held the old hostname-to-IP mapping, meaning ordinary lease renewal timing, not an attacker, produced the mismatch between WorkstationName and IpAddress",
-            "WorkstationName is indeed a client-supplied field the server does not cryptographically verify, and that is accurate NTLM design — but mismatches of this kind are routine and expected whenever traffic crosses a VPN concentrator, NAT gateway, or Remote Desktop jump host, so a single mismatched event like this does not by itself justify treating it as attacker activity",
-            "This is the signature of an NTLM relay attack: the attacker's rogue machine (10.20.4.91) is relaying l.harper's captured NTLM authentication to SRV-FILE02, while the WorkstationName field still shows the name of l.harper's real workstation because that value came from l.harper's original, poisoned authentication attempt",
-            "DHCP lease tables refresh on a short, fixed interval on enterprise DHCP servers, so whenever a lease record disagrees with the WorkstationName claimed during authentication, the lease record should always be trusted as current and the authentication log's WorkstationName value should be disregarded entirely rather than investigated further",
+            "Lease churn: l.harper's PC took a new DHCP lease and the server logged the new IP before its name cache caught up",
+            "NAT or VPN noise: WorkstationName is client-supplied, so a name/IP mismatch like this is common and not suspicious",
+            "NTLM relay: an unknown device at 10.20.4.91 forwarded l.harper's authentication, which still carries her PC's name",
+            "Pass-the-hash on l.harper's PC: her hash was reused on that machine, so the logon names her workstation as source",
           ],
           answer: 2,
           explanation:
-            "WorkstationName is populated by the client during authentication and is not independently verified by the server — which is exactly why it becomes a giveaway in a relay attack. l.harper's machine legitimately claims to be WKS-L-HARPER, but that authentication attempt was captured and relayed by a rogue device at 10.20.4.91 (not in the asset inventory), which forwarded it to SRV-FILE02. The server sees a login that says 'I am WKS-L-HARPER' arriving from an IP that has never been assigned to that hostname — a mismatch that is very hard to produce through any normal, non-attack scenario. The alternative explanations don't hold up: NetBIOS name caching affects local name resolution, not the WorkstationName value a remote server logs during authentication; VPN/NAT traffic would still originate from a device known to the environment, not one absent from the asset inventory; and DHCP lease tables never justify ignoring a corroborated authentication anomaly.",
+            "WorkstationName is supplied by the client and not verified by the server. The logon says it comes from WKS-L-HARPER, but it arrived from 10.20.4.91, an address with no entry in the asset inventory, while DHCP shows WKS-L-HARPER on a different address. Together with the LLMNR burst seconds earlier, that fits a relay: l.harper's poisoned authentication was forwarded by an unknown device to SRV-FILE02. 'Lease churn' does not fit — a name cache affects local name lookups, not the WorkstationName a remote server records, and her PC's current lease is a different address. 'NAT or VPN noise' is a real cause of mismatches, but NAT/VPN traffic comes from a known gateway, not a device missing from the inventory. 'Pass-the-hash on her PC' would make the logon come from her PC's own address, not from an unknown one.",
           xp: 35,
         },
         {
           question:
-            "Given that this is a suspected NTLM relay, what is the SOC analyst's most appropriate immediate action?",
+            "Treat this as a confirmed relay. What is the most appropriate immediate response?",
           options: [
-            "Reset l.harper's password and close the incident — the change invalidates the captured hash and ends the session already open on SRV-FILE02",
-            "Isolate the unmanaged device at 10.20.4.91, reset l.harper's credentials and relayed sessions, and investigate how it reached the subnet",
-            "Downgrade the alert and close it — relay only works against Domain Admins, and l.harper is a standard user with no elevated groups",
-            "Block UDP 5355 on SRV-FILE02 and stop there — the poisoning tool can no longer reach the server it relayed to",
+            "Reset l.harper's password and close the case — the reset makes the captured authentication useless",
+            "Isolate the device at 10.20.4.91, reset l.harper's credentials and sessions, and find how it got on",
+            "Isolate and re-image WKS-L-HARPER, since the logon names her workstation as the source of the access",
+            "Enforce SMB signing on SRV-FILE02 and disable LLMNR, then monitor the subnet for a repeat attempt",
           ],
           answer: 1,
           explanation:
-            "Resetting the password alone doesn't help — NTLM relay doesn't require knowing the password at all, so a reset doesn't retroactively undo the session that was already established via the relayed authentication. The correct response combines containment (isolate the rogue device, since its mere presence indicates active LLMNR/NTLM poisoning tooling on the internal network), credential/session remediation for the affected account, and a wider investigation, because the attacker's device is a durable threat to every other machine on that subnet until it is removed — this was never limited to a single host or a single user.",
+            "The unknown device is the attacker's foothold and can keep poisoning and relaying for every user on that subnet, so contain it first, then remediate the affected account and its sessions and work out how the device got onto the network. 'Reset the password and close' is incomplete — relay never needed the password, so the reset does not undo the session already opened on SRV-FILE02, and the device is still there. 'Re-image WKS-L-HARPER' targets the victim: her PC only supplied the name, while the access came from 10.20.4.91. 'SMB signing and disabling LLMNR' are the right long-term fixes, but doing only that now leaves an active attacker device on the network.",
           xp: 35,
         },
       ],
@@ -432,9 +437,9 @@ const activeDirectory: Room = {
       type: "flag",
       id: "ad-flag2",
       prompt:
-        "Look at the NTLM relay event in the 'Mismatched Workstation Name' log analysis above (Event ID 4624). Read the raw field 'winlog.event_data.IpAddress' — the true network source the logon arrived from. Note this is NOT the 10.20.4.47 address that the DHCP lease table assigns to WKS-L-HARPER. Enter the exact IP address from the IpAddress field.",
-      answer: "10.20.4.91",
-      hint: "Look at the 'winlog.event_data.IpAddress' field in the raw log — this is the true network source of the NTLM authentication, which does not match the claimed WorkstationName's real device. Do not use the address from the asset.dhcp_lease_WKS-L-HARPER field.",
+        "In the 'Unusual NTLM Network Logon' event above, the victim's own computer also needs checking — it is the machine whose name-resolution request was answered by the poisoner. Enter the IP address of l.harper's real workstation.",
+      answer: "10.20.4.47",
+      hint: "The address the logon arrived from is not her machine. One of the enrichment fields tells you where her workstation really is.",
       xp: 35,
     } satisfies FlagTask,
 
@@ -446,7 +451,7 @@ const activeDirectory: Room = {
       id: "ad-ac1",
       heading: "Verdict: Off-Hours Privileged RDP Logon to the Domain Controller",
       scenario:
-        "Your SIEM raises a medium-severity alert at 03:12 AM: the account 'svc-patchmgmt' established an interactive RDP session (LogonType 10) directly onto DC01, the primary Domain Controller. Any interactive logon to a Domain Controller outside business hours is configured to alert automatically, since DCs should almost never receive direct interactive sessions. IT change management confirms svc-patchmgmt is used exclusively for scheduled monthly patch validation, and change ticket CHG0041932 authorises exactly this activity for tonight's 02:00-04:00 maintenance window. The asset inventory lists JMP-PATCHMGT01 (10.10.50.12) as the organisation's dedicated patch-management jump host. What is your verdict?",
+        "Your SIEM raises a medium-severity alert at 03:12 AM: the account 'svc-patchmgmt' established an interactive RDP session (LogonType 10) directly onto DC01, the primary Domain Controller. Any interactive logon to a Domain Controller outside business hours is configured to alert automatically, since DCs should almost never receive direct interactive sessions. The asset inventory lists JMP-PATCHMGT01 at 10.10.50.12 as the organisation's patch-management jump host. Check the account, time, source workstation and source IP in the log against the IT-verification note shown with the event, then give your verdict.",
       event: {
         id: "ad-ac1-evt-001",
         ts: "2024-11-09T03:12:00.000Z",
@@ -486,7 +491,7 @@ const activeDirectory: Room = {
       } satisfies TelemetryEvent,
       correct_verdict: "false_positive",
       explanation:
-        "Every element of this alert matches what the earlier readings taught you to flag: LogonType 10 (RDP, interactive) landing directly on a Domain Controller, at 03:12 AM, using a privileged-sounding account. Under normal circumstances that combination is a strong lateral-movement or credential-abuse indicator, since admins are expected to manage DCs from dedicated jump hosts and change-controlled sessions, not ad-hoc RDP at 3 AM. Two pieces of context resolve it here: the WorkstationName (JMP-PATCHMGT01) is the organisation's known, dedicated patch-management jump host — not an unrecognised or newly-seen device — and it_verify_result is 'confirmed', tying this specific session to an approved change ticket covering tonight's exact maintenance window. With both corroborating facts present, this is benign, expected administrative activity, not an attack.",
+        "On the surface this alert has the shape this room teaches you to worry about: LogonType 10 (RemoteInteractive — an RDP session) landing directly on a Domain Controller, at 03:12 AM, from a privileged account. Without context that is a strong lateral-movement or credential-abuse indicator. But every detail checks out against the evidence: the IT-verification note confirms change ticket CHG0041932 allows svc-patchmgmt to RDP into DC01 between 02:00 and 04:00, and 03:12 falls inside that window; the WorkstationName is JMP-PATCHMGT01 and the IpAddress is 10.10.50.12, which the asset inventory lists as the patch-management jump host. Account, target, time and source all match the approved change, so this is expected administrative activity, not an attack.",
       fp_trap:
         "It is tempting to escalate immediately purely on pattern-matching: privileged account + Domain Controller + interactive logon type + off-hours timestamp is exactly the shape of the AD attack patterns this room teaches. But context always outranks pattern alone. If either corroborating fact had been missing — an unrecognised source workstation, or no matching change ticket — the correct verdict would flip immediately to escalate, because a privileged interactive session on a DC with no explanation is one of the highest-risk things a SOC analyst can see. Always check the WorkstationName against known admin infrastructure and the account's IT verification status before closing an alert like this.",
       xp: 30,
@@ -761,11 +766,11 @@ const linuxFundamentals: Room = {
       content: `You may never have seen Linux before. It does not have a start menu or colourful desktop icons. But here is the truth: Linux runs approximately **96% of the world's web servers**, virtually all cloud infrastructure (AWS, Azure, GCP), most IoT devices, Android smartphones, and — most relevant to you — nearly every security tool you will use as a SOC analyst, including Wazuh, Elastic Stack, and Splunk. Understanding Linux is not optional for a modern SOC analyst. It is as essential as knowing how to drive is for a police officer.\n\nThink of Linux like the engine of a car — most users never see it, but mechanics (and security analysts) need to understand it deeply.\n\n**The Filesystem Hierarchy — Everything Has a Place**\n\nWindows organises files into drives (C:, D:). Linux has one unified tree that starts at the **root directory** (\`/\`). Everything — files, devices, network interfaces — is a file or directory somewhere in this tree. Knowing where things live is critical for investigations:\n\n- **\`/\`** — Root. The top of the entire filesystem. Only root (the superuser) can write here.\n- **\`/etc\`** — "Et cetera" — system configuration files. Critical for SOC analysts:\n  - \`/etc/passwd\` — list of all user accounts\n  - \`/etc/shadow\` — hashed passwords (readable only by root)\n  - \`/etc/group\` — group membership\n  - \`/etc/sudoers\` — who can run commands as root\n  - \`/etc/ssh/sshd_config\` — SSH server configuration\n  - \`/etc/cron.d/\` — system-wide cron job definitions\n- **\`/var/log\`** — Variable data that grows: **log files**. SSH logs, authentication logs, web server logs, system logs. This directory is where you spend most of your time during Linux investigations.\n- **\`/tmp\`** — Temporary files. World-writable (any user can write here). Malware and attackers frequently drop files in /tmp because no special permissions are needed. Always check /tmp during an investigation.\n- **\`/home\`** — User home directories. \`/home/alice\` is Alice's personal space. Contains .ssh (SSH keys), .bash_history (command history), and personal files.\n- **\`/bin\`** and **\`/usr/bin\`** — Essential system commands and user programs. Things like \`ls\`, \`cat\`, \`grep\`, \`ps\`. Attackers sometimes replace legitimate binaries here with modified versions (rootkits).\n- **\`/sbin\`** and **\`/usr/sbin\`** — System administration binaries (commands usually run as root). \`iptables\`, \`useradd\`, \`fdisk\`.\n- **\`/proc\`** — A **virtual filesystem** that does not exist on disk. The kernel creates it in memory. It gives you a window into every running process and network connection:\n  - \`/proc/PID/exe\` — the executable for process with that PID\n  - \`/proc/PID/cmdline\` — the full command line that started the process\n  - \`/proc/PID/net/tcp\` — all active TCP connections\n  - \`/proc/PID/maps\` — memory map of the process\n- **\`/sys\`** — Another virtual filesystem exposing hardware and kernel settings.\n- **\`/dev\`** — Device files. \`/dev/sda\` is your hard drive. \`/dev/null\` is the "black hole" — data written here disappears.\n- **\`/opt\`** — Optional third-party software. Many security tools install here.\n- **\`/root\`** — The home directory of the root (superuser) account.\n\n**Why /tmp, /var/tmp, and /dev/shm Are Red Flags**\n\nThese three directories are writable by any user without special permissions:\n- \`/tmp\` — cleared on reboot on most systems\n- \`/var/tmp\` — persists across reboots (more dangerous for persistence)\n- \`/dev/shm\` — shared memory, backed by RAM, leaves no disk trace\n\nAttackers use these to download and execute malware. A process running from \`/tmp/update\` or \`/dev/shm/kworker\` should immediately raise suspicion — these paths are not where legitimate software lives.\n\n**Key Analyst Commands**\n\nWhen you SSH into a Linux system during an investigation, these commands give you situational awareness:\n\n- \`ls -la\` — List all files including hidden ones (starting with .) with permissions and timestamps\n- \`ps aux\` — List all running processes with their user, PID, and command line\n- \`netstat -tulpn\` or \`ss -tulpn\` — Show all open network ports and which process owns each one\n- \`find /tmp -type f -newer /etc/passwd\` — Find files in /tmp newer than the passwd file (recently created)\n- \`grep -r "Failed password" /var/log/\` — Search for SSH failures across all log files\n- \`cat /proc/1234/cmdline\` — See the full command line of process 1234\n- \`tail -f /var/log/auth.log\` — Watch the authentication log in real time\n- \`who\` and \`w\` — See who is currently logged in\n- \`last\` — Show recent login history`,
       checkpoint: {
         question:
-          "According to the reading, which directory is a virtual filesystem — created in memory by the kernel, not stored on disk — that gives a window into every running process?",
+          "A process called 'kworker' is using a lot of CPU on a web server. You want to see which executable it was really started from and its full command line. Which directory gives you that live view of the running process?",
         options: ["/proc", "/etc", "/var/log", "/opt"],
         answer: 0,
         explanation:
-          "/proc is a virtual filesystem the kernel builds in memory; /proc/PID/cmdline and /proc/PID/exe reveal exactly what a running process is and how it was started, which is why analysts check it during investigations.",
+          "/proc is the virtual filesystem the kernel builds in memory for running processes: /proc/PID/exe points to the real executable and /proc/PID/cmdline holds the full command line. /etc holds configuration files, not live process state. /var/log holds log files that may mention the process, but it is not a live view of it. /opt is where third-party software is installed; a process can run from anywhere, so /opt tells you nothing about this one.",
       },
     } satisfies ReadingTask,
 
@@ -776,13 +781,13 @@ const linuxFundamentals: Room = {
       type: "reading",
       id: "linux-fund-r2",
       heading: "Users, File Permissions, and the sudo System",
-      content: `Linux enforces the principle of least privilege through a strict permissions system. Every file and every process belongs to a specific user and group, and permissions control exactly who can do what. Understanding this is crucial both for securing systems and for investigating compromises.\n\n**Users and Groups**\n\nLinux user accounts are stored in \`/etc/passwd\`. Each line has seven colon-separated fields:\n\`\`\`\nalice:x:1001:1001:Alice Smith:/home/alice:/bin/bash\n  ^    ^  ^    ^      ^            ^            ^\n  |    |  |    |    Comment      Home          Shell\n username | UID  GID             directory\n          |\n        password (x = stored in /etc/shadow)\n\`\`\`\n\n- **UID (User ID)**: A number identifying the user. UID 0 = root (superuser). UID 1–999 = system accounts. UID 1000+ = human users.\n- **GID (Group ID)**: Primary group. Group memberships are in \`/etc/group\`.\n- **Shell**: The program that runs when the user logs in. \`/bin/bash\` is normal. \`/sbin/nologin\` or \`/bin/false\` means the account cannot log in interactively (used for service accounts).\n\nPasswords are never stored in \`/etc/passwd\` — only an 'x' placeholder. The actual hashed passwords are in \`/etc/shadow\`, readable only by root:\n\`\`\`\nalice:$6$salt$longhashstring...:18987:0:99999:7:::\n\`\`\`\nThe \`$6$\` prefix means SHA-512. Attackers who gain root access often dump /etc/shadow and attempt offline password cracking.\n\n**File Permissions**\n\nEvery file and directory has three permission sets:\n- **Owner (u)**: The user who owns the file\n- **Group (g)**: Members of the file's group\n- **Others (o)**: Everyone else\n\nAnd three permission types:\n- **r (read)**: Can view the file content or list directory contents\n- **w (write)**: Can modify the file or create/delete files in the directory\n- **x (execute)**: Can run the file as a program, or enter the directory (\`cd\` into it)\n\nExample output of \`ls -la\`:\n\`\`\`\n-rwxr-xr-- 1 alice devs 4096 Nov 14 10:32 deploy.sh\n ^^^ ^^^ ^^^\n  |   |   |\n Owner Group Others\n (alice)(devs)(everyone)\n\`\`\`\nReading: alice=rwx (can read/write/execute), devs group=r-x (can read and execute, not write), everyone else=r-- (read only).\n\nThe leading \`-\` means it is a regular file. \`d\` means directory, \`l\` means symbolic link.\n\n**Numeric Permission Notation**\nPermissions can also be expressed as a 3-digit octal number:\n- r = 4, w = 2, x = 1\n- Add them up: rwx = 7, rw- = 6, r-x = 5, r-- = 4, --- = 0\n- \`chmod 755 file\` = rwxr-xr-x (owner: full, group: read+execute, others: read+execute)\n- \`chmod 644 file\` = rw-r--r-- (owner: read+write, group: read, others: read) — standard for config files\n- \`chmod 777 file\` = rwxrwxrwx — **EVERYONE** can read, write, and execute. This is almost always a misconfiguration or a sign of an attacker deliberately weakening security.\n\n**SUID and SGID — Special Permission Bits**\nThese are advanced permission bits that are frequent attack targets:\n- **SUID (Set User ID)**: When set on an executable, it runs as the **file owner** regardless of who executes it. The classic example is \`/usr/bin/passwd\` — it runs as root (to write to /etc/shadow) even when an ordinary user runs it.\n  - ls shows 's' in the owner execute position: \`-rwsr-xr-x\`\n  - Dangerous if set on a shell or interpreter: \`find / -perm -4000\` lists all SUID files\n- **SGID (Set Group ID)**: Similar but runs as the file's group.\n\nAttackers sometimes copy \`/bin/bash\` to /tmp and set SUID on it: \`chmod 4755 /tmp/bash\`. Then any user can run \`/tmp/bash -p\` to get a root shell. Looking for unexpected SUID files is part of any Linux compromise investigation.\n\n**The sudo System**\n\n**sudo** (substitute user do) allows specific users to run commands as root (or as another user) without knowing the root password. It is configured in \`/etc/sudoers\` (edit only with \`visudo\` to prevent syntax errors that lock you out).\n\nExample sudoers entries:\n\`\`\`\nalice   ALL=(ALL:ALL) ALL         # alice can run anything as any user\nbob     ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart nginx   # bob can restart nginx without a password\n%devops ALL=(ALL) ALL              # everyone in the devops group can run anything\n\`\`\`\n\nWhy sudo matters for security:\n1. **Audit trail**: Every sudo command is logged to \`/var/log/auth.log\` (or \`/var/log/secure\` on RHEL). This is how you know who ran what as root.\n2. **Attack target**: If an attacker can add their account to sudoers (or to the sudo/wheel group), they get permanent root access. Always monitor for changes to /etc/sudoers and /etc/group.\n3. **Common attacker escalation**: \`echo 'www-data ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/backdoor\` — if the web server is compromised and the attacker can write to sudoers.d, they get root.\n\nCheck current sudo privileges: \`sudo -l\` (shows what the current user can run as sudo).`,
+      content: `Linux enforces the principle of least privilege through a strict permissions system. Every file and every process belongs to a specific user and group, and permissions control exactly who can do what. Understanding this is crucial both for securing systems and for investigating compromises.\n\n**Users and Groups**\n\nLinux user accounts are stored in \`/etc/passwd\`. Each line has seven colon-separated fields:\n\`\`\`\nalice:x:1001:1001:Alice Smith:/home/alice:/bin/bash\n  ^    ^  ^    ^      ^            ^            ^\n  |    |  |    |    Comment      Home          Shell\n username | UID  GID             directory\n          |\n        password (x = stored in /etc/shadow)\n\`\`\`\n\n- **UID (User ID)**: A number identifying the user. UID 0 = root (superuser). UID 1–999 = system accounts. UID 1000+ = human users.\n- **GID (Group ID)**: Primary group. Group memberships are in \`/etc/group\`.\n- **Shell**: The program that runs when the user logs in. \`/bin/bash\` is normal. \`/sbin/nologin\` or \`/bin/false\` means the account cannot log in interactively (used for service accounts).\n\nPasswords are never stored in \`/etc/passwd\` — only an 'x' placeholder. The actual hashed passwords are in \`/etc/shadow\`, readable only by root:\n\`\`\`\nalice:$6$salt$longhashstring...:18987:0:99999:7:::\n\`\`\`\nThe \`$6$\` prefix means SHA-512. Attackers who gain root access often dump /etc/shadow and attempt offline password cracking.\n\n**File Permissions**\n\nEvery file and directory has three permission sets:\n- **Owner (u)**: The user who owns the file\n- **Group (g)**: Members of the file's group\n- **Others (o)**: Everyone else\n\nAnd three permission types:\n- **r (read)**: Can view the file content or list directory contents\n- **w (write)**: Can modify the file or create/delete files in the directory\n- **x (execute)**: Can run the file as a program, or enter the directory (\`cd\` into it)\n\nExample output of \`ls -la\`:\n\`\`\`\n-rwxr-xr-- 1 alice devs 4096 Nov 14 10:32 deploy.sh\n ^^^ ^^^ ^^^\n  |   |   |\n Owner Group Others\n (alice)(devs)(everyone)\n\`\`\`\nReading: alice=rwx (can read/write/execute), devs group=r-x (can read and execute, not write), everyone else=r-- (read only).\n\nThe leading \`-\` means it is a regular file. \`d\` means directory, \`l\` means symbolic link.\n\n**Numeric Permission Notation**\nPermissions can also be expressed as a 3-digit octal number:\n- r = 4, w = 2, x = 1\n- Add them up: rwx = 7, rw- = 6, r-x = 5, r-- = 4, --- = 0\n- \`chmod 755 file\` = rwxr-xr-x (owner: full, group: read+execute, others: read+execute)\n- \`chmod 644 file\` = rw-r--r-- (owner: read+write, group: read, others: read) — standard for config files\n- \`chmod 777 file\` = rwxrwxrwx — **EVERYONE** can read, write, and execute. This is almost always a misconfiguration or a sign of an attacker deliberately weakening security.\n\n**SUID and SGID — Special Permission Bits**\nThese are advanced permission bits that are frequent attack targets:\n- **SUID (Set User ID)**: When set on an executable, it runs as the **file owner** regardless of who executes it. The classic example is \`/usr/bin/passwd\` — it runs as root (to write to /etc/shadow) even when an ordinary user runs it.\n  - ls shows 's' in the owner execute position: \`-rwsr-xr-x\`\n  - Dangerous if set on a shell or interpreter: \`find / -perm -4000\` lists all SUID files\n- **SGID (Set Group ID)**: Similar but runs as the file's group.\n\nAttackers sometimes copy \`/bin/bash\` to /tmp and set SUID on it: \`chmod 4755 /tmp/bash\`. Then any user can run \`/tmp/bash -p\` to get a root shell. Looking for unexpected SUID files is part of any Linux compromise investigation.\n\n**The sudo System**\n\n**sudo** (substitute user do) allows specific users to run commands as root (or as another user) without knowing the root password. It is configured in \`/etc/sudoers\` (edit only with \`visudo\` to prevent syntax errors that lock you out).\n\nExample sudoers entries:\n\`\`\`\nalice   ALL=(ALL:ALL) ALL         # alice can run anything as any user\nbob     ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart nginx   # bob can restart nginx without a password\n%devops ALL=(ALL) ALL              # everyone in the devops group can run anything\n\`\`\`\n\nWhy sudo matters for security:\n1. **Audit trail**: Every sudo command is logged to \`/var/log/auth.log\` (or \`/var/log/secure\` on RHEL). This is how you know who ran what as root.\n2. **Attack target**: If an attacker can add their account to sudoers (or to the sudo/wheel group), they get permanent root access. Always monitor for changes to /etc/sudoers and /etc/group.\n3. **Common attacker escalation**: \`echo 'www-data ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/backdoor\` — if the web server is compromised and the attacker can write to sudoers.d, they get root.\n\nCheck current sudo privileges: \`sudo -l\` (shows what the current user can run as sudo).\n\n**Reading sudo in auditd:** when the Linux audit system (auditd) records a program starting, \`uid\` is the real account that launched it and \`euid\` is the effective account it runs as — and because \`/usr/bin/sudo\` is itself SUID-root, an execve of sudo always shows \`euid=0\` before sudoers has decided anything, so whether the command was allowed must be confirmed in auth.log.`,
       checkpoint: {
-        question: "According to the reading, what does the numeric permission set by 'chmod 755 file' translate to?",
-        options: ["rw-r--r--", "rwxr-xr-x", "rwxrwxrwx", "r--r--r--"],
+        question: "'ls -la' shows this line: '-rwxr-x--- 1 root devs 2210 Nov 14 10:32 backup.sh'. Which numeric mode matches these permissions?",
+        options: ["755", "750", "760", "740"],
         answer: 1,
         explanation:
-          "7 = rwx for the owner, 5 = r-x for the group, and 5 = r-x for others — chmod 755 gives the owner full access and everyone else read+execute only.",
+          "Add r=4, w=2, x=1 for each set: owner rwx = 7, group r-x = 5, others --- = 0, so the mode is 750. 755 would also give others r-x, but the last set here is '---'. 760 would mean the group has rw-, but the group set is r-x (read and execute, no write). 740 would mean the group has r-- only, missing the execute bit that is shown.",
       },
     } satisfies ReadingTask,
 
@@ -805,14 +810,14 @@ const linuxFundamentals: Room = {
       question:
         "During a Linux investigation, you run 'find / -perm -4000 -type f 2>/dev/null' and find '/tmp/update_helper' in the results. Why is this significant?",
       options: [
-        "Expected — installers often stage SUID helper binaries in /tmp during package updates",
-        "SUID runs the file as its owner (likely root), so a SUID binary in /tmp suggests a planted escalation backdoor",
-        "Harmless — /tmp is mounted noexec on every distribution, so the SUID bit has no effect there",
-        "A corrupted file left by a failed package install — delete it rather than preserve it",
+        "Expected — package installers often stage SUID helper binaries in /tmp while they run",
+        "Any user who runs it gets its owner's rights (likely root), so it may be a planted backdoor",
+        "Low risk — the SUID bit affects the file's owner when they run it, not other users",
+        "Leftover from a failed install — delete it at once so nobody can use it to get root",
       ],
       answer: 1,
       explanation:
-        "The SUID (Set User ID) bit causes a program to execute as the file's owner, not the current user. Legitimate SUID binaries (like /usr/bin/passwd, /usr/bin/sudo) live in standard system directories. An SUID file in /tmp with an innocent-looking name is a major red flag — it is almost certainly an attacker backdoor that allows any user to run commands as root. Investigate with 'ls -la /tmp/update_helper' and 'file /tmp/update_helper' before doing anything else.",
+        "The SUID (Set User ID) bit makes a program run as the file's owner, not as the user who starts it. Legitimate SUID binaries (like /usr/bin/passwd and /usr/bin/sudo) live in standard system directories, so a SUID file in world-writable /tmp with an innocent-looking name is a major red flag for a root backdoor. 'Installers stage SUID helpers in /tmp' is not normal practice — packages install SUID binaries to system paths. 'Affects the owner, not other users' has SUID backwards: it matters precisely when someone OTHER than the owner runs it. 'Delete it at once' is the right worry at the wrong time — first preserve and examine it ('ls -la /tmp/update_helper', 'file /tmp/update_helper', a hash and a copy), because the file is evidence of how the attacker escalated.",
       xp: 30,
     } satisfies QuestionTask,
 
@@ -866,16 +871,16 @@ const linuxFundamentals: Room = {
       questions: [
         {
           question:
-            "The auditd.log.uid is '33' and auditd.log.euid is '0'. What does this tell you about what just happened?",
+            "Compare the uid and euid fields in this auditd record. What do they tell you about what happened?",
           options: [
-            "UID 33 and eUID 0 are two labels for the same session: 33 is www-data's audit ID and 0 is its login ID, so this is an ordinary unprivileged web process with no change of privilege at any point",
-            "UID 33 is www-data, the web-server service account, and eUID 0 comes from sudo's SUID-root bit; the record proves www-data invoked sudo to get root, but whether the root shell was granted must be confirmed in auth.log or a following bash execve",
-            "The uid-euid pair records a blocked attempt: auditd logs eUID 0 as the privilege sudo requested, not one it was granted, so the web account asked for root but never actually obtained it",
-            "UID 33 falls in the range the kernel's audit subsystem reserves to tag privileged syscalls, so these numbers describe how auditd labelled the event rather than which account ran the command",
+            "uid and euid are the login ID and the audit ID of one session, so this is an ordinary web process and no privilege changed",
+            "uid is www-data, and euid is root only because sudo is SUID-root; www-data tried sudo, but the grant must be checked in auth.log",
+            "euid shows the privilege sudo asked for rather than one it received, so this records a request that sudoers refused",
+            "uid is www-data and euid is root, so this record on its own confirms that www-data is now running a root bash shell",
           ],
           answer: 1,
           explanation:
-            "On Debian/Ubuntu systems, UID 33 = www-data (the web server user). The auditd 'uid' field shows who STARTED the command (www-data), and 'euid' (effective UID) shows who it ran AS — euid 0 = root. But careful: the executable here is /usr/bin/sudo, which is a SUID-root binary, so its execve ALWAYS runs with euid 0, whether or not sudoers then lets www-data run bash. And success=yes only means the execve syscall itself succeeded. So this record proves that the web account invoked sudo to try to become root — not that it got a root shell. Confirm the outcome in /var/log/auth.log (a sudo line with 'COMMAND=/bin/bash' vs 'user NOT in sudoers' / 'incorrect password attempts') or in a following auditd execve of /bin/bash with euid 0. Either way, www-data should only serve web content and never run sudo bash — this strongly indicates a web application vulnerability was exploited (e.g., RCE via SQL injection or file upload) and the attacker is attempting to escalate to root.",
+            "In auditd, 'uid' is the real account that started the program (here www-data, the web-server account) and 'euid' is the effective account it runs as (root). The executable is /usr/bin/sudo, which is SUID-root, so its execve always runs as root whether or not sudoers then allows www-data to run bash; success=yes only means the execve syscall worked. So the record proves www-data invoked sudo to try to become root. Confirm the outcome in /var/log/auth.log (a sudo line with 'COMMAND=/bin/bash' vs 'user NOT in sudoers') or a following execve of /bin/bash running as root. 'Login ID and audit ID of one session' confuses uid/euid with auid — euid is the effective identity, and it differs from uid here. 'The privilege sudo asked for' is wrong: euid is the identity the process actually holds, and nothing in this record shows a refusal. 'Confirms a root bash shell' is the common misreading — the program recorded is sudo, not bash, so the shell is not proven yet. Either way, a web service account running sudo bash points to an exploited web application and an escalation attempt.",
           xp: 35,
         },
       ],
@@ -888,9 +893,9 @@ const linuxFundamentals: Room = {
       type: "flag",
       id: "linux-fund-flag1",
       prompt:
-        "Look at the log analysis event above. What command was run with sudo? Look at the 'process.args' field in the raw log. Enter the command that was executed after sudo (the argument that was passed to sudo).",
-      answer: "bash",
-      hint: "The process.args field shows the full command as an array. The first element is sudo itself; the command run AS root (the argument passed to sudo) is the second element.",
+        "The alert context names the service account, but detection rules usually match on numeric IDs. In the auditd event above, find the real (not effective) user ID of the account that launched sudo, and enter that number.",
+      answer: "33",
+      hint: "auditd keeps two identities on every record: who launched the program, and who the program runs as. You want the first one.",
       xp: 25,
     } satisfies FlagTask,
 
@@ -901,16 +906,16 @@ const linuxFundamentals: Room = {
       type: "question",
       id: "linux-fund-q2",
       question:
-        "What does 'chmod 777 /etc/shadow' mean, and why would this be catastrophic on a Linux server?",
+        "A file-integrity alert reports that the mode of /etc/shadow on a web server changed from 640 to 777. What is the main risk?",
       options: [
-        "It makes the file read-only for all users, the safest setting for a file of password hashes",
-        "It gives read, write and execute to everyone, so any local user can read and crack every password hash",
-        "It changes only the file's owner to root and leaves the read/write permission bits as they were",
-        "It gives full access to the owner and group only, so ordinary users are still blocked from reading hashes",
+        "Little risk — the file holds hashes, and a hash cannot be turned back into a password",
+        "Any local user or hijacked service can now read every password hash and crack them offline",
+        "Root's own line stays private, because each line in the file keeps its own permissions",
+        "Mainly integrity — others gained write access, but users could already read the hashes",
       ],
       answer: 1,
       explanation:
-        "In octal permission notation: 7 = rwx (4+2+1). chmod 777 = rwxrwxrwx — full read/write/execute for everyone. /etc/shadow is one of the most security-critical files on a Linux system, normally readable only by root (chmod 640 or 000). Making it world-readable (7 for 'others') would allow any unprivileged user or malware to read all password hashes, download them, and crack them offline using hashcat or john the ripper. This is why monitoring file permission changes on sensitive files like /etc/shadow, /etc/sudoers, and /etc/passwd is essential.",
+        "777 = rwxrwxrwx, so the last digit (7) gives 'others' — every account on the box, including a compromised web service — read, write and execute. /etc/shadow is meant to be readable only by root because it holds the password hashes, and attackers copy it for offline cracking. 'A hash cannot be turned back' misses the point: hashes are cracked offline by guessing, which is exactly why shadow is locked down. 'Root's line stays private' is wrong — permissions apply to the whole file. 'Every user could already read the hashes' confuses /etc/shadow with /etc/passwd, which is world-readable but holds only an 'x' placeholder. The new write access is an extra danger (a password hash could be replaced), which is why permission changes on /etc/shadow, /etc/sudoers and /etc/passwd should always be monitored.",
       xp: 30,
     } satisfies QuestionTask,
 
@@ -923,14 +928,14 @@ const linuxFundamentals: Room = {
       question:
         "An analyst finds this line in /etc/cron.d/sysupdate on a compromised web server: '*/5 * * * * root /tmp/.cache 2>/dev/null'. What does this do and why is it malicious?",
       options: [
-        "A routine cron job that refreshes a package-metadata cache every 5 minutes as root",
-        "Root runs the hidden file /tmp/.cache every 5 minutes with errors silenced — a persistence backdoor",
-        "The entry runs as the 'root' group, which can only read /tmp/.cache and never execute it",
-        "The '*/5' step applies to the hour field, so the job runs only once every five hours",
+        "A routine job that refreshes a package-metadata cache as root every five minutes",
+        "Every 5 minutes root runs a hidden file from /tmp with errors silenced — persistence",
+        "It runs as whoever created the file — the 'root' field is a comment, not the run-as user",
+        "'*/5' applies to the hour field, so the job fires once every five hours",
       ],
       answer: 1,
       explanation:
-        "Cron time format: minute hour day month weekday. '*/5 * * * *' means 'every 5 minutes'. The user field is 'root', so it runs as the root superuser. '/tmp/.cache' is a hidden file (dot prefix) in /tmp — two red flags: /tmp is world-writable (attackers write there), and the dot prefix hides it from 'ls' without the -a flag. '2>/dev/null' hides error output. This is textbook attacker cron persistence — it survives process kills and reboots. Response: kill the /tmp/.cache process, delete the file, remove /etc/cron.d/sysupdate, then investigate how the attacker gained access in the first place.",
+        "Cron's schedule fields are minute, hour, day of month, month, day of week, so '*/5 * * * *' means every 5 minutes. In /etc/cron.d files the sixth field is the run-as user — here 'root'. '/tmp/.cache' is a hidden file (dot prefix) in world-writable /tmp, and '2>/dev/null' silences errors: textbook attacker persistence that survives reboots. 'A routine package-metadata job' does not fit — package tools run from system paths, not a hidden file in /tmp. 'Runs as whoever created the file' ignores the user field that system cron files require. '*/5 applies to the hour field' misreads the position: the first field is minutes. Response: preserve copies of the file and the cron entry, stop the process, remove /etc/cron.d/sysupdate and /tmp/.cache, then find out how the attacker got in.",
       xp: 30,
     } satisfies QuestionTask,
   ],

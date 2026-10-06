@@ -125,8 +125,8 @@ const pupEvent: TelemetryEvent = {
     FileName: "SearchAssistantToolbar.exe",
     FolderPath: "C:\\Program Files (x86)\\PDFSuitePro\\Toolbar\\SearchAssistantToolbar.exe",
     InitiatingProcessFileName: "PDFSuiteProEnterprise_Setup.exe",
-    InitiatingProcessFolderPath: "C:\\Users\\n.walcott\\Downloads\\PDFSuiteProEnterprise_Setup.exe",
-    AccountName: "n.walcott",
+    InitiatingProcessFolderPath: "C:\\Windows\\ccmcache\\1c\\PDFSuiteProEnterprise_Setup.exe",
+    AccountName: "system",
     DetectionSource: "Cloud",
     Timestamp: "2026-05-18T11:02:44.000Z",
   },
@@ -221,14 +221,14 @@ const malwareTypesRoom: Room = {
       checkpoint: {
         question: "What is the defining trait that separates a dropper from a loader?",
         options: [
-          "A dropper always requires administrator rights to execute; a loader can run entirely under a standard user context, which is the actual reason loaders are more commonly seen in phishing campaigns",
-          "A dropper's payload is already embedded inside the file at execution; a loader fetches its real payload from the network after launching",
-          "A loader can only be delivered via USB; a dropper can only ever arrive as an email attachment, since each term describes a fixed delivery channel rather than a payload-retrieval mechanism",
-          "There is no real difference -- both terms describe identical behavior, and security vendors use them interchangeably depending purely on which detection engine flagged the file first",
+          "A dropper needs administrator rights to run; a loader runs as a standard user",
+          "A dropper carries its payload inside the file; a loader downloads it after launch",
+          "A dropper arrives as an email attachment; a loader arrives on a USB drive",
+          "A dropper sets up persistence; a loader runs once and then deletes itself",
         ],
         answer: 1,
         explanation:
-          "A dropper carries its full payload inside itself with no network step needed, while a loader is a small fetch mechanism that reaches out over the network shortly after launch -- that network step is exactly what gives defenders a blockable indicator a dropper never offers.",
+          "A dropper carries its full payload inside itself with no network step needed, while a loader is a small fetch mechanism that reaches out over the network shortly after launch -- that stage-2 download is the blockable window a dropper never offers. Neither term is about privilege level, and both arrive by email, download or USB alike. Persistence is something either one's payload may set up; it is not what separates them.",
       },
     },
     {
@@ -240,7 +240,7 @@ const malwareTypesRoom: Room = {
         "It doesn't — both are malware-present events at the same product severity, and reachable-host count should not change urgency",
         "The worm spreads to every reachable unpatched host with no user action, so scope grows during triage; the trojan is limited by who opens the email",
         "The trojan does — a disguised, hidden threat is harder to remediate than a visibly propagating worm, so it needs the faster response",
-        "The trojan does — the worm's code only handles propagation, while the trojan has already executed a payload and caused more damage",
+        "The trojan does — the worm's code is about propagation, while the trojan has already executed a payload and caused more damage",
       ],
       answer: 1,
       explanation:
@@ -259,42 +259,42 @@ const malwareTypesRoom: Room = {
           question:
             "quarterly_invoice.exe reached out to an external domain about four seconds after launch, before any invoice content had rendered, and it arrived as a single file attached to an email. What does this pattern most likely indicate?",
           options: [
-            "This is normal — every Windows application checks for updates within seconds of launching, regardless of what the application claims to be, which is exactly the behavior an invoice viewer reaching out four seconds after opening would represent",
-            "This is most likely a loader: rather than carrying a full malicious payload inside itself the way a dropper would, it is reaching out to the network immediately after execution to fetch a second stage — which is exactly why a destination like cdn-assets-delivery.net now exists as a blockable network indicator",
-            "This is definitely a dropper, since droppers always contact a command-and-control domain immediately by definition, making the network connection itself the defining signature of that category",
-            "DestinationPort 443 proves this connection is legitimate encrypted web traffic and therefore benign, since malware is required to use non-standard ports to avoid blending in with ordinary browsing traffic",
+            "A routine update check — many apps contact their vendor right after launch",
+            "Likely a loader — it reached out to fetch a second stage right after running",
+            "Likely a dropper — the connection is its embedded payload calling home",
+            "Likely benign — the connection used port 443, the normal HTTPS port",
           ],
           answer: 1,
           explanation:
-            "A document viewer that reaches the network before showing any of its claimed content, seconds after launching from an email attachment, matches the loader pattern from Reading 2 far better than routine update-checking behavior. Option 2 has the definition backwards — a dropper's defining trait is that it does NOT need a network connection, because its payload is already embedded inside it. Port 443 just means TLS was used; it says nothing about legitimacy, and is in fact the most common way malware blends its traffic in with everything else on a network.",
+            "A 'document' that reaches the network before showing any of its claimed content, seconds after launching from an email attachment, matches the loader pattern from Reading 2 far better than an update check — and an invoice has no vendor to check in with. The dropper option gets the definition backwards: a dropper's defining trait is that it does NOT need a network connection, because its payload is already embedded inside it. Port 443 just means TLS was used; it says nothing about legitimacy, and it is the most common way malware blends in with everything else on a network.",
           xp: 25,
         },
         {
           question:
             "If quarterly_invoice.exe had instead been a dropper rather than a loader, what would be different about the detection and response opportunity here?",
           options: [
-            "Nothing would change — droppers and loaders are simply two different names for identical behavior, and any distinction security vendors draw between them is purely a marketing choice rather than a technical one",
-            "A dropper would have needed no network connection at all, since its full payload is already embedded inside the file; response would have to focus on the file's hash and on-disk content from the moment of execution, since there would be no destination domain or IP available to block",
-            "A dropper always requires local administrator rights to execute, while a loader never does, since embedding a payload inside a file is what actually triggers Windows' privilege-elevation prompts",
-            "A dropper can only be delivered via a USB drive, never as an email attachment, since email attachment scanning would always detect and strip an embedded payload before it ever reached the recipient",
+            "Nothing — 'dropper' and 'loader' are vendor names for the same behaviour",
+            "No stage-2 download to block; response would start from the file itself",
+            "A dropper needs admin rights, so a UAC prompt would have flagged it first",
+            "A dropper beacons for hours, so you would hunt for C2 instead of a fetch",
           ],
           answer: 1,
           explanation:
-            "This is the operational consequence from Reading 2: a dropper never gives you the network-blocking window this loader just did, because there's no second-stage fetch to intercept — everything the dropper will ever do to this host, it can already do the moment it runs. Neither dropper nor loader status has anything to do with required privilege level or delivery mechanism.",
+            "This is the operational consequence from Reading 2: a dropper never gives you the stage-2 download window this loader just did, because its payload is already inside the file — response starts from the file's hash and on-disk behaviour from the moment it ran. (The payload it drops, often a RAT or stealer, may still call out to C2 later, and that traffic can be blocked, but the chance to stop the payload arriving is gone.) The two terms describe different behaviour, not vendor branding. Neither needs admin rights by definition. Hours of recurring beacons describe a RAT's C2 channel, not a dropper.",
           xp: 25,
         },
         {
           question:
             "Given this event, what is the correct immediate response?",
           options: [
-            "No action needed, since the connection used standard HTTPS on port 443, and TLS-encrypted traffic on the default web port is exempt from further analysis under most SOC playbooks",
-            "Isolate the host, block cdn-assets-delivery.net and its resolved IP at the proxy/firewall to try to stop stage 2 from landing (or spreading further if it already has), and submit the on-disk quarterly_invoice.exe for hash/reputation lookup and further analysis",
-            "Delete the Sysmon event so it stops appearing in the console, since an event that has already been reviewed once by an analyst no longer needs to persist in the SIEM for correlation purposes",
-            "Wait for a second, independent alert before taking any action, since a single network-connection event is never actionable by itself and correlation rules require at least two distinct detections before triage can begin",
+            "Block the domain, but leave the host online to watch whether stage 2 arrives",
+            "Isolate the host, block the domain and its IP, and submit the file for analysis",
+            "Delete quarterly_invoice.exe, run a full AV scan, then close the alert",
+            "Reset t.osei's password first, since the connection may be credential theft",
           ],
           answer: 1,
           explanation:
-            "This is the loader's exact detection window from Reading 2: block the destination fast, isolate the host to limit anything already in progress, and get the file itself analyzed to confirm what it is. Port 443 doesn't make a connection benign, deleting the event destroys evidence rather than resolving anything, and this event — a document attachment beaconing out before showing its claimed content — is already actionable on its own.",
+            "This is the loader's exact detection window from Reading 2: block the destination fast, isolate the host to limit anything already in progress, and get the file itself analysed to confirm what it is. Leaving the host online to watch risks stage 2 landing through another path. Deleting the file and scanning destroys the evidence you need and skips the question of whether stage 2 already arrived. Nothing here points to credential theft yet, so a password reset is not the first move.",
           xp: 30,
         },
       ],
@@ -329,14 +329,14 @@ const malwareTypesRoom: Room = {
       question:
         "Which network pattern is the strongest indicator of an active RAT/backdoor rather than a one-time loader fetch?",
       options: [
-        "A single outbound connection right after execution that never repeats — a RAT's beacon is strongest before the attacker issues commands",
+        "A single outbound connection right after execution that does not repeat — a RAT's beacon is strongest before the attacker issues commands",
         "Recurring outbound connections to one destination at regular or semi-regular intervals, continuing for hours or days after launch",
         "A large one-time download of an executable right after launch, since that is the defining network fingerprint of a RAT",
-        "A connection that occurs only during business hours, since RATs schedule check-ins to blend with working hours",
+        "A connection that occurs during business hours, since RATs schedule check-ins to blend with working hours",
       ],
       answer: 1,
       explanation:
-        "Reading 3's key distinction is recurrence over time, not any single technical detail of one connection — a loader's fetch is typically a single event, while a RAT's beacon keeps repeating for as long as the attacker wants access. Port 443 is standard HTTPS used by huge amounts of entirely legitimate traffic, not a reserved C2 port, and beaconing intervals are chosen by the attacker for stealth, not tied to business hours.",
+        "Reading 3's key distinction is recurrence over time, not any single technical detail of one connection — a loader's fetch is typically a single event, while a RAT's beacon keeps repeating for as long as the attacker wants access. A single connection that never repeats is the loader pattern, not a RAT. A large one-time executable download is a loader fetching its stage 2. Beaconing intervals are chosen by the attacker for stealth and often run around the clock, not only during business hours.",
       xp: 20,
     },
     {
@@ -354,14 +354,14 @@ const malwareTypesRoom: Room = {
       checkpoint: {
         question: "Per Reading 4, why is deleting the infostealer file and running a scan not sufficient response on its own?",
         options: [
-          "Because infostealers always reinstall themselves automatically after deletion, using a persistence mechanism that survives even a full endpoint scan and quarantine action",
-          "Because the theft already happened -- credentials and cookies already left the building -- so the correct primary response is revoking sessions and resetting passwords, with endpoint cleanup as a secondary task",
-          "Because antivirus scans can never detect infostealers, since credential-harvesting code is specifically designed to evade every signature-based and behavioral detection engine on the market",
-          "Because infostealers require a full disk reimage before any other action is possible, since the credential theft itself corrupts the operating system's own file-permission structures",
+          "Because infostealers reinstall themselves, so the file will be back after the scan",
+          "Because the theft already happened, so revoking sessions and resetting passwords comes first",
+          "Because scans miss infostealers, so the process is probably still running on the host",
+          "Because the stolen data is still on the disk, so the host must be wiped before anything else",
         ],
         answer: 1,
         explanation:
-          "An infostealer's objective is often complete within seconds, so by the time it's detected the credentials are already gone -- cleaning the endpoint does nothing about that, which is why revocation and password resets come first.",
+          "An infostealer's objective is often complete within seconds, so by the time it's detected the credentials are already gone -- cleaning the endpoint does nothing about that, which is why revocation and password resets come first. Infostealers usually grab and leave rather than persist, so reinstallation is not the core problem. Whether a scan catches the file does not change what already left. Wiping the host is cleanup too; it does not stop someone from using the stolen cookies and passwords.",
       },
     },
     {
@@ -373,7 +373,7 @@ const malwareTypesRoom: Room = {
       event: infostealerEvent,
       correct_verdict: "true_positive",
       explanation:
-        "A legitimate system health-check or PC optimizer has no functional reason to open a browser's local credential-store file (Login Data), let alone the equivalent file for a second, different browser within the same second — that combination matches automated credential harvesting, not disk cleanup or performance scanning. Distribution through an unofficial 'PC optimizer' site is a classic infostealer lure. Per Reading 4, the correct response is to treat every credential that could have been stored in Chrome or Edge on this host as compromised: force password resets and revoke active sessions/tokens for those accounts, not just remove the file and call it resolved.",
+        "A legitimate system health-check or PC optimizer has no functional reason to open a browser's local credential-store file (Login Data) — reading Chrome's saved-password database matches automated credential harvesting, not disk cleanup or performance scanning. Distribution through an unofficial 'PC optimizer' site is a classic infostealer lure. Per Reading 4, the correct response is to treat every credential that could have been stored in Chrome or Edge on this host as compromised: force password resets and revoke active sessions/tokens for those accounts, not just remove the file and call it resolved.",
       xp: 30,
     },
     {
@@ -416,12 +416,12 @@ const malwareTypesRoom: Room = {
       options: [
         "Wait for the first encrypted files before escalating — pre-encryption indicators alone do not justify an incident",
         "Escalate as an active pre-encryption ransomware sequence — the three signals together warrant containment before encryption begins",
-        "Close it as backup-job activity — backup software routinely deletes shadow copies and clears the Security log during cleanup",
-        "Escalate only the log clearing — shadow copy deletion and bulk file reads are independent admin tasks to review separately",
+        "Close it as backup-job activity — backup tools routinely delete shadow copies, so this is routine cleanup",
+        "Escalate the log clearing by itself — shadow copy deletion and bulk file reads are separate admin tasks to review later",
       ],
       answer: 1,
       explanation:
-        "This is the exact combination from Reading 5: none of these three signals alone is proof, but together — deletion of the local recovery path, evidence of tracks being covered, and a scan-like burst of file access — they are the pre-encryption sequence, and this is the last window where action can prevent, not just respond to, encryption. Legitimate backup jobs don't delete shadow copies or clear the security log, and treating log-clearing as the only relevant signal ignores that all three together are what make this pattern recognizable.",
+        "This is the exact combination from Reading 5: none of these three signals alone is proof, but together — deletion of the local recovery path, evidence of tracks being covered, and a scan-like burst of file access — they are the pre-encryption sequence, and this is the last window where action can prevent, not just respond to, encryption. VSS-based backup tools do create and delete shadow copies, but they do not clear the Security log or mass-read shares under one account — the combination, plus a deletion run from an unexpected parent, is what matters. Treating log-clearing as the only relevant signal ignores that all three together are what make this pattern recognizable.",
       xp: 25,
     },
     {
@@ -451,14 +451,14 @@ const malwareTypesRoom: Room = {
       checkpoint: {
         question: "What is the fundamental difference between a wiper and ransomware, given they often follow the same pre-encryption sequence?",
         options: [
-          "A wiper never drops a ransom note, while ransomware always does, making the presence or absence of a note the single reliable way to distinguish the two the moment either one is discovered",
-          "A wiper has no working decryption key and no intention of ever restoring data, even if the victim pays -- ransomware has a real key sold for payment",
-          "A wiper only targets government systems; ransomware only targets businesses, since the two categories were originally defined by their intended victim sector rather than by what happens to the encrypted data",
-          "A wiper always uses a different pre-encryption sequence than ransomware, skipping shadow copy deletion and log clearing entirely since it has no need to protect a recovery path it never intends to offer",
+          "A wiper leaves no ransom note, so finding a note tells you it is ransomware",
+          "A wiper has no working key and no intent to restore; ransomware sells a real key",
+          "A wiper skips shadow-copy deletion, since it has no recovery path to protect",
+          "A wiper deletes files while ransomware encrypts them, so encryption rules out a wiper",
         ],
         answer: 1,
         explanation:
-          "The sequence can look identical, but intent is the difference: ransomware has a genuine, sellable decryption key, while a wiper has none at all -- sometimes it even drops a fake ransom note purely to mislead investigators.",
+          "The sequence can look identical, but intent is the difference: ransomware has a genuine, sellable decryption key, while a wiper has none at all. Wipers often drop a fake ransom note purely to mislead investigators, so a note proves nothing. They run the same pre-encryption steps, shadow-copy deletion included. And some wipers do encrypt — with no key to undo it — so seeing encryption does not rule a wiper out.",
       },
     },
     {
@@ -469,7 +469,7 @@ const malwareTypesRoom: Room = {
       pairs: [
         { id: "worm", left: "Worm", right: "Spreads across a network by itself, machine to machine, with no user interaction needed after the first infection" },
         { id: "trojan", left: "Trojan", right: "Disguises itself as something the user wants, and relies entirely on the user choosing to launch it" },
-        { id: "dropper", left: "Dropper", right: "Carries its full malicious payload embedded inside itself — no second download, nothing to intercept over the network" },
+        { id: "dropper", left: "Dropper", right: "Carries its full malicious payload embedded inside itself — no stage-2 download to intercept, though the payload may still beacon later" },
         { id: "loader", left: "Loader", right: "Fetches its real payload from the network shortly after execution, giving defenders a blockable destination and a window to act" },
         { id: "rat", left: "RAT / Backdoor", right: "Maintains a live command-and-control channel, giving an attacker interactive, hands-on-keyboard control of the machine" },
         { id: "infostealer", left: "Infostealer", right: "Harvests credentials, cookies, and wallet files fast and exits — the damage is already done by the time it's detected" },
@@ -496,14 +496,14 @@ const malwareTypesRoom: Room = {
       checkpoint: {
         question: "Why can a rootkit hide its own files and processes from an EDR agent even during a routine scan?",
         options: [
-          "It doesn't hide anything -- EDR agents always detect rootkits by default, since kernel-level security tooling is specifically immune to any technique operating at the same privilege layer",
-          "It embeds itself at a privileged layer beneath the operating system, so it can intercept and falsify the answers security tools receive when they ask what's running",
-          "Rootkits only run on air-gapped machines with no EDR installed at all, since any endpoint with active security tooling would immediately prevent kernel-level code from ever loading in the first place",
-          "Rootkits disguise themselves using file names that look like legitimate Windows processes, which is what actually defeats a standard process listing rather than anything to do with the privilege layer they operate from",
+          "It uses names that look like real Windows processes, so analysts overlook it",
+          "It runs in the kernel or boot chain and falsifies what security tools are told",
+          "It encrypts its own files, so the EDR agent cannot read them during a scan",
+          "It deletes itself before each scan and reinstalls itself once the scan ends",
         ],
         answer: 1,
         explanation:
-          "A rootkit operates from underneath the layer the EDR agent trusts to report the truth -- it isn't hiding within the system the agent sees, it's controlling what the agent is told, which is why a clean scan doesn't rule it out.",
+          "A rootkit runs in the kernel or the boot chain, below where ordinary user-mode tools look -- it isn't hiding within the system the agent sees, it's controlling what the agent is told, which is why a clean scan doesn't rule it out. A look-alike process name is masquerading: it fools a person reading a list, but the process still appears in it. An encrypted file is still visible as a file. And the rootkit does not need to leave and return around a scan, because it can answer the scan's questions falsely.",
       },
     },
     {
@@ -515,7 +515,7 @@ const malwareTypesRoom: Room = {
         "It is correct — with a clean AV scan and no new file, no detection method remains, since all SOC detection depends on a file to scan",
         "A clean signature scan proves little — fileless attacks abuse present tools like PowerShell and WMI, so behavior is the detection surface",
         "The scan result is only unreliable if it was not a full scan — a full on-demand scan would catch the payload, so rerun it with updated signatures",
-        "Fileless attacks always leave a registry artifact that AV scans catch, so a clean result means the AV agent itself is broken",
+        "A clean scan means the AV agent is unhealthy, so check its signature date before going any further",
       ],
       answer: 1,
       explanation:
@@ -525,13 +525,13 @@ const malwareTypesRoom: Room = {
     {
       type: "analyst_choice",
       id: "malware-ac2",
-      heading: "Verdict: A Bundled Toolbar From an Approved Installer",
+      heading: "Verdict: A PUA Toolbar Detection on WKS-MKT22",
       scenario:
-        "Defender flagged a browser toolbar component that installed alongside this week's approved PDF editor rollout to Marketing. Review the detection and the confirming IT ticket below, then decide whether this deserves incident-level escalation.",
+        "Defender flagged a browser toolbar component that installed alongside a PDF editor on a Marketing workstation. Review the detection, including the installer's path and account, and the IT verification note below, then decide whether this deserves incident-level escalation.",
       event: pupEvent,
       correct_verdict: "false_positive",
       explanation:
-        "Defender's PUA (Potentially Unwanted Application) category exists precisely for borderline software like bundled toolbars — it's a heuristic warning about unwantedness, not a malware verdict. The confirming IT ticket shows this toolbar arrived through the organization's own approved deployment, not a drive-by install from an untrusted site. Per Reading 7, correct PUP triage means checking distribution channel and authorization before escalating, not treating every PUA detection identically to a trojan alert.",
+        "Defender's PUA (Potentially Unwanted Application) category exists precisely for borderline software like bundled toolbars — it's a heuristic warning about unwantedness, not a malware verdict. The installer ran from the Configuration Manager cache (C:\\Windows\\ccmcache) under the SYSTEM account — how a managed rollout looks — and the IT ticket (SD-30217) confirms this toolbar arrived through the organization's own approved deployment, not a drive-by install from an untrusted site. Per Reading 7, correct PUP triage means checking distribution channel and authorization before escalating, not treating every PUA detection identically to a trojan alert.",
       fp_trap:
         "The word 'PUA' next to a detection that lights up red in the console primes an analyst to treat it exactly like a backdoor or trojan finding — but the category was built specifically to flag software that is unwanted, not software that is malicious. Escalating a confirmed, catalog-approved bundled toolbar as a full incident wastes response capacity that a genuinely uninvited PUP install — arriving via a random ad-laden download site, with no IT ticket behind it at all — would actually deserve.",
       xp: 30,
@@ -540,9 +540,9 @@ const malwareTypesRoom: Room = {
       type: "flag",
       id: "malware-f1",
       prompt:
-        "Look at Log Analysis 1 (the quarterly_invoice.exe connection). What is the destination domain the process connected to? Enter it exactly as shown in the raw log.",
-      answer: "cdn-assets-delivery.net",
-      hint: "Check the winlog.event_data.DestinationHostname field in the raw log.",
+        "Look at Log Analysis 1 (the quarterly_invoice.exe connection). Besides the domain, which IP address should go on the proxy/firewall block list? Enter it exactly as shown in the raw log.",
+      answer: "185.220.101.47",
+      hint: "The domain resolved to an address recorded in the same Sysmon event.",
       xp: 25,
     },
   ],

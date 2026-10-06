@@ -521,11 +521,11 @@ const lessons = [
         "question": "You are a SOC analyst and your firewall log (a layer 3/4 source) shows an internal host connecting to a suspicious external IP on port 443, but it cannot tell you which website or domain was requested. What is the correct next step?",
         "options": [
           {
-            "label": "Conclude nothing malicious happened, since the firewall did not flag a domain",
+            "label": "Conclude the connection is benign, since a firewall that allowed the traffic would have blocked anything genuinely malicious",
             "value": "a"
           },
           {
-            "label": "Demand the firewall show the URL, since all firewall logs contain layer 7 detail",
+            "label": "Re-run the query with verbose logging, since the URL is already in the firewall log but hidden behind a default field filter",
             "value": "b"
           },
           {
@@ -533,18 +533,18 @@ const lessons = [
             "value": "c"
           },
           {
-            "label": "Ignore the connection because port 443 is always safe",
+            "label": "Identify the website directly from destination port 443, since the port number maps to the specific domain being visited",
             "value": "d"
           }
         ],
         "answer": "c",
-        "explanation": "A layer 3/4 firewall log sees IPs, ports, and bytes but not the domain or URL, so you pivot to a layer 7 source (proxy, DNS logs, or Zeek) that can reveal where the connection was really going. Concluding it is benign ignores the suspicious IP and byte context. A basic firewall physically cannot show a URL, so demanding it misunderstands the layer. Port 443 is not inherently safe — attackers hide C2 and exfiltration inside HTTPS."
+        "explanation": "A layer 3/4 firewall log sees IPs, ports, and bytes but not the domain or URL, so you pivot to a layer 7 source (proxy, DNS logs, or Zeek) that can reveal where the connection was really going. Concluding it is benign because the firewall allowed it is wrong — a firewall permits plenty of traffic it never inspects at the application layer. The URL is not hidden behind a filter either: a layer 3/4 firewall simply does not record it, so verbose logging will not surface a field that was never captured. And the port number identifies the service type (443 = HTTPS), not the specific domain, so the port alone cannot tell you the website."
       },
       {
         "question": "In a firewall log you see an internal workstation, 10.0.4.51, open connections to port 445 on 37 other internal hosts within two minutes, and to port 3389 on 12 of them. What is the most likely explanation, and why does the port tell you so much?",
         "options": [
           {
-            "label": "Normal web browsing — 445 and 3389 are standard web ports, so this is routine outbound traffic",
+            "label": "An authorized vulnerability scan, since the security team's scanner appliance sweeps SMB and RDP across many internal hosts the same way",
             "value": "a"
           },
           {
@@ -552,16 +552,16 @@ const lessons = [
             "value": "b"
           },
           {
-            "label": "A DNS problem — the workstation is just resolving names, which always uses ports 445 and 3389",
+            "label": "A scheduled backup job, since backup agents connect to SMB (445) on many servers to copy files on a timer",
             "value": "c"
           },
           {
-            "label": "Nothing to investigate — internal-to-internal traffic is trusted by definition and never malicious",
+            "label": "A Windows update cycle, since clients pull patches from peer machines over 445 and 3389 during maintenance windows",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "445/SMB and 3389/RDP are the two doors attackers use to move sideways through a Windows network — SMB to reach file shares and push payloads, RDP to log in interactively. One host fanning out to those ports across dozens of internal machines is textbook lateral movement. The option “Normal web browsing — 445 and 3389…” is wrong: web is 80/443, not 445/3389. The option “A DNS problem — the workstation is…” confuses DNS (port 53) with these services. The option “Nothing to investigate — internal-to-internal traffic is…” is the dangerous myth that 'internal = safe' — most breaches do their real damage after they're already inside."
+        "explanation": "445/SMB and 3389/RDP are the two doors attackers use to move sideways through a Windows network — SMB to reach file shares and push payloads, RDP to log in interactively. One ordinary user workstation fanning out to both ports across dozens of internal machines in two minutes is textbook lateral movement and the pattern to act on first. An authorized vulnerability scan does sweep these ports, but it runs from the security team's known scanner appliance, not a user's workstation, so the source here does not fit. A backup job uses SMB (445) but would not also open RDP (3389) to its targets, so the 3389 fan-out contradicts it. And Windows patching does not distribute updates over 3389, so the update explanation does not account for the RDP connections either — each benign option is missing a piece this evidence actually shows."
       },
       {
         "question": "An analyst blames host 10.0.4.51 for beaconing to a malicious domain at 02:14, using a firewall log. Before escalating, what is the one plumbing fact they must confirm — and which protocol governs it?",
@@ -587,50 +587,50 @@ const lessons = [
         "explanation": "DHCP hands out IP addresses as time-limited leases, so 10.0.4.51 at 02:14 may be a different device from the one holding it now. Before accusing a machine, you correlate the IP against DHCP lease records (or a hostname/MAC anchor) to confirm identity — skipping this is how the wrong device gets blamed. The option “That port 443 was open on the…” misassigns ARP (which maps IP to MAC, not firewall ports). The option “That DNS was working at 02:14, because…” overstates DNS, which resolves names but does not assign a host its own address. The option “Nothing — an IP address is a…” is exactly the false assumption the question warns against."
       },
       {
-        "question": "In the worked example, DHCP lease records show 10.4.2.15 was held by FIN-PC7 from 18:00 to 06:00, covering the 02:14 connection to upd4t3-cdn.net. Why does checking this lease matter before you name a suspect in your ticket?",
+        "question": "A firewall session log shows the first TCP SYN coming from internal host 10.0.4.51 to external 203.0.113.9 on port 443, with the SYN-ACK returning from the external host. Which way was this connection initiated, and why does that matter?",
         "options": [
           {
-            "label": "It doesn't matter — an IP address is a permanent identity, so 10.4.2.15 always means the same machine",
+            "label": "The external host initiated it, because the side using the well-known port (443) is always the client that opens the handshake",
             "value": "a"
           },
           {
-            "label": "DHCP hands out IPs as time-limited leases, so without confirming the lease you could blame a different device that later reused the same address",
+            "label": "The internal host initiated the session, because it sent the first SYN; an internal host reaching an unknown external IP is the shape of beaconing or exfiltration worth a look",
             "value": "b"
           },
           {
-            "label": "DHCP only assigns MAC addresses, not IP addresses, so the lease record is irrelevant to this investigation",
+            "label": "Neither side initiated it, because a port-443 session is a stateless exchange with no client or server role to read from the SYN flags",
             "value": "c"
           },
           {
-            "label": "Checking DHCP is optional because DNS logs already prove which physical host made the connection",
+            "label": "The firewall initiated it for the host, because the gateway opens every outbound session itself before the client's own SYN is sent",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "DHCP leases mean an IP is a temporary assignment, not a fixed identity; confirming which host held 10.4.2.15 at the exact time of the connection is what lets you safely name FIN-PC7 rather than risk blaming whichever device holds that address later. The option “It doesn't matter — an IP address…” is the exact false assumption the lesson warns against. The option “DHCP only assigns MAC addresses, not IP…” reverses DHCP's job — it leases IP addresses to devices, not MAC addresses. The option “Checking DHCP is optional because DNS logs…” is wrong because DNS logs show what domain was queried, not which physical host held a given IP at a given moment."
+        "explanation": "The device that sends the first SYN is the client that initiated the connection — here the internal host 10.0.4.51 — and the SYN-ACK coming back from the external side confirms the direction. That matters because an internal host reaching out to an unknown external IP is exactly the shape of beaconing or data exfiltration worth investigating. The well-known port marks the service being reached, not who opened the handshake, so the port does not identify the client. A TCP session is stateful with clear client and server roles readable from the handshake, so the 'stateless, no direction' option is wrong. And the firewall forwards or blocks sessions; it does not originate the client's SYN, so the 'firewall initiated it' option is wrong."
       },
       {
         "question": "A firewall rule description refers to inspecting 'Layer 7' traffic, while a network diagram shows a switch operating at 'Layer 2'. In the OSI model, what distinguishes what each of these devices can actually see?",
         "options": [
           {
-            "label": "Layer 2 (Data Link) handles local delivery by MAC address in frames, while Layer 7 (Application) is where protocols like HTTP and DNS live — a Layer 7 device can inspect the actual application content, a Layer 2 device only sees local frame addressing",
+            "label": "Layer 2 (Data Link) delivers frames locally by MAC address, while Layer 7 (Application) is where HTTP and DNS live — a Layer 7 device inspects application content, a Layer 2 device sees only frame addressing",
             "value": "a"
           },
           {
-            "label": "Layer 2 and Layer 7 are two names vendors use interchangeably for the exact same functionality, so a switch and an application firewall inspect identical content, just with different marketing terms",
+            "label": "Layer 2 reads source and destination IP addresses and port numbers, while Layer 7 simply adds the application payload on top of that same addressing",
             "value": "b"
           },
           {
-            "label": "Layer 7 only exists in the simplified TCP/IP model and has no true equivalent in the seven-layer OSI model, so comparing a Layer 2 switch to 'Layer 7' inspection is a category error with no real answer",
+            "label": "Layer 2 works on the local segment and Layer 7 across the internet, but both read the same application data — the only real difference is how far the traffic travels",
             "value": "c"
           },
           {
-            "label": "A Layer 2 switch can already read encrypted HTTPS payloads directly off the wire, which is why Layer 7 application-aware inspection is considered redundant and rarely deployed in practice",
+            "label": "A Layer 2 switch inspects the application content after a proxy has decrypted it, so Layer 7 inspection is really just the switch's second pass over the same data",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Layer 2 (Data Link) is where switches operate, forwarding frames by MAC address on the local segment with no visibility into application content; Layer 7 (Application) is where HTTP, DNS, and SMB actually live, which is what a Layer 7-aware firewall or proxy can inspect. The option “Layer 2 and Layer 7 are two…” conflates two very different layers. The option “Layer 7 only exists in the simplified…” is wrong; Layer 7 is the top of the seven-layer OSI model, and it maps to the Application layer in the simplified TCP/IP model. The option “A Layer 2 switch can already read…” is false; encryption specifically prevents lower-layer devices from reading payload content."
+        "explanation": "Layer 2 (Data Link) is where switches operate, forwarding frames by MAC address on the local segment with no visibility into application content; Layer 7 (Application) is where HTTP, DNS, and SMB live, which is what a Layer 7-aware firewall or proxy can inspect. IP addresses and ports are Layer 3 and Layer 4 details, not Layer 2, so the option that has Layer 2 reading IPs and ports misplaces those fields. Distance travelled is not the distinction either — a Layer 2 switch cannot read application data at all, near or far — so the 'same data, different distance' option is wrong. And a Layer 2 switch does not receive proxy-decrypted payloads to inspect, so the 'second pass over decrypted content' option is invented."
       },
       {
         "question": "You see a routing table with two matching entries for a destination address: 10.0.0.0/8 and 10.4.2.0/24. Which route does the router actually use, and why?",

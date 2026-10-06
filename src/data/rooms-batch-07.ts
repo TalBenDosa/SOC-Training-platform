@@ -142,16 +142,16 @@ CrowdStrike Falcon runs in two complementary modes simultaneously:
 
 Both modules run from the same sensor. You don't need two products.`,
       checkpoint: {
-        question: "According to the reading, what does Falcon Prevent (the NGAV module) do, as distinct from Falcon Insight?",
+        question: "A user double-clicks a brand-new malicious executable. It never runs: Falcon stops it on the spot, with no analyst involved. Which Falcon capability acted?",
         options: [
-          "It blocks threats before they execute, using ML models to score files before they run",
-          "It only generates alerts for a SOC analyst to review after the fact",
-          "It provides the remote shell used for forensic investigation",
-          "It stores telemetry in CrowdStrike's Threat Graph for later hunting",
+          "Falcon Prevent — it scored the file before execution and blocked it",
+          "Falcon Insight — it recorded the behaviour and raised a detection",
+          "Real Time Response — it killed the process on the remote endpoint",
+          "OverWatch — the hunting team spotted the file and stopped it",
         ],
         answer: 0,
         explanation:
-          "Falcon Prevent is the prevention (NGAV) module — it scores files before execution and blocks them if the score crosses a threshold. Falcon Insight (EDR) is the detection module that generates alerts for analysts to investigate after something happens.",
+          "Falcon Prevent (NGAV) scores every file with ML models before it runs and blocks it automatically when the score crosses the threshold — prevention, with no human in the loop. Falcon Insight (EDR) detects suspicious behaviour and raises detections for an analyst after something has happened; it does not stop a file before launch. Real Time Response is a remote shell an analyst uses by hand, so it cannot act before anyone is involved. OverWatch is a human hunting team that sends managed detections; it does not block files at execution time.",
       },
     },
 
@@ -207,16 +207,16 @@ Here you manage the inventory of all endpoints with the Falcon Sensor installed.
 
 Beyond protecting managed endpoints, **Falcon Discover** scans your network for devices that do *not* have the Falcon Sensor installed — rogue laptops, network printers, IoT cameras, BYOD phones. Finding unmanaged devices is critical because attackers love to pivot through systems that security can't see.`,
       checkpoint: {
-        question: "According to the reading, what is CrowdStrike OverWatch?",
+        question: "During an incident, SRV-APP04 stops sending any Falcon telemetry and you suspect its sensor was blinded. Where in the console do you confirm when the host last checked in and whether its sensor is healthy?",
         options: [
-          "Falcon Discover — the module that scans the network for devices without the Falcon Sensor installed, such as rogue laptops, printers, and IoT devices",
-          "CrowdStrike's 24/7 elite threat hunting team that proactively hunts through Falcon telemetry for activity automated detections might miss",
-          "Host Management — the console page showing sensor health, last check-in time, and OS version for every enrolled Falcon endpoint, useful when a host goes offline",
-          "Real Time Response (RTR) — the remote shell tool that lets an analyst run commands, kill processes, and retrieve files from an isolated endpoint",
+          "Falcon Discover — it lists devices on the network that have no sensor",
+          "Host Management — it shows each sensor's health and last check-in time",
+          "Investigate — it searches the telemetry the host has already sent",
+          "OverWatch — the hunting team reports every sensor that goes offline",
         ],
         answer: 1,
         explanation:
-          "OverWatch is CrowdStrike's managed, 24/7 human threat-hunting team that proactively looks for attacker activity across customer telemetry and sends 'managed detections' when they find something automated rules missed. Falcon Discover is the module for finding unmanaged devices.",
+          "Host Management is the inventory of enrolled endpoints, with each sensor's health, version and last check-in time — exactly where you notice a host that went quiet after an incident. Falcon Discover finds devices that never had a sensor; SRV-APP04 is enrolled, so it is the wrong list. Investigate searches telemetry that already arrived, so it can show what the host did before it went silent but not its sensor status. OverWatch is a hunting team that sends managed detections about attacker activity; checking sensor health is your job in the console.",
       },
     },
 
@@ -246,6 +246,8 @@ RTR uses CrowdStrike-built commands (not standard cmd/bash) with tab-completion 
 - \`kill <pid>\` — kill a process by its PID (Process ID)
 
 All RTR sessions are logged and audited, so there's a full record of what actions the analyst took.
+
+**Network Containment ("Contain host")** is Falcon's main isolation action: the host is cut off from every network connection except its link to the Falcon cloud, so the attacker loses access while you keep investigating it through RTR — but containing a server such as a Domain Controller also cuts off everyone who depends on it, so for critical servers it is a business decision as well as a technical one.
 
 **Common Attack Scenarios Detected by CrowdStrike**
 
@@ -279,16 +281,16 @@ After compromising one machine, attackers move to others. A common tool is **PsE
       type: "question",
       id: "cs-falcon-q1",
       question:
-        "A SOC analyst opens a CrowdStrike detection and sees the CommandLine field contains: 'powershell.exe -EncodedCommand SQBuAHYAbwBr...'. What does this most likely indicate?",
+        "A Falcon detection shows the CommandLine 'powershell.exe -EncodedCommand SQBuAHYAbwBr...'. What is the soundest way to treat it?",
       options: [
-        "A legitimate Windows Update component running in the background",
-        "An attacker hiding a malicious PowerShell command in base64 encoding",
-        "A scheduled antivirus scan launched by the IT department",
-        "A setup script run by a software installer",
+        "As confirmed malicious — encoding exists to hide commands, so it proves an attack",
+        "As a common hiding trick — decode it and check the parent process before deciding",
+        "As benign — PowerShell encodes long commands itself, so encoding adds no risk",
+        "As safe to close if the powershell.exe hash comes back clean on VirusTotal",
       ],
       answer: 1,
       explanation:
-        "The '-EncodedCommand' flag in PowerShell means the command is base64-encoded — a common attacker technique to hide malicious commands from simple string-based detection. Legitimate IT automation rarely uses encoding without a clear documented reason. CrowdStrike automatically decodes these commands in the console so analysts can see what the command actually does.",
+        "'-EncodedCommand' means the command is Base64-encoded. Attackers use it to hide commands from simple string matching, but legitimate management tools (SCCM, Intune and other agents) use it too — so decode it (Falcon shows the decoded text) and look at the parent process and what the command actually does before deciding. 'Proves an attack' overstates it for that reason. 'PowerShell encodes long commands itself' is false — the caller chooses to encode, and the encoding hides intent from the person reading the log. 'Clean powershell.exe hash' misses the point: powershell.exe is a signed Microsoft binary, so its hash is always clean; the risk is in the command it was given.",
       xp: 35,
     },
 
@@ -297,16 +299,16 @@ After compromising one machine, attackers move to others. A common tool is **PsE
       type: "question",
       id: "cs-falcon-q2",
       question:
-        "What is the primary purpose of the Falcon Sensor running in kernel mode on an endpoint?",
+        "Minutes after a new, signed but outdated kernel driver is loaded on a server, its Falcon Sensor stops reporting. Why is this treated as a serious alert rather than a glitch?",
       options: [
-        "To scan files on disk at kernel level against a local signature database",
-        "To enforce USB device control and block removable media",
-        "To record system activity at the deepest OS level so threats find it very hard to hide from it",
-        "To route endpoint traffic through a cloud proxy for inspection",
+        "Sensors often drop after a driver install; it mostly means a reboot is pending",
+        "The driver likely overwrote the sensor's local signature database, so scans fail",
+        "A kernel sensor is hard to evade from user mode, so attackers try to blind it with drivers",
+        "The host has lost its route to the cloud proxy, so its web traffic is no longer inspected",
       ],
       answer: 2,
       explanation:
-        "Kernel mode is the most privileged layer of an operating system — even before the normal user-facing software loads. By running at kernel level, the Falcon Sensor can monitor every process, file operation, network connection, and registry change from a vantage point ordinary user-mode programs cannot evade. Malware that tries to hide itself in user mode struggles to conceal activity from a kernel-mode sensor — which is why advanced attackers instead try to blind the sensor itself (EDR-killer tools, vulnerable signed drivers / BYOVD), and why a sensor going offline is treated as an alert.",
+        "The Falcon Sensor records activity from kernel mode, the most privileged layer, so malware running in user mode struggles to hide from it. That is why attackers try to blind or unload the sensor itself — EDR-killer tools and vulnerable signed drivers (BYOVD) — and why a sensor going silent right after a driver load is an alert. 'A reboot is pending' explains the silence away without evidence. 'Local signature database' misdescribes Falcon: it is cloud-native and does not depend on a local signature file. 'Cloud proxy' confuses the sensor with a web proxy — it streams telemetry to the cloud, it does not route the host's web traffic.",
       xp: 35,
     },
 
@@ -315,16 +317,16 @@ After compromising one machine, attackers move to others. A common tool is **PsE
       type: "question",
       id: "cs-falcon-q3",
       question:
-        "What is CrowdStrike OverWatch?",
+        "Your company has no night shift. At 03:00 a managed detection appears in the Falcon console with a written analysis of hands-on-keyboard activity that no automated detection had flagged. Who produced it?",
       options: [
-        "An NGAV feature that quarantines suspicious files without analyst review",
-        "A managed 24/7 threat-hunting team that looks for attacker activity in customer environments",
-        "A discovery module that finds unmanaged devices lacking the Falcon Sensor",
-        "A reporting module that produces compliance summaries for audit teams",
+        "Falcon Prevent, whose ML model blocked a file and annotated why",
+        "OverWatch, CrowdStrike's managed 24/7 threat-hunting team",
+        "Falcon Discover, which flagged a device that has no sensor",
+        "Falcon Insight's behavioural rules running in the cloud",
       ],
       answer: 1,
       explanation:
-        "CrowdStrike OverWatch is an elite team of human threat hunters who work 24/7, searching through telemetry from millions of CrowdStrike-protected endpoints worldwide. They look for subtle attacker patterns that automated detections might miss — especially from sophisticated nation-state actors. When they find something, they send a managed detection with their analysis directly to the customer's Falcon console.",
+        "OverWatch is CrowdStrike's team of human threat hunters who search customer telemetry around the clock for activity automated detections miss, and send a managed detection with their analysis to the console — which fits a written analysis of activity no rule flagged. Falcon Prevent blocks files automatically; it does not write analyses of hands-on activity. Falcon Discover reports unmanaged devices, not attacker activity. Falcon Insight's behavioural rules are the automated detections — and the stem says none of them fired.",
       xp: 35,
     },
 
@@ -381,42 +383,42 @@ After compromising one machine, attackers move to others. A common tool is **PsE
           question:
             "The field 'crowdstrike.GrantedAccess: 0x1FFFFF' appears in the alert. In Windows, access mask 0x1FFFFF means PROCESS_ALL_ACCESS — full control over the target process. Why is this value specifically suspicious when the target is lsass.exe?",
           options: [
-            "LSASS holds the Windows firewall rules, so full access lets the attacker disable network filtering",
-            "LSASS holds credential material in memory; full access lets tools extract password hashes and tokens",
-            "0x1FFFFF is a known malware signature value, so it always means the host is infected",
-            "LSASS is a user application that other programs should never open for any reason",
+            "LSASS enforces the firewall policy, so full access lets a tool turn network filtering off",
+            "LSASS holds credential material in memory; full access lets a tool read hashes and tickets",
+            "0x1FFFFF is rare enough to prove infection by itself, whichever process is being opened",
+            "Full access lets the tool terminate LSASS, forcing a reboot that wipes the attacker's traces",
           ],
           answer: 1,
           explanation:
-            "LSASS (Local Security Authority Subsystem Service) is the Windows process responsible for enforcing security policies and storing credential material — including NTLM hashes, Kerberos tickets, and sometimes plaintext passwords. Requesting PROCESS_ALL_ACCESS to lsass.exe is the hallmark of credential dumping tools like Mimikatz. The attacker (or their tool) needs that access level to read LSASS memory and extract usable credentials.",
+            "LSASS (Local Security Authority Subsystem Service) enforces security policy and keeps credential material in memory — NTLM hashes, Kerberos tickets and sometimes plaintext passwords. Full access to lsass.exe lets a tool read that memory, which is what credential dumping (T1003.001) needs; here the CommandLine even writes a MiniDump to disk. 'Firewall policy' confuses LSASS's 'security policy' role with the Windows Firewall service. '0x1FFFFF proves infection by itself' is wrong — full-access handles also come from debugging and support tools, so the target and the context matter. 'Terminate LSASS to force a reboot' misreads the goal: killing LSASS crashes the machine, but the evidence here (a MiniDump of the process) shows the aim is to copy its memory.",
           xp: 50,
         },
         {
           question:
-            "The detection shows the process was run under the account 'CORP\\svc-backup'. What does this suggest about the attacker's technique?",
+            "The process ran as 'CORP\\svc-backup', an account that has run the nightly backup jobs for three years. No change ticket covers tonight. What does this suggest?",
           options: [
-            "The attacker created a brand-new account specifically for this attack",
-            "The attacker compromised a legitimate service account to blend in with normal activity",
-            "svc-backup is a built-in Windows administrator account, so no compromise is implied",
-            "A backup administrator is performing routine maintenance under a valid change ticket",
+            "A new account made for the attack, named to look like a service account",
+            "A real service account being abused, its rights and low scrutiny helping it blend in",
+            "Expected backup behaviour — backup agents read LSASS so credentials are backed up",
+            "An admin testing backups — the command just runs under the backup job's account",
           ],
           answer: 1,
           explanation:
-            "Service accounts like 'svc-backup' are pre-existing accounts used by automated backup software — they often have elevated privileges (needed to access all files for backup purposes) but their activity is typically less scrutinised than human admin accounts. Attackers deliberately compromise and abuse service accounts to blend into legitimate-looking activity. This is a common privilege escalation and persistence technique.",
+            "svc-backup is an established account with the broad rights backup software needs, and service-account activity draws less scrutiny than a human admin's — which is why attackers who obtain its credentials use it to blend in. 'A new account' is ruled out: the account has existed for three years. 'Backup agents read LSASS' is false — backup software copies files, it does not dump LSASS memory with comsvcs.dll MiniDump from a cmd.exe shell. 'An admin testing backups' has no support: there is no change ticket, and a backup test has no reason to dump the credential process on a Domain Controller.",
           xp: 50,
         },
         {
           question:
             "The dump file is being written to 'C:\\Windows\\Temp\\lsass.dmp'. As the responding SOC analyst, what is your FIRST priority action?",
           options: [
-            "Email svc-backup's owner to change the password and confirm whether a backup job was running",
-            "Wait 24 hours for further detections before containment, to rule out a one-off false positive",
-            "Use RTR to kill the process, retrieve the dump file for evidence, and isolate the host",
-            "Delete lsass.dmp from the disk and close the alert as remediated",
+            "Email svc-backup's owner to reset its password and ask whether a backup job was running",
+            "Reboot SRV-DC01 to end the dumping process and clear any credentials held in memory",
+            "Kill the process via RTR, pull lsass.dmp as evidence, then contain the host per the DC plan",
+            "Delete lsass.dmp from the disk via RTR so the stolen hashes cannot leave, then close the alert",
           ],
           answer: 2,
           explanation:
-            "The immediate priority in credential dumping is to stop the ongoing attack while preserving evidence. RTR lets you kill the malicious rundll32.exe process (stopping further credential extraction), retrieve the .dmp file as forensic evidence (and to check what was already captured), then isolate the host to prevent the attacker from exfiltrating the credentials over the network. Rebooting would destroy volatile memory evidence and may not stop the threat if persistence is established.",
+            "The priority is to stop the dumping while keeping the evidence. RTR lets you kill the rundll32.exe process, retrieve the .dmp file (to see exactly what was captured), and then network-contain the host so the credentials cannot leave — on a Domain Controller that decision follows the agreed plan because containment cuts off everyone who depends on it. 'Email the owner' is too slow and the reset alone does not stop an attack in progress. 'Reboot' destroys volatile memory evidence and does nothing about persistence or credentials already copied. 'Delete lsass.dmp and close' destroys the evidence and assumes the file has not already been copied off the host.",
           xp: 50,
         },
       ],
@@ -427,9 +429,9 @@ After compromising one machine, attackers move to others. A common tool is **PsE
       type: "flag",
       id: "cs-falcon-flag1",
       prompt:
-        "Looking at the CrowdStrike detection above, the attacker's tool is targeting a specific Windows process to extract credentials. The field 'crowdstrike.TargetProcessName' tells you which process is being attacked. What is the name of that process? (Enter the process name exactly as shown, without the file extension)",
-      answer: "lsass",
-      hint: "Look at the 'crowdstrike.TargetProcessName' field in the raw log. It is a four-letter Windows system process name.",
+        "In the credential-dumping detection above, the command line hands comsvcs.dll the process ID of the process it should dump. Enter that PID — you would compare it with the host's process list to confirm which process was targeted.",
+      answer: "640",
+      hint: "Several numbers in this log are process IDs. Only one of them is passed as an argument in the command that was run.",
       xp: 40,
     },
 
@@ -438,16 +440,16 @@ After compromising one machine, attackers move to others. A common tool is **PsE
       type: "question",
       id: "cs-falcon-q4",
       question:
-        "A security analyst needs to remotely check running processes on a potentially compromised endpoint without opening RDP or requiring VPN access. Which CrowdStrike Falcon feature enables this?",
+        "You need a copy of the suspicious file C:\\Users\\Public\\upd.exe from a laptop in another country so it can be analysed. Which approach fits Falcon's tooling?",
       options: [
-        "Falcon Discover — the module that finds unmanaged devices missing the Falcon Sensor",
-        "Falcon OverWatch — the managed 24/7 threat-hunting team that reviews telemetry",
-        "Real Time Response (RTR) — a remote shell through the existing Falcon Sensor channel",
-        "Falcon Prevent — the NGAV module that blocks malicious files before they execute",
+        "Search its hash in Investigate, which copies the file from the endpoint",
+        "Ask OverWatch to collect it, since file collection is the hunters' role",
+        "Open an RTR session to the laptop and retrieve the file with 'get'",
+        "Download it from the device's page in Host Management's inventory",
       ],
       answer: 2,
       explanation:
-        "Real Time Response (RTR) establishes a remote shell session to any Falcon-protected endpoint through the same encrypted cloud channel the Falcon Sensor already uses. No additional ports need to be opened, no VPN is required, and no separate remote access tools are needed. The analyst types commands in the Falcon console and they execute on the remote machine.",
+        "Real Time Response opens a remote shell through the sensor's existing channel, and its 'get' command retrieves a file from the endpoint for analysis — no VPN or RDP needed. Investigate searches telemetry (for example, which hosts ran this hash) but does not pull files off a device. OverWatch hunts and sends managed detections; collecting evidence from your endpoints is your team's job through RTR. Host Management shows sensor health and inventory details, not the files on the device.",
       xp: 35,
     },
 
@@ -456,16 +458,16 @@ After compromising one machine, attackers move to others. A common tool is **PsE
       type: "question",
       id: "cs-falcon-q5",
       question:
-        "In CrowdStrike Falcon, what does the MITRE ATT&CK tag 'T1003.001' on a detection tell a SOC analyst?",
+        "A Falcon process tree shows PsExec on one compromised workstation launching the same command on five different servers within two minutes, using an admin account. Which ATT&CK tactic best describes this activity?",
       options: [
-        "The attacker used a phishing email to gain initial access",
-        "OS Credential Dumping of LSASS Memory — the attacker is trying to steal credentials",
-        "A web application vulnerability was exploited to run code on the server",
-        "A scheduled task was created to maintain persistence on the host",
+        "Initial Access",
+        "Lateral Movement",
+        "Credential Access",
+        "Exfiltration",
       ],
       answer: 1,
       explanation:
-        "MITRE ATT&CK is a publicly maintained framework cataloguing attack techniques used by real threat actors. T1003.001 specifically refers to 'OS Credential Dumping: LSASS Memory' — meaning the attacker (or their tool) accessed the LSASS process to extract credential material such as NTLM hashes or Kerberos tickets. This tag lets SOC analysts immediately understand the attacker's goal without reading raw log data.",
+        "Using a remote-administration utility from one compromised machine to run code on several others in quick succession is the lateral-movement pattern Falcon flags for PsExec. Initial Access is how the attacker first got into the network (for example a phishing attachment); here they are already on a workstation. Credential Access is stealing credentials (like the LSASS dump earlier) — the admin account is being used here, not stolen. Exfiltration is moving data out of the network, and nothing in this activity sends data out.",
       xp: 35,
     },
 
@@ -473,7 +475,7 @@ After compromising one machine, attackers move to others. A common tool is **PsE
     {
       type: "analyst_choice",
       id: "cs-falcon-ac1",
-      heading: "Verdict: Word Document Spawns Encoded PowerShell That Injects Into explorer.exe",
+      heading: "Verdict: PowerShell Launched from Word on WKST-FINANCE07",
       scenario:
         "At 11:42 AM, Falcon Insight generates a Critical severity detection on WKST-FINANCE07. A Microsoft Word process (opening a file named Q3_Invoice_Reconciliation.docm) spawned PowerShell, which ran a Base64-encoded command that ultimately requested full access into a running explorer.exe process. The originating .docm file has 2 detections out of 71 vendors on VirusTotal. What is your verdict?",
       event: {
@@ -521,7 +523,7 @@ After compromising one machine, attackers move to others. A common tool is **PsE
       explanation:
         "Word (winword.exe) launching PowerShell is not something that happens during normal document editing — it is the signature of a malicious macro executing. The '-Enc' flag hides the true command behind a Base64 blob, a standard obfuscation technique so the command line does not reveal itself to casual log review. 'crowdstrike.GrantedAccess: 0x1FFFFF' (PROCESS_ALL_ACCESS) against explorer.exe means the process requested full control over Windows Explorer — a classic process-injection move used to hide malicious code inside a legitimate, always-running process so it blends in and survives a cursory look at the process list. The low static AV detection (2/71) does not indicate low risk: it reflects that antivirus signature matching is exactly what obfuscated macro-delivered payloads are built to evade, while Falcon's behavioural detection caught the actual malicious sequence regardless. Correct response: isolate WKST-FINANCE07, capture memory before killing the process, retrieve and detonate the .docm file safely, and reset l.chen's credentials.",
       fp_trap:
-        "Two details might tempt an analyst toward false_positive. First, 2 out of 71 VirusTotal detections sounds reassuring — but a low static-detection score on a freshly obfuscated file says only that it has not been signature-matched before, not that it is safe; it is the expected result for a brand-new malicious macro, not evidence of innocence. Second, PROCESS_ALL_ACCESS handles do occasionally appear from legitimate debugging or remote-support tooling, so GrantedAccess 0x1FFFFF is not damning in total isolation. What removes the ambiguity is the full chain: an Office process spawning a script interpreter (never legitimate), using Base64 obfuscation (never legitimate for routine tasks), requesting full access into a mainstream process with no debugging purpose. No single field proves this alone — the sequence does.",
+        "Two details might tempt an analyst toward false_positive. First, 2 out of 71 VirusTotal detections sounds reassuring — but a low static-detection score on a freshly obfuscated file says only that it has not been signature-matched before, not that it is safe; it is the expected result for a brand-new malicious macro, not evidence of innocence. Second, PROCESS_ALL_ACCESS handles do occasionally appear from legitimate debugging or remote-support tooling, so GrantedAccess 0x1FFFFF is not damning in total isolation. What removes the ambiguity is the full chain: an Office process spawning a script interpreter (rarely legitimate), using Base64 obfuscation with a hidden window (rarely legitimate from a document), then requesting full access into a mainstream process with no debugging purpose. No single field proves this alone — the combination does.",
       xp: 30,
     } satisfies AnalystChoiceTask,
   ],
@@ -583,11 +585,11 @@ SentinelOne's Storyline engine automatically links all related events into a sin
 
 Think of it as the difference between receiving 47 separate puzzle pieces in different boxes versus receiving a completed puzzle with all the pieces already assembled and labelled.`,
       checkpoint: {
-        question: "According to the reading, what identifier links every event of a single attack chain into one connected narrative in SentinelOne's Storyline?",
-        options: ["StorylineID", "ProcessGUID", "IncidentNumber", "SHA256 hash"],
+        question: "An attack runs entirely through PowerShell and other built-in Windows tools and never writes a malware file to disk. Which SentinelOne engine is designed to catch it?",
+        options: ["Behavioral AI", "Static AI", "Deep Visibility", "Rollback"],
         answer: 0,
         explanation:
-          "Every event belonging to the same attack chain is tagged with the same StorylineID, letting the console show one connected story instead of dozens of separate, disconnected alerts.",
+          "Behavioral AI watches what running processes do — files touched, registry keys, network connections, child processes — so it can flag a 'fileless' attack even when every program involved is legitimate. Static AI screens files before they run, so an attack with no malware file gives it nothing to scan. Deep Visibility is the telemetry store analysts search when hunting; it records the activity but is not what raises the alarm here. Rollback is a response action that undoes file changes, not a detection engine.",
       },
     },
 
@@ -639,11 +641,11 @@ When a threat is confirmed, SentinelOne offers several response options:
 - **Isolate Network:** Cuts the endpoint off from the network entirely (while keeping the agent connected to the SentinelOne cloud). The infected machine can't communicate with other systems — preventing spread — but analysts can still investigate it remotely.
 - **Rollback (the unique SentinelOne feature):** SentinelOne continuously takes shadow-copy-style snapshots of file changes on the endpoint. If ransomware encrypts files, the Rollback feature can *undo* those changes — restoring encrypted files to their pre-attack state. This can be the difference between a minor security incident and a catastrophic data loss event.`,
       checkpoint: {
-        question: "According to the reading, which SentinelOne response action is unique in that it can actually undo file encryption caused by ransomware?",
+        question: "Ransomware encrypted about 2,000 files on a Windows laptop before the agent stopped it. The process is dead and the file is quarantined. Which action can return the encrypted documents to their pre-attack state?",
         options: ["Kill Process", "Quarantine Threat", "Isolate Network", "Rollback"],
         answer: 3,
         explanation:
-          "Rollback uses continuously-taken shadow-copy-style snapshots to restore encrypted files to their pre-attack state — the other three actions (Kill, Quarantine, Isolate) stop further damage but don't reverse damage already done.",
+          "Rollback uses the snapshots the agent took of file changes to restore encrypted files to their pre-attack state. Kill Process has already done its job — it stops the running process but changes nothing on disk. Quarantine Threat moves the malicious file where it cannot run; the documents it encrypted stay encrypted. Isolate Network stops the laptop talking to other systems, which limits spread but does not repair any file.",
       },
     },
 
@@ -696,16 +698,16 @@ SentinelOne detects Cobalt Strike through:
       type: "question",
       id: "s1-q1",
       question:
-        "What is SentinelOne's 'Storyline' feature, and what problem does it solve for SOC analysts?",
+        "A file server's agent (in Detect Mode) shows signs of a beacon calling out every 60 seconds, but you do not yet know which processes or files are involved, and the server can reach dozens of other hosts. You want to stop any spread while you keep investigating it remotely. Which response action fits best right now?",
       options: [
-        "A timeline of console admin actions such as policy changes and agent upgrades",
-        "A correlation engine linking related processes, files and network events into one attack story via a StorylineID",
-        "A reporting tool that produces weekly PDF summaries of detected threats for audits",
-        "A threat-intelligence feed that attributes detections to named adversary groups",
+        "Kill Process — terminate the process you think is beaconing",
+        "Isolate Network — cut the server off but keep the agent connected",
+        "Quarantine Threat — move the suspected file where it cannot run",
+        "Rollback — restore the server's files to their state before the alert",
       ],
       answer: 1,
       explanation:
-        "Storyline solves alert fatigue and alert fragmentation. Instead of generating dozens of separate alerts for each step of an attack, SentinelOne assigns a single StorylineID to every event in an attack chain, linking them together. Analysts see one complete attack story from initial access to final impact — not 47 disconnected alerts. This dramatically reduces the time and cognitive load required to understand what happened.",
+        "Isolate Network cuts the endpoint off from every other system while keeping its agent connected to the SentinelOne cloud, so spread stops at once and you can still investigate — the right move when you do not yet know what to kill or remove. Kill Process stops one process, but you have not identified which one, and an injected beacon may live inside a legitimate process. Quarantine Threat needs a known malicious file, which you do not have yet. Rollback undoes file changes such as ransomware encryption; it does nothing about an active network beacon.",
       xp: 35,
     },
 
@@ -714,16 +716,16 @@ SentinelOne detects Cobalt Strike through:
       type: "question",
       id: "s1-q2",
       question:
-        "An analyst sees a SentinelOne detection where 15,847 files were renamed with a '.lockbit' extension added. What type of attack does this signature indicate?",
+        "Behavioral AI flags one unfamiliar process that renamed several thousand documents in four minutes, appending the same new extension to each. The renamed files now show very high entropy. What does this pattern indicate?",
       options: [
-        "A Trojan establishing persistence through registry modification",
+        "A sync client converting documents to a new format and renaming them",
         "A worm copying itself into shared folders across the network",
         "Ransomware encrypting files and appending its own extension",
-        "Data exfiltration staging files before upload to an external server",
+        "Data exfiltration staging, renaming files before they are uploaded",
       ],
       answer: 2,
       explanation:
-        "Mass file renaming — especially adding a consistent new extension like .lockbit, .encrypted, or .WNCRY — is the signature behaviour of ransomware in action. LockBit 3 is a prominent ransomware family that appends '.lockbit' to every file it encrypts. The file count (15,847 in this case) tells you the scope of the damage and reinforces the urgency of response. SentinelOne's Behavioral AI detects this rename cascade pattern in real-time.",
+        "A rapid rename cascade from one process, the same appended extension on every file, and a jump in file entropy (encrypted data looks random) are the ransomware signals SentinelOne's Behavioral AI watches for. A format-converting sync client would be a known application, would not rename thousands of files a minute, and converted documents do not look random. A worm creates copies of itself; it does not rename and scramble existing documents. Exfiltration staging gathers files to send out — it has no reason to make every document unreadable in place.",
       xp: 35,
     },
 
@@ -732,16 +734,16 @@ SentinelOne detects Cobalt Strike through:
       type: "question",
       id: "s1-q3",
       question:
-        "What makes SentinelOne's 'Rollback' response action uniquely valuable compared to standard 'quarantine' and 'kill process' actions?",
+        "After a ransomware incident on one laptop, you need to know whether the same dropper ran on any other endpoint in the last month — including machines where nothing was detected. Where in the SentinelOne console do you look?",
       options: [
-        "Rollback blocks the threat at the network layer before it reaches the endpoint",
-        "Rollback undoes ransomware's file changes, restoring files from snapshots the agent took",
-        "Rollback reinstalls the operating system from a clean backup image",
-        "Rollback reverts the endpoint policy to its previous version after a bad change",
+        "The Sentinels (Agents) page, filtered to agents in Protect Mode",
+        "Deep Visibility, searching the telemetry of every endpoint",
+        "The Threats page, filtered to the dropper's threat name",
+        "The Endpoint (Devices) page, checking each device's software",
       ],
       answer: 1,
       explanation:
-        "Quarantine and kill-process actions stop *ongoing* damage but can't undo damage already done. SentinelOne's Rollback feature continuously tracks file changes on the endpoint and can reverse them — restoring encrypted or deleted files to their pre-attack state. For a ransomware incident, this could mean the difference between full data recovery in minutes versus days of manual restoration from backups (or paying a ransom).",
+        "Deep Visibility is the raw telemetry search across the whole fleet — it records every process that ran, so it can find the dropper even on hosts where no threat was raised. The Sentinels page shows agent health and mode, not what executed. The Threats page lists only detected threats, so it misses exactly the quiet machines you are worried about. The Devices page shows installed software and hardware details; a dropped executable is not 'installed software', and checking device by device does not scale.",
       xp: 35,
     },
 
@@ -808,44 +810,44 @@ SentinelOne detects Cobalt Strike through:
       questions: [
         {
           question:
-            "The malware process is named 'chrome_update.exe' and appears to have been launched by 'explorer.exe' (the Windows file manager). Why is the name 'chrome_update.exe' significant as a red flag?",
+            "Look at s1.processName and s1.processPath together. What should you conclude from the name and location of this process?",
           options: [
-            "Any file named after a trusted vendor's product is presumed signed by that vendor, so chrome_update.exe is normal browser behaviour",
-            "Attackers mimic trusted app names; Chrome's real updater is Google-signed and lives under Google\\Update, not a chrome_update.exe in AppData\\Temp",
-            "Windows policy blocks .exe files in Downloads and Temp by default, so any such file means tampering",
-            "A parent of explorer.exe means the user double-clicked it, so the file is user-approved and low risk",
+            "Probably routine — Chrome does ship separate updater programs, so the name fits a browser update",
+            "A borrowed trusted name: Chrome's real updater is Google-signed under Google\\Update, not in Temp",
+            "The location settles it alone — an .exe running from a Temp folder is proof of malware by itself",
+            "Lower risk — a path inside the user profile means it ran with user rights and cannot touch much",
           ],
           answer: 1,
           explanation:
-            "This is a classic attacker technique called 'masquerading' (MITRE T1036). By naming ransomware 'chrome_update.exe', the attacker hopes users and analysts will dismiss it as a routine update. However, legitimate Chrome updates are handled by Google's own signed updater (GoogleUpdate.exe / updater.exe), which lives under Program Files or AppData\\Local\\Google\\Update — not by a binary called chrome_update.exe launched by explorer.exe from AppData\\Local\\Temp. (Google's installer can briefly unpack files in %TEMP%, so location alone is not proof: what settles it is the non-standard name and the launch path outside Google's updater, which you would then confirm by checking the file's signer.) A file name says nothing about who signed it.",
+            "This is masquerading (MITRE T1036): naming the binary 'chrome_update.exe' so users and analysts dismiss it as a routine update. Chrome really does update through a separate program — but that is Google's signed updater (GoogleUpdate.exe / updater.exe) under Program Files or AppData\\Local\\Google\\Update, not a 'chrome_update.exe' in AppData\\Local\\Temp; so 'the name fits a browser update' takes the premise too far. 'Temp alone is proof' overstates it — installers, Google's included, briefly unpack files in %TEMP%, so the name, the path outside Google's updater and the missing Google signature together are what settle it. 'User rights, so it cannot touch much' is wrong for ransomware: the user's own documents and mapped shares are exactly what it encrypts, as the rename count in this detection shows.",
           xp: 50,
         },
         {
           question:
-            "The field 's1.rollbackStatus: Available' appears in the detection. Given that 15,847 files have already been encrypted, what does this mean for incident response?",
+            "Read s1.action and s1.rollbackStatus together. What is the state of the laptop right now?",
           options: [
-            "Encryption already finished, so rollback can only restore files backed up to the cloud",
-            "SentinelOne can restore the encrypted files from its pre-captured snapshots, potentially preventing data loss",
-            "Rollback restores only system files, not the user's documents",
-            "A rollback is available but only works if the user manually approves it within 60 seconds",
+            "Already recovered — the quarantine restored the files, and 'Available' confirms the restore",
+            "The binary is quarantined, but the renamed files stay encrypted until a rollback is run",
+            "Cut off from the network — quarantine isolates the laptop, so the shares are safe now",
+            "Unrecoverable — quarantining the file also removed the snapshots taken while it ran",
           ],
           answer: 1,
           explanation:
-            "SentinelOne's rollback capability continuously takes snapshots of file changes. When ransomware is detected, those snapshots allow the platform to reverse the encryption — restoring the original files and deleting the encrypted versions. 'Rollback Available' means this recovery option exists for this incident. This is one of SentinelOne's most powerful differentiators — other EDR platforms can stop the attack but cannot undo the damage already done.",
+            "s1.action 'Quarantine' means the malicious file was moved where it cannot run. It does not touch the documents it already encrypted. s1.rollbackStatus 'Available' means the agent's snapshots exist and a rollback can be run to restore those files — it has not happened yet, so it is a next step for you. 'Already recovered' misreads 'Available' as 'completed'. 'Cut off from the network' confuses Quarantine with Isolate Network, which is a separate action. 'Quarantine removed the snapshots' contradicts the field itself — rollback is still listed as available.",
           xp: 50,
         },
         {
           question:
-            "What is the StorylineID for this attack, and why is it useful?",
+            "You need to see how chrome_update.exe got onto the laptop and everything it did afterwards, as one chain. Which value from this detection do you pivot on?",
           options: [
-            "'LockBit3' — the malware family name SentinelOne uses to group every detection of that variant",
-            "'0x1A2B3C4D' — a unique ID that links every event in this attack chain into one view",
-            "'j.smith' — the affected account's username, used to group all of that user's events",
-            "The ID of the detection policy that fired, identifying which prevention rule triggered",
+            "'Trojan.Ransom.LockBit3' — the threat name groups this whole attack together",
+            "'0x1A2B3C4D' — the ID shared by every event in this one attack chain",
+            "'j.smith' — the username returns every event tied to that user's account",
+            "The SHA-256 — the file hash returns every event involving this attack",
           ],
           answer: 1,
           explanation:
-            "The StorylineID (0x1A2B3C4D in this case) is SentinelOne's unique tag assigned to every event in this attack chain. Every file encryption, every registry change, every network connection made by this ransomware campaign gets tagged with the same StorylineID. In the SentinelOne console, filtering by this ID shows the analyst the complete attack story — from the initial file drop through all 15,847 file renames — in a single, connected timeline.",
+            "s1.storylineId is the tag SentinelOne puts on every related event in one attack chain — the parent that launched the dropper, the file writes, network connections and renames — so pivoting on 0x1A2B3C4D gives you the whole story in one timeline. The threat name is shared by every LockBit3 detection across the fleet, so it mixes in unrelated incidents. The username returns everything j.smith did all day, attack or not. The SHA-256 finds events involving that one file, but not the steps before it existed on disk or the other processes in the chain.",
           xp: 50,
         },
       ],
@@ -856,9 +858,9 @@ SentinelOne detects Cobalt Strike through:
       type: "flag",
       id: "s1-flag1",
       prompt:
-        "Look at the SentinelOne ransomware detection above. The ransomware added a specific file extension to every file it encrypted, turning 'document.docx' into 'document.docx.XXXX'. What extension did the ransomware add? Check the field 's1.extensionAdded' in the raw log. (Enter the extension without the dot)",
-      answer: "lockbit",
-      hint: "Look at the 's1.extensionAdded' field in the raw log data above. The ransomware family name matches the extension it appends.",
+        "For the impact section of the incident report you need the scale of the damage on LAPTOP-JSMITH. From the SentinelOne detection above, enter the number of files the ransomware renamed (digits only, no commas).",
+      answer: "15847",
+      hint: "The agent counts the files it saw being renamed during the attack.",
       xp: 40,
     },
 
@@ -867,16 +869,16 @@ SentinelOne detects Cobalt Strike through:
       type: "question",
       id: "s1-q4",
       question:
-        "SentinelOne's 'Static AI' engine scans files before they execute. What is the key advantage of this approach compared to traditional signature-based antivirus?",
+        "An attacker changes one byte in a known malware file, giving it a hash no antivirus vendor has seen. Why can SentinelOne's Static AI still block it before it runs, when a signature-based antivirus would not?",
       options: [
-        "Static AI scans only internet downloads, so malware arriving by USB or network share bypasses it",
-        "Static AI uses ML trained on millions of samples to flag malicious traits in never-seen files, including zero-days",
-        "Static AI queries a cloud signature database, so it needs an internet connection to evaluate any file",
-        "Static AI scans only .exe files, so DLLs, scripts and Office macros skip pre-execution checks",
+        "It matches files against a larger, faster-updated signature list than legacy antivirus uses",
+        "Its ML model judges the file's structural traits, so never-seen variants can still be flagged",
+        "It watches what the process does after launch and stops it once the behaviour looks malicious",
+        "It restores the file's original state from the agent's snapshots before the file can execute",
       ],
       answer: 1,
       explanation:
-        "Traditional antivirus works by matching files against a database of known malware signatures — if the signature exists, the file is blocked; if not, it passes through. Attackers defeat this by constantly modifying their malware (even a single byte change creates a new hash). SentinelOne's Static AI uses machine learning models trained on structural characteristics of millions of files — it recognises malicious *patterns* in the file's code and structure, not just exact matches to known samples. This means it can catch entirely new (zero-day) malware on first encounter.",
+        "Signature-based antivirus matches exact known samples, so a one-byte change produces a new hash and slips past it. Static AI uses machine-learning models trained on the structure of millions of files, so it recognises malicious traits in a file it has never seen — including zero-days — before execution. 'A larger signature list' is still signature matching, and a brand-new hash is on no list. 'Watches the process after launch' describes Behavioral AI, not a pre-execution check. 'Restores from snapshots' describes Rollback, a response action used after damage, not a way to judge a file.",
       xp: 35,
     },
 
@@ -885,16 +887,16 @@ SentinelOne detects Cobalt Strike through:
       type: "question",
       id: "s1-q5",
       question:
-        "What is the difference between SentinelOne's 'Detect Mode' and 'Protect Mode' for the endpoint agent?",
+        "During a new rollout, the team wants SentinelOne to show for two weeks what it would catch, without blocking anything, so false positives cannot break business applications. Which choice fits, and what changes when they move on?",
       options: [
-        "Detect Mode is supported only on Windows; macOS and Linux endpoints require Protect Mode",
-        "Detect Mode logs threats for analyst review without blocking; Protect Mode blocks, kills and quarantines automatically",
-        "Detect Mode uses only Behavioral and Static AI; Protect Mode disables them for signature matching",
-        "Detect Mode scans on a schedule; Protect Mode scans files only when a user opens them",
+        "Protect Mode with alerts muted, so it blocks threats while keeping the console quiet",
+        "Detect Mode, which logs threats for review; Protect Mode later responds automatically",
+        "Detect Mode, which blocks known malware; Protect Mode later adds behavioural blocking",
+        "Protect Mode, which asks an analyst to approve each block before the agent acts on it",
       ],
       answer: 1,
       explanation:
-        "In Detect Mode, the SentinelOne agent observes and records suspicious activity but takes no automatic blocking action — it waits for an analyst to review and respond. This is often used during initial deployment to reduce the risk of false positives blocking legitimate software. In Protect Mode, the agent acts autonomously: it kills malicious processes, quarantines files, isolates the network, and can trigger a rollback — all without human approval. The goal of Protect Mode is to stop attacks in milliseconds, faster than any human can respond.",
+        "Detect Mode records and reports threats but takes no automatic blocking action, which is why it is used while a team calibrates a new deployment. Protect Mode then acts on its own — killing processes, quarantining files, even rolling back changes — without waiting for a human. 'Protect Mode with alerts muted' still blocks, which is exactly the risk the team wants to avoid. 'Detect Mode blocks known malware' is wrong: Detect Mode blocks nothing automatically. 'Protect Mode asks for approval' describes the opposite of autonomous response.",
       xp: 35,
     },
   ],
@@ -956,16 +958,16 @@ Before analysing malware, it helps to know the major categories:
 
 Most professional SOC analysts use online sandboxes for quick dynamic analysis — they upload the suspicious file to a website that runs it in an isolated virtual machine and reports all the observed behaviour. No setup required.`,
       checkpoint: {
-        question: "According to the reading, what is the key difference between static and dynamic malware analysis?",
+        question: "An analyst first reviews a sample's strings and imports in PEStudio, then uploads it to ANY.RUN to watch the process tree it creates. How are these two steps classified?",
         options: [
-          "Static analysis examines the file without running it; dynamic analysis runs the file in a controlled environment and observes its behaviour",
-          "Static analysis executes the sample inside a hypervisor snapshot; dynamic analysis only reads the PE header offline",
-          "Static analysis is what tools like Cuckoo Sandbox and ANY.RUN perform; dynamic analysis is what strings, PEview and CFF Explorer perform",
-          "Static analysis works only on packed samples — once a binary is UPX-unpacked it can no longer be examined statically",
+          "Static analysis first, then dynamic analysis",
+          "Dynamic analysis first, then static analysis",
+          "Both static — nothing runs on the analyst's PC",
+          "Both dynamic — each tool loads the file to read it",
         ],
         answer: 0,
         explanation:
-          "Static analysis studies the file's structure, strings, and metadata without executing it, which is safe but limited. Dynamic analysis actually runs the malware in an isolated environment to observe its real behaviour, which is more revealing but requires careful containment.",
+          "Reading strings and imports without executing the file is static analysis; running it in a sandbox and watching what it does is dynamic analysis — together, a hybrid approach. 'Dynamic first' reverses the order. 'Both static because nothing runs on the analyst's PC' confuses where the code runs with whether it runs: the sandbox executes the sample, just in an isolated VM. 'Both dynamic because the tool loads the file' confuses opening a file to read its bytes with executing it.",
       },
     },
 
@@ -1020,11 +1022,11 @@ Most Windows malware is in **PE (Portable Executable)** format — the standard 
 
 YARA rules are widely shared in the security community. **VirusTotal** runs YARA rules against uploaded files. Tools like **YARA-X** (the newer version) allow scanning your entire file system for matching files.`,
       checkpoint: {
-        question: "According to the reading, which hash algorithm is described as the 'preferred standard' for malware analysis today?",
-        options: ["MD5", "SHA-1", "SHA-256", "CRC32"],
+        question: "A partner's threat report lists the IOC 'a9dc4004efb5cd5cd343345bc9f7f25e' (32 hexadecimal characters). Which hash type is it?",
+        options: ["SHA-1", "SHA-256", "MD5", "CRC32"],
         answer: 2,
         explanation:
-          "SHA-256 is the preferred standard because it is computationally infeasible to forge, unlike MD5 and SHA-1, which are both deprecated for security purposes due to known collision weaknesses.",
+          "MD5 hashes are 32 hexadecimal characters long. SHA-1 hashes are 40 characters and SHA-256 hashes are 64, so neither fits. CRC32 is a short checksum (8 hexadecimal characters) used to detect accidental corruption, not to fingerprint malware. MD5 is still common in threat reports, but SHA-256 is the preferred standard for sharing malware IOCs because MD5 collisions are possible.",
       },
     },
 
@@ -1142,16 +1144,16 @@ Once a rule is saved (typically as a \`.yar\` file), you run it from the command
 Beyond your own machine, VirusTotal lets you run YARA rules against its enormous historical corpus of submitted files — a feature often called **retrohunting**. Instead of scanning files as they arrive, you submit a rule and VirusTotal searches everything it has already collected (going back months or years) for anything matching your pattern. This is how researchers frequently discover that a technique they just identified in one sample was actually used across dozens of related files submitted over the preceding weeks — turning one detection into a whole cluster of related activity.`,
       checkpoint: {
         question:
-          "In a YARA condition, what does the expression `2 of ($s1, $s2, $s3)` require in order for the rule to match?",
+          "A rule's condition is `$s3 at 0 and 2 of ($s1, $s2, $re1)`. A file starts with the MZ bytes ($s3) and contains $s1 and $s2, but no URL matching $re1. Does the rule match?",
         options: [
-          "All three of $s1, $s2, and $s3 must be present in the file, with no exceptions allowed",
-          "At least two of the three named strings ($s1, $s2, $s3) must be present somewhere in the file",
-          "Exactly two of the three strings must be present — if all three match, the rule is considered a non-match",
-          "The string $s2 specifically must appear at least twice within the file for the condition to be true",
+          "No — every string the rule defines has to be found before it can fire",
+          "Yes — the MZ check passes and two of the three listed patterns are present",
+          "No — '2 of' needs exactly two matches and one must be the regex $re1",
+          "No — '2 of ($s1, ...)' means $s1 itself must appear at least twice",
         ],
         answer: 1,
         explanation:
-          "'N of (...)' is a YARA shorthand meaning 'at least N of the listed strings must match.' So '2 of ($s1, $s2, $s3)' is satisfied if any two (or all three) of those strings are found in the file — it is a minimum threshold, not an exact count, and it does not require all three the way 'all of them' would.",
+          "'N of (...)' means at least N of the listed patterns must match, so $s1 and $s2 satisfy '2 of ($s1, $s2, $re1)', and '$s3 at 0' is satisfied because the file starts with MZ — both clauses joined by 'and' are true. 'Every string must be found' describes 'all of them', which this rule does not use. 'Exactly two, including the regex' invents conditions: 'N of' is a minimum and treats every listed pattern equally. '$s1 must appear twice' confuses counting patterns with counting occurrences of one pattern.",
       },
     },
 
@@ -1160,16 +1162,16 @@ Beyond your own machine, VirusTotal lets you run YARA rules against its enormous
       type: "question",
       id: "malware-q1",
       question:
-        "A suspicious file arrives in a phishing email. A SOC analyst runs a SHA-256 hash of the file and searches it on VirusTotal. The result shows '0/72 vendors detected this as malicious'. Does this mean the file is definitely safe?",
+        "A suspicious attachment from a phishing email is looked up on VirusTotal by its SHA-256. The result shows '0/72 vendors detected this as malicious'. How should the analyst read this?",
       options: [
-        "Yes — 0/72 means every major engine verified the file's code and found nothing malicious",
-        "No — it could be a zero-day or deliberately crafted to evade signatures; further analysis is needed",
-        "Yes — VirusTotal covers every vendor in the world, so a zero-detection result has never been wrong",
-        "No — VirusTotal scans only document formats, so an .exe hash is never analysed by any engine",
+        "As clean — 0/72 means every engine examined the file's code and found nothing",
+        "As unproven — a new or tailored sample can evade every engine; analyse its behaviour",
+        "As clean — the email came from a supplier we know, and no engine disagrees",
+        "As unknown — 0/72 means VirusTotal has no record of this hash yet",
       ],
       answer: 1,
       explanation:
-        "A '0/72' result on VirusTotal means no known signatures match this file — but that's not the same as 'definitely safe'. Modern attackers regularly test their malware against VirusTotal before deploying it, and deliberately modify it until detection reaches 0/72. A zero detection can mean the file is clean, or it can mean it's a sophisticated new sample. Analysts should follow up with behavioural analysis (sandboxing) for any file arriving in a suspicious context.",
+        "0/72 means none of the engines' signatures or models flagged the file — not that it is safe. Attackers test new samples against these engines and change them until nothing fires, so a zero score is expected for a fresh or tailored sample; the next step is behavioural (sandbox) analysis. 'Every engine examined the code' overstates what a score is: it is pattern matching, and a new sample matches no known pattern. 'A known supplier' does not help — supplier mailboxes are compromised and spoofed, and the phishing context is the reason for suspicion. 'No record yet' is wrong: a hash VirusTotal has never seen returns no result at all, whereas 0/72 is a scan result.",
       xp: 35,
     },
 
@@ -1181,13 +1183,13 @@ Beyond your own machine, VirusTotal lets you run YARA rules against its enormous
         "While performing PE file analysis in PEStudio, an analyst notices the malware imports functions from 'WS2_32.dll' and 'WinINet.dll'. What does this reveal about the malware's capabilities?",
       options: [
         "It manipulates the registry — WS2_32 and WinINet expose configuration-hive APIs",
-        "It has networking capability — WS2_32 gives raw sockets and WinINet gives HTTP/S, suggesting remote communication",
+        "It can talk over the network — raw sockets plus HTTP/S, likely to reach a C2 server",
         "It injects code into other processes — these DLLs provide memory-allocation routines",
         "It encrypts files on disk — WS2_32 and WinINet are Windows cryptographic libraries",
       ],
       answer: 1,
       explanation:
-        "DLL imports are a window into a program's capabilities. WS2_32.dll (Winsock 2) provides Windows networking at the raw socket level — the malware can make TCP/UDP connections to any IP. WinINet.dll provides higher-level HTTP/HTTPS internet functions. Together, these imports strongly suggest the malware will communicate with an external server — likely a C2 (command and control) server. This is a critical IOC: the analyst should run the sample in a sandbox to capture the actual IP addresses and domains it connects to.",
+        "Imports show what a program can do. WS2_32.dll (Winsock 2) provides raw TCP/UDP sockets and WinINet.dll provides HTTP/HTTPS functions, so together they point to network communication — most likely with a command-and-control (C2) server. The next step is a sandbox run to capture the actual IPs and domains. Registry functions such as RegSetValueEx come from Advapi32.dll, not these two. Injection relies on calls like VirtualAllocEx and CreateRemoteThread, which these DLLs do not provide. Neither DLL is a cryptographic library.",
       xp: 35,
     },
 
@@ -1196,16 +1198,16 @@ Beyond your own machine, VirusTotal lets you run YARA rules against its enormous
       type: "question",
       id: "malware-q3",
       question:
-        "What is a 'Domain Generation Algorithm' (DGA) and why do attackers use it?",
+        "DNS logs show one workstation querying about 200 random-looking domains a day (for example 'xk7pmq9r.net', 'bz3lnvw4.net'). Almost none of them resolve; then one does, and the host connects to it. What best explains this?",
       options: [
-        "A technique where malware walks a hardcoded list of domains in order, so blocking one reveals the next",
-        "Malware generating pseudo-random domain names on a schedule, so defenders cannot predict the next C2 domain",
-        "An ML engine in next-generation firewalls that blocks malicious domains by analysing traffic patterns",
-        "A fast-flux technique that rotates one domain's IP addresses every few minutes across compromised hosts",
+        "Malware stepping through a hardcoded backup list of C2 domains in order",
+        "A DGA: malware tries generated domains until it finds the one registered",
+        "Fast flux: one C2 domain rotating its IP addresses every few minutes",
+        "A browser prefetching links from an ad-heavy page the user had open",
       ],
       answer: 1,
       explanation:
-        "If malware connects to a hardcoded domain like 'evil-c2.ru', defenders simply block that domain and the malware is neutralised. DGA solves this problem for attackers by generating a new, random-looking domain name every day (or hour). The attacker only needs to register *one* of those domains at the right time. Defenders must block potentially thousands of domains. DGA is used by malware families including Conficker, the Necurs botnet, and GameOver Zeus. Detection relies on analysing the statistical randomness of queried domain names.",
+        "A Domain Generation Algorithm produces a new set of pseudo-random domains on a schedule; the attacker registers only one, so the malware queries many names that do not exist until it hits the live one — exactly this pattern. Defenders cannot simply block one domain because the next one is unpredictable. A hardcoded backup list is a short, fixed set of names, not hundreds of new random-looking ones a day. Fast flux is one domain name whose IP addresses keep changing; here the names themselves keep changing. Browser prefetching resolves real domains linked from a page, and real domains resolve.",
       xp: 35,
     },
 
@@ -1261,44 +1263,44 @@ Beyond your own machine, VirusTotal lets you run YARA rules against its enormous
       questions: [
         {
           question:
-            "The threat name is 'Trojan:Win32/Emotet.A!ml'. What does the '!ml' suffix at the end indicate?",
+            "data.ms365.Action is 'Quarantine', and the user says they opened the file. What does that mean for your next steps?",
           options: [
-            "'!ml' marks macro-language malware, meaning a malicious Office macro dropped the file",
-            "The detection came from machine learning rather than an exact signature — the file matched a trained model",
-            "'!ml' identifies the threat actor group behind the campaign, tracked by Microsoft under the codename 'ML'",
-            "'!ml' is Defender's severity shorthand for medium-low risk, whatever detection method was used",
+            "Fully remediated — Defender removed the file, so the alert can be closed",
+            "Contained here, but check whether it ran before and whether it reached others",
+            "The workstation is now cut off from the network until IT releases it",
+            "The verdict is uncertain, and the file is held until an analyst approves it",
           ],
           answer: 1,
           explanation:
-            "In Microsoft Defender's naming convention, the '!ml' suffix means the detection was made by a machine learning model rather than a traditional virus signature. This is important context: the file may not be in VirusTotal's signature database yet, but Defender's AI recognised its malicious characteristics. 'Emotet' is the malware family name — Emotet is a notorious banking trojan / malware loader that was one of the world's most dangerous botnets before a 2021 law enforcement takedown (and subsequent resurrection).",
+            "Quarantine means Defender moved this copy of the file where it cannot run. It says nothing about what happened before the detection — the user says they opened it, and this family (Emotet) is a loader whose job is to fetch further malware — or about other recipients of the same email. So the work continues: check this host for execution and follow-on activity, and hunt for the file elsewhere. 'Fully remediated' stops exactly that work. 'Cut off from the network' confuses quarantining a file with isolating a device. 'Held for approval' is wrong: the action has already been taken, and the threat name identifies a known malware family.",
           xp: 50,
         },
         {
           question:
-            "The 'data.ms365.CompanyName' field is empty ('\"\"'). During static analysis of a legitimate software file (like a browser or Office application), this field typically contains the publisher's name. Why is an empty CompanyName field suspicious for an .exe file?",
+            "The data.ms365.CompanyName field is empty. How should that weigh in your assessment of this file?",
           options: [
-            "Windows leaves CompanyName empty for executables by default, so an empty field carries no investigative meaning",
-            "Legitimate commercial software is usually signed and carries publisher metadata; an empty field points to hastily built or malicious tooling",
-            "An empty CompanyName means the file is a script wrapper rather than a compiled PE binary",
-            "CompanyName is filled only for Microsoft-signed binaries; vendors like Adobe or Google never populate it",
+            "No weight — the field is optional, so a blank value tells you nothing about the file",
+            "Vendor software usually carries publisher info; a blank one on a fake invoice adds suspicion",
+            "It shows the file is a script wrapper rather than a compiled Windows PE program",
+            "It proves the file is unsigned, because CompanyName is read from the code signature",
           ],
           answer: 1,
           explanation:
-            "During PE (Portable Executable) analysis, the version information embedded in legitimate software (Microsoft, Google, Adobe, etc.) always includes the CompanyName, ProductName, FileDescription, and digital signature. Malware authors typically don't bother filling in these metadata fields, or deliberately leave them blank to avoid easy identification. An empty CompanyName on an .exe pretending to be a supplier invoice is a strong static analysis indicator of malicious intent.",
+            "CompanyName is part of the version information a PE file can carry. Commercial software usually fills it in, while malware authors often leave it blank, so an empty value on an .exe posing as a supplier invoice adds to the case — it is supporting evidence, not proof, because some legitimate and internal tools ship without it. 'No weight' ignores context: on its own it is weak, but here it sits next to a fake invoice name and a malware detection. 'Script wrapper' does not follow — compiled programs can have empty version info too. 'Proves it is unsigned' mixes two things: version info is text inside the file, while a digital signature is separate and must be checked on its own.",
           xp: 50,
         },
         {
           question:
             "The analyst wants to determine if this exact malware sample has reached any other endpoints in the organisation. What is the FASTEST method to check?",
           options: [
-            "Search the DNS logs for the sender's domain to find which hosts resolved it",
-            "Ask the mail team to purge the invoice email from all mailboxes and assume the file is gone",
-            "Search the SIEM or EDR for the file's SHA-256 hash ('fdfb6e68...') across all endpoints to find every host that saw it",
-            "Submit the hash to VirusTotal and wait for other organisations to report having seen it",
+            "Search the DNS logs for the sender's domain to see which hosts resolved it",
+            "Have the mail team purge the invoice email everywhere and treat the file as gone",
+            "Search EDR or SIEM telemetry for the file's hash across every endpoint at once",
+            "Submit the hash to VirusTotal and wait for other organisations to report it",
           ],
           answer: 2,
           explanation:
-            "The SHA-256 hash is a unique fingerprint for this exact file. Any EDR platform (CrowdStrike, SentinelOne, Microsoft Defender) or SIEM with endpoint telemetry can be queried: 'Show me every endpoint that has seen the file with hash fdfb6e68...'. This search returns results in seconds and covers your entire environment simultaneously. This is exactly why SHA-256 hashes are a core IOC type — they enable instant enterprise-wide hunting.",
+            "The file's hash is a fingerprint of this exact sample, so one EDR or SIEM search across endpoint telemetry ('every host that has seen this hash') answers the question in seconds for the whole environment — which is why hashes are a core IOC type. DNS lookups of the sender's domain show which mail systems or hosts resolved a name, not which endpoints received or ran the file. Purging the email is a sensible containment step, but it does not tell you who already saved or opened the attachment. VirusTotal tells you about the wider world, not about your own endpoints, and waiting adds delay.",
           xp: 50,
         },
       ],
@@ -1309,9 +1311,9 @@ Beyond your own machine, VirusTotal lets you run YARA rules against its enormous
       type: "flag",
       id: "malware-flag1",
       prompt:
-        "A SOC analyst needs to share the SHA-256 hash of the detected malware with another team so they can hunt for it in their environment. Looking at the detection above, what are the FIRST 8 characters of the SHA-256 hash? (Hint: find the 'data.ms365.SHA256' field in the raw log)",
+        "You are sharing the Defender sample above with a partner team. Use the hash type this room calls the preferred standard for malware IOCs, and enter its first 8 characters.",
       answer: "fdfb6e68",
-      hint: "SHA-256 hashes are 64 hexadecimal characters long. The field is 'data.ms365.SHA256' in the raw log section. Copy just the first 8 characters.",
+      hint: "The detection carries more than one hash. Hash types can be told apart by their length.",
       xp: 40,
     },
 
@@ -1320,16 +1322,16 @@ Beyond your own machine, VirusTotal lets you run YARA rules against its enormous
       type: "question",
       id: "malware-q4",
       question:
-        "Why should a SOC analyst NEVER upload a suspicious file to a public online sandbox (like VirusTotal or ANY.RUN) if the file came from a company's internal email system and might contain sensitive business data?",
+        "A finance user forwards a suspicious .xlsx that may be a real client spreadsheet with a macro added. You need to see what the macro does when it runs. What is the right approach?",
       options: [
-        "Public sandboxes cannot detonate Windows executables, so any result would be meaningless",
-        "Uploaded files become visible to researchers worldwide, which could expose confidential client or business data",
-        "Public sandboxes quarantine uploads permanently, so the SOC loses its only copy of the evidence",
-        "Public sandbox reports strip the file's metadata, destroying evidence needed for forensics",
+        "Upload it to ANY.RUN's free tier — interactive analysis is fastest and stays private",
+        "Detonate it in a private or on-premises sandbox, since public ones share uploads",
+        "Open it on your analyst workstation with macros enabled and watch what happens",
+        "Submit just its hash to VirusTotal; a 0/72 result shows the macro is harmless",
       ],
       answer: 1,
       explanation:
-        "Public sandboxes like VirusTotal make submitted files and their analysis available to all registered users (and in some cases, the public). If an employee sent a suspicious email attachment that turned out to be a legitimate (but mislabelled) confidential contract, HR document, or source code file — uploading it to VirusTotal would expose that data to the entire security research community. Always assess whether a file might contain sensitive data before submitting to any public analysis platform. For sensitive files, use a private sandbox or remove sensitive content first.",
+        "A file that may hold real client data must not go to a public sandbox, because public services share submitted files and reports with their user community. A private or on-premises sandbox still gives you the behavioural report without exposing the data. 'ANY.RUN's free tier stays private' is the trap — the free public tier is exactly the kind of service that shares uploads. 'Open it on your workstation' runs suspected malware outside any isolation. 'Hash only' protects the data, but a 0/72 result does not show the macro is harmless, and you still have not seen its behaviour.",
       xp: 35,
     },
 
@@ -1347,7 +1349,7 @@ Beyond your own machine, VirusTotal lets you run YARA rules against its enormous
       ],
       answer: 1,
       explanation:
-        "The Run registry key is one of the oldest and most common persistence mechanisms in Windows. Any program added to HKEY_CURRENT_USER\\...\\Run or HKEY_LOCAL_MACHINE\\...\\Run automatically starts every time Windows boots or a user logs in. Malware adds itself to this key so that even if the user reboots their computer, the malware starts again automatically. This is why sandbox reports specifically highlight Run key modifications — they're a clear sign of an attempt to survive beyond the current user session.",
+        "The Run registry key is one of the oldest and most common persistence mechanisms in Windows. A program listed under HKEY_CURRENT_USER\\...\\Run starts automatically every time that user logs on, so the malware comes back after a reboot or sign-out — which is why sandbox reports highlight Run-key writes. A Windows service is a different persistence mechanism (installed with CreateService and started by the system at boot), not a Run-key value. File-association handlers live under different keys and fire when a file type is opened. Writing to the user's own Run key needs no special rights and grants none — the program later runs with that user's normal privileges, not SYSTEM.",
       xp: 35,
     },
   ],
@@ -1422,16 +1424,16 @@ At the **very top** (hardest to change, maximum pain):
 
 IOCs have a shelf-life. A domain used for a phishing campaign last month may be abandoned today and reassigned to a legitimate website. An IP address used by a threat actor last week might now belong to an innocent cloud customer. Always note the **first seen / last seen** dates on any IOC, and treat stale IOCs (older than 3-6 months) with appropriate scepticism.`,
       checkpoint: {
-        question: "According to the Pyramid of Pain described in the reading, which IOC type sits at the very top — causing the attacker the most pain to change?",
+        question: "Your EDR team adds a rule that flags any variant of Mimikatz by characteristics of the tool itself, rather than by the hash of one build. On the Pyramid of Pain, which level is this detection?",
         options: [
-          "Hash values — recompiling the malware leaves the SHA-256 unchanged",
-          "IP addresses — an attacker cannot relocate C2 to a new host",
-          "Domain names — DNS records are frozen once a domain is registered",
-          "TTPs (Tactics, Techniques, and Procedures)",
+          "Hash values (Trivial)",
+          "Network/Host artefacts (Annoying)",
+          "Domain names (Simple)",
+          "Tools (Challenging)",
         ],
         answer: 3,
         explanation:
-          "TTPs sit at the top of the Pyramid of Pain — detecting the attacker's actual playbook (e.g., PowerShell downloading a payload and injecting into svchost.exe) forces them to retrain and retool entirely. Hash values sit at the bottom because a single changed byte defeats them.",
+          "Detecting the tool itself — any variant, not one build — sits at the Tools level: to evade it the attacker must find or build a different tool and learn it. Hash values would be blocking one specific build, which a recompile defeats. Network/Host artefacts are traces such as a URI path, User-Agent or registry key that the tool leaves behind; this rule targets the tool, not its traces. Domain names are attacker infrastructure and have nothing to do with recognising a program on an endpoint. Only TTPs, the attacker's way of operating, sit higher than Tools.",
       },
     },
 
@@ -1451,6 +1453,8 @@ What you can submit to VirusTotal:
 - **URL:** Scan a web address for malicious content. See if the URL appears on phishing/malware blocklists.
 - **IP address:** See if an IP is associated with known malicious activity. View which malware samples communicated with this IP (**"Communicating Files"** tab). See passive DNS history — which domains have pointed to this IP over time.
 - **Domain:** Similar to IP — see reputation, passive DNS, subdomains, associated files.
+
+**OPSEC — search before you upload:** uploading a file to VirusTotal (or running a public URLScan.io scan) makes it visible to other subscribers, potentially including the attacker who may be watching for their own samples, and can expose confidential content — so search by hash first and upload only when your policy allows it.
 
 **How to Read a VirusTotal IP Report:**
 1. **Detection ratio:** "7/89 security vendors flagged this IP as malicious" — 7 vendors consider it malicious. Higher number = higher confidence it's bad.
@@ -1495,11 +1499,16 @@ Essential for phishing investigations:
 - **Blacklist check:** Is this email server IP on any spam/abuse blacklists?
 - **WHOIS lookup:** Who registered this domain, and when? A domain registered yesterday sending invoices is suspicious.`,
       checkpoint: {
-        question: "According to the reading, which VirusTotal feature shows a historical record of all domain names that have pointed to a given IP address over time?",
-        options: ["Community score", "Passive DNS", "Detection ratio", "Last analysis date"],
+        question: "A user reports an attachment that looks crafted specifically for your company. What is the safest first step with VirusTotal?",
+        options: [
+          "Upload the file so all 70+ engines scan it at once",
+          "Search its hash first; upload only if policy allows",
+          "Run a public URLScan scan of the link it came from",
+          "Upload it, then delete the report once you have read it",
+        ],
         answer: 1,
         explanation:
-          "Passive DNS shows the historical record of domains that have resolved to an IP — incredibly useful for finding related attacker infrastructure. Detection ratio and community score reflect reputation, not historical DNS resolution.",
+          "A hash search reveals whether the file is already known without sharing anything. An upload makes the file visible to other subscribers — potentially including the attacker watching for their tailored sample, and anyone who can read any confidential content inside it. 'Upload so all engines scan it' is the habit this warns against. A public URLScan scan is equally visible to others, so it has the same OPSEC problem. 'Delete the report afterwards' does not help: once uploaded, the file has already been shared.",
       },
     },
 
@@ -1572,16 +1581,16 @@ Before adding an IOC to your blocklist, ask:
       type: "question",
       id: "ioc-q1",
       question:
-        "According to the 'Pyramid of Pain' model, which type of indicator is the MOST valuable for defenders to detect and block — and causes the MOST disruption to attackers?",
+        "After an intrusion, the SOC can deploy only one of these detections. Which would be hardest for the same attacker to evade next time?",
       options: [
-        "File hashes (SHA-256) of malware samples — each hash uniquely fingerprints a sample",
-        "IP addresses of known C2 servers — blocking them forces the attacker onto new infrastructure",
-        "TTPs (Tactics, Techniques, and Procedures) — the attacker's methods and behaviours",
-        "Domain names used for phishing — blocking them forces the attacker to register new ones",
+        "Alert on the SHA-256 of the loader found on the first infected host",
+        "Block the three C2 IP addresses named in last week's threat report",
+        "Alert when an Office app spawns PowerShell that then reads LSASS memory",
+        "Block the phishing domains that delivered the first-stage document",
       ],
       answer: 2,
       explanation:
-        "TTPs sit at the top of the Pyramid of Pain. Changing an IP address takes minutes; changing an entire attack methodology requires months of retraining and retooling. When defenders detect attacks at the TTP level — 'PowerShell executing base64-encoded commands AND injecting into lsass.exe AND making outbound connections on port 443' — attackers cannot simply swap out a component. They must fundamentally change how they operate. This is why MITRE ATT&CK-based detection rules are more durable than simple hash or IP blocklists.",
+        "Detecting the behaviour — Office spawning PowerShell that goes on to read LSASS memory — targets the attacker's TTPs, the top of the Pyramid of Pain; to evade it they must change how they operate, not just swap a component. The loader's hash is the bottom level: one recompile produces a new hash. C2 IP addresses are easy to replace with a new server or proxy. Phishing domains are cheap to re-register. All three are still worth blocking, but they cost the attacker little.",
       xp: 35,
     },
 
@@ -1590,16 +1599,16 @@ Before adding an IOC to your blocklist, ask:
       type: "question",
       id: "ioc-q2",
       question:
-        "An analyst uses VirusTotal to investigate an IP address found in firewall logs. The 'Passive DNS' section shows that 6 different domains have pointed to this IP over the past year, including known phishing domains. How is this information useful for the investigation?",
+        "Passive DNS for a C2 IP from your firewall logs lists six domains. Four are look-alike login domains first seen within days of each other this month. Two — a bakery's site and a dentist's site — pointed to the IP three years ago and not since. What is the soundest use of this?",
       options: [
-        "Passive DNS shows the IP is trustworthy — many domains on one address means a shared legitimate host",
-        "Passive DNS lists the domains that have resolved to this IP, exposing related phishing domains to block proactively",
-        "Passive DNS records only MX lookups, so they are irrelevant to a firewall log with a plain IP",
-        "Passive DNS gives the IP's geolocation and ISP, like a WHOIS lookup, with no domain history",
+        "Block all six — every domain that has pointed at a malicious IP is attacker-run",
+        "Treat the four recent look-alikes as related; check the two old ones before acting",
+        "Ignore it — passive DNS records MX lookups, so web domains are not shown there",
+        "Treat the IP as clean — six domains on one address shows a legitimate shared host",
       ],
       answer: 1,
       explanation:
-        "Passive DNS is one of the most powerful pivoting tools available. It shows the historical relationship between IP addresses and domain names — essentially answering 'what domain names have ever pointed to this IP?'. If a known malicious IP has hosted 6 different domains over time, all 6 of those domains are likely controlled by the same threat actor. The analyst can now block all 6 domains and search internal logs for connections to any of them — significantly expanding the scope of detection from one indicator to many.",
+        "Passive DNS shows which domains have resolved to an IP over time, which makes it a strong pivot — but each result needs its dates and context. Four look-alike domains appearing together this month fit one actor's infrastructure and are worth blocking and hunting for internally. The two old sites most likely belonged to a previous tenant of the address, before it was reassigned, so blocking them blindly risks false positives. 'Block all six' ignores the IOC lifecycle. 'Only MX lookups' is wrong — passive DNS records the domain-to-IP resolutions you are looking at. 'Shared host, so clean' does not follow: several domains on one IP can mean shared hosting, but it does not cancel the C2 evidence that brought you here.",
       xp: 35,
     },
 
@@ -1608,16 +1617,16 @@ Before adding an IOC to your blocklist, ask:
       type: "question",
       id: "ioc-q3",
       question:
-        "What is Shodan, and how is it different from a regular web search engine like Google?",
+        "During triage you want to know which services an external IP is exposing right now — for example whether port 50050, Cobalt Strike's default team-server port, is open. Which tool answers that most directly?",
       options: [
-        "Shodan is a security news aggregator that indexes articles and advisories about recent attacks",
-        "Shodan scans and indexes internet-connected devices and their exposed services (ports, banners) — Google indexes page content",
-        "Shodan is an internal vulnerability scanner like Nessus that reports only on assets you own",
-        "Shodan is a SIEM that collects and correlates logs forwarded from an organisation's own systems",
+        "AbuseIPDB — its report categories show the services an IP runs",
+        "Shodan — it indexes each IP's open ports and service banners",
+        "MXToolbox — its blacklist check lists the ports a server opens",
+        "AlienVault OTX — its pulses record every port an IP exposes",
       ],
       answer: 1,
       explanation:
-        "Shodan scans the entire public internet and indexes information about every device it finds: what port is open, what service is running, what software version, what TLS certificate is presented. This makes it invaluable for threat intelligence: you can look up a suspicious IP to see what kind of server it is (Is it running Cobalt Strike? Is it a Tor node?), or search for specific characteristics of known malware C2 infrastructure across the entire internet. Google indexes what websites *say*; Shodan indexes what servers *are*.",
+        "Shodan continuously scans the internet and indexes what each IP exposes — open ports, service banners, software versions — so looking up the IP shows directly whether a C2-style service is listening. AbuseIPDB records what an IP has done to other people (brute force, scanning), not what it is running. MXToolbox's blacklist check tells you whether a mail server IP is on spam lists. OTX pulses are curated IOC collections from researchers; an IP may appear in one, but a pulse is not a scan of its current services.",
       xp: 35,
     },
 
@@ -1663,44 +1672,44 @@ Before adding an IOC to your blocklist, ask:
       questions: [
         {
           question:
-            "The IP is classified as a 'Tor Exit Node'. What is Tor, and why would connecting to a Tor Exit Node be flagged as suspicious in a corporate environment?",
+            "The feed classifies the destination as a Tor node. What does an outbound connection from the laptop to it most likely mean?",
           options: [
-            "Tor is a commercial VPN service that staff use to reach corporate resources from home",
-            "Tor is an anonymisation network whose exit nodes hide the true source; attackers use it for C2 and employees to bypass web filters",
-            "Tor is a threat-intelligence feed of known-bad IP ranges, so a match proves the destination is malicious",
-            "Tor is a proxy network used by cloud services such as Microsoft 365, so exit-node traffic is routine",
+            "Tor is a commercial VPN, so staff are likely reaching company systems from home",
+            "Tor is an anonymity network; this suggests a Tor client is running on the laptop",
+            "Tor is a blocklist feed, so the match by itself proves the laptop is infected",
+            "Tor nodes front Microsoft 365 traffic, so this connection is routine and benign",
           ],
           answer: 1,
           explanation:
-            "Tor routes internet traffic through three encrypted relays: a guard (entry) relay, a middle relay, and an exit relay — the last hop before the connection reaches its final destination. A Tor client inside your company connects OUT to its guard relay, so corporate monitoring sees traffic to Tor relay IPs, never to the final server. An outbound connection like this one, from LAPTOP-JSMITH directly to a known Tor relay IP, therefore suggests a Tor client running on the laptop (many relays flagged as exits also serve as guard or middle relays, and the flag tells you the IP is part of Tor). The reverse direction means something different: an exit-node IP showing up as the SOURCE of inbound traffic means someone is using Tor to reach YOUR systems. Malware uses Tor to hide C2 communications (defenders can't block the real C2 server if they don't know its IP). Employees might also use Tor browsers to bypass web content filters. Either way, corporate policy in most organisations prohibits Tor use, and it warrants immediate investigation.",
+            "Tor routes traffic through three encrypted relays — guard (entry), middle and exit — so a Tor client inside your company connects OUT to its guard relay, and monitoring sees traffic to Tor relay IPs, never to the final server. An outbound connection from LAPTOP-JSMITH to a known Tor relay therefore suggests a Tor client on the laptop (many relays flagged as exits also act as guards; the flag tells you the IP is part of Tor). The opposite direction — an exit-node IP as the SOURCE of inbound traffic — would mean someone using Tor to reach your systems. On the laptop, the cause could be malware hiding its C2 or an employee bypassing web filters; both need investigation. 'A commercial VPN for home access' is wrong — Tor is not a corporate VPN, and this traffic leaves the laptop rather than coming in. 'The match proves infection' confuses Tor with the threat feed that labelled it; a Tor connection alone does not tell you whether malware or a person started it. 'Microsoft 365 traffic' is invented — Microsoft services do not route through Tor.",
           xp: 50,
         },
         {
           question:
             "The alert shows the connection was made on port 443 (HTTPS). Why might an attacker specifically use port 443 for malicious traffic rather than a non-standard port like 4444 or 8080?",
           options: [
-            "Port 443 traffic is exempt from TLS inspection by design, so attackers pick it to avoid decryption",
-            "Port 443 is the only port most C2 frameworks support, since their beacons are hardcoded to it",
-            "Port 443 is allowed outbound on nearly every firewall, so malicious traffic blends with normal HTTPS",
-            "Tor requires port 443, so traffic on that port always confirms Tor is in use",
+            "Port 443 traffic is exempt from TLS inspection by design, so attackers use it to avoid decryption",
+            "Most C2 frameworks can beacon over 443 alone, so the port reflects a tool limit, not a choice",
+            "Port 443 is open outbound on nearly every firewall, so malicious traffic blends with normal HTTPS",
+            "Tor relays listen on 443, so seeing that port is by itself enough to confirm Tor is in use",
           ],
           answer: 2,
           explanation:
-            "This technique is called 'C2 over HTTPS' or 'hiding in plain sight'. Every corporation must allow outbound port 443 — block it and employees cannot use any HTTPS website. Attackers exploit this by tunnelling their C2 communications over HTTPS on port 443, making it look like normal web traffic. Even if the destination is a Tor Exit Node or malware C2 server, the traffic *looks* identical to a normal HTTPS connection from the network perimeter. This is why content inspection (not just port filtering) is essential.",
+            "Almost every organisation must allow outbound 443 — block it and nobody can use HTTPS websites — so attackers tunnel C2 over HTTPS to look like normal web traffic from the perimeter. That is why content inspection, not port filtering, is needed. 'Exempt from TLS inspection by design' is false: TLS inspection is built precisely for 443, though many organisations do not deploy it everywhere. 'C2 frameworks can only use 443' is wrong — they are configurable to many ports and protocols; 443 is chosen because it blends in. 'Port 443 confirms Tor' fails because nearly all HTTPS uses 443; here it is the threat-intel match, not the port, that identifies the Tor relay.",
           xp: 50,
         },
         {
           question:
-            "The analyst wants to pivot from this IP address to find any related threat infrastructure. What is the MOST useful next step using VirusTotal?",
+            "This IP is a Tor relay shared by thousands of unrelated users. What does that mean for pivoting on it in VirusTotal (Passive DNS, Communicating Files)?",
           options: [
-            "Check the IP's geolocation entry, since the country alone identifies the attacker's infrastructure",
-            "Open VirusTotal's Relations and Passive DNS tabs to find domains that pointed here and malware that contacted it",
-            "Block the IP at the firewall and close the investigation, since a block removes any further need for intelligence",
-            "Email the hosting ISP and wait for them to identify related domains and malware on your behalf",
+            "Pivots are extra reliable — every sample linked to a relay belongs to one actor",
+            "Results will mix many unrelated users, so the laptop itself is the better lead",
+            "Pivoting is impossible — VirusTotal withholds relations for Tor relay addresses",
+            "The 3,847 reports show the laptop's user is the actor behind that abuse",
           ],
           answer: 1,
           explanation:
-            "VirusTotal's Relations tab and Passive DNS are the most powerful pivoting tools available for IP investigation. Passive DNS reveals every domain name that has ever resolved to this IP — potentially exposing the attacker's entire infrastructure in one lookup. The 'Communicating Files' section shows which malware samples have called home to this IP — giving you file hashes you can search for on your own endpoints. This is how one flagged IP can expand into a complete picture of a threat actor's campaign infrastructure.",
+            "Pivoting works best on infrastructure an attacker controls. A Tor relay carries traffic for huge numbers of people, so the domains and samples linked to it in VirusTotal mostly have nothing to do with this laptop — the IOC-quality question 'could this be a false positive?' applies, just as with a shared CDN IP. The stronger lead is on the endpoint: what process on LAPTOP-JSMITH made the connection. 'Every sample belongs to one actor' assumes the IP is dedicated, which a relay is not. 'VirusTotal withholds relations' is invented — the data exists, it is just noisy. The abuse reports describe what other Tor users did through this relay, not what this laptop did.",
           xp: 50,
         },
       ],
@@ -1711,9 +1720,9 @@ Before adding an IOC to your blocklist, ask:
       type: "flag",
       id: "ioc-flag1",
       prompt:
-        "Looking at the threat intelligence alert above, the flagged IP address (185.220.101.45) has been categorised in the threat intelligence feed. What category has it been assigned? Check the 'threat_intel.category' field in the raw log. (Enter the category exactly as it appears — three words, initial caps)",
-      answer: "Tor Exit Node",
-      hint: "Find the 'threat_intel.category' field in the raw log section of the alert above. It describes what *type* of potentially malicious network node this IP is classified as.",
+        "To pull the laptop's DHCP and proxy records for the time of the alert, you need its internal address. From the threat-intelligence alert above, enter the IP address of the host that started this connection.",
+      answer: "10.0.1.55",
+      hint: "The record has two addresses. Work out which side opened the connection.",
       xp: 40,
     },
 
@@ -1724,14 +1733,14 @@ Before adding an IOC to your blocklist, ask:
       question:
         "A security analyst receives an IOC list from a threat intelligence feed containing 500 IP addresses associated with a recent attack campaign. What is the MOST effective way to operationalise these IOCs in the SOC?",
       options: [
-        "Load the IPs into the SIEM as a quarterly report and review matches during the next audit",
-        "Import the list into the SIEM and firewall as a watchlist so any connection to or from these IPs alerts in real time",
-        "Block the IPs at the perimeter only, with no alerting, since blocked traffic needs no triage",
-        "Keep the list in a shared spreadsheet and check specific IPs by hand once an incident is reported",
+        "Load the IPs into the SIEM as a quarterly report and review matches at the next audit",
+        "Import them into the SIEM and firewall as a watchlist that alerts on any match in real time",
+        "Block the IPs at the perimeter with no alerting, since blocked traffic needs no triage",
+        "Keep the list in a shared spreadsheet and check IPs by hand once an incident is reported",
       ],
       answer: 1,
       explanation:
-        "IOCs only have value when they are operationalised — actively working for you in automated systems. Importing an IOC list into the SIEM creates a correlation rule that matches every log event against the list in real-time. Importing into firewall threat feeds automatically blocks connections to those IPs. This way, the moment any internal device connects to one of the 500 known-bad IPs, an alert fires immediately — before analysts would ever have a chance to notice it manually.",
+        "IOCs only help when they are operationalised in automated systems: a SIEM watchlist matches every log event against the list as it arrives, and a firewall feed blocks connections, so any internal host touching one of the 500 IPs raises an alert at once (after the usual quality checks on age and confidence). A quarterly report finds a compromise months late. Blocking with no alerting stops the connection but hides the fact that a host tried to reach attacker infrastructure — that host may already be infected and needs triage. A spreadsheet checked by hand only helps after someone already suspects an incident.",
       xp: 35,
     },
 
@@ -1742,14 +1751,14 @@ Before adding an IOC to your blocklist, ask:
       question:
         "An analyst finds an IP address in a threat intelligence report published 14 months ago. Should they immediately add it to their firewall blocklist? Why or why not?",
       options: [
-        "Yes — any IP ever linked to malicious activity in a report should stay on every blocklist permanently",
-        "No — IPs get reassigned; the host may now belong to a legitimate cloud customer, so blocking could break normal traffic for no security gain",
-        "Yes — hosting providers permanently assign an IP to the first customer who leased it",
-        "No — threat intelligence is only valuable the week it is published; older IOCs should be discarded",
+        "Yes — an IP tied to an attack should stay blocked in case the same actor returns to it",
+        "Not blindly — it may now belong to someone else; check for recent reports before blocking",
+        "Yes — a hosting provider keeps an IP with the same customer for as long as it exists",
+        "No — intelligence older than a few weeks has no value and should simply be discarded",
       ],
       answer: 1,
       explanation:
-        "IOC staleness is a critical consideration. IP addresses are leased from hosting providers and cloud platforms — an IP used for a malware C2 server in April 2024 might have been cancelled by the attacker and re-assigned to a legitimate e-commerce website by June 2024. Blindly blocking it would create false positives and break legitimate business traffic. Always check the 'last seen' date on any IOC and assess whether recent reports exist. For IPs older than 3-6 months without recent corroboration, validate before blocking.",
+        "IPs are leased from hosting and cloud providers, so a C2 address from 14 months ago may have been released and reassigned to a legitimate customer; blocking it blindly risks breaking normal traffic for no gain. Check the last-seen date and look for recent corroboration first. 'Keep it blocked in case the actor returns' ignores reassignment and the false positives it causes. 'The same customer keeps the IP' is not how leasing works — addresses are returned and reissued. 'Older than a few weeks has no value' throws away useful context: old IOCs still help with retro-hunting and attribution, they just need validation before blocking.",
       xp: 35,
     },
   ],

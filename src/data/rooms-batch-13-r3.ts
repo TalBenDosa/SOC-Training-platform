@@ -10,7 +10,7 @@ const edrInjectEvent: TelemetryEvent = {
   hostname: "WS-EXEC-022",
   user_email: "d.sharon@medcorehealth.org",
   description:
-    "CRITICAL: Malicious Office macro spawned PowerShell which injected shellcode into explorer.exe",
+    "Falcon detection on WS-EXEC-022: powershell.exe opened a handle to another process with elevated access rights",
   mitre_technique: "T1055.002",
   mitre_tactic: "Defense Evasion",
   process: {
@@ -111,15 +111,15 @@ const avVsEdrMasterclass = {
         "KEY LESSON: Every generation of endpoint security was created\n" +
         "to defeat a technique that defeated the previous generation.",
       checkpoint: {
-        question: "According to the reading, who coined the term 'EDR' (Endpoint Detection and Response), and in what year?",
+        question: "Why did the early 2010s produce a new tool category, EDR, rather than just better antivirus signatures?",
         options: [
-          "Anton Chuvakin at Gartner, in 2013",
-          "Bernd Fix, author of the first antivirus program, in 1987",
-          "Mandiant researchers, in 2010 after discovering Stuxnet",
-          "CrowdStrike's founders, when the company launched in 2011",
+          "AV could not see attackers already inside networks, as the APT era showed",
+          "AV signature databases had grown too large for endpoints to download",
+          "Regulators began requiring seven years of endpoint logs to be retained",
+          "Early AV could scan executable programs but not Office documents",
         ],
         answer: 0,
-        explanation: "The reading states that in 2013, Anton Chuvakin at Gartner coined the term 'EDR' to describe the new category of tools needed to find attackers already hiding inside networks.",
+        explanation: "The APT era showed skilled attackers living inside networks for years, invisible to AV scanners, and EDR (named by Gartner's Anton Chuvakin in 2013) was the category built to find attackers already inside and respond to them. The problem was visibility into activity, not signature-database size. Log-retention rules were not the driver the reading describes. And AV had been scanning documents, including macro viruses, long before EDR existed.",
       },
     },
 
@@ -212,15 +212,15 @@ const avVsEdrMasterclass = {
         "Context matters: entropy + suspicious APIs + no valid signature\n" +
         "= very high confidence of malicious packing.",
       checkpoint: {
-        question: "According to the reading's heuristic thresholds, what entropy value makes a file section 'almost certainly an encrypted payload'?",
+        question: "A file has a 512-byte .text section at entropy 3.1 and a 147 KB .data section at entropy 7.94. What does that shape suggest, and what should you check before calling it malicious?",
         options: [
-          "Entropy > 4.0",
-          "Entropy > 6.0",
-          "Entropy > 7.9",
-          "Entropy > 8.5",
+          "Ordinary compiled code: a .data section normally sits close to 8.0",
+          "A corrupted file: a section above 7.2 is damaged and cannot be run",
+          "A small unpacker stub with a packed payload; check imports and signature",
+          "Malware for certain: entropy this high is enough to quarantine on its own",
         ],
         answer: 2,
-        explanation: "The typical AV threshold table in the reading lists entropy > 7.9 as 'almost certainly encrypted payload' — entropy is capped at 8.0, so this is near the maximum possible randomness.",
+        explanation: "A tiny low-entropy code section next to a large near-random data section is the packed-file shape: a small stub that unpacks an encrypted or compressed payload at run time. Packing alone is not proof, because legitimate software (UPX, compressed installers) does it too, so combine it with suspicious API imports and the absence of a valid signature. Normal data sections sit well below 8.0 — the legitimate example in the reading is 4.23. High entropy means random-looking bytes, not damage. And treating entropy alone as proof is exactly the false-positive trap the reading warns about.",
       },
     },
 
@@ -331,13 +331,13 @@ const avVsEdrMasterclass = {
       checkpoint: {
         question: "According to the reading, what is the key distinction between EPP (Endpoint Protection Platform) and EDR?",
         options: [
-          "EPP is the prevention layer that tries to stop threats before execution; EDR is the detection and response layer that assumes some threats get through",
-          "EPP and EDR are simply different marketing names used by different vendors for the exact same underlying cloud-based antivirus scanning engine and signature database",
-          "EPP only runs as a cloud-hosted service and cannot function without constant internet connectivity, while EDR runs entirely offline on the local endpoint disk",
-          "EPP and EDR are two interchangeable names for the same product category, and vendors use the terms without any meaningful technical distinction between them",
+          "EPP tries to stop threats before they run; EDR assumes some get through",
+          "EPP protects servers and EDR protects laptops, so estates need both",
+          "EPP runs in the cloud and EDR runs on the endpoint, so they differ in setup",
+          "EDR replaced EPP, so a modern endpoint can drop the prevention layer",
         ],
         answer: 0,
-        explanation: "The reading explains that EPP (antivirus, host firewall, application control) tries to stop threats before they execute, while EDR assumes some threats will get through and focuses on detecting and responding to them once active.",
+        explanation: "The reading explains that EPP (antivirus, host firewall, application control) tries to stop threats before they execute, while EDR assumes some threats will get through and focuses on detecting and responding to them once active. The split is by job (prevent vs detect and respond), not by device type or by where the software runs, and modern platforms combine the two rather than dropping prevention.",
       },
     },
 
@@ -460,15 +460,15 @@ const avVsEdrMasterclass = {
         "  IOA: ANY process writing to lsass.exe with 0x1FFFFF -> alert\n" +
         "       (even if the injector is a new, unknown tool)",
       checkpoint: {
-        question: "According to the reading, what does an IOA (Indicator of Attack) detect, as opposed to an IOC (Indicator of Compromise)?",
+        question: "A brand-new credential dumper, whose hash appears in no database, opens lsass.exe with 0x1FFFFF access. Which kind of indicator can still catch it, and why?",
         options: [
-          "A behavioral pattern indicating an attack in progress, regardless of whether the specific tool or file is known",
-          "A specific, known-bad file hash or malicious domain",
-          "Only network-layer indicators such as source IP addresses",
-          "Indicators that a human analyst must manually confirm before an alert fires",
+          "An IOA: that behaviour is suspicious whoever performs it, known tool or not",
+          "An IOC: the dumper's hash will match as soon as it runs on the endpoint",
+          "An IOC: lsass.exe's own hash is a known indicator of credential dumping",
+          "Neither: an unknown tool can only be caught by sandboxing the file first",
         ],
         answer: 0,
-        explanation: "The reading defines an IOA as a behavioral pattern — such as a process injecting into lsass.exe with full access — that indicates an attack regardless of the tool's identity, unlike IOC matching, which is signature-based and blind to unknown threats.",
+        explanation: "An IOA describes behaviour — any process opening lsass.exe with full access — so it fires even for a tool nobody has seen. An IOC is a known-bad artefact such as a hash; a brand-new hash is in no database, so there is nothing to match until someone adds it. lsass.exe is a legitimate Windows process, and its hash says nothing about who is reading its memory. And behavioural detection on the endpoint is exactly what catches unknown tools without a sandbox.",
       },
     },
 
@@ -579,15 +579,15 @@ const avVsEdrMasterclass = {
         "  Mode: Block (not audit)\n" +
         "  -> WINWORD.EXE attempt to spawn powershell.exe BLOCKED",
       checkpoint: {
-        question: "According to the reading, what does Microsoft Defender's Tamper Protection feature do?",
+        question: "Ransomware on a Defender-protected laptop tries to switch off real-time protection by writing a registry value, and the change is refused. Which feature refused it?",
         options: [
-          "Locks down Defender's own configuration so malware cannot disable it via registry, PowerShell, or WMI",
-          "Blocks Office applications from creating child processes",
-          "Encrypts telemetry sent to the Microsoft cloud",
-          "Automatically rolls back ransomware-encrypted files using shadow copies",
+          "Tamper Protection, which locks Defender's own settings against change",
+          "The ASR rule that blocks Office applications from creating child processes",
+          "The ASR rule that blocks execution of potentially obfuscated scripts",
+          "Advanced Hunting, which queries 30 days of endpoint telemetry",
         ],
         answer: 0,
-        explanation: "The reading states that Tamper Protection locks down Defender's own configuration so attempts to disable it via the registry, PowerShell, or WMI are blocked, requiring changes to go through the Intune/MDE management portal instead.",
+        explanation: "Tamper Protection locks Defender's own configuration, so changes through the registry, PowerShell or WMI are refused and must come from the Intune/MDE portal. The two ASR rules block specific attack behaviours (Office spawning child processes, obfuscated scripts), not edits to Defender's settings. Advanced Hunting is a query tool for analysts; it does not block anything.",
       },
     },
 
@@ -701,49 +701,49 @@ const avVsEdrMasterclass = {
       id: "edr-la1",
       heading: "CrowdStrike Alert: PowerShell Injecting into Explorer.exe",
       context:
-        "You are a Tier-1 SOC analyst at MedCore Health. A Critical CrowdStrike Falcon alert fires on WS-EXEC-022, belonging to a hospital executive. The alert severity is 5 (Critical). Looking at the crowdstrike.ParentCommandLine field, you can see the user had a Word document open: contract_2024.docm. The .docm extension means it is a macro-enabled Word document. PowerShell was then spawned and injected shellcode into explorer.exe. This is a macro-based malware execution chain.",
+        "You are a Tier-1 SOC analyst at MedCore Health. A CrowdStrike Falcon detection fires on WS-EXEC-022, a hospital executive's workstation. The host's process list shows PID 3128 is explorer.exe. Work out what happened from the record.",
       event: edrInjectEvent,
       questions: [
         {
           question:
             "The PowerShell CommandLine shows '-nop -w hidden -enc'. What do these three flags indicate?",
           options: [
-            "Normal PowerShell flags used by system administrators for scheduled tasks",
-            "-nop disables PowerShell logging for the session, -w hidden opens a minimized window, -enc enables encrypted transport — all routine administrative flags",
-            "-nop skips loading the PowerShell profile (NoProfile), -w hidden hides the window (WindowStyle Hidden), -enc runs a Base64-encoded command — a combination strongly associated with malicious launchers",
-            "These flags indicate PowerShell is running in a sandboxed container for security testing",
+            "-nop bypasses execution policy, -w hidden minimises, -enc encrypts the traffic",
+            "Routine switches for admin scheduled scripts, carrying no weight on their own",
+            "-nop skips the profile, -w hidden hides the window, -enc runs Base64-encoded code",
+            "Sandbox switches that confine PowerShell so a script can be tested safely",
           ],
           answer: 2,
           explanation:
-            "-nop (NoProfile) skips loading the user's PowerShell profile scripts, so nothing the user or admin put in a profile runs first. It does NOT bypass execution policy (that is -ExecutionPolicy Bypass) and does not switch off script-block or module logging, which are policy-driven and still fire. -w hidden (WindowStyle Hidden) makes the PowerShell window invisible to the user. -enc (EncodedCommand) accepts a base64-encoded command string, obfuscating the actual payload from casual inspection. This combination — no profile + hidden + base64 encoded — is one of the most common PowerShell malware launch patterns. Legitimate administrative scripts rarely need all three flags together, so it is a strong signal, especially with WINWORD.EXE as the parent.",
+            "-nop (NoProfile) skips loading the user's PowerShell profile scripts, so nothing the user or admin put in a profile runs first. It does NOT bypass execution policy (that is -ExecutionPolicy Bypass) and does not switch off script-block or module logging, which are policy-driven and still fire. -w hidden (WindowStyle Hidden) makes the PowerShell window invisible to the user. -enc (EncodedCommand) accepts a base64-encoded command string, obfuscating the actual payload from casual inspection. This combination — no profile + hidden + base64 encoded — is one of the most common PowerShell malware launch patterns. Legitimate administrative scripts rarely need all three flags together, so it is a strong signal, especially with WINWORD.EXE as the parent. -enc encodes the command text; it does not encrypt any network traffic. And none of these switches sandboxes anything.",
           xp: 25,
         },
         {
           question:
-            "The crowdstrike.GrantedAccess value is 0x1FFFFF and the TargetProcessId is 3128. What has the malware done to explorer.exe?",
+            "The detection's technique is Process Injection, with PowerShell holding full access to explorer.exe. Why would an attacker move its code into explorer.exe rather than keep running inside powershell.exe?",
           options: [
-            "The malware silently added explorer.exe's file path to the Windows Defender exclusion list, so future scans would skip scanning the legitimate explorer.exe binary itself entirely",
-            "The malware opened explorer.exe with PROCESS_ALL_ACCESS permissions, allowing it to inject shellcode into the explorer process — using explorer.exe as a host to hide malicious code",
-            "The malware forcibly terminated the explorer.exe process to prevent the logged-in user from accessing the desktop shell, taskbar, or Start menu",
-            "The malware spawned an entirely new process that it deceptively named explorer.exe, running from a different file path, to replace the legitimate Windows shell process",
+            "To gain SYSTEM rights, since explorer.exe runs as SYSTEM on every host",
+            "To live in a trusted, long-running process that survives killing PowerShell",
+            "To delete explorer.exe so the user loses the desktop and cannot intervene",
+            "To take explorer.exe's name and path so its own file looks legitimate on disk",
           ],
           answer: 1,
           explanation:
-            "TargetProcessId 3128 is the PID of the target process (explorer.exe). GrantedAccess 0x1FFFFF = PROCESS_ALL_ACCESS means PowerShell opened a handle to explorer.exe with every possible permission. This is the classic process injection setup: malware allocates memory in the target process (VirtualAllocEx), writes shellcode (WriteProcessMemory), and executes it (CreateRemoteThread). The injected code now runs INSIDE explorer.exe — a trusted Windows process — making it much harder to detect and kill.",
+            "With full access to explorer.exe, PowerShell can write code into explorer.exe and start it there. The code then runs inside a trusted Windows process that stays up for the whole session, so killing the noisy powershell.exe does not end it, and its network traffic appears to come from explorer.exe. explorer.exe runs as the logged-on user, not SYSTEM, so injection here does not raise privileges. Injection keeps the target alive — it needs it running. And taking a process's name and path is masquerading, a different technique: injected code has no file of its own on disk to disguise.",
           xp: 25,
         },
         {
           question:
             "What is the analyst's recommended IMMEDIATE response sequence for this Critical EDR alert?",
           options: [
-            "Send an email to the user asking if they opened a suspicious document, then wait for their response before taking action",
-            "Document the finding and escalate to Tier-2 for review during the next business day",
-            "Immediately isolate WS-EXEC-022 via CrowdStrike's Network Containment feature, preserve the process memory dump, identify the C2 IP from network logs, and block it in the firewall",
-            "Run a full AV scan on WS-EXEC-022 and quarantine any detected files before considering further action",
+            "Kill the PowerShell process, then keep monitoring the host for more activity",
+            "Document it and escalate to Tier 2 for review in the next business day's queue",
+            "Network-contain WS-EXEC-022, preserve memory, then find and block the C2",
+            "Run a full AV scan and quarantine whatever it finds before doing anything else",
           ],
           answer: 2,
           explanation:
-            "Critical EDR alerts require immediate containment. Step 1: Network Containment via CrowdStrike — isolates the host from all network access (the agent still communicates with Falcon) within seconds, stopping C2 and lateral movement. Step 2: Preserve evidence — process memory dump, volatile artifacts before they disappear. Step 3: Identify C2 — check network logs for connections from WS-EXEC-022 to external IPs around the alert time. Step 4: Block C2 IPs in firewall. Running AV after the fact is insufficient — the malware is already in memory and AV will not detect fileless code.",
+            "Critical EDR alerts require immediate containment. Step 1: Network Containment via CrowdStrike — isolates the host from all network access (the agent still communicates with Falcon) within seconds, stopping C2 and lateral movement. Step 2: Preserve evidence — process memory dump, volatile artifacts before they disappear. Step 3: Identify C2 — check network logs for connections from WS-EXEC-022 to external IPs around the alert time. Step 4: Block C2 IPs in firewall. Running AV after the fact is insufficient — the malware is already in memory and AV will not detect fileless code. Killing PowerShell alone misses the point of the injection: the code now lives in explorer.exe. And a Critical detection with live injected code cannot wait for the next business day.",
           xp: 25,
         },
       ],
@@ -755,9 +755,9 @@ const avVsEdrMasterclass = {
       id: "edr-f1",
       event: edrInjectEvent, // show the CrowdStrike log this flag reads (not the nearest analyst_choice)
       prompt:
-        "Look at the CrowdStrike log event. Find the unique DetectId that CrowdStrike assigned to this detection. It follows the format ldt:hexstring:number.",
-      answer: "ldt:c3b1f2a4e5d6:9988776655",
-      hint: "Look in the raw field for crowdstrike.DetectId.",
+        "In the CrowdStrike detection, three processes are involved: the Office parent, the PowerShell process, and the process PowerShell opened. After the injection, the attacker's code is running inside one of them. Enter that process's PID.",
+      answer: "3128",
+      hint: "It is not the process that made the request, and not its parent.",
       xp: 30,
     },
   ],

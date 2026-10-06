@@ -1080,8 +1080,8 @@ const legitUpdaterAutorunEvent: TelemetryEvent = {
     name: "MeridianVPNClient.exe",
     pid: 3312,
     path: "C:\\Program Files\\Meridian VPN Client\\MeridianVPNClient.exe",
-    user: "MERIDIAN\\l.abara",
-    integrity: "high",
+    user: "NT AUTHORITY\\SYSTEM",
+    integrity: "system",
   },
   description:
     "MeridianVPNClient.exe set a value under HKLM Run during its post-install configuration step; the binary is signed and matches the version deployed via this week's approved rollout.",
@@ -1096,10 +1096,7 @@ const legitUpdaterAutorunEvent: TelemetryEvent = {
       "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\MeridianVPNTray",
     "winlog.event_data.Details": "C:\\Program Files\\Meridian VPN Client\\vpntray.exe",
     "winlog.event_data.Image": "C:\\Program Files\\Meridian VPN Client\\MeridianVPNClient.exe",
-    "winlog.event_data.User": "MERIDIAN\\l.abara",
-    "winlog.event_data.Hashes": "SHA256=7B21E9C4A0F5D83B6C1A9E2F7048B3D6A5C9E1F04872B6D3A1E5C8F09A4D7B21",
-    "winlog.event_data.Signed": "true",
-    "winlog.event_data.Signature": "Meridian Trust IT Deployment CA",
+    "winlog.event_data.User": "NT AUTHORITY\\SYSTEM",
   },
 };
 
@@ -1140,16 +1137,16 @@ const persistenceRoom: Room = {
         "=======================================================",
       checkpoint: {
         question:
-          "According to the reading, why does an entry under HKLM's Run key imply more about an attacker's access than one under HKCU's Run key?",
+          "Triage finds two new Run-key values on one host: one under HKCU, one under HKLM. What does the HKLM value tell you that the HKCU one does not?",
         options: [
-          "HKLM entries only run once and then delete themselves, which is what makes them require administrator rights to write in the first place",
-          "Writing to HKLM requires administrator rights, since it's a machine-wide protected location, while HKCU is always writable by the logged-on user regardless of privilege",
-          "HKCU entries can only be created by SYSTEM-level processes, which is exactly why a HKCU Run key entry implies more privileged access than one under HKLM",
-          "There is no difference — both require identical administrator-level privilege to write to, regardless of which hive the Run key value is stored under",
+          "That it runs once and then deletes itself, unlike the HKCU value",
+          "That whoever wrote it had admin rights, since HKLM is protected",
+          "That it will launch just for administrators who log on to the host",
+          "That the attacker already held SYSTEM, the account that writes HKLM",
         ],
         answer: 1,
         explanation:
-          "Writing to HKLM requires administrator rights since it's a machine-wide, protected location, unlike the always-user-writable HKCU. An HKLM Run key entry implies the attacker already had, or gained, administrative access to plant it.",
+          "HKLM is a machine-wide, protected hive, so planting a Run value there required administrator rights; HKCU is writable by the logged-on user. Running once and deleting itself is RunOnce behaviour, which exists under both hives. An HKLM Run value launches for every user who logs on, not only administrators. And administrator rights are enough to write HKLM — it does not prove SYSTEM.",
       },
     },
     {
@@ -1202,14 +1199,14 @@ const persistenceRoom: Room = {
         question:
           "A local account with no sudo rights runs crontab -e and successfully installs a recurring job. No privilege-escalation event appears anywhere in the logs. Why not?",
         options: [
-          "This must be a logging failure — installing a cron job always requires root, so an escalation event should have fired somewhere in the auditd trail even if crontab itself didn't log one directly",
-          "The setgid bit on /usr/bin/crontab lets any user temporarily borrow the crontab group's write access to the spool directory for that one command — the user never actually escalated privileges, so there is nothing for an escalation detection to catch",
-          "Cron jobs installed via crontab -e always run with the privileges of the user who last edited /etc/crontab, so no escalation was needed because that file's owner is effectively inherited by every new job",
-          "Escalation events only fire for Windows Task Scheduler, not for any Linux persistence mechanism, since Linux auditd does not track privilege-related process activity at all",
+          "A logging gap: installing a cron job needs root, so an escalation was missed",
+          "crontab's setgid bit lends the spool group's write access; nothing was escalated",
+          "crontab -e jobs run as root by default, so the job itself needed no escalation",
+          "auditd does not record crontab use, so no event of any kind would be produced",
         ],
         answer: 1,
         explanation:
-          "This is the setgid mechanism from the reading: crontab is installed with setgid set, so running it temporarily grants the caller the file's group (able to write the spool) without ever elevating the user's own account privileges. Because no escalation actually happens — the user is only using access the setgid bit was designed to grant everyone — no escalation event fires. This is exactly why detection has to focus on unusual crontab usage by an account, not on a nonexistent escalation signal.",
+          "This is the setgid mechanism from the reading: crontab is installed with setgid set, so running it temporarily grants the caller the file's group (able to write the spool) without ever elevating the user's own account privileges. Because no escalation actually happens — the user is only using access the setgid bit was designed to grant everyone — no escalation event fires. This is exactly why detection has to focus on unusual crontab usage by an account, not on a nonexistent escalation signal. A personal crontab needs no root, and its jobs run as that user, not as root. And auditd can record the execve of /usr/bin/crontab and the write to the spool file — that is the signal to watch.",
       },
     },
     {
@@ -1218,14 +1215,14 @@ const persistenceRoom: Room = {
       question:
         "A Sysmon process-creation event shows schtasks.exe /create /sc onstart /tn \"SyncHelper\" /tr \"C:\\ProgramData\\sync.exe\" /ru SYSTEM, launched by a process at IntegrityLevel: Medium. What does the integrity level tell you about whether this task registration would succeed?",
       options: [
-        "It would succeed — /ru SYSTEM is only a label and Task Scheduler does not check the caller's privileges",
-        "It would most likely fail — a SYSTEM task needs an elevated caller token, which a Medium-integrity process does not hold",
-        "It would fail only because C:\\ProgramData is not writable at Medium integrity; integrity is irrelevant to the registration itself",
-        "It would succeed, but the task would silently run as the original Medium-integrity user instead of SYSTEM",
+        "It would succeed: /ru is a label, and Task Scheduler does not check the caller",
+        "It would most likely fail: a SYSTEM task needs an elevated caller, which this is not",
+        "It would fail because C:\\ProgramData is read-only at Medium; integrity plays no part",
+        "It would succeed, but the task would quietly run as the Medium-integrity user",
       ],
       answer: 1,
       explanation:
-        "Task Scheduler enforces the privilege requirement described in this reading: registering a task under the SYSTEM principal requires the calling process to already hold an elevated token. A Medium-integrity process attempting this should be denied, which makes an observed Medium-integrity attempt worth noting as a failed escalation attempt rather than assuming it silently succeeded at a lower privilege — Task Scheduler does not silently downgrade the principal on failure, it rejects the registration.",
+        "Task Scheduler enforces the privilege requirement described in this reading: registering a task under the SYSTEM principal requires the calling process to already hold an elevated token. A Medium-integrity process attempting this should be denied, which makes an observed Medium-integrity attempt worth noting as a failed escalation attempt rather than assuming it silently succeeded at a lower privilege — Task Scheduler does not silently downgrade the principal on failure, it rejects the registration. Nor is C:\\ProgramData the obstacle: standard users can normally create files there, and the question is about registering the task, not writing the binary.",
       xp: 20,
     },
     {
@@ -1292,16 +1289,16 @@ const persistenceRoom: Room = {
         "=======================================================",
       checkpoint: {
         question:
-          "According to the reading, why are WMI permanent event subscriptions considered one of the stealthiest persistence mechanisms?",
+          "Why can a WMI permanent event subscription survive a sweep that checks Run keys, Startup folders, Task Scheduler and Services?",
         options: [
-          "They require SYSTEM privilege just to create, which makes them rare enough that most environments never see one registered outside of legitimate management tooling",
-          "They live in the WMI repository itself — not the file system, registry Run keys, or Task Scheduler — so standard 'autoruns' tooling checking only the well-known locations won't find them at all",
-          "They can only be detected by physically inspecting the hard drive with the machine powered off, since no live Windows tooling can query the WMI repository while the OS is running",
-          "They automatically delete all Sysmon logs related to their creation, which is why Sysmon Events 19/20/21 never actually appear for this mechanism",
+          "It is stored as a hidden Run key value that registry sweeps skip",
+          "It lives in the WMI repository, which none of those four checks read",
+          "It deletes itself after firing and is re-created at the next boot",
+          "It runs inside the Task Scheduler service, hidden from the task list",
         ],
         answer: 1,
         explanation:
-          "The subscription lives in the WMI repository, not any of the usual locations — Run keys, Startup, Task Scheduler, or Services. Standard 'autoruns' tooling that only checks those well-known locations won't find it at all.",
+          "The filter, consumer and binding live in the WMI repository, not in the registry Run keys, the Startup folders, Task Scheduler or the services list, so a sweep of those four never looks where it is. It is not a Run value of any kind. A permanent subscription stays registered and fires on every trigger; it does not delete and re-create itself. And it is executed by WMI, not by Task Scheduler. Inspect the repository directly, or catch creation with Sysmon Events 19/20/21.",
       },
     },
     {
@@ -1310,14 +1307,14 @@ const persistenceRoom: Room = {
       question:
         "An incident responder checks Run keys, the Startup folder, Task Scheduler, and Services on a compromised host and finds nothing unusual. They conclude the host has no persistence. What is wrong with this conclusion?",
       options: [
-        "Nothing is wrong — those four locations cover every Windows persistence mechanism that survives a reboot",
-        "It is incomplete — BITS jobs (NotifyCmdLine) and WMI permanent event subscriptions persist outside all four locations and need their own sweep",
-        "It is incomplete — Run keys and the Startup folder are one location checked twice, so Task Scheduler and Services were never examined",
-        "It is incomplete only for user-level persistence — all four locations are machine-wide, so SYSTEM-level persistence is fully ruled out",
+        "Nothing: those four places cover the Windows persistence that survives a reboot",
+        "It is incomplete: BITS jobs and WMI subscriptions persist outside all four places",
+        "It is incomplete: a scheduled task stays hidden from Task Scheduler until it first runs",
+        "It is incomplete for user-level persistence, but SYSTEM-level is ruled out by the four",
       ],
       answer: 1,
       explanation:
-        "This is the exact gap Reading 4 warns about: BITS jobs and WMI event subscriptions deliberately don't live in any of the four commonly-checked locations, which is precisely why they're effective. A complete sweep has to include bitsadmin/BITS job enumeration and inspection of the WMI repository's __EventFilter/__EventConsumer/__FilterToConsumerBinding objects, not stop at Run keys, Startup, Task Scheduler, and Services.",
+        "This is the exact gap Reading 4 warns about: BITS jobs and WMI event subscriptions deliberately don't live in any of the four commonly-checked locations, which is precisely why they're effective. A complete sweep has to include bitsadmin/BITS job enumeration and inspection of the WMI repository's __EventFilter/__EventConsumer/__FilterToConsumerBinding objects, not stop at Run keys, Startup, Task Scheduler, and Services. A registered task is visible in Task Scheduler from the moment it is created, whether or not it has run. And SYSTEM-level persistence is not ruled out either: a BITS job or WMI subscription can run with high privilege while sitting outside all four places.",
       xp: 20,
     },
     {
@@ -1330,44 +1327,44 @@ const persistenceRoom: Room = {
       questions: [
         {
           question:
-            "The command line specifies /ru SYSTEM, and the process ran at IntegrityLevel: High. What does IntegrityLevel: High tell you about whether this registration would succeed, given what Reading 2 taught about the /ru flag?",
+            "c.iversen is an accounts-payable analyst, yet schtasks.exe ran at IntegrityLevel High. Given what Reading 2 says about this kind of task, where does this event sit in the attack, and what should you look for?",
           options: [
-            "It's irrelevant — /ru SYSTEM always succeeds regardless of the caller's integrity level, since Task Scheduler only validates the target principal exists, never the caller's own privileges",
-            "It confirms the calling process already held an elevated token, satisfying the requirement Task Scheduler enforces before allowing a task to be registered under the SYSTEM principal — this registration would very likely succeed rather than being rejected",
-            "IntegrityLevel: High means the task will run once and then be automatically deleted, the same behavior as a RunOnce registry key rather than a persistent scheduled task",
-            "This field only applies to Sysmon Event 13, not process-creation events, so it can't be used to reason about this task, which was instead captured under a different event type entirely",
+            "It is the escalation itself: registering the task is how her session reached High",
+            "Escalation already happened; find how her session became elevated before this",
+            "Nothing notable: processes launched from cmd.exe normally run at High integrity",
+            "Little impact: the task runs as c.iversen, so a SYSTEM-level foothold is ruled out",
           ],
           answer: 1,
           explanation:
-            "This directly applies Reading 2: Task Scheduler checks the calling process's own privilege before allowing registration of a task running as a more privileged principal. IntegrityLevel: High confirms the process already had what it needed, meaning the registration would most likely succeed rather than being silently rejected the way a Medium-integrity attempt would be.",
+            "Reading 2 is explicit that registering a task under a more privileged principal is a persistence technique that requires an elevated caller — it is not the escalation. So by the time schtasks.exe ran, her session was already elevated, and the next question is how (the earlier alert on this host is where to start). For a standard user, cmd.exe runs at Medium integrity, so High is not the default. And the /ru value in the command line, not the user who typed it, decides which account the task runs as.",
           xp: 25,
         },
         {
           question:
             "The task binary path is C:\\Users\\Public\\svchelper.exe, and the trigger is /sc onstart. What does this combination tell you operationally, beyond confirming a task was created?",
           options: [
-            "Nothing beyond that a task was created — the trigger type and file location are not meaningful on their own, since every scheduled task behaves identically at every boot regardless of what triggers it or where its binary happens to be staged on disk",
-            "The onstart trigger fires this binary with SYSTEM privileges at every single boot, with no user logon required at all; combined with a world-writable staging location (C:\\Users\\Public), this matches the boot-persistence pattern from Reading 3, and the location itself is a secondary risk since anyone with local write access could tamper with the file later",
-            "C:\\Users\\Public is a protected, admin-only folder, so the presence of a file there proves this was authorized by an administrator and staged through a legitimate deployment process",
-            "onstart triggers only fire once, the very first time the task is created, and never again afterward, making this functionally equivalent to a RunOnce registry key rather than a persistent boot trigger",
+            "Little: onstart triggers and Public folders are common for ordinary software tasks",
+            "It runs with full privileges at every boot, from a folder any local user can write to",
+            "The file was staged by an administrator, since C:\\Users\\Public is an admin-only folder",
+            "It fires once, after the first restart, so it behaves like a RunOnce registry value",
           ],
           answer: 1,
           explanation:
-            "onstart is a boot-time trigger that fires on every startup regardless of whether any user ever logs on interactively — the flexibility advantage covered in Reading 2. C:\\Users\\Public is a world-writable location by design (any local user can write there), which is a red flag for a binary that's about to run with SYSTEM privileges at every boot, and it is not a protected or admin-only folder.",
+            "onstart fires at every startup with no logon needed — the boot-persistence pattern from Reading 2 — and the task runs with the principal named by /ru. C:\\Users\\Public is writable by every local user, which is both an odd home for a privileged binary and a second risk: anyone with local access could swap the file later. Legitimate vendor tasks point into Program Files or System32, as the room teaches for services too. The Public folder is not admin-only. And an onstart trigger fires on every boot, not once.",
           xp: 25,
         },
         {
           question:
             "What is the correct containment order once this task is confirmed malicious?",
           options: [
-            "Delete the scheduled task and close the ticket — the persistence mechanism has been fully removed, and no further investigation of this session's other activity is necessary at this stage of the response",
-            "Isolate the host, but before considering it clean, hunt for and remove every other persistence mechanism this session may have planted (Run keys, other tasks, services, WMI subscriptions), determine how c.iversen's session reached High integrity to register this in the first place, and only then move to credential resets or rebuilding",
-            "Immediately reset c.iversen's domain password — that alone fully remediates the incident, since scheduled tasks always re-authenticate using the account's current credentials every single time they fire",
-            "Disable Task Scheduler domain-wide to prevent any future scheduled task creation, even though this permanently breaks every legitimate scheduled maintenance job running across the entire production environment",
+            "Delete the scheduled task, confirm it is gone, and close the ticket",
+            "Isolate, hunt every other mechanism and the elevation path, then reset and rebuild",
+            "Reset c.iversen's password first, so the task can no longer authenticate",
+            "Rebuild the host first, then hunt for other persistence on the fresh image",
           ],
           answer: 1,
           explanation:
-            "Deleting only the one confirmed task, or jumping straight to a password reset, both leave open the possibility that this same session planted other persistence mechanisms you haven't found yet — the exact operational lesson from Reading 6 ahead: containment order changes once persistence is present, and credential-only remediation doesn't touch non-credential-based mechanisms like scheduled tasks, services, or WMI subscriptions. Disabling Task Scheduler domain-wide is a disproportionate response that breaks legitimate functionality across the whole environment.",
+            "Once persistence is confirmed, the order is contain, hunt for every mechanism this session may have planted (Run keys, other tasks, services, BITS, WMI) plus how the session got elevated, remove them, and only then reset credentials and rebuild. Deleting the one task you found ignores whatever else was planted. A scheduled task does not authenticate with her password each time it fires — it runs under the principal it was registered with — so a reset does not touch it. Rebuilding first destroys the evidence you need, and a fresh image has nothing left to hunt.",
           xp: 30,
         },
       ],
@@ -1436,16 +1433,16 @@ const persistenceRoom: Room = {
         "=======================================================",
       checkpoint: {
         question:
-          "According to the reading, what is the correct order of operations once persistence is confirmed?",
+          "A malicious Run key is confirmed on a user's laptop and the user asks you to just reset her password now. Why does the reading put the reset after the hunt instead?",
         options: [
-          "Reset credentials immediately, then investigate whether persistence exists",
-          "Isolate/contain first, then hunt comprehensively for every persistence mechanism, and only then reset credentials and rebuild",
-          "Rebuild the host immediately without any investigation",
-          "Persistence doesn't change the order at all — always reset credentials first regardless",
+          "A reset made before the rebuild is lost when the host is re-imaged",
+          "Planted mechanisms don't use her password, so they survive a reset",
+          "The Run key re-reads her password at logon, so a reset breaks evidence",
+          "Once the Run key is deleted, a password reset is no longer needed",
         ],
         answer: 1,
         explanation:
-          "Contain first, then hunt comprehensively across every mechanism before assuming you've found everything. Only once every confirmed mechanism is removed does resetting credentials and rebuilding actually close the door.",
+          "Run keys, tasks, services, BITS jobs and WMI subscriptions fire on their own triggers without using her password, so resetting first changes the lock while the attacker's spare key stays planted. Contain, hunt every mechanism, remove them, then reset. A password reset lives in the directory, not on the laptop, so re-imaging does not undo it. A Run key stores a command to launch, not a credential. And deleting one Run key does not make the reset unnecessary: the reset still closes off any credentials the attacker obtained.",
       },
     },
     {
@@ -1454,14 +1451,14 @@ const persistenceRoom: Room = {
       question:
         "During a cloud account compromise investigation, the SOC resets the affected user's password within minutes of detection and closes the incident. Three days later, the same user's mailbox is still leaking messages to an external address via a forwarding rule the attacker configured before the reset. What was missed, and why?",
       options: [
-        "Nothing was missed — a password reset invalidates mailbox rules created under the account, so this must be a newly created rule",
-        "The rule lives mailbox-side, not credential-side, so it survives a reset — remediation also needs rule removal and OAuth/session token revocation",
-        "The MFA methods were not re-registered after the reset, so the old forwarding rule stayed active until the attacker's MFA device was removed",
-        "Forwarding rules can only be created by administrators, so the attacker held admin rights and the user's password reset was never the relevant control",
+        "Nothing: a reset wipes the account's mailbox rules, so this rule must be a new one",
+        "The rule is mailbox-side, so it survives a reset; rules and tokens also need removal",
+        "MFA methods were not re-registered after the reset, which kept the old rule active",
+        "The attacker had admin rights, since ordinary users cannot create forwarding rules",
       ],
       answer: 1,
       explanation:
-        "This is precisely the gap Reading 5 and Reading 6 both warn about: a mailbox forwarding rule doesn't depend on continuing to know the account's password to keep functioning, so resetting the password has no effect on it. The correct remediation has to specifically include reviewing and removing mailbox rules (and revoking OAuth consents/active sessions) as separate steps, not assume the password reset alone was sufficient.",
+        "This is precisely the gap Reading 5 and Reading 6 both warn about: a mailbox forwarding rule doesn't depend on continuing to know the account's password to keep functioning, so resetting the password has no effect on it. The correct remediation has to specifically include reviewing and removing mailbox rules (and revoking OAuth consents/active sessions) as separate steps, not assume the password reset alone was sufficient. A reset does not touch existing rules, so the rule can be the old one. MFA registration controls sign-in, not whether a rule already in the mailbox keeps running. And ordinary users can create inbox and forwarding rules on their own mailbox, which is exactly why attackers with a user's session use them.",
       xp: 25,
     },
     {
@@ -1473,7 +1470,7 @@ const persistenceRoom: Room = {
       event: legitUpdaterAutorunEvent,
       correct_verdict: "false_positive",
       explanation:
-        "The registry write was made by MeridianVPNClient.exe itself, a signed binary matching an internal deployment CA, during its own documented post-install configuration step, and an SCCM deployment record independently confirms this exact software and version was pushed to this host today. The Details value points to vpntray.exe inside the same Program Files installation directory as the parent binary — not an unusual or unexpected location. Any of these facts alone would be worth checking; together, they describe exactly the kind of legitimate, ordinary software autorun Reading 1 described as the majority case for Run key writes.",
+        "The registry write was made by MeridianVPNClient.exe itself, running as SYSTEM the way an SCCM-pushed installer does, and the endpoint record notes the binary is signed and matches the deployed version, during its own documented post-install configuration step, and an SCCM deployment record independently confirms this exact software and version was pushed to this host today. The Details value points to vpntray.exe inside the same Program Files installation directory as the parent binary — not an unusual or unexpected location. Any of these facts alone would be worth checking; together, they describe exactly the kind of legitimate, ordinary software autorun Reading 1 described as the majority case for Run key writes.",
       fp_trap:
         "A Run key write matches the shape of T1547.001 persistence closely enough that it's tempting to treat every instance as suspicious, especially right after other alerts on the same host. But the differentiators taught throughout this room — a signed binary, a path inside the expected Program Files installation folder rather than a temp or public directory, and independent corroboration from a deployment record — are exactly what should separate this from a genuine finding. Escalating every Run key write without checking those three things first would generate far more noise than any SOC can sustainably triage, which is the over-alerting failure mode this room is explicitly trying to train against.",
       xp: 30,
@@ -1487,8 +1484,8 @@ const persistenceRoom: Room = {
         { id: "runkey", left: "HKCU/HKLM Run or RunOnce key value set", right: "T1547.001 — Sysmon Event 13 (RegistryEvent: value set), TargetObject under CurrentVersion\\Run" },
         { id: "task", left: "Scheduled task registered with /ru SYSTEM", right: "T1053.005 — Windows Event ID 4698 (Scheduled Task Created)" },
         { id: "service", left: "New service installed, auto-start, running as LocalSystem", right: "T1543.003 — Windows Event ID 7045 (Service Installed)" },
-        { id: "bits", left: "BITS job configured with a NotifyCmdLine", right: "T1197 — executes a command on transfer completion, using a trusted OS component" },
-        { id: "wmi", left: "__EventFilter/__EventConsumer/__FilterToConsumerBinding created in the WMI repository", right: "WMI event subscription persistence — Sysmon Events 19/20/21, invisible to standard autoruns checks" },
+        { id: "bits", left: "BITS job configured with a NotifyCmdLine", right: "T1197 — Bits-Client/Operational Event 3 (job created), plus bitsadmin /list /allusers /verbose to see the NotifyCmdLine" },
+        { id: "wmi", left: "__EventFilter/__EventConsumer/__FilterToConsumerBinding created in the WMI repository", right: "WMI event subscription persistence — Sysmon Events 19/20/21, missed by sweeps of Run keys, tasks and services" },
         { id: "oauth", left: "New OAuth app granted delegated mailbox permissions on a compromised account", right: "T1671 (Cloud Application Integration) — survives a password reset because it doesn't depend on the account's password" },
       ],
       explanation:
@@ -1517,9 +1514,9 @@ const persistenceRoom: Room = {
       id: "persist-f1",
       event: scheduledTaskPersistEvent, // show the scheduled-task log this flag reads
       prompt:
-        "Look at the scheduled task log analysis event. What is the exact /tn (task name) value used in the registration command? Enter it exactly as shown.",
-      answer: "WindowsUpdateHelper",
-      hint: "Look at the CommandLine field in the raw log — the value immediately following the /tn flag, inside the quotes.",
+        "In the scheduled-task event, which account will svchelper.exe run as every time the task fires? Enter the account exactly as the registration command names it.",
+      answer: "SYSTEM",
+      hint: "The user who typed the command is not necessarily the account the task runs as. One switch in the command line decides that.",
       xp: 25,
     },
   ],

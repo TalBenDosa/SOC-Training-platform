@@ -132,16 +132,16 @@ const oktaIdentityFundamentalsRoom = {
         "**What Okta calls itself, structurally.** An Okta customer's whole tenant is called an org (sometimes 'org' also refers to sub-organisational structures for larger customers running multiple orgs — but for a typical single-tenant customer, one org is the whole company's Okta presence). Every event this room covers is written to that org's System Log, viewable in the Okta Admin Console or exported to a SIEM, and it is the single authoritative activity record for that org — comparable in role, though not in schema, to Entra's sign-in and audit logs combined into one feed.\n\n" +
         "**What this room does and does not cover.** This room is entirely about reading Okta's own telemetry correctly. It does not re-teach identity fundamentals already covered elsewhere (authentication vs authorization, what MFA actually is, session tokens) — those concepts transfer directly from Entra ID and Identity Basics. What's new here is Okta's specific vocabulary for expressing them, and the small number of places where Okta's actual behaviour, not just its naming, genuinely differs from what an Entra-trained analyst would expect.",
       checkpoint: {
-        question: "Why can't an analyst who already knows Entra ID's sign-in log fields simply reuse those same field names against an Okta tenant?",
+        question: "An Entra-trained analyst runs a saved hunt that filters on ResultType and ConditionalAccessStatus against the Okta System Log data in the SIEM. It returns zero rows, with no error. What is the most likely explanation?",
         options: [
-          "Okta's System Log uses an entirely different structure -- outcome.result/outcome.reason and a dot-notation eventType taxonomy -- so querying for an Entra field name against Okta returns nothing at all, silently",
-          "Okta does not log authentication events at all, so there is nothing to query in the first place",
-          "Okta's fields are identical to Entra's, just written in lowercase instead of PascalCase",
-          "Okta requires a paid add-on before any log data becomes queryable",
+          "Okta's log has no such fields, so the filter matched nothing -- not that nothing happened",
+          "No sign-in failures happened in that window, so the empty result is genuinely reassuring",
+          "Okta exports to the SIEM in a daily batch, so today's events have simply not arrived yet",
+          "The fields exist in Okta but in lowercase, so the query just needs a change of case",
         ],
         answer: 0,
         explanation:
-          "The two platforms rhyme conceptually but do not share a schema. Reusing an Entra field name against Okta doesn't error -- it silently returns nothing, which is exactly the kind of gap that can hide a real incident from an analyst who assumes their old queries still work.",
+          "Okta's System Log is built around outcome.result/outcome.reason and a dot-notation eventType, so Entra field names simply do not exist there; a filter on them silently matches nothing instead of failing. 'Nothing happened' is exactly the false comfort this causes -- an empty result from a query on non-existent fields says nothing about activity. 'A daily batch delay' is speculation with no evidence -- and even once the data arrived, a filter on fields that do not exist would still match nothing. 'Same fields in lowercase' assumes the schemas match; they differ in structure, not just spelling.",
       },
     },
     // ── Reading 2: System Log / eventType ─────────────────────────────────────
@@ -179,16 +179,16 @@ const oktaIdentityFundamentalsRoom = {
         "  E -->|Yes| G[Session created]\n",
       diagramCaption: "The reason field flip from INVALID_CREDENTIALS to MFA_REQUIRED is the tell that the password was correct",
       checkpoint: {
-        question: "In a burst of failed Okta sign-ins against one account, the LAST attempt carries outcome.reason MFA_REQUIRED, where every earlier attempt showed INVALID_CREDENTIALS, and an Okta Verify push is sent to the user a few seconds later. What does that specific change mean?",
+        question: "In a burst of failed Okta sign-ins against one account, one attempt shows outcome.reason MFA_REQUIRED. Which follow-on evidence independently confirms that the password stage really was passed on that attempt?",
         options: [
-          "The account was locked out, so Okta stopped checking the password at all",
-          "The password submitted on that last attempt was correct -- MFA_REQUIRED is only ever written once the primary credential stage has been satisfied, and the push being sent confirms it independently",
-          "It is simply Okta's alternate wording for the exact same rejected-password outcome",
-          "A conditional-access policy change mid-burst started demanding MFA tenant-wide",
+          "authenticationStep reading 1 instead of 0 on the next event for that account",
+          "An Okta Verify push sent to the user for the same transaction seconds later",
+          "A system.org.rate_limit.warning for the same source IP a minute later",
+          "Another user.session.start FAILURE right after it, with INVALID_CREDENTIALS",
         ],
         answer: 1,
         explanation:
-          "MFA_REQUIRED and a push challenge being sent both only ever occur after the password stage succeeds. Reading them together confirms, from two independent events, that the correct password was used on that attempt -- a materially different fact than another rejected guess.",
+          "Okta only sends a second-factor challenge once the password has been accepted, so a push sent for the same account and transaction is separate proof that the password stage was passed. authenticationStep cannot help: Okta documents it as unused and always 0, so it never moves to 1. A rate-limit warning reflects request volume from the source, not whether any password was right. A later INVALID_CREDENTIALS failure only shows a different attempt used a wrong password; it says nothing about the earlier one.",
       },
     },
     // ── Question 1 ───────────────────────────────────────────────────────────
@@ -264,16 +264,16 @@ const oktaIdentityFundamentalsRoom = {
         "**Risk detection.** Entra ID Premium layers Identity Protection on top of sign-in logs, scoring sign-in risk and user risk with Microsoft's own machine-learning signals. Okta has its own equivalent capability (ThreatInsight and Okta's own risk scoring in higher tiers), but the specific risk fields, scoring logic, and event names are Okta's own — not a reskinned copy of Microsoft's.\n\n" +
         "**The one habit this reading is trying to build.** Before running a single query against an unfamiliar tenant, check which IdP actually issues its logs. If it's Okta, expect okta.eventType and outcome.result/outcome.reason. If it's Entra ID, expect the sign-in/audit log split and ConditionalAccessStatus. Treating the two as interchangeable is the single most avoidable mistake this room can prevent.",
       checkpoint: {
-        question: "An analyst who has only ever worked with Entra ID's sign-in logs is handed an Okta System Log export for the first time. What is the single most important adjustment per this reading?",
+        question: "You suspect someone quietly loosened an MFA requirement in an Okta org last night. An Entra-trained colleague says to look for it in the separate audit log. Where will the change actually be recorded?",
         options: [
-          "None -- the two platforms use byte-for-byte identical field names, so existing Entra queries can be reused without modification",
-          "Recognise this is one unified log distinguished by eventType (not separate sign-in/audit logs), and read verdicts through outcome.result/outcome.reason rather than Entra's status-code and ConditionalAccessStatus fields",
-          "Assume Okta does not track admin or policy changes at all, since Entra keeps those in a separate audit log",
-          "Convert every Okta timestamp to a Microsoft-specific format before any field can be read",
+          "In a separate Okta audit log that mirrors Entra's sign-in/audit split",
+          "In the same System Log as sign-ins, under a policy.rule.* eventType",
+          "In the Admin Console's policy history, not in the System Log",
+          "As a ConditionalAccessStatus change on the next user's sign-in event",
         ],
         answer: 1,
         explanation:
-          "Reading 6 built the whole contrast around this: one unified System Log keyed by eventType, and a completely different verdict-field pair. Assuming field-for-field portability is the exact mistake this room exists to prevent, and Okta absolutely does track admin/policy changes -- just within the same unified log, not a separate one. Timestamp format is not the substantive difference being taught here.",
+          "Okta writes sign-ins, admin actions, group and policy changes into one unified System Log, told apart by eventType -- a policy rule change appears as policy.rule.update (or .create). 'A separate audit log' carries Entra's structure over to Okta, which is the habit this reading warns about. 'The Admin Console's policy history' is wrong: policy changes are logged events in the System Log and can be exported to a SIEM. ConditionalAccessStatus is an Entra sign-in field; Okta has no such field, and a policy edit is its own event rather than a property of later sign-ins.",
       },
     },
     // ── Log Analysis 1: password accepted, escalating ────────────────────────
@@ -287,44 +287,44 @@ const oktaIdentityFundamentalsRoom = {
       questions: [
         {
           question:
-            "okta.outcome.reason on this event is MFA_REQUIRED -- different from the INVALID_CREDENTIALS reason on every earlier failure in this same burst. What does that change tell you?",
+            "okta.outcome.result on this event is FAILURE, and a junior analyst files it as 'one more failed guess'. Which field in the event contradicts that reading, and why?",
           options: [
-            "The password submitted on this specific attempt was correct -- the transaction reached the second-factor stage, which only happens after the primary credential succeeds",
-            "The account has been permanently locked, and no further sign-in attempts of any kind will be processed",
-            "MFA_REQUIRED and INVALID_CREDENTIALS describe the exact same underlying rejection, just in different words",
-            "Okta's rate limiter intervened and forced this specific attempt into a different validation path",
+            "outcome.reason MFA_REQUIRED -- Okta writes it only after the password has been accepted",
+            "authenticationStep 0 -- the attempt stopped at step zero, so the password check failed",
+            "threatSuspected false -- Okta judged the request benign, so it was the real user signing in",
+            "credentialType PASSWORD -- only a password was tried, so the attempt went no further",
           ],
           answer: 0,
           explanation:
-            "Reading 3 covered this exact field: MFA_REQUIRED only appears once the password stage has been satisfied. (Note that okta.authenticationContext.authenticationStep still reads 0 -- Okta documents it as unused and always 0, so it cannot corroborate anything; the corroboration comes from the MFA events that follow.) This is a materially different, more serious fact than another rejected guess -- the account's real password is now known to whoever controls 185.220.101.44.",
+            "outcome.result FAILURE only says this step did not end in a session; outcome.reason says why, and MFA_REQUIRED is written only once the password stage is satisfied -- so the password on this attempt was correct and is now known to whoever controls 185.220.101.44. authenticationStep cannot show where an attempt stopped: Okta documents it as unused and always 0. threatSuspected false means Okta's own heuristics did not flag the request; it is not a verdict that the real user signed in, and the hosting-provider network says otherwise. credentialType PASSWORD names the first factor presented; it does not mean the transaction ended there.",
           xp: 25,
         },
         {
           question:
             "okta.securityContext.asOrg on this event is 'Alexhost SRL', a hosting provider, and the client is Chrome on Windows 10 from Bucharest. Nkem Abara's own normal working pattern (not shown in this event) is a residential ISP from her home country. What does the asOrg value add to the investigation?",
           options: [
-            "It independently corroborates that this sign-in did not originate from the account's legitimate owner, since ordinary employees do not authenticate from hosting-provider address space",
-            "It proves conclusively that Chrome itself is a compromised or malicious browser build",
-            "asOrg only describes billing information for Okta's own subscription and has no security relevance",
-            "It confirms the sign-in is legitimate, since Bucharest is a real city with real residential users",
+            "Employees do not sign in from datacenter space, so it points away from the real user",
+            "It likely shows the company's VPN egress, so the attempt is probably the user herself",
+            "isProxy is false, so Okta has already cleared this network and asOrg adds nothing more",
+            "It matters if the country is wrong too; a plausible city outweighs the ASN value",
           ],
           answer: 0,
           explanation:
-            "Reading 4 was explicit: a hosting-provider ASN like this is one of the highest-signal, lowest-effort fields in an Okta investigation, because real employees do not sign in from datacenter address space. It says nothing about the browser build itself -- Chrome is simply the client software being used from that infrastructure. asOrg is a network-attribution field with direct security relevance, not billing metadata. And a real city name does not make the underlying network legitimate -- the point is precisely that geography and network type are separate signals, and this one is a hosting ASN regardless of which city it resolves to.",
+            "A hosting-provider ASN is one of the highest-signal, lowest-effort fields in an Okta investigation, because real employees sign in from residential, mobile or corporate networks, not datacenter address space -- and Nkem's normal pattern is a residential ISP. 'Company VPN egress' would have to match her usual pattern, which it does not. 'isProxy false clears it' over-trusts one flag: plenty of hosting and VPN infrastructure is never flagged as a proxy, so a false value does not clear an attempt. 'A plausible city outweighs the ASN' gets it backwards: geography and network type are separate signals, and the wrong kind of network is worth flagging even in a believable city.",
           xp: 25,
         },
         {
           question:
             "Given that the password is now confirmed correct and no session was created in this event, what is the correct immediate containment step?",
           options: [
-            "Force a password reset for n.abara@globallogis.com and review whether any further activity followed from the same source before or after this event",
-            "Take no action, since no session was ever created and therefore no actual access occurred",
-            "Permanently deactivate the account, since a correct password guess proves the account is fully compromised",
-            "Wait for Okta's own rate limiter to resolve the situation automatically",
+            "Force a password reset and review what else this source and account did around this time",
+            "Block 185.220.101.44 at the edge; once that source is cut off the password is safe again",
+            "Reset the account's MFA factors, since the attacker was stopped at the second factor",
+            "Monitor the account for 24 hours and act if a session is then created from that address",
           ],
           answer: 0,
           explanation:
-            "The lost asset here is the password, so the fix is to invalidate it and check what else that source IP or account did around this window -- which is exactly what the next task in this room investigates. 'No session, no action' repeats the precise mistake Question 1 in this room addressed. Deactivating the account outright is disproportionate and punishes the legitimate user for a problem a reset solves. And a rate limiter defends Okta's infrastructure from request volume -- it does not reset a compromised password.",
+            "The lost asset is the password, so invalidate it and check what else that source or account did around this window -- which is exactly what the next task investigates. 'Block the IP' helps, but the password works from any address, so the exposure remains. 'Reset the MFA factors' targets the control that held; it does nothing about the known password and briefly weakens the account further. 'Monitor and wait for a session' repeats the 'no session, no impact' mistake -- by the time a session appears, the attacker is already in.",
           xp: 30,
         },
       ],
@@ -352,16 +352,16 @@ const oktaIdentityFundamentalsRoom = {
         "**policy.rule.create / policy.rule.update.** Changes to sign-on or authentication policy rules are exactly the kind of action a sophisticated actor makes to weaken defences quietly rather than trigger a loud, obvious alert — for example, narrowing an MFA requirement, or adding a new network zone exception. These events are comparatively rare in a healthy org, which makes an unexpected one — especially one actioned outside change-management hours — a high-priority review item on its own.\n\n" +
         "**Why actor and target both matter here, precisely.** For every one of these event types, the question 'who did this' (actor) and 'who or what was affected' (target) can be the same identity or different identities, and the distinction changes the finding completely. An account adding a completely different, previously low-privilege service account into an admin group is a different — and often more concerning — finding than an admin adding a new hire to a standard group, even though both are the exact same eventType. Reading the full event, not just recognising its type, is what separates routine administration from an attacker consolidating access.",
       checkpoint: {
-        question: "A group.user_membership.add event shows actor.alternateId and target.0.alternateId as the SAME account, and target.1.displayName names a high-privilege administrative group. Why does that specific combination deserve particular scrutiny?",
+        question: "An event resets all enrolled factors for c.lee (finance director) -- actor j.ortiz (helpdesk), target.0 c.lee. An hour later a new factor is enrolled on c.lee's account from a hosting-provider network, and no helpdesk ticket mentions c.lee. What is the main concern?",
         options: [
-          "It doesn't -- group additions are routine administration regardless of who the actor and target are",
-          "The account effectively added itself to an administrative group -- a materially different, higher-risk pattern than an admin granting access to a different, separate user",
-          "It proves the event is a logging error, since an account cannot act on its own membership",
-          "It means the event must have originated from Okta's own SystemPrincipal rather than a real user",
+          "Little -- helpdesk staff reset factors routinely, and the actor is a real named user",
+          "j.ortiz's account may be compromised and used to clear c.lee's MFA for a new factor",
+          "c.lee reset her own factors, because target names the account that performed it",
+          "It is Okta housekeeping by a SystemPrincipal, since factor resets are automated",
         ],
         answer: 1,
         explanation:
-          "Reading 8 named this specific pattern directly: actor and target being the same identity in a privilege-granting event is a self-escalation shape, and it deserves more scrutiny than an admin granting access to someone else. It is a real, loggable action Okta permits, not a logging error, and the actor field here is a User type, not a SystemPrincipal.",
+          "Resetting another user's factors so a new, attacker-controlled factor can be enrolled is the pattern this reading describes -- and it is only visible by reading actor and target as different identities. With no ticket and a new factor enrolled from hosting infrastructure, the helpdesk account that made the change is itself suspect. 'Helpdesk resets are routine' is true in general, but the missing ticket and the follow-on enrolment are what make this one different. 'c.lee reset her own factors' swaps the roles: actor performs the action, target is affected. 'SystemPrincipal housekeeping' is wrong because the actor is a named user, j.ortiz.",
       },
     },
     // ── Question 3 ───────────────────────────────────────────────────────────
@@ -394,42 +394,42 @@ const oktaIdentityFundamentalsRoom = {
           question:
             "Compare okta.actor.alternateId and okta.target.0.alternateId on this event. What do you find, and why does it matter?",
           options: [
-            "They are the same account, n.abara@globallogis.com -- meaning this account added ITSELF to the Okta-Admins group, a self-escalation pattern rather than routine administration by someone else",
-            "They are different accounts, showing a legitimate admin granted access to a new team member",
-            "actor and target can never be the same identity in a group-membership event, so this must be a logging artefact",
-            "The comparison is not meaningful, since target only ever names the group, never the user",
+            "Same account -- it added itself to Okta-Admins, a self-escalation, not routine admin",
+            "Same account -- but a Group Administrator adding itself is routine delegated work",
+            "Different accounts -- target.0 is the group, so the actor added Okta-Admins itself",
+            "Different accounts -- an admin with a separate ID granted access to a colleague",
           ],
           answer: 0,
           explanation:
-            "Reading 8 named this exact pattern: actor and target.0 being the same identity in a privilege-granting event is a self-escalation shape. Here it is n.abara@globallogis.com both performing the change and being the user added -- to Okta-Admins, named in target.1 -- which is a materially more serious finding than a separate admin actioning it.",
+            "actor.alternateId and target.0.alternateId are both n.abara@globallogis.com (and the IDs match too), and target.1 is the Okta-Admins group -- so this account added itself to an administrative group, a self-escalation shape that deserves more scrutiny than an admin granting access to someone else. 'Routine delegated work' misses the point: the stale Group Administrator role is what made the change possible, not what makes it legitimate -- and it was used minutes after a session opened from a hosting network. 'target.0 is the group' misreads the order: target.0 is the User and target.1 is the UserGroup. 'An admin with a separate ID' is contradicted by the identical actor.id and target.0.id.",
           xp: 25,
         },
         {
           question:
             "The source IP on this group-membership change is the same 185.220.101.44 seen in the earlier password-confirmation event. What does that shared value let you conclude?",
           options: [
-            "It ties the privilege-escalation step directly to the same actor who had just obtained the correct password minutes earlier, extending the same incident rather than treating this as a separate, unrelated event",
-            "It proves nothing at all, since IP addresses are reused constantly by unrelated parties and carry no evidentiary value",
-            "It confirms the IP address itself must belong to GlobalLogis's own corporate network",
-            "It means the group-membership change was performed by Okta's own SystemPrincipal, not by the account holder",
+            "It links the escalation to whoever confirmed the password, extending one incident",
+            "Little -- hosting IPs are shared by many customers, so the match is likely chance",
+            "It shows Nkem made the change herself, since the push was approved on her phone",
+            "It shows the change was automated by Okta, since the request went to an /api/v1 path",
           ],
           answer: 0,
           explanation:
-            "A shared source IP across two events involving the same account, minutes apart, is exactly the kind of pivot that links separate log lines into one coherent incident timeline -- the same actor who obtained the password got a push approved, opened a session, and used it -- from the same infrastructure -- to grant itself administrative access. IP addresses do carry real evidentiary weight when correlated this tightly, nothing here suggests this is GlobalLogis's own network -- 185.220.101.44 was already established as a hosting-provider address in the earlier finding -- and the actor field names a real User, not a SystemPrincipal.",
+            "The same account, the same hosting-provider IP and a few minutes apart: that ties the password confirmation, the approved push, the new session and the group change into one timeline driven by one actor. 'Shared hosting, so chance' would need an unrelated party to act as this exact account minutes later -- far less likely than one actor. 'The push was approved on her phone' is the trap: an approval only means someone tapped Approve -- possibly a tired or confused user -- while the session itself came from the hosting network, not from Nkem's normal ISP. 'An /api/v1 path means Okta automated it' confuses the API endpoint with the actor; actor.type is User, not SystemPrincipal.",
           xp: 25,
         },
         {
           question:
             "What is the correct combined containment scope now that both events are read together?",
           options: [
-            "Reset the account's password, clear its active sessions, AND remove it from Okta-Admins immediately, then audit everything that account did while it held that elevated group membership",
-            "Only reset the password -- removing the account from Okta-Admins can wait until the next scheduled access review",
-            "Only remove the group membership -- the password itself is not actually a concern once the group change is reverted",
-            "No additional action beyond what was already decided for the password-confirmation event alone",
+            "Reset the password, revoke sessions, remove Okta-Admins and the stale admin role, then audit",
+            "Reset the password and revoke sessions; the Okta-Admins removal can wait for access review",
+            "Remove the Okta-Admins membership; once it is reverted the password reset is not urgent",
+            "Reset MFA so the approved push stops working, and leave the group for its owner to review",
           ],
           answer: 0,
           explanation:
-            "Both findings compound: the password is known to an outside party, that party now holds a live session (the push was approved), AND it used that session to grant itself administrative group membership. Fixing only one half leaves the other live -- resetting the password alone leaves a live admin-group membership in place, and removing the group membership alone leaves the password still compromised for future use. Both must be addressed together, plus a review of what the elevated access was actually used for in the interim.",
+            "The findings compound: the password is known to an outside party, that party holds a live session (the push was approved), and it used that session -- via a stale delegated admin role -- to put the account into Okta-Admins. Contain all of it together: reset the password, revoke sessions, remove the Okta-Admins membership and the leftover Group Administrator role, then audit what the elevated access was used for. 'The group removal can wait' leaves admin rights in place even after the reset. 'Revert the group, the password can wait' leaves a known password live. 'Reset MFA' does not end the existing session or the known password, and leaving the group untouched keeps the escalation in place.",
           xp: 30,
         },
       ],
@@ -441,11 +441,11 @@ const oktaIdentityFundamentalsRoom = {
       heading: "Match the eventType Prefix to Its Category",
       instructions: "Match each Okta System Log eventType prefix to the category of activity it represents.",
       pairs: [
-        { id: "usersession", left: "user.session.*", right: "Sign-in and session activity for a specific user, such as user.session.start" },
-        { id: "usermfa", left: "user.mfa.*", right: "Multi-factor challenge and response events, such as a push notification being approved or denied" },
-        { id: "groupmembership", left: "group.user_membership.*", right: "A user being added to or removed from a group -- frequently the access-control event that matters most" },
-        { id: "policyrule", left: "policy.rule.*", right: "A change to a sign-on or authentication policy rule, such as narrowing or loosening an MFA requirement" },
-        { id: "systemorg", left: "system.org.*", right: "Okta's own infrastructure acting on itself, such as a rate-limit warning -- actor.type is SystemPrincipal, not a real user" },
+        { id: "usersession", left: "user.session.*", right: "A person signing in to Okta, successfully or not, and the session that follows" },
+        { id: "usermfa", left: "user.mfa.*", right: "A second-factor challenge and the response to it, such as a push being approved or denied" },
+        { id: "groupmembership", left: "group.user_membership.*", right: "Someone gaining or losing access because they were added to or removed from a collection of users" },
+        { id: "policyrule", left: "policy.rule.*", right: "A change to the rules deciding when a second factor is demanded, such as loosening an MFA requirement" },
+        { id: "systemorg", left: "system.org.*", right: "Okta's own infrastructure acting on itself, such as a rate-limit warning -- actor.type is SystemPrincipal" },
       ],
       explanation:
         "The dot-notation pattern is the whole point: once you recognise object.verb, an eventType value you've never seen before is still readable at a glance from its leading segment alone.",
@@ -475,9 +475,9 @@ const oktaIdentityFundamentalsRoom = {
       type: "flag" as const,
       id: "oktaf-f1",
       prompt:
-        "Look at the group-membership finding for n.abara@globallogis.com. What is the exact value of the okta.target.1.displayName field in the raw log?",
-      answer: "Okta-Admins",
-      hint: "Look inside the raw block of the log analysis event for the field named okta.target.1.displayName.",
+        "In the group-membership finding for n.abara@globallogis.com, find the Okta ID of the group the account was added to. You will need it to check which applications and admin rights that group grants. Enter the ID.",
+      answer: "00g4kx19mZQ7pLbT417v",
+      hint: "The event has two targets. One is a user and one is a group; check each target's type.",
       xp: 20,
     },
     // ── Question 4: Okta vs Entra applied ─────────────────────────────────────
@@ -487,10 +487,10 @@ const oktaIdentityFundamentalsRoom = {
       question:
         "An analyst is handed two tickets on the same morning: one from a company running Entra ID, one from a company running Okta. Both describe a suspicious sign-in. Which statement correctly reflects how the analyst should approach the two investigations?",
       options: [
-        "Reuse the Entra query logic directly on the Okta tenant, since SIEM normalisation maps both vendors onto the same field names and no vendor-specific reading is needed",
-        "Carry the concepts (authentication stages, MFA, risk signals) across, but read each tenant's native fields -- Entra status codes and ConditionalAccessStatus versus Okta outcome.result/reason and eventType",
-        "Triage the Okta ticket from IP and geography only, since those are the only attributes both platforms share, and escalate anything that needs deeper field analysis",
-        "Assume Okta's System Log covers sign-in events only, since Entra keeps admin and policy changes in a separate audit log and Okta must therefore lack an equivalent",
+        "Reuse the Entra query logic on the Okta tenant, since SIEM normalisation maps both vendors onto the same field names",
+        "Carry the concepts across, but read each tenant's native fields -- Entra status codes and ConditionalAccessStatus, Okta outcome and eventType",
+        "Triage the Okta ticket from IP and geography, the attributes both platforms share, and escalate anything deeper",
+        "Assume Okta's System Log covers sign-ins alone, since Entra keeps admin and policy changes in a separate audit log",
       ],
       answer: 1,
       explanation:
@@ -505,7 +505,7 @@ const oktaIdentityFundamentalsRoom = {
         "Applying this room's central lesson to a different ticket: a second Okta account shows a run of INVALID_CREDENTIALS failures from a hosting-provider ASN, then one MFA_REQUIRED event from the same source, then the push that followed was denied by the user, then a rate-limit warning, and no session is ever created and no other activity follows. What is the single most accurate way to classify this incident?",
       options: [
         "A blocked password-guessing attack with a confirmed password exposure -- the password is known to an outside party though no session was obtained, so reset and pivot checks are still required",
-        "A contained brute-force attempt -- MFA stopped the attacker and the rate limiter capped the volume, so the account only needs monitoring and no reset since no session ever existed",
+        "A contained brute-force attempt -- MFA stopped the attacker and the rate limiter capped the volume, so the account needs monitoring but no reset since no session ever existed",
         "A false positive -- INVALID_CREDENTIALS dominates the burst, so the single MFA_REQUIRED event is most likely a legitimate user retry and the ticket can be closed",
         "A misconfigured integration -- a datacenter-ASN burst plus a rate-limit warning is typical of a service retrying stale credentials, so the ticket belongs with the Okta admin team",
       ],

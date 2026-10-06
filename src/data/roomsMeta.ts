@@ -76,7 +76,7 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "intro-cyber-la1",
         "type": "log_analysis",
         "xp": 65,
-        "mitreTechnique": "T1566.001"
+        "mitreTechnique": "T1566.002"
       },
       {
         "id": "intro-cyber-m1",
@@ -2283,7 +2283,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "email-security",
     "title": "Email Security",
-    "description": "Over 90% of cyber attacks start with a phishing email. Learn how email actually works, how to read email headers, how SPF/DKIM/DMARC authentication works, and how to analyse a suspicious email like a SOC analyst.",
+    "description": "Phishing is one of the most common ways attackers get in. Learn how email actually works, how to read email headers, how SPF/DKIM/DMARC authentication works, and how to analyse a suspicious email like a SOC analyst.",
     "difficulty": "intermediate",
     "category": "Threat Detection",
     "estimatedMinutes": 45,
@@ -2327,7 +2327,7 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "email-sec-la1",
         "type": "log_analysis",
         "xp": 70,
-        "mitreTechnique": "T1566.001 - Phishing: Spearphishing Attachment / T1078 - Valid Accounts"
+        "mitreTechnique": "T1566.001 - Phishing: Spearphishing Attachment"
       },
       {
         "id": "email-sec-flag1",
@@ -5487,7 +5487,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "identity-basics",
     "title": "Identity Basics: Credentials, Sessions & MFA",
-    "description": "Learn the identity fundamentals every later room assumes you already have: authentication vs authorization, the three MFA factors and why two of the same kind isn't MFA, what a credential actually is (including why a password hash is a credential too), how session tokens work and why stealing one bypasses MFA entirely, the correct order for shutting an attacker out (revoke sessions before resetting the password), and how to read a Windows authentication log.",
+    "description": "Learn the identity fundamentals every later room assumes you already have: authentication vs authorization, the three MFA factors and why two of the same kind isn't MFA, what a credential actually is (including why a password hash is a credential too), how session tokens work and why stealing one bypasses MFA entirely, the correct order for shutting an attacker out (block sign-in first, then reset the password and revoke sessions back-to-back), and how to read a Windows authentication log.",
     "difficulty": "beginner",
     "category": "Identity",
     "estimatedMinutes": 45,
@@ -6091,7 +6091,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "web-application-security",
     "title": "How Web Applications Work — and How They Break",
-    "description": "Before you can investigate a web attack you have to know what a web request actually is. This room builds that from zero: what travels in an HTTP request and response, why nothing the browser sends can ever be trusted, the browser-to-server-to-application-to-database path every request takes, the attack classes that live at each stop mapped onto the OWASP Top 10 2021, what a WAF genuinely catches versus what it is blind to, and how to read a real IIS access-log line field by field — including the two things it never records: the request body, and the true client IP.",
+    "description": "Before you can investigate a web attack you have to know what a web request actually is. This room builds that from zero: what travels in an HTTP request and response, why nothing the browser sends can ever be trusted, the browser-to-server-to-application-to-database path every request takes, the attack classes that live at each stop mapped onto the OWASP Top 10 2021, what a WAF genuinely catches versus what it is blind to, and how to read a real IIS access-log line field by field — including two things it does not record by default: the request body, and, behind a load balancer, the true client IP.",
     "difficulty": "beginner",
     "category": "Application Security",
     "estimatedMinutes": 60,
@@ -7260,7 +7260,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "macos-security-fundamentals",
     "title": "macOS Security Fundamentals",
-    "description": "The macOS counterpart to Windows Fundamentals and Linux Fundamentals: how software actually arrives and runs on a Mac (DMG and PKG), how Gatekeeper, notarization and the quarantine attribute decide whether to let it, what Developer ID versus ad-hoc code signing tells an analyst, how osascript and the login Keychain get abused, what the TCC privacy database controls and how a root process can bypass it, and how LaunchAgents and LaunchDaemons persist software across logins and reboots.",
+    "description": "The macOS counterpart to Windows Fundamentals and Linux Fundamentals: how software actually arrives and runs on a Mac (DMG and PKG), how Gatekeeper, notarization and the quarantine attribute decide whether to let it, what Developer ID versus ad-hoc code signing tells an analyst, how osascript and the login Keychain get abused, what the TCC privacy database controls and what it takes to bypass it, and how LaunchAgents and LaunchDaemons persist software across logins and reboots.",
     "difficulty": "beginner",
     "category": "Threat Detection",
     "estimatedMinutes": 60,
@@ -7589,7 +7589,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "esxi-virtualization-security",
     "title": "ESXi & Virtualization Security",
-    "description": "What no other room covers: the vSphere permission model (roles, propagation, and the PermissionAddedEvent that proves when a grant actually happened), the two distinct hypervisor log sources (vCenter's vpxd.log and each ESXi host's own vobd.log and shell.log), the mechanical reason a running VM must be powered off before its datastore can be encrypted, and the single fact that shapes every hypervisor investigation: no EDR agent can run on ESXi at all, so detection has to come from these native audit trails instead.",
+    "description": "What no other room covers: the vSphere permission model (roles, propagation, and the PermissionAddedEvent that proves when a grant actually happened), the two distinct hypervisor log sources (vCenter's vpxd.log and each ESXi host's own vobd.log and shell.log), the mechanical reason a running VM must be powered off before its datastore can be encrypted, and the single fact that shapes every hypervisor investigation: no supported EDR agent runs on ESXi itself, so detection has to come from these native audit trails instead.",
     "difficulty": "advanced",
     "category": "Cloud Security",
     "estimatedMinutes": 65,
@@ -8399,6 +8399,16 @@ export const ROOMS_META: RoomMeta[] = [
         "xp": 25
       },
       {
+        "id": "dsx-r8",
+        "type": "reading",
+        "xp": 0
+      },
+      {
+        "id": "dsx-r7",
+        "type": "reading",
+        "xp": 0
+      },
+      {
         "id": "dsx-la1",
         "type": "log_analysis",
         "xp": 40,
@@ -8413,16 +8423,6 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "dsx-ac1",
         "type": "analyst_choice",
         "xp": 25
-      },
-      {
-        "id": "dsx-r7",
-        "type": "reading",
-        "xp": 0
-      },
-      {
-        "id": "dsx-r8",
-        "type": "reading",
-        "xp": 0
       },
       {
         "id": "dsx-q4",

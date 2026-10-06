@@ -315,11 +315,11 @@ const macosSecurityFundamentalsRoom = {
             "SafeClean Utility's .pkg installer ran a preinstall or postinstall script, which macOS executes with root privilege as part of the install process itself",
             "Lior must have manually opened Terminal and typed sudo before running this command herself",
             "Falcon's own agent process launched this shell to perform a routine self-check of the privacy database",
-            "root shells on macOS only ever come from a remote SSH login, so this indicates an external attacker with network access",
+            "The parent 'sh' points to a scheduled cron job, since cron always runs its commands through a root shell on macOS",
           ],
           answer: 0,
           explanation:
-            "Reading 2 covered exactly this mechanism: installing a .pkg is itself a root-level operation, and its preinstall/postinstall scripts inherit that root privilege automatically -- no separate exploit or manual sudo needed. Nothing in the event suggests Lior opened Terminal and typed sudo herself, Falcon's agent does not spawn arbitrary shells against the privacy database, and SSH is not the only source of a root shell on macOS -- a local install script is a far more common and far better-evidenced one here.",
+            "Reading 2 covered exactly this mechanism: installing a .pkg is itself a root-level operation, and its preinstall/postinstall scripts inherit that root privilege automatically -- no separate exploit or manual sudo needed. Nothing in the event suggests Lior opened Terminal and typed sudo herself, Falcon's agent does not spawn arbitrary shells against the privacy database, and there is no cron schedule in evidence -- a cron job would show a cron/launchd ancestry and a recurring cadence, neither of which appears here, whereas a .pkg install script fired once, moments after the install, which is exactly what the timeline shows.",
           xp: 25,
         },
         {
@@ -495,14 +495,14 @@ const macosSecurityFundamentalsRoom = {
           question:
             "The osascript process itself shows code_signature.status 'valid' with subject_name 'Software Signing'. Why doesn't that valid signature make this event benign?",
           options: [
-            "Apple's own system binaries like osascript are validly signed on every invocation regardless of intent -- the signal here is the ad-hoc-signed parent and the credential-prompt command line, not osascript's own signature",
-            "It does make the event benign -- a valid Apple signature on any process is sufficient on its own to clear it",
-            "The 'valid' status must be a logging error, since osascript should never appear in a malicious process chain",
-            "A valid signature only applies to the process's first few seconds of execution before it can be considered fully trusted",
+            "osascript and other Apple system binaries are validly signed on every invocation regardless of intent -- the signal is the ad-hoc parent and the credential-prompt command line, not osascript's signature",
+            "It does make the event benign -- a valid Apple signature on the running process is sufficient on its own to clear it without checking the parent or command line",
+            "The valid signature means Apple vetted this specific osascript invocation, so the command it was told to run was effectively pre-approved",
+            "osascript's valid signature extends to the script it executes, so a signed osascript cannot be carrying an attacker-supplied command",
           ],
           answer: 0,
           explanation:
-            "osascript is a real, Apple-signed binary that will show 'valid' on every single invocation, whatever it was told to do -- Reading 4 named this exact trap. The signal that actually matters here is everything around the signature: an ad-hoc-signed parent process launched seconds earlier from a mounted disk image, spawning osascript with a command line that renders a credential-style prompt. Treating a valid Apple signature as enough to clear the event is precisely the reasoning error the reading warned against. Nothing supports a logging error -- osascript appears constantly in real malicious chains specifically because it is trusted. And code signatures do not lapse after a process's first few seconds of execution.",
+            "osascript is a real, Apple-signed binary that will show 'valid' on every single invocation, whatever it was told to do -- Reading 4 named this exact trap. The signal that actually matters here is everything around the signature: an ad-hoc-signed parent process launched seconds earlier from a mounted disk image, spawning osascript with a command line that renders a credential-style prompt. Treating a valid Apple signature as enough to clear the event is precisely the reasoning error the reading warned against. Apple signs the osascript binary, not the AppleScript it is handed at runtime, so the signature does not mean the invocation was vetted or pre-approved. And that same signature does not extend to the script osascript executes -- a validly signed osascript runs whatever command line it is given, attacker-supplied or not, which is exactly why the command line, not the signature, carries the signal.",
           xp: 25,
         },
         {
@@ -511,12 +511,12 @@ const macosSecurityFundamentalsRoom = {
           options: [
             "A likely follow-on step reading the login Keychain or a browser's saved-credential store, now that a password may have been captured",
             "The process tree should end here -- osascript display dialog events have no meaningful follow-on activity in a real attack chain",
-            "A guaranteed ransomware file-encryption event within the same process tree",
-            "A new user account being created on the domain controller",
+            "A Gatekeeper block event, since macOS re-evaluates an app's signature the moment it spawns a child shell",
+            "A macOS firewall prompt asking the user to allow osascript's outbound network access, confirming the intent",
           ],
           answer: 0,
           explanation:
-            "Reading 6 built directly on this: once a login password is captured, the next step in a credential-theft chain is very often /usr/bin/security reading the login Keychain, or a direct read of a browser's saved-password database, since the captured password is frequently what unlocks those stores. Nothing here suggests the chain simply stops -- that ignores the entire point of phishing a password. Ransomware encryption and a domain-controller account creation are both unrelated techniques this event gives no evidence for; this platform keeps techniques evidence-based rather than assuming the worst-case unconnected outcome.",
+            "Reading 6 built directly on this: once a login password is captured, the next step in a credential-theft chain is very often /usr/bin/security reading the login Keychain, or a direct read of a browser's saved-password database, since the captured password is frequently what unlocks those stores. Nothing here suggests the chain simply stops -- that ignores the entire point of phishing a password. Gatekeeper does not re-assess an app's signature just because it spawns a child shell, so no block event follows from that. And a credential lure does not imply an imminent firewall prompt -- the expected follow-on is a quiet Keychain or browser-store read, not a user-facing network dialog; this platform keeps the next step evidence-based rather than inventing an unrelated outcome.",
           xp: 30,
         },
       ],
@@ -584,9 +584,9 @@ const macosSecurityFundamentalsRoom = {
       // chain), not the TCC.db write, so this flag must name its event explicitly.
       event: tccWriteEvent,
       prompt:
-        "Look at the Log Analysis finding on MAC-4471 (the TCC.db write). What is the exact value of the crowdstrike.ParentProcessName field in the raw log?",
-      answer: "sh",
-      hint: "Look inside the raw block of the log analysis event for the field named crowdstrike.ParentProcessName.",
+        "Look at the Log Analysis finding on MAC-4471 (the TCC.db write). Reading the sqlite3 command line in the raw log, enter the full filesystem path of the database file the root shell wrote to.",
+      answer: "/Library/Application Support/com.apple.TCC/TCC.db",
+      hint: "Find the sqlite3 command in the raw block; the path is the first argument it operates on. Give the complete path, not just the filename.",
       xp: 20,
     },
     // ── Question 5: synthesis ──────────────────────────────────────────────────

@@ -32,11 +32,16 @@ const rooms = [
         content:
           "**Analogy:** Imagine a nightclub with a list at the door. When you arrive, the bouncer checks your name (username) and your ID (password). If they match the list, you're in. An attacker who wants inside has two choices: guess your name and ID combination, or steal your ID entirely.\n\nEvery time a user logs on to a Windows computer or server, the operating system writes an event to the **Security Event Log**. These events are the bouncer's notebook — a permanent record of everyone who tried to enter and whether they succeeded.\n\nThe most important events you'll encounter as a SOC analyst are:\n\n- **Event ID 4624** — Successful logon. The 'Logon Type' field tells you *how* the user authenticated. This is a small, fixed, documented list of values — worth memorising, because a logon type that does not fit the account is itself a detection. Microsoft's own guidance for this event explicitly recommends alerting when, for example, a Domain Admin shows up as a Type 4 (Batch) or Type 5 (Service) logon, because that mismatch usually means an attacker is reusing a privileged credential in an unexpected way. The full set:\n\n| Type | Name | What it means | Why a SOC analyst cares |\n| --- | --- | --- | --- |\n| 2 | Interactive | A user logged on at the physical keyboard, console, or KVM | Normal at a desk; suspicious on a headless server nobody sits at |\n| 3 | Network | Access from another machine over the network — SMB file shares, mapped drives, most remote command execution | The workhorse of lateral movement; Pass-the-Hash lands here |\n| 4 | Batch | A scheduled task or batch job ran as the account, with no human present | A normally human account suddenly used as Batch can indicate scheduled-task persistence |\n| 5 | Service | The Service Control Manager started a service under this account | Expected for service accounts; a Domain Admin appearing as Type 5 is a red flag |\n| 7 | Unlock | An already-logged-on workstation was unlocked | Places a specific person at that console at that exact time |\n| 8 | NetworkCleartext | A network logon where the password reached the server in cleartext (unhashed) form, e.g. IIS basic authentication | Cleartext credentials crossing the network — find out which application is doing this |\n| 9 | NewCredentials | A process cloned its own token and supplied *different* credentials for its outbound network connections (the runas /netonly pattern) | Classic Pass-the-Hash / lateral-movement tradecraft — the attacker runs as one identity locally but authenticates outward as another |\n| 10 | RemoteInteractive | Remote Desktop / Terminal Services (RDP) | Full graphical control of a desktop; watch for RDP from unexpected hosts, times, or countries |\n| 11 | CachedInteractive | Logon using cached domain credentials because the domain controller could not be reached | Normal for a laptop off the corporate network; unusual on a wired server that should always reach a DC |\n\n(Type 0 is System-only, and types 12 and 13 are internal cached-variant/auditing values you will rarely triage directly.)\n- **Event ID 4625** — Failed logon. Every wrong password, expired account, or disabled user lands here. The `SubStatus` field is a hex code that tells you *why* it failed: `0xC000006A` = wrong password, `0xC0000064` = username doesn't exist, `0xC0000234` = account locked out.\n- **Event ID 4648** — Explicit credential use. This fires when a process starts using *different* credentials — for example, `runas.exe` or a service running as another account. Attackers who have stolen credentials but aren't logged in as that user will generate this event.\n- **Event ID 4768 / 4769** — Kerberos ticket requests. Kerberos is the authentication protocol for Active Directory environments. 4768 is a Ticket Granting Ticket (TGT) request — 'I want to prove who I am.' 4769 is a Service Ticket (TGS) request — 'I want to access a specific service.'\n\n**Why does any of this matter?** Because attackers must authenticate to do almost anything on a Windows network. Moving laterally to a new server, accessing a file share, running a remote command — all of these leave authentication footprints. If you can read the authentication log, you can often catch the attacker in the act.\n\n**The NTLM vs Kerberos split** is worth understanding. Kerberos is the modern, preferred protocol in Active Directory. NTLM is the older fallback — used when a client connects by IP address instead of hostname, or when Kerberos is unavailable. Seeing a high volume of NTLM auth from modern machines is suspicious; it may mean an attacker is forcing NTLM — either to capture Net-NTLMv2 challenge-responses for offline cracking, or to relay the authentication to another server in real time (NTLM relay, which needs no cracking at all).\n\n**Account lockout (Event 4740)** fires when a user hits the maximum number of failed attempts and their account gets locked. A single lockout is normal — a user typed their password wrong. A wave of lockouts across 20 different accounts at 2 AM is an attacker running a spray.\n\nAs a SOC analyst, you don't read these logs one by one. You look at *patterns*: many 4625s from the same IP in a short window, 4740s appearing on accounts that don't usually get locked, or a 4624 Type 10 (RDP) from a country where no employee lives.",
         checkpoint: {
-          question: "According to the reading, which Event ID fires when a user hits the maximum number of failed logon attempts and their account gets locked?",
-          options: ["Event ID 4624", "Event ID 4648", "Event ID 4740", "Event ID 4768"],
+          question: "A 4624 on a file server shows the Domain Admin account adm.kowalski with Logon Type 5. What does that logon type mean, and why does it stand out?",
+          options: [
+            "Type 5 is a network logon — normal when an admin opens a file share",
+            "Type 5 is an unlock — it places adm.kowalski at that server's console",
+            "Type 5 is a service start — a Domain Admin running a service is a red flag",
+            "Type 5 is a Remote Desktop logon — expected when admins manage servers",
+          ],
           answer: 2,
           explanation:
-            "Event ID 4740 is the account lockout event. A single lockout is normal user error, but a wave of lockouts across many accounts at an unusual hour is a strong indicator of a password spray.",
+            "Logon Type 5 means the Service Control Manager started a service under that account. That is expected for service accounts, but a Domain Admin appearing as Type 5 usually means a privileged credential is being reused in an unexpected way — for example a service installed to run as that admin. A network logon such as opening a share is Type 3. An unlock of an existing session is Type 7. Remote Desktop is Type 10.",
         },
       },
       // ── Reading 2 ──────────────────────────────────────────────
@@ -47,16 +52,16 @@ const rooms = [
         content:
           "**Analogy:** A password spray is like a burglar who walks down a street and tries the same master key on every front door, hoping one house has a bad lock. Credential stuffing is like that same burglar using a stolen list of house keys — they know the real keys, they just don't know *which house* each key belongs to.\n\nBoth attacks are designed to stay under the radar of account lockout policies. Here's how each one works:\n\n**Password Spray:**\n- The attacker picks one or a few common passwords: `Spring2024!`, `Company123`, `Welcome1`.\n- They try that password against *every account in the organisation* — hundreds or thousands.\n- Because they only try each account once or twice, the account lockout threshold (e.g. 5 failed attempts) is never triggered.\n- In the Windows Security log, you'll see Event 4625 with SubStatus `0xC000006A` (wrong password) distributed across *many different* `TargetUserName` values, all from the **same source IP** in a short time window.\n- Detection signature: **single source IP, many target accounts, low attempt count per account, SubStatus 0xC000006A**.\n\n**Credential Stuffing:**\n- The attacker has a database of username + password pairs leaked from another breach (e.g. a \"combo list\" such as Collection #1, 2019).\n- They try those exact pairs against your login page or VPN.\n- Attempt counts per account are also low — usually one or two per account.\n- The difference is that some attempts *succeed*, because users reused their password from the breached site.\n- Detection: mixed SubStatus codes (some 0xC000006A, some 4624 successes), and the successful logon IPs may be in unusual geographic locations.\n\n**Impossible Travel** is one of the most reliable signals in identity monitoring. If a user successfully authenticates from New York at 09:00 and then again from Tokyo at 09:45, something is wrong — no human can travel that distance in 45 minutes. This pattern means either the account is compromised (attacker in Tokyo) or the user is using a VPN that exits in a different country.\n\nSIEM tools like Microsoft Sentinel and Splunk can calculate the time and distance between consecutive logons and fire an alert when the implied travel speed is physically impossible. The raw events are still just two 4624s — the intelligence comes from correlating them.\n\n**Golden Ticket** attacks are the most dangerous Kerberos attack. After an attacker compromises the Domain Controller and extracts the `krbtgt` account's NTLM hash, they can forge a TGT for any user at any time — with an arbitrary lifetime and no account password required. A forged ticket is cryptographically valid, so the tells in the DC logs are subtle. The reliable indicators:\n- A `TargetUserName` in 4768/4769 that **doesn't exist in Active Directory**, or a mismatched/blank domain field — a forged ticket can name a principal the DC has no record of.\n- **Encryption downgrade**: RC4 (`Ticket Encryption Type 0x17`) in a domain that otherwise issues AES (`0x12`). Many forging tools default to RC4.\n- A 4769 (service-ticket request) for a logon session with **no preceding 4768** (TGT request) from that same DC — a forged TGT never went through the AS-REQ. Treat this as a *lead, not proof*: a legitimate TGT is cached on the client for ~10 hours (so the 4768 may sit outside your search window), and the 4768 may have been served by a **different DC** than the one logging the 4769. A missing 4768 on one DC is therefore not conclusive on its own.\n\nNote what 4769 does **not** give you: it has no ticket-lifetime, start-time or expiry field at all (its fields are Account Name, Service Name, Client Address, Ticket Options, Ticket Encryption Type, Failure Code and Transited Services). The tell-tale 10-year lifetime is real, but you see it by running `klist` on the endpoint holding the ticket — **not** in the DC's event log. So catch a golden ticket by correlating the DC-log anomalies above, then confirm the abnormal lifetime with `klist` on the host.",
         checkpoint: {
-          question: "According to the reading, what is the key difference in Windows Security logs between password spray and credential stuffing?",
+          question: "How does credential stuffing differ from a password spray, and how does that difference show in the logs?",
           options: [
-            "Password spray only ever targets non-interactive service accounts, while credential stuffing exclusively targets accounts belonging to human users",
-            "Credential stuffing shows some successful logons because attackers use real leaked username/password pairs, while a pure password spray is all failures with SubStatus 0xC000006A",
-            "Password spray attacks always originate from known Tor exit node IP ranges, whereas credential stuffing attacks never use Tor infrastructure at all",
-            "There is no observable difference between the two attacks anywhere in the logs — both produce an identical field pattern in Windows Security events",
+            "Spray targets service accounts and stuffing targets people, so check each account's type",
+            "Stuffing replays leaked username/password pairs, so reused ones succeed; a spray guesses",
+            "Spray comes from many IPs and stuffing from one, so count the distinct source addresses",
+            "Stuffing tries each account many times and spray once, so count attempts per account",
           ],
           answer: 1,
           explanation:
-            "In credential stuffing, some login attempts succeed because the attacker is using real username/password pairs leaked from another breach and reused by the victim. In pure password spray, the attacker is guessing a common password, so it's almost entirely failures (0xC000006A) across many accounts with no successes. Neither attack is defined by account type (service vs. human) or by whether Tor is used — both are defined by the shape of the attempts, and that shape is clearly visible in the logs, not identical between the two.",
+            "Credential stuffing uses real username/password pairs leaked from another breach, so accounts whose owners reused that password log on successfully — the logs show 4624 successes mixed in with 0xC000006A failures. A spray guesses one or a few common passwords across many accounts, so it is mostly failures. Neither attack is defined by account type. The source-IP tell is reversed: the spray signature taught here is a single source IP hitting many accounts. And both attacks keep attempts per account low to stay under lockout thresholds, so counting attempts per account does not separate them.",
         },
       },
       // ── Reading 3 ──────────────────────────────────────────────
@@ -72,7 +77,7 @@ const rooms = [
         type: "question",
         id: "auth-q1",
         question:
-          "A SOC analyst sees 80 Event ID 4625 entries within 3 minutes, all from IP 185.220.101.45, targeting 75 different user accounts, each account attempted exactly once. SubStatus is 0xC000006A on all events. What attack technique does this BEST describe?",
+          "A SOC analyst sees 80 Event ID 4625 entries within 3 minutes, all from IP 203.0.113.77, targeting 75 different user accounts, each account attempted exactly once. SubStatus is 0xC000006A on all events. What attack technique does this BEST describe?",
         options: [
           "Credential stuffing using a breached password database",
           "Password spray — one common password tried across many accounts",
@@ -98,7 +103,7 @@ const rooms = [
         ],
         answer: 1,
         explanation:
-          "Impossible travel detection identifies when the implied speed between two consecutive successful logons is physically impossible. London to Sydney (17,000 km) in 50 minutes requires ~20,000 km/h — far beyond any aircraft. The most likely conclusion is account compromise: an attacker in Sydney obtained the user's credentials. An atypical-location alert only flags a first-seen country and ignores the time between logons, so it does not capture the physical impossibility here. A concurrent session on a second device cannot explain two continents within 50 minutes, and two 4624 events alone do not prove Kerberos ticket theft (Pass-the-Ticket would need ticket-level evidence such as 4768/4769 anomalies).",
+          "Impossible travel detection identifies when the implied speed between two consecutive successful logons is physically impossible. London to Sydney (17,000 km) in 50 minutes requires ~20,000 km/h — far beyond any aircraft. The most likely conclusion is account compromise: an attacker in Sydney obtained the user's credentials — though before acting you rule out the benign explanation, a VPN or proxy that exits in another country. An atypical-location alert only flags a first-seen country and ignores the time between logons, so it does not capture the physical impossibility here. A concurrent session on a second device cannot explain two continents within 50 minutes, and two 4624 events alone do not prove Kerberos ticket theft (Pass-the-Ticket would need ticket-level evidence such as 4768/4769 anomalies).",
         xp: 20,
       },
       // ── Question 3 ──────────────────────────────────────────────
@@ -106,11 +111,16 @@ const rooms = [
         type: "question",
         id: "auth-q3",
         question:
-          "Which Windows Security Event ID fires when a Domain Controller detects that a user account has exceeded the maximum failed logon attempt threshold and locks the account?",
-        options: ["4625", "4648", "4740", "4769"],
+          "k.ito is logged on to her workstation. Its Security log shows Event 4648 with subject k.ito but credentials for 'svc-sql', target server SQL02. Seconds later SQL02 logs a 4624 Logon Type 3 for svc-sql from her workstation. What does this pair show?",
+        options: [
+          "svc-sql signed in interactively at k.ito's desk, so someone typed its password there",
+          "k.ito's account was locked out after failed attempts against the SQL02 server",
+          "A process in k.ito's session explicitly used svc-sql's credentials to reach SQL02",
+          "SQL02 issued a Kerberos service ticket to k.ito's own account for the SQL service",
+        ],
         answer: 2,
         explanation:
-          "Event ID 4740 is 'A user account was locked out.' It is generated on the Domain Controller that enforced the lockout policy. Event 4625 is a failed logon attempt (one of the events that *leads to* the lockout). Event 4648 is explicit credential use. Event 4769 is a Kerberos service ticket request. In a password spray investigation, 4740 appearing on multiple accounts in a short window is a high-confidence indicator that spray volume exceeded the lockout threshold.",
+          "4648 records explicit credential use: a process running as k.ito supplied different credentials (svc-sql) for an outbound connection, and SQL02's 4624 Type 3 is the network logon that resulted. That is the footprint of someone using credentials they are not logged on with — benign if it is a known admin task, a lead worth checking if svc-sql should never be used from a user workstation. 'svc-sql signed in interactively' would be a Type 2 logon on the workstation, not a 4648 plus a Type 3 on SQL02. 'Locked out' would be a 4740, and nothing here failed. 'A Kerberos service ticket for k.ito' would be a 4769 on a Domain Controller, and the credentials used were svc-sql's, not k.ito's.",
         xp: 15,
       },
       // ── Log Analysis ───────────────────────────────────────────
@@ -119,7 +129,7 @@ const rooms = [
         id: "auth-la1",
         heading: "Investigate a Password Spray in Progress",
         context:
-          "Your SIEM fired alert CORP-AUTH-0101: 'Password spray detected — 62 failed logon events from single IP targeting 58 accounts in 4 minutes.' The event below is a representative sample from the alert. All 62 events share the same source IP and SubStatus code. Three of the targeted accounts successfully authenticated 7 minutes after the failures stopped.",
+          "Your SIEM fired alert CORP-AUTH-0101: 'Password spray detected — 62 failed logon events from single IP targeting 58 accounts in 4 minutes.' The event below is a representative sample from the alert. All 62 events share the same source IP and SubStatus code. Three of the targeted accounts successfully authenticated from that same source 7 minutes after the failures stopped.",
         event: {
           id: "evt-auth-spray-001",
           ts: "2026-06-24T02:17:34.812Z",
@@ -153,44 +163,44 @@ const rooms = [
         questions: [
           {
             question:
-              "The SubStatus field shows '0xC000006A'. Based on the reading material, what does this hex code mean?",
+              "All 62 events carry the SubStatus shown in this sample. What does that tell you about the 58 targeted accounts?",
             options: [
-              "The user account does not exist in the directory",
-              "The user account is currently locked out",
-              "The password provided was incorrect",
-              "The account's logon hours restriction blocked the attempt",
+              "They are guessed names that do not exist in the directory",
+              "They are already locked out by earlier spray attempts",
+              "They are real accounts, and the password tried was wrong",
+              "They are blocked by logon-hour limits at this time of night",
             ],
             answer: 2,
             explanation:
-              "0xC000006A = STATUS_WRONG_PASSWORD — the username exists and was found in the directory, but the password supplied did not match. This is the key SubStatus code for a password spray where the attacker is guessing the same common password against real accounts. If the username didn't exist it would be 0xC0000064. If the account were locked it would be 0xC0000234.",
+              "0xC000006A means the username was found but the password did not match — so every target is a real account, which tells you the attacker is working from a valid user list rather than guessing names. Non-existent usernames would show 0xC0000064 (and their presence would mean user enumeration as well). Locked-out accounts would show 0xC0000234. A logon-hours restriction has its own failure code and is not the value shown here.",
             xp: 20,
           },
           {
             question:
               "The LogonType is '3' and AuthenticationPackageName is 'NTLM'. What does this combination tell you about HOW the attacker is authenticating?",
             options: [
-              "The attacker is physically sitting at the Domain Controller's own keyboard, which is what LogonType 3 combined with the NTLM package specifically represents",
-              "The attacker is connecting over the network using NTLM — possibly because they are connecting by IP address rather than hostname, or Kerberos is unavailable",
-              "The attacker is using an interactive Remote Desktop Protocol session and already holds valid domain credentials for the account being targeted",
-              "The attacker has already obtained a full Kerberos Ticket Granting Ticket and is now using it to request additional Kerberos service tickets",
+              "A NewCredentials logon: a process cloned its token and sent other credentials outward",
+              "A network logon over NTLM — e.g. the tool targets the server by IP, so Kerberos isn't used",
+              "A Remote Desktop session in which the attacker already holds valid domain credentials",
+              "Kerberos with an NTLM marker, meaning a TGT had already been issued for the account",
             ],
             answer: 1,
             explanation:
-              "Logon Type 3 is a network logon — the authentication request arrived over the network, not from a local interactive session. NTLM being used instead of Kerberos (the preferred AD protocol) often means the client addressed the target server by IP address rather than hostname (e.g., \\\\<DC01's IP>\\share — Kerberos tickets are issued for service names, so pointing at a raw IP falls back to NTLM; the IP in that path is the SERVER's, while 185.220.101.45 in IpAddress is the attacker's source), or that they are targeting a service that only supports NTLM. This is a common pattern in sprays where automated tools connect directly by IP.",
+              "Logon Type 3 is a network logon — the request arrived over the network. NTLM instead of Kerberos (the preferred AD protocol) often means the client addressed the server by IP address rather than by name (for example \\\\<DC01's IP>\\share — Kerberos tickets are issued for service names, so a raw IP falls back to NTLM; that IP is the server's, not the attacker's source), or that the service only supports NTLM. Spray tools commonly connect straight to an IP. 'NewCredentials' is Logon Type 9, not 3. Remote Desktop is Type 10, and a failed attempt shows the attacker does not hold valid credentials. 'Kerberos with an NTLM marker' is not a thing: the package field says NTLM, so no Kerberos ticket was involved.",
             xp: 20,
           },
           {
             question:
               "The alert notes that 3 accounts successfully authenticated 7 minutes AFTER the spray ended. What is the CORRECT next action for the analyst?",
             options: [
-              "Close the alert as fully resolved — the spray traffic has stopped and the 3 successful logons that followed it are most likely just coincidental timing",
-              "Simply increase the SIEM's alerting threshold going forward, so that similar future patterns generate less noise for the on-call analyst to review",
-              "Immediately disable the 3 accounts that had successful logons, preserve evidence, and escalate to Tier 2 for full investigation of what those accounts accessed post-logon",
-              "Block the source IP address at the perimeter firewall and consider the matter fully handled, since the attacker can no longer reach the network at all",
+              "Block the source IP at the firewall, note the containment, and close the alert as handled",
+              "Force password resets on all 58 targeted accounts and close the alert once they are done",
+              "Disable the 3 accounts that logged on, preserve evidence, and escalate to review their activity",
+              "Raise the SIEM threshold so this pattern stops paging on-call, then review it next week",
             ],
             answer: 2,
             explanation:
-              "Three successful logons immediately after a spray from the same source IP is a 'spray followed by success' pattern — the attacker found valid credentials. Blocking the IP is a useful containment step but is insufficient alone (attackers switch IPs). Closing the alert ignores a likely compromise. The most important actions are: disable the compromised accounts to stop further access, pull post-logon activity (what did those accounts do in the 7 minutes?), and escalate so a Tier 2 analyst can determine the blast radius.",
+              "Three successful logons from the spraying source right after the failures is 'spray followed by success' — the attacker found working passwords. Disable those accounts, preserve the evidence, and escalate so their post-logon activity (shares, other hosts, privileged commands) can be scoped. Blocking the IP is a useful step, but attackers switch addresses, and closing ignores what the three accounts already did. Resetting all 58 passwords is reasonable hardening, but closing afterwards skips the investigation of the three that were actually used. Raising the threshold only hides the next spray.",
             xp: 25,
           },
         ],
@@ -204,13 +214,12 @@ const rooms = [
         items: [
           { id: "recon",    text: "Username enumeration — attacker gathers a list of valid domain usernames (LinkedIn, email format guessing, LDAP query)" },
           { id: "single",   text: "Single-password spray — one common password tried against ALL accounts to stay below lockout threshold" },
-          { id: "rotate",   text: "Password rotation — attacker waits the lockout observation window, then tries the next common password" },
           { id: "success",  text: "Credential validation — one or more accounts authenticate successfully with the sprayed password" },
           { id: "logon",    text: "Logon and reconnaissance — attacker logs in as the compromised account and maps the environment" },
           { id: "lateral",  text: "Lateral movement — attacker uses compromised credentials to access additional systems or elevate privileges" },
         ],
-        correct_order: ["recon", "single", "rotate", "success", "logon", "lateral"],
-        explanation: "Password spray must follow this sequence because each stage depends on the previous. Reconnaissance comes first because the attacker needs valid usernames before they can spray. Single-password spray is the distinguishing feature of spray vs. brute force — one guess per account stays under lockout thresholds. The waiting period (rotate) mimics the lockout observation window used by many organizations. Successful authentication is the pivot point where the attack shifts from credential theft to active intrusion. Understanding this sequence helps analysts recognize spray at earlier stages — catching it at 'single-password spray' or even 'username enumeration' prevents the lateral movement stage entirely.",
+        correct_order: ["recon", "single", "success", "logon", "lateral"],
+        explanation: "Password spray must follow this sequence because each stage depends on the previous. Reconnaissance comes first because the attacker needs valid usernames before they can spray. Single-password spray is the distinguishing feature of spray vs. brute force — one guess per account stays under lockout thresholds (if nothing matches, the attacker simply repeats this stage later with the next common password). Successful authentication is the pivot point where the attack shifts from credential theft to active intrusion. Understanding this sequence helps analysts recognize spray at earlier stages — catching it at 'single-password spray' or even 'username enumeration' prevents the lateral movement stage entirely.",
         xp: 30,
       },
 
@@ -219,9 +228,9 @@ const rooms = [
         type: "flag",
         id: "auth-flag1",
         prompt:
-          "Examine the log event in the analysis section above. The `winlog.event_data.SubStatus` field contains a Windows NTSTATUS hex code that identifies exactly WHY the authentication failed. Enter that hex code exactly as it appears in the raw log (include the '0x' prefix).",
-        answer: "0xC000006A",
-        hint: "Look at the SubStatus field in the raw log. It is an eight-character hex value beginning with 0xC — and it means 'wrong password.'",
+          "To find the three successful logons that followed the spray, you will search for 4624 events from the same origin as these failures. From the spray event above, enter the network address you would search on.",
+        answer: "185.220.101.45",
+        hint: "The event records both the server that logged the failure and where the attempt came from. You want the second.",
         xp: 35,
       },
     ],

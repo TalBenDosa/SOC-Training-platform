@@ -642,15 +642,15 @@ Beyond just the IP address, DHCP tells your device:
 
 Detection: DHCP servers should only appear on specific authorized devices. If your monitoring shows DHCP responses coming from an unexpected IP or MAC address, that's a critical alert.`,
         checkpoint: {
-          question: "According to the reading, what does a DNS 'MX' record specify?",
+          question: "While investigating a phishing email you want to know which server receives email for the sender's domain. Which DNS record do you look up?",
           options: [
-            "An alias from one domain to another",
-            "The mail server(s) that handle email for a domain",
-            "The reverse lookup from an IP address to a domain name",
-            "The IPv6 address of a domain",
+            "CNAME, the alias that points one name at another",
+            "MX, the record naming the domain's mail servers",
+            "PTR, the reverse lookup from an IP to a name",
+            "TXT, the record that holds the domain's SPF list",
           ],
           answer: 1,
-          explanation: "An MX (Mail eXchange) record tells other mail servers which server handles email for a given domain.",
+          explanation: "MX (Mail eXchange) records name the servers that receive email for a domain. A CNAME is only an alias between names. PTR turns an IP address back into a hostname. TXT holds SPF, which lists the servers allowed to SEND mail for the domain — not the ones that receive it.",
         },
       },
       {
@@ -739,15 +739,15 @@ ICMP is often allowed through firewalls for diagnostic purposes, which attackers
 - **Ping flood / ICMP flood:** Overwhelming a target with a torrent of Echo Requests (type 8) to exhaust its bandwidth or CPU — an old-school DDoS.
 - **ICMP redirect attacks:** Forged Redirect messages (type 5) tell a victim "route your traffic through me instead of the real gateway," manipulating its routing table to enable a man-in-the-middle position.`,
         checkpoint: {
-          question: "According to the reading, which port does RDP (Remote Desktop Protocol) use?",
+          question: "Firewall logs show four logins from a contractor's laptop. Which one sends the password in a form anyone capturing the traffic could read?",
           options: [
-            "Port 22",
-            "Port 445",
-            "Port 3389",
-            "Port 8080",
+            "SSH to a server on port 22",
+            "SFTP to a server on port 22",
+            "FTP to a server on port 21",
+            "IMAPS to a server on port 993",
           ],
           answer: 2,
-          explanation: "RDP runs on port 3389 and is one of the top entry points for ransomware operators when exposed to the internet.",
+          explanation: "FTP (ports 20/21) sends everything, including the username and password, as plain text. SSH encrypts the whole session, SFTP runs inside SSH, and IMAPS is IMAP wrapped in SSL/TLS — all three protect the password in transit.",
         },
       },
       {
@@ -829,16 +829,16 @@ These questions form the foundation of network-based threat investigation.`,
         type: "question" as const,
         id: "net-prot-q2",
         question:
-          "A SOC analyst sees 847 authentication failure events from IP 45.33.32.156 targeting port 3389 on a corporate server over 2 minutes, followed by 1 authentication success. What most likely happened?",
+          "A SOC analyst sees 847 authentication failure events from external IP 45.33.32.156 against port 3389 on a corporate server over 2 minutes, followed by 1 authentication success. What should the analyst find out first?",
         options: [
-          "A legitimate user stuck in a retry loop on an outdated saved RDP password",
-          "An RDP service restart that rejected logons until it came back up",
-          "A successful RDP brute-force — the attacker finally guessed the password",
-          "A monitoring tool running its scheduled credential check on the server",
+          "Whether a user has an old saved password that keeps retrying",
+          "Whether the same IP also tried port 22, to see if it is SSH too",
+          "Which account succeeded, and what that session did on the server",
+          "Nothing more: block the IP, since the attack has now finished",
         ],
         answer: 2,
         explanation:
-          "This is a textbook RDP brute-force attack. 847 failures in 2 minutes from a single external IP indicates automated password guessing — no human types passwords that fast. The single auth_success after all those failures means the attack succeeded — the attacker now has valid credentials and remote desktop access to the server. This requires immediate incident response: isolate the server, reset credentials, and investigate what the attacker accessed.",
+          "847 failures in 2 minutes from one external IP is automated guessing, and the success at the end means it worked: treat it as an incident. The first thing to learn is which account was compromised and what the attacker did with the session, so you can reset the credential and scope the damage. A user's saved password would retry from their own device, not hundreds of times a minute from an external IP. Checking port 22 is a side question that does not change what you must do here. Blocking the IP and stopping ignores that someone already logged in.",
         xp: 20,
       },
       {
@@ -846,7 +846,7 @@ These questions form the foundation of network-based threat investigation.`,
         id: "net-prot-la1",
         heading: "Suspicious DNS Query — DGA Malware Detection",
         context:
-          "Your SIEM has flagged an unusual DNS query from a workstation. The company uses 10.0.0.53 as its internal DNS server. This query went to an external resolver (8.8.8.8 — Google's public DNS, which should be blocked by policy) and the domain requested looks like it was randomly generated. Analyze the event.",
+          "Your SIEM has flagged a DNS query from a workstation. The company's internal DNS server is 10.0.0.53. Analyze the event.",
         event: {
           id: "evt-dns-001",
           ts: "2025-11-15T03:22:17Z",
@@ -858,7 +858,7 @@ These questions form the foundation of network-based threat investigation.`,
           dst_ip: "8.8.8.8",
           dst_port: 53,
           description:
-            "Workstation queried external DNS server for high-entropy domain — potential DGA malware",
+            "DNS query from CORP-WS-0112",
           dns: {
             query: "xk3r9qlpmf7wz2.com",
             response: "NXDOMAIN",
@@ -875,22 +875,21 @@ These questions form the foundation of network-based threat investigation.`,
             query_count_last_hour: 312,
             unique_domains_queried: 289,
             timestamp: "2025-11-15T03:22:17Z",
-            bypass_corporate_dns: true,
           },
         },
         questions: [
           {
             question:
-              "Why is the domain 'xk3r9qlpmf7wz2.com' suspicious compared to a normal domain like 'microsoft.com'?",
+              "Look at the queried domain together with the response and the hourly counts. What is the best explanation?",
             options: [
-              "It uses the .com TLD, which attackers rarely use compared with .xyz or .top",
-              "It contains digits, which legitimate registered domains almost never include",
-              "It looks randomly generated — a high-entropy mix with no real words, typical of DGA malware",
-              "It has no www subdomain, so the query cannot be a normal browser lookup",
+              "A CDN edge hostname; content networks often use random-looking names",
+              "A typing mistake: the user misspelled a real site's address in the browser",
+              "Machine-generated (DGA) names: random letters and digits, no real words",
+              "Nothing unusual: NXDOMAIN means the website is temporarily down",
             ],
             answer: 2,
             explanation:
-              "Legitimate domains are human-readable ('google.com', 'microsoft.com', 'amazon.com'). DGA malware generates random-looking domains algorithmically — things like 'xk3r9qlpmf7wz2.com' or 'p9kz2mwrqx.net'. The malware tries hundreds of these domains until one of them is registered and active by the attacker. The raw log shows 289 unique domains queried in one hour — that's DGA behavior. The NXDOMAIN response (domain doesn't exist) is also expected — most generated domains won't be registered.",
+              "'xk3r9qlpmf7wz2.com' is a random mix with no words, the answer is NXDOMAIN (the name does not exist), and the counts show hundreds of mostly different domains in one hour, at 03:22 — the DGA pattern of malware trying generated names until one is registered. CDN hostnames sit under the CDN's own registered domain and they resolve; they do not come back as non-existent. One typo produces one failed lookup, not hundreds in an hour in the middle of the night. NXDOMAIN does not mean “down”: it means the name is not registered at all.",
             xp: 20,
           },
           {
@@ -904,7 +903,7 @@ These questions form the foundation of network-based threat investigation.`,
             ],
             answer: 1,
             explanation:
-              "Corporate DNS servers often have security controls — they block known malicious domains, log all queries for monitoring, and alert on DGA patterns. By sending DNS queries directly to 8.8.8.8 (Google's public DNS), the malware bypasses these controls. This is why corporate policy should block outbound port 53 traffic to anything except the authorized internal DNS servers. The bypass_corporate_dns: true field in the log confirms this.",
+              "Corporate DNS servers block known malicious domains, log every query and alert on DGA patterns. A workstation that sends its queries straight to 8.8.8.8 skips all of that, which is why malware does it and why policy should block outbound port 53 to anything except the internal DNS servers. Windows does not pick a resolver for speed and has no factory-default public resolver: it uses the servers it was configured with (normally by DHCP). And a failed internal server would show failed queries to 10.0.0.53 first, not a clean switch to Google.",
             xp: 20,
           },
         ],
@@ -913,9 +912,9 @@ These questions form the foundation of network-based threat investigation.`,
         type: "flag" as const,
         id: "net-prot-f1",
         prompt:
-          "In the DNS log above, what DNS response did the server return for the suspicious domain query 'xk3r9qlpmf7wz2.com'? Enter the response as it is named in the log.",
+          "You want a per-host rule that would have caught CORP-WS-0112 an hour earlier: alert when one host gets a large number of a particular DNS response code in a few minutes. Based on this event and the hourly counts, which response code should the rule count? Enter its name as DNS logs show it.",
         answer: "NXDOMAIN",
-        hint: "Look at the dns_response field in the raw log data. This response means the domain that was queried does not exist — which is exactly what you would expect for most randomly generated domains.",
+        hint: "Think about what a resolver answers when malware asks for hundreds of generated names that nobody ever registered.",
         xp: 25,
       },
       {
@@ -1032,17 +1031,17 @@ Rules are evaluated **top to bottom** and the first matching rule wins. A typica
 3. DENY TCP from any to 10.0.1.50 port 22 (block SSH to web server)
 4. DENY all from any to any (default deny everything else)
 
-The order matters. Rule 3 comes before Rule 4 explicitly denies SSH — without Rule 3, SSH would also be caught by Rule 4, but being explicit is better practice.`,
+The order matters. Rule 3 sits above Rule 4 and explicitly denies SSH; without Rule 3, SSH would still be caught by Rule 4's default deny, but the explicit rule documents intent and can be logged separately.`,
         checkpoint: {
-          question: "According to the reading, what is the key limitation of a Generation 1 packet-filtering firewall?",
+          question: "Using the reading's example rule set, an internet host tries to connect to 10.0.1.50 on TCP port 22. Which rule decides what happens?",
           options: [
-            "It cannot process TCP traffic at all — packet filters are limited to inspecting UDP and ICMP headers only",
-            "It is stateless — it cannot tell whether a packet belongs to an already-established connection",
-            "It requires a separate NGFW license key to be installed before any rules can be enforced, even basic ones",
-            "It can only be deployed in the cloud, since the packet-filtering architecture is incompatible with on-premises hardware appliances",
+            "Rule 4, the default deny, because it is the rule that covers all traffic",
+            "Rule 3, because it is the first rule from the top that matches the packet",
+            "Rule 2, because it lets any source reach the 10.0.1.50 server",
+            "None: a packet that matches two rules is dropped as a conflict",
           ],
           answer: 1,
-          explanation: "Packet-filtering firewalls examine each packet in isolation with no memory of prior packets, so a crafted packet with the 'right' flags can slip through as if it were part of a legitimate session. It has nothing to do with TCP-only support, licensing, or cloud-only deployment — those are all fabricated limitations.",
+          explanation: "Rules are read top to bottom and the first match wins. Rules 1 and 2 only match port 443, so they are skipped; Rule 3 (deny any to 10.0.1.50 port 22) is the first match and decides. Rule 4 would only apply if nothing above it matched. Rule 2 allows port 443, not every port on the server. And matching more than one rule is normal — the first match is used, not treated as a conflict.",
         },
       },
       {
@@ -1128,15 +1127,15 @@ A regular network firewall operates at Layers 3-4 (IP/port). A **WAF** (Web Appl
 
 WAFs sit in front of web applications — either inline (blocking mode) or out-of-band (detection mode). Cloud WAFs like AWS WAF, Cloudflare WAF, and Azure Application Gateway WAF are common in modern architectures.`,
         checkpoint: {
-          question: "According to the reading, what is the key difference between an IDS and an IPS?",
+          question: "A sensor receives its traffic from a SPAN port, as a copy. When it matches an attack signature, what can it do?",
           options: [
-            "An IDS blocks traffic automatically while an IPS only alerts and requires manual review before anything is stopped",
-            "An IDS passively detects and alerts; an IPS sits inline and actively blocks malicious traffic",
-            "IDS and IPS are simply two different marketing names vendors use for the exact same underlying detection technology",
-            "An IDS only works on encrypted HTTPS traffic, while an IPS is limited to inspecting unencrypted HTTP and FTP sessions",
+            "Block the attack, since it sees exactly the same packets as the firewall",
+            "Raise an alert: it works on a copy, so it is not in the path to block",
+            "Block the attack, as long as its signature database is up to date",
+            "Store the copy for later forensics; a SPAN sensor does not alert live",
           ],
           answer: 1,
-          explanation: "IDS is the 'note-taking guard' — it monitors and alerts but takes no action. IPS sits inline in the traffic path and can actively block malicious traffic in real time.",
+          explanation: "A SPAN port or TAP sends the sensor a copy of the traffic, so the sensor sits outside the traffic path: it can detect and alert (an IDS) but cannot stop the original packets. To block, a sensor must be inline, which is what makes it an IPS. Seeing the same packets is not enough to block them, and fresh signatures improve detection, not the ability to block. A SPAN-fed IDS does analyse and alert in real time.",
         },
       },
       {
@@ -1165,6 +1164,7 @@ A typical firewall log entry contains these key fields:
 - **ALLOW / PERMIT:** Traffic was allowed through
 - **DENY:** Traffic was blocked and the sender received an error response
 - **DROP:** Traffic was silently discarded (no response to sender — this makes port scanning harder)
+- *Scan types you will see named in IDS alerts:* a **connect scan** completes the full SYN → SYN-ACK → ACK handshake on each port, while a **SYN (half-open) scan** sends only the SYN, reads the SYN-ACK or RST that comes back, and never sends the final ACK — so many SYNs with no matching ACK are its fingerprint.
 - **RESET:** Connection was terminated with a TCP RST
 
 **rule_name / rule_id:** Which firewall rule matched this traffic. Critical for understanding why a decision was made.
@@ -1226,14 +1226,14 @@ A **proxy server** acts as an intermediary between clients and servers. Two type
         question:
           "A web server in your company's DMZ was compromised by an attacker. Because of proper DMZ architecture, what does the attacker still need to do to reach the internal corporate database?",
         options: [
-          "Nothing — the DMZ is architecturally part of the internal network, so full access to the database is available the moment the web server is compromised",
-          "They only need to change their own machine's IP address to something inside the internal range, since firewalls trust traffic based purely on the source IP presented",
-          "They must bypass or compromise a second firewall (between the DMZ and internal network) because the DMZ is isolated from the internal network",
-          "They need to wait for a legitimate user to log into the compromised web server before any pivot to internal systems becomes technically possible",
+          "Nothing more: servers in the DMZ are trusted members of the internal network",
+          "Get past the external firewall again, since that is the one guarding the database",
+          "Get past a second firewall that separates the DMZ from the internal network",
+          "Wait for a legitimate user to log in to the web server before moving further",
         ],
         answer: 2,
         explanation:
-          "The purpose of a DMZ is to add an additional layer of protection. Even if an attacker fully compromises a server in the DMZ, they face a second firewall between the DMZ and the internal corporate network. This firewall should have strict rules — only allowing specific, necessary traffic from the DMZ to internal systems (like a database server accepting connections only from the specific app server in the DMZ). The attacker must now find a vulnerability in this second firewall or find a pivot point to reach internal systems.",
+          "A DMZ sits between two firewalls. The compromised web server is past the external firewall already, but an internal firewall stands between the DMZ and the database, so the attacker must get past it or find something it allows. DMZ servers are deliberately NOT treated as internal. The external firewall only controls internet ↔ DMZ traffic; it is not what guards the database. Waiting for a user to log in is not a requirement — the barrier is the internal firewall, not anyone's session.",
         xp: 15,
       },
       {
@@ -1242,14 +1242,14 @@ A **proxy server** acts as an intermediary between clients and servers. Two type
         question:
           "What is the key difference between a stateful and a stateless (packet filtering) firewall?",
         options: [
-          "Stateful firewalls are faster because they never store any information about connections and simply forward everything after a one-time rule check",
-          "Stateless firewalls track active connections in a state table while stateful firewalls only check individual packets in isolation with no memory",
-          "Stateful firewalls track the state of active connections and only allow packets that are part of established, legitimate sessions — stateless firewalls inspect each packet in isolation without connection context",
-          "Stateless firewalls can decrypt and inspect HTTPS traffic natively while stateful firewalls are structurally incapable of processing any encrypted protocol",
+          "Stateful firewalls read packet contents; stateless ones check only ports",
+          "Stateless firewalls keep a connection table; stateful ones do not",
+          "Stateful firewalls track connections; stateless ones judge each packet alone",
+          "Stateful firewalls filter by user identity; stateless ones filter by IP",
         ],
         answer: 2,
         explanation:
-          "A stateful firewall maintains a connection state table and tracks every active TCP/UDP session. It knows if an incoming packet belongs to an established connection or is a new, potentially malicious packet trying to bypass rules. A stateless (packet-filtering) firewall checks each packet independently — it doesn't know if it's a response to an internal request or a spoofed attack packet. This makes stateless firewalls vulnerable to attacks like IP spoofing and TCP RST injection.",
+          "A stateful firewall keeps a connection state table, so it knows whether a packet belongs to a connection it has seen opened; a stateless packet filter judges every packet on its own headers, which is why a crafted fake “reply” can slip past it. Reading packet contents is deep packet inspection, an NGFW feature, not what “stateful” means. The connection table belongs to the stateful firewall, not the stateless one. Rules by user identity are another NGFW feature.",
         xp: 15,
       },
       {
@@ -1267,7 +1267,7 @@ A **proxy server** acts as an intermediary between clients and servers. Two type
           src_ip: "91.235.234.192",
           dst_ip: "203.0.113.10",
           description:
-            "Nmap SYN scan detected — attacker mapping open ports on company perimeter",
+            "IDS scan signature on a perimeter address",
           mitre_technique: "T1046 - Network Service Discovery",
           raw: {
             alert_signature: "ET SCAN NMAP -sS window 1024",
@@ -1276,11 +1276,9 @@ A **proxy server** acts as an intermediary between clients and servers. Two type
             dst_ip: "203.0.113.10",
             src_port: 45821,
             dst_ports_scanned: [21, 22, 23, 25, 53, 80, 110, 135, 139, 143, 443, 445, 3389, 8080],
-            scan_type: "SYN_SCAN",
             packets_sent: 14,
             syn_packets_without_ack: 14,
             scan_duration_ms: 1240,
-            tool_identified: "Nmap",
             geo_src_country: "LT",
             threat_intel: "IP flagged in 3 threat feeds",
             action: "alert",
@@ -1307,14 +1305,14 @@ A **proxy server** acts as an intermediary between clients and servers. Two type
             question:
               "Looking at the dst_ports_scanned list, which port should be most concerning if found open and accessible from the internet?",
             options: [
-              "Port 80 — unencrypted HTTP is the riskiest port to leave reachable from the internet",
-              "Port 53 — an exposed DNS server is always an open resolver used for amplification",
-              "Port 3389 (RDP) — internet-exposed RDP is a top initial access vector for ransomware",
-              "Port 443 — HTTPS exposure is the riskiest, since the encryption itself is what attackers exploit",
+              "Port 80, because plain HTTP sends web traffic unencrypted",
+              "Port 23, because Telnet is an old protocol that few people use",
+              "Port 3389, because internet-exposed RDP is a top ransomware entry point",
+              "Port 443, because encrypted traffic hides attacks from the firewall",
             ],
             answer: 2,
             explanation:
-              "Port 3389 (RDP) exposed to the internet is one of the highest-risk findings in network security. Multiple major threat intelligence reports identify internet-facing RDP as the #1 initial access vector for ransomware operators. Attackers brute-force RDP credentials or exploit RDP vulnerabilities (BlueKeep, DejaBlue) to gain initial access, then spread ransomware across the network. Port 80/443 are expected to be open on web servers. Port 53 may be open on DNS servers (but should be restricted to specific resolvers). RDP should never be directly accessible from the internet without a VPN.",
+              "Port 3389 (RDP) exposed to the internet is one of the highest-risk findings in network security. Multiple major threat intelligence reports identify internet-facing RDP as the #1 initial access vector for ransomware operators. Attackers brute-force RDP credentials or exploit RDP vulnerabilities (BlueKeep, DejaBlue) to gain initial access, then spread ransomware across the network. Ports 80 and 443 are expected to be open on a web-facing address, and plain HTTP is a confidentiality problem rather than a way in. Telnet would be a serious finding too, but it is rarely exposed and is not the documented ransomware route that RDP is. RDP should never be directly reachable from the internet without a VPN or jump server.",
             xp: 20,
           },
         ],
@@ -1323,25 +1321,25 @@ A **proxy server** acts as an intermediary between clients and servers. Two type
         type: "flag" as const,
         id: "fw-f1",
         prompt:
-          "In the port scan detection event above, what was the value of the 'action' field? This tells you what the sensor did when it detected the scan.",
-        answer: "alert",
-        hint: "Look in the raw log data for the 'action' field. Remember the difference between an IDS and an IPS: only one of them can block traffic.",
+          "Based on the port scan event above, was the sensor working as an IDS or as an IPS when it saw this scan? Answer IDS or IPS.",
+        answer: "IDS",
+        hint: "Find what the sensor did with the scan traffic, then ask whether that stopped anything.",
         xp: 25,
       },
       {
         type: "question" as const,
         id: "fw-q3",
         question:
-          "Your company implements network VLANs: VLAN 10 (Workstations), VLAN 20 (Servers), VLAN 30 (Finance), and VLAN 40 (Guest Wi-Fi). Ransomware infects a workstation on VLAN 10 and tries to spread via SMB (port 445). With proper firewall rules between VLANs, what is the best expected outcome?",
+          "Your company has VLAN 10 (Workstations), VLAN 20 (Servers), VLAN 30 (Finance) and VLAN 40 (Guest Wi-Fi). The inter-VLAN firewall lets workstations reach the servers only on HTTPS and blocks everything else between VLANs. Ransomware infects a workstation on VLAN 10 and tries to spread via SMB (port 445). What is the expected outcome?",
         options: [
-          "It spreads to all VLANs, because VLANs only separate broadcast domains and never filter traffic",
-          "It stays in VLAN 10, because inter-VLAN firewall rules block SMB toward VLANs 20, 30 and 40",
-          "It reaches only the VLAN 20 servers, because SMB from workstations to servers is always permitted",
-          "It is stopped by the VLAN tagging itself, which drops SMB frames at Layer 2",
+          "It spreads to every VLAN, since VLANs separate broadcasts but do not filter",
+          "It stays in VLAN 10, because the inter-VLAN rules block SMB to other VLANs",
+          "It reaches the VLAN 20 servers, since workstations need file-server access",
+          "It is stopped by the VLAN tag itself, which drops SMB frames at Layer 2",
         ],
         answer: 1,
         explanation:
-          "Proper network segmentation with firewall rules between VLANs is one of the most effective defenses against ransomware lateral movement. If SMB (port 445) is blocked between VLAN 10 and VLAN 20/30, the ransomware cannot spread to servers or finance systems — it's contained to the workstation VLAN. This 'blast radius limitation' is why security frameworks like NIST CSF, ISO 27001, and CIS Controls all emphasize network segmentation. Note: VLANs alone don't stop traffic — you need inter-VLAN firewall rules as well.",
+          "Proper network segmentation with firewall rules between VLANs is one of the most effective defenses against ransomware lateral movement. If SMB (port 445) is blocked between VLAN 10 and VLAN 20/30, the ransomware cannot spread to servers or finance systems — it's contained to the workstation VLAN. It can still spread to other workstations inside VLAN 10, which is why segmentation limits the blast radius rather than removing it. The other options miss the rules in the stem: VLANs alone do not filter (true), but here a firewall does; workstations may normally need file servers, but this rule set allows them only HTTPS; and a VLAN tag separates networks at Layer 2 without inspecting what protocol a frame carries.",
         xp: 15,
       },
     ],

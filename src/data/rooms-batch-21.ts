@@ -493,7 +493,7 @@ const oktaPushEvent: TelemetryEvent = {
     "Okta's system log recorded this MFA push approval for l.marsh. Five push challenges were sent to this user's device in the three minutes before this one was approved.",
   it_verify_result: "confirmed",
   it_verify_message:
-    "Helpdesk ticket HD-33291 confirms l.marsh reinstalled Okta Verify this morning after a phone replacement; the re-enrollment process re-sent several queued push prompts from the new device pairing before the user approved the final one.",
+    "Helpdesk ticket HD-33291: l.marsh called in minutes later while setting up her replacement laptop. The sign-in page kept timing out, so she retried several times, received a push for each attempt, and approved the last one. The helpdesk confirmed the laptop's asset tag against her assignment record.",
   raw: {
     eventType: "user.authentication.auth_via_mfa",
     displayMessage: "Authentication of user via MFA",
@@ -533,14 +533,14 @@ const identityBasicsRoom: Room = {
         question:
           "A help-desk account logs in successfully with a fully valid password, then resets an executive's password even though its role was never meant to include that. What kind of failure is this?",
         options: [
-          "An authentication failure -- the password check must have been bypassed",
-          "An authorization failure -- the identity was proven genuine, but it was allowed to do something it shouldn't have",
-          "Neither -- this is expected, routine behavior for any help-desk account",
-          "A credential theft, since the account must have been compromised",
+          "An authentication failure: the password check must have been bypassed",
+          "An authorization failure: a genuine identity did something it shouldn't",
+          "Neither: help-desk staff reset passwords every day, so this is expected",
+          "Credential theft: a valid login followed by misuse means it was stolen",
         ],
         answer: 1,
         explanation:
-          "The login itself was completely legitimate, so this isn't an authentication problem -- the failure is in what the already-proven identity was permitted to do, which is exactly what authorization governs.",
+          "The login itself was completely legitimate, so this isn't an authentication problem -- the failure is in what the already-proven identity was permitted to do, which is exactly what authorization governs. The password check was not bypassed: the stem says the password was fully valid. Help-desk staff do reset passwords, but this role was never meant to include executive accounts, which is exactly the boundary that failed. And a valid login followed by misuse does not prove theft: Reading 1's example is the rightful owner going beyond their permissions, so the question to investigate is why the permissions allowed it.",
       },
     },
     // ----- Reading 2: three factors -------------------------------------------
@@ -590,14 +590,14 @@ const identityBasicsRoom: Room = {
         question:
           "Why can a stolen password hash alone sometimes be enough for an attacker to authenticate, without ever cracking it into a plaintext password?",
         options: [
-          "Hashes can always be mathematically reversed back into the original plaintext password given enough computing power, making a stolen hash functionally identical to a stolen plaintext password in every protocol",
-          "Some protocols, like NTLM, can be satisfied by presenting the hash directly, without the plaintext ever being supplied -- this is the pass-the-hash technique",
-          "Password hashes are stored in plain, unencrypted text directly alongside the password itself in the same database record, so stealing one automatically exposes both values to the attacker at once",
-          "This kind of attack is a purely theoretical concept and has never actually been demonstrated or used against any real-world authentication protocol",
+          "The attacker can quickly reverse the hash into the plaintext password, so a stolen hash is a stolen password",
+          "Some protocols, such as NTLM, accept the hash itself as proof, so it never has to be cracked (pass-the-hash)",
+          "Systems store the plaintext password next to its hash, so stealing the hash record exposes the password too",
+          "A hash works like a session token, so the system accepts it until the user next logs out of their account",
         ],
         answer: 1,
         explanation:
-          "The reading names this directly: in protocols like NTLM, the hash itself can be presented to satisfy the check, so an attacker who steals a hash from memory doesn't need to crack it at all -- that's the pass-the-hash technique. Hashes are one-way by design, so they cannot be mathematically reversed — but weak or common passwords are routinely recovered by guessing candidates and hashing them until one matches (offline cracking with tools like hashcat), and pass-the-hash skips even that step; they are stored as hashes, not alongside a plaintext copy; and pass-the-hash is a well-documented, widely used real-world technique, not a theoretical one.",
+          "The reading names this directly: in protocols like NTLM, the hash itself can be presented to satisfy the check, so an attacker who steals a hash from memory doesn't need to crack it at all -- that's the pass-the-hash technique. Hashes are one-way by design, so they cannot be reversed — weak or common passwords can be recovered by guessing candidates and hashing them until one matches, but pass-the-hash skips even that step. Systems store the hash instead of the plaintext, not alongside it. And a hash is not a session token: a token proves a login that already happened and expires, while a hash stands in for the password itself and stays valid until the password changes.",
       },
     },
     // ----- Matching --------------------------------------------------------------------
@@ -720,14 +720,14 @@ const identityBasicsRoom: Room = {
         question:
           "Why can a FIDO2/WebAuthn security key resist an adversary-in-the-middle (AitM) proxy attack in a way SMS codes and TOTP apps cannot?",
         options: [
-          "It simply requires the user to enter a longer, more complex PIN than other MFA methods typically demand, which makes it statistically harder for a proxy to guess in real time",
-          "It cryptographically binds the authentication to the real website's domain, so it refuses to complete against a fraudulent look-alike site at all",
-          "It transmits its one-time code over a physically different network path than the one carrying the password, which a proxy sitting in the middle cannot intercept both of at once",
-          "It automatically and permanently blocks any login attempt that originates from outside the organisation's own corporate network address range, regardless of the domain being accessed",
+          "Its codes expire faster than TOTP codes, leaving a proxy too little time to replay them",
+          "It binds the sign-in to the real site's domain, so it will not complete on a look-alike page",
+          "It needs a physical tap, so the user notices the proxy before approving anything at all",
+          "It is a “something you are” factor, which a proxy cannot copy the way it copies a code",
         ],
         answer: 1,
         explanation:
-          "FIDO2/WebAuthn ties the cryptographic challenge to the legitimate domain itself, so a proxy sitting in front of a fake login page cannot get a valid response relayed through it -- SMS and TOTP have no such binding and can still be phished in real time.",
+          "FIDO2/WebAuthn ties the cryptographic challenge to the legitimate domain itself, so a proxy sitting in front of a fake login page cannot get a valid response relayed through it -- SMS and TOTP have no such binding and can still be phished in real time. A security key does not produce a short-lived code for the user to type, so code expiry is not where its protection comes from. A physical tap proves someone is present, but a user on a convincing fake page taps just as readily — Reading 6 stresses that the protection is in the protocol, not in fooling the human less. And a security key is something you have, not something you are.",
       },
     },
     // ----- Analyst choice (false positive) --------------------------------------------------
@@ -736,13 +736,13 @@ const identityBasicsRoom: Room = {
       id: "idbasics-ac1",
       heading: "Verdict: Five Push Prompts Before One Approval",
       scenario:
-        "An MFA-fatigue detection rule fires on any account receiving three or more push challenges within five minutes. Review the event below alongside the helpdesk ticket attached to it.",
+        "An MFA-fatigue detection rule fires on any account receiving three or more push challenges within five minutes. Asset records show 10.44.8.12 is the replacement laptop issued to l.marsh this morning. Review the event below alongside the IT verification note attached to it.",
       event: oktaPushEvent,
       correct_verdict: "false_positive",
       explanation:
-        "Multiple push prompts followed by one approval is the textbook shape of an MFA-fatigue attack described in Reading 6, and this alert is right to flag it for review. But the source IP (10.44.8.12) is internal, not an unfamiliar external address, and a confirmed helpdesk ticket explains the repeated prompts as a routine side effect of re-enrolling Okta Verify on a replacement phone, which resends queued challenges from the pairing process. The pattern matched the detection rule correctly; the context confirms this specific occurrence is routine device re-enrollment, not an attacker wearing the user down.",
+        "Multiple push prompts followed by one approval is the textbook shape of an MFA-fatigue attack described in Reading 6, and this alert is right to flag it for review. But in a fatigue attack the sign-in attempts come from the attacker's device, and here they come from the laptop issued to l.marsh this morning, while the helpdesk note records her own call explaining that she retried a timing-out sign-in on that laptop several times before approving the last prompt. An internal address alone would not settle it — an attacker on the VPN can look internal too — but her assigned device plus her own confirmation does. The pattern matched the detection rule correctly; the context confirms this occurrence is the user's own repeated sign-ins, not an attacker wearing her down.",
       fp_trap:
-        "A burst of pushes followed by one approval is exactly the shape Reading 6 taught as MFA fatigue, which makes this tempting to escalate as a confirmed attack on sight. But the repeated-push pattern alone doesn't distinguish a real fatigue attack from a legitimate device re-pairing that queues several prompts in a row — the deciding factor is context: an internal source IP and a verified helpdesk ticket, not the push count by itself. Escalating every multi-push event without checking source and verification first is the same over-alerting trap severity misreads created in the other room.",
+        "A burst of pushes followed by one approval is exactly the shape Reading 6 taught as MFA fatigue, which makes this tempting to escalate as a confirmed attack on sight. But the push count alone doesn't distinguish an attacker triggering prompts from a user who keeps retrying her own sign-in — the deciding factor is context: whose device started the sign-ins, and whether the user herself confirms them. Escalating every multi-push event without checking that first floods the queue with users' own retries.",
       xp: 25,
     },
     // ----- Reading 7: account types --------------------------------------------------------
@@ -765,14 +765,14 @@ const identityBasicsRoom: Room = {
       question:
         "Why do attackers who gain an initial foothold frequently pivot toward compromising a service account rather than continuing to target user accounts?",
       options: [
-        "Service accounts hold only standard-user permissions by design, so attackers favour them to blend in with ordinary user traffic",
+        "Service accounts usually hold standard-user permissions, so attackers favour them to blend in with ordinary user traffic",
         "Service accounts are often over-privileged, rarely rotated, and frequently exempt from MFA because no human can approve a prompt",
         "Service accounts cannot authenticate over the network, so compromising one mainly helps with local persistence on a single host",
         "Service accounts generate no authentication events when used non-interactively, so attackers pivot to them to avoid leaving logs",
       ],
       answer: 1,
       explanation:
-        "This is the combination from Reading 7: broad, rarely-scoped-down access, infrequent password rotation, and frequent MFA exemption together make service accounts an efficient target once an attacker has a foothold. They are not disabled by default, they authenticate over the network constantly (that's their whole purpose), and in most environments they receive less scrutiny than user accounts, not more.",
+        "This is the combination from Reading 7: broad, rarely-scoped-down access, infrequent password rotation, and frequent MFA exemption together make service accounts an efficient target once an attacker has a foothold. They are frequently over-privileged rather than limited to standard-user rights. They authenticate over the network constantly — that is their whole purpose, a backup job reaching a file share every night — so they are not a local-only foothold. And their logons do generate authentication events like any other account's; the attraction is that those events receive less scrutiny, not that they are missing.",
       xp: 15,
     },
     // ----- Reading 8: reading an auth log --------------------------------------------------
@@ -787,16 +787,16 @@ const identityBasicsRoom: Room = {
         `**The pattern that matters far more than either event alone: a burst of failures immediately followed by one success.** Several 4625 events against the same account, from the same source, in a short window, followed immediately by a 4624 for that same account, is one of the most reliable shapes in authentication monitoring — it looks exactly like an attacker guessing passwords (brute-forcing one account, or trying a short list of likely passwords) who eventually guessed correctly. The single success sitting right after a run of failures is far more significant than either fact would be alone; a 4624 by itself just means someone logged in, and a handful of 4625s by themselves often mean nothing at all.\n\n` +
         `**What to check once you see this pattern.** Whether the account has any MFA on the authentication path it used — an NTLM network logon to a file server, for instance, very often has none at all, as Reading 6 covered — because a burst-then-success pattern against an MFA-protected account is a very different risk than the same pattern against one with no second factor standing between a guessed password and full access.`,
       checkpoint: {
-        question: "In Windows 4624 logon events, what does LogonType 10 specifically indicate?",
+        question: "A 4624 on workstation WKS-22 shows TargetUserName d.kim, LogonType 10, IpAddress 10.1.4.7. What happened?",
         options: [
-          "An interactive console logon, someone physically at the keyboard",
-          "A network logon with no interactive session, like connecting to a file share",
-          "RemoteInteractive -- a Remote Desktop Protocol (RDP) session",
-          "A batch job running under a service account",
+          "Someone sat at WKS-22's own keyboard and logged on as d.kim",
+          "d.kim's account reached a share on WKS-22 with no interactive session",
+          "d.kim's account opened a Remote Desktop session to WKS-22 from 10.1.4.7",
+          "A scheduled task on WKS-22 ran under d.kim's account in the background",
         ],
         answer: 2,
         explanation:
-          "LogonType 10 is RemoteInteractive, meaning RDP. LogonType 2 is an interactive console logon and LogonType 3 is a network logon such as a file-share connection -- reading them correctly changes how you interpret the same username appearing with different logon types.",
+          "LogonType 10 is RemoteInteractive, meaning RDP: an interactive desktop session started from another machine, here 10.1.4.7. Someone at the keyboard would be LogonType 2, an interactive console logon. Reaching a file share is a network logon, LogonType 3, with no interactive session. A background scheduled task is not RemoteInteractive either — it is logged with its own, different logon type. Reading the type correctly changes how you interpret the same username appearing on different hosts.",
       },
     },
     // ----- Log analysis ----------------------------------------------------------------------
@@ -805,35 +805,35 @@ const identityBasicsRoom: Room = {
       id: "idbasics-la1",
       heading: "A Successful Logon After a Run of Failures",
       context:
-        "SRV-FILE03's Security log was pulled after a routine review of file-server access. Review the successful logon below, together with the SIEM correlation noted in its description.",
+        "SRV-FILE03's Security log was pulled after a routine review of file-server access. SRV-FILE03 hosts a partner file share that is published to the internet. Review the successful logon below, together with the SIEM correlation noted in its description.",
       event: authBurstEvent,
       questions: [
         {
           question:
             "Fourteen failed logon attempts (rejected for bad password) preceded this single successful logon, all from the same source IP against the same account, with no account lockout in between. What pattern does this match, and what does the absence of a lockout suggest?",
           options: [
-            "This is routine, everyday behaviour — plenty of ordinary users genuinely mistype their own password fourteen separate times in a row, so there is nothing here that should be considered unusual",
-            "This matches password-guessing (brute-force) activity against one account that eventually succeeded, and the lack of any lockout in between suggests the account's lockout threshold is either not configured or was never reached — worth reviewing separately",
-            "Fourteen failures immediately followed by one success conclusively proves this must be a legitimate user who simply forgot their own password several times in a row before finally remembering it correctly",
-            "This event record is essentially meaningless and impossible to interpret at all without also separately knowing the exact physical keyboard layout the user was typing on at the time",
+            "Routine mistyping: users often fail several times, and a real attack would have triggered the lockout",
+            "Password guessing that finally succeeded; no lockout suggests the threshold is missing or set too high",
+            "A saved old password retrying from b.osei's own device, until she typed in her new password herself",
+            "Password spraying: one password tried across many accounts, until it finally worked on b.osei",
           ],
           answer: 1,
           explanation:
-            "Fourteen failed attempts from one source against one account, immediately followed by a success, is the burst-then-success shape from Reading 8 — a strong password-guessing signature, not routine mistyping. The absence of a lockout in between is worth flagging on its own: either the lockout policy's threshold is too high, isn't enabled for this account, or wasn't triggered for some other reason, and any of those is worth a separate look regardless of this specific incident.",
+            "Fourteen failed attempts from one source against one account, immediately followed by a success, is the burst-then-success shape from Reading 8 — a strong password-guessing signature, not routine mistyping. The absence of a lockout is worth flagging on its own: the threshold is missing, too high, or was not triggered, so “a real attack would have triggered the lockout” assumes a control the log shows did not act. A saved old password on her own device would come from her device's address, not an external one reaching a published share, and it would keep failing rather than end in a success. Spraying spreads one password across many accounts; here every failure targets the same account, which is the single-account guessing Reading 8 describes.",
           xp: 20,
         },
         {
           question:
-            "IpAddress is 185.220.101.47 — an external address — yet AuthenticationPackageName is NTLM rather than Kerberos, and there is no MFA-related field anywhere in this record. Why does the missing MFA field matter here?",
+            "The source address is external, the authentication package is NTLM rather than Kerberos, and nothing in this record shows a second factor. Why does that matter here?",
           options: [
-            "It genuinely doesn't matter at all here — MFA-related fields are, as a matter of Windows Security log design, simply never logged on any 4624 event regardless of whether MFA was actually used during that specific logon",
-            "This account authenticated via an NTLM network logon (LogonType 3) directly to a file server; NTLM network logons commonly do not enforce MFA at all, since MFA is typically bound to a different authentication path, so an attacker who successfully guesses this password walks straight in with no second factor to stop them",
-            "The missing MFA field on its own is sufficient proof that this entire event record was forged or fabricated after the fact, and that the logon described in it did not actually occur",
-            "NTLM-based logons always include and enforce MFA by design as part of the protocol itself, so this specific record must therefore be incomplete, corrupted, or missing data somewhere",
+            "The guessed password still had to pass MFA, since b.osei's VPN sign-in enforces a second factor",
+            "An NTLM network logon to a file share usually has no MFA, so the guessed password alone was enough",
+            "The record is incomplete, so the logon cannot be judged until the log is collected again in full",
+            "It matters for interactive logons, not here: a LogonType 3 network logon gives no access to files",
           ],
           answer: 1,
           explanation:
-            "This ties Reading 4 and Reading 8 together: NTLM network logons directly to a resource like a file share frequently sit outside where MFA gets enforced, because MFA is usually bound to a specific entry point (a VPN, an identity provider's login page) rather than every possible authentication path in the environment. That means a successfully guessed password on this path can grant access with no second factor at all — exactly why accounts reachable this way are high-value targets. The field's absence here reflects that gap, not a corrupted or forged event.",
+            "This ties Reading 4 and Reading 8 together: NTLM network logons directly to a resource like a file share frequently sit outside where MFA gets enforced, because MFA is usually bound to a specific entry point (a VPN, an identity provider's login page) rather than every possible authentication path. A VPN's second factor protects the VPN path; this logon came straight from an external address to the published share, so it never passed through it. Nothing suggests the record is incomplete — a 4624 like this one is exactly what a successful NTLM network logon looks like. And LogonType 3 is precisely how files on a share are reached, so a network logon is real access to data, not a harmless one.",
           xp: 20,
         },
         {
@@ -847,7 +847,7 @@ const identityBasicsRoom: Room = {
           ],
           answer: 0,
           explanation:
-            "This is the correct containment order from Reading 5, applied to a real case: block sign-in first so the guessed password can't open anything new, then reset the password and revoke sessions back-to-back so access already granted is cut and the same credential can't be reused, then review what happened during the session and consider whether this account's exposure over NTLM without MFA needs to change. Resetting the password alone leaves an already-established session untouched — NTLM logons still create an authenticated access token for the duration of the connection, exactly like any other logon type, so 'no session to revoke' is false. Taking no action ignores the burst-then-success pattern Reading 8 taught as a strong compromise signature regardless of logon type. And blocking only the source IP does nothing about the account itself, which is now confirmed compromised — the attacker can simply reconnect from a different address using the same guessed credential.",
+            "This is the correct containment order from Reading 5, applied to a real case: block sign-in first so the guessed password can't open anything new, then reset the password and revoke sessions back-to-back so access already granted is cut and the same credential can't be reused, then review what happened during the session and consider whether this account's exposure over NTLM without MFA needs to change. Resetting the password alone leaves an already-established session untouched — the file-server logon keeps its authenticated connection open after the reset, so 'no session to revoke' is false. For an on-premises file share there is no identity-provider token to revoke; cutting that access means disabling the account and closing its open sessions on the server, which is why blocking sign-in comes first. Taking no action ignores the burst-then-success pattern Reading 8 taught as a strong compromise signature regardless of logon type. And blocking only the source IP does nothing about the account itself, which is now confirmed compromised — the attacker can simply reconnect from a different address using the same guessed credential.",
           xp: 25,
         },
       ],
@@ -857,9 +857,9 @@ const identityBasicsRoom: Room = {
       type: "flag",
       id: "idbasics-f1",
       prompt:
-        "In the log_analysis task, what source IP address did both the 14 failed logons and the final successful logon come from? Enter it exactly.",
+        "Besides containing b.osei's account, you want to block the address behind the guessing at the perimeter and search for other accounts it tried. Using the 4624 record in the log analysis task, enter that address exactly.",
       answer: "185.220.101.47",
-      hint: "It's the winlog.event_data.IpAddress field on the 4624 event.",
+      hint: "Reading 8 lists the 4624 field that records where a logon attempt came from.",
       xp: 15,
     },
   ],

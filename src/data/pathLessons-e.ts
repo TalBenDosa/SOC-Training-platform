@@ -147,24 +147,24 @@ const lessons = [
         "question": "You are a SOC analyst who has confirmed Execution (T1059.001) on a host. Which set of ATT&CK tactics should you proactively hunt on that host next, before the attacker makes them visible?",
         "options": [
           {
-            "label": "Reconnaissance and Weaponization, because those come first in the Kill Chain",
+            "label": "Reconnaissance and Weaponization, to rebuild the chain from its start",
             "value": "a"
           },
           {
-            "label": "Persistence, Command and Control, and Discovery, because these reliably follow Execution and can be hunted with host and network telemetry",
+            "label": "Persistence, Command and Control and Discovery, which follow Execution",
             "value": "b"
           },
           {
-            "label": "Only Impact, because that is the final tactic and the only one worth checking",
+            "label": "Lateral Movement and Exfiltration, since that is where the damage is done",
             "value": "c"
           },
           {
-            "label": "None — once you have identified the Execution technique the investigation is complete",
+            "label": "Impact, by checking the host for shadow-copy deletion and mass renames",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "After Execution, adversaries reliably move to establish Persistence, open Command and Control, and perform Discovery of the environment. Hunting these on the host (registry Run keys, scheduled tasks, outbound beaconing, enumeration commands) gets you ahead of the attacker. Recon and Weaponization precede Execution and are largely off-network; Impact alone is too narrow; and identifying one technique never completes an active-intrusion investigation."
+        "explanation": "Right after Execution, attackers reliably set up Persistence (Run keys, scheduled tasks, services), open Command and Control (beaconing, DNS anomalies) and run Discovery (whoami, net group, nltest). All three can be hunted on this host now, before they surface as alerts. “Reconnaissance and Weaponization” happen before Execution and largely outside your network, so the host holds little of them. “Lateral Movement and Exfiltration” are real later stages, but hunting them first skips the footholds that come before them and that you can still catch on this host. “Impact” is the last stage: by the time shadow copies are deleted, the head start is gone."
       },
       {
         "question": "You are a SOC analyst and leadership asks whether your organization would detect a specific ransomware group's known techniques. Which ATT&CK-based approach gives an evidence-backed answer?",
@@ -193,116 +193,116 @@ const lessons = [
         "question": "A SOC relies heavily on a threat-intel feed of malicious file hashes and IP addresses, updating its blocklists daily, yet keeps getting breached by the same threat group using slightly different files and fresh infrastructure. Using the Pyramid of Pain, what is the problem and the better strategy?",
         "options": [
           {
-            "label": "The feed simply is not updated often enough; blocking hashes and IPs is the strongest possible detection strategy, so updating the blocklists hourly instead of daily would fully solve the repeated breaches",
+            "label": "Update the hash and IP blocklists hourly instead of daily to close the gap",
             "value": "a"
           },
           {
-            "label": "Hashes and IPs are at the bottom of the Pyramid of Pain — trivial for the attacker to change in seconds — so IOC blocklists age out instantly; the durable strategy is to detect higher up, especially TTPs (behaviours like 'Office spawns PowerShell') that force the attacker to change how they operate",
+            "label": "Hashes and IPs are cheap to change; detect TTPs like Office spawning PowerShell",
             "value": "b"
           },
           {
-            "label": "The group is unstoppable and no detection strategy of any kind could ever help, so the only rational response is to accept the repeated breaches as an unavoidable cost of doing business",
+            "label": "Block the group's domain names instead, the top tier and hardest to replace",
             "value": "c"
           },
           {
-            "label": "The real fix is to block a wider range of countries by IP geolocation, since attacker infrastructure is the highest and most painful tier of the Pyramid of Pain to change",
+            "label": "Block whole countries by geolocation so fresh infrastructure is covered too",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Hashes and IPs sit at the base of the Pyramid of Pain: an attacker recompiles for a new hash or spins up a new IP in seconds, so blocklists of them expire almost immediately — exactly the treadmill described. Detecting higher up, especially TTPs (the way they operate, like a document spawning PowerShell), forces the adversary to change their whole tradecraft and yields durable detection. The option “The feed simply is not updated often…” doubles down on the lowest tier. The option “The group is unstoppable and no detection…” is defeatist. The option “The real fix is to block a…” wrongly places IP addresses at the painful top — they are near the bottom."
+        "explanation": "Hashes and IPs sit at the base of the Pyramid of Pain: a recompile or a new server replaces them in seconds, which is exactly the treadmill described. Detecting behaviour (TTPs) such as a document spawning PowerShell keeps working across new files and infrastructure, because evading it means changing how the group operates. “Update the hash and IP blocklists hourly” runs the same treadmill faster. “Block the group's domain names instead” moves up only one tier, and domains are still near the bottom: a new one costs a little money and a few minutes. “Block whole countries by geolocation” is still IP-level blocking, and attackers can rent servers anywhere."
       },
       {
         "question": "A team has a detailed ATT&CK coverage heat-map showing green (covered) for dozens of techniques, but has never tested whether those detections actually fire. What practice would validate the map, and why is it necessary?",
         "options": [
           {
-            "label": "No validation is needed, because a coverage heat-map marked green is definitive proof that each detection works correctly, and testing it would only waste time confirming what is already certain",
+            "label": "Run a vulnerability scan across the fleet to see which techniques are exploitable",
             "value": "a"
           },
           {
-            "label": "Adversary emulation and purple teaming: safely run each technique (e.g. Atomic Red Team tests mapped to ATT&CK IDs, or CALDERA chains) and have red and blue collaborate to confirm the alert fires, fixing gaps and re-testing — because a covered detection is only a claim until it is exercised",
+            "label": "Purple-team emulation: safely run each mapped technique and confirm the alert fires",
             "value": "b"
           },
           {
-            "label": "The team should simply add more detection rules for the same techniques, since having several overlapping rules per technique automatically guarantees that at least one of them must be working at any time",
+            "label": "Peer-review each rule's query syntax and confirm the rule is enabled in the SIEM",
             "value": "c"
           },
           {
-            "label": "They should wait for a real attacker to use each technique and see whether it gets caught, because live incidents are the only legitimate and safe way to ever test whether a detection actually works",
+            "label": "Compare the map with the EDR vendor's published ATT&CK coverage for its product",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A green coverage map is an untested claim: a rule can watch the wrong field, be disabled, or go blind when its source stops. Adversary emulation — Atomic Red Team's per-technique tests or full CALDERA-style chains — safely executes each technique, and purple teaming has red and blue collaborate to confirm the alert fires and close any gap, turning the map from aspiration into verified fact. The option “No validation is needed, because a coverage…” trusts an unverified map. The option “The team should simply add more detection…” adds untested rules on top of untested rules. The option “They should wait for a real attacker…” waits for real breaches to test detections, which is exactly the risk emulation exists to avoid."
+        "explanation": "A green cell is a claim until the technique is actually run. Adversary emulation (Atomic Red Team's per-technique tests, or CALDERA-style chains) exercises each technique safely, and purple teaming has red and blue confirm the alert fires, fix gaps and re-test. “Run a vulnerability scan” measures exposure to known flaws, not whether a detection fires when a technique runs. “Peer-review each rule's query syntax” is useful hygiene, but a rule with clean syntax can still watch the wrong field or sit on a log source that has stopped sending, and only running the technique reveals that. “Compare the map with the EDR vendor's published coverage” swaps your own untested claim for the vendor's untested claim about your environment."
       },
       {
         "question": "In the worked-example timeline, credential access (T1003.001, LSASS memory) is observed at 09:41 — roughly 90 minutes before the ransomware deployment at 13:52. Using Kill Chain staged thinking together with the Pyramid of Pain, what is the single most valuable action at 09:41?",
         "options": [
           {
-            "label": "Block the C2 IP 185.x.x.x immediately and close the ticket, because removing the network indicator eliminates the attacker's channel and resolves the incident",
+            "label": "Reset the logged-on user's password and close, since that credential is now useless",
             "value": "a"
           },
           {
-            "label": "Treat the LSASS access as a signal that lateral movement and encryption are likely coming, and immediately hunt the host for admin-share activity and contain it, because credential access this early predicts the stages that follow",
+            "label": "Read it as lateral movement coming: hunt for admin-share use and contain the host",
             "value": "b"
           },
           {
-            "label": "Wait for the SMB/admin-share lateral-movement event to confirm before taking any action, since a single LSASS access alone does not justify a response",
+            "label": "Keep watching, and act once a lateral-movement event confirms the LSASS signal",
             "value": "c"
           },
           {
-            "label": "Reimage the host immediately without further investigation, since LSASS access means the evidence is no longer useful and analysis would only waste time",
+            "label": "Reimage the host at once, since dumped credentials make further analysis pointless",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Credential access this early in the chain, right after a Word-spawned PowerShell execution, predicts the stages that reliably follow — lateral movement and, ultimately, encryption — so the analyst should hunt and contain immediately, roughly ninety minutes before the deployment observed at 13:52. Blocking only the C2 IP addresses the lowest, most disposable tier of the Pyramid of Pain and leaves the attacker's foothold and stolen credentials untouched. Waiting for the lateral-movement event burns the head start the earlier alert bought. Reimaging without investigation destroys the evidence needed to scope which other hosts and credentials are affected."
+        "explanation": "Credential access this early, after a Word-spawned PowerShell, predicts the stages that follow (lateral movement and, eventually, encryption). Hunting and containing at 09:41 gets you about ninety minutes ahead of the 13:52 deployment. “Reset the logged-on user's password and close” misses that an LSASS dump can hold other accounts' credentials too (the 11:15 event uses dumped admin credentials), and it leaves the foothold and the Run-key persistence in place. “Act once a lateral-movement event confirms” gives away the head start the early alert bought. “Reimage the host at once” destroys the evidence you need to scope which other hosts and credentials are affected."
       },
       {
         "question": "A SOC analyst has a C2 IP address from a sandbox report and wants to determine whether this intrusion is linked to a previously seen campaign. Using the Diamond Model of Intrusion Analysis, what is the correct way to expand the investigation?",
         "options": [
           {
-            "label": "Treat the IP as an isolated fact and close the ticket once it is blocked, since the Diamond Model only applies to nation-state attribution and has no use in routine triage",
+            "label": "Map the event to its Kill Chain stage and compare it with the earlier campaign's",
             "value": "a"
           },
           {
-            "label": "Pivot from the Infrastructure vertex (the IP) to Capability (what malware/tooling has used it before), then to Adversary (which group is associated with that capability), and outward to Victim (that adversary's known targeting pattern) to link this event to prior ones",
+            "label": "Pivot from Infrastructure to Capability, then to Adversary, then to its Victims",
             "value": "b"
           },
           {
-            "label": "Ignore the IP and instead map the event directly to a Kill Chain stage, since the Kill Chain alone is sufficient for determining whether two intrusions share an adversary",
+            "label": "Name the Adversary first, then check whether this IP fits that group's profile",
             "value": "c"
           },
           {
-            "label": "Escalate immediately without further analysis, because any external IP address by itself is sufficient proof of a nation-state campaign",
+            "label": "Block and log the IP; a single indicator is one event, so no link can be drawn",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "The Diamond Model's value is pivoting across its four vertices — Infrastructure, Capability, Adversary, Victim — to connect one event to others that share an edge. Starting from Infrastructure and pivoting to Capability, then Adversary, then outward to Victim is exactly how analysts turn one IOC into a documented, attributable campaign. The Kill Chain narrates sequence, not attribution, and an IP alone proves neither nation-state origin nor campaign linkage without the pivot."
+        "explanation": "Pivoting means hopping across the diamond's edges from what you have: the IP (Infrastructure), to the malware that used it (Capability), to the group known to run that malware (Adversary), to the targets that group has hit (Victim). Each hop links this event to earlier ones. “Map the event to its Kill Chain stage” tells you where it sits in the sequence, and many unrelated intrusions share the same stage. “Name the Adversary first” starts from the vertex you do not have and invites fitting the evidence to a guess. “A single indicator is one event, so no link can be drawn” misreads the model: one diamond is exactly where activity threads start, through shared vertices."
       },
       {
-        "question": "You are researching an ATT&CK Group page and notice it lists several aliases, including names used by different vendors. Why does this matter, and where does ATT&CK's underlying data model represent this Group?",
+        "question": "You are cross-referencing two vendor reports, one about “Midnight Blizzard” and one about “Cozy Bear”. The ATT&CK Group page for APT29 lists both names as aliases. What should you conclude?",
         "options": [
           {
-            "label": "Aliases are cosmetic and can be ignored; the Group page's technique list is the only field worth reading",
+            "label": "They are sub-groups of APT29, so track each name's techniques as a separate actor",
             "value": "a"
           },
           {
-            "label": "Different vendors often name the same tracked adversary activity differently for historical or commercial reasons, so recognizing aliases lets you realize two separate reports describe the same actor; in ATT&CK's STIX data model, a Group is represented as an intrusion-set object",
+            "label": "Vendors name the same actor differently, so both reports likely describe one group",
             "value": "b"
           },
           {
-            "label": "Aliases indicate that the Group has been formally attributed to a specific nation-state government by MITRE itself, and providing that official attribution is the sole reason the aliases appear on the Group page",
+            "label": "MITRE has formally attributed both names to the same nation-state government",
             "value": "c"
           },
           {
-            "label": "Each alias corresponds to a distinct ATT&CK Enterprise tactic that the Group uniquely performs",
+            "label": "One name is retired, so the report using it is outdated and can be set aside",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Vendors frequently name the same tracked activity cluster differently (e.g., APT29 / Cozy Bear / Nobelium / Midnight Blizzard), so a Group page's alias list is often how an analyst realizes two reports describe one adversary. In ATT&CK's STIX 2.1 data model, published and distributed via a TAXII server, a Group is represented as an intrusion-set object connected to attack-pattern (technique), malware, and tool objects. Aliases are not a formal attribution claim by MITRE, and they have nothing to do with tactics."
+        "explanation": "Vendors track the same activity cluster under their own naming schemes for historical and commercial reasons, so an alias list is often the fastest way to see that two reports describe one adversary, and to merge what they say. “They are sub-groups of APT29” is wrong: aliases are other names for the same tracked group (a distinct operation would appear as a Campaign object instead). “MITRE has formally attributed both names to the same nation-state” reads attribution into a naming list. MITRE records the aliases because vendors use them, not as an attribution ruling. “One name is retired, so the report is outdated” is wrong: both names are in current use by different vendors, and a report's value depends on its content, not on which name it uses."
       }
     ],
     "references": [

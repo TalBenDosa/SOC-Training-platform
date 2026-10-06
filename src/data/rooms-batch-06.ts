@@ -35,7 +35,7 @@ const exchangeOnlineSecurity: Room = {
       content: `**Exchange Online** is Microsoft's cloud-hosted email service. It is the email backbone for any organisation using Microsoft 365. Instead of running their own on-premises mail servers, companies pay Microsoft to host their email infrastructure in Azure datacentres. Today, hundreds of millions of mailboxes run on Exchange Online.
 
 **Why does a SOC analyst care about email?**
-Email is the number-one initial-access vector for attackers. According to Microsoft's own telemetry, more than 90 % of ransomware campaigns begin with a phishing email. Understanding how email flows through Microsoft's infrastructure — and where it can be inspected — is essential knowledge for any blue-team professional.
+Email is one of the most common initial-access vectors for attackers: industry breach reports such as the Verizon DBIR consistently rank phishing alongside stolen credentials and exploited vulnerabilities as a leading way in. Understanding how email flows through Microsoft's infrastructure — and where it can be inspected — is essential knowledge for any blue-team professional.
 
 **The Journey of an Inbound Email**
 
@@ -69,16 +69,16 @@ The EAC is the web portal where administrators manage Exchange Online. A SOC ana
 
 **Key takeaway for analysts**: Email filtering is not perfect. Attackers constantly evolve their techniques to bypass filters. Your job as a SOC analyst is to recognise the indicators that a message slipped through, or that something suspicious happened after delivery (like a user clicking a link or forwarding rules being created).`,
       checkpoint: {
-        question: "According to the reading, what does EOP's Spam Confidence Level (SCL) score of 5 or above typically trigger?",
+        question: "Message Trace shows that a phishing email reached a user's inbox with SCL -1. What does that value tell you about how EOP handled it?",
         options: [
-          "The message is routed to the Junk folder",
-          "The message is permanently deleted",
-          "The message bypasses all further filtering",
-          "The sender's domain is automatically blocklisted",
+          "Spam filtering was skipped because the sender was explicitly allowed",
+          "EOP scored it as high-confidence spam, but delivery overrode the score",
+          "Safe Attachments detonated the attachment and found nothing malicious",
+          "EOP could not score the message because the SPF lookup returned an error",
         ],
         answer: 0,
         explanation:
-          "SCL ranges from -1 (explicitly whitelisted) to 9 (high-confidence spam); a score of 5 or above usually routes the message to the Junk folder rather than the inbox.",
+          "SCL -1 is the bypass value: the message was explicitly allowed, so spam filtering did not apply — find out who created that allow and why. “High-confidence spam” is the other end of the scale (SCL 9), and anything at 5 or above would normally have gone to Junk. Safe Attachments is an MDO sandbox verdict, not part of the SCL score. An SPF lookup error shows up in the Authentication-Results header; it does not produce SCL -1.",
       },
     } satisfies ReadingTask,
 
@@ -104,7 +104,7 @@ This means: "Only Microsoft's mail servers (protection.outlook.com) are allowed 
 
 When a receiving server gets an email claiming to be from corp.com, it checks the SPF record and asks: "Did this email come from one of the approved servers?" If yes → **SPF pass**. If no → **SPF fail**.
 
-**Limitation**: SPF only checks the hidden "envelope from" address (used during SMTP delivery), not the visible "From:" header that users see. Attackers can exploit this mismatch.
+**Limitation**: SPF only checks the hidden "envelope from" address (used during SMTP delivery), not the visible "From:" header that users see. Attackers can exploit this mismatch. Microsoft's email logs name the two addresses: the envelope sender is the **P1 sender** and the visible From: header is the **P2 sender**, so a field such as \`P2SenderDomain\` holds the domain the recipient actually sees.
 
 ---
 
@@ -155,16 +155,16 @@ Breaking this down:
 
 **Microsoft's 2025 enforcement update**: In May 2025, Microsoft began rejecting bulk email from senders who lack proper DMARC, SPF, and DKIM alignment when sending to consumer Microsoft addresses (Outlook.com, Hotmail). Enterprise tenants can enforce stricter policies in their own anti-phishing policies.`,
       checkpoint: {
-        question: "According to the reading, what does the DMARC policy setting 'p=reject' instruct receiving servers to do with failing emails?",
+        question: "A legitimate, signed newsletter is auto-forwarded from an employee's personal mailbox to their work inbox. Which check is most likely to still pass at the work inbox, and why?",
         options: [
-          "Monitor only and take no action",
-          "Send them to the spam/junk folder",
-          "Block and discard them entirely",
-          "Forward them to the domain owner for review",
+          "SPF, because forwarding leaves the envelope-from domain unchanged",
+          "SPF, because the forwarding server inherits the sender's approval",
+          "DKIM, because its signature is tied to the content, not the server IP",
+          "DMARC, because its policy is evaluated before SPF and DKIM run",
         ],
         answer: 2,
         explanation:
-          "p=reject is the most protective DMARC policy — it blocks and discards failing emails entirely. p=none only monitors, and p=quarantine sends failures to junk instead of dropping them.",
+          "DKIM signs the message content, so an unmodified forward still verifies even though a different server delivered it. An unchanged envelope-from does not save SPF: SPF checks the connecting server's IP, and the forwarder's IP is not in the original sender's SPF record. Forwarding servers do not “inherit” approval; only the IPs listed in the record are authorised. DMARC is not evaluated first; it is the policy layer that uses the SPF and DKIM results.",
       },
     } satisfies ReadingTask,
 
@@ -200,7 +200,9 @@ A sophisticated attacker who successfully compromises a mailbox often creates **
 - Delete the forwarded emails from Sent Items and Inbox so the victim doesn't notice
 - Move security alerts or IT emails to Deleted Items automatically
 
-These rules appear in the **Exchange Unified Audit Log** as the \`UpdateInboxRules\` or \`Set-InboxRule\` operations.
+These rules appear in the **Unified Audit Log** under different operation names depending on how they were made: \`New-InboxRule\` (rule created in Outlook on the web or with PowerShell), \`Set-InboxRule\` (existing rule changed the same way) and \`UpdateInboxRules\` (rule created or changed from the Outlook desktop client). Search for all three: the operation name tells you which client was used, but the rule's content (external forwarding, deletion, moving security mail) is what makes it suspicious.
+
+Forwarding does not even need a rule: an attacker with admin rights, or a user in the mailbox settings, can set mailbox-level forwarding to an external address. That change is logged as the \`Set-Mailbox\` operation with the \`ForwardingSmtpAddress\` parameter.
 
 **Monitoring Exchange Online — Key Tools**
 
@@ -208,7 +210,7 @@ These rules appear in the **Exchange Unified Audit Log** as the \`UpdateInboxRul
 |---|---|---|
 | **Message Trace** | admin.exchange.microsoft.com → Mail flow → Message trace | Track individual emails: was it delivered, quarantined, or blocked? What was the spam confidence level? |
 | **Quarantine Review** | security.microsoft.com → Email & collaboration → Quarantine | Review and release quarantined messages; look for false positives or attacker-released malware |
-| **Unified Audit Log** | compliance.microsoft.com or via Search-UnifiedAuditLog | Find MailItemsAccessed, SendAs, AddDelegate, UpdateInboxRules events |
+| **Unified Audit Log** | Microsoft Purview portal (purview.microsoft.com → Audit) or via Search-UnifiedAuditLog | Find MailItemsAccessed, SendAs, AddDelegate, New-InboxRule, UpdateInboxRules, Set-Mailbox events |
 | **Threat Explorer** | security.microsoft.com → Email & collaboration → Explorer | Hunt for phishing campaigns, see email delivery status, trace URLs clicked by users |
 | **Alert Policies** | security.microsoft.com → Alerts | Pre-built alerts for forwarding rules, unusual send volumes, impersonation detection |
 
@@ -217,8 +219,9 @@ These rules appear in the **Exchange Unified Audit Log** as the \`UpdateInboxRul
 - \`MailItemsAccessed\` — Someone accessed specific emails (critical for OAuth token compromise investigations)
 - \`SendAs\` — Someone sent email as another user
 - \`AddDelegate\` — A delegate (another user) was given access to a mailbox
-- \`UpdateInboxRules\` — An inbox rule was created or modified (check External Address in the rule details)
-- \`Set-InboxRule\` — PowerShell-based inbox rule creation (more suspicious than GUI-based)
+- \`New-InboxRule\` / \`Set-InboxRule\` — An inbox rule was created / changed from Outlook on the web or PowerShell (check the forwarding and delete parameters)
+- \`UpdateInboxRules\` — An inbox rule was created or modified from the Outlook desktop client (check the external address in the rule details)
+- \`Set-Mailbox\` — Mailbox settings changed; with \`ForwardingSmtpAddress\` it means mailbox-level forwarding, no inbox rule needed
 
 **Practical Analyst Workflow for Suspicious Email**
 
@@ -226,7 +229,7 @@ These rules appear in the **Exchange Unified Audit Log** as the \`UpdateInboxRul
 2. Check the **Authentication-Results**: did SPF, DKIM, DMARC pass?
 3. Check the **SCL score**: was it filtered but delivered anyway?
 4. Check the **P2SenderDomain** field: does it match the display name domain?
-5. Search the **Unified Audit Log** for \`UpdateInboxRules\` by that user in the past 30 days.
+5. Search the **Unified Audit Log** for \`New-InboxRule\`, \`Set-InboxRule\`, \`UpdateInboxRules\` and \`Set-Mailbox\` for that user in the past 30 days.
 6. If the user clicked a link, check **Safe Links** reports in Threat Explorer.
 7. If mailbox compromise is suspected, check \`MailItemsAccessed\` for unusual activity.`,
     } satisfies ReadingTask,
@@ -237,13 +240,13 @@ These rules appear in the **Exchange Unified Audit Log** as the \`UpdateInboxRul
       id: "exch-sec-q1",
       question: "An email arrives at your company with the following header:\n\n`Authentication-Results: spf=pass; dkim=pass; dmarc=fail action=quarantine`\n\nWhat does this indicate?",
       options: [
-        "SPF and DKIM both passed, so DMARC must have passed too — this is a false alarm",
-        "SPF and DKIM passed, but neither domain aligns with the visible From: domain, so DMARC failed",
-        "The server could not retrieve the sender's DMARC record from DNS and quarantined the message as a precaution",
-        "DMARC fail with action=quarantine means the sender's own policy demanded the message be rejected outright"
+        "SPF and DKIM both passed, so DMARC must have passed too — a false alarm",
+        "SPF and DKIM passed for a domain that does not match the visible From: domain",
+        "The DMARC record could not be fetched, so the message was quarantined",
+        "The message body was altered after signing, which DMARC detects separately"
       ],
       answer: 1,
-      explanation: "DMARC can fail even if SPF and DKIM individually pass, because DMARC requires **alignment** — the SPF domain or DKIM signing domain must match the visible From: header domain. Without alignment, an attacker can pass SPF/DKIM on their own domain while spoofing a different domain in the From: header. The action=quarantine means the email went to spam/junk rather than the inbox.",
+      explanation: "DMARC needs **alignment**: the SPF domain or the DKIM signing domain must match the visible From: domain. An attacker can pass SPF and DKIM for a domain they own while showing a different domain in From:, so DMARC fails. “DMARC must have passed too” is the misconception this header disproves: two passes are not enough without alignment. The record was clearly fetched: action=quarantine is the From domain's published p=quarantine policy, which the receiver could only apply after reading it. A body changed after signing would break DKIM itself, and here dkim=pass. action=quarantine means the From domain's policy sent the message to junk.",
       xp: 30,
     } satisfies QuestionTask,
 
@@ -253,13 +256,13 @@ These rules appear in the **Exchange Unified Audit Log** as the \`UpdateInboxRul
       id: "exch-sec-q2",
       question: "A finance employee reports receiving an urgent email from the CEO asking for a $200,000 wire transfer. The email passed SPF and DKIM. However, you notice the sender domain in the email is `c0rp.com` (with a zero) not `corp.com`. What attack technique is this?",
       options: [
-        "Credential stuffing — the attacker used stolen passwords to access the CEO mailbox",
-        "Typosquatting / lookalike domain — registering a visually similar domain to impersonate a trusted sender",
-        "Replay attack — the attacker replayed a previously legitimate email with modified content",
-        "DNS hijacking — the attacker redirected the corp.com DNS records to their own server"
+        "Exact-domain spoofing — a forged corp.com From: address that SPF did not catch",
+        "Lookalike domain — the attacker registered c0rp.com and authenticated it",
+        "Account takeover — the CEO's real mailbox was compromised and used to send it",
+        "Display-name spoofing — the display name says CEO; the domain is unrelated"
       ],
       answer: 1,
-      explanation: "This is a classic **typosquatting** (lookalike domain) BEC attack. The attacker registered `c0rp.com` (with a zero instead of the letter O) and configured valid SPF and DKIM for that domain — so authentication checks pass. DMARC would only fail if the victim's domain has DMARC alignment enforcement. The P2SenderDomain field in Exchange logs and the visible From: address are the key places to spot this.",
+      explanation: "This is a **lookalike (typosquatted) domain**. The attacker registered `c0rp.com` and published SPF and DKIM for it, so authentication passes: the checks prove the mail really came from c0rp.com. DMARC is evaluated for the From domain, c0rp.com, which the attacker controls, so corp.com's own DMARC policy plays no part. Only lookalike/impersonation protection (MDO anti-phishing) or a careful look at the P2 sender domain catches it. Exact-domain spoofing would show corp.com in From:, and SPF would then fail. A taken-over CEO mailbox would send from the real corp.com address. Display-name spoofing pairs a CEO display name with an unrelated domain; here the domain itself imitates corp.com.",
       xp: 30,
     } satisfies QuestionTask,
 
@@ -267,15 +270,15 @@ These rules appear in the **Exchange Unified Audit Log** as the \`UpdateInboxRul
     {
       type: "question",
       id: "exch-sec-q3",
-      question: "You're investigating a possible account compromise. Which Exchange audit log operation most directly indicates that an attacker created a silent forwarding rule to exfiltrate emails to an external address?",
+      question: "A compromised user's incoming mail is being copied to an external Gmail address. You searched the Unified Audit Log for New-InboxRule, Set-InboxRule and UpdateInboxRules on that mailbox and found nothing. Which operation should you search for next to explain the forwarding?",
       options: [
         "MailItemsAccessed",
         "SendAs",
-        "UpdateInboxRules",
-        "AddPermission"
+        "Set-Mailbox",
+        "AddDelegate"
       ],
       answer: 2,
-      explanation: "**UpdateInboxRules** (or Set-InboxRule) is logged whenever an inbox rule is created or modified. A common BEC persistence technique is creating a rule that forwards all incoming email to an external attacker-controlled address and deletes the copies. MailItemsAccessed shows that emails were read, SendAs means email was sent as another user, and AddPermission grants mailbox access — all suspicious, but UpdateInboxRules is the most direct indicator of a forwarding-rule backdoor.",
+      explanation: "Forwarding without any inbox rule is **mailbox-level forwarding**, logged as **Set-Mailbox** with the ForwardingSmtpAddress parameter. That is why an empty search for the three rule operations does not close the question. MailItemsAccessed records items being read (important for scoping what the attacker saw) but it does not create a forwarding path. SendAs records mail sent as another user, which is outbound impersonation, not a copy of incoming mail. AddDelegate gives another user access to the mailbox inside the tenant; it does not push mail to an external address.",
       xp: 30,
     } satisfies QuestionTask,
 
@@ -304,7 +307,7 @@ These rules appear in the **Exchange Unified Audit Log** as the \`UpdateInboxRul
           "data.office365.RecipientAddress": "finance@corp.com",
           "data.office365.Subject": "URGENT: Wire Transfer Required — Confidential",
           "data.office365.AuthenticationResults": "spf=fail (sender IP is 185.234.91.7 not in c0rp.com SPF); dkim=none; dmarc=fail action=none",
-          "data.office365.SCL": "5",
+          "data.office365.SCL": "1",
           "data.office365.BCL": "0",
           "data.office365.P2SenderDomain": "c0rp.com",
           "data.office365.DeliveryAction": "Delivered",
@@ -315,27 +318,27 @@ These rules appear in the **Exchange Unified Audit Log** as the \`UpdateInboxRul
       } satisfies TelemetryEvent,
       questions: [
         {
-          question: "The email was delivered to the Finance inbox despite authentication failures. What is the most likely reason it was not blocked?",
+          question: "The email was delivered to the Finance inbox despite failing SPF and DMARC. Based on the record, what is the most likely reason it was not stopped?",
           options: [
-            "Exchange Online Protection is not enabled, so no policy was evaluated",
-            "The sender domain's DMARC policy is p=none (monitor only), so no enforcement action was taken",
-            "The SCL score of 5 is below the threshold at which mail is blocked",
-            "A tenant allow-list entry for the sender overrode the authentication failure"
+            "EOP was not filtering this tenant's mail, so no policy was evaluated",
+            "c0rp.com's DMARC policy is p=none, so its DMARC failure triggered no action",
+            "corp.com's DMARC policy is p=none, so lookalikes of corp.com go unenforced",
+            "A tenant allow entry for the sender overrode the authentication failures"
           ],
           answer: 1,
-          explanation: "The Authentication-Results header shows `dmarc=fail action=none`. The `action=none` means the sender's DMARC policy is set to `p=none` — monitoring only, no enforcement. This is common for domains that have just started deploying DMARC. EOP respects this policy and delivers the email. The SCL of 5 also contributed (borderline spam threshold), but the DMARC policy is the key reason a flagged BEC email was delivered.",
+          explanation: "DMARC is evaluated for the From domain, c0rp.com, and `dmarc=fail action=none` means that domain publishes `p=none`, so the failure carried no reject or quarantine instruction. Here p=none is the attacker's own choice for a domain they control. With SCL 1 the spam filter judged the content clean (below the Junk threshold of 5), so nothing else stopped it. EOP was clearly running: it produced the SCL, BCL and Authentication-Results values in this record. corp.com's DMARC policy plays no part, because the message never claims to come from corp.com. An allow entry would have bypassed filtering and shown SCL -1, not SCL 1.",
           xp: 40,
         },
         {
-          question: "Looking at the raw log, what is the most suspicious indicator that this is a BEC (Business Email Compromise) attempt impersonating your CEO?",
+          question: "Which field in this record most directly shows that the message is pretending to come from your own company?",
           options: [
-            "The SCL score of 5, a spam-confidence value that by itself proves impersonation",
-            "P2SenderDomain is c0rp.com (with a zero) instead of corp.com — a lookalike domain",
-            "The email arrived at 09:23 local time, an unusual hour for a CEO request",
-            "The message landed in the Finance inbox despite failing authentication"
+            "AuthenticationResults: corp.com's SPF record does not list the sending IP",
+            "P2SenderDomain: c0rp.com uses a zero where your corp.com domain has an o",
+            "InternetMessageId: the ID was generated by a server outside your tenant",
+            "DeliveryLocation: Inbox shows that a spoofed corp.com message got through"
           ],
           answer: 1,
-          explanation: "The `P2SenderDomain` field shows `c0rp.com` — with the letter O replaced by the number zero (0). This is a classic **typosquatting** technique designed to visually fool users and bypass some email filters. The attacker registered this lookalike domain and configured email on it. From the Finance employee's perspective, the display name probably says 'CEO' and the domain looks legitimate at a glance. This is the primary BEC indicator in this log.",
+          explanation: "`P2SenderDomain` is the domain the recipient sees in From:, and `c0rp.com` swaps the letter o for a zero to pass as `corp.com`: a typosquatted lookalike built to fool a reader at a glance. The SPF result is for c0rp.com, not corp.com (the header says the IP is not in c0rp.com's SPF), so it says nothing about your own domain. Every external email has a Message-ID from a server outside your tenant, so that field is normal. DeliveryLocation only shows where the message landed; nothing in the record shows corp.com being spoofed.",
           xp: 40,
         },
       ],
@@ -345,9 +348,9 @@ These rules appear in the **Exchange Unified Audit Log** as the \`UpdateInboxRul
     {
       type: "flag",
       id: "exch-sec-f1",
-      prompt: "Look at the log analysis event above. The attacker registered a lookalike domain to impersonate your CEO. What is the exact sender domain used in this BEC attempt? (Copy it exactly as it appears in the P2SenderDomain field.)",
-      answer: "c0rp.com",
-      hint: "Look at the raw log field called data.office365.P2SenderDomain. It looks almost like 'corp.com' but one character is different.",
+      prompt: "Blocking the lookalike domain is not enough: the mail-flow team also wants to block the infrastructure that delivered this message. Using the log above, what is the IP address of the server that actually sent it to Exchange Online?",
+      answer: "185.234.91.7",
+      hint: "SPF judges the server that connected to EOP, not the From: address.",
       xp: 50,
     } satisfies FlagTask,
 
@@ -391,14 +394,14 @@ Understanding how SharePoint is organised helps you understand where data lives 
 
 SharePoint makes it very easy to share files with people outside your organisation. This is useful for collaboration with clients and partners, but it is also a major data leakage risk. There are four levels of external sharing:
 
-1. **Anyone links (Anonymous links)** — The most dangerous setting. A link is created that anyone with the link can access, with no authentication required. No sign-in, no audit trail of who viewed the file.
+1. **Anyone links (Anonymous links)** — The most dangerous setting. A link is created that anyone with the link can access, with no authentication required. Use of the link is still logged (\`AnonymousLinkUsed\`, with the client IP and user agent), but it cannot be attributed to a named identity.
 2. **Specific people links (external)** — A link sent to a specific external email address. The recipient must authenticate, and access is logged.
 3. **Existing external guests** — Sharing with people already added as Azure AD guest accounts.
 4. **Only people in your organisation** — Internal only; no external sharing.
 
 **Key Audit Events in SharePoint**
 
-Every action in SharePoint is logged in the Microsoft 365 Unified Audit Log (accessible at compliance.microsoft.com). The operations a SOC analyst watches for:
+Every action in SharePoint is logged in the Microsoft 365 Unified Audit Log (searchable in the Microsoft Purview portal, purview.microsoft.com → Audit). The operations a SOC analyst watches for:
 
 | Operation | What it Means |
 |---|---|
@@ -423,9 +426,9 @@ Microsoft Purview (formerly Compliance Center) can generate alerts when bulk dow
 
 **Tenant-Level External Sharing Controls**
 
-Administrators can control external sharing at the SharePoint Admin Center (admin.microsoft.com → SharePoint → Policies → Sharing). SOC analysts should know whether their organisation allows "Anyone" links — if so, any created "Anyone" link is an unmonitorable exfiltration channel once the URL is shared externally.`,
+Administrators can control external sharing at the SharePoint Admin Center (admin.microsoft.com → SharePoint → Policies → Sharing). SOC analysts should know whether their organisation allows "Anyone" links — if so, any created "Anyone" link is an exfiltration channel whose users cannot be identified once the URL is shared externally.`,
       checkpoint: {
-        question: "According to the reading, which SharePoint external sharing level requires no authentication and leaves no audit trail of who viewed the file?",
+        question: "The audit log shows a Finance spreadsheet being opened from an unfamiliar external IP address, but the access record carries no user identity at all. Which way of sharing the file produces that kind of record?",
         options: [
           "Specific people links (external)",
           "Anyone links (Anonymous links)",
@@ -434,7 +437,7 @@ Administrators can control external sharing at the SharePoint Admin Center (admi
         ],
         answer: 1,
         explanation:
-          "'Anyone' (anonymous) links are the most dangerous setting — anyone with the URL can open the file with no sign-in required and no record of who accessed it, unlike 'specific people' links which require authentication and are logged.",
+          "Only an “Anyone” link lets someone open the file without signing in, so its use is logged (AnonymousLinkUsed, with IP and user agent) but cannot be tied to a person. A specific-people link makes the external recipient authenticate, so their identity is recorded. An existing guest signs in with a guest account (a #EXT# UPN). Internal-only sharing means a named employee account appears in the record.",
       },
     } satisfies ReadingTask,
 
@@ -461,13 +464,13 @@ Attackers have increasingly pivoted from email phishing to Teams phishing. The r
 - Using External Access to message employees from a fake external tenant (e.g. a tenant named "Microsoft Support")
 - Adding external guests to a Team and using that access to harvest data or spread malware
 
-The attack tool **TeamsPhisher** (seen in red-team exercises and actual attacks by groups like Midnight Blizzard) automates sending phishing links via Teams to large numbers of users by abusing the External Access feature.
+The tool **TeamsPhisher** (seen in red-team exercises and, per Microsoft, in real campaigns by the group Storm-1674 to distribute DarkGate malware) automates sending phishing messages via Teams to large numbers of users by abusing the External Access feature.
 
 **2. Guest Account Abuse**
 When an external guest is added to a Team, they can access all files in that team's SharePoint library. A compromised or malicious guest account can exfiltrate documents. Guest accounts appear in audit logs with a UPN suffix like \`user_externalcompany.com#EXT#@corp.onmicrosoft.com\`.
 
 **3. External Access Abuse**
-External Access (federation between tenants) allows anyone from any tenant to initiate a Teams chat with your employees by default. Attackers set up Microsoft 365 tenants with names like "Microsoft Help Desk" and message your employees claiming to be IT support.
+External Access (federation between tenants) allows anyone from any tenant to initiate a Teams chat with your employees by default. Attackers set up or compromise Microsoft 365 tenants, rename them to look like "Microsoft Help Desk" or an identity-protection team, and message your employees claiming to be IT support; Midnight Blizzard used this approach in 2023.
 
 **Key Teams Audit Events**
 
@@ -475,10 +478,8 @@ External Access (federation between tenants) allows anyone from any tenant to in
 |---|---|
 | \`MessageSent\` | A message was sent in a channel or chat |
 | \`MessageDeleted\` | A message was deleted (suspicious if done in bulk) |
-| \`GuestAdded\` | An external guest was added to a Team |
 | \`TeamCreated\` | A new Team was created |
-| \`MemberAdded\` | A member was added to an existing Team |
-| \`FileSyncUploadedFull\` | A file was synced/uploaded via OneDrive sync client |
+| \`MemberAdded\` | A member was added to a team, channel or group chat; adding an external guest is logged here too, with the added member's role recorded as Guest |
 | \`AppInstalled\` | A Teams app was installed (could be malicious app) |
 
 **Microsoft Defender for Cloud Apps (MDCA) Integration**
@@ -492,11 +493,16 @@ Microsoft Defender for Cloud Apps (formerly Cloud App Security) can monitor Team
 
 Microsoft Purview DLP policies can inspect Teams messages and files shared in Teams for sensitive data types (credit card numbers, Social Security Numbers, custom regex patterns). When a policy matches, Teams will show a warning to the user or block the message entirely. SOC analysts see these as \`DlpRuleMatch\` events in the audit log, with the Teams workload.`,
       checkpoint: {
-        question: "According to the reading, what audit event operation appears when an external guest is added to a Team?",
-        options: ["GuestAdded", "MemberAdded", "TeamCreated", "AppInstalled"],
+        question: "An employee gets a Teams chat from “IT Help Desk”, a sender in another organisation's tenant. That sender is not a member of any of your teams. Which Teams feature delivered the message?",
+        options: [
+          "External Access, which lets other tenants start chats with your users",
+          "Guest Access, through a B2B guest account added to one of your teams",
+          "A compromised internal account renamed to look like the help desk",
+          "A Teams app installed in your tenant that posts messages as a bot",
+        ],
         answer: 0,
         explanation:
-          "GuestAdded is logged specifically when an external guest is added to a Team; MemberAdded covers general member additions and TeamCreated covers new team creation.",
+          "External Access (federation between tenants) lets anyone in another tenant start a chat with your users, and by default it is open. That is the path abused by fake help-desk tenants and by tools like TeamsPhisher. Guest Access would require the sender to be added to one of your teams as a #EXT# guest, which the scenario rules out. A compromised internal account would sit in your own tenant, not another organisation's. A bot from an installed app is also part of your tenant and would show up as an AppInstalled event, not as an external sender.",
       },
     } satisfies ReadingTask,
 
@@ -505,7 +511,7 @@ Microsoft Purview DLP policies can inspect Teams messages and files shared in Te
       type: "reading",
       id: "spt-teams-r3",
       heading: "DLP and Insider Threat Detection in Microsoft 365",
-      content: `**Data Loss Prevention (DLP)** is a set of policies and technologies designed to detect and prevent the movement of sensitive information outside your organisation. In Microsoft 365, DLP is managed through **Microsoft Purview** (compliance.microsoft.com → Data loss prevention).
+      content: `**Data Loss Prevention (DLP)** is a set of policies and technologies designed to detect and prevent the movement of sensitive information outside your organisation. In Microsoft 365, DLP is managed through **Microsoft Purview** (purview.microsoft.com → Data loss prevention).
 
 **How Microsoft Purview DLP Works**
 
@@ -547,13 +553,13 @@ Even without Purview Insider Risk Management, SOC analysts can identify suspicio
 | **Off-hours access** | Downloads at 2 AM on a Saturday are unusual for a normal employee |
 | **Download from sensitive sites** | Focus on Finance, HR, Legal, Engineering IP repositories |
 | **External sharing spike** | Sudden creation of many "Anyone" links or sharing invitations to personal email addresses |
-| **OneDrive sync of entire libraries** | Syncing a whole SharePoint library to a personal laptop for offline access |
+| **OneDrive sync of entire libraries** | Syncing a whole SharePoint library to a personal laptop for offline access; the sync client logs \`FileSyncDownloadedFull\`, while a browser download logs \`FileDownloaded\` |
 
 **Practical Investigation Workflow**
 
 When you receive a DLP alert or a bulk-download alert:
 
-1. Go to **compliance.microsoft.com → Audit** and search for the user's \`FileDownloaded\` operations in the last 24–72 hours.
+1. Go to **purview.microsoft.com → Audit** and search for the user's \`FileDownloaded\` operations in the last 24–72 hours.
 2. Count the volume and look at the file paths — were they from sensitive sites like /Finance/ or /HR/?
 3. Check the **ClientIP** field — is this the user's normal corporate IP or an unusual external IP?
 4. Cross-reference with **HR systems** — is this employee on a performance improvement plan, under investigation, or about to leave?
@@ -567,13 +573,13 @@ When you receive a DLP alert or a bulk-download alert:
       id: "spt-teams-q1",
       question: "An attacker creates an anonymous 'Anyone' link for a sensitive financial spreadsheet in SharePoint and shares the URL externally. What is the primary security limitation of this sharing method from a SOC analyst's perspective?",
       options: [
-        "Anyone links give view-only access, so the file cannot be downloaded",
-        "Anyone links expire after 24 hours by default, so evidence of access disappears",
-        "Anyone links need no authentication, so audit logs cannot attribute access to a named user",
-        "Anyone link creation is not recorded in the Unified Audit Log, so it cannot be traced"
+        "Anyone links grant view-only access, so the file itself cannot be downloaded",
+        "Anyone links expire after 24 hours by default, so the access evidence disappears",
+        "Anyone links need no sign-in, so logged access cannot be tied to a named person",
+        "Anyone links bypass the Unified Audit Log, so creation and use are not recorded"
       ],
       answer: 2,
-      explanation: "**Anyone links** (anonymous links) are the most dangerous sharing mode because they require no authentication. The SharePoint audit log records when the link is **created** (`AnonymousLinkCreated`) and potentially when it is **used** (`AnonymousLinkUsed`), but if the attacker downloads the file using the link and then shares the file itself or its contents externally, there is no record of that. More critically, any person who receives the link can access the file — there is no identity binding, so the audit trail ends at the link creator.",
+      explanation: "An **Anyone** link needs no authentication, so anyone holding the URL can open the file. Creation (`AnonymousLinkCreated`) and use (`AnonymousLinkUsed`, with client IP and user agent) are logged, but the use records have no identity: you can see that and from where the file was opened, not by whom. View-only is a choice made when the link is created, not a property of all Anyone links, and edit/download links are common. Expiry is an admin setting, not a fixed 24-hour default, and an expired link does not delete the audit records already written. The log does record both events, so the problem is attribution, not missing records.",
       xp: 30,
     } satisfies QuestionTask,
 
@@ -581,15 +587,15 @@ When you receive a DLP alert or a bulk-download alert:
     {
       type: "question",
       id: "spt-teams-q2",
-      question: "You see a user with the UPN `vendor_externalco.com#EXT#@corp.onmicrosoft.com` downloading files from your Finance SharePoint site. What type of account is this?",
+      question: "FileDownloaded events on your Finance SharePoint site show the user `vendor_externalco.com#EXT#@corp.onmicrosoft.com`. What does this UPN tell you, and what should you check first?",
       options: [
-        "A service account used by an automated process",
-        "An Azure AD guest account — an external user invited to the tenant",
-        "A hybrid-synced on-premises account whose UPN was rewritten during sync",
-        "A shared mailbox identity that was granted SharePoint site access"
+        "A sync service principal; check which permissions the app registration holds",
+        "A B2B guest from externalco.com; check which team or site granted it access",
+        "A hybrid-synced on-prem account; check AD Connect for a broken UPN rewrite",
+        "An External Access chat contact; check the Teams federation allow list"
       ],
       answer: 1,
-      explanation: "The `#EXT#` suffix in a UPN is the unmistakable marker of an **Azure AD B2B guest account**. When you invite an external user to your tenant (to a Team, SharePoint site, or application), Microsoft creates a guest account with this naming convention: `<original-email-with-@-replaced-by-underscore>#EXT#@<your-tenant>.onmicrosoft.com`. Seeing a guest account accessing sensitive Finance files is a red flag — guest accounts should have tightly scoped access and their activity should be reviewed.",
+      explanation: "`#EXT#` marks an **Entra ID (Azure AD) B2B guest**: an external user (vendor@externalco.com, with @ replaced by _) invited into your tenant. Guests reach files through the team or site they were added to, so the first question is which membership gave this vendor access to Finance data. A service principal has no UPN of this form. A hybrid-synced employee keeps a normal corp.com-style UPN. External Access contacts chat from their own tenant and get no account in yours, so they cannot appear as a user downloading your SharePoint files.",
       xp: 30,
     } satisfies QuestionTask,
 
@@ -597,15 +603,15 @@ When you receive a DLP alert or a bulk-download alert:
     {
       type: "question",
       id: "spt-teams-q3",
-      question: "Which Microsoft 365 portal is the primary place for a SOC analyst to search the Unified Audit Log for SharePoint file download events?",
+      question: "HR suspects that a departing employee copied Finance files from SharePoint last week. No alert fired. Where do you look for that user's FileDownloaded operations?",
       options: [
-        "admin.microsoft.com (Microsoft 365 Admin Center)",
-        "admin.exchange.microsoft.com (Exchange Admin Center)",
-        "compliance.microsoft.com (Microsoft Purview compliance portal)",
-        "security.microsoft.com (Microsoft Defender XDR portal)"
+        "Message Trace in the Exchange Admin Center",
+        "The user's Entra ID sign-in logs for last week",
+        "Audit search (Unified Audit Log) in Microsoft Purview",
+        "The tenant sharing settings in the SharePoint Admin Center"
       ],
       answer: 2,
-      explanation: "The **Microsoft Purview compliance portal** (compliance.microsoft.com → Audit) is the central location for searching the Microsoft 365 Unified Audit Log. This log contains SharePoint `FileDownloaded`, `FileAccessed`, `AnonymousLinkCreated`, Exchange `UpdateInboxRules`, Teams `GuestAdded`, and thousands of other operation types from across all Microsoft 365 services. The Defender portal (security.microsoft.com) focuses on security alerts and threat hunting; the Exchange Admin Center focuses on email flow; the Admin Center focuses on user management.",
+      explanation: "SharePoint file operations such as `FileDownloaded`, `FileSyncDownloadedFull` and `AnonymousLinkCreated` are recorded in the **Unified Audit Log**, which you search in the Microsoft Purview portal (purview.microsoft.com → Audit). They are there whether or not an alert fired. Message Trace tracks email delivery, not file activity. Sign-in logs show when and from where the user authenticated, not which files they took. The SharePoint Admin Center sharing page sets tenant policy (for example, whether Anyone links are allowed) and holds no record of user activity.",
       xp: 30,
     } satisfies QuestionTask,
 
@@ -643,27 +649,27 @@ When you receive a DLP alert or a bulk-download alert:
       } satisfies TelemetryEvent,
       questions: [
         {
-          question: "Given the context (847 files, 4 minutes, departing employee, Finance site), what is the most likely classification of this event?",
+          question: "Using the alert, the raw record and the HR context, how should you classify this event?",
           options: [
-            "False positive — employees routinely download large numbers of files when setting up new machines",
-            "True positive — this shows strong indicators of insider data theft, likely pre-departure exfiltration",
-            "Informational — bulk downloads are expected from Finance users at month-end",
-            "Low priority — since the IP address is internal (10.x.x.x), data cannot leave the network"
+            "Benign: the OneDrive sync client re-downloading the library after a laptop refresh",
+            "Likely insider data theft before departure; escalate to IR, HR and Legal now",
+            "Expected: Finance staff pull large report sets during the month-end close",
+            "Low priority: the client IP is internal, so the files are still inside the network"
           ],
           answer: 1,
-          explanation: "This is a **true positive** with multiple converging risk signals: (1) 847 files in 4 minutes is far outside normal human download behaviour — this is the speed of a script or mass-sync, (2) the user is departing in 3 days — a classic **pre-departure exfiltration** scenario, (3) the site is Finance, which contains sensitive financial data. The internal IP (10.0.1.55) does not rule out exfiltration — the user could have downloaded to a laptop and then transferred via personal cloud storage, USB, or email. This needs immediate investigation.",
+          explanation: "The signals converge: 847 files in 4 minutes from the Finance site, late in the evening (22:47 UTC), by a user who leaves in 3 days. That is the classic pre-departure pattern, so escalate and preserve evidence. A sync-client re-download is the plausible benign story, but the sync client logs `FileSyncDownloadedFull`, and this record's Operation is `FileDownloaded`, a direct download. 21 November is not month-end, and month-end work would not explain this volume at this hour. An internal IP only shows where the download landed; from that laptop the files can still go out by USB, personal cloud or email.",
           xp: 40,
         },
         {
           question: "The alert only captures FileDownloaded operations inside SharePoint. Which MITRE ATT&CK tactic does this bulk-download activity fall under, and what would you still need to confirm to prove data actually left the organisation?",
           options: [
-            "Command and Control — a FileDownloaded operation shows a C2 channel between the attacker and SharePoint Online",
-            "Collection — data is gathered onto the device; still confirm a follow-on transfer (USB, personal cloud, email) to prove exfiltration",
-            "Initial Access — the downloads are how the attacker first reached the site, per the T1213.002 mapping",
-            "Persistence — repeated downloads keep a valid session token alive so the attacker retains access"
+            "Exfiltration: a FileDownloaded record means the files have already left the company",
+            "Collection: data is gathered onto a device; a later transfer out still needs proof",
+            "Discovery: the user is enumerating the site's contents before choosing what to take",
+            "Initial Access: the T1213.002 mapping marks how the user first reached the site"
           ],
           answer: 1,
-          explanation: "Downloading files out of a repository like SharePoint onto a local device is the **Collection** tactic — the attacker (or insider) is gathering data, not yet moving it out of the organisation. To confirm actual **exfiltration**, you would need corroborating evidence of the data leaving the network entirely, such as DLP alerts for USB transfer, uploads to personal cloud storage, or large outbound email attachments. Seeing only the download operation tells you data was collected locally — it does not by itself prove the data left the company.",
+          explanation: "Pulling files out of a repository such as SharePoint onto a device is **Collection** (T1213.002 is a Collection technique). The data is gathered, but nothing in this record shows it leaving the organisation. To prove exfiltration you need follow-on evidence such as a USB copy, an upload to personal cloud storage or a large outbound email. Calling it exfiltration already is the common misreading: the download went to a device on the internal network. Discovery would be browsing or listing content, but here the files themselves were downloaded. The user already had legitimate access, so there is no Initial Access, and T1213.002 is not an Initial Access technique.",
           xp: 40,
         },
       ],
@@ -673,9 +679,9 @@ When you receive a DLP alert or a bulk-download alert:
     {
       type: "flag",
       id: "spt-teams-f1",
-      prompt: "Look at the bulk-download log analysis above. According to the alert, exactly how many files were downloaded in this incident?",
-      answer: "847",
-      hint: "The count is in the task's opening context, and again in the rule.description field.",
+      prompt: "To prove exfiltration you must find the endpoint that now holds the downloaded Finance files, then check its USB, personal-cloud and email activity. Using the bulk-download log above, what address do you pivot on to identify that endpoint?",
+      answer: "10.0.1.55",
+      hint: "The audit record notes where each download request came from.",
       xp: 50,
     } satisfies FlagTask,
 
@@ -1180,7 +1186,7 @@ Every onboarded device has a **Timeline** view (Device page → Timeline tab). T
 
 **Live Response — Remote Forensics**
 
-MDE Live Response provides a remote interactive shell to an isolated endpoint. From security.microsoft.com, analysts can:
+MDE Live Response provides a remote interactive shell to any onboarded endpoint, including one that MDE has network-isolated (isolation keeps the device's connection to the Defender service open). From security.microsoft.com, analysts can:
 - Browse the file system
 - Collect specific files for analysis
 - Run investigative commands (\`tasklist\`, \`netstat\`, \`dir\`)
@@ -1189,16 +1195,16 @@ MDE Live Response provides a remote interactive shell to an isolated endpoint. F
 
 This eliminates the need for physical access to investigate a compromised device.`,
       checkpoint: {
-        question: "According to the reading, which Defender XDR component is responsible for detecting Kerberoasting and DCSync attacks against Active Directory?",
+        question: "A laptop was network-isolated through MDE an hour ago. You now need a copy of a suspicious file from its disk, and nobody can reach the laptop physically. What is the best way to get it?",
         options: [
-          "Defender for Identity (MDI)",
-          "Defender for Endpoint (MDE)",
-          "Defender for Office 365 (MDO)",
-          "Defender for Cloud Apps (MDCA)",
+          "Use Live Response; it still connects to an isolated device",
+          "Export the file from the device Timeline entry that shows it",
+          "Query DeviceFileEvents in Advanced Hunting to retrieve the file",
+          "Release isolation briefly and copy the file over an SMB share",
         ],
         answer: 0,
         explanation:
-          "Defender for Identity (MDI) monitors Active Directory Domain Controllers and Entra ID, and specifically detects Kerberoasting, DCSync, lateral movement, and Pass-the-Hash. MDE covers endpoint telemetry instead.",
+          "Live Response works on any onboarded device, including an isolated one, because isolation keeps the connection to the Defender service open; collecting files is one of its core functions. The Timeline shows that the file event happened, but it does not hold the file's contents. Advanced Hunting tables hold metadata (name, path, hashes), not the file. Releasing isolation reconnects a possibly compromised host to the network just to copy a file that Live Response can collect safely.",
       },
     } satisfies ReadingTask,
 
@@ -1250,14 +1256,14 @@ From the affected device page, open the Timeline. Filter the timeline around the
 **5. Check for Lateral Movement**
 
 In the incident graph, look for additional devices. If the attacker moved from Device A to Device B, you'll see alerts on both. Common lateral movement tools:
-- **PsExec**: Sysinternals tool that allows remote command execution. Abused constantly.
+- **PsExec**: Sysinternals tool that allows remote command execution. Abused constantly. It copies a service binary, \`PSEXESVC.exe\`, to the target and starts it as a service, so the account used must already be a local administrator there. On the target, the remote command appears as a child process of \`PSEXESVC.exe\`. By default it runs as the connecting account; with PsExec's \`-s\` option it runs as \`NT AUTHORITY\\SYSTEM\` instead.
 - **WMI (Windows Management Instrumentation)**: Built-in Windows remote management.
 - **RDP (Remote Desktop Protocol)**: If the attacker has credentials, they can RDP to other machines.
 - **SMB (Server Message Block)**: File sharing protocol often used to deploy malware to network shares.
 
-**6. Identify the Attack Timeline (Kill Chain)**
+**6. Identify the Attack Timeline (ATT&CK Tactics)**
 
-Map the events to the MITRE ATT&CK Kill Chain stages:
+Map the events to MITRE ATT&CK tactics (the attack stages; not to be confused with Lockheed Martin's separate Cyber Kill Chain model):
 - **Initial Access**: How did they get in? (Phishing? VPN with stolen credentials? Exploited vulnerability?)
 - **Execution**: What code did they run? (Malicious macro, PowerShell, scheduled task?)
 - **Persistence**: How did they ensure they survive a reboot? (Registry run key, scheduled task, new service?)
@@ -1275,7 +1281,13 @@ Based on your investigation:
 - **Reset compromised accounts** (via Entra ID or Active Directory)
 - **Block IOCs** (Add malicious IPs, domains, and file hashes to the MDE indicators list for automatic blocking)
 - **Run AV scan** on affected devices
-- **Revoke active sessions** for compromised accounts (Entra ID → Sign-in logs → Revoke sessions)
+- **Revoke active sessions** for compromised accounts (Entra ID → Users → select the user → Revoke sessions)
+- **Revoke OAuth consent** granted to a malicious app, because the app's tokens are separate from the user's password
+
+**Two cloud identity attacks to recognise**
+
+- **Illicit consent grant (consent phishing)**: the user is tricked into approving a malicious OAuth app that asks for permissions such as Mail.Read or Mail.ReadWrite. The app then reads the mailbox with its own tokens, which keep working after a password reset until the consent is revoked. In telemetry: a consent event for a new, unverified app shortly after a risky sign-in.
+- **Adversary-in-the-middle (AiTM) phishing**: a phishing page relays the real Microsoft sign-in, so the user enters their password and approves their own MFA prompt while the attacker captures the session. In telemetry: a successful sign-in with MFA from an unfamiliar IP or unmanaged device. A quick MFA approval therefore does not prove the sign-in was legitimate; it fits AiTM as well as a fatigued user tapping Approve.
 
 **Defender for Identity (MDI) Alerts**
 
@@ -1290,11 +1302,16 @@ MDI monitors your on-premises Active Directory domain controllers and Azure Entr
 | Reconnaissance using LDAP queries | T1087 — Account enumeration via LDAP |
 | Suspicious additions to sensitive groups | T1098 — Adding a backdoor account to Domain Admins |`,
       checkpoint: {
-        question: "According to the reading, when investigating a device's Timeline after the first alert, how far before the alert time should an analyst typically look for reconnaissance activity?",
-        options: ["30–60 minutes earlier", "Exactly 5 minutes earlier", "One full week earlier", "There is no value in looking before the alert time"],
+        question: "An MDE alert fires at 14:05 for a PsExec launch on a workstation. Why should you open the device Timeline well before 14:05 instead of starting at the alert time?",
+        options: [
+          "Quieter reconnaissance usually comes before the loud action that fired the alert",
+          "The Timeline keeps only the events from the hour before an alert is raised",
+          "Alert times are shown in UTC, so the real activity happened hours earlier",
+          "Events after the alert are already summarised in the incident graph instead",
+        ],
         answer: 0,
         explanation:
-          "The reading recommends filtering the timeline to 30-60 minutes before the first alert, since attackers often perform reconnaissance before their loudest, most detectable action.",
+          "Alerts usually fire on the loudest step. Reconnaissance, credential access and the first execution often happen quietly beforehand, so starting earlier (the reading suggests 30–60 minutes) shows how the attacker got there. The Timeline goes back up to 180 days, not one hour. UTC is a display-format question: converting time zones does not uncover earlier activity. The incident graph shows how entities are connected; it does not replace reading the events that came before the alert.",
       },
     } satisfies ReadingTask,
 
@@ -1314,7 +1331,7 @@ Advanced Hunting queries are written in **KQL (Kusto Query Language)**, which is
 A KQL query follows this general structure:
 \`\`\`kql
 TableName
-| where TimeGenerated > ago(7d)           // Filter: last 7 days
+| where Timestamp > ago(7d)               // Filter: last 7 days
 | where ColumnName == "value"              // Filter by a specific column
 | project ColumnA, ColumnB, ColumnC       // Select which columns to show
 | summarize Count = count() by ColumnA    // Aggregate (count per group)
@@ -1322,7 +1339,7 @@ TableName
 | limit 100                               // Return top 100 results
 \`\`\`
 
-KQL uses the **pipe operator** (\`|\`) — each step transforms the result of the previous step.
+KQL uses the **pipe operator** (\`|\`) — each step transforms the result of the previous step. Advanced Hunting tables use the \`Timestamp\` column for event time; the same data in Microsoft Sentinel uses \`TimeGenerated\`.
 
 **The Advanced Hunting Tables**
 
@@ -1334,8 +1351,9 @@ Defender XDR exposes raw telemetry in structured tables. Key tables:
 | \`DeviceNetworkEvents\` | Network connections: process, remote IP, remote port, URL |
 | \`DeviceFileEvents\` | File creation, modification, deletion events |
 | \`DeviceRegistryEvents\` | Registry key reads and writes |
-| \`DeviceEvents\` | Generic catch-all: logon events, Defender actions, script execution |
-| \`DeviceAlertEvents\` | MDE alerts associated with devices |
+| \`DeviceLogonEvents\` | Sign-ins on the device: account, logon type (interactive, network, RDP), remote IP and device |
+| \`DeviceEvents\` | Miscellaneous security events: ASR and exploit-protection events, antivirus detections, PowerShell commands and more |
+| \`AlertInfo\` / \`AlertEvidence\` | Alerts from all Defender products, and the devices, files, users and IPs attached to each alert |
 | \`EmailEvents\` | Email delivery events (from Defender for Office 365) |
 | \`EmailAttachmentInfo\` | Attachment metadata for emails |
 | \`IdentityLogonEvents\` | Identity authentication events (AD, Entra ID) |
@@ -1348,11 +1366,11 @@ Defender XDR exposes raw telemetry in structured tables. Key tables:
 DeviceProcessEvents
 | where Timestamp > ago(7d)
 | where FileName =~ "powershell.exe"
-| where ProcessCommandLine has "-Enc" or ProcessCommandLine has "-EncodedCommand"
+| where ProcessCommandLine matches regex @"(?i)\\s-(e|ec|en|enc\\w*)\\s"   // -e, -ec, -enc, -EncodedCommand…
 | project Timestamp, DeviceName, AccountName, ProcessCommandLine, InitiatingProcessFileName
 | order by Timestamp desc
 \`\`\`
-This is one of the most valuable hunting queries — encoded PowerShell is almost always malicious.
+Encoded PowerShell is worth reviewing, because attackers use it to hide script content. It is not malicious by itself: management tools such as Configuration Manager (CcmExec.exe) and Intune also launch encoded commands. Decode the content and check the parent process and account; an Office application, a browser or an unusual account as the parent deserves priority. The regex catches the short forms (-e, -ec, -enc) that a plain match on "-Enc" would miss.
 
 **Query 2: Find processes making network connections to rare external IPs**
 \`\`\`kql
@@ -1360,9 +1378,9 @@ DeviceNetworkEvents
 | where Timestamp > ago(24h)
 | where RemoteIPType == "Public"
 | where InitiatingProcessFileName !in~ ("chrome.exe", "msedge.exe", "firefox.exe", "outlook.exe")
-| summarize ConnectionCount = count(), Devices = make_set(DeviceName) by RemoteIP, InitiatingProcessFileName
-| where ConnectionCount < 3   // rare connections (less than 3 devices contacted this IP)
-| order by ConnectionCount asc
+| summarize DeviceCount = dcount(DeviceName), Devices = make_set(DeviceName) by RemoteIP, InitiatingProcessFileName
+| where DeviceCount < 3   // rare: fewer than 3 devices contacted this IP
+| order by DeviceCount asc
 \`\`\`
 
 **Query 3: Detect PsExec lateral movement**
@@ -1406,15 +1424,15 @@ SOC analysts often track Secure Score as a KPI for endpoint security health.`,
     {
       type: "question",
       id: "def-xdr-q1",
-      question: "Which Microsoft Defender XDR component is specifically designed to detect attacks against on-premises Active Directory, such as Kerberoasting and DCSync?",
+      question: "From a contractor laptop that has no MDE agent, someone requests Kerberos service tickets for 40 different service accounts within one minute. No malware runs. Which Defender XDR component can still raise an alert on this?",
       options: [
-        "Microsoft Defender for Endpoint (MDE)",
-        "Microsoft Defender for Office 365 (MDO)",
-        "Microsoft Defender for Identity (MDI)",
-        "Microsoft Defender for Cloud Apps (MDCA)"
+        "Defender for Endpoint, from the ticket requests recorded on the laptop",
+        "Defender for Office 365, by tracing the phishing email that began it",
+        "Defender for Identity, whose domain-controller sensors see the requests",
+        "Defender for Cloud Apps, which inspects Entra ID token issuance"
       ],
       answer: 2,
-      explanation: "**Microsoft Defender for Identity (MDI)** is specifically designed to monitor Active Directory Domain Controllers and Azure Entra ID for identity-based attacks. It ingests AD authentication events (Kerberos TGT/TGS requests, NTLM, LDAP queries) and detects attack patterns like Kerberoasting (requesting TGS tickets for service accounts), DCSync (simulating a domain controller to replicate password hashes), Pass-the-Hash, lateral movement, and AD reconnaissance. MDI is not installed on endpoints — it has sensors deployed on your Domain Controllers.",
+      explanation: "This is the Kerberoasting pattern (T1558.003), and the ticket requests are answered by the domain controllers. **Defender for Identity** runs its sensors on the DCs, so it sees them whatever the client is. That is why it still alerts when the source laptop is unmanaged. Defender for Endpoint needs its agent on the device, and this laptop has none. Defender for Office 365 covers email and collaboration; even if a phishing email started the attack, it does not see Kerberos traffic. Defender for Cloud Apps watches SaaS and cloud activity, while these tickets are issued by on-premises Active Directory, not by Entra ID.",
       xp: 35,
     } satisfies QuestionTask,
 
@@ -1424,13 +1442,13 @@ SOC analysts often track Secure Score as a KPI for endpoint security health.`,
       id: "def-xdr-q2",
       question: "In a KQL Advanced Hunting query, you want to find all PowerShell processes that made outbound network connections to public IPs in the last 24 hours. Which two tables would you join to answer this question?",
       options: [
-        "DeviceAlertEvents and EmailEvents",
+        "AlertEvidence and DeviceNetworkEvents",
         "DeviceProcessEvents and DeviceNetworkEvents",
-        "DeviceFileEvents and DeviceRegistryEvents",
-        "CloudAppEvents and IdentityLogonEvents"
+        "DeviceProcessEvents and DeviceLogonEvents",
+        "IdentityLogonEvents and DeviceNetworkEvents"
       ],
       answer: 1,
-      explanation: "To correlate **which process** made a **network connection**, you need:\n- **DeviceProcessEvents**: Contains process creation events including the process name (powershell.exe), command line, and ProcessId.\n- **DeviceNetworkEvents**: Contains network connection events including RemoteIP, RemotePort, and the InitiatingProcessId (the process that made the connection).\nYou join these two tables on DeviceId and the process ID (ProcessId from DeviceProcessEvents matches InitiatingProcessId in DeviceNetworkEvents) to find PowerShell processes that made outbound connections — a classic command-and-control hunting technique.",
+      explanation: "To tie **which process** to **which connection**, join:\n- **DeviceProcessEvents**: process creation, with the process name (powershell.exe), command line and ProcessId.\n- **DeviceNetworkEvents**: connections, with RemoteIP, RemotePort, RemoteIPType and the InitiatingProcessId of the process that opened them.\nJoin on DeviceId and ProcessId = InitiatingProcessId, as in Query 4. AlertEvidence only holds entities attached to alerts that already fired, so it misses unalerted activity, which is what hunting is for. DeviceLogonEvents records sign-ins, not connections to public IPs. IdentityLogonEvents records authentication against AD/Entra ID, not which process on a device opened a connection.",
       xp: 35,
     } satisfies QuestionTask,
 
@@ -1440,13 +1458,13 @@ SOC analysts often track Secure Score as a KPI for endpoint security health.`,
       id: "def-xdr-q3",
       question: "You receive a Defender XDR incident containing 12 alerts across 4 devices and 3 user accounts. What is the main advantage of Defender XDR automatically grouping these into one incident rather than 12 separate alerts?",
       options: [
-        "Grouping lowers the reported alert count for metrics, but all 12 alerts still need individual investigation",
-        "Grouping correlates events from several sources into one attack story showing the full scope and chain",
-        "Grouping auto-closes the 11 lower-severity alerts once the highest-severity one is resolved",
-        "Grouping is a visual convenience for the queue and adds no context for investigating each alert"
+        "The incident can be closed as soon as its highest-severity alert is resolved",
+        "Alerts from different products are linked into one attack story with its full scope",
+        "Duplicate detections of one event are merged, so 11 of the alerts can be ignored",
+        "The alerts are ranked, so only the most severe one needs to be investigated"
       ],
       answer: 1,
-      explanation: "The core value of **XDR incident correlation** is **attack story reconstruction**. A single attacker's campaign might generate a phishing alert (Defender for Office 365), a suspicious logon alert (Defender for Identity), a PowerShell execution alert (MDE on Device 1), and a PsExec alert (MDE on Device 2). In isolation, each alert looks moderate. Correlated into one incident with an incident graph, they reveal a complete picture: phishing → credential compromise → lateral movement. This dramatically improves investigation efficiency and ensures analysts see the full scope, not just isolated symptoms.",
+      explanation: "The value of **XDR correlation** is reconstructing the attack story. A phishing alert (Defender for Office 365), a suspicious logon (Defender for Identity) and PowerShell and PsExec alerts on two devices (MDE) each look moderate alone. Together, in one incident with its graph, they show phishing → credential compromise → lateral movement across 4 devices and 3 accounts. Resolving the most severe alert does not resolve the others: each can be a separate step that needs its own containment. The 12 alerts are related detections, not duplicates of one event, so none can be ignored. Severity ordering helps you choose where to start, but scoping still needs every alert.",
       xp: 35,
     } satisfies QuestionTask,
 
@@ -1455,7 +1473,7 @@ SOC analysts often track Secure Score as a KPI for endpoint security health.`,
       type: "log_analysis",
       id: "def-xdr-la1",
       heading: "MDE Alert — Lateral Movement via PsExec",
-      context: "You are investigating a Defender XDR incident. One of the alerts within the incident is a process creation event on a file server (SRV-FILE01). The alert indicates lateral movement. The initiating activity came from a developer workstation (WS-DEV-09) using a service account. Analyse the alert and answer the questions.",
+      context: "You are investigating a Defender XDR incident. Its lateral-movement alert says that at 03:17 the service account CORP\\svc-backup authenticated from a developer workstation (WS-DEV-09, 10.0.5.21) to the file server SRV-FILE01 and started a remote process there. Below is the DeviceProcessEvents record from SRV-FILE01 that the alert points to. Analyse it and answer the questions.",
       event: {
         id: "def-xdr-la1-001",
         ts: "2025-11-22T03:17:44.000Z",
@@ -1463,7 +1481,7 @@ SOC analysts often track Secure Score as a KPI for endpoint security health.`,
         vendor: "Microsoft Defender for Endpoint",
         event_type: "process_create",
         severity: "high",
-        description: "MDE: Lateral movement via PsExec detected — service account used to execute commands remotely on file server at 03:17 AM",
+        description: "MDE DeviceProcessEvents on SRV-FILE01: cmd.exe created at 03:17, linked to a lateral-movement alert from WS-DEV-09",
         hostname: "SRV-FILE01",
         user_email: "svc-backup@corp.com",
         src_ip: "10.0.5.21",
@@ -1471,49 +1489,60 @@ SOC analysts often track Secure Score as a KPI for endpoint security health.`,
         mitre_technique: "T1021.002",
         mitre_tactic: "Lateral Movement",
         process: {
-          name: "PSEXESVC.exe",
+          name: "cmd.exe",
           pid: 7712,
-          parent_name: "services.exe",
-          cmdline: "psexec \\\\SRV-FILE01 -s cmd.exe",
-          user: "CORP\\svc-backup",
+          parent_name: "PSEXESVC.exe",
+          parent_pid: 5340,
+          cmdline: "\"cmd.exe\"",
+          user: "NT AUTHORITY\\SYSTEM",
+          integrity: "system",
         },
         raw: {
-          "data.ms365.AlertTitle": "Lateral Movement via PsExec",
-          "data.ms365.AlertSeverity": "High",
-          "data.ms365.Category": "LateralMovement",
-          "data.ms365.MitreTechnique": "T1021.002",
-          "data.ms365.DeviceName": "SRV-FILE01",
-          "data.ms365.ProcessName": "PSEXESVC.exe",
-          "data.ms365.ProcessCommandLine": "psexec \\\\SRV-FILE01 -s cmd.exe",
-          "data.ms365.AccountDomain": "CORP",
-          "data.ms365.AccountName": "svc-backup",
-          "data.ms365.InitiatingProcessName": "cmd.exe",
-          "data.ms365.InitiatingDeviceName": "WS-DEV-09"
+          "Timestamp": "2025-11-22T03:17:44.000Z",
+          "DeviceId": "4c1e7a92-5b3d-4f08-9e6a-2d7f1b0c8e35",
+          "DeviceName": "srv-file01.corp.local",
+          "ActionType": "ProcessCreated",
+          "FileName": "cmd.exe",
+          "FolderPath": "C:\\Windows\\System32\\cmd.exe",
+          "ProcessId": 7712,
+          "ProcessCommandLine": "\"cmd.exe\"",
+          "ProcessIntegrityLevel": "System",
+          "AccountDomain": "nt authority",
+          "AccountName": "system",
+          "AccountSid": "S-1-5-18",
+          "InitiatingProcessFileName": "PSEXESVC.exe",
+          "InitiatingProcessFolderPath": "C:\\Windows\\PSEXESVC.exe",
+          "InitiatingProcessId": 5340,
+          "InitiatingProcessCommandLine": "C:\\Windows\\PSEXESVC.exe",
+          "InitiatingProcessParentFileName": "services.exe",
+          "InitiatingProcessAccountDomain": "nt authority",
+          "InitiatingProcessAccountName": "system",
+          "ReportId": 30417
         },
       } satisfies TelemetryEvent,
       questions: [
         {
-          question: "The command includes the `-s` flag: `psexec \\\\SRV-FILE01 -s cmd.exe`. What does the `-s` flag do in PsExec, and why is it significant from a security perspective?",
+          question: "The alert says the remote connection authenticated as svc-backup, yet the shell on SRV-FILE01 runs as nt authority\\system. What best explains this, and what does it tell you about svc-backup?",
           options: [
-            "The -s flag suppresses the console window so the command runs with no visible output",
-            "The -s flag runs the remote process as SYSTEM, escalating from the service account to the highest privilege on the target",
-            "The -s flag selects the remote host, as an alternative to typing \\\\computername",
-            "The -s flag copies the executable to the remote machine before running it"
+            "PsExec always maps service accounts to SYSTEM; svc-backup may be unprivileged",
+            "PsExec was run with -s; svc-backup must already be a local admin on SRV-FILE01",
+            "A local scheduled task started the shell; svc-backup was not involved in it",
+            "The record is mis-attributed; MDE logs PsExec children under the service name"
           ],
           answer: 1,
-          explanation: "The **PsExec -s flag** runs the remote process as the **NT AUTHORITY\\SYSTEM** account — the most privileged account on a Windows machine, with complete control over the OS. By running `psexec \\\\SRV-FILE01 -s cmd.exe`, the attacker launches a command prompt on SRV-FILE01 that runs as SYSTEM, regardless of what privileges the `svc-backup` account had. This is a privilege escalation + lateral movement combination: compromise a service account → use PsExec -s to get SYSTEM on the target. This technique is heavily used by ransomware operators and APT groups.",
+          explanation: "On the target, PsExec's remote command runs as a child of `PSEXESVC.exe` (shown here), and it runs as the connecting account unless the `-s` option is used, which makes it run as SYSTEM. Installing PSEXESVC requires local administrator rights, so svc-backup already had admin on SRV-FILE01: that is a finding in itself, and it widens the blast radius of the stolen credential. PsExec does not map service accounts to SYSTEM; without -s, the shell would run as svc-backup. A scheduled task would be started by the task scheduler service, not by PSEXESVC.exe, so the parent rules it out. MDE records the real account of each process (AccountName/AccountSid S-1-5-18); nothing in the record suggests mis-attribution.",
           xp: 45,
         },
         {
-          question: "This activity occurred at 03:17 AM. The `svc-backup` account is a legitimate service account normally used only by the overnight backup job. What does this timing and account combination most likely indicate?",
+          question: "svc-backup is a legitimate service account, normally used only by the overnight backup job that runs from the backup server. How should you read this 03:17 activity?",
           options: [
-            "The backup job is running overtime and using PsExec to reach the file server — expected, close as a false positive",
-            "A scheduled task was misconfigured with the wrong account, so the backup job launched PsExec",
-            "The svc-backup credentials were likely compromised; an attacker is moving laterally at 3 AM under cover of backup activity",
-            "MDE off-hours alerts are false positives, since security tools run during maintenance windows"
+            "Expected: the backup window is overnight, so svc-backup activity at 03:17 is normal",
+            "A misconfigured backup task that launched PsExec with the wrong command by mistake",
+            "Likely stolen credentials: a backup job has no need for a SYSTEM shell from a dev PC",
+            "Lower priority: svc-backup is already privileged, so a SYSTEM shell adds little"
           ],
           answer: 2,
-          explanation: "Service accounts are attractive targets for attackers precisely because their normal activity provides cover. The `svc-backup` account is expected to be active at 3 AM — but legitimate backup jobs do not use **PsExec to launch interactive command prompts**. Backup software uses specific APIs and protocols, not `cmd.exe` via PsExec. This is a classic attacker technique: steal a service account's credentials (via Kerberoasting, password spray, or credential dumping) and use it during its expected activity window. The account activity looks plausible at 3 AM, but the specific action (interactive cmd.exe via PsExec) is not consistent with legitimate backup behaviour.",
+          explanation: "The time fits the account, but nothing else does. The connection comes from a developer workstation (WS-DEV-09), not the backup server, and the result is an interactive SYSTEM `cmd.exe` through PsExec, not backup traffic. Attackers pick service accounts precisely because activity in their usual window looks normal. Treating it as expected judges the time and ignores the source host and the action. A misconfigured backup task would run from the backup server, not from a dev PC. A SYSTEM shell on a file server gives full control of the host and its data, so the account's existing privilege raises the priority rather than lowering it.",
           xp: 45,
         },
       ],
@@ -1523,9 +1552,9 @@ SOC analysts often track Secure Score as a KPI for endpoint security health.`,
     {
       type: "flag",
       id: "def-xdr-f1",
-      prompt: "Look at the PsExec lateral movement log analysis above. The MITRE ATT&CK technique for this attack is listed in the raw log. What is the exact MITRE technique ID for this lateral movement method? (Format: T followed by numbers and a dot, e.g. T1234.001)",
-      answer: "T1021.002",
-      hint: "Look at the raw log field called data.ms365.MitreTechnique. It starts with T and has a dot separating two number groups.",
+      prompt: "Next you want the SRV-FILE01 timeline to show everything else the PsExec service process did there (other child processes, files written, network connections). Using the record above, what is the process ID of the process that launched the SYSTEM shell?",
+      answer: "5340",
+      hint: "The record describes two processes: the one that was created and the one that created it.",
       xp: 60,
     } satisfies FlagTask,
 
@@ -1533,15 +1562,15 @@ SOC analysts often track Secure Score as a KPI for endpoint security health.`,
     {
       type: "question",
       id: "def-xdr-q4",
-      question: "A threat hunter writes the following KQL query in Advanced Hunting:\n\n```kql\nDeviceProcessEvents\n| where Timestamp > ago(7d)\n| where FileName =~ \"powershell.exe\"\n| where ProcessCommandLine has \"-Enc\"\n| project Timestamp, DeviceName, AccountName, ProcessCommandLine\n```\n\nWhat specific threat does this query hunt for?",
+      question: "A hunter runs Query 1 from the reading (encoded PowerShell, last 7 days). It returns 40 rows: 36 have InitiatingProcessFileName = CcmExec.exe (the Configuration Manager client) spread across hundreds of devices, and 4 have InitiatingProcessFileName = WINWORD.EXE on two Finance laptops. How should the hunter handle the results?",
       options: [
-        "PowerShell processes that download files from the internet via WebClient or Invoke-WebRequest",
-        "PowerShell launched with Base64-encoded commands, which attackers use to obscure malicious scripts",
-        "PowerShell processes running as SYSTEM on domain controllers",
-        "PowerShell processes blocked by Defender's script block logging"
+        "Escalate all 40 at once — encoded PowerShell is rarely legitimate, whatever the parent",
+        "Prioritise the 4 WINWORD.EXE rows; decode and baseline the CcmExec.exe rows",
+        "Close all 40 — Defender would already have alerted on any malicious encoded script",
+        "Treat the WINWORD.EXE rows as benign — Office add-ins routinely run encoded scripts"
       ],
       answer: 1,
-      explanation: "The query filters for `powershell.exe` processes where the command line **contains `-Enc`** (short for `-EncodedCommand`). The `-EncodedCommand` flag accepts a Base64-encoded string as the command to execute. Attackers use this to **obfuscate their malicious PowerShell** — the raw command line shows only `powershell.exe -Enc JABjAG...` rather than the actual code. Security tools that only look for obvious strings like `Invoke-Mimikatz` or `DownloadString` are bypassed. This is one of the most valuable and productive hunting queries for detecting post-exploitation PowerShell activity.",
+      explanation: "Encoded PowerShell is a lead, not a verdict. Configuration Manager's CcmExec.exe legitimately launches encoded commands across the fleet, so those rows are decoded and baselined rather than escalated. Word spawning encoded PowerShell on two Finance laptops is the classic macro-delivery pattern, so it comes first. Escalating everything treats management tooling as an attack and buries the 4 real leads. Closing everything assumes an alert would already exist, but hunting exists to find what did not alert. Office applications launching encoded PowerShell are a top-priority signal, not routine add-in behaviour.",
       xp: 35,
     } satisfies QuestionTask,
 
@@ -1551,12 +1580,12 @@ SOC analysts often track Secure Score as a KPI for endpoint security health.`,
       id: "def-xdr-ac1",
       heading: "Verdict: High-Risk Sign-In Followed by a New OAuth App Consent",
       scenario:
-        "Defender XDR groups three signals into one incident at 04:47 AM: (1) Entra ID Identity Protection flags a High-risk sign-in for the CFO's account (m.reyes@corp.com) that nonetheless succeeded, including MFA, from an IP address never associated with this account before; (2) two minutes later the same account grants OAuth consent to a newly-registered third-party application requesting Mail.Read and Mail.ReadWrite permissions; (3) Defender for Cloud Apps flags the application as an unverified publisher, first seen today across the whole tenant. Review the Identity Protection sign-in record below and render your verdict.",
+        "Defender XDR groups three signals into one incident at 04:47 AM: (1) Entra ID Identity Protection flags a High-risk sign-in for the CFO's account (m.reyes@corp.com) that nonetheless succeeded, including MFA, from an IP address never associated with this account before; (2) two minutes later the same account grants OAuth consent to a newly-registered third-party application requesting Mail.Read and Mail.ReadWrite permissions; (3) Defender for Cloud Apps flags the application as an unverified publisher, first seen today across the whole tenant. Review the Unified Audit Log sign-in record below and render your verdict.",
       event: {
         id: "def-xdr-ac1-evt-001",
         ts: "2026-02-11T04:47:03Z",
         source: "o365",
-        vendor: "Microsoft Entra ID Identity Protection",
+        vendor: "Microsoft 365 Unified Audit Log",
         event_type: "auth_success",
         severity: "high",
         user_email: "m.reyes@corp.com",
@@ -1579,11 +1608,11 @@ SOC analysts often track Secure Score as a KPI for endpoint security health.`,
           "GeoLocation.country_name": "Romania",
           "GeoLocation.city_name": "Cluj-Napoca",
           "data.office365.ExtendedProperties": [
-            { Name: "RiskLevel", Value: "High" },
-            { Name: "RiskDetail", Value: "unfamiliarFeatures" },
+            { Name: "ResultStatusDetail", Value: "Success" },
+            { Name: "UserAgent", Value: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36" },
             { Name: "UserAuthenticationMethod", Value: "16457" },
-            { Name: "MfaResponseLatencySeconds", Value: "4" },
             { Name: "RequestType", Value: "OAuth2:Authorize" },
+            { Name: "KeepMeSignedIn", Value: "True" },
           ],
           "data.office365.DeviceProperties": [
             { Name: "OS", Value: "Windows 10" },
@@ -1597,9 +1626,9 @@ SOC analysts often track Secure Score as a KPI for endpoint security health.`,
       } satisfies TelemetryEvent,
       correct_verdict: "true_positive",
       explanation:
-        "Individually, a High RiskLevel from Identity Protection is a probabilistic signal, not proof of compromise — legitimate travel or a new device can also trigger it. What removes the ambiguity is the combination: the sign-in comes from an IP and country this account has never used, the device is unmanaged and non-compliant (IsCompliant: false, TrustType: Unknown), the MFA push was approved just 4 seconds after being sent — far faster than a user actually reading an unfamiliar-location prompt, and consistent with MFA fatigue or an attacker simply tapping 'Approve' on a stolen device pairing — and, most decisively, that same account granted OAuth consent to a brand-new, unverified application requesting Mail.Read and Mail.ReadWrite within two minutes. This sequence is the well-documented 'illicit consent grant' attack: once the attacker has a valid OAuth token for the mailbox, it keeps working even after a password reset, because tokens are independent of the user's password. Correct response: revoke the application's consent and any refresh tokens, force a password reset and MFA re-registration for m.reyes, and review the mailbox for forwarding rules or additional OAuth grants.",
+        "On its own, a High-risk sign-in from Identity Protection is a probabilistic signal, not proof of compromise: travel or a new device can also trigger it. The combination removes the ambiguity. The sign-in comes from an IP and country this account has never used. The device is unmanaged and non-compliant (IsCompliant: false, TrustType: Unknown). MFA was satisfied, but a fast approval on an unfamiliar sign-in is not reassurance: it fits a fatigued user tapping Approve, and it fits adversary-in-the-middle phishing, where the user approves their own prompt while a proxy captures the session. Most decisive of all, two minutes later the same account granted OAuth consent to a brand-new, unverified app requesting Mail.Read and Mail.ReadWrite. That is the illicit consent grant pattern from the reading: the app's tokens keep reading the mailbox even after a password reset. Correct response: revoke the app's consent and the user's sessions and refresh tokens, reset the password and re-register MFA for m.reyes, and review the mailbox for forwarding rules or further OAuth grants.",
       fp_trap:
-        "Treating 'RiskLevel: High' as automatically meaning 'attack' would generate constant false alarms, since unfamiliarFeatures fires on routine events like a new laptop or a business trip. The trap runs the other way here, too: it would be easy to see 'MFA satisfied' and assume the sign-in must be legitimate, since MFA is supposed to stop account takeover. But MFA only proves the account holder's device approved a prompt — it says nothing about whether that approval was a considered decision or a fatigued/rushed tap, which is exactly what the 4-second latency indicates. It is the full chain — unfamiliar location, non-compliant device, suspiciously fast MFA approval, and an unverified app requesting mailbox read/write two minutes later — that turns an ambiguous risk score into a confirmed compromise.",
+        "Treating any High-risk sign-in as automatically meaning “attack” would generate constant false alarms, because risk detections also fire on routine events such as a new laptop or a business trip. The trap here runs the other way: it is easy to see “MFA satisfied” and assume the sign-in must be legitimate. But MFA only proves that a prompt was approved, not who was behind the session. With AiTM phishing the real user approves their own prompt, and a rushed or fatigued tap looks the same in the log. It is the full chain (unfamiliar IP and country, non-compliant device, and an unverified app granted mailbox read/write two minutes later) that turns an ambiguous risk score into a confirmed compromise.",
       xp: 30,
     } satisfies AnalystChoiceTask,
 

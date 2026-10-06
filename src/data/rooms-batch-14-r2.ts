@@ -30,7 +30,7 @@ const midnightLogonEvent: TelemetryEvent = {
     "winlog.event_data.TargetUserName": "r.patel",
     "winlog.event_data.LogonType": "2",
     "winlog.event_data.AuthenticationPackageName": "Negotiate",
-    "winlog.event_data.IpAddress": "10.10.20.55",
+    "winlog.event_data.IpAddress": "127.0.0.1",
     "winlog.event_data.WorkstationName": "WS-FIN-2041",
     "winlog.event_data.ProcessName": "C:\\Windows\\System32\\winlogon.exe",
     "data.context":
@@ -87,15 +87,15 @@ const analystChoiceEvent: TelemetryEvent = {
     "crowdstrike.FileName": "powershell.exe",
     "crowdstrike.CommandLine":
       "powershell.exe -enc VwByAGkAdABlAC0ASABvAHMAdAAgACIAQgBhAGMAawB1AHAAIABjAG8AbQBwAGwAZQB0AGUAIgA=",
-    "crowdstrike.ParentImageFileName": "BackupAgentService.exe",
+    "crowdstrike.ParentImageFileName": "Veeam.EndPoint.Service.exe",
     "crowdstrike.ParentProcessId": "1204",
-    "crowdstrike.ParentImagePath": "C:\\Program Files\\Veeam\\Backup\\BackupAgentService.exe",
+    "crowdstrike.ParentImagePath": "C:\\Program Files\\Veeam\\Endpoint Backup\\Veeam.EndPoint.Service.exe",
     "crowdstrike.UserName": "CORP\\SYSTEM",
     "crowdstrike.HostName": "WS-HR-1188",
     "crowdstrike.FileSigned": "true",
     "data.decoded_command": "Write-Host \"Backup complete\"",
     "data.context":
-      "The parent process is the signed Veeam backup agent service, running as SYSTEM, and this workstation is scheduled for a nightly 22:45 backup job per the IT change calendar.",
+      "IT change calendar entry: nightly backup job on HR workstations, scheduled daily at 22:45.",
   },
 };
 
@@ -142,15 +142,15 @@ const analystMindsetRoom = {
         "\"The user says it was\"  -->  \"Can I verify that independently, or\n" +
         "\"them.\"                       am I just trusting a claim?\"",
       checkpoint: {
-        question: "According to the reading's detective analogy, what does a good detective do after forming a working theory?",
+        question: "Your working theory is that a login alert is an attacker using a stolen password. Thinking like the detective in the reading, what do you look for next?",
         options: [
-          "Deliberately looks for evidence that would prove the theory wrong, not just evidence that confirms it",
-          "Immediately announces a suspect to their team",
-          "Ignores any evidence that contradicts the theory",
-          "Waits for another detective to independently confirm the theory before doing anything else",
+          "Evidence that would show your theory is wrong",
+          "More evidence that the login was an attack",
+          "Whether the alert's severity label agrees",
+          "Whether a colleague would reach the same theory",
         ],
         answer: 0,
-        explanation: "The reading states that a good detective forms a working theory, then deliberately looks for evidence that would prove that theory WRONG — if the theory survives that stress test, it graduates from 'guess' to 'conclusion.'",
+        explanation: "A good detective tests a working theory by looking for the evidence that would prove it WRONG — if the theory survives that test, it graduates from 'guess' to 'conclusion'. Collecting more supporting evidence feels productive, but it is confirmation bias: you only see what fits. The severity label is someone else's starting guess, not a test of your theory. A colleague's agreement is a second opinion, not evidence — both of you could be wrong in the same way.",
       },
     },
 
@@ -222,15 +222,15 @@ const analystMindsetRoom = {
         "  answers is what should raise your suspicion, not any single field\n" +
         "  alone.",
       checkpoint: {
-        question: "According to the reading, when applying the WHY question from the six-question framework, what should an analyst do first?",
+        question: "An alert says a sales user copied 2 GB from a file share at 19:00. You reach the WHY question of the framework. What do you do first?",
         options: [
-          "Generate the innocent/benign explanation before generating the attack explanation",
-          "Immediately search threat intelligence feeds for a matching indicator",
-          "Ask the SOC manager for their opinion",
-          "Escalate to Tier 2 for a second opinion",
+          "Write down an innocent reason, e.g. a month-end report, before any attack theory",
+          "Assume data theft and start tracing where the 2 GB went after it was copied",
+          "Check the user's job role, since WHO must be answered fully before WHY",
+          "Escalate to Tier 2 so a more senior analyst can decide what the reason was",
         ],
         answer: 0,
-        explanation: "The reading states that you should 'force yourself to generate the innocent explanation FIRST, before you generate the attack explanation' — this habit is described as the best anti-bias practice you can build.",
+        explanation: "The WHY question asks you to generate the innocent explanation FIRST, before the attack explanation — the reading calls this the best anti-bias habit you can build. Assuming theft and tracing the data starts from the attack theory, which is exactly the order the habit reverses. Checking the role is a good step, but it belongs to WHO; the question asked how to apply WHY. Escalating hands the thinking to someone else before you have done the basic reasoning yourself.",
       },
     },
 
@@ -279,15 +279,15 @@ const analystMindsetRoom = {
         "**Authority Bias** — If a senior analyst, a manager, or even the ticket's previous handler already labeled something 'benign,' you are less likely to question it, even if you notice something odd. The fix: treat previous verdicts as a helpful data point, not a substitute for your own look at the evidence — especially if new information has appeared since that verdict was made.\n\n" +
         "None of these biases make you a bad analyst — they make you human. The goal is not to eliminate them (you cannot) but to recognize the moment they are steering you, and to build habits — like actively searching for disconfirming evidence — that counteract them.",
       checkpoint: {
-        question: "According to the reading, what is the recommended fix for confirmation bias?",
+        question: "An analyst is sure a burst of failed logins is just a user with an old password saved on their phone, and every log line they read seems to fit. Which habit best counters the bias at work?",
         options: [
-          "Deliberately look for the piece of evidence that would prove your hypothesis wrong, not just more confirming evidence",
-          "Trust your first instinct without checking further, since a seasoned analyst's gut reaction is generally accurate enough to justify skipping additional verification steps",
-          "Escalate every single alert automatically regardless of severity, so that bias is removed entirely from the initial screening decision",
-          "Rely on the SIEM's default severity label as the final word instead of applying your own manual judgment to the underlying raw evidence",
+          "Look for the one piece of evidence that would prove the phone theory wrong",
+          "Gather a few more matching log lines so the phone theory is well supported",
+          "Ask the user to confirm it was their phone, then close the alert on their word",
+          "Wait for the SIEM's severity label and let it decide whether to dig further",
         ],
         answer: 0,
-        explanation: "The reading's fix for confirmation bias is to deliberately look for the piece of evidence that would PROVE you wrong, not just more evidence that confirms you're right.",
+        explanation: "This is confirmation bias: once the phone theory formed, every line seems to fit. The fix is to look deliberately for the evidence that would prove it WRONG — for example, failures from an address or device the user never uses. Gathering more matching lines is the bias itself, not the cure. The user's confirmation is an unverified claim, so closing on it skips the test. The severity label is someone else's starting guess, and leaning on it swaps one bias (confirmation) for another (anchoring).",
       },
     },
 
@@ -333,16 +333,16 @@ const analystMindsetRoom = {
       type: "question" as const,
       id: "mind-q1",
       question:
-        "An analyst sees an alert titled 'Likely benign — known IT scanning tool' before looking at any raw evidence, and finds themselves agreeing with that label almost immediately without really checking the details. Which bias is most directly at play?",
+        "Alerts in your queue arrive pre-labelled by an auto-triage rule, such as 'Likely benign — known IT scanning tool'. Which habit best stops those labels from shaping how you read the evidence?",
       options: [
-        "Availability bias — a recent memorable incident is distorting the analyst's judgment of this alert",
-        "Anchoring — the pre-existing label is shaping how the analyst reads everything that follows",
-        "Alert fatigue — too many alerts triaged in a row are lowering the analyst's scrutiny of this one",
-        "Tunnel vision — the analyst has locked onto one theory and is ignoring alternative explanations of the activity",
+        "Accept the label when the tool name looks familiar, since auto-triage is usually right",
+        "Read the raw evidence first, and ask if you'd read it the same way with the opposite label",
+        "Escalate every pre-labelled alert, since automatic labels are unreliable by nature",
+        "Close labelled alerts quickly to keep the queue short, and revisit any that recur",
       ],
       answer: 1,
       explanation:
-        "This is a textbook example of anchoring: the first piece of information (a pre-written label) shapes the interpretation of everything the analyst looks at afterward, even before they have evaluated the raw evidence themselves. The fix is to look at raw evidence first when possible, or consciously ask 'would I interpret this fact the same way if the label said the opposite?'",
+        "A pre-written label is a classic anchor: the first thing you see shapes how you read everything after it. The fix is to look at the raw evidence before the label when you can, or at least ask 'would I read this fact the same way if the label said the opposite?' Accepting a label because the name looks familiar is anchoring in action. Escalating everything over-corrects — it ignores the evidence just as much and buries real alerts in noise. Closing quickly to keep the queue short is how alert fatigue lets a real attack through.",
       xp: 30,
     },
 
@@ -371,14 +371,14 @@ const analystMindsetRoom = {
       question:
         "Two facts about an alert: (1) 'the process was svchost.exe' and (2) 'the user probably launched it by accident.' How should these two statements be treated in your investigation notes?",
       options: [
-        "Both should carry equal confidence, since both were observed by the same analyst during the same investigation",
-        "Statement 1 is a verifiable fact from the log; statement 2 is an inference about intent and should be labeled an assumption until confirmed",
-        "Statement 2 should lead the notes, since the likely motive explains the event better than a process name does",
-        "Neither belongs in the notes until escalation, since Tier 1 notes are limited to the alert title and verdict",
+        "Both are facts, since the analyst wrote both down while looking at the same alert",
+        "Statement 1 is a fact from the log; statement 2 is an assumption about intent until confirmed",
+        "Statement 2 is the key fact, because it explains why the event happened in the first place",
+        "Both are assumptions until the user confirms each of them to the analyst in person",
       ],
       answer: 1,
       explanation:
-        "Separating fact from assumption is a core analyst discipline. 'The process was svchost.exe' is something directly observable in the log — a fact. 'The user probably launched it by accident' is an inference about intent that has not been verified (e.g. by asking the user, or by other corroborating evidence) — it should be phrased as a hypothesis or unverified claim, not stated as established truth. Blurring this distinction in case notes misleads anyone who reads them later.",
+        "'The process was svchost.exe' is directly observable in the log — a fact anyone could confirm from the same data. 'The user probably launched it by accident' is an inference about intent that nobody has verified, so it belongs in the notes as an assumption ('this suggests…'). Writing something down does not make it a fact. An explanation of WHY can still be a guess, however convincing it sounds. And a log entry does not need the user's confirmation to be a fact — demanding that treats verifiable evidence as if it were a claim.",
       xp: 25,
     },
 
@@ -393,30 +393,30 @@ const analystMindsetRoom = {
       questions: [
         {
           question:
-            "Which piece of information in this event is a FACT, and which is closer to an ASSUMPTION you should still verify independently before fully trusting it?",
+            "How should you treat the logon record and the badge and calendar details in the context note?",
           options: [
-            "The logon time (03:12 AM) is an unverifiable assumption because Active Directory timestamps can be silently rewritten by any attacker with local access, while the badge swipe is the only genuinely trustworthy fact in the whole event",
-            "The logon event itself (event.code 4624, LogonType 2) is a fact pulled directly from the log; the badge system record and calendar note are additional facts from OTHER systems that corroborate the story, but should still be cross-checked for tampering or coincidence rather than accepted purely at face value",
-            "Everything in the raw log and the context note should be treated as equally certain and immediately actionable, since anything that appears inside a company's own logging systems is automatically corroborated and needs no further verification",
-            "None of this event can be trusted or acted upon in any way until the user is personally reached and explicitly confirms, in their own words, that they were the one who logged in at that exact time",
+            "The badge and calendar prove it was r.patel, so the case needs no further checking",
+            "The 4624 is a fact from the log; badge and calendar are facts from other systems backing it",
+            "The 4624 is a fact, but the badge and calendar entries are assumptions made by IT staff",
+            "Nothing here is a fact until r.patel confirms in person that she was the one logging on",
           ],
           answer: 1,
           explanation:
-            "The AD logon event (event.code 4624, LogonType 2 = interactive) is a directly observed fact from the authentication log. The badge swipe and calendar note are ALSO facts (from other systems), but they are corroborating evidence from separate sources, which is exactly what you want — independent confirmation, not just one system's word. A disciplined analyst still asks 'could any of these be spoofed or coincidental?' rather than assuming multiple systems agreeing means it's automatically closed — but here, badge + calendar + AD logon aligning is strong, multi-source support for the benign explanation.",
+            "The 4624 (LogonType 2, interactive) is a directly observed fact from the authentication log. The badge swipe and calendar note are also facts — recorded by other systems — and independent sources agreeing is exactly the corroboration you want. 'They prove it, no further checking' goes too far: a disciplined analyst still asks whether any of them could be spoofed or coincidental. 'Badge and calendar are assumptions' mislabels them — they are records you can check, not anyone's guess. 'Nothing is a fact until she confirms' gets it backwards: her word would be an unverified claim, while the logs are verifiable.",
           xp: 35,
         },
         {
           question:
             "Applying the 'WHY' question from the framework (find the innocent explanation FIRST) — what is the most plausible benign explanation here, and what would make you suspicious enough to keep digging despite it?",
           options: [
-            "There is no plausible benign explanation that could ever justify a 3 AM logon on a finance workstation, so any interactive logon at that hour should always be escalated immediately as a confirmed attack, regardless of any surrounding context or corroborating evidence",
-            "The benign explanation is quarter-close overtime, supported by the calendar note and badge swipe; you would still dig further if, for example, the badge system showed no matching swipe, or if this user had never logged in this late before in their history",
-            "Since LogonType is 2 (interactive) rather than 3 (network-only), an interactive logon can never be part of an attack technique, so once you see LogonType 2 no further checking of the surrounding context is ever needed",
-            "The workstation name (WS-FIN-2041) alone, independent of who is logged into it or when, is sufficient proof by itself that any activity on that machine is authorized financial work and needs no further review",
+            "None — a 3 AM logon on a finance workstation should be escalated whatever the context",
+            "Quarter-close overtime, backed by badge and calendar; dig on if those or her history don't fit",
+            "Quarter-close overtime; the calendar note alone settles it, so close without other checks",
+            "A scheduled job at night — LogonType 2 is how Windows records automated tasks after hours",
           ],
           answer: 1,
           explanation:
-            "This event demonstrates 'first-time-seen' style baselining and the WHY-first habit: the benign explanation (late-night quarter-close work) fits, and it is independently corroborated by the badge system (physical presence, same person) and a calendar note. A good analyst would still keep digging if any of those corroborating facts were missing or contradictory — e.g., no matching badge swipe, or this being the user's first-ever late night login with no supporting business reason. LogonType alone does not prove intent, and the workstation name alone is not proof of authorization — it is the CONVERGENCE of multiple independent, verifiable facts that builds real confidence.",
+            "Quarter-close overtime is the innocent explanation, and it is backed by independent sources: the badge shows r.patel physically entered at 03:05 and the calendar notes a late night. You would keep digging if a piece did not fit — no matching badge swipe, or no history of late logins for this user. 'Escalate whatever the context' skips the WHY question entirely. 'The calendar note alone settles it' trusts one source without checking the others — the convergence of several facts is what builds confidence. 'A scheduled job' misreads the logon type: Type 2 is someone at the keyboard, while scheduled tasks log on as Type 4 (Batch).",
           xp: 35,
         },
       ],
@@ -435,28 +435,28 @@ const analystMindsetRoom = {
           question:
             "Using the 'blast radius' and 'is this normal for this entity' questions together, what is the single most important fact that changes how you should read this alert?",
           options: [
-            "The process name is powershell.exe, and PowerShell is inherently a red flag on any endpoint regardless of who launched it, what repository the script came from, or what the user's actual job role happens to be",
-            "The script is hosted on the company's OWN internal GitHub organization (nexacorp-it/deploy-scripts), and the user is a Tier 2 IT technician whose job role plausibly includes running deployment scripts — this is entity-specific normal, not generic 'PowerShell is always scary'",
-            "The parent process is cmd.exe, and any PowerShell process spawned from cmd.exe always indicates malware staging, regardless of what command was actually run or which legitimate account launched it",
-            "The command line includes -ExecutionPolicy Bypass, and that flag always means an attack is underway, because there is no legitimate enterprise scenario where a script would ever need to bypass the default execution policy"
+            "The -NoProfile flag — it shows the technician was trying to keep the activity hidden",
+            "The script comes from the company's own repository and fits a Tier 2 IT technician's job",
+            "The parent is cmd.exe — PowerShell started from cmd.exe points to malware staging",
+            "-ExecutionPolicy Bypass — that flag on its own is enough to show an attack is underway",
           ],
           answer: 1,
           explanation:
-            "This event is designed to test whether you fall for surface-level pattern matching ('PowerShell + download + execute = attack') versus doing the actual WHO/WHERE/WHY check. The repository belongs to the company's own IT organization, referenced in real change tickets, and the user's job role (Tier 2 IT support) plausibly includes exactly this kind of activity. -ExecutionPolicy Bypass and downloading-then-running a script ARE genuinely used in attacks too — which is why you still verify (check the repo owner, check the ticket references, check the user's role) rather than dismissing OR escalating on pattern alone.",
+            "This tests whether you stop at surface patterns ('PowerShell + download + run = attack') or ask WHO and whether this is normal for this entity. The script comes from the company's own IT repository, referenced in change tickets, and running deployment scripts is part of a Tier 2 IT technician's job — entity-specific normal. -NoProfile just skips loading the user's PowerShell profile; admin scripts use it routinely, so it does not show hiding. cmd.exe launching PowerShell is common for admin batch files and tells you little on its own. -ExecutionPolicy Bypass and download-then-run do appear in attacks too, which is why you still verify rather than decide on one flag.",
           xp: 35,
         },
         {
           question:
             "Even though the context here looks benign, what specific follow-up check would still be reasonable before fully closing this alert, consistent with 'keep digging until questions are actually answered' rather than just accepting the surface story?",
           options: [
-            "No further check is needed at all — the GitHub organization name alone, simply by looking legitimate and matching the company's naming convention, is sufficient proof that this specific script and download were authorized",
-            "Verify that the referenced change tickets are real, currently open/approved, and actually correspond to this specific script and time window — rather than just trusting that a plausible-sounding org name means the activity was authorized",
-            "Escalate this automatically as a confirmed incident regardless of what the change tickets or repository ownership actually show, because any PowerShell process that downloads and immediately executes a remote script is inherently malicious",
-            "Ask the technician for a verbal confirmation over chat or in person, and treat that spoken assurance alone as sufficient proof, without needing to independently verify it against the change-ticket system"
+            "Look up the GitHub URL on VirusTotal and close the alert if it comes back clean",
+            "Check that the change tickets are real and cover this script and this time window",
+            "Ask the technician in chat and close the alert if they confirm it was them",
+            "Escalate it as an incident, since downloading and running a script is an attack pattern",
           ],
           answer: 1,
           explanation:
-            "A disciplined analyst distinguishes between a PLAUSIBLE story and a VERIFIED one. The org name looking legitimate is a good sign but is not, by itself, proof against something like a compromised internal GitHub account or an insider threat. Cross-checking the actual change tickets (an independent system) for a match to this specific script and time window is the kind of low-cost verification that turns 'this looks fine' into 'this IS fine, and I can show my work.' A verbal claim from the technician alone is an unverified assumption, not confirmation.",
+            "A plausible story is not a verified one. Checking the change tickets — an independent system — for this exact script and time window is the cheap check that turns 'this looks fine' into 'this IS fine, and I can show my work'. A clean VirusTotal result says the URL is not known-bad; it does not show this run was authorised, and a script in the company's own repository would not be on any blocklist anyway. The technician's word is an unverified claim — and if their account were compromised, the answer would come from the attacker. Escalating as an incident ignores the evidence that already points to normal IT work.",
           xp: 35,
         },
       ],
@@ -472,7 +472,7 @@ const analystMindsetRoom = {
       event: analystChoiceEvent,
       correct_verdict: "false_positive" as const,
       explanation:
-        "This is a false positive, and the trap is the surface pattern: 'PowerShell + Base64-encoded command + after hours' is a combination security training teaches you to fear, and the HIGH severity label reinforces that instinct. But walking through the framework changes the picture completely. WHO: the parent process is not a user shell at all — it is BackupAgentService.exe, a signed Veeam backup service, running as SYSTEM (not an interactive human account). WHAT: the context note shows the decoded command is simply Write-Host \"Backup complete\" — a completely benign status message, not an attack payload. WHEN: 22:45 matches the documented nightly backup schedule on the IT change calendar. Many legitimate enterprise tools Base64-encode PowerShell commands for reasons unrelated to evasion (safely passing special characters, multi-line scripts, or internal tooling conventions) — encoding itself is not proof of malicious intent, only a reason to look closer at WHO ran it and WHAT it actually says.",
+        "This is a false positive, and the trap is the surface pattern: 'PowerShell + Base64-encoded command + after hours' is a combination security training teaches you to fear, and the HIGH severity label reinforces that instinct. But walking through the framework changes the picture completely. WHO: the parent process is not a user shell at all — ParentImagePath shows Veeam.EndPoint.Service.exe under Program Files, FileSigned is true, and the account is SYSTEM (not an interactive human account). WHAT: the decoded command is simply Write-Host \"Backup complete\" — a benign status message, not an attack payload. WHEN: the alert at 22:47 sits two minutes after the 22:45 nightly backup in the IT change calendar. Many legitimate enterprise tools Base64-encode PowerShell commands for reasons unrelated to evasion (safely passing special characters, multi-line scripts, or internal tooling conventions) — encoding itself is not proof of malicious intent, only a reason to look closer at WHO ran it and WHAT it actually says.",
       fp_trap:
         "The HIGH severity label and the well-known 'Base64-encoded PowerShell' attacker technique both push you toward an immediate escalation instinct. This is exactly the anchoring and pattern-matching trap the room warns about: the correct response is not to trust the scary-looking surface pattern, but to actually decode the command, check the true parent process, and check whether the timing matches a documented schedule — all of which are quick, verifiable checks that flip the verdict from 'attack' to 'signed backup software doing exactly what it is scheduled to do.'",
       xp: 35,
@@ -536,11 +536,11 @@ const analystMindsetRoom = {
         },
         {
           id: "framework",
-          text: "Run the alert through the six-question framework: who, what, where, when, why (innocent explanation first), and blast radius",
+          text: "Using only the alert in front of you, answer the six framework questions: who, what, where, when, why (innocent explanation first), and blast radius",
         },
         {
           id: "hypothesis",
-          text: "Form at least two competing hypotheses — one benign explanation and one attack explanation",
+          text: "From those answers, and before opening a second data source, write down at least two competing hypotheses — one benign, one attack",
         },
         {
           id: "predict",
@@ -570,9 +570,9 @@ const analystMindsetRoom = {
       // event) is shown and the answer isn't visible. Reported by a student.
       event: powershellDownloadEvent,
       prompt:
-        "Look back at the PowerShell download log analysis event above (the IT technician running patch-agent.ps1). The 'data.context' field explains what made this activity verifiable rather than just plausible-sounding. Enter the exact GitHub organization name (the part before the slash) referenced in the crowdstrike.CommandLine field that ties this activity to the company's own infrastructure.",
-      answer: "nexacorp-it",
-      hint: "Look at the URL in crowdstrike.CommandLine — it follows the pattern github.com/ORGANIZATION/repository-name. The organization name comes right after 'raw.githubusercontent.com/'.",
+        "Change tickets list approved scripts by file name. In the IT technician's PowerShell event above, find the script that the command downloaded and then ran, and enter its file name (name and extension only, no folder).",
+      answer: "patch-agent.ps1",
+      hint: "The command does two things: it saves a file to disk, then runs that same file.",
       xp: 30,
     },
   ],

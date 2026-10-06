@@ -75,7 +75,7 @@ const megaUploadEvent: TelemetryEvent = {
     "data.dstport": 443,
     "data.dstintf": "wan1",
     "data.dstname": "mega.nz",
-    "data.dstuser": "m.alvarez",
+    "data.user": "m.alvarez",
     "data.proto": 6,
     "data.service": "HTTPS",
     "data.sentbyte": 796305664,
@@ -127,7 +127,7 @@ const veeamBackupEvent: TelemetryEvent = {
     "data.dstport": 443,
     "data.dstintf": "wan1",
     "data.dstname": "meridianlawbackups.blob.core.windows.net",
-    "data.dstuser": "svc-veeam-backup",
+    "data.user": "svc-veeam-backup",
     "data.proto": 6,
     "data.service": "HTTPS",
     "data.sentbyte": 12483920640,
@@ -174,15 +174,15 @@ const dataStagingExfilRoom = {
       "heading": "T1039 — Collection at the Share",
       "content": "T1039, Data from Network Shared Drive, sits under the COLLECTION tactic (TA0009) and covers exactly what its name says: an attacker with network access — whether from a compromised workstation, a stolen VPN session, or a foothold on another server — reaches into a file share the compromised account can legitimately reach, and reads what interests them. Network shares are an obvious target precisely because they already concentrate an organisation's most useful files in one place: a legal firm's client-matter share, a finance team's shared drive, an engineering team's source-control mirror. An attacker rarely needs to compromise a file server directly; they only need one account with legitimate read access to the share, which describes almost every regular employee at least once.\n\nMITRE ATT&CK documents this technique as a genuinely common and low-effort step for real intrusions, most often carried out with tools already built into the operating system — exactly the kind of 'living off the land' behaviour that makes it blend into ordinary activity. The Chinese state-sponsored group menuPass has been documented mounting shares with the built-in Windows command net use and then copying files off them with Robocopy, a signed Microsoft utility present on every modern Windows install and used constantly for entirely legitimate purposes. Malware families take a more automated approach: BADNEWS crawls every mapped drive it can reach looking specifically for files ending in .doc, .docx, .pdf, .ppt, .pptx, and .txt; CosmicDuke works from a predefined list of file extensions and keywords to decide what is worth stealing; and the Gamaredon Group's tooling specifically targets Microsoft Office documents sitting on mapped network drives. APT28 has also been documented collecting files directly from network shares as a routine step in its intrusions.\n\n### What This Looks Like in Telemetry\n\nWindows can audit this precisely through Event ID 5145 (A network share object was checked to see whether the client can be granted desired access) — the detailed file-share-access event, distinct from the simpler 5140 (a share was accessed at all). A single 5145 record carries the requesting account, the source IP, the share name, the specific file or folder path relative to the share, and the access mask requested. One record on its own is unremarkable — file shares exist to be read. What turns this into a lead is volume and pattern: the same account generating hundreds of 5145 records against one share in a span of minutes, especially outside that account's normal working pattern, or a workstation-tier account reaching for the ADMIN$ or C$ administrative shares it has never touched before.\n\n### The Analyst's Question\n\nThe question worth asking is never 'did this account access the share' — nearly every account legitimately does. It is: does the VOLUME, the SCOPE, and the TIMING of this access match what this specific account normally does on this specific share? A paralegal reading a handful of files from their own assigned case folders across a workday is unremarkable. The same paralegal's account reading hundreds of files across every case folder on the share within an eight-minute window is the pattern worth pulling on — and it is the opening move of the chain this room follows for the rest of its length.",
       "checkpoint": {
-        "question": "Which Windows Event ID gives the DETAILED record of a file-share access — the specific file path, access mask, and requesting account — as opposed to just confirming a share was touched at all?",
+        "question": "You need to see WHICH files under \\\\FS-LAW01\\ClientMatters$ an account requested, with the access mask for each. Which event do you query?",
         "options": [
-          "Event ID 5140 — A network share object was accessed, without the per-file path or access-mask detail 5145 provides",
-          "Event ID 5145 — A network share object was checked to see whether the client can be granted desired access",
-          "Event ID 4624 — An account was successfully logged on, which says nothing about which files were touched afterward",
-          "Event ID 4769 — A Kerberos service-ticket request, unrelated to any file-share access at all"
+          "Event ID 5140 — A network share object was accessed by a client",
+          "Event ID 5145 — A share object was checked for requested access",
+          "Event ID 5142 — A new network share object was added to the server",
+          "Event ID 4624 — An account successfully logged on to the file server"
         ],
         "answer": 1,
-        "explanation": "5145 is the DETAILED file-share-auditing event — it carries the specific share name, relative file/folder path, and access mask requested, which is what lets an analyst see WHAT was touched, not just THAT the share was touched. 5140 only confirms a share object was accessed, with far less detail. 4624 is a general logon event and carries nothing about file-share activity. 4769 is a Kerberos service-ticket request, relevant to authentication (and to Kerberoasting elsewhere in this curriculum), not file-share access."
+        "explanation": "5145 is the detailed file-share event: it carries the share name, the relative file or folder path and the requested access mask, so it shows WHAT was touched. “5140 — A network share object was accessed” is the tempting neighbour, but it only records that the share itself was accessed, without the per-file path. “5142 — A new network share object was added” records a new share being created, not files being read from one. “4624 — An account successfully logged on” shows the logon that preceded the access, not the files touched afterwards."
       },
       "xp": 5
     },
@@ -215,13 +215,13 @@ const dataStagingExfilRoom = {
       "checkpoint": {
         "question": "In WinRAR's command-line syntax, what does the -hp switch do that the plain -p switch does NOT?",
         "options": [
-          "-hp only works on Linux and macOS, while -p is the Windows-only equivalent switch",
-          "-hp encrypts the archive's data AND its file names/folder structure; -p encrypts only the data, leaving file names visible without the password",
-          "-hp permanently deletes the original unarchived files after compression, while -p always leaves them in place",
-          "-hp is only valid when splitting an archive into multiple volumes with -v, and has no effect otherwise"
+          "-hp sets a password for listing the archive, but leaves the file data unencrypted",
+          "-hp encrypts the data and the file names; -p encrypts the data but leaves names visible",
+          "-hp applies stronger encryption to the data, but both switches leave file names visible",
+          "-hp keeps the password out of the process command line, while -p shows it in plain text"
         ],
         "answer": 1,
-        "explanation": "The distinguishing feature of -hp is that it encrypts BOTH the archive's contents and its file/folder names and structure, so nothing about what is inside — not even the file names — is visible without the password. Plain -p only encrypts the data itself, leaving the file listing readable by anyone who opens the archive. Both switches work identically on Windows, Linux, and macOS builds of RAR. Neither switch has anything to do with deleting source files, and -hp works independently of whether the archive is split into volumes with -v."
+        "explanation": "-hp encrypts BOTH the contents and the file and folder names, so nothing about what is inside is visible without the password. Plain -p encrypts only the data, so anyone can still list the file names. “Sets a password for listing the archive, but leaves the file data unencrypted” gets it half right: -hp protects the listing AND encrypts the data. “Applies stronger encryption to the data” is wrong because the difference is what gets encrypted (names as well as data), not how strongly. “Keeps the password out of the process command line” is wrong too: as the worked example shows, the password follows -hp directly on the command line, which is why EDR process telemetry can capture it."
       },
       "xp": 5
     },
@@ -254,13 +254,13 @@ const dataStagingExfilRoom = {
       "checkpoint": {
         "question": "Per ATT&CK's own documentation, why does Exfiltration Over USB (T1052.001) remain relevant even in heavily networked environments?",
         "options": [
-          "It is the only exfiltration technique MITRE ATT&CK formally recognises, so every other channel in this room is technically a sub-technique of it",
-          "It is particularly effective in air-gapped environments — networks deliberately disconnected from the internet — where the USB device can be the final exfiltration point or a way to hop between otherwise disconnected systems",
-          "USB drives are undetectable by any EDR platform currently on the market, unlike every network-based channel covered elsewhere in this room",
-          "It requires no compromise of the target host at all, since USB drives can extract data through the drive's own firmware without any software involved"
+          "A USB copy creates no network traffic, so EDR telemetry cannot record it either",
+          "It works in air-gapped networks, as the final exit point or a bridge between hosts",
+          "The drive's own firmware copies the files, so the host never needs to be compromised",
+          "ATT&CK ranks it as the most common exfiltration channel in current intrusions"
         ],
         "answer": 1,
-        "explanation": "ATT&CK's own documentation names air-gapped environments directly: a network deliberately kept offline has no path for T1567.002, T1048, or any other network-based channel this room covers, which is exactly why physical media stays relevant — as the final exfiltration point, or as a way to bridge between two otherwise disconnected systems. It is one of many named exfiltration techniques, not the sole one others derive from. USB activity is absolutely detectable through endpoint telemetry (the DeviceEvents/DeviceFileEvents correlation this reading shows is exactly that). And every documented case in this reading requires the host itself to be compromised first, in order to copy files onto the drive via normal software."
+        "explanation": "ATT&CK names air-gapped environments directly: a network kept offline has no path for cloud or alternative-protocol channels, so a USB drive becomes the final exfiltration point or the way to hop between disconnected systems. “A USB copy creates no network traffic, so EDR telemetry cannot record it” confuses the two: there is no packet capture, but the mount event and file writes are endpoint telemetry, as the DeviceEvents/DeviceFileEvents query in this reading shows. “The drive's own firmware copies the files” is wrong: every documented tool here (SPACESHIP, USBStealer and others) runs as software on an already-compromised host. “ATT&CK ranks it as the most common exfiltration channel” is not a claim ATT&CK makes; its stated reason is the air gap."
       },
       "xp": 5
     },
@@ -272,13 +272,13 @@ const dataStagingExfilRoom = {
       "checkpoint": {
         "question": "Per this reading, why is Rclone specifically worth an analyst's attention when it appears on a host that has no legitimate reason to run it?",
         "options": [
-          "Rclone is malware with no legitimate use case at all, so its mere presence on any host is definitive, standalone proof of compromise with no further context needed",
-          "Rclone is a genuinely legitimate, widely used open-source cloud-sync tool with a built-in chunking feature — its very legitimacy is what makes it a strong signal in the wrong context",
-          "Rclone only works over DNS tunnelling, so its presence always indicates T1048 specifically and can never indicate the cloud-storage channel T1567.002 covered earlier",
-          "Rclone requires domain administrator privileges to install, so its presence always indicates a privilege-escalation event occurred somewhere earlier in the intrusion"
+          "It is a known malware family, so any copy found on a host proves compromise",
+          "It is a legitimate cloud-sync tool, and that legitimacy is what gives attackers cover",
+          "It tunnels data over DNS, so it points to T1048 rather than to cloud storage",
+          "It needs domain admin rights to install, so it also signals privilege escalation"
         ],
         "answer": 1,
-        "explanation": "The reading is explicit that Rclone is a genuinely legitimate, widely used open-source cloud-sync utility (used by real IT teams for entirely ordinary purposes) that real threat actors (Storm-0501 among others) have also abused specifically because that legitimacy provides cover — and it even ships a built-in chunking feature relevant to T1030. Its presence is not proof of malware by itself; it is a strong signal specifically in the WRONG CONTEXT (a host/account with no business reason to run it). It supports many cloud providers and plain file operations, not only DNS tunnelling, so it is not tied exclusively to T1048. Installing and running Rclone as a regular user application requires no domain administrator privileges at all."
+        "explanation": "Rclone is a legitimate open-source tool that syncs files with dozens of cloud providers, and real actors (Storm-0501 among others) use it precisely because that legitimacy blends in. Its built-in chunker also supports T1030. On a host or account with no business reason to run it, that wrong context is the signal. “A known malware family” is wrong: it is ordinary IT tooling, so its presence alone proves nothing. “Tunnels data over DNS” confuses it with T1048 tunnelling: Rclone talks to cloud storage APIs, which makes it a T1567.002 tool. “Needs domain admin rights to install” is wrong: it runs as an ordinary user-level program."
       },
       "xp": 5
     },
@@ -323,62 +323,22 @@ const dataStagingExfilRoom = {
       "xp": 25
     },
     {
-      "type": "log_analysis" as const,
-      "id": "dsx-la1",
-      "heading": "Investigate: A Large Outbound Transfer to mega.nz",
-      "context": "Meridian Law Group's paralegal m.alvarez has legitimate VPN access, but this session originates from an unusual off-hours window. Earlier in the shift, m.alvarez's account generated an unusually large burst of file-share access on \\\\FS-LAW01\\ClientMatters$, and a new password-protected archive appeared shortly afterward in C:\\ProgramData\\SysHelper\\stage on WKS-LAW-214. The firewall record below captures what happened next.",
-      "event": megaUploadEvent,
-      "questions": [
-        {
-          "question": "Which pair of fields together gives the clearest evidence that this session is a bulk upload rather than ordinary encrypted web browsing?",
-          "options": [
-            "data.action (\"accept\") and data.proto (6) — since any accepted TCP session is inherently a bulk-upload indicator regardless of any other field",
-            "data.sentbyte (796,305,664) and data.rcvdbyte (88,240) — an extremely upload-heavy ratio, the inverse of ordinary browsing where far more is downloaded than sent",
-            "data.srcport (51882) and data.dstport (443) — since any connection using an ephemeral source port above 50000 is inherently suspicious",
-            "data.vd (\"root\") and data.policyid (14) — since these fields identify which firewall policy processed the session"
-          ],
-          "answer": 1,
-          "explanation": "The sentbyte/rcvdbyte pair shows roughly 760MB sent against only about 86KB received — a massively upload-heavy, inverted ratio. Ordinary web browsing is overwhelmingly download-heavy (loading pages, images, video), so a session that sends far more than it receives is exactly the anomaly this curriculum's exfiltration-detection material elsewhere teaches you to look for. data.action and data.proto simply describe that the session was permitted over TCP, which is true of the vast majority of ordinary traffic too. An ephemeral source port in the 50000s is completely normal for any outbound client connection. data.vd and data.policyid are administrative/routing fields with no bearing on whether the session itself is a bulk transfer.",
-          "xp": 20
-        },
-        {
-          "question": "Given this room's investigation workflow, what should the analyst check NEXT before reaching a verdict on this session?",
-          "options": [
-            "Whether mega.nz's TLS certificate is currently valid, since an expired certificate would be the only fact capable of establishing this session as malicious",
-            "Whether the same account and host produced a matching share-access burst and a freshly created password-protected archive in the time window immediately before this upload",
-            "Whether the destination IP is located outside the paralegal's own home country, since foreign-hosted IP addresses are inherently proof of an attack",
-            "Whether the session used port 443 rather than port 80, since any traffic on port 443 is automatically suspicious regardless of content"
-          ],
-          "answer": 1,
-          "explanation": "This room's whole investigation workflow (reading r8) is built on correlating the chain: check whether the SAME account/host also shows the earlier stages — a share-access burst (T1039) and a freshly created, password-protected archive (T1560.001) — in the window before this transfer. That correlation is what turns one firewall record into a confirmed case. A certificate-validity check says nothing about authorization to upload data (a perfectly valid TLS certificate secures plenty of malicious sessions too). Geographic destination alone, with no other context, is exactly the weak, single-signal reasoning this room warns against. Port 443 is the standard, overwhelmingly common port for ALL encrypted web traffic, legitimate and malicious alike — it carries no signal on its own.",
-          "xp": 20
-        }
-      ]
-    },
-    {
-      "type": "question" as const,
-      "id": "dsx-q3",
-      "question": "A workstation with a strict USB-blocking policy shows a sudden burst of unique DNS queries to subdomains that look like encoded data, immediately after a large password-protected archive was created on that host — with no unusual HTTPS or cloud-storage traffic accompanying it. Which technique best fits this pattern, and why might an attacker prefer it over the cloud-storage channel covered earlier in this room?",
-      "options": [
-        "T1048 (Exfiltration Over Alternative Protocol) via DNS tunnelling — DNS gets far less inspection than HTTP/S, so small encoded chunks slip past detections tuned for large transfers",
-        "T1567.002 (Exfiltration to Cloud Storage) — cloud sync clients resolve many unique subdomains per upload, which produces this same DNS burst",
-        "T1071.004 (Application Layer Protocol: DNS) — the encoded subdomains are C2 beacon check-ins, and the archive creation is coincidental timing",
-        "T1041 (Exfiltration Over C2 Channel) — the data leaves through the implant's existing C2 beacon, with DNS simply being its transport",
-      ],
-      "answer": 0,
-      "explanation": "DNS tunnelling under T1048 is exactly this pattern: data encoded into DNS query subdomains, chosen specifically because most network monitoring inspects DNS far less closely than HTTP/S traffic, and because a USB-blocking policy has already closed off the T1052.001 channel this attacker might otherwise have preferred. The T1567.002 answer confuses two things — a cloud-storage upload shows up as HTTPS traffic to the provider, and the scenario states no such traffic exists. T1071.004 is a plausible neighbour (DNS-based C2), but the burst follows the archive creation and carries data-shaped subdomains, which fits exfiltration rather than beaconing. T1041 covers exfiltration over the existing C2 channel; T1048 is specifically the use of a DIFFERENT protocol from that channel, which is what DNS tunnelling here represents.",
-      "xp": 25
-    },
-    {
-      "type": "analyst_choice" as const,
-      "id": "dsx-ac1",
-      "heading": "Triage: A Large Nightly Transfer From BKP-VEEAM-01",
-      "scenario": "A separate alert fires the same week for another large outbound HTTPS session — this time from the backup server BKP-VEEAM-01, at 02:00, carrying roughly 11.6GB. The underlying detection rule matches any session exceeding 500MB sent, with no allowance for account type, destination, or historical baseline.",
-      "event": veeamBackupEvent,
-      "correct_verdict": "false_positive",
-      "explanation": "Every discriminator this room's reading r8 names checks out as legitimate: a dedicated service account (svc-veeam-backup, never a human's own login), a documented change ticket (CHG-2026-1187), six months of an identical recurring schedule at 02:00, and a sanctioned first-party destination — the organisation's OWN Azure Blob Storage container, not an unrelated personal or consumer service. The it_verify_message confirms every one of these facts directly from IT. This is the legitimate-backup shape this room warned about: it looks structurally identical to the attack chain, and the four context checks — not the volume — are what separate it.",
-      "fp_trap": "The raw byte count here (roughly 11.6GB) is actually LARGER than the malicious mega.nz upload in this room's log_analysis task — if volume alone decided the verdict, this would look like the more serious case. Escalating purely on transfer size, without checking the account type, the destination, and the historical baseline this room's investigation workflow calls for, is exactly the false-positive flood that trains a SOC to stop trusting its own large-transfer alerts.",
-      "xp": 25
+      "type": "reading" as const,
+      "id": "dsx-r8",
+      "heading": "The Legitimate-Backup Trap, and the Full Investigation Workflow",
+      "content": "Every signal this room has covered so far — a burst of share access, a new archive, a large outbound transfer — has one structural problem: legitimate enterprise backup software produces an almost identical shape, every single night, forever. A backup job also reads a large volume of data from a share (often the ENTIRE share, not a subset), also consolidates it, frequently also compresses it, and also transfers a large volume off the host to a remote destination. If volume and shape alone decided the verdict, every mature organisation's own backup infrastructure would be a permanent false-positive machine.\n\n### The Shape Is Identical. The Context Is Not.\n\nFour concrete differences separate a scheduled backup job from the attack chain this room has walked, and none of them is the size of the transfer:\n\n**The account.** A backup job runs under a dedicated SERVICE account (a naming convention like svc-backup or svc-veeam-agent recurs constantly across real environments) with no interactive logon history, never under a human's own everyday account.\n\n**The documentation.** A legitimate change to a backup schedule, or the backup job's ordinary recurring existence, is tied to a documented change ticket or a standing, approved configuration IT can point to on request — not improvised activity with no paper trail anywhere.\n\n**The consistency.** A real backup job runs at the SAME time, to the SAME destination, at roughly the SAME volume, night after night for months — a baseline any UEBA or simple historical query can confirm in seconds. An attacker's version of this chain, by contrast, is a one-off: it has never happened on this host before, and — critically — it usually will not happen again from the same host once the data is taken.\n\n**The destination.** A legitimate backup job's destination is the organisation's OWN sanctioned infrastructure — a dedicated backup vendor's cloud repository, or the organisation's own cloud storage account — never an unrelated personal or consumer service the backup vendor has no relationship with.\n\n### A Worked Correlation Query\n\nPutting the whole chain together into one detection is a matter of joining the stages this room has covered by host, account, and a tight time window — illustrated here in pseudocode:\n\nlet shareAccess = SecurityEvent | where EventID == 5145 | summarize FileCount = count() by Account, IpAddress, bin(TimeGenerated, 15m);\nlet archiveCreate = DeviceProcessEvents | where FileName in (\"rar.exe\",\"7z.exe\",\"winrar.exe\") and ProcessCommandLine has \"-hp\";\nlet largeEgress = CommonSecurityLog | where DeviceVendor == \"Fortinet\" and SentBytes > 500000000;\nshareAccess | join kind=inner archiveCreate on Account | join kind=inner largeEgress on Account\n| where FileCount > 200\n\nRead the logic: find accounts reading over 200 files from a share in a 15-minute window, THEN check whether that same account also ran a password-protected archive utility, THEN check whether that same account ALSO produced a large outbound transfer — three separate, individually weak signals from three different log sources, joined into one strong case.\n\n### The Investigation Workflow, Step by Step\n\n1. **Identify the trigger.** Which stage of the chain fired first — an unusual share-access volume, a new password-protected archive, or a large outbound transfer?\n2. **Walk backward through the chain.** If the trigger was the egress, check for a matching archive-creation event and a matching share-access burst on the same host in the preceding window. If the trigger was the archive, check for the share access that likely fed it.\n3. **Check the account type.** Interactive human account, or a documented service account?\n4. **Check for a change ticket or standing documentation.** Does IT have a record explaining this activity?\n5. **Check the historical baseline.** Has this exact pattern — this account, this destination, this rough volume — happened before, repeatedly, on a consistent schedule?\n6. **Check the destination.** Sanctioned corporate/vendor infrastructure, or an unrelated personal/consumer service?\n7. **Reach a verdict.** All four context checks pointing to 'legitimate' closes the case as expected activity. Any one of them missing — no ticket, no history, an unfamiliar destination, or an interactive account — escalates to containment: isolate the host, preserve the archive and the share-access logs as evidence, and treat the finding as a confirmed data-theft chain rather than routine IT work.",
+      "checkpoint": {
+        "question": "Per this reading, which of the four discriminators is described as the one a simple historical query or UEBA baseline can confirm 'in seconds'?",
+        "options": [
+          "The account: whether the job runs under a dedicated service account",
+          "The consistency: same time, destination and volume, night after night",
+          "The documentation: whether a change ticket or standing config covers it",
+          "The destination: whether it is the organisation's own sanctioned storage"
+        ],
+        "answer": 1,
+        "explanation": "Consistency is a pattern over time (the same time, destination and rough volume for months), so a historical query or UEBA baseline can confirm it in seconds. The other three are real discriminators too, but each needs a different source. “The account” means checking the identity's type and logon history. “The documentation” means asking IT for the ticket or configuration record. “The destination” means knowing which storage the organisation actually owns or has sanctioned, which a traffic baseline alone cannot tell you."
+      },
+      "xp": 5
     },
     {
       "type": "reading" as const,
@@ -388,29 +348,69 @@ const dataStagingExfilRoom = {
       "xp": 5
     },
     {
-      "type": "reading" as const,
-      "id": "dsx-r8",
-      "heading": "The Legitimate-Backup Trap, and the Full Investigation Workflow",
-      "content": "Every signal this room has covered so far — a burst of share access, a new archive, a large outbound transfer — has one structural problem: legitimate enterprise backup software produces an almost identical shape, every single night, forever. A backup job also reads a large volume of data from a share (often the ENTIRE share, not a subset), also consolidates it, frequently also compresses it, and also transfers a large volume off the host to a remote destination. If volume and shape alone decided the verdict, every mature organisation's own backup infrastructure would be a permanent false-positive machine.\n\n### The Shape Is Identical. The Context Is Not.\n\nFour concrete differences separate a scheduled backup job from the attack chain this room has walked, and none of them is the size of the transfer:\n\n**The account.** A backup job runs under a dedicated SERVICE account (a naming convention like svc-backup or svc-veeam-agent recurs constantly across real environments) with no interactive logon history, never under a human's own everyday account.\n\n**The documentation.** A legitimate change to a backup schedule, or the backup job's ordinary recurring existence, is tied to a documented change ticket or a standing, approved configuration IT can point to on request — not improvised activity with no paper trail anywhere.\n\n**The consistency.** A real backup job runs at the SAME time, to the SAME destination, at roughly the SAME volume, night after night for months — a baseline any UEBA or simple historical query can confirm in seconds. An attacker's version of this chain, by contrast, is a one-off: it has never happened on this host before, and — critically — it usually will not happen again from the same host once the data is taken.\n\n**The destination.** A legitimate backup job's destination is the organisation's OWN sanctioned infrastructure — a dedicated backup vendor's cloud repository, or the organisation's own cloud storage account — never an unrelated personal or consumer service the backup vendor has no relationship with.\n\n### A Worked Correlation Query\n\nPutting the whole chain together into one detection is a matter of joining the stages this room has covered by host, account, and a tight time window — illustrated here in pseudocode:\n\nlet shareAccess = SecurityEvent | where EventID == 5145 | summarize FileCount = count() by Account, IpAddress, bin(TimeGenerated, 15m);\nlet archiveCreate = DeviceProcessEvents | where FileName in (\"rar.exe\",\"7z.exe\",\"winrar.exe\") and ProcessCommandLine has \"-hp\";\nlet largeEgress = CommonSecurityLog | where DeviceVendor == \"Fortinet\" and SentBytes > 500000000;\nshareAccess | join kind=inner archiveCreate on Account | join kind=inner largeEgress on Account\n| where FileCount > 200\n\nRead the logic: find accounts reading over 200 files from a share in a 15-minute window, THEN check whether that same account also ran a password-protected archive utility, THEN check whether that same account ALSO produced a large outbound transfer — three separate, individually weak signals from three different log sources, joined into one strong case.\n\n### The Investigation Workflow, Step by Step\n\n1. **Identify the trigger.** Which stage of the chain fired first — an unusual share-access volume, a new password-protected archive, or a large outbound transfer?\n2. **Walk backward through the chain.** If the trigger was the egress, check for a matching archive-creation event and a matching share-access burst on the same host in the preceding window. If the trigger was the archive, check for the share access that likely fed it.\n3. **Check the account type.** Interactive human account, or a documented service account?\n4. **Check for a change ticket or standing documentation.** Does IT have a record explaining this activity?\n5. **Check the historical baseline.** Has this exact pattern — this account, this destination, this rough volume — happened before, repeatedly, on a consistent schedule?\n6. **Check the destination.** Sanctioned corporate/vendor infrastructure, or an unrelated personal/consumer service?\n7. **Reach a verdict.** All four context checks pointing to 'legitimate' closes the case as expected activity. Any one of them missing — no ticket, no history, an unfamiliar destination, or an interactive account — escalates to containment: isolate the host, preserve the archive and the share-access logs as evidence, and treat the finding as a confirmed data-theft chain rather than routine IT work.",
-      "checkpoint": {
-        "question": "Per this reading, which of the four discriminators is described as the one a simple historical query or UEBA baseline can confirm 'in seconds'?",
-        "options": [
-          "The account type — because service accounts are always named starting with the exact prefix svc- in every organisation without exception",
-          "The consistency of the pattern — whether this same time, destination, and rough volume has recurred night after night for months",
-          "The destination — because any destination whose domain name contains the word backup is automatically legitimate",
-          "The size of the transfer — because any transfer under a fixed size threshold can never be an attack"
-        ],
-        "answer": 1,
-        "explanation": "The reading specifically calls out CONSISTENCY — the same time, destination, and rough volume recurring night after night for months — as the discriminator a historical query or UEBA baseline can confirm quickly, precisely because it is a pattern-over-time check rather than a judgment call. The svc- naming convention is described as something that 'recurs constantly,' not as a universal, exception-free rule. A domain merely containing the word 'backup' proves nothing about legitimacy on its own (an attacker can name infrastructure anything). And this room has been explicit throughout that volume/size alone, with no fixed threshold, never decides a verdict."
-      },
-      "xp": 5
+      "type": "log_analysis" as const,
+      "id": "dsx-la1",
+      "heading": "Investigate: A Large Outbound Transfer to mega.nz",
+      "context": "Meridian Law Group's paralegal m.alvarez has legitimate VPN access, but this session originates from an unusual off-hours window. Earlier in the shift, m.alvarez's account generated an unusually large burst of file-share access on \\\\FS-LAW01\\ClientMatters$, and a new password-protected archive appeared shortly afterward in C:\\ProgramData\\SysHelper\\stage on WKS-LAW-214. The firewall record below captures what happened next.",
+      "event": megaUploadEvent,
+      "questions": [
+        {
+          "question": "Which pair of fields shows that this session is a bulk upload rather than ordinary encrypted web browsing?",
+          "options": [
+            "data.app (MEGA) and data.dstcountry (New Zealand): a personal cloud service hosted abroad",
+            "data.sentbyte and data.rcvdbyte: about 760 MB sent against about 86 KB received",
+            "data.duration (187) and data.apprisk (elevated): a long session to a risky application",
+            "data.service (HTTPS) and data.dstport (443): encrypted traffic on the standard web port"
+          ],
+          "answer": 1,
+          "explanation": "sentbyte 796,305,664 against rcvdbyte 88,240 is a heavily upload-skewed ratio, the inverse of browsing, where far more is downloaded than sent. That direction is what makes it a bulk upload. “data.app (MEGA) and data.dstcountry” tell you WHERE the session went, which matters for the verdict, but a visit to MEGA to download a file would show the same two values. “data.duration (187) and data.apprisk (elevated)” describe the session's length and the application's risk rating, not which way the data moved; three minutes is ordinary for many sessions. “data.service (HTTPS) and data.dstport (443)” are true of almost all web traffic, legitimate or not.",
+          "xp": 20
+        },
+        {
+          "question": "The context already links this upload to an earlier share-access burst and a new password-protected archive on the same host. Which check best tests the remaining innocent explanation before you decide?",
+          "options": [
+            "Whether mega.nz presented a valid TLS certificate during this session",
+            "Whether a ticket or a past baseline explains this account uploading to MEGA",
+            "Whether the destination IP is hosted outside the paralegal's home country",
+            "Whether the transfer would stay under the 500 MB rule if split into parts"
+          ],
+          "answer": 1,
+          "explanation": "Walking back through the chain is already done, so the remaining question is the one the Legitimate-Backup Trap reading teaches: is there documentation or a history that makes this legitimate? A change ticket, or a record of this account uploading to MEGA on a regular schedule, would be the only innocent explanation; finding neither, on an interactive human account to a personal service, pushes to escalation. “A valid TLS certificate” says nothing about whether the upload was authorised: malicious sessions use valid certificates all the time. “Hosted outside the paralegal's home country” is a weak, single signal, since cloud services are hosted everywhere. “Under the 500 MB rule if split into parts” asks about T1030 evasion, which does not change what this session already is.",
+          "xp": 20
+        }
+      ]
+    },
+    {
+      "type": "question" as const,
+      "id": "dsx-q3",
+      "question": "A workstation with a strict USB-blocking policy, whose implant beacons to its C2 server over HTTPS, shows a sudden burst of unique DNS queries to subdomains that look like encoded data, immediately after a large password-protected archive was created on that host. The domain is not a known security-vendor or CDN resolver, and there is no unusual cloud-storage traffic. Which technique best fits this pattern, and why might an attacker prefer it over the cloud-storage channel covered earlier in this room?",
+      "options": [
+        "T1048 (Alternative Protocol) via DNS tunnelling — DNS gets less inspection than HTTP/S, so small encoded chunks slip past",
+        "T1567.002 (Exfiltration to Cloud Storage) — cloud sync clients resolve many unique subdomains per upload, which produces this same DNS burst",
+        "T1071.004 (Application Layer Protocol: DNS) — the encoded subdomains are C2 beacon check-ins, and the archive creation is coincidental timing",
+        "T1041 (Exfiltration Over C2 Channel) — the data leaves through the implant's existing C2 beacon, with DNS simply being its transport",
+      ],
+      "answer": 0,
+      "explanation": "DNS tunnelling under T1048 is exactly this pattern: data encoded into DNS query subdomains, chosen specifically because most network monitoring inspects DNS far less closely than HTTP/S traffic, and because a USB-blocking policy has already closed off the T1052.001 channel this attacker might otherwise have preferred. The T1567.002 answer confuses two things — a cloud-storage upload shows up as HTTPS traffic to the provider, and the scenario states no such traffic exists. T1071.004 is a plausible neighbour (DNS-based C2), but this implant's C2 runs over HTTPS, and the burst follows the archive creation with data-shaped subdomains, which fits exfiltration rather than beaconing. T1041 would mean the data leaves through the existing C2 channel, which here is HTTPS; DNS is a DIFFERENT protocol from that channel, which is exactly what T1048 describes.",
+      "xp": 25
+    },
+    {
+      "type": "analyst_choice" as const,
+      "id": "dsx-ac1",
+      "heading": "Triage: A Large Nightly Transfer From BKP-VEEAM-01",
+      "scenario": "A separate alert fires the same week for another large outbound HTTPS session — this time from the backup server BKP-VEEAM-01, at 02:00, carrying roughly 11.6GB. The underlying detection rule matches any session exceeding 500MB sent, with no allowance for account type, destination, or historical baseline.",
+      "event": veeamBackupEvent,
+      "correct_verdict": "false_positive",
+      "explanation": "Every discriminator the Legitimate-Backup Trap reading names checks out as legitimate: a dedicated service account (svc-veeam-backup, never a human's own login), a documented change ticket (CHG-2026-1187), six months of an identical recurring schedule at 02:00, and a sanctioned first-party destination — the organisation's OWN Azure Blob Storage container, not an unrelated personal or consumer service. The it_verify_message confirms every one of these facts directly from IT. This is the legitimate-backup shape this room warned about: it looks structurally identical to the attack chain, and the four context checks — not the volume — are what separate it.",
+      "fp_trap": "The raw byte count here (roughly 11.6GB) is actually LARGER than the malicious mega.nz upload in this room's log_analysis task — if volume alone decided the verdict, this would look like the more serious case. Escalating purely on transfer size, without checking the account type, the destination, and the historical baseline this room's investigation workflow calls for, is exactly the false-positive flood that trains a SOC to stop trusting its own large-transfer alerts.",
+      "xp": 25
     },
     {
       "type": "question" as const,
       "id": "dsx-q4",
       "question": "BKP-VEEAM-01 reads the entire Client Matters share every night at 02:00, compresses it, and uploads roughly 12GB to the organisation's own Azure Blob Storage backup container under a documented, approved change ticket, at a volume and time that has been identical for the past six months. Per this room's investigation workflow, which factor is the WEAKEST reason to rule this out as an attack, and which is the STRONGEST?",
       "options": [
-        "Weakest: that the job reads and compresses the whole share, which an attacker's chain also does; Strongest: the service account, ticket, six-month schedule, and first-party destination together",
+        "Weakest: reading and compressing the whole share, which an attack also does; Strongest: account, ticket, schedule and own destination together",
         "Weakest: the Azure Blob Storage destination, since Microsoft-hosted storage is also abused by attackers; Strongest: the 12GB volume, which is typical of backup jobs",
         "Weakest: the change ticket, since tickets can be filed by anyone; Strongest: the 02:00 timing, since attackers rarely exfiltrate during off-hours",
         "Weakest: the dedicated service account, since attackers also use compromised service accounts; Strongest: that the job reads the entire share rather than a subset"
@@ -448,15 +448,15 @@ const dataStagingExfilRoom = {
         "step-archive",
         "step-channel"
       ],
-      "explanation": "This is the exact chain this room has walked reading by reading: an attacker must first reach the data (T1039) before they can consolidate it (T1074.001), must consolidate it before there is anything to package (T1560.001), and must package it before there is a single, transportable object to actually move off the host (the Exfiltration-tactic techniques). Each stage depends on the one before it — you cannot archive files that were never staged, and you cannot stage files that were never read from a share in the first place. This is also precisely the order this room's own detection workflow (reading r8) correlates backward through once an alert fires on any single stage.",
+      "explanation": "This is the exact chain this room has walked reading by reading: an attacker must first reach the data (T1039) before they can consolidate it (T1074.001), must consolidate it before there is anything to package (T1560.001), and must package it before there is a single, transportable object to actually move off the host (the Exfiltration-tactic techniques). Each stage depends on the one before it — you cannot archive files that were never staged, and you cannot stage files that were never read from a share in the first place. This is also precisely the order this room's own investigation workflow (in the Legitimate-Backup Trap reading) correlates backward through once an alert fires on any single stage.",
       "xp": 25
     },
     {
       "type": "flag" as const,
       "id": "dsx-f1",
-      "prompt": "This room's reading on Archive via Utility (T1560.001) covers the specific WinRAR command-line switch that encrypts BOTH an archive's contents AND its file names/folder structure in one step — distinct from the plain -p switch, which encrypts only the data. What is that exact switch? Answer with the flag exactly as it appears in the reading (e.g. a two-character switch beginning with a hyphen).",
-      "answer": "-hp",
-      "hint": "Covered in the reading 'T1560.001 — Archive via Utility: Packaging for the Road' — distinct from the plain -p switch, which does not also hide file names.",
+      "prompt": "Responders later recover the encrypted ClientMatters.rar. The EDR process-creation record of the worked WinRAR command line in the Archive via Utility reading would let them open it. What password does that command line set? Enter it exactly as it appears.",
+      "answer": "M3rid1an!",
+      "hint": "Find the switch that encrypts both the data and the file names. The password follows it directly, with no space.",
       "xp": 15
     }
   ]

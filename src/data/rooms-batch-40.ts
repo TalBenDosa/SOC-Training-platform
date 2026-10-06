@@ -54,7 +54,7 @@ const shadowAiPasteEvent: TelemetryEvent = {
     status: 200,
   },
   description:
-    "Purview Endpoint DLP recorded a 'Paste to supported browsers' event on LT-ENG-0472: p.nandakumar pasted content classified by the Source Code trainable classifier into chat.openai.com, a domain in the built-in Generative AI Websites sensitive service domain group. The policy is in Audit mode, so the paste was not blocked.",
+    "Purview Endpoint DLP recorded a 'Paste to supported browsers' event on LT-ENG-0472: p.nandakumar pasted content classified by the Source Code trainable classifier into chat.openai.com, a domain in the built-in Generative AI Websites sensitive service domain group.",
   raw: {
     "data.office365.Operation": "DlpRuleMatch",
     "data.office365.Workload": "Endpoint",
@@ -405,14 +405,14 @@ const aiAttacksTasks = [
       checkpoint: {
         question: "In the indirect-injection ticket-triage example from Part 1, which OWASP risk explains WHY the injected instruction resulted in real data leaving the company (an email sent), rather than just an ignored, harmless line of text?",
         options: [
-          "LLM09 Misinformation, because the model hallucinated",
-          "LLM06 Excessive Agency, because the agent held broader email permission than its assigned task actually required",
-          "LLM10 Unbounded Consumption, because too many requests were sent",
-          "LLM03 Supply Chain, because the ticketing system was a third-party product",
+          "LLM01 Prompt Injection, because the injected instruction on its own explains the email being sent",
+          "LLM06 Excessive Agency, because the agent held an email capability its triage task never required",
+          "LLM02 Sensitive Information Disclosure, because the agent revealed data held in its context window",
+          "LLM09 Misinformation, because the model confidently trusted a false instruction as if it were genuine",
         ],
         answer: 1,
         explanation:
-          "Prompt injection was the entry point, but it is Excessive Agency — the agent being granted a broad, unreviewed capability (send any outbound email) beyond what ticket-triage requires — that converted the injected instruction into an actual data-exfiltration action. The same injected text against an agent with no email tool would have been a failed, harmless attempt.",
+          "Prompt injection was the entry point, but it is Excessive Agency — the agent being granted a broad, unreviewed capability (send any outbound email) beyond what ticket-triage requires — that converted the injected instruction into an actual data-exfiltration action. “LLM01 … on its own explains the email” stops at the trigger: the same injected text against an agent with no email tool would have been a failed, harmless attempt. “LLM02 Sensitive Information Disclosure” describes a model exposing data in its answers; here the data left through a tool the agent was allowed to call. “LLM09 Misinformation” is about users acting on confidently wrong model output, not an agent executing an attacker's instruction.",
       },
       xp: 5,
     },
@@ -451,15 +451,15 @@ const aiAttacksTasks = [
     {
       "type": "question",
       "id": "aisoc-q8",
-      "question": "An AI shipping-logistics agent is authorized only to look up order status for customers. Its installed plugin also happens to expose a function that can cancel any order and issue a refund, because the vendor bundled both capabilities into one \"order management\" tool. An indirect prompt injection hidden in a manipulated tracking-number lookup convinces the agent to cancel and refund a competitor's high-value order. What OWASP root cause does this best illustrate, and why does it matter which one you name?",
+      "question": "An AI shipping-logistics agent's only task is looking up order status. Its plugin exposes two functions, lookup_status(order_id) and cancel_and_refund(order_id), and the plugin's database account holds exactly the rights those two functions use — nothing more. An indirect prompt injection in a manipulated tracking-number lookup leads the agent to cancel and refund a competitor's high-value order. Engineering wants to fix the root cause so the agent becomes architecturally unable to issue refunds, not merely less likely to. Which root cause should they name?",
       "options": [
-        "LLM06 Excessive Agency, specifically Excessive Functionality — the bundled tool held a cancel/refund capability the order-status task never needed, and naming that root cause tells engineering exactly what to split apart",
-        "LLM01 Prompt Injection alone, since the injected tracking number is what triggered the action, so no further root-cause analysis is needed",
-        "LLM10 Unbounded Consumption, since issuing a refund has a real financial cost to the company",
-        "LLM04 Data and Model Poisoning, since the tracking-number data the agent looked up had been tampered with"
+        "LLM06 Excessive Functionality — the plugin exposes a cancel/refund function the status task never needs",
+        "LLM06 Excessive Permissions — the agent's downstream account can write to the orders database",
+        "LLM06 Excessive Autonomy — the refund took effect with no human approval step before it ran",
+        "LLM01 Prompt Injection — the manipulated tracking number is what triggered the refund"
       ],
       "answer": 0,
-      "explanation": "The injection was the trigger, but the reason it caused real financial damage is that the tool held a capability (cancel and refund) far beyond what an order-status lookup ever required — that is Excessive Functionality, one of OWASP's three named root causes under LLM06. Naming it precisely (not just \"prompt injection happened\") tells engineering the actual fix: split the bundled tool into narrowly scoped functions, not just filter inputs harder. Naming LLM01 Prompt Injection alone stops at the trigger and ignores the amplifier that made the attempt damaging. LLM10 misapplies Unbounded Consumption, which concerns query volume and resource cost, not a single unauthorized action. LLM04 misapplies poisoning, which corrupts training or retrieval data, not a live tool invocation.",
+      "explanation": "The injection was the trigger, but the damage was possible because the tool offered a capability (cancel and refund) that an order-status lookup never required — Excessive Functionality, one of OWASP's three named root causes under LLM06. Removing that function (splitting the bundled plugin) is the only fix of the four that makes a refund impossible. “Excessive Permissions” is the near-miss: the stem says the account holds exactly what the plugin's own functions use, so the excess is the function itself — once it is removed, the write rights go with it. “Excessive Autonomy” names a real gap, but an approval gate only makes a refund reviewed, not impossible. “LLM01 Prompt Injection” stops at the trigger; inputs can be filtered harder, and the next injection or hallucination would still find the refund function waiting.",
       "xp": 15
     },
 
@@ -478,13 +478,13 @@ const aiAttacksTasks = [
       "id": "aisoc-q9",
       "question": "A support chatbot's replies are rendered directly as HTML in an internal admin console without escaping. An attacker crafts a question that causes the bot's answer to include an image tag with a malicious \"onerror\" handler. When a support agent later opens that conversation in the admin console, the script executes in the agent's authenticated browser session. What is the most accurate classification, and where does the actual defect live?",
       "options": [
-        "LLM05 Improper Output Handling — the defect is downstream: the admin console trusted and rendered the model's raw output as active HTML instead of escaping it",
-        "LLM02 Sensitive Information Disclosure, since a script running in the browser could potentially read session cookies",
-        "LLM03 Supply Chain, since the admin console is a separate internal application from the chatbot itself",
-        "Model theft, since the attacker managed to extract unexpected behavior from the chatbot"
+        "LLM05 Improper Output Handling — the console rendered the model's raw output as active HTML",
+        "LLM02 Sensitive Information Disclosure — the script can read the support agent's session cookie",
+        "LLM01 Prompt Injection — the crafted question made the bot produce content it should refuse",
+        "LLM03 Supply Chain — the admin console is a separate component the chatbot team does not own"
       ],
       "answer": 0,
-      "explanation": "The chatbot itself did nothing forbidden — it produced text. The vulnerability is entirely in what the admin console DID with that text: rendering attacker-influenced output as live HTML without sanitizing it, which is the textbook definition of Improper Output Handling. LLM02 names a plausible downstream CONSEQUENCE (cookie theft is one thing stored XSS can achieve) but misidentifies the root-cause category. LLM03 Supply Chain is a category error — the console being a separate application does not make this a supply-chain issue, which concerns third-party components carrying pre-existing vulnerabilities or backdoors, not an integration bug in how output is rendered. 'Model theft' confuses this with model extraction, which is about stealing model behavior via repeated querying, not exploiting how a downstream app handles a response.",
+      "explanation": "The chatbot produced text; the vulnerability is in what the admin console DID with that text — rendering attacker-influenced output as live HTML without escaping it, the textbook definition of Improper Output Handling. “LLM02 … session cookie” names a possible consequence of the stored XSS, not the root-cause category. “LLM01 Prompt Injection” is how the attacker shaped the output, but the reading is explicit that the fix lives on the output side: even a model that never misbehaves cannot make unescaped rendering safe, and an image tag is not content a safety filter is built to refuse. “LLM03 Supply Chain” concerns third-party components carrying pre-existing vulnerabilities or backdoors, not an internal integration bug in how output is rendered.",
       "xp": 15
     },
 
@@ -503,13 +503,13 @@ const aiAttacksTasks = [
       "id": "aisoc-q10",
       "question": "A publicly reachable, unauthenticated customer chatbot bills the organization per token on its backend LLM. Over one weekend, an unidentified party issues tens of thousands of maximum-length requests, each padded with long irrelevant filler text to consume the full context window. None of the requests contain an injection payload, request sensitive data, or attempt to log in — the traffic is simply enormous in volume and size. What is happening, and what is the most relevant mitigation per this room's reading?",
       "options": [
-        "This is Denial-of-Wallet resource abuse under LLM10:2025 Unbounded Consumption — mitigate with per-identity rate limits, pre-inference input-length caps, and cost-based (not just request-count) quotas",
-        "This is LLM01 Prompt Injection, since the requests are deliberately crafted inputs designed to manipulate the model's behavior",
-        "This is LLM08 Vector and Embedding Weaknesses, since the padded text will eventually be embedded and stored in a vector database",
-        "This cannot be classified as an attack at all, since none of the requests contain a malicious instruction or attempt to extract data"
+        "Denial of Wallet (LLM10 Unbounded Consumption) — add token-based quotas per identity and input-length caps",
+        "LLM01 Prompt Injection — add an input classifier that blocks the padded filler text before inference",
+        "Ordinary peak demand — no request is malicious, so the fix is scaling capacity for weekend traffic",
+        "Model extraction (LLM10) — the volume suggests cloning, so baseline query diversity per identity"
       ],
       "answer": 0,
-      "explanation": "High-volume, maximally-sized requests with no injection content and no data-theft attempt are exactly the Denial-of-Wallet / resource-exhaustion pattern OWASP groups under LLM10:2025 Unbounded Consumption — the harm is financial and availability-based, not content-based, which is why request-count limits alone are insufficient; the control has to account for actual token/cost consumption per request. LLM01 misapplies prompt injection, which concerns instructions that override the model's behavior, not sheer input volume. LLM08 misapplies vector/embedding weaknesses, which concerns RAG retrieval-corpus poisoning, not chatbot query flooding. 'Not an attack at all' is the dangerous conclusion: an attack does not require an explicit malicious instruction to cause real financial and availability damage, which is the entire point of this category.",
+      "explanation": "High-volume, maximum-size requests with no injection content and no data-theft attempt are the Denial-of-Wallet / resource-exhaustion pattern under LLM10:2025 Unbounded Consumption — the harm is financial and availability-based, so the control must count tokens/cost per identity (not just requests) and reject oversized input before inference. “LLM01 … input classifier” misapplies prompt injection: the filler carries no instruction, and a content classifier would still pay to process every request. “Ordinary peak demand … scaling capacity” is the dangerous conclusion — the reading notes the load has no matching rise in real site traffic, and scaling up only raises the bill. “Model extraction” is the other face of LLM10, but extraction needs varied, informative queries to map the model's behaviour; identical padded filler teaches the attacker nothing.",
       "xp": 15
     },
 
@@ -528,13 +528,13 @@ const aiAttacksTasks = [
       "id": "aisoc-q11",
       "question": "A next-generation AV product's ML-based classifier gives a malicious file a \"clean\" verdict after an attacker appends several kilobytes of strings copied from a whitelisted, unrelated benign application to the end of the file, changing none of the malware's actual functional code — the same mechanism documented in MITRE ATLAS as the real 2019 Cylance bypass. Which technique does this match, and what is the SOC's most important structural takeaway?",
       "options": [
-        "AML.T0015 (Evade AI Model) — the takeaway is that no single ML/AI classifier should ever be the sole gate; defense-in-depth with independent, structurally different detection layers is what actually catches an evasion like this",
-        "AML.T0051 (LLM Prompt Injection) — the takeaway is to filter suspicious natural-language phrases out of any file before it is scanned",
-        "AML.T0020 (Poison Training Data) — the takeaway is to retrain the classifier from scratch immediately on every newly submitted sample",
-        "AML.T0024 (Exfiltration via AI Inference API) — the takeaway is to rate-limit how many times any single file can be resubmitted for scanning"
+        "AML.T0015 Evade AI Model — no single ML engine should be the sole gate; layer independent detections",
+        "AML.T0015 Evade AI Model — a YARA rule for the appended strings closes this bypass for good",
+        "AML.T0020 Poison Training Data — the whitelisted strings taught the classifier to trust this malware",
+        "AML.T0024 Exfiltration via AI Inference API — rate-limit resubmissions so attackers cannot probe"
       ],
       "answer": 0,
-      "explanation": "This is a static, single-input manipulation crafted to flip a deployed classifier's verdict at inference time, with the model's own weights untouched — precisely AML.T0015, Evade AI Model, and precisely what happened to Cylance's product in the real, documented 2019 case. The structural fix CERT/CC itself recommended is defense-in-depth: an independent behavioral or signature layer catches what a fooled static ML engine misses. AML.T0051 misapplies prompt injection, which concerns LLM conversational inputs, not binary file classifiers. AML.T0020 misapplies poisoning, which corrupts a model during training — this attack touched inference-time input, not the training pipeline, and \"retrain on every sample\" is not a real, scalable control. AML.T0024 misapplies model extraction, which concerns stealing model behavior via API querying, not evading a local endpoint classifier's verdict.",
+      "explanation": "This is a single input crafted to flip a deployed classifier's verdict at inference time, with the model's weights untouched — AML.T0015, Evade AI Model, exactly the documented 2019 Cylance case. The structural takeaway CERT/CC recommended is defense-in-depth: an independent behavioural or signature layer catches what a fooled static ML engine misses. “A YARA rule for the appended strings” names the right technique but the wrong takeaway: the attacker can append any other benign strings, so a rule for this padding is useful for one sample and fixes nothing structurally. “Poison Training Data” corrupts a model during training; here nothing touched the training pipeline — the padding was added to the input at scan time. “Rate-limit resubmissions” targets one of the probing signs the reading lists, but T0024 is about extracting a model through its API, and throttling probes does not stop an evasion already found.",
       "xp": 15
     },
 
@@ -553,13 +553,13 @@ const aiAttacksTasks = [
       "id": "aisoc-q12",
       "question": "Across ten separate conversation turns, a user gradually reframes an ordinary technical-support conversation into asking the model to produce functioning ransomware code \"for an educational course,\" with each individual turn looking innocuous read in isolation. The model — whose provider trained it to refuse malware-writing requests outright — eventually complies. Which MITRE ATLAS technique best matches this, and why would a classifier scoring only one message at a time miss it?",
       "options": [
-        "AML.T0054 (LLM Jailbreak), specifically a Crescendo-style multi-turn escalation — a single-message classifier cannot see that the conversation's overall trajectory, not any one turn, is what crosses the line",
-        "AML.T0051.000 (Direct Prompt Injection) — a per-message classifier misses it because direct-injection payloads are always base64-encoded or otherwise obfuscated",
-        "AML.T0051.001 (Indirect Prompt Injection) — a per-message classifier misses it because the malicious instructions arrived through an ingested document rather than the live conversation",
-        "AML.T0024.002 (Extract AI Model) — a per-message classifier misses it because model extraction never requires a single request that looks malicious"
+        "AML.T0054 LLM Jailbreak (multi-turn escalation) — only the trajectory across turns crosses the line",
+        "AML.T0051.000 Direct Prompt Injection — the user typed every instruction straight into the chat",
+        "AML.T0015 Evade AI Model — the reframing slipped past the safety classifier like a crafted input",
+        "AML.T0024.002 Extract AI Model — many turns of probing are how the model's behaviour gets mapped"
       ],
       "answer": 0,
-      "explanation": "This is a jailbreak attacking the MODEL's own trained-in refusal behavior (not an application's system prompt), executed through gradual, multi-turn escalation — exactly the Crescendo-style strategy MITRE ATLAS documents under AML.T0054. A classifier scoring one message at a time is structurally blind to a trajectory that only becomes disqualifying in aggregate. The Direct Prompt Injection answer is wrong on two counts: this was multi-turn, not a single direct message, and direct injection does not require encoding. The Indirect Prompt Injection answer misapplies indirect injection, which requires the attacker to plant instructions in ingested content the model reads — here, the user was the one directly conversing with the model the whole time. The Extract AI Model answer misapplies model extraction, which concerns cloning model behavior via API querying, not eliciting refused content through conversational escalation.",
+      "explanation": "This is a jailbreak attacking the MODEL's own trained-in refusal behaviour (not an application's system prompt), executed through gradual, multi-turn escalation — the Crescendo-style strategy MITRE ATLAS documents under AML.T0054. A classifier scoring one message at a time is structurally blind to a trajectory that only becomes disqualifying in aggregate. “Direct Prompt Injection” is the closest confusion because the user did type everything, but injection overrides the application's instructions; the rule defeated here is the provider's training to refuse malware, which is what defines a jailbreak. “Evade AI Model” describes crafting an input to flip a detector's verdict, as in the Cylance case; here the goal and outcome was the model producing refused content. “Extract AI Model” is about cloning a model's behaviour through systematic querying, not eliciting one refused output.",
       "xp": 15
     },
 
@@ -582,16 +582,16 @@ const aiAttacksTasks = [
         "### Professional detection\n\n" +
         "Deepfake vishing is fundamentally a PROCESS and IDENTITY-VERIFICATION control problem, not a log-analysis one — there is rarely a SIEM alert for 'a deepfake occurred.' The SOC's real levers are: (1) out-of-band verification as a hard, non-negotiable control for any high-value transaction request — a callback to a known, previously-verified phone number (never a number provided in the same suspicious communication), through a channel independent of the one the request arrived on; (2) codeword or challenge-response protocols established in advance with finance and executive staff specifically for high-value transaction authorization, since a codeword agreed upon out-of-band cannot be deepfaked into existence; (3) correlating a suspicious call/video request with related identity and email telemetry — did the same target receive a precursor phishing email (check the email gateway and DLP logs from the email-security room), is the requested destination account new or previously flagged; and (4) organizational controls that reduce the deepfake attack surface itself — limiting how much unscripted video/audio of executives is published publicly, and treating a large wire-transfer request as requiring MULTI-PARTY, MULTI-CHANNEL confirmation regardless of how convincing the requesting call appears, precisely because 'convincing' is no longer evidence of authenticity.",
       checkpoint: {
-        question: "In the Arup case, what was the actual technical root cause that a patch or firewall rule could have fixed?",
+        question: "In the Arup case, which technical weakness in the company's systems did the attackers exploit to get the money moved?",
         options: [
-          "A vulnerable VPN appliance",
-          "None — Arup's CIO confirmed no company systems were compromised; this was social engineering enhanced by deepfake technology, not a system exploit",
-          "A phishing link that delivered malware to the employee's laptop",
-          "A misconfigured cloud storage bucket",
+          "A vulnerable VPN appliance that let them into the network",
+          "None — it was social engineering with deepfakes, no exploit",
+          "MFA fatigue that gave them the employee's email account",
+          "A phishing link that put malware on the employee's laptop",
         ],
         answer: 1,
         explanation:
-          "This is the case's most important lesson for a SOC: there was no vulnerability to patch and no malware to detect. The entire attack succeeded through human trust in a fabricated audio-visual identity, which means the correct controls are procedural (out-of-band verification, codewords, multi-party approval) rather than purely technical.",
+          "This is the case's most important lesson for a SOC: Arup's CIO confirmed no company systems were compromised — there was no vulnerability to patch and no malware to detect. A VPN exploit or malware-laden link would have left technical traces; none existed. MFA fatigue is a real account-takeover technique, but here the attackers never needed the employee's account — they only needed the employee to believe the call. The attack succeeded through human trust in a fabricated audio-visual identity, so the correct controls are procedural (out-of-band verification, codewords, multi-party approval) rather than purely technical.",
       },
       xp: 5,
     },
@@ -622,15 +622,15 @@ const aiAttacksTasks = [
       instructions:
         "A finance employee reports a suspicious high-pressure video call requesting an urgent wire transfer, matching the pattern from this room's Arup case study. The transfer has NOT yet been sent. Put the analyst's/organization's response steps in the correct order.",
       items: [
-        { id: "i1", text: "Instruct the employee to take no action on the request and not to send any funds yet" },
+        { id: "i1", text: "Instruct the employee to take no action on the request and send no funds, keeping the meeting link and caller number they received" },
         { id: "i2", text: "Independently verify the requester's identity via a pre-established, out-of-band channel (callback to a known number, or a pre-agreed codeword) — never a contact method supplied during the suspicious call itself" },
-        { id: "i3", text: "Preserve available evidence: the call recording/screenshots, the originating number or meeting link, and any precursor email" },
-        { id: "i4", text: "If verification fails or cannot be completed, treat it as a confirmed fraud attempt: block the requested payment, alert finance leadership and the bank if any funds were already partially processed, and open a formal incident" },
+        { id: "i3", text: "Once verification fails or cannot be completed, collect and package the evidence: call recording/screenshots, the originating number or meeting link, and any precursor email" },
+        { id: "i4", text: "With the evidence packaged, treat it as a confirmed fraud attempt: block the requested payment, alert finance leadership and the bank if any funds were already partially processed, and open a formal incident" },
         { id: "i5", text: "Document the incident and brief staff on the specific pretext used, without shaming the reporting employee, to raise pattern-recognition for future attempts" },
       ],
       correct_order: ["i1", "i2", "i3", "i4", "i5"],
       explanation:
-        "The sequence matters: freezing action comes first because the financial harm is irreversible once funds move — that is the single highest priority. Verification through an independent channel comes next, since it is the one step that can actually resolve whether this is real. Evidence preservation happens alongside/after verification, before anyone forgets details or the call artifacts disappear. Only once verification has definitively failed do you escalate to a confirmed-fraud response. Documentation and blame-free staff briefing come last, turning the incident into organizational learning rather than a one-off war story.",
+        "The sequence matters: freezing action comes first because the financial harm is irreversible once funds move — that is the single highest priority. Verification through an independent channel comes next, since it is the one step that can actually resolve whether this is real. The volatile items (meeting link, caller number) were already kept safe at step one, so once verification fails the evidence is collected and packaged, and that package is what the confirmed-fraud response — blocking the payment, alerting finance and the bank, opening the formal incident — is built on. Documentation and blame-free staff briefing come last, turning the incident into organizational learning rather than a one-off war story.",
       xp: 20,
     },
 
@@ -677,9 +677,9 @@ const aiAttacksTasks = [
     {
       type: "analyst_choice" as const,
       id: "aisoc-ac2",
-      heading: "Triage: An Employee's Legitimate Use of an AI Writing Assistant",
+      heading: "Triage: A Style-Drift Alert on a Sales Director's Outbound Email",
       scenario:
-        "Your DLP/email-security stack flags an outbound email from a Sales Director to a prospective client for review: the email was drafted with unusually polished, formal, and structurally uniform language, a style shift compared to the sender's normal informal tone (flagged by a writing-style-drift heuristic). The email discusses a legitimate, previously-scheduled contract renewal at the sender's normal price point, sent from the sender's own authenticated corporate account, with no attachments, no unusual links, and no request for payment or credential information. When asked, the Sales Director confirms they used an internal, IT-approved AI writing assistant (Microsoft Copilot, licensed and DLP-integrated) to polish the email's tone before sending.",
+        "Your DLP/email-security stack flags an outbound email from a Sales Director to a prospective client for review: the email was drafted with unusually polished, formal, and structurally uniform language, a style shift compared to the sender's normal informal tone (flagged by a writing-style-drift heuristic). The email discusses a contract renewal that appears on the account's schedule, at the account's usual price point, and was sent from the sender's own authenticated corporate account with no attachments, no unusual links, and no request for payment or credential information. Review the event and the verification note, then decide.",
       event: {
         id: "evt-aisoc-ac2-001",
         ts: "2026-08-19T13:12:05.000Z",
@@ -715,7 +715,7 @@ const aiAttacksTasks = [
       },
       correct_verdict: "false_positive",
       explanation:
-        "Every factual element here is benign and independently verifiable: the account is legitimately authenticated, the recipient is an existing, previously-engaged business contact, the content matches a real scheduled transaction at the normal price point, there is no payment or credential request, no attachment, no suspicious link, and — critically — IT confirmed the AI tool used is an internally licensed, DLP-integrated product, not an unapproved outside service. A style-drift heuristic exists precisely to catch AI-ASSISTED BEC, but a heuristic catching a stylistic change is not itself evidence of compromise; it is a prompt to verify, and verification here closed it out clean. The correct disposition is false positive, with the heuristic's behavior noted as working as intended (it surfaced something worth checking) rather than something to be tuned off.",
+        "Every factual element here is benign and independently verifiable: the account is legitimately authenticated, the recipient is an existing, previously-engaged business contact, the content matches a real scheduled transaction at the normal price point, there is no payment or credential request, no attachment, no suspicious link, and — critically — the verification note shows the Sales Director confirmed the tool, and IT's records show it is the organisation's licensed, DLP-integrated Copilot, not an unapproved outside service. A style-drift heuristic exists precisely to catch AI-ASSISTED BEC, but a heuristic catching a stylistic change is not itself evidence of compromise; it is a prompt to verify, and verification here closed it out clean. The correct disposition is false positive, with the heuristic's behavior noted as working as intended (it surfaced something worth checking) rather than something to be tuned off.",
       fp_trap:
         "The temptation is to treat 'this email was AI-polished' itself as the finding, since so much of this room is about AI being used maliciously — but AI-assisted writing is now a normal, sanctioned productivity tool at most companies, exactly like Grammarly or spell-check before it. The finding worth escalating is never 'AI was used'; it's 'AI was used by an UNAUTHORIZED tool, from an ANOMALOUS account, to request something outside the normal transaction pattern.' None of those three are present here.",
       xp: 20,
@@ -737,18 +737,18 @@ const aiAttacksTasks = [
         "- A spike in browser-based data volume to a small number of AI-tool domains, inconsistent with the account's normal browsing pattern.\n" +
         "- Employees requesting exceptions to block-lists for specific AI tools, or IT helpdesk tickets referencing 'using ChatGPT for work' — a soft signal worth correlating with technical telemetry rather than dismissing as routine.\n\n" +
         "### Professional detection\n\n" +
-        "No single log source sees this whole picture, which is precisely why effective detection correlates several signals rather than relying on any one tool: (1) proxy and DNS logs for AI-domain visits, giving raw visibility into WHO is going WHERE; (2) CASB (Cloud Access Security Broker) visibility into sanctioned-vs-unsanctioned SaaS usage, which can distinguish an employee using the company's licensed, contracted enterprise AI product from the same employee using a personal, unlicensed account on the identical underlying service; (3) endpoint DLP specifically configured with a generative-AI sensitive-service-domain group and content classifiers (source code, PII, financial data) applied to the 'paste to browser' and 'upload' actions, not just file-save and email actions; and (4) browser-extension-based visibility for organizations needing prompt-level detail, which can see the actual content pasted or uploaded rather than just the destination domain. The realistic false-positive challenge: many organizations now SANCTION and LICENSE a specific AI tool (an enterprise ChatGPT/Copilot contract with a no-training, no-retention data agreement) precisely to give employees a safe outlet for this exact productivity need — so the detection logic must distinguish the SANCTIONED tool and account type from an UNSANCTIONED personal account on a technically identical domain, which is exactly the distinction the DLP event in the next task is built to test.",
+        "No single log source sees this whole picture, which is precisely why effective detection correlates several signals rather than relying on any one tool: (1) proxy and DNS logs for AI-domain visits, giving raw visibility into WHO is going WHERE; (2) CASB (Cloud Access Security Broker) visibility into sanctioned-vs-unsanctioned SaaS usage, which can distinguish an employee using the company's licensed, contracted enterprise AI product from the same employee using a personal, unlicensed account on the identical underlying service; (3) endpoint DLP specifically configured with a generative-AI sensitive-service-domain group and content classifiers (source code, PII, financial data) applied to the 'paste to browser' and 'upload' actions, not just file-save and email actions; and (4) browser-extension-based visibility for organizations needing prompt-level detail, which can see the actual content pasted or uploaded rather than just the destination domain. The realistic false-positive challenge: many organizations now SANCTION and LICENSE a specific AI tool (an enterprise ChatGPT/Copilot contract with a no-training, no-retention data agreement) precisely to give employees a safe outlet for this exact productivity need — so the detection logic must distinguish the SANCTIONED tool and account type from an UNSANCTIONED personal account on a technically identical domain, which is exactly the distinction the DLP event in the next task is built to test. Finally, read the rule's mode before you read anything else: a Purview DLP rule running in a test mode such as TestWithNotifications only logs the match and notifies the user — the action still goes through — while only an enforced rule with a blocking action (for example BlockAccess) actually stops it.",
       checkpoint: {
         question: "Why does a traditional file-transfer or email-attachment DLP rule typically MISS shadow-AI data leakage?",
         options: [
-          "Because generative AI websites are always blocked by every corporate firewall automatically",
-          "Because a browser paste is not a file transfer or attachment — older DLP rules were never built to inspect that channel",
-          "Because shadow AI activity only ever happens on personal, unmanaged, non-corporate devices",
-          "Because DLP tools are structurally unable to see any browser network traffic at all",
+          "Because AI chat sites use TLS 1.3, which DLP products cannot decrypt to read the content",
+          "Because a browser paste is not a file transfer or attachment, the channels those rules inspect",
+          "Because pasted text is too short for DLP classifiers to match any sensitive-data pattern",
+          "Because AI sites are categorised as productivity tools, which DLP policies exempt by default",
         ],
         answer: 1,
         explanation:
-          "Legacy DLP was built around the exfiltration channels of a decade ago — email attachments, USB copies, file uploads to cloud storage. A browser paste into a chat text field is none of those; it requires a DLP product specifically extended with endpoint 'paste to browser' monitoring and a generative-AI-aware sensitive-service-domain category, which is a newer capability many organizations have not yet deployed or tuned.",
+          "Legacy DLP was built around the exfiltration channels of a decade ago — email attachments, USB copies, file uploads to cloud storage. A browser paste into a chat text field is none of those; catching it needs endpoint “paste to browser” monitoring and a generative-AI sensitive-service-domain group. “TLS 1.3 … cannot decrypt” misses the point: endpoint DLP sees the paste on the device before encryption happens. “Too short for classifiers” is wrong — a pasted config file or code block is ample for a classifier (the next task's event matched Source Code from one paste). “Exempt by default” invents a policy default; the reading's point is that older rules simply never watched the paste channel.",
       },
       xp: 5,
     },
@@ -776,29 +776,29 @@ const aiAttacksTasks = [
           xp: 15,
         },
         {
-          question: "The rule's Actions field lists GenerateIncidentReport and NotifyUser, and RuleMode is TestWithNotifications. What does this tell an analyst about what actually happened to the paste?",
+          question: "Based on the rule's configuration fields in the raw event, what actually happened to the pasted content?",
           options: [
-            "The paste was blocked before any content reached the destination site",
-            "Audit/simulation mode — the paste went through and was only logged, meaning the leak already happened",
-            "The user's account was automatically suspended pending investigation",
-            "The file was automatically quarantined right there on the endpoint",
+            "It was blocked, and NotifyUser told the developer why the paste failed",
+            "It went through — the rule only logged the match and notified the user",
+            "It was allowed only after the developer entered a business justification",
+            "Unknown — the event records the match, not whether the paste completed",
           ],
           answer: 1,
           explanation:
-            "TestWithNotifications is Purview's audit/simulation enforcement mode — it generates an incident report and notifies, but does not block. There is no BlockAccess action here, so unlike the earlier o365-dlp full-block reference example, this content DID leave the corporate boundary. That materially changes the response: this is now a confirmed-exposure follow-up (what code was in that file, does it contain secrets) rather than a prevented-attempt review.",
+            "RuleMode is TestWithNotifications, the test mode in which Purview generates an incident report and notifies the user but does not stop the action, and the Actions list (GenerateIncidentReport, NotifyUser) contains no blocking action such as BlockAccess. So the content DID leave the corporate boundary, and this becomes a confirmed-exposure follow-up rather than a prevented-attempt review. “Blocked, and NotifyUser told the developer why” misreads the notification as proof of a block. “Allowed only after a business justification” describes an override flow, which would need a block-with-override action that is not in the list. “Unknown” overlooks the evidence in the record: the test mode means nothing stopped it, and event.outcome is success.",
           xp: 15,
         },
         {
           question: "Given that the classifier matched with ClassifierType 'MLModel' and SensitiveInformationTypeName 'Source Code' at 82% confidence, what is the analyst's most appropriate next investigative step?",
           options: [
-            "Close the incident immediately, since 82% confidence is below a certain threshold",
-            "Check that source file for hardcoded secrets or sensitive logic, and notify the manager and security-awareness team",
-            "Immediately terminate the employee's network access without further review",
-            "Assume this is a false positive, since pasting code into AI tools is normal",
+            "Close it as noise, since an 82% ML score is moderate and code classifiers often misfire",
+            "Check the source file for hardcoded secrets or sensitive logic, then notify the manager",
+            "Block chat.openai.com across the organisation and close the incident as remediated",
+            "Disable the developer's account until HR confirms whether the paste was malicious",
           ],
           answer: 1,
           explanation:
-            "82% confidence from a trainable classifier on a file explicitly named reconcile.py inside a payments-core repository is a meaningful, actionable signal, not something to dismiss. The proportionate next step is impact assessment — what was actually in that pasted content, particularly checking for hardcoded secrets or sensitive business logic in a PAYMENTS codebase — combined with the standard shadow-AI response of notifying the employee's manager and reinforcing sanctioned-tool guidance, not an immediate access termination (there's no indication of malicious intent, only a policy/awareness gap) and not a reflexive dismissal.",
+            "An 82% match from a trainable classifier on a production source file (see SourceFilePath) is a meaningful, actionable signal. The proportionate next step is impact assessment — what was in the pasted content, especially hardcoded secrets or sensitive business logic — combined with the standard shadow-AI response of notifying the manager and reinforcing sanctioned-tool guidance. “Close it as noise” ignores that the file path independently confirms this is real code. “Block chat.openai.com … and close” may be a reasonable later policy decision, but it does nothing about content that already left, and the user can move to another AI site. “Disable the developer's account” is disproportionate: nothing indicates malicious intent, only a policy and awareness gap.",
           xp: 15,
         },
       ],
@@ -843,7 +843,7 @@ const aiAttacksTasks = [
       options: [
         "Training every employee to recognise and avoid typing suspicious phrases into the agent's chat interface",
         "Scoping the agent's tool permissions as narrowly as the task requires — least privilege for the agent itself",
-        "Relying on the vendor model's built-in content filters plus a classifier on all ingested content, since together they block injected instructions before the agent acts",
+        "Relying on the vendor's built-in content filters plus a classifier on all content the agent ingests",
         "Blocking the agent from emailing any external domain, since email is the exfiltration channel an injected instruction would most likely use",
       ],
       answer: 1,
@@ -857,9 +857,9 @@ const aiAttacksTasks = [
       type: "flag" as const,
       id: "aisoc-f2",
       prompt:
-        "In the Arup case study covered in this room, how many separate bank transfers did the deceived employee make to the attacker-controlled accounts? Enter the number as a single integer.",
-      answer: "15",
-      hint: "Reread the reading titled 'Deepfake Voice and Video Vishing: When Seeing and Hearing Isn't Believing' — the exact figure is stated in the paragraph describing how the Arup case unfolded.",
+        "Scoping the shadow-AI paste you investigated in this room: before you check for exposed secrets, you need to know which code repository the pasted content came from. Enter the repository's folder name exactly as it appears in the Purview DLP event.",
+      answer: "payments-core",
+      hint: "The DLP event records where on disk the pasted content originated; the repository is one level inside the developer's repos folder.",
       xp: 15,
     },
 ];

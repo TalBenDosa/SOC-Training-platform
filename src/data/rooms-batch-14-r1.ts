@@ -131,7 +131,7 @@ const getCallerIdentityEvent: TelemetryEvent = {
   severity: "low",
   src_ip: "10.20.4.15",
   hostname: "ip-10-20-4-15.ec2.internal",
-  description: "STS GetCallerIdentity call made by the deployment pipeline's ECS Fargate task role during a scheduled pipeline run",
+  description: "STS GetCallerIdentity call in account 482915007733, flagged by the post-incident STS watch rule",
   raw: {
     "aws.cloudtrail.eventName": "GetCallerIdentity",
     "aws.cloudtrail.eventSource": "sts.amazonaws.com",
@@ -245,15 +245,15 @@ const awsSecurityRoom = {
         "VPC       Virtual Private Cloud       Private network\n" +
         "=======================================================",
       checkpoint: {
-        question: "According to the reading's on-premises-to-AWS mental model table, which AWS service is the equivalent of a Windows Security Event Log?",
+        question: "An S3 bucket's access policy was changed yesterday, and you need to know which identity made the change and from which IP address. Which source answers that directly?",
         options: [
-          "CloudTrail",
-          "GuardDuty",
-          "IAM",
-          "VPC Flow Logs",
+          "CloudTrail events",
+          "GuardDuty findings",
+          "VPC Flow Log records",
+          "The IAM policy editor",
         ],
         answer: 0,
-        explanation: "The reading's comparison table maps 'Windows Security Event Log' directly to 'CloudTrail' — the service that records every API call made in an AWS account.",
+        explanation: "Changing a bucket policy is an API call, and CloudTrail records every API call — who (userIdentity), from where (sourceIPAddress) and when; policy changes are management events, which are logged by default. GuardDuty findings only appear when GuardDuty judges something anomalous, so a routine-looking change may produce no finding at all. VPC Flow Log records carry IP addresses, ports and byte counts but no identity and no API action. The IAM policy editor shows what a policy says now, not who changed it or from where (and a bucket policy lives on the bucket, not in IAM).",
       },
     },
 
@@ -378,15 +378,15 @@ const awsSecurityRoom = {
         "                           any user\n" +
         "=======================================================",
       checkpoint: {
-        question: "According to the reading, temporary credentials obtained by assuming an IAM role typically expire within what time frame?",
+        question: "A role's temporary session credentials and an IAM user's access key are leaked in the same public repository. Why does the reading rate the role credentials as the lower, but still real, risk?",
         options: [
-          "1 to 12 hours",
-          "24 to 48 hours",
-          "90 days",
-          "They never expire",
+          "They expire on their own, so the attacker's window closes even if no one revokes them",
+          "They are tied to the instance that requested them, so an attacker elsewhere cannot use them",
+          "CloudTrail does not record calls made with role credentials, so attackers rarely bother with them",
+          "Role credentials carry read-only permissions unless an administrator widens them",
         ],
         answer: 0,
-        explanation: "The reading states that an IAM role's temporary credentials automatically expire, typically within 1 to 12 hours — unlike an IAM user's long-term access keys, which do not expire on their own.",
+        explanation: "Role credentials are temporary and expire automatically (typically within hours), so the exposure window is bounded; an IAM user's access key never expires on its own and works until someone deactivates it. They are still a real risk because they work for anyone who holds them until they expire. “Tied to the instance that requested them” is the misconception the IMDS-theft event in this room disproves — the stolen role session is used from a Tor exit node. “CloudTrail does not record calls made with role credentials” is false: AssumedRole activity is logged like any other identity's. “Read-only permissions” confuses temporary with weak: a role session has whatever its role's policies grant, which can be full admin.",
       },
     },
 
@@ -458,16 +458,16 @@ const awsSecurityRoom = {
       type: "question" as const,
       id: "aws-q2",
       question:
-        "An EC2 instance has an IAM role attached. A SOC analyst notices that role's temporary credentials being used to call the AWS API from a source IP address in Germany, while the EC2 instance itself is confirmed still running normally inside AWS in us-east-1. What does this most likely indicate?",
+        "CloudTrail shows a successful PutBucketPolicy call on the bucket nexacorp-marketing-exports. The new policy adds one statement: Effect Allow, Principal '*', Action s3:GetObject on every object in the bucket, with no Condition. What does this change do?",
       options: [
-        "Normal cross-region failover — AWS re-issues the role credentials to a standby instance in Germany when the primary is busy",
-        "The instance's temporary credentials were stolen, for example via SSRF against IMDS, and are used by an attacker from outside AWS",
-        "A developer testing the role's permissions from a workstation, which is expected since IAM roles can be used from any location",
-        "AWS routing API calls through European edge locations, so the source IP in CloudTrail can differ from the instance's region",
+        "Lets every IAM identity in NexaCorp's own account read the objects, but no one outside that account",
+        "Lets anyone on the internet read every object in the bucket, with no AWS credentials needed at all",
+        "Nothing on its own; the objects become public only once an ACL also grants the AllUsers group",
+        "Lets any signed-in AWS user from any account read the objects, but not anonymous internet visitors",
       ],
       answer: 1,
       explanation:
-        "Temporary role credentials retrieved via the Instance Metadata Service (IMDS) are meant to be used only by that instance. Legitimate use of an EC2 instance role's credentials should originate from AWS's own internal network — not from an external IP address in another country. Seeing the same role's credentials used from an unexpected external IP is the classic signature of instance credential theft (often via SSRF against IMDS), and it is exactly the GuardDuty finding type UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration is designed to catch.",
+        "In a bucket policy, Principal '*' with no Condition means anyone in the world, so this statement makes every object anonymously downloadable — the classic public-bucket exposure from the reading, and nothing will alert on it unless a check such as AWS Config's s3-bucket-public-read-prohibited rule or GuardDuty is watching. (Because the call succeeded, nothing such as S3 Block Public Access stopped the public statement.) “Every IAM identity in NexaCorp's own account” confuses '*' with the account's own principals; limiting access to one account needs that account named as the Principal or a Condition. “Only once an ACL also grants AllUsers” is wrong because a bucket policy or an ACL can each expose the bucket on its own. “Any signed-in AWS user” describes a different, narrower grant; '*' with no Condition does not require any AWS sign-in.",
       xp: 25,
     },
 
@@ -476,16 +476,16 @@ const awsSecurityRoom = {
       type: "question" as const,
       id: "aws-q3",
       question:
-        "Which CloudTrail event name should ALWAYS be treated as critical severity and investigated immediately, regardless of who performed it?",
+        "CloudTrail shows CreatePolicyVersion with setAsDefault true on reports-reader-policy. Compared with the previous version, the Action (s3:GetObject) and the Resource (the reports bucket) are unchanged; the only difference is that the Condition limiting aws:SourceIp to NexaCorp's office range is gone. How should you treat this change?",
       options: [
-        "DescribeInstances — listing EC2 instances",
-        "StopLogging — disabling the CloudTrail trail that records account activity",
-        "GetCallerIdentity — checking which identity is currently authenticated",
-        "ListBuckets — listing the names of S3 buckets in the account",
+        "As routine: the Action and Resource are unchanged, so the identity has gained no new permissions",
+        "As a possible escalation: the same permission now works from any IP address, not just the office",
+        "As routine: a Condition only labels the log entry for reviewers; it does not restrict the Allow",
+        "As low risk: only a policy granting '*' on '*' counts as dangerous, and this one is still scoped",
       ],
       answer: 1,
       explanation:
-        "StopLogging turns off CloudTrail's recording of account activity — the equivalent of an intruder disabling the security cameras before continuing their break-in. It maps to MITRE T1562.008 (Impair Defenses: Disable Cloud Logs) and should always trigger a critical-severity alert. DescribeInstances, GetCallerIdentity, and ListBuckets are read-only, extremely common, and usually benign background activity generated constantly by both humans and automated tooling.",
+        "A Condition restricts when an Allow applies, so removing an aws:SourceIp Condition turns an office-only permission into one usable from anywhere — exactly what an attacker holding a stolen key needs, and the pattern the reading warns about when comparing an old and new policy version. “The Action and Resource are unchanged” checks only two of the elements that matter; the reading says to check whether a protective Condition disappeared, not just whether the Action or Resource got broader. “A Condition only labels the log entry” misdescribes Conditions: they are part of the permission itself. “Only a policy granting '*' on '*' counts as dangerous” treats the most extreme pattern as the only one; quietly widening where a permission works is also escalation.",
       xp: 20,
     },
 
@@ -500,44 +500,44 @@ const awsSecurityRoom = {
       questions: [
         {
           question:
-            "The event shows aws.cloudtrail.userIdentity.type as 'IAMUser' with access_key_id 'AKIAIOSFODNN7EXAMPLE', calling GetObject from source IP 185.220.101.47 (a known Tor exit node in the Netherlands). Why is the identity TYPE itself an important clue here?",
+            "Look at the aws.cloudtrail.userIdentity fields of this GetObject event (source 185.220.101.47, a known Tor exit node in the Netherlands). Why does the identity TYPE matter for scoping this incident?",
           options: [
-            "IAMUser identities are always a sign of malicious activity, because legitimate automation in AWS should only ever run under AssumedRole sessions with temporary credentials",
-            "Because svc-deploy is an IAM user (not a role), it authenticates with a long-lived access key rather than short-lived temporary credentials — meaning this leaked key will keep working indefinitely until someone manually revokes it",
-            "CloudTrail only records events generated by AssumedRole sessions; an IAMUser-type entry like this one must be a logging error or a spoofed record injected by the attacker",
-            "The identity type field is cosmetic metadata AWS adds for display purposes only — investigators should rely solely on the source IP address to judge whether an event is suspicious",
+            "IAMUser means a person signed in to the console, so start with that person's password and MFA history",
+            "A long-term access key works until someone deactivates it, so all three days since the leak are in scope",
+            "Like other AWS credentials, it expires within hours, so only last night's calls need to be reviewed",
+            "Type matters less than the source: scope the review to calls from the Tor IP 185.220.101.47 alone",
           ],
           answer: 1,
           explanation:
-            "IAM users authenticate with long-term access keys that do not expire on their own. Because svc-deploy's key was leaked on GitHub three days ago, an attacker has had three days to find and use it, and it will remain valid until NexaCorp explicitly deactivates or rotates it. This is precisely why leaked IAM user access keys are far more dangerous than leaked temporary role credentials, which auto-expire within hours. Plenty of legitimate service accounts are IAMUser identities, so identity type alone never proves malice; CloudTrail logs IAMUser and AssumedRole activity identically; and the identity type is a functional field that determines what kind of credential compromise you're dealing with, not decoration.",
+            "An IAMUser identity calling the API with an access key (accessKeyId AKIA..., aws-cli user agent) is using a long-term credential that never expires on its own. The key leaked on GitHub three days ago, so every call it made since then is in scope, and it stays usable until NexaCorp deactivates it. “A person signed in to the console” misreads the type: IAMUser also covers service accounts like svc-deploy that only use access keys, and this call came from the CLI with a key, not a console session. “Expires within hours” describes a role's temporary credentials, not an IAM user's access key. “Scope the review to calls from the Tor IP alone” misses that the key works from any address; an attacker can switch exit nodes, so you scope by the key, not by one IP.",
           xp: 25,
         },
         {
           question:
-            "The request targeted bucket 'nexacorp-customer-records', object key 'exports/customers_full_2026Q2.csv', with action_result 'allowed' and an empty error_code. What does this tell the analyst about the outcome of the request?",
+            "Read the outcome fields of this GetObject call on the object exports/customers_full_2026Q2.csv. What actually happened?",
           options: [
-            "The request failed, because CloudTrail always populates error_code with the specific rejection reason whenever a call is denied, and an empty string here is just AWS's placeholder for AccessDenied",
-            "The request succeeded — an empty error_code combined with action_result 'allowed' confirms the object was actually downloaded, meaning customer data has likely already left the environment",
-            "The request is still queued and awaiting processing, since CloudTrail writes an event the moment an API call is received and only fills in error_code once AWS finishes evaluating it minutes later",
-            "The bucket name 'nexacorp-customer-records' proves this was an internal, pre-approved backup job, since attackers only ever target buckets with generic or randomly generated names",
+            "An attempt only: responseElements is null, so no object content was returned to the caller",
+            "It succeeded: the file was downloaded, so treat this as confirmed exfiltration, not an attempt",
+            "It succeeded, but readOnly true means only the object's metadata was read, not its contents",
+            "It succeeded as a normal job: it used svc-deploy's usual key and the standard aws-cli agent",
           ],
           answer: 1,
           explanation:
-            "In CloudTrail, a populated error_code (like AccessDenied or NoSuchBucket) indicates the call failed; an EMPTY error_code means the call succeeded. Combined with action_result 'allowed', this confirms the GetObject call completed successfully — the customers_full_2026Q2.csv file was actually downloaded by the attacker. This should be treated as a confirmed data exfiltration event, not just an attempted one. CloudTrail events are recorded once the call has already been evaluated, so there is no 'pending' state to observe, and a bucket's name says nothing about who is authorized to read it — sensitive buckets are frequently named descriptively for the humans who manage them, which is exactly why they get targeted.",
+            "aws.cloudtrail.errorCode is empty and action_result is 'allowed', so the GetObject call succeeded — the customer export was downloaded, and this is confirmed exfiltration, not an attempt. “responseElements is null” is not a failure signal: CloudTrail never logs the object's content in a GetObject record, and a failed call would carry an errorCode such as AccessDenied. “readOnly true means only the object's metadata was read” misreads the flag: readOnly only says the call changed nothing, and GetObject is the call that downloads the object itself. “A normal job” ignores the context: the key is the one leaked on GitHub, and it is being used from a Tor exit node instead of the build server's fixed internal IP.",
           xp: 25,
         },
         {
           question:
-            "What should the analyst's immediate containment actions be for this confirmed key exposure and exfiltration?",
+            "What should the analyst's immediate containment plan be for this confirmed key exposure and download?",
           options: [
-            "Open a low-priority ticket to notify the developer who leaked the key on GitHub during the next business day, since the file has already been downloaded and nothing further can be done",
-            "Immediately deactivate/delete the exposed access key, rotate to a new key, review the bucket's full data-event history for the past several days, and begin breach-notification / incident-response procedures given confirmed customer data access",
-            "Delete the CSV file from the bucket and mark the object as versioned so the deletion cannot be undone, which removes the attacker's ability to access that data going forward",
-            "Block the source IP 185.220.101.47 at the VPC security group level, since a security group can restrict traffic to an IAM identity's API calls the same way it restricts network traffic to an EC2 instance",
+            "Block 185.220.101.47 with a network ACL and security group, then watch the key for any further use",
+            "Deactivate the key now, review every call it made since the GitHub leak, and open incident response",
+            "Issue the build server a new key first, and keep the old key active until the deploy job is updated",
+            "Purge the key from the GitHub history and force-push the repository clean, then close as remediated",
           ],
           answer: 1,
           explanation:
-            "A confirmed leaked long-lived key requires immediate credential invalidation — deactivating/deleting the exposed access key stops it from being used again, regardless of source IP (blocking one Tor exit node does nothing, since the attacker can trivially use a different one). The analyst must also pull the full data-event history to determine the full scope of what else may have been accessed over the past three days (since the leak), and because confirmed customer PII was downloaded, this likely triggers formal incident response and potentially regulatory breach-notification obligations. Deleting the object doesn't revoke the key that could just download it again (or anything else in the bucket) — the key itself must be killed. And VPC security groups filter network traffic to resources inside a VPC; they have no effect on IAM/API-layer calls like GetObject, which are authenticated by credentials, not source-IP network rules.",
+            "A leaked long-term key must stop working immediately, and deactivating it does that while staying reversible. Because the key has been public for three days, every call it made since the leak needs reviewing (including the bucket's data events), and confirmed customer-data access means formal incident response and possibly breach notification. “Block 185.220.101.47 with a network ACL and security group” cannot stop API calls to S3, which are authorised by the credential, not by VPC network rules, and the attacker can simply switch IPs. “Keep the old key active until the deploy job is updated” is rotation in the wrong order: the stolen key stays usable while you wait. “Purge the key from the GitHub history” removes nothing the attacker already copied; the key itself is still valid.",
           xp: 25,
         },
       ],
@@ -554,44 +554,44 @@ const awsSecurityRoom = {
       questions: [
         {
           question:
-            "This event shows aws.cloudtrail.userIdentity.type 'AssumedRole' with arn 'arn:aws:sts::482915007733:assumed-role/ec2-webapp-role/i-0a1b2c3d4e5f67890', calling CreatePolicyVersion from the SAME external Tor IP as the earlier S3 event. What does the '/i-0a1b2c3d4e5f67890' suffix and the AssumedRole type tell you?",
+            "Read the aws.cloudtrail.userIdentity fields of this CreatePolicyVersion call and compare its aws.cloudtrail.sourceIPAddress with the S3 event. What do they tell you about where these credentials came from?",
           options: [
-            "This is unrelated to the earlier incident — AssumedRole sessions are refreshed constantly by AWS itself, so a new session appearing from a different country every few hours is completely routine background behavior",
-            "The suffix is the EC2 instance ID that assumed the ec2-webapp-role. Because these are temporary role credentials, and they are now being used from an external Tor IP rather than from inside AWS, this strongly indicates the instance's IMDS-issued credentials were stolen (likely via SSRF) and are being reused by the same attacker seen in the earlier S3 event",
-            "The suffix indicates this is a scheduled, automated Lambda function execution, and Lambda functions routinely make outbound calls through third-party proxy networks including Tor exit nodes for cost reasons",
-            "AssumedRole credentials are cryptographically bound to the IP address that first requested them at the moment the EC2 instance assumed the role, so they physically cannot be replayed from any different address — this event must therefore be a spoofed or injected log record rather than a genuine API call",
+            "A second IAM user's key leaked too; AssumedRole is how CloudTrail labels any user calling from the CLI",
+            "The EC2 instance's role session (named after its instance ID) was stolen and is being used outside AWS",
+            "The instance made the call itself via a proxy, since role credentials are bound to the instance holding them",
+            "A Lambda function's routine call; the session suffix is a function invocation ID, not an instance ID",
           ],
           answer: 1,
           explanation:
-            "The ARN format arn:aws:sts::ACCOUNT:assumed-role/ROLE_NAME/SESSION_NAME shows that EC2 instance i-0a1b2c3d4e5f67890 assumed ec2-webapp-role — its session name is literally the instance ID, which is standard for EC2 instance-profile role sessions. These temporary credentials should only ever be used from within AWS's own network. Seeing them called from 185.220.101.47 (the same Tor exit node as the earlier S3 exfiltration event) strongly ties both events to the same attacker, and confirms the attacker pivoted from the leaked svc-deploy key to also stealing this EC2 instance's role credentials — likely via an SSRF vulnerability that reached the IMDS endpoint. AWS does not refresh a role session to a new geography on its own, Lambda's session-name format looks nothing like an EC2 instance ID and Lambda has no legitimate reason to route through Tor, and AWS temporary credentials are bearer tokens with no IP binding at all — anyone holding the key/secret/token triple can use it from anywhere, which is exactly why a stolen session is so dangerous.",
+            "The type is AssumedRole, the session issuer is ec2-webapp-role, and the session name i-0a1b2c3d4e5f67890 is an EC2 instance ID — the standard naming for an instance-profile session, whose credentials come from IMDS. Those credentials are being used from 185.220.101.47, the same Tor exit node as the S3 event, so the attacker has stolen the instance's role credentials (likely via SSRF against IMDS) and is using them from outside AWS. “A second IAM user's key” misreads the type: an IAM user's key shows as IAMUser with a user ARN, while AssumedRole means temporary role credentials. “Role credentials are bound to the instance holding them” is the misconception that makes theft possible to miss: they are bearer credentials, usable by anyone who holds them, from anywhere. “A Lambda function's routine call” misreads the suffix: 'i-' plus 17 hex characters is an instance ID, and the call came from a Tor exit node, not from inside AWS.",
           xp: 25,
         },
         {
           question:
-            "The request_parameters show policyDocument granting \"Action\": \"*\", \"Resource\": \"*\" with Effect Allow, and setAsDefault: true, targeting policy 'ec2-webapp-policy' which is normally scoped narrowly for the web app's own needs. Why is CreatePolicyVersion combined with setAsDefault=true especially dangerous here?",
+            "Read the request and response parameters of this CreatePolicyVersion call against ec2-webapp-policy, which is normally scoped narrowly to the web app's own needs. What is the effect of the call?",
           options: [
-            "CreatePolicyVersion writes the new '*:*' version to the policy as a pending draft, and it only becomes the ACTIVE version once a human administrator later reviews and manually approves it inside the IAM console",
-            "Setting setAsDefault to true makes this new, wide-open '*:*' version become the ACTIVE version of the policy immediately — instantly granting full administrator-equivalent access to anything (user or role) the ec2-webapp-policy is attached to, without ever needing the iam:AttachAdministratorAccess permission directly",
-            "The new '*:*' policy version only rewrites the human-readable documentation and change-history AWS shows for auditing purposes, while the underlying permissions actually enforced stay pinned to whichever version was active before this call",
-            "setAsDefault is a parameter that exists solely for S3 bucket lifecycle policies, so it has no effect at all when it appears on an iam:CreatePolicyVersion call against an IAM-managed policy like ec2-webapp-policy",
+            "A new admin-level version was saved, but it stays inactive until someone sets it as the default",
+            "The '*' on '*' version is active at once, so everything the policy is attached to now has admin rights",
+            "Only the role session that made the call gains admin rights; the policy's other attachments are unchanged",
+            "Nothing yet: the role still needs iam:AttachRolePolicy before the broader version can grant it anything",
           ],
           answer: 1,
           explanation:
-            "This is a textbook IAM privilege escalation technique. The attacker did not need permission to directly attach AdministratorAccess — they only needed iam:CreatePolicyVersion on a policy they already had access to modify. By creating a new version with wide-open Action:* / Resource:* and immediately setting it as the default (active) version, the attacker instantly elevated the ec2-webapp-role (and anything else using that policy) to full administrative control of the AWS account, all while appearing to make a routine policy update. There is no draft/approval workflow in IAM — setAsDefault takes effect the instant the API call succeeds; a new policy version changes the actual enforced permissions, not just descriptive text; and setAsDefault is a real parameter of iam:CreatePolicyVersion itself, unrelated to S3 lifecycle rules.",
+            "The request carries setAsDefault true and the response shows versionId v7 with isDefaultVersion true, so the new Action '*' / Resource '*' document is the version IAM enforces from that moment — every user or role ec2-webapp-policy is attached to now has admin-equivalent rights. “Stays inactive until someone sets it as the default” would be true without setAsDefault, but this call set it, as isDefaultVersion confirms. “Only the role session that made the call” misunderstands managed policies: the policy is one shared object, so its new version applies to every identity it is attached to. “Still needs iam:AttachRolePolicy” is the point of this technique: rewriting a policy that is already attached escalates privileges without ever attaching a new one.",
           xp: 25,
         },
         {
           question:
             "Given both events are now confirmed and tied to the same attacker, what is the correct escalation path?",
           options: [
-            "Log these as two separate, unrelated low-priority tickets and route them to different queues, since one event touched the S3 service and the other touched the IAM service, and cross-service correlation is normally handled by a different team during business hours",
-            "Escalate immediately as a confirmed, active cloud account compromise — revoke the ec2-webapp-role's active sessions and the leaked access key, roll back the malicious policy version, isolate/terminate the compromised EC2 instance, and audit all IAM changes made from this identity and IP across the account",
-            "Only rotate the leaked svc-deploy access key and close the case, since the IAM CreatePolicyVersion call is a normal, automated part of the organization's infrastructure-as-code deployment pipeline and does not need to be reviewed",
-            "No further action is required beyond monitoring, because AWS automatically detects and reverses any IAM policy version that grants overly broad '*:*' permissions within 24 hours as a built-in account safeguard",
+            "Open two incidents, one per service, so the S3 and IAM owners can each contain their own part",
+            "One active compromise: revoke the role's sessions, deactivate the key, roll back v7, isolate the instance",
+            "Deactivate the svc-deploy key now, but hold the role actions until the IMDS theft is proven, to protect the web app",
+            "Terminate the EC2 instance and delete ec2-webapp-role, so the stolen session and the policy change go with them",
           ],
           answer: 1,
           explanation:
-            "This is now a confirmed, escalating cloud account compromise: exfiltrated customer data plus an active privilege-escalation attempt granting admin-equivalent access, from the same external attacker infrastructure. This requires full incident response: revoke the ec2-webapp-role's active credentials (which forces AWS to issue new ones and invalidates anything the attacker holds), deactivate the leaked svc-deploy access key, roll back or delete the malicious '*:*' policy version, isolate and forensically image the compromised EC2 instance (likely the source of the original SSRF/IMDS compromise), and audit every IAM and resource change made by this identity and this source IP across the entire account, since a fully-escalated attacker could have created backdoor users, new access keys, or additional roles. Splitting tied events into separate low-priority tickets loses the correlation that proves this is one active intrusion; a CreatePolicyVersion granting '*:*' is never a normal IaC pattern; and AWS has no such automatic-reversal safeguard — a malicious policy version stays active until a human rolls it back.",
+            "Two credentials, one attacker IP and an admin-level policy change add up to one active account compromise. Contain every path at once: revoke the ec2-webapp-role's active sessions (stolen role credentials cannot be deactivated like a key), deactivate the svc-deploy key, restore the previous policy version in place of v7, isolate the instance and snapshot its volumes, then audit every change this identity and IP made across the account, since an attacker with admin rights may have created backdoor users, keys or roles. “Open two incidents, one per service” splits the correlation that proves this is a single intrusion and slows containment. “Hold the role actions until the IMDS theft is proven” leaves an admin-level stolen session live while you wait; the evidence already justifies containment. “Terminate the EC2 instance and delete ec2-webapp-role” destroys the instance's volatile evidence and the role's history, and it does not undo v7, which stays the default on a policy that may be attached elsewhere.",
           xp: 30,
         },
       ],
@@ -603,11 +603,11 @@ const awsSecurityRoom = {
       id: "aws-ac1",
       heading: "Verdict: Is This STS GetCallerIdentity Call Suspicious?",
       scenario:
-        "A SIEM correlation rule that watches all STS activity in AWS account 482915007733 for 72 hours after a confirmed compromise flagged the API call below — the same account involved in your earlier investigation. The caller is deploy-pipeline-task-role, the role NexaCorp's scheduled ECS Fargate deployment task assumes (the session name is that task's ID). This new event occurred routinely at 07:00 UTC — well after the incident was contained, credentials rotated, and the compromised instance terminated — and originates from an internal AWS IP address (10.20.4.15), not from the Tor exit node. The action is GetCallerIdentity, called automatically by an AWS SDK during a scheduled deployment pipeline run. Is this event suspicious?",
+        "A SIEM correlation rule that watches all STS activity in AWS account 482915007733 for 72 hours after a confirmed compromise flagged the API call below — the same account involved in your earlier investigation. By the time it fired, the incident had been contained: the leaked key deactivated, the ec2-webapp-role's sessions revoked, and the compromised instance isolated. Asset notes: deploy-pipeline-task-role is the role NexaCorp's ECS Fargate deployment task assumes (its session name is the task ID); that pipeline is scheduled daily at 07:00 UTC; and the VPC reaches STS through an interface endpoint, so calls from inside it are recorded with their private source address. Read the identity, source address, user agent, time and action in the event, then decide: is this event suspicious?",
       event: getCallerIdentityEvent,
       correct_verdict: "false_positive",
       explanation:
-        "This is a textbook false positive. GetCallerIdentity is one of the most benign, common API calls in all of AWS — it simply asks 'who am I authenticated as?' and is frequently called automatically at the start of scripts, SDK initializations, and CI/CD pipeline runs to confirm the correct identity is active before doing real work (it is often literally the first API call an AWS SDK or Terraform run makes). Here, the caller is the pipeline's own ECS task role (deploy-pipeline-task-role, with a task-ID session name), not the compromised ec2-webapp-role, and the source IP (10.20.4.15, an internal private address) and user agent (aws-sdk-go, exec-env/AWS_ECS_FARGATE) are consistent with that Fargate task — routine, internal, automated infrastructure activity — completely different from the external Tor IP seen during the actual compromise. The action itself is also read-only (read_only: true) and management-plane only; it cannot read data, change permissions, or modify any resource. Correlation rules that alert purely because 'this account was involved in a past incident' will generate significant noise unless they also weigh source IP, time since containment, and the sensitivity of the specific action.",
+        "This is a textbook false positive. GetCallerIdentity is one of the most benign, common API calls in all of AWS — it simply asks 'who am I authenticated as?' and is frequently called automatically at the start of scripts, SDK initializations, and CI/CD pipeline runs to confirm the correct identity is active before doing real work (it is often literally the first API call an AWS SDK or Terraform run makes). Here, the caller is the pipeline's own ECS task role (deploy-pipeline-task-role, with a task-ID session name), not the compromised ec2-webapp-role, and the source IP (10.20.4.15, an internal private address) and user agent (aws-sdk-go, exec-env/AWS_ECS_FARGATE) are consistent with that Fargate task; the call landed at 07:00:04 UTC, when the pipeline is scheduled to start; and a private source address is expected because the VPC reaches STS through an interface endpoint — routine, internal, automated infrastructure activity, completely different from the external Tor IP seen during the actual compromise. The action itself is also read-only (aws.cloudtrail.readOnly: true) and management-plane only; it cannot read data, change permissions, or modify any resource. Correlation rules that alert purely because 'this account was involved in a past incident' will generate significant noise unless they also weigh source IP, time since containment, and the sensitivity of the specific action.",
       fp_trap:
         "It is tempting to escalate this immediately because it lands in the SAME account, inside the watch window of a serious confirmed compromise. But account and timing alone are not enough context — GetCallerIdentity is read-only, cannot change anything, is called constantly by legitimate automation, and here originates from a trusted internal IP after remediation was already completed. Escalating every single subsequent API call in a previously-compromised account, without evaluating the specific action and source, leads to alert fatigue and wastes investigation time that should go toward genuinely risky actions (like write/management operations or external source IPs).",
       xp: 30,
@@ -706,15 +706,15 @@ const awsSecurityRoom = {
         "ORDER BY eventTime ASC;\n" +
         "=======================================================",
       checkpoint: {
-        question: "According to the reading's CloudTrail triage checklist, what does an empty aws.cloudtrail.errorCode field indicate?",
+        question: "Two events from the same AssumedRole session arrive in the same minute: DescribeInstances (readOnly: true) and AuthorizeSecurityGroupIngress, which adds an inbound rule to a security group (readOnly: false). Applying Step 5, which do you triage first?",
         options: [
-          "The API call succeeded",
-          "The API call failed with AccessDenied",
-          "The event was never logged",
-          "The identity used temporary credentials",
+          "The security-group change: it alters state on a high-blast-radius control",
+          "DescribeInstances: recon reveals intent, so it outranks any single change",
+          "Neither first: the same session made both, so they share one priority",
+          "Whichever was logged first, since CloudTrail order sets the priority",
         ],
         answer: 0,
-        explanation: "The reading states that an empty errorCode means the call succeeded, while a populated value like AccessDenied or NoSuchEntity means the call was rejected.",
+        explanation: "Step 5 says to weigh severity by action type: a state-changing call (readOnly false) on a security group has a high blast radius, because it can open the network to the attacker, while a describe/list call changes nothing. “Recon reveals intent, so it outranks any single change” gets the order backwards: recon is worth noting and pivoting on, but the change is what can do damage now. “The same session made both, so they share one priority” is the mistake Step 5 warns about — the same identity can generate both benign and critical events. “Whichever was logged first” uses arrival order, which says nothing about impact.",
       },
     },
 
@@ -729,16 +729,16 @@ const awsSecurityRoom = {
       questions: [
         {
           question:
-            "This event's aws.cloudtrail.eventName is 'StopLogging' with an empty errorCode, managementEvent true and readOnly false. Why is this one call more urgent than almost anything else in the feed?",
+            "Read this event's outcome and event-type fields. Why is this one call more urgent than almost anything else in the feed?",
           options: [
-            "It is routine trail maintenance — AWS restarts logging automatically within a few minutes, so no visible gap is ever created and no analyst action is required",
-            "It succeeded (empty errorCode) and it is a state-changing management action that turns OFF the very telemetry the SOC relies on — every attacker action after it may never reach the trail's archive or the SIEM, so the blind window itself is the incident",
-            "StopLogging only affects S3 data events; management events such as RunInstances keep flowing to the trail and the SIEM, so coverage of the attack is preserved and this is low priority",
-            "It is read-only reconnaissance (readOnly is just mislabelled here), so it reveals attacker intent but changes nothing about what is being logged",
+            "It deleted the trail's existing log files, so the earlier S3 and IAM events are now gone for good",
+            "It succeeded and stops the trail delivering events, so what follows never reaches the archive or SIEM",
+            "It pauses data events only; RunInstances and other management events still reach the trail and SIEM",
+            "It shows a blocked attempt: readOnly false with an empty errorCode marks a write that AWS refused",
           ],
           answer: 1,
           explanation:
-            "StopLogging (T1562.008, Impair Defenses) stops the trail from recording API activity. The empty errorCode plus action_result 'allowed' confirm it succeeded, and managementEvent:true / readOnly:false mark it as a state-changing control-plane action. From this timestamp on, the trail delivers nothing — management AND data events — so the attacker's crypto-mining RunInstances calls and anything else that follows never reach the S3 archive or the SIEM feed. The disabling itself is the alert to chase: re-enable logging immediately, pivot to the sources the attacker did not switch off (CloudTrail Event History, which keeps 90 days of management events independently of any trail; GuardDuty, which reads its own CloudTrail stream; VPC Flow Logs; billing) to reconstruct the blind window, and treat the identity that issued it as compromised.",
+            "StopLogging (T1562.008, Impair Defenses) stops the trail from delivering API activity. The empty errorCode plus action_result 'allowed' confirm it succeeded, and managementEvent:true / readOnly:false mark it as a state-changing control-plane action. From this timestamp on, the trail delivers nothing — management AND data events — so the attacker's crypto-mining RunInstances calls never reach the S3 archive or the SIEM feed. The disabling itself is the alert to chase: re-enable logging, pivot to the sources the attacker did not switch off (CloudTrail Event History, which keeps 90 days of management events independently of any trail; GuardDuty, which reads its own CloudTrail stream; VPC Flow Logs; billing) to reconstruct the blind window, and treat the identity that issued it as compromised. “Deleted the trail's existing log files” overstates it: StopLogging stops new delivery, and the files already written to S3 remain. “Pauses data events only” is wrong because the whole trail stops, management events included. “A blocked attempt” misreads the fields: an empty errorCode means success, and readOnly false only means the call changes state.",
           xp: 25,
         },
       ],
@@ -749,9 +749,9 @@ const awsSecurityRoom = {
       type: "flag" as const,
       id: "aws-f1",
       prompt:
-        "Review the event above where the CloudTrail logging trail was stopped shortly before crypto-mining EC2 instances were expected to launch. What is the exact value of the aws.cloudtrail.requestParameters.name field — i.e. the name of the trail that was disabled? Enter it exactly as shown.",
+        "Your first containment step after the event above is to switch logging back on, so you need to know exactly which trail the attacker turned off. Enter the name of that trail as it appears in the event.",
       answer: "nexacorp-primary-trail",
-      hint: "Look inside the raw block of the StopLogging event for the requestParameters.name field — this identifies which specific CloudTrail trail the attacker disabled.",
+      hint: "The StopLogging record says which trail it targeted in the parameters of the request.",
       xp: 25,
     },
 
@@ -804,7 +804,7 @@ const awsSecurityRoom = {
         `aws iam update-access-key --access-key-id <KEY_ID> --status Inactive --user-name <USER>\n\n` +
         `This immediately stops the key from authenticating to any AWS API — the attacker's next API call, using that same key, will fail with an InvalidClientTokenId or similar error. Critically, this command DEACTIVATES the key rather than deletes it. Deletion (aws iam delete-access-key) is destructive and irreversible: if you misidentified the key and it actually belongs to a production workload, a deleted key cannot be restored — you can only issue a new one and redeploy it everywhere. Deletion also removes the key's IAM metadata (its creation date and last-used time, service and region), which is useful context during the forensic follow-up. (Historical CloudTrail records are NOT affected either way — every past event keeps its accessKeyId.) Deactivating first buys you the same protective effect — the key can no longer be used — while staying fully reversible and keeping the key's IAM metadata available to the investigation. Deletion comes later, as part of cleanup, once the investigation is complete.\n\n` +
         `**Step 2 — Freeze the Identity's Permissions**\n\n` +
-        `Deactivating a single access key stops that specific credential, but if the identity has other active credentials (a second access key, an active console session, or MFA-authenticated access), you need to freeze the identity itself. Two common approaches: attach an explicit, highest-precedence deny-all policy directly to the user or role (an inline policy with "Effect": "Deny", "Action": "*", "Resource": "*" overrides every other Allow the identity has, because in IAM an explicit Deny always wins), or detach the identity's existing managed and inline policies entirely so it retains no permissions at all. Either approach effectively freezes the identity in place without deleting it — which matters, because you still need the identity to exist so you can review its policy history and attached permissions as part of the investigation.\n\n` +
+        `Deactivating a single access key stops that specific credential, but if the identity has other active credentials (a second access key, an active console session, or MFA-authenticated access), you need to freeze the identity itself. Two common approaches: attach an explicit, highest-precedence deny-all policy directly to the user or role (an inline policy with "Effect": "Deny", "Action": "*", "Resource": "*" overrides every other Allow the identity has, because in IAM an explicit Deny always wins), or detach the identity's existing managed and inline policies entirely so it retains no permissions at all. Either approach effectively freezes the identity in place without deleting it — which matters, because you still need the identity to exist so you can review its policy history and attached permissions as part of the investigation. Stolen role credentials (such as an instance's IMDS-issued keys) cannot be deactivated like an access key, so for a role you also use the IAM console's Revoke active sessions action, which attaches a deny-all policy with an aws:TokenIssueTime condition so that every session credential issued before that moment stops working.\n\n` +
         `**Step 3 — Rotate Credentials Once Contained**\n\n` +
         `Once the immediate threat is stopped and the investigation has enough evidence, complete the credential rotation: delete the old, now-deactivated access key, issue the legitimate user or service a brand-new key pair, and — if the identity uses console access — force a password reset and, where applicable, force MFA (Multi-Factor Authentication) re-registration so any device the attacker may have paired during the compromise is invalidated. Only rotate after containment and evidence collection are done; rotating too early, before you've captured what you need from the old key's history, can throw away useful investigative context.\n\n` +
         `**Step 4 — Isolate, Don't Terminate, a Compromised EC2 Instance**\n\n` +
@@ -854,13 +854,13 @@ const awsSecurityRoom = {
       checkpoint: {
         question: "A SOC analyst confirms an IAM user's access key is compromised and actively being used by an attacker. What is the correct first action, and why?",
         options: [
-          "Delete the access key immediately, since a deleted key can never be used again by anyone",
-          "Deactivate the access key with update-access-key --status Inactive, since deactivation stops its use immediately while staying reversible and keeping the key's IAM metadata for the investigation",
-          "Wait until the full investigation is complete before touching the key, so no evidence is disturbed",
-          "Terminate the EC2 instance associated with the key to remove the attacker's foothold immediately",
+          "Delete the key at once, because a deleted key is gone for good and the attacker cannot reuse it",
+          "Deactivate the key: it stops working at once, stays reversible, and its IAM metadata is kept",
+          "Leave the key active until the investigation ends, so the attacker's activity can still be observed",
+          "Issue the service a new key first, then deactivate the old one once the new key is deployed",
         ],
         answer: 1,
-        explanation: "Deactivating the key stops it from authenticating just as effectively as deleting it, but it is reversible (if the key turns out to belong to a production workload you can re-enable it) and it keeps the key's IAM metadata, such as last-used time and service, available to the ongoing investigation. Past CloudTrail events keep their accessKeyId either way. Deleting the key immediately is irreversible, so a misidentified key cannot be restored. Waiting for the investigation to finish leaves an active attacker credential live, which is unacceptable — containment must happen immediately, in parallel with investigation. Terminating the associated EC2 instance is a separate action from deactivating a key, and termination itself is the wrong move for an instance because it destroys volatile evidence; isolation, not termination, is the correct instance-level response.",
+        explanation: "Deactivating the key stops it from authenticating just as effectively as deleting it, but it is reversible (if the key turns out to belong to a production workload you can re-enable it) and it keeps the key's IAM metadata, such as last-used time and service, available to the investigation. Past CloudTrail events keep their accessKeyId either way. “Delete the key at once” blocks the attacker too, but it is irreversible, so a misidentified production key cannot be restored, and its IAM metadata is lost; deletion belongs to cleanup. “Leave the key active until the investigation ends” keeps an attacker's credential live; containment runs in parallel with the investigation, not after it. “Issue the service a new key first” is rotation before containment: the stolen key keeps working while the new one is deployed.",
       },
     },
   ],

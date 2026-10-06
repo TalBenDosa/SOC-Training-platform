@@ -168,7 +168,7 @@ const credentialAttacksRoom: Room = {
       checkpoint: {
         question: "Why does credential dumping (T1003) never appear in a 4625 failed-logon burst?",
         options: [
-          "Credential dumping requires the target account to have a registered SPN, so the resulting activity is logged as Event ID 4769 (Kerberos service ticket request), not 4625 -- a common mix-up with Kerberoasting",
+          "Credential dumping requires the target account to have a registered SPN, so the resulting activity is logged as Event ID 4769 (Kerberos service ticket request) rather than a 4625 failed logon",
           "It reads credential material directly from process memory or a disk-based store, so it never touches an authentication endpoint at all",
           "It only works against accounts with Kerberos pre-authentication disabled, so any resulting activity would surface as a 4768 AS-REQ, not a 4625",
           "Dumping tools authenticate using the harvested hash immediately afterward, and that Pass-the-Hash logon always succeeds, so the only event generated is a 4624, never a 4625",
@@ -268,27 +268,27 @@ const credentialAttacksRoom: Room = {
           question:
             "SubStatus stays 0xC000006A (wrong password) for all 47 attempts, and the Status never switches to 0xC0000234 (locked out). What does that specifically tell you, and why might it matter for how urgently this needs a response?",
           options: [
-            "It proves the account was never actually at risk, since Windows automatically disables the TargetUserName field once 30 consecutive failures accumulate, which is why no lockout code ever appears in this burst",
-            "The account's lockout threshold has not yet been crossed despite 47 attempts — meaning either the account has an unusually high lockout threshold (or a policy exemption), or the threshold simply hasn't been reached yet and the attack is still live and could still succeed",
-            "0xC0000234 only appears for accounts protected by Credential Guard, so this confirms d.solano's account has virtualization-based security enabled rather than a standard lockout policy",
-            "SubStatus values only describe the authentication package used (NTLM vs Kerberos), not the account's lockout state, so 0xC000006A persisting for 47 attempts is expected regardless of any lockout policy",
+            "It means the lockout policy must be disabled domain-wide, since any enabled policy would have forced a lockout code well before 47 attempts against a single account",
+            "The lockout threshold has not been crossed despite 47 attempts — either the account has an unusually high threshold or an exemption, or the limit simply has not been reached yet and the attack is still live",
+            "It means d.solano's password was correct all along, since a wrong password across 47 tries would otherwise have switched the code to 0xC0000234 well before now",
+            "The persistent 0xC000006A means the attacker is enumerating usernames rather than guessing passwords, so lockout never triggers because no real account is being targeted",
           ],
           answer: 1,
           explanation:
-            "SubStatus 0xC000006A means the password was wrong on that specific attempt; the fact that the event never flips to Status 0xC0000234 (locked out) after 47 tries is itself informative — either d.solano's account is exempt from the org's normal lockout policy (worth checking) or the threshold simply hasn't been reached yet, meaning the attack is still actively running and could still land a correct guess. It says nothing about whether the account is privileged, and it certainly doesn't mean the account was never at risk.",
+            "SubStatus 0xC000006A means the password was wrong on that specific attempt; the fact that the event never flips to Status 0xC0000234 (locked out) after 47 tries is itself informative — either d.solano's account is exempt from the org's normal lockout policy (worth checking) or the threshold simply hasn't been reached yet, meaning the attack is still actively running and could still land a correct guess. The missing lockout code does not mean the logons were never evaluated — 0xC000006A is precisely the result of evaluating the password and finding it wrong. Nor does a disabled policy automatically follow: an unusually high threshold or a per-account exemption produces the same absence of lockouts. And 0xC000006A reports a wrong password, not a correct one and not username enumeration, which would log 0xC0000064 instead.",
           xp: 25,
         },
         {
           question: "What is the correct next step?",
           options: [
             "No action needed — 47 failed attempts against a single account falls within Vantree's documented baseline for helpdesk-assisted password resets, so this is expected noise rather than a finding",
-            "Block or rate-limit the source IP, check whether d.solano's account has an unnecessary lockout exemption, confirm no 4624 success followed this burst from the same source, and reach out to d.solano to confirm whether this was them locked out of a forgotten credential",
-            "Immediately disable NTLM domain-wide, since NtLmSsp appearing in LogonProcessName means the credential material itself has already been compromised and cannot be trusted going forward",
-            "Escalate as a confirmed password spray and begin resetting every account in the domain, since any burst of 4625 failures against a single TargetUserName value indicates the account population as a whole is under attack",
+            "Block or rate-limit the source IP, check whether d.solano's account has an unnecessary lockout exemption, confirm no 4624 success followed from the same source, and ask d.solano whether this was a forgotten password",
+            "Reset d.solano's password and close the ticket, since changing the password makes every guess so far useless and ends the burst on its own",
+            "Block the source IP and close immediately, since this one record shows no 4624 success, which means the brute force against d.solano clearly failed",
           ],
           answer: 1,
           explanation:
-            "The response should match the finding: contain the source, check and correct why lockout never triggered, confirm no success snuck through, and rule out the mundane explanation (d.solano genuinely forgot a changed password) before treating it as hostile. Disabling NTLM domain-wide is disproportionate to one account's burst, and this is brute forcing against one account, not a spray, so a domain-wide reset is the wrong response for what was actually observed.",
+            "The response should match the finding: contain the source, check and correct why lockout never triggered, confirm no success snuck through, and rule out the mundane explanation (d.solano genuinely forgot a changed password) before treating it as hostile. Resetting d.solano's password and closing skips the containment and the success-check — it may end this account's burst but leaves the source free to move on and ignores whether a guess already landed. Blocking the IP and closing on the strength of one record showing no 4624 is premature: a single representative event cannot confirm the whole burst failed; you have to search the aggregate for a success from that source. Treating it as noise within baseline ignores a 47-attempt run against one account, which is not routine helpdesk activity.",
           xp: 30,
         },
       ],
@@ -307,26 +307,26 @@ const credentialAttacksRoom: Room = {
           options: [
             "It's the same shape as Log Analysis 1, just against a different account — this is brute forcing (T1110.001)",
             "It's the inverse shape: one steady source spread thin across many distinct accounts, each safely under the lockout threshold — this is password spraying (T1110.003)",
-            "142 distinct accounts from one IP with only 2-3 attempts each cannot be attributed to any of the four techniques from Reading 1",
-            "This must be credential dumping, since so many accounts are affected at once",
+            "It's credential stuffing (T1110.004), since many distinct accounts are each hit only a couple of times before the source moves on",
+            "It's brute forcing spread across accounts, since 142 accounts at a few tries each still adds up to a high total attempt volume",
           ],
           answer: 1,
           explanation:
-            "Log Analysis 1 was one account absorbing many attempts (brute forcing); this is the mirror image — one source spread thin across 142 distinct accounts, each individually staying under Vantree's 4-attempt lockout policy, exactly the spray shape from Reading 2. It fits T1110.003 precisely; it's not unattributable, and credential dumping would never produce a 4625 burst at all, regardless of account count.",
+            "Log Analysis 1 was one account absorbing many attempts (brute forcing); this is the mirror image — one source spread thin across 142 distinct accounts, each individually staying under Vantree's 4-attempt lockout policy, exactly the spray shape from Reading 2. It is not credential stuffing: stuffing hits many accounts too, but from many scattered IPs with real breached passwords, whereas this is one steady source guessing. And it is not brute force by another name — totalling the attempts misses the point; brute force concentrates volume on one account, while this deliberately spreads a little across many, which is the spray signature.",
           xp: 25,
         },
         {
           question:
             "The maximum attempt count against any single account was 3 — one below the 4-attempt lockout policy. Why does that specific number matter, rather than being incidental?",
           options: [
-            "It's a coincidence and has no bearing on whether this is a spray — Windows caps how many 4625 events any single source IP can generate against a given account within a 20-minute window, which independently produces a ceiling of about 3",
-            "Staying just under the lockout threshold on every single account is deliberate — it lets the attacker try a common password against the entire account population without ever triggering a lockout or a lockout-based alert, which is the entire point of spraying instead of brute forcing",
-            "It proves the source IP has already been blocked by the domain's account lockout policy, which is why every account topped out at exactly 3 attempts before further traffic from 185.220.101.47 was silently dropped",
-            "3 attempts is required by NTLM before a 4625 event is generated at all, so the first two failures against each account were simply never logged, and 3 is the earliest possible count that could ever appear",
+            "It's incidental — three attempts is just how many guesses the attacker's tool happened to queue per account, and any number under the threshold would have read the same way",
+            "Staying just under the lockout threshold on every account is deliberate — it lets the attacker try a common password against the whole population without ever tripping a lockout or a lockout-based alert, which is the point of spraying",
+            "It shows the lockout policy is already working, since reaching exactly 3 before stopping means each account hit its limit and protected itself from a fourth attempt",
+            "Three is the batch size the DC uses to group failures, so the 142 accounts actually represent far fewer real targets once the grouped events are expanded back out",
           ],
           answer: 1,
           explanation:
-            "Staying one attempt below the lockout threshold, consistently, across 142 different accounts, is not incidental — it's the defining discipline of a password spray, deliberately trading depth (many guesses against one account) for breadth (a few guesses against many accounts) specifically to avoid triggering lockout-based alerting. Lockout policy doesn't block source IPs, and NTLM doesn't require any minimum attempt count before logging a 4625 — a single failed attempt logs one immediately.",
+            "Staying one attempt below the lockout threshold, consistently, across 142 different accounts, is not incidental — it's the defining discipline of a password spray, deliberately trading depth (many guesses against one account) for breadth (a few guesses against many accounts) specifically to avoid triggering lockout-based alerting. The consistency is the tell, so dismissing it as whatever the tool happened to queue misses the deliberate restraint. Lockout policy locks accounts, it does not block source IPs, so the capped count is not evidence the IP was stopped. And the DC logs one 4625 per failed attempt with no batching or minimum-count rule, so 142 distinct accounts means 142 real targets.",
           xp: 25,
         },
         {
@@ -334,12 +334,12 @@ const credentialAttacksRoom: Room = {
           options: [
             "Reset only k.mensah's password, since that's the account shown in this record, and treat the other 141 accounts referenced in the SIEM correlation as a separate matter for whichever analyst happens to pick up that ticket next",
             "Block/rate-limit 185.220.101.47 at the perimeter, search specifically for any 4624 SUCCESS from that same source (a spray's entire goal is finding the one account with a weak or reused password), and treat any account with a matching success as compromised regardless of how few attempts it took",
-            "No action needed — none of the 142 accounts were locked out, which under Vantree's policy means the attempted logons were rejected before ever being evaluated, so nothing about this burst could have succeeded",
-            "Force an immediate domain-wide password reset for all 25,000 Vantree accounts as the only sufficient response, since a spray targeting 142 of them proves the attacker already holds valid credentials for the remaining accounts too",
+            "Block 185.220.101.47 and close the case, since none of the 142 accounts locked out, which means the spray never landed and did no damage",
+            "Reset the passwords of all 142 targeted accounts and close, since those are exactly the accounts the spray touched and no others could be at risk",
           ],
           answer: 1,
           explanation:
-            "The critical next step for any spray is checking whether it worked — a single 4624 success from that same source IP, even against an account that only saw 2 or 3 attempts, means the spray found its target and that account needs to be treated as compromised immediately. Fixing only k.mensah's account ignores the other 141 targets; 'no accounts locked out' is the attack working as designed, not evidence of no harm; and a full domain-wide reset is a massive overreaction compared to the targeted response an actual finding calls for.",
+            "The critical next step for any spray is checking whether it worked — a single 4624 success from that same source IP, even against an account that only saw 2 or 3 attempts, means the spray found its target and that account needs to be treated as compromised immediately. Fixing only k.mensah's account ignores the other 141 targets. Blocking the IP and closing on 'no lockouts' is the trap: a spray is designed to succeed without ever locking anyone out, so no lockouts is the attack working, not proof of no harm. And resetting all 142 accounts while skipping the 4624 hunt still misses the one account that may already be compromised and the active session an attacker could be holding on it.",
           xp: 30,
         },
       ],
@@ -402,9 +402,9 @@ const credentialAttacksRoom: Room = {
         "SecurityEvent\n| where EventID == {{eventid}}\n| where TimeGenerated > ago({{window}})\n| summarize DistinctAccounts = dcount({{accountfield}}), TotalFailures = count() by IpAddress\n| where DistinctAccounts > {{threshold}}",
       blanks: [
         { id: "eventid", answers: ["4625"], placeholder: "failed logon Event ID" },
-        { id: "window", answers: ["30m", "1h", "20m", "60m"], placeholder: "aggregation window" },
+        { id: "window", answers: ["20m", "30m", "45m", "1h", "60m", "90m", "2h", "15m"], placeholder: "aggregation window" },
         { id: "accountfield", answers: ["TargetAccount", "Account", "TargetUserName"], placeholder: "field holding the targeted account name" },
-        { id: "threshold", answers: ["10", "15", "20", "25", "30"], placeholder: "minimum distinct-account count to consider suspicious" },
+        { id: "threshold", answers: ["5", "8", "10", "15", "20", "25", "30", "40", "50", "100"], placeholder: "minimum distinct-account count to consider suspicious" },
       ],
       explanation:
         "This mirrors the discrimination from Reading 2 and Log Analysis 2: filtering to 4625 and counting distinct targeted accounts per source is what actually catches a spray, because TotalFailures alone (a low number, by design) would never trip a volume-based alert tuned for brute forcing — the whole point of spraying is staying under exactly that kind of threshold on any single account, so the detection has to key on account BREADTH, not attempt count.",
@@ -414,9 +414,9 @@ const credentialAttacksRoom: Room = {
       type: "flag",
       id: "cred-f1",
       prompt:
-        "Look at Log Analysis 2, the password spray. Exactly how many distinct accounts were targeted from source IP 185.220.101.47 in the 20-minute window described in the task's context? Enter the exact number.",
-      answer: "142",
-      hint: "It's stated in the opening context of Log Analysis 2, and referenced again in Question 1's explanation.",
+        "Open the representative record in Log Analysis 2 (the k.mensah failure) and read its raw fields. What LogonType value did the spray use against this account? Enter the number.",
+      answer: "3",
+      hint: "Find winlog.event_data.LogonType in the raw block. Reading 2 notes this is the logon type attackers script at volume because it needs no interactive session.",
       xp: 25,
     },
   ],

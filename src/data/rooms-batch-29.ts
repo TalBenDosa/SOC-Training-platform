@@ -80,9 +80,7 @@ const inv7ValidateEvent: TelemetryEvent = {
     "AccountName": "j.alvarez",
     "AccountSid": "S-1-5-21-2853671940-3225465817-1594226315-1147",
     "ProcessId": 6820,
-    "ParentProcessId": 4412,
-    "ParentProcessFileName": "WINWORD.EXE",
-    "ParentProcessCommandLine": "\"C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE\" /n \"C:\\Users\\j.alvarez\\Downloads\\Q3_Vendor_Statement.docm\"",
+    "InitiatingProcessId": 4412,
     "InitiatingProcessFileName": "WINWORD.EXE",
     "InitiatingProcessCommandLine": "\"C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE\" /n \"C:\\Users\\j.alvarez\\Downloads\\Q3_Vendor_Statement.docm\"",
     "ReportId": 84213,
@@ -185,7 +183,7 @@ const investigateAlertRoom: Room = {
       heading: "Why Investigations Need a Workflow, and Why the First 15 Minutes Matter",
       content:
         `An alert triggers hundreds of times a day across a mid-sized environment, and every single one of them could, in principle, be the start of a real intrusion. An analyst who approaches each one by improvising — reading a bit, clicking around, following whatever looks interesting — will handle some of them well and quietly miss others, and there is no way to tell in advance which is which. A workflow exists to remove that gamble. It is the same reason an emergency room runs triage the same way for every patient regardless of who is on shift, and the same reason a detective's casework follows a known sequence rather than chasing whichever lead feels most exciting first: a repeatable process catches what improvisation misses, and it produces a record of what was checked, not just a feeling that something was checked.\n\n` +
-        `**The seven steps, named once up front.** This room teaches them as: (1) Validate — is this real, or a detection artefact? (2) Scope — how far does it actually go, and who and what does it touch? (3) Collect and preserve — gather evidence in the right order, before anything changes state. (4) Reconstruct the timeline — merge every source into one chronological story. (5) Map to ATT&CK and find root cause — classify what happened and ask why it was possible. (6) Document — write it down as you go, not afterward. (7) Report and hand off — package the finding for whoever acts on it next. This is the SANS/NIST-aligned model most mature SOCs run in some form, and it is worth learning by name because the name is what lets you and a colleague talk about "where are we" in a shared vocabulary instead of a shared vibe.\n\n` +
+        `**The seven steps, named once up front.** This room teaches them as: (1) Validate — is this real, or a detection artefact? In practice that means enriching the record (has this hash, command line or destination been seen elsewhere?), checking that the parent process and the account make sense together, and ruling out known-benign admin activity and duplicate records. (2) Scope — how far does it actually go, and who and what does it touch? (3) Collect and preserve — gather evidence in the right order, before anything changes state. (4) Reconstruct the timeline — merge every source into one chronological story. (5) Map to ATT&CK and find root cause — classify what happened and ask why it was possible. (6) Document — write it down as you go, not afterward. (7) Report and hand off — package the finding for whoever acts on it next. This is the SANS/NIST-aligned model most mature SOCs run in some form, and it is worth learning by name because the name is what lets you and a colleague talk about "where are we" in a shared vocabulary instead of a shared vibe.\n\n` +
         `**Why the first 15 minutes disproportionately matter.** Step 1 and the start of Step 2 happen fast, under pressure, often before you have full context — and whatever you get wrong there tends to compound. Validate an artefact as real without checking, and you burn hours investigating nothing. Scope too narrowly at the start, and you close a ticket while the actual intrusion is still running one host over. This is not a reason to rush; it is the opposite. It is the reason the early steps are the ones most worth doing carefully rather than the ones to get through quickly so the "real" work can start.\n\n` +
         `**A fact worth sitting with before you begin: identity is involved in the overwhelming majority of investigations.** Industry incident data puts identity — a compromised credential, an abused session, a privileged account used somewhere it shouldn't be — in roughly nine out of every ten investigations that go anywhere past the first alert. That is not a coincidence of any one environment; it is a structural fact about how modern intrusions work, because identity is the boundary every other lateral step has to cross. It is why Step 2 in this room is built entirely around pivoting on identity, and why the case running through this room does exactly that.\n\n` +
         `**One metric worth knowing by name: MTTI.** Mean Time to Investigate (sometimes Mean Time to Identify) measures the interval from when an alert fires to when an analyst has a validated understanding of what happened. It is not the same measure as time-to-detect or time-to-contain, and SOCs that only track those two can look fast on paper while investigations quietly drag. A workflow with clear, named steps is what makes MTTI something you can actually improve — you cannot shorten a step you never named.\n\n` +
@@ -210,13 +208,16 @@ const investigateAlertRoom: Room = {
         "                      severity or breach notification requires it.\n" +
         "=================================================================",
       checkpoint: {
-        question: "Per Reading 1, roughly what proportion of investigations that go anywhere past the first alert involve identity in some form?",
+        question: "Why does Reading 1 argue for running the same named workflow on every alert instead of letting each analyst improvise?",
         options: [
-          "About one in ten", "Roughly half", "Roughly nine out of ten", "Essentially none -- identity is rarely a factor"
+          "Named steps guarantee every investigation finishes faster than improvising",
+          "A fixed order lets analysts skip the early steps on alerts that look obvious",
+          "A repeatable process catches what improvisation misses and records what was checked",
+          "MTTI measures time to contain, and a fixed workflow shortens containment",
         ],
         answer: 2,
         explanation:
-          "Industry incident data puts identity -- a compromised credential, an abused session, a privileged account used somewhere it shouldn't be -- in roughly nine out of every ten investigations, which is exactly why Step 2 in this room is built entirely around pivoting on identity.",
+          "The reading's case is consistency: improvising handles some alerts well and quietly misses others, while a repeatable process catches what improvisation misses and leaves a record of what was actually checked. It does not promise speed on every case — the reading says the early steps deserve care, not haste. Skipping early steps on “obvious” alerts is exactly where mistakes compound. And MTTI is the time from alert to a validated understanding of what happened, not time to contain.",
       },
     },
     // -----------------------------------------------------------------------
@@ -242,16 +243,16 @@ const investigateAlertRoom: Room = {
         '  G --> H["Step 7: Report and hand off"]',
       diagramCaption: "Scope is a loop, not a box — this is why Steps 2 and 3 feed each other",
       checkpoint: {
-        question: "Per Reading 2, what is the key difference between querying by the named person versus querying by an observable artifact (IP, workstation, hash)?",
+        question: "A ticket names j.alvarez on workstation WKS-FIN07. Which query best tests whether the problem is bigger than her account?",
         options: [
-          "There is no meaningful difference -- both queries return the same result set regardless of which value they filter on, so the choice is purely stylistic",
-          "Querying by person can only ever confirm what you already suspected about that one person; querying by artifact asks who else, across the whole environment, shares that same property -- only the second can surface an account nobody has flagged yet",
-          "Querying by artifact is always slower and should be avoided under time pressure, since it has to scan every identity in the tenant instead of one named account's history",
-          "Querying by person is a mandatory first gate the workflow requires before an artifact-based query is permitted to run at all",
+          "Every sign-in j.alvarez made in the last 24 hours, across all hosts",
+          "Every account that authenticated from WKS-FIN07 in the same window",
+          "Every alert raised for j.alvarez in the last 30 days, to see her history",
+          "Every file j.alvarez opened that day, to find the document that started it",
         ],
         answer: 1,
         explanation:
-          "Querying by person asks how bad is it for them; querying by artifact asks how big is it. Only the artifact-based pivot can surface an account or host nobody has flagged yet, which is exactly why Step 2 emphasizes pivoting on the artifact rather than the originally-named person.",
+          "Pivoting on the artefact — the workstation — asks who else shares that property, which is the only way to surface an account nobody has flagged yet. Her own sign-ins, her alert history and her opened files are all person-based queries: useful for her side of the story, but they can only return records about j.alvarez, so they can never show that the problem has spread to someone else.",
       },
     },
     // -----------------------------------------------------------------------
@@ -261,14 +262,14 @@ const investigateAlertRoom: Room = {
       question:
         "An EDR alert fires: 'Suspicious PowerShell Execution' on a single workstation, severity high. It is minute one. What is the single most useful action for Step 1 — Validate?",
       options: [
-        "Isolate the host immediately, before looking at anything else, since a high-severity PowerShell alert should be contained first and validated afterwards",
-        "Enrich the alert: was this hash or command line seen elsewhere, do the parent process and account fit together, is it a known-benign admin script, so the record is confirmed real",
-        "Downgrade it to medium priority and queue it, since only 'critical' alerts justify a full validation pass in the first minute",
-        "Treat it as a true positive because the EDR assigned a severity, and go straight to Step 3 collection without checking the record is genuine",
+        "Isolate the host first, and validate the alert once it can no longer do harm",
+        "Enrich it: is the hash or command line seen elsewhere, do parent and account fit?",
+        "Lower it to medium and queue it, since a lone PowerShell alert is usually noise",
+        "Accept it as a true positive on the EDR's severity and go straight to collection",
       ],
       answer: 1,
       explanation:
-        "Validation means checking that the record is real and correctly understood before you build anything on top of it — enrichment against related detections, the process/parent/account relationship, and known-benign patterns is exactly that check. Isolating the host is a Step 3/4 containment-adjacent action taken after you know what you are containing, not before; jumping there first can destroy evidence and tip off an intruder over something that might turn out to be benign. Severity is the tool's own scoring and is not a substitute for validating the record — plenty of real intrusions start at a moderate severity that only becomes obviously serious once scoped. And treating a single tool's alert as an automatic true positive is precisely the trap Step 1 exists to prevent; detection tools produce artefacts and duplicates too.",
+        "Validation means checking that the record is real and correctly understood before you build on it: enrich it, check that the process, its parent and the account fit together, and rule out known-benign admin scripts. Containment is a risk decision — if something were visibly encrypting or exfiltrating data you would contain at once — but at minute one, with nothing known, a minute of enrichment tells you what you would be containing and avoids destroying evidence over a benign script. Lowering it unexamined guesses at the answer Step 1 exists to find. And a tool's severity is its own scoring, not proof; detection tools produce artefacts and duplicates too.",
       xp: 25,
     },
     // -----------------------------------------------------------------------
@@ -282,26 +283,26 @@ const investigateAlertRoom: Room = {
       questions: [
         {
           question:
-            "Which fields establish that this is a genuine process execution and not a duplicated or mis-parsed record, and what do they show?",
+            "To validate this record you first need to read it correctly. In this Defender process-creation record, which fields describe the process that ran, and which describe the process that launched it?",
           options: [
-            "ReportId is populated, which is Defender's field for marking a record as verified and non-duplicated, so a numeric value there is itself proof the event is genuine",
-            "ProcessId and ParentProcessId are both populated with real, distinct values, ActionType reads ProcessCreated, and ProcessCommandLine contains an actual, well-formed command line — together these describe a specific process creation event, not a placeholder or template record",
-            "AccountDomain reads CASTLETON, which confirms the process ran under a real domain account rather than a local one, and that alone is enough to validate the record",
-            "The event cannot be validated without pulling the workstation's full event log first, since no single Defender record ever contains enough detail on its own",
+            "Ran: FileName and FolderPath. Launched it: AccountName and AccountDomain",
+            "Ran: FileName and ProcessCommandLine. Launched it: the InitiatingProcess* fields",
+            "Ran: the InitiatingProcess* fields. Launched it: FileName and FolderPath",
+            "Ran: ProcessCommandLine. Launched it: the process identified by ReportId",
           ],
           answer: 1,
           explanation:
-            "A genuine process-creation record has a coherent set of process fields describing one specific event: real PIDs for both the process and its parent, an ActionType naming what happened, and an actual command-line string rather than an empty or templated one. ReportId is simply Defender's internal record identifier and carries no verification meaning by itself. AccountDomain tells you which domain the account belongs to, not whether the record is genuine. And you already have enough in this single record to validate it — waiting for a full separate pull before doing any validation would stall Step 1 unnecessarily.",
+            "In a ProcessCreated record, FileName, FolderPath, ProcessId and ProcessCommandLine describe the new process (powershell.exe), and the InitiatingProcess* fields describe the process that created it (WINWORD.EXE, PID 4412). Reading it the other way round is the classic misreading of this schema and would make PowerShell the parent of Word. The Account fields name the user context the process ran under, not a process. ReportId is Defender's internal record identifier, not a reference to another process.",
           xp: 25,
         },
         {
           question:
-            "ParentProcessFileName is WINWORD.EXE and ParentProcessCommandLine shows Word opening a file named Q3_Vendor_Statement.docm from the user's Downloads folder. Why does this specific parent-child relationship matter for validation?",
+            "InitiatingProcessFileName is WINWORD.EXE and InitiatingProcessCommandLine shows Word opening Q3_Vendor_Statement.docm from the user's Downloads folder. Why does this parent-child relationship matter for validation?",
           options: [
-            "It doesn't matter — PowerShell is commonly spawned by many applications, and a document viewer's parent-child relationship to a shell carries no investigative weight on its own",
-            "Word spawning PowerShell is not a normal part of opening a document; a .docm file is macro-enabled, and a macro capable of running arbitrary code is the most direct explanation for a document viewer producing a hidden, encoded PowerShell child process moments after being opened",
-            "It confirms the file is a legitimate vendor statement, since the filename describes routine Accounts Payable business that j.alvarez's role would plausibly receive",
-            "It shows the user manually opened PowerShell themselves right after finishing the document, most likely to check a formula or macro setting in the file",
+            "Not much: many applications launch PowerShell, so the pairing carries little weight",
+            "Word does not launch hidden, encoded PowerShell to open a file; a .docm macro does",
+            "It supports a legitimate file, since a vendor statement fits j.alvarez's AP role",
+            "It shows j.alvarez opened PowerShell herself after reading through the document",
           ],
           answer: 1,
           explanation:
@@ -312,10 +313,10 @@ const investigateAlertRoom: Room = {
           question:
             "You've now confirmed: real process record, WINWORD.EXE parent spawning powershell.exe with -w hidden and a base64-encoded command, from a macro-enabled document opened minutes earlier. What does Step 1 have you do next, and why not something else?",
           options: [
-            "Move straight to Step 5 and classify this against MITRE ATT&CK, since you already know enough to name the technique",
-            "Move to Step 2 — Scope — and start pivoting on this host's and account's activity to establish how far this has already gone, before deciding on any response",
-            "Reset j.alvarez's password immediately, since a compromised workstation always implies a compromised account",
-            "Close the ticket as handled, since Defender already caught and would have blocked a genuinely malicious payload automatically",
+            "Move to Step 5 and map it to ATT&CK, since the technique is already clear",
+            "Move to Step 2 and pivot on this host and account to see how far it has gone",
+            "Reset j.alvarez's password now, since the workstation is clearly compromised",
+            "Close it, since Defender recorded the process and would have blocked the payload",
           ],
           answer: 1,
           explanation:
@@ -384,14 +385,14 @@ const investigateAlertRoom: Room = {
       question:
         "You have identified a second, possibly-affected host and need to prioritise what to collect from it in your remaining time this shift. Which order correctly follows volatility, from most to least urgent to capture?",
       options: [
-        "Disk artefacts first, then identity/SaaS logs, then network connections, then live memory state",
-        "Live memory and running processes first, then active network connections, then identity/SaaS session logs, then disk artefacts",
-        "Identity/SaaS logs first, then disk artefacts, then live memory state, then network connections",
-        "All four in one automated sweep, in whatever order the collector runs them, since volatility ordering only matters in forensic labs",
+        "Disk artefacts, then identity/SaaS logs, then network connections, then live memory",
+        "Live memory and processes, then network connections, then identity/SaaS logs, then disk",
+        "Identity/SaaS logs, then disk artefacts, then live memory, then network connections",
+        "One automated sweep of all four, in whatever default order the collector uses",
       ],
       answer: 1,
       explanation:
-        "This is the order Reading 3 laid out and the reasoning behind it: live memory and running process state vanish the moment a process exits or the machine reboots, so it is captured first; network connections persist for a retention window but do roll off; identity and SaaS logs typically last longer still; and disk artefacts are the least volatile of the four, usually recoverable well after the others have decayed. Reversing the order, as the first and third options do, risks losing the fastest-decaying evidence while spending early effort on the evidence that would have waited. And volatility is exactly why a SOC analyst, not only a forensic lab, needs to prioritise collection order — a live intrusion does not pause while you work through artefacts in a convenient sequence.",
+        "This is the order Reading 3 laid out and the reasoning behind it: live memory and running process state vanish the moment a process exits or the machine reboots, so it is captured first; network connections persist for a retention window but do roll off; identity and SaaS logs typically last longer still; and disk artefacts are the least volatile of the four, usually recoverable well after the others have decayed. Starting with disk, or with identity logs, spends the first effort on evidence that would have waited and risks losing live memory, the fastest-decaying evidence of all. And letting a collector's default order decide is the same mistake made by a tool: volatility is why a SOC analyst, not only a forensic lab, has to choose the order deliberately — a live intrusion does not pause while artefacts are gathered in a convenient sequence.",
       xp: 25,
     },
     // -----------------------------------------------------------------------
@@ -400,49 +401,49 @@ const investigateAlertRoom: Room = {
       id: "inv7-la2",
       heading: "Step 2 — Scope: The Pivot That Finds the Second Host",
       context:
-        "Following Step 2's guidance, you pivot on WKS-FIN07's own activity rather than only on j.alvarez's account — checking what else that workstation, or any account authenticating from it, touched in the hour after the PowerShell process ran. The Windows Security event log on a finance database server, FIN-DB02, returns the record below.",
+        "Following Step 2's guidance, you pivot on WKS-FIN07's own activity rather than only on j.alvarez's account — checking what else that workstation, or any account authenticating from it, touched in the hour after the PowerShell process ran. The Windows Security event log on a finance database server, FIN-DB02, returns the record below. A directory lookup shows d.reyes is a member of Finance-DB-Admins, the group that administers the finance databases.",
       event: inv7ScopeEvent,
       questions: [
         {
           question:
             "TargetUserName is d.reyes, not j.alvarez, and WorkstationName is WKS-FIN07 — the same host from Step 1. What does this combination establish about scope?",
           options: [
-            "Nothing new — d.reyes is presumably a colleague of j.alvarez's in the same department, and this logon is unrelated background activity that happens every day",
-            "A different account, d.reyes, authenticated onto a second host, FIN-DB02, with the logon record naming the already-compromised workstation as its source — the activity has moved beyond the one account and one host the original ticket named",
-            "It confirms j.alvarez has two Active Directory accounts under different usernames, one for daily work and one reserved for privileged database access",
-            "It shows FIN-DB02 is actually the same physical machine as WKS-FIN07, just referenced by two different hostnames depending on which log source recorded it",
+            "Nothing new: a colleague of j.alvarez logging on to a finance server is routine",
+            "A second account reached a second host, sourced from the compromised workstation",
+            "FIN-DB02 logged on to WKS-FIN07, so the workstation is the target of this logon",
+            "The logon was refused, so FIN-DB02 does not yet belong in the incident's scope",
           ],
           answer: 1,
           explanation:
-            "WorkstationName recording the source of a network logon is exactly the field this room's Step 2 reading pointed to: pivoting on the artefact (the workstation) rather than the originally-named account (j.alvarez) is what surfaces this. A different TargetUserName authenticating from that source, onto a distinct target Computer, is precisely how scope expands beyond a single ticket's original framing — this is not unrelated background activity, it is the same source host now touching a second system under a second identity. Nothing here suggests two accounts belong to one person, and FIN-DB02 and WKS-FIN07 are recorded as the Computer field and WorkstationName field respectively — two distinct machines, one being the source and one the target of this logon.",
+            "A 4624 on FIN-DB02 (Computer) whose WorkstationName is WKS-FIN07 means d.reyes successfully authenticated onto FIN-DB02 from the compromised workstation: a second account and a second host, found by pivoting on the artefact rather than the named user. Calling it routine ignores that the source is the very host that ran the macro-spawned PowerShell 52 minutes earlier. Computer is where the logon was recorded (the target) and WorkstationName is where it came from, so the direction is the other way round. And 4624 is a successful logon; failures are 4625.",
           xp: 30,
         },
         {
           question:
             "LogonType is 3 and AuthenticationPackageName is NTLM. Combined with everything else in this record, what should this prompt you to check next, and why?",
           options: [
-            "Nothing further — LogonType 3 is an interactive desktop logon, meaning d.reyes was physically seated at FIN-DB02's own console, which is the least noteworthy logon type available and needs no comparison against what is normal for that account or that host",
-            "LogonType 3 is a network logon (the kind used for things like accessing a file share or admin tooling remotely, not sitting at a physical console) — worth checking whether d.reyes normally authenticates to FIN-DB02 at all, and from where, since a privileged account reaching a database server from a Finance workstation it has never used is exactly the anomaly a baseline comparison would catch",
-            "NTLM authentication always indicates the credential was stolen, regardless of any other context, since Kerberos is mandatory inside every Active Directory domain and Windows falls back to NTLM only when an attacker supplies a captured hash instead of a valid ticket",
-            "This combination confirms the logon failed and no further action is needed, since AuthenticationPackageName is populated only on unsuccessful attempts and LogonType 3 is reserved for Event ID 4625 failure records rather than successful 4624 authentications",
+            "Type 3 is a console logon: check who was physically at FIN-DB02 at 15:04",
+            "Type 3 is a network logon: check if d.reyes normally reaches FIN-DB02 from there",
+            "Type 3 plus NTLM confirms pass-the-hash: skip the baseline and contain now",
+            "Type 3 is a service logon: check which service on FIN-DB02 runs as d.reyes",
           ],
           answer: 1,
           explanation:
-            "LogonType 3 specifically denotes a network logon — used for remote resource access rather than an interactive desktop session — and its presence here is a prompt to compare this logon against d.reyes's normal pattern: does this account ever reach FIN-DB02, and does it ever do so from a Finance workstation rather than its own device? NTLM being in use is common in many legacy-compatible environments and is not on its own proof of anything; it is one fact to weigh alongside the others, not a verdict by itself. And nothing in this record indicates failure — the event type is a successful authentication.",
+            "LogonType 3 is a network logon — remote access to a share, admin tooling or a service, not a seat at the console — so the next check is a baseline: does this database-admin account ever reach FIN-DB02, and ever from a Finance workstation that is not its own? A console logon is Type 2, so there is nobody to look for in the server room. NTLM is common in many environments; with Type 3 it is consistent with credential misuse but does not prove pass-the-hash on its own, and skipping the baseline turns a suspicion into a verdict. Service logons are Type 5.",
           xp: 30,
         },
         {
           question:
             "You now have: a macro-driven PowerShell process on WKS-FIN07 under j.alvarez, followed 52 minutes later by d.reyes authenticating from that same workstation onto FIN-DB02. Per Step 2's guidance, what should you do with this finding, and what should you explicitly avoid concluding yet?",
           options: [
-            "Conclude the investigation is fully scoped at two hosts and two accounts, close the scoping step, and move straight to containment on both, since two pivots is generally considered thorough enough",
-            "Treat this as scope expansion requiring another loop — collect evidence from FIN-DB02 itself and check whether d.reyes's credentials or session were used anywhere else — while explicitly not yet claiming this is the full extent, since that has not been searched for",
-            "Discard this finding as irrelevant, since the original ticket only named j.alvarez and this room's Step 2 only concerns the account in the ticket, not accounts discovered along the way",
-            "Reset d.reyes's password immediately as the entire scoping step, since resetting a privileged account's credentials is itself considered sufficient evidence-gathering under this workflow",
+            "Treat scope as settled at two hosts and two accounts, and move to containment",
+            "Loop again: collect from FIN-DB02, search for d.reyes elsewhere, claim no full scope",
+            "Set it aside: the ticket named j.alvarez, so d.reyes belongs in a separate case",
+            "Reset d.reyes's password now and treat the reset as completing the scoping step",
           ],
           answer: 1,
           explanation:
-            "This is scope doing exactly what Reading 2 described: new evidence expanding the boundary, which sends you back into another loop of collection rather than to a premature conclusion. Declaring the scope 'fully' bounded at two hosts is a claim you have not earned — you have found what you searched for, not confirmed there is nothing further, and Reading 2 was explicit that this distinction matters. Discarding the finding contradicts the entire point of pivoting on the artefact rather than the named account — this is precisely the kind of expansion that pivot exists to catch. And a password reset is a containment action, which this workflow deliberately holds until after collection and full scoping, not as a substitute for the scoping step itself.",
+            "This is scope doing exactly what Reading 2 described: new evidence expanding the boundary, which sends you back into another loop of collection rather than to a premature conclusion. Declaring the scope 'fully' bounded at two hosts is a claim you have not earned — you have found what you searched for, not confirmed there is nothing further, and Reading 2 was explicit that this distinction matters. Discarding the finding contradicts the entire point of pivoting on the artefact rather than the named account — this is precisely the kind of expansion that pivot exists to catch. And a password reset is a containment action: with a privileged account in an active intrusion you may well decide to contain early, because the risk outweighs the evidence you might lose — but that is a separate risk decision, never a substitute for the scoping step itself.",
           xp: 35,
         },
       ],
@@ -481,14 +482,14 @@ const investigateAlertRoom: Room = {
         question:
           "In the '5 Whys' worked example in Reading 4, why is 'a user opened a malicious document' rejected as the root cause?",
         options: [
-          "Because it isn't true -- the user never actually opened the document, so the entire premise of the statement is factually incorrect from the start",
-          "Because it describes the trigger, not the failure -- the actual root cause is the specific control gap (e.g. macro execution from internet-sourced documents wasn't blocked by policy on that workstation) that let opening it lead to code execution",
-          "Because root cause must always name a specific software vendor's product responsible for the flaw, and this phrasing names no vendor at all",
-          "Because 5 Whys requires exactly five separate root causes to be listed as the end result, and this statement only offers one",
+          "Because it is unproven until disk forensics confirm the user really opened it",
+          "Because it names the trigger; the cause is the control gap that let it execute",
+          "Because a root cause has to name the vendor whose product failed to block it",
+          "Because 5 Whys must end in five separate causes, and this offers only one",
         ],
         answer: 1,
         explanation:
-          "Most analysts stop at the trigger ('a user clicked something'), but the reading is explicit that this is almost never the root cause -- you keep asking why until you land on an actual, fixable control gap, like a policy rollout that never reached a specific department.",
+          "Most analysts stop at the trigger ('a user clicked something'), but you keep asking why until you land on a fixable control gap — here, macro execution from internet-sourced documents was never blocked for Finance because the rollout tracked requests, not risk. The process record already shows Word opening the .docm, so the statement is not in doubt; it is just not the cause. A root cause names a gap someone can fix, which is usually a policy or process, not a vendor. And “5 Whys” means asking why repeatedly until you reach that gap, not producing five causes.",
       },
     },
     // -----------------------------------------------------------------------
@@ -497,7 +498,7 @@ const investigateAlertRoom: Room = {
       id: "inv7-ac1",
       heading: "The Call: True Positive, or Escalate?",
       scenario:
-        "16:05. Your timeline now reads: 14:12, macro-spawned PowerShell on WKS-FIN07 under j.alvarez; 15:04, d.reyes authenticates onto FIN-DB02 from that same workstation, a logon pattern that account has never shown before; 15:41, the record below — a PowerShell child process on FIN-DB02, under d.reyes's session, invoking a compression utility against a folder of Accounts Payable export files, producing a multi-hundred-megabyte archive in a non-standard system folder. You have validated, scoped twice, and collected evidence in order at each stage. The shift lead is reachable but the decision on how to classify this before acting is yours to make first.",
+        "16:05. Your timeline now reads: 14:12, macro-spawned PowerShell on WKS-FIN07 under j.alvarez; 15:04, d.reyes authenticates onto FIN-DB02 from that same workstation, a logon pattern that account has never shown before; 15:41, the record below — a PowerShell child process on FIN-DB02, under d.reyes's session, invoking a compression utility against a folder of Accounts Payable export files, producing a multi-hundred-megabyte archive in a non-standard system folder. You have validated, scoped twice, and collected evidence in order at each stage. A directory lookup confirmed d.reyes is a Finance-DB-Admins member. Your SOC's runbook: classify as escalate when a finding meets any Step 7 escalation criterion (data that may trigger breach notification, a privileged or executive account, or activity that has reached staging or exfiltration); true_positive is for confirmed incidents Tier 1 can contain and close. The shift lead is reachable, but the classification is yours to make first.",
       event: inv7CollectionEvent,
       correct_verdict: "escalate",
       explanation:
@@ -560,13 +561,13 @@ const investigateAlertRoom: Room = {
         "A colleague hands off a ticket with the note: 'Confirmed malicious PowerShell on one host, contained, closed.' Based on this room, what is missing from a complete Step 7 hand-off, and why does it matter?",
       options: [
         "Nothing is missing: containment is the goal of an investigation, and once a host is contained the hand-off note has done its job",
-        "Detection method, full timeline, root cause and corrective actions are missing, so the next shift cannot tell how it was found, whether it can recur, or whether scope beyond one host was tested",
+        "It lacks detection method, timeline, root cause and corrective actions, and its 'one host' scope was never shown to be tested",
         "Mainly the list of affected users is missing, which is all the next shift needs to continue; the rest is already held in the SIEM's case history",
         "Only the root cause is missing, since detection method, timeline and corrective actions can be reconstructed from the EDR console and ticket history",
       ],
       answer: 1,
       explanation:
-        "A one-line note like this answers none of the five things a complete hand-off needs: how it was actually found, the full ordered timeline, the specific root cause, and the corrective action that would prevent a repeat — and 'one host' is an unverified scope claim unless a pivot was actually run to check for more, which this room's own case shows does not hold up under scrutiny. These gaps cannot be reconstructed reliably from tool history, because consoles and ticket logs record what happened, not why decisions were made or how scope was tested. And 'contained' describes an action taken, not proof that scoping happened correctly before that action — the whole point of Step 2 is that scope has to be established with evidence, not assumed from the fact that a response occurred.",
+        "A complete hand-off needs five things: detection method, confirmed scope, timeline, root cause and corrective actions. This note gives none of the first, third, fourth or fifth, and its only scope statement — 'one host' — is an unverified claim unless a pivot was actually run to check for more, which this room's own case shows does not hold up under scrutiny. These gaps cannot be reconstructed reliably from tool history, because consoles and ticket logs record what happened, not why decisions were made or how scope was tested. And 'contained' describes an action taken, not proof that scoping happened correctly before that action — the whole point of Step 2 is that scope has to be established with evidence, not assumed from the fact that a response occurred.",
       xp: 25,
     },
     // -----------------------------------------------------------------------
@@ -576,15 +577,15 @@ const investigateAlertRoom: Room = {
       heading: "Write It Yourself: The Step 2 Pivot Query",
       language: "kql",
       context:
-        "You want a repeatable query for exactly the Step 2 technique this room taught: instead of asking what did this user do, ask who else used this specific identity anywhere in the environment. Fill in the Windows logon event ID and the account you're pivoting on from this case.",
+        "You want a repeatable query for exactly the Step 2 technique this room taught: instead of asking what one named user did, pivot on an artefact of the intrusion and ask which accounts authenticated anywhere in the environment from it. Fill in the Windows successful-logon event ID and the compromised workstation's name from this case.",
       template:
-        "SecurityEvent\n| where EventID == {{eventid}}\n| where TargetUserName == \"{{account}}\"\n| project TimeGenerated, Computer, WorkstationName, IpAddress, LogonType",
+        "SecurityEvent\n| where EventID == {{eventid}}\n| where WorkstationName =~ \"{{source}}\"\n| project TimeGenerated, Computer, TargetUserName, IpAddress, LogonType",
       blanks: [
         { id: "eventid", answers: ["4624"], placeholder: "Windows successful logon event ID" },
-        { id: "account", answers: ["d.reyes"], placeholder: "account to pivot on" },
+        { id: "source", answers: ["WKS-FIN07", "wks-fin07"], placeholder: "workstation to pivot on" },
       ],
       explanation:
-        "EventID 4624 is the Windows Security event for a successful logon, and pivoting on TargetUserName d.reyes — rather than re-querying j.alvarez, the account the original ticket named — is exactly the artefact-first technique from the Step 2 reading: it asks every host this specific account touched, across the whole environment, instead of only confirming what one workstation already showed you.",
+        "EventID 4624 is a successful logon, and filtering on WorkstationName WKS-FIN07 — the host where the macro ran — asks which accounts logged on to which servers from that workstation. That is the artefact-first pivot from the Step 2 reading, and it is the query that surfaces d.reyes on FIN-DB02 without anyone having named d.reyes first. Filtering on TargetUserName instead would only confirm what one account did. (=~ makes the match case-insensitive, so any letter case of the hostname is a correct query.)",
       xp: 25,
     },
     // -----------------------------------------------------------------------
@@ -592,8 +593,9 @@ const investigateAlertRoom: Room = {
       type: "flag",
       id: "inv7-f1",
       prompt:
-        "Step 3 requires hashing every artefact you collect. What is the exact SHA256 hash of the archive file created on FIN-DB02, exactly as recorded in the raw log?",
-      answer: "c2a97e4f1b6d8a3c5e0f9b7d4a1c6e8f3b5d7a9c1e4f6b8d0a2c5e7f9b1d3a6c",
+        "Your Step 7 timeline needs the gap between first execution and data staging. Using the timestamps of the two Defender records in this room — the PowerShell launch on WKS-FIN07 and the archive written on FIN-DB02 — how many complete minutes passed between them? Drop any leftover seconds and enter a whole number.",
+      answer: "89",
+      hint: "Both records carry a UTC timestamp on the log card. Subtract the earlier from the later and convert the hours to minutes.",
       xp: 25,
     },
   ],

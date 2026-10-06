@@ -158,19 +158,19 @@ export const PLAYBOOK_LESSONS = [
         "question": "In the worked compromised-account case, the analyst reached containment and eradication within fifteen minutes but did not close the ticket until T+40. What was still outstanding, and why did the playbook require it?",
         "options": [
           {
-            "label": "Re-running the sign-in collection query a second time, since evidence steps must repeat once before closure",
+            "label": "Re-running the sign-in collection query, since evidence steps are repeated once before closure",
             "value": "a"
           },
           {
-            "label": "Confirming with the user that the sign-in was not theirs and documenting the full timeline before closing",
+            "label": "Confirming with the user that the sign-in was not theirs and documenting the full timeline",
             "value": "b"
           },
           {
-            "label": "Escalating to the IR manager, because any confirmed compromise must be handed off regardless of scope",
+            "label": "Escalating to the IR manager, since a confirmed compromise is normally handed to Tier 2",
             "value": "c"
           },
           {
-            "label": "Isolating the user's laptop, since eradication is never complete until the endpoint itself is reimaged",
+            "label": "Reimaging the user's laptop, since a stolen session means the endpoint must be rebuilt",
             "value": "d"
           }
         ],
@@ -204,47 +204,47 @@ export const PLAYBOOK_LESSONS = [
         "question": "A ransomware playbook instructs an analyst to isolate infected hosts immediately, before completing the full evidence collection this lesson's compromised-account playbook required first. Why does this not contradict the collect-before-you-decide principle taught earlier in the lesson?",
         "options": [
           {
-            "label": "It does contradict the principle, and the ransomware playbook is simply written incorrectly and should be corrected to match the compromised-account playbook",
+            "label": "It does contradict it, so the ransomware playbook should be rewritten to collect evidence first",
             "value": "a"
           },
           {
-            "label": "Active, spreading encryption is one of the rare cases where the cost of delaying containment, more data encrypted, is accepted as worse than the cost of losing some evidence, so the ordering deliberately compresses rather than inverts",
+            "label": "Spreading encryption makes delay costlier than lost evidence, so the order compresses, not inverts",
             "value": "b"
           },
           {
-            "label": "The principle only ever applied to compromised-account cases specifically and was never intended to generalize to any other incident category at all",
+            "label": "Ransomware is a Malicious Code incident, a category where evidence collection is skipped entirely",
             "value": "c"
           },
           {
-            "label": "Ransomware playbooks do not actually require containment at all, since the correct response is always to pay the ransom and restore from backup afterward",
+            "label": "Isolating a host costs no visibility at all, so containing first gives nothing up in this case",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "The lesson's ordering principle bends for active ransomware specifically because every minute of delay produces more encrypted, unrecoverable data -- the trade this lesson described, containment costs visibility, is deliberately accepted because the alternative cost is worse. It compresses the ordering, it does not invert it: evidence is still gathered, just alongside or immediately after containment rather than strictly before it. The option “It does contradict the principle, and the…” wrongly assumes the playbook is an error rather than a deliberate, justified exception. The option “The principle only ever applied to compromised-account…” overstates the principle's scope in the wrong direction. The option “Ransomware playbooks do not actually require containment…” asserts a specific ransom-payment policy this lesson never makes and that is not a general rule."
+        "explanation": "The ordering principle bends for active ransomware because every minute of delay produces more encrypted, unrecoverable data — the trade the lesson described, containment costs visibility, is deliberately accepted because the alternative cost is worse. It compresses the ordering rather than inverting it: evidence is still gathered, alongside or immediately after containment. “Rewritten to collect evidence first” treats a deliberate, justified exception as an error and would let encryption keep spreading. “A category where evidence collection is skipped entirely” is wrong — the ransomware playbook still collects (what process is encrypting, whether backups are reachable); only the timing changes. “Isolating costs no visibility” denies the trade-off itself: containment still alerts the attacker and ends your view of what they would do next — the cost is accepted, not absent."
       },
       {
         "question": "An analyst investigating a suspected memory-resident malware infection is told to power off the affected workstation and send the hard drive to forensics. Using the order of volatility from RFC 3227, what is wrong with this instruction, and what should happen first?",
         "options": [
           {
-            "label": "Nothing is wrong; disk evidence is more valuable than memory evidence in every investigation, so sending the drive first is the correct priority",
+            "label": "Nothing is wrong: the drive holds the malware's files and logs, so it is the first thing to secure",
             "value": "a"
           },
           {
-            "label": "Powering off the machine destroys RAM contents, including a memory-resident malware sample and the attacker's active connections, which sit far higher in the order of volatility than disk and should be captured first",
+            "label": "Powering off erases RAM — the in-memory malware and live connections — so capture memory first",
             "value": "b"
           },
           {
-            "label": "The instruction is fine as written, since RFC 3227's order of volatility applies only to network evidence like routing tables, not to endpoint evidence like RAM or disk",
+            "label": "The original drive should not travel; image it on site first so the chain of custody stays intact",
             "value": "c"
           },
           {
-            "label": "The only error is the destination; the drive should be sent to the SOC manager rather than to forensics, and the power-off step itself is correct as given",
+            "label": "Capture the disk before RAM, because running a memory-capture tool changes the system's state",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "RFC 3227 places registers, cache, and RAM/process state well above disk in the order of volatility precisely because they vanish the moment power is lost. A memory-resident malware sample and the attacker's live connections exist only in RAM, so powering off the machine destroys exactly the evidence the investigation most needs, before the disk is ever touched. The option “Nothing is wrong; disk evidence is more…” inverts the actual priority order. The option “The instruction is fine as written, since…” wrongly narrows RFC 3227's scope to network artifacts only, when it explicitly covers memory and process state on the host itself. The option “The only error is the destination; the…” fixes an irrelevant detail while ignoring the destructive power-off step."
+        "explanation": "RFC 3227 places registers, cache and RAM/process state well above disk in the order of volatility because they vanish the moment power is lost. A memory-resident malware sample and the attacker's live connections exist only in RAM, so powering off destroys exactly the evidence this investigation most needs, before the disk is ever touched. “The drive holds the malware's files” misses the stem's key word: the malware is memory-resident, so the disk may hold little of it. “Image it on site … chain of custody” is a fair handling point, but it still follows a power-off that has already erased RAM. “Capture the disk before RAM” gets the trade-off backwards: any collection disturbs the system a little, which is exactly why RFC 3227 says to start with the most volatile evidence, before it is lost."
       }
     ],
     "references": [

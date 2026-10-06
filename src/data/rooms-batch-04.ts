@@ -164,11 +164,11 @@ Logs come in many different formats depending on the vendor and application. The
 The key challenge is that every vendor uses a slightly different format. A firewall from Palo Alto logs in a different structure than a firewall from Fortinet. A Windows login event looks nothing like a Linux SSH login. This is why **log normalisation** exists — we will cover that next.`,
       checkpoint: {
         question:
-          "According to the reading, what standard created by ArcSight/Micro Focus is a common log format used by security appliances?",
-        options: ["CEF (Common Event Format)", "ECS (Elastic Common Schema)", "Plain-text Syslog", "JSON"],
+          "A firewall forwards lines that begin CEF:0|Fortinet|FortiGate| followed by more pipe-separated header fields and then key=value pairs such as src=10.1.1.5. Which log format is the collector receiving?",
+        options: ["CEF (Common Event Format)", "LEEF (Log Event Extended Format)", "Plain-text syslog (RFC 3164)", "ECS (Elastic Common Schema)"],
         answer: 0,
         explanation:
-          "CEF (Common Event Format) is the ArcSight/Micro Focus standard widely used by security appliances. LEEF is IBM QRadar's similar format, and ECS is a normalisation schema rather than a source log format.",
+          "The CEF:0| prefix, followed by pipe-separated vendor, product and version fields and then key=value extensions, is the ArcSight/Micro Focus Common Event Format. LEEF is IBM QRadar's similar format, but its lines begin LEEF:, not CEF:. Plain-text syslog has no fixed pipe-separated header (a CEF line often travels inside a syslog message, but the payload format is still CEF). ECS is a normalisation schema applied after collection, not a format a firewall sends.",
       },
     } satisfies ReadingTask,
 
@@ -279,7 +279,9 @@ Imagine a burglar who, after robbing a house, goes back and destroys all the CCT
 This is called **log tampering** or **log clearing**. On Windows systems, the Security Event Log can be cleared using the Event Viewer or via the command line. When this happens, Windows itself records a special event:
 
 - **Event ID 1102** — "The audit log was cleared." This event appears in the Security channel and records which user account cleared the log.
-- **Event ID 104** — The System log was cleared (slightly different channel).
+- **Event ID 104** — A non-Security event log (System, Application, etc.) was cleared. This record is written to the System channel.
+
+The 1102 record also carries a **SubjectLogonId** — a hex number that identifies the exact logon session of the account that cleared the log. Searching other events for that same value (starting with the 4624 logon that opened the session) shows what the account did in that one session, not everything it has ever done.
 
 On Linux, attackers may delete or modify files in /var/log/ — for example, deleting /var/log/auth.log to remove SSH login records, or editing /var/log/wtmp to remove evidence of their session.
 
@@ -307,11 +309,16 @@ The key capabilities that a SIEM adds beyond simple log storage are:
 In summary: a log aggregator is a **storage and search engine**. A SIEM is a **detection and investigation platform** built on top of log storage.`,
       checkpoint: {
         question:
-          "According to the reading, which Windows Event ID is generated when the Security audit log is cleared?",
-        options: ["Event ID 1102", "Event ID 4624", "Event ID 104", "Event ID 4720"],
+          "DC01-CORP forwards its Security log to the SIEM in real time. An attacker then clears the Security log on the DC itself. What evidence does the analyst still have?",
+        options: [
+          "Every event forwarded before the clear, plus the 1102 that records who cleared it",
+          "Nothing from before the clear, because clearing the log also purges forwarded copies",
+          "Event ID 104 records, which Windows writes in place of the cleared events",
+          "Post-clear events alone, since forwarding starts over with the new, empty log",
+        ],
         answer: 0,
         explanation:
-          "Event ID 1102 — 'The audit log was cleared' — fires in the Security channel and records which account cleared it. Event ID 104 is the equivalent for the System log, not Security.",
+          "Central collection is the defence the reading describes: events already shipped to the SIEM are out of the attacker's reach, and the 1102 written after the clear is forwarded too. Clearing a local log cannot reach copies already stored on another server. Event ID 104 is a separate record for clearing a non-Security log; it does not replace the cleared events. Forwarding does not reset history either — only the local copy was emptied.",
       },
     } satisfies ReadingTask,
 
@@ -348,30 +355,30 @@ In summary: a log aggregator is a **storage and search engine**. A SIEM is a **d
       questions: [
         {
           question:
-            "What Windows Event ID was generated, and what does it indicate?",
+            "This 1102 record sits in the Security channel — the very log that was just cleared. Why is it there at all?",
           options: [
-            "Event ID 4625 — a failed login attempt",
-            "Event ID 1102 — the Security audit log was cleared",
-            "Event ID 4688 — a new process was created",
-            "Event ID 4728 — a user was added to a security group",
+            "The clear failed partway, so this record survived from before the clear",
+            "Windows writes 1102 into the emptied Security log right after it is cleared",
+            "1102 is stored in the System channel, which the attacker did not clear",
+            "Clearing hides events in Event Viewer, but the old records stay on disk",
           ],
           answer: 1,
           explanation:
-            "The raw field 'event.code: 1102' maps to Windows Event ID 1102, which is specifically generated when the Security audit log is cleared. This is a high-confidence indicator of an attacker attempting to destroy evidence after a compromise.",
+            "Windows records the clearing itself: as soon as the Security log is emptied, it writes Event ID 1102 (winlog.channel: Security) into the fresh log, naming the account that cleared it. A partial failure would leave the older events in place, which is not what 1102 means. This record's channel is Security, not System — the System-channel event for clearing other logs is 104. Clearing really does empty the local log; the defence is having already forwarded the events elsewhere.",
           xp: 25,
         },
         {
           question:
-            "The event occurred at 03:17 UTC on a domain controller. Which field tells you the account responsible for clearing the log?",
+            "You want to see what svc-helpdesk02 did during the same logon session that cleared the log — not everything the account has ever done. Which field do you search other events for?",
           options: [
-            "winlog.channel",
-            "winlog.computer_name",
             "winlog.event_data.SubjectUserName",
-            "winlog.provider_name",
+            "winlog.event_data.SubjectDomainName",
+            "winlog.event_data.SubjectLogonId",
+            "event.created",
           ],
           answer: 2,
           explanation:
-            "The 'winlog.event_data.SubjectUserName' field contains 'svc-helpdesk02' — the account that cleared the log. The unusual account name, combined with the 3am timing on a domain controller, makes this highly suspicious. A legitimate IT admin would rarely clear Security logs on a DC at 3am.",
+            "SubjectLogonId (0x3E4F2A) identifies one logon session; searching for it — starting with the 4624 that opened the session — returns only the actions taken in that session. SubjectUserName would return every session the account has ever had: useful later, but it answers a broader question. SubjectDomainName (CORP) matches every account in the domain. event.created is a timestamp; a time window alone would mix in other users' activity on the DC.",
           xp: 25,
         },
         {
@@ -385,7 +392,7 @@ In summary: a log aggregator is a **storage and search engine**. A SIEM is a **d
           ],
           answer: 1,
           explanation:
-            "Log clearing on a domain controller (DC) at 3am by an account named 'svc-helpdesk02' is an extremely high-confidence indicator of malicious activity. DCs are the most sensitive servers in a Windows environment. This must be escalated immediately — do not wait, and do not reboot (rebooting would destroy volatile memory evidence).",
+            "Clearing the Security log on a domain controller at 3am, from an account named like a service account (svc-helpdesk02), is a strong sign of an attacker covering their tracks on the most sensitive server in the domain, so escalate to Tier 2 or IR now. Closing it as maintenance needs evidence, such as an approved change, that is not here. Waiting for a second event gives the attacker more time on the DC. Resetting the password and closing treats one symptom and skips the investigation into what the account did before it cleared the log.",
           xp: 30,
         },
       ],
@@ -396,9 +403,9 @@ In summary: a log aggregator is a **storage and search engine**. A SIEM is a **d
       type: "flag",
       id: "log-mgmt-flag1",
       prompt:
-        "According to the log analysis above, which Windows Event ID specifically records that the Security audit log has been cleared? Enter only the numeric ID.",
-      answer: "1102",
-      hint: "Check the 'event.code' field in the raw log data from the previous task.",
+        "Suppose the attacker had also cleared the System log on DC01-CORP. Which Windows Event ID would you search for to prove that second clearing? Enter only the numeric ID.",
+      answer: "104",
+      hint: "It is not the Security-channel event shown in the log above.",
       xp: 20,
     } satisfies FlagTask,
 
@@ -407,11 +414,16 @@ In summary: a log aggregator is a **storage and search engine**. A SIEM is a **d
       type: "question",
       id: "log-mgmt-q3",
       question:
-        "An organisation processes healthcare data in the United States and must comply with HIPAA. For how many years must they retain security-related audit logs?",
-      options: ["1 year", "3 years", "6 years", "10 years"],
+        "A US hospital group must comply with HIPAA and also takes card payments, so PCI-DSS applies too. Using the retention requirements in the reading, what is the minimum time its security audit logs should be kept?",
+      options: [
+        "12 months, because PCI-DSS is the more specific logging rule",
+        "3 months, the period PCI-DSS requires immediately available",
+        "6 years, because the longer of the two requirements applies",
+        "7 years, because healthcare follows the SOX audit-log rule",
+      ],
       answer: 2,
       explanation:
-        "HIPAA (Health Insurance Portability and Accountability Act) requires that documentation related to security policies and procedures — including audit logs — be retained for 6 years from creation or from the date it was last in effect. This is significantly longer than PCI-DSS (1 year) or GDPR (typically 1 year for security logs).",
+        "When two regulations apply, the logs must satisfy both, so the longer period wins: 6 years under HIPAA (its 6-year documentation rule is commonly applied to security audit logs) versus 12 months under PCI-DSS. Keeping only 12 months satisfies PCI-DSS but not HIPAA. 3 months is only how much PCI-DSS wants immediately searchable, not the total retention. SOX's 7 years covers US financial reporting, not healthcare.",
       xp: 20,
     } satisfies QuestionTask,
 
@@ -491,11 +503,11 @@ Raw log → **Ingestion layer** (agents, syslog, APIs) → **Parsing** (decode t
 The entire pipeline from a log being generated on an endpoint to an alert appearing in the SOC analyst's queue typically takes 30 seconds to 5 minutes, depending on the SIEM and configuration.`,
       checkpoint: {
         question:
-          "According to the reading, which of the six core SIEM functions is described as 'the most powerful feature' — applying detection rules that look for patterns across multiple events?",
-        options: ["Dashboarding", "Correlation", "Reporting", "Log aggregation"],
+          "Aggregation has already put every failed login in one place, and normalisation has given them a common user field. Which SIEM function recognises 47 failures against 12 accounts from one IP, within a minute, as a single attack pattern?",
+        options: ["Alerting", "Correlation", "Dashboarding", "Reporting"],
         answer: 1,
         explanation:
-          "Correlation is called out as the most powerful SIEM function — it's what turns a single, meaningless failed login into a Password Spray alert by spotting the pattern across many events.",
+          "Correlation applies detection rules across many events and spots the pattern; the reading calls it the most powerful function. Alerting comes after correlation: it notifies the SOC once a rule has matched, but it does not do the matching. Dashboarding shows trends for situational awareness and reporting produces compliance summaries; neither decides that separate events form an attack.",
       },
     } satisfies ReadingTask,
 
@@ -556,7 +568,7 @@ The MITRE ATT&CK framework is a knowledge base of adversary tactics and techniqu
       type: "question",
       id: "siem-fund-q1",
       question:
-        "A SIEM rule fires when more than 20 failed login attempts occur against different accounts from the same source IP within 60 seconds. What type of detection rule is this?",
+        "A SIEM rule fires when a single source IP produces more than 20 failed logins against different accounts within 60 seconds — far more than any normal user generates. What type of detection rule is this?",
       options: [
         "Statistical anomaly rule",
         "Sequence / chained rule",
@@ -565,7 +577,7 @@ The MITRE ATT&CK framework is a knowledge base of adversary tactics and techniqu
       ],
       answer: 2,
       explanation:
-        "This is a threshold rule — it fires when a count (20 failed logins) exceeds a defined limit within a time window (60 seconds). Threshold rules are the simplest and most common type of SIEM detection rule and are ideal for brute force and password spray detection.",
+        "It is a threshold rule: a fixed count (20) inside a fixed time window (60 seconds). The 'far more than normal' wording is a trap — a statistical anomaly rule compares behaviour with a learned baseline, while this rule uses a number someone chose. A trend rule fires on a percentage change against a baseline (for example 500% above the 7-day average), and a sequence rule needs different events in a set order (scan, then failure, then success). Threshold rules are simple and common, but slow attacks that stay under the count evade them.",
       xp: 20,
     } satisfies QuestionTask,
 
@@ -612,16 +624,16 @@ SIEM rules must be continuously **tuned** based on your specific environment:
 Good rule tuning is an ongoing process, not a one-time task. A mature SOC has a dedicated team or process for continuous rule review.`,
       checkpoint: {
         question:
-          "According to the reading, what is a False Negative (FN)?",
+          "The password-spray rule fires on 12 failed logins. Investigation shows a developer's load-test script locked out 12 test accounts. The rule matched exactly the pattern it was written for. How should the alert be classified?",
         options: [
-          "An alert fired but there was no real security incident",
-          "An alert fired and correctly identified a real security incident",
-          "No alert fired even though a real attack was happening",
-          "An alert fired twice for the same underlying event",
+          "True Positive — the rule matched its pattern correctly",
+          "False Negative — the rule fired on the wrong activity",
+          "False Positive — the pattern matched but nothing malicious happened",
+          "True Negative — no harm was done, so nothing was detected",
         ],
         answer: 2,
         explanation:
-          "A False Negative means a real attack occurred but the SIEM never alerted on it — the most dangerous outcome, because the organisation is being attacked and doesn't know it. A False Positive is the opposite: an alert fires but nothing bad actually happened.",
+          "A False Positive is an alert with no real security incident behind it — even when the rule did exactly what it was written to do. 'True Positive' judges the rule's logic instead of the outcome; a TP needs a real incident. A False Negative is the opposite failure: a real attack with no alert. A True Negative means no alert and no attack, but an alert did fire here.",
       },
     } satisfies ReadingTask,
 
@@ -661,39 +673,44 @@ Good rule tuning is an ongoing process, not a one-time task. A mature SOC has a 
       questions: [
         {
           question:
-            "Based on the raw log fields, how many failed login attempts were detected in the 60-second window?",
-          options: ["12 attempts", "47 attempts", "60 attempts", "1 attempt"],
+            "The rule tags this alert T1110.003, but a colleague wants to re-tag it. Which mapping do data.failed_count and data.target_accounts support?",
+          options: [
+            "T1110.001 Password Guessing — 47 different passwords tried against the accounts",
+            "T1110.003 Password Spraying — a few attempts each, spread across many accounts",
+            "T1078 Valid Accounts — the attacker already knows twelve real usernames",
+            "T1110 Brute Force (parent) — the counts cannot tell the sub-techniques apart",
+          ],
           answer: 1,
           explanation:
-            "The field 'data.failed_count: 47' shows 47 failed login attempts in 60 seconds. The 'data.target_accounts: 12' field tells us these attempts were spread across 12 different user accounts — a classic password spray pattern (few attempts per account to avoid lockout, many accounts targeted).",
+            "47 failures over 12 accounts is about 4 attempts per account: few tries each, many accounts — the spray pattern this room describes, which stays under per-account lockout. Password Guessing (T1110.001) is the reverse shape: many passwords against one account. Valid Accounts (T1078) applies once an attacker logs in with working credentials; every attempt here failed. The parent T1110 (Brute Force) is correct but less precise — the two counts are exactly what lets you pick the sub-technique.",
           xp: 20,
         },
         {
           question:
-            "The source IP is flagged as a Tor network exit node from the Netherlands. What does this contextual information suggest about this alert?",
+            "data.isp identifies the source as a Tor exit node. How should that enrichment change your view of the alert?",
           options: [
-            "Probably a false positive — privacy-conscious employees often browse through Tor",
-            "More likely a true positive — attackers use Tor to hide their real location",
-            "Tor exits sit on most organisations' allowlists, so the alert can be closed",
-            "The Dutch location suggests a European partner login, so check the contract first",
+            "Lower priority — privacy-minded staff often use Tor, so the source tells you little",
+            "It raises confidence of a true positive alongside the spray-shaped counts",
+            "Lower priority — a shared VPN egress for remote staff would look exactly like this",
+            "No change — enrichment describes the source and should not affect the verdict",
           ],
           answer: 1,
           explanation:
-            "Tor exit nodes are used by attackers to anonymise their traffic and are a well-known indicator of malicious intent, especially in combination with authentication failures. While individual Tor users may be legitimate, 47 failed logins across 12 accounts from a Tor exit node is an extremely high-confidence password spray indicator. This alert should be escalated as a True Positive for investigation.",
+            "Anonymised infrastructure plus a spray-shaped burst (47 failures across 12 accounts in 60 seconds) points to a true positive and supports escalation. Staff Tor use is possible, but one employee would not produce failures across 12 accounts in a minute. The ISP field names Tor, not a corporate VPN, so treating it as staff egress misreads the log. Enrichment exists to change confidence — ignoring source reputation throws away evidence.",
           xp: 25,
         },
         {
           question:
-            "Which MITRE ATT&CK technique does this attack map to, and what is the correct technique ID shown in the log?",
+            "The alert shows only failures. What should you search for next to judge how serious this spray is?",
           options: [
-            "T1078 — Valid Accounts",
-            "T1110.001 — Password Guessing",
-            "T1110.003 — Password Spraying",
-            "T1566 — Phishing",
+            "Failed logins from other Tor exit nodes over the past 30 days",
+            "The rule's change history, to see who last edited its threshold",
+            "Successful logins to the 12 targeted accounts after 11:47 UTC",
+            "Failed logins for the 12 accounts, to confirm the count of 47",
           ],
           answer: 2,
           explanation:
-            "The raw field 'rule.mitre.technique: T1110.003' maps to MITRE ATT&CK T1110.003 — Password Spraying. Password spraying is distinct from brute force (T1110.001): instead of trying many passwords against one account, the attacker tries one or a few common passwords against many accounts to avoid lockout policies.",
+            "A spray only matters if one guess worked, so the decisive pivot is a success for any targeted account after the burst — the failure-then-success pattern a sequence rule looks for. Other Tor sources may be worth a hunt later, but they do not tell you whether this spray succeeded. The rule's edit history is a tuning question. Recounting the failures only confirms what the alert already says.",
           xp: 25,
         },
       ],
@@ -704,9 +721,9 @@ Good rule tuning is an ongoing process, not a one-time task. A mature SOC has a 
       type: "flag",
       id: "siem-fund-flag1",
       prompt:
-        "From the Password Spray alert log above, what is the exact value in the 'data.failed_count' field? Enter only the number.",
-      answer: "47",
-      hint: "Look at the raw log fields in the log_analysis task above. The field name is 'data.failed_count'.",
+        "Using the counts in the Password Spray alert, how many failed attempts did each targeted account receive on average? Round to the nearest whole number and enter only the number.",
+      answer: "4",
+      hint: "Two fields in the alert describe the total and how widely it was spread.",
       xp: 15,
     } satisfies FlagTask,
 
@@ -724,7 +741,7 @@ Good rule tuning is an ongoing process, not a one-time task. A mature SOC has a 
       ],
       answer: 1,
       explanation:
-        "The correct response is rule tuning: add an exception for the known-good backup service account. This eliminates 190 false positives per day while keeping the rule active for all other accounts. Deleting the rule would create false negatives (real data exfiltration would go undetected). Alert fatigue is solvable through tuning — it is not an unavoidable condition.",
+        "The correct response is rule tuning: add an exception for the known-good backup service account. This eliminates 190 false positives per day while keeping the rule active for all other accounts. Deleting the rule would create false negatives (real data exfiltration would go undetected). Raising the severity makes 190 known-benign alerts louder, not rarer. Leaving it unchanged keeps analysts closing the same backup alerts every day — the alert fatigue the reading warns about. Alert fatigue is solvable through tuning.",
       xp: 20,
     } satisfies QuestionTask,
 
@@ -735,14 +752,14 @@ Good rule tuning is an ongoing process, not a one-time task. A mature SOC has a 
       question:
         "An attacker successfully steals credentials and accesses your VPN, but the SIEM never fires an alert because the login looked legitimate. What type of detection outcome is this?",
       options: [
-        "True Positive — the alert fired correctly",
-        "False Positive — the alert fired but there was no attack",
-        "False Negative — an attack occurred but no alert fired",
-        "True Negative — no alert fired and there was no attack",
+        "True Positive — the attacker was eventually found",
+        "False Positive — the login looked fine but was not",
+        "False Negative — a real attack produced no alert",
+        "True Negative — the rule behaved as designed for a valid login",
       ],
       answer: 2,
       explanation:
-        "This is a False Negative — the most dangerous outcome in security operations. The attack was real, but the SIEM failed to detect it. False negatives occur when detection rules are too conservative, attacker techniques are unknown, or the attacker used legitimate credentials that mimic normal user behaviour. Reducing false negatives requires adding behavioural detection rules (UEBA) on top of signature-based rules.",
+        "This is a False Negative — the most dangerous outcome in security operations. A True Positive needs an alert to have fired, however the attack was later found. A False Positive is an alert with no real attack — the reverse case. 'The rule behaved as designed' does not make it a True Negative, because a real attack did happen. The attack was real, but the SIEM failed to detect it. False negatives occur when detection rules are too conservative, attacker techniques are unknown, or the attacker used legitimate credentials that mimic normal user behaviour. Reducing false negatives requires adding behavioural detection rules (UEBA) on top of signature-based rules.",
       xp: 20,
     } satisfies QuestionTask,
 
@@ -813,11 +830,11 @@ A SIEM can hold billions of events across every index and every retention day it
         "SecurityEvent\n| where EventID == {{eventid}}\n| where TimeGenerated > ago({{window}})\n| summarize {{aggregation}} by Account",
       blanks: [
         { id: "eventid", answers: ["4625"], placeholder: "event ID for a failed logon" },
-        { id: "window", answers: ["1h"], placeholder: "time window" },
-        { id: "aggregation", answers: ["FailCount = count()", "count()"], placeholder: "aggregation expression" },
+        { id: "window", answers: ["1h", "60m"], placeholder: "time window" },
+        { id: "aggregation", answers: ["FailCount = count()", "FailCount=count()", "count()", "Failures = count()", "Failures=count()", "FailureCount = count()", "FailureCount=count()", "FailedLogons = count()", "FailedLogons=count()", "Count = count()", "Count=count()"], placeholder: "aggregation expression" },
       ],
       explanation:
-        "4625 is the Windows Security Event ID for a failed logon attempt — 4624 is its easily-confused twin, a successful logon. ago(1h) scopes TimeGenerated to the last hour, the same relative-time shorthand you saw in the reading (30m, 1h, 24h, 7d all work). summarize ... by Account groups every matching failure row by account and counts them, turning a flat list of raw events into the exact shape a triage answer needs: how many failures per account. This is the identical logic the reading's SPL example reached with stats count by Account_Name — same three steps, different keywords.",
+        "4625 is the Windows Security Event ID for a failed logon attempt — 4624 is its easily-confused twin, a successful logon. ago(1h) (or the equivalent ago(60m)) scopes TimeGenerated to the last hour, the same relative-time shorthand you saw in the reading (30m, 1h, 24h, 7d all work). The alias before count() is your choice — FailCount = count(), Failures = count() or a bare count() all work. summarize ... by Account groups every matching failure row by account and counts them, turning a flat list of raw events into the exact shape a triage answer needs: how many failures per account. This is the identical logic the reading's SPL example reached with stats count by Account_Name — same three steps, different keywords.",
       xp: 25,
     } satisfies QueryFillTask,
   ],
@@ -892,11 +909,11 @@ Endpoint event → **Agent collects it** → ships over TCP 1514 → **Manager r
 
 This full pipeline typically completes in under 5 seconds from event generation to alert appearing in the dashboard.`,
       checkpoint: {
-        question: "According to the reading, which TCP port does the Wazuh Agent use to communicate with the Wazuh Manager?",
+        question: "On the Wazuh dashboard, agent 001 (linux-srv-01) shows as Disconnected, while the dashboard itself still loads data from the Manager normally. A firewall change was just made between linux-srv-01 and the Manager. Which port has most likely been blocked?",
         options: ["TCP 1514", "TCP 55000", "TCP 514", "TCP 443"],
         answer: 0,
         explanation:
-          "Agents communicate with the Manager over TCP port 1514 (encrypted). TCP 55000 is the separate API port the dashboard uses to talk to the Manager.",
+          "Agents talk to the Manager over TCP 1514 (encrypted), so a block there disconnects the agent while everything else keeps working. TCP 55000 is the Manager's API used by the dashboard — that path is still working in this scenario. TCP 514 is classic syslog for agentless devices, not the Wazuh agent channel, and 443 serves the dashboard's web interface.",
       },
     } satisfies ReadingTask,
 
@@ -985,11 +1002,16 @@ For example:
 - Child rule 5710: "Failed login for non-existent user" (only fires if parent matched AND user does not exist)
 - Child rule 5712: "sshd: brute force trying to get access to the system" (only fires if parent matched AND failures exceed the frequency threshold in the timeframe)`,
       checkpoint: {
-        question: "According to the reading, what is the DEFAULT value of Wazuh's `log_alert_level` — the level at or above which a rule produces a dashboard alert out of the box?",
-        options: ["Level 3", "Level 5", "Level 7", "Level 12"],
+        question: "A custom rule fires at level 4 on agent 001, but no alert appears on the dashboard. On a fresh lab install of Wazuh, the same rule's level-4 alerts do appear. Which explanation fits best?",
+        options: [
+          "This site raised log_alert_level above 4; the default of 3 would show it",
+          "Level 4 sits in the Low band, which Wazuh does not alert on by default",
+          "The default alerting threshold is level 7, so level 4 events go to the archives instead",
+          "Level 4 alerts wait until the rule's frequency count has been reached",
+        ],
         answer: 0,
         explanation:
-          "The default `log_alert_level` in `ossec.conf` is 3, so by default any rule firing at level 3 or above becomes a visible alert. A common tuning step is to raise it (to 5, 7, or higher) to cut noise, but that is a per-site choice — not the out-of-the-box default. Assuming '7' is the default is a frequent and costly mistake.",
+          "By default `log_alert_level` in `ossec.conf` is 3, so a level-4 rule produces a visible alert — which is why the lab install shows it. When it disappears on one site, that site has raised the threshold (to 5, 7 or higher) to cut noise. The Low band (4–6) is above the default threshold of 3, so the default does alert on it. 7 is a common tuned value, not the default — assuming otherwise is a frequent mistake. Frequency only applies to rules built with frequency/timeframe, and would behave the same on the lab install.",
       },
     } satisfies ReadingTask,
 
@@ -998,16 +1020,16 @@ For example:
       type: "question",
       id: "wazuh-q1",
       question:
-        "A Wazuh rule with level 15 fires on a monitored endpoint. What does level 15 indicate in the Wazuh severity scale?",
+        "Two alerts arrive together on the same server: rule A at level 12 and rule B at level 15. How should you read them on Wazuh's severity scale?",
       options: [
-        "Low severity — informational event, no action needed",
-        "Medium severity — investigate when time permits",
-        "High severity — serious event requiring prompt attention",
-        "Critical severity — the maximum level, requiring immediate response",
+        "Both are Critical; Wazuh treats every level from 12 up as one band",
+        "Rule A is Medium and rule B is High; Critical is reserved for level 16",
+        "Both are High; the level reflects how many times each rule has fired",
+        "Rule A is High; rule B is Critical, the maximum level, so it goes first",
       ],
       answer: 3,
       explanation:
-        "In Wazuh's 0-15 severity scale, level 15 is the maximum — Critical. It indicates an event of the highest severity requiring immediate response. Levels 12-14 are High, 7-11 are Medium, 4-6 are Low, and 0-3 are informational or ignored. By default (`log_alert_level` = 3) any rule at level 3 or above becomes a visible alert in the dashboard; many teams then raise that threshold to cut noise, but 3 — not 7 — is the out-of-the-box default.",
+        "Wazuh levels run 0–15: 12–14 is High and 15 alone is Critical, the maximum, so rule B takes priority. 12 is High, not Critical, so the two are not one band. There is no level 16 — 15 is the top of the scale. A rule's level is fixed in its definition; it describes severity, not how often the rule fired. (Levels 7-11 are Medium, 4-6 are Low, and 0-3 are informational or ignored.) By default (`log_alert_level` = 3) any rule at level 3 or above becomes a visible alert in the dashboard; many teams then raise that threshold to cut noise, but 3 — not 7 — is the out-of-the-box default.",
       xp: 20,
     } satisfies QuestionTask,
 
@@ -1042,7 +1064,7 @@ When a monitored file changes, Wazuh generates a FIM alert containing:
 - The SHA256 hash before and after the change
 - The user account that made the change (where available)
 
-FIM alerts on /etc/passwd or /etc/sudoers on a Linux server should always be investigated — adding a new user or granting sudo access are classic post-exploitation actions.
+FIM alerts on /etc/passwd or /etc/sudoers on a Linux server should always be investigated — adding a new user or granting sudo access are classic post-exploitation actions. When you review a new account, also check its login shell: service accounts are normally created with a non-login shell such as /usr/sbin/nologin or /bin/false, so a new "service" account given /bin/bash can be used for interactive logins — a common backdoor pattern.
 
 **Security Configuration Assessment (SCA)**
 
@@ -1079,11 +1101,11 @@ The Wazuh Dashboard includes several built-in sections:
 - **Regulatory Compliance** — pre-built dashboards for PCI-DSS, HIPAA, GDPR, NIST 800-53, CIS
 - **Agents** — list of all monitored endpoints with connectivity status, OS, last alert time`,
       checkpoint: {
-        question: "According to the reading, which file does Wazuh's File Integrity Monitoring (FIM) watch by default that would alert on a new Linux user account being added?",
-        options: ["/etc/passwd", "/var/log/syslog", "/proc/version", "/tmp/.cache"],
+        question: "An attacker runs useradd to create a new local account on a Linux server. Which file's change would FIM report as the account appears?",
+        options: ["/etc/passwd", "/etc/sudoers", "/var/log/auth.log", "/usr/bin/useradd"],
         answer: 0,
         explanation:
-          "/etc/passwd is one of the critical files monitored by default FIM; adding a new user modifies it, and a FIM alert on /etc/passwd or /etc/sudoers should always be investigated as a possible post-exploitation action.",
+          "New accounts are written to /etc/passwd, one of the files FIM watches by default, so FIM reports the change. /etc/sudoers only changes if the account is later given sudo rights. /var/log/auth.log is a log that Wazuh reads through log analysis, not a watched configuration file. Running /usr/bin/useradd does not modify the binary itself, so FIM would see no change there.",
       },
     } satisfies ReadingTask,
 
@@ -1093,19 +1115,19 @@ The Wazuh Dashboard includes several built-in sections:
       id: "wazuh-la1",
       heading: "Wazuh Alert: New User Added to Linux System",
       context:
-        "You are a SOC analyst monitoring a Linux production server through Wazuh. A high-severity alert just fired on your dashboard. The server is a critical application server that should never have new user accounts added outside of approved change management windows. Review the alert and answer the questions.",
+        "You are a SOC analyst monitoring a Linux production server through Wazuh. An alert just fired on your dashboard. The server is a critical application server that should never have new user accounts added outside of approved change management windows. Review the alert and answer the questions.",
       event: {
         id: "wazuh-evt-001",
         ts: "2025-06-24T02:44:17Z",
         source: "siem",
         event_type: "edr_alert",
-        severity: "high",
+        severity: "medium",
         hostname: "linux-srv-01",
         description: "Wazuh: New user account added to the system",
         mitre_technique: "T1136.001",
         raw: {
-          "rule.id": "5903",
-          "rule.level": "12",
+          "rule.id": "5902",
+          "rule.level": "8",
           "rule.description": "New user added to the system",
           "rule.groups": ["adduser", "syslog"],
           "data.dstuser": "sysmgr_svc",
@@ -1122,25 +1144,30 @@ The Wazuh Dashboard includes several built-in sections:
       questions: [
         {
           question:
-            "What Wazuh rule ID fired, and what is its rule level? What does this level mean?",
+            "The alert's rule.level is 8. How should that level shape your response, given what the context says about this server?",
           options: [
-            "Rule 5710, level 7 — medium severity SSH failure",
-            "Rule 5903, level 12 — high severity, requiring prompt attention",
-            "Rule 510, level 7 — rootcheck host-based anomaly detection",
-            "Rule 5501, level 5 — low severity authentication failure",
+            "Low priority — levels below 12 can wait for the next routine review",
+            "Medium band, but the server's context makes it urgent: escalate it",
+            "Treat it as Critical — creating a user is the riskiest change on Linux",
+            "Close it — the level already accounts for context, so 8 means routine",
           ],
           answer: 1,
           explanation:
-            "Read it straight off the alert: `rule.id` is 5903 and `rule.level` is 12, and the alert helpfully carries `rule.description` — 'New user added to the system' — so you never have to remember what a given ID means. That is the habit worth building. Rule IDs shift between ruleset versions, so an analyst who reads the description field (or runs `wazuh-logtest` to confirm which rule fires) will be right in any environment, while one who memorised a list will eventually be confidently wrong.\n\nThe level is what sets your urgency: 12 sits in Wazuh's High band (12-14), well above the default alerting threshold (`log_alert_level` = 3). Combine that with the context — an unplanned account creation on a critical application server at 02:44 AM, outside any approved change window — and this is worth waking someone for, whatever the account happens to be called.",
+            "Level 8 sits in Wazuh's Medium band (7–11): events that should be investigated. A rule's level is generic — the same on every server — so it cannot know that this is a critical application server where new accounts appear only in approved change windows. An unplanned account at 02:44 on that server is worth escalating whatever the level says. Medium alerts do need an analyst, so ignoring everything below 12 is wrong. The level is not Critical either: only 15 is. And a level does not include business context — adding it is the analyst's job, using `rule.description` (New user added to the system) and what you know about the server.",
           xp: 25,
         },
         {
           question:
-            "The 'full_log' field shows the raw syslog line. What was the shell assigned to the new account 'sysmgr_svc'?",
-          options: ["/bin/false (no login shell)", "/bin/nologin", "/bin/bash (fully interactive shell)", "/bin/sh"],
+            "Which detail in full_log most strongly suggests sysmgr_svc is not an ordinary service account?",
+          options: [
+            "home=/home/sysmgr_svc — a home directory marks it as a human user's account",
+            "data.srcuser=root — legitimate admins do not run useradd as root",
+            "shell=/bin/bash — service accounts normally get a non-login shell",
+            "UID=1337 — UIDs of 1000 and above are reserved for system services",
+          ],
           answer: 2,
           explanation:
-            "The full_log field shows 'shell=/bin/bash' — a fully interactive shell. This is significant: legitimate service accounts (like database or web server accounts) are typically given /bin/false or /bin/nologin to prevent interactive logins. Assigning /bin/bash to a newly created, unapproved account at 2am strongly indicates this account was created by an attacker for persistent backdoor access.",
+            "Service accounts are normally given a non-login shell such as /usr/sbin/nologin or /bin/false; /bin/bash lets this new 'service' account log in interactively — a common backdoor pattern, especially at 02:44 outside any change window. useradd creates a home directory for many kinds of account, so a home path alone proves little. Running useradd as root is normal, because it needs root. UIDs from 1000 up are ordinary user accounts, not reserved for services, so 1337 is not the tell.",
           xp: 30,
         },
         {
@@ -1165,9 +1192,9 @@ The Wazuh Dashboard includes several built-in sections:
       type: "flag",
       id: "wazuh-flag1",
       prompt:
-        "From the Wazuh alert above, what is the numeric value in the 'rule.level' field? Enter only the number.",
-      answer: "12",
-      hint: "Look at the raw log fields in the Wazuh alert. The field is 'rule.level'.",
+        "Using the reading's table of rule-ID ranges, which built-in range does the rule in this alert belong to? Enter the lower bound of that range (numbers only).",
+      answer: "5300",
+      hint: "Wazuh groups its built-in rule IDs into blocks by log source.",
       xp: 15,
     } satisfies FlagTask,
 
@@ -1199,11 +1226,11 @@ The Wazuh Dashboard includes several built-in sections:
         "File Integrity Monitoring (FIM)",
         "Security Configuration Assessment (SCA)",
         "Active Response",
-        "OpenSearch Indexer",
+        "A frequency/timeframe rule such as 5712",
       ],
       answer: 2,
       explanation:
-        "Active Response is Wazuh's automated countermeasure system. When a specified rule fires, Wazuh can trigger scripts on the monitored endpoint — including the built-in 'firewall-drop' script that blocks the source IP using iptables. Active responses can run on the agent that generated the alert, on a different agent, or on the Wazuh Manager itself.",
+        "Active Response is Wazuh's automated countermeasure system. A frequency/timeframe rule such as 5712 (SSH brute force) detects the attack and raises the alert, but detecting is not blocking — Active Response is what acts on that alert. FIM watches files and SCA checks configuration against benchmarks; neither blocks traffic. When a specified rule fires, Wazuh can trigger scripts on the monitored endpoint — including the built-in 'firewall-drop' script that blocks the source IP using iptables. Active responses can run on the agent that generated the alert, on a different agent, or on the Wazuh Manager itself.",
       xp: 20,
     } satisfies QuestionTask,
   ],
@@ -1289,13 +1316,15 @@ Each data connector populates specific tables in the Log Analytics Workspace. Ke
 | **SecurityAlert** | Alerts from Microsoft security products (Defender, Sentinel analytics rules) |
 | **SecurityIncident** | Sentinel incidents (grouped alerts) |
 
-Knowing which table to query is the first step in any Sentinel investigation. A Windows failed login? Query SecurityEvent. A suspicious Azure AD login? Query SigninLogs.`,
+Knowing which table to query is the first step in any Sentinel investigation. A Windows failed login? Query SecurityEvent. A suspicious Azure AD login? Query SigninLogs.
+
+**Reading a 4625 row in SecurityEvent:** two columns do most of the triage work. **LogonType** says how the logon was attempted — 2 = interactive at the keyboard, 3 = network (for example an SMB share or mapped drive), 5 = a service starting, 10 = a full RDP session. **SubStatus** says why it failed — 0xC000006A = wrong password for an account that exists, 0xC0000064 = the username does not exist, 0xC0000072 = the account is disabled.`,
       checkpoint: {
-        question: "According to the reading, which Sentinel table would you query to investigate a suspicious Azure AD sign-in?",
-        options: ["SigninLogs", "SecurityEvent", "Syslog", "Heartbeat"],
+        question: "A user reports MFA prompts they never requested, right after someone tried their Microsoft 365 password from abroad. Which table shows those cloud sign-in attempts?",
+        options: ["SigninLogs", "SecurityEvent", "OfficeActivity", "AuditLogs"],
         answer: 0,
         explanation:
-          "SigninLogs holds Azure Active Directory / Entra ID sign-in events. SecurityEvent is for Windows Security Event Log data (like 4624/4625), which is a different source entirely.",
+          "Entra ID (Azure AD) sign-ins, including failed and MFA-challenged ones, are in SigninLogs. SecurityEvent holds Windows Security log events from servers and workstations, not cloud sign-ins. OfficeActivity records what users do inside Exchange, SharePoint and Teams after they are signed in. AuditLogs records directory changes such as new users or role assignments.",
       },
     } satisfies ReadingTask,
 
@@ -1390,11 +1419,16 @@ This query finds all source IPs that generated more than 20 failed Windows login
 - String literals use double quotes: \`"value"\`
 - Run queries in the Sentinel Logs blade or in the Log Analytics Workspace directly`,
       checkpoint: {
-        question: "According to the reading, which KQL function means '1 hour ago from now' when filtering on TimeGenerated?",
-        options: ["ago(1h)", "timerange(1h)", "past(1h)", "since(1h)"],
+        question: "A scheduled rule runs every 5 minutes and filters TimeGenerated > ago(5m). One connector's events reach Sentinel about 3 minutes after they happen, and some of them never trigger the rule. What is the most likely reason?",
+        options: [
+          "TimeGenerated is event time, so late rows land in a window that already ran",
+          "TimeGenerated is ingestion time, so late rows get stamped too new to match",
+          "ago(5m) counts back from when the rule was created, not from each run",
+          "KQL drops rows whose ingestion delay is longer than the lookback window",
+        ],
         answer: 0,
         explanation:
-          "ago(1h) is the KQL function for a relative time offset; the same pattern works for ago(24h), ago(7d), ago(30m), and so on.",
+          "TimeGenerated is when the event happened at the source. An event from 14:04 that lands at 14:07 is not there for the 14:05 run, and the 14:10 run only looks back to 14:05 — so it is never evaluated. The fix the reading describes is a lookback that overlaps the run interval. If TimeGenerated were ingestion time, late rows would simply match the next run. ago() is relative to the moment the query runs. KQL does not drop late rows; they are stored and searchable, just outside this rule's window.",
       },
     } satisfies ReadingTask,
 
@@ -1405,14 +1439,14 @@ This query finds all source IPs that generated more than 20 failed Windows login
       question:
         "A SOC analyst wants to find all failed Windows logins (Event ID 4625) in Sentinel from the past 6 hours. Which KQL query correctly achieves this?",
       options: [
-        "SELECT * FROM SecurityEvent WHERE EventID = 4625 AND time > -6h",
+        "SecurityEvent | where EventID == 4625 | where TimeGenerated < ago(6h)",
         "SecurityEvent | where EventID == 4625 | where TimeGenerated > ago(6h)",
-        "SigninLogs | where EventID == 4625 | filter time > 6h",
-        "SecurityEvent | filter EventID = '4625' | timerange 6h",
+        "SigninLogs | where EventID == 4625 | where TimeGenerated > ago(6h)",
+        "SecurityEvent | Where EventID == 4625 | Where TimeGenerated > ago(6h)",
       ],
       answer: 1,
       explanation:
-        "The correct KQL syntax is: start with the table name (SecurityEvent), then use pipe-separated operators. 'where EventID == 4625' filters for failed logins, and 'where TimeGenerated > ago(6h)' filters for the past 6 hours. The SELECT ... FROM version is SQL syntax (not valid in KQL). The SigninLogs version uses the wrong table (SigninLogs is for Entra ID / Azure AD sign-ins, not Windows Security Events) and wrong syntax. The 'filter ... | timerange' version uses invalid KQL syntax.",
+        "Start with the SecurityEvent table, filter with where EventID == 4625, and keep rows newer than six hours ago with TimeGenerated > ago(6h). Using < ago(6h) inverts the window and returns everything OLDER than six hours. SigninLogs holds Entra ID sign-ins and has no EventID column; Windows failed logons live in SecurityEvent. 'Where' with a capital W fails, because KQL operators are case-sensitive.",
       xp: 25,
     } satisfies QuestionTask,
 
@@ -1546,39 +1580,39 @@ Workbooks are Sentinel's built-in dashboards, built on Azure Monitor Workbooks. 
       questions: [
         {
           question:
-            "Which Sentinel table does this Windows Security Event 4625 (failed login) come from?",
+            "You want every other failed Windows logon from 185.220.101.45 across all servers and workstations, not just this one. Which table do you query?",
           options: ["SigninLogs", "AuditLogs", "SecurityEvent", "OfficeActivity"],
           answer: 2,
           explanation:
-            "Windows Security Event Log entries — including failed logins (4625), successful logins (4624), process creation (4688), and all other Windows Security channel events — are stored in the 'SecurityEvent' table in Sentinel. SigninLogs is for Azure AD / Entra ID cloud logins. AuditLogs is for Azure AD directory changes. OfficeActivity is for Microsoft 365 (Exchange, SharePoint, Teams).",
+            "Windows Security events from every connected Windows machine — including 4625 failed logons — land in one table, SecurityEvent, so a single query filtered on IpAddress finds them all. SigninLogs is the right pivot for this IP's cloud sign-ins, but not for Windows logons. AuditLogs holds Entra ID directory changes, and OfficeActivity holds Microsoft 365 user activity.",
           xp: 20,
         },
         {
           question:
-            "The SubStatus field shows '0xC000006A'. This is a Windows authentication sub-status code. What does 0xC000006A indicate?",
+            "SubStatus is 0xC000006A. What does that tell you about the attacker's position against j.smith?",
           options: [
-            "Account does not exist (unknown username)",
-            "Account is disabled",
-            "Wrong password was provided for a valid account",
-            "Account is expired",
+            "They are guessing usernames, and j.smith does not exist in the domain",
+            "They cannot succeed, because the j.smith account is disabled",
+            "They have a valid username and are guessing its password",
+            "They were locked out, so further attempts are being refused",
           ],
           answer: 2,
           explanation:
-            "Windows sub-status code 0xC000006A means 'User logon with misspelled or bad password' — the username exists but the wrong password was provided. This is significant: it means the attacker knows the username 'j.smith' is a valid account. Compare this to 0xC0000064 (user name does not exist) or 0xC0000072 (account disabled). Knowing the sub-status helps analysts understand the stage of a brute force attack.",
+            "0xC000006A means the account exists but the password was wrong: the attacker has a real username and only needs the password, which makes a later success more dangerous. A non-existent username would be 0xC0000064, and a disabled account 0xC0000072. A lockout has its own failure code (0xC0000234), which this event does not show.",
           xp: 30,
         },
         {
           question:
-            "LogonType 3 appears in the event. What does Logon Type 3 mean in Windows authentication?",
+            "LogonType is 3 and IpAddress is an internet address. What does that combination tell you about how the attempt reached CORP-WS-042?",
           options: [
-            "Interactive logon — user physically sat at the machine and entered credentials",
-            "Service logon — a Windows service started using a service account",
-            "Network logon — authentication over the network (e.g., SMB file share, mapped drive)",
-            "Cached credentials logon — offline login using cached domain credentials",
+            "Someone at CORP-WS-042's own keyboard typed j.smith's password",
+            "A Windows service on CORP-WS-042 started with stored credentials",
+            "It arrived over the network, so this workstation is reachable from outside",
+            "It used cached credentials while the workstation was offline",
           ],
           answer: 2,
           explanation:
-            "Windows Logon Type 3 is a Network logon — the authentication request came over the network rather than at the physical console. This type is used by SMB (file shares), mapped drives and many other remote access methods. (A full interactive RDP session logs as LogonType 10, RemoteInteractive; only RDP's Network Level Authentication pre-check appears as type 3.) The source IP 185.220.101.45, an external address unrelated to the corporate network, combined with LogonType 3 and a WorkstationName that does not match any known corporate asset, confirms this is a remote network-based authentication attempt from outside the organisation.",
+            "LogonType 3 is a network logon, such as SMB access to a share. Coming from 185.220.101.45, it means an external host could reach a network service on this workstation — an exposure worth raising in its own right. A person at the keyboard logs LogonType 2, a service starting logs LogonType 5, and cached offline logons use LogonType 11. (A full RDP session is LogonType 10; only RDP's Network Level Authentication pre-check appears as type 3.)",
           xp: 25,
         },
       ],
@@ -1589,9 +1623,9 @@ Workbooks are Sentinel's built-in dashboards, built on Azure Monitor Workbooks. 
       type: "flag",
       id: "sentinel-flag1",
       prompt:
-        "In Microsoft Sentinel, which Log Analytics table stores Windows Security Event Log entries — including failed logins (EventID 4625) and successful logins (EventID 4624)? Enter the exact table name.",
-      answer: "SecurityEvent",
-      hint: "This table is mentioned in the Reading 1 table of Sentinel log tables, and confirmed in the log analysis explanation above.",
+        "In the 4625 event above, which column holds the address you would pivot on to find every other attempt by the same attacker? Enter the exact column name.",
+      answer: "IpAddress",
+      hint: "Not the machine that was targeted, and not the name the attacker's machine reported about itself.",
       xp: 20,
     } satisfies FlagTask,
 
@@ -1602,10 +1636,10 @@ Workbooks are Sentinel's built-in dashboards, built on Azure Monitor Workbooks. 
       question:
         "You want a Sentinel detection that runs every 5 minutes, looks back at the last 1 hour of SigninLogs, and flags a user account signing in from two countries 30 minutes apart (impossible travel) using your own distance and time thresholds. What type of analytics rule is MOST appropriate for this detection?",
       options: [
-        "Scheduled rule with a custom KQL query calculating geolocation distance and time difference",
-        "NRT (Near Real Time) rule running every 1 minute",
-        "Fusion rule — Fusion's ML engine detects impossible travel on its own from raw sign-in logs",
-        "Microsoft Security rule — it turns raw SigninLogs records directly into incidents",
+        "Scheduled rule with a custom KQL query for distance and time between sign-ins",
+        "NRT (Near Real Time) rule, so the travel alert fires within a minute",
+        "Fusion rule — its ML engine detects impossible travel from raw sign-in logs",
+        "Microsoft Security rule — it turns raw SigninLogs records into incidents",
       ],
       answer: 0,
       explanation:
@@ -1621,13 +1655,13 @@ Workbooks are Sentinel's built-in dashboards, built on Azure Monitor Workbooks. 
         "A SOC analyst wants to see the top 5 user accounts with the most failed logins in the past 24 hours in Sentinel. Which KQL query is correct?",
       options: [
         "SecurityEvent | where EventID == 4625 | where TimeGenerated > ago(24h) | summarize FailCount = count() by Account | top 5 by FailCount",
-        "SELECT Account, COUNT(*) FROM SecurityEvent WHERE EventID=4625 GROUP BY Account LIMIT 5",
-        "SigninLogs | where ResultType != 0 | top 5 by Account",
-        "SecurityEvent | filter EventID=4625 | groupby Account | top 5",
+        "SecurityEvent | where EventID == 4625 | where TimeGenerated > ago(24h) | summarize count() by Account | top 5 by Account",
+        "SigninLogs | where ResultType != 0 | where TimeGenerated > ago(24h) | summarize FailCount = count() by Account | top 5 by FailCount",
+        "SecurityEvent | where EventID == 4625 | where TimeGenerated > ago(24h) | summarize FailCount = count() by Computer | top 5 by FailCount",
       ],
       answer: 0,
       explanation:
-        "The correct KQL query chains the operators correctly: (1) start with SecurityEvent table, (2) filter for EventID 4625 using 'where', (3) apply time filter with ago(24h), (4) summarize with count() grouped by Account, (5) return top 5 by count. The SELECT ... GROUP BY version is SQL syntax. The SigninLogs version queries the wrong table: Windows failed logons (4625) live in SecurityEvent, while SigninLogs holds Entra ID sign-ins and marks failures with ResultType, not EventID. The 'filter ... | groupby' version uses invalid KQL syntax.",
+        "The correct query filters SecurityEvent to 4625, scopes to 24 hours, counts failures per Account, then takes the top 5 by that count. 'top 5 by Account' sorts by the account name, not by how many failures it has. Grouping by Computer answers a different question — which hosts saw the most failures. The SigninLogs query reads Entra ID sign-ins, not Windows failed logons (4625 lives in SecurityEvent), and that table has no Account column.",
       xp: 25,
     } satisfies QuestionTask,
 
@@ -1643,11 +1677,11 @@ Workbooks are Sentinel's built-in dashboards, built on Azure Monitor Workbooks. 
         "SecurityEvent\n| where EventID == {{eventid}}\n| where TimeGenerated > ago({{window}})\n| project TimeGenerated, {{account}}, Computer, IpAddress",
       blanks: [
         { id: "eventid", answers: ["4625"], placeholder: "event ID" },
-        { id: "window",  answers: ["1h"], placeholder: "time window" },
-        { id: "account", answers: ["Account", "TargetAccount"], placeholder: "account column" },
+        { id: "window",  answers: ["1h", "60m"], placeholder: "time window" },
+        { id: "account", answers: ["Account", "TargetAccount", "TargetUserName"], placeholder: "account column" },
       ],
       explanation:
-        "4625 is the Windows Security Event ID for a failed logon. ago(1h) scopes TimeGenerated to the last hour — KQL's relative-time shorthand (1h, 30m, 7d). SecurityEvent's account column is named Account (some schema versions expose TargetAccount) — project narrows the output to just what a triage analyst needs to see per row.",
+        "4625 is the Windows Security Event ID for a failed logon. ago(1h) scopes TimeGenerated to the last hour — KQL's relative-time shorthand (1h, 30m, 7d). SecurityEvent's account column is named Account; TargetAccount and TargetUserName also hold the target account and are accepted. ago(60m) is the same window as ago(1h). project narrows the output to just what a triage analyst needs to see per row.",
       xp: 30,
     } satisfies QueryFillTask,
 
@@ -1657,7 +1691,7 @@ Workbooks are Sentinel's built-in dashboards, built on Azure Monitor Workbooks. 
       id: "sentinel-ac1",
       heading: "Verdict: Mass Failed Logons Across Many Accounts From One Source",
       scenario:
-        "At 03:00 AM, a Sentinel scheduled analytics rule fires: 260 failed Windows logons (Event ID 4625) across 14 distinct user accounts, all originating from a single source IP (10.30.8.14), within a 10-minute window. This is exactly the query pattern taught earlier in this room for detecting password spray. IT change management confirms 10.30.8.14 is the internal Qualys vulnerability scanner (scanner-qualys01), running its monthly authenticated credential-validation scan against the Windows subnet 10.30.8.0/24, per the standing compliance-scanning schedule (change record CHG0052210). What is your verdict?",
+        "At 03:00 AM, a Sentinel scheduled analytics rule fires: 260 failed Windows logons (Event ID 4625) across 14 distinct user accounts, all from a single source IP (10.30.8.14), within a 10-minute window. Before you decide, check who owns 10.30.8.14 and whether anything explains activity from it at this hour — the IT verification note under the alert is your asset and change-record lookup. What is your verdict?",
       event: {
         id: "sentinel-ac1-evt-001",
         ts: "2025-08-03T03:00:00Z",

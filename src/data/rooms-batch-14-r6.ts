@@ -79,35 +79,31 @@ const bruteForceEnrichedEvent: TelemetryEvent = {
 };
 
 // ── Analyst choice event: the over-automation trap ──────────────────────────
+// The raw 4625 alone looks exactly like the svc-backup brute force above; the
+// verdict has to come from the enrichment and change context in the scenario.
 const overAutomationEvent: TelemetryEvent = {
   id: "evt-soar-ac1-001",
   ts: "2024-11-19T09:03:41.000Z",
-  source: "firewall",
-  vendor: "Palo Alto Networks PAN-OS",
+  source: "ad",
+  vendor: "Windows Security",
   event_type: "auth_failure",
   severity: "medium",
-  hostname: "VPN-GW-01",
+  hostname: "HD-API-01.nexacorp.com",
   user_email: "helpdesk-integration@nexacorp.com",
   src_ip: "52.14.88.201",
-  description: "A SOAR playbook flagged repeated failed authentication attempts from 52.14.88.201 against a shared helpdesk integration account and recommends auto-blocking the source IP",
+  description: "The latest of 23 failed logons against the helpdesk-integration account over 40 minutes, all from 52.14.88.201; the brute-force playbook recommends blocking the source IP",
   mitre_technique: "T1110",
   mitre_tactic: "Credential Access",
   raw: {
-    "event.action": "network-connection-denied",
-    "source.ip": "52.14.88.201",
-    "destination.ip": "10.10.1.5",
-    "destination.port": "443",
-    "pan.app": "ssl",
-    "pan.action": "deny",
-    "xsoar.playbook.name": "Brute Force - Auto Containment v3",
-    "xsoar.playbook.action_recommended": "block_ip",
-    "xsoar.enrichment.ip_reputation.source": "VirusTotal",
-    "xsoar.enrichment.ip_reputation.score": "0/89 malicious",
-    "xsoar.enrichment.ip_reputation.tags": [],
-    "xsoar.enrichment.asset_owner.notes":
-      "52.14.88.201 resolves to an AWS Elastic IP used by Zendesk's outbound integration servers (documented in vendor integration ticket VEND-2291). The helpdesk-integration service account had its password rotated by IT yesterday; the connector was not yet updated with the new credential, causing repeated auth failures from a legitimate, expected source.",
-    "xsoar.playbook.failure_pattern": "23 failures over 40 minutes, consistent timing, single stable IP, no credential guessing pattern (same wrong password each time)",
-    "action_result": "deny",
+    "event.code": "4625",
+    "winlog.event_data.TargetUserName": "helpdesk-integration",
+    "winlog.event_data.TargetDomainName": "CORP",
+    "winlog.event_data.Status": "0xC000006D",
+    "winlog.event_data.SubStatus": "0xC000006A",
+    "winlog.event_data.LogonType": "3",
+    "winlog.event_data.IpAddress": "52.14.88.201",
+    "winlog.event_data.WorkstationName": "-",
+    "winlog.event_data.FailureReason": "%%2313",
   },
 };
 
@@ -159,15 +155,15 @@ const soarRoom = {
         "  looking at. SOAR decides HOW FAST and HOW CONSISTENTLY you react\n" +
         "  to it.",
       checkpoint: {
-        question: "According to the reading, what does the acronym SOAR stand for, and what three related functions does it perform?",
+        question: "A playbook pulls an alert out of the SIEM, queries VirusTotal and Active Directory, and writes both results into a ServiceNow ticket — three separate tools coordinated in one flow. Which part of SOAR's name describes that coordination across tools?",
         options: [
-          "Security Orchestration, Automation and Response — it orchestrates, automates, and responds",
-          "Security Operations and Response — it detects, correlates, and alerts",
-          "Security Orchestration and Reporting — it collects, stores, and archives",
-          "Security Operations, Automation and Recovery — it scans, patches, and reports",
+          "Orchestration — pulling data from many tools and coordinating actions across them",
+          "Automation — executing a repeatable step without a human doing it by hand",
+          "Response — taking action on the alert based on a predefined playbook",
+          "Correlation — linking events from many log sources into a single alert",
         ],
         answer: 0,
-        explanation: "The reading defines SOAR as Security Orchestration, Automation and Response, doing three related things: orchestrating (coordinating tools), automating (executing repeatable steps), and responding (taking action via a playbook).",
+        explanation: "The reading defines orchestration as pulling data from many different tools into one place and coordinating actions across them — exactly what connecting the SIEM, VirusTotal, AD and ServiceNow in one flow does. Automation is the related idea that the steps run without a human, but the stem asks about the coordination across tools. Response is taking action (enriching, ticketing, containing) per the playbook. Correlation is not part of SOAR's name at all — it is the SIEM's job of linking events into an alert.",
       },
     },
 
@@ -212,7 +208,7 @@ const soarRoom = {
         "Enrichment is low-risk: looking up information does not change anything in your environment, so it is safe to fully automate. **Containment** is a different category entirely, because containment actions actively change something — and if the playbook's judgment is wrong, the automation itself becomes the incident.\n\n" +
         "**Common Automated Containment Actions**\n\n" +
         "**Isolate a host** — the EDR agent puts the endpoint into network quarantine, cutting it off from the rest of the network (except a channel back to the security tooling) while still leaving it running for forensic collection.\n\n" +
-        "**Disable a user account** — the identity provider (AD, Entra ID, Okta) flips the account to disabled, immediately killing any active sessions and blocking new logins.\n\n" +
+        "**Disable a user account** — the identity provider (AD, Entra ID, Okta) flips the account to disabled, blocking new sign-ins; sessions and tokens already issued stay valid until they expire or are revoked, which is why the separate revoke action below matters.\n\n" +
         "**Block an IP address** — the firewall or WAF adds a deny rule for a specific source IP, stopping further traffic from that address.\n\n" +
         "**Revoke active sessions / tokens** — force a re-authentication, invalidating any session an attacker may have already stolen.\n\n" +
         "**Why a Human Approval Gate Matters**\n\n" +
@@ -237,15 +233,15 @@ const soarRoom = {
         "    (hard to reverse quickly / high blast radius if the call is\n" +
         "    wrong -- automation drafts the recommendation, a human decides)",
       checkpoint: {
-        question: "According to the reading, which automated containment action forces re-authentication by invalidating any session an attacker may have already stolen?",
+        question: "An attacker has stolen a user's live session token and is using it from their own machine. The playbook has already disabled the account. Which additional action actually cuts off the session the attacker is using right now?",
         options: [
           "Revoke active sessions / tokens",
-          "Isolate a host",
-          "Disable a user account",
-          "Block an IP address",
+          "Isolate the user's host",
+          "Require MFA at the next sign-in",
+          "Block the user's usual IP address",
         ],
         answer: 0,
-        explanation: "The reading lists 'Revoke active sessions / tokens' as the containment action that forces a re-authentication, invalidating any session an attacker may have already stolen — distinct from disabling the account or isolating the host.",
+        explanation: "Disabling blocks new sign-ins, but tokens already issued stay valid until they expire or are revoked — so the stolen session keeps working until you revoke it, which forces re-authentication. Isolating the user's host does nothing to a token being replayed from the attacker's own machine. Requiring MFA at the next sign-in only affects future sign-ins; a stolen token has already passed authentication. Blocking the user's usual IP blocks the victim, not the attacker, who is connecting from elsewhere.",
       },
     },
 
@@ -350,28 +346,28 @@ const soarRoom = {
           question:
             "Looking only at this raw alert, which piece of context that a human analyst would normally need is NOT yet present, and would require manual lookup (or automated enrichment) to answer?",
           options: [
-            "The number of failed attempts recorded against this account within the observed window — that specific count information is entirely missing and unavailable anywhere in this particular raw alert",
-            "Whether the source IP (185.220.101.47) has any known malicious reputation, and whether this IP has ever legitimately contacted this environment before",
-            "The target username value itself, meaning which specific account was actually the subject of these repeated failed logon attempts — that piece of information is completely missing from this alert",
-            "The SubStatus code explaining precisely why each individual logon attempt failed at the authentication layer — that specific status detail is entirely missing from this particular alert"
+            "Why the logons failed — nothing in the raw event says whether the password was wrong or the account was locked",
+            "Whether 185.220.101.47 has a malicious reputation, and whether it has ever contacted this environment before",
+            "How the logons were attempted — the raw event does not show whether they were network or interactive logons",
+            "Which domain the targeted account belongs to — the raw event names the user but not the user's domain"
           ],
           answer: 1,
           explanation:
-            "The raw alert gives you the mechanical facts (username, IP, failed attempt count, SubStatus 0xC000006A = wrong password) but nothing about WHO or WHAT this source IP actually is. Is it a known-malicious TOR node, a cloud scanner, or a legitimate partner's gateway? That requires an external reputation lookup — exactly the kind of step a SOAR enrichment playbook automates, and exactly the gap the next event (the enriched version of this same alert) fills in.",
+            "The raw event gives you the mechanical facts — TargetUserName and TargetDomainName (svc-backup in CORP), the source IpAddress, LogonType 3 (network) and SubStatus 0xC000006A (wrong password) — but nothing about WHO or WHAT the source IP actually is. Is it a known-malicious TOR node, a cloud scanner, or a legitimate partner's gateway? That needs an external reputation and history lookup — exactly the step a SOAR enrichment playbook automates, and the gap the enriched version of this alert fills in. Each distractor names something that IS in the raw block: SubStatus explains the failure, LogonType shows the logon kind, and TargetDomainName names the domain.",
           xp: 35,
         },
         {
           question:
             "The target account is svc-backup — a service account, not a named human. Why does that fact alone raise the priority of this alert, using the WHO framework from earlier training?",
           options: [
-            "It doesn't raise the priority at all — service accounts should always be treated as universally and permanently lower priority than any human account, regardless of what privileges they carry or how they normally authenticate",
-            "Service accounts typically have broad, standing privileges and do not have a 'the user just mistyped their password' explanation the way a human does, since nothing should be manually typing a service account's password at all — repeated failures against one are inherently more suspicious",
-            "Service accounts, by design, can never be locked out under any configuration, so any number of failed logons recorded against one are structurally meaningless and carry absolutely no investigative value whatsoever",
-            "The LogonType value alone, on its own and without any other corroborating evidence, definitively proves this is an attacker and therefore needs absolutely no further verification or enrichment of any kind"
+            "Service accounts are exempt from lockout, so an attacker can keep guessing against one with no limit at all",
+            "No human types a service account's password, so “user mistyped it” is off the table — and its rights are broad",
+            "Service accounts are excluded from MFA, so each wrong-password failure means MFA was already bypassed",
+            "Service logons are only ever recorded as 4624, so a service account appearing in a 4625 is abnormal in itself"
           ],
           answer: 1,
           explanation:
-            "Service accounts are a common high-value target because they often carry elevated, standing privileges and are not supposed to have anyone manually typing a password against them at all (they normally authenticate via stored credentials or certificates in an automated process). Repeated interactive/network failed logon attempts against a service account do not have the easy 'the user just fat-fingered their password' innocent explanation that a human account might have, which is exactly the kind of WHO-based context that should raise this alert's priority.",
+            "Service accounts are high-value targets because they often carry broad, standing privileges, and nobody is supposed to type their password by hand — they authenticate from stored credentials in an automated process. Repeated failures against one lose the easy “the user fat-fingered it” explanation a human account has, which is the WHO-based context that raises priority. “Exempt from lockout” is a misconception: lockout policy applies to service accounts too (which is exactly why locking one out can break production). “Excluded from MFA … MFA was bypassed” confuses two things — a wrong-password failure means the attempt never got past the password at all. “Only ever recorded as 4624” is false: failed logons by any account, service or human, produce 4625.",
           xp: 35,
         },
       ],
@@ -390,28 +386,28 @@ const soarRoom = {
           question:
             "Based on the enrichment fields now present, does this alert look MORE or LESS likely to be a genuine attack compared to the raw version — and which specific enriched field is most responsible for that shift?",
           options: [
-            "Less likely, not more — the enrichment data did not actually add any genuinely useful information beyond what the raw alert already showed, so the analyst's confidence level should remain completely unchanged either way",
-            "More likely — the IP reputation lookup tags this source as a TOR exit node with a malicious score, and the user-context enrichment confirms the normal source IPs for this service account are internal (10.10.5.0/24), meaning this external TOR-associated IP has no legitimate reason to be authenticating as svc-backup at all",
-            "About the same either way — enrichment fields like IP reputation and user context only ever add cosmetic, decorative detail to an alert and never carry any real decision-relevant investigative weight on their own",
-            "Less likely to be a real attack — the asset owner enrichment field shows this backup infrastructure is classified as a low-criticality system, which by itself rules out any need for further concern"
+            "Less likely — the Amsterdam geolocation points to a European data centre of the kind backup vendors often use",
+            "More likely — the IP is tagged as a TOR exit node, and svc-backup normally authenticates only from 10.10.5.0/24",
+            "More likely — the Netherlands geolocation on its own shows the attempts came from outside the company",
+            "About the same — 9/89 means most engines rate the IP clean, so the reputation lookup adds very little"
           ],
           answer: 1,
           explanation:
-            "The enrichment turns two bare facts (an IP and a username) into an actual case for suspicion: the IP is independently flagged as a TOR exit node with a poor reputation score, AND the user-context lookup shows this service account should only ever be authenticating from an internal subnet (10.10.5.0/24) — never from an external TOR node. This is exactly the value of enrichment: it replaces guesswork with verifiable, checkable facts, gathered automatically in seconds.",
+            "The enrichment turns two bare facts (an IP and a username) into a case: the IP is tagged as a TOR exit node with a malicious verdict from several engines, AND the user-context lookup shows this service account normally authenticates only from an internal subnet (10.10.5.0/24) — never from an external TOR node. “A European data centre backup vendors use” invents a benign story the user-context field contradicts. “The Netherlands geolocation on its own” reaches the right direction for the wrong reason — the IP being external was already visible in the raw alert; country alone proves little. “9/89 means most engines rate it clean” misreads reputation scores: nine independent malicious verdicts plus TOR tags is a strong signal, since most engines simply have no opinion on a given IP.",
           xp: 35,
         },
         {
           question:
             "The playbook set 'xsoar.playbook.approval_required' to true and 'approval_status' to 'pending', rather than immediately executing 'block_ip_and_disable_account'. Why is this the correct design, even though the enrichment strongly supports a malicious verdict?",
           options: [
-            "It is a clear mistake to require approval here — any TOR-associated IP with a bad reputation score should always, without exception, be blocked and the associated account disabled instantly with absolutely no human involved in the decision at all",
-            "Disabling a privileged service account is a disruptive, moderately-hard-to-reverse action (it could break a legitimate backup process if the verdict were somehow wrong) — even strong enrichment evidence should pass through a human approval gate before an action with real operational consequences fires automatically",
-            "SOAR platforms as a category of technology are structurally never allowed to recommend account-disabling actions of any kind, since their playbooks are architecturally limited to recommending only network-layer IP blocks",
-            "Approval is only ever required during standard business hours as a policy default, and since this particular alert happens to have fired at night, the normal approval-gate requirement simply does not apply in this case"
+            "It is a design flaw: with a TOR source and a malicious score, the block and disable should fire automatically",
+            "Disabling a privileged backup account could break production if wrong, so even strong evidence goes to a human",
+            "XSOAR licences cap automated actions per day, so playbooks queue high-impact steps behind an approval",
+            "The gate only gathers more evidence; the playbook approves itself once a second matching alert arrives"
           ],
           answer: 1,
           explanation:
-            "This demonstrates the approval-gate principle from the reading: disabling a service account used by backup infrastructure is a Tier 2/3-style action — disruptive if wrong and not instantly reversible without operational impact. Even with strong supporting enrichment (TOR IP, wrong normal source range), the playbook is correctly designed to draft the recommended action and route it to a human for a final decision, rather than auto-executing a high-impact account action with zero human check.",
+            "This is the approval-gate principle from the reading: disabling a service account that production backup infrastructure depends on sits in the mandatory-human-approval band — disruptive if wrong and not instantly reversible without operational impact. Even with strong enrichment, the playbook correctly drafts the action and routes it to a human. “A design flaw … should fire automatically” ignores blast radius: the evidence is strong for the IP block, but the bundled account disable could take down backups. “Licences cap automated actions” invents a product limit; the reading presents the gate as a deliberate design choice. “Approves itself once a second alert arrives” misdescribes the gate — it waits for a human decision, not for more automation.",
           xp: 35,
         },
       ],
@@ -423,13 +419,13 @@ const soarRoom = {
       id: "soar-ac1",
       heading: "Verdict: Should the Playbook Auto-Block This IP?",
       scenario:
-        "A brute-force detection playbook flags 52.14.88.201 for 23 failed logins against a shared 'helpdesk-integration' service account over 40 minutes and recommends an automatic IP block. Before approving or rejecting the recommended containment action, review the full enrichment the playbook already gathered — including the IP reputation score, the asset owner notes, and the failure pattern — and decide whether this should be auto-contained or held for human review.",
+        "The 'Brute Force - Auto Containment v3' playbook flags 23 failed logons against the shared helpdesk-integration account over 40 minutes, all from 52.14.88.201 at a steady interval of roughly 100 seconds, and recommends an automatic IP block. Its enrichment panel shows: VirusTotal 0/89 malicious, no tags; asset inventory — 52.14.88.201 is an AWS Elastic IP registered to Zendesk's outbound integration servers (vendor integration ticket VEND-2291); user context — helpdesk-integration is used only by the Zendesk connector. The change calendar lists CHG-30117: helpdesk-integration password rotated by IT yesterday at 16:00. Review the raw event alongside this context and decide: is this an attack the playbook should be allowed to contain, or a false positive?",
       event: overAutomationEvent,
       correct_verdict: "false_positive" as const,
       explanation:
-        "This is a false positive, and it is the exact over-automation trap this room warns about. The enrichment itself, if actually read rather than rubber-stamped, tells the real story: the IP reputation score is 0/89 malicious with no threat tags at all — nothing here looks like attacker infrastructure. The asset owner notes independently confirm 52.14.88.201 is a known, documented AWS Elastic IP belonging to Zendesk's outbound integration (referenced in vendor ticket VEND-2291), and explain that IT rotated the helpdesk-integration account's password yesterday without yet updating the connector — producing exactly the kind of steady, mechanical, same-wrong-password-every-time failure pattern a broken integration produces, not the varied password-guessing pattern of a real brute-force attack. Auto-blocking this IP would sever a legitimate, documented business integration and likely trigger a helpdesk outage — a self-inflicted incident caused by trusting the playbook's raw pattern match instead of reading the enrichment it already provided.",
+        "This is a false positive, and it is the exact over-automation trap this room warns about. The enrichment itself, if actually read rather than rubber-stamped, tells the real story: the IP reputation score is 0/89 malicious with no threat tags at all — nothing here looks like attacker infrastructure. The asset inventory places 52.14.88.201 as a documented AWS Elastic IP belonging to Zendesk's outbound integration (vendor ticket VEND-2291), and the account is used only by that connector. The change calendar supplies the cause: IT rotated the helpdesk-integration password yesterday, and a connector still holding the old password fails on every scheduled attempt — which matches the raw event's SubStatus 0xC000006A (wrong password) and the steady ~100-second rhythm from one stable IP, a machine retry loop rather than the bursty pattern of someone guessing. Auto-blocking this IP would sever a legitimate, documented business integration and likely trigger a helpdesk outage — a self-inflicted incident caused by trusting the playbook's raw pattern match instead of reading the enrichment it already provided.",
       fp_trap:
-        "The scary-looking surface pattern — '23 failed logins, playbook recommends auto-block' — is designed to tempt you into rubber-stamping the recommended containment action without reading the enrichment fields the playbook already gathered. This is precisely the over-automation risk from the reading: a detection rule that is accurate most of the time will still occasionally flag a legitimate, documented, business-critical source, and if a human (or a fully automated rule with no approval gate) approves the block reflexively instead of checking the IP reputation score (0/89, no tags) and the asset owner notes (a known Zendesk integration IP, with a documented, mundane explanation involving a recent password rotation), you cause exactly the kind of self-inflicted outage this room warns about.",
+        "The scary-looking surface pattern — '23 failed logins, playbook recommends auto-block' — is designed to tempt you into rubber-stamping the recommended containment action without reading the enrichment fields the playbook already gathered. This is precisely the over-automation risk from the reading: a detection rule that is accurate most of the time will still occasionally flag a legitimate, documented, business-critical source, and if a human (or a fully automated rule with no approval gate) approves the block reflexively instead of checking the IP reputation score (0/89, no tags), the asset inventory (a known Zendesk integration IP) and the change calendar (a password rotation the day before), you cause exactly the kind of self-inflicted outage this room warns about.",
       xp: 40,
     },
 
@@ -454,7 +450,7 @@ const soarRoom = {
         {
           id: "disable",
           left: "Disable user account",
-          right: "The identity provider flips the account to disabled, immediately killing active sessions and blocking new logins",
+          right: "The identity provider flips the account to disabled, blocking new sign-ins — sessions already issued need a separate revoke",
         },
         {
           id: "block",
@@ -494,16 +490,8 @@ const soarRoom = {
           text: "The playbook automatically extracts the sender address, embedded URLs, and any attachment file hashes from the reported email",
         },
         {
-          id: "reputation",
-          text: "The playbook checks the sender domain's reputation and registration age against threat intel feeds",
-        },
-        {
-          id: "detonate",
-          text: "Any attachment is automatically detonated in a sandbox to observe what it actually does when opened",
-        },
-        {
-          id: "search",
-          text: "The playbook searches the mail environment for the same email sent to other employees, to determine the true scope",
+          id: "enrich",
+          text: "Using the extracted indicators, the playbook runs its lookups in parallel: sender-domain reputation and age, sandbox detonation of any attachment, and a search for the same email in other mailboxes",
         },
         {
           id: "ticket",
@@ -514,9 +502,9 @@ const soarRoom = {
           text: "A human analyst reviews the assembled case and approves or adjusts the final response action",
         },
       ],
-      correct_order: ["trigger", "extract", "reputation", "detonate", "search", "ticket", "human_decision"],
+      correct_order: ["trigger", "extract", "enrich", "ticket", "human_decision"],
       explanation:
-        "The playbook starts from the employee's report, mechanically extracts the raw indicators (sender, URLs, hashes), enriches those indicators with reputation and sandbox detonation results, determines the true blast radius by searching for the same email elsewhere in the environment, and only THEN assembles everything into a ticket for a human to make the final, judgment-requiring call on quarantine and notification. This mirrors the general SOAR principle: automate the mechanical gathering, gate the disruptive decision behind a human.",
+        "The playbook starts from the employee's report and mechanically extracts the raw indicators (sender, URLs, hashes) — every later lookup needs them. It then runs its enrichment lookups in parallel, as the reading describes: reputation and domain age, sandbox detonation, and the search for the same email elsewhere to find the true blast radius. Only THEN does it assemble everything into a ticket for a human to make the final, judgment-requiring call on quarantine and notification. This mirrors the general SOAR principle: automate the mechanical gathering, gate the disruptive decision behind a human.",
       xp: 40,
     },
 
@@ -525,9 +513,9 @@ const soarRoom = {
       type: "flag" as const,
       id: "soar-flag1",
       prompt:
-        "Look back at the over-automation analyst_choice event above (the helpdesk-integration IP 52.14.88.201). The asset owner notes reference a specific vendor integration ticket number that documents this IP as a legitimate Zendesk integration source. Enter that exact ticket number.",
-      answer: "VEND-2291",
-      hint: "Look at the 'xsoar.enrichment.asset_owner.notes' field in the raw block — the ticket number is written in the format LETTERS-NUMBERS.",
+        "You are rejecting the playbook's recommended block on 52.14.88.201 and must cite, in the case record, the ticket that explains WHY the helpdesk-integration failures started. Two tickets appear in that triage's context. Enter the one that explains the cause of the failures, exactly as written.",
+      answer: "CHG-30117",
+      hint: "One ticket tells you who owns the IP; the other tells you what changed shortly before the failures began.",
       xp: 30,
     },
   ],

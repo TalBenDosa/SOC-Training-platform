@@ -168,7 +168,7 @@ const lessons = [
         "explanation": "The browser checks name match, validity dates, chain to a trusted root, and revocation status — all properties of the connection and the binding, not of the operator's intentions. Domain-validated certificates are free and automatic, so a phishing domain registered minutes ago has a perfectly valid one. The options “That an independent authority reviewed the content…”, “That the connection is encrypted and the…”, “That the domain has existed for a…” and “That the site is incapable of hosting…” both credit certificate authorities with content or business vetting they do not perform for standard certificates. The option “That the domain has existed for a…” is wrong because certificate validity is unrelated to domain age or reputation."
       },
       {
-        "question": "During triage you find a PowerShell command line containing a long base64 string passed to the -enc <base64 blob>. What is the correct conclusion and next step?",
+        "question": "During triage you find a PowerShell command line with a long base64 string passed to PowerShell's -EncodedCommand (-enc) parameter. What is the correct conclusion and next step?",
         "options": [
           {
             "label": "It is encoded rather than encrypted, so no key is involved and you should decode it immediately to read the actual command",
@@ -194,53 +194,53 @@ const lessons = [
         "question": "You identify a malicious executable on one host and add its SHA-256 to your blocklist. A week later five more hosts are found running the same malware family — but each is a slightly different build, and none matched your blocklisted hash. What technique would have caught the family, and why does the exact hash fail?",
         "options": [
           {
-            "label": "Nothing could have caught them, because once malware exists in multiple builds it is fundamentally impossible to detect any relationship between the variants using any hashing method at all",
+            "label": "Nothing could have caught them — different builds of one family share no detectable relationship",
             "value": "a"
           },
           {
-            "label": "Fuzzy hashing (ssdeep) and imphash: they measure similarity or hash stable properties like the import table, so near-identical variants still cluster as one family — whereas an exact SHA-256 changes completely if a single byte differs, catching only that one file",
+            "label": "Fuzzy hashing or imphash: they match near-identical builds, while one changed byte breaks an exact SHA-256",
             "value": "b"
           },
           {
-            "label": "A larger exact-hash blocklist would have worked, since simply collecting enough individual SHA-256 hashes eventually covers every possible future build an attacker could ever compile",
+            "label": "Block by the file name instead, since the variants are all recompiles of the same program",
             "value": "c"
           },
           {
-            "label": "The problem was only that SHA-256 is a weak algorithm, and switching the blocklist to SHA-512 would have automatically matched all the slightly-different variants as the same file",
+            "label": "Switch the blocklist to SHA-512, whose longer digest would tolerate the small differences between builds",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "An exact cryptographic hash is all-or-nothing: one changed byte yields a completely different digest, so a blocklist catches exactly one file. Fuzzy hashing (ssdeep) scores similarity so near-identical variants cluster, and imphash groups Windows executables by their import table, catching builds that share how they were made and what they do. The option “Nothing could have caught them, because once…” is defeatist and wrong — that is precisely what similarity hashing solves. The option “A larger exact-hash blocklist would have worked…” cannot scale to unbuilt future variants. The option “The problem was only that SHA-256 is…” misunderstands the issue: a stronger exact hash is still exact, so it fails the same way."
+        "explanation": "An exact cryptographic hash is all-or-nothing: one changed byte yields a completely different digest, so a blocklist catches exactly one file. Fuzzy hashing (ssdeep) scores similarity so near-identical variants cluster, and imphash groups Windows executables by their import table, catching builds that share how they were made and what they do. Saying nothing could catch them is defeatist — similarity hashing is exactly the answer. Blocking by file name fails because an attacker renames a file for free. And SHA-512 is still an exact hash: a longer digest does not tolerate differences, so it changes completely on one byte just like SHA-256."
       },
       {
         "question": "An analyst sees a signed executable — Windows shows a valid Authenticode signature from a real, verified publisher — and concludes 'it's signed by a legitimate company, so it's safe; nothing to investigate.' Why is this reasoning flawed?",
         "options": [
           {
-            "label": "It is perfectly sound: a valid Authenticode signature from a verified publisher is a complete guarantee that the file and everything it does are safe, so no further investigation is ever warranted for signed files",
+            "label": "It is sound: a valid signature from a verified publisher guarantees the file and its behaviour are safe",
             "value": "a"
           },
           {
-            "label": "A signature only vouches for that file's origin and integrity, not its behaviour or safety: signing keys get stolen (supply-chain attacks), signed legitimate tools get abused (LOLBins, DLL sideloading), and certs are fraudulently obtained — so a signature is one data point, not a clean bill of health",
+            "label": "A signature proves origin and integrity, not behaviour: keys get stolen and signed tools get abused",
             "value": "b"
           },
           {
-            "label": "The flaw is only that the analyst should have checked whether the signature used SHA-1 versus SHA-256, and provided the hashing algorithm inside the signature is modern the 'it's safe' conclusion is entirely correct",
+            "label": "The only gap is the signature's hash algorithm; if it uses SHA-256 rather than SHA-1, the safe conclusion holds",
             "value": "c"
           },
           {
-            "label": "Signed files are actually more dangerous than unsigned ones in every case, so the correct rule is to treat any presence of a digital signature as definitive proof that the file is malware",
+            "label": "The signature just proves the file was not corrupted in transit, so re-downloading it from the vendor settles it",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A code signature authenticates origin and guarantees the file was not tampered with after signing — but that trust stops at the file's edge. Attackers ride stolen signing keys to sign malware as a trusted publisher, abuse signed-but-legitimate tools (LOLBins, DLL sideloading), and obtain certs fraudulently, so a valid signature never certifies behaviour. The option “It is perfectly sound: a valid Authenticode…” is the exact over-trust the question warns against. The option “The flaw is only that the analyst…” fixates on the hash algorithm while ignoring stolen keys and abused-tool cases. The option “Signed files are actually more dangerous than…” overcorrects into treating all signed files as malware, which is equally wrong."
+        "explanation": "A code signature authenticates origin and proves the file was not tampered with after signing, but that trust stops at the file's edge. Attackers sign malware with stolen keys, abuse signed-but-legitimate tools (LOLBins, DLL sideloading), and obtain certs fraudulently, so a valid signature never certifies behaviour. Calling it a complete guarantee is the exact over-trust the question warns against. The hash algorithm (SHA-1 vs SHA-256) affects the signature's strength, not whether the signed file is benign. And a signature confirms integrity, not safety: re-downloading a cleanly signed malicious file just gives you the same malicious file."
       },
       {
         "question": "You run certutil -hashfile on a downloaded installer and paste the resulting SHA-256 into a threat-intel lookup: 41 of 48 engines flag that exact digest as trojan.infostealer. A colleague argues this proves nothing because 'a hash is just a number.' How should you weigh the result?",
         "options": [
           {
-            "label": "Act on it with high confidence: a hash match against a known-malicious digest is about as close to certain as detection gets, because — unlike almost every other signal — an exact hash match is essentially never a false positive",
+            "label": "Act on it with high confidence: the digest match is exact and 41 of 48 engines flag it, so this is strong intel — the match itself is exact, and the verdict is only as good as the intelligence behind it",
             "value": "a"
           },
           {
@@ -257,30 +257,30 @@ const lessons = [
           }
         ],
         "answer": "a",
-        "explanation": "A hash match is an exact-equality test with no room for near-misses, so 41 engines independently flagging that precise digest is strong, actionable evidence — you never needed to open, run, or reverse the file to reach that confidence. The option “Dismiss it entirely, because antivirus engines are…” wrongly treats 41 engines matching one exact digest as equivalent to a single opinion. The option “Treat it as inconclusive, because SHA-256 has…” is factually wrong: SHA-256 has no practical collisions, unlike broken MD5/SHA-1. The option “Ignore the verdict and focus only on…” substitutes an irrelevant, easily-forged property (file size) for the far stronger cryptographic identifier."
+        "explanation": "The hash match is an exact-equality test with no near-misses, so 41 engines independently flagging that precise digest is strong, actionable evidence — you did not need to open, run, or reverse the file. Two things stay separate: the match itself is exact, while the verdict is only as reliable as the intelligence behind it (41/48 is convincing; a lone 2/70 would not be). Dismissing it treats 41 independent engines on one exact digest as a single opinion, which understates the weight. Calling it inconclusive is factually wrong: SHA-256 has no practical collisions, unlike broken MD5/SHA-1. And file size is an easily-changed property, far weaker than the cryptographic digest."
       },
       {
         "question": "A company learns that an attacker stole its web server's long-term TLS private key today. Two years of past encrypted traffic to that server were captured and stored by an unrelated third party during that time. Under TLS 1.3, what does the theft of the private key allow the attacker to do to that stored two-year traffic archive?",
         "options": [
           {
-            "label": "Decrypt all of it immediately, since under this protocol version the server's long-term private key was always used directly to encrypt every single session's traffic in the clear",
+            "label": "Decrypt all of it immediately, since this version uses the long-term private key directly to encrypt every session",
             "value": "a"
           },
           {
-            "label": "Decrypt none of it, because TLS 1.3 mandates ephemeral Diffie-Hellman, so each past session's actual traffic key was never derivable from the long-term private key and no longer exists anywhere",
+            "label": "Decrypt none of it: TLS 1.3 mandates ephemeral Diffie-Hellman, so each past session's traffic key was never derivable from the long-term key and no longer exists",
             "value": "b"
           },
           {
-            "label": "Decrypt only sessions from the specific users who happened to reuse the exact same account password across multiple separate visits to the affected site",
+            "label": "Decrypt only the sessions that were resumed, since resumption re-uses key material tied to the long-term key",
             "value": "c"
           },
           {
-            "label": "Decrypt all of it, but only after also separately obtaining a copy of the unrelated SHA-256 file hash that happened to be logged during those particular sessions",
+            "label": "Decrypt all of it, because the long-term key signed every handshake and that signature also derives the session keys",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "TLS 1.3 makes ephemeral Diffie-Hellman mandatory: the long-term certificate only signs each session's ephemeral exchange, it never encrypts the session directly. That means each past session's actual traffic key was derived from a temporary value that existed only for that session and is now gone, so stealing the long-term key today grants no access to the two-year archive. The option “Decrypt all of it immediately, since under…” describes the exact static-key weakness TLS 1.3 was designed to eliminate. The option “Decrypt only sessions from the specific users…” invents an irrelevant password-reuse condition. The option “Decrypt all of it, but only after…” confuses an unrelated concept, file hashing, with session key derivation."
+        "explanation": "TLS 1.3 makes ephemeral Diffie-Hellman mandatory: the long-term certificate only signs each session's ephemeral key exchange, it never encrypts the session directly. Each past session's traffic key came from a temporary value that existed only for that session and is now gone, so stealing the long-term key today unlocks none of the two-year archive — this is forward secrecy. Option a describes the static-key weakness TLS 1.3 was built to remove. Resumption in TLS 1.3 uses separate pre-shared keys, not the long-term private key, so resumed sessions stay protected too. And the signature authenticates the handshake; it does not derive the session keys, which come from the ephemeral exchange."
       },
       {
         "question": "A payment processor and a merchant's server both hold a pre-shared secret used to authenticate webhook notifications between them. A separate certificate authority's root certificate is trusted by every browser on the internet without any of those browsers ever sharing a secret with the CA. What explains why the payment processor uses HMAC for its webhooks while the CA uses a digital signature for its certificates?",

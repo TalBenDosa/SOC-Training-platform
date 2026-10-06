@@ -73,7 +73,7 @@ const cloudDescribeEvent: TelemetryEvent = {
     "aws.cloudtrail.awsRegion": "us-east-1",
     "aws.cloudtrail.userIdentity.type": "AssumedRole",
     "aws.cloudtrail.userIdentity.arn":
-      "arn:aws:sts::719400852261:assumed-role/lambda-reporting-role/i-0f3a8b21c9d4e5678",
+      "arn:aws:sts::719400852261:assumed-role/lambda-reporting-role/cost-report-generator",
     "aws.cloudtrail.userIdentity.accountId": "719400852261",
     "aws.cloudtrail.sourceIPAddress": "45.148.10.62",
     "aws.cloudtrail.userAgent": "aws-cli/2.15.2 Python/3.11.6 Linux/6.1.0",
@@ -113,7 +113,7 @@ const nightlyAuditEvent: TelemetryEvent = {
     integrity: "medium",
   },
   description:
-    "svc-itaudit executed 'net user /domain' on SRV-ITAUDIT01, part of a scheduled task that has run at 03:00 every night for the past two years.",
+    "svc-itaudit executed 'net user /domain' on SRV-ITAUDIT01 at 03:00:11, launched by powershell.exe.",
   it_verify_result: "confirmed",
   it_verify_message:
     "IT confirms Scheduled Task 'Nightly-AD-Account-Audit' on SRV-ITAUDIT01 runs this exact command every night at 03:00 as part of the quarterly access-review process; svc-itaudit has no interactive logon capability and only ever runs from this one server.",
@@ -167,13 +167,13 @@ const discoveryEnumerationRoom = {
       checkpoint: {
         question: "Why is Discovery one of the hardest ATT&CK tactics to build a reliable detection rule for?",
         options: [
-          "It almost never actually happens in real intrusions, so there is little log data to build a rule from in the first place",
-          "Nearly every command that performs it is a completely ordinary, legitimate operating-system or cloud-API feature -- there is no single malicious event, only a suspicious pattern",
-          "MITRE ATT&CK does not currently classify Discovery as an official tactic with its own ID",
-          "Discovery only ever occurs on Linux systems, which most commercial SIEM products do not support at all",
+          "Its commands run in memory and write nothing to disk, so most hosts record no event when it happens",
+          "Its commands are ordinary OS and cloud-API features -- there is no single bad event, only a pattern",
+          "Attackers do it only after they hold admin rights, so it hides inside normal administrator activity",
+          "It produces events only on Domain Controllers, which many organisations do not forward to the SIEM",
         ],
         answer: 1,
-        explanation: "This is the central framing of the room: whoami, net user, and DescribeInstances are all legitimate, everyday commands. There is no single 'bad' discovery event -- detection depends on recognizing volume, breadth, and source patterns instead. Discovery is TA0007, a real, extremely commonly practised tactic, and it occurs on Windows, Linux, and cloud platforms alike.",
+        explanation: "This is the central framing of the room: whoami, net user and DescribeInstances are legitimate, everyday commands, so there is no single 'bad' discovery event -- detection depends on volume, breadth and source patterns instead. “Nothing is recorded” is wrong: process creation, 4798/4799 and CloudTrail all record discovery; the trouble is that the records look routine. “Only after they hold admin rights” is wrong too -- the room's own example is a freshly phished clerk running net.exe, and ordinary users can enumerate. “Only on Domain Controllers” ignores host-level events like 4799 on a workstation and cloud API logs.",
       },
       xp: 5,
     },
@@ -192,15 +192,15 @@ const discoveryEnumerationRoom = {
       codeExample:
         "EventID: 4799\nSubjectUserName: j.ramos\nSubjectDomainName: CONTOSO\nGroupName: Administrators\nGroupDomain: Builtin\nCallerProcessId: 0x1a04\nCallerProcessName: C:\\Windows\\System32\\net.exe",
       checkpoint: {
-        question: "What is the single strongest tell that a 4798/4799 event is worth a closer look, rather than routine admin activity?",
+        question: "An attacker on a workstation runs net localgroup administrators, and Event 4799 records it. Which ATT&CK technique ID is the precise attribution for this command?",
         options: [
-          "The event ID itself -- 4798 and 4799 only ever fire when the request is malicious, with no legitimate use case",
-          "The CallerProcessName -- a command-line tool such as net.exe, cmd.exe, or powershell.exe, rather than an expected admin console such as mmc.exe",
-          "The GroupName field -- any event naming the Administrators group is definitionally an attack",
-          "The hostname field -- 4798/4799 only fire on servers, never on ordinary workstations",
+          "T1033 -- System Owner/User Discovery",
+          "T1069.001 -- Permission Groups Discovery: Local Groups",
+          "T1087.001 -- Account Discovery: Local Account",
+          "T1069.002 -- Permission Groups Discovery: Domain Groups",
         ],
         answer: 1,
-        explanation: "Both events fire constantly for entirely benign reasons through admin consoles like mmc.exe. The CallerProcessName is what actually distinguishes a routine admin check from a command-line enumeration -- especially when combined with unusual timing or a suspicious preceding event. 4798/4799 fire on any Windows host, and naming Administrators as the target group is completely normal for legitimate access reviews.",
+        explanation: "net localgroup administrators reads who belongs to a LOCAL group on this machine, which the reading attributes to T1069.001 (Permission Groups Discovery: Local Groups), with Event 4799 as its telemetry. T1033 is the umbrella an analyst reaches for first, but it covers whoami, query user and net config workstation — identifying the current user, not reading a group's members. T1087.001 is listing local ACCOUNTS (net user with no target), not group membership. T1069.002 is the domain-group version (net group /domain), which asks a Domain Controller rather than this machine's own SAM.",
       },
       xp: 5,
     },
@@ -237,13 +237,13 @@ const discoveryEnumerationRoom = {
       checkpoint: {
         question: "Per MITRE's own detection guidance for T1087.002, what is the primary tell that separates an attacker's domain enumeration from routine IT activity?",
         options: [
-          "The exact wording of the command used, since only certain untranslatable command syntaxes are ever considered malicious",
-          "The command running from a non-domain-controller or non-admin endpoint -- the same command is legitimate from an admin's own workstation",
-          "Whether the command was typed manually versus pasted from a script, which Windows always records in a dedicated field",
-          "The time zone offset recorded in the event, since domain enumeration is only ever malicious outside business hours",
+          "The command syntax -- attackers use net group /domain, while IT staff use Get-ADGroupMember",
+          "The source -- a non-DC, non-admin endpoint; the same command from an admin's machine is routine",
+          "The protocol -- SAMR enumeration is attacker-only, while LDAP enumeration is how IT tools work",
+          "The timing -- enumeration outside business hours is the tell, whichever host it came from",
         ],
         answer: 1,
-        explanation: "MITRE's detection guidance explicitly names the source -- non-domain-controller or non-admin endpoint -- as the key signal, not the command syntax itself, since the same net.exe/PowerShell/LDAP commands are completely legitimate when run by IT admins from expected systems.",
+        explanation: "MITRE's detection guidance names the source -- a non-domain-controller or non-admin endpoint -- as the key signal, since the same net.exe/PowerShell/LDAP commands are legitimate when IT admins run them from expected systems. “Attackers use net group, IT uses Get-ADGroupMember” is wrong: the reading lists both in MITRE's tooling for this technique, and either can be used by either side. “SAMR is attacker-only” misreads the reading, which explains SAMR vs LDAP to show where the telemetry differs, not which protocol is malicious. “Outside business hours” ignores sanctioned nightly jobs, which the reading uses as its own example of baseline activity.",
       },
       xp: 5,
     },
@@ -285,35 +285,35 @@ const discoveryEnumerationRoom = {
       id: "disc-la1",
       heading: "Investigate: Local Admin Group Check on WKS-FIN22",
       context:
-        "j.ramos, an Accounts Payable Clerk at Meridian Capital, clicked a link in an email at 14:05 that the mail gateway later flagged as phishing. Two minutes later, the event below was recorded on her workstation. Her account has never run an administrative console (mmc.exe, dsa.msc) on this machine, and IT has no ticket or scheduled task associated with any activity on this host today.",
+        "j.ramos, an Accounts Payable Clerk at Meridian Capital, clicked a link in an email at 14:05 that the mail gateway later flagged as phishing. Two minutes later, the event below was recorded on her workstation. Her account has never run an administrative console (mmc.exe) on this machine, and IT has no ticket or scheduled task associated with any activity on this host today.",
       event: localAdminEnumEvent,
       questions: [
         {
           question:
             "What single field in this event is the strongest indicator that this enumeration was NOT performed through a normal administrative tool?",
           options: [
-            "GroupName, since Windows only ever logs the value Administrators when the underlying request is malicious",
-            "CallerProcessName, showing net.exe rather than an administrative console such as mmc.exe or dsa.msc",
-            "SubjectDomainName, since MERIDIANCAP as a domain name is inherently suspicious regardless of context",
-            "winlog.event_id, since the value 4799 by itself, with no other field considered, is inherently a malicious-only event code",
+            "GroupDomain, since the value Builtin shows the query reached the domain rather than this host",
+            "CallerProcessName, showing net.exe rather than an administrative console such as mmc.exe",
+            "SubjectLogonId, since 0x8a3f21 ties the query to a remote session rather than the console",
+            "SubjectUserName, since a standard user like j.ramos cannot read the Administrators group",
           ],
           answer: 1,
           explanation:
-            "CallerProcessName recording net.exe -- a command-line tool -- rather than the expected admin console mmc.exe or dsa.msc is exactly the tell this room's reading teaches. GroupName reading 'Administrators' is completely routine for legitimate access checks. SubjectDomainName is just the organization's own domain name, and 4799 fires constantly for benign reasons -- neither is inherently suspicious alone.",
+            "CallerProcessName recording net.exe -- a command-line tool -- rather than the expected admin console mmc.exe is exactly the tell this room's reading teaches. “GroupDomain … Builtin” misreads the field: Builtin is the name for the machine's own built-in local groups, which is why this is local, not domain, enumeration. “SubjectLogonId … remote session” over-reads a value: a logon ID is a session handle you use to join this event to its 4624, and on its own it says nothing about the logon type. “A standard user cannot read the Administrators group” is false — ordinary users can enumerate local group membership, which is exactly why this event appears under j.ramos's name.",
           xp: 15,
         },
         {
           question:
             "Given everything in the context above, what is the most defensible next analytic step, consistent with this room's detection discipline?",
           options: [
-            "Close the alert immediately, since a single 4799 event alone is never sufficient grounds for any further investigation",
-            "Treat this as confirmed, unambiguous compromise and immediately trigger full incident response without checking any other telemetry",
-            "Correlate this event with j.ramos's broader timeline -- the preceding phishing click, and whether further discovery, privilege, or process activity follows from this host or account",
-            "Escalate this specifically as a T1087.002 Domain Account Discovery finding, since any local group enumeration always indicates domain-wide account discovery is also underway",
+            "Close it: one 4799 with no follow-on activity seen yet does not justify further analyst time",
+            "Declare a confirmed compromise and hand it to incident response without reviewing other telemetry",
+            "Correlate with j.ramos's timeline -- the phishing click, then any discovery, privilege or process activity after it",
+            "Re-tag it as T1087.002 and start by hunting the Domain Controller logs for domain-wide enumeration",
           ],
           answer: 2,
           explanation:
-            "Discovery is a leading indicator, not a verdict by itself -- the correct move is correlating this event against the rest of the timeline (the phishing click, and whatever follows). Closing immediately ignores a genuinely suspicious combination of signals. Jumping to full incident response on one event skips the correlation step this room repeatedly emphasizes. And this event is local-group enumeration (T1069.001, Permission Groups Discovery: Local Groups), not evidence of domain-wide enumeration (T1087.002) -- the two are distinct techniques with distinct telemetry, as the previous reading established.",
+            "Discovery is a leading indicator, not a verdict by itself -- the defensible move is correlating this event against the rest of the timeline (the phishing click, and whatever follows from this host or account). “Close it” ignores a genuinely suspicious combination: a phishing click followed two minutes later by command-line enumeration. “Declare a confirmed compromise … without reviewing other telemetry” skips the correlation step that tells you what actually happened and how far it went. “Re-tag it as T1087.002” mis-attributes the event: net localgroup administrators is local-group enumeration (T1069.001), which leaves no trace in the DC's logs, so starting there looks in the wrong place.",
           xp: 15,
         },
       ],
@@ -334,13 +334,13 @@ const discoveryEnumerationRoom = {
       checkpoint: {
         question: "What is the actual difference between T1580 and T1619, per this reading?",
         options: [
-          "There is no real difference -- both technique IDs describe the exact same set of AWS API calls",
-          "T1580 discovers that resources like buckets, instances, and databases EXIST; T1619 goes further and enumerates what OBJECTS are actually inside an already-discovered storage location",
-          "T1580 applies only to Azure, while T1619 applies only to AWS, with no overlap between the two cloud providers",
-          "T1580 is a Collection-tactic technique, while T1619 is the only true Discovery-tactic technique among the three covered in this reading",
+          "T1580 lists the objects inside storage; T1619 checks whether a bucket is publicly exposed",
+          "T1580 finds that buckets, instances and databases exist; T1619 lists objects inside a found bucket",
+          "T1580 covers compute such as EC2 and VMs; T1619 covers every storage call, including ListBuckets",
+          "T1619 is Collection, since listing a bucket's objects already counts as gathering its data",
         ],
         answer: 1,
-        explanation: "T1580 (Cloud Infrastructure Discovery) is the broader existence check across compute/storage/database resources; T1619 (Cloud Storage Object Discovery) is the narrower follow-up step of listing what objects sit inside a bucket already found. Both are genuinely different technique IDs with different defining API calls. Both apply across cloud providers, not one each. All three techniques in this reading -- T1580, T1526, and T1619 -- sit on the Discovery tactic, not Collection.",
+        explanation: "T1580 (Cloud Infrastructure Discovery) is the broader existence check across compute, storage and database resources; T1619 (Cloud Storage Object Discovery) is the narrower follow-up of listing what objects sit inside a bucket already found. “T1580 lists objects; T1619 checks exposure” swaps the two — and GetPublicAccessBlock, the exposure check, is one of T1580's calls. “T1619 covers every storage call, including ListBuckets” is wrong: ListBuckets and HeadBucket are T1580 calls; T1619 is defined by ListObjectsV2 and List Blobs. “T1619 is Collection” confuses listing with taking — all three techniques in this reading sit on the Discovery tactic; Collection begins when files are actually read.",
       },
       xp: 5,
     },
@@ -350,16 +350,16 @@ const discoveryEnumerationRoom = {
       type: "question" as const,
       id: "disc-q3",
       question:
-        "Which AWS GuardDuty finding type is purpose-built to flag an S3 ListObjectsV2-family call originating from an IP address already known to be malicious?",
+        "GuardDuty raises Discovery:S3/MaliciousIPCaller against an IAM role in your AWS account. What activity did it observe, and what is the right next question for the investigation?",
       options: [
-        "Recon:IAMUser/MaliciousIPCaller -- account-level reconnaissance API calls made from an IP address on a threat list",
-        "Discovery:S3/MaliciousIPCaller -- S3 object-listing style API calls made from an IP address on a threat list",
-        "Discovery:S3/TorIPCaller -- S3 object-listing style API calls made from a Tor exit-node IP address",
-        "Exfiltration:S3/MaliciousIPCaller -- S3 data-retrieval calls such as GetObject made from an IP address on a threat list",
+        "Bucket enumeration (T1580) from a Tor exit node -- next, list which buckets the role can reach",
+        "Object listing (T1619) from a threat-listed IP -- next, check whether GetObject downloads followed",
+        "Object downloads from a threat-listed IP -- treat the listed objects as already exfiltrated",
+        "Account-level reconnaissance (T1526) from a threat-listed IP -- next, review the role's IAM policy",
       ],
       answer: 1,
       explanation:
-        "Discovery:S3/MaliciousIPCaller is the S3-specific GuardDuty finding for listing-style calls from a known-malicious IP. Recon:IAMUser/MaliciousIPCaller is the IAM-level reconnaissance equivalent, not S3-specific. Discovery:S3/TorIPCaller keys on Tor exit nodes rather than a malicious-IP list. Exfiltration:S3/MaliciousIPCaller concerns data retrieval (GetObject-style calls), not listing -- different action, different finding.",
+        "The finding name reads Category:Resource/Name: Discovery on S3, from a MaliciousIPCaller -- the reading defines it as S3 ListObjectsV2-family calls from a known-malicious IP, which is T1619 (Cloud Storage Object Discovery). Because listing is the step that turns a bucket into a target, the key follow-up is whether Collection followed: GetObject calls by the same identity. “From a Tor exit node” describes a different finding (TorIPCaller), and listing objects is T1619, not bucket enumeration. “Object downloads … already exfiltrated” jumps the Discovery/Collection boundary — this finding is about listing, not retrieval. “Account-level reconnaissance” is what Recon:IAMUser/MaliciousIPCaller reports, not an S3 finding.",
       xp: 20,
     },
 
@@ -376,28 +376,28 @@ const discoveryEnumerationRoom = {
           question:
             "The raw event alone shows aws.cloudtrail.readOnly: true and a syntactically valid, successfully-authenticated API call. Why is that NOT sufficient to clear this activity as benign, given the context above?",
           options: [
-            "readOnly: true always means the call was rejected by IAM, so no data was actually returned to whoever made it",
-            "A single read-only call is genuinely unremarkable on its own; what matters is the SAME role making dozens of Describe/List calls across four services, in eight minutes, at 2 AM -- a pattern this role has never previously shown",
-            "DescribeInstances is classified by AWS as a write operation, so readOnly: true is a self-contradictory, malformed record",
-            "The event lacks a populated errorCode field, and AWS CloudTrail always requires one for any legitimate API call to be considered valid",
+            "readOnly: true means IAM rejected the call, so the record says nothing about what the role can reach",
+            "One read-only call is unremarkable; the signal is 47 calls across four services in eight minutes at 2 AM",
+            "The empty errorCode shows CloudTrail failed to capture the outcome, so the call's result is unknown",
+            "Describe calls are data events that return resource contents, so even one call is a data exposure",
           ],
           answer: 1,
           explanation:
-            "A single readOnly call is exactly what routine automation looks like -- the actual signal is the burst: dozens of Describe/List calls across four services in eight minutes, from a role whose normal pattern is two invocations a day. readOnly: true means the call did not change any state, not that it was rejected. DescribeInstances is a read (Describe) operation, not a write. An empty errorCode simply means the call succeeded -- that is normal, not a defect.",
+            "A single read-only call is exactly what routine automation looks like -- the signal is the burst: dozens of Describe/List calls across four services in eight minutes, from a role whose normal pattern is two scheduled invocations a day. “readOnly: true means IAM rejected the call” misreads the flag: it means the call changed no state, not that it was denied. “The empty errorCode shows CloudTrail failed” is backwards — no error recorded means the call succeeded. “Describe calls are data events” is contradicted by the record itself: managementEvent is true, and DescribeInstances returns configuration metadata, not stored data.",
           xp: 15,
         },
         {
           question:
             "What about this event's userIdentity and sourceIPAddress fields is most worth flagging for follow-up, independent of the volume pattern?",
           options: [
-            "The role's normal pattern is a scheduled Lambda invocation twice daily, yet this call comes from a directly-connected aws-cli client at an unusual hour and source IP",
-            "The arn value contains the word role, which by itself is treated as definitive, standalone proof of a compromised identity in any AWS account, regardless of anything else",
-            "us-east-1 is a region that AWS does not actually operate any real infrastructure in, so the awsRegion field here must necessarily have been fabricated by the caller",
-            "accountId is formatted as a 12-digit number, and any AWS account ID of that specific length is automatically flagged as inherently suspicious by CloudTrail itself",
+            "Its normal trigger is a scheduled Lambda, yet this call used a command-line client from an outside IP",
+            "userIdentity.type AssumedRole shows AWS's Lambda service made the call, so the source IP is AWS's own",
+            "The session name in the ARN is the Lambda function's name, which confirms the function made this call",
+            "readOnly and managementEvent both being true mark this as an interactive console session by a person",
           ],
           answer: 0,
           explanation:
-            "The mismatch between the role's known, scheduled, Lambda-driven usage pattern and this call's aws-cli user agent, timing, and source IP is a genuine independent tell. Every assumed role's arn legitimately contains the word 'role' -- that is not suspicious. us-east-1 is one of AWS's oldest and most heavily used real regions. A 12-digit accountId is simply the standard AWS account ID format, not a suspicious property.",
+            "The role's known pattern is a scheduled Lambda run twice a day, but this call carries an aws-cli user agent from an outside source IP at 2 AM — the role's temporary credentials are being used from somewhere they normally never are, which is an independent tell. “AssumedRole shows AWS's Lambda service made the call” over-reads the type: AssumedRole only means temporary role credentials were presented, and anyone holding them can call from anywhere. “The session name … confirms the function made this call” makes the same mistake — the session name travels with the issued credentials, so it names who obtained them, not who is using them now. “readOnly and managementEvent … console session” misreads both flags: they describe the API call (no state change, control-plane operation), not how the caller connected.",
           xp: 15,
         },
       ],
@@ -426,14 +426,14 @@ const discoveryEnumerationRoom = {
       items: [
         { id: "step-host", text: "The attacker runs whoami and whoami /groups on the freshly compromised host to identify the current account and its local privileges (T1033)" },
         { id: "step-localgroup", text: "The attacker runs net localgroup administrators to see who else has local admin rights on this specific machine" },
-        { id: "step-domain", text: "The attacker runs net user /domain and net group \"domain admins\" /domain against the Domain Controller to map domain-wide accounts and privileged groups (T1087.002, T1069.002)" },
+        { id: "step-domain", text: "Having found no useful local admin rights on this host, the attacker runs net user /domain and net group \"domain admins\" /domain against the Domain Controller to find which domain accounts hold power (T1087.002, T1069.002)" },
         { id: "step-share", text: "The attacker runs net view \\\\fileserver01 and net share to find which network shares are reachable and what they expose (T1135)" },
         { id: "step-collect", text: "The attacker mounts a discovered share with net use and copies files off it in bulk using Robocopy (T1039 -- now Collection, not Discovery)" },
         { id: "step-exfil", text: "The attacker compresses and exfiltrates the collected files to attacker-controlled infrastructure" },
       ],
       correct_order: ["step-host", "step-localgroup", "step-domain", "step-share", "step-collect", "step-exfil"],
       explanation:
-        "This is the full arc this room teaches: recon scales from the single host outward (T1033, then local group checks) to the whole domain (T1087.002/T1069.002), before shifting to shares (T1135) and finally crossing the tactic boundary into Collection (T1039) and Exfiltration. Each step depends on knowledge the previous step provided -- an attacker cannot usefully target a share before knowing it exists, and cannot usefully enumerate the domain before knowing their own starting privilege.",
+        "This is the full arc this room teaches: recon scales from the single host outward (T1033, then local group checks) to the whole domain (T1087.002/T1069.002), before shifting to shares (T1135) and finally crossing the tactic boundary into Collection (T1039) and Exfiltration. In this scenario each step depends on what the previous one revealed -- the domain sweep follows the local check because the attacker first learned this host gives them no useful admin rights, and a share cannot be targeted before it is found. In real intrusions local and domain enumeration are sometimes run in either order; it is the stated finding in step three that fixes the order here.",
       xp: 20,
     },
 
@@ -460,13 +460,13 @@ const discoveryEnumerationRoom = {
       checkpoint: {
         question: "Why does this reading insist that vulnerability scanners, RMM tools, and IT audit scripts are 'the majority of the volume,' not edge cases to ignore?",
         options: [
-          "Because these tools are actually more dangerous than real attacker enumeration, so they deserve the highest-priority alerts",
-          "Because a real discovery-focused detection rule will fire on this legitimate traffic far more often than on genuine attacker activity, making an accurate allowlist essential rather than optional",
-          "Because vulnerability scanners are technically incapable of ever triggering a Discovery-tactic detection rule under any configuration",
-          "Because MITRE ATT&CK explicitly excludes any activity performed by an authorized security tool from being classified under the Discovery tactic",
+          "Because a compromised scanner is worse than a compromised laptop, so its traffic deserves top-priority alerts",
+          "Because discovery rules fire on this legitimate traffic far more than on attackers, so an accurate allowlist is essential",
+          "Because their volume means a discovery rule should only alert when Domain Admins or other admin groups are targeted",
+          "Because ATT&CK classifies by who acted, so authorised tools' activity falls outside the Discovery tactic entirely",
         ],
         answer: 1,
-        explanation: "This is the practical weight of the false-positive problem: legitimate scanning/audit/IaC tools generate the bulk of discovery-shaped telemetry, so an accurate allowlist of authorized accounts/hosts/schedules is what makes the detection usable rather than a flood of tickets. These tools are not more dangerous than real attackers, they absolutely can and do trigger the same detection logic, and ATT&CK classifies techniques by behavior, not by the identity of who performed them.",
+        explanation: "This is the practical weight of the false-positive problem: legitimate scanning, audit and IaC tools generate the bulk of discovery-shaped telemetry, so an accurate allowlist of authorised accounts, hosts and schedules is what makes the detection usable rather than a flood of tickets. “A compromised scanner … deserves top-priority alerts” confuses asset value with alert volume; the reading's point is that the tools' routine runs are the noise. “Only alert when admin groups are targeted” is the wrong fix — attackers target exactly those groups too, and legitimate audits read them nightly, so narrowing by target does not separate the two; the allowlist of who and when does. “ATT&CK classifies by who acted” is wrong: techniques are classified by behaviour, which is exactly why authorised tools look identical to attackers.",
       },
       xp: 5,
     },
@@ -476,16 +476,16 @@ const discoveryEnumerationRoom = {
       type: "question" as const,
       id: "disc-q4",
       question:
-        "A burst of 200 net group /domain queries fires from two different sources in the same hour: Source A is a documented Qualys vulnerability-scanner service account running its Tuesday 2 AM job; Source B is a marketing department laptop with no prior domain-query history. Per this room's detection discipline, how should these be triaged?",
+        "A burst of 200 net group /domain queries fires from two different sources in the same hour: Source A is a documented IAM-governance service account running its Tuesday 2 AM access-review job from its usual server; Source B is a marketing department laptop with no prior domain-query history. Per this room's detection discipline, how should these be triaged?",
       options: [
         "Identically -- both sources ran the same command at the same volume within the hour, so source identity cannot change the verdict",
-        "Source A first -- a scanner account with broad domain read access is a higher-value target than an ordinary employee laptop",
+        "Source A first -- an access-review account with broad domain read access is a higher-value target than an employee laptop",
         "Source A is confirmed against the allowlist and closed; Source B falls outside any authorized pattern and warrants investigation",
         "Source B can be closed as noise -- a standard marketing laptop lacks the privileges to enumerate privileged groups usefully",
       ],
       answer: 2,
       explanation:
-        "This is the allowlist discipline applied directly: Source A matches a documented, authorized account/host/schedule and should be confirmed and closed; Source B has no such match and no prior history, which is exactly the profile worth investigating. Identical command and volume do not mean identical risk once source and expectation are considered -- that is the whole point of baselining. Scanner accounts are worth securing, but an allowlisted, scheduled run is not the priority here; and ordinary domain users CAN enumerate domain groups (net group /domain does it over SAMR; other tools use LDAP), so low privilege on the laptop does not make Source B harmless.",
+        "This is the allowlist discipline applied directly: Source A matches a documented, authorized account/host/schedule and should be confirmed and closed; Source B has no such match and no prior history, which is exactly the profile worth investigating. Identical command and volume do not mean identical risk once source and expectation are considered -- that is the whole point of baselining. Service accounts with broad read access are worth securing, but an allowlisted, scheduled run is not the priority here; and ordinary domain users CAN enumerate domain groups (net group /domain does it over SAMR; other tools use LDAP), so low privilege on the laptop does not make Source B harmless.",
       xp: 20,
     },
 
@@ -493,9 +493,9 @@ const discoveryEnumerationRoom = {
     {
       type: "analyst_choice" as const,
       id: "disc-ac1",
-      heading: "Triage: Nightly Domain Account Audit on SRV-ITAUDIT01",
+      heading: "Triage: Domain Account Enumeration on SRV-ITAUDIT01",
       scenario:
-        "An alert fires for 'domain account enumeration command executed' on SRV-ITAUDIT01. The rule watches for any net user /domain or Get-ADUser execution anywhere in the environment, with no allowlist. Checking history shows this exact command has run from this exact server, under this exact service account, at this exact time, every night, for two years.",
+        "An alert fires for 'domain account enumeration command executed' on SRV-ITAUDIT01. The rule watches for any net user /domain or Get-ADUser execution anywhere in the environment, with no allowlist. Review the process event and the IT verification note, and apply the room's three detection questions before you decide.",
       event: nightlyAuditEvent,
       correct_verdict: "false_positive",
       explanation:
@@ -532,9 +532,9 @@ const discoveryEnumerationRoom = {
       type: "flag" as const,
       id: "disc-f1",
       prompt:
-        "This room's cloud reading names three real AWS GuardDuty finding types built specifically to detect Discovery-tactic activity. Which exact finding type flags an S3 ListObjectsV2-family call made from an IP address already known to be malicious? Answer in the exact Category:Resource/Name format.",
-      answer: "Discovery:S3/MaliciousIPCaller",
-      hint: "Covered in the reading 'Discovery in the Cloud' -- it's the S3-specific one, distinct from Recon:IAMUser/MaliciousIPCaller, which covers IAM-level reconnaissance instead.",
+        "In the overnight API burst you investigated, the role's temporary credentials were used from somewhere its scheduled Lambda never runs. Enter the source IP address you would block and pivot on across CloudTrail to find everything else those credentials touched.",
+      answer: "45.148.10.62",
+      hint: "CloudTrail records where each API call came from, separately from the identity that made it.",
       xp: 15,
     },
   ],

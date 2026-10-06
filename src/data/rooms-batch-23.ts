@@ -80,7 +80,7 @@ const wafOversizeBypassEvent: TelemetryEvent = {
 
 const nessusScanIdsEvent: TelemetryEvent = {
   id: "evt-secprod-ac1-001",
-  ts: "2026-05-14T02:03:11.421Z",
+  ts: "2026-05-12T02:03:11.421Z",
   source: "ids",
   vendor: "Suricata",
   event_type: "ids_signature",
@@ -102,7 +102,7 @@ const nessusScanIdsEvent: TelemetryEvent = {
   it_verify_message:
     "Change ticket CHG-91004 confirms a scheduled, credentialed Nessus scan of the internal portal subnet (10.44.20.0/24) runs every Tuesday 02:00-03:00 from the vulnerability-management host 10.44.8.15.",
   raw: {
-    timestamp: "2026-05-14T02:03:11.421+0000",
+    timestamp: "2026-05-12T02:03:11.421+0000",
     flow_id: 1834792028551342,
     event_type: "alert",
     src_ip: "10.44.8.15",
@@ -186,14 +186,14 @@ Prevent vs. detect: a product sitting inline in the path of the traffic or the p
         question:
           "In the LockBit example from Reading 1, CrowdStrike's EDR sensor scored wu_update.exe 91/100 -- well above its block threshold -- yet took no action. Why?",
         options: [
-          "The sensor was physically incapable of taking any blocking action on that host, regardless of what policy was configured",
-          "The server's prevention policy was set to Detection Only, so the sensor identified the threat but was configured not to act on it",
-          "A score of 91/100 fell just below this specific host's configured block threshold, so the sensor logged it without intervening",
-          "The detection was later confirmed by the vendor's own analysts to be a false positive, so no action was ever warranted",
+          "The sensor sits out-of-band on that server, so it could observe the threat but not block it",
+          "The server's policy was set to Detection Only, so the sensor identified the threat but did not act",
+          "Servers use a higher block threshold than workstations, and 91 fell short of it on this host",
+          "The vendor's analysts later judged the detection a false positive, so no action was warranted",
         ],
         answer: 1,
         explanation:
-          "The sensor could have blocked it -- it was inline and well above the block threshold -- but the policy governing that specific server was set to Detection Only, so it logged the threat and did nothing. Placement determines what a product COULD do; policy determines what it actually does.",
+          "The sensor was inline and the score was well above the block threshold, so it could have blocked. The policy on that server was Detection Only, so it logged the threat and did nothing. Placement decides what a product COULD do; policy decides what it actually does. “The sensor sits out-of-band” is wrong: an EDR sensor runs on the host itself and is inline. “Servers use a higher block threshold” contradicts the example, where 91 was well above the threshold. “Later judged a false positive” is wrong: this was real LockBit that went on to encrypt the server.",
       },
     },
 
@@ -316,16 +316,16 @@ One more MITRE ATT&CK distinction belongs here, because ESXi ransomware operator
         "===========================================================",
       checkpoint: {
         question:
-          "Why does an analyst treat an esx.audit.ssh.enabled event as inherently worth investigating, even before checking who triggered it or what happened next?",
+          "Why does an analyst treat an esx.audit.ssh.enabled event as worth investigating, even before checking who triggered it or what happened next?",
         options: [
-          "Because SSH is always malicious on any server, hypervisor or not",
-          "Because ESXi ships with SSH disabled by default, so any occurrence of the service being turned on is a deviation from the normal running state, not routine activity",
-          "Because vCenter automatically blocks SSH connections, so a logged enablement means the block failed",
-          "Because SSH events are only logged when EDR detects a related process on a guest VM",
+          "Because SSH traffic is encrypted, so the SOC cannot see the commands run over it",
+          "Because SSH is off by default on ESXi, so turning it on is a change from the normal state",
+          "Because ESXi has no EDR agent, so every hypervisor log event is treated as an alert",
+          "Because SSH is the protocol ransomware uses to encrypt the virtual machines' disks",
         ],
         answer: 1,
         explanation:
-          "SSH is off by default on ESXi precisely because interactive shell access to a hypervisor is powerful and not needed for routine management (which normally goes through vCenter). Because the default state is 'off,' any logged transition to 'on' is itself a deviation worth attention — this is a baseline argument, not a claim that SSH is universally malicious. EDR and vCenter blocking are unrelated: ESXi has no EDR agent (that is the whole premise of this reading), and vCenter does not act as an inline gatekeeper for the ESXi SSH service.",
+          "ESXi ships with SSH disabled, because routine management goes through vCenter. Any logged switch to “on” is therefore a deviation from the baseline, which is worth a look on its own. “SSH traffic is encrypted, so the SOC cannot see the commands” is true, but it does not explain why the enablement event itself matters. “Every hypervisor log event is treated as an alert” is wrong: most vCenter/ESXi events are routine, and the missing EDR agent is why these logs matter, not a reason to alert on all of them. “SSH is the protocol ransomware uses to encrypt” confuses access with the encryption itself: SSH can give an attacker a shell, but the encryptor is a separate program.",
       },
     },
 
@@ -369,14 +369,14 @@ Because it sits inline, an NGFW's detection is always potentially preventive: it
       checkpoint: {
         question: "Without TLS inspection enabled, what can an NGFW see about an HTTPS session?",
         options: [
-          "Nothing at all -- an encrypted session produces no metadata or log entry of any kind on an NGFW without TLS inspection",
-          "Connection metadata -- destination, byte counts, and App-ID's best-effort classification -- but not the actual encrypted content",
-          "The complete decrypted request and response payload, because every NGFW decrypts all TLS sessions by default out of the box",
-          "Only the raw destination IP address, since App-ID classification itself requires TLS inspection to be enabled first",
+          "Nothing: an encrypted session produces no log entry at all without inspection",
+          "Metadata such as destination, byte counts and App-ID's best guess, but not content",
+          "The full URL path of each request, though not the request or response body",
+          "Only the destination IP, since App-ID classification itself needs TLS inspection",
         ],
         answer: 1,
         explanation:
-          "An NGFW without TLS inspection sees that a connection happened, its destination, its byte counts, and App-ID's pattern-based guess at the application -- but never the actual bytes inside the encrypted session, unless TLS inspection is specifically configured.",
+          "Without TLS inspection an NGFW still logs that the connection happened, where it went, how many bytes moved, and App-ID's pattern-based guess at the application, but not what was inside. “Nothing: an encrypted session produces no log entry” is wrong: the session metadata is logged. “The full URL path of each request” is a common misconception: the path travels inside the encrypted session, so only the hostname (from SNI) is visible. “Only the destination IP” is wrong too: App-ID still makes a best-effort classification, such as “ssl”, from the handshake.",
       },
     },
 
@@ -445,14 +445,14 @@ The characteristic false positive for both is identical, because it comes from t
       question:
         "A Suricata sensor fires an identical signature for the same exploit attempt on two different network segments. On Segment A the alert shows alert.action: 'blocked' and the connection never reached its target. On Segment B the alert shows alert.action: 'allowed' and the exploit succeeded. What is the most likely explanation?",
       options: [
-        "Segment A's sensor received a newer revision of the signature hours before Segment B's did, and because Suricata writes alert.action directly from the matching rule's own revision number, a higher rev always serialises as 'blocked' while an older rev of the very same rule serialises as 'allowed'",
-        "Segment A's sensor is deployed inline as an IPS, positioned directly in the traffic path so it could drop the malicious packet; Segment B's sensor is deployed out-of-band as an IDS, reading only a copy of the traffic, so it could alert but had no way to stop the original packet from being delivered",
-        "The exploit against Segment B must have used a fundamentally different, more sophisticated payload, since Suricata only ever emits alert.action: 'allowed' when a rule matches on traffic whose payload the decoder could not fully parse — a successfully decoded packet is always terminated by the engine regardless of where the sensor sits in the network",
-        "The 'blocked' versus 'allowed' wording is purely cosmetic EVE-JSON terminology inherited from Snort: Suricata populates alert.action from the signature's priority metadata, so priority:1 rules always render as 'blocked' and everything below them as 'allowed', which says nothing about whether the packet was actually delivered",
+        "Sensor A has a newer revision of the signature, and newer revisions are written as blocked",
+        "Sensor A sits inline as an IPS and can drop packets; sensor B is an out-of-band IDS",
+        "Sensor B's copy of the rule has a lower priority, and only priority-1 matches are blocked",
+        "The exploit on Segment B was encrypted, so sensor B saw it only after it was delivered",
       ],
       answer: 1,
       explanation:
-        "The detection engine and signature were identical on both segments, so the differing outcome comes down to placement, exactly as the IDS vs IPS reading lays out: inline (IPS) deployment can physically drop the packet before delivery, while out-of-band (IDS) deployment only ever receives a copy after the original has already gone through. The alert.action field is directly reporting that structural difference, not a cosmetic label, and nothing here implies a different exploit technique or signature quality gap.",
+        "The engine and the signature were the same, so the different outcome comes from placement. An inline IPS sits in the traffic path and can drop the packet before delivery. An out-of-band IDS reads a copy after the original has already gone through, so it can only alert. alert.action reports that difference. “A newer revision of the signature” is wrong: a rule revision changes what matches, not whether the sensor can stop traffic. “A lower priority” confuses severity with action: priority ranks alerts, it does not give a copy-reading sensor the power to block. “The exploit on Segment B was encrypted” does not fit: an encrypted payload would not have matched the signature at all, yet sensor B alerted.",
       xp: 20,
     },
 
@@ -502,42 +502,42 @@ When a WAF does detect a match, its action is genuinely inline and preventive �
           question:
             "ruleGroupList shows the AWS Managed SQL Injection Rule Group with terminatingRule: null and nonTerminatingMatchingRules: [] — no match at all — and the final action is ALLOW. The Content-Length header reads 48213 bytes. What does this combination most likely indicate?",
           options: [
-            "AWS WAF's managed rule groups only inspect a request body up to a configured size limit (commonly around 8KB); a body this large means a substantial portion of it — potentially including any injected payload — was never evaluated by the SQLi rule group at all, so 'no match' does not mean 'no attack'",
-            "terminatingRule: null is AWS WAF's explicit confirmation that the entire request body was parsed end-to-end regardless of its size — the field is populated with a rule name only when inspection had to be truncated, so a null value is the log's own guarantee that no part of the payload went unexamined",
-            "Content-Length is a purely informational header that AWS WAF never reads: the service measures body size only after decompression at the origin, so the number recorded in the log bears no relationship at all to how many bytes the managed rule groups actually inspected before rendering their verdict",
-            "ALLOW paired with a null terminatingRule proves this request never reached the SQLi rule group at all — AWS WAF omits a rule group from ruleGroupList entirely whenever it did evaluate the request, and lists it only for rule groups that were skipped because an earlier rule had already produced a verdict",
+            "The body is far past the rule group's ~8 KB inspection limit, so most of it was never checked",
+            "A null terminatingRule means the whole body was parsed and found clean, whatever its size",
+            "The SQLi rule group was skipped, because an earlier rule had already allowed the request",
+            "SizeRestrictions_BODY blocked the large body, so the request never reached the application",
           ],
           answer: 0,
           explanation:
-            "This is the oversize-handling mechanism from the WAF reading: managed rule groups cap how much of a body they inspect, and a body far larger than that cap means the excess — wherever it falls — was never evaluated. Content-Length is exactly the field that reveals this, which is why it matters here. 'No match' reported by a rule group reflects what it was able to check, not a guarantee about the entire payload, and the rule group entry in ruleGroupList shows it clearly was invoked (an empty match list, not an absence from the log). The Core rule set entry confirms the size problem from the other side: its SizeRestrictions_BODY rule (which normally BLOCKS bodies over 8 KB) matched, but it has been overridden to COUNT on this web ACL — a common tuning for APIs that accept large JSON — so the oversized body was recorded and then allowed through.",
+            "Managed rule groups inspect a body only up to a size limit, commonly around 8 KB. A 48,213-byte body means most of it, wherever an injection might sit, was never evaluated, so “no match” does not mean “no attack”. “A null terminatingRule means the whole body was parsed and found clean” confuses “nothing matched in what was checked” with “everything was checked”. “The SQLi rule group was skipped” misreads the log: the group appears in ruleGroupList with an empty match list, so it did evaluate the request. “SizeRestrictions_BODY blocked the large body” misreads its action: the rule matched but is set to COUNT, and the final action is ALLOW. That override is a common tuning for APIs that accept large JSON, and it is exactly why the oversized body went through.",
           xp: 20,
         },
         {
           question:
             "clientIp is 154.16.88.203 (a Romanian IP with no prior history against this endpoint) and the User-Agent is 'python-requests/2.31.0' — a generic HTTP scripting library, not a browser. Combined with the oversized body, what should an analyst do next?",
           options: [
-            "Nothing further is warranted — an ALLOW verdict from an AWS managed rule group is, by AWS's own published definition, a conclusive attestation that the request body was inspected in full and found safe, which is exactly why managed rule groups are offered under a documented detection guarantee",
-            "Pull the full request body from origin/access logging if available, inspect it for injection patterns beyond what the rule group's inspection limit covered, and review whether the SQLi rule group's oversize-handling setting should be tightened from its current permissive behavior",
-            "Immediately add a geo-match rule to the web ACL blocking every source in Romania, since the clientIp country field alone is sufficient grounds for a permanent country-wide block, and blocking the source region also closes the oversize-inspection gap for every other client hitting the endpoint",
-            "Disable the AWS Managed SQL Injection Rule Group across the entire web ACL, since a rule group that returns no match on an oversized body is by definition faulty — removing it also forces AWS WAF back onto its default full-body inspection path, which carries no size limit at all",
+            "Close it: the managed SQLi rule group evaluated the request and allowed it",
+            "Pull the full body from origin logs and review the oversize-handling setting",
+            "Add a geo-block for Romania, since the source country explains the risk",
+            "Block the python-requests User-Agent at the WAF to stop scripted clients",
           ],
           answer: 1,
           explanation:
-            "None of the individual signals here — foreign IP, scripted User-Agent, oversized body — proves malice on its own, but together they're exactly the profile worth pulling the actual body for and reviewing the rule group's oversize configuration against, which is the concrete, proportionate next step. Treating ALLOW as proof of safety ignores the mechanism just established; blocking an entire country off one request is disproportionate and would break legitimate traffic; and the rule group did exactly what it was configured to do — the finding is a configuration gap, not a broken rule group.",
+            "None of the signals (a new foreign IP, a scripting-library User-Agent, an oversized body) proves malice alone, but together they justify looking at what the WAF never inspected: pull the full body from origin or access logging, and review whether oversize handling should be tightened. “Close it: the rule group evaluated the request and allowed it” ignores that it evaluated only the first part of the body. “Add a geo-block for Romania” is disproportionate after one request and does nothing about the inspection gap for other sources. “Block the python-requests User-Agent” is trivially bypassed, because the client sets that header itself, and it would also break legitimate API scripts.",
           xp: 25,
         },
         {
           question:
             "What is the broader lesson this event teaches about reading WAF verdicts?",
           options: [
-            "A BLOCK verdict confirms the rule group is functioning, and by strict logical symmetry an ALLOW verdict must therefore mean the request was genuinely evaluated in full and found clean — AWS WAF is documented as failing closed, returning a 403 rather than an ALLOW on any request it was unable to inspect completely",
-            "An ALLOW is only meaningful in combination with knowing what was actually evaluated — a rule group with an inspection size limit and a permissive oversize-handling setting can report 'no match' on a request it only ever partially examined, which is a common, low-visibility way managed rulesets get bypassed",
-            "WAFs provide no genuine value for SQL injection protection under any configuration, because managed rule groups match only on literal string signatures and a parameterised query at the application layer defeats every injection attempt anyway — application-layer input validation should therefore be the only defense an organization relies on",
-            "The inspection-limit issue applies only to POST requests, because the HTTP specification forbids every other method from carrying a request body and AWS WAF consequently applies its body-size cap to POST alone — PUT, PATCH and DELETE requests are inspected without any size limit whatsoever",
+            "An ALLOW from a managed rule group means the request was inspected in full",
+            "An ALLOW only means as much as the part of the request that was inspected",
+            "A COUNT match works like a block, so the oversized excess was stopped there",
+            "WAFs cannot stop SQL injection, so input validation should replace the WAF",
           ],
           answer: 1,
           explanation:
-            "This is the room's core WAF takeaway: a verdict is only as trustworthy as what it was actually able to inspect, and oversize handling is exactly the kind of configuration detail that turns 'no match' into a false sense of safety rather than a real clearance. WAFs remain genuinely valuable when correctly tuned, so the right response is fixing the configuration, not abandoning the control; and while this particular example is a POST with a JSON body, size-based inspection limits are a property of any method that can carry a body, not a POST-only concern.",
+            "A verdict is only as trustworthy as what the rule group could actually inspect. With an inspection size limit and permissive oversize handling, “no match” can come from a request that was only partly examined, a low-visibility way managed rule sets get bypassed. “An ALLOW means the request was inspected in full” is the assumption this event disproves. “A COUNT match works like a block” is wrong: COUNT records the match and lets the request continue, as the final ALLOW shows. “WAFs cannot stop SQL injection” overreacts: a correctly tuned WAF is valuable, and the fix here is configuration, not removal.",
           xp: 25,
         },
       ],
@@ -579,14 +579,14 @@ Its blind spots are specific and worth knowing by name. Many organizations route
         question:
           "Per the Secure Web Gateway and Email Security Gateway reading, why can a compromised mailbox sending phishing to colleagues internally sometimes bypass the email security gateway entirely?",
         options: [
-          "Email gateways can never detect phishing content, internal or external",
-          "Many organizations route internal-to-internal mail directly through their mail platform without passing it back through the gateway at all",
-          "Internal senders are always cryptographically verified, so no inspection is needed",
-          "The gateway only inspects attachments, never message content",
+          "Internal mail is signed with DKIM, so the gateway skips its checks on it",
+          "Internal-to-internal mail often never routes back through the gateway",
+          "The gateway inspects only attachments, so a link-only message passes",
+          "Internal mail is TLS-encrypted, which the gateway is unable to read",
         ],
         answer: 1,
         explanation:
-          "The gateway's blind spot here is structural, not a detection failure: internal-to-internal mail commonly never routes back through it at all, so a compromised mailbox phishing colleagues can travel a path the gateway was never positioned to inspect.",
+          "The blind spot is routing, not detection: many organisations deliver internal-to-internal mail directly on the mail platform, so it never passes the gateway at all. “Signed with DKIM, so the gateway skips its checks” is wrong: a valid signature does not switch off content inspection. “Inspects only attachments” is wrong: gateways also analyse links (and rewrite them for click-time checks). “TLS-encrypted, which the gateway is unable to read” is wrong: TLS protects mail between servers, and a gateway in the path receives the decrypted message.",
       },
     },
 
@@ -640,16 +640,16 @@ Its two characteristic false positives are worth knowing by name, because they p
         "===========================================================",
       checkpoint: {
         question:
-          "Why can a vulnerability scanner never block a vulnerability it finds, even when configured as aggressively as possible — a stronger limitation than an EDR set to Detection Only?",
+          "Why can a vulnerability scanner not block a vulnerability it finds, however aggressively it is configured — a stronger limitation than an EDR set to Detection Only?",
         options: [
-          "Because scanners are always deployed out-of-band on a network tap, exactly like an IDS, and a tap can only ever read a copy of traffic",
-          "Because a scanner has no position in any traffic or process path to act from at all — it only reaches out, assesses, and reports a finding (with a CVE and CVSS score); remediation is a separate human-and-process step",
-          "Because a scanner's block feature only activates once a finding's CVSS base score reaches a perfect 10.0, and almost no real finding scores that high",
-          "Because scanners can block, but only for uncredentialed findings — a credentialed scan is read-only by design and forfeits any enforcement capability",
+          "It sits out-of-band on a tap like an IDS, so it reads only a copy of the traffic",
+          "It has no position in any traffic or process path; it only probes and reports",
+          "Blocking needs a credentialed scan, and most scans are run uncredentialed",
+          "Its blocking feature acts only on findings that score a CVSS of 10.0",
         ],
         answer: 1,
         explanation:
-          "A scanner is a prober, not a sensor: it initiates connections to assess targets and has no foothold in the traffic or process path from which enforcement would even be possible. This is a stronger statement than the EDR Detection Only case — that sensor could have blocked and was configured not to, whereas a scanner is structurally incapable of it. Its output is a report (CVE plus CVSS severity), and acting on that report is a separate step entirely. CVSS scores and credentialed-versus-uncredentialed mode change accuracy and detail, never whether it can enforce.",
+          "A scanner is a prober, not a sensor: it reaches out, assesses targets and reports findings (a CVE with a CVSS score), and fixing them is a separate human step. The Detection Only EDR could have blocked and was configured not to; a scanner has nowhere to block from. “It sits out-of-band on a tap like an IDS” is wrong: a scanner does not read traffic at all, it generates its own connections. “Blocking needs a credentialed scan” confuses accuracy with enforcement: credentials let it read patch levels, not block anything. “Acts only on findings that score a CVSS of 10.0” invents a feature: a CVSS score rates severity and never triggers enforcement.",
       },
     },
 
@@ -779,14 +779,14 @@ A SOAR (Security Orchestration, Automation and Response) platform sits one layer
       question:
         "An incident responder confirms an attacker moved laterally through a segment of the network for three days, but the SIEM shows zero alerts for that segment during the entire window. A junior analyst concludes 'the SIEM proves nothing happened here before day three.' What's wrong with that conclusion?",
       options: [
-        "Nothing is wrong with it: the SIEM's own collectors capture traffic from every segment regardless of which log sources are onboarded, so three days of zero alerts reliably indicates no attack activity",
-        "A SIEM only sees what is forwarded to it, so silence from that segment may mean its logs were never onboarded; the analyst should verify the source's ingestion status first",
-        "A SIEM correlates lateral movement only inside a single log source type, so an attack spanning authentication, network and endpoint telemetry would never produce an alert in any segment",
-        "The silence points to the attacker encrypting lateral-movement traffic, which suppresses the Windows logon events (4624, 4648) that the SIEM's correlation rules depend on",
+        "Nothing: three days without alerts shows that the segment had no attack activity",
+        "A SIEM sees only what is forwarded, so first check whether that segment's logs arrive",
+        "A SIEM correlates within one log source type only, so mixed telemetry never alerts",
+        "Encrypted lateral movement suppresses the logon events the correlation rules need",
       ],
       answer: 1,
       explanation:
-        "This is the rule from the SIEM and SOAR reading stated directly: a SIEM only ever knows what was shipped to it, so silence from a specific segment is exactly as consistent with 'nothing forwarded' as with 'nothing happened,' and the first move is always checking onboarding status, not accepting the absence as proof. SIEMs regularly do correlate lateral movement when the relevant logs (authentication, network, endpoint) are actually flowing into them, and encryption affects what individual products like NDR or NGFW can see in a payload — it doesn't explain a total SIEM silence on its own, since metadata-level events (logons, connections, process creation) are typically still logged and forwardable regardless of payload encryption.",
+        "A SIEM only knows what is shipped to it, so silence from one segment fits “nothing forwarded” as well as “nothing happened”. Check that source's ingestion status before treating the silence as evidence. “Three days without alerts shows no attack activity” is contradicted by the responder's confirmed findings. “Correlates within one log source type only” is wrong: cross-source correlation is a core SIEM job when the logs actually flow in. “Encrypted lateral movement suppresses the logon events” is wrong: encryption hides payloads from network tools, but Windows still writes logon and process events on the hosts.",
       xp: 20,
     },
 
@@ -797,16 +797,16 @@ A SOAR (Security Orchestration, Automation and Response) platform sits one layer
       type: "question",
       id: "secprod-q4",
       question:
-        "CrowdStrike's EDR sensor on a file server identified wu_update.exe as LockBit 3.0 ransomware, scored the payload 91 out of 100 (well above the platform's block threshold), and logged a detection — but the ransomware ran to completion and encrypted the server anyway. Given that EDR is generally described as an inline, prevention-capable product, what explains this outcome?",
+        "Meridian's DLP inspects the web upload channel inline. It flags a high-confidence match of 2,000 customer records in a file a user uploads to a personal cloud drive and logs the event, but the upload completes. What best explains the outcome?",
       options: [
-        "The sensor on a Windows file server runs in user mode only, so it can score and log a payload but has no hook point from which to stop an encryptor",
-        "The server's prevention policy was set to Detection Only, so the sensor identified and logged the threat but was configured not to act on it",
-        "The sensor's block threshold for server host groups is typically set at 95 or above, so a 91 was logged as a detection but fell short of triggering prevention",
-        "The sensor blocked the original dropper, and the encryption seen was a second payload that Falcon scores in a separate detection chain from the first",
+        "DLP reads only a copy of web traffic, so it can record an upload but never stop it",
+        "That channel's policy is notify-only, so DLP logged the match and let the data go",
+        "The match was below DLP's blocking confidence, so it could only log the event",
+        "DLP scans a file after the upload completes, so it always sees the match too late",
       ],
       answer: 1,
       explanation:
-        "This is the prevent-vs-detect nuance from Reading 1, stated in its sharpest form: being positioned inline (capable of blocking) is a separate fact from being configured to block. Detection Only is a real, common policy choice — often made for servers out of availability concerns, to avoid a false positive taking down a production system — and it means the sensor will identify and log a threat with full confidence while taking no containment action at all. The 91/100 score was well above the block threshold, which is precisely what makes this example instructive: confidence wasn't the limiting factor, policy was. Nothing about a high-confidence detection under a Detection Only policy makes it a false positive.",
+        "This is the same lesson as the LockBit example, on a different product: DLP's action depends on its policy mode. On a notify-only channel it records the sensitive data leaving and lets it go. “Reads only a copy of web traffic” contradicts the setup: this DLP is inline on the channel and can block. “Below DLP's blocking confidence” contradicts the high-confidence match in the scenario. “Scans a file after the upload completes” is wrong: an inline DLP inspects the transfer as it passes, which is what lets it block when the policy says so.",
       xp: 20,
     },
 
@@ -843,14 +843,14 @@ A SOAR (Security Orchestration, Automation and Response) platform sits one layer
       id: "secprod-o1",
       heading: "Order the Products by When They'd First See a Phishing-to-Cloud-Exfiltration Attack",
       instructions:
-        "A phishing email leads to a click, a foothold on the workstation, lateral movement inside the network, a compromised cloud sign-in, and finally sensitive data leaving the organization. Order these products by which one would first generate telemetry as that chain unfolds.",
+        "An incident review lists what happened, in no particular order: customer data left through a monitored egress channel; the attacker hopped between internal servers; a stolen token was used for a cloud sign-in; a phishing email reached a user's inbox; the infected workstation opened a connection to a command-and-control server; the user opened the attachment and a malicious process started. Work out the real sequence of the attack, then order these products by which one would see its part of it first.",
       items: [
-        { id: "email-gw", text: "Email Security Gateway — the phishing message is delivered to the inbox" },
-        { id: "edr", text: "EDR — the attachment is opened and a malicious process is created on the workstation" },
-        { id: "ngfw-ips", text: "NGFW/IPS — the compromised host makes an outbound connection to a command-and-control server" },
-        { id: "ndr", text: "NDR — the attacker moves laterally between internal hosts" },
-        { id: "identity-casb", text: "Identity Protection/CASB — a stolen token is used for an anomalous cloud sign-in" },
-        { id: "dlp", text: "DLP — sensitive data is moved out through a monitored egress channel" },
+        { id: "email-gw", text: "Email Security Gateway" },
+        { id: "edr", text: "EDR" },
+        { id: "ngfw-ips", text: "NGFW/IPS" },
+        { id: "ndr", text: "NDR" },
+        { id: "identity-casb", text: "Identity Protection/CASB" },
+        { id: "dlp", text: "DLP" },
       ],
       correct_order: ["email-gw", "edr", "ngfw-ips", "ndr", "identity-casb", "dlp"],
       explanation:
@@ -872,9 +872,9 @@ A SOAR (Security Orchestration, Automation and Response) platform sits one layer
       // Analysis N" resolver, so the event must be pinned explicitly.
       event: wafOversizeBypassEvent,
       prompt:
-        "The AWS WAF event below records a POST to /api/v1/search with action: ALLOW. In this WAF event's raw log, what is the exact value — in bytes — of the Content-Length HEADER? (Read the header named Content-Length inside httpRequest.headers — not a 'length' field on any other log in this room.)",
-      answer: "48213",
-      hint: "In the WAF log shown above, expand httpRequest → headers and find the pair whose name is \"Content-Length\"; its value is the answer.",
+        "The AWS WAF event below ended in ALLOW, yet one managed rule DID match this request. Its action had been overridden, so it only recorded the match and the request went through. What is that rule's ID? Enter it exactly as it appears in the log.",
+      answer: "SizeRestrictions_BODY",
+      hint: "Look through ruleGroupList for a rule group whose list of matching rules is not empty.",
       xp: 25,
     },
   ],

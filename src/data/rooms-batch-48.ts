@@ -125,13 +125,13 @@ export const roomsBatch48 = [
       "checkpoint": {
         "question": "Per this reading, why is T1078 (Valid Accounts) listed under four different MITRE ATT&CK tactics at once?",
         "options": [
-          "Because a valid, working login gets an attacker in the door (Initial Access), keeps working after the entry point is closed (Persistence), carries whatever privileges the account already held (Privilege Escalation), and looks identical to the real employee logging in (Defense Evasion)",
-          "Because MITRE ATT&CK lists every technique in the Initial Access tactic under three additional tactics automatically, as a fixed rule applied uniformly across the entire framework with no exceptions",
-          "Because T1078 is actually four separate, unrelated sub-techniques that merely happen to share the same technique ID number by historical accident in the framework's design",
-          "Because a password reset performed by a help-desk agent is, by MITRE's own definition, always classified as all four tactics simultaneously regardless of what the resulting login is later used for"
+          "A working login gets the attacker in, survives remediation, carries the account's privileges and blends in as the real user",
+          "A stolen login is used at four stages in turn: Initial Access, Lateral Movement, Collection and finally Exfiltration",
+          "Each of T1078's four sub-techniques (Default, Domain, Local, Cloud accounts) is filed under a different tactic",
+          "ATT&CK files a technique under one tactic for each threat group seen using it, and four groups have used T1078",
         ],
         "answer": 0,
-        "explanation": "This reading states the reason for each of the four tactics directly: initial entry, surviving remediation, inherited privilege, and blending in as a legitimate login. MITRE does not apply a blanket four-tactic rule to every Initial Access technique (that rule is invented and false -- most Initial Access techniques carry only one or two tactics). T1078 is one technique with sub-techniques for account type (Default/Domain/Local/Cloud), not four unrelated techniques sharing an ID. And the claim that a help-desk reset is always all four tactics by MITRE's definition overstates this into an absolute rule this reading never makes."
+        "explanation": "The reading gives one reason per tactic: a valid login is the way in (Initial Access), keeps working after the entry point is closed (Persistence), brings whatever privileges the account already had (Privilege Escalation), and looks like the real employee (Defense Evasion). “Initial Access, Lateral Movement, Collection and finally Exfiltration” names the wrong tactics: those are later stages of an intrusion, not T1078's listings. “Each of the four sub-techniques is filed under a different tactic” confuses sub-techniques (account types) with tactics: all of them share the same four tactics. “One tactic for each threat group” is not how ATT&CK assigns tactics: a tactic is the goal a technique achieves, not who used it.",
       },
       "xp": 5
     },
@@ -143,13 +143,13 @@ export const roomsBatch48 = [
       "checkpoint": {
         "question": "Per this reading, what specific weakness in MGM's help-desk verification process did the attacker exploit, and what MITRE ATT&CK techniques does this room's earlier reading assign to gathering the information needed to exploit it?",
         "options": [
-          "Knowledge-based authentication (KBA) questions, whose answers an attacker can often find or infer from public sources -- gathered in advance via T1589 (Gather Victim Identity Information) and T1591 (Gather Victim Org Information)",
-          "A hardware security key requirement, which the attacker physically stole from the employee's desk the week before making the call to MGM's help desk",
-          "A biometric voice-recognition system that the help desk used to verify callers, which the attacker defeated using T1656 (Impersonation) alone with no reconnaissance",
-          "An SMS one-time-passcode requirement that the attacker bypassed using T1078 (Valid Accounts) before ever contacting MGM's help desk at all"
+          "Knowledge-based questions whose answers were public, gathered in advance via T1589 and T1591",
+          "Knowledge-based questions, which the caller passed with T1656 alone and no research beforehand",
+          "SMS one-time codes, intercepted after a SIM swap that was planned through T1591 research",
+          "Push MFA approvals, triggered in bulk via T1621 until the employee finally accepted one",
         ],
         "answer": 0,
-        "explanation": "This reading states the weakness directly: KBA relying on answers findable through public sources, with T1589/T1591 named as the reconnaissance techniques that gather exactly that information in advance. This reading never describes a stolen hardware key, a biometric voice system (and this room's later reading is explicit that voice itself should never be treated as a verification method), or an SMS bypass preceding the call (that option also misuses T1078 as a bypass technique rather than the resulting access)."
+        "explanation": "MGM's help desk relied on knowledge-based authentication (KBA), and its answers could be found or inferred from public sources. That is exactly what Stage 1 reconnaissance (T1589 Gather Victim Identity Information, T1591 Gather Victim Org Information) collects before the call. “Passed with T1656 alone and no research beforehand” gets the weakness right but drops the reconnaissance that made the impersonation convincing. “SMS one-time codes, intercepted after a SIM swap” describes the Caesars-style SIM-swap element, not MGM's verification weakness. “Push MFA approvals, triggered in bulk via T1621” is the Twilio/Cisco pattern, aimed at the account owner rather than at a help desk.",
       },
       "xp": 5
     },
@@ -161,13 +161,13 @@ export const roomsBatch48 = [
       "checkpoint": {
         "question": "Per this reading, what specifically made the deepfake element in the Retool incident significant, compared to a generic IT-impersonation call?",
         "options": [
-          "The cloned voice resembled a real, specific colleague and the caller was conversant about office layout and coworkers, which kept the call credible even after the employee grew suspicious partway through",
-          "The deepfake voice was used to defeat a biometric voice-recognition lock on Retool's building, allowing the attacker physical entry to the office before making any phone call at all",
-          "Retool's own security team stated that the deepfake was technically indistinguishable from a live phone connection, making detection during the call itself completely impossible",
-          "The deepfake call was the very first stage of the Retool incident, with no smishing or any other message ever sent to any employee at any point before this call took place"
+          "The cloned voice matched a real colleague who knew office details, so the call stayed credible",
+          "The call was the very first contact; no message had reached any employee before it was made",
+          "The cloned voice passed the help desk's voice-biometric check that guarded the MFA reset",
+          "The call targeted the help desk rather than the employee, to get the MFA device reset",
         ],
         "answer": 0,
-        "explanation": "This reading states the significance directly: a cloned voice resembling a real, specific colleague, familiar with real office details, kept the call credible enough that the employee -- despite growing suspicious -- still supplied one more MFA code. A biometric lock on Retool's building is never mentioned or implied. This reading does not claim the deepfake was 'technically indistinguishable' in some absolute sense. Calling the deepfake call the very first stage reverses the actual sequence -- the smishing message with the fake identity-portal link came FIRST, and the deepfake call followed it."
+        "explanation": "The voice resembled a real, specific colleague and the caller knew real office details, so even an employee who grew suspicious still handed over one more MFA code. “The call was the very first contact” reverses the order: a smishing message with a fake portal link came first, and the call followed. “Passed the help desk's voice-biometric check” describes a control the incident never involved. “Targeted the help desk rather than the employee” is wrong: the call was aimed at the employee, which is what sets Retool apart from MGM.",
       },
       "xp": 5
     },
@@ -194,7 +194,7 @@ export const roomsBatch48 = [
         {
           "id": "p1",
           "left": "MGM Resorts (September 2023)",
-          "right": "A roughly ten-minute help-desk impersonation call led to a password reset that opened access into MGM's Okta identity environment"
+          "right": "A roughly ten-minute help-desk impersonation call led to a password reset that opened access into the victim's Okta identity environment"
         },
         {
           "id": "p2",
@@ -221,15 +221,15 @@ export const roomsBatch48 = [
       "heading": "Post-Call Fingerprints: What Actually Shows Up in the SIEM",
       "content": "The phone call itself leaves no trace anywhere a SOC (Security Operations Center) can see -- no log source in this platform, or in any real identity provider, records the content of a voice call. Everything an analyst investigating a suspected help-desk vishing case actually works from is what happened immediately before and after the call, inside systems that do log.\n\n### Signal 1: The Identity-Administration Action Itself\n\nMicrosoft Entra ID (the identity platform behind Microsoft 365 and Azure) logs every account-administration action to its audit log, under the `UserManagement` category. Three specific operation names matter most here: `Reset password (by admin)` -- a help-desk or admin-role account resetting someone else's password, distinct from `Reset password (self-service)`, which the account holder triggers themselves; `Disable Strong Authentication` -- removing an account's existing MFA requirement outright, sometimes used by a help desk to \"unblock\" someone who claims to have lost their MFA device; and `Update user`, which covers changes to account attributes including a registered phone number -- relevant because a registered phone number can itself be an MFA method or an account-recovery destination.\n\n### Signal 2: Who Actually Performed the Action\n\nEvery Entra ID audit record carries an `initiatedBy.user` block naming who performed the action, including their `id`, `userPrincipalName` (their login identity), and `roles` -- the directory role(s) their account held at the time. Two comparisons matter: whether `initiatedBy.user.id` matches the affected account's own ID under `targetResources[0].id` (a match means self-service -- the account holder did this to their own account; a mismatch means someone else acted on the account), and whether `initiatedBy.user.roles` is populated with an administrative role such as Helpdesk Administrator or Authentication Administrator (present specifically when an admin, rather than a peer employee, performed the action). A `Reset password (by admin)` record where the initiating role is Helpdesk Administrator and the target is a different user is exactly the shape a legitimate help-desk-assisted reset takes -- and, indistinguishably at this layer alone, exactly the shape a successful vishing call against that same help desk takes too. Neither the operation name nor the role field can tell the two apart on its own; this room's next reading covers what can.\n\n### Signal 3: What Happens on the Account Immediately Afterward\n\nThe decisive corroborating evidence usually sits in the sign-in logs that follow. Entra ID's sign-in log records, per attempt, the source `ipAddress`, `location.city` and `location.countryOrRegion`, `deviceDetail.deviceId` and `deviceDetail.trustType` (whether the device is Entra-joined, hybrid-joined, or unmanaged), `riskState` and `riskLevelDuringSignIn` (Microsoft's own automated risk scoring for that specific sign-in), and `authenticationRequirement` (whether MFA was actually satisfied on that attempt, or waived). A password reset followed within minutes by a successful sign-in from a device ID the account has never used before, from a country the account's normal history never shows, is the single strongest post-call fingerprint this room can offer -- the identity-administration action created the opportunity, and the sign-in log shows someone immediately using it.\n\n### The Timing Window Is the Correlation\n\nNone of these three signals alone proves a vishing case. What makes the pattern legible is timing: a `Reset password (by admin)` or `Disable Strong Authentication` record, followed -- usually within minutes to a few hours, not days -- by a sign-in or a new MFA registration that does not match the account's established device and location history. This room's log-analysis and analyst-choice tasks are both built around reading exactly that timing relationship correctly.",
       "checkpoint": {
-        "question": "Per this reading, which two fields together indicate that a password reset was performed by an ADMIN acting on someone else's account, rather than the account holder resetting their own password?",
+        "question": "Per this reading, which follow-up record most strengthens the suspicion that a Reset password (by admin) was driven by a vishing call?",
         "options": [
-          "initiatedBy.user.id differing from targetResources[0].id, combined with initiatedBy.user.roles containing an administrative role such as Helpdesk Administrator",
-          "riskLevelDuringSignIn and authenticationRequirement, since these two sign-in log fields alone directly record who performed a password reset action",
-          "deviceDetail.trustType and location.countryOrRegion, since a reset performed from an untrusted device in an unfamiliar country is definitionally always admin-performed",
-          "event.outcome and operationType, since a reset event recording a successful outcome is, by itself, sufficient proof that an administrator rather than the account holder performed it"
+          "A successful sign-in minutes later from a device ID and a country new to that account",
+          "A Reset password (self-service) by the same user, recorded a week before the call",
+          "An Update user record two days later that changes the account's job title attribute",
+          "A second Reset password (by admin) by the same agent, for a different user that hour",
         ],
         "answer": 0,
-        "explanation": "This reading names exactly this pairing: a mismatch between initiatedBy.user.id and targetResources[0].id (someone else acted on the account) together with an administrative role present in initiatedBy.user.roles. riskLevelDuringSignIn and authenticationRequirement are sign-in log fields covering a later, separate event, not the reset action's actor. deviceDetail.trustType and location describe the SIGN-IN that follows, not who performed the reset, and carry no such absolute rule. event.outcome and operationType describe whether the action succeeded and what kind of change it was, not who initiated it."
+        "explanation": "The reading calls a reset followed within minutes by a sign-in from a never-seen device and an unusual country the strongest post-call fingerprint: the reset created the opportunity and the sign-in log shows someone using it at once. “A Reset password (self-service) a week before” comes before the call and from the account holder, so it says nothing about who used the new password. “An Update user record two days later” is outside the minutes-to-hours window, and a job title is not an MFA or recovery attribute (a changed phone number would matter more). “A second admin reset for a different user” is ordinary help-desk work on another account.",
       },
       "xp": 5
     },
@@ -241,13 +241,13 @@ export const roomsBatch48 = [
       "checkpoint": {
         "question": "Per this reading, what is the specific weakness of knowledge-based authentication (KBA) that makes it unreliable against a vishing caller, and what actually resolves the ambiguity instead?",
         "options": [
-          "KBA answers (employee ID, manager's name, home address) can often be found through the same reconnaissance (T1589/T1591) an attacker performs in advance -- what resolves the case is a documented out-of-band check, such as a callback to a number already on file",
-          "KBA is unreliable because it requires expensive hardware tokens that most help desks cannot afford to issue -- what resolves the case is simply asking the caller to repeat their answers a second time",
-          "KBA is unreliable only when conducted in a language other than English -- what resolves the case is requiring the caller to speak in their verified native language",
-          "KBA is unreliable because it was deprecated by NIST in 2020 and is no longer a recognized verification method at all -- what resolves the case is any password reset performed outside business hours"
+          "Its answers can be found by the same recon (T1589/T1591); a callback to the number on file resolves it",
+          "Its answers can be found by the same recon; asking more KBA questions on the same call resolves it",
+          "Its answers can be found by the same recon; a callback to the number the caller gives resolves it",
+          "Its answers can be found by the same recon; recognising the caller's voice from past calls resolves it",
         ],
         "answer": 0,
-        "explanation": "This reading states the weakness precisely: KBA answers are exactly the kind of information T1589/T1591 reconnaissance gathers in advance, and the resolving control is a documented out-of-band check like a callback to a number already on file. KBA has nothing to do with hardware token cost (KBA is knowledge-based, not hardware-based, by definition). Language is never mentioned as a factor anywhere in this room (the English-only claim is invented). NIST has raised concerns about certain authenticator types over the years, but this reading never states KBA was formally 'deprecated,' and business hours are never named as a resolving fact in this room."
+        "explanation": "KBA answers (employee ID, manager's name, address) are exactly what T1589/T1591 reconnaissance collects in advance, so they verify nothing against a prepared caller. What resolves the case is an out-of-band check through a channel the caller does not control, such as a callback to the number already on file. “Asking more KBA questions on the same call” adds more of the same researchable facts. “A callback to the number the caller gives” lets the attacker answer their own callback. “Recognising the caller's voice” fails because voices can be cloned, as the Retool incident showed.",
       },
       "xp": 5
     },
@@ -273,13 +273,13 @@ export const roomsBatch48 = [
       "checkpoint": {
         "question": "Per this reading's correlation-rule pseudocode, what THREE conditions together must be true for the rule to fire?",
         "options": [
-          "An admin-role password reset or MFA-disable event on an account, followed within a bounded time window by a sign-in from that same account using a device ID or country not seen in the account's prior history",
-          "Any password reset event at all, occurring at any time, from any account, regardless of who performed it or what happens on the account afterward",
-          "A sign-in from a new device, occurring at any time before OR after a password reset, with no requirement that the two events belong to the same user account",
-          "An MFA-disable event performed by the account holder themselves (self-service), followed by a sign-in from that same account's own previously known device"
+          "An admin-role reset or MFA-disable, then within the window a sign-in from a device or country new to that account",
+          "An admin-role reset or MFA-disable, then within the window a sign-in by that account from its usual device",
+          "An admin-role reset or MFA-disable, then within the window a sign-in from a new device on any account in the tenant",
+          "A self-service reset or MFA-disable, then within the window a sign-in from a device or country new to that account",
         ],
         "answer": 0,
-        "explanation": "The pseudocode's three conditions are exactly this: an admin-role reset or MFA-disable operation, a bounded time window (4 hours in the example), and a subsequent sign-in whose device or country does not match the account's baseline. 'Any password reset at all' drops the admin-actor and anomaly conditions entirely, which would make the rule fire constantly on routine activity. The new-device-before-or-after option drops the same-account join, which the pseudocode's 'on $left.TargetUser == $right.UserPrincipalName' line explicitly requires. A self-service MFA-disable followed by a sign-in from a known device is a routine, no-anomaly case -- the opposite of what this rule is built to catch."
+        "explanation": "The rule needs all three: an admin-role reset or MFA-disable, a bounded time window (4 hours in the example), and a later sign-in on the SAME account whose device or country is not in its history. “A sign-in by that account from its usual device” removes the anomaly, so the rule would fire on every routine help-desk reset. “A sign-in from a new device on any account in the tenant” drops the same-account join the pseudocode requires, which would link unrelated users. “A self-service reset” swaps the actor: the rule targets resets performed by someone else, which is the help-desk vishing shape.",
       },
       "xp": 5
     },
@@ -289,15 +289,15 @@ export const roomsBatch48 = [
       "heading": "Hardening the Help Desk: The Limits of Voice Verification in the Deepfake Era",
       "content": "Everything this room has covered so far is about recognizing a vishing-driven takeover after it happens. The organizational question is how to make the attack harder to pull off in the first place -- and here, the honest answer includes an uncomfortable admission about what does not work as well as people assume.\n\n### What CISA's Own Advisory Actually Recommends\n\nCISA's joint advisory on this threat cluster (AA23-320A) is direct about its top mitigation: implement phishing-resistant MFA -- specifically FIDO/WebAuthn or PKI-based (Public Key Infrastructure) authentication -- because, in the advisory's own words, these methods \"are resistant to phishing and not susceptible to push bombing or SIM swap attacks.\" A FIDO2 security key or passkey cannot be intercepted by a SIM swap, cannot be approved by an exhausted user tapping the wrong button, and is not a code an employee can accidentally read aloud to a caller. The advisory also names user training against vishing and spearphishing specifically, and enforcing NIST-standard password policies (length, no reuse, lockout thresholds) as complementary layers. Notably, the advisory does not lay out a specific help-desk callback procedure as a named mitigation -- that particular control is an industry best practice this room draws from post-incident reporting and analyst consensus, not a direct CISA prescription, and it is worth being precise about which claim comes from which source.\n\n### The Honest Limit: Voice Itself Is Not a Verification Method\n\nThe single most important hardening principle this room can offer is a negative one: no help-desk process should ever treat \"the caller sounded right\" or \"I recognized the voice\" as a verification step on its own. The Retool incident earlier in this room is the direct, documented proof of why -- a cloned voice sounded convincingly like a real, specific colleague, familiar with real office details, and still nearly succeeded outright. Voice authenticity is not a control; it is exactly the surface an attacker is now equipped to fake.\n\n### Practical Layers That Do Not Depend on Trusting a Voice\n\nBeyond phishing-resistant MFA, the controls that hold up are the ones this room's earlier reading already named: out-of-band callback to a number already on file, a live video/badge check against a photo on record, and independent manager confirmation for any action on a privileged account -- each one verifies identity through a channel the caller cannot redirect, rather than through anything the caller says or sounds like. A further structural control worth naming: restricting what a help-desk role can do unilaterally. An organization that requires a second approver for any full MFA disablement on a privileged account, rather than letting one help-desk agent both verify and act alone, closes the exact single point of failure MGM's ten-minute call exploited.\n\n### Why This Belongs at the End of This Room\n\nDetection, the previous readings' focus, tells an analyst what already happened. Hardening tells an organization how to make the next call fail before it produces anything for an analyst to find at all. Both matter, and a mature SOC pushes findings from the first back into changes in the second.",
       "checkpoint": {
-        "question": "Per this reading, what does CISA's AA23-320A advisory name as its top mitigation against this threat cluster's vishing and MFA-abuse tactics, and why specifically?",
+        "question": "After the Retool story, a manager proposes that help-desk agents approve MFA resets only when they recognise the caller's voice from earlier calls. Per this reading, what is wrong with that?",
         "options": [
-          "Phishing-resistant MFA using FIDO/WebAuthn or PKI-based authentication, because the advisory states this type is resistant to phishing and not susceptible to push bombing or SIM swap attacks",
-          "A mandatory biometric voice-recognition check for every help-desk call, because the advisory states voice biometrics cannot be defeated by any known deepfake technology",
-          "A 24-hour mandatory waiting period before any password reset takes effect, because the advisory states this specific waiting period is sufficient to stop every case in this room",
-          "Disabling all remote help-desk password resets permanently, because the advisory states in-person-only identity verification is the sole mitigation it recommends for any organization"
+          "Voice can be cloned, so it is not a verification step; verify via a channel the caller cannot redirect",
+          "Nothing is wrong, as long as the agent has already spoken with that caller on at least two earlier calls",
+          "It is acceptable for ordinary accounts; only privileged accounts need a callback or a second approver",
+          "Voice works only through a biometric tool, so the weak point is the agents' own judgement of the voice",
         ],
         "answer": 0,
-        "explanation": "This reading quotes the advisory directly: phishing-resistant MFA (FIDO/WebAuthn or PKI-based) is resistant to phishing and not susceptible to push bombing or SIM swap attacks. This reading explicitly warns AGAINST trusting voice as a verification method at all (a voice-biometric check is the opposite of this reading's point, and no such CISA claim exists). No 24-hour waiting period is mentioned anywhere in this room (that option is invented). The advisory does not call for eliminating remote resets entirely (that option overstates it into a claim this reading never makes)."
+        "explanation": "The reading's main hardening principle is that “the caller sounded right” is never a verification step, because a cloned voice can sound like a real, specific colleague. Identity has to be checked through a channel the caller cannot redirect (a callback to the number on file, a video or badge check, or a manager's confirmation). “As long as the agent has spoken with that caller before” is exactly what a voice clone exploits. “Acceptable for ordinary accounts” is wrong: the callback check applies to any reset, and the second approver is an extra layer for privileged accounts. “Voice works only through a biometric tool” still treats voice as a verification method, which the reading rejects.",
       },
       "xp": 5
     },
@@ -401,25 +401,25 @@ export const roomsBatch48 = [
         {
           "question": "Which combination of raw fields proves this reset was performed BY SOMEONE ELSE, not by r.castillo himself, and that the person who performed it held an administrative help-desk role?",
           "options": [
-            "initiatedBy.user.id (a17c9e42...) differs from targetResources[0].id (d94b6f11...), and initiatedBy.user.roles lists \"Helpdesk Administrator\" -- together showing an admin-role account, not the account holder, made this change",
-            "event.outcome, since a value of \"success\" on this field alone conclusively distinguishes an admin-performed reset from a self-service one regardless of any other field in the record",
-            "azure.auditlogs.properties.operationType, since only self-service resets ever record \"Update\" as this value while every admin-performed reset instead records \"Delete\" as its operationType",
-            "azure.auditlogs.properties.result, since a value of \"success\" on this specific field appears exclusively on admin-initiated resets and never on any genuinely self-service reset event"
+            "initiatedBy.user.id differs from targetResources[0].id, and initiatedBy.user.roles lists Helpdesk Administrator",
+            "initiatedBy.user.ipAddress (198.51.100.44) differs from the address r.castillo normally signs in from",
+            "loggedByService is Core Directory, the service that records only actions performed by administrators",
+            "result is success and operationType is Update, the pairing that marks a reset done on someone's behalf",
           ],
           "answer": 0,
-          "explanation": "This room's post-call-fingerprints reading names exactly this pairing: a mismatch between initiatedBy.user.id and targetResources[0].id, combined with an administrative role in initiatedBy.user.roles. event.outcome only records whether the action succeeded or failed, not who performed it, and carries no such rule. operationType records the kind of change (Update, Delete, Add), not who initiated it, and this room never states any self-service-versus-admin split tied to that field. azure.auditlogs.properties.result records the same success/failure fact as event.outcome and, likewise, says nothing about the actor.",
+          "explanation": "Two comparisons answer the two halves: the initiator's id (a17c9e42…) is not the target's id (d94b6f11…), so someone else acted on the account, and the initiator's roles list Helpdesk Administrator, so that someone held an admin role. “initiatedBy.user.ipAddress differs from r.castillo's usual address” misreads the field: it is the agent's address, and an IP says nothing about role. “Core Directory … records only actions performed by administrators” is wrong: Core Directory logs directory changes from any actor, including self-service ones. “result is success and operationType is Update” only says a change succeeded; a self-service reset produces the same values.",
           "xp": 20
         },
         {
-          "question": "Given this record alone -- with no documentation yet of what verification j.whitfield actually performed on the call -- what is the single most useful next step to resolve whether this was legitimate or a vishing-driven takeover?",
+          "question": "The ticket shows that j.whitfield verified the caller only with an employee ID and date of birth. What is the most useful next step?",
           "options": [
-            "Pull the help-desk ticket to check whether an out-of-band verification (a callback to r.castillo's number on file, a video/badge check, or manager confirmation) was completed and documented, and correlate this reset's timestamp against r.castillo's subsequent sign-in logs for an unfamiliar device or location",
-            "Immediately disable r.castillo's account and report the case as confirmed malicious, since any admin-role password reset is inherently suspicious on its own with no further investigation needed",
-            "Close the ticket as routine with no further action, since Helpdesk Administrator is a legitimate directory role and any role-based reset is, by definition, always authorized",
-            "Contact r.castillo's mobile carrier directly to request a list of recent SIM card changes on his account, since this room names that as the only fact relevant to resolving this type of case"
+            "Reach r.castillo on the number on file, and check his sign-ins after 14:07 for a new device or country",
+            "Close it: Helpdesk Administrator is an authorised role and the audit record shows the reset succeeded",
+            "Disable j.whitfield's account first, since the agent's own login is the most likely compromised one",
+            "Accept the check: a caller who knows both the employee ID and date of birth is very likely genuine",
           ],
           "answer": 0,
-          "explanation": "This room's discriminator reading is explicit that the deciding fact is whether a documented out-of-band verification occurred, and its post-call-fingerprints reading names correlating the reset against subsequent sign-in anomalies as the corroborating step -- exactly what this option does. Disabling the account outright skips the actual investigation this room teaches and treats a routine-shaped event as automatically confirmed without evidence. Closing the ticket with no check at all is the opposite failure this room warns against -- a legitimate-looking role does not make a reset automatically legitimate. Contacting the mobile carrier for SIM records is relevant to a SIM-swap-preceded case like Caesars, not to this scenario, and this room never names it as the universal next step for every case.",
+          "explanation": "Employee ID and date of birth are knowledge-based answers that reconnaissance can collect, so no real out-of-band check was done. Contact the real r.castillo through the number on file, and correlate the 14:07 reset with his sign-ins for a never-seen device or country. “Close it: Helpdesk Administrator is an authorised role” confuses a legitimate role with a legitimate request: vishing works through authorised agents. “Disable j.whitfield's account first” targets the wrong account: the record shows a help-desk agent doing ordinary work, and the account at risk is r.castillo's. “Accept the check” is the KBA weakness the room warns about: those answers are exactly what an attacker researches in advance.",
           "xp": 20
         }
       ]
@@ -427,7 +427,7 @@ export const roomsBatch48 = [
     {
       "type": "analyst_choice" as const,
       "id": "vish-ac1",
-      "heading": "Triage: A Traveling Employee's Password Reset",
+      "heading": "Triage: A Replaced-Phone Password Reset",
       "scenario": "This case has the identical surface shape as the log_analysis case you just worked through: a Helpdesk Administrator resets a different employee's password, and a sign-in from an unfamiliar device follows shortly after. Review the it_verify data before deciding.",
       "event": {
         "id": "evt-vish-ac1-001",
@@ -493,9 +493,9 @@ export const roomsBatch48 = [
     {
       "type": "flag" as const,
       "id": "vish-f1",
-      "prompt": "This room's reading on MGM and Caesars describes an attacker falsely claiming, during a help-desk phone call, to be a real, trusted employee. What MITRE ATT&CK technique ID names this specific act?",
-      "answer": "T1656",
-      "hint": "Covered in \"The Help-Desk Attack, End to End,\" Stage 2.",
+      "prompt": "An employee's sign-in log shows eleven MFA push prompts in four minutes that she did not start, then one approval right after she took a call from someone claiming to be IT. Which MITRE ATT&CK technique ID names the prompt-flooding behaviour behind this pattern? Enter the ID only.",
+      "answer": "T1621",
+      "hint": "One of the incidents in this room was built on exactly this pattern, aimed at the account owner rather than at a help desk.",
       "xp": 15
     }
   ]

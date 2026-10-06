@@ -338,16 +338,16 @@ const rooms = [
           `**Writing Good Analyst Notes**\n\n` +
           `The gold standard for analyst notes answers: **Who? What? When? Where? Why? How?** — the same questions a journalist would ask. Example of a bad note: "Investigated alert. Looks malicious." Example of a good note: "At 09:14 UTC, WS-FINANCE-042 (user: m.torres) executed an encoded PowerShell command spawned by cmd.exe from C:\\Windows\\Temp. The Base64 payload decoded to a download cradle fetching from 192.168.1.100/payload.ps1. Isolated the host at 09:31 UTC pending malware analysis."`,
         checkpoint: {
-          question: "According to the reading, what saying summarises why SOC documentation matters?",
+          question: "An analyst isolates an infected host and stops the attack, but writes nothing in the ticket. Based on the reading, why is this treated as a serious failure even though the threat is gone?",
           options: [
-            "\"If it's not documented, it didn't happen\"",
-            "\"Speed over accuracy, always\"",
-            "\"Only critical incidents need tickets\"",
-            "\"Documentation is optional if the attack was stopped\"",
+            "With no record there is no audit trail, evidence or handover, so in practice the response did not happen",
+            "The containment is not technically complete until a ticket entry confirms the host isolation",
+            "It only distorts the shift's KPI dashboard, since uncounted incidents make the alert volume look lower",
+            "It breaks the rule that a contained incident needs a verbal handover to the shift lead before closure",
           ],
           answer: 0,
           explanation:
-            "The reading states this is a standard saying in the security world — without a written record, there's no audit trail, no knowledge transfer, and no way for the next analyst or shift to pick up where the investigation left off.",
+            "The reading's rule is “if it's not documented, it didn't happen”: without a written record there is no audit trail or legal evidence, no shift continuity and no knowledge transfer. Containment is a technical state of the host, not something a ticket entry completes. The KPI effect is real but minor next to the lost evidence and context. The reading never says a verbal handover replaces documentation; the handover itself is a written report.",
         },
       },
       // ── Reading 2 ─────────────────────────────────────────────────────────
@@ -473,30 +473,31 @@ const rooms = [
         question:
           "An analyst responds to a ransomware incident, successfully contains it, and closes the ticket with only the note: 'Ransomware. Cleaned up.' What is the PRIMARY problem with this documentation?",
         options: [
-          "The ticket should have been reassigned to a senior analyst for closure, since only senior staff may close ransomware incidents",
-          "The note gives no timeline, IOCs, affected systems, root cause or lessons learned, so nobody can reuse or audit the record",
-          "The note should have been delivered to the client by phone instead, since written closure notes are only needed for uncontained incidents",
-          "The ticket was closed before the mandatory 30-day post-containment monitoring period ended, regardless of what the note said",
+          "It does not name the ransomware family, which the ticket needs before the incident can be categorised",
+          "It records no timeline, affected systems, IOCs, actions or root cause, so the record cannot be audited",
+          "It belongs in the shift handover report instead, since a contained incident no longer needs a full ticket",
+          "It lacks the plain-language executive summary, which has to be written into the ticket before closure",
         ],
         answer: 1,
         explanation:
-          "Good incident documentation must answer the six key questions: Who was affected? What happened? When did each event occur? Where did it happen (which systems)? Why did it happen (root cause)? How was it resolved? The note 'Ransomware. Cleaned up.' answers none of these questions. Future analysts, auditors, and legal teams would have no usable record of the incident.",
+          "A ticket note must answer Who, What, When, Where, Why and How. “Ransomware. Cleaned up.” answers none of them, so auditors, legal and the next analyst have no usable record. The ransomware family is a useful detail, but the category (Malware) can be set without it, and its absence is not the main gap. Contained incidents still need a full ticket; the handover report only summarises open work. The executive summary is a separate management deliverable for significant incidents, not a field of the ticket note.",
         xp: 15,
       },
       // ── Question 2 ────────────────────────────────────────────────────────
       {
         type: "question",
         id: "rep-q2",
-        question: "What does MTTD stand for, and what does it measure?",
+        question:
+          "Forensics later shows a stolen VPN credential was first used at 06:40 UTC. The SIEM alert fired at 08:10, the analyst opened it at 08:25, and the account was disabled at 08:55. Using Reading 4's definitions, what is the dwell time for this incident?",
         options: [
-          "Mean Time to Dispatch — the average time from alert creation until a ticket is assigned to an analyst",
-          "Mean Time to Detect — the average time from when an attack begins until the SOC identifies it",
-          "Mean Time to Diagnose — the average time an analyst spends finding root cause after an incident is declared",
-          "Mean Time to Disrupt — the average time from detection until the attacker's access is terminated",
+          "15 minutes",
+          "1 hour 30 minutes",
+          "2 hours 15 minutes",
+          "45 minutes",
         ],
         answer: 1,
         explanation:
-          "MTTD (Mean Time to Detect) measures the average elapsed time between when an attack or intrusion actually begins and when the SOC first identifies it. A lower MTTD means threats are caught earlier, before attackers can do more damage. It is one of the most important SOC effectiveness metrics, along with MTTR (Mean Time to Respond/Resolve).",
+          "Dwell time = detection − actual initial compromise = 08:10 − 06:40 = 1 hour 30 minutes. “15 minutes” is the MTTA (08:25 − 08:10). “45 minutes” is MTTR in the respond sense (08:55 − 08:10, alert to first containment). “2 hours 15 minutes” runs from the compromise to containment, which is not one of the reading's metrics, because dwell time stops at detection.",
         xp: 15,
       },
       // ── Question 3 ────────────────────────────────────────────────────────
@@ -513,7 +514,7 @@ const rooms = [
         ],
         answer: 1,
         explanation:
-          "9,200 false positives out of 10,000 total alerts = 92% false positive rate. This is extremely high and a sign of serious problems with detection rule tuning. Analysts spending 92% of their time investigating false alarms cannot adequately respond to real threats. SOC teams typically aim for a false positive rate below 50%, with mature programs targeting much lower. The correct response is to review and tune the noisiest rules.",
+          "9,200 false positives out of 10,000 alerts = 92%. Reading 2 says an FP rate above 90% is a sign of poorly tuned rules that waste analyst time, so the response is to review and tune the noisiest rules. “0.8%” divides the wrong numbers (800 is the true-positive count, and 800/10,000 is 8%, not 0.8%). “8%” is the true-positive share, not the FP rate. “Normal for a mature SOC” contradicts the reading: a rate this high is a tuning problem, not a deliberate design choice.",
         xp: 20,
       },
       // ── Log Analysis ──────────────────────────────────────────────────────
@@ -564,30 +565,30 @@ const rooms = [
         questions: [
           {
             question:
-              "According to the ticket, what was the root cause of this incident?",
+              "Legal asks whether this ticket could support a later legal proceeding. Based on Reading 3, which gap in the ticket matters most for that purpose?",
             options: [
-              "An unpatched vulnerability in Windows that allowed remote code execution",
-              "A misconfigured firewall rule that allowed traffic from 192.168.1.100",
-              "The user executed a malicious attachment from a phishing email",
-              "An insider threat — the analyst j.smith deliberately installed the malware",
+              "The IOC list names the C2 address, and IOCs should be removed from a ticket once legal is involved",
+              "The root cause names the user's action, which a blameless review requires to be taken out of the record",
+              "The memory dump has no recorded collector, hash or storage location, so its chain of custody is unproven",
+              "The lessons_learned field is too brief to count as the post-incident review the ticket requires",
             ],
             answer: 2,
             explanation:
-              "The ticket.root_cause field clearly states: 'User executed malicious attachment from phishing email.' This is one of the most common root causes for malware incidents. The phishing email delivered an attachment that, when opened, executed the encoded PowerShell command that downloaded the Cobalt Strike beacon.",
+              "Reading 3 says that for evidence that may reach a legal proceeding you must document chain of custody (who collected it, when, how it was stored) and hash forensic images to prove integrity. The ticket only says “Memory dump collected at 09:45 UTC”, with no collector, hash or storage location. IOCs are core ticket content and are not removed for legal hold. “Blameless” describes how a post-incident review is run, not deleting facts from the record. The lessons-learned entry is brief, but the post-incident review is a separate process, and its length does not affect whether the evidence holds up.",
             xp: 15,
           },
           {
             question:
-              "The ticket shows ticket.mttd_minutes = 23 and ticket.mttr_minutes = 145. If the incident was created at 09:14 UTC, approximately what time was the host isolated from the network?",
+              "Treat ticket.created_at as the alert time. Reading 4 warns that “MTTR” can mean Respond or Resolve. Which definition does ticket.mttr_minutes = 145 match, and how long after creation did the first containment action happen?",
             options: [
-              "09:14 UTC — immediately upon alert creation",
-              "09:31 UTC — as stated in the actions_taken field",
-              "11:39 UTC — when the ticket was resolved",
-              "11:00 UTC — when the host was reimaged",
+              "Respond: 145 min runs from ticket creation to the first containment step, the host isolation",
+              "Resolve: 145 min runs from creation to resolution; first containment came 17 min in",
+              "Resolve: 145 min runs from creation to resolution; first containment came 23 min in",
+              "Resolve: 145 min runs from creation to resolution; first containment came 38 min in",
             ],
             answer: 1,
             explanation:
-              "The ticket.actions_taken field explicitly states 'Host isolated from network at 09:31 UTC.' This was approximately 17 minutes after the alert was created at 09:14 UTC — a reasonable response time for a High severity incident. The MTTD of 23 minutes means the attack started about 23 minutes before 09:14, which places the initial compromise around 08:51 UTC.",
+              "09:14 → 11:39 (resolved_at) is 145 minutes, so the ticket's MTTR is the Resolve definition. The first containment action was “Host isolated from network at 09:31 UTC”, 17 minutes after creation, which is the Respond figure. The Respond reading fails because isolation was at 09:31, not 145 minutes in. “23 min” reuses ticket.mttd_minutes, which measures time before detection, not time to containment. “38 min” points to the firewall block at 09:52, which came after the host had already been isolated.",
             xp: 20,
           },
         ],
@@ -678,16 +679,16 @@ const rooms = [
           `  DO SAY: "After gaining access to one employee's computer, the attacker attempted to spread to your main server. We stopped this before they reached it."\n\n` +
           `The key principle: **lead with impact and actions taken, not with technical mechanics**. The client needs to know: what happened to ME, what risk am I facing NOW, and what do I need to DO.`,
         checkpoint: {
-          question: "According to the reading, what is the key principle when translating a technical finding into client-facing language?",
+          question: "You must rewrite “C2 beacon with 30-second jitter to 185.220.101.47” for a client's IT manager. Which principle from the reading should guide the rewrite?",
           options: [
-            "Always include the MITRE ATT&CK technique ID so the client can verify it themselves",
-            "Lead with impact and actions taken, not with technical mechanics",
-            "Use exactly the same wording as the internal SIEM alert to stay accurate",
-            "Never mention that any action was taken, to avoid legal liability",
+            "Keep the ATT&CK technique ID in the text so the client's team can look the activity up",
+            "Lead with the impact and the actions already taken, not with the technical mechanics",
+            "Keep the internal alert's wording so the client sees exactly what the SOC detected",
+            "Walk through the attack chain step by step before saying what the SOC did about it",
           ],
           answer: 1,
           explanation:
-            "The reading's translation examples all follow the same pattern: tell the client what happened to them, what risk they face now, and what was done or needs to be done — not the technical mechanics like process injection technique IDs or IOC jitter values.",
+            "The reading's rule is to lead with impact and actions taken: what happened to the client, what risk they face now and what to do. Technique IDs and the internal alert wording are the jargon the translation is meant to remove. Starting with the step-by-step attack chain buries the impact and the actions, which the client needs first.",
         },
       },
       // ── Reading 2 ─────────────────────────────────────────────────────────
@@ -721,16 +722,16 @@ const rooms = [
           `5. **Current Risk Status**: Is the threat contained, or is there still active risk?\n` +
           `6. **Next Steps**: What happens next in the investigation/remediation`,
         checkpoint: {
-          question: "According to the reading, what is the SLA requirement for notifying a client about a P1 (Critical) incident?",
+          question: "You confirm ransomware actively spreading across a client's file servers. Under the reading's SLA tiers, how must the client be notified?",
           options: [
-            "Included in the weekly report",
+            "In the next weekly report",
             "Ticket update within 4 hours",
-            "Email notification within 1 hour",
-            "Phone call within 15 minutes of confirmation",
+            "Email within 1 hour",
+            "Phone call within 15 minutes",
           ],
           answer: 3,
           explanation:
-            "P1/Critical incidents require a phone call within 15 minutes because a phone call guarantees the message is received immediately and allows two-way conversation — email can sit unread for hours, which matters enormously for something like actively spreading ransomware.",
+            "Actively spreading ransomware is P1 (Critical), which requires a phone call within 15 minutes of confirmation. A call reaches the client immediately and allows two-way conversation. “Email within 1 hour” is the P2 tier, for a threat that is already contained; an email can sit unread for hours. The 4-hour ticket update is P3, and the weekly report is P4.",
         },
       },
       // ── Reading 3 ─────────────────────────────────────────────────────────
@@ -766,16 +767,16 @@ const rooms = [
         type: "question",
         id: "cc-q1",
         question:
-          "A client's CEO account has been confirmed compromised and is actively being used to send wire transfer requests. According to standard SLA tiers, which notification method should you use and what is the typical time requirement?",
+          "Twenty minutes ago the client reset its CEO's password after a phishing report, and you opened the ticket as P2 (contained, client action needed). You now see the CEO's mailbox still sending wire-transfer requests from an unfamiliar session. How should you notify the client?",
         options: [
-          "Send a P2 email to the client's security contact and follow up by phone if no reply arrives within 4 hours",
-          "Raise the ticket to P1 and rely on the portal notification to reach the client's on-call contact within the hour",
-          "Make a P1 phone call immediately, typically within 15 minutes of confirmation",
-          "Send a P1 email with the full IOC list and wait for the client's acknowledgement before attempting any call",
+          "Keep it at P2 and email the client within the hour, since the password reset already contained the account",
+          "Add the new evidence to the P2 ticket in the portal so the client's team sees it at its next check",
+          "Re-classify it as P1 and phone the client within 15 minutes, because the compromise is still active",
+          "Re-classify it as P1 and email the details to the CEO, so the warning and the evidence stay in writing",
         ],
         answer: 2,
         explanation:
-          "A compromised CEO account being used for wire transfer requests is a P1/Critical incident — an active threat with direct financial impact. The correct response is an immediate phone call, typically required within 15 minutes of confirmation under most MSSP SLAs. Email and ticket updates are too slow for a situation where every minute of delay could result in fraudulent financial transactions being completed.",
+          "The reset did not end the compromise: the mailbox is still being used for fraud, so this is now an active P1 (CEO account compromised, direct financial impact). P1 requires a phone call within 15 minutes of confirmation. Staying at P2 relies on a containment that has visibly failed. A portal update is the P3/P4 channel and could sit unread. Email is too slow for P1, and sending it to the CEO's mailbox, which the attacker is using, could warn the attacker instead of the client.",
         xp: 15,
       },
       // ── Question 2 ────────────────────────────────────────────────────────
@@ -785,14 +786,14 @@ const rooms = [
         question:
           "An analyst drafts this client notification: 'We detected T1078 Valid Account usage with impossible travel IOA across your tenant.' What is the main problem with this notification?",
         options: [
-          "It omits the full IOC list and the detection rule ID, which the client's security team needs before it can act on any alert",
-          "T1078 maps to Phishing rather than Valid Accounts, so the technique reference is inaccurate and the notice must be corrected",
-          "It uses jargon (T1078, IOA, impossible travel) that business contacts won't understand — it should describe the impact in plain language",
-          "It names the detection technique but not the SIEM product that raised it, so the client cannot verify the finding independently",
+          "It omits the full IOC list and the detection rule ID, which the client's team needs before it can act",
+          "It reports the detection before the SOC finished investigating, so it should wait until scope is known",
+          "It is written in jargon (T1078, IOA) a business contact won't follow; it should state the impact plainly",
+          "It names the technique but not the SIEM product that raised it, so the client cannot verify the finding",
         ],
         answer: 2,
         explanation:
-          "Client notifications should always be written in plain business language. Most client contacts (IT managers, executives, business owners) are not security specialists. 'T1078 Valid Account usage with impossible travel IOA' means nothing to them. A better version: 'We detected that one of your user accounts logged in from New York and Tokyo within the same hour — which is physically impossible. This is a strong indicator the account's credentials have been stolen. We have blocked the account pending investigation.'",
+          "Client notifications should lead with impact in plain language. “T1078 Valid Account usage with impossible travel IOA” means nothing to most client contacts. A better version: “One of your accounts signed in from New York and Tokyo within the same hour, which is physically impossible, so its password has likely been stolen. We have blocked the account while we investigate.” IOC lists and rule IDs belong in the technical follow-up, not the first notice. Holding the notice until scope is known risks breaching the SLA; the reading's transparency principle is to say what you know now. The SIEM product name gives the client nothing to act on.",
         xp: 20,
       },
       // ── Question 3 ────────────────────────────────────────────────────────
@@ -802,14 +803,14 @@ const rooms = [
         question:
           "A client says: 'We don't want you to isolate the infected machine. Our CFO needs it for a board presentation tomorrow morning.' What is the BEST response from the SOC analyst?",
         options: [
-          "Comply without discussion and leave the machine connected, since the client's business deadline overrides the SOC's containment recommendation",
-          "Isolate the machine anyway as policy requires, and inform the client afterwards in the end-of-shift report",
-          "Explain the risk of leaving it connected (spread, data exposure), offer alternatives such as a temporary device for the CFO, and document the client's decision if they insist",
-          "Escalate to Tier 3 to handle the client conversation, since risk-acceptance discussions fall outside Tier 1's communication scope",
+          "Agree to wait until after the presentation, but raise the ticket to P1 and watch the machine closely overnight",
+          "Isolate the machine anyway as policy requires, and tell the client afterwards in the end-of-shift report",
+          "Explain the concrete risk of waiting, recommend isolating now, and offer the CFO a temporary device",
+          "Pass the conversation to Tier 3, since pushback on a containment decision is outside Tier 1's remit",
         ],
         answer: 2,
         explanation:
-          "The SOC's job is to protect the client, which sometimes means clearly communicating risks the client may not want to hear. The correct approach is to explain the specific risk of waiting (the malware could spread to file servers, steal board presentation materials, or compromise additional accounts), propose alternatives (can the CFO use a clean loaner device for the presentation?), and if the client insists on accepting the risk, document their decision in writing. This protects the client's autonomy while ensuring they make an informed choice.",
+          "Reading 2's guidance for “can you wait until business hours?” is to explain the business risk of waiting (spread to shared drives, the file server or email), recommend isolating now, and offer the user a temporary device. Agreeing to wait leaves an infected machine connected all night; watching it more closely does not stop the spread. Isolating without telling the client ignores that it is the client's environment and damages trust. Handling client pushback professionally is part of the analyst's communication job, and the reading does not route it to Tier 3.",
         xp: 20,
       },
       // ── Log Analysis ──────────────────────────────────────────────────────
@@ -836,9 +837,9 @@ const rooms = [
             "sla.breach_reason":
               "Assigned analyst (r.cohen) was on a phone call with a different client (INC-2026-4881) when the P1 was confirmed. The P1 escalation pager was not acknowledged within the backup window.",
             "notification.channel": "phone",
-            "notification.recipient": "client.security@acme.com",
+            "notification.recipient": "Acme Corp security on-call line",
             "notification.sent_at": "2026-06-24T09:32:00.000Z",
-            "notification.confirmed_at": "2026-06-24T09:14:00.000Z",
+            "incident.confirmed_at": "2026-06-24T09:14:00.000Z",
             "notification.content_summary":
               "Informed client of active malware infection on WS-FINANCE-042. Confirmed host isolation action. Requested client to initiate internal IR protocol.",
             "escalation.backup_analyst_paged": "t.brooks",
@@ -848,25 +849,25 @@ const rooms = [
         questions: [
           {
             question:
-              "According to the SLA log, why did the P1 notification breach occur?",
+              "Read sla.breach_reason together with the escalation.* fields. Which corrective action would most directly have prevented this breach?",
             options: [
-              "The analyst forgot to periodically check the ticketing system for new P1 incidents during their shift, a basic monitoring failure",
-              "The assigned analyst was on a call with a different client when the P1 was confirmed, and the backup escalation pager was not acknowledged in time",
-              "The client's phone line was turned off outside business hours and calls to their security team could not be received",
-              "The SOAR platform experienced an unplanned technical outage that delayed the notification workflow from firing at all",
+              "Coach r.cohen to check the queue more often, since the P1 sat unnoticed in the queue during the shift",
+              "Auto-page an on-call lead if no P1 call is logged by about minute 12, before the 15-minute limit",
+              "Move P1 notices from phone to email, so a busy analyst can send them in between other client calls",
+              "Raise the P1 notification SLA to 20 minutes, since the backup analyst needed 18 minutes to respond",
             ],
             answer: 1,
             explanation:
-              "The sla.breach_reason field clearly explains: analyst r.cohen was on a call with INC-2026-4881 (another client) when INC-2026-4892 was confirmed as P1. The P1 escalation pager was not acknowledged within the backup window, leading to the backup analyst (t.brooks) eventually making the call — but 3 minutes too late. This is a process gap: when the primary analyst is unavailable, the backup notification chain must trigger automatically and faster.",
+              "The log shows a chain failure, not a monitoring failure: r.cohen was busy on another client's call, and the backup page to t.brooks went unacknowledged until minute 18. Reading 3's corrective action targets exactly this gap: page the on-call lead automatically if no P1 call is logged within 12 minutes. Coaching r.cohen misreads the log, because the P1 was not missed; the analyst was occupied. Switching P1 to email contradicts Reading 2, where P1 requires a phone call because email can sit unread. Relaxing the SLA hides the process gap instead of fixing it.",
             xp: 15,
           },
           {
             question:
-              "The SLA required notification within 15 minutes (sla.notification_required_minutes). The notification was sent at 18 minutes (sla.notification_sent_minutes). By how many minutes was the SLA breached?",
-            options: ["1 minute", "2 minutes", "3 minutes", "5 minutes"],
+              "Using the incident confirmation time in the log and the P1 notification limit, by what UTC time did the client call have to be made to meet the SLA?",
+            options: ["09:26 UTC", "09:32 UTC", "09:29 UTC", "09:47 UTC"],
             answer: 2,
             explanation:
-              "18 minutes (actual) minus 15 minutes (required) = 3 minutes over SLA. While this may seem small, SLA contracts are typically binary — either you met the requirement or you didn't. A 3-minute breach is still a formal SLA breach that must be acknowledged, documented, and remediated through process improvements to prevent recurrence.",
+              "The P1 clock starts at confirmation: incident.confirmed_at 09:14 + 15 minutes = 09:29 UTC. The call went out at 09:32 (notification.sent_at), 3 minutes late, and even a 3-minute breach is a breach. “09:32” is the actual send time, not the deadline. “09:26” is the 12-minute auto-page point from Reading 3's corrective action. “09:47” wrongly starts the 15 minutes from the send time instead of from confirmation.",
             xp: 15,
           },
         ],
@@ -876,7 +877,7 @@ const rooms = [
         type: "analyst_choice" as const,
         id: "cc-ac1",
         heading: "Verdict: Does This Require an Immediate Customer SLA Notification?",
-        scenario: "18:07 UTC. You are an MSSP analyst. Your client GlobalFinance Inc. experienced a confirmed ransomware detection on one workstation. The endpoint was isolated by EDR at 18:04 UTC. The attacker had access for approximately 6 minutes before isolation. No file encryption was confirmed by EDR (the ransomware was caught before encryption started). Your MSSP contract with GlobalFinance states: 'Tier 1 (Critical) incidents must be communicated to the client within 15 minutes of confirmation.' It is now 18:07 UTC — 3 minutes since isolation. What do you do?",
+        scenario: "18:07 UTC. You are an MSSP analyst. Your client GlobalFinance Inc. experienced a confirmed ransomware detection on one workstation. The endpoint was isolated by EDR at 18:04 UTC. The attacker had access for approximately 6 minutes before isolation. No file encryption was confirmed by EDR (the ransomware was caught before encryption started). Your MSSP contract with GlobalFinance defines P1 (Critical) to include any confirmed ransomware detection on a client endpoint, and states: 'P1 incidents must be communicated to the client within 15 minutes of confirmation.' The detection was confirmed when EDR isolated the host. It is now 18:07 UTC. What do you do?",
         event: {
           id: "evt-cc-ac-001",
           ts: "2026-06-19T18:07:22.000Z",
@@ -895,21 +896,18 @@ const rooms = [
             "incident.type": "ransomware",
             "incident.confirmed_at": "2026-06-19T18:04:00Z",
             "incident.current_time": "2026-06-19T18:07:22Z",
-            "incident.minutes_since_confirmation": 3.37,
-            "incident.classification": "T1 Critical",
             "edr.action": "isolated",
             "edr.encryption_confirmed": false,
             "edr.threat_name": "Ransom:Win64/BlackCat.B",
             "edr.attacker_dwell_minutes": 6,
             "sla.notification_required_minutes": 15,
-            "sla.time_remaining_minutes": 11.63,
             "sla.clock_started": "2026-06-19T18:04:00Z",
             "sla.notification_sent": false,
           },
         },
         correct_verdict: "escalate",
-        explanation: "Escalation to your supervisor and immediate start of the SLA notification process is correct. You have 11.6 minutes left before the SLA clock runs out. Even though the ransomware was stopped before encryption, a confirmed ransomware detection on a client endpoint IS a Tier 1 Critical incident per the contract — the fact that encryption was prevented does not downgrade the classification. The right sequence: (1) Start drafting the client notification now; (2) Alert your team lead so they can approve and send; (3) Document the timeline precisely because the client will ask. Waiting until you know more risks SLA breach — the contract says 'within 15 minutes of confirmation', not 'within 15 minutes of fully understanding the scope'.",
-        fp_trap: "Because no files were encrypted and the attack was contained in 6 minutes, it is tempting to classify this as Informational or wait for more information before notifying the client. But MSSP contracts are precise: T1 Critical = ransomware detection, period. The containment outcome (good news) is included in the notification — it is not a reason to delay or skip it.",
+        explanation: "Escalation to your supervisor and immediate start of the SLA notification process is correct. The clock started at 18:04 (sla.clock_started), so the call is due by 18:19 and fewer than 12 minutes remain. Even though the ransomware was stopped before encryption, a confirmed ransomware detection on a client endpoint IS a P1 (Critical) incident under this contract — the fact that encryption was prevented does not downgrade the classification. The right sequence: (1) Start drafting the client notification now; (2) Alert your team lead so they can approve and send; (3) Document the timeline precisely because the client will ask. Waiting until you know more risks SLA breach — the contract says 'within 15 minutes of confirmation', not 'within 15 minutes of fully understanding the scope'.",
+        fp_trap: "Because no files were encrypted and the attack was contained in 6 minutes, it is tempting to classify this as Informational or wait for more information before notifying the client. But MSSP contracts are precise: under this one, P1 (Critical) = any confirmed ransomware detection, period. The containment outcome (good news) is included in the notification — it is not a reason to delay or skip it.",
         xp: 30,
       },
     ],
@@ -968,11 +966,16 @@ const rooms = [
           `- Executive communication during major incidents\n\n` +
           `The tier structure isn't about hierarchy for its own sake — it's about **efficiency and expertise matching**. If every alert went straight to Tier 3, the most experienced analysts would spend all day closing false positives. The tier structure ensures each analyst is working on problems matched to their skill level.`,
         checkpoint: {
-          question: "According to the reading, which SOC tier typically has the authority to approve isolating an endpoint from the network?",
-          options: ["Tier 1", "Tier 2", "Neither tier — only IT operations can isolate a host", "All tiers have equal isolation authority"],
+          question: "A Tier 1 analyst confirms malware on a finance server and wants it cut off from the network. According to the reading, which role typically approves that isolation?",
+          options: [
+            "Tier 1, under its playbook",
+            "Tier 2",
+            "Tier 3, as incident lead",
+            "The SOC manager",
+          ],
           answer: 1,
           explanation:
-            "Tier 2 analysts have host isolation authority as part of their deeper investigation responsibilities; Tier 1 analysts typically work with predefined playbooks and do not have authority to take high-impact actions like isolating servers.",
+            "The reading lists host isolation authority under Tier 2's responsibilities. Tier 1 works from predefined playbooks but does not have authority for high-impact actions such as isolating servers, so it escalates. Tier 3 leads major incidents and external engagement, but routine isolation approval sits with Tier 2. The reading does not assign isolation approval to the SOC manager.",
         },
       },
       // ── Reading 2 ─────────────────────────────────────────────────────────
@@ -1014,14 +1017,14 @@ const rooms = [
         checkpoint: {
           question: "According to the reading, what is the correct action when you are uncertain about an alert but have not yet completed the investigation steps in your playbook?",
           options: [
-            "Escalate immediately to Tier 2 to avoid missing any possible SLA deadline, even before any investigation steps have been attempted",
-            "Close it as a false positive without documentation, since uncertainty alone is grounds for dismissing the alert entirely",
-            "Complete your playbook's investigation steps first, rather than escalating out of uncertainty",
-            "Wait for the next shift to handle it, leaving the alert untouched in the queue in the meantime",
+            "Escalate to Tier 2 right away, since an uncertain alert is safer in more experienced hands",
+            "Close it as benign with a short note, since an unconfirmed alert does not justify a ticket",
+            "Work through the playbook's investigation steps first, then decide whether to escalate",
+            "Hand it to the next shift with your notes, so a fresh analyst can take a look at it",
           ],
           answer: 2,
           explanation:
-            "The reading explicitly lists escalating purely because you're uncertain — before finishing your own playbook steps — as a 'when NOT to escalate' case. Over-escalation floods Tier 2 with noise and trains them to deprioritize your escalations.",
+            "The reading lists escalating out of uncertainty, before finishing your own playbook steps, as a “when NOT to escalate” case: do the playbook first. Escalating right away is the over-escalation that floods Tier 2 and teaches them to deprioritise you. Closing as benign skips the investigation; Tier 1 closes only clear false positives with evidence. Passing it to the next shift delays the investigation without adding anything.",
         },
       },
       // ── Reading 3 ─────────────────────────────────────────────────────────
@@ -1061,14 +1064,14 @@ const rooms = [
         question:
           "A Tier 1 analyst receives an alert about a single failed login attempt on a user account. The analyst checks the playbook: this is a known false positive pattern during the company's morning VPN authentication (many users retry once if they mistype their password). What should the analyst do?",
         options: [
-          "Escalate to Tier 2 — any authentication failure could be the first event of a brute-force attack and deserves senior review",
-          "Escalate to Tier 3 for a forensic check to rule out account takeover before the ticket may be closed",
-          "Document the finding and close as a false positive — the playbook lists this pattern, and escalating would flood Tier 2 with noise",
-          "Contact the affected user to confirm the attempt was theirs, and keep the ticket open until they reply",
+          "Escalate to Tier 2, since any failed login could be the first event of a brute-force attack",
+          "Escalate to Tier 3 for a forensic check that rules out account takeover before closure",
+          "Document that it matches the playbook's known pattern and close it as a false positive",
+          "Ask the user to confirm the attempt was theirs, and keep the ticket open until they reply",
         ],
         answer: 2,
         explanation:
-          "A single failed login that matches a known false positive pattern documented in the playbook does not need escalation. The Tier 1 analyst's job is to filter noise — confirming that this alert matches the known pattern, documenting the finding, and closing it. Escalating every failed login to Tier 2 is a classic example of over-escalation that degrades team efficiency. Escalation is for confirmed threats or situations exceeding Tier 1 authority.",
+          "A single failed login that matches a false-positive pattern documented in the playbook is a “when NOT to escalate” case: Tier 1 documents the match and closes it. Escalating to Tier 2 on a single failure is over-escalation; a brute-force pattern would show many failures, not one retry. Tier 3 handles major incidents and hunting, not routine triage. Contacting the user adds delay and an open ticket for a pattern the playbook already explains.",
         xp: 15,
       },
       // ── Question 2 ────────────────────────────────────────────────────────
@@ -1076,16 +1079,16 @@ const rooms = [
         type: "question",
         id: "esc-q2",
         question:
-          "What is the PRIMARY purpose of an 'escalation bridge' in a major P1 incident?",
+          "Ransomware is hitting 40 of a client's servers. The SOC's Tier 2/3 lead, the client's security team, IT operations and legal all need to make decisions at the same time. What does the reading recommend setting up?",
         options: [
-          "A dedicated channel that relays SIEM alerts into the client's own ticketing system during high-volume incidents",
-          "A conference call or war room that brings the relevant stakeholders together for real-time coordination during a major incident",
-          "A handover template that formally transfers an incident from Tier 1 to Tier 2, recording status and actions taken",
-          "A standby SIEM instance that takes over ingestion and correlation when the primary platform is overwhelmed",
+          "A shared incident ticket in the client's ITSM, which each team updates in turn as it works",
+          "An escalation bridge: a live call or war room where all parties coordinate in real time",
+          "A formal Tier 1 to Tier 2 handover note listing status, IOCs and the actions taken so far",
+          "An after-action review with all stakeholders to agree on the timeline and the action items",
         ],
         answer: 1,
         explanation:
-          "An escalation bridge is a term for a war room call — a conference call or video meeting that gathers all relevant parties (SOC leads, client security team, IT operations, sometimes legal and executives) to coordinate response in real time. It's used during P1 major incidents where many decisions need to be made simultaneously and rapid communication is critical. The term 'bridge' comes from telephone conferencing terminology.",
+          "For P1 incidents affecting many systems, the reading recommends an escalation bridge: a conference call or video meeting where the SOC leads, the client's security team, IT operations and sometimes legal and executives coordinate in real time. A shared ticket is updated in turn, which is too slow when decisions are needed simultaneously. A handover note moves the case between tiers but does not bring the stakeholders together. An after-action review happens after the incident, not during it.",
         xp: 15,
       },
       // ── Question 3 ────────────────────────────────────────────────────────
@@ -1095,14 +1098,14 @@ const rooms = [
         question:
           "A Tier 1 analyst confirms active ransomware spreading across 12 endpoints. The analyst escalates to Tier 2. After handing over the ticket, what should the Tier 1 analyst do?",
         options: [
-          "Log off once the handover is complete — after escalation the incident is no longer Tier 1's responsibility in any capacity",
-          "Stay available to Tier 2 for context, keep working the queue for related alerts, and treat the case as a learning opportunity",
-          "Call the client directly with the ransomware details, since early notification matters more than the escalation chain",
-          "Archive working notes privately and give Tier 2 only the final conclusion, to avoid confusion from uncertain intermediate findings",
+          "Return to other alerts and leave the case alone, since Tier 2 now owns it and has the full ticket",
+          "Stay reachable for Tier 2's questions, watch for related alerts, and follow how the case develops",
+          "Phone the client with the ransomware details now, since early notice outranks the escalation chain",
+          "Give Tier 2 only the confirmed conclusion, keeping uncertain early findings out of the handover",
         ],
         answer: 1,
         explanation:
-          "Escalation transfers ownership, not responsibility for being a resource. The Tier 1 analyst who first investigated the incident has valuable context that Tier 2 will need. They should remain available, answer questions, and continue monitoring the alert queue for related indicators (ransomware campaigns often trigger multiple alerts). Disappearing after escalation is one of the most common and most harmful habits in SOC work. Additionally, watching Tier 2 handle a complex investigation is invaluable for professional development.",
+          "Reading 3 says to hand over your notes, not the incident: the first analyst has context nobody else has, Tier 2 may have questions, and following the case is a learning opportunity. Ransomware campaigns also tend to trigger related alerts. Mentally disengaging once Tier 2 owns the case is the common mistake the reading warns about. Phoning the client yourself bypasses the escalation chain and the agreed notification process. Holding back uncertain findings removes the context that makes your handover valuable; Tier 2 can judge it.",
         xp: 20,
       },
       // ── Log Analysis ──────────────────────────────────────────────────────
@@ -1111,7 +1114,7 @@ const rooms = [
         id: "esc-log-1",
         heading: "Analyzing a Tier 1 to Tier 2 Escalation Event",
         context:
-          "The SIEM has logged an escalation event. A Tier 1 analyst has escalated an active incident to Tier 2. Examine the escalation record carefully — this represents best practice for how escalations should be documented.",
+          "The SIEM has logged an escalation event. A Tier 1 analyst has escalated an active incident to Tier 2. Examine the escalation record carefully — judge both what it contains and when it was sent, using the timestamps in the Tier 1 actions list.",
         event: {
           id: "evt-esc-001",
           ts: "2026-06-24T09:45:00.000Z",
@@ -1150,30 +1153,30 @@ const rooms = [
         questions: [
           {
             question:
-              "According to the escalation log, why did Tier 1 analyst r.cohen escalate this incident to Tier 2? Select the MOST complete answer.",
+              "Compare escalation.timestamp with the times in escalation.actions_taken_by_tier1. By the reading's escalation criteria, what is the main weakness of this escalation?",
             options: [
-              "Because the analyst was not yet sure whether this was a real incident and wanted a second opinion before proceeding any further",
-              "Because confirmed ransomware encryption was active on 12 hosts and isolation authority (to block at the firewall and isolate the VLAN) exceeds Tier 1 authority — and the Tier 1 playbook was exhausted",
-              "Because the analyst wanted to go on a scheduled break and needed someone else to keep watching the ticket in their absence",
-              "Because the client had not yet been notified, and only a Tier 2 analyst is permitted to place client notification calls",
+              "It came too early: Tier 1 should have finished blocking the C2 address before handing the case over",
+              "It came too late: ransomware was confirmed by about 09:17, yet Tier 2 was only engaged at 09:45",
+              "It went to the wrong tier: a named ransomware family should go straight to Tier 3 for attribution",
+              "It lacked detail: the record gives Tier 2 no IOCs or affected-host scope to start containment",
             ],
             answer: 1,
             explanation:
-              "The escalation.reason field is explicit: confirmed ransomware on 12 hosts, isolation authority required (blocking at the firewall and potentially isolating a VLAN are high-impact actions that require Tier 2 authorization), and the Tier 1 playbook was exhausted. This is a textbook correct escalation — the analyst confirmed the threat, documented what they found, took the actions within their authority (creating the ticket, client notification, threat intel lookup), and escalated when they hit the boundary of their authorization.",
+              "Threat intel confirmed Maze ransomware before the ticket was created at 09:17. That met several escalation triggers at once: confirmed malicious activity, ransomware with legal implications, and a scope that needed isolation authority Tier 1 lacks. Yet the escalation went out at 09:45, leaving about half an hour of active spread to 12 hosts. “Too early” is wrong because the record itself shows the C2 block needs Tier 2 firewall authority. Attribution is Tier 3 work, but escalation still runs Tier 1 → Tier 2, and containment comes first. “Lacked detail” misreads the record, which lists IOCs, 12 hosts, the VLAN and a recommendation.",
             xp: 20,
           },
           {
             question:
               "The analyst notes mention that 'Domain controller SRV-DC-01 is NOT yet affected.' Why is this information critical to include in the escalation?",
             options: [
-              "It's not particularly important information — once ransomware is already active on 12 separate hosts, whether the domain controller is affected doesn't meaningfully change anything",
-              "The domain controller holds the master keys to the entire environment — if ransomware reaches it, it can encrypt credentials for all users and potentially spread to every system. Its current clean status defines the containment priority and urgency.",
-              "Domain controllers automatically detect and block ransomware by default, so this note is simply confirming that the domain controller is functioning as designed",
-              "This information should not have been included in the escalation at all — mentioning the domain controller by name could create unnecessary panic if Tier 2 happens to read it",
+              "It shows the attack is confined to workstations, so server-side checks can wait until containment ends",
+              "The DC controls authentication for the whole domain, so its clean status sets how urgent the VLAN isolation is",
+              "It allows the incident to be downgraded from P1, since the most critical server is still unaffected",
+              "It shows the SMB spread is limited to the FINANCE VLAN, so no hosts outside it need monitoring",
             ],
             answer: 1,
             explanation:
-              "The Domain Controller (DC) is arguably the most critical server in a Windows environment. It controls authentication for all user accounts and systems. If ransomware reaches the DC, it can: encrypt the Active Directory database (rendering all logins impossible), use DC credentials to spread to every server in the domain, and make recovery dramatically more difficult. The analyst's note that the DC is 'NOT yet affected' tells Tier 2: you still have time, but VLAN isolation is urgent. This is precisely the kind of context that makes an escalation excellent rather than just adequate.",
+              "Domain controllers are listed among the sensitive systems that drive escalation, because they control authentication for every account and system. An attacker who reaches a DC with domain-admin rights can push ransomware to every machine in the domain and destroy Active Directory itself, which makes recovery far harder. “NOT yet affected” tells Tier 2 there is still a window, which is why the analyst recommends immediate VLAN isolation. It does not mean servers can wait or that the P1 can be downgraded: 12 hosts are encrypting and the DC is the next prize. The FINANCE VLAN note describes where the spread is now, not a guarantee that it stops there.",
             xp: 25,
           },
         ],
@@ -1183,7 +1186,7 @@ const rooms = [
         type: "analyst_choice" as const,
         id: "esc-ac1",
         heading: "Verdict: Handle It Yourself or Escalate to Tier 2?",
-        scenario: "02:30 AM. You are a Tier-1 analyst on night shift. You confirmed active ransomware on 12 hosts — file encryption is in progress. You have already: blocked the C2 IP at the firewall, submitted isolation commands via EDR for all 12 hosts (7 confirmed isolated, 5 pending). You can see 3 more hosts just started exhibiting the same pattern. You are the only analyst on shift. Your Tier-2 on-call is available but it will wake them at 2:30 AM. The MSSP runbook says 'escalate T1 incidents immediately after confirmation'. What is your verdict?",
+        scenario: "02:30 AM. You are a Tier-1 analyst on night shift. You confirmed active ransomware on 12 hosts at 02:22 — file encryption is in progress. You have opened the incident ticket and matched the IOCs in threat intel. The EDR's automatic prevention policy has isolated 7 of the 12 hosts; 5 are still connected, and 3 more hosts just started showing the same pattern. The C2 address is still reachable. You are the only analyst on shift. Your Tier-2 on-call is reachable, but calling now means waking them at 2:30 AM; the day shift starts at 07:00. What is your verdict?",
         event: {
           id: "evt-esc-ac-001",
           ts: "2026-06-21T02:30:44.000Z",
@@ -1203,14 +1206,12 @@ const rooms = [
             "escalation.new_hosts_last_5min": 3,
             "escalation.isolation_completed": 7,
             "escalation.isolation_pending": 5,
-            "escalation.c2_ip_blocked": true,
+            "escalation.c2_ip_blocked": false,
             "escalation.c2_ip": "185.220.101.47",
             "escalation.lateral_movement_active": true,
             "analyst.shift": "night",
             "analyst.tier": "T1",
             "analyst.on_shift_count": 1,
-            "runbook.t1_escalation_trigger": "confirmed_critical_incident",
-            "runbook.escalation_required": true,
             "tier2.oncall.available": true,
             "tier2.oncall.name": "r.goldberg@mssp.com",
             "rule.name": "Ransomware_Active_Spread_Critical",
@@ -1218,8 +1219,8 @@ const rooms = [
           },
         },
         correct_verdict: "escalate",
-        explanation: "Escalate immediately — this is the textbook Tier-2 escalation scenario. The runbook explicitly requires escalation for confirmed T1 incidents. With active lateral movement spreading to 3 new hosts, you are a solo Tier-1 analyst managing 15 affected hosts at 2:30 AM — the scope is exceeding what a single analyst can effectively handle. Tier-2 will: (1) take incident command; (2) coordinate with the client's IT team for domain-wide isolation; (3) trigger crisis communication; (4) begin forensic investigation. The concern about 'waking someone at 2:30 AM' is exactly the feeling that causes incidents to spiral — T2 on-call signed up to be woken for exactly this situation. 'I already blocked C2 and isolated some hosts' is a good briefing to give T2, not a reason to delay the call.",
-        fp_trap: "You've already taken good containment steps (C2 blocked, isolation commands sent) and might feel the situation is 'under control'. But 5 hosts are still pending isolation, 3 new hosts just appeared, and you are alone at 2:30 AM. The runbook exists precisely because in high-pressure situations, solo analysts underestimate scope. Escalation is not admitting failure — it is the correct process for a T1 Critical incident.",
+        explanation: "Escalate immediately — this meets several of the reading's escalation triggers at once: confirmed malicious activity (ransomware, which also carries legal implications), multiple systems involved and still spreading (3 new hosts in 5 minutes), and actions needed that exceed Tier-1 authority (isolating the 5 remaining and 3 new hosts, blocking the C2 address at the firewall). Tier-2 will: (1) take incident command; (2) approve and drive isolation and the C2 block; (3) trigger client and crisis communication; (4) begin forensic investigation. The concern about 'waking someone at 2:30 AM' is exactly the feeling that causes incidents to spiral — T2 on-call exists to be woken for this. Waiting for the 07:00 day shift would leave more than four hours of active encryption. 'EDR already isolated 7 hosts' is a good briefing to give T2, not a reason to delay the call.",
+        fp_trap: "The EDR has already isolated 7 hosts and you have opened the ticket, so it can feel as if the situation is 'under control'. But 5 hosts are still connected, 3 new hosts just appeared, the C2 address is still reachable, and the actions that remain need authority Tier-1 does not hold. Solo analysts under pressure tend to underestimate scope. Escalation is not admitting failure — it is the correct process for a confirmed P1 ransomware incident.",
         xp: 35,
       },
     ],

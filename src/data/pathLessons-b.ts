@@ -446,16 +446,16 @@ const lessons = [
             "value": "b"
           },
           {
-            "label": "It serves nothing, because scheduled tasks cannot run malware",
+            "label": "It serves privilege escalation, and you should ask which SYSTEM-level account the task is configured to run under",
             "value": "c"
           },
           {
-            "label": "It serves encryption, because scheduled tasks are how ransomware encrypts files",
+            "label": "It serves defense evasion, and you should ask which Windows event log the task clears each time it runs",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A scheduled task that re-launches a payload at every logon is textbook persistence — it survives reboots and re-starts the malware even if you kill the running process — so the right questions are who created it, what it launches, and whether it belongs there. The option “It serves data exfiltration, and you should…” misreads the mechanism; the task is about restarting the payload, not measuring data transfer. The option “It serves nothing, because scheduled tasks cannot…” is false — scheduled tasks routinely launch programs, malicious or not. The option “It serves encryption, because scheduled tasks are…” is wrong; scheduled tasks are a persistence mechanism, not an encryption method, and the boring name pointing to a Downloads-folder script is the tell."
+        "explanation": "A scheduled task that re-launches a payload at every logon is textbook persistence — it survives reboots and re-starts the malware even if you kill the running process — so the right questions are who created it, what it launches, and whether it belongs there. Exfiltration is about moving data out and would be asked of a network transfer, not a task whose job is simply to relaunch a script, so the 'how many bytes' option misreads the mechanism. Privilege escalation concerns gaining higher rights, but this task runs a user's own script at logon, so asking which SYSTEM account it uses targets the wrong goal. Defense evasion like log clearing is a different technique entirely; nothing here clears a log, so that option attaches the wrong objective to a straightforward persistence entry."
       },
       {
         "question": "You are a SOC analyst investigating a Windows host and you find a new value under HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run named 'OneDriveSync' pointing to C:\\Users\\jsmith\\AppData\\Roaming\\odsync.exe. Which reasoning best explains why this deserves suspicion?",
@@ -507,7 +507,7 @@ const lessons = [
         "question": "A workstation generates a Sysmon Event ID 10 (ProcessAccess) showing that a process named 'updater.exe', running from C:\\Users\\rana\\AppData\\Local\\Temp\\, opened a handle to lsass.exe with GrantedAccess 0x1010. Why is this a high-fidelity alert, and what is the attacker most likely doing?",
         "options": [
           {
-            "label": "It is completely routine — ordinary programs on Windows open lsass.exe for read access constantly, so this record is just expected background noise with no security meaning",
+            "label": "It is most likely a false positive from the host's EDR or backup agent, which do open LSASS routinely, so it can be closed once Event ID 10 noise is acknowledged",
             "value": "a"
           },
           {
@@ -519,18 +519,18 @@ const lessons = [
             "value": "c"
           },
           {
-            "label": "Sysmon Event ID 10 measures a process's CPU and memory usage, so this record points to a performance problem on the host rather than to any kind of security concern",
+            "label": "Sysmon Event ID 10 records a process opening a network socket, so this points to C2 beaconing by updater.exe rather than to any access of credential memory",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "LSASS holds cached credentials in memory, so a non-OS process opening it for read access (GrantedAccess 0x1010) is the signature of credential dumping — the attacker wants the hashes and Kerberos tickets to Pass-the-Hash / Pass-the-Ticket onward. The temp-folder origin makes it worse. The option “It is completely routine — ordinary programs…” is false — legitimate access to LSASS comes from the OS, not random binaries. The option “It only matters if the process is…” is the exact trap the sideloading lesson warns about: a signature vouches for the file, not for its accessing LSASS. The option “Sysmon Event ID 10 measures a process's…” misidentifies what Event ID 10 records (process access, not CPU)."
+        "explanation": "LSASS holds cached credentials in memory, so a non-OS process opening it for read access (GrantedAccess 0x1010) is the signature of credential dumping — the attacker wants the hashes and Kerberos tickets to Pass-the-Hash / Pass-the-Ticket onward, and the temp-folder origin makes it worse. It is true that security and backup agents open LSASS and make this event noisy, but those are known, allowlisted tools — an unknown updater.exe running from a user Temp folder is not one, so writing it off as agent noise is exactly the wrong call. A valid signature vouches for a file's publisher, not for its reaching into LSASS, so the 'safe if signed' option is the trap the sideloading section warns about. And Event ID 10 records one process opening a handle into another (ProcessAccess), not a network socket, so the 'C2 beaconing' reading misidentifies the event."
       },
       {
         "question": "An attacker runs 'powershell.exe -version 2 -enc <base64 blob>' on a host. Two separate choices in that one command line are attempts to evade detection. What are they?",
         "options": [
           {
-            "label": "'-version 2' simply makes the script run faster, and '-enc' merely compresses the payload to save space — both are ordinary performance options with no relevance to detection or security",
+            "label": "'-version 2' selects the newest engine with the strongest logging, and '-enc' signs the command so only trusted scripts run — both are hardening options, not evasion",
             "value": "a"
           },
           {
@@ -538,16 +538,16 @@ const lessons = [
             "value": "b"
           },
           {
-            "label": "'-version 2' upgrades the host's security posture, and '-enc' encrypts the network traffic end-to-end, so between them no log on the machine could ever record what actually ran",
+            "label": "'-version 2' pins the engine for script compatibility, and '-enc' is just the standard way to pass any multi-line command — neither choice carries a detection motive",
             "value": "c"
           },
           {
-            "label": "Neither flag has anything to do with evasion; both '-version 2' and '-enc' are simply required syntax without which no PowerShell command on any Windows host would run at all",
+            "label": "Both flags defeat the same control: '-version 2' and '-enc' each independently disable Script Block Logging (4104), so the two are redundant rather than two separate evasions",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Downgrading to PowerShell v2 deliberately loads an engine that lacks Script Block Logging, blinding the 4104 event that would otherwise record the decoded code; and -enc wraps the real command in Base64 to slip past naive keyword matching. The option “'-version 2' simply makes the script run…” misreads both flags. The option “'-version 2' upgrades the host's security posture…” is wrong twice: v2 weakens logging rather than improving security, and Script Block Logging records the code after decoding, so encoding does not defeat a properly configured host. The option “Neither flag has anything to do with…” is false — PowerShell runs fine without either flag; their presence is itself suspicious."
+        "explanation": "The two flags defeat two different controls: downgrading to PowerShell v2 loads an engine that lacks Script Block Logging, blinding the 4104 event that would otherwise record the decoded code, while -enc wraps the command in Base64 to slip past naive keyword-matching rules. The 'hardening options' reading inverts both — v2 weakens logging rather than strengthening it, and -enc does not sign anything. The 'no detection motive' reading ignores that an attacker has no routine reason to force the legacy engine on a modern host. And the 'both disable 4104' reading is wrong because only the v2 downgrade touches 4104; -enc addresses keyword rules, so they are two distinct evasions, not one redundant pair."
       },
       {
         "question": "You are reviewing a Windows Event ID 4688 record: Creator Process Name is WINWORD.EXE, New Process Name is powershell.exe, the Mandatory Label reads 'Medium Mandatory Level', and the Token Elevation Type shows a limited (non-elevated) token. What does this combination most likely tell you?",
@@ -599,11 +599,11 @@ const lessons = [
         "question": "Process telemetry shows a write to HKCU\\Software\\Classes\\ms-settings\\shell\\open\\command by a standard, non-elevated user process, immediately followed by fodhelper.exe launching a child process at High integrity with no consent.exe prompt recorded anywhere in the timeline. What is the best interpretation?",
         "options": [
           {
-            "label": "This is expected behavior any time a standard user opens Windows Settings, and no elevation-related concern applies here",
+            "label": "This is routine auto-elevation — fodhelper.exe is on the auto-elevate list, so it reaching High integrity with no prompt is expected and the HKCU write is unrelated configuration",
             "value": "a"
           },
           {
-            "label": "This is the classic fodhelper.exe UAC bypass pattern (T1548.002): a standard user hijacks a registry key an auto-elevate binary will read, then triggers that binary so it silently elevates and unknowingly launches the attacker's command at High integrity with no visible prompt",
+            "label": "This is the classic fodhelper.exe UAC bypass (T1548.002): a standard user hijacks a registry key the auto-elevate binary reads, then triggers it so it silently elevates and launches the attacker's command at High integrity with no prompt",
             "value": "b"
           },
           {
@@ -616,7 +616,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "fodhelper.exe is on Microsoft's auto-elevate list, so it can silently reach High integrity with no consent.exe prompt; several UAC bypasses abuse this by planting a hijacked command in a user-writable HKCU key the binary reads during that silent elevation, so the attacker's own process inherits the High-integrity token — exactly ATT&CK T1548.002. The option “This is expected behavior any time a…” ignores the specific registry path being one of the well-documented hijack points and the suspicious timing. The option “The missing consent.exe prompt simply means UAC…” is false; consent.exe is exactly the mechanism most elevation is supposed to trigger, and its absence alongside a jump to High integrity is the red flag, not evidence of normal operation. The option “Because fodhelper.exe is signed by Microsoft, any…” repeats the trust-by-signature fallacy this whole lesson has warned against — a trusted binary's own elevation says nothing about the legitimacy of what it was tricked into launching next."
+        "explanation": "fodhelper.exe is on Microsoft's auto-elevate list, so it can silently reach High integrity with no consent.exe prompt; several UAC bypasses abuse this by planting a hijacked command in a user-writable HKCU key the binary reads during that silent elevation, so the attacker's own process inherits the High-integrity token — exactly ATT&CK T1548.002. The option “This is routine auto-elevation — fodhelper.exe…” is the trap: fodhelper does auto-elevate, but the write to the ms-settings\\shell\\open\\command key moments before is one of the well-documented hijack points, so the HKCU write is the abuse, not unrelated configuration. The option “The missing consent.exe prompt simply means UAC…” is false; consent.exe is exactly the mechanism most elevation is supposed to trigger, and its absence alongside a jump to High integrity is the red flag, not evidence of normal operation. The option “Because fodhelper.exe is signed by Microsoft, any…” repeats the trust-by-signature fallacy this whole lesson has warned against — a trusted binary's own elevation says nothing about the legitimacy of what it was tricked into launching next."
       }
     ],
     "references": [

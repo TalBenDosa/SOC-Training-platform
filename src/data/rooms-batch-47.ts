@@ -110,13 +110,13 @@ const otIcsSecurityRoom = {
       "checkpoint": {
         "question": "Per this reading, what is the practical reason OT security inverts the IT CIA triad's usual priority order, often written AIC instead?",
         "options": [
-          "Because Confidentiality is technically impossible to achieve on any industrial network, so it is removed from consideration entirely",
-          "Because unplanned downtime or a manipulated physical process can have physical, sometimes life-safety, consequences that a typical data breach does not -- so Availability and Integrity are prioritized ahead of Confidentiality",
-          "Because OT devices are incapable of storing any confidential information, making Confidentiality an irrelevant concept in this domain",
-          "Because every OT regulation legally forbids organizations from prioritizing Confidentiality under any circumstances"
+          "Because OT data is rarely sensitive, so confidentiality protections add little value",
+          "Because downtime or a tampered process can cause physical, even life-safety, harm",
+          "Because OT networks are air-gapped, so confidentiality is already guaranteed by design",
+          "Because OT regulations rank availability first, so the order is a compliance choice"
         ],
         "answer": 1,
-        "explanation": "This reading states the reason directly: unplanned downtime and manipulated physical processes carry physical, sometimes life-safety, consequences a data breach does not, which is why Availability and Integrity outrank Confidentiality in OT. Confidentiality is not impossible in OT -- it is simply a lower priority, not an impossibility. OT devices absolutely can hold sensitive configuration and process data, so the claim that they cannot store confidential information is false. No blanket legal prohibition on prioritizing Confidentiality exists; that regulation claim is invented."
+        "explanation": "This reading states the reason directly: unplanned downtime and manipulated physical processes carry physical, sometimes life-safety, consequences a data breach does not, which is why Availability and Integrity outrank Confidentiality in OT. OT systems do hold sensitive configuration and process data; confidentiality is lower priority, not worthless. Air gaps have largely disappeared as IT and OT converged, so nothing is guaranteed by design. Regulations may reflect the order, but the order exists because of the physical consequences, not the other way round."
       },
       "xp": 5
     },
@@ -146,13 +146,13 @@ const otIcsSecurityRoom = {
       "checkpoint": {
         "question": "Per this reading, why does MITRE ATT&CK for ICS list T0886 (Remote Services) under two different tactics -- both Initial Access (TA0108) and Lateral Movement (TA0109)?",
         "options": [
-          "Because ATT&CK for ICS has a data-entry error that this reading is documenting as a known mistake in the framework",
-          "Because the identical mechanism (an RDP session, an SSH connection, an exposed engineering protocol) can be an attacker's very first way into an environment, or the exact pivot point used once already inside the IT network -- so the same technique legitimately serves both roles",
-          "Because Remote Services only ever counts as Initial Access, and the Lateral Movement listing applies exclusively to a completely unrelated technique with a similar name",
-          "Because every single technique in MITRE ATT&CK for ICS is listed under both of these two tactics as a matter of framework-wide policy"
+          "Because it covers two protocol families: RDP for Initial Access, VPN for Lateral Movement",
+          "Because one remote-access path can be a first foothold or a pivot from inside IT",
+          "Because Initial Access is its ICS listing and Lateral Movement its Enterprise listing",
+          "Because it counts as Initial Access with default credentials, Lateral Movement otherwise"
         ],
         "answer": 1,
-        "explanation": "This reading explains the dual listing directly: the same remote-access mechanism can be the attacker's first foothold OR the pivot used once already inside the IT network, so MITRE legitimately documents it under both tactics. This is not a data-entry error -- it is a deliberate, accurate reflection of how the technique is actually used in practice. The 'unrelated technique with a similar name' is invented; no such separate technique exists. Nor does every ICS technique carry both tactics as a framework-wide policy; this reading makes no such claim -- T0836 and T0855, covered later in this room, carry only one tactic each (Impair Process Control)."
+        "explanation": "This reading explains the dual listing directly: the same remote-access mechanism can be the attacker's first foothold OR the pivot used once already inside the IT network, so MITRE documents it under both tactics. The tactic depends on the role the access plays, not on the protocol — RDP and VPN can each serve either role. Both listings are in ATT&CK for ICS. Default credentials are a separate technique (T0812) and do not decide which tactic Remote Services serves."
       },
       "xp": 5
     },
@@ -161,9 +161,9 @@ const otIcsSecurityRoom = {
       "id": "ot-q1",
       "question": "Meridian's process historian sits at Purdue Level 3, and plc-dose-03 sits at Level 1, communicating over Modbus/TCP. Which of the following correctly identifies the port Modbus/TCP uses, and the security property that traffic on that port lacks by design?",
       "options": [
-        "Port 502/TCP, and Modbus/TCP has no built-in authentication or encryption, so any host reaching the port can issue the same function codes as the engineering workstation",
+        "Port 502/TCP, and Modbus/TCP has no authentication or encryption, so any host reaching it can send the same commands",
         "Port 502/TCP, and Modbus/TCP authenticates each session by a source-IP allowlist enforced in the protocol itself, though it carries no encryption",
-        "Port 20000/TCP, and Modbus/TCP encrypts sessions with a static shared key, so it lacks only per-user identity",
+        "Port 20000/TCP, and Modbus/TCP encrypts sessions with a static shared key, so the one thing it lacks is per-user identity",
         "Port 102/TCP, and Modbus/TCP authenticates each session but has no integrity check on the register values it carries"
       ],
       "answer": 0,
@@ -208,13 +208,13 @@ const otIcsSecurityRoom = {
       "checkpoint": {
         "question": "Per this reading, what specifically made the 2017 TRITON/TRISIS/HatMan attack against the Saudi petrochemical plant unusually significant compared to a typical PLC-targeting incident like Stuxnet?",
         "options": [
-          "TRITON targeted the Safety Instrumented System (SIS) itself -- the dedicated hardware whose only job is shutting the process down safely in an emergency -- making it the first ICS attack designed to enable physical damage, environmental harm, or loss of life by disabling the system built purely to prevent that outcome",
-          "TRITON was the first piece of malware ever documented to run on any Windows-based engineering workstation anywhere in an industrial environment, a capability this reading states Stuxnet's own payload never possessed or attempted to use at any point during its operation",
-          "TRITON exclusively targeted municipal water treatment facilities of the exact kind this room's fictional Meridian Valley Water Authority narrative uses throughout its own readings, while Stuxnet by contrast exclusively targeted electrical power grid transmission substations",
-          "TRITON was discovered immediately upon its initial deployment by the plant's own built-in intrusion detection system monitoring the Triconex controllers, unlike Stuxnet, which per this reading was never detected by any defensive tool at any point"
+          "It targeted the Safety Instrumented System, the controller meant to shut the process down safely",
+          "It was the first ICS malware to push unsafe settings while showing operators normal readings",
+          "It was the first attack to open breakers remotely and cut power across a grid region",
+          "It was the first to reach a plant through an internet-exposed remote-access tool"
         ],
         "answer": 0,
-        "explanation": "This reading states directly that TRITON's significance was targeting the Safety Instrumented System itself -- the last line of defense -- making it the first ICS attack designed to enable physical damage, environmental harm, or loss of life. The 'first malware on a Windows engineering workstation' claim is false and irrelevant; both malware families interacted with Windows-adjacent engineering systems, and this is not the distinguishing fact this reading names. The sector claim misstates both: TRITON targeted a petrochemical plant, and Stuxnet targeted a nuclear enrichment facility, neither a water utility nor a power grid. The 'caught immediately by an IDS' claim is false -- this reading states TRITON was discovered only because a bug in the malware itself triggered an unplanned safety shutdown, not because any IDS caught it."
+        "explanation": "This reading states directly that TRITON's significance was targeting the Safety Instrumented System itself -- the last line of defense -- making it the first ICS attack designed to enable physical damage, environmental harm, or loss of life. Pushing unsafe settings while feeding operators falsified, normal-looking readings describes Stuxnet, years earlier. Opening breakers to cut power describes Industroyer/CRASHOVERRIDE in Ukraine. Entry through an exposed remote-access tool is the Oldsmar pattern. Each distractor is a real incident from this room attached to the wrong name."
       },
       "xp": 5
     },
@@ -226,20 +226,20 @@ const otIcsSecurityRoom = {
       "checkpoint": {
         "question": "Per this reading, which two distinct ATT&CK for ICS techniques does the Industroyer/CRASHOVERRIDE incident illustrate, and what does each one specifically describe?",
         "options": [
-          "T0855 (Unauthorized Command Message) for sending a breaker-open command the relays were never meant to accept, and T0831 (Manipulation of Control) for the resulting change in the breaker's physical state",
-          "T0836 (Modify Parameter) for sending the breaker-open command, and T0886 (Remote Services) for the resulting change in the breaker's physical state",
-          "T0812 (Default Credentials) for sending the breaker-open command, and T0883 (Internet Accessible Device) for the resulting change in the breaker's physical state",
-          "Only one technique, T0855, since this reading states Industroyer's breaker manipulation was never assigned any other ATT&CK for ICS technique"
+          "T0855 (Unauthorized Command Message) for the breaker-open command, and T0831 (Manipulation of Control) for the resulting breaker-state change",
+          "T0836 (Modify Parameter) for the breaker-open command, and T0886 (Remote Services) for the resulting breaker-state change",
+          "T0812 (Default Credentials) for the breaker-open command, and T0883 (Internet Accessible Device) for the resulting breaker-state change",
+          "T0831 (Manipulation of Control) for the breaker-open command, and T0855 (Unauthorized Command Message) for the resulting breaker-state change"
         ],
         "answer": 0,
-        "explanation": "This reading names both techniques precisely: T0855 (Unauthorized Command Message, Impair Process Control) for the command itself, and T0831 (Manipulation of Control, Impact) for the resulting breaker-state change -- two separate techniques describing two separate facts about the same incident. The T0836 + T0886 pairing swaps in Stuxnet's technique (per this room's previous reading) and TRITON's technique, neither of which this reading assigns to Industroyer. The T0812 + T0883 pairing invents techniques for this incident -- those two are the Oldsmar-pattern techniques this same reading covers in its second half, not Industroyer's. The 'only one technique' answer is false; this reading explicitly names two techniques, not one."
+        "explanation": "This reading names both techniques precisely: T0855 (Unauthorized Command Message, Impair Process Control) for the command itself, and T0831 (Manipulation of Control, Impact) for the resulting breaker-state change -- two separate techniques describing two separate facts about the same incident. The T0836 + T0886 pairing swaps in Stuxnet's technique (per this room's previous reading) and TRITON's technique, neither of which this reading assigns to Industroyer. The T0812 + T0883 pairing invents techniques for this incident -- those two are the Oldsmar-pattern techniques this same reading covers in its second half, not Industroyer's. Swapping T0831 and T0855 confuses the command with its effect: T0855 is the message itself, T0831 the change it causes."
       },
       "xp": 5
     },
     {
       "type": "question" as const,
       "id": "ot-q2",
-      "question": "An investigator reconstructing the 2016 Ukraine substation incident finds: (1) a device dual-homed on both the IT and ICS networks was used to bridge into the ICS environment, and (2) once inside, the malware sent commands directly to protective relays, toggling breakers open, in a form those relays were never meant to accept from that source. Which two ATT&CK for ICS techniques describe steps (1) and (2), in order, and which tactic does step (2) belong to?",
+      "question": "An investigator reconstructing the 2016 Ukraine substation incident finds: (1) the attackers used remote-access connections from the compromised IT network to reach the ICS environment, and (2) once inside, the malware sent command messages to protective relays that those relays were never meant to accept from that source. Which two ATT&CK for ICS techniques describe steps (1) and (2), in order, and which tactic does step (2) belong to?",
       "options": [
         "T0886 (Remote Services) for step (1), then T0855 (Unauthorized Command Message) for step (2) -- step (2) belongs to Impair Process Control (TA0106)",
         "T0886 (Remote Services) for step (1), then T0831 (Manipulation of Control) for step (2) -- step (2) belongs to Impact (TA0105)",
@@ -247,7 +247,7 @@ const otIcsSecurityRoom = {
         "T0883 (Internet Accessible Device) for step (1), then T0855 (Unauthorized Command Message) for step (2) -- step (2) belongs to Impair Process Control (TA0106)"
       ],
       "answer": 0,
-      "explanation": "Bridging into the ICS environment via a dual-homed device is T0886 (Remote Services), and the unauthorized breaker-open commands that followed are T0855 (Unauthorized Command Message), which sits under the Impair Process Control tactic (TA0106) -- T0886 because the dual-homed host is a remote-access path from IT into the ICS network, and T0855 exactly as this room's reading on Industroyer maps the command messages. Choosing T0831 (Manipulation of Control, Impact) for step (2) confuses the command with its effect: this room assigns T0831 to the resulting breaker-state change, not to the command message itself. Putting T0855 first and T0886 second reverses the order. Mapping step (1) to T0883 (Internet Accessible Device) treats the dual-homed bridge as an internet-exposed device, but the foothold here was an internal IT/ICS dual-homed host, not an internet-exposed one.",
+      "explanation": "Reaching the ICS environment over remote-access paths from the IT network is T0886 (Remote Services) -- the pivot role this room's protocol reading describes -- and the unauthorized command messages that followed are T0855 (Unauthorized Command Message), which sits under the Impair Process Control tactic (TA0106), exactly as this room's reading on Industroyer maps them. Choosing T0831 (Manipulation of Control, Impact) for step (2) confuses the command with its effect: this room assigns T0831 to the resulting breaker-state change, not to the command message itself. Putting T0855 first and T0886 second reverses the order. Mapping step (1) to T0883 (Internet Accessible Device) treats the entry as an internet-exposed device, but here the attackers came in from the already-compromised IT network, not from the internet.",
       "xp": 25
     },
     {
@@ -258,13 +258,13 @@ const otIcsSecurityRoom = {
       "checkpoint": {
         "question": "Per this reading, which Modbus function codes indicate a WRITE (the decisive sign of T0855, Unauthorized Command Message, when they arrive from an unfamiliar source), as opposed to a routine READ?",
         "options": [
-          "Function codes 6 (Write Single Register) and 16 (Write Multiple Registers) indicate a write; function codes 3 and 4 indicate a read",
-          "Function codes 3 and 4 indicate a write; function codes 6 and 16 indicate a read",
-          "Any function code above 20 indicates a write, and any function code below 20 indicates a read, regardless of its specific number",
-          "Modbus function codes do not distinguish reads from writes at all -- only the destination port number determines which operation occurred"
+          "Codes 6 and 16 write registers; codes 3 and 4 read them",
+          "Codes 3 and 4 write registers; codes 6 and 16 read them",
+          "Code 16 writes registers; codes 3, 4 and 6 are all reads",
+          "Codes 3 and 16 write registers; codes 4 and 6 read them"
         ],
         "answer": 0,
-        "explanation": "This reading states plainly: function code 6 (Write Single Register) or 16 (Write Multiple Registers) is a write, while function code 3 or 4 is a read. Swapping reads and writes reverses the mapping entirely. The 'above 20 means write' rule is a numeric threshold this reading never states. The claim that only the destination port distinguishes reads from writes is false and contradicts this room's own protocol reading -- the destination port (502) is identical for both reads and writes, so it carries no information about which operation occurred; the function code is what distinguishes them."
+        "explanation": "This reading states plainly: function code 6 (Write Single Register) or 16 (Write Multiple Registers) is a write, while function code 3 or 4 is a read. Swapping the pairs reverses the mapping. Treating 6 as a read misses the single-register write, which changes a setpoint just as effectively as 16. Pairing 3 with 16 mixes a read code into the write set. The destination port (502) is the same for every one of these, so only the function code tells you the direction."
       },
       "xp": 5
     },
@@ -272,7 +272,7 @@ const otIcsSecurityRoom = {
       "type": "log_analysis" as const,
       "id": "ot-la1",
       "heading": "Investigate: An Unauthorized Modbus Write to a Dosing-Pump Controller",
-      "context": "You are reviewing Meridian Valley Water Authority's passive OT sensor feed. OT-SENSOR-02, a Corelight (Zeek) sensor mirrored off the plant floor's SPAN port, decoded the session below on the morning shift. There is no endpoint agent anywhere on this segment -- everything you know about this event comes from the wire.",
+      "context": "You are reviewing Meridian Valley Water Authority's passive OT sensor feed. OT-SENSOR-02, a Corelight (Zeek) sensor mirrored off the plant floor's SPAN port, decoded the session below on the morning shift. There is no endpoint agent anywhere on this segment -- everything you know about this event comes from the wire. A search of the sensor's last 30 days of Modbus records finds no earlier sessions between 10.50.12.77 and plc-dose-03.",
       "event": {
         "id": "ot-la-modbus-write-001",
         "ts": "2026-08-19T09:41:07.000Z",
@@ -293,7 +293,6 @@ const otIcsSecurityRoom = {
           "event.dataset": "corelight.modbus",
           "event.module": "corelight",
           "event.category": "network",
-          "event.action": "modbus-write",
           "event.outcome": "success",
           "source.ip": "10.50.12.77",
           "source.port": 51290,
@@ -312,33 +311,32 @@ const otIcsSecurityRoom = {
           "zeek.modbus.values": "1500,1",
           "zeek.modbus.request_response": "REQUEST",
           "zeek.modbus.tid": 8842,
-          "session.duration": 0.021,
-          "message": "Modbus WRITE_MULTIPLE_REGISTERS from 10.50.12.77 to 172.20.5.40 unit 1, 2 registers @40020."
+          "session.duration": 0.021
         }
       },
       "questions": [
         {
-          "question": "Which decoded Zeek field in this event is the clearest proof that 10.50.12.77 issued a WRITE rather than routine read polling, and why does that distinction matter for a chemical-dosing controller specifically?",
+          "question": "Which field shows that 10.50.12.77 changed the controller's state rather than polling it, and why does that matter on a chemical-dosing controller?",
           "options": [
-            "zeek.modbus.func, whose value WRITE_MULTIPLE_REGISTERS means the session set new register values rather than merely retrieving them -- on a dosing-pump controller, a write can change the actual chemical concentration the pump delivers, not just what a screen displays",
-            "destination.port, since this event's destination port value of 502 is, by itself and independent of any function code or any other decoded field Zeek records alongside it, always sufficient on its own to prove a write rather than a read occurred",
-            "network.bytes, since this room defines any Modbus session carrying more than exactly 300 bytes of payload as Zeek's own built-in, hard-coded threshold for classifying a session as a write rather than a read",
-            "session.duration, since writes always take measurably longer to complete than reads, and this particular session's 0.021-second duration is unusually long specifically for a read rather than a write"
+            "zeek.modbus.func -- a register write can change the real dosing rate, not just a display",
+            "zeek.modbus.values -- non-zero values in a session mean registers were written",
+            "zeek.modbus.address -- 40020 is a holding register, the type that stores setpoints",
+            "zeek.modbus.request_response -- REQUEST means the source pushed data into the PLC"
           ],
           "answer": 0,
-          "explanation": "zeek.modbus.func recording WRITE_MULTIPLE_REGISTERS is the decisive, decoded field -- it directly states this session set register values rather than reading them, and on plc-dose-03 that means the actual dosing-pump speed the physical process runs on, not merely a number an operator sees on a screen. destination.port (502) is identical for every Modbus session on this segment, read or write, so it carries no directional signal at all. network.bytes has no fixed write/read threshold; byte counts vary with how many registers are involved, not with direction. session.duration carries no such rule either -- this room's earlier benign control event (ENG-WS-02's own scheduled write) has a comparably short duration, so duration alone proves nothing about legitimacy or direction.",
+          "explanation": "zeek.modbus.func decodes the function code, and WRITE_MULTIPLE_REGISTERS (function code 16) means the session set register values rather than reading them -- on plc-dose-03 that is the dosing-pump speed the physical process runs on, not a number on a screen. Values appear in read responses too, so non-zero values do not prove a write. 40020 being a holding register is true, but holding registers are read (function code 3) as often as they are written, so the address alone says nothing about direction. Every Modbus exchange starts with a REQUEST from the client, reads included.",
           "xp": 20
         },
         {
           "question": "What single fact about the source 10.50.12.77 should make an analyst treat this event as suspicious rather than routine engineering traffic, independent of the function code involved?",
           "options": [
-            "It sits outside Meridian's known 172.20.5.0/24 OT engineering range and has no prior Modbus history with plc-dose-03 -- exactly the 'source that has no business on the segment' pattern this room's reading on signs of intrusion names as the strongest early indicator",
-            "It uses TCP as its transport protocol for this session, and this room's protocol reading establishes that TCP is used exclusively by attackers conducting reconnaissance or attacks on OT networks, and is never used by any legitimate engineering workstation",
-            "Its source port value of 51290 happens to be an even number, and this room establishes as a general rule that every legitimate Modbus session on Meridian's segment must originate from an odd-numbered source port rather than an even-numbered one",
-            "It connected to plc-dose-03 during ordinary business hours rather than overnight, and this room establishes as a general rule that any OT traffic occurring during standard business hours should always be treated as inherently suspicious"
+            "It is outside the 172.20.5.0/24 engineering range and has no Modbus history with plc-dose-03",
+            "It used an ephemeral source port (51290) instead of port 502 on its own side of the session",
+            "The session lasted 0.021 seconds, too short for a genuine engineering change",
+            "It is a private 10.x address, which suggests the source was spoofed from outside"
           ],
           "answer": 0,
-          "explanation": "10.50.12.77 sits outside Meridian's 172.20.5.0/24 engineering range and has no established Modbus history with plc-dose-03 -- exactly the strongest early indicator this room's 'signs of intrusion' reading names, independent of whatever function code the source later uses. TCP is the standard transport for every Modbus/TCP session on this segment, legitimate or not, so its mere presence carries no signal. This room never states any rule about source-port parity; the odd/even source-port rule is invented. Business-hours timing is not treated as inherently suspicious anywhere in this room -- the analyst_choice task later in this room shows a legitimate write happening at 02:15, outside business hours entirely, which directly contradicts the invented business-hours rule.",
+          "explanation": "10.50.12.77 sits outside Meridian's 172.20.5.0/24 engineering range and, per the 30-day check, has never spoken Modbus to plc-dose-03 -- exactly the 'source with no business on the segment' indicator this room's 'signs of intrusion' reading names, independent of the function code. Clients normally use an ephemeral source port and connect to 502 on the server, so 51290 is ordinary. A single register write completes in milliseconds whoever sends it; the legitimate maintenance write later in this room is just as short. 10.x is a private range used inside Meridian's corporate network, so it points to an internal source, not a spoofed external one.",
           "xp": 20
         }
       ]
@@ -346,8 +344,8 @@ const otIcsSecurityRoom = {
     {
       "type": "analyst_choice" as const,
       "id": "ot-ac1",
-      "heading": "Triage: A Modbus Write During a Documented Maintenance Window",
-      "scenario": "A separate alert fires for a Modbus WRITE_MULTIPLE_REGISTERS burst from 172.20.5.9 to plc-dose-04, recorded by the same OT-SENSOR-02 sensor. The underlying detection rule matches ANY Modbus write function code on the segment, with no allowance for the source address or Meridian's own maintenance schedule.",
+      "heading": "Triage: A Burst of Modbus Writes to plc-dose-04",
+      "scenario": "At 02:15 local time, a separate alert fires for a Modbus WRITE_MULTIPLE_REGISTERS burst from 172.20.5.9 to plc-dose-04, recorded by the same OT-SENSOR-02 sensor. The underlying detection rule matches ANY Modbus write function code on the segment, with no allowance for the source address or Meridian's own maintenance schedule.",
       "event": {
         "id": "ot-ac-scheduled-firmware-001",
         "ts": "2026-08-19T02:15:00.000Z",
@@ -393,7 +391,7 @@ const otIcsSecurityRoom = {
         }
       },
       "correct_verdict": "false_positive",
-      "explanation": "Every discriminator this room's readings name checks out as legitimate: the source, 172.20.5.9 (ENG-WS-02), sits inside Meridian's own 172.20.5.0/24 engineering range and is the plant's sole authorized engineering workstation for Line 4; the it_verify_message confirms a documented, ticketed maintenance window (MAINT-2026-0819) for a quarterly setpoint recalibration, performed while the line was offline; and the timing (02:15, inside the approved 02:00-03:00 window) matches the ticket exactly. This is the legitimate write shape this room's protocol reading warned about: it produces the identical Modbus function code (WRITE_MULTIPLE_REGISTERS) as the ot-la1 attack pattern, and only the surrounding context -- not the function code itself -- tells them apart.",
+      "explanation": "Every discriminator this room's readings name checks out as legitimate: the source, 172.20.5.9 (ENG-WS-02), sits inside Meridian's own 172.20.5.0/24 engineering range and is the plant's sole authorized engineering workstation for Line 4; the IT verification note shown with the alert confirms a documented, ticketed maintenance window (MAINT-2026-0819) for a quarterly setpoint recalibration, performed while the line was offline; and the timing (02:15, inside the approved 02:00-03:00 window) matches the ticket exactly. This is the legitimate write shape this room's protocol reading warned about: it produces the identical Modbus function code (WRITE_MULTIPLE_REGISTERS) as the unauthorized write to plc-dose-03 investigated earlier, and only the surrounding context -- not the function code itself -- tells them apart.",
       "fp_trap": "A student who has just learned that writes are the decisive sign of T0855 is primed to escalate reflexively on seeing ANY write function code -- that is exactly the overcorrection this task exists to catch. This room's own protocol reading was explicit that a write function code alone never resolves the verdict on an authenticationless protocol; the source's identity, its membership in the sanctioned engineering range, and independent confirmation of a documented change ticket are what actually decide the case.",
       "xp": 25
     },
@@ -405,13 +403,13 @@ const otIcsSecurityRoom = {
       "checkpoint": {
         "question": "Per this reading, why can almost nothing at Purdue Level 0 or Level 1 run a security agent, and what mechanism gives OT-SENSOR-02 visibility instead?",
         "options": [
-          "PLCs run minimal, vendor-proprietary real-time operating systems with little spare capacity, and installing unapproved software can void support agreements and invalidate safety certifications -- so visibility instead comes from passive monitoring via a SPAN port or TAP that copies traffic without touching it",
-          "PLCs can actually run any standard commercial security agent without any restriction whatsoever, but this reading states Meridian has simply chosen, purely for budget reasons this reading names directly, not to install one on any of its controllers",
-          "PLCs are physically incapable of connecting to any network at all under any circumstances, so this reading concludes that no monitoring of any kind, whether passive or active, is technically possible anywhere on this entire OT segment",
-          "Suricata itself is installed directly on plc-dose-03, running as a lightweight software agent this reading describes as specifically designed to operate within a real-time operating system's limited resources"
+          "Minimal proprietary real-time OSes, and agents can void support and safety certification -- so a SPAN port or TAP feeds a passive sensor",
+          "Agents would run fine, but vendors license them per controller -- so one passive sensor is simply the cheaper way to cover the plant",
+          "PLCs speak serial protocols, so a sensor must first convert their serial traffic to Ethernet before anything can inspect it",
+          "A lightweight Suricata agent runs on each PLC and forwards its alerts to OT-SENSOR-02, which stores and displays them"
         ],
         "answer": 0,
-        "explanation": "This reading states the reason precisely: minimal proprietary real-time OS with little spare capacity, plus the real risk of voiding support agreements and invalidating safety certifications, and states the alternative directly: passive monitoring via a SPAN port or TAP. The budget explanation is false -- this reading never attributes the absence of an agent to a budget decision; it is a structural, safety-certification-driven constraint. The claim that PLCs cannot connect to any network is false and contradicted throughout this room -- plc-dose-03 and plc-dose-04 both communicate over Modbus/TCP constantly, which requires a network connection. The claim that Suricata runs on plc-dose-03 directly contradicts this reading, which states Suricata and Zeek run on the passive sensor (OT-SENSOR-02), never on the PLC itself."
+        "explanation": "This reading states the reason precisely: minimal proprietary real-time OS with little spare capacity, plus the real risk of voiding support agreements and invalidating safety certifications, and states the alternative directly: passive monitoring via a SPAN port or TAP. Cost is not the constraint -- it is a structural, safety-certification-driven one. Meridian's controllers speak Modbus/TCP over Ethernet, so no serial conversion is involved here. Suricata and Zeek run on the passive sensor (OT-SENSOR-02), never on the PLC itself."
       },
       "xp": 5
     },
@@ -423,13 +421,13 @@ const otIcsSecurityRoom = {
       "checkpoint": {
         "question": "Per this reading, why is blanket-blocking all TCP port 502 traffic across the entire Meridian site a dangerous response to a confirmed unauthorized Modbus write, rather than a clean fix?",
         "options": [
-          "Because it also blocks ENG-WS-02's own legitimate read-only polling that keeps operators informed of the process, and must be coordinated with plant operations rather than done unilaterally by a SOC alone",
-          "Because TCP port 502 is legally protected by federal regulation and blocking it exposes the utility to fines regardless of the security justification",
-          "Because Modbus/TCP automatically reroutes to a random port if port 502 is blocked, making the block completely ineffective within seconds",
-          "Because blocking port 502 has no actual effect on Modbus traffic at all, since Modbus does not use TCP as its transport protocol"
+          "Because it also cuts ENG-WS-02's legitimate polling, so it must be coordinated with plant operations",
+          "Because it is unnecessary: PLCs already reject writes from sources outside the engineering range",
+          "Because it would not stop the attacker, who can switch to DNP3 on port 20000 against the same PLC",
+          "Because it is too narrow: the SOC should instead take plc-dose-03 off the network entirely"
         ],
         "answer": 0,
-        "explanation": "This reading states the real cost directly: blanket-blocking 502 blocks ENG-WS-02's own legitimate polling that keeps operators informed, and any such block must be coordinated with plant operations rather than done unilaterally. No such federal-fine rule is stated anywhere in this reading; it is invented. Modbus/TCP has no automatic port-hopping or rerouting behavior; that claim is invented and technically false. The claim that Modbus does not use TCP directly contradicts this room's protocol reading, which states Modbus/TCP explicitly uses TCP as its transport and port 502 specifically."
+        "explanation": "This reading states the real cost directly: blanket-blocking 502 blocks ENG-WS-02's own legitimate polling that keeps operators informed, and any such block must be coordinated with plant operations rather than done unilaterally. PLCs do not reject writes by source -- Modbus has no authentication, which is the whole problem. A controller that speaks Modbus does not also accept DNP3 simply because the attacker tries it. Cutting the PLC off the network is an even bigger unilateral disruption of the physical process, not a safer alternative."
       },
       "xp": 5
     },
@@ -466,7 +464,7 @@ const otIcsSecurityRoom = {
       "id": "ot-f1",
       "prompt": "This room's log_analysis task investigates a Modbus WRITE_MULTIPLE_REGISTERS session sent to plc-dose-03 from a source with no engineering history. What MITRE ATT&CK for ICS technique ID names sending a command message that instructs a control-system device to act outside its intended function, or without the operational authorization to do so -- exactly what that session represents?",
       "answer": "T0855",
-      "hint": "Covered in this room's reading 'Reading the Signs: How an OT Intrusion Actually Looks on the Wire,' under 'Sign 3.'",
+      "hint": "The technique is about the command message itself, not the change it causes in the process.",
       "xp": 15
     }
   ]

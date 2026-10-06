@@ -81,16 +81,16 @@ const powershellForSocRoom: Room = {
         "In windows-fundamentals you learned to read PowerShell as an attacker technique: a Base64 -EncodedCommand, a hidden window, an execution-policy bypass, winword.exe spawning powershell.exe as the second step of a phishing chain. That reading was correct, and those indicators are real. But it only ever showed you one side of the tool. Every one of those attacker capabilities — running a command non-interactively, reaching out to a remote host, reading and writing files, inspecting what is running on a machine — is also, line for line, exactly what an analyst needs to investigate an incident. PowerShell is not an attacker tool that defenders occasionally borrow. It is a general-purpose administration shell that both sides use for the same underlying reason: it is the most capable way to interrogate a Windows system from the command line, and it ships on every modern Windows box by default.\n\nThis is what security engineers call a dual-use tool: a piece of software with no inherent moral direction, whose classification as 'attacker' or 'defender' depends entirely on who is running it, against what, and why — not on anything different in the binary itself. PsExec, certutil, rundll32, and even a plain web browser are dual-use in the same sense. PowerShell is simply the most powerful and most common example, because Microsoft built it to be exactly that capable on purpose, for administrators.\n\nThink about what that phishing chain from windows-fundamentals actually needed PowerShell to do: download a remote file and run it, without writing anything obviously suspicious to disk first. Now think about a real investigative task: an analyst who suspects a workstation has an unauthorized scheduled task needs to enumerate every task on that host, filter out the ones signed by Microsoft, and export the rest to a CSV for the incident ticket. Different goal, same underlying primitive — query the system, filter down to what matters, act on the result. The attacker's one-liner and the analyst's investigative pipeline are both, technically, 'just PowerShell.'\n\nSo if the tool cannot tell you who is using it, what can? Two things, and this room is built around both. First, cmdlets: PowerShell ships hundreds of built-in commands (cmdlets, pronounced 'command-lets') purpose-built for administration and investigation — Get-Process, Get-Service, Get-WinEvent, Get-ChildItem, Get-NetTCPConnection, Get-ScheduledTask, Get-LocalGroupMember. Be aware that these are dual-use too: attackers run several of the very same cmdlets for Discovery — Get-Process (T1057 Process Discovery), Get-LocalGroupMember (T1069.001 Local Groups), Get-NetTCPConnection (T1049 System Network Connections Discovery), Get-ScheduledTask — so the cmdlet name alone never tells you who is at the keyboard. Second, context: exactly as the earlier room put it, a defender's Get-WinEvent call runs interactively, from a visible console, under the analyst's own logged-in credentials, against a known log — while an attacker's PowerShell often runs hidden, spawned from an unrelated parent process, reaching out to the internet. Same binary. Opposite shape of use.\n\nThe goal of this room is narrow and practical: give you the cmdlets, the pipeline habits, and the worked examples to actually run an investigation in PowerShell — not just recognize when someone else has abused it.",
       checkpoint: {
         question:
-          "According to the reading, what is the single biggest difference between PowerShell used as a defender's tool and PowerShell used as an attacker's tool?",
+          "Two EDR records show powershell.exe running Get-Process on the same host within an hour. Per the reading, what best separates the analyst's run from a possible attacker's?",
         options: [
-          "The defender's copy of powershell.exe is a separate, digitally signed binary that attackers cannot run",
-          "Nothing in the binary or the command itself distinguishes them — the difference is context: who is running it, how visibly, and against what",
-          "Defenders are only permitted to use PowerShell ISE, while attackers can only launch powershell.exe from cmd.exe",
-          "Windows Defender automatically allows any PowerShell command run by an analyst and blocks every command run by anyone else",
+          "The cmdlet itself, since Get-Process is a defensive triage cmdlet that attackers rarely need",
+          "How it ran: an interactive console under the analyst's own logon, not hidden under an unrelated parent",
+          "The binary: the analyst's run uses a separately signed powershell.exe kept in a protected folder",
+          "The privilege level: a run under an administrator account points to IT staff rather than an attacker",
         ],
         answer: 1,
         explanation:
-          "The reading's core point is that PowerShell is a dual-use tool: the same binary, the same cmdlets, no built-in moral direction. What separates a legitimate investigation from an attack is context — an interactive session under the analyst's own credentials against a known log, versus a hidden window spawned from an unrelated parent process reaching out to the internet. There is no separate 'defender binary,' and Windows Defender does not treat PowerShell differently based on who launched it.",
+          "The reading's point is that PowerShell and its cmdlets are dual-use, so what separates the two runs is context: the analyst works interactively, in a visible console, under their own logon, while attacker PowerShell often runs hidden, spawned from an unrelated parent process. “The cmdlet itself” is wrong because Get-Process is exactly what attackers run for Process Discovery (T1057), so the name tells you nothing about who typed it. “A separately signed powershell.exe” does not exist: both sides run the same Microsoft binary. “An administrator account” proves little, because an attacker who has stolen or escalated to admin credentials runs under an admin account too; what matters is whose logon and what kind of session.",
       },
     },
 
@@ -109,14 +109,14 @@ const powershellForSocRoom: Room = {
         question:
           "In the reading's pipeline example, what does the pipe (|) between Get-Process and Where-Object actually pass along?",
         options: [
-          "The full text that Get-Process printed to the console screen",
-          "Live process objects, carrying real properties like Name, CPU, and Id, that Where-Object can filter directly",
-          "Only the process names, converted into a single comma-separated line of text",
-          "Nothing is passed — Where-Object silently re-runs Get-Process internally using its own filter",
+          "The text Get-Process would print to the console, which Where-Object then searches",
+          "Process objects whose named properties, such as CPU, Where-Object reads directly",
+          "Only the process names, joined into one comma-separated line of text",
+          "A formatted table, which Where-Object splits into fixed-width columns",
         ],
         answer: 1,
         explanation:
-          "PowerShell's pipe passes structured objects between cmdlets, not printed text. Get-Process emits process objects with real properties (Name, CPU, Id, and more), and Where-Object filters directly on those properties — no text parsing involved. This is the mechanical reason PowerShell pipelines are more reliable than text-based shell piping for filtering and reshaping data.",
+          "PowerShell's pipe passes structured objects, not printed text: Get-Process emits process objects, and Where-Object reads a property such as CPU directly by name. “The text Get-Process would print to the console” describes a Unix-style text pipe, which is exactly the contrast the reading draws. “Only the process names, joined into one comma-separated line” would lose every other property, yet the same pipeline goes on to select Name, Id and CPU. “A formatted table split into fixed-width columns” is still text parsing; the table you see on screen is only how PowerShell displays objects at the end of the pipeline, not what travels through it.",
       },
     },
 
@@ -128,14 +128,19 @@ const powershellForSocRoom: Room = {
       id: "ps-soc-r3",
       heading: "7 Cmdlets Every Analyst Should Know Cold",
       content:
-        "These seven cmdlets cover the large majority of what an analyst actually reaches for during a live endpoint investigation. None of them require third-party tooling — every one ships with Windows.\n\nGet-Process — lists every running process, with PID, cumulative CPU time (seconds), and memory. Your first stop when a ticket says 'this machine feels slow' or 'EDR flagged a process I don't recognize.' Pipe it through Where-Object {$_.Name -eq 'powershell'} to isolate every PowerShell instance running right now, or Sort-Object CPU -Descending to see which processes have used the most processor time since they started (for load at this moment, use Get-Counter '\\Process(*)\\% Processor Time' instead).\n\nGet-Service — lists Windows services and their current state (Running, Stopped, Paused). Useful two ways: confirming a security service (like the EDR sensor or Windows Defender) is actually running and was not disabled, and spotting an unfamiliar service name that was not there during the last baseline. Get-Service | Where-Object {$_.Status -eq 'Running'} narrows a long list down to what is actually active.\n\nGet-WinEvent (and its older, slower sibling Get-EventLog) — queries the Windows Event Log directly from the command line, without opening Event Viewer. This is the cmdlet you reach for constantly: pulling every failed logon (Event ID 4625) in the last hour, every process-creation event (4688), or every scheduled-task-created event (4698) tied to a specific host. Get-WinEvent -FilterHashtable @{LogName='Security'; Id=4625; StartTime=(Get-Date).AddHours(-1)} filters at the source instead of pulling the entire log and searching through it afterward — which matters on a busy domain controller where the Security log can hold hundreds of thousands of entries.\n\nGet-ChildItem — PowerShell's equivalent of dir or ls: lists files and folders. Investigatively useful for checking what has been dropped into %TEMP%, %APPDATA%, or C:\\Users\\Public — the same user-writable, rarely-audited locations attackers favor for staging payloads, precisely because a standard user can write there without needing elevation.\n\nGet-NetTCPConnection — lists live TCP connections on the host, including local and remote address, remote port, connection state, and an OwningProcess property holding the PID that owns each connection. This is how you go from 'EDR flagged an outbound connection to an unfamiliar IP' to 'here is the exact process holding that connection open' — filter by -State Established and the remote port named in the alert, then pivot the OwningProcess value straight into Get-Process -Id to see the actual executable.\n\nGet-ScheduledTask — lists every scheduled task registered on the host, including its author and the folder path it lives under. Scheduled tasks are one of the most common persistence mechanisms, because a task set to run at logon or on a timer survives a reboot without needing a running process the whole time. Get-ScheduledTask | Where-Object {$_.Author -notlike '*Microsoft*'} is a fast first pass at separating built-in Windows tasks from everything else on the box.\n\nGet-LocalGroupMember — lists the members of a local group, most often -Group 'Administrators'. This is the cmdlet you reach for after any privilege-escalation concern: a helpdesk ticket about a former contractor, a suspicious group-membership change in a SIEM alert, or simply confirming that a workstation's local admin group matches what IT change control says it should.\n\nNone of these seven cmdlets require anything beyond what ships on a default Windows install, and every one of them slots into the pipeline pattern from the previous reading: query with the Get- cmdlet, narrow with Where-Object, trim with Select-Object, and — when the result needs to leave your session as evidence — write it out with Export-Csv.",
+        "These seven cmdlets cover the large majority of what an analyst actually reaches for during a live endpoint investigation. None of them require third-party tooling — every one ships with Windows.\n\nGet-Process — lists every running process, with PID, cumulative CPU time (seconds), and memory. Your first stop when a ticket says 'this machine feels slow' or 'EDR flagged a process I don't recognize.' Pipe it through Where-Object {$_.Name -eq 'powershell'} to isolate every PowerShell instance running right now, or Sort-Object CPU -Descending to see which processes have used the most processor time since they started (for load at this moment, use Get-Counter '\\Process(*)\\% Processor Time' instead).\n\nGet-Service — lists Windows services and their current state (Running, Stopped, Paused). Useful two ways: confirming a security service (like the EDR sensor or Windows Defender) is actually running and was not disabled, and spotting an unfamiliar service name that was not there during the last baseline. Get-Service | Where-Object {$_.Status -eq 'Running'} narrows a long list down to what is actually active.\n\nGet-WinEvent (and its older, slower sibling Get-EventLog) — queries the Windows Event Log directly from the command line, without opening Event Viewer. This is the cmdlet you reach for constantly: pulling every failed logon (Event ID 4625) in the last hour, every process-creation event (4688), or every scheduled-task-created event (4698) tied to a specific host. Get-WinEvent -FilterHashtable @{LogName='Security'; Id=4625; StartTime=(Get-Date).AddHours(-1)} filters at the source instead of pulling the entire log and searching through it afterward — which matters on a busy domain controller where the Security log can hold hundreds of thousands of entries.\n\nGet-ChildItem — PowerShell's equivalent of dir or ls: lists files and folders. Investigatively useful for checking what has been dropped into %TEMP%, %APPDATA%, or C:\\Users\\Public — the same user-writable, rarely-audited locations attackers favor for staging payloads, precisely because a standard user can write there without needing elevation. When it turns up a suspicious file, Get-FileHash followed by the file's path returns its SHA256 hash, which you record in the ticket and look up in threat intelligence before anyone changes or removes the file.\n\nGet-NetTCPConnection — lists live TCP connections on the host, including local and remote address, remote port, connection state, and an OwningProcess property holding the PID that owns each connection. This is how you go from 'EDR flagged an outbound connection to an unfamiliar IP' to 'here is the exact process holding that connection open' — filter by -State Established and the remote port named in the alert, then pivot the OwningProcess value straight into Get-Process -Id to see the actual executable.\n\nGet-ScheduledTask — lists every scheduled task registered on the host, including its author and the folder path it lives under. Scheduled tasks are one of the most common persistence mechanisms, because a task set to run at logon or on a timer survives a reboot without needing a running process the whole time. Get-ScheduledTask | Where-Object {$_.Author -notlike '*Microsoft*'} is a fast first pass at separating built-in Windows tasks from everything else on the box.\n\nGet-LocalGroupMember — lists the members of a local group, most often -Group 'Administrators'. This is the cmdlet you reach for after any privilege-escalation concern: a helpdesk ticket about a former contractor, a suspicious group-membership change in a SIEM alert, or simply confirming that a workstation's local admin group matches what IT change control says it should.\n\nNone of these seven cmdlets require anything beyond what ships on a default Windows install, and every one of them slots into the pipeline pattern from the previous reading: query with the Get- cmdlet, narrow with Where-Object, trim with Select-Object, and — when the result needs to leave your session as evidence — write it out with Export-Csv.",
       checkpoint: {
         question:
-          "Which of the seven cmdlets is the correct choice for confirming whether a specific account still belongs to the local Administrators group, after a privilege-escalation concern is raised?",
-        options: ["Get-LocalGroupMember", "Get-Service", "Get-ChildItem", "Get-WinEvent"],
+          "On a busy domain controller you need every failed logon (Event ID 4625) from the last hour. Why does the reading prefer Get-WinEvent -FilterHashtable over reading the whole Security log and piping it to Where-Object?",
+        options: [
+          "The filter is applied at the source, so only matching events are read rather than the entire log",
+          "Where-Object cannot compare event IDs, because event records reach it as formatted lines of text",
+          "Where-Object has no access to when an event was logged, so only a hashtable can apply a time window",
+          "The hashtable query returns extra detail, such as message text, that piped event records leave out",
+        ],
         answer: 0,
         explanation:
-          "Get-LocalGroupMember -Group 'Administrators' lists exactly who currently belongs to a local group, which is the direct way to confirm or rule out unauthorized privilege after an escalation concern. Get-Service lists service states, Get-ChildItem lists files and folders, and Get-WinEvent queries the event log — none of them enumerate current group membership.",
+          "The reading's reason is efficiency: -FilterHashtable with LogName, Id and StartTime filters at the source, so Windows hands back only the matching events instead of every record for Where-Object to sift through afterward, which matters when a domain controller's Security log holds hundreds of thousands of entries. “Event records reach it as formatted lines of text” repeats the text-pipe misconception from Reading 2: Get-WinEvent emits event objects, and Where-Object can compare their Id. “No access to when an event was logged” is wrong for the same reason: each event object carries its time, so a piped filter could apply a window, just far more slowly. “Extra detail, such as message text” is wrong because both routes return the same kind of event object; the difference is how many records have to be read, not what each one contains.",
       },
     },
 
@@ -146,16 +151,16 @@ const powershellForSocRoom: Room = {
       type: "question",
       id: "ps-soc-q1",
       question:
-        "You run Get-Process | Where-Object {$_.CPU -gt 200} | Select-Object Name, Id on a workstation. A colleague who only knows batch scripting asks why you didn't need to write any text-parsing logic to pull out the CPU value before filtering on it. What is the correct technical answer?",
+        "On a file server that has been up for 30 days, you run Get-Process | Sort-Object CPU -Descending. svchost.exe is the first row, with a CPU value of 5400, and a colleague concludes it is maxing out the processor right now. What is the correct reading of that value?",
       options: [
-        "PowerShell converts the console output into a table behind the scenes, and Where-Object filters the rows of that table rather than parsing text",
-        "Get-Process emits live process objects with real properties, and the pipe hands them to Where-Object, which filters on .CPU with no string parsing",
-        "Where-Object does parse the formatted output, but PowerShell guarantees fixed column widths for CPU, so position-based parsing is built in and reliable",
-        "Get-Process emits only text lines, and Where-Object runs an implicit ConvertFrom-String on each one before comparing, which hides the parsing from the user",
+        "An average percentage over the last minute, so 5400 means many cores have been fully busy",
+        "Total processor-seconds since the process started; check current load with Get-Counter",
+        "Milliseconds of processor time in the latest sampling interval, so it confirms a spike now",
+        "Not a reliable number, because Sort-Object turns CPU into text and orders it alphabetically",
       ],
       answer: 1,
       explanation:
-        "PowerShell's Get- cmdlets return structured objects with real, named properties — CPU is a property on the object Get-Process emits, not a formatted text column. The pipe passes those objects intact to Where-Object, which reads the .CPU property directly, which is exactly why no string-parsing logic was needed. There is no hidden 'grid' conversion, no reliance on fixed-width text formatting, and no implicit text conversion in the pipeline — objects stay objects from the cmdlet to the filter.",
+        "Reading 2 defines CPU as the total processor time, in seconds, that a process has used since it started. 5400 seconds is 90 minutes of processor time spread over 30 days, which says nothing about the load at this moment; Reading 3 points to Get-Counter '\\Process(*)\\% Processor Time' for that. “An average percentage over the last minute” and “milliseconds in the latest sampling interval” both read a lifetime total as a current measurement, which is the misreading the reading warns against. “Sort-Object turns CPU into text” is wrong because the pipeline passes objects, so CPU stays a number and Sort-Object orders it numerically.",
       xp: 25,
     },
 
@@ -207,12 +212,12 @@ const powershellForSocRoom: Room = {
       template:
         "Get-NetTCPConnection -State {{state}} | Where-Object {$_.RemotePort -eq {{port}}} | Select-Object LocalAddress, RemoteAddress, RemotePort, {{property}}",
       blanks: [
-        { id: "state", answers: ["Established"], placeholder: "the connection state that means 'actively open right now'" },
-        { id: "port", answers: ["4444"], placeholder: "the remote port named in the alert" },
-        { id: "property", answers: ["OwningProcess"], placeholder: "the property that maps a connection to a PID" },
+        { id: "state", answers: ["Established", "'Established'", '"Established"'], placeholder: "the connection state that means 'actively open right now'" },
+        { id: "port", answers: ["4444", "'4444'", '"4444"'], placeholder: "the remote port named in the alert" },
+        { id: "property", answers: ["OwningProcess", "'OwningProcess'", '"OwningProcess"'], placeholder: "the property that maps a connection to a PID" },
       ],
       explanation:
-        "-State Established scopes the query to connections that are actively open — not Listen (a port waiting for an inbound connection) and not TimeWait (a connection already closing), either of which would give a misleading picture of what's happening right now. RemotePort -eq 4444 filters to the exact port the alert named. OwningProcess is the property Get-NetTCPConnection carries specifically to answer 'which process holds this open' — feed that PID into Get-Process -Id to get the executable name, path, and hash for the incident ticket. This is the same filter-then-select pipeline shape from the earlier reading, just aimed at connections instead of processes.",
+        "-State Established scopes the query to connections that are actively open — not Listen (a port waiting for an inbound connection) and not TimeWait (a connection already closing), either of which would give a misleading picture of what's happening right now. RemotePort -eq 4444 filters to the exact port the alert named. OwningProcess is the property Get-NetTCPConnection carries specifically to answer 'which process holds this open' — feed that PID into Get-Process -Id to get the executable's name and path, then hash that file with Get-FileHash for the incident ticket. This is the same filter-then-select pipeline shape from the earlier reading, just aimed at connections instead of processes.",
       xp: 30,
     },
 
@@ -229,39 +234,44 @@ const powershellForSocRoom: Room = {
       questions: [
         {
           question:
-            "Independent of the folder the task sits in, which combination of details in this record is the strongest reason to flag it for follow-up?",
+            "Which interpretation of this record best justifies flagging the task for follow-up?",
           options: [
-            "The task runs a hidden-window PowerShell command that reads a script out of the world-writable C:\\Users\\Public folder, was authored by a standard user account rather than an admin or SYSTEM, and is triggered at 23:47 — outside business hours",
-            "The TaskName folder path contains the word Windows, which is reserved for Microsoft-signed tasks only and can never legitimately appear in a task created by a regular account",
-            "Event ID 4698 by itself always indicates a malicious scheduled task, since legitimate administrators only use Group Policy to deploy scheduled tasks, never the Task Scheduler API directly",
-            "The Command value is powershell.exe, and any scheduled task that launches powershell.exe should automatically be treated as malware regardless of anything else in the record",
+            "Several details together: hidden PowerShell running a script from C:\\Users\\Public, a standard-user author, a 23:47 trigger",
+            "Event 4698 itself, because Windows writes it only for tasks created outside Group Policy or Intune deployments",
+            "The HighestAvailable run level, because it makes the task run with SYSTEM rights whoever registered it",
+            "Nothing yet: a WindowsUpdate folder plus HighestAvailable is how endpoint-management tools deploy maintenance tasks",
           ],
           answer: 0,
           explanation:
-            "No single field here proves anything on its own — this room's first reading made that point directly. It's the combination that matters: a Hidden window flag on the PowerShell command, a script sourced from a folder any user can write to, a standard user's SID (not an admin or SYSTEM) as the task author, and a trigger time well outside business hours. The folder name containing 'Windows' is meaningless on its own — plenty of legitimate third-party tasks sit under lookalike paths, and nothing enforces that naming convention. Event ID 4698 is generated by every scheduled task ever created, legitimate or not — it is not itself a verdict. And PowerShell appearing as the Command is exactly the dual-use point from Reading 1: the presence of powershell.exe proves nothing by itself.",
+            "No single field proves anything here; the combination does. The action starts PowerShell with a hidden window, it runs a script from C:\\Users\\Public (a folder any user can write to), the author is a standard user's SID rather than SYSTEM or an admin, and the trigger is 23:47. The WindowsUpdate folder adds weight as a supporting indicator: a user-authored task filed under \\Microsoft\\Windows\\ is a known masquerading pattern (T1036.004), though the folder alone proves nothing. “Windows writes it only for tasks created outside Group Policy or Intune” is wrong: 4698 is logged for every task registration, legitimate or not, so it is not a verdict. “SYSTEM rights whoever registered it” misreads HighestAvailable: it requests the highest privileges available to the task's own principal, which for a standard user is still a standard token. “How endpoint-management tools deploy maintenance tasks” is the competing benign story, but management tools register tasks as SYSTEM or a service account, not under an individual user's SID, and they do not run scripts out of a public folder.",
           xp: 25,
         },
         {
           question:
-            "Which cmdlet would the analyst have used directly on CORP-FIN-014 to discover this task's existence and pull its actions locally, before ever pulling the matching Security log event?",
-          options: ["Get-ScheduledTask", "Get-Process", "Get-LocalGroupMember", "Get-NetTCPConnection"],
+            "The analyst's first pass in the sweep was the reading's filter Get-ScheduledTask | Where-Object {$_.Author -notlike '*Microsoft*'}. Judging by this record, does this task survive that filter, and why?",
+          options: [
+            "Kept: the filter tests Author, and CORP\\j.alvarez does not match *Microsoft*",
+            "Dropped: its path sits under \\Microsoft\\Windows\\, so the filter treats it as built in",
+            "Dropped: its action runs powershell.exe from System32, a Microsoft-signed binary",
+            "Kept, but only because its 23:47 trigger falls outside business hours",
+          ],
           answer: 0,
           explanation:
-            "Get-ScheduledTask is the cmdlet that enumerates scheduled tasks live on a host, including author and action — exactly what the context describes the analyst running during the persistence sweep. Get-Process lists running processes (a scheduled task that hasn't fired yet has no running process to find), Get-LocalGroupMember checks group membership, and Get-NetTCPConnection checks live network connections — none of them surface scheduled tasks.",
+            "Where-Object {$_.Author -notlike '*Microsoft*'} tests one property, Author, and the task definition shows the author as CORP\\j.alvarez, which does not contain “Microsoft”, so the task stays in the result. “Its path sits under \\Microsoft\\Windows\\” confuses the folder the task is filed in with its author: filing a task in a Microsoft folder does not change who registered it, which is why an Author-based first pass still catches this masquerade while a filter on the folder path alone would have hidden it. “Runs powershell.exe from System32” confuses the action's binary with the author; the filter never looks at the action. “Only because its 23:47 trigger” is wrong because the filter does not test the trigger at all; the time is a separate indicator you weigh afterward.",
           xp: 25,
         },
         {
           question:
-            "SubjectUserName is a standard user account, not an admin, and the task's action reads a script from C:\\Users\\Public\\upd.ps1 at the Highest Available run level. What should the analyst do next?",
+            "You have flagged this task for follow-up, and nothing on CORP-FIN-014 has been changed yet. What should the analyst do next?",
           options: [
-            "Retrieve and hash upd.ps1 for analysis, confirm with j.alvarez and their manager whether this task is authorized IT work, and pull EDR process-creation telemetry for powershell.exe on CORP-FIN-014 around 23:47 to see what actually ran",
-            "Close the alert as expected noise, since scheduled tasks that launch PowerShell are standard on every managed Windows fleet and require no further review",
-            "Delete the scheduled task immediately from the Task Scheduler console to stop it from running again, without collecting anything else first",
-            "Reimage CORP-FIN-014 immediately without further investigation, since a task requesting Highest Available run level is, on its own, confirmation of compromise",
+            "Collect and hash the script it loads, ask j.alvarez's manager if the task is sanctioned, and review process events near 23:47",
+            "Unregister the task right away so it cannot fire again, then look for the script and any process activity it caused",
+            "Disable j.alvarez's account and reimage CORP-FIN-014, since a user-made task at HighestAvailable confirms compromise",
+            "Message j.alvarez to ask whether they created the task, and close the case as sanctioned if they say they did",
           ],
           answer: 0,
           explanation:
-            "The correct next step preserves and gathers evidence before drawing a conclusion: pull the referenced script and hash it, verify with the account owner and their manager whether this is sanctioned work, and correlate against EDR process-creation events to see what the task actually executed when it fired. Closing it as noise skips the investigation the combination of indicators clearly warrants. Deleting the task first destroys evidence — the script content and any related detections should be collected before the persistence mechanism is removed. And Highest Available run level, on its own, is a request a task can make whether or not anything malicious is involved; it is not proof by itself, only one more data point to weigh alongside everything else in the record.",
+            "Evidence comes before conclusions and before cleanup: collect the script the task points to and record its hash (Get-FileHash, Reading 3), verify through j.alvarez's manager whether this is sanctioned IT work, and pull process-creation telemetry for powershell.exe around 23:47 to see whether the task already ran and what it did. “Unregister the task right away” is the right containment step at the wrong time: removing the persistence before collecting the script and checking what already ran risks losing the evidence of what the task did; collect first, then remove it. “Disable the account and reimage” jumps to eradication on indicators that still need confirming, and wipes the host evidence that would show scope. “Message j.alvarez to ask whether they created the task” trusts the very account that registered it; if that account is compromised, the attacker may be the one answering, and a yes still would not explain a hidden script in a public folder.",
           xp: 30,
         },
       ],
@@ -325,9 +335,9 @@ const powershellForSocRoom: Room = {
       type: "flag",
       id: "ps-soc-flag1",
       prompt:
-        "Enter the exact name of the property, returned by Get-NetTCPConnection, that lets you pivot directly from a live TCP connection to the process ID holding it open — the same property you filled into the query_fill exercise earlier in this room.",
-      answer: "OwningProcess",
-      hint: "It's a property on the connection object itself, not a separate cmdlet — check the Select-Object field list from the query you built.",
+        "Before the scheduled task on CORP-FIN-014 is removed, you want to collect the script it loads and hash it. Enter the file name of that script (name and extension only, no folder path).",
+      answer: "upd.ps1",
+      hint: "The 4698 record carries the full task definition, not just the program it starts.",
       xp: 25,
     },
   ],

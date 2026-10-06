@@ -156,16 +156,16 @@ const remoteEmailCollectionRoom = {
         "  Note over R: reconstructs the full sequence of actions\n",
       diagramCaption: "Reconstructing one session's actions via SessionId",
       checkpoint: {
-        question: "What does a MailAccessType of 'Bind' indicate, as opposed to 'Sync'?",
+        question: "You are holding one suspicious MailItemsAccessed record and need to know whether the same session also created an inbox rule. Which field do you pivot on?",
         options: [
-          "Bind means a whole folder's worth of items was pulled in one operation, like a mail client starting up",
-          "Bind means one specific item was accessed by its own individual request -- many Bind records in a short window can indicate a script iterating message by message",
-          "Bind and Sync are two names for the exact same operation",
-          "Bind means the item was permanently deleted after being read",
+          "MailboxGuid, because it ties together every record written against this one mailbox",
+          "SessionId, because the sign-in, mail access and rule creation in one session share it",
+          "ClientIPAddress, because records from the same address must belong to one session",
+          "InternetMessageId, because a rule created afterwards is logged against the same message",
         ],
         answer: 1,
         explanation:
-          "Sync is a whole-folder pull, the way a mail client behaves on startup. Bind is a per-item access -- a handful is unremarkable, but many dozens packed into a few minutes is the shape of automated iteration, not a person reading email one message at a time.",
+          "SessionId is shared by every audit record generated in the same authenticated session, so pulling it returns the sign-in, the MailItemsAccessed records and any New-InboxRule in order. MailboxGuid identifies the mailbox, so it returns every session that ever touched it, the owner's included, rather than this one session. ClientIPAddress can be shared by many sessions behind the same network, and it cannot prove two records came from one session. InternetMessageId identifies one message; an inbox rule is a mailbox setting, not an action logged against a particular message.",
       },
     },
     // ── Question 1 (applied — MITRE technique ID) ───────────────────────────
@@ -176,7 +176,7 @@ const remoteEmailCollectionRoom = {
         "An attacker has obtained a valid, already-authenticated session token for a victim's mailbox — no password needed — and uses it through the Exchange REST API to search the Inbox for wire-transfer instructions. Which MITRE ATT&CK sub-technique best describes this specific action?",
       options: [
         "T1114.001, Local Email Collection — reading mail stored in the victim's Outlook cache on a compromised endpoint",
-        "T1114.002, Remote Email Collection — reading mail through the account's remote access channel, here an API, without touching the victim's device",
+        "T1114.002, Remote Email Collection — reading mail via the account's remote access, here an API, from anywhere",
         "T1114.003, Email Forwarding Rule — redirecting the victim's mail to an external address so the attacker receives it automatically",
         "T1213, Data from Information Repositories — mining a shared business repository such as SharePoint for sensitive documents",
       ],
@@ -206,14 +206,14 @@ const remoteEmailCollectionRoom = {
       question:
         "A New-InboxRule audit record shows: ForwardTo -> ap-invoices@northgate-logisitics.com (note the extra 'i'), DeleteMessage -> true, StopProcessingRules -> true, scoped to SubjectContainsWords: 'wire, invoice, ACH'. What makes this specific combination especially dangerous, beyond simply having an external forward?",
       options: [
-        "DeleteMessage:true erases the owner's copy after forwarding, and StopProcessingRules:true keeps any later rule, including a security team's detection rule, from evaluating the message",
-        "Exchange Online refuses to save any inbox rule whose ForwardTo target is outside the tenant, so this record can only be a failed attempt that never created a rule",
-        "The keyword scoping to 'wire, invoice, ACH' makes the rule easier for Exchange to auto-quarantine, since narrowly scoped rules get stricter review than broad ones",
-        "StopProcessingRules:true only affects how the rule is displayed in Outlook's rule list, with no effect on which rules actually evaluate a given message",
+        "DeleteMessage erases the owner's copy after forwarding, and StopProcessingRules stops later rules, a security team's rule included, from evaluating the message",
+        "ForwardTo sends matching mail to the external address instead of the mailbox, so the owner receives no copy of the wire or invoice threads at all",
+        "The keyword scope makes the rule fire on every incoming message, so the attacker receives the whole mailbox rather than just finance-related mail",
+        "StopProcessingRules deletes the mailbox's other inbox rules when it is saved, so the owner's own sorting rules and the security team's rules are gone",
       ],
       answer: 0,
       explanation:
-        "Reading 3 covered exactly this combination: DeleteMessage removes the evidence from the owner's own mailbox, and StopProcessingRules skips every rule evaluated after this one — including a defensive rule a security team might have added. The rule itself saves fine whatever the target — whether the forwarded mail actually leaves the tenant is decided separately, at delivery time, by the outbound spam policy and remote-domain settings. Today's default (Automatic - System-controlled) blocks automatic external forwarding in most tenants with an NDR (5.7.520), but many organizations explicitly allow it for business reasons, and that is exactly where a rule like this one silently works — so a rule existing is always worth investigating, and checking whether forwarding is allowed tells you whether mail has already left. Narrow keyword scoping doesn't reduce danger — it means the attacker deliberately targeted the financially relevant subset of mail rather than everything, which is more purposeful, not less.",
+        "Reading 3 covered exactly this combination: DeleteMessage removes the evidence from the owner's own mailbox, and StopProcessingRules skips every rule evaluated after this one — including a defensive rule a security team might have added. “ForwardTo sends matching mail to the external address instead of the mailbox” describes RedirectTo; ForwardTo keeps the original, which is why DeleteMessage is needed here to hide it. “The keyword scope makes the rule fire on every incoming message” reverses SubjectContainsWords: it narrows the rule to finance threads, which is more targeted, not broader. “StopProcessingRules deletes the mailbox's other inbox rules” misreads the flag: the other rules still exist, they just never run against a message this rule already matched. Whether the forwarded mail actually leaves the tenant is decided separately by the outbound spam policy and remote-domain settings, so checking that tells you whether mail has already left.",
       xp: 25,
     },
     // ── Matching: operations/parameters to meaning ──────────────────────────
@@ -248,16 +248,16 @@ const remoteEmailCollectionRoom = {
         "**Recognize the legitimate patterns before you escalate.** Delegate and Admin LogonType values tied to a known relationship (an assistant, a compliance tool, a migration service account) are routine and should not trigger the same response as an Owner-type access from an unfamiliar location. Reading 5 builds this out fully, but the short version: context — ticket references, known device fingerprints, expected working hours — is what turns 'mailbox was accessed' into either 'nothing to see here' or 'this needs containment,' and skipping that context in either direction is a mistake.\n\n" +
         "**Why this reading exists before the log analysis exercise.** The task that follows gives you a single MailItemsAccessed record plus the surrounding session facts in the narrative — exactly the way a real investigation actually presents itself. You won't be handed a verdict field; you'll be handed the same pieces described here, and asked to reason through them the way this reading just walked through.",
       checkpoint: {
-        question: "Per Reading 4, why is a single MailItemsAccessed record almost never enough to act on by itself?",
+        question: "An alert hands you one MailItemsAccessed record for a finance user, sourced from an IP you do not recognise. Following Reading 4, what is your next step?",
         options: [
-          "Because MailItemsAccessed is throttled to a single entry per mailbox per 24 hours, so any one record is a daily rollup rather than a discrete access event",
-          "Because people read their own email constantly -- the investigative value comes from correlating the record against everything else in the same session and against what's normal for that account",
-          "Because MailItemsAccessed only logs failed access attempts -- successful reads are recorded exclusively under the separate MailboxLogin operation",
-          "Because Microsoft deprecated this operation in favor of SessionId-only logging, so Purview no longer populates it with any mailbox, folder or message detail",
+          "Escalate it as BEC now: mailbox access from an unfamiliar IP is strong enough on its own",
+          "Pull every record on its SessionId and compare origin and access shape to her baseline",
+          "Close it as noise: people read their own mail constantly, so one record means nothing",
+          "Reset her password first, then review the session once her account is locked down",
         ],
         answer: 1,
         explanation:
-          "Reading a mailbox is the entire point of having one, so a single record is unremarkable on its own -- the finding comes from correlating it via SessionId against the sign-in origin, the access shape, and what's normal for that specific account.",
+          "Reading 4's method is to correlate before acting: pull the session by SessionId, then compare the sign-in origin, the hours and the Bind/Sync shape against what is normal for this account. “Escalate it as BEC now” acts on one field when the reading says no single record is a verdict. “Close it as noise” takes the true point that people read their own mail and skips the unfamiliar IP, which is exactly what the correlation is meant to test. “Reset her password first” is a containment step before you know there is anything to contain, and a reset alone does not end an already-issued session.",
       },
     },
     // ── Log Analysis: the REST-driven bulk mailbox access ───────────────────
@@ -266,49 +266,49 @@ const remoteEmailCollectionRoom = {
       id: "remc-la1",
       heading: "One MailItemsAccessed Record, and the Session Around It",
       context:
-        "Northgate Logistics' SIEM flagged an anomaly on r.iversen@northgate-logistics.com's mailbox. Pulling the full Unified Audit Log for this event's SessionId shows the exact same record repeated 24 times inside a four-minute window, each one against a different InternetMessageId in the Inbox and Sent Items folders. Nine minutes before the first of these records, the same SessionId appears on an Exchange Online sign-in event; the only corporate VPN egress Northgate has on file is a single static address in Chicago, Illinois, and no employee on the finance team is assigned to travel. Per the asset inventory, r.iversen's own laptop has never generated an interactive session outside business hours in the eleven months since it was issued. Review the single representative record below.",
+        "Northgate Logistics' SIEM flagged an anomaly on r.iversen@northgate-logistics.com's mailbox. Pulling the full Unified Audit Log for this event's SessionId shows the exact same record repeated 24 times inside a four-minute window, each one against a different InternetMessageId in the Inbox and Sent Items folders. Nine minutes before the first of these records, the same SessionId appears on an Exchange Online sign-in event; the only corporate VPN egress Northgate has on file is a single static address in Chicago, Illinois, and no employee on the finance team is assigned to travel. Per the asset inventory, r.iversen's own laptop has never generated an interactive session outside business hours in the eleven months since it was issued; the burst began at 02:47 UTC, which is 21:47 in Chicago. Review the single representative record below.",
       event: remcMailAccessEvent,
       questions: [
         {
           question:
             "data.office365.ClientInfoString reads 'Client=REST;Client=RESTSystem;;' rather than a recognizable Outlook or OWA client string. What does that tell you about how this mailbox item was accessed?",
           options: [
-            "It confirms an Outlook desktop client cached the message locally, which is what this string always indicates",
-            "It means the access came through a script or application calling the Exchange/Graph REST API directly, not a human clicking through a mail client",
-            "It means the mailbox is a shared mailbox and multiple people are reading it simultaneously",
-            "It's a formatting artifact with no operational meaning — every ClientInfoString value is functionally identical",
+            "An Outlook desktop client cached the item locally during its normal startup sync",
+            "A program called the Exchange or Graph REST API directly, not a person in a mail client",
+            "A browser session through Outlook Web Access opened the item on the user's behalf",
+            "Several people opened it at once, as this is the client string of a shared mailbox",
           ],
           answer: 1,
           explanation:
-            "As Reading 2 covered, Client=REST;Client=RESTSystem;; specifically identifies programmatic API access, distinct from the Outlook or OWA strings a human-facing client reports. It says nothing about shared mailboxes on its own, and ClientInfoString values are meaningfully different from each other — that's the entire reason the field exists.",
+            "As Reading 2 covered, Client=REST;Client=RESTSystem;; identifies programmatic API access with no human-facing client name. An Outlook desktop client reports Client=Outlook;Microsoft Office/16.0, and its startup pull would be a Sync, not a Bind. A browser session through Outlook Web Access reports Client=OWA. The string describes the client that made the request; it says nothing about the mailbox being shared or how many people read it. A REST string is not proof of compromise on its own — legitimate tools use it — which is why the session context still matters.",
           xp: 30,
         },
         {
           question:
             "data.office365.MailAccessType reads 'Bind' rather than 'Sync', and the same SessionId produced 24 near-identical Bind records within four minutes, each against a different message. What does that combination indicate?",
           options: [
-            "Bind means Outlook is performing its normal full-folder sync on startup, so 24 records like this in four minutes is routine client behavior that needs no further look",
-            "Bind means each record represents one individual item pulled by its own separate request — 24 separate Binds in four minutes is consistent with a script iterating through the mailbox message by message, not a person reading email",
-            "Bind vs Sync is purely a display setting controlling folder view options and carries no information about whether a human or a script made the request",
-            "Bind means the accessed item was permanently and irreversibly deleted from the mailbox the moment this record was generated",
+            "A client starting up: Outlook pulls a folder this way, so 24 records is expected",
+            "One item per request, 24 times in four minutes: a script iterating through messages",
+            "A person skimming the Inbox: opening 24 short emails in four minutes is normal",
+            "Activity from 24 separate clients, since each Bind record is its own sign-in",
           ],
           answer: 1,
           explanation:
-            "Reading 2 drew exactly this distinction: Sync is the folder-level pull a normal mail client performs; Bind is a per-item access. Two dozen Bind records against different messages inside four minutes is the shape of automated iteration, not a person opening emails one at a time — a human reading 24 separate emails that quickly, each triggering its own distinct API bind, would be an unusual reading pace even before considering anything else in this session.",
+            "Reading 2 drew exactly this distinction: Sync is the folder-level pull a normal mail client performs; Bind is a per-item access. Two dozen Binds against different messages, across two folders, inside four minutes is the shape of automated iteration. “A client starting up” describes Sync, not Bind. “A person skimming the Inbox” ignores that the records span Inbox and Sent Items through a REST client with no mail client at all, and that a handful of Binds through a workday, not a dense burst, is the human shape. “24 separate clients” misreads the log: every record carries the same SessionId, so this is one session.",
           xp: 30,
         },
         {
           question:
             "The SessionId on this record also appears on a sign-in nine minutes earlier, sourced from outside the only known corporate VPN egress (a single static Chicago IP), on an account whose laptop has never shown after-hours activity in eleven months. Based on Reading 4, what should you do first?",
           options: [
-            "Close the alert — a MailItemsAccessed record on its own is routine mailbox traffic, and the surrounding facts described in this scenario don't change that conclusion",
-            "Treat this as likely session or account compromise: pull every audit record on this SessionId, check specifically for a New-InboxRule created around the same time, and begin containment (revoke the session) while you confirm the full scope",
-            "Immediately delete r.iversen's mailbox entirely so that no further message can possibly be accessed by anyone",
-            "Email r.iversen directly at their own address and wait for them to confirm or deny recognizing this specific sign-in before taking any other action",
+            "Close it: Reading 4 says one MailItemsAccessed record is routine traffic and not enough to act on",
+            "Treat it as likely compromise: pull the SessionId, look for a new inbox rule, and start containment",
+            "Reset r.iversen's password and close the case, since the reset ends whoever is in the session",
+            "Message r.iversen to ask if she recognises the sign-in, and hold all action until she replies",
           ],
           answer: 1,
           explanation:
-            "This is exactly the correlation Reading 4 built toward: an unfamiliar sign-in origin, an access shape consistent with automation, and both sharing one SessionId together are far more significant than any one fact alone — the correct move is containment plus scoping, not dismissal. Deleting the mailbox destroys evidence and the owner's legitimate mail. Emailing the account directly risks tipping off whoever currently holds that session if the account itself is compromised — exactly the mistake called out in this room's response-ordering task.",
+            "This is the correlation Reading 4 built toward: an unfamiliar sign-in origin, an after-hours time, an automated access shape and one shared SessionId together outweigh any single field, so the move is containment plus scoping. “Close it” quotes Reading 4's warning about a single record, but this is no longer a single record: the session context is exactly what turns it into a finding. “Reset the password and close the case” leaves the already-issued session able to keep working and skips checking for a forwarding rule. “Message r.iversen and hold all action” loses time, and a message to a compromised mailbox can be read by whoever holds the session.",
           xp: 35,
         },
       ],
@@ -320,8 +320,8 @@ const remoteEmailCollectionRoom = {
       heading: "Order the Response to a Confirmed Business Email Compromise",
       instructions: "Arrange these response steps in the order they should actually happen once mailbox compromise is confirmed.",
       items: [
-        { id: "contain", text: "Revoke all active sessions and refresh tokens for the account immediately" },
-        { id: "reset", text: "Reset the account password and force re-registration of MFA methods" },
+        { id: "contain", text: "Block sign-in for the account so no new session or token refresh can succeed" },
+        { id: "reset", text: "Reset the password and revoke all sessions and refresh tokens back-to-back, then force MFA re-registration" },
         { id: "rule", text: "Locate and remove the malicious inbox rule (or mailbox-level ForwardingSmtpAddress) so no further mail leaves silently" },
         { id: "scope", text: "Pull the full mailbox audit trail on the compromised SessionId(s) to determine exactly what was read, forwarded, or deleted" },
         { id: "notify", text: "Notify affected counterparties (finance, vendors) if wire-fraud-relevant emails were exposed or a fraudulent payment instruction may have gone out" },
@@ -329,7 +329,7 @@ const remoteEmailCollectionRoom = {
       ],
       correct_order: ["contain", "reset", "rule", "scope", "notify", "document"],
       explanation:
-        "Revoking the live session comes first because — as covered in Identity Basics — a password reset alone does not invalidate a session token already issued; skip this step and the attacker's already-open session keeps working through everything that follows. Removing the inbox rule before containing the session is backwards too: an attacker with a still-live session can simply recreate a removed rule in seconds. Only after access is actually cut off does it make sense to scope the damage, notify anyone financially exposed, and write it all up.",
+        "Blocking sign-in comes first, as in Identity Basics: a reset alone leaves an already-issued token working, and revoking alone lets an attacker who knows the password sign straight back in, so with sign-in blocked the reset and the revocation are done back-to-back with no gap. Removing the inbox rule before access is cut is backwards too: an attacker with a still-live session can simply recreate a removed rule in seconds. Only after access is actually cut off does it make sense to scope the damage, notify anyone financially exposed, and write it all up.",
       xp: 30,
     },
     // ── Reading 5: legitimate remote mailbox access ─────────────────────────
@@ -350,11 +350,11 @@ const remoteEmailCollectionRoom = {
       id: "remc-ac1",
       heading: "Verdict: An Assistant Accessing the CFO's Mailbox",
       scenario:
-        "A MailItemsAccessed record shows j.tan (Executive Assistant) accessing c.reyes's (CFO) Inbox. Any non-owner access to a CFO's mailbox is exactly the kind of high-value target this room has been teaching you to watch for — review the record before deciding how to handle it.",
+        "A MailItemsAccessed record shows j.tan (Executive Assistant) accessing c.reyes's (CFO) Inbox. Any non-owner access to a CFO's mailbox is exactly the kind of high-value target this room has been teaching you to watch for. For reference, Northgate's only corporate VPN egress is 98.14.22.5 in Chicago. Review the record, and the IT verification note under it, before deciding how to handle it.",
       event: remcDelegateEvent,
       correct_verdict: "false_positive",
       explanation:
-        "data.office365.LogonType is '2' (Delegate), not '0' (Owner) — this is someone else accessing the mailbox through a granted relationship, not the account itself being used to read its own mail from an unexpected place. data.office365.MailAccessType is 'Sync', the normal behavior of a real Outlook desktop client pulling its assigned folder, not the repeated per-item Bind pattern this room's log analysis task associated with automated collection. The source IP matches Northgate's only known corporate egress, and it_verify_result confirms Helpdesk ticket HD-88213 authorizing exactly this delegate relationship as part of standard EA onboarding.",
+        "data.office365.LogonType is '2' (Delegate), not '0' (Owner) — this is someone else accessing the mailbox through a granted relationship, not the account itself being used to read its own mail from an unexpected place. data.office365.MailAccessType is 'Sync', the normal behavior of a real Outlook desktop client pulling its assigned folder, not the repeated per-item Bind pattern this room's log analysis task associated with automated collection. The source IP, 98.14.22.5, is Northgate's corporate VPN egress, and the IT verification note confirms Helpdesk ticket HD-88213 authorizing exactly this delegate relationship as part of standard EA onboarding.",
       fp_trap:
         "Non-owner access to an executive's mailbox is precisely the pattern that gets escalated on reflex — it looks, at a glance, like exactly what this room has spent several readings teaching you to catch. But LogonType Delegate, MailAccessType Sync, a matching corporate IP, and a confirmed ticket are the specific fields that separate this from the compromised-account pattern in the log analysis task. Escalating every instance of a non-owner touching a VIP mailbox, without checking these fields, trains a team to drown in noise on exactly the accounts that most need real attention when something is actually wrong.",
       xp: 30,
@@ -366,14 +366,14 @@ const remoteEmailCollectionRoom = {
       question:
         "An analyst sees a single MailItemsAccessed Bind record from a known corporate IP during business hours, with no accompanying New-InboxRule, no sign-in anomaly on the SessionId, and a LogonType consistent with the account's owner. What is the appropriate response?",
       options: [
-        "Escalate as a confirmed Business Email Compromise, since a MailItemsAccessed Bind record is the audit log's definitive sign of mailbox compromise",
-        "Treat it as routine mailbox activity unless correlated evidence appears; one unremarkable MailItemsAccessed record alone does not justify escalation",
-        "Disable the account as a precaution and open an incident, since any mailbox access not tied to a ticket should be contained first",
-        "Close it and suppress future MailItemsAccessed records from this user's corporate IP, since this one turned out to be benign",
+        "Escalate as Business Email Compromise, since per-item Bind access is the pattern this room links to scripted mailbox collection",
+        "Treat it as routine mailbox activity unless correlated evidence appears; this one record shows none of the compromise signals",
+        "Disable the account as a precaution and open an incident, since mailbox access that no ticket explains should be contained first",
+        "Close it and suppress future MailItemsAccessed records from this user's corporate IP, since this one has turned out to be benign",
       ],
       answer: 1,
       explanation:
-        "Reading 4 was explicit that a single MailItemsAccessed record is almost never enough to act on by itself — people read their own mail constantly, and this record has none of the correlating signals (rule creation, sign-in anomaly, unusual access shape) that made the log analysis case worth escalating. Disabling the account on no real evidence and permanently ignoring future events from this user are both overcorrections in opposite directions — proportionate response means neither escalating everything nor tuning out a source entirely.",
+        "Reading 4 was explicit that a single MailItemsAccessed record is almost never enough to act on by itself — people read their own mail constantly, and this record has none of the correlating signals (rule creation, sign-in anomaly, unusual access shape) that made the log analysis case worth escalating. “Per-item Bind access” is suspicious as a dense burst; one Bind is what a person opening one email looks like. Disabling the account because no ticket explains a user reading her own mail, and suppressing all future records from her IP, are overcorrections in opposite directions — proportionate response means neither escalating everything nor tuning out a source entirely.",
       xp: 20,
     },
     // ── Query Fill: hunt for external forwarding ─────────────────────────────
@@ -385,14 +385,14 @@ const remoteEmailCollectionRoom = {
       context: KQL_PRIMER +
         "Detection engineering wants a daily hunt across the OfficeActivity table for any inbox rule that forwards or redirects mail externally, instead of relying on a single canned alert to catch every case. Fill in the operation name and both forwarding parameters from Reading 3.",
       template:
-        "OfficeActivity\n| where OfficeWorkload == \"Exchange\"\n| where Operation == \"{{operation}}\"\n| where Parameters has \"{{param1}}\" or Parameters has \"{{param2}}\"\n| project TimeGenerated, UserId, ClientIP, Parameters",
+        "OfficeActivity\n| where OfficeWorkload == \"Exchange\"\n| where Operation =~ \"{{operation}}\"\n| where Parameters has \"{{param1}}\" or Parameters has \"{{param2}}\"\n| project TimeGenerated, UserId, ClientIP, Parameters",
       blanks: [
-        { id: "operation", answers: ["New-InboxRule"], placeholder: "Exchange operation name" },
-        { id: "param1", answers: ["ForwardTo"], placeholder: "forwarding parameter that keeps a copy" },
-        { id: "param2", answers: ["RedirectTo"], placeholder: "forwarding parameter that keeps no copy" },
+        { id: "operation", answers: ["New-InboxRule", "NEW-INBOXRULE"], placeholder: "Exchange operation that creates an inbox rule" },
+        { id: "param1", answers: ["ForwardTo", "FORWARDTO"], placeholder: "forwarding parameter that keeps a copy" },
+        { id: "param2", answers: ["RedirectTo", "REDIRECTTO"], placeholder: "forwarding parameter that keeps no copy" },
       ],
       explanation:
-        "New-InboxRule is the operation logged for any inbox rule creation. Checking for both ForwardTo and RedirectTo matters because they behave differently — ForwardTo leaves a copy in the mailbox, RedirectTo doesn't — and a hunt that only checks one of the two, as Reading 3 pointed out, misses the quieter of the two mechanisms entirely.",
+        "New-InboxRule is the operation logged for any inbox rule creation; the template compares it with =~, and KQL's has is case-insensitive too, so any letter case is a correct query. Checking for both ForwardTo and RedirectTo matters because they behave differently — ForwardTo leaves a copy in the mailbox, RedirectTo doesn't — and a hunt that only checks one of the two, as Reading 3 pointed out, misses the quieter of the two mechanisms entirely.",
       xp: 25,
     },
     // ── Flag ──────────────────────────────────────────────────────────────
@@ -401,9 +401,9 @@ const remoteEmailCollectionRoom = {
       id: "remc-f1",
       event: remcMailAccessEvent, // show the r.iversen mailbox log this flag reads
       prompt:
-        "Look at the Log Analysis finding on r.iversen's mailbox. What is the exact value of the data.office365.SessionId field in the raw log?",
-      answer: "f4a29c6e8b1d47f0a3c5e9b2d6f18a74",
-      hint: "Look inside the raw block of the log analysis event for the field named data.office365.SessionId.",
+        "Containment for r.iversen's mailbox includes blocking, and pivoting on, the network origin of the session that bound the 24 messages. Using the record shown, enter that address exactly.",
+      answer: "154.16.93.211",
+      hint: "You want where the request came from, not which mailbox it touched or which session it belonged to.",
       xp: 20,
     },
     // ── Question 4 (applied — tokens survive password reset) ────────────────
@@ -411,16 +411,16 @@ const remoteEmailCollectionRoom = {
       type: "question" as const,
       id: "remc-q4",
       question:
-        "IR resets r.iversen's password and forces a global sign-out, but has not yet separately revoked the specific session/refresh token that was already used to read mail and could still be used to create an inbox rule. Based on Identity Basics and this room, what is the most accurate statement?",
+        "IR resets r.iversen's password at 10:00 but leaves sign-in enabled and does not revoke her sessions. The attacker's mail-reading session was issued before the reset. Based on Identity Basics and this room, what is the most accurate statement?",
       options: [
-        "The password reset is sufficient, because in Microsoft 365 a password change immediately invalidates every session and refresh token issued under the old password",
-        "A password reset does not automatically invalidate a token issued before it; the token must be explicitly revoked, or a live session may keep working",
-        "The forced global sign-out guarantees the token is dead, since sign-out always revokes every refresh token in the same operation as the reset",
-        "The token stays valid, but only from the IP address it was issued to, so the attacker could not reuse it from a different location",
+        "The reset ends it: any session issued under the old password stops working at once",
+        "The reset alone may not end it; until revoked, the session can work until it expires",
+        "The session survives, but it is bound to the IP address it was first issued to",
+        "The session keeps working provided the attacker also learns the new password",
       ],
       answer: 1,
       explanation:
-        "This is the exact lesson carried over from Identity Basics: a token represents a login that already happened, and it is honored on its own until it expires or is explicitly revoked — a password change doesn't retroactively invalidate something issued before the change. 'Global sign-out' and an explicit session/token revocation are related but not automatically guaranteed to be the same completed action depending on the platform's exact remediation flow, which is exactly why this room's ordering task puts session revocation as its own first step rather than folding it silently into 'reset the password.'",
+        "This is the lesson carried over from Identity Basics: a token represents a login that already happened and is honoured until it expires or is explicitly revoked, so a password change does not reliably end a session issued before it. That is why the response blocks sign-in, then resets and revokes back-to-back. “The reset ends it” is the common misconception the ordering task is built around. A token is not tied to its original IP address, so “bound to the IP address it was first issued to” is wrong and would not stop reuse from elsewhere. “Provided the attacker also learns the new password” misunderstands the token: it was never checked against the password on each use, so the new password is irrelevant to it.",
       xp: 25,
     },
   ],
@@ -541,16 +541,16 @@ const deviceRegistrationPersistenceRoom = {
         "**Where this fits relative to other persistence techniques.** T1098 has several siblings worth knowing apart: T1098.001 (Additional Cloud Credentials) covers adding illegitimate credentials to a cloud account, T1098.002 (Additional Email Delegate Permissions) covers abusing Exchange delegation to add a mailbox permission, T1098.003 (Additional Cloud Roles) covers granting an account an extra privileged directory role such as Global Administrator, and T1098.004 (SSH Authorized Keys) covers adding an attacker-controlled SSH key. T1098.005 is specifically about the identity provider's own authentication factors and device objects — which is exactly why it matters so much for anyone investigating an account takeover in a modern, MFA-protected environment: the MFA that was supposed to stop the attacker becomes, once they've registered their own factor, exactly what lets them come back.\n\n" +
         "**This connects directly to real scenario telemetry on this platform.** In the AiTM Token Theft scenario, event aitm_12_mfa_register fires this precise technique nineteen minutes after a stolen session is replayed — a second Microsoft Authenticator method appears on the victim's account, registered by a session that itself never had to solve a fresh MFA challenge, because the replayed session already carried a prior MFA claim. This room teaches you to read that exact class of event.",
       checkpoint: {
-        question: "Per Reading 1, why does registering a new authentication method specifically defeat a password reset as remediation?",
+        question: "Using a phished session, an attacker adds a new Microsoft Authenticator entry to the victim's own Entra ID account. Which ATT&CK sub-technique from Reading 1 fits this action?",
         options: [
-          "Because Entra ID enforces a mandatory 24-hour delay between a password reset request and the reset actually taking effect on the account",
-          "Because the registered method is a separate object on the account that a password reset does not touch at all -- like a burglar's own key added to a smart lock, changing the front lock's code doesn't remove their key",
-          "Because Entra ID blocks any password reset attempt on an account flagged as compromised until an administrator manually clears the flag",
-          "Because every registered MFA method is automatically set to expire 90 days after a password change, under Entra ID's default authentication policy",
+          "T1098.001, Additional Cloud Credentials",
+          "T1098.005, Device Registration",
+          "T1098.003, Additional Cloud Roles",
+          "T1098.002, Additional Email Delegate Permissions",
         ],
         answer: 1,
         explanation:
-          "The analogy in Reading 1 is exact: registering a new authentication method is like a burglar programming their own key into the smart lock -- changing the lock's primary code (the password reset) does nothing to a key that was separately added to the approved list.",
+          "Reading 1 defines T1098.005 as registering a new authentication method or device object with the identity provider so it is trusted as a factor — exactly an added Authenticator entry. T1098.001 is the near-miss: it covers adding illegitimate credentials to a cloud account, whereas the identity provider's own authentication factors and device objects are what T1098.005 is about. T1098.003 would need an extra privileged directory role, which nothing here grants. T1098.002 is about mailbox delegation in Exchange, not sign-in factors.",
       },
     },
     // ── Reading 2: how registration happens, the fields that prove it ──────
@@ -570,16 +570,16 @@ const deviceRegistrationPersistenceRoom = {
       type: "question" as const,
       id: "devreg-q1",
       question:
-        "A targetResources[].modifiedProperties[0] entry shows oldValue as a single-element array (one PhoneAppNotification method, Default:true) and newValue as a two-element array (both PhoneAppNotification, one Default:true, one Default:false). What does this change represent?",
+        "A StrongAuthenticationMethod change shows oldValue [{\"MethodType\":\"PhoneAppNotification\",\"Default\":true},{\"MethodType\":\"OneWaySMS\",\"Default\":false}] and newValue [{\"MethodType\":\"PhoneAppNotification\",\"Default\":true}]. What does this change represent?",
       options: [
-        "The original registration was re-enrolled on a new phone, so the array change is one registration replacing another with one method remaining",
-        "A second Authenticator registration was added alongside the original, leaving two methods registered where there was one",
-        "The original registration was renamed or refreshed in place, and the second element is a duplicate entry Entra writes during re-enrollment",
-        "The array tracks per-device push tokens, so the extra element shows the app refreshing its token rather than a second method being registered",
+        "An SMS method was added and set as the default for future sign-in prompts",
+        "The SMS method was removed, and the Authenticator entry is still the default",
+        "The Authenticator entry was replaced by SMS, now the account's only method",
+        "The default switched from Authenticator to SMS, with both still registered",
       ],
       answer: 1,
       explanation:
-        "Comparing array lengths is exactly how you read this field, as Reading 2 described: one entry became two, meaning a method was added, not renamed or removed — the original Default:true entry is still present in newValue alongside the new one. StrongAuthenticationMethod tracks the full set of registered strong-auth methods generally, including but not limited to phone numbers.",
+        "Reading 2's method is to compare the two arrays: oldValue held two methods and newValue holds one, so a method was removed, and the surviving entry is the PhoneAppNotification one with Default:true, unchanged. “An SMS method was added” reads the arrays the wrong way round — oldValue is the before state. “Replaced by SMS” and “the default switched to SMS” both misread newValue, which contains no OneWaySMS entry at all.",
       xp: 20,
     },
     // ── Question 1b (applied — device registration vs MFA registration) ────
@@ -589,14 +589,14 @@ const deviceRegistrationPersistenceRoom = {
       question:
         "Entra ID logs two different self-service operations: 'User registered security info' and 'Register device' / 'Add registered owner to device'. What is the actual difference between what each one adds to an account's persistence surface?",
       options: [
-        "'User registered security info' logs MFA method changes made by the user, while 'Register device' logs the same change when an administrator performs it on the user's behalf",
-        "'User registered security info' adds an authentication method that satisfies MFA; 'Register device' adds a device object that can satisfy Conditional Access device requirements, and an attacker could use either or both",
-        "'Register device' covers mobile enrollment through the Authenticator app, while 'User registered security info' covers desktops and laptops enrolled through Windows Autopilot",
-        "Both operations need an Authentication Administrator to initiate them, so neither can appear in the audit log with a non-privileged user as the initiating actor",
+        "Security info logs a user's own MFA method changes; Register device logs the same change when an administrator makes it for them",
+        "Security info adds a method that satisfies MFA; Register device adds a device object that can meet device-based Conditional Access",
+        "Register device covers phones enrolled through the Authenticator app; security info covers laptops enrolled through Windows Autopilot",
+        "Both need an Authentication Administrator to start them, so a non-admin actor on either record is itself a sign of compromise",
       ],
       answer: 1,
       explanation:
-        "As Reading 2 laid out, these are genuinely different objects with different downstream effects: an authentication method feeds MFA satisfaction, while a device object feeds device-based Conditional Access checks. Neither is limited by device type (mobile Authenticator enrollment versus Autopilot desktops) the way one distractor claims, and Reading 2 was explicit that both operations are available self-service, with no administrator required by default.",
+        "As Reading 2 laid out, these are different objects with different downstream effects: an authentication method feeds MFA, while a device object feeds device-based Conditional Access checks, and an attacker could pursue either or both. Who acted is shown by initiatedBy, not by which operation was logged, so “Register device logs the same change when an administrator makes it” confuses the operation with the actor. Neither operation is tied to a device type (Authenticator phones versus Autopilot laptops). And both are available self-service, so a non-admin actor is the normal case, not a compromise signal.",
       xp: 20,
     },
     // ── Reading 3: why this specifically survives a password reset ─────────
@@ -622,16 +622,16 @@ const deviceRegistrationPersistenceRoom = {
       diagramCaption: "Why the rogue method must be removed as its own step",
       checkpoint: {
         question:
-          "Beyond abusing SSPR directly, what is the second mechanism Reading 3 describes by which an unremoved rogue authentication method benefits an attacker?",
+          "IR reset a user's password and revoked her sessions, but left the attacker's own Authenticator entry registered. A week later her new password leaks in an unrelated breach. What stands between the attacker and a fully MFA-satisfied sign-in?",
         options: [
-          "It automatically escalates the compromised account into the Global Administrator role after a fixed 30-day dormancy period with no admin action required",
-          "If the attacker later re-obtains the account's password through some other means, they walk straight into a fully-satisfied MFA challenge using the method they already registered -- they don't need to defeat MFA a second time",
-          "It silently disables Conditional Access MFA enforcement tenant-wide for every other account, not just the one that was compromised",
-          "It permanently locks the legitimate account owner out of their own account, requiring IT to delete and completely rebuild the identity from scratch",
+          "A fresh push that she must approve, since the reset cleared the earlier factor",
+          "Nothing more: their own registered method can answer the MFA challenge itself",
+          "A new session token, since their method only worked inside the revoked session",
+          "An admin role, since self-added methods stop working after a password change",
         ],
         answer: 1,
         explanation:
-          "Even without triggering SSPR, an attacker who re-obtains the password later (via phishing or a leaked credential) still has their registered method sitting there as a standing advantage -- they've already cleared the MFA hurdle from the first compromise.",
+          "This is Reading 3's second mechanism: with the password re-obtained, the attacker's still-registered method satisfies MFA, so they never have to defeat MFA a second time. “The reset cleared the earlier factor” is the exact misconception the room targets: a password change does not touch StrongAuthenticationMethod. “Only worked inside the revoked session” confuses a session token with a registered factor; the method is a standing object on the account. “Self-added methods stop working after a password change” is false for the same reason, and no admin role is involved in using a factor.",
       },
     },
     // ── Matching: Entra fields to meaning ───────────────────────────────────
@@ -678,42 +678,42 @@ const deviceRegistrationPersistenceRoom = {
           question:
             "Compare azure.auditlogs.properties.initiatedBy.user.id to targetResources[0].id, and note initiatedBy.user.roles is an empty array. What does that combination tell you about how this registration happened?",
           options: [
-            "It was admin-assisted: an empty roles array is Entra ID's way of specifically flagging that a Helpdesk Administrator performed this registration on m.delgado's behalf",
-            "It was self-service: the same identity (b8f42a09...) appears as both the actor and the target, and the actor held no directory role — whoever was signed in as m.delgado registered this themselves, with no admin involved",
-            "The matching ID fields are coincidental placeholder GUIDs that Entra ID reuses across unrelated audit records and carry no investigative meaning",
-            "An empty initiatedBy.user.roles array is Entra ID's standard signal that a record can be auto-closed as a false positive without further review",
+            "Admin-assisted: a Helpdesk Administrator registered it for her, which is what the empty roles array records",
+            "Self-service: one identity is both actor and target, and the acting session held no directory role at all",
+            "Approved by her: initiatedBy names the user who approved the push, not the session that added the method",
+            "Not determinable: actor and target IDs match on every audit record, so they cannot show who acted",
           ],
           answer: 1,
           explanation:
-            "As Reading 2 covered, initiatedBy.user.id matching targetResources[0].id is exactly the self-service signature — the same account acted on itself — and an empty roles array means no administrator role was attached to that session, ruling out admin-assisted registration rather than confirming it.",
+            "As Reading 2 covered, initiatedBy.user.id matching targetResources[0].id is the self-service signature — whoever was signed in as m.delgado acted on her own account — and an empty roles array means no administrator role was attached, which rules out admin assistance rather than confirming it. An admin-assisted registration would show the admin's identity as the actor and a populated roles array. initiatedBy identifies who performed the action, not who approved a push. And the IDs do not always match: an admin acting on someone else's account produces different actor and target IDs, which is exactly why comparing them is meaningful.",
           xp: 30,
         },
         {
           question:
-            "The modifiedProperties oldValue shows one StrongAuthenticationMethod entry; newValue shows two, both MethodType PhoneAppNotification. Combined with the context that m.delgado's device inventory lists only one Authenticator enrollment tied to her issued iPhone, what does this change represent?",
+            "Read the StrongAuthenticationMethod oldValue and newValue in the record, together with the context that m.delgado's device inventory lists one Authenticator enrollment on her iPhone. What does this change represent?",
           options: [
-            "Her existing Authenticator entry was simply renamed, which is a routine, no-impact operation with no change in how many methods are registered",
-            "A second, additional Authenticator registration was added alongside the original — it does not correspond to any device on her known inventory, which is exactly the persistence pattern this room has been building toward",
-            "The original registration was deleted and nothing new was added, based on the arrays shown",
-            "This field only tracks phone number changes, not Authenticator app registrations, so the change is unrelated to MFA",
+            "Her existing Authenticator entry was renamed; the number of registered methods is unchanged",
+            "A second Authenticator was added beside the original, matching no device on her inventory",
+            "Her original entry moved to a new phone, leaving one method registered just as before",
+            "Her default changed: the new entry now receives the push prompts for her sign-ins",
           ],
           answer: 1,
           explanation:
-            "One entry became two, both the same MethodType — an addition, not a rename or deletion, exactly as Question 1 taught you to read this field. The device-inventory fact from the context is what turns 'a method was added' into 'a method with no known corresponding device was added': her one known Authenticator entry is still accounted for in the array, and a second one now sits alongside it.",
+            "oldValue holds one PhoneAppNotification entry and newValue holds two, and the original Default:true entry is still present, so a method was added alongside it. The inventory lists one Authenticator, so the second has no known device behind it. “Renamed” and “moved to a new phone” both assume the count stayed at one, but newValue has two entries. “Her default changed” misreads the flags: the original entry is still Default:true and the new one is Default:false.",
           xp: 35,
         },
         {
           question:
-            "Nine minutes before this registration, the referenced sign-in shows MFA satisfied 'by claim in the token' rather than a fresh push approval, and this registration's source IP (91.132.139.204, Frankfurt) doesn't match m.delgado's known device history. Based on this room, why does simply resetting m.delgado's password NOT fully remediate this incident?",
+            "Nine minutes before this registration, the referenced sign-in shows MFA satisfied 'by claim in the token' rather than a fresh push approval, and the registering session's source does not match m.delgado's known device history. Based on this room, why does simply resetting m.delgado's password NOT fully remediate this incident?",
           options: [
-            "It does fully remediate it — once a password changes, every registered authentication method on the account is automatically revoked as part of the same operation",
-            "The newly-added Authenticator method survives a password reset entirely untouched; whoever holds it retains a working second factor and could complete a future self-service password reset using their own method unless it is explicitly found and removed",
-            "Password resets are irrelevant to this incident, because no password was ever involved in the original compromise",
-            "It doesn't matter, because Frankfurt is a routine location for this organization's user base and the IP mismatch carries no significance",
+            "It does: in Entra ID a password change also clears the account's registered MFA methods",
+            "The added Authenticator survives the reset, so its holder keeps a factor and an SSPR route",
+            "It would if sessions were revoked too, since the added method is tied to the live session",
+            "It would if the source IP were blocked, since the added method is bound to the IP it came from",
           ],
           answer: 1,
           explanation:
-            "This is Reading 3's core point applied directly: StrongAuthenticationMethod is untouched by a password change, so the added method — and whatever advantage it gives whoever registered it, including a future SSPR path — persists until someone explicitly removes it. Nothing in Entra ID's default behavior automatically revokes registered methods on a password reset, and the geography mismatch against her known device history is a real, relevant fact here, not a coincidence to dismiss.",
+            "This is Reading 3's core point applied directly: StrongAuthenticationMethod is untouched by a password change, so the added method — and the self-service password reset path it opens for whoever holds it — persists until someone explicitly removes it. Nothing in Entra ID's default behaviour clears registered methods on a password reset. Revoking sessions ends what the attacker is doing now but, as Reading 3 says, does not touch the method list either. And a registered factor is not bound to the IP it was added from, so blocking the registering IP leaves the method usable from anywhere else.",
           xp: 35,
         },
       ],
@@ -723,18 +723,18 @@ const deviceRegistrationPersistenceRoom = {
       type: "ordering" as const,
       id: "devreg-o1",
       heading: "Order the Remediation for a Rogue Device/MFA Registration",
-      instructions: "Arrange these steps in the order they should actually happen once a rogue registration is confirmed.",
+      instructions: "Arrange these steps in the order they should actually happen once a rogue registration is confirmed. The attacker is believed to hold the current password as well as their own Authenticator entry, and your playbook issues a new password only once every rogue factor is gone.",
       items: [
-        { id: "revoke", text: "Revoke the account's active sessions and refresh tokens immediately" },
+        { id: "revoke", text: "Block sign-in for the account so no new session or token refresh can succeed while you work" },
         { id: "remove_method", text: "Identify and remove the attacker-added authentication method (or deregister the rogue device) from the account" },
-        { id: "reset", text: "Reset the password, forcing sign-out everywhere" },
+        { id: "reset", text: "Reset the password and revoke all sessions and refresh tokens, back-to-back" },
         { id: "review_ca", text: "Review sign-in logs for the account to confirm no further access has occurred using the removed method" },
-        { id: "reregister", text: "Have the legitimate user re-register their own authentication methods through a verified, out-of-band channel" },
+        { id: "reregister", text: "Re-enable sign-in and have the legitimate user re-register their own methods through a verified, out-of-band channel" },
         { id: "document", text: "Document the timeline, including exactly which method or device was added and when, for the incident report" },
       ],
       correct_order: ["revoke", "remove_method", "reset", "review_ca", "reregister", "document"],
       explanation:
-        "Revoking the live session first stops whatever is happening right now. Removing the rogue method comes immediately after, and deliberately before — or at minimum alongside — the password reset: as Reading 3 covered, resetting the password without removing the rogue method leaves the exact SSPR abuse path open, which defeats the point of resetting anything. Only after both are done does it make sense to verify no further use occurred, have the real user re-register safely, and write up the findings.",
+        "Blocking sign-in comes first: the attacker holds both the password and a working factor, so revoking sessions on an enabled account would just let them sign in again. With sign-in blocked, the rogue method is removed before the password reset — the playbook's rule, and the reason behind it is Reading 3's SSPR path: a new password issued while the attacker's factor is still registered can be reset again by the attacker. The reset and session revocation then go back-to-back so no old token survives. Only after that does it make sense to verify no further use occurred, re-enable the account for the real user to re-register safely, and write up the findings.",
       xp: 30,
     },
     // ── Reading 5: legitimate device/MFA registration ───────────────────────
@@ -753,13 +753,13 @@ const deviceRegistrationPersistenceRoom = {
     {
       type: "analyst_choice" as const,
       id: "devreg-ac1",
-      heading: "Verdict: A Second Authenticator Registration on a Replaced Phone",
+      heading: "Verdict: A Second Authenticator on p.oduya's Account",
       scenario:
-        "p.oduya@nexacorp.com's account shows a 'User registered security info' record, self-service, adding a second PhoneAppNotification method. Structurally this looks like the log analysis case you just worked through — same operation name, same self-service actor/target match. Review the record and its surrounding facts before deciding.",
+        "p.oduya@nexacorp.com's account shows a 'User registered security info' record, self-service, adding a second PhoneAppNotification method. Structurally this looks like the log analysis case you just worked through — same operation name, same self-service actor/target match. For reference, 82.80.14.6 is NexaCorp's Tel Aviv office egress, which p.oduya uses daily, and her sign-in log shows no risky sign-in that day. Review the record and the IT verification note under it before deciding.",
       event: devregLegitimateRegistrationEvent,
       correct_verdict: "false_positive",
       explanation:
-        "The source IP (82.80.14.6) matches p.oduya's normal corporate egress in Tel Aviv, the event occurred at 11:05 local business hours, and it_verify_result confirms Helpdesk ticket HD-51142, where she proactively called in about the exact device-replacement process this registration reflects. Nothing in the surrounding context matches the risky-sign-in correlation Reading 4 described.",
+        "The source IP (82.80.14.6) matches p.oduya's normal corporate egress in Tel Aviv, the event occurred at 11:05 UTC, during Tel Aviv business hours, and the IT verification note confirms Helpdesk ticket HD-51142, where she proactively called in about the exact device-replacement process this registration reflects. Nothing in the surrounding context matches the risky-sign-in correlation Reading 4 described.",
       fp_trap:
         "initiatedBy.user.roles is empty here too, and the operation name, category, and self-service actor/target match are identical in shape to the log analysis case — which is deliberate, because a student who escalates based on the operation name alone will flag this exactly the same way. The difference is entirely in the surrounding facts Reading 4 taught you to check: no risky or unfamiliar sign-in nearby, an IP matching known baseline, and a confirmed ticket explaining the timing. Escalating every self-service registration, rather than correlating it the way this room has taught, either buries real incidents in noise or — just as dangerous — trains an analyst to stop trusting their own alerts.",
       xp: 30,
@@ -771,14 +771,14 @@ const deviceRegistrationPersistenceRoom = {
       question:
         "In both the log analysis case and the analyst_choice case, initiatedBy.user.roles is an empty array. Why doesn't that field alone tell you whether a registration is malicious?",
       options: [
-        "An empty roles array means self-service registration, the normal path for most legitimate changes, so intent has to be judged by correlating sign-in risk, IP baseline, and timing",
-        "Microsoft deprecated initiatedBy.user.roles in current Entra ID audit schemas, so it is not reliably populated regardless of who acted",
-        "The roles field is populated only for Global Administrator actions, so an empty array means Entra did not record who initiated the change",
-        "The roles field is scoped to 'Register device' events and is never populated for StrongAuthenticationMethod changes at all",
+        "It shows no admin role was used, and self-service is the normal path, so intent comes from sign-in risk, IP and timing",
+        "An empty array means Entra could not resolve who acted, so the actor fields on these records cannot be trusted",
+        "It does decide it: an empty array marks self-service, and self-service registration is itself the attack signal",
+        "An empty array still fits a Helpdesk Administrator, as the field records Global Administrator actions, not helpdesk ones",
       ],
       answer: 0,
       explanation:
-        "This is the direct lesson from comparing the two tasks: identical field values, opposite verdicts, because the field that actually distinguished them was never the roles array — it was the sign-in correlation and ticket context around each event. The roles field is a real, current, and populated field; it just answers a narrower question (admin-assisted or not) than 'is this malicious.'",
+        "This is the direct lesson from comparing the two tasks: identical field values, opposite verdicts, because the field that actually distinguished them was never the roles array — it was the sign-in correlation and ticket context around each event. The roles field answers a narrower question (admin-assisted or not) than “is this malicious”. An empty array does not mean the actor is unknown: initiatedBy.user still names the actor and their id. Treating self-service as the attack signal is the overcorrection Reading 5 warns against, since most self-service registrations are legitimate. And Reading 2 shows roles such as Authentication Administrator or Helpdesk Administrator appearing in the field, so an empty array does rule out an admin-assisted registration.",
       xp: 20,
     },
     // ── Query Fill: hunt for self-service registration after risky sign-in ──
@@ -788,15 +788,15 @@ const deviceRegistrationPersistenceRoom = {
       heading: "Write It Yourself: Correlate Self-Registration With a Risky Sign-In",
       language: "kql" as const,
       context: KQL_PRIMER +
-        "Detection engineering wants a query joining Entra ID's AuditLogs and SigninLogs tables to surface any 'User registered security info' event where the same user had a sign-in flagged with any non-'none' risk level, rather than relying on a human to manually cross-reference the two logs.",
+        "Detection engineering wants a query joining Entra ID's AuditLogs and SigninLogs tables to surface any self-service MFA method registration made within 30 minutes of a sign-in by the same user that Entra itself rated as risky, rather than relying on a human to manually cross-reference the two logs. Fill in the audit operation that records a new authentication method, and the SigninLogs column that holds Entra's risk rating for the sign-in.",
       template:
-        "AuditLogs\n| where OperationName == \"{{operation}}\"\n| where isnotempty(InitiatedBy.user.userPrincipalName)\n| where InitiatedBy.user.userPrincipalName == TargetResources[0].userPrincipalName\n| join kind=inner (\n    SigninLogs\n    | where RiskLevelDuringSignIn != \"{{riskvalue}}\"\n) on $left.InitiatedBy.user.userPrincipalName == $right.UserPrincipalName\n| project TimeGenerated, UserPrincipalName, IPAddress, RiskLevelDuringSignIn",
+        "AuditLogs\n| where OperationName =~ \"{{operation}}\"\n| extend UPN = tostring(InitiatedBy.user.userPrincipalName)\n| where isnotempty(UPN) and UPN == tostring(TargetResources[0].userPrincipalName)\n| join kind=inner (\n    SigninLogs\n    | where {{riskfield}} != \"none\"\n) on $left.UPN == $right.UserPrincipalName\n| where abs(datetime_diff('minute', TimeGenerated, TimeGenerated1)) <= 30\n| project TimeGenerated, UPN, IPAddress, SigninTime = TimeGenerated1",
       blanks: [
-        { id: "operation", answers: ["User registered security info"], placeholder: "Entra ID audit operation name" },
-        { id: "riskvalue", answers: ["none"], placeholder: "risk level meaning nothing was flagged" },
+        { id: "operation", answers: ["User registered security info"], placeholder: "audit operation for a newly added authentication method" },
+        { id: "riskfield", answers: ["RiskLevelDuringSignIn", "RiskLevelAggregated"], placeholder: "SigninLogs risk column" },
       ],
       explanation:
-        "'User registered security info' is the exact operation name from Reading 2, and filtering SigninLogs for RiskLevelDuringSignIn not equal to 'none' surfaces exactly the correlating signal Reading 4 described — a registration paired with a sign-in that Entra ID itself flagged as risky, rather than every self-service registration indiscriminately.",
+        "'User registered security info' is the operation name from Reading 2, and RiskLevelDuringSignIn is the sign-in risk field from Reading 4, so filtering it for anything other than 'none' surfaces exactly the correlating signal Reading 4 described — a registration paired with a sign-in Entra ID itself flagged as risky, rather than every self-service registration indiscriminately. RiskLevelAggregated, the overall risk Entra assigns the sign-in, uses the same values and is also accepted. The extend turns the nested UPN into a string column the join can use, and the 30-minute window keeps the match to registrations that closely follow the risky sign-in.",
       xp: 25,
     },
     // ── Flag ──────────────────────────────────────────────────────────────
@@ -805,9 +805,9 @@ const deviceRegistrationPersistenceRoom = {
       id: "devreg-f1",
       event: devregRogueRegistrationEvent, // show the m.delgado account log this flag reads
       prompt:
-        "Look at the Log Analysis finding on m.delgado's account. What is the exact value of the azure.auditlogs.properties.correlationId field in the raw log?",
-      answer: "8b05d7c4-1a69-4e38-9f27-c40e6b91a53d",
-      hint: "Look inside the raw block for the field named azure.auditlogs.properties.correlationId.",
+        "To find every other session the attacker ran against m.delgado, you will pivot in SigninLogs on the network address of the session that registered the rogue Authenticator. Using the record shown, enter that address exactly.",
+      answer: "91.132.139.204",
+      hint: "You want where the registering session came from, not the account it acted on or the ID that groups its audit records.",
       xp: 20,
     },
     // ── Question 4 (applied — why this technique matters more broadly) ─────
@@ -815,16 +815,16 @@ const deviceRegistrationPersistenceRoom = {
       type: "question" as const,
       id: "devreg-q4",
       question:
-        "This room's log analysis case was tagged mitre_technique T1098.005 (Account Manipulation: Device Registration). Which of these is the most accurate summary of why this sub-technique matters more than plain credential theft alone?",
+        "A tenant's Conditional Access lets users in only from compliant or hybrid-joined devices. During a compromise, the attacker's session also completed 'Register device'. IR has since removed the rogue Authenticator, reset the password and revoked sessions. What persistence remains?",
       options: [
-        "It matters no more than plain credential theft, because a password reset plus a forced sign-out fully remediates both",
-        "It survives the standard first remediation step because the added method or device is untouched by a password change, so it must be found and removed explicitly",
-        "It is mainly an on-premises Active Directory concern, since cloud identity providers like Entra ID rebuild registered devices on every password change",
-        "It is scoped to Windows Hello for Business enrollments, with no bearing on other authentication method types",
+        "None: removing the rogue method also removes devices registered in that session",
+        "The rogue device can keep meeting the device check until it is deregistered",
+        "None: the password reset invalidates every device registered under the old one",
+        "A directory role: device registration adds its owner to Cloud Device Administrator",
       ],
       answer: 1,
       explanation:
-        "This ties the entire room together: Reading 3 and the log analysis case both demonstrated that a password reset leaves StrongAuthenticationMethod completely unchanged, which is precisely why this technique outlasts the remediation step that would otherwise close off plain credential theft. This room's entire investigation happened inside Entra ID, a cloud identity provider, and applies to any registered method — Authenticator app, phone, or otherwise — not one specific technology.",
+        "Reading 3 is explicit: a registered device can keep satisfying a device-based Conditional Access check independently of the password, for as long as the registration itself remains valid, which is why the remediation includes deregistering the rogue device. Reading 2 describes the device object and the authentication method as separate objects, so removing the method does not remove the device. A password change does not touch device registrations any more than it touches StrongAuthenticationMethod. Adding an extra directory role is a different sub-technique, T1098.003, and registering a device grants no directory role such as Cloud Device Administrator.",
       xp: 25,
     },
   ],

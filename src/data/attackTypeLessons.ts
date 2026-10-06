@@ -89,165 +89,165 @@ export const ATTACK_TYPE_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "You are triaging Azure AD sign-in logs and see a single source IP that generated one failed sign-in each against 340 distinct UserPrincipalName values in the last hour, with no account showing more than two attempts. What is this?",
+        "question": "Azure AD sign-in logs show a hosting-provider IP, outside your own egress ranges, with one failed sign-in (ResultType 50126) against each of 340 distinct UserPrincipalName values in one hour and no successes. Ninety minutes later the same IP fails once more against the same 340 accounts. What is this?",
         "options": [
           {
-            "label": "Brute force against a shared service account",
+            "label": "Brute force, because a single source IP produced the failures",
             "value": "a"
           },
           {
-            "label": "Password spraying, shaped to stay under per-account lockout thresholds",
+            "label": "Password spraying: one password per wave across the list",
             "value": "b"
           },
           {
-            "label": "Credential stuffing using breach-sourced password pairs",
+            "label": "Credential stuffing, replaying one breached pair per account",
             "value": "c"
           },
           {
-            "label": "Credential theft via LSASS memory access on the identity provider",
+            "label": "Shared NAT egress, with many staff mistyping their passwords",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "One or two failures spread across a very large number of distinct accounts from one source is the defining shape of password spraying — attackers deliberately keep the per-account attempt count low to avoid triggering lockout, so detection has to group by source IP, not by account. Brute force would show many failures concentrated on one account. Credential stuffing would show a meaningful success rate on first attempts, not near-zero. Credential theft produces no repeated authentication attempts at all and would not appear in sign-in failure logs this way."
+        "explanation": "One failure per account across 340 accounts, then a second single pass over the same list, is password spraying: one password tried against every account, a pause, then the next password, keeping each account far below its lockout threshold. That shape is only visible when you group by source IP and count distinct accounts. “Brute force, because a single source IP produced the failures” confuses the source with the target: brute force piles many failures onto one account, while here no account has more than two. “Credential stuffing, replaying one breached pair per account” also touches many accounts once each, but stuffing replays known-good pairs, so it shows first-attempt successes, and a breached pair has no reason to be retried in a second wave against the same list. “Shared NAT egress, with many staff mistyping their passwords” is the benign twin, ruled out because the address is a hosting provider outside your egress ranges, and staff typos do not arrive as two clean single-attempt passes over the same account list."
       },
       {
-        "question": "A user's account shows one successful sign-in with no prior failed attempts, from a residential IP range the user has never used before, and Azure AD Identity Protection flags the sign-in with a 'leaked credentials' risk detection. Which technique does this most likely represent?",
+        "question": "A user's account shows one successful interactive sign-in, with the correct password on the first attempt, from a residential IP the user has never used. That IP made no other sign-in attempts against any account in the tenant. The same day, Identity Protection raises a 'leaked credentials' risk detection for the user. Which technique most likely explains the sign-in?",
         "options": [
           {
-            "label": "Password spraying that happened to succeed on the first try",
+            "label": "Password spraying that landed on this account at the first try",
             "value": "a"
           },
           {
-            "label": "Credential stuffing using a password reused from an unrelated breach",
+            "label": "Credential stuffing with a password reused from another breach",
             "value": "b"
           },
           {
-            "label": "Brute force that exhausted a small password list quickly",
+            "label": "Brute force run from a list small enough to stay under lockout",
             "value": "c"
           },
           {
-            "label": "LSASS memory dumping performed against the user's workstation",
+            "label": "Replay of a session cookie harvested by an infostealer",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A single successful sign-in with no failed-attempt trail, from an unfamiliar location, flagged specifically by a leaked-credentials risk detection, is the signature of credential stuffing: the attacker already had a working password from another breach and never had to guess. Spraying and brute force both leave failed-attempt trails before any success. LSASS dumping is endpoint memory access, not a sign-in event, and would not trigger a sign-in risk detection at all."
+        "explanation": "A correct password on the first try, no failed-attempt trail, an unfamiliar residential IP and a leaked-credentials detection (the user's password matches a pair found in a breach dump) is the signature of credential stuffing: the attacker already held a working password from another breach and never had to guess. “Password spraying that landed on this account at the first try” would leave failures against many other accounts from the same source, and this IP tried no other account. “Brute force run from a list small enough to stay under lockout” still produces failed attempts before the success, and there were none. “Replay of a session cookie harvested by an infostealer” skips the login prompt entirely, so it would not produce an interactive sign-in with a password, and a leaked-credentials detection concerns the password, not a token."
       },
       {
-        "question": "Your EDR flags a Sysmon Event ID 10 (ProcessAccess) where an unsigned binary in a user's Downloads folder opened lsass.exe with GrantedAccess 0x1FFFFF. Why does account lockout policy provide no protection here?",
+        "question": "EDR shows a Sysmon Event ID 10 where an unsigned binary in a user's Downloads folder opened lsass.exe with GrantedAccess 0x1FFFFF and a CallTrace through dbgcore.dll. The domain locks accounts after five failed logons, yet no account locked and no 4625 was logged. Your manager asks why lockout did not help. What is the best answer?",
         "options": [
           {
-            "label": "Because the account involved was already excluded from lockout policy",
+            "label": "The user's account was probably exempted from the lockout policy",
             "value": "a"
           },
           {
-            "label": "Because memory access isn't a login attempt, so lockout has nothing to count",
+            "label": "Reading LSASS memory is not a logon, so lockout has nothing to count",
             "value": "b"
           },
           {
-            "label": "Because lockout policy only applies to accounts with MFA disabled",
+            "label": "Lockout counts network logons, not local activity on a host",
             "value": "c"
           },
           {
-            "label": "Because the attacker's source IP was internal to the network",
+            "label": "Lockout did fire, but after the memory dump had already completed",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Lockout policy counts failed authentication attempts, and LSASS memory access is not an authentication attempt at all — it is a direct read of secrets already cached in memory, so there is nothing for a lockout counter to see. Whether the account is exempted from lockout is irrelevant here since no login attempt occurs. MFA status doesn't change how lockout counters work. The source IP being internal or external has no bearing on why lockout doesn't apply to memory access."
+        "explanation": "Lockout counts failed authentication attempts. Opening lsass.exe and dumping its memory (0x1FFFFF with a dbgcore.dll CallTrace is the minidump-tool pattern) reads secrets already cached on the host, so no logon happens and there is nothing for a lockout counter to see, which is also why no 4625 appears. “The user's account was probably exempted from the lockout policy” would matter only if failed logons were happening; an exemption cannot explain a missing lockout when there were no failures to count. “Lockout counts network logons, not local activity on a host” is a misconception: failed local logons count too, and in any case this activity is not a logon at all. “Lockout did fire, but after the memory dump had already completed” contradicts the evidence: no account locked and no failure was logged."
       },
       {
-        "question": "You need to explain to a colleague why service accounts are consistently the weakest link in an environment's authentication defences. Which statement best captures the real reason?",
+        "question": "A password spray from an external IP produces one failure on each of 300 human accounts and a single success on svc_backup, which then logs on to three file servers. A colleague wants to rate this lower than a hit on a human user, because nobody reads that account's mailbox. What is the strongest reason to rate it higher instead?",
         "options": [
           {
-            "label": "Service accounts are assumed to always use weaker default passwords",
+            "label": "Its logons aren't audited, so whatever it does next stays invisible",
             "value": "a"
           },
           {
-            "label": "Service accounts run non-interactively, so MFA and lockout are often skipped despite broad access",
+            "label": "It often has no MFA or lockout guarding it, yet holds broad rights",
             "value": "b"
           },
           {
-            "label": "Service accounts are never subject to Active Directory password policy at all",
+            "label": "Service accounts are usually Domain Admins, so the domain is lost",
             "value": "c"
           },
           {
-            "label": "Service accounts are exclusively targeted because they always use LogonType 10",
+            "label": "A spray hit on it proves its password leaked in an outside breach",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Service accounts are non-interactive, so MFA (which assumes a human approving a prompt) is frequently skipped for them, and lockout is often disabled to avoid breaking automated jobs — combined with the broad permissions many service accounts require, this makes them a high-value, lightly-guarded target. There's no rule that they always use weaker passwords by default. They are still subject to domain password policy, just not always MFA or lockout. LogonType 10 (RDP) has nothing specifically to do with service accounts as a category."
+        "explanation": "Service accounts authenticate non-interactively, so they are frequently excluded from MFA and from lockout to avoid breaking automated jobs, and they are often granted broad permissions; the lesson's rule is to treat a spray hit on an svc/backup-style account as higher severity than the same hit on a human. “Its logons aren't audited, so whatever it does next stays invisible” is false: its logons reach the Security log like any account's, which is how the three file-server logons are visible here. “Service accounts are usually Domain Admins, so the domain is lost” overstates it: they are often over-privileged, not Domain Admins by default, and nothing here shows domain compromise. “A spray hit on it proves its password leaked in an outside breach” confuses spraying with stuffing: a spray succeeds because the password was guessable (a season-and-year pattern, say), not because it appeared in a breach."
       },
       {
-        "question": "In the worked-example Azure AD SigninLogs artifact, 198.51.100.9 shows one or two ResultType 50126 failures against 210 distinct UserPrincipalName values in an hour, with no account exceeding two attempts. If you had aggregated this data by UserPrincipalName instead of by source IP, what would you have seen — and why does that matter?",
+        "question": "You run the lesson's spray query (distinct accounts and attempts per IPAddress over one hour) on failed SigninLogs. Four sources stand out: 198.51.100.23 (hosting ASN): 260 distinct accounts, 290 attempts, 40 of the usernames do not exist in your directory. 192.0.2.10 (your own VPN egress): 180 accounts, all real, 230 attempts, the Monday after a mass password expiry. 203.0.113.40: 4 accounts, 61 attempts. 198.51.100.77: 30 accounts, 300 attempts. Which source is the password spray to escalate?",
         "options": [
           {
-            "label": "Nothing unusual — each account would show only one or two failures, so you have to group by source IP to see the spray at all",
+            "label": "198.51.100.23: wide and shallow, including unknown usernames",
             "value": "a"
           },
           {
-            "label": "The full 47-attempt failure burst, because grouping by account always reveals a spray regardless of which artifact you're looking at",
+            "label": "192.0.2.10: a large fan-out made up entirely of real accounts",
             "value": "b"
           },
           {
-            "label": "A clear LSASS memory-access alert, because Azure AD sign-in logs also record endpoint process activity",
+            "label": "203.0.113.40: the most failed attempts per account in the hour",
             "value": "c"
           },
           {
-            "label": "Nothing at all, because SigninLogs records cannot be aggregated by UserPrincipalName under any circumstances",
+            "label": "198.51.100.77: many accounts, each hit about ten times over",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "Grouping by UserPrincipalName is the wrong lens for a spray: since each account only ever saw one or two failures, aggregating that way makes every account look unremarkable and the campaign disappears — you have to group by source IP and count distinct accounts touched to see it. The option “The full 47-attempt failure burst, because grouping…” describes the brute-force artifact (47 attempts on one account), not this spray. The option “A clear LSASS memory-access alert, because Azure…” is impossible — sign-in logs record authentication attempts, not endpoint process or memory activity. The option “Nothing at all, because SigninLogs records cannot…” is false; you can aggregate by UserPrincipalName, it's simply the wrong dimension for spotting this particular pattern."
+        "explanation": "A spray is breadth without depth: about one attempt per account across many accounts. 198.51.100.23 fits (290 attempts over 260 accounts), comes from a hosting ASN, and fails both benign-twin checks: it is not your address, and its list includes usernames that never existed, which a tool working from a guessed list produces and your own infrastructure does not. “192.0.2.10: a large fan-out made up entirely of real accounts” is the benign twin: your own VPN egress, real employees only, right after a mass password expiry. “203.0.113.40: the most failed attempts per account in the hour” is depth without breadth (about 15 failures on each of 4 accounts), a brute-force shape. “198.51.100.77: many accounts, each hit about ten times over” is also depth (about 10 attempts per account), which the query's filter of attempts under twice the distinct accounts excludes; it is brute force spread over a few dozen accounts, worth its own look but not a spray."
       },
       {
-        "question": "A user completes a legitimate-looking Microsoft sign-in — correct password, MFA push approved with number matching enforced — yet minutes later an attacker is reading their mailbox from a hosting-provider IP, with no failed logons anywhere in the tenant. Which explanation best fits?",
+        "question": "After clicking a link in an email later reported as phishing, a user completes a Microsoft sign-in: correct password, one MFA push approved with number matching. Minutes later a hosting-provider IP reads the mailbox. Those reads carry the same SessionId as the user's sign-in, and no sign-in of any kind is logged from that IP. Which explanation best fits?",
         "options": [
           {
-            "label": "The attacker guessed the password by brute force and simply approved the number-matching prompt from their own device before the user could react to the notification",
+            "label": "MFA fatigue: repeated pushes until the user approved one",
             "value": "a"
           },
           {
-            "label": "Adversary-in-the-middle: a reverse-proxy phishing page relayed the real login and captured the post-MFA session cookie, which was then replayed without re-triggering any authentication prompt (T1557 + T1539)",
+            "label": "AiTM phishing: a proxy relayed the login and kept the cookie",
             "value": "b"
           },
           {
-            "label": "Number matching was silently disabled on the tenant by the attacker, which allowed a completely blind push approval to succeed with no user interaction at all",
+            "label": "Legacy IMAP access, which bypasses the MFA challenge",
             "value": "c"
           },
           {
-            "label": "The user's account was excluded from every conditional-access policy, so multi-factor authentication never actually evaluated during this particular sign-in event",
+            "label": "Credential stuffing with a password from an earlier breach",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "AiTM phishing places a reverse proxy between the victim and the real identity provider: the victim genuinely completes password and MFA (number matching included) against the real login, so the sign-in is clean, but the proxy steals the resulting session cookie and replays it — no new authentication prompt fires. Number matching cannot stop this because the real challenge was truly completed. Brute force would leave failed logons; the attacker cannot approve a number-matching prompt they never see. Disabling number matching tenant-wide would itself be a logged, privileged change, not a silent one. Conditional-access exclusion does not explain a clean, MFA-satisfied sign-in followed by cookie replay."
+        "explanation": "AiTM phishing puts a reverse proxy between the victim and the real login: the user genuinely completes password and number-matching MFA, the proxy keeps the resulting session cookie, and the attacker replays it (T1557 + T1539). That is why the attacker's activity shares the user's SessionId and produces no sign-in of its own, and why number matching did not help. “MFA fatigue: repeated pushes until the user approved one” needs a burst of prompts, but only one push was logged, and number matching defeats blind approvals. “Legacy IMAP access, which bypasses the MFA challenge” is a real MFA gap, but a legacy-protocol logon is still a sign-in from the attacker's IP with its own session, and none was logged. “Credential stuffing with a password from an earlier breach” would give the attacker a password, not a session: their own sign-in would still be logged and would still face MFA."
       },
       {
-        "question": "Your team creates a decoy service account with a Service Principal Name, a long random password, and no real service behind it, then alerts on any Event ID 4769 requesting a ticket for it. Why is this a near-zero-false-positive detection for Kerberoasting?",
+        "question": "Your decoy account svc_sql_legacy (an SPN, a long random password, no real service) triggers: one Event ID 4769 for its ticket, requested by user a.levi from FIN-WKS-22 with TicketEncryptionType 0x17. A colleague suggests ignoring it because it is a single event, well below the Kerberoasting rule's threshold of more than five distinct SPNs. Why is the decoy hit high-confidence anyway?",
         "options": [
           {
-            "label": "Event ID 4769 is generated only by attackers, so alerting on it for every account across the whole domain reliably indicates Kerberoasting activity with no false positives at all",
+            "label": "An RC4 (0x17) ticket request is hostile whichever account it names",
             "value": "a"
           },
           {
-            "label": "No legitimate user or process ever has a reason to request a service ticket for a decoy account, so any 4769 for that SPN indicates an attacker enumerating and roasting service tickets (T1558.003)",
+            "label": "No legitimate user or job has any reason to request this ticket",
             "value": "b"
           },
           {
-            "label": "The decoy account's RC4 encryption automatically blocks the attacker from cracking the returned ticket, which stops the attack before any password can be recovered offline",
+            "label": "A 4769 is logged once the ticket has been cracked offline",
             "value": "c"
           },
           {
-            "label": "A honeypot account cannot be requested over Kerberos at all, so the mere existence of any 4769 event proves that the domain controller itself has already been fully compromised",
+            "label": "Requesting the decoy's ticket shows a.levi already knows its password",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A honeypot SPN works precisely because nothing legitimate ever requests its ticket, so any 4769 for it is malicious by definition — the deception removes the false-positive problem that normal threshold-based detection carries. Event ID 4769 is generated constantly by normal Kerberos activity, so alerting on it for all accounts would be pure noise. RC4 encryption does not block cracking — it makes cracking easier, which is why attackers request it. A decoy account is a perfectly normal, requestable Kerberos principal, so a 4769 for it proves an attacker asked, not that the domain controller is compromised."
+        "explanation": "A honeypot SPN backs no real service, so no legitimate user or process ever needs its ticket; any 4769 for it is malicious by definition, which is why a single event is enough and no volume threshold is needed. The request also hands you the account and host to investigate (a.levi on FIN-WKS-22). “An RC4 (0x17) ticket request is hostile whichever account it names” overstates the RC4 signal: RC4 is suspicious in a domain that should be using AES, but on its own it is a lead, not proof. “A 4769 is logged once the ticket has been cracked offline” misplaces the event: the domain controller logs 4769 when it issues the ticket, and cracking happens later on the attacker's own hardware, out of your sight. “Requesting the decoy's ticket shows a.levi already knows its password” is backwards: any authenticated domain user can request a service ticket for any SPN without knowing the service account's password; recovering that password is the point of the offline cracking."
       }
     ],
     "references": [
@@ -349,135 +349,135 @@ export const ATTACK_TYPE_LESSONS = [
             "value": "a"
           },
           {
-            "label": "SMB admin-share lateral movement, the classic PsExec-style pattern (T1021.002)",
+            "label": "SMB admin-share movement, the PsExec-style pattern (T1021.002)",
             "value": "b"
           },
           {
-            "label": "WMI-based remote execution via WmiPrvSE.exe",
+            "label": "WMI remote execution, with the payload launched by WmiPrvSE.exe",
             "value": "c"
           },
           {
-            "label": "Password spraying against the target workstation's local administrator account",
+            "label": "A remote scheduled task registered over the ATSVC named pipe",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Writing a binary to ADMIN$ followed immediately by a new service installation pointing at that file is the defining PsExec-style signature of T1021.002. Pass-the-ticket wouldn't produce a file write or service creation event at all — it's purely an authentication technique. WMI-based execution shows a WmiPrvSE.exe process spawning a shell, not a service-creation event. Password spraying would show a burst of failed logons, not a successful file write and service install."
+        "explanation": "A binary written to ADMIN$ (the 5145 RelativeTargetName) followed within seconds by a 7045 service whose ImagePath points at that same file is the defining PsExec-style chain of T1021.002. “Pass-the-ticket using a forged Kerberos service ticket” is a way to authenticate, not a way to execute: it could explain how the account got access, but it produces no file write or service install of its own. “WMI remote execution, with the payload launched by WmiPrvSE.exe” leaves WmiPrvSE.exe spawning a shell, not a new service. “A remote scheduled task registered over the ATSVC named pipe” leaves Event ID 4698 (task created), not 7045 (service installed)."
       },
       {
-        "question": "A source workstation authenticates successfully to twelve other internal workstations within four minutes using the same account, none of which that workstation or account has connected to in the prior 30 days. Each individual logon event looks valid. What makes this pattern worth escalating even though no single event is suspicious on its own?",
+        "question": "A source workstation authenticates successfully (Event ID 4624, LogonType 3) to twelve other internal workstations within four minutes using the same account, none of which that workstation or account has connected to in the prior 30 days. Each individual logon event looks valid. What makes this pattern worth escalating?",
         "options": [
           {
-            "label": "Any successful logon between two workstations is inherently malicious and should always be blocked",
+            "label": "The logons are LogonType 3, a type that points to pass-the-hash",
             "value": "a"
           },
           {
-            "label": "The burst of new workstation-to-workstation connections is abnormal even though each logon looks fine alone",
+            "label": "Twelve first-seen workstation-to-workstation edges in a burst",
             "value": "b"
           },
           {
-            "label": "Twelve logons in four minutes always exceeds the Windows account lockout threshold",
+            "label": "The burst will soon lock the account, a sign of password guessing",
             "value": "c"
           },
           {
-            "label": "Workstation-to-workstation logons always use LogonType 10 regardless of protocol",
+            "label": "Each 4624 succeeded, which proves the account's password was stolen",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Lateral movement detection relies on recognising that a burst of new connections a host/account has never made before is abnormal at the pattern level, even though each individual authentication event is valid and unremarkable in isolation. Workstation-to-workstation logons are not inherently malicious, only unusual in volume and novelty here. Successful logons don't count toward the lockout threshold, which only tracks failures. LogonType depends on the protocol used (3 for SMB/WinRM, 10 for RDP), not on whether the destination is a workstation."
+        "explanation": "Workstations rarely talk to each other directly, so a burst of new workstation-to-workstation edges that this host and account have never made in 30 days breaks the normal shape of the connection graph; that pattern is the lateral-movement signal even when every single 4624 is valid. “The logons are LogonType 3, a type that points to pass-the-hash” misreads the field: Type 3 is the ordinary network logon used by SMB and WinRM, legitimate or not. “The burst will soon lock the account, a sign of password guessing” confuses successes with failures: lockout counts failed logons, and these all succeeded. “Each 4624 succeeded, which proves the account's password was stolen” overclaims: a successful logon shows the right secret was presented, not who presented it; the pattern justifies escalation, and the investigation decides whether the credential was stolen."
       },
       {
-        "question": "An attacker recovers a domain user's NTLM hash from an LSASS memory dump and uses it to authenticate directly to three other servers without ever knowing the user's actual password. What technique is this, and why does it work?",
+        "question": "Three servers log Event ID 4624 LogonType 3 for d.cohen with LogonProcessName NtLmSsp, all from FIN-WKS-07 within two minutes. d.cohen has never used FIN-WKS-07, and an hour earlier EDR flagged an unsigned process there opening lsass.exe. No failed logons precede the three. Which technique best explains them?",
         "options": [
           {
-            "label": "Password spraying, because the attacker is trying the same hash as if it were a password guess",
+            "label": "Pass-the-ticket, replaying a Kerberos TGT taken from LSASS memory",
             "value": "a"
           },
           {
-            "label": "Pass-the-hash (T1550.002) — NTLM only needs the hash, not the plaintext password, to authenticate",
+            "label": "Pass-the-hash: the NTLM hash itself is presented as the secret",
             "value": "b"
           },
           {
-            "label": "Credential stuffing, because the hash was reused across multiple unrelated services",
+            "label": "Password spraying of d.cohen from FIN-WKS-07 across three servers",
             "value": "c"
           },
           {
-            "label": "Brute force, because the attacker is attempting authentication against multiple servers",
+            "label": "RDP hopping with a password cracked from the dumped LSASS data",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "This is pass-the-hash by definition: NTLM's challenge-response protocol only needs the hash to complete authentication, so an attacker who steals the hash can authenticate without ever cracking or knowing the plaintext password. Password spraying involves guessing distinct password values, which isn't happening here. Credential stuffing replays breach-sourced password pairs, not stolen hashes from the same environment. Brute force implies repeated guessing attempts, not a single successful authentication using a stolen secret."
+        "explanation": "NTLM authentication works on the hash itself, so an NTLM hash lifted from LSASS can be presented directly, with no plaintext password (T1550.002). The evidence lines up: NtLmSsp network logons, a source host the account has never used, several servers in minutes, and an LSASS access on that host just before. “Pass-the-ticket, replaying a Kerberos TGT taken from LSASS memory” is the Kerberos sibling, but these logons used NTLM (NtLmSsp), not Kerberos. “Password spraying of d.cohen from FIN-WKS-07 across three servers” is a guessing attack spread across many accounts and leaves failed logons; here one account succeeded three times with no failures. “RDP hopping with a password cracked from the dumped LSASS data” would produce LogonType 10 (RemoteInteractive) sessions, not LogonType 3."
       },
       {
-        "question": "Your organisation adopts a Tier 0/1/2 administrative model with dedicated Privileged Access Workstations (PAWs) for domain admins. How does this structurally limit lateral movement, rather than just detect it?",
+        "question": "An attacker compromises a Tier 2 workstation and dumps LSASS, but finds only cached Tier 2 credentials, because domain admins administer Tier 0 only from dedicated PAWs and never log on to ordinary workstations. Why does this design stop the next hop to the domain controllers structurally, rather than merely detecting it?",
         "options": [
           {
-            "label": "It encrypts all SMB traffic between workstations so admin shares can no longer be abused",
+            "label": "PAWs encrypt admin credentials, so no admin hash can be dumped",
             "value": "a"
           },
           {
-            "label": "It ensures credentials cached at a lower tier are never valid for authenticating at a higher tier",
+            "label": "Tier 2 credentials taken there are not valid for logons at Tier 0",
             "value": "b"
           },
           {
-            "label": "It automatically locks out any account that logs into more than one workstation per day",
+            "label": "The tier model raises an alert when a Tier 2 account touches a DC",
             "value": "c"
           },
           {
-            "label": "It replaces NTLM and Kerberos authentication with a proprietary protocol immune to hash theft",
+            "label": "Tiering disables NTLM, so the stolen hashes can't be replayed",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Tiering's core structural effect is that a credential compromised at a lower tier (e.g., a Tier 2 workstation) simply cannot authenticate at a higher tier (Tier 0 domain controllers), which shrinks the blast radius of any single compromise regardless of how the attacker moves. It has nothing to do with encrypting SMB traffic. It doesn't impose an automatic lockout based on number of daily logins. It doesn't replace or alter the underlying NTLM/Kerberos protocols at all — pass-the-hash and pass-the-ticket remain technically possible, they're just constrained to within a tier."
+        "explanation": "Tiering scopes credentials: what is cached on a Tier 2 workstation is a Tier 2 credential, and the model's rule is that a lower-tier credential never authenticates at a more sensitive tier, so the stolen material simply does not open Tier 0. Because domain admins never log on to workstations, there is no Tier 0 credential there to steal. “PAWs encrypt admin credentials, so no admin hash can be dumped” misdescribes PAWs: they are dedicated admin-only workstations that protect admin credentials by keeping them off exposed machines, not by encrypting them. “The tier model raises an alert when a Tier 2 account touches a DC” describes detection, which the question sets aside; the model makes the logon fail. “Tiering disables NTLM, so the stolen hashes can't be replayed” is false: NTLM and Kerberos work as before, and pass-the-hash still works within a tier, which is why the stolen Tier 2 hashes remain dangerous on other Tier 2 hosts."
       },
       {
-        "question": "An attacker compromises a public-facing DMZ web server. Soon after, that web server begins making SSH and SMB connections to a dozen hosts on the internal 10.20.0.x network — including the domain controller — none of which it had ever connected to before. The database it reaches logs the source as the (internal, trusted) web server. What is happening, and why is 'the traffic came from an internal host' not reassuring?",
+        "question": "Yesterday an exploit attempt against a public-facing DMZ web server was alerted but never confirmed. The server's role is to serve the website and talk to one application database. Today it opens SSH and SMB connections to a dozen hosts on the internal 10.20.0.x network, including the domain controller, none of which it had contacted before; the internal hosts log the source as the trusted web server. What best explains this?",
         "options": [
           {
-            "label": "The web server is simply performing routine health checks, and internal-sourced traffic is trusted by definition, so a connection appearing to come from an internal host always confirms the activity is safe and benign",
+            "label": "Admin traffic, as a jump host legitimately reaches many servers",
             "value": "a"
           },
           {
-            "label": "Pivoting: the attacker turned the foothold into a tunnel/relay (e.g. a SOCKS proxy) so their tools reach internal hosts through it — the connections legitimately originate from the internal web server, which is exactly why an internal source IP is not proof of safety",
+            "label": "Pivoting: the web server is relaying an attacker's tools inward",
             "value": "b"
           },
           {
-            "label": "This is impossible to detect in principle, because once an attacker is inside the DMZ there is no observable difference whatsoever between their relayed traffic and the web server's completely normal day-to-day behaviour patterns",
+            "label": "Exfiltration: the server is moving internal data out to the internet",
             "value": "c"
           },
           {
-            "label": "It indicates only a misconfigured firewall rule and has nothing to do with an attacker, so the correct response is to widen the DMZ-to-internal firewall rules so the web server can reach everything it needs",
+            "label": "A firewall misconfiguration to fix, not an incident to investigate",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "The attacker cannot reach the internal zone directly, so they pivot: a tunnel or SOCKS proxy on the compromised web server relays their tools inward, and the resulting connections genuinely originate from that internal, trusted host — which is why an internal source IP is not a clean bill of health. The option “The web server is simply performing routine…” trusts internal traffic blindly, the exact trap. The option “This is impossible to detect in principle…” is wrong because the anomaly is highly detectable: a DMZ web server should never open many internal connections it never made before. The option “It indicates only a misconfigured firewall rule…” misreads a clear compromise as a firewall gap and would make it worse."
+        "explanation": "A DMZ web server whose role is to serve the site and reach one database suddenly initiating SSH and SMB to many internal hosts, including the domain controller, is a host acting out of character for its role: the relay signature of pivoting, a day after an exploit attempt. The connections genuinely originate from the web server because the attacker borrows its route, which is why an internal, trusted source is not a clean bill of health. “Admin traffic, as a jump host legitimately reaches many servers” gives the server the wrong role: a jump host is a known admin gateway, while this is a public web server that never made these connections before. “Exfiltration: the server is moving internal data out to the internet” misreads the direction: the evidence is new connections from the web server into the internal zone, not outbound transfers. “A firewall misconfiguration to fix, not an incident to investigate” may explain why the traffic was allowed, but not why a web server started making it; treating it as config drift leaves the compromise in place."
       },
       {
-        "question": "A security architect wants to ensure that compromising one ordinary employee laptop cannot cascade into domain-wide compromise. Which combination of structural controls most directly limits that blast radius, and why?",
+        "question": "A penetration-test report lists three findings: a phished laptop shares its local administrator password with 900 other machines; a domain admin had logged on to that laptop the week before; and workstations can reach each other freely on port 445. Which set of controls addresses all three findings?",
         "options": [
           {
-            "label": "Installing a faster antivirus on every laptop and requiring users to change their passwords more frequently, because stopping the initial malware is the only factor that has any effect on how far an attacker can subsequently spread",
+            "label": "LAPS and east-west segmentation between workstations",
             "value": "a"
           },
           {
-            "label": "Administrative tiering (domain admins never log into workstations), unique per-machine local-admin passwords (LAPS), and network segmentation — because together they stop credential theft from yielding privileged hashes, stop one stolen local-admin hash from unlocking the fleet, and stop free host-to-host reach",
+            "label": "Admin tiering, LAPS, and east-west segmentation",
             "value": "b"
           },
           {
-            "label": "Giving every user local administrator rights on their own machine so the help desk has fewer tickets, since reducing support workload is the single most important structural factor in containing lateral movement across a domain",
+            "label": "Admin tiering and east-west segmentation of workstations",
             "value": "c"
           },
           {
-            "label": "Turning off all logging on workstations to reduce noise, because with fewer logs to review the SOC can respond to the remaining alerts faster and therefore contain any lateral movement more quickly than before",
+            "label": "LAPS, admin tiering, and MFA on user sign-ins",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Blast radius is contained by structure: tiering keeps domain-admin credentials off the machines most likely to be compromised (so a laptop can't yield a DA hash), LAPS gives each machine a unique local-admin password (so one stolen hash unlocks only one host, defeating fleet-wide Pass-the-Hash), and segmentation limits host-to-host reach (forcing noisy pivoting). The option “Installing a faster antivirus on every laptop…” addresses only initial access, not spread. The option “Giving every user local administrator rights on…” increases risk by spreading admin rights. The option “Turning off all logging on workstations to…” blinds the SOC — removing telemetry never contains an attack."
+        "explanation": "Each control closes one finding. LAPS gives every machine a unique local-admin password, so one stolen hash unlocks one host instead of 900. Administrative tiering keeps domain admins off workstations, so a compromised laptop cannot yield a domain-admin credential. East-west segmentation removes free workstation-to-workstation reach on 445. “LAPS and east-west segmentation between workstations” leaves the domain-admin logons on workstations unaddressed. “Admin tiering and east-west segmentation of workstations” leaves the shared local-admin password, so one hash still opens every machine the attacker can reach. “LAPS, admin tiering, and MFA on user sign-ins” leaves the flat network, and MFA on interactive sign-ins does not stop a stolen hash being passed over SMB."
       },
       {
         "question": "In the worked-example PsExec trace, which single field lets you confirm exactly which file the newly created service was configured to execute, and on which event?",
@@ -491,62 +491,62 @@ export const ATTACK_TYPE_LESSONS = [
             "value": "b"
           },
           {
-            "label": "LogonType in Event ID 4624",
+            "label": "AccountName in Event ID 7045",
             "value": "c"
           },
           {
-            "label": "WorkstationName in Event ID 4624",
+            "label": "ServiceName in Event ID 7045",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "ImagePath in Event ID 7045 names the exact binary path the new service is configured to run — the payload that just got executed. RelativeTargetName in Event ID 5145 identifies what was written to the admin share in the earlier step, not what the service subsequently executes. LogonType only tells you the logon method (a network logon), not any file path. WorkstationName only identifies the originating host and has nothing to do with what the service runs."
+        "explanation": "ImagePath in Event ID 7045 is the service's configured binary path (C:\\Windows\\winsvc32.exe in the trace), so it is the field that states what the service runs. “RelativeTargetName in Event ID 5145” names the file written to ADMIN$ in Step 1; it is how you link the write to the service, but it records the write, not the service's configuration. “AccountName in Event ID 7045” is the account the service runs as (LocalSystem), not the file it runs. “ServiceName in Event ID 7045” is the service's name (WinSvcHelper), which attackers rename freely and which says nothing about the binary path."
       },
       {
-        "question": "On a target server you see no new service (Event ID 7045) and no file written to ADMIN$, yet mmc.exe spawns powershell.exe seconds after an Event ID 4624 LogonType 3 network logon originating from another workstation. Which lateral-movement technique best fits?",
+        "question": "On a target server you see no new service (Event ID 7045) and no file written to ADMIN$. Seconds after an Event ID 4624 LogonType 3 from another workstation, mmc.exe spawns powershell.exe. Network logs show the source reached port 135 and then a dynamic high port, with no traffic on 5985/5986. Which lateral-movement technique best fits?",
         "options": [
           {
-            "label": "PsExec over SMB admin shares, because effectively every form of remote code execution on Windows must create a service to run its payload, which the mmc.exe process is standing in for here",
+            "label": "WMI remote execution, with the shell launched by the WMI host",
             "value": "a"
           },
           {
-            "label": "DCOM lateral movement (T1021.003) — a remote COM object such as MMC20.Application is invoked to spawn a process, leaving no service and no dropped file, only a COM host process spawning a shell",
+            "label": "DCOM lateral movement through a remote COM object like MMC20",
             "value": "b"
           },
           {
-            "label": "RDP interactive lateral movement, since an mmc.exe management console can only ever be launched during a LogonType 10 remote-interactive desktop session started by a signed-in user",
+            "label": "WinRM remoting, which likewise leaves no service and no file",
             "value": "c"
           },
           {
-            "label": "Pass-the-ticket, because spawning powershell.exe from mmc.exe is the single defining on-host artifact that a forged or stolen Kerberos ticket always leaves behind after use",
+            "label": "RDP, with the console opened inside a remote desktop session",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A COM host such as mmc.exe (MMC20.Application) spawning a shell after a network logon, with no service creation and no file written to an admin share, is the signature of DCOM lateral movement — the whole appeal of DCOM to an attacker is that it avoids the service and file artifacts other techniques leave. PsExec does create a service (7045), which is absent here, and not all Windows remote execution requires a service. RDP would produce a LogonType 10 interactive session, not a Type 3 network logon. Pass-the-ticket is an authentication technique and produces no specific parent-child process artifact of its own."
+        "explanation": "A COM host such as mmc.exe (MMC20.Application) spawning a shell after a network logon, over port 135 plus a dynamic RPC port, with no service and no dropped file, is the DCOM signature (T1021.003). “WMI remote execution, with the shell launched by the WMI host” uses the same RPC transport, but its parent process would be WmiPrvSE.exe, not mmc.exe; the parent is what separates the two. “WinRM remoting, which likewise leaves no service and no file” is right about artifacts, but WinRM runs over 5985/5986, and there was no such traffic. “RDP, with the console opened inside a remote desktop session” would show LogonType 10 (RemoteInteractive) over port 3389, not a Type 3 network logon."
       },
       {
         "question": "You find Event ID 4698 (a scheduled task was created) on a file server, whose action launches a binary from C:\\Windows\\Temp, correlated with a LogonType 3 network logon from a workstation moments earlier. Why must you correlate the 4698 with that logon event rather than relying on 4698 alone to prove remote lateral movement?",
         "options": [
           {
-            "label": "Because Event ID 4698 is only ever written when a task is created locally, so any remote task creation is instead recorded exclusively under Event ID 4624 with no task details captured at all",
+            "label": "4698 lacks the task's action, so the logon is needed to see what ran",
             "value": "a"
           },
           {
-            "label": "Because Event ID 4698 records that a task was created but does not itself indicate the task was created remotely, so a preceding network logon from another host is what establishes the remote origin",
+            "label": "4698 does not say the task was made remotely; the logon shows that",
             "value": "b"
           },
           {
-            "label": "Because scheduled tasks can never be created over the network in Windows at all, meaning the 4698 event must have been forged by the attacker specifically to mislead the investigation",
+            "label": "4698 is written on the source host, so the logon covers the target",
             "value": "c"
           },
           {
-            "label": "Because Event ID 4698 always fires on the source host that initiated the task and never on the target, so the logon event is the only record that exists on the machine that ran it",
+            "label": "4698 alone may be a benign admin task; the logon proves it is malicious",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Event ID 4698 confirms a task was created and even carries the action XML, but it contains nothing that says the creation was remote — so you must pair it with a preceding network logon (4624 Type 3) from another host to establish that a remote actor drove the Task Scheduler. Remote task creation is entirely possible over RPC and is logged with full task details in 4698. The event is genuine, not forged, and it fires on the target where the task was created, not on the source."
+        "explanation": "4698 records that a task was created, including its action XML, but nothing in it says the creation came from another machine; the preceding 4624 LogonType 3 from a workstation is what ties the task to a remote origin (T1053.005). “4698 lacks the task's action, so the logon is needed to see what ran” is wrong: the action (here a binary in C:\\Windows\\Temp) is embedded in the 4698 itself. “4698 is written on the source host, so the logon covers the target” has it backwards: 4698 fires on the target where the task was registered, which is why you found it on the file server. “4698 alone may be a benign admin task; the logon proves it is malicious” overstates the logon: a Type 3 logon is ordinary and proves only that someone connected remotely; maliciousness comes from the content, such as a binary launched from a temp path."
       }
     ],
     "references": [
@@ -655,211 +655,211 @@ export const ATTACK_TYPE_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "An access log shows twelve requests to /product?id= from one IP, each with a slightly different payload, ten returning HTTP 500, one returning 200 with a response body roughly 15x larger than normal, and one returning 200 with an unusually large body just before that. What does this pattern most likely represent?",
+        "question": "An access log shows twelve requests to /product?id= from one IP within a minute, each with a slightly different payload appended to the numeric id. The first eleven return HTTP 500; the twelfth returns 200 with a body about 15 times larger than the normal page. What does this pattern most likely represent?",
         "options": [
           {
-            "label": "A DOM-based XSS payload being reflected into the page",
+            "label": "Boolean-based blind SQLi, comparing true and false page responses",
             "value": "a"
           },
           {
-            "label": "Union-based SQL injection — the failures were guessing the correct column count",
+            "label": "Union-based SQLi: errors while fitting the columns, then extraction",
             "value": "b"
           },
           {
-            "label": "Server-side request forgery against the application's own outbound request logic",
+            "label": "Path traversal probing that finally reached a readable file",
             "value": "c"
           },
           {
-            "label": "A file upload bypass followed by direct requests to a dropped web shell",
+            "label": "Time-based blind SQLi, inferring answers from delayed responses",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Union-based SQLi typically requires guessing the correct number of columns before the UNION works, producing repeated 500 errors as each guess fails, followed by a successful 200 with an abnormally large response body once the injected SELECT returns extracted data. DOM-based XSS wouldn't generate server-side 500 errors since the vulnerable logic runs entirely in the browser. SSRF evidence lives in the server's outbound logs, not this pattern of inbound status codes. A web shell would show a POST to an upload path followed by requests to the uploaded file itself, not a pattern of column-count-style errors."
+        "explanation": "A burst of 500s from one source against one parameter, each payload slightly different, ending in a single 200 with an unusually large body, is the union-based SQLi footprint: the errors are failed guesses at the column count, and the oversized 200 is the moment extracted data came back inside the page. “Boolean-based blind SQLi, comparing true and false page responses” is the quiet variant: many near-identical requests, mostly 200, and no extraction-sized body. “Path traversal probing that finally reached a readable file” works on a file or path parameter with ../ sequences, not on a numeric product id that feeds a database query. “Time-based blind SQLi, inferring answers from delayed responses” is read from the response-time field; nothing here depends on timing, and its requests do not need to error."
       },
       {
-        "question": "You are told 'the access log shows nothing suspicious' for a reported XSS incident, but the victim confirms their session cookie was stolen while viewing a normal-looking page. Which variant of XSS best explains why the server log would appear clean?",
+        "question": "A user reports their session cookie was stolen right after clicking a link to https://app.example.com/account/overview with a long encoded string after the # character. For that visit the access log shows only GET /account/overview with no query string, returning 200. The application's stored content holds nothing injected, the page last changed three days ago, and access logs are kept for 90 days. Which XSS variant best explains why the server log looks clean?",
         "options": [
           {
-            "label": "Reflected XSS, because reflected payloads are always encoded and therefore invisible in logs",
+            "label": "Reflected XSS, with the payload hidden in an encoded query string",
             "value": "a"
           },
           {
-            "label": "Stored XSS, because the server never logs database read queries",
+            "label": "Stored XSS, planted by a POST that fell outside log retention",
             "value": "b"
           },
           {
-            "label": "DOM-based XSS, because the vulnerable code and payload execution happen entirely in the browser",
+            "label": "DOM-based XSS: the fragment payload never reached the server",
             "value": "c"
           },
           {
-            "label": "Union-based XSS, because union payloads bypass web server logging by design",
+            "label": "Reflected XSS sent in a POST body, which access logs do not show",
             "value": "d"
           }
         ],
         "answer": "c",
-        "explanation": "DOM-based XSS can execute entirely within client-side JavaScript, often using data like a URL fragment that browsers never send to the server, meaning the server-side access log can look completely clean even though the attack succeeded. Reflected XSS payloads do appear in the request line, encoded or not. Stored XSS does leave evidence — the original request that planted the payload — even if later views look normal. 'Union-based XSS' is not a real category; UNION-based injection applies to SQLi, not XSS."
+        "explanation": "Browsers never send the part of a URL after # to the server, so a payload in the fragment that the page's own JavaScript reads is DOM-based XSS: the server sees only a normal request for the page, which is exactly what the log shows, and confirming it needs client-side evidence rather than server logs. “Reflected XSS, with the payload hidden in an encoded query string” is ruled out because the logged request has no query string at all, and a reflected payload appears in the request line, encoded or not. “Stored XSS, planted by a POST that fell outside log retention” is ruled out because the stored content is clean and the page changed three days ago, well inside the 90-day retention. “Reflected XSS sent in a POST body, which access logs do not show” does not fit the evidence: the victim followed a link, which produced the logged GET, and no POST was involved."
       },
       {
-        "question": "During an SSRF investigation, you want to confirm whether the application actually reached the cloud instance metadata endpoint after being given an attacker-supplied URL. Where should you look for that evidence?",
+        "question": "During an SSRF investigation on a cloud VM, you need to confirm whether the application server itself sent a request to the instance metadata service after receiving an attacker-supplied URL. Whether the role's credentials were later misused is your next question, not this one. Which evidence answers this one?",
         "options": [
           {
-            "label": "The public-facing web server access log, since all server activity is recorded there",
+            "label": "The inbound access or WAF log entry for the request carrying the URL",
             "value": "a"
           },
           {
-            "label": "The application server's own outbound/egress logs, where the request to the metadata IP would appear",
+            "label": "The server's own egress or fetch log showing a call to 169.254.169.254",
             "value": "b"
           },
           {
-            "label": "The client browser's local storage, since SSRF payloads are cached there by default",
+            "label": "DNS resolver logs, for a lookup of the metadata service's hostname",
             "value": "c"
           },
           {
-            "label": "The DNS resolver logs only, since 169.254.169.254 always requires a DNS lookup first",
+            "label": "Cloud audit logs showing the role's credentials used from another IP",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "SSRF's defining characteristic is that the server itself makes the malicious outbound request, so the evidence lives in the server's own egress/outbound connection logs, not the inbound public-facing access log that only shows the original request that triggered it. The client browser has no role in SSRF, since the vulnerable request is server-side. 169.254.169.254 is a link-local IP address and is reached directly without a DNS lookup, so DNS logs wouldn't show it."
+        "explanation": "In SSRF the server makes the request, so the record that it reached the metadata service lives in the server's own outbound evidence: egress connection logs, or the application's own log of the URL it fetched. “The inbound access or WAF log entry for the request carrying the URL” shows the trigger arriving, not whether the server then made the outbound call. “DNS resolver logs, for a lookup of the metadata service's hostname” look in the wrong place: the metadata service is reached at the link-local address 169.254.169.254, so a URL using that address needs no lookup. “Cloud audit logs showing the role's credentials used from another IP” answer the next question, attempt versus compromise; they do not record the server's request itself, and their absence would not show that the request never happened."
       },
       {
-        "question": "A web shell has just been confirmed on a public-facing IIS server, running as the IIS APPPOOL\\DefaultAppPool identity. What should this tell you about the attacker's current level of access?",
+        "question": "A web shell is confirmed on a public-facing IIS server. In the access log, GET /uploads/img_48213.aspx?cmd=whoami returned 200, and the response body reads iis apppool\\defaultapppool. What does this tell you about the attacker's current level of access?",
         "options": [
           {
-            "label": "The attacker already has SYSTEM-level access, since IIS worker processes run as SYSTEM by default",
+            "label": "SYSTEM-level control, because IIS worker processes run as SYSTEM",
             "value": "a"
           },
           {
-            "label": "The attacker has command execution limited to the low-privilege app-pool account, and still needs privilege escalation",
+            "label": "Command execution as a low-privilege account; escalation still needed",
             "value": "b"
           },
           {
-            "label": "The attacker has full domain admin access, since web shells always inherit the domain's highest privilege level",
+            "label": "Domain-wide reach, because the IIS server is joined to the domain",
             "value": "c"
           },
           {
-            "label": "The attacker has no real access yet, since web shells cannot execute operating system commands",
+            "label": "File access, since a web shell needs SYSTEM to run OS commands",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A web shell executes with the privilege of the process that hosts it — here a deliberately low-privilege app-pool identity — so command execution is real but constrained, and the attacker still needs a distinct privilege-escalation or credential-theft step to reach anything more valuable. IIS worker processes are specifically designed to run as low-privilege accounts, not SYSTEM, precisely to limit this kind of exposure. Nothing about a web shell grants domain admin automatically. Web shells absolutely execute OS commands via whatever interpreter they invoke (T1059) — that is their entire purpose."
+        "explanation": "A web shell runs with the privilege of the process hosting it, and the whoami output shows exactly that: the IIS APPPOOL\\DefaultAppPool identity, a deliberately low-privilege built-in account. Command execution is real (T1059), but reaching anything more valuable needs a separate privilege-escalation or credential-theft step, which is the window in which the SOC can still stop the intrusion. “SYSTEM-level control, because IIS worker processes run as SYSTEM” is the common misconception the output itself disproves: worker processes run as app-pool identities precisely to limit this. “Domain-wide reach, because the IIS server is joined to the domain” confuses the host's domain membership with the shell's rights: commands run as the app-pool identity, not as a domain administrator. “File access, since a web shell needs SYSTEM to run OS commands” is contradicted by the log: whoami is an OS command, and it ran."
       },
       {
-        "question": "Your web access logs show a single authenticated user session (same session cookie throughout) requesting GET /api/document?id=5001, then 5002, 5003, 5004… up through 5200, each returning 200 OK. What is the most likely explanation, and what is the underlying flaw?",
+        "question": "Web access logs show one session cookie, belonging to the ordinary customer account c.levin, requesting GET /api/document?id=5001, then 5002, 5003… up to 5200, about two seconds apart, each returning 200 with no errors. The app's documents page lists only three documents for this customer, and the audit log shows each requested document belongs to a different customer. What is the most likely explanation?",
         "options": [
           {
-            "label": "Normal browsing behaviour, because a valid session cookie proves the user is authorised to access every document they request regardless of which IDs they choose to enumerate",
+            "label": "A front-end pagination bug fetching documents for the list view",
             "value": "a"
           },
           {
-            "label": "IDOR / broken access control (OWASP A01): the user is enumerating object IDs that aren't theirs, and the server authenticates the session but never checks whether each document belongs to that user — a missing authorization check that scales to a data breach",
+            "label": "IDOR: the server checks the session but not who owns each document",
             "value": "b"
           },
           {
-            "label": "A SQL injection attack, since sequential numeric IDs in a URL are the defining signature of SQL injection and always indicate database tampering rather than access-control issues",
+            "label": "A cache warm-up job running under a service-account session",
             "value": "c"
           },
           {
-            "label": "A harmless caching warm-up job, so the 200 responses simply confirm the documents are being pre-loaded and there is no security concern of any kind to investigate here",
+            "label": "Union-based SQL injection hidden in the sequential id values",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "One authenticated session walking sequential object IDs with 200 OK responses is the classic IDOR/broken-access-control signature: the app confirms the session is valid (authentication) but never verifies each document belongs to that user (authorization), letting them enumerate other people's records into a full breach. The option “Normal browsing behaviour, because a valid session…” is the exact fallacy — authentication is not authorization. The option “A SQL injection attack, since sequential numeric…” confuses this with SQL injection, which manipulates query syntax, not object references. The option “A harmless caching warm-up job, so the…” invents a benign cause the pattern (a real user session enumerating) does not support."
+        "explanation": "One authenticated session walking sequential object ids with steady 200s, retrieving records that belong to other customers, is the IDOR/BOLA signature (OWASP A01): the server confirms the session is valid (authentication) but never checks that each document belongs to the requester (authorization). “A front-end pagination bug fetching documents for the list view” would page through the customer's own three documents, not 200 documents owned by others at a steady two-second pace. “A cache warm-up job running under a service-account session” is ruled out because the session belongs to an ordinary customer account. “Union-based SQL injection hidden in the sequential id values” would show injected syntax and a burst of 500s while guessing columns; these are clean numeric ids with no errors."
       },
       {
-        "question": "A 'network tools' web page lets users ping a host, and you observe a request where the host parameter is `8.8.8.8; id`. Moments later the web server (running as www-data) spawns a shell and runs `id`. What class of vulnerability is this, and why is it so severe?",
+        "question": "A 'network tools' web page lets users ping a host. One request's host parameter is a valid IP followed by ';' and a second command (`8.8.8.8; id`). Moments later EDR shows the web server process, running as www-data, spawning sh, which runs id. Which vulnerability class does this telemetry confirm?",
         "options": [
           {
-            "label": "Cross-site scripting (XSS), because any special characters in web input always execute in the victim's browser and never affect the server side of the application at all",
+            "label": "SSRF, since the feature makes the server contact a host the user names",
             "value": "a"
           },
           {
-            "label": "OS command injection leading to remote code execution: unsanitised input is passed into a shell where ';' chains the attacker's command, which runs with the web server's privileges (www-data) — a direct path to server compromise",
+            "label": "OS command injection: the ';' chained a command run as www-data",
             "value": "b"
           },
           {
-            "label": "A simple input-validation warning with no real impact, since the ping utility safely ignores anything after the IP address and cannot be made to run additional commands under any circumstances",
+            "label": "SSTI, since the server evaluated the input and returned the result",
             "value": "c"
           },
           {
-            "label": "Insecure deserialization, because passing a string to a ping command is by definition an object-deserialization operation that only affects application memory, not the operating system",
+            "label": "Reflected XSS, since the injected text is echoed back in the response",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Passing user input into a shell command lets the ';' separator append the attacker's own command, which the server executes — OS command injection resulting in remote code execution with the web server's privileges. It is severe because it yields code execution on the host, and the confirming host-side signal is exactly the Linux web-shell tell: www-data spawning a shell. The option “Cross-site scripting (XSS), because any special characters…” misidentifies it as browser-side XSS. The option “A simple input-validation warning with no real…” is false — the shell does not ignore the appended command; that is the whole vulnerability. The option “Insecure deserialization, because passing a string to…” invents deserialization, which is a different flaw entirely."
+        "explanation": "The ';' is a shell command separator, so input passed unsanitised into the ping command let a second command run, and the host-side tell confirms it: www-data spawning sh. That is OS command injection, which gives code execution with the web server's privileges. “SSRF, since the feature makes the server contact a host the user names” describes what the ping feature does by design; SSRF abuses a server-side request, while here a separate OS command executed. “SSTI, since the server evaluated the input and returned the result” needs template syntax such as {{7*7}} evaluated by a template engine; none is present, and a template engine does not spawn sh. “Reflected XSS, since the injected text is echoed back in the response” would execute in a visitor's browser, not as a process on the server."
       },
       {
-        "question": "In the IDOR worked example, why does the attack produce no HTTP 500 errors at all, unlike the union-based SQL injection pattern covered earlier in this lesson?",
+        "question": "The access log for /search?q= shows one IP sending 40 requests over ten minutes, each with a slightly different q value. All return 200 with near-identical body sizes, but the time-taken field alternates between about 40 ms and about 5,000 ms. Other clients' requests to the same endpoint in those minutes take 50–150 ms. What does this most likely represent?",
         "options": [
           {
-            "label": "Because IDOR always targets endpoints protected by a WAF, which silently converts every server error into a 200 response before it reaches the log",
+            "label": "Boolean-based blind SQLi, since each response comes back as 200",
             "value": "a"
           },
           {
-            "label": "Because IDOR is a missing authorization check, not malformed input — the request is valid and the server succeeds, it just returns the wrong person's data",
+            "label": "Time-based blind SQLi, reading answers from injected delays",
             "value": "b"
           },
           {
-            "label": "Because the attacker in an IDOR attack must disable server-side logging before sending any of the requests",
+            "label": "An application-layer DoS, slowing the endpoint for its users",
             "value": "c"
           },
           {
-            "label": "Because HTTP 500 errors only occur when a SQL query is involved, and IDOR attacks never involve a database at all",
+            "label": "Union-based SQLi that has already pulled data into the page",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "IDOR doesn't break anything syntactically — the request is well-formed and the server handles it successfully, it simply never checks whether the requested object belongs to the requester, so it returns a normal 200 with someone else's data. SQLi's errors instead come from malformed query syntax as the attacker guesses column counts, which has no equivalent in a missing authorization check. The option “Because IDOR always targets endpoints protected by…” invents WAF behaviour that isn't how WAFs work. The option “Because the attacker in an IDOR attack…” is false — nothing about IDOR requires disabling logging, which is exactly why it's visible in the log at all. The option “Because HTTP 500 errors only occur when…” is wrong because plenty of IDOR-vulnerable endpoints do query a database; what's missing is the authorization check, not the database."
+        "explanation": "When true and false produce the same page, time-based blind SQLi injects a conditional delay and reads the answer from how long the response takes, so the response-time field becomes the attack signal: one source, near-identical 200s, and times clustering at a round 5 seconds against a normal 50–150 ms. “Boolean-based blind SQLi, since each response comes back as 200” relies on the page content differing between true and false, but these bodies are near-identical; the only thing that varies is time. “An application-layer DoS, slowing the endpoint for its users” is ruled out because other clients stay at 50–150 ms in the same minutes; only this source's requests are slow. “Union-based SQLi that has already pulled data into the page” would show a burst of 500s and then one unusually large 200, not uniform body sizes."
       },
       {
-        "question": "A victim's browser, while already logged into their bank, silently submits a hidden POST request to /transfer on a completely different page the victim was tricked into visiting — no script runs on the bank's own site at all. Which attack is this, and how does it fundamentally differ from XSS?",
+        "question": "The bank's access log shows POST /transfer returning 200, carrying the victim's valid session cookie and sent from the victim's usual home IP, with Origin and Referer set to https://winner-coupons.example. No bank page contains injected script, and the bank sends Content-Security-Policy: frame-ancestors 'self' on every page. Which attack is this?",
         "options": [
           {
-            "label": "Reflected XSS, because both attacks rely on tricking a victim into first visiting an attacker-controlled page",
+            "label": "Reflected XSS: a script on a bank page sent the transfer request",
             "value": "a"
           },
           {
-            "label": "CSRF — the request rides on the victim's already-authenticated session; no script execution on the target site is needed at all",
+            "label": "CSRF: a foreign page made the victim's browser send the POST",
             "value": "b"
           },
           {
-            "label": "SSTI, because the hidden form itself is a template expression being evaluated by the bank's own server",
+            "label": "Session hijacking: the attacker replayed a stolen session cookie",
             "value": "c"
           },
           {
-            "label": "Clickjacking, because the victim's browser is displaying framed content it did not directly request",
+            "label": "Clickjacking: the victim clicked a hidden, framed bank button",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "This is CSRF: the attacker's page auto-submits a request that rides on the victim's ambient session cookie, and the bank's own site never executes any attacker script at all — the request either succeeds or fails without the attacker ever reading a response. XSS is the opposite in mechanism: it requires attacker script to actually execute within the target site's own page to read data out. SSTI involves a template engine evaluating input as code, unrelated to this scenario. Clickjacking requires framing the real site and tricking a click, not silently auto-submitting a form."
+        "explanation": "A state-changing POST carrying the victim's valid cookie, sent from the victim's own browser and IP, whose Origin and Referer are an unrelated site, is CSRF: the attacker's page made the browser send the request, and the browser attached the session cookie automatically. No script had to run on the bank's site. “Reflected XSS: a script on a bank page sent the transfer request” would make the request originate from the bank's own page, and no bank page contains injected script. “Session hijacking: the attacker replayed a stolen session cookie” would send the request from the attacker's own infrastructure, not the victim's usual home IP. “Clickjacking: the victim clicked a hidden, framed bank button” needs the bank to be frameable, and frame-ancestors 'self' stops any other site from framing it."
       },
       {
         "question": "A WAF log shows a POST body containing `<!DOCTYPE data [ <!ENTITY xxe SYSTEM \"file:///etc/passwd\"> ]>` sent to an endpoint that normally accepts XML product data. What is this an attempt to do, and what is the single most reliable fix?",
         "options": [
           {
-            "label": "SQL injection via an XML-encoded UNION clause; the fix is parameterising the underlying database query",
+            "label": "SSRF via the XML parser; fix by blocking the server's egress traffic",
             "value": "a"
           },
           {
-            "label": "XXE — using the XML parser's external entity resolution to read a local file (or pivot to SSRF); the fix is disabling DTD/external entity processing in the parser entirely",
+            "label": "XXE reading a local file; fix by disabling DTD/external entities",
             "value": "b"
           },
           {
-            "label": "Server-Side Template Injection, since the DOCTYPE declaration is a template expression; the fix is sandboxing the template engine",
+            "label": "Path traversal to /etc/passwd; fix by filtering ../ in parameters",
             "value": "c"
           },
           {
-            "label": "Insecure deserialization, since XML is a serialization format; the fix is validating the Java class allowlist during deserialization",
+            "label": "Insecure deserialization; fix with a class allowlist on load",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A DOCTYPE declaration defining a SYSTEM entity pointing at a local file path is the textbook XXE payload — the XML parser is tricked into resolving and returning file contents (or, if pointed at an internal URL, into performing SSRF), and OWASP's guidance is that the only fully reliable fix is disabling DTD/external entity processing outright, since many parsers enable it by default. This is not a SQL injection payload — there's no database query syntax present. It is not SSTI — DOCTYPE/ENTITY is XML entity syntax, not template expression syntax like {{ }}. It is not deserialization — no serialized object or gadget chain is present, just an entity definition."
+        "explanation": "A DOCTYPE defining a SYSTEM entity that points at a local file is the XXE pattern: the XML parser resolves the external entity and substitutes the file's contents, and OWASP's reliable fix is disabling DTD/external-entity processing in the parser, since many parsers enable it by default. “SSRF via the XML parser; fix by blocking the server's egress traffic” names a real XXE variant, but this entity points at file:///etc/passwd, a local read that egress blocking would not stop. “Path traversal to /etc/passwd; fix by filtering ../ in parameters” targets the same file by a different mechanism: there is no ../ sequence here, and the parser, not a file parameter, does the reading. “Insecure deserialization; fix with a class allowlist on load” needs a serialized object (Java magic bytes rO0AB or a PHP O: prefix), and this body is plain XML with an entity definition."
       }
     ],
     "references": [

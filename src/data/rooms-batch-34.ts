@@ -209,14 +209,14 @@ const becInvestigationRoom = {
       checkpoint: {
         question: "Per Reading 1, why does EDR/antivirus telemetry play little role in most BEC investigations?",
         options: [
-          "Because BEC attackers always disable EDR agents as their very first action, so no telemetry survives to review",
-          "Because most BEC attacks involve no malware at all — the attack is social engineering plus identity/account abuse, so the evidence lives in identity and mail-audit logs instead",
-          "Because BEC only ever targets Linux servers, which this platform's EDR rooms don't cover",
-          "Because EDR tools are contractually prohibited from monitoring finance department endpoints at most organizations",
+          "Because BEC attackers disable the EDR agent first, so no endpoint telemetry is left to review",
+          "Because most BEC attacks involve no malware at all — the attack is social engineering plus identity/account abuse, so the evidence lives in identity and mail-audit logs",
+          "Because EDR only covers servers, and BEC targets end-user mailboxes that sit outside its scope",
+          "Because the fraudulent email is encrypted in transit, so EDR cannot read its contents to detect the fraud",
         ],
         answer: 1,
         explanation:
-          "Reading 1 was explicit: BEC is overwhelmingly a malware-free attack — a convincing message plus identity/account abuse. That means Entra ID sign-in logs and the O365 Unified Audit Log, not EDR, are where this investigation actually happens.",
+          "Reading 1 was explicit: BEC is overwhelmingly malware-free — a convincing message plus identity and account abuse — so Entra ID sign-in logs and the O365 Unified Audit Log, not EDR, are where the investigation happens. Attackers do not need to disable EDR when there is no malware for it to catch. EDR covers endpoints broadly, not just servers, but the point is there is no process or file activity to see. And the reason is the absence of malware, not email encryption, which EDR does not inspect either way.",
       },
     },
     // ── Reading 2: the four BEC vectors ─────────────────────────────────────
@@ -233,14 +233,14 @@ const becInvestigationRoom = {
       checkpoint: {
         question: "Per Reading 2, why does a Vendor Email Compromise (VEC) email pass SPF, DKIM, and DMARC checks perfectly even though it's fraudulent?",
         options: [
-          "Because VEC attackers always purchase a valid TLS certificate for a lookalike domain, which satisfies email authentication checks automatically",
-          "Because the message genuinely was sent from the vendor's own real, compromised mail infrastructure — the target organization's own tenant was never touched, so there is nothing anomalous in the sender's own logs",
-          "Because SPF, DKIM, and DMARC are cosmetic checks that all commercial mail providers disable by default for external senders",
-          "Because VEC attacks are always sent internally, from within the target organization's own tenant, which automatically passes authentication",
+          "Because the attacker also publishes matching SPF and DKIM records for a lookalike domain, so the checks pass for that domain",
+          "Because the message genuinely came from the vendor's own real, compromised mail infrastructure — the target's tenant was never touched, so nothing in the sender's own logs looks wrong",
+          "Because SPF, DKIM and DMARC only verify the recipient's domain, not the sender's, so a vendor's domain is never actually checked",
+          "Because the message is relayed through Microsoft 365 shared infrastructure, which authentication checks always treat as trusted",
         ],
         answer: 1,
         explanation:
-          "VEC is specifically the case where the compromise happened on the vendor's side, not the target's. The email authenticates perfectly because it genuinely originated from the vendor's real, compromised systems — which is exactly why out-of-band verification, not log analysis, is the control that actually catches it.",
+          "VEC is the case where the compromise happened on the vendor's side. The email authenticates perfectly because it genuinely originated from the vendor's real, compromised systems — which is why out-of-band verification, not log analysis, is the control that catches it. The first option describes a lookalike domain, a different vector where the sending domain is not the vendor's real one. SPF/DKIM/DMARC verify the sender's domain, not the recipient's. And shared mail infrastructure is not automatically trusted; the checks still evaluate the sending domain's records.",
       },
     },
     // ── Question 1 (applied — distinguishing vectors) ───────────────────────
@@ -250,9 +250,9 @@ const becInvestigationRoom = {
       question:
         "Your organization's own tenant shows zero indicators — no anomalous sign-in, no inbox rule creation, no forwarding, nothing unusual in your Unified Audit Log — yet your CFO receives a bank-detail-change instruction from the correct, genuine email address of a long-standing supplier, later confirmed fraudulent. Which BEC vector best explains this?",
       options: [
-        "Account takeover (ATO) of an internal Meridian mailbox — an attacker with a valid session replied from within the thread, and the Unified Audit Log simply lagged or dropped the evidence",
+        "Account takeover (ATO) of an internal mailbox — an attacker with a valid session replied from within the thread, and the Unified Audit Log simply lagged or dropped the evidence",
         "A lookalike domain impersonating the supplier — the sending address differs by one character from their real domain, and the CFO's mail client displayed only the name",
-        "Thread hijacking inside Meridian's own tenant — an internal mailbox replied in the genuine supplier thread, with the telemetry hidden by a quietly created inbox rule",
+        "Thread hijacking inside your own tenant — an internal mailbox replied in the genuine supplier thread, with the telemetry hidden by a quietly created inbox rule",
         "Vendor Email Compromise (VEC) — the supplier's own mailbox was compromised, so the request arrived from their genuine address without touching your tenant",
       ],
       answer: 3,
@@ -277,7 +277,7 @@ const becInvestigationRoom = {
         options: [
           "There is no real difference — both values mean exactly the same thing under a different label",
           "refreshToken means a fresh password-plus-MFA login just occurred; primaryRefreshToken means the sign-in failed",
-          "refreshToken is consistent with a replayed stolen browser session; primaryRefreshToken means the attacker holds device-bound secrets tied to a specific Windows device — a materially more invasive compromise",
+          "refreshToken is consistent with a replayed stolen browser session; primaryRefreshToken is device-bound, so the attacker holds device-level secrets — a materially more invasive compromise",
           "primaryRefreshToken only appears on failed sign-ins, so it can be safely ignored when reviewing successful authentications",
         ],
         answer: 2,
@@ -298,42 +298,42 @@ const becInvestigationRoom = {
           question:
             "azure.signinlogs.properties.isInteractive is false, and authenticationDetails shows authenticationMethod 'Previously satisfied' with authenticationStepResultDetail 'MFA requirement satisfied by claim in the token.' What does this combination indicate?",
           options: [
-            "A user typed their password and approved a fresh MFA push at this exact moment, which is what 'Previously satisfied' always means",
-            "No fresh authentication occurred at all — a token that already carried a prior MFA claim was presented and accepted, consistent with a replayed stolen session rather than a live login",
-            "The sign-in failed and no access was actually granted, regardless of the resultType field",
-            "This combination only ever appears on service-account sign-ins and has no relevance to a human user's account",
+            "A fresh password entry plus a new MFA approval happened at this moment, which is what 'Previously satisfied' records",
+            "No fresh authentication occurred — a token that already carried a prior MFA claim was presented and accepted, consistent with a replayed stolen session",
+            "A Conditional Access policy re-used an earlier MFA result to smooth the experience on a trusted device",
+            "A background token refresh by the user's own Outlook mobile client, routine throughout the workday",
           ],
           answer: 1,
           explanation:
-            "Reading 3 covered exactly this pattern: isInteractive false plus 'Previously satisfied' means the session presented a token that already carried a valid MFA claim, with no fresh user interaction at all -- the signature of a replayed session, not a live login by the account owner.",
+            "isInteractive false plus 'Previously satisfied' means a token that already held a valid MFA claim was presented with no fresh user interaction — the replayed-session signature from Reading 3. 'Previously satisfied' is the opposite of a fresh password-plus-MFA login. It is not a trusted-device convenience here: the device is unmanaged and the geography is wrong. And a routine background refresh from the user's own client would come from her known location, not Lagos nine minutes after a Denver login.",
           xp: 30,
         },
         {
           question:
             "azure.signinlogs.properties.incomingTokenType reads 'refreshToken', the location is Lagos, Nigeria, and this record shares its correlationId with an interactive sign-in from Denver, Colorado nine minutes earlier — the only corporate egress on file for this account. What does this combination indicate?",
           options: [
-            "Nothing unusual — refreshToken sign-ins are routine background renewals that happen automatically throughout a normal workday from the same location",
-            "Impossible travel combined with token replay: no flight connects Denver to Lagos in nine minutes, and a refreshToken sign-in with no fresh authentication step is consistent with a stolen session being used from attacker infrastructure, not the account's actual owner",
-            "The correlationId match is a coincidental value Entra ID reuses across unrelated sign-ins and carries no investigative meaning",
-            "This confirms p.nair is travelling internationally for work and the Denver sign-in earlier that day was the anomaly instead",
+            "A routine background token renewal from p.nair's mobile Outlook while she roams, so the Lagos geo is just a roaming artifact",
+            "Impossible travel plus token replay: no flight connects Denver to Lagos in nine minutes, and a refreshToken with no fresh authentication step fits a stolen session used from attacker infrastructure",
+            "The shared correlationId only means both sign-ins hit the same Entra tenant, which is expected and not an anomaly",
+            "p.nair signed in from Denver and her VPN egressed through a Lagos data center, which explains the geography",
           ],
           answer: 1,
           explanation:
-            "As Reading 3 taught, matching correlationId across two geographically incompatible sign-ins is exactly how impossible travel is confirmed with certainty -- the math (distance versus elapsed time) doesn't depend on Entra ID's own risk score agreeing with you. A refreshToken sign-in with no live authentication step, from a location the account has never used, is the token-replay pattern this room is built around.",
+            "Impossible travel is the core fact: the same account appears in Denver and Lagos nine minutes apart, which no travel can cover — and you can compute that yourself without Entra's risk score. The refreshToken with no live authentication step adds that this second sign-in replayed a token rather than a fresh login, the token-replay pattern this room is built around. A roaming phone would not jump continents in nine minutes. The shared correlationId is not a tenant-wide coincidence; it ties these two sign-ins to one underlying action. And a VPN egressing in Lagos does not fit a user whose every prior sign-in came from Denver's corporate egress.",
           xp: 30,
         },
         {
           question:
             "azure.signinlogs.properties.conditionalAccessStatus reads 'success' and riskLevelDuringSignIn reads 'none' on this record. Based on Reading 3, should an analyst treat these 'clean' fields as evidence this sign-in is safe to close?",
           options: [
-            "Yes — Conditional Access and the risk engine are Microsoft's own security controls, and if they show success and no risk, no further review is needed",
-            "No — a replayed token that already carries a valid MFA claim satisfies Conditional Access and often produces no risk score, because the identity provider has no way to know the token was stolen rather than freshly earned; the impossible-travel and device-mismatch facts are what actually matter here",
-            "Yes, but only because this is a non-interactive sign-in — interactive sign-ins with the same field values would need escalation",
-            "No, but only because the source IP is in Nigeria — the same clean fields would be perfectly trustworthy from any other country",
+            "Yes — Conditional Access and the risk engine are Microsoft's own controls, so success and no risk means no further review is needed",
+            "No — a replayed token with a valid MFA claim satisfies Conditional Access and often scores no risk, because the IdP can't tell a stolen token from an earned one; the impossible-travel and device facts are what matter",
+            "No — but only because the account is finance-adjacent; the same clean fields would be trustworthy on any other user",
+            "Yes — the clean risk score reflects the earlier Denver sign-in, which Entra correctly carried over to this one",
           ],
           answer: 1,
           explanation:
-            "Reading 3 was explicit about this exact trap: a stolen, already-MFA-satisfied token routinely produces green Conditional Access and risk fields, because the identity provider is validating a legitimately-issued token, not verifying who is actually holding it. The impossible-travel math and the unfamiliar, non-compliant device are what an analyst has to weigh instead of the risk score alone.",
+            "Reading 3 named this trap: a stolen, already-MFA-satisfied token routinely shows green Conditional Access and risk fields, because the IdP validates a legitimately-issued token, not who holds it. The impossible-travel math and the unfamiliar, non-compliant device are what you weigh instead. The clean fields are not trustworthy just because the user is less senior — the opposite, finance staff are prime targets. And Entra does not carry a prior sign-in's risk score onto a separate, later sign-in from a new location.",
           xp: 35,
         },
       ],
@@ -343,16 +343,16 @@ const becInvestigationRoom = {
       type: "question" as const,
       id: "bec-q2",
       question:
-        "A colleague argues that because conditionalAccessStatus reads 'success' and riskLevelDuringSignIn reads 'none' on the sign-in from the log analysis exercise, it should be closed as routine. What is the strongest counter-argument, based on this room?",
+        "You want to find every other action the attacker took within this same authenticated session — not just this one sign-in record. Based on Reading 3, which identifier should you pivot on, and why?",
       options: [
-        "Risk levels are computed asynchronously and often read 'none' at ingestion time, so the colleague should wait for Entra ID to re-score the sign-in before any decision is made",
-        "A replayed token with an MFA claim already satisfied yields exactly those clean values, since the identity provider validates the token and not its holder — impossible travel and device mismatch are what matter",
-        "Conditional Access and risk scoring are only evaluated on interactive sign-ins, so these fields carry no meaning on this non-interactive record and the decision should rest on application ID alone",
-        "The colleague is right, since success with no detected risk means Conditional Access evaluated the session and found it compliant, so geography alone is not enough to escalate",
+        "correlationId, because it groups every record Entra ID produced across the whole tenant that day",
+        "sessionId, because it ties together every event within one continuous authenticated session, linking the replayed sign-in to the actions taken under it",
+        "riskLevelDuringSignIn, because filtering on the same risk score surfaces the attacker's other steps",
+        "the source IP on its own, because every attacker action shares one address, so no identifier is needed",
       ],
       answer: 1,
       explanation:
-        "This is the exact trap Reading 3 and the log analysis exercise built toward: token-replay sign-ins frequently show green Conditional Access and risk fields precisely because the token itself is valid and already carries a satisfied MFA claim -- the identity provider has no way to distinguish the legitimate owner presenting it from someone who stole it.",
+        "Reading 3 distinguishes the two identifiers: sessionId ties together every event within one continuous authenticated session, so it links the replayed sign-in to the inbox-rule creation and anything else done under that session. correlationId ties the records of one underlying action, not a whole session. riskLevelDuringSignIn is a score, not an identifier to pivot on. The source IP helps, but it can be shared or rotated and may catch other users' or sessions' traffic, so it is weaker than the precise sessionId link.",
       xp: 25,
     },
     // ── Reading 4: inbox rules built for wire fraud ─────────────────────────
@@ -377,14 +377,14 @@ const becInvestigationRoom = {
       checkpoint: {
         question: "Per Reading 4, what does a MoveToFolder + MarkAsRead + StopProcessingRules combination achieve that a ForwardTo/DeleteMessage pattern does not, in a wire-fraud scenario specifically?",
         options: [
-          "It sends a copy of the matching mail to an external address the ForwardTo pattern would have missed",
-          "It suppresses the mailbox owner's ability to ever see specific incoming replies — such as the real vendor questioning a bank-detail change — without any mail ever leaving the mailbox or being deleted",
-          "It permanently disables the mailbox owner's account, preventing them from logging in at all",
-          "It has no functional difference from ForwardTo/DeleteMessage; both patterns behave identically",
+          "It forwards a copy of matching mail to an external address, which the ForwardTo pattern would have missed",
+          "It suppresses the owner's ability to see specific incoming replies — such as the real vendor questioning a bank-detail change — without any mail leaving the mailbox or being deleted",
+          "It redirects matching mail to the attacker and removes it from the owner's inbox, leaving no local copy",
+          "It behaves the same as ForwardTo/DeleteMessage; the folder choice is purely cosmetic",
         ],
         answer: 1,
         explanation:
-          "Reading 4's core point: this pattern doesn't exfiltrate anything -- it hides specific incoming replies from the mailbox owner by burying them, unread-badge and all, in a folder nobody checks. For a wire-fraud scenario, that's exactly the reply (the real vendor asking about a missing or disputed payment) the attacker most needs suppressed.",
+          "Reading 4's core point: this pattern exfiltrates nothing — it hides specific incoming replies by burying them, unread-badge and all, in a folder nobody checks. For wire fraud that is exactly the reply (the real vendor querying a missing or disputed payment) the attacker needs suppressed. It does not forward or redirect mail anywhere, and nothing is deleted — the message stays in the mailbox, just out of sight. And it does not disable the account; the owner keeps signing in normally while the reply sits hidden.",
       },
     },
     // ── Log Analysis 2: the concealment inbox rule ──────────────────────────
@@ -400,42 +400,42 @@ const becInvestigationRoom = {
           question:
             "data.office365.Parameters shows MoveToFolder = 'RSS Feeds', MarkAsRead = 'True', and StopProcessingRules = 'True', scoped to SubjectOrBodyContainsWords including 'cascadefab.com' and 'wire'. What is the combined effect of these specific parameters?",
           options: [
-            "The rule forwards a copy of matching mail to an external address while leaving the original untouched, exactly like the ForwardTo pattern covered in remote-email-collection",
-            "Matching messages are moved into a folder almost nobody checks, marked as already read so no unread badge draws attention, and no later rule ever gets a chance to evaluate them — none of this sends mail anywhere or deletes it, it simply hides specific incoming replies from the mailbox owner",
-            "The rule permanently deletes any message matching the scoped keywords the instant it arrives, with no trace left anywhere",
-            "RSS Feeds is a technical Exchange system folder that automatically flags its contents for security review, making this configuration self-defeating for an attacker",
+            "The rule forwards a copy of matching mail to an external address, like the ForwardTo pattern from remote-email-collection",
+            "Matching messages move to a rarely-checked folder, marked read so no unread badge shows, and no later rule evaluates them — nothing is forwarded or deleted; it just hides specific replies from the owner",
+            "The rule redirects matching mail to the attacker's address and deletes the local copy, leaving nothing behind",
+            "RSS Feeds is a protected Exchange folder, so Outlook warns the user whenever a rule writes into it",
           ],
           answer: 1,
           explanation:
-            "As Reading 4 covered, this is the suppression-without-forwarding pattern: nothing leaves the mailbox and nothing is deleted, but the mailbox owner will never see anything moved into RSS Feeds unless they specifically go looking -- and MarkAsRead removes even the unread-count signal that might otherwise catch their eye.",
+            "This is Reading 4's suppression-without-forwarding pattern: nothing leaves the mailbox and nothing is deleted, but the owner never sees anything moved into RSS Feeds unless they go looking, and MarkAsRead removes even the unread-count signal. It does not forward or redirect the mail — MoveToFolder keeps it in the mailbox. And RSS Feeds is an ordinary default Outlook folder, not a protected one that raises a warning.",
           xp: 30,
         },
         {
           question:
             "data.office365.ClientIP on this rule (154.72.18.63) matches the source IP of the non-interactive sign-in reviewed nine minutes earlier in the previous exercise. What does this specific correlation establish?",
           options: [
-            "Nothing meaningful -- ClientIP values are assigned randomly by Exchange Online and carry no relationship to the sign-in that preceded them",
-            "That the same session which replayed the stolen token also created this rule, minutes later -- tying the sign-in anomaly and the concealment rule into one continuous, purposeful sequence of actions rather than two unrelated events",
-            "That p.nair personally travelled to Lagos and created this rule herself using a hotel business center's shared IP address",
-            "That this rule was created by Meridian's own IT department as part of a scheduled maintenance window",
+            "Little on its own — a shared ClientIP is common on cloud services, so matching it to one sign-in is weak evidence",
+            "That the same session which replayed the stolen token also created this rule minutes later — tying the sign-in anomaly and the concealment rule into one continuous, purposeful sequence",
+            "That p.nair created the rule herself over a VPN that happened to egress in Lagos",
+            "That the rule was created by Meridian IT during a scheduled maintenance window from a shared jump host",
           ],
           answer: 1,
           explanation:
-            "This is the same timing-and-IP correlation Reading 4 called the strongest evidence available, regardless of which concealment shape the rule takes: one IP, one narrow time window, two distinct but connected actions -- exactly the pattern that turns an isolated sign-in anomaly and an isolated rule creation into one confirmed, continuous compromise.",
+            "This is the timing-and-IP correlation Reading 4 called the strongest evidence: one IP, one narrow window, two connected actions, turning an isolated sign-in anomaly and an isolated rule creation into one confirmed compromise. The IP here is not a generic shared cloud address — it is the exact Lagos IP of the replayed sign-in nine minutes earlier. A VPN story does not fit an account whose baseline egress is Denver. And no change ticket or maintenance record exists, so an IT-maintenance explanation has nothing behind it.",
           xp: 30,
         },
         {
           question:
             "Unlike the ForwardTo/DeleteMessage pattern from remote-email-collection, this rule never sends any mail outside Meridian's tenant and never deletes anything. Based on Reading 4, why is it still dangerous enough to justify the same urgency?",
           options: [
-            "It isn't actually dangerous -- since nothing leaves the tenant or gets deleted, this rule should be treated as a low-priority finding",
-            "It specifically suppresses the real vendor's own replies from ever reaching the mailbox owner -- which, in a wire-fraud scenario, is precisely the message (a dispute or a 'we never changed our bank details' correction) that would otherwise stop the fraud before money moves",
-            "It is dangerous only because MoveToFolder rules are always flagged automatically by Exchange Online's built-in anti-phishing engine, creating unnecessary alert volume",
-            "It is dangerous because RSS Feeds folders are synced to every other mailbox in the organization by default, spreading the rule's effect tenant-wide",
+            "It isn't really dangerous — since nothing leaves the tenant or is deleted, it is a low-priority finding",
+            "It suppresses the real vendor's own replies from reaching the owner — in wire fraud, exactly the 'we never changed our bank details' correction that would otherwise stop the fraud",
+            "It is dangerous only because the suppressed mail can never be recovered once moved into RSS Feeds",
+            "It is dangerous because StopProcessingRules disables the mailbox's spam filtering entirely",
           ],
           answer: 1,
           explanation:
-            "Reading 4's central point: for a wire-fraud scenario specifically, the single most dangerous incoming message is the real vendor's own correcting reply. A rule that quietly buries exactly that reply, with no unread badge and no trace of forwarding to investigate, is arguably more purpose-built for this fraud than a ForwardTo rule would be -- even though nothing ever technically leaves the tenant.",
+            "Reading 4's central point: in wire fraud the single most dangerous incoming message is the real vendor's correcting reply, and a rule that quietly buries exactly that reply — no unread badge, no forwarding to investigate — is arguably more purpose-built for the fraud than a ForwardTo rule, even though nothing leaves the tenant. Calling it low-priority ignores that effect. The mail is not destroyed; it sits in RSS Feeds and is fully recoverable. And StopProcessingRules only stops later inbox rules from running on the message, it does not turn off spam filtering.",
           xp: 35,
         },
       ],
@@ -469,7 +469,7 @@ const becInvestigationRoom = {
       event: becLegitimateForwardEvent,
       correct_verdict: "false_positive",
       explanation:
-        "The forwarding destination (a.walsh@meridianstructural.com) is an internal, same-tenant colleague, not an external or lookalike address. data.office365.ClientIP (198.51.100.22) matches Meridian's known corporate egress. The rule uses ForwardTo, which leaves a copy in t.reyes's own mailbox, rather than RedirectTo or the MoveToFolder/StopProcessingRules suppression pattern from this room's log analysis exercise, and StopProcessingRules is explicitly False. it_verify_result confirms Helpdesk ticket HD-30410 authorizing exactly this leave-coverage arrangement.",
+        "The forwarding destination (a.walsh@meridianstructural.com) is an internal, same-tenant colleague, not an external or lookalike address. data.office365.ClientIP (198.51.100.22) matches Meridian's known corporate egress. The rule uses ForwardTo — which forwards a copy and leaves the original in t.reyes's own mailbox — not the MoveToFolder/StopProcessingRules suppression pattern from this room's log analysis exercise, and StopProcessingRules is explicitly False. it_verify_result confirms Helpdesk ticket HD-30410 authorizing exactly this leave-coverage arrangement.",
       fp_trap:
         "After two tasks centered on a malicious New-InboxRule operation, seeing the same operation name a third time reads as an obvious escalation on reflex. But the destination is internal, the copy is preserved rather than hidden or redirected, the source IP matches the known corporate baseline, and a ticket independently confirms the business reason — none of the correlating facts this room has built up (unfamiliar sign-in, IP mismatch, suppression-shaped parameters, no ticket) are present here. Escalating every ForwardTo rule regardless of destination and context trains a SOC to drown in noise on the exact operation this room has spent several tasks teaching you to take seriously when it actually matters.",
       xp: 30,
@@ -481,21 +481,21 @@ const becInvestigationRoom = {
       heading: "Investigating Wire Transfer Fraud: Building the Timeline and Racing the Clock",
       content:
         "Once ATO and a concealment rule are confirmed, a BEC investigation with a financial-fraud outcome becomes two parallel problems at once: understanding exactly what happened (the technical investigation) and trying to get the money back (a race against time that has nothing to do with logs).\n\n" +
-        "**Build the timeline from what you already have.** Every piece this room has covered stitches together into one story: the AiTM capture (or infostealer sale) that stole the session, the replayed sign-in with its correlationId and unfamiliar geography, the concealment rule created minutes later from the same IP, the fraudulent reply sent inside a real, trusted thread, and finally the approval and the wire itself. Reconstructing this in order — with exact timestamps — is what turns a pile of separate log records into a single, defensible account of what happened and when.\n\n" +
+        "**Build the timeline from what you already have.** Every piece this room has covered stitches together into one story: the AiTM capture (or infostealer sale) that stole the session, the replayed sign-in with its correlationId and unfamiliar geography, the concealment rule created minutes later from the same IP, the fraudulent reply sent inside a real, trusted thread, and finally the approval and the wire itself. Reconstructing this in order — with exact timestamps — is what turns a pile of separate log records into a single, defensible account of what happened and when. And one confirmed mailbox is rarely the whole campaign: before you call an investigation closed, the same stolen-session IP, session identifier, or concealment-rule shape is worth hunting across other finance-adjacent mailboxes, because attackers commonly probe several accounts before acting through one.\n\n" +
         "**Out-of-band verification is the one control logs can't substitute for.** Any request to change banking details, no matter how legitimate it looks or how well it fits an active thread, should be confirmed by calling the requester or the vendor at a phone number pulled from a previously verified source — a signed contract, an existing internal directory, a number dialed before, never a number found in the suspect email itself. This single habit defeats every one of the four vectors from Reading 2 simultaneously, including VEC, where no technical control on your side would ever catch it.\n\n" +
         "**The 'golden hours' for financial recovery are short, and they start the moment funds leave, not the moment fraud is discovered.** Once a fraudulent wire or ACH transfer executes, most banks can only attempt a recall or reversal within a narrow window — often measured in hours to a few days, shrinking sharply the moment the receiving funds move on to a second account. A case caught within hours of the transfer has a real chance at recovery. A case discovered weeks later, after a vendor's own missed-payment complaint finally surfaces the fraud — which is exactly how this room's own case comes to light — usually does not, no matter how thorough the eventual investigation is.\n\n" +
         "**Reporting bodies matter, and not just for the record.** Filing promptly with the FBI's Internet Crime Complaint Center (IC3), or the equivalent national cyber-fraud reporting body outside the US, isn't only a paperwork step — receiving banks and law enforcement sometimes coordinate an intercept using exactly that report, and banks frequently ask for a report reference number before they'll escalate a recall request internally.",
       checkpoint: {
         question: "Per Reading 5, why does a case discovered weeks after the fraudulent wire executes usually have a much lower chance of financial recovery than one caught within hours?",
         options: [
-          "Because banks are legally prohibited from attempting any recall after 24 hours have passed, with no exceptions",
-          "Because the 'golden hours' for a bank recall or reversal start the moment funds leave and shrink sharply once the money moves on to a second account — the clock runs from the transfer, not from when the fraud is discovered",
-          "Because IC3 complaints filed more than a week after a wire transfer are automatically rejected and never reach the receiving bank",
-          "Because fraudulent wire transfers become permanently untraceable exactly seven days after execution, regardless of any other factor",
+          "Because a bank recall can only be attempted during business hours, and most fraud surfaces overnight",
+          "Because the recall window starts the moment funds leave and shrinks sharply once the money moves on to a second account — the clock runs from the transfer, not from discovery",
+          "Because an IC3 case must be opened and assigned before any bank will act on a recall request",
+          "Because once the vendor files a missed-payment complaint, the bank treats the original transfer as authorized",
         ],
         answer: 1,
         explanation:
-          "Reading 5 was explicit: the recovery window is tied to when the funds actually moved, not to when anyone noticed. The longer that gap, the more likely funds have already moved on past the point any recall request can reach them -- which is exactly what happens in this room's own case, discovered weeks later via the vendor's missed-payment complaint.",
+          "Reading 5 was explicit: the recovery window is tied to when the funds actually moved, not to when anyone noticed, and it shrinks once the money moves on to a second account — which is why this room's case, surfaced weeks later by the vendor's complaint, usually cannot be recovered. Banks attempt recalls outside business hours too, so timing of day is not the reason. An IC3 report helps and banks often ask for a reference, but it is not a precondition for every recall. And a vendor's later complaint does not reclassify the transfer as authorized.",
       },
     },
     // ── Ordering: chronological kill-chain reconstruction ───────────────────
@@ -549,14 +549,14 @@ const becInvestigationRoom = {
       checkpoint: {
         question: "Per Reading 6, why does scoping deliberately extend beyond the one mailbox already confirmed compromised?",
         options: [
-          "Because Meridian's compliance policy requires resetting every employee's password on a fixed quarterly schedule regardless of any incident",
-          "Because real BEC operators frequently probe several accounts — especially other finance-adjacent ones — before settling on the one they actually weaponize, so the confirmed mailbox may not be the only one touched",
-          "Because scoping is only required when the compromised account belongs to a member of the executive team, which p.nair is not",
-          "Because Entra ID automatically locks every account in the tenant the moment any single account is confirmed compromised, making scoping unnecessary in practice",
+          "Because once one mailbox is confirmed, policy requires rotating every employee's password on a fixed schedule",
+          "Because real BEC operators often probe several accounts — especially finance-adjacent ones — before weaponizing one, so the confirmed mailbox may not be the only one touched",
+          "Because the attacker's concealment rule replicates itself to other mailboxes, so each must be checked for the copy",
+          "Because scoping is only needed when the confirmed account is an executive's, and a finance analyst's is lower priority",
         ],
         answer: 1,
         explanation:
-          "Reading 6's point directly: the confirmed mailbox is rarely the full extent of a real campaign's reconnaissance. Hunting the same IP, session, or rule pattern against other finance-adjacent accounts is standard practice specifically because attackers often probe multiple accounts before choosing the one to actually act through.",
+          "Reading 6's point: the confirmed mailbox is rarely the full extent of a campaign's reconnaissance, so hunting the same IP, ASN, session, or rule shape against other finance-adjacent accounts is standard. Scoping is incident-driven hunting, not a fixed password-rotation schedule. Inbox rules do not replicate between mailboxes; the attacker would have to create each one. And scoping is not reserved for executive accounts — a finance analyst like p.nair is exactly who attackers target.",
       },
     },
     // ── Question 4 (applied — parallel financial and technical response) ────
@@ -585,9 +585,9 @@ const becInvestigationRoom = {
       // which carries a different ClientIP and acts as a decoy.
       event: becInboxRuleEvent,
       prompt:
-        "Look at the Log Analysis finding on the New-InboxRule operation (the rule concealing Cascade Fabrication's replies). What is the exact value of the data.office365.ClientIP field in the raw log?",
-      answer: "154.72.18.63",
-      hint: "Look inside the raw block of the inbox-rule log analysis event for the field named data.office365.ClientIP.",
+        "Attackers often give a concealment rule a near-invisible name so it is easy to overlook in a mailbox's rule list. In the New-InboxRule finding that conceals Cascade Fabrication's replies, what exact value was set for the rule's Name parameter?",
+      answer: ".",
+      hint: "In the raw block, find the Parameters entry whose Name is 'Name' and read its Value — it is a single, easily-missed character.",
       xp: 20,
     },
   ],

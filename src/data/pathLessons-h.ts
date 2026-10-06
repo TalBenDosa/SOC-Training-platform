@@ -95,53 +95,53 @@ const lessons = [
         "question": "You are a SOC analyst investigating an alert that a low-privilege service account, svc-report-gen, just called AttachUserPolicy to attach AdministratorAccess to itself, followed two minutes later by StopLogging on the account's CloudTrail trail. What is the most accurate way to characterize this sequence?",
         "options": [
           {
-            "label": "Routine administration - service accounts often self-grant broader policies during change windows",
+            "label": "A misconfiguration - the account's policy allowed self-attachment, so tighten that policy and close",
             "value": "a"
           },
           {
-            "label": "Active privilege escalation, followed by an attempt to blind defenders - treat as an active intrusion",
+            "label": "Privilege escalation followed by an attempt to blind defenders - handle it as an active intrusion",
             "value": "b"
           },
           {
-            "label": "A provider-side failure - AWS should have blocked this API call automatically",
+            "label": "A provider-side failure - AWS should have stopped a service account from granting itself admin",
             "value": "c"
           },
           {
-            "label": "A billing anomaly that should be routed to finance instead of security",
+            "label": "Routine change-window work - pipelines often pause logging while they reconfigure permissions",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A service account self-granting AdministratorAccess is a classic IAM privilege-escalation pattern, and disabling CloudTrail immediately afterward is one of the loudest signals in cloud security because attackers disable logging specifically when they are about to do something they do not want recorded. The option “Routine administration - service accounts often self-grant…” dismisses two strong signals as routine. The option “A provider-side failure - AWS should have…” misattributes a customer-side identity misconfiguration to the provider. The option “A billing anomaly that should be routed…” ignores the security relevance entirely."
+        "explanation": "A service account self-granting AdministratorAccess is a classic IAM privilege-escalation pattern, and disabling CloudTrail immediately afterward is one of the loudest signals in cloud security, because attackers disable logging when they are about to do something they do not want recorded. “Tighten that policy and close” names a real root cause but treats it as hygiene: someone already used the gap and then switched off the audit trail, so the activity must be scoped as an intrusion. “A provider-side failure” misattributes a customer-owned IAM configuration to the provider. “Routine change-window work” rationalises StopLogging; a legitimate pipeline has no reason to blind the account's management-event trail right after granting itself admin."
       },
       {
         "question": "You are a SOC analyst reviewing why a customer database was publicly readable on the internet for several days before discovery. The bucket policy explicitly granted read access to all principals. Under the shared responsibility model, whose failure is this?",
         "options": [
           {
-            "label": "The provider's, since their platform allowed the bucket to become publicly readable at all",
+            "label": "The provider's, since S3 is a managed service and the provider's slice grows for managed services",
             "value": "a"
           },
           {
-            "label": "The customer's, since bucket permissions are a configuration choice owned by the customer",
+            "label": "The customer's, since bucket permissions are a configuration choice the customer owns and sets",
             "value": "b"
           },
           {
-            "label": "Nobody's, since public object storage is inherently insecure no matter how it is configured",
+            "label": "Shared equally, since the provider supplied the storage platform and the customer supplied the data",
             "value": "c"
           },
           {
-            "label": "Shared equally between the provider and the customer in every single case",
+            "label": "The CSPM vendor's, since posture tooling exists to flag public buckets and it missed this one",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Identity, configuration, and data handling remain on the customer's side of the responsibility line across every service model. The provider supplies the controls (private-by-default settings, Block Public Access features) to prevent exactly this outcome; applying them is the customer's job. The option “The provider's, since their platform allowed the…” misassigns responsibility for a configuration choice to the provider. The options “Nobody's, since public object storage is inherently…”, “The provider's, since their platform allowed the…”, “Shared equally between the provider and the…” and “Shared equally between the provider and the…” are not accurate descriptions of how the model actually works."
+        "explanation": "Identity, configuration and data handling remain on the customer's side of the responsibility line across every service model. The provider supplies the controls (private-by-default settings, Block Public Access) to prevent exactly this outcome; applying them is the customer's job. “The provider's slice grows for managed services” states a true trend but misapplies it — the lesson's takeaway is that identity and data handling never leave the customer column, and a bucket policy is exactly that. “Shared equally” confuses who supplied what with who owns the failed control; the policy that granted public read was the customer's. “The CSPM vendor's” misplaces ownership: CSPM is a tool the customer runs to catch its own misconfigurations, and the model divides responsibility between provider and customer."
       },
       {
         "question": "You are a SOC analyst and Azure AD sign-in logs show the same user account authenticating from Tel Aviv and then, nineteen minutes later, from a country on another continent — a classic impossible-travel pattern. Before concluding the account is compromised, what should you check first?",
         "options": [
           {
-            "label": "Whether the user's manager approved this international travel in advance",
+            "label": "Whether the second country is on the organisation's list of high-risk sign-in countries",
             "value": "a"
           },
           {
@@ -149,39 +149,39 @@ const lessons = [
             "value": "b"
           },
           {
-            "label": "Whether the account logged in from either location before, then disable it immediately",
+            "label": "Whether the user has signed in from either location before, and if not, disable the account",
             "value": "c"
           },
           {
-            "label": "Whether the cyber insurance policy covers this kind of account takeover incident",
+            "label": "Whether the second IP is on a threat-intelligence blocklist, and close the alert if it is not",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Impossible travel has real false-positive causes — VPN egress points and IP geolocation inaccuracy chief among them — so the correct next step is to corroborate with MFA satisfaction and device compliance before concluding compromise, not to act on location alone. The option “Whether the user's manager approved this international…” is not a security control. The option “Whether the account logged in from either…” skips corroboration and risks an unnecessary disruptive action on a false positive. The option “Whether the cyber insurance policy covers this…” is irrelevant to triage."
+        "explanation": "Impossible travel has real false-positive causes — VPN egress points and IP geolocation inaccuracy chief among them — so the right first check is to corroborate with MFA satisfaction and device compliance before concluding compromise, not to act on location alone. “A high-risk country list” is still a location-only judgement: a VPN egress can land in any country, and attackers can sign in from “safe” ones. “Disable the account if neither location is familiar” acts on location alone and risks a disruptive response to a false positive. “Close if the IP is not on a blocklist” treats missing threat intelligence as proof of innocence; most attacker IPs are not yet listed."
       },
       {
         "question": "In the worked CloudTrail example in this lesson, svc-report-gen calls GetCallerIdentity, then ListBuckets, then AttachUserPolicy, then StopLogging, all within five minutes. GetCallerIdentity and ListBuckets are not alarming by themselves. What specifically turned ListBuckets into a meaningful signal?",
         "options": [
           {
-            "label": "ListBuckets always indicates data exfiltration and should trigger an automatic account lockout the moment it is called",
+            "label": "It came right after GetCallerIdentity, and that pairing alone is the reconnaissance signature",
             "value": "a"
           },
           {
-            "label": "The identity's 90-day history showed it had never called ListBuckets and had never been seen from that source IP, breaking an established behavioral baseline",
+            "label": "It broke the baseline: in 90 days the identity had never called ListBuckets or used that IP",
             "value": "b"
           },
           {
-            "label": "AWS classifies ListBuckets as a management event, and management events are always treated as confirmed incidents regardless of context",
+            "label": "ListBuckets is a management event, which CloudTrail flags for review when a service account calls it",
             "value": "c"
           },
           {
-            "label": "The call used the aws-cli user agent, which legitimate automated service accounts are never configured to use",
+            "label": "It used the aws-cli user agent, while automated service accounts normally call AWS through an SDK",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "The event itself was not proof of compromise; comparing it against svc-report-gen's established baseline (only ever calling GetObject/PutObject against one bucket, never from this IP) is what turned an ordinary-looking call into a real signal. The option “ListBuckets always indicates data exfiltration and should…” wrongly treats one API call as automatic proof of exfiltration. The option “AWS classifies ListBuckets as a management event…” misdescribes how management events are handled — they are logged by default, not automatically treated as incidents. The option “The call used the aws-cli user agent…” makes a false blanket claim about user agents."
+        "explanation": "The event itself was not proof of compromise; comparing it against svc-report-gen's established baseline (only ever GetObject/PutObject against one bucket, on a nightly schedule, never from this IP) is what turned an ordinary-looking call into a real signal. “That pairing alone is the reconnaissance signature” contradicts the lesson: GetCallerIdentity and ListBuckets are routine calls that many legitimate tools make together. “CloudTrail flags it for review” misdescribes management events — they are recorded by default, not reviewed or alerted on. “aws-cli user agent” is weak on its own: the CLI is widely used in legitimate scripts and automation, so the UA only matters as part of the baseline comparison."
       },
       {
         "question": "A SOC analyst reviewing a Kubernetes audit log finds that a CI/CD service account, which has never done so before, just created a pod with securityContext.privileged set to true and a hostPath volume mount to the host's root filesystem. Which MITRE ATT&CK containers-matrix technique does this most directly set up?",
@@ -191,7 +191,7 @@ const lessons = [
             "value": "a"
           },
           {
-            "label": "T1611 Escape to Host - a privileged pod with a hostPath mount to the host root filesystem is the most common real-world method of breaking container isolation",
+            "label": "T1611 Escape to Host - a privileged pod with a hostPath mount of the host root breaks container isolation",
             "value": "b"
           },
           {
@@ -210,24 +210,24 @@ const lessons = [
         "question": "You are investigating a suspected data-theft incident against an S3 bucket that was encrypted at rest using an AWS KMS customer master key. CloudTrail shows the compromised identity successfully called kms:Decrypt against that key immediately before downloading the objects. What does this tell you?",
         "options": [
           {
-            "label": "Nothing meaningful - KMS Decrypt calls are routine background noise that never indicate anything about attacker capability",
+            "label": "Encryption still protected the data, because the master key itself never left KMS during the theft",
             "value": "a"
           },
           {
-            "label": "Encryption at rest did not actually protect this data in this incident, because the compromised identity also held permission to unwrap the encryption key",
+            "label": "Encryption at rest did not protect this data, because the compromised identity could also use the key",
             "value": "b"
           },
           {
-            "label": "The attacker must have physically extracted the customer master key from AWS hardware, since KMS keys can technically never leave the service",
+            "label": "The objects left still encrypted, so the attacker would have to crack them offline before reading them",
             "value": "c"
           },
           {
-            "label": "The finding is irrelevant to the investigation, since encryption in transit is what protects data during a download, not encryption at rest",
+            "label": "Mainly that encryption in transit failed, since TLS is the control that protects objects in a download",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Envelope encryption only protects data if the party holding it cannot also unwrap the key. A successful kms:Decrypt call by the compromised identity (errorCode: null) means the attacker had both the door key and the safe key, so encryption at rest provided no real protection in this specific incident. The option “Nothing meaningful - KMS Decrypt calls are…” dismisses a directly relevant logged event. The option “The attacker must have physically extracted the…” misunderstands how KMS decryption works - the CMK never leaves the service, but its use can still be authorized to an attacker. The option “The finding is irrelevant to the investigation…” confuses encryption in transit with encryption at rest, which is what the finding actually concerns."
+        "explanation": "Envelope encryption only protects data if the party holding it cannot also unwrap the key. A successful kms:Decrypt call by the compromised identity means the attacker had both the door key and the safe key, so encryption at rest provided no real protection in this incident. “The master key itself never left KMS” is true but beside the point: KMS performed the decryption on the attacker's behalf because the identity was authorised to use the key. “The objects left still encrypted” is wrong for the same reason — the successful Decrypt call is what made the downloaded data readable. “Encryption in transit failed” confuses the two layers: TLS protects data on the wire from third parties, not from an authorised (here, compromised) caller."
       }
     ],
     "references": [

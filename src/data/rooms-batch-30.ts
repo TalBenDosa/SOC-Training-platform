@@ -88,7 +88,7 @@ Security uses three precisely different words for the pieces of that story, and 
 
 **Threat** is any actor, event, or circumstance with the potential to cause harm to an asset. Threats can be human — an external ransomware gang, a nation-state group, a disgruntled insider — or non-human, such as a hardware failure, a natural disaster, or a misconfigured automated process. A threat only matters in practice when it combines two things: capability (can this actor actually pull it off) and intent (do they want to target you specifically, your industry generally, or is their activity purely opportunistic and indiscriminate).
 
-**Vulnerability** is a weakness that a threat could exploit to cause harm. Most people picture a technical vulnerability — an unpatched CVE (Common Vulnerabilities and Exposures, the public catalogue that gives every known software flaw a unique tracking ID like CVE-2024-3400), a misconfigured cloud storage bucket, a weak password policy — but vulnerabilities are just as often non-technical: an untrained employee who reliably clicks phishing links, an undocumented process, a missing approval step before a wire transfer goes out. A vulnerability sitting on its own, with no threat currently targeting it, is a liability worth fixing eventually — but it is not yet an active risk.
+**Vulnerability** is a weakness that a threat could exploit to cause harm. Most people picture a technical vulnerability — an unpatched CVE (Common Vulnerabilities and Exposures, the public catalogue that gives every known software flaw a unique tracking ID like CVE-2024-3400), a misconfigured cloud storage bucket, a weak password policy — but vulnerabilities are just as often non-technical: an untrained employee who reliably clicks phishing links, an undocumented process, a missing approval step before a wire transfer goes out. A vulnerability with no known threat currently targeting it carries a lower likelihood, so it can usually wait behind weaknesses under confirmed attack — but its risk is not zero, because opportunistic, indiscriminate scanning can still find it, especially on an internet-facing system.
 
 **Impact** is the consequence to the organisation if a threat successfully exploits a vulnerability. Financial loss, operational downtime, regulatory fines, reputational damage, exposure of sensitive data. Impact depends heavily on which specific asset is involved — a compromised disposable test server carries a very different impact than a compromised domain controller or a payment-processing system holding customer card data.
 
@@ -96,19 +96,19 @@ Security uses three precisely different words for the pieces of that story, and 
 
 **A worked example.** SRV-APP12 has a high-severity, unpatched vulnerability — on paper, it looks like the scarier finding. No current threat intelligence indicates any threat actor is targeting it. SRV-VPN04 has a more moderate misconfiguration, but threat intelligence confirms that a known ransomware-affiliated group is actively exploiting exactly this weakness against organisations in the same sector, right now. Even though SRV-APP12's vulnerability rating looks worse in isolation, SRV-VPN04 currently represents the higher real-world risk — because its Threat component is active, specific, and confirmed, not theoretical.
 
-**Why this matters for prioritisation.** A SOC or vulnerability management team can never patch every "critical"-rated finding immediately — there is always more work than there is time or maintenance windows. The Threat x Vulnerability x Impact lens is exactly what turns a pile of severity ratings into an actual prioritisation decision. As an analyst, the questions worth asking are: Is there current threat intelligence showing this exact vulnerability is being actively exploited, and by whom? What does exploitation actually require — remote and unauthenticated, or local and already-authenticated? What is the impact if this specific asset, given its role and the data it holds, were compromised? A severity rating only becomes a real prioritisation decision once all three questions have been answered — not before.`,
+**Why this matters for prioritisation.** A SOC or vulnerability management team can never patch every "critical"-rated finding immediately — there is always more work than there is time or maintenance windows. The Threat x Vulnerability x Impact lens is exactly what turns a pile of severity ratings into an actual prioritisation decision. As an analyst, the questions worth asking are: Is there current threat intelligence showing this exact vulnerability is being actively exploited, and by whom? What does exploitation actually require — remote and unauthenticated, or local and already-authenticated? What is the impact if this specific asset, given its role and the data it holds, were compromised? A CVSS (Common Vulnerability Scoring System) score rates only a flaw's technical severity on a 0–10 scale and says nothing about whether anyone is exploiting it — that is what threat intelligence adds, for example CISA's Known Exploited Vulnerabilities (KEV) catalog of flaws confirmed exploited in the wild. A severity rating only becomes a real prioritisation decision once all three questions have been answered — not before.`,
       checkpoint: {
         question:
-          "A vulnerability exists on a server, but no threat intelligence indicates any actor is currently aware of it or targeting it. According to the reading, what does this vulnerability represent right now?",
+          "A server has an unpatched vulnerability, but threat intelligence shows no actor currently exploiting it. Using the reading's model, how should this finding be treated right now?",
         options: [
-          "Zero risk of any kind, since risk cannot exist without an active exploit already in progress",
-          "A liability worth fixing, but not yet an active risk — risk requires a threat component as well, not vulnerability alone",
-          "The highest possible risk, because unpatched vulnerabilities are always the most urgent item regardless of any other factor",
-          "Exactly the same risk level as every other vulnerability of the same technical severity rating",
+          "As zero risk for now: with no known actor targeting it, there is nothing to fix yet",
+          "As a real but lower-priority risk: no known threat lowers likelihood, but not to zero",
+          "As top priority: an unpatched flaw outranks any finding that has a lower severity score",
+          "At the same priority as every finding with the same severity score, whatever the threat",
         ],
         answer: 1,
         explanation:
-          "A vulnerability with no threat currently targeting it is a liability worth fixing eventually, but risk is the combination of threat, vulnerability, and impact together — without an active or credible threat component, it has not yet become an active risk.",
+          "Risk combines threat, vulnerability, and impact. With no known actor exploiting the flaw, the likelihood side is lower, so it can usually wait behind weaknesses under confirmed attack — but opportunistic, indiscriminate scanning can still find it, so it is a real, lower-priority risk. “Zero risk for now” confuses lower likelihood with no threat at all. “Top priority” and “same priority as every finding with the same severity score” both rank by the severity score alone, which is exactly the shortcut the Threat x Vulnerability x Impact view replaces.",
       },
     } satisfies ReadingTask,
 
@@ -130,16 +130,16 @@ Security uses three precisely different words for the pieces of that story, and 
 **A Shadow IT example.** An employee needs to send a large file to a client and, without asking IT or security, signs up on their own for a third-party file-sharing service nobody has reviewed. No vulnerability has been found in that specific tool — nothing has "happened" yet in the sense of an exploit. But the organisation's attack surface has already grown the moment company data started flowing through an unmanaged, unreviewed external account: an account with unknown password hygiene, unknown data-retention practices, and a security posture entirely outside the visibility of the security team. This is exactly why attack surface and known-vulnerability count are not the same measurement at all — surface can expand well before any vulnerability is ever identified in whatever was just added.`,
       checkpoint: {
         question:
-          "According to the reading, what is the key structural difference between Attack Surface and Attack Vector?",
+          "No new CVE has been announced, but the security team takes a forgotten test web server off the internet and disables 15 dormant accounts. What have these changes achieved?",
         options: [
-          "They are two names for the exact same concept and can always be used interchangeably",
-          "Attack surface is the total set of all potential entry points that exist, regardless of whether anyone is using them; attack vector is the one specific path an actual attacker used or is attempting to use",
-          "Attack surface only applies to physical break-ins, while attack vector only applies to purely digital attacks",
-          "Attack vector always refers to a larger, organisation-wide measurement, while attack surface refers to one single specific incident",
+          "Nothing measurable yet: exposure only drops once a known vulnerability is patched",
+          "A smaller attack surface: fewer places a future, unknown flaw could be exploited from",
+          "A smaller attack vector: the path a future attacker will choose is now known and closed",
+          "A lower threat level: attackers lose interest in organisations that run fewer systems",
         ],
         answer: 1,
         explanation:
-          "Attack surface is the full inventory of potential entry points that exist at a given moment, whether or not anyone is currently trying to use any of them. Attack vector is the specific path a particular attacker actually used, or is attempting to use, in one particular attack — the specific window a burglar climbed through, not every window that exists.",
+          "Removing unused exposure and dormant accounts is attack surface reduction: it cuts the total number of entry points, and it does not require knowing any specific CVE in advance. “Nothing measurable yet” ties exposure to known vulnerabilities, but the reading shows surface and known-vulnerability count are different measurements. “A smaller attack vector” misuses the term: a vector is the one path a real attacker uses in a particular attack, and no attack has happened here. “A lower threat level” changes the wrong component: the actors and their intent are unchanged; what shrank is what they could reach.",
       },
     } satisfies ReadingTask,
 
@@ -148,16 +148,16 @@ Security uses three precisely different words for the pieces of that story, and 
       type: "question",
       id: "riskfund-q1",
       question:
-        "Two findings land in the same prioritisation queue on the same day. SRV-APP12 has a high-severity, unpatched vulnerability, but no current threat intelligence indicates any threat actor is targeting it. SRV-VPN04 has a moderate-severity misconfiguration, but threat intelligence confirms a known ransomware-affiliated group is actively exploiting that exact weakness against organisations in your sector right now. Applying the Threat x Vulnerability x Impact view of risk, which statement is most accurate?",
+        "The same CVE (CVSS 7.5) is found unpatched on two internal servers. Threat intelligence shows no active exploitation of it. LAB-TEST07 is a disposable test VM holding no real data; PAY-DB01 stores customer card data for the payment system. Applying the Threat x Vulnerability x Impact view, which statement is most accurate?",
       options: [
-        "Both carry equal risk, because risk is fixed by the severity rating and threat intelligence only affects how fast to patch, not the risk itself",
-        "SRV-APP12 comes first, because a high-severity unpatched vulnerability is a certain weakness, while threat activity against SRV-VPN04 may never reach this organisation",
-        "SRV-VPN04 likely carries the higher real-world risk now, because an active threat targeting its exact weakness raises risk despite the lower severity rating",
-        "Neither is a real risk until exploitation has been observed inside the organisation, so both wait for a detection to fire",
+        "Equal risk: the same CVE with the same score means the same risk on every asset",
+        "LAB-TEST07 first: test machines are patched less often, so it is the weaker host",
+        "PAY-DB01 ranks higher: threat and weakness match, but its compromise costs far more",
+        "Neither is a risk yet: both wait until threat intelligence reports exploitation",
       ],
       answer: 2,
       explanation:
-        "Risk is the combination of Threat, Vulnerability, and Impact together — not vulnerability severity in isolation. SRV-VPN04's active, confirmed, sector-specific threat activity raises its real-world risk above SRV-APP12's, whose higher-severity vulnerability currently has no known threat actor behind it. Waiting for an actual exploitation event inside the organisation before treating something as a risk defeats the entire purpose of proactive prioritisation.",
+        "Threat (no known exploitation) and vulnerability (the same CVE, same score) are identical on both hosts, so the deciding component is impact: a compromised payment database holding card data costs far more than a disposable test VM. “Equal risk” treats the CVSS score as the whole of risk and ignores which asset is involved. “LAB-TEST07 first” brings in a patching habit the stem rules out: both hosts carry the same unpatched CVE, so neither is weaker. “Neither is a risk yet” confuses lower likelihood with zero risk: an unexploited flaw is still a real, lower-priority risk.",
       xp: 25,
     } satisfies QuestionTask,
 
@@ -171,11 +171,11 @@ Security uses three precisely different words for the pieces of that story, and 
         "The full set of internet-facing systems, internal systems and employees who could be targeted is the attack surface; the phishing email actually used is the vector",
         "The phishing email is the attack surface, being the one artifact investigators collected, and the VPN gateway is the vector because it is the most exposed system",
         "The attack surface is the internal file shares and workstations reached after entry, and the vector is the set of internet-facing systems the attacker came through",
-        "An attack vector exists only once incident response has confirmed a breach; before that point, only an attack surface can be said to exist",
+        "Incident response names the attack vector after it confirms the breach; until then the scenario has an attack surface but no vector at all",
       ],
       answer: 0,
       explanation:
-        "Attack surface is the total inventory of everything that could theoretically be targeted — every internet-facing system, internal system, and employee. Attack vector is the one specific path actually used in this attack: the phishing email. An attempted vector does not require a confirmed breach to exist as a vector — an attacker choosing and attempting a specific path is already using that vector, whether or not it ultimately succeeds.",
+        "Attack surface is the total inventory of everything that could theoretically be targeted — every internet-facing system, internal system, and employee. Attack vector is the one specific path actually used in this attack: the phishing email. Calling the phishing email the surface because it was the artifact collected, with the VPN gateway as the vector, swaps the two terms, and the VPN was not the path used. Calling the internal systems the surface and the internet-facing systems the vector splits one inventory into two parts instead of separating “everything reachable” from “the path used”. And a vector does not wait for incident response to confirm a breach: an attacker choosing and attempting a specific path is already using that vector, whether or not it succeeds.",
       xp: 25,
     } satisfies QuestionTask,
 
@@ -184,16 +184,16 @@ Security uses three precisely different words for the pieces of that story, and 
       type: "question",
       id: "riskfund-q3",
       question:
-        "An employee begins using a personal, unapproved cloud storage account to share large client files, without informing the security team (Shadow IT). No vulnerability has yet been identified in that specific cloud service. Has the organisation's risk exposure changed, and why?",
+        "Without telling IT or security, the marketing team connects a new third-party analytics app to the company CRM through an API integration that can read customer records. No vulnerability is known in the app, and no attack has been seen. What has changed?",
       options: [
-        "No: risk exposure changes only after a specific vulnerability has been discovered and confirmed in the new cloud service",
-        "No: Shadow IT becomes a security concern only once the unapproved service suffers a publicly disclosed breach naming affected customers",
-        "Yes, but only the impact component rose, since client files now sit in a third-party store, while the attack surface itself is unchanged until a vulnerability is found",
-        "Yes: the attack surface has grown, since company data now flows through an unmanaged external service outside security's visibility, even with no known vulnerability",
+        "Nothing yet: exposure grows when a flaw is found in the app, not before",
+        "The attack vector: the API integration is now the path an attacker is using",
+        "The impact rose as data sits with a vendor, but the entry points are unchanged",
+        "The attack surface grew: an unreviewed integration is a new entry point",
       ],
       answer: 3,
       explanation:
-        "Attack surface expands the moment a new, unreviewed entry point is added — a new account with unknown password hygiene, unknown data-retention practices, and no security oversight — regardless of whether any specific vulnerability has been found in it yet. This is exactly why attack surface and known-vulnerability count are different measurements: surface can grow well before any vulnerability is ever identified in whatever was just added.",
+        "Every new integration adds a potential entry point, and this one is unreviewed and outside security's visibility, so the attack surface grew the moment it was connected, with no known vulnerability required. “Nothing yet” ties exposure to known flaws, but surface and known-vulnerability count are different measurements. “The attack vector” misuses the term: a vector is the path a real attacker uses in a particular attack, and no attack has been seen. “The impact rose … entry points are unchanged” is wrong about the entry points: the integration itself is a new way in to customer records.",
       xp: 25,
     } satisfies QuestionTask,
 
@@ -262,9 +262,9 @@ Security uses three precisely different words for the pieces of that story, and 
       type: "flag",
       id: "riskfund-f1",
       prompt:
-        "According to Reading 2, what two-word term describes the specific path or method an attacker actually uses in a given attack — as distinct from the full set of all potential entry points (the attack surface)? Enter the term only.",
-      answer: "Attack Vector",
-      hint: "It's the counterpart to 'Attack Surface' from the second reading — the specific window a burglar actually climbed through, not every window that exists on the house.",
+        "Three findings arrive in this week's queue. WEB-DEV03: CVSS 9.8, internal lab server holding no real data, no known exploitation. HR-FS02: CVSS 8.1, internal HR file share, no known exploitation. PAY-API01: CVSS 7.2, internet-facing payment API, threat intelligence confirms active exploitation of this CVE against retailers like yours. Applying Threat x Vulnerability x Impact, enter the hostname you would remediate first.",
+      answer: "PAY-API01",
+      hint: "Rate each finding on all three components — who is exploiting it, how exposed it is, and what its compromise would cost — instead of sorting by the score.",
       xp: 30,
     } satisfies FlagTask,
   ],

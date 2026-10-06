@@ -62,7 +62,7 @@ Every reactive investigation should follow a disciplined six-phase lifecycle. Sk
 
 When you analyze evidence, constantly ask yourself: *if I were the attacker, why would I have done this?* Attackers have goals (steal data, move laterally, establish persistence), and their actions follow a logical sequence. When you understand attacker goals, you can predict what evidence to look for next. If you see a reconnaissance scan, look for what port they found open. If you see a successful login from an unusual IP, look for what they did once they got in.`,
       checkpoint: {
-        question: "According to the reading, which phase of the six-phase investigation lifecycle involves forming a verdict of true positive, false positive, or inconclusive?",
+        question: "An analyst built a clean timeline and is now writing the ticket, but it has no verdict and does not say which systems or data were affected. Which phase was skipped?",
         options: [
           "Phase 2 — Scope",
           "Phase 3 — Collect",
@@ -70,7 +70,7 @@ When you analyze evidence, constantly ask yourself: *if I were the attacker, why
           "Phase 6 — Document",
         ],
         answer: 2,
-        explanation: "Phase 5 (Conclude) is where the analyst forms a verdict — true positive, false positive, or inconclusive — after analyzing the evidence gathered in earlier phases.",
+        explanation: "Phase 5 (Conclude) is where you form the verdict (true positive, false positive or inconclusive) and, for a true positive, state what the attacker did, which systems are affected and what data may have been accessed. “Phase 2 — Scope” is an early estimate of how big the incident might be, made before the data is pulled, not the final finding. “Phase 3 — Collect” was clearly done, because a timeline exists. “Phase 6 — Document” is the phase the analyst is in now; it records the conclusion but cannot replace reaching one.",
       },
     },
 
@@ -164,6 +164,7 @@ When an alert fires in your SIEM, follow this step-by-step process:
 - PSExec / WMI execution (PSEXESVC.exe, wmiprvse.exe spawning processes)
 - Admin share access (\\\\hostname\\ADMIN$, \\\\hostname\\C$)
 - New service installation on remote hosts (Event ID 7045)
+- The authentication package on network logons. In an Active Directory domain Kerberos is the default. A 4624 Type 3 logon that uses NTLM where Kerberos is expected deserves a look, because Pass-the-Hash (logging on with a stolen password hash instead of the password) produces NTLM authentications. NTLM also has ordinary causes, such as a server addressed by IP address or an older system, so treat it as a signal to corroborate, not as proof.
 
 **Step 6 — Check for exfiltration indicators.**
 - Large outbound data transfers (firewall logs showing unusual byte counts)
@@ -195,16 +196,16 @@ A good case ticket contains:
     {
       type: "question" as const,
       id: "inv-method-q1",
-      question: "Which phase of the investigation lifecycle involves pulling all relevant logs before they are overwritten?",
+      question: "An alert names one server. Its local Security log rolls over about every 6 hours, and only part of it reaches the SIEM. You have scoped the case. What do you do next?",
       options: [
-        "Phase 1 — Trigger",
-        "Phase 2 — Scope",
-        "Phase 3 — Collect",
-        "Phase 5 — Conclude",
+        "Analyse the alert on its own first, and pull host logs once you know what to look for",
+        "Record the case as inconclusive now, since the evidence will roll before you finish",
+        "Pull the server's logs and telemetry now, before rotation overwrites them, then analyse",
+        "Reboot the server to stop any activity, then collect its logs once it is back up",
       ],
       answer: 2,
       explanation:
-        "Phase 3 (Collect) is where you actively gather logs, endpoint telemetry, and network data. This phase must happen quickly because logs rotate and memory is lost on reboot. Waiting until Phase 4 (Analyze) to collect data risks losing volatile evidence. Scoping (Phase 2) determines *what* to collect; collecting (Phase 3) is the act of actually pulling it.",
+        "This is Phase 3 (Collect): pull the evidence before it is overwritten, then move to analysis. “Analyse the alert on its own first” reverses Collect and Analyze, and with a 6-hour rotation the logs you need may be gone by the time you know what to look for. “Record the case as inconclusive now” gives up on evidence you can still save. “Reboot the server” destroys memory evidence and still leaves the log rotation problem.",
       xp: 30,
     },
 
@@ -212,16 +213,16 @@ A good case ticket contains:
     {
       type: "question" as const,
       id: "inv-method-q2",
-      question: "You find a suspicious external IP address in one log. What is the first pivot you should perform?",
+      question: "One host's firewall log shows beacons to an external IP you suspect is C2. Which pivot best reveals other infected machines?",
       options: [
-        "Block the IP at the firewall and close the ticket",
-        "Search every host in the environment that communicated with that IP",
-        "Report the IP to the hosting provider's abuse contact and wait for a reply",
-        "Run a port scan against that IP to see which services it is running",
+        "Every system the host's logged-on user accessed in the last 30 days",
+        "Every internal host that connected to that IP in the time window",
+        "Every connection the suspicious process on that host has made",
+        "The IP's reputation and history in VirusTotal and AbuseIPDB",
       ],
       answer: 1,
       explanation:
-        "When you identify a suspicious IP, the first pivot is to search your SIEM for every internal host that communicated with it. One infected machine usually means others — attackers often run C2 (command-and-control) servers that multiple compromised hosts check in with. Blocking the IP straight away should come after scoping, not before — you might tip off the attacker before you understand the full extent of the compromise. Port scanning the attacker's IP is not a SOC analyst task and could be illegal.",
+        "The IP → hosts pivot searches all internal traffic to that IP, so any other machine checking in with the same C2 server shows up. “Every system the host's logged-on user accessed” is a user → systems pivot: it finds lateral movement by that one account, not other machines infected through other users. “Every connection the suspicious process has made” is a process → network pivot on the same single host. “The IP's reputation” is enrichment: it tells you about the IP, not which of your machines talked to it.",
       xp: 30,
     },
 
@@ -229,16 +230,16 @@ A good case ticket contains:
     {
       type: "question" as const,
       id: "inv-method-q3",
-      question: "Why is UTC the standard for investigation timelines?",
+      question: "You merge three sources into one UTC timeline: Security events read from an exported EVTX file, an IIS log in the older NCSA format from a server set to UTC+2, and Sentinel query results. Which one most likely needs manual conversion?",
       options: [
-        "UTC is a fixed offset from local time everywhere on earth, so no conversion is ever needed when comparing logs",
-        "Different systems may record timestamps in different local time zones; UTC provides a single reference point for accurate ordering",
-        "The MITRE ATT&CK framework mandates UTC timestamps in every incident report an organisation produces",
-        "Syslog RFC 5424 forbids any timestamp carrying a non-zero offset, so non-UTC entries are silently dropped",
+        "The EVTX events, because Windows stores event times in the host's local zone",
+        "The NCSA-format IIS log, because it is written in local time with no offset",
+        "The Sentinel results, because a SIEM keeps each event in its source's zone",
+        "All three equally, because every source logs in its own host's local time zone",
       ],
       answer: 1,
       explanation:
-        "Systems across an organisation are often configured to different local time zones — a server in New York might log in EST (UTC-5), a cloud workload in Dublin in IST (UTC+1), and a SIEM in UTC. If you mix these without normalising, an event that happened first appears *later* in your timeline and the entire sequence looks wrong. Converting everything to UTC before building a timeline is standard practice because UTC has no daylight saving adjustments and never changes.",
+        "Older IIS/NCSA-format logs are written in the server's local time without an offset, so these UTC+2 entries must be shifted by two hours before they are ordered. “The EVTX events” is a common trap: EVTX stores TimeCreated in UTC, and only the Event Viewer display converts it to local time. “The Sentinel results” is wrong because Sentinel, like most SIEMs, normalises event times to UTC (still worth confirming, but not the source that needs conversion). “All three equally” ignores that two of the three are already UTC.",
       xp: 30,
     },
 
@@ -247,7 +248,7 @@ A good case ticket contains:
       type: "log_analysis" as const,
       id: "inv-method-la1",
       heading: "Investigating Lateral Movement — Suspicious Service Account Logon",
-      context: `You are a Tier 2 SOC analyst and the SIEM has escalated an alert about a service account authentication. Service accounts are a high-value target for attackers because they often have elevated privileges. Business context from your asset inventory: svc-backup is a scheduled backup service account that should only ever authenticate from the backup server SRV-BACKUP-01. Your job is to examine the Windows Security Event below and determine whether this logon is legitimate or suspicious. Pay attention to the source of the logon and the authentication package used.`,
+      context: `You are a Tier 2 SOC analyst and the SIEM has escalated an alert about a service account authentication. Service accounts are a high-value target for attackers because they often have elevated privileges. Business context from your asset inventory: svc-backup is a scheduled backup service account that should only ever authenticate from the backup server SRV-BACKUP-01. Your job is to examine the Windows Security Event below and determine whether this logon is legitimate or suspicious.`,
       event: {
         id: "inv-la1-evt-001",
         ts: "2025-06-24T03:17:42.000Z",
@@ -257,7 +258,7 @@ A good case ticket contains:
         hostname: "SRV-FINANCE-02",
         user_email: "svc-backup@corp.local",
         src_ip: "10.0.1.45",
-        description: "Service account network logon from unexpected workstation using NTLM",
+        description: "Windows Security 4624 logon for svc-backup on SRV-FINANCE-02",
         mitre_technique: "T1078.002 - Valid Accounts: Domain Accounts",
         vendor: "Windows Security",
         raw: {
@@ -268,34 +269,33 @@ A good case ticket contains:
           "winlog.event_data.WorkstationName": "WS-DEV-09",
           "winlog.event_data.AuthenticationPackageName": "NTLM",
           "winlog.event_data.ElevatedToken": "%%1842",
-          "rule.description": "Service account authenticating from a non-approved workstation",
         },
       } satisfies TelemetryEvent,
       questions: [
         {
-          question: "Which field immediately tells you this logon came from a different machine than expected?",
+          question: "Checked against the asset-inventory note, which field shows this logon breaks svc-backup's expected pattern?",
           options: [
-            "winlog.event_data.LogonType = 3",
+            "winlog.event_data.LogonType = 3 (network)",
             "winlog.event_data.WorkstationName = WS-DEV-09",
-            "winlog.event_data.ElevatedToken = %%1842",
-            "event.code = 4624",
+            "winlog.event_data.ElevatedToken = %%1842 (yes)",
+            "event.code = 4624 (successful logon)",
           ],
           answer: 1,
           explanation:
-            "WorkstationName shows the machine where the authentication originated: WS-DEV-09, a developer workstation. According to the context note, svc-backup should only authenticate from SRV-BACKUP-01. The deviation in WorkstationName is the clearest indicator that something is wrong — either an attacker has compromised WS-DEV-09 and is using the svc-backup credentials from there, or the credentials have been stolen and used from an attacker-controlled machine.",
+            "WorkstationName shows where the authentication came from: WS-DEV-09, a developer workstation, while the inventory says svc-backup authenticates only from SRV-BACKUP-01. Either WS-DEV-09 is compromised or the credentials are being used from another machine. “LogonType = 3” is a network logon, which is exactly how a backup account normally reaches a server, so it is not the deviation. “ElevatedToken = %%1842” means the session got an elevated token, which is expected for a backup account with high privileges. “event.code = 4624” only says a logon succeeded.",
           xp: 40,
         },
         {
-          question: "Why is the NTLM authentication package significant in this alert?",
+          question: "The logon used NTLM. How should you weigh that in this investigation?",
           options: [
-            "NTLM is the modern default and is always more secure than Kerberos",
-            "NTLM is a legacy protocol, and Pass-the-Hash attacks produce NTLM authentications",
-            "NTLM here means the logon used a Golden Ticket forged for the account",
-            "NTLM authentication occurs only for logons coming from outside the network",
+            "Low value: NTLM is the normal default for domain network logons",
+            "A real signal: NTLM where Kerberos is expected fits Pass-the-Hash",
+            "Conclusive: NTLM from a service account proves Pass-the-Hash",
+            "An artefact: event 4624 reports NTLM for every Type 3 logon",
           ],
           answer: 1,
           explanation:
-            "NTLM (NT LAN Manager) is an older Windows authentication protocol. Modern environments use Kerberos by default. When you see NTLM where Kerberos is expected, it is a red flag — attackers frequently use a technique called **Pass-the-Hash (PTH)** which exploits NTLM to authenticate with a stolen password *hash* rather than knowing the actual password. This lets them move laterally without cracking credentials. Seeing NTLM from a service account at 3am from an unexpected workstation is a strong indicator of lateral movement.",
+            "In an Active Directory domain Kerberos is the default, and Pass-the-Hash (logging on with a stolen hash instead of the password) produces NTLM authentications. Combined with the unexpected workstation, NTLM strengthens the lateral-movement hypothesis, but it still needs corroboration (what WS-DEV-09 ran, other logons by svc-backup). “NTLM is the normal default” is wrong: that is Kerberos. “Proves Pass-the-Hash” overreaches, because NTLM also has ordinary causes such as a server addressed by IP. “4624 reports NTLM for every Type 3 logon” confuses logon type with authentication package: network logons can use Kerberos or NTLM.",
           xp: 40,
         },
       ],
@@ -305,9 +305,9 @@ A good case ticket contains:
     {
       type: "flag" as const,
       id: "inv-method-flag1",
-      prompt: `Review the log analysis event above. The svc-backup account authenticated using a legacy protocol that attackers exploit for Pass-the-Hash attacks. Enter the authentication package name exactly as it appears in the raw log field "winlog.event_data.AuthenticationPackageName".`,
-      answer: "NTLM",
-      hint: "Look at the AuthenticationPackageName field in the raw log. It is a 4-letter acronym for a legacy Windows authentication protocol.",
+      prompt: `Your next step is the IP address → hosts pivot from the timeline reading: find everything else the machine that used svc-backup's credentials has been doing. Which value do you search the SIEM for? Enter it exactly as it appears in the log.`,
+      answer: "10.0.1.45",
+      hint: "You want the address of the machine the logon came from, not the server that received it.",
       xp: 50,
     },
 
@@ -315,16 +315,16 @@ A good case ticket contains:
     {
       type: "question" as const,
       id: "inv-method-q4",
-      question: "Which of the following is the best description of what Windows Event ID 4624 means?",
+      question: "In SIEM workflow Step 5 you search svc-backup's activity after the logon above. Which result is a lateral-movement indicator rather than something else?",
       options: [
-        "A failed logon attempt — an account tried to authenticate and was denied",
-        "A successful logon — an account authenticated successfully to a system",
-        "A user account was created in Active Directory",
-        "A privilege escalation was detected on the endpoint",
+        "7-Zip compressing a finance share on SRV-FINANCE-02 an hour later",
+        "Event 7045: a new service installed on SRV-HR-01 minutes later",
+        "A new O365 inbox forwarding rule created on a finance mailbox",
+        "Large outbound byte counts from SRV-FINANCE-02 to a file-sharing site",
       ],
       answer: 1,
       explanation:
-        "Windows Event ID 4624 is a 'Successful Logon' event. It records every time an account successfully authenticates to a Windows system. This is one of the most important Event IDs for SOC analysts. Its counterpart, 4625, records failed logon attempts. A successful logon from an unexpected location (like a service account logging in from a developer workstation at 3am using NTLM) is just as suspicious as a failed login — sometimes more so, because the attacker already has valid credentials.",
+        "A new service installed on another host (Event ID 7045) right after the suspicious logon is a Step 5 lateral-movement indicator: the account is being used to run code on a second machine. “7-Zip compressing a finance share” is compression on a sensitive directory, a Step 6 exfiltration indicator. “A new O365 inbox forwarding rule” is also listed under exfiltration. “Large outbound byte counts to a file-sharing site” is the classic exfiltration sign. All three matter for the case, but none shows movement to another host.",
       xp: 30,
     },
 
@@ -332,16 +332,16 @@ A good case ticket contains:
     {
       type: "question" as const,
       id: "inv-method-q5",
-      question: "You complete an investigation and determine it is a true positive. What belongs in your case documentation?",
+      question: "A senior analyst must re-check your true-positive case tomorrow without you. Which draft ticket lets them reproduce your evidence?",
       options: [
-        "The final verdict and the ticket closure time",
-        "Timeline, evidence links, affected assets, chain of events, conclusion and recommendations",
-        "A screenshot of the alert, the SIEM query used, and a note that the host was rebooted",
-        "The attacker's IP address, the block request, and the name of the handling analyst",
+        "Summary, timeline, a screenshot of each result, affected assets, conclusion",
+        "Summary, timeline, a saved query link per result, affected assets, conclusion",
+        "Summary, timeline, names of the log sources searched, affected assets, conclusion",
+        "Summary, timeline, the alert ID and rule name, affected assets, conclusion",
       ],
       answer: 1,
       explanation:
-        "Good case documentation is a complete, reproducible record of the investigation. It must include the timeline of events, direct links to every piece of evidence (not screenshots), the list of all affected hosts and users, a narrative explaining how the attack unfolded, your conclusion, actions taken, and recommendations for improvement. This level of detail lets other analysts review your work, supports escalation to incident responders, and builds organisational knowledge. A screenshot and a reboot note would leave the next analyst with no idea what happened or why.",
+        "The reading asks for evidence links: direct links or saved query strings that another analyst can click and re-run, not screenshots. Only the draft with “a saved query link per result” makes the evidence reproducible. “A screenshot of each result” shows what you saw but cannot be re-run or extended. “Names of the log sources searched” says where you looked but not what you ran. “The alert ID and rule name” points back to the trigger only, not to the evidence you gathered after it. A complete ticket also needs the chain of events, actions taken and recommendations.",
       xp: 30,
     },
   ],
@@ -731,15 +731,15 @@ Chain of custody is the documented history of evidence: who collected it, when, 
 
 A chain of custody document records: evidence item (e.g., "RAM dump from HOST-FINANCE-01"), date/time collected, analyst name, collection method, hash values (MD5/SHA256 of the collected image), and any subsequent access (who accessed it and why).`,
       checkpoint: {
-        question: "According to the Order of Volatility in the reading, which evidence source should be collected first among these, since it disappears the instant the machine is powered off?",
+        question: "You reach a compromised server that is still running. Of these four, which do you capture first?",
         options: [
-          "Disk (storage)",
-          "RAM / main memory",
-          "Log files on disk",
-          "Backup media",
+          "A full disk image, since the disk holds the most data",
+          "A RAM dump, since it changes constantly and dies at power-off",
+          "The Security event log, since log rotation may overwrite it",
+          "The latest backup, to fix a pre-incident baseline first",
         ],
         answer: 1,
-        explanation: "RAM is lost immediately when the machine is powered off and may contain running processes, encryption keys, and fileless malware — making it the most valuable and time-sensitive source after CPU registers/cache (which are essentially uncollectable).",
+        explanation: "RAM comes first: it is lost at power-off and keeps changing while the host runs, and it holds processes, connections, keys and fileless code. “A full disk image” is wrong because the disk persists; holding the most data does not make it urgent. “The Security event log” is wrong because rotation is a real risk, but it works over hours or days, not at power-off. “The latest backup” is the least volatile source of all and can wait.",
       },
     },
 
@@ -792,15 +792,15 @@ How to spot a fake svchost.exe in memory analysis:
 - Path should be C:\\Windows\\System32\\svchost.exe. If it is running from AppData, Temp, or a user directory, it is malicious.
 - Legitimate svchost.exe always has a "-k" argument (e.g., svchost.exe -k netsvcs). No argument = suspicious.`,
       checkpoint: {
-        question: "According to the reading, which Volatility 3 plugin identifies memory regions that look like injected code (a sign of process injection)?",
+        question: "You found an svchost.exe in a memory dump and want to check whether it was started with a “-k” argument. Which plugin shows that?",
         options: [
           "windows.pslist",
-          "windows.netscan",
-          "windows.malfind",
+          "windows.pstree",
+          "windows.cmdline",
           "windows.dlllist",
         ],
         answer: 2,
-        explanation: "windows.malfind identifies memory regions marked as executable but not backed by a file on disk — a classic sign of process injection or reflective DLL loading.",
+        explanation: "windows.cmdline shows the command-line arguments each process was launched with, so it shows whether svchost.exe has its “-k” group. “windows.pslist” gives PIDs, PPIDs, start times and paths, but not arguments. “windows.pstree” shows the parent-child hierarchy, which is another svchost check but not this one. “windows.dlllist” lists loaded libraries, not launch arguments.",
       },
     },
 
@@ -857,16 +857,16 @@ By combining memory forensics (what was running), disk forensics (what files exi
     {
       type: "question" as const,
       id: "dfir-q1",
-      question: "Why must you collect RAM before imaging the hard disk when responding to a live incident?",
+      question: "On a live, compromised server a colleague plans to image the disk first and dump RAM afterwards. What is wrong with this plan?",
       options: [
-        "RAM holds the disk encryption key, which you need before the disk can be read",
-        "RAM is volatile and lost at power-off, while disk data persists",
-        "Disk imaging tools need the RAM capture's output to run correctly",
-        "RAM capture is faster than disk imaging, so it goes first to save time",
+        "Nothing, provided the server stays powered on until the RAM dump is done",
+        "RAM keeps changing and is lost at power-off; the disk persists and can wait",
+        "Event logs rotate fastest, so they should be collected before both of these",
+        "Order does not matter as long as both images are hashed after collection",
       ],
       answer: 1,
       explanation:
-        "RAM is the most volatile digital evidence source. The moment a machine is powered off, all RAM contents are permanently lost — this includes running processes, network connections, decrypted malware payloads, and credentials being processed. Disk content persists after power-off and can be collected later. The order of volatility principle dictates that you always collect in order from most volatile (CPU/RAM/network) to least volatile (disk/logs/backups). If you image the disk first and the machine crashes or is powered off before you collect RAM, you lose the most valuable evidence.",
+        "RAM is the most volatile source: it changes while the host runs and is gone at power-off, while the disk persists and can be imaged later. “Nothing, provided the server stays powered on” is wrong because imaging can take 30+ minutes, during which in-memory malware can exit or clean up, so staying powered on is not enough. “Event logs rotate fastest” is wrong because logs sit on disk and rotate over hours or days; they are less volatile than RAM. “Order does not matter as long as both are hashed” confuses integrity with volatility: a hash proves the copy did not change after collection, but it cannot bring back memory that was lost before collection.",
       xp: 30,
     },
 
@@ -874,16 +874,16 @@ By combining memory forensics (what was running), disk forensics (what files exi
     {
       type: "question" as const,
       id: "dfir-q2",
-      question: "What is the purpose of creating a SHA256 hash of a forensic memory dump immediately after collection?",
+      question: "Two weeks after you dumped RAM from HOST-FINANCE-01, legal asks you to show the file has not changed since collection. What shows that?",
       options: [
-        "To compress the memory dump so it takes less storage space",
-        "To verify the dump was not modified after collection — the hash proves integrity",
-        "To make the memory dump compatible with Volatility analysis",
-        "To encrypt the memory dump so unauthorised analysts cannot access it",
+        "The handler list on the custody form, showing only you accessed it",
+        "Re-hashing the dump and matching the SHA256 recorded at collection",
+        "Loading it in Volatility: if the plugins still parse it, it is intact",
+        "The file's last-modified time still matching the collection time",
       ],
       answer: 1,
       explanation:
-        "A SHA256 hash is a cryptographic fingerprint — a unique 64-character string that represents the exact contents of a file. If even one byte of the memory dump changes after collection, the SHA256 hash will be completely different. By recording the hash immediately after collection and storing it in the chain of custody document, you can later prove that the evidence was not modified. This is called **integrity verification** and is fundamental to forensic evidence handling. Anyone who claims the evidence was tampered with must explain how the hash would still match.",
+        "A SHA256 hash is a fingerprint of the exact bytes. If the hash you compute now matches the one recorded in the chain of custody at collection time, not one byte has changed. “The handler list on the custody form” records who touched the file, but a list of names cannot show the bytes are unchanged; the hash recorded on the same form does that. “If the plugins still parse it” is wrong because a modified dump can still parse perfectly. “The file's last-modified time” is metadata that can be changed or kept by copying tools, so it proves nothing about the content.",
       xp: 30,
     },
 
@@ -891,16 +891,16 @@ By combining memory forensics (what was running), disk forensics (what files exi
     {
       type: "question" as const,
       id: "dfir-q3",
-      question: "An analyst finds a file named 'svchost.exe' running from 'C:\\Users\\jsmith\\AppData\\Roaming\\'. What is the significance of this location?",
+      question: "Memory analysis shows four svchost.exe instances. Which one matches a legitimate Service Host on every check the reading gives?",
       options: [
-        "AppData\\Roaming is the standard location for svchost.exe on domain-joined machines",
-        "It is suspicious because legitimate svchost.exe only runs from C:\\Windows\\System32\\",
-        "A per-user svchost.exe copy in the profile is an update staging file and can be ignored",
-        "Defender scans AppData files on creation, so one running there has already been cleared",
+        "C:\\Windows\\System32\\svchost.exe, parent explorer.exe, args -k netsvcs",
+        "C:\\Windows\\System32\\svchost.exe, parent services.exe, args -k netsvcs",
+        "C:\\Windows\\System32\\svchost.exe, parent services.exe, no arguments",
+        "C:\\Users\\jsmith\\AppData\\Roaming\\svchost.exe, parent services.exe, -k netsvcs",
       ],
       answer: 1,
       explanation:
-        "Legitimate svchost.exe (Service Host) always runs from C:\\Windows\\System32\\svchost.exe. It is a critical system process that Windows starts very early in the boot sequence. A file named svchost.exe running from a user's AppData directory is almost certainly malware masquerading as a system process — a technique called **masquerading** (MITRE ATT&CK T1036). Attackers choose system process names specifically because analysts are less likely to question them. Always verify the full path, the parent process, and the command-line arguments of any process claiming to be a Windows system process.",
+        "A genuine svchost.exe passes all three checks: it runs from C:\\Windows\\System32, its parent is services.exe, and it carries a “-k” service-group argument. The instance with “parent explorer.exe” has the right path and argument, but a user shell does not start Service Host. The one with “no arguments” has the right path and parent but no “-k” group. The one under “AppData\\Roaming” uses the right name and parent but the wrong location, which is classic masquerading (T1036). One failed check is enough to investigate: always check path, parent and command line together.",
       xp: 30,
     },
 
@@ -909,7 +909,7 @@ By combining memory forensics (what was running), disk forensics (what files exi
       type: "log_analysis" as const,
       id: "dfir-la1",
       heading: "Memory Forensics — Suspicious svchost.exe Process",
-      context: `You are conducting memory forensics on a suspected compromised host using Volatility 3. You have run the "windows.pslist" plugin on a memory dump captured from HOST-FINANCE-03. The output below shows a suspicious svchost.exe process. Normally, all svchost.exe processes should be children of services.exe (PID ~804). The PPID shown here is a red flag. Analyse the event and answer the questions.`,
+      context: `You are conducting memory forensics on a suspected compromised host using Volatility 3. You have run the "windows.pslist" plugin on a memory dump captured from HOST-FINANCE-03. The output below shows one of the svchost.exe entries. Analyse the event and answer the questions.`,
       event: {
         id: "dfir-la1-evt-001",
         ts: "2025-06-24T14:31:55.000Z",
@@ -932,29 +932,29 @@ By combining memory forensics (what was running), disk forensics (what files exi
           // Asked as full statements rather than bare PID numbers on purpose: the
           // correct answer to "what is the PPID?" is the single character "4",
           // which a student can pick off by shape without reading the output.
-          question: "Volatility lists this svchost.exe at PID 4892. What does the volatility.ppid field tell you about its parent?",
+          question: "Volatility lists this svchost.exe at PID 4892. What is the best reading of its parent?",
           options: [
-            "PPID 804 — services.exe spawned it, the normal parent for svchost.exe",
-            "PPID 4892 — the process is recorded as its own parent",
-            "PPID 4 — the System process, not services.exe, is the parent",
-            "PPID 640 — a parent that is neither services.exe nor System",
+            "Expected: System (PID 4) starts the core services, svchost included",
+            "Expected: the parent is services.exe, the normal svchost parent",
+            "Abnormal: System (PID 4), not services.exe, is recorded as parent",
+            "Proven injection: an abnormal PPID shows code was injected here",
           ],
           answer: 2,
           explanation:
-            "The PPID (Parent Process ID) is 4, which corresponds to the System process. Legitimate svchost.exe instances are spawned by services.exe, which has a PID of approximately 804 (it varies but is always services.exe). A PPID of 4 (System) means something unusual is the parent of this process — this is a classic indicator of process injection or hollow process creation, where an attacker creates a new svchost.exe process outside the normal startup hierarchy. This is one of the most reliable indicators of process injection in memory forensics.",
+            "volatility.ppid is 4, the System process. A genuine svchost.exe is started by services.exe, so this parent is abnormal and points to masquerading or a spoofed parent. Confirm it with windows.cmdline (is there a “-k” group?) and the path. “System starts the core services, svchost included” is wrong because services are started by services.exe, not by System. “The parent is services.exe” misreads the log: the ppid field says 4. “Proven injection” overreaches: a wrong parent is a masquerading signal, while injection is shown by memory evidence such as windows.malfind hits, not by the PPID.",
           xp: 40,
         },
         {
-          question: "What Volatility plugin would you run next to check whether this svchost.exe has any suspicious network connections?",
+          question: "Next you want to know whether PID 4892 is talking to an external IP. Which plugin answers that?",
           options: [
-            "windows.pslist — to list all processes again",
-            "windows.netscan — to show all active and recently closed network connections",
-            "windows.dumpfiles — to extract files from disk",
-            "windows.cmdline — to see command-line arguments only",
+            "windows.pstree — shows the full parent-child chain of PID 4892",
+            "windows.netscan — lists sockets in memory with the owning PID",
+            "windows.dumpfiles — extracts files cached in memory for analysis",
+            "windows.cmdline — shows the arguments PID 4892 was started with",
           ],
           answer: 1,
           explanation:
-            "windows.netscan (or windows.netstat in older Volatility versions) scans memory for network connection structures and shows all active and recently closed TCP/UDP connections, including which process ID owns each connection. After finding a suspicious process with an anomalous PPID, the next question is: is it communicating with the internet? windows.netscan will tell you if PID 4892 has any outbound connections to external IPs — which would confirm it is active malware with C2 communication rather than just a crashed or orphaned process.",
+            "windows.netscan scans memory for connection structures and lists active and recently closed TCP/UDP sockets with the PID that owns each one, so you can filter for 4892 and see any external IPs. “windows.pstree” helps with the parent question, not with traffic. “windows.dumpfiles” recovers files for analysis but says nothing about connections. “windows.cmdline” is a good masquerading check (is there a “-k”?), but it does not show network activity.",
           xp: 40,
         },
       ],
@@ -964,9 +964,9 @@ By combining memory forensics (what was running), disk forensics (what files exi
     {
       type: "flag" as const,
       id: "dfir-flag1",
-      prompt: `Look at the Volatility pslist output in the log analysis above. The suspicious svchost.exe process has an anomalous PPID. What is that PPID? Enter the number only.`,
-      answer: "4",
-      hint: "PPID is the Parent Process ID. Legitimate svchost.exe should have services.exe as its parent. This one has an unusually low PPID — look at the volatility.ppid field in the raw log.",
+      prompt: `In the pslist output above, the svchost.exe at PID 4892 has the wrong parent. If it were a genuine Service Host, which process would its volatility.ppid point to? Enter the executable name, including .exe.`,
+      answer: "services.exe",
+      hint: "The memory-forensics reading lists the checks for spotting a fake Service Host. One of them names the expected parent.",
       xp: 50,
     },
 
@@ -974,16 +974,16 @@ By combining memory forensics (what was running), disk forensics (what files exi
     {
       type: "question" as const,
       id: "dfir-q4",
-      question: "Windows Prefetch files can help identify malware even after it has been deleted from disk. Why?",
+      question: "On a Windows 10 workstation, an attacker's tool ran several times and then deleted itself. Which artefact can still show its name, path AND its last run times?",
       options: [
-        "Prefetch files store a compressed copy of the executable, so it can be re-run from the Prefetch file",
-        "Prefetch files record that a program ran — its name, path and last run times — even after the executable is deleted",
-        "Prefetch files are cleared whenever Defender scans, so they only show activity from the last few minutes",
-        "Prefetch files live only in RAM and are lost on reboot, like other volatile artefacts",
+        "The $RECYCLE.BIN entry for the deleted tool",
+        "Its Prefetch (.pf) file in C:\\Windows\\Prefetch",
+        "The LNK shortcut in the user's Recent Items",
+        "The $MFT entry left behind for the deleted tool",
       ],
       answer: 1,
       explanation:
-        "Windows creates a Prefetch file (in C:\\Windows\\Prefetch\\) every time a new executable runs. The Prefetch file records the program name, path, and the last 8 execution timestamps. Crucially, Prefetch files persist even after the original executable is deleted. An attacker who runs malware and then deletes it may not think to delete the Prefetch file. When you analyse the Prefetch directory, you can see that 'malware.exe' ran from 'C:\\Users\\victim\\AppData\\Local\\Temp\\' at 3:14am — even if the file itself is gone. This makes Prefetch an extremely valuable forensic artefact for reconstructing attacker activity.",
+        "A Prefetch file records the program's name, path and its last 8 run times, and it stays after the executable is deleted. “The $RECYCLE.BIN entry” at best shows what was deleted and when, not when it ran (and self-deleting tools usually bypass the Recycle Bin). “The LNK shortcut” records files a user opened, with the target's timestamps, not execution history. “The $MFT entry” gives the file's MACB timestamps (created, modified and so on), which are not run times. Caveat: Prefetch is turned off by default on Windows Server, so on a server you would need other execution evidence such as 4688 events or EDR telemetry.",
       xp: 30,
     },
 
@@ -991,16 +991,16 @@ By combining memory forensics (what was running), disk forensics (what files exi
     {
       type: "question" as const,
       id: "dfir-q5",
-      question: "What does it mean when Volatility's 'windows.malfind' plugin flags a memory region?",
+      question: "windows.malfind flags a region inside a running process. What is the right conclusion and next step?",
       options: [
-        "The region contains a virus signature that Windows Defender missed",
-        "The region is executable but not backed by a file on disk — possible injection or shellcode",
-        "The region is shared writable memory between processes, which is normal for IPC",
-        "The region was paged out to disk and could not be read during acquisition",
+        "Malware confirmed: isolate and reimage now, no further analysis needed",
+        "Executable memory with no backing file: a lead to dump and analyse",
+        "A known virus signature was matched: check which family it belongs to",
+        "The region was paged out during capture: re-acquire memory and rerun",
       ],
       answer: 1,
       explanation:
-        "windows.malfind identifies memory regions with suspicious characteristics: they are marked executable (the CPU can run code there), but there is no corresponding file on disk backing that memory. Legitimate code is always loaded from a file (a .exe or .dll) — you can trace it back to a path. Injected shellcode or reflective DLL loading does not have a backing file — the code was written directly into memory by the attacker. This is one of the strongest indicators of process injection (T1055). When malfind flags a region, the next step is to dump that memory region and analyse it with YARA rules or a disassembler.",
+        "malfind flags memory that is executable but not backed by a file on disk. That pattern fits injected shellcode or reflective DLL loading (T1055), so it is a strong lead, and the next step is to dump the region and analyse it (YARA, disassembler) together with the process's path, parent and command line. “Malware confirmed: isolate and reimage now” skips analysis. Programs that generate code at runtime, such as .NET applications and browsers, can also produce unbacked executable memory, so a hit must be checked. “A known virus signature was matched” is wrong because malfind looks at memory characteristics, not antivirus signatures. “Paged out during capture” describes an acquisition gap, not what a malfind hit means.",
       xp: 30,
     },
   ],
@@ -1063,15 +1063,15 @@ Every email contains **headers** — metadata fields that document the email's o
 
 **Tools for header analysis:** MXToolbox Header Analyzer (mxtoolbox.com/EmailHeaders.aspx) and Google Admin Toolbox Messageheader (toolbox.googleapps.com/apps/messageheader/) both parse raw headers into a readable format. Paste the full raw headers in, and they highlight delays, path anomalies, and authentication failures.`,
       checkpoint: {
-        question: "According to the reading, in which order should an analyst read an email's 'Received' headers to trace its path from origin to inbox?",
+        question: "You open the raw headers of a suspicious email to find where it started its journey. Which header do you read first?",
         options: [
-          "Top to bottom",
-          "Bottom to top",
-          "Alphabetically by server name",
-          "It does not matter — they are all identical",
+          "The top Received header, added by your own mail server",
+          "The bottom Received header, the first hop that was recorded",
+          "The Return-Path header, because it is the envelope sender",
+          "The Message-ID header, because its domain names the origin",
         ],
         answer: 1,
-        explanation: "Received headers are read bottom-to-top: the bottom-most header is where the email originated, and each header above it represents a later hop in the relay chain.",
+        explanation: "Each server adds its Received header on top of the others, so you read them bottom-to-top: the bottom one is where the email originated. “The top Received header” is the last hop, your own server receiving the mail. “The Return-Path header” is the bounce address that SPF checks, not a record of the path. “The Message-ID header” is just an identifier, and its domain is chosen by the sending software.",
       },
     },
 
@@ -1143,15 +1143,15 @@ If a phishing email claims to be from ceo@corp.com:
 
 If corp.com has no DMARC policy, the email still reaches the inbox even with SPF fail and no DKIM. This is why publishing a DMARC record (even starting with p=none to observe before enforcing) is a fundamental email security control.`,
       checkpoint: {
-        question: "According to the reading, which DMARC policy value tells receiving mail servers to block failing email entirely and not deliver it?",
+        question: "corp.com has watched its DMARC reports for months and now wants mail failing DMARC to reach no one, not even the junk folder. Which policy should it publish?",
         options: [
           "p=none",
           "p=quarantine",
           "p=reject",
-          "p=monitor",
+          "p=none with an rua= address",
         ],
         answer: 2,
-        explanation: "p=reject blocks failing email entirely. p=none only monitors and reports without acting, and p=quarantine moves failing email to spam/junk rather than blocking it outright.",
+        explanation: "p=reject tells receivers to block failing mail entirely. “p=quarantine” still delivers it, to spam/junk, which corp.com does not want. “p=none” is monitoring mode and takes no action. “p=none with an rua= address” is what corp.com has been doing: it only adds aggregate reports and still takes no action.",
       },
     },
 
@@ -1221,16 +1221,16 @@ When a suspicious email is reported (by a user, by your email gateway alert, or 
     {
       type: "question" as const,
       id: "email-sec-q1",
-      question: "When reading email Received headers to trace the email path, in which direction do you read them?",
+      question: "An email shows From: ceo@corp.com and Authentication-Results reports dkim=pass, but its DKIM-Signature carries d=newsletter-tool.com. What does that tell you?",
       options: [
-        "Top to bottom — the first Received header shows the original sender",
-        "Bottom to top — the bottom-most Received header is where the email originated",
-        "The order does not matter — every Received header contains the same information",
-        "Skip them — only the X-Originating-IP header shows the sender",
+        "DKIM passed, so the message is proven to come from corp.com",
+        "The signature is valid, but its domain is not aligned with corp.com",
+        "The message was altered in transit, since d= differs from From",
+        "DKIM really failed, since the s= selector must equal the From domain",
       ],
       answer: 1,
       explanation:
-        "Each mail server that handles an email prepends (adds to the top) its own Received header. This means the most recent hop is at the top and the original source is at the bottom. Reading bottom-to-top traces the email's journey from origin to destination. The bottom-most Received header shows the very first mail server that accepted the email — this is the closest to the actual sender and the most important for determining the true origin of the message.",
+        "dkim=pass only proves that newsletter-tool.com signed the message and that it was not changed. For DMARC, DKIM counts only if d= aligns with the From domain, and newsletter-tool.com does not align with corp.com. “Proven to come from corp.com” ignores alignment: a pass for another domain says nothing about corp.com. “Altered in transit” is wrong because tampering would make the signature fail, and it passed. “The s= selector must equal the From domain” confuses fields: s= only tells the receiver where to find the public key in DNS.",
       xp: 25,
     },
 
@@ -1240,14 +1240,14 @@ When a suspicious email is reported (by a user, by your email gateway alert, or 
       id: "email-sec-q2",
       question: "An email shows 'From: CEO John Smith <ceo@corp.com>' but the Authentication-Results header shows 'spf=fail'. What does this most likely mean?",
       options: [
-        "The CEO's mailbox was hacked — reset the password immediately",
-        "The sending server is not authorised in corp.com's SPF record, suggesting spoofing",
+        "The CEO's real mailbox was taken over, so reset the CEO's password first",
+        "The sending server is not authorised for corp.com, which suggests spoofing",
         "SPF is advisory only, so a fail can be ignored when the display name matches",
-        "The message was delayed in transit, so the SPF lookup timed out",
+        "The SPF lookup timed out, so the result reflects a DNS problem, not the sender",
       ],
       answer: 1,
       explanation:
-        "SPF fail means the mail server that actually sent this email is NOT listed in corp.com's SPF record — in other words, it is not an authorised mail server for that domain. When combined with a From address showing ceo@corp.com, this strongly suggests email spoofing: an attacker fabricated the From address to look like the CEO, but sent the email from their own (unauthorised) mail server. SPF checks the sending server's IP against the domain in the envelope sender (the Return-Path), not the visible From address — DMARC alignment is what ties that result back to the From domain the user actually sees. An SPF fail on a high-value sender like the CEO is a high-priority alert.",
+        "spf=fail means the server that sent this message is not listed in corp.com's SPF record, so the message most likely did not come from corp.com's mail system and the From address is spoofed. SPF checks the envelope sender (Return-Path); DMARC alignment ties the result back to the visible From. “The CEO's real mailbox was taken over” is unlikely here, because mail sent from a compromised real mailbox leaves through corp.com's authorised servers and passes SPF. “SPF is advisory only” is wrong: a display name is the easiest thing to fake. “The SPF lookup timed out” describes temperror, a different result from fail.",
       xp: 25,
     },
 
@@ -1255,16 +1255,16 @@ When a suspicious email is reported (by a user, by your email gateway alert, or 
     {
       type: "question" as const,
       id: "email-sec-q3",
-      question: "What is a BEC (Business Email Compromise) attack?",
+      question: "An attacker who has taken over the CFO's real mailbox emails the payables team, with no link or attachment, asking them to urgently wire $80,000 to a new account. How do you classify this?",
       options: [
-        "A brute-force attack against the company's mail server login page",
-        "Ransomware that encrypts mailbox contents and demands payment",
-        "An attacker impersonates an executive to trick staff into wire transfers or data disclosure",
-        "A phishing campaign aimed at email providers like Microsoft 365 to steal admin tokens",
+        "Mass phishing, since it relies on a common business pretext",
+        "Whaling, since an executive's mailbox is involved in the attack",
+        "BEC, since a trusted executive mailbox is used to request a wire",
+        "Malicious attachment, since payment requests carry an invoice",
       ],
       answer: 2,
       explanation:
-        "Business Email Compromise (BEC) is a social engineering attack where the attacker impersonates a senior executive (CEO, CFO) — either by compromising their real account or by spoofing the From address — and emails employees with authority to transfer funds or share sensitive data. The email typically creates urgency ('urgent wire transfer', 'confidential deal', 'need your social security number for payroll'). BEC is one of the most financially damaging attacks: in 2023 alone it caused nearly $3 billion in reported losses (FBI). The 'URGENT: Approve Wire Transfer $250,000' email in our log analysis is a textbook BEC attempt.",
+        "Business Email Compromise uses a compromised or convincingly spoofed executive mailbox to get staff to send money or data, which is exactly this. “Mass phishing” is sent broadly to many recipients; this is one targeted request. “Whaling” means the executive is the target of the phishing; here the executive's account is the tool and the payables team is the target. “Malicious attachment” does not fit, because the message has no attachment: BEC usually works through text alone, which is why gateways often miss it.",
       xp: 25,
     },
 
@@ -1273,7 +1273,7 @@ When a suspicious email is reported (by a user, by your email gateway alert, or 
       type: "log_analysis" as const,
       id: "email-sec-la1",
       heading: "Phishing Email Analysis — Failed Authentication and Suspicious Headers",
-      context: `A finance department employee has forwarded a suspicious email to the SOC after becoming suspicious of a wire transfer request. Your email gateway captured the following metadata when the email arrived. Analyse the header fields carefully — several indicators point to email spoofing and a BEC (Business Email Compromise) attempt. Pay particular attention to the difference between what the email *shows* and what the authentication headers *reveal*.`,
+      context: `A finance department employee has forwarded a wire transfer request to the SOC because it felt unusual. The company's own domain is corp.com. Your email gateway captured the following metadata when the email arrived. Analyse the header fields and answer the questions.`,
       event: {
         id: "email-sec-la1-evt-001",
         ts: "2025-06-24T11:07:33.000Z",
@@ -1282,7 +1282,7 @@ When a suspicious email is reported (by a user, by your email gateway alert, or 
         severity: "high",
         user_email: "finance@corp.com",
         src_ip: "185.220.101.45",
-        description: "Suspected BEC phishing: spoofed CEO email with SPF/DKIM/DMARC failure and suspicious Reply-To",
+        description: "Inbound email to finance@corp.com reported by the recipient",
         mitre_technique: "T1566.001 - Phishing: Spearphishing Attachment",
         raw: {
           "email.from": "ceo@corp-secure.com",
@@ -1292,7 +1292,7 @@ When a suspicious email is reported (by a user, by your email gateway alert, or 
           "email.message_id": "<abc@mail-out.corp-secure.com>",
           "email.x_originating_ip": "185.220.101.45",
           "email.authentication_results":
-            "spf=fail smtp.mailfrom=corp-secure.com; dkim=none; dmarc=fail",
+            "spf=pass smtp.mailfrom=corp-secure.com; dkim=none; dmarc=none header.from=corp-secure.com",
           "email.received_from": "mail-out.corp-secure.com [185.220.101.45]",
           "email.attachment": "invoice_approval.html",
           "email.header_from": "CEO John Smith <ceo@corp-secure.com>",
@@ -1300,29 +1300,29 @@ When a suspicious email is reported (by a user, by your email gateway alert, or 
       } satisfies TelemetryEvent,
       questions: [
         {
-          question: "The email shows 'CEO John Smith <ceo@corp-secure.com>' in the From field. Which header field reveals that replies would actually go to an attacker's address?",
+          question: "Which pair of indicators in this log shows the message did not come from your CEO at corp.com?",
           options: [
-            "email.message_id — the Message-ID shows where replies will be delivered",
-            "email.reply_to — set to an external address instead of the company domain",
-            "email.x_originating_ip — the IP address shows who receives the replies",
-            "email.authentication_results — the DMARC fail names the reply destination",
+            "The spf=fail and dkim=none results in Authentication-Results",
+            "The lookalike From domain corp-secure.com and the Gmail Reply-To",
+            "The external X-Originating-IP and the urgent subject line",
+            "The .html attachment and the $250,000 amount in the subject",
           ],
           answer: 1,
           explanation:
-            "The email.reply_to field is set to r.donovan1985@gmail.com — a completely different domain from the purported sender (corp-secure.com). When the finance employee clicks 'Reply,' their email client will automatically address the reply to r.donovan1985@gmail.com, not to the CEO. The attacker then receives the reply (which might include a confirmation of the wire transfer or sensitive financial details). This Reply-To mismatch is a classic BEC technique — the From address looks legitimate but all correspondence goes to the attacker.",
+            "The From address uses corp-secure.com, a lookalike of corp.com, and replies go to a free Gmail address. Both show the sender is not corp.com's CEO. SPF passed only because SPF was checked for corp-secure.com, a domain the attacker controls. “The spf=fail and dkim=none results” misreads the log: SPF says pass. “The external X-Originating-IP and the urgent subject line” are worth noting, but an external IP and urgency say nothing about which domain sent the mail. “The .html attachment and the $250,000 amount” are risk factors for the payload and the impact, not evidence of the sender's identity.",
           xp: 35,
         },
         {
           question: "The attachment is named 'invoice_approval.html'. Why is an HTML file particularly dangerous as a phishing attachment?",
           options: [
-            "HTML attachments execute embedded VBA macros the instant they are opened, which is how they slip past Protected View",
-            "HTML files run in the browser, allowing a credential harvesting page to display without triggering email gateway attachment scanners that look for executables",
-            "HTML attachments are stripped by Exchange Online Protection by default, so only on-premises Exchange mailboxes are ever exposed to them",
-            "HTML files can read the browser's saved password store directly and post it to the attacker with no user input at all",
+            "It runs embedded Office macros, which Protected View does not stop",
+            "It opens a local login page in the browser, with no link for the gateway to scan",
+            "It is an executable file type, so it bypasses filters that only scan documents",
+            "It exploits the PDF reader to run code as soon as it is previewed",
           ],
           answer: 1,
           explanation:
-            "HTML phishing attachments are increasingly popular because they bypass many email gateway attachment scanners. Traditional scanners look for executable files (.exe, .docm with macros), but an HTML file is just a web page. When the victim opens invoice_approval.html, it displays a realistic-looking login page (e.g., fake Microsoft 365 login) entirely within the browser. The browser then sends the entered credentials to the attacker's server. Because the page runs locally from the attachment (not from a URL that can be scanned), it often evades URL reputation checks too. HTML credential harvesters are one of the fastest-growing phishing techniques.",
+            "An HTML attachment is a web page: when opened, it shows a fake login page (for example a Microsoft 365 sign-in) inside the browser and sends what the victim types to the attacker. There is no URL in the email body for the gateway's link scanner to check. “It runs embedded Office macros” describes .docm/.xlsm files; HTML has no VBA macros. “It is an executable file type” is wrong: HTML is not an executable, which is exactly why filters built for executables let it through. “It exploits the PDF reader” describes a malicious .pdf, not an HTML file.",
           xp: 35,
         },
       ],
@@ -1332,9 +1332,9 @@ When a suspicious email is reported (by a user, by your email gateway alert, or 
     {
       type: "flag" as const,
       id: "email-sec-flag1",
-      prompt: `In the phishing email log above, the attacker set the Reply-To header to redirect any replies away from the CEO and to an attacker-controlled address. Enter the exact email address found in the email.reply_to field.`,
-      answer: "r.donovan1985@gmail.com",
-      hint: "Look at the email.reply_to field in the raw log. The attacker used a free webmail provider, not the company domain.",
+      prompt: `In the email log above, SPF returned pass. For which domain was SPF actually checked? Enter the domain only.`,
+      answer: "corp-secure.com",
+      hint: "SPF does not check the visible From. Recall which sender address it uses, then find that value in the authentication results.",
       xp: 40,
     },
 
@@ -1342,16 +1342,16 @@ When a suspicious email is reported (by a user, by your email gateway alert, or 
     {
       type: "question" as const,
       id: "email-sec-q4",
-      question: "A domain publishes a DMARC policy of 'p=none'. According to that DMARC policy, what should the receiving mail server do with an email from that domain that fails DMARC (both SPF and DKIM fail alignment)?",
+      question: "A genuine newsletter from partner.com (DMARC p=reject) is auto-forwarded to your mailbox. At your gateway SPF fails, but DKIM with d=partner.com passes. What is the DMARC outcome?",
       options: [
-        "The email is immediately rejected and never delivered to the recipient",
-        "The email is moved to the recipient's spam/junk folder",
-        "The email is delivered normally — p=none means 'take no action, just report'",
-        "The email is quarantined for administrator review before any delivery",
+        "Rejected, because SPF failed and partner.com publishes p=reject",
+        "Quarantined, because one failed check downgrades reject to quarantine",
+        "Passes, because the aligned DKIM survived and one aligned pass is enough",
+        "Not evaluated, because forwarded mail is exempt from DMARC policy",
       ],
       answer: 2,
       explanation:
-        "DMARC p=none is 'monitoring mode' — it instructs receiving servers to take no special action on failing emails and just send aggregate reports back to the domain owner. The email is delivered normally (or goes to spam based on the email gateway's own spam filters, but not because of DMARC). p=none is a common starting point for organisations deploying DMARC for the first time — they observe the reports to ensure legitimate email is passing before moving to p=quarantine or p=reject. However, it provides no protection against spoofing during the monitoring phase.",
+        "DMARC fails only when BOTH aligned SPF and aligned DKIM fail. Forwarding breaks SPF (the forwarder is not in partner.com's record), but the DKIM signature survives and d=partner.com aligns with the From domain, so the message passes. “Rejected, because SPF failed” is the common misreading that DMARC fails on either check. “One failed check downgrades reject to quarantine” is not a DMARC rule: the policy applies only to messages that fail DMARC. “Forwarded mail is exempt” is wrong: forwarded mail is evaluated like any other message, which is why forwarding sometimes breaks DMARC when DKIM is missing.",
       xp: 25,
     },
   ],

@@ -13,7 +13,7 @@ const fwC2Event: TelemetryEvent = {
   dst_port: 443,
   protocol: "TCP",
   description:
-    "Suspicious outbound HTTPS to Tor exit node - 60-second beacon interval, 15 consecutive connections",
+    "Outbound HTTPS session from 10.0.3.88 to 185.220.101.47 - one of 15 repeating connections flagged by SIEM correlation",
   mitre_technique: "T1071.001",
   mitre_tactic: "Command and Control",
   raw: {
@@ -164,15 +164,15 @@ const firewallMasterclass = {
         `  ---> PERMITTED  (no way to verify the source IP is genuine)\n` +
         `════════════════════════════════════════════════════════════════`,
       checkpoint: {
-        question: "According to the reading, how are ACL rules evaluated, and what happens to a packet that matches no explicit rule?",
+        question: "A stateless edge router applies the INBOUND-FROM-INTERNET ACL shown above. It receives src=198.51.100.20:443 dst=10.0.3.88:51515 proto=TCP — the reply to an HTTPS session a user opened. What happens to this packet?",
         options: [
-          "Bottom-to-top; unmatched traffic is implicitly permitted",
-          "Top-to-bottom with first-match semantics; unmatched traffic hits an implicit deny-all at the end",
-          "All rules are evaluated simultaneously and the strictest one wins",
-          "Alphabetically by source IP; unmatched traffic triggers only a log entry, not a block",
+          "Permitted — the user's request already passed OUTBOUND Rule 30, so its reply is let back in",
+          "Denied by the implicit deny-all — no rule in this ACL matches TCP from source port 443",
+          "Passed on to the next ACL — a packet that matches no rule is handed on rather than blocked",
+          "Denied by OUTBOUND Rule 70 — the destination 10.0.3.88 falls inside the 10.0.0.0/8 range",
         ],
         answer: 1,
-        explanation: "ACL rules use first-match, top-to-bottom evaluation, and every ACL ends with an implicit deny-all — any packet matching no explicit rule is dropped.",
+        explanation: "The inbound ACL contains a single rule, which matches only UDP from source port 53. A TCP packet from port 443 matches nothing, so it falls through to the implicit deny-all that ends every ACL — first-match evaluation never finds a match. “The request passed OUTBOUND Rule 30” assumes the router remembers the outbound request; a stateless filter evaluates each packet in isolation, which is exactly why administrators once had to write explicit return-traffic rules. “Passed on to the next ACL” is wrong: an unmatched packet is dropped, not handed on. “OUTBOUND Rule 70” belongs to a different ACL (outbound, not inbound) and matches on the SOURCE address 10.0.0.0/8, not the destination.",
       },
     },
 
@@ -294,15 +294,15 @@ const firewallMasterclass = {
         `  Policy action: DENY (Skype blocked per corporate policy)\n` +
         `════════════════════════════════════════════════════════════════`,
       checkpoint: {
-        question: "According to the reading, what is DPI's biggest limitation, which drove the development of SSL/TLS inspection?",
+        question: "Malware on a workstation sends its C2 commands inside a TLS session on port 443. The NGFW performs DPI, but SSL/TLS inspection is not enabled. Which of these can the DPI engine NOT do for this session?",
         options: [
-          "DPI cannot process TCP traffic, only UDP",
-          "DPI cannot read the payload of TLS-encrypted (HTTPS) traffic without first decrypting it",
-          "DPI can only inspect traffic on port 80",
-          "DPI requires a dedicated proxy server and cannot run inline",
+          "Read the server name the client asks for in the TLS handshake (SNI)",
+          "Match a C2 signature against the command strings inside the payload",
+          "Record the destination IP and port and the bytes sent each direction",
+          "Notice that the sessions repeat on a robotic, fixed-interval schedule",
         ],
         answer: 1,
-        explanation: "Once traffic is encrypted with TLS, DPI cannot read the payload without decrypting it first. Since most internet traffic is now HTTPS, this pushed the industry toward SSL/TLS inspection to keep visibility.",
+        explanation: "Without decryption the payload is ciphertext, so a content signature cannot match the command strings — this is DPI's encryption problem and the reason SSL/TLS inspection was developed. “Read the SNI” is still possible: the server name travels in the clear during the handshake, which is how the Skype example in this reading is identified. “Destination IP, port and bytes” are header and session data that even a stateful firewall records. “Robotic, fixed-interval schedule” is a timing pattern, visible from when sessions start without reading any content.",
       },
     },
 
@@ -383,7 +383,7 @@ const firewallMasterclass = {
         `**Reading a rule in an investigation**\n\n` +
         `As a SOC analyst, you will frequently need to look up why a connection was allowed or denied. Find the policyname or rule_name field in the firewall log. Pull the policy configuration and read the rule. Ask: Is this rule intentionally broad? Is the destination address group maintained? Is the application or port restriction appropriate? Does this rule have logging enabled? The answers to these questions frequently reveal either a misconfiguration or a legitimate business need you were not aware of.`,
       codeExample:
-        `REALISTIC 10-RULE FORTIGATE POLICY WITH ANALYSIS\n` +
+        `REALISTIC 10-RULE FORTIGATE POLICY (AS FOUND — CONTAINS AN ORDERING BUG)\n` +
         `════════════════════════════════════════════════════════════════\n` +
         `\n` +
         ` #   Name                    From      To        Src         Dst           App/Svc      Action  Log\n` +
@@ -395,14 +395,14 @@ const firewallMasterclass = {
         ` 5   OUTBOUND-DNS            TRUST    UNTRUST  10.0.0.0/8  8.8.8.8       DNS         ALLOW   YES\n` +
         ` 6   DMZ-TO-DB               DMZ      TRUST    WebServers  DB-Servers    MySQL,MSSQL ALLOW   YES\n` +
         ` 7   INBOUND-WEB-PUBLIC      UNTRUST  DMZ      any         DMZ-VIP       HTTPS,HTTP  ALLOW   YES\n` +
-        ` 8   BLOCK-TOR-IPS           any      any      TOR-Exit-IPs any          any         DENY    YES\n` +
-        ` 9   BLOCK-KNOWN-BAD         any      any      Threat-Intel-Feed any     any         DENY    YES\n` +
+        ` 8   BLOCK-TOR-IPS           TRUST    UNTRUST  10.0.0.0/8  TOR-Exit-IPs  any         DENY    YES\n` +
+        ` 9   BLOCK-KNOWN-BAD         TRUST    UNTRUST  10.0.0.0/8  Threat-Intel  any         DENY    YES\n` +
         ` 10  IMPLICIT-DENY-LOG       any      any      any         any           any         DENY    YES\n` +
         `\n` +
         `ANALYSIS:\n` +
-        `  Rule 1 before Rule 4: Admin SSH is more specific than outbound web.\n` +
         `  Rule 3 before Rule 4: O365 allowed broadly; Rule 4 is the catch-all HTTPS.\n` +
-        `  Rules 8+9 are SHADOW risks if placed AFTER Rule 4 -- Rule 4 would match first!\n` +
+        `  BUG: Rules 8+9 sit AFTER Rule 4, so for HTTP/HTTPS they are SHADOWED --\n` +
+        `       Rule 4 matches first! (They still catch Tor/bad IPs on other ports.)\n` +
         `  CORRECT ORDER: Block rules (8,9) should be ABOVE broad allow rules (4)!\n` +
         `\n` +
         `  SHADOW RULE EXAMPLE (BUG):\n` +
@@ -412,15 +412,15 @@ const firewallMasterclass = {
         `       in the destination of Rule 4 with negation.\n` +
         `════════════════════════════════════════════════════════════════`,
       checkpoint: {
-        question: "According to the reading, what is a 'shadow rule' in a firewall rule base?",
+        question: "Using the FortiGate policy table above, with the rules in the order shown, workstation 10.0.3.88 opens an HTTPS session to an address in TOR-Exit-IPs. Which rule decides this session?",
         options: [
-          "A rule with logging disabled so its traffic is invisible",
-          "A rule that can never be triggered because an earlier, broader rule always matches the traffic first",
-          "A rule that only applies to encrypted traffic",
-          "A backup rule that activates automatically if the primary firewall fails",
+          "Rule 8 denies it — deny rules are applied before allow rules wherever they sit",
+          "Rule 4 allows it — it matches first, so Rule 8 is shadowed for HTTPS traffic",
+          "Rule 3 allows it — it is the first TRUST-to-UNTRUST rule that permits HTTPS",
+          "Rule 9 denies it — threat-intel objects are checked ahead of the numbered rules",
         ],
         answer: 1,
-        explanation: "A shadow rule sits below a broader rule that already matches the same traffic, so it is evaluated but never actually triggered — a common and dangerous misconfiguration, especially when deny rules are shadowed by broad allow rules above them.",
+        explanation: "Evaluation is first-match, top to bottom. Rule 4 (TRUST to UNTRUST, source 10.0.0.0/8, destination any, HTTPS) matches before Rule 8 is ever reached, so the Tor session is allowed and Rule 8 is a shadow rule for HTTPS. “Deny rules are applied first” is a common misconception — position, not action, decides. “Rule 3” does permit HTTPS from TRUST to UNTRUST, but only to the Office365-IPs destination group, so a Tor address does not match it. “Threat-intel objects are checked first” is wrong: Rule 9 is an ordinary rule in position 9 and is shadowed by Rule 4 in exactly the same way.",
       },
     },
 
@@ -560,15 +560,15 @@ const firewallMasterclass = {
         ` - Certificate-pinned applications (whitelist by CN or fingerprint)\n` +
         `════════════════════════════════════════════════════════════════`,
       checkpoint: {
-        question: "According to the reading, what technique lets an application (like WhatsApp or a banking app) detect and refuse the firewall's substitute certificate, bypassing SSL inspection?",
+        question: "Right after SSL inspection is switched on, Chrome and Zoom on managed laptops keep working with no certificate warnings, but a banking app on the same laptops now fails to connect. What best explains this?",
         options: [
-          "App-ID",
-          "Certificate pinning",
-          "DPI protocol anomaly detection",
-          "Dual-firewall DMZ",
+          "The corporate CA certificate never reached these laptops through GPO",
+          "The app pins its certificate and rejects the firewall's substitute one",
+          "Banking is on the bypass list, and bypassed traffic is dropped by default",
+          "App-ID cannot classify the app, so its session falls to the implicit deny",
         ],
         answer: 1,
-        explanation: "Certificate pinning embeds a specific certificate fingerprint in the application, so it refuses to connect if it receives any other certificate — including the firewall's SSL-inspection substitute — forcing administrators to create bypass rules.",
+        explanation: "A pinned application accepts only the certificate fingerprint built into it, so the firewall-issued substitute certificate is refused and the connection fails; the fix is a bypass rule for that app. “The CA never reached the laptops” is ruled out because Chrome works on the same laptops with no warnings, which means they already trust the corporate CA. “Bypassed traffic is dropped” misreads bypass: bypassed traffic passes without inspection, so a bypassed banking app would keep working. “App-ID cannot classify it” does not fit the timing — App-ID behaved the same before the change, and the failure began exactly when SSL inspection was turned on.",
       },
     },
 
@@ -637,6 +637,8 @@ const firewallMasterclass = {
         `Palo Alto logs use a pan. prefix for proprietary fields. Pan.app identifies the application (e.g., "web-browsing", "ssl", "smtp"), pan.rule is the matching rule name, pan.action is the enforcement action, and pan.bytes_sent and pan.bytes_received are traffic volume fields. Palo Alto also includes the URL category and threat name when applicable.\n\n` +
         `**What to hunt for in firewall logs**\n\n` +
         `High bytes sent to an external IP: large data.sentbyte values to unfamiliar destinations suggest data exfiltration. A 500MB upload to an IP in an unexpected country warrants immediate investigation. Periodic connections at fixed intervals: connections from the same internal IP to the same external IP at consistent time intervals (e.g., every 60 seconds) with small, consistent byte counts are textbook C2 beaconing. The interval regularity is the key indicator — real user behavior does not produce machine-precise connection timing. Internal-to-internal unusual ports: lateral movement often manifests as unexpected connections between internal hosts on ports like 445 (SMB), 135 (WMI/RPC), or 3389 (RDP). A workstation connecting to another workstation over RDP is unusual in most environments. Connections to Tor exit nodes or threat-intel-flagged IPs: even if the firewall allowed it (because the rule was broad), the data.dstcountry and destination IP are correlatable against threat intelligence feeds. Allowed connections that should have been blocked indicate a policy gap.\n\n` +
+        `**NAT: finding the real host behind a public address**\n\n` +
+        `Most outbound traffic leaves through source NAT (SNAT) with port address translation (PAT): hundreds of internal hosts share one public IP, and the firewall gives each session its own public source port. The internet — and therefore any external abuse report or threat-intel hit — sees only that public IP and port. In a FortiGate traffic log, data.trandisp="snat" marks a translated session, data.transip and data.transport hold the public IP and port the outside world saw, and data.srcip and data.srcport hold the real internal host and its original port (Check Point records the same mapping in xlatesrc and xlatesport). To trace an external report back to a host, match the public IP, the translated port and the timestamp together — never the public IP alone, and never the internal srcport.\n\n` +
         `**SIEM correlation: combining firewall + DNS + EDR**\n\n` +
         `A single firewall log tells you that a connection happened. Correlating it with DNS logs (which domain was resolved immediately before the connection?) and EDR logs (which process on the endpoint initiated the connection?) transforms a network event into a full behavioral story. A connection to 185.220.101.47 is interesting. That same IP preceded by a DNS query to "update-svc.cdn-delivery-net.com" and initiated by a process called "svchost.exe" running from the user's Temp directory is a high-confidence threat requiring immediate response.`,
       codeExample:
@@ -662,8 +664,8 @@ const firewallMasterclass = {
         `\n` +
         ` TIME     │ SOURCE  │ EVENT\n` +
         ` ─────────┼─────────┼──────────────────────────────────────────────────\n` +
-        ` 03:13:59 │ Sysmon  │ Event 22: DNS query "update-svc.cdn-net.com"\n` +
-        `          │ (EDR)   │ Process: svchost.exe (C:\\Users\\bob\\AppData\\Temp)\n` +
+        ` 03:13:59 │ Sysmon  │ Event 22: DNS query "update-svc.cdn-delivery-net.com"\n` +
+        `          │ (EDR)   │ Process: svchost.exe (C:\\Users\\bob\\AppData\\Local\\Temp)\n` +
         `          │         │ Result: 185.220.101.47\n` +
         ` ─────────┼─────────┼──────────────────────────────────────────────────\n` +
         ` 03:14:07 │FortiGate│ data.srcip=10.0.3.88 data.dstip=185.220.101.47\n` +
@@ -679,17 +681,28 @@ const firewallMasterclass = {
         ` VERDICT:  Malware svchost.exe (fake, in Temp folder, spawned by Word,\n` +
         `           unsigned) is beaconing to Tor exit node via allowed HTTPS rule.\n` +
         `           MITRE: T1071.001 (Web Protocols C2) + T1036.005 (Masquerading)\n` +
+        `════════════════════════════════════════════════════════════════\n` +
+        `SOURCE NAT (SNAT) — MAPPING A PUBLIC ADDRESS BACK TO THE HOST\n` +
+        ` FortiGate traffic logs, trandisp="snat". transip/transport = what the\n` +
+        ` internet saw; srcip/srcport = the real internal host and its port.\n` +
+        `\n` +
+        ` time      srcip       srcport  transip         transport  dstip\n` +
+        ` ────────  ──────────  ───────  ──────────────  ─────────  ──────────────\n` +
+        ` 03:20:04  10.0.2.41   61873    198.51.100.24   40112      203.0.113.80\n` +
+        ` 03:20:05  10.0.5.17   52210    198.51.100.24   61873      203.0.113.80\n` +
+        ` 03:20:05  10.0.3.88   51399    198.51.100.24   40113      185.220.101.47\n` +
+        ` 03:20:06  10.0.6.30   49920    198.51.100.24   61874      203.0.113.80\n` +
         `════════════════════════════════════════════════════════════════`,
       checkpoint: {
-        question: "According to the reading, in a FortiGate log, what does 'data.action = accept' mean?",
+        question: "An external abuse report says that 198.51.100.24, source port 61873, contacted their server 203.0.113.80 at 03:20:05. Using the SNAT table in this reading, which internal host do you investigate?",
         options: [
-          "The traffic was blocked by policy",
-          "The traffic was silently discarded with no response",
-          "The traffic was permitted through the firewall",
-          "The traffic was redirected to a cloud sandbox",
+          "10.0.2.41 — its srcport in the table is 61873",
+          "10.0.3.88 — it is the host already beaconing",
+          "10.0.5.17 — its transport at 03:20:05 is 61873",
+          "None — all hosts share 198.51.100.24 equally",
         ],
         answer: 2,
-        explanation: "'accept' means the firewall permitted the traffic through — as opposed to 'deny' (blocked with a response) or 'drop' (silently discarded).",
+        explanation: "The report sees the translated (public) side of the session, so it must be matched on transip + transport + time: 198.51.100.24, port 61873, 03:20:05 to 203.0.113.80 is the 10.0.5.17 row. “10.0.2.41” matches 61873 only in srcport, the internal port the outside world never sees; its public port was 40112. “10.0.3.88” is anchoring on the known beacon — its 03:20:05 session went to 185.220.101.47 on public port 40113, not to 203.0.113.80. “All hosts share the IP, so no one can be identified” ignores PAT: every session gets its own public port, which is exactly what makes the mapping unique.",
       },
     },
 
@@ -698,16 +711,16 @@ const firewallMasterclass = {
       type: "question" as const,
       id: "fw-q1",
       question:
-        "A firewall rule says: permit tcp 10.0.0.0/8 any eq 443. What does this rule do?",
+        "A Cisco extended ACL contains the rule: permit tcp 10.0.0.0 0.255.255.255 any eq 443. Which of these packets does this rule match?",
       options: [
-        "Allows inbound HTTPS from any internet host to servers inside the 10.0.0.0/8 network",
-        "Allows HTTPS (TCP 443) from any internal 10.x.x.x host to any destination",
-        "Allows TCP 443 from 10.0.0.0/8 only toward other 10.x.x.x hosts, with external destinations still denied",
-        "Allows only the single host 10.0.0.0 to reach any destination on TCP port 443",
+        "src=203.0.113.9:443 → dst=10.0.2.14:50110 (an HTTPS reply)",
+        "src=10.0.2.14:50110 → dst=203.0.113.9:443 (an HTTPS request)",
+        "src=10.0.2.14:443 → dst=203.0.113.9:50110 (an internal server reply)",
+        "src=203.0.113.9:50110 → dst=10.0.2.14:443 (an inbound HTTPS request)",
       ],
       answer: 1,
       explanation:
-        "The rule 'permit tcp 10.0.0.0/8 any eq 443' breaks down as: ACTION=permit, PROTOCOL=tcp, SOURCE=10.0.0.0/8 (any address starting with 10.), DESTINATION=any, DESTINATION PORT=443 (HTTPS). It allows any internal 10.x.x.x host to reach any destination on TCP port 443. This is typical outbound HTTPS access for all internal users.",
+        "Read the rule in Cisco order: permit, tcp, SOURCE 10.0.0.0 with wildcard 0.255.255.255 (any 10.x.x.x host), DESTINATION any, then “eq 443”. Because “eq 443” follows the destination, it is the DESTINATION port. Only the outbound request from 10.0.2.14 to port 443 satisfies both conditions. “An HTTPS reply” has port 443 on the source side and an external source address, so neither condition holds. “An internal server reply” has the right source network but 443 as the SOURCE port — the same source-vs-destination confusion behind the port-53 bypass in Reading 2. “An inbound HTTPS request” has destination port 443, but its source 203.0.113.9 is outside 10.0.0.0/8.",
       xp: 20,
     },
 
@@ -716,16 +729,16 @@ const firewallMasterclass = {
       type: "question" as const,
       id: "fw-q2",
       question:
-        "What is the main advantage of STATEFUL inspection over STATELESS packet filtering?",
+        "A network team replaces an edge ACL — which let any external host reach internal high ports (1024–65535) so that web replies could get back in — with a stateful firewall. What is the main SECURITY gain?",
       options: [
-        "Stateful inspection is faster than stateless filtering because it caches decisions and processes far fewer rules per packet once a session has already been established and approved",
-        "Stateful inspection tracks connection state, allowing it to block traffic that does not belong to an established session (e.g., unsolicited SYN-ACK packets)",
-        "Stateful inspection can decrypt and read the contents of encrypted HTTPS traffic by tracking the TLS session keys as part of its connection-state table",
-        "Stateful inspection works primarily at Layer 7 of the OSI model, using deep packet inspection to identify specific applications regardless of the port they use",
+        "Payloads arriving on high ports are now scanned, so malware in replies is caught",
+        "Inbound packets get in only if they match a session an inside host opened",
+        "Applications can be named in policy, so the high-port rule can list allowed apps",
+        "Every reply is re-checked against the full rule base before it is forwarded",
       ],
       answer: 1,
       explanation:
-        "Stateful inspection maintains a connection state table. It knows whether a packet is part of a legitimate established connection. An unsolicited ACK or SYN-ACK with no matching SYN entry is blocked, because it does not belong to a real connection. Stateless filters cannot detect this. Stateful inspection still operates at L3/L4 — it does not inspect application content (that is NGFW/DPI).",
+        "The old high-port rule was a gaping hole: any outsider could send packets to internal ports 1024–65535. A stateful firewall keeps a connection state table, so return traffic is admitted only when it matches an entry created by an inside host's permitted request, and unsolicited packets (such as a SYN-ACK nobody asked for) are dropped. “Payloads are now scanned” describes DPI/IPS — stateful inspection still works at L3/L4 and does not read content. “Applications can be named in policy” is NGFW App-ID, a later generation. “Every reply is re-checked against the full rule base” is the opposite of how it works: packets matching an established entry are forwarded without re-evaluating the rules.",
       xp: 25,
     },
 
@@ -734,16 +747,16 @@ const firewallMasterclass = {
       type: "question" as const,
       id: "fw-q3",
       question:
-        "You see 15 outbound HTTPS connections in firewall logs from the same internal IP (10.0.3.88) to the same external IP (185.220.101.47) at almost exactly 60-second intervals, with 1024 bytes sent and 512 bytes received each time. What is the most likely explanation?",
+        "FortiGate logs show workstation 10.0.7.21 opening an HTTPS session to 203.0.113.77 every 300 seconds (±2 s) for three days, including nights and a weekend when nobody was logged on. Every session sends 410–415 bytes and receives 290–296 bytes. What is the most likely explanation?",
       options: [
-        "A streaming media session — players issue short HTTPS requests at fixed intervals to refill their playback buffer",
-        "A scheduled Windows Update check — the update client polls its endpoints at a fixed one-minute cadence",
-        "C2 beaconing — malware checking in with its server at fixed intervals with small, uniform payloads",
-        "A DNS-over-HTTPS client — a resolver re-querying its upstream every 60 seconds to match the record TTL",
+        "A browser tab left open, auto-refreshing a web dashboard every five minutes",
+        "A cloud file-sync client uploading a large file in fixed five-minute chunks",
+        "C2 beaconing — an implant checking in on a timer with small, uniform sessions",
+        "A media player refilling its playback buffer with short, regular requests",
       ],
       answer: 2,
       explanation:
-        "Periodic connections at fixed intervals with small, consistent payloads is the textbook signature of malware C2 beaconing. The beacon checks in with the attacker's server at regular intervals (often 30-120 seconds) to receive commands or report status. Streaming video would have much larger byte counts and vary. Windows Update does not connect at 60-second intervals. The 185.220.101.47 destination is a known Tor exit node.",
+        "Machine-precise timing that continues with no user present, combined with tiny, near-identical byte counts in both directions, is the classic beaconing pattern described in Reading 10. “Auto-refreshing dashboard” matches the timer, but a page refresh pulls kilobytes to megabytes of content each time, not ~300 bytes. “File-sync uploading a large file” would show large and growing sentbyte values, not ~410 bytes per session. “Media player refilling its buffer” would receive far more than it sends — streaming is dominated by large downloads — and would not run for three days unattended.",
       xp: 25,
     },
 
@@ -753,49 +766,49 @@ const firewallMasterclass = {
       id: "fw-la1",
       heading: "Investigating a C2 Beacon in Firewall Logs",
       context:
-        "You are a SOC analyst at NexaCorp. A SIEM correlation rule fired: '15 connections from the same internal host to the same external IP within 15 minutes, with nearly identical byte counts.' The alert links to a sequence of FortiGate NGFW logs. The displayed event is a representative sample from the sequence. The source IP 10.0.3.88 belongs to a developer workstation (WS-DEV-09). The destination IP 185.220.101.47 is a known Tor network exit node (Abuseipdb reputation: MALICIOUS).",
+        "You are a SOC analyst at NexaCorp. A SIEM correlation rule fired: '15 connections from the same internal host to the same external IP within 15 minutes, with nearly identical byte counts.' The alert links to a sequence of FortiGate NGFW logs. The displayed event is a representative sample from the sequence. The source IP 10.0.3.88 belongs to a developer workstation (WS-DEV-09). Reputation enrichment for the destination IP 185.220.101.47 has not returned yet, so work from the log itself.",
       event: fwC2Event,
       questions: [
         {
           question:
-            "Looking at the sentbyte (1024) and rcvdbyte (512) fields — the attacker's server sends back HALF of what the client sends. In the context of C2 beaconing, what does this asymmetric byte pattern indicate?",
+            "The SIEM rule fired because all 15 sessions carry nearly identical byte counts; this sample shows data.sentbyte=1024 and data.rcvdbyte=512. Which interpretation of these byte fields is correct and useful for the investigation?",
           options: [
-            "Normal HTTPS traffic — web servers often send smaller responses than the initial request, especially lightweight API endpoints that just acknowledge receipt without a full page body",
-            "The server is actively rejecting the connection with a TCP RST packet, and the 512-byte payload before the reset is just the server's standard error page delivered before it tears down the session",
-            "The malware sends a beacon check-in (1024 bytes including host info), and the server sends back a short acknowledgement or command (512 bytes) — consistent with a C2 keep-alive pattern",
-            "The connection is being rate-limited by the FortiGate traffic-shaping policy, which caps the response size at 512 bytes per session regardless of what the destination server actually sent back",
+            "rcvdbyte (512) is what the workstation sent, so the server pushes twice as much data to the host",
+            "The 2:1 send-to-receive ratio is itself a reliable C2 fingerprint, whatever the timing looks like",
+            "The host sent 1024 bytes and got 512 back — a tiny exchange whose weight lies in its exact repetition",
+            "The host sent 1024 bytes per session, which shows it is exfiltrating a file in fixed-size chunks",
           ],
           answer: 2,
           explanation:
-            "In C2 beaconing, the infected host (client) typically sends more data than it receives per session. The client sends a beacon containing system status, hostname, and potentially exfiltrated data. The server's small reply (512 bytes) is a command or simple acknowledgement ('stay alive, wait for next instruction'). This 2:1 ratio is common in RAT (Remote Access Trojan) and C2 frameworks like Cobalt Strike, Metasploit, and Sliver.",
+            "data.sentbyte counts bytes sent by the source (WS-DEV-09) and data.rcvdbyte bytes it received back. About 1.5 KB per session is a tiny exchange; what makes it suspicious is that 15 sessions repeat it almost byte-for-byte on a fixed timer — machine-driven behaviour, not human browsing. “rcvdbyte is what the workstation sent” reverses the field direction. “The 2:1 ratio is a reliable C2 fingerprint” over-generalises: idle beacons and ordinary API calls can show any ratio, and the evidence is the uniformity plus timing, not the direction. “Exfiltrating a file in fixed-size chunks” misreads the scale — exfiltration shows up as large sentbyte values, and 1 KB per minute is a check-in, not a bulk transfer.",
           xp: 25,
         },
         {
           question:
-            "The firewall action field shows 'accept' — meaning the FortiGate ALLOWED this connection. If the connection was to a known-malicious Tor exit node, why did the firewall allow it?",
+            "Reputation enrichment now returns: 185.220.101.47 appears on public Tor exit-node lists. The log shows data.action=accept. Based on the fields in the log, why did the FortiGate allow this session?",
           options: [
-            "FortiGate does not maintain its own threat intelligence feeds at all — Tor exit node identification always requires a separate third-party subscription service bolted on outside the firewall",
-            "The outbound-web-allow policy (policyname field) is a broad rule permitting all outbound HTTPS — the firewall had no rule specifically blocking this IP",
-            "The Tor exit node's IP address was manually added to an allowlist exception by a previous administrator, so the firewall's own policy explicitly permits traffic to and from it",
-            "The connection presented a valid corporate SSL certificate during the TLS handshake, and the firewall's trust store treats any certificate signed by a known internal CA as automatically safe",
+            "A Tor block rule exists lower down, but FortiGate logs the first rule it checked, not the one applied",
+            "The matching policy is a general outbound HTTPS allow, and no earlier rule blocked this destination",
+            "An administrator allowlisted this IP in an exception rule, which is why a policy name shows in the log",
+            "The session was TLS, and FortiGate exempts encrypted sessions from address-based policy checks",
           ],
           answer: 1,
           explanation:
-            "The policyname 'outbound-web-allow' is a broad allow rule for outbound HTTPS. Unless the firewall has a URL filtering policy or threat intelligence feed blocking this specific IP, it passes through. Threat intel integration (blocking known-bad IPs from services like PAN's MineMeld, Fortinet FortiGuard, or commercial IP reputation feeds) is essential but must be configured. This is a common gap: firewall rules allow port 443 broadly, trusting that HTTPS means legitimate web traffic.",
+            "data.policyid=15 / data.policyname=outbound-web-allow identify the rule that permitted the session: a broad outbound web rule. Unless a rule above it (or an IP-reputation / threat-feed object such as FortiGuard IP reputation or an external block list) blocks the address, any HTTPS destination passes. “FortiGate logs the first rule it checked” is wrong: policyname records the rule that matched and decided the session — and under first-match, a Tor rule below it would be shadowed anyway. “An exception rule” is not what the log shows: a dedicated allowlist entry would appear under its own policy name, not a generic web-allow rule. “Encrypted sessions are exempt” is false — address and port matching uses headers that are never encrypted; TLS only hides the payload.",
           xp: 20,
         },
         {
           question:
-            "What TWO firewall capabilities, if enabled, would most likely have BLOCKED or DETECTED this C2 traffic?",
+            "Which pair of firewall capabilities, if enabled, would most likely have blocked this C2 traffic or exposed what it carries?",
           options: [
-            "Stateless packet filtering + MAC address filtering",
-            "Threat Intelligence feed blocking known Tor IPs + SSL inspection to see inside the encrypted HTTPS session",
-            "DNS filtering + VLAN segmentation",
-            "Rate limiting outbound connections + geo-blocking Netherlands traffic",
+            "A stateless ACL on the edge router + MAC address filtering on the access switch",
+            "A threat-intel feed blocking Tor exit IPs + SSL inspection of the HTTPS session",
+            "VLAN segmentation of developer workstations + drop instead of deny on the last rule",
+            "Stateful SYN tracking on port 443 + logging policy 15 at session start, not end",
           ],
           answer: 1,
           explanation:
-            "Two complementary controls: (1) Threat Intelligence IP blocklist — 185.220.101.47 appears in multiple Tor exit node feeds. If the FortiGate's FortiGuard IP Reputation was enabled with this category blocked, the connection would be denied before it established. (2) SSL inspection — even if the IP was not in a feed, decrypting the HTTPS session would reveal the C2 traffic pattern (unusual user-agent, beaconing structure, no legitimate web content). Both together create defence in depth for encrypted C2.",
+            "A threat-intel / IP-reputation feed would have denied the session to a listed Tor exit IP before it was established, and SSL inspection would let the IPS and C2 signatures read the decrypted traffic even for a destination not yet in any feed — defence in depth for encrypted C2. “Stateless ACL + MAC filtering” adds nothing: an ACL that permits outbound 443 passes the same packets, and the workstation is a legitimate device on its own port. “VLAN segmentation + drop instead of deny” limits internal reach and changes how blocked traffic is answered, but this session was accepted outbound, so neither applies. “Stateful SYN tracking + start-of-session logging” is already effectively in place — the handshake was legitimate — and logging earlier records the session without blocking it or revealing its content.",
           xp: 25,
         },
       ],
@@ -806,9 +819,9 @@ const firewallMasterclass = {
       type: "flag" as const,
       id: "fw-f1",
       prompt:
-        "In the firewall log above, what is the value of the data.sessionid field? This session ID uniquely identifies this connection in the FortiGate logs.",
-      answer: "2847391",
-      hint: "Look in the raw field of the firewall event for data.sessionid.",
+        "Scoping the beacon: assume each of the 15 sessions in this sequence moved exactly the same byte counts as the sample event above. How many bytes in total did WS-DEV-09 send to the external server across the whole sequence? Answer with digits only (no commas or units).",
+      answer: "15360",
+      hint: "Decide which byte field is counted from the workstation's side, then scale it to the whole sequence.",
       xp: 30,
     },
   ],

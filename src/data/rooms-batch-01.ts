@@ -809,7 +809,7 @@ const killChainEvent: TelemetryEvent = {
     rule: "ALLOW_OUTBOUND_WEB",
     action: "allow",
     app: "ssl",
-    category: "web-browsing",
+    category: "newly-registered-domain",
     from: "trust",
     to: "untrust",
     inbound_if: "ethernet1/1",
@@ -819,28 +819,16 @@ const killChainEvent: TelemetryEvent = {
     dport: 443,
     sport: 54921,
     proto: "6",
-    bytes: 2048,
-    bytes_sent: 512,
-    bytes_received: 1536,
-    packets: 12,
-    pkts_sent: 4,
-    pkts_received: 8,
     session_id: "2847391",
     flags: "0x400000",
     start: "2024-05-22T02:11:44.003Z",
-    elapsed: 30,
-    repeatcount: 121,
+    repeatcount: 1,
     app_category: "general-internet",
     threat_id: "30001",
     threat_category: "network-traffic-anomaly",
     severity: "critical",
     direction: "client-to-server",
-    tls_version: "TLSv1.3",
-    tls_cipher: "TLS_AES_256_GCM_SHA384",
-    ja3_hash: "51c64c77e60f3980eea90869b68c58a8",
     domain: "updates.microsoft-cdn-services.net",
-    domain_age_days: 14,
-    dns_category: "newly_registered_domain",
     serial: "009401002233",
     vsys: "vsys1",
     logtype: "THREAT",
@@ -974,6 +962,8 @@ With malware installed, the attacker needs a way to issue commands to the compro
 
 Modern C2 channels are designed to blend in with legitimate traffic. **APT29** had SUNBURST communicate over HTTPS (the same protocol used by normal web browsing) to disguise C2 traffic as regular internet activity.
 
+C2 servers often hide behind **lookalike domains** chosen to pass a quick glance. *Typosquatting* misspells a brand (micros0ft.com); *combosquatting* joins a real brand name to extra words (microsoft-cdn-services.net) — there is no typo, but the brand never registered it. A domain registered only days before it is used is another warning sign.
+
 Popular C2 frameworks used by both attackers and penetration testers include: **Cobalt Strike**, **Metasploit**, **Havoc**, **Sliver**.
 
 *Defensive actions:* DNS monitoring for unusual domains; monitoring for beaconing behaviour (regular outbound connections at fixed intervals); network segmentation; traffic inspection.
@@ -991,15 +981,15 @@ The final stage is when the attacker does what they came to do. Goals vary by at
 
 *Defensive actions:* Data loss prevention (DLP) systems; monitoring for large data transfers; user behaviour analytics (UEBA) to detect anomalous access patterns.`,
       checkpoint: {
-        question: "According to the reading, what was the name of the backdoor APT29 hid inside the SolarWinds Orion software update?",
+        question: "APT29 tampered with SolarWinds' build system so that a signed Orion update carried SUNBURST to about 18,000 customers. Which stage is using that trusted update as the vehicle to reach victims?",
         options: [
-          "NotPetya",
-          "SUNBURST",
-          "Emotet",
-          "Cobalt Strike",
+          "Weaponization",
+          "Delivery",
+          "Installation",
+          "Command and Control",
         ],
         answer: 1,
-        explanation: "SUNBURST was the backdoor APT29 engineered to look like a legitimate part of the Orion software, including a 14-day dormancy period to evade sandboxes.",
+        explanation: "Getting the weapon in front of the victim is Delivery, and the reading names supply-chain compromise — hiding malware in a legitimate update — as a Delivery mechanism. Weaponization was the earlier step of building SUNBURST itself. Installation is the backdoor establishing its foothold once it runs, and Command and Control is SUNBURST later calling out for instructions.",
       },
     },
 
@@ -1053,14 +1043,14 @@ The Kill Chain is not the only way to model attacker behaviour. Two other import
       question:
         "An attacker sends a fake invoice email to an accountant. The email contains a Word document with malicious macros. When the accountant opens the document and enables macros, the malware executes. Which Kill Chain stage does the attacker move into when the accountant enables the macros?",
       options: [
-        "Stage 2 — Weaponization (the attacker is building the malicious document)",
-        "Stage 3 — Delivery (the email is reaching the victim's inbox)",
-        "Stage 4 — Exploitation (the malicious macro code executes on the victim's system)",
-        "Stage 5 — Installation (the malware is installing persistence mechanisms)",
+        "Stage 2 — Weaponization: the document becomes a weapon once macros are switched on",
+        "Stage 3 — Delivery: the attack is delivered when the user opens the attachment",
+        "Stage 4 — Exploitation: the attacker's code first runs on the victim's machine",
+        "Stage 5 — Installation: enabling macros is what installs the malware on the system",
       ],
       answer: 2,
       explanation:
-        "Exploitation is the moment the malicious code actually runs on the victim's system. When the accountant opens the document and enables macros, the attacker's code triggers — this is exploitation. Weaponization (Stage 2) happened earlier when the attacker created the malicious document. Delivery (Stage 3) happened when the email arrived in the inbox. Installation (Stage 5) would come next — after exploitation, the malware typically installs itself for persistence.",
+        "Exploitation is the moment the attacker's code first runs on the victim's system: enabling macros lets the macro execute. Weaponization happened earlier, when the attacker built the macro document — enabling macros does not build anything. Delivery ended when the email reached the inbox; opening it is the victim triggering the weapon, not more delivery. Installation comes next: once the macro has run, the malware sets up persistence such as a scheduled task or run key.",
       xp: 20,
     },
 
@@ -1071,16 +1061,16 @@ The Kill Chain is not the only way to model attacker behaviour. Two other import
       type: "question" as const,
       id: "ckc-q2",
       question:
-        "A threat hunter notices that a workstation on the company network is making an outbound HTTPS connection to an external server every exactly 30 seconds, around the clock — even at 3 AM when no employees are working. What Kill Chain stage is this most consistent with, and what should the hunter do?",
+        "A threat hunter notices that a workstation is making an outbound HTTPS connection to the same external server every 30 seconds, around the clock — even at 3 AM when no one is working. Each session carries only a few hundred bytes. Which Kill Chain stage is this most consistent with?",
       options: [
-        "Stage 1 — Reconnaissance. Repeated outbound HTTPS to a single external host at a fixed interval is the standard signature of an attacker port-scanning the internal network.",
-        "Stage 3 — Delivery. Downloading a phishing attachment produces exactly this pattern, because mail clients re-request the attachment every 30 seconds until it is cached locally.",
-        "Stage 6 — Command and Control. The regular 30-second intervals ('beaconing') suggest malware communicating with an attacker's C2 server.",
-        "Stage 7 — Actions on Objectives. Exfiltration is identified by the regularity of the connection interval rather than by the volume of data leaving the host.",
+        "Stage 1 — Reconnaissance: the attacker is mapping the network from outside",
+        "Stage 3 — Delivery: the workstation is still downloading the attacker's payload",
+        "Stage 6 — Command and Control: malware is beaconing to the attacker's server",
+        "Stage 7 — Actions on Objectives: data is being exfiltrated in small chunks",
       ],
       answer: 2,
       explanation:
-        "Regular, automated connections at fixed intervals — called 'beaconing' — are the hallmark of Command and Control (C2) malware. The malware checks in with the attacker's server at regular intervals to receive new instructions. The 30-second interval, continuing through the night when no user is active, is impossible human behaviour and strongly suggests automated malware. The threat hunter should immediately investigate the destination IP, isolate the workstation, and escalate to Tier-2 for full incident response.",
+        "Regular, automated check-ins at a fixed interval — 'beaconing' — are the hallmark of Command and Control: the malware asks the attacker's server for instructions, and the 3 AM regularity rules out a person. Reconnaissance happens before the attacker is inside, while this traffic starts from the victim's own workstation. A payload download is a short burst of larger transfers that then stops, not a few hundred bytes every 30 seconds. Slow exfiltration is the closest look-alike, but tiny, identical sessions move almost no data; theft shows up as outbound volume that adds up. Next steps: investigate the destination, isolate the workstation and escalate to Tier 2.",
       xp: 25,
     },
 
@@ -1112,35 +1102,35 @@ The Kill Chain is not the only way to model attacker behaviour. Two other import
       id: "ckc-la1",
       heading: "Kill Chain in Action: Identifying C2 Communication",
       context:
-        "You are a threat hunter at TargetCorp. Your SIEM has flagged a critical-severity network event from your Palo Alto Networks next-generation firewall (NGFW). The firewall detected suspicious outbound traffic from a finance department workstation. Review the log carefully — pay particular attention to the repeatcount (how many near-identical sessions were aggregated), the destination IP geolocation, and the destination domain and its age.",
+        "You are a threat hunter at TargetCorp. Your SIEM has flagged a critical-severity event from your Palo Alto Networks next-generation firewall (NGFW) for outbound traffic from a finance workstation, WORKSTATION-FIN-07. A SIEM search shows 121 sessions like this one from the same workstation to the same destination over the past hour, one roughly every 30 seconds. Threat-intel enrichment adds two facts the firewall record does not carry: the domain was registered 14 days ago, and the destination IP geolocates to Moscow, Russia. Review the log below.",
       event: killChainEvent,
       questions: [
         {
           question:
-            "The firewall log shows 'repeatcount: 121' for this session signature — the firewall aggregated 121 near-identical short outbound sessions (elapsed: 30s each) to the same external IP over the hour, at a steady cadence. Which Kill Chain stage does this regular, repeating pattern represent?",
+            "These 30-second sessions put WORKSTATION-FIN-07 at the Command and Control stage. Using the reading's defence matrix, which control breaks the chain at this stage, right now?",
           options: [
-            "Stage 3 — Delivery. A repeatcount of 121 in a Palo Alto log means the mail client re-fetched the same phishing attachment 121 separate times from the same server.",
-            "Stage 5 — Installation. Scheduled-task creation on the host is precisely what a firewall session log records when malware writes its persistence mechanism to disk.",
-            "Stage 6 — Command and Control. Regular, machine-speed connections at a fixed interval ('beaconing') indicate malware checking in with an attacker-controlled server.",
-            "Stage 7 — Actions on Objectives. Exfiltration is confirmed by short 30-second sessions, because bulk data theft is always split into fixed-length transfer windows.",
+            "Email filtering — stop the next phishing message before it reaches the inbox",
+            "Patch management — close the vulnerability the attacker first exploited",
+            "NGFW and DNS controls — block the beacon's domain and destination IP",
+            "Backups — make sure the data can be restored if it is later encrypted",
           ],
           answer: 2,
           explanation:
-            "A 'beacon' is a periodic check-in a compromised host makes to its Command and Control (C2) server, waiting for further instructions. The firewall collapsed 121 near-identical outbound sessions (repeatcount: 121) to the same external IP into one record — each short-lived and recurring at a steady cadence. No legitimate user-driven application connects to one external IP over and over like clockwork all day; that machine-speed regularity is the signature of automated malware, not human browsing. It is textbook Stage 6 (Command and Control), not Delivery (getting the payload in), Installation (persistence on disk), or Actions on Objectives (the final goal itself).",
+            "The defence matrix pairs the C2 stage with DNS monitoring and the NGFW: blocking updates.microsoft-cdn-services.net and 91.92.248.115 cuts the attacker's control channel, so the implant cannot receive instructions and the chain breaks before Actions on Objectives. Email filtering is a Delivery control — useful against the next attempt, but this attacker is already past that stage. Patching is an Exploitation control and does not remove malware that is already installed and beaconing. Backups are an Actions-on-Objectives control: they soften the impact but do not stop the attacker reaching it.",
           xp: 25,
         },
         {
           question:
-            "The domain field shows 'updates.microsoft-cdn-services.net' and dns_category shows 'newly_registered_domain' (registered only 14 days ago). The destination IP geolocates to Moscow, Russia. What technique is the attacker using, and what is the significance of the domain name?",
+            "The destination is updates.microsoft-cdn-services.net, the firewall's URL category is newly-registered-domain, and enrichment puts the IP in Moscow. What is the attacker doing with this domain name?",
           options: [
-            "The domain is legitimate — Microsoft serves update content from *.microsoft-cdn-services.net nodes, some hosted in Moscow",
-            "Brand impersonation (combosquatting) — the name borrows 'microsoft', and the 14-day registration plus Russian IP point to malicious infrastructure",
-            "Fast-flux DNS — the 14-day age shows the IP keeps rotating, and the Microsoft-style name carries no meaning",
-            "Domain age is not a risk signal — URL filtering scores domains only by registrar reputation and TLD",
+            "Nothing unusual — a name containing 'microsoft' is a Microsoft-owned CDN host",
+            "Combosquatting — a real brand joined to extra words on a new, attacker-owned domain",
+            "Typosquatting — the name is a deliberate misspelling of a real Microsoft domain",
+            "Fast-flux DNS — the domain's IP keeps rotating, so the name itself is irrelevant",
           ],
           answer: 1,
           explanation:
-            "The domain 'updates.microsoft-cdn-services.net' is designed to look like a legitimate Microsoft CDN (Content Delivery Network) domain — a technique called brand impersonation, or more specifically 'combosquatting': the real brand name ('microsoft') is combined with plausible extra words ('cdn-services') under an attacker-registered domain. There is no misspelling here, so it is not typosquatting (which relies on typos such as 'micros0ft' or 'microsfot'). The attacker hopes that security tools scanning network traffic will see 'microsoft' in the domain name and assume it is legitimate. However, the 14-day registration age (legitimate Microsoft infrastructure is years old) and the Russian geolocation of the IP expose the deception. Real Microsoft CDN servers do not use third-party .net domains like this.",
+            "The name bolts the real brand 'microsoft' onto plausible extra words ('cdn-services') under a domain the attacker registered — combosquatting, a form of brand impersonation. There is no misspelling, so it is not typosquatting (which relies on typos such as 'micros0ft'). Containing a brand name proves nothing about ownership: a 14-day-old registration in the newly-registered-domain category does not fit Microsoft infrastructure, which is years old and not served from third-party .net names. Fast flux is about rapidly changing IP addresses; nothing here shows rotation, and the brand-like name was clearly chosen to look trustworthy.",
           xp: 20,
         },
       ],
@@ -1164,7 +1154,7 @@ The Kill Chain is not the only way to model attacker behaviour. Two other import
         { id: "actions",   text: "Actions on Objectives — the attacker achieves their goal: data theft, encryption" },
       ],
       correct_order: ["recon", "weapon", "delivery", "exploit", "install", "c2", "actions"],
-      explanation: "The Kill Chain must follow this exact sequence because each stage enables the next. You cannot deliver a weapon before you have built it, and you cannot exfiltrate data before you have C2 communication. This is why defenders focus on early stages — stopping Delivery (blocking the phishing email) prevents all 4 later stages from ever happening. Attackers who are disrupted at Delivery or Exploitation must restart from the beginning.",
+      explanation: "The Kill Chain must follow this exact sequence because each stage enables the next. You cannot deliver a weapon before you have built it, and you cannot exfiltrate data before you have C2 communication. This is why defenders focus on early stages — stopping Delivery (blocking the phishing email) prevents all 4 later stages from ever happening. Attackers who are disrupted at Delivery or Exploitation have to re-attempt delivery — they may reuse their reconnaissance and weapon, but this attempt has failed.",
       xp: 30,
     },
 
@@ -1177,14 +1167,14 @@ The Kill Chain is not the only way to model attacker behaviour. Two other import
       question:
         "The Cyber Kill Chain is a powerful framework but has acknowledged limitations. Which of the following is a recognised weakness of the Kill Chain model?",
       options: [
-        "It covers only network-borne attacks and cannot describe endpoint malware execution",
+        "It covers network-borne attacks but cannot describe endpoint malware execution",
         "It was built around ransomware crews and does not fit espionage-style intrusions",
         "It models insider threats poorly, since authorised users skip most of the early stages",
         "It has no Delivery stage, so phishing and drive-by downloads cannot be mapped",
       ],
       answer: 2,
       explanation:
-        "The Cyber Kill Chain's biggest limitation is its poor coverage of insider threats. An employee with legitimate access to systems can skip Stages 1–5 entirely and jump straight to Stage 7 (Actions on Objectives) — walking straight to a file server and copying sensitive data, for example. The Kill Chain was designed with external attackers in mind. MITRE ATT&CK and the UEBA (User and Entity Behaviour Analytics) framework are better tools for detecting insider threats. This limitation is important for SOC analysts to understand so they do not over-rely on any single framework.",
+        "The Cyber Kill Chain's biggest limitation is its poor coverage of insider threats. An employee with legitimate access to systems can skip Stages 1–5 entirely and jump straight to Stage 7 (Actions on Objectives) — walking straight to a file server and copying sensitive data, for example. The Kill Chain was designed with external attackers in mind. MITRE ATT&CK and UEBA (User and Entity Behaviour Analytics) tools are better suited to detecting insider threats. This limitation is important for SOC analysts to understand so they do not over-rely on any single framework.",
       xp: 15,
     },
   ],
@@ -1237,14 +1227,8 @@ const mitreAttackEvent: TelemetryEvent = {
       { userPrincipalName: "helpdesk@fintech-global.com" },
       { userPrincipalName: "hr.manager@fintech-global.com" },
     ],
-    PasswordAttempted: "Winter2024!",
-    UniqueAccountsTargeted: 8,
-    UniquePasswordsUsed: 1,
-    AttemptsPerAccount: 1,
-    TotalAttempts: 8,
-    TimeWindowMinutes: 3,
     AuthenticationMethod: "UsernamePassword",
-    ClientAppUsed: "Browser",
+    ClientAppUsed: "Mobile Apps and Desktop clients",
     DeviceDetail: {
       operatingSystem: "Linux",
       browser: "Python-Requests/2.31.0",
@@ -1321,15 +1305,15 @@ Every technique in ATT&CK has a unique ID:
 
 When you see "T1566.001" in a log, an alert, or a threat intelligence report, you know exactly which attack technique is being referenced. This standardised language is one of ATT&CK's greatest contributions — security teams across the world now speak the same vocabulary.`,
       checkpoint: {
-        question: "According to the reading, what does the 'CK' in ATT&CK stand for?",
+        question: "An alert is tagged T1566.001. What does the '.001' part of that ID tell you?",
         options: [
-          "Cyber Kinetics",
-          "Common Knowledge",
-          "Critical Kill-chain",
-          "Cryptographic Key",
+          "It is the first published version of the T1566 technique page",
+          "It is a sub-technique: a more specific variant of T1566 Phishing",
+          "It marks the first stage of the attack, like Kill Chain Stage 1",
+          "It identifies the first threat group known to use the technique",
         ],
         answer: 1,
-        explanation: "ATT&CK stands for Adversarial Tactics, Techniques, and Common Knowledge — and the entire database is free and publicly available at attack.mitre.org.",
+        explanation: "ATT&CK uses a dot to mark a sub-technique: T1566 is the Phishing technique and T1566.001 is its Spearphishing Attachment variant, as the reading's notation section shows. The suffix is not a version number — MITRE revises pages without changing the ID. ATT&CK IDs carry no stage order; tactics, not ID numbers, describe the attacker's goal. Threat groups have their own profiles and are not encoded in technique IDs.",
       },
     },
 
@@ -1401,15 +1385,15 @@ Every ATT&CK technique entry at attack.mitre.org contains:
 - **Mitigations:** How to prevent or minimise the technique's effectiveness
 - **Threat Group associations:** Which real-world attacker groups have been observed using this technique`,
       checkpoint: {
-        question: "According to the reading, which ATT&CK tactic covers an attacker stealing account credentials — for example via brute force or OS credential dumping tools like Mimikatz?",
+        question: "On a compromised server, an attacker runs a tool that dumps password hashes from memory. Which ATT&CK tactic does this action serve?",
         options: [
           "Discovery (TA0007)",
           "Credential Access (TA0006)",
           "Collection (TA0009)",
-          "Persistence (TA0003)",
+          "Privilege Escalation (TA0004)",
         ],
         answer: 1,
-        explanation: "Credential Access (TA0006) covers techniques like T1110 Brute Force and T1003 OS Credential Dumping, where the attacker steals usernames and passwords.",
+        explanation: "Dumping password hashes is stealing credentials, so the goal is Credential Access (TA0006) — T1003 OS Credential Dumping is the reading's own example. Discovery is learning about systems and users, not taking their secrets. Collection gathers the business data the attacker plans to steal, such as files and emails. The stolen hashes may help with Privilege Escalation later, but that is a later goal; the dump itself is Credential Access.",
       },
     },
 
@@ -1444,7 +1428,7 @@ When your organisation learns that APT29 is targeting your industry sector, you 
 **3. Detection Engineering**
 Every ATT&CK technique includes detection guidance: which log sources to monitor, what behavioural indicators to look for, and often links to example SIEM queries. Detection engineers use this to build new detection rules systematically, ensuring rules are grounded in real attacker behaviour rather than guesswork.
 
-**Example:** Technique T1110.003 (Password Spraying — the technique in today's log exercise) states that detection involves monitoring for "many failed authentication attempts across many different accounts from a single source IP in a short time window." This directly translates into a SIEM rule.
+**Example:** Technique T1110.003 (Password Spraying) states that detection involves monitoring for "many failed authentication attempts across many different accounts from a single source IP in a short time window." This directly translates into a SIEM rule.
 
 **4. Incident Response and Reporting**
 During and after an incident, analysts use ATT&CK to document *exactly* what the attacker did:
@@ -1458,13 +1442,13 @@ This ATT&CK-tagged incident report is valuable for multiple reasons:
 - Can be shared with threat intelligence communities to help other organisations defend against the same attacker
 
 **5. A worked example: Using ATT&CK on the log in this room**
-The log event for this room's exercise shows a Microsoft Entra ID (formerly Azure AD) alert for **T1110.003 — Password Spraying**. Let's apply the ATT&CK framework:
+Suppose a Microsoft Entra ID (formerly Azure AD) alert is mapped to **T1110.003 — Password Spraying**. Let's apply the ATT&CK framework:
 
 - **Tactic:** Credential Access (TA0006) — The attacker's goal is to steal credentials
 - **Technique:** T1110 — Brute Force
 - **Sub-technique:** T1110.003 — Password Spraying
 
-What is Password Spraying? Instead of trying many passwords against one account (which would lock it out), the attacker tries *one common password* against *many accounts*. This evades account lockout policies. In the log, you will see the attacker tried "Winter2024!" against 8 different accounts — classic spray behaviour.
+What is Password Spraying? Instead of trying many passwords against one account (which would lock it out), the attacker tries *one common password* against *many accounts*. This evades account lockout policies. In sign-in logs this shows up as one source failing against many different accounts within a few minutes — classic spray behaviour.
 
 ATT&CK's mitigation guidance for T1110.003 includes:
 - Implement **Multi-Factor Authentication (MFA)** — even if the password is stolen, the attacker cannot log in without the second factor
@@ -1484,14 +1468,14 @@ This is the ATT&CK framework in action: observation → identification → detec
       question:
         "In ATT&CK terminology, what is the difference between a Tactic and a Technique? Choose the most accurate answer.",
       options: [
-        "Tactics are the tools attackers use; techniques are the groups that use them",
-        "A Tactic is the attacker's goal (the 'why'); a Technique is the method used (the 'how')",
-        "Tactics are detection rules defenders write; techniques are the behaviours they catch",
-        "Tactics are numbered with T (e.g., T1566); techniques are numbered with TA (e.g., TA0001)",
+        "A Tactic is the specific method; a Technique is the broader goal it serves",
+        "A Tactic is the attacker's goal (the 'why'); a Technique is the method (the 'how')",
+        "A Tactic is one threat group's campaign; a Technique is a single step within it",
+        "Tactics use T-numbers (T1566); techniques use TA-numbers (TA0001)",
       ],
       answer: 1,
       explanation:
-        "In ATT&CK, Tactics (numbered TA0001 through TA0043) represent the attacker's objectives — what they are trying to accomplish at each stage of their operation. Techniques (numbered T1001, T1002, etc.) are the specific methods used to achieve those objectives. Sub-techniques add further specificity. For example, the Tactic might be 'Credential Access' (steal passwords) and the Technique might be 'T1110.003 Password Spraying' (a specific method of stealing passwords). Note: Tactics use the TA prefix; Techniques use T — the opposite of the option claiming tactics are numbered with T and techniques with TA.",
+        "In ATT&CK, Tactics (numbered TA0001 through TA0043) represent the attacker's objectives — what they are trying to accomplish at each stage of their operation. Techniques (numbered T1001, T1002, etc.) are the specific methods used to achieve those objectives. Sub-techniques add further specificity. For example, the Tactic might be 'Credential Access' (steal passwords) and the Technique might be 'T1110.003 Password Spraying' (a specific method of stealing passwords). The first option reverses the two terms. A threat group's campaign is described by a group profile, not by a tactic. And the numbering runs the other way: tactics use TA (TA0001), techniques use T (T1566).",
       xp: 20,
     },
 
@@ -1502,16 +1486,16 @@ This is the ATT&CK framework in action: observation → identification → detec
       type: "question" as const,
       id: "mitre-q2",
       question:
-        "Which of the 14 ATT&CK tactics is most concerned with what happens AFTER an attacker has encrypted a company's files for ransom — the final destructive goal of their operation?",
+        "A ransomware operator encrypts every file on a company's file servers and leaves a ransom note. Which ATT&CK tactic does the encryption itself belong to?",
       options: [
-        "Initial Access (TA0001) — getting the first foothold into the network",
-        "Persistence (TA0003) — ensuring the attacker can maintain long-term access",
-        "Exfiltration (TA0010) — stealing and removing data from the network",
-        "Impact (TA0040) — disrupting, destroying, or manipulating systems and data",
+        "Defense Evasion (TA0005) — encryption hides the files from defenders",
+        "Collection (TA0009) — the attacker gathers every file before locking it",
+        "Exfiltration (TA0010) — the files are taken hostage, out of the owner's control",
+        "Impact (TA0040) — disrupting the availability of the company's systems and data",
       ],
       answer: 3,
       explanation:
-        "Impact (TA0040) is the final ATT&CK tactic, covering actions that directly harm the target's systems, data, or operations. Data Encrypted for Impact (T1486) is the specific technique for ransomware encryption. Impact includes other destructive actions like wiping disks, deleting backups, and disrupting services. Exfiltration (TA0010) covers stealing data — which is sometimes done before ransomware deployment, but the encryption itself falls under Impact.",
+        "Encrypting data for ransom is T1486 Data Encrypted for Impact, under Impact (TA0040): the goal is to deny the owner their data. Defense Evasion covers hiding the attacker's own activity, not locking the victim's files. Collection gathers data the attacker plans to take; encryption in place takes nothing. Exfiltration means sending data out of the network — modern crews often do that first (double extortion), but the encryption step itself is Impact.",
       xp: 20,
     },
 
@@ -1543,21 +1527,21 @@ This is the ATT&CK framework in action: observation → identification → detec
       id: "mitre-la1",
       heading: "Identifying an ATT&CK Technique From a Log",
       context:
-        "You are a Tier-2 SOC analyst at Fintech-Global. Microsoft Entra ID (your cloud identity platform — formerly called Azure AD) has fired a high-severity alert. The log below shows authentication activity. Your job is to identify the ATT&CK technique being used, understand why this pattern is dangerous, and determine what mitigation ATT&CK recommends. Pay close attention to the PasswordAttempted, UniqueAccountsTargeted, UniquePasswordsUsed, and AttemptsPerAccount fields.",
+        "You are a Tier-2 SOC analyst at Fintech-Global. Microsoft Entra ID (your cloud identity platform — formerly called Azure AD) has fired a high-severity alert. The log below shows authentication activity. Your job is to identify the ATT&CK technique being used, understand why this pattern is dangerous, and determine what mitigation ATT&CK recommends. The alert groups the failed sign-ins (ResultType 50126) that one source address produced within about three minutes; the accounts it tried are listed under TargetResources.",
       event: mitreAttackEvent,
       questions: [
         {
           question:
-            "The log shows UniquePasswordsUsed: 1 (one password) and UniqueAccountsTargeted: 8 (eight different accounts), with AttemptsPerAccount: 1. This pattern — one password tried across many accounts — is the defining characteristic of which ATT&CK sub-technique?",
+            "One source IP failed to sign in to each account listed in TargetResources within about three minutes, every time with ResultType 50126. Which sub-technique does this pattern fit?",
           options: [
-            "T1110.001 — Password Guessing: many passwords tried against one account until it locks out",
-            "T1110.002 — Password Cracking: offline cracking of password hash files",
-            "T1110.003 — Password Spraying: one common password tried across many accounts to evade lockout policies",
-            "T1078 — Valid Accounts: using previously stolen credentials to log in",
+            "T1110.001 Password Guessing — many passwords tried against one account",
+            "T1110.002 Password Cracking — passwords recovered offline from stolen hashes",
+            "T1110.003 Password Spraying — a few passwords tried across many accounts",
+            "T1078 Valid Accounts — logging in with credentials that were already stolen",
           ],
           answer: 2,
           explanation:
-            "T1110.003 (Password Spraying) is defined by the exact pattern in this log: a single password ('Winter2024!') tried across many different accounts (8 accounts), with only one attempt per account. This evades account lockout policies — most systems lock an account after 5–10 failed attempts with *different* passwords. By trying only once per account, the attacker flies under the lockout threshold. This is why Password Spraying is so effective against organisations that don't monitor across-account failure patterns.",
+            "Eight different accounts failing from one source in a few minutes is the spray shape: a few common passwords across many accounts, so no single account reaches its lockout threshold. Password Guessing concentrates many attempts on one account, but this log is spread across eight. Password Cracking happens offline against stolen hashes and produces no sign-in attempts at all. Valid Accounts means signing in successfully with working credentials, yet every attempt here failed (50126: invalid username or password). The identity provider never logs the password itself, so you read the spray from who was targeted, from where, and how fast.",
           xp: 25,
         },
         {
@@ -1576,7 +1560,7 @@ This is the ATT&CK framework in action: observation → identification → detec
         },
         {
           question:
-            "According to ATT&CK's mitigation guidance for T1110.003, which control would have made this password spray attack completely ineffective, even if the attacker correctly guessed a user's password?",
+            "According to ATT&CK's mitigation guidance for T1110.003, which control stops a correctly guessed password from being enough to sign in?",
           options: [
             "A stronger password policy requiring 12+ characters — longer passwords are harder to guess",
             "Multi-Factor Authentication (MFA) — requires a second verification step beyond just the password",
@@ -1585,7 +1569,7 @@ This is the ATT&CK framework in action: observation → identification → detec
           ],
           answer: 1,
           explanation:
-            "Multi-Factor Authentication (MFA) is the most effective mitigation for password-based attacks. Even if an attacker successfully guesses 'Winter2024!' as a user's password, MFA requires a second factor (phone push notification, authenticator app code, hardware token) that the attacker does not have. Without the second factor, the stolen password is useless. This is why ATT&CK lists MFA as the primary mitigation for T1110.003. Account lockout after 5 failed attempts would not help here because the attacker only tried each account once. Blocking the Python-requests user agent is easily defeated by changing the user agent string in the script.",
+            "Multi-Factor Authentication (MFA) is the most effective mitigation for password-based attacks. Even if an attacker successfully guesses a user's password, MFA requires a second factor (phone push notification, authenticator app code, hardware token) that the attacker does not have. Without the second factor, the stolen password is useless. This is why ATT&CK lists MFA as the primary mitigation for T1110.003. Account lockout after 5 failed attempts would not help here, because a spray deliberately stays below the per-account lockout threshold. Blocking the Python-requests user agent is easily defeated by changing the user agent string in the script.",
           xp: 25,
         },
       ],
@@ -1618,7 +1602,7 @@ This is the ATT&CK framework in action: observation → identification → detec
         {
           id: "coll",
           left: "Collection",
-          right: "Gathering files, emails, and credentials that will later be stolen",
+          right: "Gathering files, emails and other business data that will later be stolen",
         },
         {
           id: "exfil",
@@ -1637,16 +1621,16 @@ This is the ATT&CK framework in action: observation → identification → detec
       type: "question" as const,
       id: "mitre-q4",
       question:
-        "A SOC analyst is writing an incident report about a breach where the attacker: (1) sent a phishing email, (2) used stolen credentials to move between servers, and (3) dumped the customer database. The analyst wants to use ATT&CK technique IDs in the report. Match each attacker action to its most likely ATT&CK tactic:",
+        "A SOC analyst is writing an incident report about a breach where the attacker: (1) sent a phishing email whose attachment installed malware, (2) used stolen credentials to log in to other servers, and (3) dumped the customer database to a file on one of those servers. The analyst wants to tag each action with its ATT&CK tactic. Which mapping is correct?",
       options: [
-        "Phishing = Impact; Credential use = Exfiltration; Database dump = Initial Access",
+        "Phishing = Execution; Credential use = Privilege Escalation; Database dump = Exfiltration",
         "Phishing = Initial Access; Credential use = Lateral Movement; Database dump = Collection",
-        "Phishing = Reconnaissance; Credential use = Persistence; Database dump = Exfiltration",
-        "Phishing = Execution; Credential use = Privilege Escalation; Database dump = Impact",
+        "Phishing = Initial Access; Credential use = Credential Access; Database dump = Exfiltration",
+        "Phishing = Reconnaissance; Credential use = Lateral Movement; Database dump = Collection",
       ],
       answer: 1,
       explanation:
-        "Phishing (T1566) falls under Initial Access (TA0001) — it's how the attacker first enters the environment. Using stolen credentials to move between servers falls under Lateral Movement (TA0008) — specifically T1021 Remote Services or T1550 Use Alternate Authentication Material. Dumping a database (gathering data that will be stolen) falls under Collection (TA0009) — specifically T1005 Data from Local System or T1213 Data from Information Repositories. Exfiltration (TA0010) would cover actually *sending* the data outside the network, which comes after Collection.",
+        "Phishing that installs malware is how the attacker first gets in — Initial Access (TA0001, T1566). Logging in to other servers with stolen credentials is Lateral Movement (TA0008), for example T1021 Remote Services. Dumping the database to a file on the server is Collection (TA0009): the data is gathered but has not yet left. Credential Access is the act of stealing credentials, not using them to move around. Exfiltration (TA0010) would be sending the dump outside the network, which has not happened yet. Reconnaissance phishing gathers information before an intrusion, but this email delivered malware. Execution describes the malware running, not how the attacker got in, and nothing here shows higher privileges being gained.",
       xp: 20,
     },
   ],

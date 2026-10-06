@@ -97,162 +97,162 @@ const lessons = [
         "question": "You are a SOC analyst reviewing a Medium-severity alert on a low-criticality test VM. You have spent fifteen minutes digging and your last three queries have not sharpened your understanding at all. What should you do?",
         "options": [
           {
-            "label": "Keep digging indefinitely, since more time invested always yields more certainty about the alert",
+            "label": "Extend the timebox by another fifteen minutes, since the case is still unresolved",
             "value": "a"
           },
           {
-            "label": "Notice you exceeded a reasonable timebox with no new clarity, then close with caveats or escalate for a second opinion",
+            "label": "Recognise the stall: close with written caveats, or escalate for a second look",
             "value": "b"
           },
           {
-            "label": "Close the alert immediately without any review, since fifteen minutes is already enough time for any alert",
+            "label": "Close it as benign, since a low-criticality test VM settles the question by itself",
             "value": "c"
           },
           {
-            "label": "Escalate automatically to Tier 3 without stating what you already checked, to save further explanation time",
+            "label": "Escalate to Tier 2 at once, since a Medium label calls for a second reviewer",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "The timebox exists precisely to catch the moment 'digging deeper' has quietly turned into stalling — when more queries stop sharpening the picture, that is the signal to make a decision, not to keep spinning. The option “Keep digging indefinitely, since more time invested…” treats time as infinite, which it is not. The option “Close the alert immediately without any review…” abandons the low but nonzero signal without any documented reasoning. The option “Escalate automatically to Tier 3 without stating…” escalates without the context that would make the escalation useful to the next reviewer."
+        "explanation": "The timebox exists to catch the moment “dig deeper” has turned into stalling. When queries stop sharpening the picture, make a decision: a defensible close with the caveats written down, or an escalation for a second opinion. “Extend the timebox by another fifteen minutes” is wrong because only genuinely new evidence justifies extending it, and three flat queries are the opposite. “Close it as benign, since a low-criticality test VM settles the question” confuses asset criticality, which sets how much time the alert deserves, with a verdict, and drops the caveats. “Escalate to Tier 2 at once, since a Medium label calls for a second reviewer” lets the vendor label decide instead of your own evidence."
       },
       {
-        "question": "You are a SOC analyst and two Medium-severity alerts from the same detection rule (unusual outbound data volume) land in your queue: one on a marketing intern's laptop uploading photos to a known cloud service during business hours, and one on the finance file server uploading a similar volume to a never-before-seen personal cloud account at 11 p.m. What should you do?",
+        "question": "You are a SOC analyst and two Medium-severity alerts from the same detection rule (unusual outbound data volume) land in your queue: one on a marketing intern's laptop uploading photos to a known cloud service during business hours, and one on the finance file server uploading a similar volume to a never-before-seen personal cloud account at 11 p.m. Which factors do most to raise the finance case above its Medium label?",
         "options": [
           {
-            "label": "Treat both alerts identically, since the vendor assigned them the exact same severity label",
+            "label": "Scope: the upload already shows that several hosts are involved",
             "value": "a"
           },
           {
-            "label": "Walk through criticality, scope, certainty, and data sensitivity — the finance case is far more urgent than the label suggests",
+            "label": "Asset criticality and data sensitivity: a server holding finance data",
             "value": "b"
           },
           {
-            "label": "Close both immediately, assuming outbound data volume alerts are almost always false positives",
+            "label": "Certainty alone: an 11 p.m. upload confirms that data was exfiltrated",
             "value": "c"
           },
           {
-            "label": "Escalate both immediately at the highest priority to avoid making any severity judgment yourself",
+            "label": "Neither case moves: same rule and same label mean the same severity",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "The vendor's severity label does not know your environment — recalculating with the four factors (asset criticality, scope, certainty, data sensitivity) reveals the finance server case is high real severity (critical asset, high data sensitivity, anomalous destination and timing) while the marketing case stays low. The option “Treat both alerts identically, since the vendor…” ignores this context entirely. The option “Close both immediately, assuming outbound data volume…” dismisses signal without checking. The option “Escalate both immediately at the highest priority…” avoids the judgment the analyst is specifically responsible for making."
+        "explanation": "Walking the four factors, the finance case differs most in asset criticality (a shared finance file server, not an intern's laptop) and data sensitivity (finance data, not stock photos). That is what lifts it well above Medium, while the marketing case stays low. “Scope: the upload already shows that several hosts are involved” misreads the scenario: one server is uploading, so scope is uncertain, not confirmed wide. “Certainty alone: an 11 p.m. upload confirms that data was exfiltrated” overstates it: the new destination and the timing raise certainty, but they do not confirm anything. “Neither case moves” is anchoring on the vendor label, which is exactly what the four-factor walk-through exists to correct."
       },
       {
-        "question": "You are a SOC analyst who has confirmed a single internal host is compromised and considers blocking its egress IP at the firewall to contain it. Before doing so, what is the most important thing to verify?",
+        "question": "You are a SOC analyst who has confirmed a single internal host is compromised and considers blocking its egress IP at the firewall to contain it. Which check is specific to blocking an IP, rather than one you would run before any containment action?",
         "options": [
           {
-            "label": "Whether the firewall vendor's own documentation recommends IP blocking as a valid containment method here",
+            "label": "Whether you have the authority to change the firewall, or need sign-off",
             "value": "a"
           },
           {
-            "label": "Whether that IP is dedicated to this host, or shared infrastructure like a NAT gateway affecting unrelated users if blocked",
+            "label": "Whether that address is shared, such as a NAT gateway or a CDN edge",
             "value": "b"
           },
           {
-            "label": "Whether the host's antivirus signatures are fully current and were updated within the last day",
+            "label": "Whether a memory capture and a copy of the logs were taken first",
             "value": "c"
           },
           {
-            "label": "Whether the new block rule will be alphabetized correctly within the firewall's existing rule list",
+            "label": "Whether the block could tip off an attacker who is still watching",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "IP blocking looks simple but is often treacherous because IPs are frequently shared infrastructure — a corporate NAT gateway, CDN edge node, or shared hosting provider. Blocking without checking what else lives at that address can silently break access for many unrelated legitimate users or services. The options “Whether the firewall vendor's own documentation recommends…” and “Whether the host's antivirus signatures are fully…”, and d are irrelevant to the actual containment risk of the action itself."
+        "explanation": "IP addresses are often shared. An internal host's egress IP is frequently the corporate NAT gateway, so blocking it can cut off every employee behind it. That blast-radius question belongs to IP blocking specifically. “Whether you have the authority…”, “Whether a memory capture and a copy of the logs were taken first” and “Whether the block could tip off an attacker” are all real items on the pre-action checklist, but they apply equally before isolating a host or disabling an account, so none of them is specific to an IP block."
       },
       {
         "question": "You are a SOC analyst writing an escalation to Tier 2 for a suspected phishing-delivered payload. Which escalation message best follows the framework taught in this lesson?",
         "options": [
           {
-            "label": "\"Can someone take a look at WKS-2214? It seems a little off today, though I am honestly not totally sure why.\"",
+            "label": "“WKS-2214: PowerShell decodes to a download cradle; confirmed phishing compromise by a known actor; isolating now.”",
             "value": "a"
           },
           {
-            "label": "\"WKS-2214 is definitely compromised by a well-known nation-state actor group and needs to be wiped immediately without any review.\"",
+            "label": "“WKS-2214: Medium PowerShell alert with parent winword.exe; it looks off to me but I am not sure why; please advise.”",
             "value": "b"
           },
           {
-            "label": "\"WKS-2214: PowerShell decodes to a download cradle, zero baseline occurrences; ASSESSED likely phishing payload, NOT confirmed execution; requesting isolation authorization and review.\"",
+            "label": "“WKS-2214: PowerShell decodes to a download cradle, no baseline hits; assessed likely phishing, not confirmed; need isolation approval.”",
             "value": "c"
           },
           {
-            "label": "\"There is an alert on WKS-2214 with Medium severity. Please take a look and advise on next steps.\"",
+            "label": "“WKS-2214: PowerShell decodes to a download cradle, no baseline hits in 90 days; please review the attached logs when you can.”",
             "value": "d"
           }
         ],
         "answer": "c",
-        "explanation": "This message states the specific observed evidence, what was already ruled out (baseline check), a calibrated hypothesis with explicit confidence language separating confirmed from assessed from unknown, and a specific request. The option “\"Can someone take a look at WKS-2214?…” is vague hedging with no actionable content. The option “\"WKS-2214 is definitely compromised by a well-known…” states an inference as flat, overconfident fact with no basis. The option “\"There is an alert on WKS-2214 with…” provides no evidence, reasoning, or request at all."
+        "explanation": "A good escalation gives what you observed, what you ruled out, a hypothesis with honest confidence language, and a specific request. The keyed message has all four: the decoded cradle, the empty baseline, “assessed likely phishing, not confirmed”, and a request for isolation approval. The message ending “confirmed phishing compromise by a known actor; isolating now” states an inference as fact and acts without the approval it should be asking for. The message ending “it looks off to me but I am not sure why; please advise” has no evidence and no hypothesis. The message ending “please review the attached logs when you can” has good evidence but no hypothesis and no concrete request, so the reader still has to work out what you think and what you need."
       },
       {
-        "question": "A detection rule has fired 400 times in the last 90 days, and only 1 of those turned out to be a genuine intrusion — a base rate of roughly 1 in 400. Today it fires again, and you have not yet gathered any case-specific evidence. What should the base rate alone tell you to do?",
+        "question": "A detection rule has fired 400 times in the last 90 days, and only 1 of those turned out to be a genuine intrusion — a base rate of roughly 1 in 400. Today it fires again. In ten minutes you confirm that the command is not in the IT script inventory, and that it downloads from a domain registered 5 days ago. Which reasoning is sound?",
         "options": [
           {
-            "label": "Close the alert immediately, since a 1-in-400 base rate proves this specific occurrence is certainly benign",
+            "label": "Close it: at 1 in 400 the prior still favours benign, so closing is the safe call",
             "value": "a"
           },
           {
-            "label": "Let the base rate set a starting expectation toward benign, but still check the case-specific evidence before deciding",
+            "label": "Escalate: the low prior set a high bar, and this strong specific evidence clears it",
             "value": "b"
           },
           {
-            "label": "Ignore the base rate entirely, since only evidence gathered during this specific investigation should ever matter",
+            "label": "Keep digging: a 1-in-400 prior needs several more indicators before escalation",
             "value": "c"
           },
           {
-            "label": "Escalate automatically to Tier 3, since any rule with a base rate below 1 in 100 requires mandatory escalation",
+            "label": "Escalate: a base rate is fleet statistics and has no bearing on any single alert",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A base rate sets your starting expectation — here, that most firings of this rule are noise — but it is a prior probability, not proof about this specific occurrence, so you still have to check the case-specific evidence before closing or escalating. The option “Close the alert immediately, since a 1-in-400…” treats a statistical prior as certain proof for a single case, which it is not. The option “Ignore the base rate entirely, since only…” throws away a genuinely useful calibration tool. The option “Escalate automatically to Tier 3, since any…” invents a mandatory-escalation policy tied to base rate that does not reflect how base rates are actually used."
+        "explanation": "A low base rate means you need strong evidence before believing you have found the exception. It is not a reason to dismiss strong evidence once you have it. A confirmed inventory miss plus a days-old download domain is that evidence, so update away from the prior and escalate. “Close it… the prior still favours benign” treats the prior as a verdict and ignores what you just found. “Keep digging: a 1-in-400 prior needs several more indicators” sets the bar at certainty, but escalation needs real corroborating signal, not proof. “A base rate is fleet statistics and has no bearing on any single alert” reaches the right door for the wrong reason: the base rate is your starting expectation, and it still matters when the evidence is weak."
       },
       {
-        "question": "A detection rule has 95% sensitivity and 99.9% specificity. Your environment screens 100,000 events per day, of which only 5 are genuinely malicious. Roughly what fraction of the alerts this rule generates will actually be true positives?",
+        "question": "A detection rule has 90% sensitivity and 99.9% specificity. Your environment screens 200,000 events per day, of which 20 are genuinely malicious. Roughly what fraction of the alerts this rule raises will be true positives?",
         "options": [
           {
-            "label": "About 95%, since the rule's sensitivity directly equals the fraction of true positives in the queue",
+            "label": "About 90%, the share of real attacks the rule catches",
             "value": "a"
           },
           {
-            "label": "About 5%, because the rare true positives are outnumbered by false alarms drawn from the much larger benign population",
+            "label": "About 8%, as ~18 hits sit among ~200 false alarms",
             "value": "b"
           },
           {
-            "label": "About 99.9%, since specificity alone determines what share of alerts in the queue turn out to be real",
+            "label": "About 99.9%, the share of benign events it ignores",
             "value": "c"
           },
           {
-            "label": "Exactly 100%, since a detector this accurate on paper cannot realistically generate any false alarms in practice",
+            "label": "About 0.01%, the malicious share of all events seen",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "With ~4.75 true positives and ~100 false alarms (99,995 benign events × 0.1% false-alarm rate), the queue totals roughly 105 alerts, of which only about 5% are genuinely malicious — this is positive predictive value, and it is dominated by the low base rate, not by sensitivity or specificity read in isolation. The option “About 95%, since the rule's sensitivity directly…” confuses sensitivity (catch rate among real positives) with PPV (real share among all alerts raised). The option “About 99.9%, since specificity alone determines what…” misreads what specificity measures. The option “Exactly 100%, since a detector this accurate…” ignores that even a 0.1% false-alarm rate, applied to a huge benign population, produces a large absolute number of false alarms."
+        "explanation": "Hits: 20 × 0.90 = 18. False alarms: 199,980 benign events × 0.1% ≈ 200. The queue holds about 218 alerts, of which 18 are real, so about 8%. This is the positive predictive value (PPV), and the low base rate drives it down. “About 90%, the share of real attacks the rule catches” is the sensitivity, which counts caught attacks, not the real share of alerts. “About 99.9%, the share of benign events it ignores” is the specificity, which describes events the rule leaves alone. “About 0.01%, the malicious share of all events seen” is the base rate before the rule filters anything; the rule raises that share a lot, but not to a majority."
       },
       {
-        "question": "An analyst forms an early hypothesis that an alert is 'probably just IT running a script' and then only searches for evidence that supports that idea, unconsciously discounting evidence that would point elsewhere. Which structured technique from this lesson is designed specifically to counter this pattern?",
+        "question": "An analyst forms an early hypothesis that an alert is 'probably just IT running a script' and then only searches for evidence that supports that idea, unconsciously discounting evidence that would point elsewhere. Which structural mitigation from this lesson is designed for this pattern?",
         "options": [
           {
-            "label": "Automation bias, which recommends trusting the vendor's own severity label instead of the analyst's own read",
+            "label": "Read the raw evidence first, and only then compare it with the tool's verdict",
             "value": "a"
           },
           {
-            "label": "Analysis of Competing Hypotheses, which asks which hypothesis has the least evidence against it rather than the most evidence for it",
+            "label": "List the competing hypotheses and count the evidence against each one",
             "value": "b"
           },
           {
-            "label": "The base-rate calculation, which replaces the need for gathering any case-specific evidence at all",
+            "label": "Recalculate severity from the four factors before rereading the vendor label",
             "value": "c"
           },
           {
-            "label": "The pre-action containment checklist, which applies only to irreversible actions like isolating a host",
+            "label": "Rotate off the noisy queue and treat each alert's check as a fresh task",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "This is confirmation bias, and Analysis of Competing Hypotheses (ACH) was built by Richards Heuer specifically to counter it, by reframing the comparison as 'least evidence against' rather than 'most evidence for' — a question that forces active disconfirmation-seeking instead of confirmation-seeking. The option “Automation bias, which recommends trusting the vendor's…” names a different bias, not a countermeasure. The option “The base-rate calculation, which replaces the need…” misrepresents what a base rate is for — it is a starting prior, not a replacement for evidence-gathering. The option “The pre-action containment checklist, which applies only…” addresses a different problem (containment risk), not hypothesis comparison."
+        "explanation": "Searching only for support for an early hypothesis is confirmation bias. Its structural mitigation is the Analysis of Competing Hypotheses (ACH): list the alternatives up front and ask which one has the least evidence against it, which forces you to look for disconfirming evidence. “Read the raw evidence first…” is the mitigation for automation bias (over-trusting a tool's verdict). “Recalculate severity from the four factors…” counters anchoring on the vendor's label. “Rotate off the noisy queue…” targets the availability heuristic and alert fatigue. All three are real defences, but each one is matched to a different bias."
       }
     ],
     "references": [
@@ -359,162 +359,162 @@ const lessons = [
         "question": "You are a SOC analyst investigating a suspicious PowerShell process. VirusTotal shows the associated file hash has 2 out of 70 vendor detections. What is the correct interpretation?",
         "options": [
           {
-            "label": "The file is almost certainly safe and harmless, since nearly every vendor engine cleared it as clean",
+            "label": "Likely clean: two of seventy is the usual false-positive noise level",
             "value": "a"
           },
           {
-            "label": "A low count is not proof of safety — it can mean a new sample or evasion, so the behavior still needs independent evaluation",
+            "label": "Not proof either way: it may be new or evasive, so judge the behaviour",
             "value": "b"
           },
           {
-            "label": "VirusTotal results should always be ignored entirely and never referenced at any point during an investigation",
+            "label": "Undecided: re-check VirusTotal daily and decide once the count climbs",
             "value": "c"
           },
           {
-            "label": "The file should automatically be treated as malicious, because any nonzero detection count is fully disqualifying",
+            "label": "Malicious: any vendor detection outweighs the 68 clean verdicts",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A low detection count can reflect a genuinely new sample that most vendor signatures have not caught up to yet, or deliberate evasion designed to slip past most engines. Absence of widespread detection is absence of data, not proof of safety, so the analyst must still evaluate the actual behavior observed rather than treating the ratio as a verdict. The option “The file is almost certainly safe and…” over-trusts a low count. The option “VirusTotal results should always be ignored entirely…” discards a useful data point entirely. The option “The file should automatically be treated as…” over-reacts to any nonzero count without considering context."
+        "explanation": "A low count can mean a genuinely new sample that signatures have not caught up with, or packing and evasion that slip past most engines. It is absence of data, not proof of safety, so the behaviour you observed decides it (which vendors flagged it and what they called it also matter more than the raw count). “Likely clean: two of seventy is the usual false-positive noise level” turns a ratio into a verdict, the exact instinct the lesson corrects. “Re-check VirusTotal daily and decide once the count climbs” lets an active PowerShell case wait on outside engines instead of your own evidence. “Malicious: any vendor detection outweighs the 68 clean verdicts” over-reacts in the other direction: two hits may be generic heuristics with a history of over-flagging."
       },
       {
         "question": "You are a SOC analyst who has confirmed a host was compromised. Threat intelligence sources are split on which specific named threat actor group is responsible, with moderate confidence at best. What should you prioritize?",
         "options": [
           {
-            "label": "Halt all containment and eradication work entirely until attribution to a specific group is fully confirmed",
+            "label": "Build the attribution case first, since leadership will ask who did it",
             "value": "a"
           },
           {
-            "label": "Proceed with containment, credential reset, and eradication, since these actions are correct regardless of which group is responsible",
+            "label": "Contain, reset credentials and eradicate; none of it depends on the name",
             "value": "b"
           },
           {
-            "label": "Pick whichever group name currently has the most media coverage and report that as confirmed attribution",
+            "label": "Treat the likelier group's past TTP list as this intrusion's confirmed scope",
             "value": "c"
           },
           {
-            "label": "Ignore all available threat intelligence sources entirely, since attribution to a specific group could not be confirmed",
+            "label": "Hold eradication until one group is confirmed, to remove the right tools",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "In the large majority of cases, the correct incident response does not depend on which named actor is behind the activity — containment, credential reset, eradication, and closing the access gap apply regardless. Chasing confident attribution past what the evidence supports diverts time from these higher-value actions. The option “Halt all containment and eradication work entirely…” wrongly gates real response work on an often-unnecessary attribution. The option “Pick whichever group name currently has the…” reports a guess as fact. The option “Ignore all available threat intelligence sources entirely…” throws away genuinely useful operational intelligence just because attribution specifically is uncertain."
+        "explanation": "In most cases the right response (contain the hosts, reset exposed credentials, eradicate persistence, close the access gap) is the same whichever group is behind it, so that work comes first. “Build the attribution case first, since leadership will ask” spends the shift on a question the evidence cannot settle, while scoping and containment wait. “Treat the likelier group's past TTP list as this intrusion's confirmed scope” turns a moderate-confidence guess into scope: you would hunt for things that may not be there and could miss what is. “Hold eradication until one group is confirmed” is wrong because you remove the persistence and tools you actually find in your environment, not the ones a named group is known for."
       },
       {
         "question": "You are a SOC analyst comparing an indicator of compromise (a specific C2 IP address) against an indicator of attack (a behavioral pattern of process injection followed by defense evasion). Why is the IOA generally more valuable for building durable detection?",
         "options": [
           {
-            "label": "Because IOAs are always completely free to use while IOCs always require an expensive paid subscription",
+            "label": "IOA rules are cheaper and quicker to write than an IOC blocklist",
             "value": "a"
           },
           {
-            "label": "Because an IOA describes intent and technique, far harder for an adversary to change than an IP or hash, so detection survives rotation",
+            "label": "It targets behaviour, which costs the adversary far more to change",
             "value": "b"
           },
           {
-            "label": "Because IOAs never produce any false positives whatsoever, while IOCs always inevitably do in every case",
+            "label": "IOCs depend on a paid feed, while IOA logic can be built in-house",
             "value": "c"
           },
           {
-            "label": "Because IOCs are only ever usable by threat hunters, while IOAs are only usable by SOC analysts alone",
+            "label": "IOAs raise fewer false positives than an exact IP or hash match",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "The Pyramid of Pain illustrates this directly: hashes and IPs are trivial and cheap for an adversary to change, so IOC-based detection has a short shelf life, while TTPs and behavioral patterns require an adversary to fundamentally alter how they operate, making IOA-based detection far more durable. The options “Because IOAs are always completely free to…”, “Because IOAs are always completely free to…”, “Because IOCs are only ever usable by…” and “Because IOAs never produce any false positives…” make false absolute claims about cost and false-positive rates. The option “Because IOCs are only ever usable by…” incorrectly restricts each indicator type to a single role."
+        "explanation": "On the Pyramid of Pain, an IP or hash is trivial for the adversary to replace, so an IOC detection expires as soon as they rotate. A behaviour such as injection followed by defence evasion is a TTP, and changing it means changing how they operate, so the detection survives new samples and infrastructure. “IOA rules are cheaper and quicker to write” reverses the cost: IOC lookups are the cheap, fast option. “IOCs depend on a paid feed” is wrong because IOCs also come from OSINT, ISACs and government advisories, and cost has nothing to do with durability anyway. “IOAs raise fewer false positives” is also backwards: an exact IOC match is precise when it hits, while behavioural logic usually needs more tuning."
       },
       {
         "question": "You are a SOC analyst who just read a government advisory stating that ransomware affiliates are actively exploiting a specific VPN vulnerability against organizations in your sector, but the advisory includes no IOCs specific to your environment. What is the best use of this intelligence?",
         "options": [
           {
-            "label": "Ignore the advisory entirely since it contains no specific IOCs you could search for right now",
+            "label": "Wait for your feed to add the campaign's IOCs, then sweep for those",
             "value": "a"
           },
           {
-            "label": "Proactively check whether your VPN infrastructure is exposed to that exact vulnerability, using the operational pattern itself",
+            "label": "Check your VPN's exposure to that flaw now and hunt for its pattern",
             "value": "b"
           },
           {
-            "label": "Forward the advisory to the CISO only, since it is purely strategic content with no relevance to SOC work",
+            "label": "File it for the CISO's quarterly review as strategic trend reading",
             "value": "c"
           },
           {
-            "label": "Wait until an alert fires referencing this exact campaign before taking any further action at all",
+            "label": "Block the IPs from last year's advisory on the same ransomware group",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "This is operational intelligence about a known technique targeting your sector, and its value lies in driving a proactive check of your own exposure rather than waiting for a matching tactical IOC that may never arrive against your specific environment. The option “Ignore the advisory entirely since it contains…” wastes actionable operational intelligence just because it lacks tactical indicators. The option “Forward the advisory to the CISO only…” mischaracterizes advisory-level content as purely strategic when it clearly has direct operational relevance to SOC hunting. The option “Wait until an alert fires referencing this…” passively waits for an alert when proactive investigation is exactly the point of operational intelligence."
+        "explanation": "This is operational intelligence: a known technique used against your sector right now. Its value is in driving an immediate check of your own exposure and a hunt for the pattern, with or without a matching IOC. “Wait for your feed to add the campaign's IOCs” lets the exposure stay open while waiting for tactical indicators that may never match your environment. “File it for the CISO's quarterly review” treats an active, sector-specific exploitation report as long-horizon strategy. “Block the IPs from last year's advisory” relies on stale IOCs: adversaries rotate infrastructure, so those addresses may now be unused or even legitimate."
       },
       {
         "question": "Enrichment on a suspicious IP shows: VirusTotal with 9 of 89 vendors flagging it (two independently naming a C2 beacon pattern), WHOIS showing the associated domain registered five days ago with privacy protection, and passive DNS showing the domain rotating between two IPs within one week. Individually, none of these is proof. What is the correct conclusion?",
         "options": [
           {
-            "label": "Since no single check proves maliciousness alone, discard all three results and close the alert",
+            "label": "Close: none of the three checks is conclusive on its own",
             "value": "a"
           },
           {
-            "label": "The corroboration across independent sources, tied to the observed behavior, is enough to escalate without one tool giving a final verdict",
+            "label": "Escalate: independent sources agree and fit the behaviour",
             "value": "b"
           },
           {
-            "label": "Only the VirusTotal detection count matters; WHOIS and passive DNS results should never influence the decision",
+            "label": "Escalate, recording it as confirmed C2 of a named actor",
             "value": "c"
           },
           {
-            "label": "Attribute the activity to a specific named threat actor group before taking any further action",
+            "label": "Hold until a majority of VirusTotal engines flag the IP",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Corroboration across independent sources, tied back to observed behavior, is the enrichment discipline this lesson teaches — no single tool needs to render a definitive verdict on its own. The option “Since no single check proves maliciousness alone…” discards genuinely useful corroborating evidence. The option “Only the VirusTotal detection count matters; WHOIS…” ignores the multi-source corroboration that makes the case, relying on one tool alone. The option “Attribute the activity to a specific named…” repeats the earlier lesson mistake of chasing attribution before taking the response action the evidence already supports."
+        "explanation": "Three independent sources (named C2 detections, a five-day-old privacy-shielded domain, fast IP rotation) point the same way and fit the behaviour observed. That corroboration is enough to escalate, and no single tool has to deliver a verdict. “Close: none of the three checks is conclusive on its own” throws away exactly the corroboration the method relies on. “Escalate, recording it as confirmed C2 of a named actor” is the right door with the wrong label: nothing here names an actor or confirms the infrastructure. “Hold until a majority of VirusTotal engines flag the IP” makes one tool's ratio the gate, which the lesson warns against."
       },
       {
         "question": "An analyst has identified a C2 IP address used against their organization. Using the Diamond Model of Intrusion Analysis, what is the most useful next step to potentially uncover a broader campaign, even without confirming who the adversary is?",
         "options": [
           {
-            "label": "Pivot along the Infrastructure edge to check whether the same IP or domain appears in other organizations' incident reports",
+            "label": "Pivot from Infrastructure to other Victims that touched the same IP or domain",
             "value": "a"
           },
           {
-            "label": "Wait until the adversary is fully and confidently named before taking any further investigative action",
+            "label": "Fill in the Adversary corner first, since the other edges depend on it",
             "value": "b"
           },
           {
-            "label": "Discard the Infrastructure detail entirely, since the Diamond Model only tracks the kill-chain phase of a single event",
+            "label": "Map the event's kill-chain phase, which links it to other intrusions",
             "value": "c"
           },
           {
-            "label": "Conclude the investigation immediately, since a single event cannot ever connect to any broader activity thread",
+            "label": "Block the IP and close, since the model describes one event at a time",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "The Diamond Model's real analytical value lives in the edges connecting its four corners — pivoting from Infrastructure to Victim across multiple events is exactly how isolated incidents connect into a broader activity thread, without requiring confirmed attribution first. The option “Wait until the adversary is fully and…” wrongly gates a useful pivot on attribution, which this lesson already showed is usually unnecessary for effective response. The option “Discard the Infrastructure detail entirely, since the…” misdescribes the model, which is relational across all four corners, not phase-sequential like the kill chain. The option “Conclude the investigation immediately, since a single…” ignores the model's entire purpose."
+        "explanation": "The model's value is in its edges. From the Infrastructure corner (the C2 IP) you pivot to other Victims, in your own environment and in ISAC or DFIR reporting, that connected to the same infrastructure. That is how separate events join into an activity thread without anyone naming the actor. “Fill in the Adversary corner first” reverses it: the pivot works precisely while the Adversary is still unknown. “Map the event's kill-chain phase” is a meta-feature, and the kill chain describes the sequence within one intrusion with no mechanism for linking separate ones. “Block the IP and close” misreads the model: single events are the building blocks, and connecting them is the point."
       },
       {
         "question": "A newly received indicator is rated 'F6' under the Admiralty/NATO source-reliability code. What does this rating actually communicate?",
         "options": [
           {
-            "label": "The information is confirmed false and should be immediately discarded from any further consideration",
+            "label": "A low-severity threat, since F and 6 are the bottom of the scale",
             "value": "a"
           },
           {
-            "label": "The source has no established track record and the information's credibility cannot yet be independently judged",
+            "label": "Both unknown: an untested source, and a report not yet checkable",
             "value": "b"
           },
           {
-            "label": "The source is completely reliable and the specific information has been fully confirmed by other sources",
+            "label": "An unreliable source with improbable information, so discard it",
             "value": "c"
           },
           {
-            "label": "The rating exclusively measures how severe the underlying threat is, not the trustworthiness of the reporting",
+            "label": "A reliable source whose specific report is not yet confirmed",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "F on the reliability scale means the source's track record cannot yet be judged (no history to draw on), and 6 on the credibility scale means this specific report cannot yet be checked against independent corroboration — together, F6 flags genuine uncertainty on both axes, not a verdict either way. The option “The information is confirmed false and should…” wrongly treats 'unrated' as 'confirmed false.' The option “The source is completely reliable and the…” describes the opposite end of both scales (A1). The option “The rating exclusively measures how severe the…” misunderstands what the Admiralty Code measures — it grades trustworthiness of source and report, not threat severity."
+        "explanation": "F means the source's reliability cannot be judged (no track record yet), and 6 means this report's credibility cannot be judged. F6 is uncertainty on both axes, not a verdict. “A low-severity threat” confuses the code with severity: it grades the source and the report, not the threat. “An unreliable source with improbable information” describes E5, not F6: unknown is not the same as bad. “A reliable source whose specific report is not yet confirmed” mixes the axes: F says nothing good about the source, and that description fits something like B2 or B3."
       }
     ],
     "references": [

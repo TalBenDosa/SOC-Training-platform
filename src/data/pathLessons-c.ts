@@ -174,116 +174,116 @@ const lessons = [
         "question": "You are a SOC analyst and a detection engineer asks which single field on Kerberos service ticket events gives the best low-noise starting point for hunting credential-farming attacks. Which field and value should you point them to, and why?",
         "options": [
           {
-            "label": "LogonType equal to 2, because interactive logons indicate hands-on-keyboard access",
+            "label": "LogonType 3, because network logons on the ticket events are where lateral movement shows up",
             "value": "a"
           },
           {
-            "label": "TicketEncryptionType equal to 0x17 (RC4), because modern domains should use AES (0x12) and RC4 tickets are crackable offline",
+            "label": "TicketEncryptionType 0x17 (RC4), because a healthy domain issues AES (0x12) and RC4 tickets are the crackable ones",
             "value": "b"
           },
           {
-            "label": "AuthenticationPackageName equal to Kerberos, because Kerberos is inherently malicious",
+            "label": "PreAuthType 0, because service tickets with pre-authentication disabled are the roastable ones",
             "value": "c"
           },
           {
-            "label": "Status equal to 0x0, because successful tickets are always suspicious",
+            "label": "Status 0x0, because only successfully issued service tickets can be cracked offline",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "In a healthy modern domain service tickets use AES (0x12), so filtering 4769 events for TicketEncryptionType 0x17 (RC4) is a low-noise, high-signal starting point for Kerberoasting hunts because RC4 tickets are the crackable ones attackers request. LogonType is a 4624/4625 field, not on 4769. Kerberos being present is normal, not malicious. A success status (0x0) is expected on legitimate ticket requests and is not suspicious by itself."
+        "explanation": "In a healthy domain service tickets use AES (0x12), so filtering 4769 for TicketEncryptionType 0x17 (RC4) is low-noise and high-signal: RC4 tickets are the crackable ones a Kerberoasting hunt cares about. LogonType is a 4624/4625 field, not present on 4769, so it is the wrong event. PreAuthType and pre-authentication belong to 4768 TGT requests (the AS-REP roasting angle), not to 4769 service tickets. Status 0x0 is true of almost every legitimate ticket request, so filtering on it is high-noise rather than a focused starting point."
       },
       {
         "question": "A user's account shows fourteen denied MFA push notifications between 02:03 and 02:19, followed by one 'Approved' at 02:20 and a successful sign-in. The password was correct on every attempt. What is the most likely explanation, and what does it tell you about the attacker?",
         "options": [
           {
-            "label": "A simple network glitch caused the phone to misfire; because the final result was 'Approved', the sign-in is legitimate and no follow-up is needed",
+            "label": "A flaky authenticator app sent duplicate prompts; the denials are sync errors and the approval is the real login",
             "value": "a"
           },
           {
-            "label": "MFA fatigue / push-bombing (ATT&CK T1621): the attacker already had the correct password and spammed prompts until the tired user tapped Approve — so the password is compromised and the account should be treated as breached",
+            "label": "MFA fatigue / push-bombing (T1621): the attacker already has the password and spams prompts until the user taps Approve, so treat the account as compromised",
             "value": "b"
           },
           {
-            "label": "The user simply forgot their password fourteen times, which is normal behaviour and carries no security meaning whatsoever for the analyst on shift",
+            "label": "Conditional Access re-challenged a risky sign-in several times, and the final approval cleared it as the legitimate user",
             "value": "c"
           },
           {
-            "label": "This proves MFA failed as a control and should be disabled, since it clearly did not stop the attacker from eventually getting in this time",
+            "label": "The user kept dismissing prompts by mistake on a locked phone, so the denials are accidental and carry no security meaning",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "The pattern — correct password on every try, a burst of denials, then one late-night approval — is the classic MFA-fatigue signature (T1621): the attacker holds the password and bombards the user with prompts until one is approved out of annoyance. The password is compromised and the session is suspect. Calling it a network glitch ignores that the password being correct throughout is itself the alarm. The forgotten-password reading misreads denied MFA prompts as password failures. Disabling MFA draws the wrong lesson — MFA is why the attacker needed the user's cooperation at all; the fix is phishing-resistant factors and number-matching, not removing MFA."
+        "explanation": "A correct password on every try, a burst of denials, then one late-night approval is the classic MFA-fatigue signature (T1621): the attacker holds the password and keeps prompting until the user approves out of annoyance, so the account is compromised. Blaming a flaky authenticator ignores that the password being correct throughout is itself the alarm, and a sync fault would not produce one deliberate Approve at 02:20. Conditional Access does not fire fourteen denials and then self-clear. Accidental dismissals on a locked phone would not culminate in an approval plus a successful sign-in. The fix is phishing-resistant factors such as FIDO2 keys, not removing MFA."
       },
       {
         "question": "In a normally Kerberos-first domain, you notice a workstation suddenly authenticating to several other workstations by IP address, and the domain controllers log a spike of Event 4776. Why is the protocol choice itself meaningful here?",
         "options": [
           {
-            "label": "It is meaningless — Windows picks Kerberos or NTLM at random, so the protocol used never carries any information for an investigation",
+            "label": "It just means DNS was slow so the client fell back to an IP; that is a name-resolution issue, not a security one",
             "value": "a"
           },
           {
-            "label": "Connecting by IP forces a fallback to NTLM (logged by the DC as 4776); a burst of NTLM-by-IP between workstations in a Kerberos-first environment is a lateral-movement smell, because NTLM also enables relay and Pass-the-Hash",
+            "label": "Reaching hosts by IP forces NTLM (logged as 4776); a burst of NTLM-by-IP between workstations in a Kerberos-first domain is a lateral-movement smell that also enables relay and Pass-the-Hash",
             "value": "b"
           },
           {
-            "label": "4776 means Kerberos succeeded, so the spike simply confirms that everything is working exactly as designed and can be safely ignored",
+            "label": "4776 is an NTLM validation, but workstation-to-workstation it is ordinary file sharing and needs no follow-up",
             "value": "c"
           },
           {
-            "label": "The workstation is just being efficient; NTLM is the newer, stronger protocol, so preferring it by IP is a security improvement worth encouraging",
+            "label": "The spike is Kerberos pre-authentication; 4776 is a TGT event, so it confirms normal domain logons",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Windows falls back to NTLM when a resource is reached by IP rather than hostname, and the DC records NTLM validation as Event 4776. In a Kerberos-first environment, a sudden run of NTLM-by-IP between endpoints is anomalous and matches how lateral-movement tools behave — and NTLM carries the relay and Pass-the-Hash weaknesses Kerberos resists. The claim that Windows picks a protocol at random is false: the choice is rule-driven. Reading 4776 as Kerberos success misidentifies it (it is NTLM validation). Calling NTLM the newer, stronger protocol inverts reality — NTLM is the older, weaker protocol."
+        "explanation": "Windows falls back to NTLM when a resource is reached by IP instead of hostname, and the DC records that validation as Event 4776. In a Kerberos-first environment, a sudden run of NTLM-by-IP between endpoints matches how lateral-movement tooling behaves, and NTLM carries the relay and Pass-the-Hash weaknesses Kerberos resists. Calling it a DNS hiccup explains why NTLM was chosen but ignores that workstations rarely address each other by IP at all. Dismissing it as ordinary file sharing waves away the anomaly the baseline exists to catch. And 4776 is NTLM credential validation, not a Kerberos TGT event, so reading it as normal pre-authentication misidentifies the event."
       },
       {
         "question": "You are correlating a jsmith logon on DC01: Event ID 4768 at 08:59:58 from IpAddress 10.20.5.12, followed 31 seconds later by Event ID 4769 for the same AccountName requesting a file-share service ticket, also from 10.20.5.12. What single change to this pair would be the strongest red flag?",
         "options": [
           {
-            "label": "The 4769 arriving 31 seconds after the 4768 — any gap between a TGT and a service ticket request is inherently suspicious",
+            "label": "The 4769 arriving 31 seconds after the 4768 — a gap that short means the ticket was injected, not requested",
             "value": "a"
           },
           {
-            "label": "The 4769 carrying the same TicketEncryptionType as the 4768 — matching encryption types across paired events always indicates tampering",
+            "label": "The 4769 using RC4 (0x17) while the preceding 4768 used AES (0x12) — a downgrade across the paired events",
             "value": "b"
           },
           {
-            "label": "The 4769 arriving from a different IpAddress than the 4768 for the same AccountName — a mismatch consistent with pass-the-ticket (T1550.003)",
+            "label": "The 4769 arriving from a different IpAddress than the 4768 for the same AccountName — consistent with pass-the-ticket (T1550.003)",
             "value": "c"
           },
           {
-            "label": "The 4769 targeting a file-share SPN instead of a database SPN — file-share tickets are inherently more dangerous than other SPN types",
+            "label": "The 4769 targeting a file-share SPN instead of the database SPN seen earlier — a sign the ticket was repurposed",
             "value": "d"
           }
         ],
         "answer": "c",
-        "explanation": "A normal Kerberos chain shows the same AccountName and the same IpAddress across a 4768 and the 4769 that follows it, since a ticket is meant to be used from the machine that requested it. A 4769 arriving from a different source than the preceding 4768 for that account is the signature of pass-the-ticket (T1550.003) — a stolen TGT replayed from another host. A 31-second gap between unlocking and opening a share is normal human timing, not suspicious. Matching encryption types is expected, not evidence of tampering. The SPN type does not by itself indicate danger."
+        "explanation": "A normal chain shows the same AccountName and the same IpAddress across a 4768 and the 4769 that follows, since a ticket should be used from the host that requested it. A 4769 coming from a different source than its preceding 4768 is the pass-the-ticket signature (T1550.003) — a stolen TGT replayed from another host. The 31-second gap is normal human timing, not injection. An RC4-vs-AES downgrade is worth noting but points more at roasting than at this TGT-then-TGS replay, so it is the weaker signal here. The SPN being a file share rather than a database does not by itself mean the ticket was repurposed; users legitimately request different service tickets."
       },
       {
         "question": "An attacker used DCSync to obtain the krbtgt account's password hash, then later authenticated with a forged ticket asserting Domain Admin membership for the account jsmith. Which statement correctly distinguishes this attack from Kerberoasting?",
         "options": [
           {
-            "label": "It is identical to Kerberoasting, because both involve a 4769 event encrypted with RC4",
+            "label": "A Silver Ticket — forged offline from the krbtgt hash, so it too leaves no KDC request behind",
             "value": "a"
           },
           {
-            "label": "This is a Golden Ticket (T1558.001): forged entirely offline using the stolen krbtgt hash, so no 4768 is generated at creation — unlike Kerberoasting, which requests a real 4769 ticket from the KDC to crack offline",
+            "label": "A Golden Ticket (T1558.001): forged offline from the stolen krbtgt hash, so no 4768 marks its creation — unlike Kerberoasting, which requests a real 4769 to crack offline",
             "value": "b"
           },
           {
-            "label": "Golden Tickets require the attacker to first recover the plaintext password of jsmith from the KDC, whereas Kerberoasting succeeds without ever knowing any account's password",
+            "label": "A Golden Ticket, but it first needs jsmith's plaintext password recovered from the KDC, which Kerberoasting never needs",
             "value": "c"
           },
           {
-            "label": "DCSync and Golden Tickets only work against NTLM authentication and never touch Kerberos at all",
+            "label": "An Overpass-the-Hash — the krbtgt hash is used to request a normal TGT, which does generate a 4768 at creation",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A Golden Ticket (T1558.001) is forged entirely offline using the krbtgt hash obtained via DCSync, so the KDC never issues it and no Event ID 4768 marks its creation — the first trace is often the 4769 when the forged ticket is later used. Kerberoasting instead requests a genuine, KDC-issued service ticket (4769) and cracks it offline; it does not require the krbtgt hash at all. Golden Tickets need a stolen hash, not a plaintext password. Both DCSync and ticket forgery are Kerberos/AD-replication techniques, not NTLM."
+        "explanation": "A Golden Ticket (T1558.001) is forged offline from the krbtgt hash obtained via DCSync, so the KDC never issues it and no 4768 marks its creation — the first trace is usually the 4769 when the forged ticket is used. Kerberoasting instead requests a genuine KDC-issued service ticket (4769) and cracks it offline, and never needs the krbtgt hash. A Silver Ticket is forged from a specific service account's hash, not the krbtgt hash, so it is the wrong label. A Golden Ticket needs the krbtgt hash, not jsmith's plaintext password. Overpass-the-Hash does request a real TGT and so does leave a 4768, which is exactly what distinguishes it from the offline forgery described here."
       },
       {
         "question": "A low-privileged domain user who holds GenericWrite on a target server's computer object (granted by a misconfigured ACL) creates a new computer account (using the default MachineAccountQuota), sets that account as allowed to delegate to the target server via the target's msDS-AllowedToActOnBehalfOfOtherIdentity attribute, then impersonates a Domain Admin to that server using S4U2Self and S4U2Proxy. Which delegation type is being abused, and why was this possible without admin rights?",
@@ -438,16 +438,16 @@ const lessons = [
             "value": "b"
           },
           {
-            "label": "A cron job running a scheduled backup",
+            "label": "A bind shell — the exploit opened a local listener and is waiting for the attacker to connect inbound",
             "value": "c"
           },
           {
-            "label": "A journald process writing structured logs",
+            "label": "A web shell running single commands through nginx, with no outbound connection involved",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A shell parented by a web service (nginx) combined with a /dev/tcp/ redirect to an external IP is the textbook reverse shell (T1059.004) following a web exploit. A normal admin session would parent bash under sshd or a login shell, not nginx. A cron job would appear under cron/crond, and journald does not spawn interactive shells to network sockets."
+        "explanation": "A shell parented by a web service (nginx) whose command line redirects to an external host and port is the textbook reverse shell (T1059.004) after a web exploit. A normal admin session parents bash under sshd or a login shell, not nginx. A bind shell would listen for an inbound connection, but the command line here dials out, which is the opposite direction. A web shell running one-off commands would show no persistent outbound shell process at all — the standing /bin/bash with a network redirect is what makes this a reverse shell."
       },
       {
         "question": "You are a SOC analyst reviewing /etc/passwd on a Linux host after an alert. Which single line is the strongest indicator of a backdoor account?",
@@ -488,12 +488,12 @@ const lessons = [
             "value": "c"
           },
           {
-            "label": "Rotate the host's TLS certificate, since a successful password login means the server's key material was captured and is being replayed by the attacker",
+            "label": "Review /var/log/btmp to count the failed attempts first; the accepted root login can wait until that tally is complete",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A dense burst of SSH failures followed by an Accepted login from the same source is a successful brute force (T1110.001), and the priority is to scope what the now-authenticated root session did — auditd execve records and shell history reveal the post-compromise commands. The accepted login is not unrelated; it is the compromise. HTTP/port 80 and TLS certificates are irrelevant to an SSH password attack."
+        "explanation": "A dense burst of SSH failures followed by an Accepted login from the same source is a successful brute force (T1110.001), and the priority is to scope what the now-authenticated root session did — auditd execve records and shell history reveal the post-compromise commands. Deprioritising it ignores that the Accepted entry IS the compromise, not benign scanning noise. Port 80 points at the web app, the wrong vector for an SSH password attack. Counting btmp failures first inverts the priority: the live root session is the urgent lead, and tallying old failures can wait."
       },
       {
         "question": "You are a SOC analyst and bash_history on a compromised host has been cleared, but you still need to know exactly which commands the attacker ran. Which log source is designed to give you that command-level visibility, and what field ties an action back to the original human even after a privilege change?",
@@ -511,41 +511,41 @@ const lessons = [
             "value": "c"
           },
           {
-            "label": "/etc/shadow, using the password-aging field",
+            "label": "journald for the sshd unit (journalctl -u ssh), using the _COMM field",
             "value": "d"
           }
         ],
         "answer": "c",
-        "explanation": "The Linux Audit daemon (auditd) records execve syscalls with the full command line even when bash history is wiped, and the auid (audit uid) is preserved across sudo/su privilege changes so it ties every action back to the original logged-in human. syslog/messages does not capture per-command execution, the web access log only shows HTTP requests, and /etc/shadow stores password hashes, not command history."
+        "explanation": "The Linux Audit daemon (auditd) records execve syscalls with the full command line even when bash history is wiped, and the auid (audit uid) is preserved across sudo/su privilege changes, so it ties every action back to the original logged-in human. syslog/messages does not capture per-command execution. The web access log only shows HTTP requests, not shell commands. journald for the sshd unit records session start/stop and auth events, but it does not log the individual commands run inside the session, which is exactly what you need here."
       },
       {
         "question": "On a Linux web server, `ss -tnp` shows an ESTABLISHED outbound TCP connection to 185.4.2.9:4444 owned by a `bash` process, and the process tree shows that bash's parent is `nginx`. The server's inbound firewall is strict and shows nothing unusual. What is happening, and why did the firewall not stop it?",
         "options": [
           {
-            "label": "Nothing unusual — web servers routinely open outbound shells to random high ports as part of serving pages, and the strict inbound firewall proves the host is secure",
+            "label": "A bind shell: the exploit opened a local listener that an egress rule later blocked, so no real outbound session exists",
             "value": "a"
           },
           {
-            "label": "A reverse shell from a web-shell foothold: nginx spawning bash that dials OUT to a high port is the signature, and because the connection is outbound the inbound firewall never applied — egress filtering is what would have caught it",
+            "label": "A reverse shell from a web foothold: bash dials out, so only egress filtering, not inbound rules, applies",
             "value": "b"
           },
           {
-            "label": "The firewall is broken, because a correctly configured inbound firewall would have blocked this outbound bash connection before it was established",
+            "label": "The firewall is broken, because a correctly configured inbound firewall would have blocked this outbound bash connection",
             "value": "c"
           },
           {
-            "label": "This is normal nginx behaviour; port 4444 is the standard HTTPS-alternate port and bash is nginx's built-in request handler",
+            "label": "A legitimate nginx upstream health check to a backend on 4444, which the inbound firewall correctly ignored",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Two signatures stack here: a service account's web server (nginx) spawning bash is the web-shell tell, and that bash opening an outbound session to a high port is a reverse shell. The inbound firewall never applied because the victim initiated the connection outbound — only egress filtering could have blocked it. The option “Nothing unusual — web servers routinely open…” is absurd (web servers never open shells outbound legitimately). The option “The firewall is broken, because a correctly…” misunderstands direction — inbound firewalls do not govern outbound connections. The option “This is normal nginx behaviour; port 4444…” is fabricated: 4444 is not HTTPS-alternate and bash is not part of nginx."
+        "explanation": "Two signatures stack here: nginx (a service account's web server) spawning bash is the web-shell tell, and that bash holding an ESTABLISHED outbound session to a high port is a reverse shell. The inbound firewall never applied because the victim initiated the connection outbound — only egress filtering could have caught it. A bind shell would be listening for an inbound connection, but ss shows an outbound ESTABLISHED session, so that reading contradicts the evidence. The firewall is not broken: inbound rules simply do not govern outbound connections. And an upstream health check would be made by the nginx worker itself, not by a child bash process dialing a high port.",
       },
       {
         "question": "You see this in a Linux host's command history under the www-data account: `echo aWQ7d2hvYW1p | base64 -d | bash`. Why is each part of this a signal, and what is the analyst's correct read?",
         "options": [
           {
-            "label": "It is a routine package installation, because base64 is the standard Debian installer format and www-data is the normal, expected account for downloading and installing new software packages on the server",
+            "label": "A routine deploy step: the app account decodes a config blob and applies it, which is normal for automated releases",
             "value": "a"
           },
           {
@@ -553,62 +553,62 @@ const lessons = [
             "value": "b"
           },
           {
-            "label": "base64 is an encryption tool, so this command is securely protecting sensitive data at rest, and it represents a recommended good security practice carried out by the web administrator on schedule",
+            "label": "Safe housekeeping: base64 here just compresses a log for archiving and nothing is actually executed",
             "value": "c"
           },
           {
-            "label": "There is nothing to investigate here, because www-data is a highly privileged administrative account whose specific job on the server is to run decoded maintenance scripts exactly like this one",
+            "label": "Low risk: the decoded command only prints account information, so it cannot change anything on the host",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Base64-encoding hides the real command from simple keyword matching (the Linux analogue of PowerShell -enc); piping to bash executes it; and the account is www-data, which serves web pages and has no business running shell commands. Together that is web-shell command execution — the server should be treated as compromised. The option “It is a routine package installation, because…” invents a package format. The option “base64 is an encryption tool, so this…” confuses encoding with encryption (base64 is trivially reversible, hence the `-d` decode). The option “There is nothing to investigate here, because…” inverts reality — www-data is deliberately low-privilege, not an admin account."
+        "explanation": "The www-data account serves web pages and has no reason to run shell commands; here it decodes a Base64 blob and pipes it into bash — encoding to slip past simple keyword rules (the Linux analogue of PowerShell's -enc) and then executing the result. That is web-shell command execution, so treat the server as compromised. A real deploy runs under a deploy/root account and a package manager, not www-data piping into a shell. base64 is encoding, not compression or encryption, and the pipe into bash means something is executed. And even a command that only prints information proves the attacker has arbitrary execution as www-data — the danger is the execution channel, not that one payload's output."
       },
       {
         "question": "Triaging host web03, you run three commands in sequence. `grep sshd /var/log/auth.log` shows an Accepted login for svc-backup — a service account that should never log in interactively — from an external IP at 03:14. `ps -ef --forest` shows that session's shell has since spawned a second, unexplained bash process. `ss -tnp` shows that second process holds an ESTABLISHED connection to a different external IP on port 4444. What is the correct read of these three pieces together?",
         "options": [
           {
-            "label": "Nothing to escalate — each command describes a separate, unrelated event, and auth.log, ps, and ss output should never be combined into one conclusion",
+            "label": "An admin borrowing the svc-backup account for a one-off task; note it and move on",
             "value": "a"
           },
           {
-            "label": "A service account with no business logging in interactively has an active session that spawned an unexplained shell now talking to an external address — treat this as a likely-compromised session and pivot to that destination",
+            "label": "A likely-compromised account: its odd login spawned a shell now talking out — pivot to that IP",
             "value": "b"
           },
           {
-            "label": "This is normal backup traffic, because service accounts routinely open outbound connections on port 4444 as part of scheduled backup jobs",
+            "label": "A backup job using a hard-coded credential; rotate the password and close the ticket",
             "value": "c"
           },
           {
-            "label": "The auth.log entry alone is sufficient to close this as a false positive, since ps and ss output cannot be trusted during an active investigation",
+            "label": "A vulnerability scanner briefly touching port 4444; safe to dismiss as scan noise",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Combining the three signals is the point: identity (a service account that should never log in interactively did so), process (its live shell spawned a second, unexplained shell), and network (that shell is talking outbound to an unrelated external address) — together these describe an active, likely-compromised session, exactly the multi-command triage habit this lesson teaches. The option “Nothing to escalate — each command describes…” rejects correlation, the opposite of good practice. The option “This is normal backup traffic, because service…” invents a legitimate purpose for port 4444, which has no standard association with backups. The option “The auth.log entry alone is sufficient to…” wrongly closes an incident based on partial evidence while ignoring the process and network signals."
+        "explanation": "Combining the three signals is the point: identity (a service account that should never log in interactively did so), process (its live shell spawned a second, unexplained shell), and network (that shell is talking outbound to an unrelated external IP) — together these describe an active, likely-compromised session. An admin borrowing svc-backup would not explain an interactive login from an external IP at 03:14 plus a spawned shell dialing out. Rotating the credential treats it as a mere password-hygiene issue and closes too early, leaving a live attacker session running. And this is an outbound ESTABLISHED session from a logged-in shell, not inbound scan noise, so dismissing it as a scanner ignores the compromise in front of you."
       },
       {
         "question": "A web server process (SELinux context httpd_t) attempts to execute /bin/bash right after a suspicious file upload, and /var/log/audit/audit.log shows a type=AVC entry with 'denied { execute }' and permissive=0. What does this tell a SOC analyst?",
         "options": [
           {
-            "label": "SELinux is disabled, since AVC entries only ever appear once protections are turned off",
+            "label": "SELinux was in permissive mode, so it logged the attempt but allowed the shell to run anyway",
             "value": "a"
           },
           {
-            "label": "The web exploit likely reached command execution, but SELinux (enforcing mode) blocked the resulting shell — high-confidence evidence of an attempted, partially-contained compromise",
+            "label": "The exploit reached code execution, but enforcing SELinux blocked the shell — a contained attempt",
             "value": "b"
           },
           {
-            "label": "This is normal behavior; web servers routinely spawn interactive shells while handling HTTP requests",
+            "label": "An AppArmor profile — not SELinux — stopped the shell, so this is an AppArmor denial",
             "value": "c"
           },
           {
-            "label": "The event is a false positive, because AVC denials are only logged in permissive mode and never in enforcing mode",
+            "label": "A false positive, because AVC denials are only logged in permissive mode and never in enforcing mode",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "permissive=0 means SELinux was in enforcing mode and actually blocked the action, so a web server context (httpd_t) trying to execute bash right after a suspicious upload is strong evidence the exploit reached command execution and was stopped by policy before it could spawn a shell. AVC denials appear specifically because SELinux is active and enforcing, not because it is disabled. Web servers have no legitimate reason to execute an interactive shell."
+        "explanation": "permissive=0 means SELinux was enforcing and actually blocked the action, so a web server context (httpd_t) trying to execute bash right after a suspicious upload is strong evidence the exploit reached command execution and was stopped by policy before a shell spawned. Reading it as permissive misreads permissive=0: in permissive mode the value would be 1 and the shell would have run. A type=AVC entry is SELinux's own denial record, not AppArmor, which logs separately. And AVC denials are produced precisely because SELinux is enforcing, so this is a real block, not a false positive."
       },
       {
         "question": "A process inside a container connects to /var/run/docker.sock and issues an API call to create a new container with '/' bind-mounted from the host. What is happening, and why does normal container isolation not stop it?",

@@ -88,9 +88,9 @@ const dlpFpEvent: TelemetryEvent = {
   raw: {
     "data.office365.Operation": "DlpRuleMatch",
     "data.office365.Workload": "Exchange",
-    "data.office365.PolicyDetails.PolicyName": "PCI - Credit Card Number - External Send Warn",
-    "data.office365.PolicyDetails.Rules.RuleName": "Warn on Possible CC Numbers",
-    "data.office365.PolicyDetails.Rules.Actions": "GenerateAlert,NotifySender",
+    "data.office365.PolicyDetails.PolicyName": "PCI - Credit Card Number - External Send Audit",
+    "data.office365.PolicyDetails.Rules.RuleName": "Audit Possible CC Numbers",
+    "data.office365.PolicyDetails.Rules.Actions": "GenerateAlert",
     "data.office365.SensitiveInfoType.Name": "Credit Card Number",
     "data.office365.SensitiveInfoType.Count": "18",
     "data.office365.SensitiveInfoType.Confidence": "62",
@@ -186,15 +186,15 @@ const dlpRoom = {
         "smuggling it deliberately) is a human decision made AFTER the flag — exactly like\n" +
         "a SOC analyst's job after a DLP alert fires.",
       checkpoint: {
-        question: "According to the reading, what question does DLP itself answer, as opposed to what UEBA/behavior tools answer?",
+        question: "During a DLP case the shift lead asks: 'Is s.colb behaving differently from her normal week?' Which tool is built to answer that, and what does DLP add instead?",
         options: [
-          "'What is in this data and where is it going?'",
-          "'Is this user acting suspiciously?'",
-          "'Has this user's account been compromised?'",
-          "'What malware signature matches this file?'",
+          "UEBA answers it; DLP adds what the data contained and where it was going",
+          "DLP answers it, because each policy match compares the user with her baseline",
+          "DLP answers it, because Block actions are reserved for users acting unusually",
+          "EDR answers it; DLP adds which malware signature matched the copied file",
         ],
         answer: 0,
-        explanation: "The reading states DLP is a content-inspection control that answers 'what is in this data and where is it going?' — not 'is this user acting suspiciously?', which is the behavior question UEBA and insider-threat platforms answer.",
+        explanation: "The reading draws the line clearly: DLP is a content-inspection control that answers 'what is in this data and where is it going?', while UEBA and insider-threat platforms answer the behavior question. A DLP policy match does not compare the user with any baseline — the same match fires for a careful employee and for a thief. Block is chosen by the policy for the content and destination, not by how unusual the user is. EDR watches processes and malware, and DLP does not match malware signatures.",
       },
     },
     // ── Reading 2 ──────────────────────────────────────────────────────────
@@ -265,15 +265,15 @@ const dlpRoom = {
         "  Source code    -> competitive/IP risk, may need legal + engineering leadership\n" +
         "  PII (general)  -> most common, usually lower urgency unless volume is large",
       checkpoint: {
-        question: "According to the reading, what characteristic helps DLP classifiers detect leaked AWS access keys as a 'Secrets' match?",
+        question: "A Secrets match fires on a .env file a developer uploaded to a personal cloud folder; it contains an AWS access key (the kind that begins AKIA). The developer says it was an accident. Per the reading, what is the immediate priority?",
         options: [
-          "AWS access keys begin with a distinctive prefix like AKIA",
-          "They always appear in files larger than 10MB",
-          "They are detected only via document fingerprinting, never regex",
-          "They must be sent to a personal Gmail address to be flagged",
+          "Rotate the exposed key now, whatever the developer's intent turns out to be",
+          "Confirm intent with HR first, since an accident needs no technical action",
+          "Check the confidence score; below 85, a single key match needs no action",
+          "Coach the developer and close, because the upload was clearly accidental",
         ],
         answer: 0,
-        explanation: "The reading states that regex patterns matched to well-known key formats — such as AWS access keys beginning with AKIA, or private key files containing a -----BEGIN PRIVATE KEY----- header — are used to detect leaked secrets.",
+        explanation: "The reading is explicit: a secrets match means rotating the exposed credential regardless of intent, because anyone who finds a leaked key can use it immediately. Intent still matters for how the developer is treated, but it does not make the key safe again. Keys have a fixed, recognisable format (AWS access keys begin AKIA), so a match is rarely a coincidence, and a lower score is no reason to leave a real key active. Coaching comes after rotation, not instead of it.",
       },
     },
     // ── Reading 4 ──────────────────────────────────────────────────────────
@@ -365,15 +365,15 @@ const dlpRoom = {
         "  \"Allowed - Overridden\"  -> user saw the warning and chose to proceed anyway.\n" +
         "                             Check JustificationText immediately.",
       checkpoint: {
-        question: "According to the reading, what must a user typically do before a 'Warn / Justify' DLP action allows their transfer to proceed?",
+        question: "A DLP event shows ActionTaken = 'Allowed - Overridden'. What happened, and which field should you read first?",
         options: [
-          "Type a business justification, which is captured in the JustificationText field",
-          "Wait 24 hours for manager approval",
-          "Contact the SOC team directly by phone",
-          "Nothing — Warn/Justify silently logs the event without any user interaction",
+          "The user saw a policy tip and chose to proceed — read JustificationText",
+          "The policy was in audit mode, so no tip was shown — read the Confidence score",
+          "An admin released the blocked message afterwards — read the PolicyId",
+          "The transfer was blocked, then retried successfully — read the device serial",
         ],
         answer: 0,
-        explanation: "The reading explains that Warn/Justify pauses the action with a policy tip, and the user must often type a business justification to override it — this text is captured in the JustificationText field for investigators.",
+        explanation: "'Allowed - Overridden' is the Warn/Justify outcome: the user was paused by a policy tip, chose to override it, and usually had to type a business reason that Purview stores in JustificationText — the first thing to read. Audit mode never shows the user anything and is logged as 'Allowed - Alert Only'. An admin releasing a message is a separate workflow, and a block followed by a retry would appear as a Blocked event plus a separate later event.",
       },
     },
     // ── Reading 6 (investigation + insider overlap) ──────────────────────────
@@ -442,42 +442,42 @@ const dlpRoom = {
           question:
             "The event shows SensitiveInfoType.Count = 312 and SensitiveInfoType.Confidence = 92, for SensitiveInfoType.Name = \"U.S. Social Security Number\". How should you interpret this combination?",
           options: [
-            "The high count and high confidence together are a strong true-positive signal — this file genuinely contains a large volume of real SSNs, not a coincidental pattern match",
-            "A count of 312 is actually a red flag for a false positive, since real files rarely contain more than a handful of SSNs",
-            "Confidence and count are unrelated fields and should be evaluated completely independently of each other",
-            "This combination only matters for PCI data, not for PII/SSN data types",
+            "A strong true-positive signal — the file very likely holds a real bulk set of SSNs",
+            "A false-positive signal — 312 near-identical hits usually means one ID column repeating",
+            "The count is what matters — confidence reflects the policy's threshold, not each match",
+            "The confidence is what matters — a high count simply reflects the file's large size",
           ],
           answer: 0,
           explanation:
-            "High confidence (92) means the classifier is very sure each individual match is a genuine SSN (likely reinforced by keyword proximity like 'Employee ID' or 'SSN' column headers). A high count (312) means this is not an isolated coincidence — it strongly suggests a genuine bulk dataset of real employee records, consistent with the file name Employee_Master_Records_2024.xlsx. Together, these are the classic shape of a true positive on a genuinely sensitive bulk-data file.",
+            "High confidence (92) means the classifier is very sure each individual match is a genuine SSN (likely reinforced by keyword proximity like 'Employee ID' or 'SSN' column headers). A high count (312) means this is not an isolated coincidence — it strongly suggests a genuine bulk dataset of real employee records, consistent with the file name Employee_Master_Records_2024.xlsx. Together, these are the classic shape of a true positive on a genuinely sensitive bulk-data file. A repeating ID column would normally score low confidence, not 92. Confidence is the classifier's certainty about each match, not a policy setting, and a large file with no SSNs would still count zero matches — read the two fields together, as the reading's confidence-plus-count table does.",
           xp: 25,
         },
         {
           question:
             "The field data.office365.ActionTaken shows \"Blocked\" and data.office365.RemovableMedia.SerialNumber is populated with a specific USB device serial number. What does this tell you about both the outcome AND your next investigative step?",
           options: [
-            "Because the recorded action was Blocked, absolutely no data left the workstation in any form, so the entire incident can be closed immediately with zero further review, documentation, or follow-up of any kind whatsoever",
-            "The data did NOT leave (Blocked means the USB write operation failed) — but you should still investigate WHY the user attempted this bulk copy, since intent still matters even when a control succeeded. The device serial number lets you identify the exact physical USB drive for further correlation.",
-            "The RemovableMedia.SerialNumber field exists purely for compliance paperwork and audit-trail formatting purposes, and it carries no genuine investigative value for correlating devices across multiple incidents or users going forward",
-            "Blocked events generated by Endpoint DLP are never worth reviewing any further, since the technical control already worked exactly as designed and fully neutralized any risk regardless of the user's underlying intent or history",
+            "Close as coached — Blocked means no data left, so there is nothing more to check",
+            "The copy failed, but the attempt still needs a why, and the serial identifies the drive",
+            "Treat it as active data loss — Blocked means the alert fired, not that the copy stopped",
+            "Reset the user's password first — a blocked bulk copy implies a compromised account",
           ],
           answer: 1,
           explanation:
-            "Blocked confirms the data did not successfully leave via this attempt — that lowers urgency around active data loss, but it does NOT close the investigation. A blocked attempt to bulk-copy 312 SSNs off an HR workstation still warrants understanding intent: was this an authorized data migration, a mistaken habit, or a deliberate attempt that will simply be retried through another channel? The USB serial number is valuable for correlating whether this same device has been used before, and for asset/device-control follow-up (e.g., is USB write access appropriately restricted for this role going forward).",
+            "Blocked confirms the data did not successfully leave via this attempt — that lowers urgency around active data loss, but it does NOT close the investigation. A blocked attempt to bulk-copy 312 SSNs off an HR workstation still warrants understanding intent: was this an authorized data migration, a mistaken habit, or a deliberate attempt that will simply be retried through another channel? The USB serial number is valuable for correlating whether this same device has been used before, and for asset/device-control follow-up (e.g., is USB write access appropriately restricted for this role going forward). Closing on 'Blocked' alone skips the intent question. Blocked does mean the write failed, so this is not active data loss. And nothing here suggests a compromised account — the copy ran on s.colb's own workstation from her own profile — so a password reset is not the first move.",
           xp: 25,
         },
         {
           question:
             "Given that this is an HR employee (s.colb@nexacorp.com) on an HR workstation, moving a file literally named Employee_Master_Records_2024.xlsx, what should be your FIRST triage step before assuming malicious intent?",
           options: [
-            "Immediately escalate this to external law enforcement without any internal review first, since any bulk movement of PII by an employee is automatically and unconditionally treated as a criminal matter under company policy",
-            "Check whether this user has a legitimate, role-appropriate reason to handle bulk employee records (e.g., an approved HR data migration, backup, or vendor transfer project) and whether there is a corresponding change ticket or manager approval — HR staff routinely and legitimately handle employee master data as part of their job",
-            "Assume this is a false positive purely because the user happens to work in the HR department, and close the alert immediately without pulling any change tickets, manager approvals, or other corroborating internal records",
-            "Contact the employee directly and ask them to explain themselves over chat or phone before checking any internal records, change tickets, or manager approvals that might independently confirm or contradict their explanation",
+            "Escalate to the insider-threat team now, since bulk PII moved by anyone is a red flag",
+            "Check for an approved HR task — a migration ticket or manager sign-off — for this copy",
+            "Close it as expected activity, since HR staff handle employee master records daily",
+            "Isolate WS-HR-1142 first, then work out whether the copy was legitimate or not",
           ],
           answer: 1,
           explanation:
-            "Role context matters enormously here: unlike the earlier logistics-employee-with-SSNs example, an HR employee handling the actual employee master file is entirely plausible as a normal job function. The correct first step is to check internal records — is there an approved reason (a sanctioned HR system migration, an approved backup process, a vendor data-transfer project) and ideally a change ticket — before concluding anything. This is neither an automatic 'call the police' situation nor an automatic 'this is fine because they're in HR' dismissal; it requires verification either way.",
+            "Role context matters here: an HR employee handling the employee master file is plausible as normal work, so the first step is to check internal records — an approved HR migration, backup or vendor transfer, ideally with a ticket or manager sign-off — before concluding anything. Escalating straight to the insider-threat team skips that cheap check and treats a likely job task as a threat. Closing it because she works in HR assumes the answer; HR staff can misuse data too. Isolating the workstation is containment for a confirmed threat, and this copy was already blocked.",
           xp: 20,
         },
       ],
@@ -495,28 +495,28 @@ const dlpRoom = {
           question:
             "The recipient field shows data.office365.ExchangeMetaData.To = \"m.reyes.personal@gmail.com\" while the sender is \"m.reyes@nexacorp.com\". Why is this specific detail significant to your investigation?",
           options: [
-            "It is not significant at all — the specific destination domain almost never matters for triage purposes, as long as the DLP policy already successfully blocked the message from actually being delivered to the recipient",
-            "The recipient's personal Gmail address appears to be the sender's OWN personal account (matching first name/last name pattern) — this is a common and important pattern: an employee moving corporate data to their own personal storage, which needs to be assessed as a potential policy violation even without external threat-actor involvement",
-            "Gmail addresses are always, without exception, treated as definitively malicious by every DLP policy regardless of any other surrounding context, sender history, or relationship between the sender and the recipient address",
-            "This naming pattern proves conclusively and beyond any doubt that the employee's corporate account was compromised by an external attacker who correctly guessed the employee's personal Gmail address and used it, alongside stolen session credentials, to exfiltrate the data",
+            "Little — once the email is Blocked, the recipient address adds nothing to triage",
+            "It looks like the sender's own personal account: company data moved to personal storage",
+            "It suggests a reply-to phishing trick, so check the sender's mailbox rules first",
+            "It points to account compromise — attackers often send data to lookalike addresses",
           ],
           answer: 1,
           explanation:
-            "The naming pattern 'm.reyes.personal@gmail.com' strongly suggests this is the sender's own personal email account, not a third-party recipient. This is one of the most common DLP scenarios in real SOC work: employees moving files to personal accounts for convenience ('I want to work on this at home this weekend') without malicious intent, but which still constitutes an unauthorized data transfer outside company control and a genuine policy violation worth documenting and coaching, even when it is not theft.",
+            "The naming pattern 'm.reyes.personal@gmail.com' strongly suggests this is the sender's own personal email account, not a third-party recipient. This is one of the most common DLP scenarios in real SOC work: employees moving files to personal accounts for convenience ('I want to work on this at home this weekend') without malicious intent, but which still constitutes an unauthorized data transfer outside company control and a genuine policy violation worth documenting and coaching, even when it is not theft. The destination still matters after a block, because it shows what the user was trying to do. Nothing in the event points to phishing or a mailbox rule — the message was composed and sent by m.reyes — and an address built on the sender's own name fits self-forwarding far better than an attacker's drop box.",
           xp: 25,
         },
         {
           question:
             "The subject line reads \"Q3 Chargeback Report - backup copy\" and the attachment contains 47 credit card number matches at 85% confidence. What does the phrase 'backup copy' in the subject line suggest about likely intent, and how should that shape (not replace) your investigation?",
           options: [
-            "The phrase proves completely and conclusively, beyond any possible doubt, that the employee had absolutely no malicious intent whatsoever, so the alert can be closed immediately with zero further review, verification, or coaching steps required",
-            "The phrase suggests a plausible non-malicious motive (personal convenience / backing up work) which shifts the LIKELY verdict toward 'well-meaning employee' rather than theft — but you should still verify there is no pattern of repeated unauthorized transfers, confirm company policy on personal backups, and coach the employee, since good intent does not make the transfer authorized",
-            "Subject lines carry absolutely no evidentiary value of any kind whatsoever in DLP investigations and should always be ignored entirely without exception, regardless of what the sender actually wrote, since only the attachment content and destination domain ever meaningfully matter",
-            "The word 'backup' appearing anywhere in a subject line is a well-known, universally recognized evasion technique that attackers deliberately use specifically to bypass DLP filters, so any email containing it should always be treated as definite, confirmed malicious exfiltration with no further verification needed",
+            "It settles the case as benign, so close the alert without any further steps",
+            "It hints at a benign motive, but verify there is no pattern and coach the user",
+            "It is irrelevant, because the attachment content and destination are what count",
+            "It is a known evasion phrase, so treat the email as confirmed exfiltration",
           ],
           answer: 1,
           explanation:
-            "Self-authored context clues like an honest subject line ('backup copy') are meaningful evidence that shifts probability toward benign intent, but they are not proof and should not end the investigation on their own. The correct approach is to weigh this alongside other signals (is this a one-time event or a pattern? does the employee have a history of similar attempts? what does company policy say about handling PCI data?) and to use it as a coaching opportunity — the block already prevented the actual data loss, so the remaining work is about policy compliance and education, not incident containment.",
+            "Self-authored context clues like an honest subject line ('backup copy') are meaningful evidence that shifts probability toward benign intent, but they are not proof and should not end the investigation on their own. The correct approach is to weigh this alongside other signals (is this a one-time event or a pattern? does the employee have a history of similar attempts? what does company policy say about handling PCI data?) and to use it as a coaching opportunity — the block already prevented the actual data loss, so the remaining work is about policy compliance and education, not incident containment. Calling the subject line irrelevant throws away the user's own stated reason, and there is no basis for treating the word 'backup' as an evasion keyword.",
           xp: 20,
         },
       ],
@@ -533,7 +533,7 @@ const dlpRoom = {
       explanation:
         "This is a textbook false positive. Three signals converge: (1) confidence is only 62%, well below the high-confidence range (85+) typically required for genuine PCI matches; (2) the recipient is a long-standing, known business partner receiving a purchase-order reconciliation document, which is exactly the kind of file that legitimately contains 16-digit numeric identifiers (PO numbers, invoice numbers) that can coincidentally pass a Luhn-style checksum; (3) the sample DetectedValues (4102-8837-2201-0044, 4102-8837-2201-0051) share the same 12-digit prefix and differ only in a small sequential suffix — the shape of consecutive PO or invoice numbers, not of unrelated customers' card numbers. (Note that audit mode itself is not evidence either way: it is an admin deployment choice, not a judgement by the classifier.) The correct action is to review the actual DetectedValues, confirm they are PO/invoice numbers rather than real card numbers, and consider tuning the classifier or the confidence threshold to reduce this kind of noise for procurement workflows.",
       fp_trap:
-        "It is tempting to treat any 'Credit Card Number' match as automatically serious because PCI carries heavy compliance weight. But the confidence score (62, well below a typical 85+ block threshold), the low match count relative to file size, and the legitimate business relationship with the recipient all point to a coincidental numeric pattern — not real cardholder data. Escalating every PCI-labeled alert without checking confidence and context wastes analyst time and trains the business to ignore DLP alerts as noise.",
+        "It is tempting to treat any 'Credit Card Number' match as automatically serious because PCI carries heavy compliance weight. But the confidence score (62, well below a typical 85+ block threshold), the sequential, PO-like DetectedValues, and the legitimate business relationship with the recipient all point to a coincidental numeric pattern — not real cardholder data. Escalating every PCI-labeled alert without checking confidence and context wastes analyst time and trains the business to ignore DLP alerts as noise.",
       xp: 30,
     },
     // ── Analyst Choice 2: departing employee cloud upload ─────────────────
@@ -558,48 +558,48 @@ const dlpRoom = {
       question:
         "Why is a DLP alert alone often insufficient to prove malicious insider intent, and what additional context typically closes that gap?",
       options: [
-        "DLP lacks destination data, while EDR telemetry alone reconstructs content and destination, so insider cases should rest on EDR alerts rather than DLP",
+        "DLP lacks destination data, while EDR telemetry reconstructs content and destination, so insider cases should rest on EDR alerts rather than DLP",
         "DLP shows WHAT matched and WHERE it went, not WHY; closing the gap takes behavioral context (timing, volume vs. baseline, new destination) plus HR context (role, resignation status)",
         "A 'Blocked' DLP action is complete evidence, since a blocked transfer confirms the user deliberately attempted to move protected content out of the tenant",
-        "The sensitivity label settles intent: any Confidential-labelled file leaving the tenant proves deliberate exfiltration, whatever the timing, volume or HR context",
+        "The confidence score settles intent: a score above 85 shows the user knew the data was sensitive, whatever the timing, volume or HR context",
       ],
       answer: 1,
       explanation:
-        "DLP is a content-inspection control — it is excellent at telling you what sensitive data was involved and where it was going, but it has no visibility into intent. The gap between 'content matched a policy' and 'this was malicious' is closed by layering in behavioral context (is this normal for this user? unusual timing or volume?) and organizational/HR context (does this role plausibly explain the activity? is there a resignation, PIP, or other red flag on file?). This is precisely why DLP and insider-threat/UEBA programs are designed to work together rather than in isolation.",
+        "DLP is a content-inspection control — it is excellent at telling you what sensitive data was involved and where it was going, but it has no visibility into intent. The gap between 'content matched a policy' and 'this was malicious' is closed by layering in behavioral context (is this normal for this user? unusual timing or volume?) and organizational/HR context (does this role plausibly explain the activity? is there a resignation, PIP, or other red flag on file?). This is precisely why DLP and insider-threat/UEBA programs are designed to work together rather than in isolation. EDR does not reconstruct content the way DLP does, a Blocked action shows an attempt but not why it was made, and a high confidence score only means the classifier is sure about the content — it says nothing about what the user knew or intended.",
       xp: 25,
     },
     // ── Matching ──────────────────────────────────────────────────────────
     {
       type: "matching" as const,
       id: "dlp-m1",
-      heading: "Match Each DLP Channel to What It Actually Monitors",
+      heading: "Match Each DLP Channel or Classifier Concept to Its Description",
       instructions:
-        "DLP enforcement happens across three distinct channels. Match each channel on the left to the description of what it monitors on the right.",
+        "Three of these are DLP channels and two are classifier concepts. Match each one on the left to its description on the right.",
       pairs: [
         {
           id: "endpoint",
           left: "Endpoint DLP",
-          right: "Agent running on the laptop/desktop itself — sees USB copy, printing, clipboard paste, and screenshots that never touch the network",
+          right: "Sees USB copies, printing, clipboard paste and screenshots — actions that never reach the network",
         },
         {
           id: "network",
           left: "Network DLP",
-          right: "Inline appliance or proxy inspecting traffic crossing the network boundary — mainly legacy protocols (FTP, SMTP relays) or HTTPS if paired with SSL inspection",
+          right: "Inline appliance or proxy at the boundary; needs TLS inspection to see HTTPS uploads, so it mostly covers legacy protocols such as FTP",
         },
         {
           id: "cloud",
           left: "Cloud / Email DLP",
-          right: "Native integration with the organization's own managed SaaS platforms (Exchange, SharePoint, OneDrive, Teams) or third-party SaaS via a CASB",
+          right: "Inspects content natively inside Exchange, SharePoint, OneDrive and Teams, and other SaaS through a CASB",
         },
         {
           id: "confidence",
           left: "Confidence score",
-          right: "A 0-100 value from the content classifier expressing how certain it is that a given match is genuinely the sensitive-data type it claims to be",
+          right: "A 0-100 value saying how sure the classifier is that a match really is the data type it claims",
         },
         {
           id: "fingerprint",
           left: "Document fingerprinting",
-          right: "Flags outgoing files that reuse the text of a registered document or standard form (e.g. a blank HR or patent template) — recognizes the organization's own documents rather than a generic pattern",
+          right: "Recognises files that reuse the text of a registered template or standard form, even once it has been filled in",
         },
       ],
       explanation:
@@ -612,19 +612,17 @@ const dlpRoom = {
       id: "dlp-o1",
       heading: "Order the Steps to Investigate a DLP Incident",
       instructions:
-        "A thorough DLP investigation follows a consistent sequence, moving from the raw content match to a final verdict. Arrange these steps in the correct order, from first to last.",
+        "A thorough DLP investigation follows the five-step triage flow from the investigation reading, moving from the raw content match to a final verdict. Arrange the steps in order, from first to last.",
       items: [
-        { id: "content", text: "Assess the content match quality — check the SensitiveInfoType, confidence score, and match count" },
-        { id: "action", text: "Check the ActionTaken field — was the data actually blocked, or did it already leave (Allowed - Alert Only)?" },
-        { id: "destination", text: "Assess the destination risk — internal vs. external, known business partner vs. personal webmail or unsanctioned cloud app" },
-        { id: "user", text: "Assess user and behavioral context — does the role plausibly explain this activity? Is the timing/volume normal for this user?" },
-        { id: "hr", text: "Check for HR/organizational red flags — resignation, PIP, recent role change, disciplinary history" },
-        { id: "justification", text: "Check for a justification or approval — did the user provide a business reason, and is there a matching ticket or manager approval?" },
-        { id: "verdict", text: "Render a verdict — false positive, well-meaning employee (coach/educate), or malicious/high-risk (escalate to insider-threat, HR, legal)" },
+        { id: "content", text: "Assess the content match quality — SensitiveInfoType, confidence score and match count" },
+        { id: "destination", text: "Assess the destination risk — internal, known business partner, or personal webmail / unsanctioned cloud app" },
+        { id: "user", text: "Assess user and behavioral context — role, timing and volume against normal, and HR red flags such as a resignation" },
+        { id: "justification", text: "Check for a justification or approval — the user's stated business reason and any matching ticket or manager sign-off" },
+        { id: "verdict", text: "Render a verdict — false positive, well-meaning employee (coach), or malicious/high-risk (escalate to insider-threat, HR, legal)" },
       ],
-      correct_order: ["content", "action", "destination", "user", "hr", "justification", "verdict"],
+      correct_order: ["content", "destination", "user", "justification", "verdict"],
       explanation:
-        "Starting with content quality tells you whether there is even a real match worth pursuing. Checking ActionTaken next tells you whether you are dealing with a prevented attempt or an actual data-loss event, which shapes urgency. Destination and user/behavioral context narrow down plausible intent, HR context surfaces the insider-threat overlap, and justification/approval is the final check before rendering a verdict — because a specific, verifiable justification can resolve what would otherwise look suspicious, while its absence should raise your concern level going into the final decision.",
+        "This is the reading's five-step flow. Content quality comes first because it tells you whether there is a real match worth pursuing. Destination risk then separates routine business flows from personal or unsanctioned destinations. User and behavioral context — including HR red flags — is where DLP meets insider-threat work. Justification and approval are the last check, because a specific, verifiable reason can resolve what otherwise looks suspicious, while its absence raises concern going into the verdict. (ActionTaken — Blocked versus Allowed - Alert Only — sets how urgently you work through these steps rather than being a step of its own.)",
       xp: 30,
     },
     // ── Flag ──────────────────────────────────────────────────────────────
@@ -633,9 +631,9 @@ const dlpRoom = {
       id: "dlp-f1",
       event: dlpUsbEvent, // show the USB bulk-copy log this flag reads (not the nearest one)
       prompt:
-        "Look at the USB bulk-copy DLP event analyzed earlier in this room. What is the exact removable media device serial number recorded in the data.office365.RemovableMedia.SerialNumber field? Enter it exactly as shown.",
+        "Look at the USB bulk-copy DLP event analyzed earlier in this room. The asset team needs to find the exact physical drive used in the blocked copy. Which value should you give them? Enter it exactly as shown.",
       answer: "4C531001551122117402",
-      hint: "Look in the raw fields of the Endpoint DLP USB event for data.office365.RemovableMedia.SerialNumber.",
+      hint: "A volume label can be renamed by anyone, and a device ID names only the make and model.",
       xp: 30,
     },
   ],

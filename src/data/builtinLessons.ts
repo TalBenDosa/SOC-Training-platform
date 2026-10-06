@@ -118,7 +118,7 @@ const CORE_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "You are a SOC analyst reviewing Zeek dns.log for a workstation that triggered a malware alert. You observe 1,200 DNS queries in one hour to the parent domain 'updates-cdn.example-corp.net', all with unique 90+ character subdomains, and the qtype_name is overwhelmingly TXT. Which MITRE technique best matches this behavior?",
+        "question": "You are a SOC analyst reviewing Zeek dns.log for a workstation that triggered a malware alert. You observe 1,200 DNS queries in one hour to the parent domain 'updates-cdn.example-corp.net', all with unique 90+ character subdomains, and the qtype_name is overwhelmingly TXT. EDR shows the host running new commands shortly after each burst of TXT answers, and no large outbound transfer is seen. Which MITRE technique best describes this command-and-control channel?",
         "options": [
           {
             "label": "Application Layer Protocol: Web Protocols (T1071.001)",
@@ -138,7 +138,7 @@ const CORE_LESSONS = [
           }
         ],
         "answer": "b",
-        "explanation": "The high volume of unique long subdomains under a single parent domain combined with TXT record queries is the textbook signature of DNS tunneling, which maps to T1071.004 (Application Layer Protocol: DNS). T1071.001 is web protocols, not DNS. T1041 is exfiltration over an existing C2 channel without specifying the protocol. T1568.002 is DGA, which produces many different parent domains, not many subdomains under one parent."
+        "explanation": "The high volume of unique long subdomains under a single parent domain combined with TXT record queries is the textbook signature of DNS tunneling, which maps to T1071.004 (Application Layer Protocol: DNS). T1071.001 is web protocols, not DNS. T1041 is exfiltration over an existing C2 channel; the stem describes the host receiving commands in TXT answers with no large outbound transfer, so the channel itself (T1071.004) is the better fit. T1568.002 is DGA, which produces many different parent domains, not many subdomains under one parent."
       },
       {
         "question": "You are a SOC analyst investigating an HTTPS connection from a finance workstation. The connection has destination.port=443, network.transport=tcp, a JA3 hash that matches a known Cobalt Strike fingerprint, and Sysmon Event ID 3 shows the originating process is rundll32.exe. Which combination of evidence is the strongest indicator of malicious activity?",
@@ -213,70 +213,70 @@ const CORE_LESSONS = [
         "question": "A user reports a phishing email that appears to come from 'ceo@yourcompany.com'. You check the headers and see spf=fail, dkim=fail, dmarc=fail. Separately, a second suspicious email comes from 'ceo@yourcompany-hr.com' and shows spf=pass, dkim=pass, dmarc=pass. How should you interpret each, and what is the key limitation of these checks?",
         "options": [
           {
-            "label": "The first is definitely safe because it uses the real company domain, and the second is definitely malicious because its checks passed — passing SPF/DKIM/DMARC is always a reliable sign of a malicious message",
+            "label": "The first spoofs your domain; the second passed SPF, DKIM and DMARC, which shows the sender is legitimate, so it can be released to the user",
             "value": "a"
           },
           {
-            "label": "The first shows a spoof of your real domain (authentication failed). The second is a lookalike domain the attacker genuinely owns and configured correctly, so it passes — the key limitation is that these checks authenticate the DOMAIN, not intent, so pass is not proof of safety",
+            "label": "The first spoofs your real domain; the second is a lookalike the attacker owns and set up, so it passes — the checks prove the domain, not intent",
             "value": "b"
           },
           {
-            "label": "Both emails are guaranteed safe, because any email that triggers SPF, DKIM, or DMARC processing at all has by definition been fully vetted and cleared by the mail server as legitimate",
+            "label": "The first is a lookalike and the second is a compromised internal mailbox; the limitation is that the checks cannot tell those two cases apart",
             "value": "c"
           },
           {
-            "label": "The results are meaningless because SPF, DKIM, and DMARC only apply to outbound email your own company sends, and they can never be evaluated on inbound messages arriving from other domains",
+            "label": "Both spoof your domain; the second passed because the receiving server skipped DMARC, since DMARC evaluation of inbound mail is optional",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "The first email fails all three checks because it forged your real domain, whose published SPF/DKIM/DMARC records expose the fraud. The second passes because the attacker registered a lookalike domain (yourcompany-hr.com) they legitimately own and configured — the checks confirm the domain is authentic, not that the email is benign. That is the essential limitation: SPF/DKIM/DMARC authenticate the sending domain, not intent, so a pass never proves safety. The option “The first is definitely safe because it…” inverts the meaning. The option “Both emails are guaranteed safe, because any…” and The option “The results are meaningless because SPF, DKIM…” misstate how the mechanisms work."
+        "explanation": "The first email fails all three checks because it forged your real domain, whose published SPF/DKIM/DMARC records expose the fraud. The second passes because the attacker registered a lookalike domain (yourcompany-hr.com) they own and configured — the checks confirm the domain is authentic, not that the email is benign. “The second passed … so it can be released” is exactly the mistake the lesson warns about: pass is not innocence. “The first is a lookalike and the second is a compromised internal mailbox” misreads the addresses — the first uses your real domain and the second uses a different, registered domain. “Both spoof your domain … the receiving server skipped DMARC” contradicts the header, which records dmarc=pass, and yourcompany-hr.com is not your domain at all."
       },
       {
         "question": "Your network monitoring flags a workstation making a large volume of outbound traffic on TCP port 443, but deep packet inspection shows the traffic is not actually TLS/HTTPS — it doesn't have a valid TLS handshake. Why is this suspicious, and what detection principle does it illustrate?",
         "options": [
           {
-            "label": "It is not suspicious at all, because port 443 is defined to carry only HTTPS, so by definition any traffic observed on port 443 must be legitimate encrypted web browsing regardless of what inspection shows",
+            "label": "Probably a parser problem: 443 is the HTTPS port, so the inspection engine is most likely failing to decode a newer TLS version",
             "value": "a"
           },
           {
-            "label": "It is a port–service mismatch: 443 is supposed to carry HTTPS, but the content isn't TLS, suggesting a covert channel using an allow-listed port for evasion; it illustrates that the port is only a claim about the traffic — the content and behaviour reveal what it actually is",
+            "label": "A port–service mismatch: the port claims HTTPS but the content is not TLS, which suggests a covert channel hiding on an allow-listed port",
             "value": "b"
           },
           {
-            "label": "The only issue is that the workstation should be using port 80 instead of 443 for this traffic, and simply reconfiguring it to the correct web port would fully resolve the anomaly with no security concern",
+            "label": "Encrypted C2 over HTTPS; the principle is that the session's JA3 fingerprint is the fastest way to name the malware family behind it",
             "value": "c"
           },
           {
-            "label": "This proves the monitoring tool is broken, because it is technically impossible for any traffic other than valid HTTPS to ever travel over TCP port 443 on a correctly functioning network",
+            "label": "A misconfigured application sending web traffic on the wrong port; the principle is that cleartext web traffic belongs on port 80",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Port 443 is expected to carry HTTPS, so non-TLS traffic on it is a port–service mismatch — a classic evasion pattern where attackers abuse an almost-always-allowed port for a covert channel. It illustrates the core principle that a port is only a claim about what traffic is supposed to be, while the actual content and behaviour (revealed by deep packet inspection / protocol analysis) show what it really is. The option “It is not suspicious at all, because…” trusts the port number, exactly the mistake. The option “The only issue is that the workstation…” treats a covert channel as a misconfiguration. The option “This proves the monitoring tool is broken…” falsely assumes ports enforce their protocol — they do not."
+        "explanation": "Port 443 is expected to carry HTTPS, so non-TLS traffic on it is a port–service mismatch — a classic evasion pattern where attackers abuse an almost-always-allowed port for a covert channel. The port is only a claim about the traffic; the content and behaviour show what it really is. “Probably a parser problem” trusts the port number over the inspection result, which is exactly the mistake. “Encrypted C2 over HTTPS … JA3 fingerprint” cannot apply: JA3 is computed from the TLS handshake, and this traffic has none. “A misconfigured application … belongs on port 80” treats a likely covert channel as a configuration slip and ignores why non-TLS data would be sent on 443 at all."
       },
       {
         "question": "You are a SOC analyst reviewing a Zeek conn.log line: id.orig_h=10.55.2.19, id.orig_p=51900, id.resp_h=198.51.100.7, id.resp_p=3389, proto=tcp, service=-, conn_state=S0, orig_bytes=0, resp_bytes=0. What does this line most likely represent, and why?",
         "options": [
           {
-            "label": "A completed RDP session, because service=- simply means Zeek could not name the service even though the connection succeeded normally",
+            "label": "A completed RDP session — service=- only means Zeek's RDP analyzer did not recognise the traffic",
             "value": "a"
           },
           {
-            "label": "A scan or a blocked connection attempt, because conn_state=S0 means a SYN was sent and no SYN-ACK ever came back, and 0 bytes in both directions confirms no data was ever exchanged",
+            "label": "A scan or blocked attempt — S0 means a SYN went out with no reply, and zero bytes means no data moved",
             "value": "b"
           },
           {
-            "label": "A normal RDP login, because port 3389 is the standard RDP port and any traffic to it is expected corporate activity regardless of the connection state",
+            "label": "A connection the server refused — S0 is what Zeek records when the responder answers the SYN with a reset",
             "value": "c"
           },
           {
-            "label": "A DNS tunneling attempt, because service=- indicates the protocol could not be identified, which is the defining signature of DNS tunneling",
+            "label": "An RDP session still in progress — S0 means the handshake finished and Zeek has not yet seen the close",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "conn_state=S0 means a SYN was sent and nothing came back — the same lone-SYN shape as a port scan — and orig_bytes/resp_bytes both at 0 confirms the handshake never completed, so no session, RDP or otherwise, ever formed. The option “A completed RDP session, because service=- simply…” is wrong because a completed session would show conn_state=SF and nonzero bytes. The option “A normal RDP login, because port 3389…” ignores that the connection state shows it never established, so port 3389 alone does not make it a login. The option “A DNS tunneling attempt, because service=- indicates…” misreads service=- as a DNS-tunneling signature; here it just means Zeek never identified an application protocol because nothing was ever exchanged — DNS tunneling instead shows up as long subdomains and TXT-heavy queries, covered earlier in this lesson."
+        "explanation": "conn_state=S0 means a SYN was sent and nothing came back — the same lone-SYN shape as a port scan — and orig_bytes/resp_bytes both at 0 confirm that no data was ever exchanged. “A completed RDP session” is wrong because a completed session would show conn_state=SF and nonzero bytes; service=- here simply reflects that nothing was exchanged for Zeek to identify. “A connection the server refused … reset” describes REJ, the state the lesson pairs with a rejected attempt, not S0. “An RDP session still in progress” misreads S0: with no SYN-ACK there was never a completed handshake, so no session exists."
       },
       {
         "question": "You are reviewing two Zeek conn.log lines that both show conn_state=SF: one with proto=udp, id.resp_p=53, and one with proto=tcp, id.resp_p=443. Does SF mean the same thing on the UDP line as on the TCP line, and what does this mean for detection?",
@@ -302,27 +302,27 @@ const CORE_LESSONS = [
         "explanation": "UDP is connectionless: there is no handshake, no sequence/acknowledgment numbers, and no formal close. Zeek still fills in conn_state for UDP flows, but it can only infer it from what it saw (SF = traffic in both directions, S0 = originator only), so SF on a UDP line carries far less meaning than TCP's handshake-validated SF/S0/REJ states. This is exactly why UDP-based abuse (DNS tunneling, amplification, beaconing) has to be detected through volume, timing regularity, and payload characteristics instead of connection-state logic. Calling SF on UDP a parsing error misstates how Zeek works, and claiming Zeek saw a SYN/FIN exchange on UDP invents a handshake the protocol does not have. Reading SF as a successful DNS answer confuses conn.log with dns.log: conn_state describes the packet flow, while the DNS response code lives in dns.log's rcode field."
       },
       {
-        "question": "A workstation on your network suddenly starts routing its traffic through an unexpected default gateway, and shortly after, plaintext FTP credentials sent from that workstation appear in a packet capture taken from a completely different segment. Which two techniques, in combination, most plausibly explain this chain of events?",
+        "question": "After renewing its lease, a workstation's network configuration shows a default gateway IP nobody recognises. Shortly after, plaintext FTP credentials sent from that workstation appear in a packet capture taken on a different segment. Which technique most plausibly explains this chain of events?",
         "options": [
           {
-            "label": "T1071.004 (DNS) combined with T1021.002 (SMB/Windows Admin Shares), since both are common lateral movement channels inside a single compromised subnet",
+            "label": "T1557.002 (ARP Cache Poisoning): forged ARP replies made the workstation send its gateway-bound traffic to the attacker's machine",
             "value": "a"
           },
           {
-            "label": "T1557.003 (DHCP Spoofing) establishing an adversary-in-the-middle position by handing out a rogue default gateway, which then lets the attacker observe the plaintext FTP session that never needed to be encrypted in the first place",
+            "label": "T1557.003 (DHCP Spoofing): a rogue DHCP server handed out an attacker-controlled default gateway, putting the attacker in the path",
             "value": "b"
           },
           {
-            "label": "T1568 (Dynamic Resolution) combined with T1041 (Exfiltration Over C2 Channel), since both explain data leaving the network over a changing set of destinations",
+            "label": "T1040 (Network Sniffing) alone: a plaintext FTP login can be read from any segment, so no change to the workstation was needed",
             "value": "c"
           },
           {
-            "label": "T1018 (Remote System Discovery) alone, since a ping sweep is sufficient by itself to reroute a workstation's default gateway without any DHCP or ARP involvement",
+            "label": "T1568 (Dynamic Resolution): the attacker changed what the workstation's DNS lookups returned, steering its traffic onto a new route",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A workstation's default gateway changing to an unexpected value is the signature outcome of a rogue DHCP server (T1557.003) winning the DORA exchange and handing out attacker-controlled network configuration; once traffic is routed through the attacker, any plaintext protocol like unencrypted FTP is trivially observable, which explains the captured credentials on another segment. T1071.004 and T1021.002 are unrelated application-layer/lateral-movement techniques that don't explain a gateway change. T1568 and T1041 concern C2 domain resolution and exfiltration, not local network AiTM. T1018 is passive discovery and cannot itself alter a host's gateway."
+        "explanation": "A new, unrecognised default gateway IP appearing right after a lease renewal is the signature outcome of a rogue DHCP server (T1557.003) winning the DORA exchange and handing out attacker-controlled configuration; once traffic is routed through the attacker, plaintext FTP is trivially observable. “ARP Cache Poisoning” is the closest near-miss and also yields an AiTM position, but it changes which MAC address the existing gateway IP resolves to — the configured gateway IP stays the same, and its tell is one IP mapped to two MACs. “Network Sniffing alone … from any segment” ignores that capturing another host's traffic requires being on its path, and it does not explain the gateway change. “Dynamic Resolution” concerns which IPs domain names resolve to, which does not alter a host's default gateway setting."
       }
     ],
     "references": [
@@ -432,27 +432,27 @@ const CORE_LESSONS = [
         "question": "You are a SOC analyst investigating an email reported by a finance employee. The visible From header reads 'CEO <ceo@yourcompany.com>', but the Authentication-Results header shows 'spf=fail dkim=none dmarc=fail' and the Return-Path is 'attacker@freemail-vps.ru'. The message asks for an urgent wire transfer. What is the most accurate classification?",
         "options": [
           {
-            "label": "Legitimate executive request — SPF/DKIM/DMARC failures are common false positives",
+            "label": "A legitimate request — the CEO probably sent it from a personal phone app, which fails SPF",
             "value": "a"
           },
           {
-            "label": "Business email compromise via domain spoofing (T1656 Impersonation, delivered by phishing T1566) — the From header is forged",
+            "label": "BEC by spoofing your own domain (T1656 Impersonation via T1566) — the From header is forged",
             "value": "b"
           },
           {
-            "label": "Compromised legitimate CEO account — authentication should have passed if it were spoofed",
+            "label": "A compromised CEO account — the attacker is sending from inside the real mailbox",
             "value": "c"
           },
           {
-            "label": "Malware delivery via attachment — DMARC failures only matter for attachments",
+            "label": "Lookalike-domain phishing — the attacker registered a domain that resembles yours",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "All three authentication checks failing combined with a Return-Path on an unrelated domain is textbook From-header spoofing used in BEC — impersonation (T1656) delivered by phishing (T1566). It is not T1566.002 (Spearphishing Link): the message carries no link at all, only a request. A legitimate executive message would pass SPF/DKIM/DMARC because your tenant's mail servers would sign it correctly. A compromised legitimate account would also typically pass authentication because mail is sent through authorized infrastructure. DMARC applies to all message content, not just attachments."
+        "explanation": "All three authentication checks failing on your own domain, with a Return-Path on an unrelated domain, is textbook From-header spoofing used in BEC — impersonation (T1656) delivered by phishing (T1566). It is not T1566.002 (Spearphishing Link): the message carries no link at all, only a request. “Sent it from a personal phone app” does not fit: a real executive message would leave through your authorised mail servers and the Return-Path would not be an unrelated foreign domain. “A compromised CEO account” would send through your real infrastructure, so SPF/DKIM/DMARC would typically pass. “Lookalike-domain phishing” misreads the From address, which uses your exact domain — that is why DMARC on yourcompany.com could fail it."
       },
       {
-        "question": "You are a SOC analyst and Microsoft 365 Defender's UrlClickEvents shows that 14 employees clicked a phishing URL pointing to a Microsoft login lookalike page. Three minutes after one user's click, AADSignInEventsBeta shows a successful sign-in for that user from a hosting-provider IP in a country they have never logged in from. Which MITRE technique combination best describes this attack?",
+        "question": "You are a SOC analyst and Microsoft 365 Defender's UrlClickEvents shows that 14 employees clicked a phishing URL pointing to a Microsoft login lookalike page. Three minutes after one user's click, AADSignInEventsBeta shows a successful sign-in for that user, with MFA recorded as satisfied, from a hosting-provider IP in a country they have never logged in from. Which MITRE technique combination best describes this attack?",
         "options": [
           {
             "label": "T1566.001 (Spearphishing Attachment) followed by T1059.001 (PowerShell)",
@@ -467,12 +467,12 @@ const CORE_LESSONS = [
             "value": "c"
           },
           {
-            "label": "T1041 (Exfiltration Over C2 Channel) — the data is leaving the network",
+            "label": "T1110 (Brute Force) — the attacker guessed the password and the MFA prompt",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A successful post-MFA sign-in from an anomalous location minutes after clicking a phishing link is the signature of an adversary-in-the-middle attack that captures the post-MFA session cookie, which falls under T1566.002 (Spearphishing Link) for delivery. T1566.001 is for attachments, not URLs. T1078 alone misses the phishing-delivery context. T1041 covers exfiltration after compromise and does not describe initial access."
+        "explanation": "A successful sign-in with MFA satisfied, from an anomalous location minutes after a click on a phishing link, is the signature of an adversary-in-the-middle attack that captures the post-MFA session cookie, delivered via T1566.002 (Spearphishing Link). “T1566.001 … followed by PowerShell” describes an attachment and code execution, but the evidence is a URL click and a sign-in. “T1078 (Valid Accounts) only” describes the sign-in but drops the phishing link that produced the credentials, which UrlClickEvents shows. “T1110 (Brute Force)” would leave a trail of failed attempts, not a single success three minutes after the click, and does not explain a satisfied MFA."
       },
       {
         "question": "You are a SOC analyst investigating a suspicious attachment with SHA256 hash 'e3b0c44...'. You need to determine whether any endpoints in your tenant actually executed the file after the email was delivered. Which Microsoft 365 Defender advanced hunting table should you query?",
@@ -524,116 +524,116 @@ const CORE_LESSONS = [
         "question": "A user reports a phishing email. You confirm it is malicious, delete it from their inbox, block the sender, and close the ticket. Why is this response incomplete, and what should you have done?",
         "options": [
           {
-            "label": "The response is complete and correct, because deleting the reported copy and blocking the sender fully resolves the threat — a phishing email only ever affects the single person who reports it",
+            "label": "The sender's whole domain should also be blocked tenant-wide, so no further copies of the campaign can arrive",
             "value": "a"
           },
           {
-            "label": "Phishing is sent as a campaign, so one report is the tip of many copies: you must purge the message tenant-wide from all mailboxes and hunt the campaign — pivot on sender/subject/URL/hash to find every recipient, who clicked, and who entered credentials, then respond to each",
+            "label": "It was one copy of a campaign: purge it from every mailbox, then find who clicked or entered credentials",
             "value": "b"
           },
           {
-            "label": "The only thing missing was to reply to the sender warning them to stop, since notifying the attacker is the standard final step that prevents any further copies of the campaign from being delivered",
+            "label": "The message should have been purged from every mailbox; once all copies are gone, the ticket can close",
             "value": "c"
           },
           {
-            "label": "You should have forwarded the email to every employee as a warning, because mass-forwarding the live malicious message to the whole company is the recommended way to build phishing awareness",
+            "label": "A company-wide warning should go out first, then wait for the other recipients to report their copies",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A phishing email is one delivery of a campaign sent to many people, so cleaning only the reporter's inbox leaves every other copy — and any colleague who clicked or entered credentials — untouched. The correct response purges the message tenant-wide and hunts the campaign: pivot on the sender, subject, URL, and attachment hash to find all recipients, then check who clicked and who entered credentials, escalating those to account response. The option “The response is complete and correct, because…” wrongly assumes one inbox. The option “The only thing missing was to reply…” would tip off the attacker and does nothing about other recipients. The option “You should have forwarded the email to…” spreads the live malicious email, which is dangerous."
+        "explanation": "A phishing email is one delivery of a campaign sent to many people, so cleaning only the reporter's inbox leaves every other copy — and any colleague who clicked or entered credentials — untouched. The full response purges tenant-wide and hunts the campaign: pivot on sender, subject, URL and attachment hash to find all recipients, then check who clicked and who entered credentials and escalate those to account response. “Block the sender's whole domain” stops future copies but leaves the delivered ones and any compromised users in place. “Purged from every mailbox … the ticket can close” is the right first half but skips the click and credential hunt, so a user who already entered a password stays compromised. “Wait for the other recipients to report” relies on users who may have already clicked and never report."
       },
       {
         "question": "A reported email contains no clickable link and no attachment — just an urgent message that a $499 subscription auto-renewed and a phone number to call to cancel. Your URL detonation and attachment sandbox both come back clean. What kind of attack is this, and why did the tooling find nothing?",
         "options": [
           {
-            "label": "It is definitely benign, because an email with no malicious link and no malicious attachment cannot be a phishing attack, so the clean sandbox results conclusively prove it is a legitimate billing notice",
+            "label": "A real billing notice — with no link or attachment there is no payload, and both sandbox checks came back clean",
             "value": "a"
           },
           {
-            "label": "Callback phishing (TOAD): the payload is a phone call, not a file or link, so there is nothing for a sandbox to detonate — the victim calls the number and a human social-engineers them into installing remote access or handing over data; the urgent pretext plus a lone phone number is the tell",
+            "label": "Callback phishing (TOAD) — the payload is the phone call itself, so there is nothing for a sandbox to detonate",
             "value": "b"
           },
           {
-            "label": "The sandbox is malfunctioning, because every phishing email by definition must contain a detonatable link or attachment, so a clean result on a real phish can only mean the detonation tooling has failed and needs repair",
+            "label": "Business email compromise — it asks for money, and BEC mail typically carries no link or attachment either",
             "value": "c"
           },
           {
-            "label": "It is spam of no consequence, so the correct action is to mark it as junk and take no further steps, since an email asking the user to place a phone call carries no security risk to the organisation at all",
+            "label": "Junk mail — an email whose only call to action is a phone number cannot compromise an account or a device",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "This is callback phishing (Telephone-Oriented Attack Delivery): the attack deliberately carries no link or attachment, so URL detonation and attachment sandboxing find nothing — the malice is the phone call, where a human social-engineers the victim into installing remote-access software or divulging data. The tell is the pretext-plus-phone-number pattern, not a payload. The option “It is definitely benign, because an email…” wrongly equates 'no payload' with 'benign.' The option “The sandbox is malfunctioning, because every phishing…” blames the tooling for correctly finding no file, when there is none by design. The option “It is spam of no consequence, so…” dismisses a real, common attack that leads to remote access and account compromise."
+        "explanation": "This is callback phishing (Telephone-Oriented Attack Delivery): the attack deliberately carries no link or attachment, so URL detonation and attachment sandboxing find nothing — the malice is the phone call, where a human social-engineers the victim into installing remote-access software or handing over data. The tell is an urgent pretext plus a lone phone number. “A real billing notice” equates “no payload” with “benign”, which is exactly the gap this attack exploits. “Business email compromise” is the closest near-miss — BEC also often has no payload — but BEC impersonates a trusted colleague or vendor and asks for action by email, while here the user is pushed to phone a number. “Junk mail … cannot compromise an account or a device” ignores that the call is where remote access is installed."
       },
       {
         "question": "In the worked header example, the visible From address is 'd.cohen@contoso.com' (a real employee), but Reply-To is set to 'd.cohen.finance@outlook.com'. Why does this field matter, given that most mail clients hide it by default?",
         "options": [
           {
-            "label": "Reply-To only affects calendar invites and meeting responses, so it has no bearing on whether this message is phishing",
+            "label": "It records the true origin: Reply-To holds the mailbox the message was actually sent from",
             "value": "a"
           },
           {
-            "label": "Reply-To silently redirects any reply the recipient sends to the attacker-controlled address, so even an employee who cautiously 'replies to confirm' sends their answer straight to the attacker instead of the real David Cohen",
+            "label": "Replies go to the attacker's mailbox, so a cautious “reply to confirm” reaches the attacker",
             "value": "b"
           },
           {
-            "label": "Reply-To must always exactly match the From address, so its mere presence in this header proves the message was already rejected before delivery",
+            "label": "A Reply-To that differs from From is enough on its own to prove the message is phishing",
             "value": "c"
           },
           {
-            "label": "Reply-To is only evaluated by DMARC, so a Reply-To mismatch by itself is what caused dmarc=fail in this header",
+            "label": "DMARC compares Reply-To with From, so this mismatch is what produced the dmarc=fail result",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Reply-To overrides where a reply is actually sent, independent of the visible From address, and because most clients don't surface it, a spoofed From combined with an attacker-controlled Reply-To is a quiet way to intercept exactly the 'let me confirm first' response a cautious employee would send. The option “Reply-To only affects calendar invites and meeting…” wrongly limits it to calendar use. The option “Reply-To must always exactly match the From…” invents a matching requirement that does not exist — mismatches are common and legal. The option “Reply-To is only evaluated by DMARC, so…” is wrong because DMARC evaluates SPF/DKIM alignment with the From domain, not the Reply-To field."
+        "explanation": "Reply-To overrides where a reply is actually sent, independent of the visible From address, and because most clients don't surface it, a spoofed From combined with an attacker-controlled Reply-To quietly intercepts exactly the “let me confirm first” response a cautious employee would send. “It records the true origin” confuses Reply-To with the envelope sender (Return-Path / smtp.mailfrom), which is where the sending domain shows up. “Enough on its own to prove … phishing” overreaches — legitimate mail (newsletters, shared mailboxes) often sets a different Reply-To, so it is a signal to weigh with the auth results. “DMARC compares Reply-To with From” is wrong: DMARC checks SPF/DKIM alignment with the From domain and never reads Reply-To."
       },
       {
         "question": "A user reports that a 'recruiter' who messaged them on LinkedIn for two weeks finally sent a job-description file to the user's personal Gmail address, which the user opened on their work laptop. Your EmailEvents query for the sender finds nothing at all. What is happening, and why did your standard email telemetry come up empty?",
         "options": [
           {
-            "label": "This is T1566.003 (Spearphishing via Service) — the lure was delivered entirely outside enterprise email via LinkedIn and personal webmail, so it never transited a channel your EmailEvents/mail-gateway telemetry covers",
+            "label": "T1566.003 (Spearphishing via Service) — the lure came via LinkedIn and Gmail, which never pass your mail gateway",
             "value": "a"
           },
           {
-            "label": "This is T1566.001 (Spearphishing Attachment) — EmailEvents came up empty only because the attachment was password-protected, which always hides messages from that table",
+            "label": "T1566.001 (Spearphishing Attachment) — the sender switched addresses, so search EmailEvents by file hash instead",
             "value": "b"
           },
           {
-            "label": "This is not phishing at all, since no corporate email address was ever involved, so it falls outside the SOC's investigation scope entirely",
+            "label": "Outside SOC scope — no corporate mailbox was involved, so it is a personal-account matter for the user to handle",
             "value": "c"
           },
           {
-            "label": "This is a DMARC bypass — the recruiter's domain must have p=none, which is why EmailEvents shows no record of the message",
+            "label": "A DMARC bypass — the recruiter's domain publishes p=none, so the message was delivered without being logged",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "T1566.003 specifically covers phishing delivered via third-party services (social media, personal webmail) rather than the organization's own email infrastructure, which is exactly why EmailEvents — a table that only captures mail transiting your tenant — has no record of it. Investigation must pivot to endpoint telemetry (DeviceFileEvents) for anything downloaded, not mail logs. Password-protection does not remove a message from EmailEvents; DMARC only governs domain-authenticated email, not messages that never entered the corporate mail path; and the fact that no corporate address was used does not put the incident outside SOC scope once a work device is involved."
+        "explanation": "T1566.003 covers phishing delivered via third-party services (social media, personal webmail) rather than the organisation's own email infrastructure, which is exactly why EmailEvents — a table that only captures mail transiting your tenant — has no record of it. The investigation pivots to endpoint telemetry (DeviceFileEvents) for what was downloaded. “Search EmailEvents by file hash” still assumes the file came through corporate mail; it reached a personal Gmail inbox, so no tenant mail table will hold it. “Outside SOC scope” ignores that the file was opened on a work laptop. “DMARC bypass … p=none” is wrong twice: p=none only changes what receivers do with failing mail, and it does not stop a message that reaches your tenant from being logged — this one never reached it."
       },
       {
         "question": "While scoping a confirmed phishing campaign, you query EmailPostDeliveryEvents and find several recipients already have an ActionType of 'Phish ZAP' recorded within the last 48 hours, while others have no entry at all. What is the correct next step?",
         "options": [
           {
-            "label": "Manually purge only the mailboxes that have no ZAP entry, since Zero-hour auto purge already removed the message from the others within its 48-hour detection window",
+            "label": "Manually purge only the mailboxes with no ZAP entry; the Phish ZAP rows show those copies are already handled",
             "value": "a"
           },
           {
-            "label": "Manually purge every mailbox regardless of ZAP entries, because ZAP only ever quarantines Junk mail and never actually removes phishing from a mailbox",
+            "label": "Leave the rest to ZAP, since it keeps re-scanning delivered mail and will reach the remaining mailboxes on its own",
             "value": "b"
           },
           {
-            "label": "No action is needed for any recipient, because a single ZAP action on any one mailbox automatically propagates the same removal to every other recipient tenant-wide",
+            "label": "Treat the campaign as remediated, since ZAP acting on some recipients means the message was caught for everyone",
             "value": "c"
           },
           {
-            "label": "Treat the ZAP entries as false positives and restore those messages, since ZAP is known to over-trigger on legitimate mail far more often than manual analyst review",
+            "label": "Restore the ZAP-actioned copies so every mailbox is in the same state, then run one manual purge across them all",
             "value": "d"
           }
         ],
         "answer": "a",
-        "explanation": "ZAP acts per-mailbox and only within its 48-hour detection window, so an ActionType of 'Phish ZAP' confirms that specific recipient's copy was already remediated, while recipients with no ZAP entry still need manual purge action. ZAP is not limited to Junk-only quarantine, and one mailbox's ZAP action does not propagate tenant-wide by itself — each recipient is evaluated and possibly acted on independently, which is exactly why checking EmailPostDeliveryEvents before a manual tenant-wide purge saves duplicate work rather than replacing the need to check remaining recipients."
+        "explanation": "ZAP acts per mailbox, so an ActionType of “Phish ZAP” confirms that recipient's copy was already remediated, while recipients with no entry still need a manual purge. “Leave the rest to ZAP” ignores its limits: ZAP only covers messages delivered within the last 48 hours, and nothing guarantees it will act on the remaining copies in time. “Caught for everyone” assumes one mailbox's ZAP action propagates tenant-wide; it does not — each copy is evaluated independently, which is why some recipients have no entry. “Restore the ZAP-actioned copies” puts a known phish back in front of users for no gain; checking EmailPostDeliveryEvents exists precisely to avoid redoing work ZAP already did."
       }
     ],
     "references": [
@@ -740,27 +740,27 @@ const CORE_LESSONS = [
     ],
     "quiz": [
       {
-        "question": "You are a SOC analyst and you observe Event ID 4624 on a workstation showing TargetUserName='Administrator', LogonType=3, AuthenticationPackageName='NTLM', and IpAddress=10.10.5.42 (another workstation). What MITRE technique does this most likely represent?",
+        "question": "You are a SOC analyst and you observe Event ID 4624 on workstation WKS-HR07 showing TargetUserName='Administrator', TargetDomainName='WKS-HR07', LogonType=3, AuthenticationPackageName='NTLM', and IpAddress=10.10.5.42 (another workstation). No 4625 failures precede it. What MITRE technique does this most likely represent?",
         "options": [
           {
-            "label": "T1078.001 (Default Accounts) — the built-in Administrator account is always benign",
+            "label": "T1078.002 (Domain Accounts) — this is the domain's built-in Administrator signing in",
             "value": "a"
           },
           {
-            "label": "T1550.002 (Pass-the-Hash) — NTLM network logon as local Administrator from another workstation is the textbook signature",
+            "label": "T1550.002 (Pass-the-Hash) — an NTLM network logon as local Administrator from a peer",
             "value": "b"
           },
           {
-            "label": "T1021.001 (Remote Desktop Protocol) — LogonType=3 indicates RDP",
+            "label": "T1021.001 (Remote Desktop Protocol) — LogonType=3 is how an RDP session is recorded",
             "value": "c"
           },
           {
-            "label": "T1110.001 (Brute Force) — every 4624 is a brute-force success",
+            "label": "T1110.003 (Password Spraying) — a lone Administrator success from a peer is a spray hit",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "A workstation-to-workstation network logon (LogonType=3) using local Administrator credentials over NTLM is the classic Pass-the-Hash pattern (T1550.002) because adversaries reuse captured local-admin hashes laterally across systems. T1078.001 incorrectly claims default accounts are benign. LogonType=3 is network logon, not RDP (which is LogonType=10). A successful 4624 is not a brute-force event."
+        "explanation": "A workstation-to-workstation network logon (LogonType=3) using local Administrator credentials over NTLM is the classic Pass-the-Hash pattern (T1550.002), because adversaries reuse captured local-admin hashes laterally across systems. “Domain Accounts” misreads TargetDomainName: WKS-HR07 is the workstation's own name, so this is the LOCAL Administrator, not a domain account. “LogonType=3 is how an RDP session is recorded” confuses network logon with RemoteInteractive, which is LogonType=10. “Password Spraying” would leave a trail of 4625 failures across many accounts, and the stem says none precede this logon."
       },
       {
         "question": "You are a SOC analyst hunting for credential dumping. Which Sysmon Event ID and field combination provides the highest-fidelity signal for Mimikatz-style LSASS access (T1003.001)?",
@@ -832,119 +832,119 @@ const CORE_LESSONS = [
         "explanation": "WmiPrvSE.exe spawning cmd.exe (or other shells) on a target host immediately after a network logon is the canonical signature of lateral movement via WMI (T1047), because WmiPrvSE is the WMI provider host that executes remotely-invoked commands. SMB lateral movement (T1021.002) shows different parent processes like services.exe spawning a service binary. Scheduled tasks show parents like taskeng.exe or svchost.exe with the Schedule service. PowerShell execution (T1059.001) shows powershell.exe as the Image, not cmd.exe."
       },
       {
-        "question": "Within a ten-minute window on a domain controller, you see Event 4720 (account 'svc-audit' created), then 4728 (svc-audit added to Domain Admins), then 4672 (special privileges assigned as svc-audit logs on) — all initiated by a helpdesk account that normally only resets passwords. Why is this a high-severity finding when no single event is inherently an alert?",
+        "question": "On workstation HR-WK031, Event 4624 shows LogonType=9, TargetUserName='m.levi' (the HR employee signed in at that console) and Network Account Name='adm-tier0', a domain administrator account. m.levi has no administrative role and adm-tier0's owner has never used this workstation. What does this event tell you?",
         "options": [
           {
-            "label": "It is not a finding at all, because account creation, group membership changes, and privileged logons are all routine IT operations, so a sequence of routine operations is by definition also completely routine and benign",
+            "label": "adm-tier0 signed in interactively at HR-WK031, so the administrator was working at that console under their own account",
             "value": "a"
           },
           {
-            "label": "The correlation is the signal: create (4720) → elevate to Domain Admins (4728) → use (4672), by one actor in minutes, is the signature of an attacker planting an admin backdoor — made worse by a helpdesk account performing a privileged-group change it should never do",
+            "label": "m.levi's session is presenting adm-tier0's credentials for outbound network access — a staged-credential pattern to escalate",
             "value": "b"
           },
           {
-            "label": "The only concern is that 4720 should have been Event 4726, and once that logging discrepancy is corrected the sequence represents entirely normal and expected administrative provisioning activity",
+            "label": "m.levi's credentials were used over the network from another host, the same shape as the LogonType 3 pass-the-hash pattern",
             "value": "c"
           },
           {
-            "label": "It simply shows the helpdesk is being efficient by provisioning a new administrator quickly, so the correct response is to thank them and take no security action of any kind",
+            "label": "A Windows service on HR-WK031 started under adm-tier0, since Network Account Name is filled in for service logons",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "None of these events alerts alone — accounts get created and groups get changed legitimately every day. The finding is the correlation: create, elevate to Domain Admins, then use, by one actor within minutes, which is the textbook shape of an attacker planting a privileged backdoor for persistence. The helpdesk account performing a Domain Admins change it has no business making sharpens the signal further. The option “It is not a finding at all…” dismisses correlation, the entire point. The option “The only concern is that 4720 should…” invents an irrelevant event-ID quibble. The option “It simply shows the helpdesk is being…” rationalises a domain-takeover sequence as efficiency."
+        "explanation": "LogonType 9 (NewCredentials) is what runas /netonly produces: the process keeps m.levi's local session but presents a different account for outbound network connections, and Network Account Name — blank on every other logon type — names that account. A domain admin's credentials being staged from an HR user's session on a host the admin never uses is exactly the case the lesson says deserves pass-the-hash-level scrutiny. “adm-tier0 signed in interactively” misreads the event: an interactive logon would be LogonType 2 (or 10 for RDP) with adm-tier0 as TargetUserName. “Used over the network from another host” describes LogonType 3; type 9 is generated on the host where the user is already signed in. “A Windows service … started” would be LogonType 5, and Network Account Name stays blank for it."
       },
       {
         "question": "An organisation logs Windows events only locally on each host, with default log sizes. After a ransomware incident wipes several servers, the analyst finds the relevant Security logs are gone, and on a surviving host the interesting window has already rolled over. What was the underlying problem, and what practice would have prevented it?",
         "options": [
           {
-            "label": "Nothing could have prevented this, because Windows event logs are fundamentally impossible to preserve once a host is affected, so local-only logging is the only option any organisation ever has",
+            "label": "Log sizes were too small; raising every host's maximum Security log size would have kept the evidence",
             "value": "a"
           },
           {
-            "label": "Local-only logs are fragile — they die with the host, can be cleared or shrunk by an attacker, and roll over when full; log centralization (WEF/WEC forwarding into a SIEM) copies events to a protected collector as they occur, so evidence survives the endpoint and cross-fleet search becomes possible",
+            "label": "Logs lived only on the hosts; forwarding events off-host (WEF into a SIEM) as they occur keeps a copy",
             "value": "b"
           },
           {
-            "label": "The only issue was that the log size was set slightly too small, and simply increasing each host's local log to its maximum size would have fully preserved all the evidence through a server wipe",
+            "label": "Audit policy was too narrow; enabling more audit subcategories would have captured the missing activity",
             "value": "c"
           },
           {
-            "label": "The problem is purely that the analyst looked too late, and had they opened the local logs a few minutes sooner the wiped servers' logs would still have been available on those destroyed hosts",
+            "label": "The logs were exported too late; pulling them from each server when the first alert fired would have saved them",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Local-only logging fails three ways: logs die with a wiped or ransomed host, an attacker on the box can clear or shrink them, and finite log sizes roll old events off. Centralizing logs — Windows Event Forwarding to a collector or SIEM — copies each event to a protected store as it happens, so evidence survives endpoint destruction, tampering is defeated, and you can search across the whole fleet. The option “Nothing could have prevented this, because Windows…” is defeatist and wrong. The option “The only issue was that the log…” fixes only rollover, not the wiped-host or tampering problems. The option “The problem is purely that the analyst…” ignores that a wiped server's local logs are gone regardless of timing."
+        "explanation": "Local-only logging fails three ways: logs die with a wiped or ransomed host, an attacker on the box can clear or shrink them, and finite log sizes roll old events off. Centralising logs — Windows Event Forwarding to a collector or SIEM — copies each event to a protected store as it happens, so evidence survives endpoint destruction and tampering, and the whole fleet becomes searchable. “Raising every host's maximum Security log size” only slows rollover; the wiped servers' logs are still destroyed with them. “Enabling more audit subcategories” records more events in the same local, rolling, wipeable files — it adds volume, not survivability. “Pulling them when the first alert fired” is the right instinct at the wrong time: ransomware often wipes hosts within minutes, and events that rolled over before the alert are already gone."
       },
       {
         "question": "You are a SOC analyst reviewing four raw Security events on a domain controller: Event 4720 creates account 'svc-printmgmt' at 02:14, Subject 'j.alvarez' (a helpdesk identity); Event 4728 adds svc-printmgmt to Domain Admins at 02:16, same Subject; Event 4672 grants svc-printmgmt SeDebugPrivilege and SeBackupPrivilege at 02:31; and Event 4624 logs svc-printmgmt onto the DC with LogonType=3 from workstation FIN-WK114, all inside seventeen minutes. Beyond the tight timing, which single detail in these artifacts most strengthens the case for a malicious backdoor over routine provisioning?",
         "options": [
           {
-            "label": "The account name svc-printmgmt itself, because any service-account-style name is inherently proof of malicious intent regardless of who created it or what group it joined",
+            "label": "The account name svc-printmgmt, which mimics a service account so the new admin blends in",
             "value": "a"
           },
           {
-            "label": "The Subject field on the 4728 event: j.alvarez, a helpdesk identity, is adding an account to Domain Admins, a change that identity has no legitimate business making",
+            "label": "The Subject on the 4728: j.alvarez, a helpdesk identity, is adding an account to Domain Admins",
             "value": "b"
           },
           {
-            "label": "LogonType=3 on the 4624 event, because a network logon is by itself always evidence of compromise on any Windows host",
+            "label": "LogonType=3 on the 4624, since a new account's first logon to a DC should be interactive",
             "value": "c"
           },
           {
-            "label": "The mere presence of a 4672 event, because Special Logon events only ever fire during malicious privilege abuse and never during normal administration",
+            "label": "The 4672 granting SeDebugPrivilege and SeBackupPrivilege, which a print account never needs",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "The Subject on the 4728 event — the account performing the action, not the account being changed — is j.alvarez, a helpdesk identity with no legitimate reason to touch Domain Admins membership; that mismatch between who is acting and what they are authorized to do is the strongest single signal here. The option “The account name svc-printmgmt itself, because any…” wrongly treats an unremarkable naming convention as proof by itself — plenty of legitimate service accounts are named this way. The option “LogonType=3 on the 4624 event, because a…” is wrong because LogonType=3 (network logon) is extremely common for entirely legitimate administration and service-to-service authentication; it only matters combined with context like the account and source. The option “The mere presence of a 4672 event…” is wrong because 4672 fires on every privileged logon, including normal Domain Admin activity — its presence alone proves nothing without the surrounding chain."
+        "explanation": "The Subject on the 4728 event — the account performing the action, not the account being changed — is j.alvarez, a helpdesk identity with no legitimate reason to touch Domain Admins membership; that mismatch between who is acting and what they are authorised to do is the strongest single signal. “The account name svc-printmgmt” is weak evidence: plenty of legitimate service accounts are named exactly this way. “A new account's first logon … should be interactive” is a misconception — LogonType=3 is the normal shape for service and administrative access to a DC. “The 4672 granting SeDebugPrivilege and SeBackupPrivilege” is a consequence, not a separate clue: 4672 lists the privileges every Domain Admins member receives at logon, so it follows automatically from the 4728 change."
       },
       {
         "question": "You are a SOC analyst investigating a suspected fileless PowerShell attack. Which Event ID and field combination lets you recover the actual code that executed, even though it was Base64-encoded on the command line and never touched disk?",
         "options": [
           {
-            "label": "Event ID 4688 CommandLine, because the command line always contains the fully decoded script regardless of encoding",
+            "label": "Event ID 4688 CommandLine, since process-creation auditing records the full command that launched PowerShell",
             "value": "a"
           },
           {
-            "label": "Event ID 4104 ScriptBlockText, because Script Block Logging captures code after the PowerShell engine has already de-obfuscated and parsed it",
+            "label": "Event ID 4104 ScriptBlockText, since Script Block Logging records code after the engine has decoded and parsed it",
             "value": "b"
           },
           {
-            "label": "Event ID 4103 alone, because Module Logging always includes the complete script text of every command",
+            "label": "Event ID 4103, since Module Logging records the cmdlets and parameters of each pipeline as it executes",
             "value": "c"
           },
           {
-            "label": "Sysmon Event ID 11 TargetFilename, because the decoded script is always written to disk before execution",
+            "label": "Event ID 400 in the classic channel, since the engine-start event records the host application and its arguments",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Event ID 4104 (Script Block Logging) captures the script text at the point the PowerShell engine parses and executes it — after any Base64 decoding or de-obfuscation — which is exactly why it defeats command-line obfuscation. The option “Event ID 4688 CommandLine, because the command…” is wrong because 4688's CommandLine field only shows what was typed, still encoded. The option “Event ID 4103 alone, because Module Logging…” is wrong because 4103 Module Logging records cmdlet names and parameters, not full script text. The option “Sysmon Event ID 11 TargetFilename, because the…” is wrong because fileless attacks by definition avoid writing the script to disk."
+        "explanation": "Event ID 4104 (Script Block Logging) captures the script text at the point the PowerShell engine parses and executes it — after any Base64 decoding or de-obfuscation — which is exactly why it defeats command-line obfuscation. “4688 CommandLine” does record the launching command, but that command is the still-encoded Base64 string, not the code it hides. “4103 … cmdlets and parameters” is useful context but records pipeline execution details, not the complete script text. “Event ID 400” marks the engine starting (the lesson uses it to spot a v2 downgrade); any arguments it shows are the same encoded command line, so it cannot recover the decoded code."
       },
       {
         "question": "On a domain controller, you find Event ID 104 in the System log showing that the Microsoft-Windows-Sysmon/Operational channel was cleared, but you find no Event ID 1102 anywhere in the Security log. What does this combination most likely indicate?",
         "options": [
           {
-            "label": "Nothing suspicious — Sysmon logs roll over automatically and 104 is generated even during normal operation with no account involved",
+            "label": "Routine rollover — when the Sysmon channel fills up, Windows writes 104 as the oldest events are overwritten",
             "value": "a"
           },
           {
-            "label": "The attacker deliberately cleared only the Sysmon channel to erase endpoint telemetry while deliberately leaving the Security log intact, a more surgical anti-forensic move than a full 1102 Security-log clear",
+            "label": "A targeted clear of only the Sysmon channel, erasing endpoint telemetry while avoiding a Security-log 1102",
             "value": "b"
           },
           {
-            "label": "This is a logging error and both events should always fire together, so the absence of 1102 means the 104 event itself must be a false positive to be ignored",
+            "label": "A full wipe with 1102 missing, since clearing any channel also clears Security and should have logged 1102",
             "value": "c"
           },
           {
-            "label": "Event ID 104 only applies to the Application log, never to Sysmon's channel, so this finding is actually unrelated to log tampering of any kind",
+            "label": "Security auditing was switched off beforehand, which is why the same clearing action produced no 1102",
             "value": "d"
           }
         ],
         "answer": "b",
-        "explanation": "Event ID 104 fires in the System log whenever any channel other than Security is cleared, including Sysmon's Operational log, and it always names the clearing account — it is not a rollover artifact. Because 1102 only covers the Security channel, an attacker who clears just Sysmon while leaving Security alone produces a 104 with no matching 1102, which is precisely the more surgical anti-forensic pattern this section describes, aimed at destroying endpoint process/network telemetry while avoiding the more obviously alarming Security-log clear. The option “Nothing suspicious — Sysmon logs roll over…” wrongly claims 104 fires without an account context. The option “This is a logging error and both…” wrongly assumes the two events are always paired. The option “Event ID 104 only applies to the…” is factually wrong about the scope of 104."
+        "explanation": "Event ID 104 fires in the System log whenever a channel other than Security is cleared, including Sysmon's Operational log, and it names the clearing account. Because 1102 only covers the Security channel, an attacker who clears just Sysmon produces a 104 with no matching 1102 — the surgical anti-forensic pattern the lesson describes, destroying endpoint process and network telemetry while avoiding the more alarming Security-log clear. “Routine rollover” is wrong: a channel wrapping when full overwrites old events silently; 104 records a deliberate clear. “Clearing any channel also clears Security” is wrong: each channel is cleared separately, which is exactly why 104 exists. “Security auditing was switched off” misunderstands 1102, which fires regardless of audit policy — and it only ever covers the Security channel, so it was never expected for a Sysmon clear."
       }
     ],
     "references": [

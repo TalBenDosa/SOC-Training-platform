@@ -20,7 +20,7 @@ const dnsExfilEvent: TelemetryEvent = {
     "winlog.event_data.Image": "C:\\Windows\\System32\\cmd.exe",
     "winlog.event_data.QueryName": "aGVsbG8td29ybGQtdGhpcy1pcy10ZXN0LWRhdGEtZXhmaWx0cmF0aW9u.evil-c2.net",
     "winlog.event_data.QueryResults": "",
-    "winlog.event_data.QueryStatus": "NXDOMAIN",
+    "winlog.event_data.QueryStatus": "9003",
     "winlog.event_data.User": "NEXACORP\\m.cohen",
     "winlog.event_data.ProcessId": "7412",
     "winlog.event_data.UtcTime": "2024-07-12 14:33:08.441"
@@ -204,7 +204,7 @@ const protocolsMasterclass = {
         `1. SYN (Synchronize): The client sends a packet with the SYN flag set. This announces: "I want to start a conversation, and I am starting my sequence numbers at X."\n` +
         `2. SYN-ACK (Synchronize-Acknowledge): The server responds with both SYN and ACK flags set. This says: "I received your SYN, I acknowledge it (ACK), and here are my own starting sequence numbers."\n` +
         `3. ACK (Acknowledge): The client sends a final ACK. The connection is now established and data can flow.\n\n` +
-        `This handshake is the foundation for many attack techniques. A SYN flood attack sends thousands of SYN packets but never completes the handshake — the server allocates memory for each half-open connection until it runs out of resources and crashes. Tools like Nmap perform SYN scans (also called half-open scans) by sending SYN packets and analyzing the response without completing the handshake.\n\n` +
+        `This handshake is the foundation for many attack techniques. A SYN flood attack sends thousands of SYN packets but never completes the handshake — the server allocates memory for each half-open connection until it runs out of resources and crashes. Tools like Nmap perform SYN scans (also called half-open scans) by sending SYN packets and analyzing the response without completing the handshake. A SYN-ACK reply means the port is open, a RST means it is closed (the host is up but nothing is listening), and no reply at all usually means a firewall silently dropped the probe (filtered).\n\n` +
         `**TCP Flags**\n\n` +
         `Each TCP packet carries flags — single-bit markers that indicate the purpose of the packet. The six primary flags are:\n\n` +
         `- SYN: Initiate a connection or synchronize sequence numbers\n` +
@@ -316,15 +316,15 @@ const protocolsMasterclass = {
         "                 RST injection     DNS tunneling\n" +
         "=======================================================",
       checkpoint: {
-        question: "According to the reading, how large is a minimal UDP header, compared to TCP's minimum 20 bytes?",
+        question: "An attacker sends small requests to open DNS and NTP servers with the victim's IP as the source address, and the victim is flooded with large replies. Which property of UDP makes this reflection work?",
         options: [
-          "4 bytes",
-          "8 bytes",
-          "16 bytes",
-          "20 bytes — identical to TCP",
+          "Its 8-byte header lets far more requests fit into each packet",
+          "It has no handshake, so servers reply without confirming who asked",
+          "It retransmits lost replies, multiplying the traffic sent to the victim",
+          "Its checksum is optional, so the server cannot detect the forged source",
         ],
         answer: 1,
-        explanation: "The UDP header is only 8 bytes (source port, destination port, length, checksum) — its extreme minimalism is why UDP can process traffic much faster than TCP.",
+        explanation: "UDP is connectionless: with no handshake, a server answers whatever source address a request claims without ever checking it, which lets the attacker aim large replies at the victim — the reading's DNS (about 50x) and NTP MONLIST (up to 4,000x) amplification examples. Over TCP the handshake would fail, because the spoofed victim never sent the SYN. The small 8-byte header is true but is not what makes spoofing work. UDP has no retransmission at all. The checksum only detects corruption in transit; it was never a check on who sent the packet.",
       },
     },
     // ── Reading 5 ─────────────────────────────────────────────────────────────
@@ -471,15 +471,15 @@ const protocolsMasterclass = {
         "POST to /cmd.php                 Webshell interaction\n" +
         "=======================================================",
       checkpoint: {
-        question: "According to the reading, which HTTP status code means the client is authenticated but not permitted to access the resource?",
+        question: "A proxy log shows a user who had just signed in successfully requesting /admin/export and receiving status 403. What does that status tell you?",
         options: [
-          "401 Unauthorized",
-          "403 Forbidden",
-          "404 Not Found",
-          "429 Too Many Requests",
+          "The server wants credentials; the user's sign-in did not reach this application",
+          "The user is authenticated but is not permitted to access that resource",
+          "The resource does not exist, so the request was probably a probe for paths",
+          "The user sent too many requests and is being rate-limited by the server",
         ],
         answer: 1,
-        explanation: "403 Forbidden means the server recognised the request but the client does not have permission — different from 401 (authentication required at all).",
+        explanation: "403 Forbidden means the server knows who the user is but refuses this resource — a permissions boundary, worth noting when an ordinary user requests admin paths. 'Credentials required' is 401 Unauthorized. A missing resource is 404 Not Found, and rate limiting is 429 Too Many Requests.",
       },
     },
     // ── Reading 7 ─────────────────────────────────────────────────────────────
@@ -616,15 +616,15 @@ const protocolsMasterclass = {
         "5     1     Host Redirect         Route poisoning attack\n" +
         "=======================================================",
       checkpoint: {
-        question: "According to the reading, what does an ARP Poisoning attack involve?",
+        question: "Several workstations' ARP caches suddenly map the gateway's IP, 10.0.0.1, to the MAC address of WS-23, right after WS-23 sent a stream of unsolicited ARP replies. What is happening?",
         options: [
-          "Flooding a target with millions of SYN packets so its connection queue fills up and it can no longer respond to legitimate connection requests",
-          "Sending unsolicited ARP replies claiming the attacker's MAC address is the default gateway, so victim traffic routes through the attacker",
-          "Encoding stolen data inside subdomain labels and sending them as DNS queries to an attacker-controlled authoritative nameserver to exfiltrate it",
-          "Sending a specially crafted packet that exploits a buffer overflow vulnerability in the SMBv1 protocol implementation to execute remote code",
+          "A DHCP server gave WS-23 a duplicate IP address, so the two now share one",
+          "ARP poisoning: WS-23 is claiming the gateway's IP to sit in the traffic path",
+          "WS-23 is running a SYN flood against the gateway to exhaust its connections",
+          "A normal cache refresh: the gateway rebooted and re-announced its address",
         ],
         answer: 1,
-        explanation: "ARP Poisoning sends gratuitous ARP replies claiming the gateway's IP maps to the attacker's MAC address. Victims update their ARP cache and send traffic to the attacker, creating a man-in-the-middle position.",
+        explanation: "Unsolicited ARP replies that tie the gateway's IP to another host's MAC are ARP poisoning: victims update their caches and send their traffic through WS-23, a man-in-the-middle position. A duplicate DHCP lease would have WS-23 using 10.0.0.1 itself, not answering for it with a stream of unsolicited replies. A SYN flood is a TCP attack and does not touch ARP caches. A gateway reboot would re-announce the gateway's own MAC, not WS-23's.",
       },
     },
     // ── Reading 9 ─────────────────────────────────────────────────────────────
@@ -744,15 +744,15 @@ const protocolsMasterclass = {
         "  [exactly 60 seconds between each connection]\n" +
         "=======================================================",
       checkpoint: {
-        question: "According to the reading, which port is the default listener port for Metasploit's Meterpreter shells — traffic to it is almost always malicious?",
+        question: "A firewall log shows an internal workstation opening a connection to an internet host on destination port 4444. Why does that port stand out?",
         options: [
-          "Port 445",
-          "Port 3389",
-          "Port 4444",
-          "Port 8080",
+          "It is SMB's port, which should stay inside the internal network",
+          "It is RDP's alternate port, used when 3389 is blocked at the edge",
+          "It is the default listener port for Metasploit's Meterpreter",
+          "It is a common web-proxy port that attackers use to hide C2",
         ],
         answer: 2,
-        explanation: "Port 4444 is Metasploit's default Meterpreter listener port. Legitimate business traffic essentially never uses it, so any connection to or from it is a strong indicator of compromise.",
+        explanation: "Port 4444 is the default Meterpreter listener in Metasploit, and legitimate business software rarely uses it, so an outbound connection to it as a destination port is a strong lead. SMB is port 445, not 4444. RDP's standard port is 3389, and 4444 is not a recognised RDP alternative. 8080 is the common web-proxy port, and it shows up in plenty of legitimate traffic.",
       },
     },
     // ── Question 1 ────────────────────────────────────────────────────────────
@@ -760,16 +760,16 @@ const protocolsMasterclass = {
       type: "question" as const,
       id: "proto-q1",
       question:
-        "During a TCP connection, which flag is sent FIRST by the client to initiate the connection?",
+        "During a SYN scan of a server, port 23 answers with a RST, while port 3389 sends nothing back at all. What do these two responses suggest?",
       options: [
-        "ACK",
-        "SYN",
-        "FIN",
-        "RST",
+        "Port 23 is open and accepted the probe; port 3389 is closed",
+        "Port 23 is closed; port 3389 is probably filtered by a firewall",
+        "Both ports are open; the RST just tears down the scanner's half-open session",
+        "Port 23 is filtered; port 3389 is open but slow to answer",
       ],
       answer: 1,
       explanation:
-        "TCP connections begin with a SYN (synchronise) packet from the client. The server responds with SYN-ACK, and the client confirms with ACK. This 3-way handshake establishes the connection. SYN scans (used by Nmap and attackers) send SYN but never complete the handshake — the server's response (SYN-ACK meaning port open, RST meaning port closed) reveals the state of each port without fully establishing a connection.",
+        "In a SYN scan, a SYN-ACK means open, a RST means closed (the host is up but nothing listens on that port), and silence usually means a firewall dropped the probe — filtered. An open port answers with SYN-ACK, so the RST rules out 'open' for port 23. The RST that tears down a half-open session is sent by the scanner to the server, not back from it. Silence is not a slow open port: an open port replies with SYN-ACK.",
       xp: 20,
     },
     // ── Question 2 ────────────────────────────────────────────────────────────
@@ -786,7 +786,7 @@ const protocolsMasterclass = {
       ],
       answer: 1,
       explanation:
-        "Long, random-looking subdomains sent at high frequency to a single domain is the classic signature of DNS tunneling. Legitimate CDN subdomains are short and predictable. The base64-like appearance confirms data is being encoded into the subdomain labels. When the encoded labels carry stolen data out, ATT&CK files it as T1048.003 (Exfiltration Over Unencrypted Non-C2 Protocol); when DNS is the C2 channel itself, it is T1071.004 (Application Layer Protocol: DNS). The analyst should pull the full DNS query history for this host, decode sample subdomains to confirm exfiltrated content, isolate the workstation, and search for the same domain across all other hosts.",
+        "Long, random-looking subdomains sent at high frequency to a single domain is the classic signature of DNS tunneling. Legitimate CDN names can look random too, but they resolve successfully and sit under well-known parent domains. The base64-like appearance confirms data is being encoded into the subdomain labels. When the encoded labels carry stolen data out, ATT&CK files it as T1048.003 (Exfiltration Over Unencrypted Non-C2 Protocol); when DNS is the C2 channel itself, it is T1071.004 (Application Layer Protocol: DNS). The analyst should pull the full DNS query history for this host, decode sample subdomains to confirm exfiltrated content, isolate the workstation, and search for the same domain across all other hosts.",
       xp: 25,
     },
     // ── Question 3 ────────────────────────────────────────────────────────────
@@ -798,8 +798,8 @@ const protocolsMasterclass = {
       options: [
         "Minimal risk — the perimeter block makes SMB unreachable to anything inside the network as well",
         "Internal SMB on port 445 enables lateral movement between workstations, spreading ransomware and enabling credential relay",
-        "Limited risk — port 445 only carries file and printer sharing, which cannot be used to execute code or move laterally",
-        "The risk only appears once the attacker opens port 445 on the perimeter firewall, since SMB abuse needs inbound internet access",
+        "Limited risk — port 445 carries file and printer sharing, which cannot be used to execute code or move laterally",
+        "The risk appears once the attacker opens port 445 on the perimeter firewall, since SMB abuse needs inbound internet access",
       ],
       answer: 1,
       explanation:
@@ -812,21 +812,21 @@ const protocolsMasterclass = {
       id: "proto-la1",
       heading: "Investigating a DNS Tunneling Alert",
       context:
-        "You are a Tier-1 SOC analyst at NexaCorp. A SIEM rule fired on an unusually long DNS query originating from a finance department workstation. The workstation belongs to m.cohen@nexacorp.com. DNS tunneling is a technique where attackers exfiltrate data by encoding it in DNS subdomain query strings — the encoded data is sent as a DNS query to an attacker-controlled domain. Review the Sysmon Event ID 22 log below.",
+        "You are a Tier-1 SOC analyst at NexaCorp. A SIEM rule fired on an unusually long DNS query from WS-FINANCE-011, a finance department workstation that belongs to m.cohen@nexacorp.com. Review the Sysmon Event ID 22 log below. (QueryStatus 9003 is the Windows DNS code for NXDOMAIN — the name does not exist.)",
       event: dnsExfilEvent,
       questions: [
         {
           question:
-            "The QueryName field shows 'aGVsbG8td29ybGQtdGhpcy1pcy10ZXN0LWRhdGEtZXhmaWx0cmF0aW9u.evil-c2.net'. The long prefix before the dot is a base64-encoded string. What does this confirm about the nature of this DNS query?",
+            "QueryName is 'aGVsbG8td29ybGQtdGhpcy1pcy10ZXN0LWRhdGEtZXhmaWx0cmF0aW9u.evil-c2.net': one long base64-looking label under a single parent domain. Which explanation fits this query best?",
           options: [
-            "This is a normal CDN subdomain — base64 characters are commonly used in CDN URLs",
-            "The subdomain contains encoded data, strongly suggesting DNS tunneling to exfiltrate information to an attacker-controlled domain",
-            "The query failed because the domain does not exist (NXDOMAIN), proving it is safe",
-            "The process cmd.exe automatically generates long DNS queries as part of Windows network stack",
+            "DGA — malware generating random domain names until one reaches its C2",
+            "DNS tunneling — data encoded into a label under an attacker's own domain",
+            "CDN cache-busting — long random labels are common on content-delivery hosts",
+            "A harmless failure — QueryStatus 9003 shows nothing reached the outside",
           ],
           answer: 1,
           explanation:
-            "Base64-encoded data in DNS subdomain labels is the textbook signature of DNS tunneling. The subdomain 'aGVsbG8td29ybGQtdGhpcy1pcy10ZXN0LWRhdGEtZXhmaWx0cmF0aW9u' decodes to 'hello-world-this-is-test-data-exfiltration' — a clear indicator of deliberate exfiltration. The NXDOMAIN response does NOT mean the domain is safe — it means the attacker's authoritative nameserver received the query (which contained the data) and returned NXDOMAIN to avoid leaving a real DNS record in caches. The exfiltration succeeded at the DNS layer before NXDOMAIN was returned.",
+            "The label decodes from base64 to 'hello-world-this-is-test-data-exfiltration': data riding inside the query name to evil-c2.net, whose authoritative nameserver the attacker controls — DNS tunneling. A DGA varies the registered domain itself, trying many different random names; here the parent stays fixed and only the long label carries content. CDN names can look random, but they resolve successfully under well-known parents, while this one returned NXDOMAIN. And NXDOMAIN (9003) does not mean nothing left: the query, with the data in it, already reached the attacker's nameserver, which can answer NXDOMAIN on purpose to avoid caching.",
           xp: 25,
         },
         {
@@ -864,9 +864,9 @@ const protocolsMasterclass = {
       type: "flag" as const,
       id: "proto-f1",
       prompt:
-        "The DNS log event above shows encoded data being pushed OUT of the network inside DNS query names. Based on Reading 10, which MITRE ATT&CK sub-technique ID covers this exfiltration use of DNS? Enter it in the format T1234.567.",
+        "Look at the DNS event above: data rides out inside the query name, and the response (NXDOMAIN) carries nothing back to the host. Based on Reading 10, which MITRE ATT&CK sub-technique ID fits this use of DNS? Enter it in the format T1234.567.",
       answer: "T1048.003",
-      hint: "Reading 10 gives two IDs for DNS tunneling: one for when DNS is used to move stolen data out (an Exfiltration sub-technique under T1048), and one for when DNS is the command-and-control channel (under T1071). This event is the exfiltration case.",
+      hint: "Reading 10 gives two IDs for DNS tunneling, one per use of the channel. Decide which use this event shows.",
       xp: 30,
     },
   ],
