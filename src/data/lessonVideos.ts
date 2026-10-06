@@ -187,4 +187,40 @@ export const LESSON_VIDEOS: Record<string, LessonVideoData> = {
       { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/malware-types-field-guide/es.vtt" },
     ],
   },
+  "dcsync-golden-silver-ticket": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/dcsync-golden-silver-ticket/dcsync-golden-silver-ticket.mp4",
+    caption: "Explainer — DCSync, the krbtgt Hash, and Forging Golden & Silver Tickets · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/dcsync-golden-silver-ticket/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/dcsync-golden-silver-ticket/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/dcsync-golden-silver-ticket/es.vtt" },
+    ],
+  },
+  "as-rep-roasting": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/as-rep-roasting/as-rep-roasting.mp4",
+    caption: "Explainer — AS-REP Roasting · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/as-rep-roasting/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/as-rep-roasting/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/as-rep-roasting/es.vtt" },
+    ],
+  },
+  "ldap-bloodhound-ad-recon": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ldap-bloodhound-ad-recon/ldap-bloodhound-ad-recon.mp4",
+    caption: "Explainer — LDAP and BloodHound · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ldap-bloodhound-ad-recon/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ldap-bloodhound-ad-recon/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ldap-bloodhound-ad-recon/es.vtt" },
+    ],
+  },
+  "static-vs-dynamic-malware-analysis": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/static-vs-dynamic-malware-analysis/static-vs-dynamic-malware-analysis.mp4",
+    caption: "Explainer — Static vs Dynamic Malware Analysis and Sandboxing · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/static-vs-dynamic-malware-analysis/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/static-vs-dynamic-malware-analysis/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/static-vs-dynamic-malware-analysis/es.vtt" },
+    ],
+  },
 };
