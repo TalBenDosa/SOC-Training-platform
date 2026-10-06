@@ -181,10 +181,10 @@ The process tree is one of the most powerful features in the Falcon console. Ins
 
 When you open a detection, these fields are critical for analysis:
 - **CommandLine:** The exact command that ran. If it contains Base64-encoded text ('-EncodedCommand') or unusual paths (C:\\\\Windows\\\\Temp), be suspicious.
-- **SHA256:** The cryptographic fingerprint of any file involved. You can paste this into VirusTotal to see if it's known malware.
+- **SHA256HashData:** The cryptographic fingerprint of any file involved. You can paste this into VirusTotal to see if it's known malware.
 - **LocalIP / ExternalIP:** The IP addresses of the endpoint and any remote connection
 - **UserName:** Which user account was running the process (SYSTEM? A service account? A regular employee?)
-- **ContextProcessName / ContextProcessId:** The process in whose context the event happened — the process that performed the action (for a process-creation event, that is the process that launched the new one)
+- **ContextBaseFileName / ContextProcessId:** The process in whose context the event happened — the process that performed the action (for a process-creation event, that is the process that launched the new one)
 - **ParentBaseFileName / ParentProcessId:** The direct parent of the process the event is about
 
 **Investigate / Threat Graph**
@@ -363,17 +363,18 @@ After compromising one machine, attackers move to others. A common tool is **PsE
         raw: {
           "crowdstrike.event_simpleName": "ProcessRollup2",
           "crowdstrike.SeverityName": "Critical",
-          "crowdstrike.Technique": "T1003.001",
-          "crowdstrike.TechniqueName": "LSASS Memory",
-          "crowdstrike.ContextProcessName": "cmd.exe",
+          "crowdstrike.Technique": "LSASS Memory",
+          "threat.technique.id": "T1003",
+          "threat.technique.subtechnique.id": "T1003.001",
+          "crowdstrike.ContextBaseFileName": "cmd.exe",
           "crowdstrike.ContextProcessId": "2048",
           "crowdstrike.CommandLine":
             "rundll32.exe C:\\Windows\\System32\\comsvcs.dll, MiniDump 640 C:\\Windows\\Temp\\lsass.dmp full",
-          "crowdstrike.TargetProcessName": "lsass.exe",
-          "crowdstrike.GrantedAccess": "0x1FFFFF",
+          "crowdstrike.TargetProcessImageFileName": "lsass.exe",
+          "crowdstrike.DesiredAccess": "2097151",
           "crowdstrike.UserName": "CORP\\svc-backup",
-          "crowdstrike.HostName": "SRV-DC01",
-          "crowdstrike.DetectionId": "ldt:abc123:def456",
+          "crowdstrike.ComputerName": "SRV-DC01",
+          "crowdstrike.DetectId": "ldt:abc123:def456",
           "crowdstrike.FalconHostLink":
             "https://falcon.crowdstrike.com/activity/detections/detail/abc123",
         },
@@ -381,7 +382,7 @@ After compromising one machine, attackers move to others. A common tool is **PsE
       questions: [
         {
           question:
-            "The field 'crowdstrike.GrantedAccess: 0x1FFFFF' appears in the alert. In Windows, access mask 0x1FFFFF means PROCESS_ALL_ACCESS — full control over the target process. Why is this value specifically suspicious when the target is lsass.exe?",
+            "The field 'crowdstrike.DesiredAccess: 2097151' appears in the alert — Falcon writes the access mask in decimal, and 2097151 is 0x1FFFFF in hex. In Windows, access mask 0x1FFFFF means PROCESS_ALL_ACCESS — full control over the target process. Why is this value specifically suspicious when the target is lsass.exe?",
           options: [
             "LSASS enforces the firewall policy, so full access lets a tool turn network filtering off",
             "LSASS holds credential material in memory; full access lets a tool read hashes and tickets",
@@ -504,26 +505,26 @@ After compromising one machine, attackers move to others. A common tool is **PsE
         raw: {
           "crowdstrike.event_simpleName": "ProcessRollup2",
           "crowdstrike.SeverityName": "Critical",
-          "crowdstrike.Technique": "T1055",
-          "crowdstrike.TechniqueName": "Process Injection",
-          "crowdstrike.ContextProcessName": "winword.exe",
+          "crowdstrike.Technique": "Process Injection",
+          "threat.technique.id": "T1055",
+          "crowdstrike.ContextBaseFileName": "winword.exe",
           "crowdstrike.ContextProcessId": "5560",
           "crowdstrike.CommandLine":
             "powershell.exe -NoP -W Hidden -Enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcA",
-          "crowdstrike.TargetProcessName": "explorer.exe",
-          "crowdstrike.GrantedAccess": "0x1FFFFF",
+          "crowdstrike.TargetProcessImageFileName": "explorer.exe",
+          "crowdstrike.DesiredAccess": "2097151",
           "crowdstrike.UserName": "CORP\\l.chen",
-          "crowdstrike.HostName": "WKST-FINANCE07",
+          "crowdstrike.ComputerName": "WKST-FINANCE07",
           "crowdstrike.ParentBaseFileName": "WINWORD.EXE",
           "crowdstrike.FileName": "Q3_Invoice_Reconciliation.docm",
-          "crowdstrike.DetectionId": "ldt:qrt789:xyz012",
+          "crowdstrike.DetectId": "ldt:qrt789:xyz012",
         },
       } satisfies TelemetryEvent,
       correct_verdict: "true_positive",
       explanation:
-        "Word (winword.exe) launching PowerShell is not something that happens during normal document editing — it is the signature of a malicious macro executing. The '-Enc' flag hides the true command behind a Base64 blob, a standard obfuscation technique so the command line does not reveal itself to casual log review. 'crowdstrike.GrantedAccess: 0x1FFFFF' (PROCESS_ALL_ACCESS) against explorer.exe means the process requested full control over Windows Explorer — a classic process-injection move used to hide malicious code inside a legitimate, always-running process so it blends in and survives a cursory look at the process list. The low static AV detection (2/71) does not indicate low risk: it reflects that antivirus signature matching is exactly what obfuscated macro-delivered payloads are built to evade, while Falcon's behavioural detection caught the actual malicious sequence regardless. Correct response: isolate WKST-FINANCE07, capture memory before killing the process, retrieve and detonate the .docm file safely, and reset l.chen's credentials.",
+        "Word (winword.exe) launching PowerShell is not something that happens during normal document editing — it is the signature of a malicious macro executing. The '-Enc' flag hides the true command behind a Base64 blob, a standard obfuscation technique so the command line does not reveal itself to casual log review. 'crowdstrike.DesiredAccess: 2097151' (hex 0x1FFFFF, PROCESS_ALL_ACCESS) against explorer.exe means the process requested full control over Windows Explorer — a classic process-injection move used to hide malicious code inside a legitimate, always-running process so it blends in and survives a cursory look at the process list. The low static AV detection (2/71) does not indicate low risk: it reflects that antivirus signature matching is exactly what obfuscated macro-delivered payloads are built to evade, while Falcon's behavioural detection caught the actual malicious sequence regardless. Correct response: isolate WKST-FINANCE07, capture memory before killing the process, retrieve and detonate the .docm file safely, and reset l.chen's credentials.",
       fp_trap:
-        "Two details might tempt an analyst toward false_positive. First, 2 out of 71 VirusTotal detections sounds reassuring — but a low static-detection score on a freshly obfuscated file says only that it has not been signature-matched before, not that it is safe; it is the expected result for a brand-new malicious macro, not evidence of innocence. Second, PROCESS_ALL_ACCESS handles do occasionally appear from legitimate debugging or remote-support tooling, so GrantedAccess 0x1FFFFF is not damning in total isolation. What removes the ambiguity is the full chain: an Office process spawning a script interpreter (rarely legitimate), using Base64 obfuscation with a hidden window (rarely legitimate from a document), then requesting full access into a mainstream process with no debugging purpose. No single field proves this alone — the combination does.",
+        "Two details might tempt an analyst toward false_positive. First, 2 out of 71 VirusTotal detections sounds reassuring — but a low static-detection score on a freshly obfuscated file says only that it has not been signature-matched before, not that it is safe; it is the expected result for a brand-new malicious macro, not evidence of innocence. Second, PROCESS_ALL_ACCESS handles do occasionally appear from legitimate debugging or remote-support tooling, so an access mask of 0x1FFFFF (DesiredAccess 2097151) is not damning in total isolation. What removes the ambiguity is the full chain: an Office process spawning a script interpreter (rarely legitimate), using Base64 obfuscation with a hidden window (rarely legitimate from a document), then requesting full access into a mainstream process with no debugging purpose. No single field proves this alone — the combination does.",
       xp: 30,
     } satisfies AnalystChoiceTask,
   ],

@@ -23,6 +23,7 @@ import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 import type { EdrInvestigation } from "@/lib/edr/investigations";
 import { buildAlertIndex, effectiveSeverity, severityLabel, severityAtLeast } from "@/lib/scenarios/eventClass";
 import { parseSearchQuery, matchesQuery } from "@/lib/scenarios/logSearch";
+import { ecsTechnique } from "@/lib/logs/ecsFields";
 import {
   buildEntityIndex, pivotsForEvent, crossHostTimeline, type EntityStats, type EntityIndex,
 } from "@/lib/scenarios/correlate";
@@ -147,7 +148,7 @@ function LogDetail({ ev, isAlert, effSev, onThreatQuery }: {
     ["event.provider", ev.vendor ?? ev.source.toUpperCase()],
     ["event.type",     ev.event_type.replace(/_/g, " ")],
     ["event.severity", effSev.toUpperCase()],
-    ...(ev.mitre_technique ? [["threat.technique.id", ev.mitre_technique]  as [string, string]] : []),
+    ...(Object.entries(ecsTechnique(ev.mitre_technique)) as [string, string][]),
     ...(ev.user_email ? [["user.email",    ev.user_email]           as [string, string]] : []),
     ...(ev.hostname   ? [["host.name",     ev.hostname]             as [string, string]] : []),
     ...(ev.src_ip   ? [["source.ip",       ev.src_ip]               as [string, string]] : []),

@@ -89,7 +89,7 @@ export function describeEvent(event: TelemetryEvent, opts: DescribeOptions = {})
   const dnsQuery = event.dns?.query || rawStr(event.raw, "winlog.event_data.QueryName", "dns.question.name", "crowdstrike.DomainName");
   const regKey = event.registry?.key || event.registry?.path || rawStr(event.raw, "winlog.event_data.TargetObject", "registry.path");
   const rawImage = rawStr(event.raw, "winlog.event_data.Image", "process.executable", "crowdstrike.ImageFileName", "crowdstrike.FileName");
-  const rawParent = rawStr(event.raw, "winlog.event_data.ParentImage", "process.parent.executable", "crowdstrike.parent_basefilename", "crowdstrike.ParentBaseFileName");
+  const rawParent = rawStr(event.raw, "winlog.event_data.ParentImage", "process.parent.executable", "crowdstrike.ParentBaseFileName");
   const dest = event.network?.domain || event.dst_ip || rawStr(event.raw, "url.domain", "RemoteUrl", "RemoteIP", "id.resp_h", "destination.ip", "destination.domain");
   const hasFields = !!(event.process || rawImage || dnsQuery || event.network?.domain || event.dst_ip || event.file || regKey);
   const useViewer = eventCode && WIN_EVENT_VIEWER_DESCRIPTIONS[eventCode] &&
@@ -135,8 +135,8 @@ export function describeEvent(event: TelemetryEvent, opts: DescribeOptions = {})
     case "file_copy":
       return `${p?.name ?? who} copied ${fileName || "a file"}${host}`;
     case "process_access": {
-      const target = rawStr(event.raw, "winlog.event_data.TargetImage", "crowdstrike.CrossProcessTargetName",
-        "crowdstrike.target_imagefilename", "crowdstrike.TargetFileName");
+      const target = rawStr(event.raw, "winlog.event_data.TargetImage", "crowdstrike.TargetProcessImageFileName",
+        "crowdstrike.TargetFileName");
       return `${p?.name ?? "A process"} opened a handle to ${target ? baseName(target) : "another process"}${host}`;
     }
     case "file_delete":

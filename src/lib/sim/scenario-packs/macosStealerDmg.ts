@@ -98,7 +98,7 @@ export function buildMacosStealerDmgScenario(
       cmdline: "/Applications/Rectangle.app/Contents/MacOS/Rectangle", parentName: "launchd", parentPid: 1, pid: 2871,
       severity: "informational", expectedVerdict: "fp",
       fpExplanation: "The control case for the whole scenario. Rectangle.app was installed from a downloaded disk image the day before — the same 'mount a DMG, run an app' shape as the intrusion. What makes it benign is written in the signature and the behaviour: the binary carries a valid Developer ID Application signature, it is notarized, and the Gatekeeper assessment passed, so macOS let it run without the user having to override anything. It also does nothing a stealer does — no osascript password prompt, no read of login.keychain-db, no browser cookie access, no outbound upload. An analyst who alerts on 'an app ran from a disk image' alone will flag this and be wrong; the discriminator is Developer ID + notarization + quiet behaviour, not the install shape.",
-      extra: { ...osx, "process.code_signature.status": "valid", "process.code_signature.subject_name": "Developer ID Application: Knollsoft LLC (XSYZ3E2CY6)", "file.name": "Rectangle", "file.path": "/Applications/Rectangle.app", "file.signature.status": "valid", "file.signature.subject_name": "Developer ID Application: Knollsoft LLC (XSYZ3E2CY6)", "file.signature.trusted": "true" },
+      extra: { ...osx, "process.code_signature.exists": true, "process.code_signature.trusted": true, "process.code_signature.subject_name": "Developer ID Application: Knollsoft LLC (XSYZ3E2CY6)", "file.name": "Rectangle", "file.path": "/Applications/Rectangle.app", "file.code_signature.exists": true, "file.code_signature.subject_name": "Developer ID Application: Knollsoft LLC (XSYZ3E2CY6)", "file.code_signature.trusted": true },
       description: "Rectangle.app launched from /Applications after a disk-image install. Falcon recorded a valid Developer ID Application signature and a passed Gatekeeper assessment; the com.apple.quarantine attribute was cleared because the app is notarized. No child processes, credential-store reads, or network activity followed.",
     }),
 
@@ -116,7 +116,7 @@ export function buildMacosStealerDmgScenario(
       companyId: cx, id: "msd_02_dmg_mount_run", ts: T(3 * MIN), host: host.name, user: user.email, runAsUser: user.sam,
       processName: "PixelForge Pro", processPath: VOL, cmdline: VOL, parentName: "launchd", parentPid: 1, pid: 4102,
       sha256: stealerHash, mitre: "T1204.002", tactic: "Execution", severity: "high", incidentId: INCIDENT,
-      extra: { ...osx, "process.code_signature.status": "adhoc", "process.code_signature.subject_name": "-", "file.name": "PixelForge Pro", "file.path": VOL, "file.hash.sha256": stealerHash, "file.signature.status": "unsigned", "file.signature.trusted": "false", "threat.technique.id": "T1204.002", "threat.technique.name": "User Execution: Malicious File", "threat.tactic.name": "Execution", "threat.tactic.id": "TA0002" },
+      extra: { ...osx, "process.code_signature.exists": true, "process.code_signature.trusted": false, "process.code_signature.subject_name": "-", "file.name": "PixelForge Pro", "file.path": VOL, "file.hash.sha256": stealerHash, "file.code_signature.exists": false, "file.code_signature.trusted": false, "threat.technique.id": "T1204", "threat.technique.subtechnique.id": "T1204.002", "threat.technique.name": "User Execution: Malicious File", "threat.tactic.name": "Execution", "threat.tactic.id": "TA0002" },
       description: "The disk image mounted at /Volumes/PixelForge Pro and its app launched from that mount point. Falcon recorded the binary as ad-hoc signed (no Developer ID, not notarized) and still carrying the com.apple.quarantine attribute; its SHA256 matches the downloaded DMG payload.",
     }),
 
@@ -125,7 +125,7 @@ export function buildMacosStealerDmgScenario(
       companyId: cx, id: "msd_03_osascript_password_prompt", ts: T(3 * MIN + 8 * SEC), host: host.name, user: user.email, runAsUser: user.sam,
       processName: "osascript", processPath: "/usr/bin/osascript", cmdline: OSA, parentName: "PixelForge Pro", parentPid: 4102, pid: 4118,
       mitre: "T1059.002", tactic: "Execution", severity: "high", incidentId: INCIDENT,
-      extra: { ...osx, "process.code_signature.status": "valid", "process.code_signature.subject_name": "Software Signing", "threat.technique.id": "T1059.002", "threat.technique.name": "Command and Scripting Interpreter: AppleScript", "threat.tactic.name": "Execution", "threat.tactic.id": "TA0002" },
+      extra: { ...osx, "process.code_signature.exists": true, "process.code_signature.trusted": true, "process.code_signature.subject_name": "Software Signing", "threat.technique.id": "T1059", "threat.technique.subtechnique.id": "T1059.002", "threat.technique.name": "Command and Scripting Interpreter: AppleScript", "threat.tactic.name": "Execution", "threat.tactic.id": "TA0002" },
       description: "The PixelForge Pro binary spawned /usr/bin/osascript running a `display dialog ... with hidden answer` AppleScript — a prompt styled to look like a macOS system request, asking the user to type their login password to 'finish installation'.",
     }),
 
@@ -136,7 +136,7 @@ export function buildMacosStealerDmgScenario(
       cmdline: 'osascript -e display dialog "PixelForge Pro needs your password to finish installation." default answer "" with hidden answer',
       parentName: "PixelForge Pro", pid: 4118, parentPid: 4102, runAsUser: user.sam, accountName: user.sam, accountDomain: user.domain,
       mitre: "T1059.002", tactic: "Execution", severity: "high", incidentId: INCIDENT,
-      extra: { "Timestamp": T(3 * MIN + 9 * SEC), "DeviceId": host.id, "InitiatingProcessFolderPath": VOL, "InitiatingProcessCommandLine": VOL, "InitiatingProcessId": "4102", "InitiatingProcessSHA256": stealerHash, "ReportId": "70418822", "threat.technique.id": "T1059.002", "threat.technique.name": "Command and Scripting Interpreter: AppleScript", "threat.tactic.name": "Execution", "threat.tactic.id": "TA0002" },
+      extra: { "Timestamp": T(3 * MIN + 9 * SEC), "DeviceId": host.id, "InitiatingProcessFolderPath": VOL, "InitiatingProcessCommandLine": VOL, "InitiatingProcessId": "4102", "InitiatingProcessSHA256": stealerHash, "ReportId": "70418822", "threat.technique.id": "T1059", "threat.technique.subtechnique.id": "T1059.002", "threat.technique.name": "Command and Scripting Interpreter: AppleScript", "threat.tactic.name": "Execution", "threat.tactic.id": "TA0002" },
       description: "Defender for Endpoint, also deployed on this Mac, independently recorded the same osascript child of PixelForge Pro. Its DeviceProcessEvents row ties the osascript process to the same initiating binary and payload SHA256.",
     }),
 
@@ -146,7 +146,7 @@ export function buildMacosStealerDmgScenario(
       path: "/Users/a.fontaine/Library/Keychains/login.keychain-db", sha256: null,
       actorProcess: "security", actorPath: "/usr/bin/security", actorPid: 4131, actorParentName: "PixelForge Pro", actorParentPid: 4102, runAsUser: user.sam,
       mitre: "T1555.001", tactic: "Credential Access", severity: "critical", incidentId: INCIDENT,
-      extra: { ...osx, "crowdstrike.CommandLine": "security 2>&1 >/dev/null find-generic-password -wa Chrome", "threat.technique.id": "T1555.001", "threat.technique.name": "Credentials from Password Stores: Keychain", "threat.tactic.name": "Credential Access", "threat.tactic.id": "TA0006" },
+      extra: { ...osx, "crowdstrike.CommandLine": "security 2>&1 >/dev/null find-generic-password -wa Chrome", "threat.technique.id": "T1555", "threat.technique.subtechnique.id": "T1555.001", "threat.technique.name": "Credentials from Password Stores: Keychain", "threat.tactic.name": "Credential Access", "threat.tactic.id": "TA0006" },
       description: "The payload invoked /usr/bin/security to read ~/Library/Keychains/login.keychain-db and extract the Chrome Safe Storage key. Falcon recorded the security process, spawned by PixelForge Pro, opening the login Keychain file.",
     }),
 
@@ -166,7 +166,7 @@ export function buildMacosStealerDmgScenario(
       path: "/Users/a.fontaine/Library/Application Support/Exodus/exodus.wallet", sha256: null,
       actorProcess: "PixelForge Pro", actorPath: VOL, actorPid: 4102, actorParentName: "launchd", actorParentPid: 1, actorSha256: stealerHash, runAsUser: user.sam,
       mitre: "T1552.001", tactic: "Credential Access", severity: "critical", incidentId: INCIDENT,
-      extra: { ...osx, "threat.technique.id": "T1552.001", "threat.technique.name": "Unsecured Credentials: Credentials In Files", "threat.tactic.name": "Credential Access", "threat.tactic.id": "TA0006" },
+      extra: { ...osx, "threat.technique.id": "T1552", "threat.technique.subtechnique.id": "T1552.001", "threat.technique.name": "Unsecured Credentials: Credentials In Files", "threat.tactic.name": "Credential Access", "threat.tactic.id": "TA0006" },
       description: "The payload read local cryptocurrency-wallet files, including ~/Library/Application Support/Exodus/exodus.wallet and Electrum wallet data — files that store wallet seeds and keys on disk.",
     }),
 
@@ -184,7 +184,7 @@ export function buildMacosStealerDmgScenario(
         companyId: cx, id: "msd_09_edr_detection", ts: T(5 * MIN), host: host.name, user: user.email, runAsUser: user.sam,
         threatName: "MacOS_Infostealer_OsascriptCredentialAccess", mitre: "T1555.001", tactic: "Credential Access", technique: "Keychain",
         action: "detected", severity: "critical", incidentId: INCIDENT,
-        extra: { ...osx, "crowdstrike.IncidentType": "MacOS Credential Theft", "crowdstrike.Objective": "Falcon Detection Method", "threat.technique.id": "T1555.001", "threat.technique.name": "Credentials from Password Stores: Keychain", "threat.tactic.name": "Credential Access", "threat.tactic.id": "TA0006" },
+        extra: { ...osx,  "crowdstrike.Objective": "Falcon Detection Method", "threat.technique.id": "T1555", "threat.technique.subtechnique.id": "T1555.001", "threat.technique.name": "Credentials from Password Stores: Keychain", "threat.tactic.name": "Credential Access", "threat.tactic.id": "TA0006" },
         detail: "An ad-hoc-signed app from a mounted disk image spawned osascript to prompt for the password, then read the login Keychain, browser cookie stores and wallet files and uploaded an archive.",
         description: "Falcon raised a Critical detection on MB-CR-14: an ad-hoc-signed app from a mounted disk image spawned osascript to prompt for the password, then read the login Keychain, browser cookie stores and wallet files and uploaded an archive — a macOS credential-stealer pattern.",
       }),
@@ -281,7 +281,7 @@ export function buildMacosStealerDmgScenario(
       ],
       answer: "sig_behaviour",
       explanation:
-        "The discriminator is the signature plus the behaviour, not the install shape. Rectangle has a valid Developer ID Application signature and is notarized, so Gatekeeper let it run and it then did nothing unusual. PixelForge Pro is only ad-hoc signed (subject '-', file.signature.status unsigned) and within seconds spawns osascript to phish the password and starts reading credential stores. Running from /Volumes is normal for the first launch right after mounting a DMG, so it is not by itself a verdict. Both downloaded apps would carry com.apple.quarantine — that is set on anything downloaded, benign or not — so its presence proves nothing. And binary size is irrelevant. The real tells are Developer ID + notarization on one side and ad-hoc signing + credential-theft behaviour on the other.",
+        "The discriminator is the signature plus the behaviour, not the install shape. Rectangle has a valid Developer ID Application signature and is notarized, so Gatekeeper let it run and it then did nothing unusual. PixelForge Pro is only ad-hoc signed (process.code_signature.trusted false, subject '-') and within seconds spawns osascript to phish the password and starts reading credential stores. Running from /Volumes is normal for the first launch right after mounting a DMG, so it is not by itself a verdict. Both downloaded apps would carry com.apple.quarantine — that is set on anything downloaded, benign or not — so its presence proves nothing. And binary size is irrelevant. The real tells are Developer ID + notarization on one side and ad-hoc signing + credential-theft behaviour on the other.",
     },
     {
       id: "msd_q2",

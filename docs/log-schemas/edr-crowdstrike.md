@@ -532,6 +532,69 @@ Notes: key set = the real elastic `userinfo` line (15 keys). `User` uses the `DO
 
 ---
 
+## 4b. Platform surfaces — which representation each one shows (decided 2026-10-06)
+
+| Surface | Representation | Field names |
+|---|---|---|
+| Native log view (Live feed / scenario "native" toggle, `src/lib/logs/native/sources/crowdstrike.ts`) | FDR record for telemetry, Alerts API v2 resource for detections | exactly as sections 3–4 above |
+| Authored `raw` blocks (emitters `src/lib/sim/emitters/crowdstrike.ts`, `scenarioEvents.ts`, scenario packs, rooms) | The SIEM view of Falcon data as Elastic's CrowdStrike integration (FDR data stream) indexes it: the Falcon name under `crowdstrike.` + ECS fields | below |
+
+In the SIEM view a detection is a `DetectionSummaryEvent` whose Falcon fields keep their own names:
+`crowdstrike.DetectName`, `crowdstrike.DetectDescription`, `crowdstrike.SeverityName`, `crowdstrike.Tactic`,
+`crowdstrike.Technique`, `crowdstrike.Objective`, `crowdstrike.PatternDispositionValue` /
+`crowdstrike.PatternDispositionDescription`, `crowdstrike.PatternId`, `crowdstrike.DetectId`,
+`crowdstrike.FalconHostLink`, and the chain as `crowdstrike.FileName` / `crowdstrike.ParentImageFileName` /
+`crowdstrike.GrandparentImageFileName` (all in the integration's `data_stream/fdr/fields/fields.yml`). Falcon's flat
+records carry no MITRE ids and no confidence: ids are ECS — `threat.tactic.id`, `threat.technique.id` (parent, `T1059`)
+and `threat.technique.subtechnique.id` (`T1059.001`). Code-signing state is ECS — `process.code_signature.exists` /
+`.trusted` / `.subject_name` (and `file.` / `process.parent.` equivalents), with `.status` only for a validation error
+(e.g. `errSecCertificateRevoked`); this is how the integration maps Falcon's signature info (unsigned → exists false;
+signed-untrusted, e.g. a macOS ad-hoc signature → exists true / trusted false; trusted → both true). An Event Streams
+feed indexed by the same integration (`data_stream/falcon`) nests the same PascalCase names one level down,
+`crowdstrike.event.SeverityName` / `crowdstrike.event.Tactic` — same fields, different data stream.
+
+Not real, rejected by the field gate (`deniedFields`): `crowdstrike.detection.*`, `crowdstrike.Confidence`,
+`crowdstrike.TechniqueId`, `crowdstrike.TacticId`, `process.code_signature.notarized`, `file.signature.*`, `code.signature.*`.
+
+Second migration (2026-10-06, branch `fix/edr-native-keys-2`) — every remaining invented / Splunk-style / snake_case
+`crowdstrike.*` spelling in authored raw blocks now uses the Falcon name the Elastic integration indexes (checked
+against `data_stream/fdr/fields/fields.yml`, the `_dev/test/pipeline` FDR samples, and `data_stream/host` for the
+AgentOffline host record), and the gate denies the old spelling:
+
+| Was | Now |
+|---|---|
+| `ParentProcessName`, `parent_basefilename` | `ParentBaseFileName` (full path → `ParentImageFileName`; `ParentImagePath` folded in) |
+| `ContextProcessName` | `ContextBaseFileName` (acting process of a network / file / DNS event) |
+| `process_name` | `FileName` on a process start / detection, else `ContextBaseFileName` |
+| `TargetProcessName`, `CrossProcessTargetName`, `target_imagefilename` | `TargetProcessImageFileName` — the `FalconProcessHandleOpDetectInfo` field |
+| `GrantedAccess` (`0x1FFFFF`) | `DesiredAccess` as Falcon writes it, a decimal string (`"2097151"`); readers show it as hex |
+| `CrossProcessTargetPid`, `HookApi` | dropped — the handle-op record names no target pid or API; the target pid lives on the event as `process.target.pid` (a scenario fact the EDR console reads) |
+| `HostName` | `ComputerName` |
+| `sensor.id` | `aid` (telemetry) / `SensorId` (DetectionSummaryEvent) |
+| `sensor.version` | `ConfigBuild` (`7.08.17410.0` → `1007.3.0017410.1`); on the host record `crowdstrike.host.agent.version` |
+| `customer_id` | `cid` |
+| `network_containment_state` | `NetworkContainmentState` |
+| `remote_address` / `local_address` / `remote_port` / `protocol` | `RemoteAddressIP4` / `LocalAddressIP4` / `RemotePort` / `Protocol` |
+| `platform` | `event_platform` (`Win` / `Mac` / `Lin`) |
+| `SHA256` | `SHA256HashData` |
+| `target_filename`, `imagefilename`, `integrity_level`, `parent_commandline`, `filesize`, `tree_id` | `TargetFileName`, `ImageFileName`, `IntegrityLevel`, `ParentCommandLine`, `Size`, `TreeId` |
+| `TechniqueName` / `DetectionId` | `Technique` (name) + ECS `threat.technique.id` / `DetectId` |
+| `IncidentId` (`inc:…`) | `AggregateId` (`aggind:<aid>:<tree id>`) — FDR's grouping key for behaviors of one process tree |
+| `behaviors` (Detects-API array, decommissioned) | `DetectDescription` |
+| `*_decimal` (Splunk add-on suffix) | the bare Falcon name (`ContextProcessId`, `TargetProcessId`, `ParentProcessId`) |
+| `container_id` / `ContainerId`, `container_runtime`, `ContainerImageName` | `OciContainerId`, `OciContainerEngineType`, `OciContainerConfigImage` |
+| `DeviceSerialNumber`, `DeviceClass` (USB) | `DeviceInstanceId` (serial is its last segment), `DeviceUsbClass` (`"8"` mass storage) |
+| `TargetDevice` / `VolumeDevice` (raw disk write) | `TargetFileName` (`\Device\Harddisk0\DR0`) |
+| `OperationType` | `event_simpleName` where it named the event; otherwise dropped |
+| `host.aid` / `host.platform_name` / `host.os_version` | `crowdstrike.host.id` / `.platform.name` / `.os.version` (Elastic `host` data stream) |
+| `IncidentType`, `privileges`, `SandboxVerdict`, `DevicePolicyEnforcement`, `TargetNamespacePid`, `MachineDomain` (telemetry), `module_load` | dropped — no Falcon field on that record |
+| `FileSigned`, and non-ECS `file.signed` / `process.signed` / `file.signer` (all vendors) | ECS `<process\|file>.code_signature.exists` / `.trusted` / `.subject_name` (`file.` on a file event or an AV detection's detected file, else `process.`) |
+
+Readers that consumed the old spellings (`edr-normalize.ts`, `sysmon.ts`, `_cs-s1-common.ts`, `sentinelone.ts`,
+`crowdstrike.ts`, `src/lib/edr/fromLiveStory.ts`, `describeEvent.ts`, `attackStories.ts`) read only the native names.
+
+---
+
 ## 5. Investigation notes (how an analyst pivots)
 
 - **Process tree**: ProcessRollup2.`TargetProcessId` is the node ID. Child PR2.`ParentProcessId` = parent's

@@ -32,9 +32,9 @@ const edrInjectEvent: TelemetryEvent = {
     "crowdstrike.DetectDescription":
       "A process opened a handle to another running process with elevated access rights",
     "crowdstrike.Tactic": "Defense Evasion",
-    "crowdstrike.TacticId": "TA0005",
+    "threat.tactic.id": "TA0005",
     "crowdstrike.Technique": "Process Injection",
-    "crowdstrike.TechniqueId": "T1055",
+    "threat.technique.id": "T1055",
     "crowdstrike.Severity": "5",
     "crowdstrike.SeverityName": "Critical",
     "crowdstrike.FileName": "powershell.exe",
@@ -44,12 +44,11 @@ const edrInjectEvent: TelemetryEvent = {
     "crowdstrike.ParentCommandLine":
       "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE /n contract_2024.docm",
     "crowdstrike.TargetProcessId": "3128",
-    "crowdstrike.GrantedAccess": "0x1FFFFF",
+    "crowdstrike.DesiredAccess": "2097151",
     "crowdstrike.IOCType": "hash_sha256",
     "crowdstrike.IOCValue":
       "dac329790fca469eb74d69310f84a01a02a9658f88d962fde3e943dde7569b6f",
     "crowdstrike.NetworkContainmentState": "Not Contained",
-    "crowdstrike.MachineDomain": "MEDCORE",
   },
 };
 
@@ -415,7 +414,7 @@ const avVsEdrMasterclass = {
         "The most important conceptual distinction in CrowdStrike is IOC versus IOA:\n\n" +
         "IOC (Indicator of Compromise): Something known-bad — a specific file hash, a known malicious IP address, or a known malicious domain. IOC matching is essentially the same as signature detection. Fast and accurate for known threats, blind to new ones.\n\n" +
         "IOA (Indicator of Attack): A behavioral pattern that indicates an attack is in progress, regardless of whether the specific tools or files are known. An IOA says 'a process is injecting into lsass.exe with full access' — it does not care what the injecting process is called or whether its hash is in any database. IOAs detect the behavior of the attack, not the identity of the malware.\n\n" +
-        "Key log fields you will encounter in SIEM when working with CrowdStrike events: crowdstrike.EventType identifies the category of event (DetectionSummaryEvent for alerts). crowdstrike.DetectId is the unique detection identifier in the format ldt:hexstring:number. crowdstrike.DetectDescription is the human-readable description of what was detected. crowdstrike.Severity is the numeric severity on a five-level scale (1=Informational, 2=Low, 3=Medium, 4=High, 5=Critical), and crowdstrike.SeverityName carries the matching label. crowdstrike.Tactic and crowdstrike.Technique map to MITRE ATT&CK. crowdstrike.FileName is the process that triggered the detection. crowdstrike.CommandLine is the full command line of that process. crowdstrike.ParentImageFileName is the parent process. crowdstrike.GrantedAccess is the Windows access rights mask used when opening another process's handle.",
+        "Key log fields you will encounter in SIEM when working with CrowdStrike events: crowdstrike.EventType identifies the category of event (DetectionSummaryEvent for alerts). crowdstrike.DetectId is the unique detection identifier in the format ldt:hexstring:number. crowdstrike.DetectDescription is the human-readable description of what was detected. crowdstrike.Severity is the numeric severity on a five-level scale (1=Informational, 2=Low, 3=Medium, 4=High, 5=Critical), and crowdstrike.SeverityName carries the matching label. crowdstrike.Tactic and crowdstrike.Technique map to MITRE ATT&CK. crowdstrike.FileName is the process that triggered the detection. crowdstrike.CommandLine is the full command line of that process. crowdstrike.ParentImageFileName is the parent process. crowdstrike.DesiredAccess is the Windows access rights mask requested when opening another process's handle, written in decimal (2097151 = 0x1FFFFF).",
       codeExample:
         "CROWDSTRIKE FALCON DETECTION EVENT — SIEM LOG FIELDS\n" +
         "======================================================\n\n" +
@@ -428,9 +427,10 @@ const avVsEdrMasterclass = {
         '  "crowdstrike.DetectDescription": "Process injection: powershell.exe injected shellcode into explorer.exe",\n\n' +
         "  // MITRE ATT&CK mapping\n" +
         '  "crowdstrike.Tactic": "Defense Evasion",\n' +
-        '  "crowdstrike.TacticId": "TA0005",\n' +
+        '  "threat.tactic.id": "TA0005",\n' +
         '  "crowdstrike.Technique": "Process Injection: Portable Executable Injection",\n' +
-        '  "crowdstrike.TechniqueId": "T1055.002",\n\n' +
+        '  "threat.technique.id": "T1055",\n' +
+        '  "threat.technique.subtechnique.id": "T1055.002",\n\n' +
         "  // Severity\n" +
         '  "crowdstrike.Severity": "5",\n' +
         '  "crowdstrike.SeverityName": "Critical",\n\n' +
@@ -441,13 +441,13 @@ const avVsEdrMasterclass = {
         '  "crowdstrike.ParentCommandLine": "WINWORD.EXE /n contract_2024.docm",\n\n' +
         "  // Injection target\n" +
         '  "crowdstrike.TargetProcessId": "3128",\n' +
-        '  "crowdstrike.GrantedAccess": "0x1FFFFF",  // PROCESS_ALL_ACCESS\n\n' +
+        '  "crowdstrike.DesiredAccess": "2097151",  // PROCESS_ALL_ACCESS\n\n' +
         "  // IOC\n" +
         '  "crowdstrike.IOCType": "hash_sha256",\n' +
         '  "crowdstrike.IOCValue": "722ca33845720a1f26e4e12852450b4f...",\n\n' +
         "  // Host context\n" +
         '  "crowdstrike.NetworkContainmentState": "Not Contained",\n' +
-        '  "crowdstrike.MachineDomain": "MEDCORE"\n' +
+        '  \n' +
         "}\n\n" +
         "SEVERITY SCALE:\n" +
         "  1 = Informational (context only)\n" +
@@ -682,7 +682,7 @@ const avVsEdrMasterclass = {
       type: "question" as const,
       id: "edr-q3",
       question:
-        "What does GrantedAccess 0x1FFFFF mean in a CrowdStrike EDR alert about LSASS access?",
+        "What does an access mask of 0x1FFFFF (Falcon's crowdstrike.DesiredAccess 2097151) mean in a CrowdStrike EDR alert about LSASS access?",
       options: [
         "PROCESS_VM_READ only — the process can read LSASS memory but cannot write to it or create threads in it",
         "PROCESS_ALL_ACCESS was granted — the process has full control over LSASS, enough to dump its credential material",
@@ -691,7 +691,7 @@ const avVsEdrMasterclass = {
       ],
       answer: 1,
       explanation:
-        "GrantedAccess 0x1FFFFF is the hexadecimal value for PROCESS_ALL_ACCESS in Windows. This grants the caller ALL possible permissions over the target process (in this case LSASS). With PROCESS_ALL_ACCESS, an attacker can use MiniDumpWriteDump() to dump all credentials stored in LSASS memory — extracting NTLM hashes and Kerberos tickets. This is the LSASS credential dumping technique (MITRE T1003.001). Any process accessing LSASS with GrantedAccess 0x1FFFFF should be treated as credential dumping until proven otherwise.",
+        "The access mask 0x1FFFFF (2097151 in Falcon's decimal DesiredAccess field) is the hexadecimal value for PROCESS_ALL_ACCESS in Windows. This grants the caller ALL possible permissions over the target process (in this case LSASS). With PROCESS_ALL_ACCESS, an attacker can use MiniDumpWriteDump() to dump all credentials stored in LSASS memory — extracting NTLM hashes and Kerberos tickets. This is the LSASS credential dumping technique (MITRE T1003.001). Any process accessing LSASS with GrantedAccess 0x1FFFFF should be treated as credential dumping until proven otherwise.",
       xp: 25,
     },
 

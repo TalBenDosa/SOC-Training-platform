@@ -62,6 +62,17 @@ Measured recognition rate per vendor (fields recognised / total, vendors with â‰
 
 **No vendor exceeds 71%.** Enforcing without a baseline today produces ~8,000 false positives.
 
+### Denied fields (known not to exist)
+
+Broad vendor prefixes (`crowdstrike.`, `process.`, `file.`) admit anything under them, so a field
+that is known to be invented would otherwise pass. `deniedFields` in the registry lists those
+(an entry ending in `.` is a prefix), each with the reason and the real field to use. They are
+rejected for every vendor, before any allow rule. Today: `crowdstrike.detection.*`,
+`crowdstrike.Confidence`, `crowdstrike.TechniqueId`, `crowdstrike.TacticId`,
+`process.code_signature.notarized`, `file.signature.*`, `code.signature.*`. The gate only parses
+authored `raw:` literals; `src/lib/logs/ecsFields.test.ts` applies the same list to every built
+event (live-feed corpus + all scenarios), which covers emitter output.
+
 ### Known-weak registry entries
 
 Four vendors have **no backing reference document** â€” their `exactFields` were borrowed from the

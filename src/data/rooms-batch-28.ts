@@ -9,10 +9,10 @@
  * Room in this batch:
  *  1. edr-detection-investigation — CrowdStrike Falcon + Microsoft Defender
  *     for Endpoint fields (Tactic, Technique, SeverityName,
- *     PatternDispositionDescription, ContextProcessName, CommandLine,
- *     SHA256HashData, GrantedAccess, CallStackModuleNames, mde.* equivalents),
+ *     PatternDispositionDescription, ContextBaseFileName, CommandLine,
+ *     SHA256HashData, DesiredAccess, CallStackModuleNames, mde.* equivalents),
  *     the six-step investigation workflow, process-tree anomaly reading,
- *     sibling-alert / IncidentId correlation, and severity reassessment
+ *     sibling-alert / AggregateId correlation, and severity reassessment
  *     (tool severity vs. analyst verdict).
  */
 
@@ -50,22 +50,22 @@ const lsassAccessEvent: TelemetryEvent = {
   raw: {
     "crowdstrike.event_simpleName": "ProcessAccess",
     "crowdstrike.DetectId": "ldt:9f2ab6c4de3f4a1c8b7e2d5f0a9c3b6e:88213",
-    "crowdstrike.IncidentId": "inc:9f2ab6c4de3f4a1c8b7e2d5f0a9c3b6e:20260212",
+    "crowdstrike.AggregateId": "aggind:9f2ab6c4de3f4a1c8b7e2d5f0a9c3b6e:2670376644",
     "crowdstrike.SeverityName": "Critical",
     "crowdstrike.Tactic": "Credential Access",
     "crowdstrike.Technique": "OS Credential Dumping",
     "crowdstrike.PatternDispositionDescription": "Detected, no action taken",
-    "crowdstrike.ContextProcessName": "explorer.exe",
-    "crowdstrike.ParentProcessName": "explorer.exe",
+    "crowdstrike.ContextBaseFileName": "explorer.exe",
+    "crowdstrike.ParentBaseFileName": "explorer.exe",
     "crowdstrike.FileName": "UpdateHelper.exe",
     "crowdstrike.FilePath": "C:\\Users\\r.callahan\\AppData\\Local\\Temp\\UpdateHelper.exe",
     "crowdstrike.CommandLine": "\"UpdateHelper.exe\"",
     "crowdstrike.SHA256HashData": "b7f3a92c518e6d4f0a1b8c37d2e9f645a1c8b3d7e2f094c6a8b1d3e5f7092c4a",
-    "crowdstrike.TargetProcessName": "lsass.exe",
-    "crowdstrike.GrantedAccess": "0x1FFFFF",
+    "crowdstrike.TargetProcessImageFileName": "lsass.exe",
+    "crowdstrike.DesiredAccess": "2097151",
     "crowdstrike.CallStackModuleNames": "dbghelp.dll,KERNELBASE.dll,ntdll.dll",
     "crowdstrike.UserName": "NEXACORP\\r.callahan",
-    "crowdstrike.HostName": "WKS-FIN-0231",
+    "crowdstrike.ComputerName": "WKS-FIN-0231",
     "event.action": "process-access",
     "event.outcome": "success",
   },
@@ -102,19 +102,19 @@ const regsvr32DeploymentEvent: TelemetryEvent = {
   raw: {
     "crowdstrike.event_simpleName": "ProcessRollup2",
     "crowdstrike.DetectId": "ldt:8006beb3bcd2593362266fe370c2b36f:55102",
-    "crowdstrike.IncidentId": "inc:8006beb3bcd2593362266fe370c2b36f:20260203",
+    "crowdstrike.AggregateId": "aggind:8006beb3bcd2593362266fe370c2b36f:2147925683",
     "crowdstrike.SeverityName": "High",
     "crowdstrike.Tactic": "Defense Evasion",
     "crowdstrike.Technique": "Signed Binary Proxy Execution",
     "crowdstrike.PatternDispositionDescription": "Detected, no action taken",
-    "crowdstrike.ContextProcessName": "cmd.exe",
-    "crowdstrike.ParentProcessName": "cmd.exe",
+    "crowdstrike.ContextBaseFileName": "cmd.exe",
+    "crowdstrike.ParentBaseFileName": "cmd.exe",
     "crowdstrike.FileName": "regsvr32.exe",
     "crowdstrike.FilePath": "C:\\Windows\\System32\\regsvr32.exe",
     "crowdstrike.CommandLine": "regsvr32.exe /s C:\\ProgramData\\NexaDeploy\\Modules\\ReportViewerCtl.dll",
     "crowdstrike.SHA256HashData": "3c9f81a46b2d0e758f1a3c6d9e0b4f275a8d3c61e97f0b426c1a9d38f04e7b25",
     "crowdstrike.UserName": "NEXACORP\\svc-sccm",
-    "crowdstrike.HostName": "SRV-DEPLOY-07",
+    "crowdstrike.ComputerName": "SRV-DEPLOY-07",
     "event.action": "process-create",
     "event.outcome": "success",
   },
@@ -124,7 +124,7 @@ const edrDetectionInvestigationRoom = {
   id: "edr-detection-investigation",
   title: "Investigating an EDR Detection — End to End",
   description:
-    "Follow one EDR detection from the moment it lands to the moment a host is contained. Covers CrowdStrike Falcon and Microsoft Defender for Endpoint fields (Tactic, Technique, SeverityName, PatternDispositionDescription, ContextProcessName, CommandLine, SHA256HashData, GrantedAccess, CallStackModuleNames), how to read a process tree for parent-child anomalies and LOLBins, why sibling behavioral alerts on the same host need to be merged before triage, why a tool's own severity rating is never the analyst's verdict, and the full pivot-scope-contain workflow real investigations actually run.",
+    "Follow one EDR detection from the moment it lands to the moment a host is contained. Covers CrowdStrike Falcon and Microsoft Defender for Endpoint fields (Tactic, Technique, SeverityName, PatternDispositionDescription, ContextBaseFileName, CommandLine, SHA256HashData, DesiredAccess, CallStackModuleNames), how to read a process tree for parent-child anomalies and LOLBins, why sibling behavioral alerts on the same host need to be merged before triage, why a tool's own severity rating is never the analyst's verdict, and the full pivot-scope-contain workflow real investigations actually run.",
   difficulty: "advanced" as const,
   category: "Endpoint Security",
   estimatedMinutes: 75,
@@ -164,8 +164,8 @@ const edrDetectionInvestigationRoom = {
       content:
         "Every major EDR platform reduces 'what happened' down to a specific, learnable set of fields. Reading them fluently — instead of skimming a detection's title and severity color — is the actual difference between an analyst who investigates and one who just reacts to labels.\n\n" +
         "**CrowdStrike Falcon's core fields.** Tactic and Technique are the MITRE ATT&CK category and specific method Falcon's behavioral engine matched — useful for framing what kind of goal the activity serves, but not a verdict by itself, since a single technique like Signed Binary Proxy Execution fires just as reliably against a benign internal deployment script as against a real attacker. SeverityName is Falcon's own automatic rating (Critical, High, Medium, Low), assigned the instant the behavior pattern matches — before any human has added context, which is exactly why Reading 6 later spends a full reading on why this field is not the analyst's final word. PatternDispositionDescription answers a different, sharper question: what did Falcon actually do about it. A value like 'Detected, no action taken' means the behavior was only observed; 'Prevented' or 'Detected, kill process' means Falcon actually intervened. Severity tells you how seriously the tool rated the pattern; PatternDispositionDescription tells you whether the potentially malicious action already ran to completion.\n\n" +
-        "**The process-identity fields.** ContextProcessName and ParentProcessName identify the process that launched the one being flagged — one link of the process tree, readable without opening the full graphical view. CommandLine is the exact string of arguments the flagged process executed with, including any Base64 encoding, unusual file paths, or suspicious destination arguments. FileName, FilePath, and SHA256HashData identify the specific binary, where it lives on disk, and its cryptographic fingerprint — the fingerprint being the single most useful field for pivoting entirely outside the console, into hash-reputation lookups and fleet-wide hunting, which Reading 7 builds on directly.\n\n" +
-        "**Microsoft Defender for Endpoint's equivalents.** The underlying questions are identical; only the field names change. mde.AlertTitle and mde.Category summarize what fired and its broad classification. mde.InitiatingProcessFileName and mde.InitiatingProcessCommandLine describe the process that LAUNCHED the flagged one, Defender's version of ContextProcessName / ParentProcessName; the flagged process's own name, command line and hash are FileName, ProcessCommandLine and SHA256, and every InitiatingProcess* column (InitiatingProcessSHA256 included) points one level up the tree. mde.SHA256 and mde.DeviceName complete the identification, and mde.DetectionSource tells you which Defender component — the EDR behavioral engine, the antivirus scanning engine, or another — actually generated the alert in the first place.\n\n" +
+        "**The process-identity fields.** ParentBaseFileName (and ContextBaseFileName, the acting process on a network or file event) identify the process that launched the one being flagged — one link of the process tree, readable without opening the full graphical view. CommandLine is the exact string of arguments the flagged process executed with, including any Base64 encoding, unusual file paths, or suspicious destination arguments. FileName, FilePath, and SHA256HashData identify the specific binary, where it lives on disk, and its cryptographic fingerprint — the fingerprint being the single most useful field for pivoting entirely outside the console, into hash-reputation lookups and fleet-wide hunting, which Reading 7 builds on directly.\n\n" +
+        "**Microsoft Defender for Endpoint's equivalents.** The underlying questions are identical; only the field names change. mde.AlertTitle and mde.Category summarize what fired and its broad classification. mde.InitiatingProcessFileName and mde.InitiatingProcessCommandLine describe the process that LAUNCHED the flagged one, Defender's version of ContextBaseFileName / ParentBaseFileName; the flagged process's own name, command line and hash are FileName, ProcessCommandLine and SHA256, and every InitiatingProcess* column (InitiatingProcessSHA256 included) points one level up the tree. mde.SHA256 and mde.DeviceName complete the identification, and mde.DetectionSource tells you which Defender component — the EDR behavioral engine, the antivirus scanning engine, or another — actually generated the alert in the first place.\n\n" +
         "**Why this matters before anything else in the room.** Whichever vendor's console is open in front of you, the questions are the same: what ran, launched by what, with what exact arguments, identified by what hash, and what did the tool actually do in response. Every later reading in this room builds directly on top of these fields.",
       codeExample:
         "CrowdStrike Falcon                         Microsoft Defender for Endpoint\n" +
@@ -173,12 +173,12 @@ const edrDetectionInvestigationRoom = {
         "Tactic / Technique                          mde.Category\n" +
         "SeverityName                                mde.AlertTitle (severity is a sibling field)\n" +
         "PatternDispositionDescription                mde.DetectionSource\n" +
-        "ContextProcessName / ParentProcessName        mde.InitiatingProcessFileName\n" +
+        "ContextBaseFileName / ParentBaseFileName      mde.InitiatingProcessFileName\n" +
         "CommandLine                                  mde.ProcessCommandLine\n" +
         "FileName / FilePath                          mde.FileName / mde.FolderPath\n" +
         "SHA256HashData                               mde.SHA256\n" +
-        "HostName                                     mde.DeviceName\n" +
-        "IncidentId                                   mde.IncidentId",
+        "ComputerName                                 mde.DeviceName\n" +
+        "AggregateId                                  mde.IncidentId",
       checkpoint: {
         question:
           "A Falcon detection shows SeverityName ‘Critical’ and PatternDispositionDescription ‘Detected, no action taken’. What do these two fields tell you together?",
@@ -217,14 +217,14 @@ const edrDetectionInvestigationRoom = {
       heading: "Match the EDR Field to What It Actually Tells You",
       instructions: "Match each CrowdStrike Falcon / Microsoft Defender field to what it records or reveals during an investigation.",
       pairs: [
-        { id: "context", left: "ContextProcessName / ParentProcessName", right: "The process that launched the one being flagged — one link of the process tree, without opening the full graphical view" },
+        { id: "context", left: "ContextBaseFileName / ParentBaseFileName", right: "The process that launched the one being flagged — one link of the process tree, without opening the full graphical view" },
         { id: "cmdline", left: "CommandLine", right: "The exact arguments the flagged process ran with, including any encoding or unusual destination paths" },
         { id: "hash", left: "SHA256HashData", right: "The binary's cryptographic fingerprint — the field used to pivot into hash-reputation lookups and fleet-wide hunting" },
         { id: "tactic", left: "Tactic", right: "The MITRE ATT&CK category describing the broad adversary goal behind the matched behavior pattern" },
         { id: "technique", left: "Technique", right: "The specific ATT&CK method the matched behavior pattern corresponds to" },
         { id: "severity", left: "SeverityName", right: "The tool's own automatic severity rating, assigned the instant the pattern matched, before any analyst has added context" },
         { id: "disposition", left: "PatternDispositionDescription", right: "What the tool actually did in response — merely observed the behavior, or actually stopped it" },
-        { id: "granted", left: "GrantedAccess", right: "The Windows access mask a process requested against another process's handle — 0x1FFFFF is full control" },
+        { id: "granted", left: "DesiredAccess", right: "The Windows access mask a process requested against another process's handle — 0x1FFFFF is full control" },
         { id: "callstack", left: "CallStackModuleNames", right: "The DLLs loaded in the call stack at the moment of access, revealing the specific mechanism used — e.g., dbghelp.dll pointing at MiniDumpWriteDump" },
       ],
       explanation:
@@ -329,12 +329,12 @@ const edrDetectionInvestigationRoom = {
       id: "edr-la1",
       heading: "Process Tree Investigation: A Credential Access Detection on a Finance Workstation",
       context:
-        "NexaCorp's Falcon console fires a Critical-severity behavioral detection on WKS-FIN-0231, a finance analyst's workstation. This is the third behavior logged against this host in the past twenty-two minutes, all three sharing the same crowdstrike.IncidentId. The first behavior was a scheduled-task creation and the second a PowerShell download from an external site, both tagged Medium severity by Falcon. Review the third behavior below, then reason through the process tree and surrounding fields the way a real investigation would.",
+        "NexaCorp's Falcon console fires a Critical-severity behavioral detection on WKS-FIN-0231, a finance analyst's workstation. This is the third behavior logged against this host in the past twenty-two minutes, all three sharing the same crowdstrike.AggregateId. The first behavior was a scheduled-task creation and the second a PowerShell download from an external site, both tagged Medium severity by Falcon. Review the third behavior below, then reason through the process tree and surrounding fields the way a real investigation would.",
       event: lsassAccessEvent,
       questions: [
         {
           question:
-            "crowdstrike.FilePath shows the flagged binary running from a user's AppData\\Local\\Temp folder, launched directly under explorer.exe (crowdstrike.ContextProcessName), and crowdstrike.FileName suggests a routine update utility. What should this combination make you want to check first, based on the process-tree reasoning in Reading 4?",
+            "crowdstrike.FilePath shows the flagged binary running from a user's AppData\\Local\\Temp folder, launched directly under explorer.exe (crowdstrike.ParentBaseFileName), and crowdstrike.FileName suggests a routine update utility. What should this combination make you want to check first, based on the process-tree reasoning in Reading 4?",
           options: [
             "Nothing: explorer.exe is the normal parent of anything a user starts, so the tree is clean",
             "Whether it is a signed, known updater installed here, or an unsigned binary with a bland name",
@@ -348,7 +348,7 @@ const edrDetectionInvestigationRoom = {
         },
         {
           question:
-            "crowdstrike.TargetProcessName reads lsass.exe and crowdstrike.GrantedAccess reads 0x1FFFFF. What does this access mask represent, and why is it significant against this specific target?",
+            "crowdstrike.TargetProcessImageFileName reads lsass.exe and crowdstrike.DesiredAccess reads 2097151 (0x1FFFFF in hex — Falcon writes the access mask in decimal). What does this access mask represent, and why is it significant against this specific target?",
           options: [
             "PROCESS_VM_READ only: enough to read LSASS memory, but not to write to it or to control it",
             "PROCESS_ALL_ACCESS, full control of lsass.exe, which holds the credentials a dumper reads",
@@ -357,12 +357,12 @@ const edrDetectionInvestigationRoom = {
           ],
           answer: 1,
           explanation:
-            "0x1FFFFF is PROCESS_ALL_ACCESS, full control of the target process, and lsass.exe holds credential material (NTLM hashes, Kerberos tickets), so that access is what a dumping tool needs. “PROCESS_VM_READ only…” understates the mask: read access is a small part of it, not the whole of 0x1FFFFF. “An access-denied code…” misreads the field, and the record’s event.outcome is success. “The rights lsass.exe requested…” reverses the direction: UpdateHelper.exe is the accessing process and lsass.exe (TargetProcessName) is the target.",
+            "0x1FFFFF is PROCESS_ALL_ACCESS, full control of the target process, and lsass.exe holds credential material (NTLM hashes, Kerberos tickets), so that access is what a dumping tool needs. “PROCESS_VM_READ only…” understates the mask: read access is a small part of it, not the whole of 0x1FFFFF. “An access-denied code…” misreads the field, and the record’s event.outcome is success. “The rights lsass.exe requested…” reverses the direction: UpdateHelper.exe is the accessing process and lsass.exe (TargetProcessImageFileName) is the target.",
           xp: 35,
         },
         {
           question:
-            "crowdstrike.CallStackModuleNames lists dbghelp.dll among the modules loaded at the moment of the LSASS access. Why does this specific detail matter on top of the GrantedAccess value alone?",
+            "crowdstrike.CallStackModuleNames lists dbghelp.dll among the modules loaded at the moment of the LSASS access. Why does this specific detail matter on top of the DesiredAccess value alone?",
           options: [
             "Nothing: dbghelp.dll is mapped into every process at startup, like ntdll.dll, so it is constant noise",
             "dbghelp.dll provides MiniDumpWriteDump, the routine dumpers use, though crash tools load it too",
@@ -376,11 +376,11 @@ const edrDetectionInvestigationRoom = {
         },
         {
           question:
-            "crowdstrike.PatternDispositionDescription reads ‘Detected, no action taken’, and this is the third behavior in twenty-two minutes on this host sharing the same IncidentId, after a scheduled-task creation and a PowerShell download. Together with a generically named binary from a Temp folder requesting full access to lsass.exe, what should the analyst do next?",
+            "crowdstrike.PatternDispositionDescription reads ‘Detected, no action taken’, and this is the third behavior in twenty-two minutes on this host sharing the same AggregateId, after a scheduled-task creation and a PowerShell download. Together with a generically named binary from a Temp folder requesting full access to lsass.exe, what should the analyst do next?",
           options: [
             "Close it as informational: ‘no action taken’ is Falcon's signal it was not worth stopping",
             "Likely true positive Falcon only observed: pull the sibling behaviours, check the hash, then contain",
-            "Wait for a fourth behaviour under the IncidentId before acting, since three is still a weak pattern",
+            "Wait for a fourth behaviour under the AggregateId before acting, since three is still a weak pattern",
             "Isolate the host and close the case, since containment ends the incident without further scoping",
           ],
           answer: 1,
@@ -390,16 +390,16 @@ const edrDetectionInvestigationRoom = {
         },
       ],
     },
-    // ── Reading 5: sibling alerts / IncidentId ───────────────────────────────
+    // ── Reading 5: sibling alerts / AggregateId ───────────────────────────────
     {
       type: "reading" as const,
       id: "edr-r5",
       heading: "Sibling Alerts: Why One Host Rarely Fires Just One Detection",
       content:
         "Real intrusions are sequences of individual actions, not a single moment in time — and behavior-based EDR detection typically produces a separate alert for each distinct technique step an attacker takes, rather than one alert covering the whole intrusion. On a single compromised host, within a span of minutes, it is entirely normal to see a scheduled-task creation flagged as persistence, a suspicious file download flagged separately, and then a credential-access attempt flagged a third time — three detections describing one continuous event.\n\n" +
-        "**The field that ties them together.** CrowdStrike's IncidentId groups multiple behaviors that Falcon's own correlation logic considers related, typically on the same host within a short window. Pulling every behavior sharing an IncidentId reconstructs the actual sequence of what happened, instead of reading three disconnected tickets as three disconnected stories.\n\n" +
+        "**The field that ties them together.** CrowdStrike's AggregateId (aggind:<sensor id>:<tree id>) groups multiple behaviors that Falcon's own correlation logic ties to one process tree, typically on the same host within a short window. Pulling every behavior sharing an AggregateId reconstructs the actual sequence of what happened, instead of reading three disconnected tickets as three disconnected stories.\n\n" +
         "**Why triaging each behavior in isolation is a real risk.** A scheduled-task creation on its own can look like a low-priority IT automation quirk. A PowerShell download on its own can look like a developer testing something. Only reading all three together, in order, reveals the coherent story: establish persistence, pull down a tool, then use that tool against LSASS. An analyst who closes the first two as unrelated, routine notices — because neither one alone looked severe — can leave the actual persistence mechanism completely untouched even after the workstation gets remediated for the headline detection.\n\n" +
-        "**The practical habit.** Whenever a new behavior fires, before triaging it as its own isolated case, check whether the same host produced any other behavior in roughly the last thirty minutes — with a shared IncidentId if the platform auto-correlates, or by hostname and timestamp proximity if it doesn't — and read whatever you find as one sequence, not several unrelated coincidences.\n\n" +
+        "**The practical habit.** Whenever a new behavior fires, before triaging it as its own isolated case, check whether the same host produced any other behavior in roughly the last thirty minutes — with a shared AggregateId if the platform auto-correlates, or by hostname and timestamp proximity if it doesn't — and read whatever you find as one sequence, not several unrelated coincidences.\n\n" +
         "**The necessary caveat.** This does not mean every cluster of close-together detections on a host is automatically one intrusion — a host can legitimately produce several unrelated Medium-severity notices during a busy patch cycle, for instance. The habit isn't 'always assume correlation'; it's 'always check for it,' which is exactly what prevents missing the real correlated case on the day it actually happens.",
       diagram:
         "sequenceDiagram\n" +
@@ -407,19 +407,19 @@ const edrDetectionInvestigationRoom = {
         "  participant B1 as Behavior 1: Scheduled task (Medium)\n" +
         "  participant B2 as Behavior 2: PowerShell download (Medium)\n" +
         "  participant B3 as Behavior 3: LSASS access (Critical)\n" +
-        "  Note over B1,B3: All three share one crowdstrike.IncidentId\n" +
+        "  Note over B1,B3: All three share one crowdstrike.AggregateId\n" +
         "  H->>B1: t+0 min\n" +
         "  H->>B2: t+13 min\n" +
         "  H->>B3: t+22 min\n" +
         "  Note over B3: Read as one sequence: persistence, then tooling, then credential access\n",
-      diagramCaption: "Reconstructing one intrusion from sibling behaviors sharing an IncidentId",
+      diagramCaption: "Reconstructing one intrusion from sibling behaviors sharing an AggregateId",
     },
     // ── Question 3 — merging sibling alerts ──────────────────────────────────
     {
       type: "question" as const,
       id: "edr-q3",
       question:
-        "Three Falcon behaviors fire against the same host within nine minutes, all sharing one IncidentId: a scheduled-task creation (Medium), a PowerShell download from an external site (Medium), and a credential-access attempt against lsass.exe (Critical). An analyst triages only the Critical one and closes the other two separately as routine, unrelated notices. What is wrong with this approach, based on Reading 5?",
+        "Three Falcon behaviors fire against the same host within nine minutes, all sharing one AggregateId: a scheduled-task creation (Medium), a PowerShell download from an external site (Medium), and a credential-access attempt against lsass.exe (Critical). An analyst triages only the Critical one and closes the other two separately as routine, unrelated notices. What is wrong with this approach, based on Reading 5?",
       options: [
         "Nothing: Medium behaviours belong in their own queue, and the Critical one carries the case",
         "It misses the sequence: the task and download are likely persistence and tooling, and the task can survive",
@@ -428,7 +428,7 @@ const edrDetectionInvestigationRoom = {
       ],
       answer: 1,
       explanation:
-        "Read together and in order, the three behaviours are one intrusion: persistence (the scheduled task), tooling (the download) and use of that tool against LSASS. Closing the first two separately can leave the scheduled task in place after the headline detection is remediated. “Nothing: Medium behaviours belong in their own queue…” lets severity decide relatedness, which Reading 5 warns against. “Nothing, provided the Critical case ends in host isolation…” confuses containment with remediation: isolation cuts the network, but the scheduled task still runs when the host is released. “Merge same-tactic behaviours…” misunderstands correlation: an intrusion moves through different tactics, and the shared IncidentId and timing are the evidence that ties them.",
+        "Read together and in order, the three behaviours are one intrusion: persistence (the scheduled task), tooling (the download) and use of that tool against LSASS. Closing the first two separately can leave the scheduled task in place after the headline detection is remediated. “Nothing: Medium behaviours belong in their own queue…” lets severity decide relatedness, which Reading 5 warns against. “Nothing, provided the Critical case ends in host isolation…” confuses containment with remediation: isolation cuts the network, but the scheduled task still runs when the host is released. “Merge same-tactic behaviours…” misunderstands correlation: an intrusion moves through different tactics, and the shared AggregateId and timing are the evidence that ties them.",
       xp: 30,
     },
     // ── Reading 6: severity reassessment ─────────────────────────────────────

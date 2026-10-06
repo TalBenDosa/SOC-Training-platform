@@ -155,7 +155,7 @@ export function infostealerSessionTheftScenarioEvents() {
     {
       ...csAlert({
         companyId: cx, id: "evt_ist_09_edr_alert", ts: T(3 * HOUR + 53 * MIN + 10 * SEC), host: host.hostname, srcIp: host.ip, user: victim.email,
-        threatName: "BrowserCredentialStoreStagingAndTransfer", action: "killed", confidence: 85,
+        threatName: "BrowserCredentialStoreStagingAndTransfer", action: "killed",
         mitre: "T1555.003", tactic: "Credential Access", technique: "Credentials from Web Browsers",
         processTree: "explorer.exe > PDF_Converter_Pro_Setup.exe", severity: "critical", incidentId: INCIDENT,
         detail: "An unsigned process copied Chrome's Login Data and Cookies databases out of the browser profile and transferred data to external infrastructure shortly afterward.",

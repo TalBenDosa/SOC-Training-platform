@@ -11,6 +11,7 @@
  */
 import type { TelemetryEvent, Severity } from "../types";
 import { resolve, type Ctx } from "./_core";
+import { ecsTechnique } from "@/lib/logs/ecsFields";
 
 const VENDOR = "Zscaler Internet Access";
 
@@ -76,7 +77,7 @@ export function zscalerWeb(o: ZscalerWebOpts): TelemetryEvent {
       "source.user.name": r.bareUser,
       ...(r.email ? { "user.email": r.email } : {}),
       ...(isThreat ? { "threat.name": o.threatName! } : {}),
-      ...(isThreat && o.mitre ? { "threat.technique.id": o.mitre } : {}),
+      ...(isThreat ? ecsTechnique(o.mitre) : {}),
     },
   };
 }

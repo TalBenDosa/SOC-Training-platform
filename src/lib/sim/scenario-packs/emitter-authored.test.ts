@@ -409,8 +409,8 @@ describe("emitter-authored scenario packs", () => {
     // the credential-theft crux: LSASS full-access read (0x1FFFFF)
     const lsass = s.events.find(e => e.id === "evt_mhi_fs3_lsass");
     expect(lsass?.event_type).toBe("process_access");
-    expect(lsass?.raw?.["crowdstrike.GrantedAccess"]).toBe("0x1FFFFF");
-    expect(lsass?.raw?.["crowdstrike.CrossProcessTargetName"]).toBe("lsass.exe");
+    expect(lsass?.raw?.["crowdstrike.DesiredAccess"]).toBe("2097151");   // 0x1FFFFF, as Falcon writes it
+    expect(lsass?.raw?.["crowdstrike.TargetProcessImageFileName"]).toBe("lsass.exe");
     expect(lsass?.raw?.["crowdstrike.event_simpleName"]).not.toBe("ProcessAccessIOC"); // real name
     // the missing link: svc_backup (from the dump) logs on to BKP-SRV-02 from FS-SRV-03,
     // plus 7045 PSEXESVC and 5145 ADMIN$/IPC$ for the PsExec step
@@ -423,7 +423,7 @@ describe("emitter-authored scenario packs", () => {
     // the rename tell: OriginalFilename rclone.exe on an unsigned ProgramData binary
     const stage = s.events.find(e => e.id === "evt_mhi_bk4_stage");
     expect(stage?.raw?.["crowdstrike.OriginalFilename"]).toBe("rclone.exe");
-    expect(stage?.raw?.["process.code_signature.status"]).toBe("unsigned");
+    expect(stage?.raw?.["process.code_signature.exists"]).toBe(false);
     // #7: the exfil is a NEW process — a different PID from the staging copy
     const exfil = s.events.find(e => e.id === "evt_mhi_bk5_exfil_proc");
     expect(exfil?.is_detection).toBe(true);
@@ -488,7 +488,7 @@ describe("emitter-authored scenario packs", () => {
     expect(fetch?.raw?.["data.catdesc"]).toBe("Uncategorized");
     // the payload landed before the kill (state after detection)
     const write = s.events.find(e => e.id === "evt_ics_07_payload_write");
-    expect(write?.raw?.["file.signature.status"]).toBe("unsigned");
+    expect(write?.raw?.["file.code_signature.exists"]).toBe(false);
     // the Falcon alert opens the ticket and scopes to the EDR console
     const alert = s.events.find(e => e.id === "evt_ics_08_edr_alert");
     expect(alert?.is_detection).toBe(true);
@@ -528,7 +528,7 @@ describe("emitter-authored scenario packs", () => {
     // the disk-structure wipe is a RawDiskAccess to PhysicalDrive0
     const raw = s.events.find(e => e.id === "dw_06_raw_disk_write");
     expect(raw?.raw?.["crowdstrike.event_simpleName"]).toBe("RawDiskAccess");
-    expect(String(raw?.raw?.["crowdstrike.TargetDevice"])).toContain("PhysicalDrive0");
+    expect(String(raw?.raw?.["crowdstrike.TargetFileName"])).toContain("\\Device\\Harddisk0\\DR0");
     // the detection attributes the deploying account in the company netbios realm
     const alert = s.events.find(e => e.id === "dw_09_edr_detection");
     expect(alert?.is_detection).toBe(true);
@@ -673,11 +673,11 @@ describe("emitter-authored scenario packs", () => {
     // benign control: valid Developer ID, runs as the user, resolves fp
     const benign = s.events.find(e => e.id === "mtp_00_benign_notarized_pkg");
     expect(benign?.expected_verdict).toBe("fp");
-    expect(benign?.raw?.["file.signature.status"]).toBe("valid");
+    expect(benign?.raw?.["file.code_signature.trusted"]).toBe(true);
     expect(benign?.process?.user).toBe("j.okafor");
     // the malicious install: revoked Developer ID, runs as root
     const install = s.events.find(e => e.id === "mtp_01_pkg_install");
-    expect(install?.raw?.["file.signature.status"]).toBe("revoked");
+    expect(install?.raw?.["file.code_signature.status"]).toBe("errSecCertificateRevoked");
     expect(install?.process?.user).toBe("root");
     // root postinstall shell, child of installer (MDE corroborates by SHA256)
     expect(s.events.find(e => e.id === "mtp_02_postinstall_root_shell")?.process?.parent_name).toBe("installer");
@@ -713,7 +713,7 @@ describe("emitter-authored scenario packs", () => {
     // benign control: valid Developer ID DMG install, fp
     const benign = s.events.find(e => e.id === "msd_00_benign_notarized_install");
     expect(benign?.expected_verdict).toBe("fp");
-    expect(benign?.raw?.["file.signature.status"]).toBe("valid");
+    expect(benign?.raw?.["file.code_signature.trusted"]).toBe(true);
     // delivery: proxy sees the malware-categorised download as a threat
     const dl = s.events.find(e => e.id === "msd_01_dmg_download");
     expect(dl?.is_detection).toBe(true);
@@ -721,7 +721,8 @@ describe("emitter-authored scenario packs", () => {
     expect(dl?.raw?.["threat.name"]).toBe("OSX/InfoStealer");
     // execution: ad-hoc signed app from the mounted volume, matching the download hash
     const run = s.events.find(e => e.id === "msd_02_dmg_mount_run");
-    expect(run?.raw?.["process.code_signature.status"]).toBe("adhoc");
+    expect(run?.raw?.["process.code_signature.exists"]).toBe(true);
+    expect(run?.raw?.["process.code_signature.trusted"]).toBe(false); // ad-hoc: signed, no trusted publisher
     expect(run?.process?.hash?.sha256).toBeTruthy();
     // the fake password prompt: osascript spawned by the payload
     expect(s.events.find(e => e.id === "msd_03_osascript_password_prompt")?.process?.parent_name).toBe("PixelForge Pro");
@@ -825,7 +826,7 @@ describe("emitter-authored scenario packs", () => {
     // pods/exec drives the pod
     expect(s.events.find(e => e.id === "evt_ce_02_pod_exec")?.raw?.["kubernetes.audit.objectRef.resource"]).toBe("pods/exec");
     // the miner (contained) then the nsenter escape (the crux)
-    expect(s.events.find(e => e.id === "evt_ce_03_xmrig_launch")?.raw?.["crowdstrike.ContainerId"]).toBeTruthy();
+    expect(s.events.find(e => e.id === "evt_ce_03_xmrig_launch")?.raw?.["crowdstrike.OciContainerId"]).toBeTruthy();
     const escape = s.events.find(e => e.id === "evt_ce_04_nsenter_escape");
     expect(escape?.raw?.["crowdstrike.DetectName"]).toBe("Container Escape to Host");
     expect(escape?.edr_scope).toBe("hybrid");
@@ -917,7 +918,7 @@ describe("emitter-authored scenario packs", () => {
     // the agent is a signed vendor binary (the FP tell)
     const agent = s.events.find(e => e.id === "evt_bkpfp_04_agent_start");
     expect(agent?.raw?.["mde.Signer"]).toBe("Veeam Software Group GmbH");
-    expect(agent?.raw?.["process.code_signature.status"]).toBe("trusted");
+    expect(agent?.raw?.["process.code_signature.trusted"]).toBe(true);
     // VSS CREATE (inverse of ransomware delete-shadows)
     expect(String(s.events.find(e => e.id === "evt_bkpfp_05_vss")?.process?.cmdline)).toContain("create shadow");
     // 4663 is a ReadData (0x1), not a write

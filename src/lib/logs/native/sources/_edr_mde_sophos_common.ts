@@ -100,6 +100,18 @@ export const TECHNIQUES: Record<string, [string, string]> = {
   "T1611": ["Escape to Host", "Privilege Escalation"],
 };
 
+/**
+ * Technique id from a Falcon `Technique` name. A flat DetectionSummaryEvent carries the
+ * ATT&CK (sub-)technique NAME only, never the id ("AppleScript", or the "Parent: Sub" form);
+ * the Alerts API resource rendered from it carries both.
+ */
+export function techniqueIdByName(name?: string): string | undefined {
+  if (!name) return undefined;
+  const sub = (name.includes(":") ? name.split(":").pop()! : name).trim().toLowerCase();
+  const hit = Object.entries(TECHNIQUES).find(([, [n]]) => n.toLowerCase() === sub);
+  return hit?.[0];
+}
+
 /** Technique name: the table, else the sub-technique part of an authored "Parent: Sub" name. */
 export function techniqueName(id?: string, authored?: string): string | undefined {
   if (id && TECHNIQUES[id]) return TECHNIQUES[id][0];

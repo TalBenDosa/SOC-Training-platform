@@ -5,6 +5,7 @@ import { buildHostBaseline } from "./hostBaseline";
 import { buildMultiHostIntrusionScenario } from "@/lib/sim/scenario-packs/multiHostIntrusion";
 import { lookupHash } from "@/lib/sim/hashDatabase";
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { isConclusionRawKey } from "@/lib/scenarios/withheld";
 import {
   buildPhishingMalwareScenario, buildMaliciousMacroScenario, buildCrackedSoftwareScenario,
   buildUsbMalwareScenario, buildImpossibleTravelScenario, buildOAuthScenario,
@@ -85,10 +86,10 @@ describe("buildInvestigationFromStory", () => {
   // C2 domains are checked for EVERY node, so no invented IOC can slip through.
   it("keeps the EDR strictly tied to the log — no invented attack entities", () => {
     // process/parent names can live in the structured field OR the vendor raw block
-    // (a detection whose process was only in crowdstrike.process_name, recovered by R-11).
-    const RAW_NAME_KEYS = ["process.name", "process.image", "crowdstrike.process_name",
+    // (a detection whose process was only in crowdstrike.ContextBaseFileName / FileName, recovered by R-11).
+    const RAW_NAME_KEYS = ["process.name", "process.image", "crowdstrike.ContextBaseFileName", "crowdstrike.FileName",
       "crowdstrike.ImageFileName", "s1.process_name", "Image", "InitiatingProcessFileName",
-      "proc.name", "ProcessName", "crowdstrike.parent_basefilename", "ParentImage"];
+      "proc.name", "ProcessName", "crowdstrike.ParentBaseFileName", "ParentImage"];
     const base = (v: string) => v.split(/[\\/]/).pop() ?? v;
     for (const [id, b] of ENDPOINT_STORIES) {
       const inv = buildInvestigationFromStory({ id, title: b.title, events: b.events });
@@ -128,7 +129,7 @@ describe("buildInvestigationFromStory", () => {
 // mapping, no expected verdict — the EDR console is built from THIS in the browser.
 const project = (events: TelemetryEvent[]): TelemetryEvent[] => events.map(e => {
   const raw: Record<string, unknown> = { ...(e.raw ?? {}) };
-  for (const k of Object.keys(raw)) if (/\.description$/i.test(k)) delete raw[k];
+  for (const k of Object.keys(raw)) if (isConclusionRawKey(k)) delete raw[k];
   return { ...e, description: undefined, mitre_technique: undefined, mitre_tactic: undefined, expected_verdict: undefined, raw };
 });
 

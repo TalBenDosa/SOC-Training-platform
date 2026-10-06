@@ -100,7 +100,7 @@ export function bundledCryptominerScenarioEvents() {
     csAlert({
       ...cx, id: "evt_bcm_07_perf_telemetry", ts: T(15 * HOUR + 8 * MIN), threatName: "CryptocurrencyMining",
       mitre: "T1496", tactic: "Impact", technique: "Resource Hijacking", malwareCategory: "cryptominer",
-      confidence: 90, action: "detected", isDetection: false, severity: "high",
+      action: "detected", isDetection: false, severity: "high",
       detail:
         "svchost_helper.exe (PID 11020) has run uninterrupted for roughly 15 hours, spanning overnight, and maintains a stratum connection to eu1.pool-relay-mining.com. The sustained, off-hours execution with a mining-pool session is consistent with unauthorised cryptocurrency mining.",
       description:
@@ -112,7 +112,7 @@ export function bundledCryptominerScenarioEvents() {
       ...csAlert({
         ...cx, id: "evt_bcm_08_edr_alert", ts: T(15 * HOUR + 20 * MIN), threatName: "UnsignedProcessSustainedStratumConnection",
         mitre: "T1496", tactic: "Impact", technique: "Resource Hijacking", malwareCategory: "cryptominer",
-        confidence: 90, action: "detected", severity: "high",
+        action: "detected", severity: "high",
         processTree: "VideoConvertPro_Setup.exe > svchost_helper.exe",
         detail:
           "An unsigned binary in a user AppData directory maintained a long-lived TCP/3333 session and sustained high CPU utilisation.",

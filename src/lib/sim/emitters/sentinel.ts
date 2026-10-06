@@ -12,6 +12,7 @@
  */
 import type { TelemetryEvent, Severity, EventType, ExpectedVerdict } from "../types";
 import { resolve, SEV_NAME, type Ctx } from "./_core";
+import { ecsTechnique } from "@/lib/logs/ecsFields";
 import { netbiosUser } from "../fabric";
 
 const VENDOR = "Microsoft Sentinel";
@@ -245,7 +246,7 @@ export function sentinelUeba(o: SentinelUebaOpts): TelemetryEvent {
       ...(o.behavior?.score !== undefined ? { "behavior.score": String(o.behavior.score) } : {}),
       ...(o.behavior?.baseline ? { "behavior.baseline": o.behavior.baseline } : {}),
       ...(o.behavior?.deviation ? { "behavior.deviation": o.behavior.deviation } : {}),
-      ...(o.mitre ? { "threat.technique.id": o.mitre } : {}),
+      ...ecsTechnique(o.mitre),
       ...(o.threatTechnique ? { "threat.technique.name": o.threatTechnique } : {}),
       ...(o.threatTactic ? { "threat.tactic.name": o.threatTactic } : {}),
       ...ext,

@@ -12,6 +12,7 @@
  */
 import type { TelemetryEvent, Severity } from "../types";
 import { resolve, type Ctx } from "./_core";
+import { ecsTechnique } from "@/lib/logs/ecsFields";
 import { knownGeoForIp } from "@/lib/geo/resolveGeo";
 
 const VENDOR = "FortiGate";
@@ -139,7 +140,7 @@ export function fgThreat(o: FgThreatOpts): TelemetryEvent {
       "source.ip": r.srcIp,
       "destination.ip": o.remoteIp,
       "threat.name": o.threatName,
-      ...(o.mitre ? { "threat.technique.id": o.mitre } : {}),
+      ...ecsTechnique(o.mitre),
       ...(o.technique ? { "threat.technique.name": o.technique } : {}),
       ...(o.category ? { "threat.category": o.category } : {}),
       ...(o.url ? { "url.full": o.url } : {}),

@@ -84,7 +84,7 @@ export function buildDestructiveWiperScenario(
       signed: true, signatureSubject: "Microsoft Corporation", integrity: "high", severity: "informational",
       expectedVerdict: "fp",
       fpExplanation: "The control case for the whole scenario. Under change ticket CHG-20418, the IT decommissioning team ran signed Sysinternals sdelete to securely erase VNT-WKS-19 before it left the estate — the same 'a disk is being overwritten' shape as the intrusion. What makes it benign is written in the authorisation and the surrounding behaviour: a signed Microsoft-published tool, run by a named IT account, at high integrity, inside a maintenance window, on a host slated for disposal. It does NOT delete this host's shadow copies to block recovery, does NOT disable boot recovery, and does NOT clear the Security log. An analyst who alerts on 'a disk got wiped' alone will flag this and be wrong; the discriminator is who ran it, under what ticket, and whether backups and logs were destroyed alongside — not the wipe itself.",
-      extra: { ...osExtra, "file.signature.status": "valid", "file.signature.subject_name": "Microsoft Corporation", "file.signature.trusted": "true" },
+      extra: { ...osExtra, "file.code_signature.exists": true, "file.code_signature.subject_name": "Microsoft Corporation", "file.code_signature.trusted": true },
       description: "sdelete64.exe (signed Sysinternals, Microsoft-published) ran on VNT-WKS-19 under the it.deploy account at high integrity, overwriting the drive of a host being decommissioned under change ticket CHG-20418. No shadow-copy deletion, boot-config change, or log clearing followed.",
     }),
 
@@ -94,7 +94,7 @@ export function buildDestructiveWiperScenario(
       processName: "cl64.exe", processPath: cl64Path, cmdline: cl64Path, parentName: "services.exe", parentPid: 720, pid: 6620,
       sha256: wiperHash, signed: false, integrity: "system", runAsUser: "NT AUTHORITY\\SYSTEM",
       mitre: "T1485", tactic: "Impact", severity: "critical", incidentId: INCIDENT,
-      extra: { ...osExtra, "file.name": "cl64.exe", "file.hash.sha256": wiperHash, "file.signature.status": "unsigned", "file.signature.trusted": "false", "threat.technique.id": "T1485", "threat.technique.name": "Data Destruction", "threat.tactic.name": "Impact", "threat.tactic.id": "TA0040" },
+      extra: { ...osExtra, "file.name": "cl64.exe", "file.hash.sha256": wiperHash, "file.code_signature.exists": false, "file.code_signature.trusted": false, "threat.technique.id": "T1485", "threat.technique.name": "Data Destruction", "threat.tactic.name": "Impact", "threat.tactic.id": "TA0040" },
       description: "Falcon recorded services.exe on VNT-WKS-27 spawning an unsigned binary, C:\\Users\\Public\\cl64.exe, as NT AUTHORITY\\SYSTEM at 03:12 — a payload started by the Service Control Manager immediately before a burst of destructive activity.",
     }),
 
@@ -143,7 +143,7 @@ export function buildDestructiveWiperScenario(
       processName: "wevtutil.exe", processPath: "C:\\Windows\\System32\\wevtutil.exe", cmdline: "wevtutil.exe cl Security",
       parentName: "cl64.exe", parentPid: 6620, pid: 6790, integrity: "system", runAsUser: "NT AUTHORITY\\SYSTEM",
       mitre: "T1070.001", tactic: "Defense Evasion", severity: "high", incidentId: INCIDENT,
-      extra: { ...osExtra, "threat.technique.id": "T1070.001", "threat.technique.name": "Clear Windows Event Logs", "threat.tactic.name": "Defense Evasion", "threat.tactic.id": "TA0005" },
+      extra: { ...osExtra, "threat.technique.id": "T1070", "threat.technique.subtechnique.id": "T1070.001", "threat.technique.name": "Clear Windows Event Logs", "threat.tactic.name": "Defense Evasion", "threat.tactic.id": "TA0005" },
       description: "Falcon recorded cl64.exe spawning wevtutil.exe with 'cl Security' as SYSTEM on VNT-WKS-27 — the Security event log being emptied.",
     }),
 
@@ -153,7 +153,7 @@ export function buildDestructiveWiperScenario(
       processName: "cl64.exe", processPath: cl64Path, cmdline: cl64Path, parentName: "services.exe", parentPid: 720, pid: 6620,
       sha256: wiperHash, integrity: "system", runAsUser: "NT AUTHORITY\\SYSTEM", simpleName: "RawDiskAccess", eventType: "file_modify",
       mitre: "T1561.002", tactic: "Impact", severity: "critical", incidentId: INCIDENT,
-      extra: { ...osExtra, "crowdstrike.OperationType": "DiskWrite", "crowdstrike.TargetDevice": "\\\\.\\PhysicalDrive0", "crowdstrike.VolumeDevice": "\\Device\\Harddisk0\\DR0", "threat.technique.id": "T1561.002", "threat.technique.name": "Disk Wipe: Disk Structure Wipe", "threat.tactic.name": "Impact", "threat.tactic.id": "TA0040" },
+      extra: { ...osExtra, "crowdstrike.TargetFileName": "\\Device\\Harddisk0\\DR0","threat.technique.id": "T1561", "threat.technique.subtechnique.id": "T1561.002", "threat.technique.name": "Disk Wipe: Disk Structure Wipe", "threat.tactic.name": "Impact", "threat.tactic.id": "TA0040" },
       description: "Falcon recorded cl64.exe issuing raw writes to \\\\.\\PhysicalDrive0 (\\Device\\Harddisk0\\DR0) on VNT-WKS-27 — the master boot record and partition table region of the physical disk being overwritten directly, not through the file system.",
     }),
 

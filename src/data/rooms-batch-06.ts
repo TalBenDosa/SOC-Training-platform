@@ -888,18 +888,19 @@ CrowdStrike Falcon is one of the most widely deployed EDR platforms. When it fir
 
 | Field | What It Is | Example |
 |---|---|---|
-| \`AlertType\` | Category of the alert | "Process", "Network", "File" |
-| \`Severity\` | How bad CrowdStrike thinks it is | Critical, High, Medium, Low |
-| \`Technique\` | MITRE ATT&CK technique ID | T1059.001 |
-| \`TechniqueName\` | Human name of the technique | "Command and Scripting Interpreter: PowerShell" |
-| \`ContextProcessName\` | The process that triggered the alert | powershell.exe |
-| \`ContextProcessParentName\` | What launched the alerting process | cmd.exe |
+| \`event_simpleName\` | Event type (a detection is a DetectionSummaryEvent) | "DetectionSummaryEvent" |
+| \`SeverityName\` | How bad CrowdStrike thinks it is | Critical, High, Medium, Low |
+| \`Tactic\` / \`Technique\` | MITRE ATT&CK tactic and technique, by name | "Execution" / "PowerShell" |
+| \`threat.technique.id\` | The MITRE technique ID — an ECS field beside the Falcon ones (sub-technique in \`threat.technique.subtechnique.id\`) | T1059 / T1059.001 |
+| \`FileName\` | The process that triggered the alert | powershell.exe |
+| \`ParentBaseFileName\` | What launched the alerting process | cmd.exe |
 | \`CommandLine\` | The exact command that was run | powershell.exe -NoP -NonI -W Hidden -Exec Bypass -Enc JAB... |
 | \`UserName\` | Who was logged in | CORP\\j.smith |
-| \`HostName\` | Which machine | LAPTOP-JSMITH |
+| \`ComputerName\` | Which machine | LAPTOP-JSMITH |
 | \`LocalIP\` | IP address of the machine | 10.0.1.55 |
-| \`SHA256\` | Cryptographic hash of the process executable | a1b2c3... |
-| \`Confidence\` | How confident CrowdStrike is (0–100) | 95 |
+| \`SHA256HashData\` | Cryptographic hash of the process executable | a1b2c3... |
+| \`PatternDispositionDescription\` | What the sensor did about it | "Detection, Process Killed" |
+| confidence (console / Alerts API) | How confident CrowdStrike is (0–100) | 95 |
 
 **Step-by-Step Alert Analysis**
 
@@ -1037,25 +1038,25 @@ Based on your analysis:
         },
         // Field names follow the same Falcon schema as malware-analysis (batch-07)
         // and edr-detection-investigation (batch-28): event_simpleName,
-        // SeverityName, ParentProcessName, SHA256HashData, DetectionId. An
+        // SeverityName, ParentBaseFileName, SHA256HashData, DetectId. An
         // earlier version used AlertType / Severity / SHA256 / ContextProcessParentName,
         // which meant a student meeting CrowdStrike in two different rooms saw two
         // conflicting sets of "real" field names for the same product.
         raw: {
           "crowdstrike.event_simpleName": "DetectionSummaryEvent",
-          "crowdstrike.DetectionId": "ldt:8f3c1a92b7e44d05:44117",
+          "crowdstrike.DetectId": "ldt:8f3c1a92b7e44d05:44117",
           "crowdstrike.SeverityName": "High",
-          "crowdstrike.Confidence": "95",
           "crowdstrike.Tactic": "Execution",
-          "crowdstrike.Technique": "T1059.001",
-          "crowdstrike.TechniqueName": "PowerShell",
+          "crowdstrike.Technique": "PowerShell",
+          "threat.technique.id": "T1059",
+          "threat.technique.subtechnique.id": "T1059.001",
           "crowdstrike.PatternDispositionDescription": "Detection, Process Killed",
-          "crowdstrike.ContextProcessName": "powershell.exe",
+          "crowdstrike.FileName": "powershell.exe",
           "crowdstrike.ContextProcessId": "4892",
-          "crowdstrike.ParentProcessName": "cmd.exe",
+          "crowdstrike.ParentBaseFileName": "cmd.exe",
           "crowdstrike.CommandLine": "powershell.exe -NoP -NonI -W Hidden -Exec Bypass -Enc JABjAGwAaQBlAG4AdAAgAD0A...",
           "crowdstrike.UserName": "CORP\\j.smith",
-          "crowdstrike.HostName": "LAPTOP-JSMITH",
+          "crowdstrike.ComputerName": "LAPTOP-JSMITH",
           "crowdstrike.LocalIP": "10.0.1.55",
           "crowdstrike.SHA256HashData": "505e6a45917684bf24f4603e189a29713c196e734821c6df2b104e7147d53ff0",
           "crowdstrike.FalconHostLink": "https://falcon.crowdstrike.com/activity/detections/detail/8f3c1a92",

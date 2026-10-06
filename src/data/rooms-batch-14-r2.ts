@@ -60,7 +60,7 @@ const powershellDownloadEvent: TelemetryEvent = {
     "crowdstrike.ParentImageFileName": "cmd.exe",
     "crowdstrike.ParentProcessId": "6210",
     "crowdstrike.UserName": "CORP\\d.okafor",
-    "crowdstrike.HostName": "WS-IT-0912",
+    "crowdstrike.ComputerName": "WS-IT-0912",
     "data.context":
       "d.okafor is a Tier 2 IT support technician. The GitHub repo 'nexacorp-it/deploy-scripts' is the company's own internal automation repository, referenced in three change-tickets this month.",
   },
@@ -87,12 +87,12 @@ const analystChoiceEvent: TelemetryEvent = {
     "crowdstrike.FileName": "powershell.exe",
     "crowdstrike.CommandLine":
       "powershell.exe -enc VwByAGkAdABlAC0ASABvAHMAdAAgACIAQgBhAGMAawB1AHAAIABjAG8AbQBwAGwAZQB0AGUAIgA=",
-    "crowdstrike.ParentImageFileName": "Veeam.EndPoint.Service.exe",
+    "crowdstrike.ParentImageFileName": "C:\\Program Files\\Veeam\\Endpoint Backup\\Veeam.EndPoint.Service.exe",
     "crowdstrike.ParentProcessId": "1204",
-    "crowdstrike.ParentImagePath": "C:\\Program Files\\Veeam\\Endpoint Backup\\Veeam.EndPoint.Service.exe",
     "crowdstrike.UserName": "CORP\\SYSTEM",
-    "crowdstrike.HostName": "WS-HR-1188",
-    "crowdstrike.FileSigned": "true",
+    "crowdstrike.ComputerName": "WS-HR-1188",
+    "process.code_signature.exists": true,
+    "process.code_signature.trusted": true,
     "data.decoded_command": "Write-Host \"Backup complete\"",
     "data.context":
       "IT change calendar entry: nightly backup job on HR workstations, scheduled daily at 22:45.",
@@ -472,7 +472,7 @@ const analystMindsetRoom = {
       event: analystChoiceEvent,
       correct_verdict: "false_positive" as const,
       explanation:
-        "This is a false positive, and the trap is the surface pattern: 'PowerShell + Base64-encoded command + after hours' is a combination security training teaches you to fear, and the HIGH severity label reinforces that instinct. But walking through the framework changes the picture completely. WHO: the parent process is not a user shell at all — ParentImagePath shows Veeam.EndPoint.Service.exe under Program Files, FileSigned is true, and the account is SYSTEM (not an interactive human account). WHAT: the decoded command is simply Write-Host \"Backup complete\" — a benign status message, not an attack payload. WHEN: the alert at 22:47 sits two minutes after the 22:45 nightly backup in the IT change calendar. Many legitimate enterprise tools Base64-encode PowerShell commands for reasons unrelated to evasion (safely passing special characters, multi-line scripts, or internal tooling conventions) — encoding itself is not proof of malicious intent, only a reason to look closer at WHO ran it and WHAT it actually says.",
+        "This is a false positive, and the trap is the surface pattern: 'PowerShell + Base64-encoded command + after hours' is a combination security training teaches you to fear, and the HIGH severity label reinforces that instinct. But walking through the framework changes the picture completely. WHO: the parent process is not a user shell at all — ParentImageFileName shows Veeam.EndPoint.Service.exe under Program Files, process.code_signature.trusted is true, and the account is SYSTEM (not an interactive human account). WHAT: the decoded command is simply Write-Host \"Backup complete\" — a benign status message, not an attack payload. WHEN: the alert at 22:47 sits two minutes after the 22:45 nightly backup in the IT change calendar. Many legitimate enterprise tools Base64-encode PowerShell commands for reasons unrelated to evasion (safely passing special characters, multi-line scripts, or internal tooling conventions) — encoding itself is not proof of malicious intent, only a reason to look closer at WHO ran it and WHAT it actually says.",
       fp_trap:
         "The HIGH severity label and the well-known 'Base64-encoded PowerShell' attacker technique both push you toward an immediate escalation instinct. This is exactly the anchoring and pattern-matching trap the room warns about: the correct response is not to trust the scary-looking surface pattern, but to actually decode the command, check the true parent process, and check whether the timing matches a documented schedule — all of which are quick, verifiable checks that flip the verdict from 'attack' to 'signed backup software doing exactly what it is scheduled to do.'",
       xp: 35,

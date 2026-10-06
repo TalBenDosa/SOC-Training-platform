@@ -153,6 +153,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "tls.cipher",
         "tls.client.subject",
@@ -414,6 +415,8 @@
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -453,6 +456,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "url.domain",
         "url.full",
@@ -655,6 +659,8 @@
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -708,6 +714,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "url.domain",
         "url.full",
@@ -846,6 +853,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name"
       ],
       "prefixes": [
@@ -954,6 +962,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "tls.cipher",
         "tls.client.subject",
@@ -1604,6 +1613,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "tls.cipher",
         "tls.client.subject",
@@ -1747,6 +1757,8 @@
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -1810,6 +1822,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "time",
         "url.domain",
@@ -1947,6 +1960,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name"
       ],
       "prefixes": [
@@ -2076,6 +2090,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "user.domain",
         "user.effective.name",
@@ -2146,9 +2161,10 @@
         "file.pe.imphash",
         "file.pe.original_file_name",
         "file.sensitivity_label",
-        "file.signature.status",
-        "file.signature.subject_name",
-        "file.signature.trusted",
+        "file.code_signature.exists",
+        "file.code_signature.trusted",
+        "file.code_signature.subject_name",
+        "file.code_signature.status",
         "file.size",
         "file.type",
         "host.architecture",
@@ -2186,6 +2202,8 @@
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -2239,6 +2257,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "threat.type",
         "url.domain",
@@ -2338,9 +2357,10 @@
         "file.pe.imphash",
         "file.pe.original_file_name",
         "file.sensitivity_label",
-        "file.signature.status",
-        "file.signature.subject_name",
-        "file.signature.trusted",
+        "file.code_signature.exists",
+        "file.code_signature.trusted",
+        "file.code_signature.subject_name",
+        "file.code_signature.status",
         "file.size",
         "file.type",
         "host.architecture",
@@ -2391,6 +2411,8 @@
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -2451,6 +2473,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "threat.type",
         "url.domain",
@@ -2613,6 +2636,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "threat.url",
         "tls.cipher",
@@ -2882,6 +2906,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "threat.url",
         "tls.cipher",
@@ -3125,6 +3150,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "tls.cipher",
         "tls.client.subject",
@@ -3241,6 +3267,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "threat.url",
         "tls.cipher",
@@ -3300,20 +3327,19 @@
         "av.verdict",
         "crowdstrike.CommandLine",
         "crowdstrike.ComputerName",
-        "crowdstrike.ContextProcessId_decimal",
-        "crowdstrike.ContextProcessName",
         "crowdstrike.DetectName",
+        "crowdstrike.DetectDescription",
+        "crowdstrike.DetectId",
+        "crowdstrike.FalconHostLink",
         "crowdstrike.FileName",
         "crowdstrike.FilePath",
-        "crowdstrike.IncidentType",
         "crowdstrike.Objective",
-        "crowdstrike.OperationType",
-        "crowdstrike.ParentProcessName",
         "crowdstrike.PatternDispositionDescription",
+        "crowdstrike.PatternDispositionValue",
+        "crowdstrike.PatternId",
         "crowdstrike.SensorId",
         "crowdstrike.SeverityName",
         "crowdstrike.Tactic",
-        "crowdstrike.TargetProcessId_decimal",
         "crowdstrike.Technique",
         "crowdstrike.UserName",
         "crowdstrike.aid",
@@ -3365,9 +3391,10 @@
         "file.pe.imphash",
         "file.pe.original_file_name",
         "file.sensitivity_label",
-        "file.signature.status",
-        "file.signature.subject_name",
-        "file.signature.trusted",
+        "file.code_signature.exists",
+        "file.code_signature.trusted",
+        "file.code_signature.subject_name",
+        "file.code_signature.status",
         "file.size",
         "file.type",
         "host.architecture",
@@ -3418,6 +3445,8 @@
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -3478,6 +3507,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "threat.type",
         "url.domain",
@@ -3497,7 +3527,9 @@
         "user.name",
         "user.sid",
         "user.target.name",
-        "user.type"
+        "user.type",
+        "crowdstrike.ParentImageFileName",
+        "crowdstrike.GrandparentImageFileName"
       ],
       "prefixes": [
         "crowdstrike.",
@@ -3628,6 +3660,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "user.domain",
         "user.effective.name",
@@ -3713,9 +3746,10 @@
         "file.pe.imphash",
         "file.pe.original_file_name",
         "file.sensitivity_label",
-        "file.signature.status",
-        "file.signature.subject_name",
-        "file.signature.trusted",
+        "file.code_signature.exists",
+        "file.code_signature.trusted",
+        "file.code_signature.subject_name",
+        "file.code_signature.status",
         "file.size",
         "file.type",
         "geo.city_name",
@@ -3913,6 +3947,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "url.domain",
         "url.full",
@@ -4087,6 +4122,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "url.domain",
         "url.full",
@@ -4196,6 +4232,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "tls.cipher",
         "tls.client.subject",
@@ -4297,9 +4334,10 @@
         "file.pe.imphash",
         "file.pe.original_file_name",
         "file.sensitivity_label",
-        "file.signature.status",
-        "file.signature.subject_name",
-        "file.signature.trusted",
+        "file.code_signature.exists",
+        "file.code_signature.trusted",
+        "file.code_signature.subject_name",
+        "file.code_signature.status",
         "file.size",
         "file.type",
         "geo.city_name",
@@ -4736,6 +4774,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "threat.url",
         "tls.cipher",
@@ -4990,6 +5029,8 @@
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -5029,6 +5070,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "url.domain",
         "url.full",
@@ -5189,6 +5231,8 @@
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -5245,6 +5289,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "transport_protocol",
         "transport_protocol_name",
@@ -5404,6 +5449,8 @@
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -5457,6 +5504,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "url.domain",
         "url.full",
@@ -5601,6 +5649,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "user.domain",
         "user.effective.name",
@@ -5726,6 +5775,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name"
       ],
       "prefixes": [
@@ -5841,6 +5891,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name"
       ],
       "prefixes": [
@@ -5936,6 +5987,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "tls.cipher",
         "tls.client.subject",
@@ -6098,6 +6150,8 @@
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -6137,6 +6191,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "url.domain",
         "url.full",
@@ -6962,6 +7017,8 @@
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -7157,9 +7214,10 @@
         "file.pe.imphash",
         "file.pe.original_file_name",
         "file.sensitivity_label",
-        "file.signature.status",
-        "file.signature.subject_name",
-        "file.signature.trusted",
+        "file.code_signature.exists",
+        "file.code_signature.trusted",
+        "file.code_signature.subject_name",
+        "file.code_signature.status",
         "file.size",
         "file.type",
         "host.architecture",
@@ -7222,6 +7280,8 @@
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -7282,6 +7342,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "threat.type",
         "url.domain",
@@ -7839,6 +7900,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "threat.url"
       ],
@@ -8433,9 +8495,10 @@
         "file.pe.imphash",
         "file.pe.original_file_name",
         "file.sensitivity_label",
-        "file.signature.status",
-        "file.signature.subject_name",
-        "file.signature.trusted",
+        "file.code_signature.exists",
+        "file.code_signature.trusted",
+        "file.code_signature.subject_name",
+        "file.code_signature.status",
         "file.size",
         "file.type",
         "geo.city_name",
@@ -8907,6 +8970,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "url.domain",
         "url.full",
@@ -9066,6 +9130,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name"
       ],
       "prefixes": [
@@ -9183,6 +9248,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name"
       ],
       "prefixes": [
@@ -9312,6 +9378,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "user.domain",
         "user.effective.name",
@@ -9439,6 +9506,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name"
       ],
       "prefixes": [
@@ -9561,6 +9629,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "threat.url",
         "tls.cipher",
@@ -9825,6 +9894,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name"
       ],
       "prefixes": [
@@ -9930,6 +10000,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "tls.cipher",
         "tls.client.subject",
@@ -10271,6 +10342,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "user.domain",
         "user.effective.name",
@@ -10421,6 +10493,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "url.domain",
         "url.full",
@@ -10520,9 +10593,10 @@
         "file.pe.imphash",
         "file.pe.original_file_name",
         "file.sensitivity_label",
-        "file.signature.status",
-        "file.signature.subject_name",
-        "file.signature.trusted",
+        "file.code_signature.exists",
+        "file.code_signature.trusted",
+        "file.code_signature.subject_name",
+        "file.code_signature.status",
         "file.size",
         "file.type",
         "host.architecture",
@@ -10573,6 +10647,8 @@
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -10633,6 +10709,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "threat.type",
         "url.domain",
@@ -10801,9 +10878,10 @@
         "file.pe.imphash",
         "file.pe.original_file_name",
         "file.sensitivity_label",
-        "file.signature.status",
-        "file.signature.subject_name",
-        "file.signature.trusted",
+        "file.code_signature.exists",
+        "file.code_signature.trusted",
+        "file.code_signature.subject_name",
+        "file.code_signature.status",
         "file.size",
         "file.type",
         "host.architecture",
@@ -10854,6 +10932,8 @@
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -10918,6 +10998,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "threat.type",
         "url.domain",
@@ -11076,6 +11157,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "url.domain",
         "url.full",
@@ -11213,9 +11295,10 @@
         "file.pe.imphash",
         "file.pe.original_file_name",
         "file.sensitivity_label",
-        "file.signature.status",
-        "file.signature.subject_name",
-        "file.signature.trusted",
+        "file.code_signature.exists",
+        "file.code_signature.trusted",
+        "file.code_signature.subject_name",
+        "file.code_signature.status",
         "file.size",
         "file.type",
         "geo.city_name",
@@ -11336,9 +11419,10 @@
         "file.pe.imphash",
         "file.pe.original_file_name",
         "file.sensitivity_label",
-        "file.signature.status",
-        "file.signature.subject_name",
-        "file.signature.trusted",
+        "file.code_signature.exists",
+        "file.code_signature.trusted",
+        "file.code_signature.subject_name",
+        "file.code_signature.status",
         "file.size",
         "file.type",
         "host.architecture",
@@ -11365,6 +11449,8 @@
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -11524,9 +11610,10 @@
         "file.pe.imphash",
         "file.pe.original_file_name",
         "file.sensitivity_label",
-        "file.signature.status",
-        "file.signature.subject_name",
-        "file.signature.trusted",
+        "file.code_signature.exists",
+        "file.code_signature.trusted",
+        "file.code_signature.subject_name",
+        "file.code_signature.status",
         "file.size",
         "file.type",
         "geo.city_name",
@@ -11640,9 +11727,10 @@
         "file.pe.imphash",
         "file.pe.original_file_name",
         "file.sensitivity_label",
-        "file.signature.status",
-        "file.signature.subject_name",
-        "file.signature.trusted",
+        "file.code_signature.exists",
+        "file.code_signature.trusted",
+        "file.code_signature.subject_name",
+        "file.code_signature.status",
         "file.size",
         "file.type",
         "host.architecture",
@@ -11680,6 +11768,8 @@
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -11733,6 +11823,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "threat.type",
         "url.domain",
@@ -11878,9 +11969,10 @@
         "file.pe.imphash",
         "file.pe.original_file_name",
         "file.sensitivity_label",
-        "file.signature.status",
-        "file.signature.subject_name",
-        "file.signature.trusted",
+        "file.code_signature.exists",
+        "file.code_signature.trusted",
+        "file.code_signature.subject_name",
+        "file.code_signature.status",
         "file.size",
         "file.type",
         "geo.city_name",
@@ -11949,6 +12041,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "upload.destination",
         "upload.file_count",
@@ -12313,6 +12406,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "threat.url",
         "tls.cipher",
@@ -12414,5 +12508,332 @@
       "prefixes": [],
       "sourceNote": "Anthropic Compliance API activity record (fields per Anthropic's Compliance API reference) plus the training SIEM's generic ECS normalization/enrichment (event.*, user.*, source.ip/geo/as, user_agent.*, related.*, tags). No collector envelope; no prompt/response text."
     }
-  }
+  },
+  "deniedFields": [
+    {
+      "field": "crowdstrike.detection.",
+      "reason": "No `detection.*` namespace in any CrowdStrike stream. Use the FDR/Event-Streams names: crowdstrike.DetectName / DetectDescription / SeverityName / Tactic / Technique / Objective / PatternDispositionValue / PatternDispositionDescription / PatternId / DetectId / FalconHostLink; MITRE ids as ECS threat.tactic.id / threat.technique.id (+ threat.technique.subtechnique.id).",
+      "source": "Elastic CrowdStrike integration fields.yml (data_stream/fdr, data_stream/falcon) + ECS code_signature/threat; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.Confidence",
+      "reason": "Not a Falcon FDR / Event Streams field (confidence exists only on the Alerts API resource).",
+      "source": "Elastic CrowdStrike integration fields.yml (data_stream/fdr, data_stream/falcon) + ECS code_signature/threat; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.TechniqueId",
+      "reason": "Not a flat Falcon field. Use ECS threat.technique.id / threat.technique.subtechnique.id.",
+      "source": "Elastic CrowdStrike integration fields.yml (data_stream/fdr, data_stream/falcon) + ECS code_signature/threat; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.TacticId",
+      "reason": "Not a flat Falcon field. Use ECS threat.tactic.id.",
+      "source": "Elastic CrowdStrike integration fields.yml (data_stream/fdr, data_stream/falcon) + ECS code_signature/threat; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "process.code_signature.notarized",
+      "reason": "Not an ECS field. ECS signing state is *.code_signature.exists / .trusted (+ .status for a validation error).",
+      "source": "Elastic CrowdStrike integration fields.yml (data_stream/fdr, data_stream/falcon) + ECS code_signature/threat; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "file.signature.",
+      "reason": "Not ECS. Use file.code_signature.exists / .trusted / .subject_name / .status.",
+      "source": "Elastic CrowdStrike integration fields.yml (data_stream/fdr, data_stream/falcon) + ECS code_signature/threat; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "code.signature.",
+      "reason": "Not ECS. Use process.code_signature.* or file.code_signature.*.",
+      "source": "Elastic CrowdStrike integration fields.yml (data_stream/fdr, data_stream/falcon) + ECS code_signature/threat; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.ParentProcessName",
+      "reason": "Not a Falcon field. Use crowdstrike.ParentBaseFileName (parent image name; ParentImageFileName for the full path on detection-info events).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.parent_basefilename",
+      "reason": "Not a Falcon field. Use crowdstrike.ParentBaseFileName.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.ContextProcessName",
+      "reason": "Not a Falcon field. Use crowdstrike.ContextBaseFileName (the acting process of a network / file / DNS event) or crowdstrike.FileName (the process of a detection).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.process_name",
+      "reason": "Not a Falcon field. Use crowdstrike.FileName (process start / detection) or crowdstrike.ContextBaseFileName (acting process of a context event).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.imagefilename",
+      "reason": "Not a Falcon field. Use crowdstrike.ImageFileName.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.integrity_level",
+      "reason": "Not a Falcon field. Use crowdstrike.IntegrityLevel.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.parent_commandline",
+      "reason": "Not a Falcon field. Use crowdstrike.ParentCommandLine.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.target_filename",
+      "reason": "Not a Falcon field. Use crowdstrike.TargetFileName.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.target_imagefilename",
+      "reason": "Not a Falcon field. Use crowdstrike.TargetProcessImageFileName.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.target_process_id",
+      "reason": "Not a Falcon field. Use process.target pid on the event (a handle-op record names only the target image).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.TargetProcessName",
+      "reason": "Not a Falcon field. Use crowdstrike.TargetProcessImageFileName (FalconProcessHandleOpDetectInfo).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.CrossProcessTargetName",
+      "reason": "Not a Falcon field. Use crowdstrike.TargetProcessImageFileName (FalconProcessHandleOpDetectInfo).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.CrossProcessTargetPid",
+      "reason": "Not a Falcon field. Use nothing — the Falcon handle-op record carries no target OS pid.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.GrantedAccess",
+      "reason": "Not a Falcon field. Use crowdstrike.DesiredAccess — the access mask as a decimal string, 0x1FFFFF → \"2097151\" (GrantedAccess is the Sysmon / Windows name).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.HookApi",
+      "reason": "Not a Falcon field. Use nothing — no Falcon field names the hooked API.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.OperationType",
+      "reason": "Not a Falcon field. Use crowdstrike.event_simpleName for the event kind (HandleOperationType / RegOperationType are the real typed fields).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.HostName",
+      "reason": "Not a Falcon field. Use crowdstrike.ComputerName.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.sensor.",
+      "reason": "Not a Falcon field. Use crowdstrike.aid (telemetry) / crowdstrike.SensorId (detection); sensor build → crowdstrike.ConfigBuild.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.customer_id",
+      "reason": "Not a Falcon field. Use crowdstrike.cid.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.network_containment_state",
+      "reason": "Not a Falcon field. Use crowdstrike.NetworkContainmentState.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.remote_address",
+      "reason": "Not a Falcon field. Use crowdstrike.RemoteAddressIP4.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.remote_port",
+      "reason": "Not a Falcon field. Use crowdstrike.RemotePort.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.local_address",
+      "reason": "Not a Falcon field. Use crowdstrike.LocalAddressIP4.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.protocol",
+      "reason": "Not a Falcon field. Use crowdstrike.Protocol (IANA number).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.platform",
+      "reason": "Not a Falcon field. Use crowdstrike.event_platform (Win / Mac / Lin).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.SHA256",
+      "reason": "Not a Falcon field. Use crowdstrike.SHA256HashData (FDR) — SHA256String is the Event Streams spelling.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.TechniqueName",
+      "reason": "Not a Falcon field. Use crowdstrike.Technique (the name) + ECS threat.technique.id.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.DetectionId",
+      "reason": "Not a Falcon field. Use crowdstrike.DetectId.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.IncidentId",
+      "reason": "Not a Falcon field. Use crowdstrike.AggregateId (aggind:<aid>:<tree id>) to group behaviors of one process tree.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.IncidentType",
+      "reason": "Not a Falcon field. Use nothing on an FDR detection (IncidentType is an Event Streams field, crowdstrike.event.IncidentType).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.behaviors",
+      "reason": "Not a Falcon field. Use crowdstrike.DetectDescription — behaviors[] belonged to the decommissioned Detects API.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.tree_id",
+      "reason": "Not a Falcon field. Use crowdstrike.TreeId.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.filesize",
+      "reason": "Not a Falcon field. Use crowdstrike.Size.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.ParentImagePath",
+      "reason": "Not a Falcon field. Use crowdstrike.ParentImageFileName (full path).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.FileSigned",
+      "reason": "Not a Falcon field. Use ECS process.code_signature.exists / .trusted.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.container_id",
+      "reason": "Not a Falcon field. Use crowdstrike.OciContainerId.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.ContainerId",
+      "reason": "Not a Falcon field. Use crowdstrike.OciContainerId.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.container_runtime",
+      "reason": "Not a Falcon field. Use crowdstrike.OciContainerEngineType.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.ContainerImageName",
+      "reason": "Not a Falcon field. Use crowdstrike.OciContainerConfigImage.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.TargetNamespacePid",
+      "reason": "Not a Falcon field. Use nothing — no Falcon field.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.ContextProcessId_decimal",
+      "reason": "Not a Falcon field. Use crowdstrike.ContextProcessId (the _decimal suffix is a Splunk add-on rendering).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.TargetProcessId_decimal",
+      "reason": "Not a Falcon field. Use crowdstrike.TargetProcessId (the _decimal suffix is a Splunk add-on rendering).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.ParentProcessId_decimal",
+      "reason": "Not a Falcon field. Use crowdstrike.ParentProcessId (the _decimal suffix is a Splunk add-on rendering).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.privileges",
+      "reason": "Not a Falcon field. Use nothing on a process event (privileges are PrivilegesBitmask on UserLogon).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.module_load",
+      "reason": "Not a Falcon field. Use a separate module-load event (the module's path is that event's ImageFileName).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.SandboxVerdict",
+      "reason": "Not a Falcon field. Use nothing on ProcessRollup2.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.DeviceSerialNumber",
+      "reason": "Not a Falcon field. Use crowdstrike.DeviceInstanceId (the serial is its last segment).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.DeviceClass",
+      "reason": "Not a Falcon field. Use crowdstrike.DeviceUsbClass (USB class code, \"8\" = mass storage).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.DevicePolicyEnforcement",
+      "reason": "Not a Falcon field. Use crowdstrike.DcPolicyAction / PolicyName.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.TargetDevice",
+      "reason": "Not a Falcon field. Use crowdstrike.TargetFileName (the NT device path, e.g. \\Device\\Harddisk0\\DR0).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.VolumeDevice",
+      "reason": "Not a Falcon field. Use crowdstrike.TargetFileName.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.MachineDomain",
+      "reason": "Not a Falcon field. Use nothing on a telemetry event (MachineDomain is an aidmaster field).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.host.aid",
+      "reason": "Not a Falcon field. Use crowdstrike.host.id (Elastic host data stream).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.host.platform_name",
+      "reason": "Not a Falcon field. Use crowdstrike.host.platform.name (Elastic host data stream).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.host.os_version",
+      "reason": "Not a Falcon field. Use crowdstrike.host.os.version (Elastic host data stream).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "file.signed",
+      "reason": "Not ECS. Use file.code_signature.exists / .trusted (or process.code_signature.* when the signed thing is the process image).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "process.signed",
+      "reason": "Not ECS. Use process.code_signature.exists / .trusted.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "file.signer",
+      "reason": "Not ECS. Use file.code_signature.subject_name (or process.code_signature.subject_name).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    }
+  ]
 }

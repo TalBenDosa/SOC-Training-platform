@@ -10,8 +10,6 @@
  * Workarounds for edrFacts read gaps (edr-normalize.ts is shared and not edited here):
  *  - MDE rows whose FolderPath already ends in the file name come out as "…\X.exe\X.exe"
  *    → {@link fixPath} drops the duplicated last segment.
- *  - `crowdstrike.remote_address` / `crowdstrike.remote_port` (lower-case legacy keys) are not read
- *    → {@link netFacts} falls back to them.
  *  - os defaults to "Win" when no platform key exists (EKS nodes, macOS app bundles)
  *    → {@link osOf} re-derives it from paths / unix-only image names.
  *  - every network event is marked "outbound"; an event whose LOCAL ip is public while the remote
@@ -214,8 +212,8 @@ export const PRIVATE_CIDRS = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "
 export interface NetFacts { inbound: boolean; remoteIp?: string; remotePort?: number; localIp?: string; localPort?: number; protocol: "tcp" | "udp"; domain?: string; url?: string }
 export function netFacts(f: EdrFacts, ev: TelemetryEvent): NetFacts {
   const r = ev.raw ?? {};
-  let remoteIp = f.net.remoteIp ?? (r["crowdstrike.remote_address"] as string | undefined);
-  let remotePort = f.net.remotePort ?? (r["crowdstrike.remote_port"] !== undefined ? Number(r["crowdstrike.remote_port"]) : undefined);
+  let remoteIp = f.net.remoteIp;
+  let remotePort = f.net.remotePort;
   let localIp = f.net.localIp;
   let localPort = f.net.localPort;
   // edrFacts now marks authored inbound accepts itself (remote = public source).

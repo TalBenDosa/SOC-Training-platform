@@ -29,6 +29,7 @@
 import { techniqueName } from "./_edr_mde_sophos_common";
 import type { NativeSource, NativeLog, KindSchema, UseCase, NativeCtx } from "../types";
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { signState } from "@/lib/logs/ecsFields";
 import { edrFacts, actionFlags, taskFacts, schtasksTask, type EdrFacts, type EdrProc, type TaskFacts } from "./edr-normalize";
 import {
   osOf, rhex, hostIpOf, egressIp, hostRole, companyDisplay, digits, iso, isoMicro, userOf, procName, imagePath, drivePath,
@@ -337,11 +338,11 @@ function file(b: Base, ev: TelemetryEvent): { type: string; rec: Record<string, 
   const meta = type === "File Deletion" ? "FILEDELETION" : type === "File Modification" ? "FILEMODIFICATION" : "FILECREATION";
   const ext = (f.file.extension ?? (/\.([A-Za-z0-9]+)$/.exec(path)?.[1] ?? "")).replace(/^\./, "").toLowerCase();
   const exe = PE_EXT.has(ext);
-  const fileSigned = (ev.raw?.["file.signed"] ?? ev.raw?.["file.signature.status"]) as unknown;
+  const fileSign = signState(ev.raw, "file");
   // No writer on the event: a user's hand copy into a profile folder is Explorer's write.
   const writer = procName(f.proc) ? f.proc : inferredFileWriter(raw, b.os, b.u.system);
   const parent = procName(f.proc) ? f.parent : {};
-  const isSigned = fileSigned === undefined ? undefined : /unsigned|false|not/i.test(String(fileSigned)) ? "unsigned" : "signed";
+  const isSigned = fileSign ? (fileSign === "unsigned" ? "unsigned" : "signed") : undefined;
   return {
     type,
     rec: {
@@ -433,7 +434,8 @@ function threat(b: Base, ev: TelemetryEvent): Record<string, unknown> {
   // verdict, a failed / pending action, or an analyst-deferred mitigation — it does not flip the agent.
   const mitigationMode = AGENT_MODE;
   const winPath = trigPath ? (os === "Win" ? ntDevicePath(trigPath) : trigPath) : undefined;
-  const signed = trig.signed ?? (r["file.signed"] !== undefined ? !/unsigned|false|not/i.test(String(r["file.signed"])) : undefined);
+  const fSign = signState(r, "file");
+  const signed = trig.signed ?? (fSign ? fSign !== "unsigned" : undefined);
   const engine = behavioral ? { key: "executables", title: "Behavioral AI" } : { key: "sentinelone_cloud", title: "SentinelOne Cloud" };
   return {
     id: threatId,

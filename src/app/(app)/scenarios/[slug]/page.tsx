@@ -3,6 +3,7 @@ import { resolveScenarioBundle } from "@/lib/scenarios/resolve";
 import { getAuthedUser, canPreviewDrafts } from "@/lib/auth/apiGuard";
 import { buildIocTruth } from "@/lib/edr/iocIntel";
 import { optionToken, eventIdMap, maskEventIds } from "@/lib/scenarios/optionToken";
+import { isConclusionRawKey } from "@/lib/scenarios/withheld";
 import { ScenarioClient } from "./ScenarioClient";
 
 export default async function ScenarioPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -42,8 +43,8 @@ export default async function ScenarioPage({ params }: { params: Promise<{ slug:
     // analyst `description` and its MITRE mapping are the exercise (the student
     // writes the description and picks the technique); they are stripped here and
     // revealed only in the graded debrief. Conclusion-carrying raw fields (a
-    // "*.description" is the tool's own analyst write-up, e.g.
-    // crowdstrike.detection.description — the answer to Q1 verbatim) are dropped
+    // "*.description" or a Falcon DetectDescription / Description is the tool's own
+    // analyst write-up — the answer to Q1 verbatim) are dropped
     // too. The analyst still sees every observable: process/file/network/auth
     // fields and the rest of the raw block. Server-enforced, so none of this is
     // readable in view-source during the investigation. Grading uses the real
@@ -65,7 +66,7 @@ export default async function ScenarioPage({ params }: { params: Promise<{ slug:
     events: (bundle.events ?? []).map(e => {
       const raw: Record<string, unknown> = { ...(e.raw ?? {}) };
       for (const k of Object.keys(raw)) {
-        if (/\.description$/i.test(k)) delete raw[k];
+        if (isConclusionRawKey(k)) delete raw[k];
       }
       return {
         ...e,

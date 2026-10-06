@@ -108,7 +108,7 @@ const VENDOR_SCHEMAS = {
       "crowdstrike.SeverityName",
       "crowdstrike.DetectName",
       "crowdstrike.SensorId",
-      "crowdstrike.event_type",
+      "crowdstrike.event_simpleName",
     ],
   },
 

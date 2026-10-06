@@ -39,7 +39,7 @@ describe("full-text search over the raw record", () => {
     expect(ids(`hash:${hash.slice(0, 16)}`)).toContain(withHash.id);
   });
   it("matches field names too", () => {
-    expect(ids("GrantedAccess").length).toBeGreaterThan(0);
+    expect(ids("DesiredAccess").length).toBeGreaterThan(0);
   });
   it("ANDs terms and honours negation", () => {
     const all = ids("svc_backup");

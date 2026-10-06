@@ -39,7 +39,7 @@ function documentedNull(c: Converted): string | null {
   if (f.kind === "usb") return "USB mount (device-control telemetry has no documented record in the card)";
   if (f.kind === "file" && ev.event_type === "file_delete") return "file deletion";
   if (f.kind === "process" && !f.proc.name && !f.proc.path && !f.proc.cmdline) return "process event without an image";
-  if (f.kind === "network" && !f.net.remoteIp && !ev.raw?.["crowdstrike.remote_address"] && !(f.net.localIp && !isPrivate(f.net.localIp))) return "network event without an IPv4 peer";
+  if (f.kind === "network" && !f.net.remoteIp && !(f.net.localIp && !isPrivate(f.net.localIp))) return "network event without an IPv4 peer";
   if (f.kind === "logon") return "client-side logon (remote server)";
   return null;
 }

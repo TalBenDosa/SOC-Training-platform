@@ -251,7 +251,7 @@ const playbookPhishingBEC: AttackPlaybook = {
               "winlog.event_data.IntegrityLevel": "Medium",
               "winlog.event_data.Hashes": `SHA256=${psHash}`,
               "winlog.event_data.LogonId": session.logonId,
-              "file.signed": "false",
+              "process.code_signature.exists": false, "process.code_signature.trusted": false,
             },
             world
           ),
@@ -472,14 +472,13 @@ const playbookPhishingBEC: AttackPlaybook = {
               ? {
                   // CrowdStrike Falcon — process-access sensor event (crowdstrike.* namespace)
                   "crowdstrike.event_simpleName": "ProcessRollup2",
-                  "crowdstrike.ContextProcessName": "powershell.exe",
-                  "crowdstrike.ContextProcessId_decimal": String(psPid),
-                  "crowdstrike.TargetProcessName": "lsass.exe",
+                  "crowdstrike.ContextBaseFileName": "powershell.exe",
+                  "crowdstrike.ContextProcessId": String(psPid),
+                  "crowdstrike.TargetProcessImageFileName": "lsass.exe",
                   "crowdstrike.ImageFileName":
                     "\\Device\\HarddiskVolume3\\Windows\\System32\\lsass.exe",
-                  "crowdstrike.TargetProcessId_decimal": "700",
-                  "crowdstrike.GrantedAccess": "0x1fffff",
-                  "crowdstrike.OperationType": "PROCESS_ACCESS",
+                  "crowdstrike.TargetProcessId": "700",
+                  "crowdstrike.DesiredAccess": "2097151",
                   "crowdstrike.UserName": `${adDomain}\\${victim.id}`,
                   "crowdstrike.ComputerName": victim.hostname,
                 }
@@ -914,10 +913,10 @@ const playbookRansomware: AttackPlaybook = {
               ? {
                   // CrowdStrike Falcon — ProcessRollup2 sensor event (crowdstrike.* namespace)
                   "crowdstrike.event_simpleName": "ProcessRollup2",
-                  "crowdstrike.ContextProcessName": "cmd.exe",
+                  "crowdstrike.ContextBaseFileName": "cmd.exe",
                   "crowdstrike.CommandLine": `cmd.exe /c "C:\\Users\\${victim.id}\\AppData\\Local\\Temp\\svchost32.exe" /quiet`,
-                  "crowdstrike.ParentProcessName": "explorer.exe",
-                  "crowdstrike.TargetProcessId_decimal": String(dropperPid),
+                  "crowdstrike.ParentBaseFileName": "explorer.exe",
+                  "crowdstrike.TargetProcessId": String(dropperPid),
                   "crowdstrike.UserName": `${adDomain}\\${victim.id}`,
                   "crowdstrike.ComputerName": victim.hostname,
                   "crowdstrike.FilePath": "C:\\Windows\\System32\\cmd.exe",
@@ -942,7 +941,8 @@ const playbookRansomware: AttackPlaybook = {
                   "user.name": `${adDomain}\\${victim.id}`,
                   "host.name": victim.hostname,
                   "file.path": `C:\\Users\\${victim.id}\\AppData\\Local\\Temp\\svchost32.exe`,
-                  "file.signature.status": "unsigned",
+                  "file.code_signature.exists": false,
+                  "file.code_signature.trusted": false,
                 }
               : {
                   // Sysmon fallback (Event ID 1 — ProcessCreate)
@@ -960,7 +960,7 @@ const playbookRansomware: AttackPlaybook = {
                   "winlog.event_data.Hashes": `SHA256=${dropperHash}`,
                   "winlog.event_data.LogonId": session.logonId,
                   "file.path": `C:\\Users\\${victim.id}\\AppData\\Local\\Temp\\svchost32.exe`,
-                  "file.signed": "false",
+                  "process.code_signature.exists": false, "process.code_signature.trusted": false,
                 },
             world
           ),
@@ -1153,9 +1153,8 @@ const playbookRansomware: AttackPlaybook = {
                 return {
                   "crowdstrike.FileName": "DECRYPT_FILES.txt",
                   "crowdstrike.FilePath": `C:\\Users\\${victim.id}\\Documents\\`,
-                  "crowdstrike.ContextProcessName": "svchost32.exe",
-                  "crowdstrike.OperationType": "WRITE",
-                  "crowdstrike.ContextProcessId_decimal": String(dropperPid),
+                  "crowdstrike.ContextBaseFileName": "svchost32.exe",
+                  "crowdstrike.ContextProcessId": String(dropperPid),
                   ...commonEncryptionFields,
                 };
               }
@@ -1249,7 +1248,7 @@ const playbookITMaintenance: AttackPlaybook = {
               "winlog.event_data.IntegrityLevel": "High",
               "winlog.event_data.Hashes": `SHA256=${world.rng.sha256()}`,
               "winlog.event_data.LogonId": session.logonId,
-              "file.signed": "true",
+              "process.code_signature.exists": true, "process.code_signature.trusted": true,
             },
             world
           ),

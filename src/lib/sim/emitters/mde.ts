@@ -10,6 +10,7 @@
 import type { TelemetryEvent, Severity, ExpectedVerdict } from "../types";
 import { makeSha256 } from "../iocs";
 import { type Ctx, resolve, pidFrom, downloadsPath } from "./_core";
+import { ecsTechnique, ecsCodeSignature } from "@/lib/logs/ecsFields";
 import { assetsFor } from "../fabric";
 
 const VENDOR = "Microsoft Defender for Endpoint";
@@ -101,7 +102,7 @@ export interface MdeAlertOpts extends Ctx {
   mdeIncidentId?: string;       // Defender incident number (distinct from the story incident_id)
   detectionSource?: string;     // e.g. "AntivirusBehavior"
   alertSeverity?: string;       // Defender's own label (defaults from severity)
-  extra?: Record<string, string | number>; // extra valid mde.* / AH fields (ReportId, mde.DetectorId…)
+  extra?: Record<string, string | number | boolean>; // extra valid mde.* / AH fields (ReportId, mde.DetectorId…)
   severity?: Severity;
   expectedVerdict?: ExpectedVerdict;
   description?: string;
@@ -129,7 +130,7 @@ export function mdeAlert(o: MdeAlertOpts): TelemetryEvent {
       ...(o.malwareName ? { "malware.name": o.malwareName } : {}),
       "alert.severity": alertSev,
       ...(o.category ? { "alert.category": o.category } : {}),
-      ...(o.mitre ? { "threat.technique.id": o.mitre } : {}),
+      ...ecsTechnique(o.mitre),
       ...(o.techniqueName ? { "threat.technique.name": o.techniqueName } : {}),
       ...(o.remediation ? { "remediation.action": o.remediation } : {}),
       ...(o.remediationStatus ? { "remediation.status": o.remediationStatus } : {}),
@@ -161,7 +162,7 @@ export interface MdeProcessOpts extends Ctx {
   isDetection?: boolean;
   /** any other Advanced-Hunting / mde.* / threat.* fields (InitiatingProcess chain,
    *  DeviceId, ProcessTokenElevation, mde.AlertTitle, …) — registry-validated. */
-  extra?: Record<string, string | number>;
+  extra?: Record<string, string | number | boolean>;
   description?: string;
 }
 export function mdeProcess(o: MdeProcessOpts): TelemetryEvent {
@@ -190,7 +191,7 @@ export function mdeProcess(o: MdeProcessOpts): TelemetryEvent {
       "InitiatingProcessFileName": o.parentName ?? "",
       "InitiatingProcessId": String(ppid),
       ...(o.sha256 ? { "SHA256": o.sha256, "process.hash.sha256": o.sha256 } : {}),
-      ...(o.signed !== undefined ? { "process.code_signature.status": o.signed ? "trusted" : "unsigned" } : {}),
+      ...ecsCodeSignature("process", o.signed === undefined ? undefined : o.signed ? "trusted" : "unsigned"),
       ...(o.integrity ? { "process.integrity_level": o.integrity.toLowerCase() } : {}),
       ...(o.extra ?? {}),
       "process.command_line": o.cmdline,
@@ -287,7 +288,7 @@ export interface MdeFileOpts extends Ctx {
   initiatingProcess?: string;
   initiatingCmdline?: string;
   signed?: boolean;
-  extra?: Record<string, string | number>; // extra AH / mde.* fields (ShareName-style via mde.*, ReportId…)
+  extra?: Record<string, string | number | boolean>; // extra AH / mde.* fields (ShareName-style via mde.*, ReportId…)
   mitre?: string;
   tactic?: string;
   severity?: Severity;
@@ -318,7 +319,7 @@ export function mdeFile(o: MdeFileOpts): TelemetryEvent {
       ...(sha256 ? { "SHA256": sha256, "file.hash.sha256": sha256 } : {}),
       ...(o.initiatingProcess ? { "InitiatingProcessFileName": o.initiatingProcess } : {}),
       ...(o.initiatingCmdline ? { "InitiatingProcessCommandLine": o.initiatingCmdline } : {}),
-      ...(o.signed !== undefined ? { "file.signature.status": o.signed ? "trusted" : "unsigned" } : {}),
+      ...ecsCodeSignature("file", o.signed === undefined ? undefined : o.signed ? "trusted" : "unsigned"),
       "file.path": o.path,
       "file.name": name,
       "event.action": o.action ?? "file_create",

@@ -15,6 +15,7 @@
 import type { TelemetryEvent, Severity, EventType } from "../types";
 import { makeSha256 } from "../iocs";
 import { resolve, pidFrom, type Ctx } from "./_core";
+import { ecsCodeSignature } from "@/lib/logs/ecsFields";
 
 const VENDOR = "Microsoft Sysmon";
 const CHANNEL = "Microsoft-Windows-Sysmon/Operational";
@@ -99,7 +100,7 @@ export function sysmonProcess(o: SysmonProcessOpts): TelemetryEvent {
       ...(o.parentName ? { "process.parent.name": o.parentName } : {}),
       "process.parent.pid": String(ppid),
       "process.hash.sha256": sha256,
-      ...(o.signed !== undefined ? { "process.code_signature.status": o.signed ? "trusted" : "unsigned" } : {}),
+      ...ecsCodeSignature("process", o.signed === undefined ? undefined : o.signed ? "trusted" : "unsigned"),
       ...(o.signed !== undefined ? { "winlog.event_data.Signed": String(o.signed) } : {}),
       "user.name": usrName,
       "host.name": r.host,

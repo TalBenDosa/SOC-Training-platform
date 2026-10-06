@@ -12,6 +12,7 @@
  */
 import type { TelemetryEvent, Severity } from "../types";
 import { resolve, type Ctx } from "./_core";
+import { ecsTechnique } from "@/lib/logs/ecsFields";
 import { knownGeoForIp } from "@/lib/geo/resolveGeo";
 
 const VENDOR = "Check Point NGFW";
@@ -121,7 +122,7 @@ export function cpThreat(o: CpThreatOpts): TelemetryEvent {
       "source.ip": r.srcIp,
       "destination.ip": o.remoteIp,
       "threat.name": o.threatName,
-      ...(o.mitre ? { "threat.technique.id": o.mitre } : {}),
+      ...ecsTechnique(o.mitre),
       ...(o.technique ? { "threat.technique.name": o.technique } : {}),
       ...(o.domain ? { "url.domain": o.domain } : {}),
       ...(o.url ? { "url.full": o.url } : {}),

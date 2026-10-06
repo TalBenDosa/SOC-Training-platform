@@ -119,7 +119,7 @@ export function isoContainerSmugglingScenarioEvents() {
         threatName: "ContainerLnkRundll32SpawnedEncodedPowerShell", severity: "critical",
         detail: "A shortcut on a mounted ISO/IMG volume ran rundll32 against a bundled data file, which spawned PowerShell with a hidden window and an encoded download command.",
         mitre: "T1059.001", tactic: "Execution", technique: "Command and Scripting Interpreter: PowerShell",
-        processTree: "explorer.exe > rundll32.exe > powershell.exe", action: "killed", confidence: 88, incidentId: INCIDENT,
+        processTree: "explorer.exe > rundll32.exe > powershell.exe", action: "killed", incidentId: INCIDENT,
         description: "Falcon raised a Critical detection on LAP-5528 for the explorer -> rundll32 -> powershell chain originating from a mounted ISO volume, and killed the PowerShell process before core.dll could be loaded.",
       }),
       edr_scope: "edr",

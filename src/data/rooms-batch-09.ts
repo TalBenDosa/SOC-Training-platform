@@ -588,13 +588,13 @@ The key insight: the platform does not matter as much as the hypothesis and the 
         description: "rundll32.exe loading comsvcs.dll MiniDump to dump LSASS process memory",
         mitre_technique: "T1003.001 - OS Credential Dumping: LSASS Memory",
         raw: {
-          "crowdstrike.ContextProcessName": "rundll32.exe",
+          "crowdstrike.ContextBaseFileName": "rundll32.exe",
           "crowdstrike.CommandLine":
             "rundll32.exe C:\\Windows\\System32\\comsvcs.dll MiniDump 640 lsass.dmp full",
-          "crowdstrike.ParentProcessName": "cmd.exe",
+          "crowdstrike.ParentBaseFileName": "cmd.exe",
           "crowdstrike.UserName": "CORP\\j.smith",
-          "crowdstrike.HostName": "LAPTOP-JSMITH",
-          "crowdstrike.SHA256": "4cf5dc08b46013844c4fea30389c492ad9f704dd3fe1f3ab7ccd1148e767bd55",
+          "crowdstrike.ComputerName": "LAPTOP-JSMITH",
+          "crowdstrike.SHA256HashData": "4cf5dc08b46013844c4fea30389c492ad9f704dd3fe1f3ab7ccd1148e767bd55",
         },
       } satisfies TelemetryEvent,
       questions: [

@@ -501,7 +501,7 @@ function alert(b: Base, ev: TelemetryEvent): Record<string, unknown> {
   const region = /\.eu$|\.de$|\.nl$/.test(ctx.domain) ? "eu-1" : "us-1";
   const created = f.timeMs + ctx.int(`${ev.id}:cs:created`, 4_000, 15_000);
   const ext = tName && /\.([A-Za-z0-9]+)$/.exec(tName)?.[1]?.toLowerCase();
-  const containment = String(ev.raw?.["crowdstrike.network_containment_state"] ?? "").toLowerCase();
+  const containment = String(ev.raw?.["crowdstrike.NetworkContainmentState"] ?? "").toLowerCase();
   return {
     agent_id: aid, aggregate_id: `aggind:${aid}:${treeId}`, alleged_filetype: ext || undefined, cid, cloud_indicator: "false",
     cmdline: trig.cmdline ?? (tPath ? (tPath.includes(" ") ? `"${tPath}"` : tPath) : undefined),
