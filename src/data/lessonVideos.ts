@@ -259,4 +259,40 @@ export const LESSON_VIDEOS: Record<string, LessonVideoData> = {
       { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ip-addressing-subnets-nat/es.vtt" },
     ],
   },
+  "vpn-and-proxy-explained": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/vpn-and-proxy-explained/vpn-and-proxy-explained.mp4",
+    caption: "Explainer — VPN and Proxy Explained · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/vpn-and-proxy-explained/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/vpn-and-proxy-explained/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/vpn-and-proxy-explained/es.vtt" },
+    ],
+  },
+  "dns-deep-dive-records-resolution-security": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/dns-deep-dive-records-resolution-security/dns-deep-dive-records-resolution-security.mp4",
+    caption: "Explainer — DNS Deep Dive · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/dns-deep-dive-records-resolution-security/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/dns-deep-dive-records-resolution-security/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/dns-deep-dive-records-resolution-security/es.vtt" },
+    ],
+  },
+  "owasp-top-10-tour": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/owasp-top-10-tour/owasp-top-10-tour.mp4",
+    caption: "Explainer — The OWASP Top 10 · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/owasp-top-10-tour/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/owasp-top-10-tour/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/owasp-top-10-tour/es.vtt" },
+    ],
+  },
+  "impossible-travel-signin-anomalies": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/impossible-travel-signin-anomalies/impossible-travel-signin-anomalies.mp4",
+    caption: "Explainer — Impossible Travel and Cloud Sign-in Anomalies · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/impossible-travel-signin-anomalies/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/impossible-travel-signin-anomalies/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/impossible-travel-signin-anomalies/es.vtt" },
+    ],
+  },
 };
