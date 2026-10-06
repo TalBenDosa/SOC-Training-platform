@@ -153,7 +153,7 @@ export function buildDestructiveWiperScenario(
       processName: "cl64.exe", processPath: cl64Path, cmdline: cl64Path, parentName: "services.exe", parentPid: 720, pid: 6620,
       sha256: wiperHash, integrity: "system", runAsUser: "NT AUTHORITY\\SYSTEM", simpleName: "RawDiskAccess", eventType: "file_modify",
       mitre: "T1561.002", tactic: "Impact", severity: "critical", incidentId: INCIDENT,
-      extra: { ...osExtra, "crowdstrike.OperationType": "DiskWrite", "crowdstrike.TargetDevice": "\\\\.\\PhysicalDrive0", "crowdstrike.VolumeDevice": "\\Device\\Harddisk0\\DR0", "threat.technique.id": "T1561", "threat.technique.subtechnique.id": "T1561.002", "threat.technique.name": "Disk Wipe: Disk Structure Wipe", "threat.tactic.name": "Impact", "threat.tactic.id": "TA0040" },
+      extra: { ...osExtra, "crowdstrike.TargetFileName": "\\Device\\Harddisk0\\DR0","threat.technique.id": "T1561", "threat.technique.subtechnique.id": "T1561.002", "threat.technique.name": "Disk Wipe: Disk Structure Wipe", "threat.tactic.name": "Impact", "threat.tactic.id": "TA0040" },
       description: "Falcon recorded cl64.exe issuing raw writes to \\\\.\\PhysicalDrive0 (\\Device\\Harddisk0\\DR0) on VNT-WKS-27 — the master boot record and partition table region of the physical disk being overwritten directly, not through the file system.",
     }),
 

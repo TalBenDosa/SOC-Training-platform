@@ -169,7 +169,7 @@ export function buildMacosTccPkgScenario(
         companyId: cx, id: "mtp_07_edr_detection", ts: T(1 * MIN), host: host.name, user: user.email, runAsUser: "root",
         threatName: "MacOS_PkgPostinstall_TCCManipulation_LaunchDaemon", mitre: "T1548.006", tactic: "Privilege Escalation",
         technique: "TCC Manipulation", action: "detected", severity: "critical", incidentId: INCIDENT,
-        extra: { ...osx, "crowdstrike.IncidentType": "MacOS Privilege Escalation", "crowdstrike.Objective": "Falcon Detection Method", "threat.technique.id": "T1548", "threat.technique.subtechnique.id": "T1548.006", "threat.technique.name": "Abuse Elevation Control Mechanism: TCC Manipulation", "threat.tactic.name": "Privilege Escalation", "threat.tactic.id": "TA0004" },
+        extra: { ...osx,  "crowdstrike.Objective": "Falcon Detection Method", "threat.technique.id": "T1548", "threat.technique.subtechnique.id": "T1548.006", "threat.technique.name": "Abuse Elevation Control Mechanism: TCC Manipulation", "threat.tactic.name": "Privilege Escalation", "threat.tactic.id": "TA0004" },
         detail: "A package with a revoked Developer ID installer signature ran a root postinstall that wrote to the TCC privacy database and installed a root LaunchDaemon, followed by reads of the user's protected folders.",
         description: "Falcon raised a Critical detection on MB-PM-07: a package with a revoked Developer ID installer signature ran a root postinstall that wrote to the TCC privacy database and installed a root LaunchDaemon, followed by reads of the user's protected folders — a macOS TCC-manipulation and persistence pattern.",
       }),

@@ -141,7 +141,7 @@ export function buildContainerEscapeCryptominingScenario(
       companyId: cx, id: "evt_ce_03_xmrig_launch", ts: T(2 * MIN), host: node.name, user: null, runAsUser: "root", srcIp: opIp,
       processName: "xmrig", processPath: "/tmp/.xmr/xmrig", cmdline: `./xmrig -o ${poolUrl} -u ${wallet} -k --tls --coin monero`, parentName: "sh", parentPid: 24790, pid: 24817,
       sha256: minerHash, isDetection: true, mitre: "T1496", tactic: "Impact", severity: "high", incidentId: INCIDENT,
-      extra: { "crowdstrike.DetectName": "Cryptocurrency Mining Tool", "crowdstrike.Tactic": "Impact", "crowdstrike.Technique": "Resource Hijacking", "crowdstrike.Objective": "Follow Through", "crowdstrike.SeverityName": "High", "crowdstrike.ContainerId": containerId, "crowdstrike.ContainerImageName": badImage, "crowdstrike.SensorId": sensorId },
+      extra: { "crowdstrike.DetectName": "Cryptocurrency Mining Tool", "crowdstrike.Tactic": "Impact", "crowdstrike.Technique": "Resource Hijacking", "crowdstrike.Objective": "Follow Through", "crowdstrike.SeverityName": "High", "crowdstrike.OciContainerId": containerId, "crowdstrike.OciContainerConfigImage": badImage, "crowdstrike.SensorId": sensorId },
       description: "Falcon flagged an xmrig process starting in container 3f9a2c7e1b4d from the etl-metrics image, its command line pointed at pool.supportxmr.com over stratum with a Monero wallet.",
     }),
 
@@ -151,7 +151,7 @@ export function buildContainerEscapeCryptominingScenario(
         companyId: cx, id: "evt_ce_04_nsenter_escape", ts: T(4 * MIN), host: node.name, user: null, runAsUser: "root", srcIp: opIp,
         processName: "nsenter", processPath: "/usr/bin/nsenter", cmdline: "nsenter --target 1 --mount --uts --ipc --net --pid -- /bin/bash",
         parentName: "sh", parentPid: 24790, pid: 24990, isDetection: true, mitre: "T1611", tactic: "Privilege Escalation", severity: "critical", incidentId: INCIDENT,
-        extra: { "crowdstrike.DetectName": "Container Escape to Host", "crowdstrike.Tactic": "Privilege Escalation", "crowdstrike.Technique": "Escape to Host", "crowdstrike.Objective": "Gain Access", "crowdstrike.SeverityName": "Critical", "crowdstrike.PatternDispositionDescription": "Detection, No Action", "crowdstrike.ParentBaseFileName": "sh", "crowdstrike.TargetNamespacePid": "1", "crowdstrike.SensorId": sensorId },
+        extra: { "crowdstrike.DetectName": "Container Escape to Host", "crowdstrike.Tactic": "Privilege Escalation", "crowdstrike.Technique": "Escape to Host", "crowdstrike.Objective": "Gain Access", "crowdstrike.SeverityName": "Critical", "crowdstrike.PatternDispositionDescription": "Detection, No Action", "crowdstrike.ParentBaseFileName": "sh",  "crowdstrike.SensorId": sensorId },
         description: "Falcon detected nsenter run from inside container 3f9a2c7e1b4d joining the host's namespaces via --target 1 and spawning /bin/bash, which then executed against the node's own filesystem outside the pod.",
       }),
       edr_scope: "hybrid",

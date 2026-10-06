@@ -20,6 +20,7 @@ import { classifyScope } from "./classifyScope";
 import { baselinePid, edrAgentFor, isServerHost } from "./hostBaseline";
 import type { IocTruth } from "./iocIntel";
 import { ecsTechniqueId, signState } from "@/lib/logs/ecsFields";
+import { accessMask } from "@/lib/logs/native/sources/edr-normalize";
 import type { EdrInvestigation, EdrProcess, EdrDetection, EdrFileOp, EdrTimelineEvent, Verdict } from "./investigations";
 
 const USER_WRITABLE = /\\(AppData|Temp|Users\\[^\\]+\\Downloads|ProgramData)\\|\/tmp\/|\/home\/[^/]+\//i;
@@ -224,14 +225,15 @@ function whyItStandsOut(
 }
 
 // R-11: recover a process object from an endpoint detection that carries the binary
-// only in its vendor-native raw block (CrowdStrike `crowdstrike.process_name`,
+// only in its vendor-native raw block (CrowdStrike `crowdstrike.ContextBaseFileName`,
 // SentinelOne `s1.process_name`, Sysmon `Image`, MDE `process.name`…), so a case whose
 // EDR events never populated the structured `process` field still opens with a walkable
 // tree. Returns [] when nothing names a real binary — a sensor-silence or pure-network
 // detection legitimately has no process tree and stays a non-EDR investigation.
-const PROC_NAME_KEYS = ["process.name", "process.image", "crowdstrike.process_name", "crowdstrike.ImageFileName", "s1.process_name", "Image", "InitiatingProcessFileName", "proc.name", "ProcessName"];
+const PROC_NAME_KEYS = ["process.name", "process.image", "crowdstrike.ContextBaseFileName", "crowdstrike.ImageFileName", "s1.process_name", "Image", "InitiatingProcessFileName", "proc.name", "ProcessName"];
 const CMDLINE_KEYS   = ["process.command_line", "crowdstrike.CommandLine", "s1.command_line", "CommandLine", "cmdline", "InitiatingProcessCommandLine"];
-const PARENT_KEYS    = ["process.parent.name", "crowdstrike.parent_basefilename", "ParentImage", "s1.parent_process_name", "InitiatingProcessParentFileName"];
+const PARENT_KEYS    = ["process.parent.name", "crowdstrike.ParentBaseFileName", "ParentImage", "s1.parent_process_name", "InitiatingProcessParentFileName"];
+const PROC_START_ET = /^(process_create|linux_execve|edr_alert|av_detection)$/;
 const PROC_USER_KEYS = ["process.user", "crowdstrike.UserName", "user.name", "s1.process_user", "User", "SubjectUserName"];
 const baseName = (v: string) => v.split(/[\\/]/).pop() ?? v;
 function pickRaw(raw: Record<string, unknown> | undefined, keys: string[]): string | undefined {
@@ -243,7 +245,9 @@ function synthesizeProcessEvents(endpointEvents: TelemetryEvent[]): TelemetryEve
   const byName = new Map<string, number>();  // name → assigned pid (dedupe)
   let nextPid = 4000;
   for (const e of endpointEvents) {
-    const rawName = pickRaw(e.raw, PROC_NAME_KEYS);
+    // On a process start / detection, Falcon names the image in crowdstrike.FileName (on a
+    // file event that key is the written file, so it is only a last resort for process rows).
+    const rawName = pickRaw(e.raw, PROC_NAME_KEYS) ?? (PROC_START_ET.test(e.event_type ?? "") ? pickRaw(e.raw, ["crowdstrike.FileName"]) : undefined);
     const name = rawName ? baseName(rawName) : undefined;
     if (!name || !/^[\w.-]+$/.test(name)) continue;      // must be a real binary token
     const cmdline = pickRaw(e.raw, CMDLINE_KEYS) ?? name;
@@ -338,9 +342,9 @@ function describeEvent(e: TelemetryEvent): string {
     return `Detection: ${det || "EDR alert"}${e.severity ? ` (${e.severity})` : ""}${chain.length ? ` — ${chain.join(" › ")}` : ""}${disp ? ` · ${disp}` : ""}`;
   }
   if (t === "process_access" && p) {
-    const target = pickRaw(raw, ["crowdstrike.CrossProcessTargetName", "TargetImage", "target.process.name"]);
-    const tpid = pickRaw(raw, ["crowdstrike.CrossProcessTargetPid", "TargetProcessId"]);
-    const access = pickRaw(raw, ["crowdstrike.GrantedAccess", "GrantedAccess"]);
+    const target = pickRaw(raw, ["crowdstrike.TargetProcessImageFileName", "TargetImage", "target.process.name"]);
+    const tpid = e.process?.target?.pid ?? pickRaw(raw, ["TargetProcessId"]);
+    const access = accessMask(pickRaw(raw, ["crowdstrike.DesiredAccess"])) ?? pickRaw(raw, ["GrantedAccess"]);
     return `${p.name}(${p.pid}) opened ${target ? baseName(target) : "another process"}${tpid ? `(${tpid})` : ""}${access ? ` with access ${access}` : ""}`;
   }
   if (p && (t === "process_create" || t === "linux_execve" || t === "scheduled_task" || t === "service_install")) {
@@ -511,8 +515,8 @@ export function buildInvestigationFromStory(
   // targeted, so `ps` prints the same PID the access event did.
   const knownPids: Record<string, number> = {};
   for (const e of events) {
-    const target = pickRaw(e.raw, ["crowdstrike.CrossProcessTargetName", "TargetImage", "target.process.name"]);
-    const tpid = Number(pickRaw(e.raw, ["crowdstrike.CrossProcessTargetPid", "TargetProcessId"]) ?? NaN);
+    const target = pickRaw(e.raw, ["crowdstrike.TargetProcessImageFileName", "TargetImage", "target.process.name"]);
+    const tpid = Number(e.process?.target?.pid ?? pickRaw(e.raw, ["TargetProcessId"]) ?? NaN);
     if (target && Number.isFinite(tpid) && tpid > 0) knownPids[baseName(target).toLowerCase()] = tpid;
   }
 
@@ -535,8 +539,7 @@ export function buildInvestigationFromStory(
     // revoked certificate or no signature at all does not.
     const sign = signState(e.raw, "process");
     const rawSigned =
-      (e.raw?.["process.signed"] ?? e.raw?.["file.signed"] ?? e.raw?.["code_signature.signed"] ??
-       (sign ? sign === "trusted" || sign === "untrusted" : undefined) ?? e.raw?.["file.code_signature.valid"] ??
+      ((sign ? sign === "trusted" || sign === "untrusted" : undefined) ?? e.raw?.["file.code_signature.valid"] ??
        e.raw?.["mde.SignatureStatus"]) as unknown;
     const signed = rawSigned != null
       ? !/^(false|no|0|unsigned|invalid|revoked|untrusted)$/i.test(String(rawSigned).trim())
@@ -676,13 +679,13 @@ export function buildInvestigationFromStory(
   // no structured process block still lands on the process it names — and ONLY that one.
   const upidToPid = new Map<string, number>();
   for (const e of procEvents) {
-    const upid = pickRaw(e.raw, ["crowdstrike.TargetProcessId", "crowdstrike.TargetProcessId_decimal"]);
+    const upid = pickRaw(e.raw, ["crowdstrike.TargetProcessId"]);
     if (upid && e.process?.pid != null) upidToPid.set(upid, e.process.pid);
   }
   const pidFromRaw = (raw: Record<string, unknown> | undefined): number | undefined => {
     const osPid = Number(pickRaw(raw, ["crowdstrike.RawProcessId", "InitiatingProcessId", "ProcessId"]) ?? NaN);
     if (Number.isFinite(osPid) && procByPid.has(osPid)) return osPid;
-    for (const k of ["crowdstrike.ContextProcessId", "crowdstrike.ContextProcessId_decimal", "crowdstrike.ProcessId"]) {
+    for (const k of ["crowdstrike.ContextProcessId", "crowdstrike.ProcessId"]) {
       const v = pickRaw(raw, [k]);
       if (!v) continue;
       const viaUpid = upidToPid.get(v);
@@ -719,7 +722,7 @@ export function buildInvestigationFromStory(
     const p = procByPid.get(pid);
     const tech = techniqueOf(e);
     if (e.event_type === "process_access" && p) {
-      const target = pickRaw(e.raw, ["crowdstrike.CrossProcessTargetName", "TargetImage"]);
+      const target = pickRaw(e.raw, ["crowdstrike.TargetProcessImageFileName", "TargetImage"]);
       return `Suspicious process access by ${p.name}${target ? ` → ${baseName(target)}` : ""}`;
     }
     if ((e.event_type ?? "").startsWith("net") && p) return `Suspicious network activity by ${p.name}`;

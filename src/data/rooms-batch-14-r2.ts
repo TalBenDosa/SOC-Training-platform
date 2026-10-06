@@ -60,7 +60,7 @@ const powershellDownloadEvent: TelemetryEvent = {
     "crowdstrike.ParentImageFileName": "cmd.exe",
     "crowdstrike.ParentProcessId": "6210",
     "crowdstrike.UserName": "CORP\\d.okafor",
-    "crowdstrike.HostName": "WS-IT-0912",
+    "crowdstrike.ComputerName": "WS-IT-0912",
     "data.context":
       "d.okafor is a Tier 2 IT support technician. The GitHub repo 'nexacorp-it/deploy-scripts' is the company's own internal automation repository, referenced in three change-tickets this month.",
   },
@@ -87,12 +87,12 @@ const analystChoiceEvent: TelemetryEvent = {
     "crowdstrike.FileName": "powershell.exe",
     "crowdstrike.CommandLine":
       "powershell.exe -enc VwByAGkAdABlAC0ASABvAHMAdAAgACIAQgBhAGMAawB1AHAAIABjAG8AbQBwAGwAZQB0AGUAIgA=",
-    "crowdstrike.ParentImageFileName": "BackupAgentService.exe",
+    "crowdstrike.ParentImageFileName": "C:\\Program Files\\Veeam\\Backup\\BackupAgentService.exe",
     "crowdstrike.ParentProcessId": "1204",
-    "crowdstrike.ParentImagePath": "C:\\Program Files\\Veeam\\Backup\\BackupAgentService.exe",
     "crowdstrike.UserName": "CORP\\SYSTEM",
-    "crowdstrike.HostName": "WS-HR-1188",
-    "crowdstrike.FileSigned": "true",
+    "crowdstrike.ComputerName": "WS-HR-1188",
+    "process.code_signature.exists": true,
+    "process.code_signature.trusted": true,
     "data.decoded_command": "Write-Host \"Backup complete\"",
     "data.context":
       "The parent process is the signed Veeam backup agent service, running as SYSTEM, and this workstation is scheduled for a nightly 22:45 backup job per the IT change calendar.",

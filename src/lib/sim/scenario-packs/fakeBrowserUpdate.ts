@@ -123,7 +123,7 @@ export function buildFakeBrowserUpdateScenario(
       answer: "downloads_script",
       xp: 50,
       explanation:
-        "wscript.exe is a legitimate signed Microsoft binary, and process.signed is 'true' in the raw event — so (b) is factually contradicted by the log. Its argument is what matters: a .js file in C:\\Users\\d.rosen\\Downloads, launched by explorer.exe, which means a human double-clicked it. Legitimate software installs itself with an installer or a package manager; almost nothing legitimate ships as a loose script the user is asked to run from Downloads. Medium integrity (c) is the ordinary level for a standard user process, not an elevation. And (d) describes normal behaviour — child processes routinely get higher PIDs than their parents.",
+        "wscript.exe is a legitimate signed Microsoft binary, and process.code_signature.trusted is true in the raw event — so (b) is factually contradicted by the log. Its argument is what matters: a .js file in C:\\Users\\d.rosen\\Downloads, launched by explorer.exe, which means a human double-clicked it. Legitimate software installs itself with an installer or a package manager; almost nothing legitimate ships as a loose script the user is asked to run from Downloads. Medium integrity (c) is the ordinary level for a standard user process, not an elevation. And (d) describes normal behaviour — child processes routinely get higher PIDs than their parents.",
     },
     {
       id: "q4",

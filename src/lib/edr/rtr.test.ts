@@ -32,7 +32,8 @@ describe("RTR ps — normal background processes (#24)", () => {
   });
 
   it("prints the lsass.exe PID the LSASS-dump event targeted", () => {
-    const tpid = buildMultiHostIntrusionScenario().events.find(e => e.raw?.["crowdstrike.CrossProcessTargetName"] === "lsass.exe")?.raw?.["crowdstrike.CrossProcessTargetPid"];
+    // Falcon's handle-op record names the target image only; the story keeps the target pid as a fact.
+    const tpid = buildMultiHostIntrusionScenario().events.find(e => e.raw?.["crowdstrike.TargetProcessImageFileName"] === "lsass.exe")?.process?.target?.pid;
     expect(tpid).toBeTruthy();
     expect(run(fs, "ps").out).toMatch(new RegExp(`^${tpid}\\s.*lsass\\.exe$`, "m"));
   });

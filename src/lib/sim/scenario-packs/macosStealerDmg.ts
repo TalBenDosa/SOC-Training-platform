@@ -184,7 +184,7 @@ export function buildMacosStealerDmgScenario(
         companyId: cx, id: "msd_09_edr_detection", ts: T(5 * MIN), host: host.name, user: user.email, runAsUser: user.sam,
         threatName: "MacOS_Infostealer_OsascriptCredentialAccess", mitre: "T1555.001", tactic: "Credential Access", technique: "Keychain",
         action: "detected", severity: "critical", incidentId: INCIDENT,
-        extra: { ...osx, "crowdstrike.IncidentType": "MacOS Credential Theft", "crowdstrike.Objective": "Falcon Detection Method", "threat.technique.id": "T1555", "threat.technique.subtechnique.id": "T1555.001", "threat.technique.name": "Credentials from Password Stores: Keychain", "threat.tactic.name": "Credential Access", "threat.tactic.id": "TA0006" },
+        extra: { ...osx,  "crowdstrike.Objective": "Falcon Detection Method", "threat.technique.id": "T1555", "threat.technique.subtechnique.id": "T1555.001", "threat.technique.name": "Credentials from Password Stores: Keychain", "threat.tactic.name": "Credential Access", "threat.tactic.id": "TA0006" },
         detail: "An ad-hoc-signed app from a mounted disk image spawned osascript to prompt for the password, then read the login Keychain, browser cookie stores and wallet files and uploaded an archive.",
         description: "Falcon raised a Critical detection on MB-CR-14: an ad-hoc-signed app from a mounted disk image spawned osascript to prompt for the password, then read the login Keychain, browser cookie stores and wallet files and uploaded an archive — a macOS credential-stealer pattern.",
       }),

@@ -409,8 +409,8 @@ describe("emitter-authored scenario packs", () => {
     // the credential-theft crux: LSASS full-access read (0x1FFFFF)
     const lsass = s.events.find(e => e.id === "evt_mhi_fs3_lsass");
     expect(lsass?.event_type).toBe("process_access");
-    expect(lsass?.raw?.["crowdstrike.GrantedAccess"]).toBe("0x1FFFFF");
-    expect(lsass?.raw?.["crowdstrike.CrossProcessTargetName"]).toBe("lsass.exe");
+    expect(lsass?.raw?.["crowdstrike.DesiredAccess"]).toBe("2097151");   // 0x1FFFFF, as Falcon writes it
+    expect(lsass?.raw?.["crowdstrike.TargetProcessImageFileName"]).toBe("lsass.exe");
     expect(lsass?.raw?.["crowdstrike.event_simpleName"]).not.toBe("ProcessAccessIOC"); // real name
     // the missing link: svc_backup (from the dump) logs on to BKP-SRV-02 from FS-SRV-03,
     // plus 7045 PSEXESVC and 5145 ADMIN$/IPC$ for the PsExec step
@@ -528,7 +528,7 @@ describe("emitter-authored scenario packs", () => {
     // the disk-structure wipe is a RawDiskAccess to PhysicalDrive0
     const raw = s.events.find(e => e.id === "dw_06_raw_disk_write");
     expect(raw?.raw?.["crowdstrike.event_simpleName"]).toBe("RawDiskAccess");
-    expect(String(raw?.raw?.["crowdstrike.TargetDevice"])).toContain("PhysicalDrive0");
+    expect(String(raw?.raw?.["crowdstrike.TargetFileName"])).toContain("\\Device\\Harddisk0\\DR0");
     // the detection attributes the deploying account in the company netbios realm
     const alert = s.events.find(e => e.id === "dw_09_edr_detection");
     expect(alert?.is_detection).toBe(true);
@@ -826,7 +826,7 @@ describe("emitter-authored scenario packs", () => {
     // pods/exec drives the pod
     expect(s.events.find(e => e.id === "evt_ce_02_pod_exec")?.raw?.["kubernetes.audit.objectRef.resource"]).toBe("pods/exec");
     // the miner (contained) then the nsenter escape (the crux)
-    expect(s.events.find(e => e.id === "evt_ce_03_xmrig_launch")?.raw?.["crowdstrike.ContainerId"]).toBeTruthy();
+    expect(s.events.find(e => e.id === "evt_ce_03_xmrig_launch")?.raw?.["crowdstrike.OciContainerId"]).toBeTruthy();
     const escape = s.events.find(e => e.id === "evt_ce_04_nsenter_escape");
     expect(escape?.raw?.["crowdstrike.DetectName"]).toBe("Container Escape to Host");
     expect(escape?.edr_scope).toBe("hybrid");

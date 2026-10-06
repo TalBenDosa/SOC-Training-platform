@@ -332,8 +332,8 @@ export interface CsProcessAccessOpts extends Ctx {
   sha256?: string;
   signed?: boolean;
   targetProcess?: string;       // the process being read/hooked/injected
-  targetPid?: number;
-  grantedAccess?: string;       // access mask, e.g. 0x1FFFFF (PROCESS_ALL_ACCESS) — the LSASS tell
+  targetPid?: number;           // not on the Falcon record (no target-pid field) — carried as process.target.pid
+  grantedAccess?: string;       // access mask in hex, e.g. 0x1FFFFF (PROCESS_ALL_ACCESS) — the LSASS tell; emitted as DesiredAccess (decimal)
   simpleName?: string;          // override the Falcon event name
   api?: string;                 // e.g. SetWindowsHookExW / OpenProcess / WriteProcessMemory
   threatName?: string;          // detection name when this is alert-grade
@@ -356,7 +356,8 @@ export function csProcessAccess(o: CsProcessAccessOpts): TelemetryEvent {
     mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false,
     expected_verdict: o.expectedVerdict, incident_id: o.incidentId,
     description: o.description ?? `${o.processName} accessed ${o.targetProcess ?? "another process"} on ${r.host}`,
-    process: { pid, name: o.processName, path, cmdline, parent_name: o.parentName, parent_pid: o.parentPid, user: r.domainUser, hash: o.sha256 ? { sha256: o.sha256 } : undefined },
+    process: { pid, name: o.processName, path, cmdline, parent_name: o.parentName, parent_pid: o.parentPid, user: r.domainUser, hash: o.sha256 ? { sha256: o.sha256 } : undefined,
+      target: o.targetProcess ? { name: o.targetProcess, pid: o.targetPid } : undefined },
     raw: {
       "crowdstrike.event_simpleName": o.simpleName ?? (o.api?.startsWith("SetWindowsHook") ? "SuspiciousWindowsHook" : "CrossProcessOpen"),
       "crowdstrike.event_platform": platformOf(path),
@@ -372,10 +373,11 @@ export function csProcessAccess(o: CsProcessAccessOpts): TelemetryEvent {
       ...(o.threatName ? { "crowdstrike.DetectName": o.threatName } : {}),
       ...(o.tactic ? { "crowdstrike.Tactic": o.tactic } : {}),
       ...(o.technique ? { "crowdstrike.Technique": o.technique } : {}),
-      ...(o.api ? { "crowdstrike.HookApi": o.api } : {}),
-      ...(o.targetProcess ? { "crowdstrike.CrossProcessTargetName": o.targetProcess } : {}),
-      ...(o.targetPid ? { "crowdstrike.CrossProcessTargetPid": String(o.targetPid) } : {}),
-      ...(o.grantedAccess ? { "crowdstrike.GrantedAccess": o.grantedAccess } : {}),
+      // FalconProcessHandleOpDetectInfo: the opened process (TargetProcessImageFileName) and the requested
+      // access mask as Falcon writes it — a decimal string (0x1FFFFF → "2097151"). The record names no
+      // target OS pid and no API, so targetPid / api shape the scenario, not the log.
+      ...(o.targetProcess ? { "crowdstrike.TargetProcessImageFileName": o.targetProcess } : {}),
+      ...(o.grantedAccess ? { "crowdstrike.DesiredAccess": String(parseInt(o.grantedAccess, 16)) } : {}),
       ...(o.sha256 ? { "crowdstrike.SHA256HashData": o.sha256, "crowdstrike.MD5HashData": md5For(o.sha256) } : {}),
       ...ecsCodeSignature("process", o.signed === undefined ? undefined : o.signed ? "trusted" : "unsigned"),
     },

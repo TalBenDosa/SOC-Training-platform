@@ -94,6 +94,10 @@ export interface TelemetryEvent {
     user?: string;
     integrity?: "low" | "medium" | "high" | "system";
     hash?: { sha256?: string; md5?: string };
+    /** process_access: the process this one opened. A scenario fact (the target's OS pid is not on
+     *  every vendor record — Falcon's handle-op event names only the target image), read by the EDR
+     *  console so `ps` prints the pid the story's own command lines use. */
+    target?: { name: string; pid?: number };
   };
   file?: {
     name?: string;

@@ -47,6 +47,9 @@ describe("no denied (invented) field reaches a rendered raw block", () => {
   it("has a populated denylist", () => {
     expect(denied).toContain("crowdstrike.detection.");
     expect(denied).toContain("process.code_signature.notarized");
+    // the non-native Falcon spellings migrated to their FDR names (edr-crowdstrike.md 4b)
+    for (const k of ["crowdstrike.ParentProcessName", "crowdstrike.ContextProcessName", "crowdstrike.process_name", "crowdstrike.GrantedAccess", "crowdstrike.CrossProcessTargetName", "crowdstrike.sensor.", "crowdstrike.HostName", "file.signed"])
+      expect(denied).toContain(k);
   });
   it("live-feed corpus", () => {
     expect(offenders(corpus().map(c => c.ev), "corpus")).toEqual([]);

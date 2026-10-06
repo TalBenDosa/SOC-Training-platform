@@ -86,10 +86,10 @@ describe("buildInvestigationFromStory", () => {
   // C2 domains are checked for EVERY node, so no invented IOC can slip through.
   it("keeps the EDR strictly tied to the log — no invented attack entities", () => {
     // process/parent names can live in the structured field OR the vendor raw block
-    // (a detection whose process was only in crowdstrike.process_name, recovered by R-11).
-    const RAW_NAME_KEYS = ["process.name", "process.image", "crowdstrike.process_name",
+    // (a detection whose process was only in crowdstrike.ContextBaseFileName / FileName, recovered by R-11).
+    const RAW_NAME_KEYS = ["process.name", "process.image", "crowdstrike.ContextBaseFileName", "crowdstrike.FileName",
       "crowdstrike.ImageFileName", "s1.process_name", "Image", "InitiatingProcessFileName",
-      "proc.name", "ProcessName", "crowdstrike.parent_basefilename", "ParentImage"];
+      "proc.name", "ProcessName", "crowdstrike.ParentBaseFileName", "ParentImage"];
     const base = (v: string) => v.split(/[\\/]/).pop() ?? v;
     for (const [id, b] of ENDPOINT_STORIES) {
       const inv = buildInvestigationFromStory({ id, title: b.title, events: b.events });

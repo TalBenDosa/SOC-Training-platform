@@ -35,7 +35,7 @@ function documentedNull(c: Converted): string | null {
   if (f.kind === "registry") return "registry (no documented keys)";
   if (f.kind === "logon") return "logon (no documented keys)";
   if (f.kind === "process" && !f.proc.name && !f.proc.path && !f.proc.cmdline) return "process event without an image";
-  if (f.kind === "network" && !f.net.remoteIp && !ev.raw?.["crowdstrike.remote_address"] && !(f.net.localIp && !isPrivate(f.net.localIp))) return "network event without an IPv4 peer";
+  if (f.kind === "network" && !f.net.remoteIp && !(f.net.localIp && !isPrivate(f.net.localIp))) return "network event without an IPv4 peer";
   return null;
 }
 

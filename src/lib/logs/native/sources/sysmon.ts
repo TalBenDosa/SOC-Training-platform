@@ -21,7 +21,7 @@
 import type { NativeSource, NativeLog, KindSchema, UseCase, NativeCtx } from "../types";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { procPid, procKey, win4, OS_IMAGE_PATH, imageHashes, accountSid, logonLuid } from "./_proc-identity";
-import { threadOf } from "./edr-normalize";
+import { accessMask, threadOf } from "./edr-normalize";
 
 /** Windows pids / tids are multiples of 4: an authored value is rounded down to one (equal values stay equal). */
 const pid4 = (v: string | undefined): string | undefined => (v !== undefined && /^\d+$/.test(v) ? String(win4(Number(v))) : v);
@@ -175,7 +175,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const th = threadOf(ev);
   const mdeProcEvent = r("ActionType") === "ProcessCreated";
   const a: Actor = {};
-  a.name = ev.process?.name ?? (ed("Image") ? base(ed("Image")!) : undefined) ?? r("process.name") ?? r("crowdstrike.FileName") ?? r("crowdstrike.process_name") ?? r("crowdstrike.ContextBaseFileName")
+  a.name = ev.process?.name ?? (ed("Image") ? base(ed("Image")!) : undefined) ?? r("process.name") ?? r("crowdstrike.FileName") ?? r("crowdstrike.ContextBaseFileName")
     ?? (mdeProcEvent ? r("FileName") : r("InitiatingProcessFileName")) ?? r("s1.srcProcName");
   a.cmd = ev.process?.cmdline ?? ed("CommandLine") ?? r("process.command_line") ?? r("crowdstrike.CommandLine")
     ?? (mdeProcEvent ? r("ProcessCommandLine") : r("InitiatingProcessCommandLine")) ?? r("s1.srcProcCmdLine");
@@ -203,7 +203,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   a.user = ed("User") ?? normUser(ev.process?.user) ?? normUser(r("user.name")) ?? normUser(r("crowdstrike.UserName"))
     ?? normUser(mdeProcEvent ? mdeAcct(r("AccountDomain"), r("AccountName")) : mdeAcct(r("InitiatingProcessAccountDomain"), r("InitiatingProcessAccountName")))
     ?? normUser(r("s1.srcProcUser")) ?? (email ? `${ctx.netbios}\\${email.split("@")[0]}` : undefined);
-  a.sha256 = (wr ? wr.sha256 : th?.proc?.sha256) ?? ev.process?.hash?.sha256 ?? /SHA256=([0-9A-Fa-f]{64})/.exec(ed("Hashes") ?? "")?.[1] ?? r("process.hash.sha256") ?? r("crowdstrike.SHA256HashData") ?? (mdeProcEvent ? r("SHA256") : r("InitiatingProcessSHA256")) ?? r("crowdstrike.SHA256")
+  a.sha256 = (wr ? wr.sha256 : th?.proc?.sha256) ?? ev.process?.hash?.sha256 ?? /SHA256=([0-9A-Fa-f]{64})/.exec(ed("Hashes") ?? "")?.[1] ?? r("process.hash.sha256") ?? r("crowdstrike.SHA256HashData") ?? (mdeProcEvent ? r("SHA256") : r("InitiatingProcessSHA256"))
     ?? (ev.file?.sha256 && a.name && ev.file.path && base(ev.file.path).toLowerCase() === a.name.toLowerCase() ? ev.file.sha256 : undefined);
   a.md5 = (wr ? wr.md5 : th?.proc?.md5) ?? ev.process?.hash?.md5 ?? /MD5=([0-9A-Fa-f]{32})/.exec(ed("Hashes") ?? "")?.[1] ?? r("process.hash.md5") ?? r("crowdstrike.MD5HashData");
   const integ: Record<string, string> = { low: "Low", medium: "Medium", high: "High", system: "System" };
@@ -254,8 +254,8 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       if (!a.path) return null; // a process with no resolvable image path cannot be shown as Sysmon 1
       const nm = base(image).toLowerCase();
       const parentName = ev.process?.parent_name ?? (ed("ParentImage") ? base(ed("ParentImage")!) : undefined) ?? r("process.parent.name") ?? r("crowdstrike.ParentBaseFileName")
-        ?? r("crowdstrike.parent_basefilename") ?? r("crowdstrike.ParentProcessName") ?? (mdeProcEvent ? r("InitiatingProcessFileName") : undefined) ?? r("s1.srcProcParentName");
-      const parentCmd = ed("ParentCommandLine") ?? r("process.parent.command_line") ?? r("crowdstrike.parent_commandline") ?? (mdeProcEvent ? r("InitiatingProcessCommandLine") : undefined) ?? th?.parent?.cmdline;
+        ?? (mdeProcEvent ? r("InitiatingProcessFileName") : undefined) ?? r("s1.srcProcParentName");
+      const parentCmd = ed("ParentCommandLine") ?? r("process.parent.command_line") ?? r("crowdstrike.ParentCommandLine") ?? (mdeProcEvent ? r("InitiatingProcessCommandLine") : undefined) ?? th?.parent?.cmdline;
       const tParentPath = th?.parent?.path && isWinPath(th.parent.path) ? th.parent.path : undefined;
       const parentPath = tParentPath ?? ed("ParentImage") ?? (mdeProcEvent ? joinPath(r("InitiatingProcessFolderPath"), parentName) : undefined)
         ?? (isWinPath(r("process.parent.executable")) ? r("process.parent.executable") : undefined)
@@ -310,11 +310,11 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       break;
     }
     case "3": {
-      const dst = ev.dst_ip ?? ed("DestinationIp") ?? r("destination.ip") ?? r("RemoteIP") ?? r("crowdstrike.RemoteAddressIP4") ?? r("crowdstrike.remote_address");
-      const dport = (ev.dst_port !== undefined ? String(ev.dst_port) : undefined) ?? ed("DestinationPort") ?? r("destination.port") ?? r("RemotePort") ?? r("crowdstrike.RemotePort") ?? r("crowdstrike.remote_port");
+      const dst = ev.dst_ip ?? ed("DestinationIp") ?? r("destination.ip") ?? r("RemoteIP") ?? r("crowdstrike.RemoteAddressIP4");
+      const dport = (ev.dst_port !== undefined ? String(ev.dst_port) : undefined) ?? ed("DestinationPort") ?? r("destination.port") ?? r("RemotePort") ?? r("crowdstrike.RemotePort");
       if (!dst || !needImage()) return null;
       const inbound = r("crowdstrike.ConnectionDirection") === "1";
-      const src = ed("SourceIp") ?? ev.src_ip ?? r("LocalIP") ?? r("crowdstrike.LocalAddressIP4") ?? r("crowdstrike.local_address")
+      const src = ed("SourceIp") ?? ev.src_ip ?? r("LocalIP") ?? r("crowdstrike.LocalAddressIP4")
         ?? `10.${ctx.int(`${ctx.companyId}:${host}:ip2`, 10, 60)}.${ctx.int(`${ctx.companyId}:${host}:ip3`, 1, 250)}.${ctx.int(`${ctx.companyId}:${host}:ip4`, 10, 250)}`;
       const sport = ed("SourcePort") ?? r("LocalPort") ?? r("crowdstrike.LocalPort") ?? (ev.src_port !== undefined ? String(ev.src_port) : undefined) ?? String(ctx.int(`${ev.id}:sport`, 49152, 65535));
       const protoRaw = (ed("Protocol") ?? ev.protocol ?? r("network.transport") ?? r("Protocol") ?? r("crowdstrike.Protocol") ?? "tcp").toLowerCase();
@@ -346,8 +346,8 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       break;
     }
     case "10": {
-      const tgt = r("crowdstrike.target_imagefilename") ?? r("s1.tgtProcName") ?? ed("TargetImage") ?? r("TargetImage") ?? th?.access?.path ?? th?.access?.name;
-      const access = r("crowdstrike.GrantedAccess") ?? r("s1.granted_access") ?? ed("GrantedAccess") ?? r("GrantedAccess") ?? th?.access?.granted;
+      const tgt = r("crowdstrike.TargetProcessImageFileName") ?? r("s1.tgtProcName") ?? ed("TargetImage") ?? r("TargetImage") ?? th?.access?.path ?? th?.access?.name;
+      const access = accessMask(r("crowdstrike.DesiredAccess")) ?? r("s1.granted_access") ?? ed("GrantedAccess") ?? r("GrantedAccess") ?? th?.access?.granted;
       if (!tgt || !access || !needImage()) return null;
       const tPath = isWinPath(tgt) ? tgt : KNOWN[tgt.toLowerCase()] ?? `${S32}${tgt}`;
       const tPid = seededPid(base(tPath)); // the target's own identity (the same pid its rows and every EDR record show)
@@ -363,7 +363,7 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       break;
     }
     case "11": {
-      const target = ev.file?.path ?? ed("TargetFilename") ?? r("file.path") ?? r("crowdstrike.TargetFileName") ?? r("crowdstrike.target_filename") ?? (r("ActionType")?.startsWith("File") ? joinPath(r("FolderPath"), r("FileName")) : undefined);
+      const target = ev.file?.path ?? ed("TargetFilename") ?? r("file.path") ?? r("crowdstrike.TargetFileName") ?? (r("ActionType")?.startsWith("File") ? joinPath(r("FolderPath"), r("FileName")) : undefined);
       // The writer is unknown on some EDR rows: Sysmon prints "<unknown process>" when it cannot resolve the image.
       if (!target || !isWinPath(target)) return null;
       data = { ...head, ProcessGuid: procGuid, ProcessId: pid, Image: image, TargetFilename: target, CreationUtcTime: utcTime(timeMs), User: user };

@@ -54,8 +54,8 @@ const tccWriteEvent: TelemetryEvent = {
     "crowdstrike.FilePath": "/Users/l.tavor/Library/Application Support/com.apple.TCC/",
     "crowdstrike.CommandLine":
       "sqlite3 /Users/l.tavor/Library/Application Support/com.apple.TCC/TCC.db INSERT OR REPLACE INTO access VALUES('kTCCServiceScreenCapture','com.safeclean.util',0,2,4,1,NULL,NULL,NULL,'UNUSED',NULL,0,1);",
-    "crowdstrike.ParentProcessName": "sh",
-    "crowdstrike.OperationType": "FileWritten",
+    "crowdstrike.ParentBaseFileName": "sh",
+    "crowdstrike.event_simpleName": "GenericFileWritten",
     "process.name": "sqlite3",
     "process.executable": "/usr/bin/sqlite3",
     "process.parent.name": "sh",
@@ -109,8 +109,8 @@ const osascriptChainEvent: TelemetryEvent = {
     "crowdstrike.FilePath": "/usr/bin/",
     "crowdstrike.CommandLine":
       "osascript -e display dialog \"BatteryBoost Pro needs your password to finish setup.\" default answer \"\" with hidden answer with icon caution buttons {\"OK\"} default button \"OK\"",
-    "crowdstrike.ParentProcessName": "BatteryBoost Pro",
-    "crowdstrike.OperationType": "ProcessRollup2",
+    "crowdstrike.ParentBaseFileName": "BatteryBoost Pro",
+    "crowdstrike.event_simpleName": "ProcessRollup2",
     "process.name": "osascript",
     "process.executable": "/usr/bin/osascript",
     "process.parent.name": "BatteryBoost Pro",
@@ -161,8 +161,8 @@ const benignNotarizedInstallEvent: TelemetryEvent = {
     "crowdstrike.UserName": "r.golan",
     "crowdstrike.FileName": "Notion",
     "crowdstrike.FilePath": "/Applications/Notion.app/Contents/MacOS/",
-    "crowdstrike.ParentProcessName": "launchd",
-    "crowdstrike.OperationType": "ProcessRollup2",
+    "crowdstrike.ParentBaseFileName": "launchd",
+    "crowdstrike.event_simpleName": "ProcessRollup2",
     "process.name": "Notion",
     "process.executable": "/Applications/Notion.app/Contents/MacOS/Notion",
     "process.code_signature.exists": true,
@@ -590,9 +590,9 @@ const macosSecurityFundamentalsRoom = {
       // chain), not the TCC.db write, so this flag must name its event explicitly.
       event: tccWriteEvent,
       prompt:
-        "Look at the Log Analysis finding on MAC-4471 (the TCC.db write). What is the exact value of the crowdstrike.ParentProcessName field in the raw log?",
+        "Look at the Log Analysis finding on MAC-4471 (the TCC.db write). What is the exact value of the crowdstrike.ParentBaseFileName field in the raw log?",
       answer: "sh",
-      hint: "Look inside the raw block of the log analysis event for the field named crowdstrike.ParentProcessName.",
+      hint: "Look inside the raw block of the log analysis event for the field named crowdstrike.ParentBaseFileName.",
       xp: 20,
     },
     // ── Question 5: synthesis ──────────────────────────────────────────────────

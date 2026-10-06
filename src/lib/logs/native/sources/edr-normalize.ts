@@ -113,12 +113,10 @@ const joinPath = (folder: unknown, file: unknown): string | undefined => {
 const isPrivateIp = (ip?: string) => !!ip && /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.|169\.254\.|fd|fe80)/i.test(ip);
 const dirName = (p?: string) => (p && /[\\/]/.test(p) ? p.replace(/[\\/][^\\/]+$/, "") : undefined);
 
-/** Is the image signed at all (ECS process.code_signature.*, else a legacy `file.signed` flag)? */
+/** Is the image signed at all (ECS process.code_signature.*)? */
 function signedOf(r: Record<string, unknown>): boolean | undefined {
   const st = signState(r, "process");
-  if (st) return st !== "unsigned";
-  const legacy = str(r["file.signed"]);
-  return legacy ? !/unsigned|false|not/i.test(legacy) : undefined;
+  return st ? st !== "unsigned" : undefined;
 }
 
 function splitUser(raw?: string): { user?: string; domain?: string; email?: string } {
@@ -141,6 +139,12 @@ const TELEMETRY_ET = /^(file_|process_create$|linux_execve$|net_connection$|dns_
 const VERDICT_KEY = /^(crowdstrike\.(DetectName|DetectDescription|DetectId|PatternDisposition\w*)|s1\.(threat\.threatName|indicator\.name|mitigation_status|detection\.classification_source)|threat\.name|malware\.name|ThreatName|windefend\.\w+(\.\w+)*)$/;
 /** Placeholder names a reshape writes when the authored event has no detection name. */
 const PLACEHOLDER_VERDICT = /^(none|troj\/agent-a|suspicious activity detected)$/i;
+
+/** Falcon's DesiredAccess is the access mask as a decimal string ("2097151"); the facts carry the Windows hex form ("0x1FFFFF"). */
+export function accessMask(v: unknown): string | undefined {
+  const s = str(v);
+  return s && /^\d+$/.test(s) ? `0x${Number(s).toString(16).toUpperCase()}` : s;
+}
 
 function kindOf(ev: TelemetryEvent, r: Record<string, unknown>): { kind: EdrKind; reason?: string } {
   const simple = str(r["crowdstrike.event_simpleName"]) ?? "";
@@ -213,10 +217,10 @@ export function edrFacts(ev: TelemetryEvent): EdrFacts {
     : [];
   const procPath = first(ev.process?.path, r["process.executable"], r["crowdstrike.ImageFileName"], kind === "process" ? joinPath(r["FolderPath"], r["FileName"]) : undefined, kind !== "process" ? joinPath(r["InitiatingProcessFolderPath"], r["InitiatingProcessFileName"]) : undefined,
     // A Falcon process row authored as FilePath + FileName of the image itself.
-    kind === "process" && csName && lcEq(csName, first(ev.process?.name, r["process.name"], r["crowdstrike.process_name"], csName)) ? joinPath(r["crowdstrike.FilePath"], csName) : undefined,
+    kind === "process" && csName && lcEq(csName, first(ev.process?.name, r["process.name"], r["crowdstrike.ContextBaseFileName"], csName)) ? joinPath(r["crowdstrike.FilePath"], csName) : undefined,
     // A Sysmon EventData block (the actor of events 1/3/10/11/13/22).
     r["winlog.event_data.Image"], r["winlog.event_data.SourceImage"]);
-  const procName = first(ev.process?.name, r["process.name"], r["crowdstrike.FileName"] && kind === "process" ? r["crowdstrike.FileName"] : undefined, r["crowdstrike.process_name"], kind === "process" ? r["FileName"] : r["InitiatingProcessFileName"], r["s1.srcProcName"], baseName(procPath), tree[tree.length - 1]);
+  const procName = first(ev.process?.name, r["process.name"], r["crowdstrike.FileName"] && kind === "process" ? r["crowdstrike.FileName"] : undefined, r["crowdstrike.ContextBaseFileName"], kind === "process" ? r["FileName"] : r["InitiatingProcessFileName"], r["s1.srcProcName"], baseName(procPath), tree[tree.length - 1]);
   const proc: EdrProc = {
     name: procName, path: procPath,
     pid: numOrU(ev.process?.pid ?? r["process.pid"] ?? r["crowdstrike.RawProcessId"] ?? (kind === "process" ? r["ProcessId"] : r["InitiatingProcessId"]) ?? r["s1.srcProcPid"] ?? r["winlog.event_data.ProcessId"] ?? r["winlog.event_data.SourceProcessId"]),
@@ -226,12 +230,12 @@ export function edrFacts(ev: TelemetryEvent): EdrFacts {
     integrity: first(ev.process?.integrity, r["process.integrity_level"], r["ProcessIntegrityLevel"], r["crowdstrike.IntegrityLevel"]),
     signed: signedOf(r),
   };
-  const parentName = first(ev.process?.parent_name, r["process.parent.name"], r["crowdstrike.ParentBaseFileName"], r["crowdstrike.parent_basefilename"], r["crowdstrike.ParentProcessName"], kind === "process" ? r["InitiatingProcessFileName"] : undefined, r["s1.srcProcParentName"], baseName(str(r["process.parent.executable"])), baseName(str(r["winlog.event_data.ParentImage"])), tree.length > 1 ? tree[tree.length - 2] : undefined);
+  const parentName = first(ev.process?.parent_name, r["process.parent.name"], r["crowdstrike.ParentBaseFileName"], kind === "process" ? r["InitiatingProcessFileName"] : undefined, r["s1.srcProcParentName"], baseName(str(r["process.parent.executable"])), baseName(str(r["winlog.event_data.ParentImage"])), tree.length > 1 ? tree[tree.length - 2] : undefined);
   const parent: EdrProc = {
     name: parentName,
     path: first(r["process.parent.executable"], kind === "process" ? joinPath(r["InitiatingProcessFolderPath"], r["InitiatingProcessFileName"]) : undefined, r["winlog.event_data.ParentImage"]),
     pid: numOrU(ev.process?.parent_pid ?? r["process.parent.pid"] ?? (kind === "process" ? r["InitiatingProcessId"] : undefined) ?? r["winlog.event_data.ParentProcessId"]),
-    cmdline: first(r["process.parent.command_line"], r["crowdstrike.parent_commandline"], r["crowdstrike.ParentCommandLine"], kind === "process" ? r["InitiatingProcessCommandLine"] : undefined, r["winlog.event_data.ParentCommandLine"]),
+    cmdline: first(r["process.parent.command_line"], r["crowdstrike.ParentCommandLine"], kind === "process" ? r["InitiatingProcessCommandLine"] : undefined, r["winlog.event_data.ParentCommandLine"]),
     sha256: first(r["process.parent.hash.sha256"], kind === "process" ? r["InitiatingProcessSHA256"] : undefined),
     md5: first(r["process.parent.hash.md5"], kind === "process" ? r["InitiatingProcessMD5"] : undefined),
   };
@@ -239,9 +243,9 @@ export function edrFacts(ev: TelemetryEvent): EdrFacts {
   // Direction: an authored inbound connection has a PUBLIC source and the host as
   // destination (RDP from the internet). Read it as remote = source, local = host.
   const srcIp = first(ev.src_ip, r["source.ip"]);
-  const dstIp = first(ev.dst_ip, r["destination.ip"], r["RemoteIP"], r["crowdstrike.RemoteAddressIP4"], r["crowdstrike.remote_address"]);
+  const dstIp = first(ev.dst_ip, r["destination.ip"], r["RemoteIP"], r["crowdstrike.RemoteAddressIP4"]);
   const inbound = kind === "network" && !!srcIp && !isPrivateIp(srcIp) && (!dstIp || isPrivateIp(dstIp));
-  const accessTarget = first(r["crowdstrike.target_imagefilename"], r["crowdstrike.CrossProcessTargetName"], r["s1.tgtProcName"], r["winlog.event_data.TargetImage"], r["TargetImage"]);
+  const accessTarget = first(r["crowdstrike.TargetProcessImageFileName"], r["s1.tgtProcName"], r["winlog.event_data.TargetImage"], r["TargetImage"]);
   const svcName = ev.event_type === "service_install" ? first(r["service.name"], r["ServiceName"], r["winlog.event_data.ServiceName"], (procName ?? baseName(procPath))?.replace(/\.exe$/i, "")) : undefined;
   proc.path = drive(proc.path); parent.path = drive(parent.path);
   const out: EdrFacts = {
@@ -249,20 +253,20 @@ export function edrFacts(ev: TelemetryEvent): EdrFacts {
     timeMs: Date.parse(ev.ts),
     eventId: ev.id,
     host: first(ev.hostname, r["host.name"], r["crowdstrike.ComputerName"], r["DeviceName"], r["s1.agent.computerName"]),
-    hostIp: first(r["host.ip"], r["crowdstrike.local_address"], r["LocalIP"], isPrivateIp(ev.src_ip) ? ev.src_ip : undefined, inbound && isPrivateIp(dstIp) ? dstIp : undefined),
+    hostIp: first(r["host.ip"], r["crowdstrike.LocalAddressIP4"], r["LocalIP"], isPrivateIp(ev.src_ip) ? ev.src_ip : undefined, inbound && isPrivateIp(dstIp) ? dstIp : undefined),
     os,
     user: u.user, userDomain: u.domain, userEmail: ev.user_email ?? ev.user?.email ?? u.email,
     proc, parent,
     file: {
       path: filePath, name: first(ev.file?.name, r["file.name"], baseName(filePath)),
-      sha256: first(ev.file?.sha256, r["file.hash.sha256"], kind !== "process" ? r["crowdstrike.SHA256HashData"] ?? r["SHA256"] ?? r["crowdstrike.SHA256"] : undefined),
+      sha256: first(ev.file?.sha256, r["file.hash.sha256"], kind !== "process" ? r["crowdstrike.SHA256HashData"] ?? r["SHA256"] : undefined),
       md5: first(ev.file?.md5, kind !== "process" ? r["crowdstrike.MD5HashData"] : undefined),
       size: numOrU(ev.file?.size ?? r["file.size"]),
       extension: first(ev.file?.extension, r["file.extension"]),
     },
     net: {
       remoteIp: inbound ? srcIp : dstIp,
-      remotePort: inbound ? numOrU(ev.src_port ?? r["source.port"]) : numOrU(ev.dst_port ?? r["destination.port"] ?? r["RemotePort"] ?? r["crowdstrike.RemotePort"] ?? r["crowdstrike.remote_port"]),
+      remotePort: inbound ? numOrU(ev.src_port ?? r["source.port"]) : numOrU(ev.dst_port ?? r["destination.port"] ?? r["RemotePort"] ?? r["crowdstrike.RemotePort"]),
       localIp: inbound ? (isPrivateIp(dstIp) ? dstIp : undefined) : first(srcIp, r["LocalIP"], r["crowdstrike.LocalAddressIP4"]),
       localPort: inbound ? numOrU(ev.dst_port ?? r["destination.port"]) : numOrU(ev.src_port ?? r["source.port"]),
       protocol: first(ev.protocol),
@@ -290,8 +294,8 @@ export function edrFacts(ev: TelemetryEvent): EdrFacts {
     referrerUrl: first(r["FileOriginReferrerUrl"], r["file.origin_referrer_url"]),
     access: ev.event_type === "process_access" && accessTarget ? {
       name: baseName(accessTarget), path: /[\\/]/.test(accessTarget) ? accessTarget : undefined,
-      pid: numOrU(r["crowdstrike.target_process_id"] ?? r["crowdstrike.CrossProcessTargetPid"] ?? r["winlog.event_data.TargetProcessId"] ?? r["TargetProcessId"]),
-      granted: first(r["crowdstrike.GrantedAccess"], r["s1.granted_access"], r["winlog.event_data.GrantedAccess"], r["GrantedAccess"]),
+      pid: numOrU(ev.process?.target?.pid ?? r["winlog.event_data.TargetProcessId"] ?? r["TargetProcessId"]),
+      granted: first(accessMask(r["crowdstrike.DesiredAccess"]), r["s1.granted_access"], r["winlog.event_data.GrantedAccess"], r["GrantedAccess"]),
     } : undefined,
     usb: kind === "usb" ? { drive: first(r["usb.mount_point"])?.replace(/\\$/, ""), product: first(r["usb.device.name"]), vendor: first(r["usb.vendor"]), serial: first(r["usb.device.serial"]), type: first(r["removable_media.type"]) } : undefined,
     service: svcName ? { name: svcName, path: procPath, account: first(r["service.account"], r["winlog.event_data.AccountName"]), startType: first(r["service.start_type"], r["winlog.event_data.StartType"]) } : undefined,
