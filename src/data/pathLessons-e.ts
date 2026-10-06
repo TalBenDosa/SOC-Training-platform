@@ -210,7 +210,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Hashes and IPs sit at the base of the Pyramid of Pain: an attacker recompiles for a new hash or spins up a new IP in seconds, so blocklists of them expire almost immediately — exactly the treadmill described. Detecting higher up, especially TTPs (the way they operate, like a document spawning PowerShell), forces the adversary to change their whole tradecraft and yields durable detection. Option a doubles down on the lowest tier. Option c is defeatist. Option d wrongly places IP addresses at the painful top — they are near the bottom."
+        "explanation": "Hashes and IPs sit at the base of the Pyramid of Pain: an attacker recompiles for a new hash or spins up a new IP in seconds, so blocklists of them expire almost immediately — exactly the treadmill described. Detecting higher up, especially TTPs (the way they operate, like a document spawning PowerShell), forces the adversary to change their whole tradecraft and yields durable detection. The option “The feed simply is not updated often…” doubles down on the lowest tier. The option “The group is unstoppable and no detection…” is defeatist. The option “The real fix is to block a…” wrongly places IP addresses at the painful top — they are near the bottom."
       },
       {
         "question": "A team has a detailed ATT&CK coverage heat-map showing green (covered) for dozens of techniques, but has never tested whether those detections actually fire. What practice would validate the map, and why is it necessary?",
@@ -233,7 +233,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "A green coverage map is an untested claim: a rule can watch the wrong field, be disabled, or go blind when its source stops. Adversary emulation — Atomic Red Team's per-technique tests or full CALDERA-style chains — safely executes each technique, and purple teaming has red and blue collaborate to confirm the alert fires and close any gap, turning the map from aspiration into verified fact. Option a trusts an unverified map. Option c adds untested rules on top of untested rules. Option d waits for real breaches to test detections, which is exactly the risk emulation exists to avoid."
+        "explanation": "A green coverage map is an untested claim: a rule can watch the wrong field, be disabled, or go blind when its source stops. Adversary emulation — Atomic Red Team's per-technique tests or full CALDERA-style chains — safely executes each technique, and purple teaming has red and blue collaborate to confirm the alert fires and close any gap, turning the map from aspiration into verified fact. The option “No validation is needed, because a coverage…” trusts an unverified map. The option “The team should simply add more detection…” adds untested rules on top of untested rules. The option “They should wait for a real attacker…” waits for real breaches to test detections, which is exactly the risk emulation exists to avoid."
       },
       {
         "question": "In the worked-example timeline, credential access (T1003.001, LSASS memory) is observed at 09:41 — roughly 90 minutes before the ransomware deployment at 13:52. Using Kill Chain staged thinking together with the Pyramid of Pain, what is the single most valuable action at 09:41?",
@@ -523,7 +523,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Word spawning encoded PowerShell is a maldoc detonating into a fileless chain — the payload runs in memory, so of course there is no bad file or hash. That is exactly why file-based reasoning fails and triage must pivot to behaviour: the command line, the parent-child process tree, and Script Block Logging (4104), which captures the decoded code. Option a commits the core error — treating a clean AV/hash as proof of no malware. Option c is false; fileless malware needs no dropped file. Option d misidentifies the legitimate, signed WINWORD.EXE as the malware."
+        "explanation": "Word spawning encoded PowerShell is a maldoc detonating into a fileless chain — the payload runs in memory, so of course there is no bad file or hash. That is exactly why file-based reasoning fails and triage must pivot to behaviour: the command line, the parent-child process tree, and Script Block Logging (4104), which captures the decoded code. The option “It is benign, because a clean antivirus…” commits the core error — treating a clean AV/hash as proof of no malware. The option “The absence of a file means the…” is false; fileless malware needs no dropped file. The option “The correct first step is to submit…” misidentifies the legitimate, signed WINWORD.EXE as the malware."
       },
       {
         "question": "You have an unknown executable and want to triage it safely without reverse-engineering it. Which approach correctly balances value and safety?",
@@ -546,7 +546,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Static triage — strings, entropy/packing, and file-type sanity — extracts real intelligence (C2 URLs, suspicious APIs, obfuscation signals, type mismatches) without ever running the sample, and done in an isolated sandbox it is both safe and squarely within a SOC analyst's job as a first filter. Option a is dangerous: executing an unknown sample, especially on production, is exactly what static triage avoids. Option c understates the analyst's real capability. Option d is false — renaming does not neutralise a file, and 'analysing' it on a production server risks execution and spread."
+        "explanation": "Static triage — strings, entropy/packing, and file-type sanity — extracts real intelligence (C2 URLs, suspicious APIs, obfuscation signals, type mismatches) without ever running the sample, and done in an isolated sandbox it is both safe and squarely within a SOC analyst's job as a first filter. The option “Double-click it on your own workstation to…” is dangerous: executing an unknown sample, especially on production, is exactly what static triage avoids. The option “Do nothing at all until a dedicated…” understates the analyst's real capability. The option “Rename the file to a .txt extension…” is false — renaming does not neutralise a file, and 'analysing' it on a production server risks execution and spread."
       },
       {
         "question": "In the strings-to-verdict walkthrough, a multi-engine reputation lookup returns 3 out of 71 detections on a file first submitted 40 minutes ago, while strings reveal VirtualAllocEx, CreateRemoteThread, and a scheduled-task persistence string. What is the correct read of the reputation result, and what should the analyst do next?",
@@ -569,7 +569,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "A low detection count on a file first seen forty minutes ago fits the profile of malware the industry has not yet caught up to, not a safe file — freshness is the red flag, not the ratio. Combined with strings showing textbook injection APIs and a persistence mechanism, the correct move is to sandbox the sample and confirm the behavior, exactly as the walkthrough does. Option a wrongly clears on a low-but-nonzero, very fresh detection. Option c discards concrete string evidence for no reason. Option d skips hashing and documentation, destroying the chain of evidence and the IOCs needed to pivot and scope the incident."
+        "explanation": "A low detection count on a file first seen forty minutes ago fits the profile of malware the industry has not yet caught up to, not a safe file — freshness is the red flag, not the ratio. Combined with strings showing textbook injection APIs and a persistence mechanism, the correct move is to sandbox the sample and confirm the behavior, exactly as the walkthrough does. The option “3 out of 71 is high enough…” wrongly clears on a low-but-nonzero, very fresh detection. The option “Ignore the strings entirely and wait for…” discards concrete string evidence for no reason. The option “Delete the file immediately without hashing or…” skips hashing and documentation, destroying the chain of evidence and the IOCs needed to pivot and scope the incident."
       }
     ],
     "references": [

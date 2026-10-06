@@ -196,7 +196,8 @@ const credentialAttacksRoom: Room = {
         "Status 0xC000006D        Generic logon failure (bad user/pass pair)\n" +
         "  SubStatus 0xC000006A    Account exists, WRONG PASSWORD\n" +
         "  SubStatus 0xC0000064    Account does NOT EXIST (username guess)\n" +
-        "  SubStatus 0xC0000234    Account is LOCKED OUT\n" +
+        "Status 0xC0000234        Account is LOCKED OUT (SubStatus 0x0)\n" +
+        "Status 0xC000006E        Account restriction (valid creds, but...)\n" +
         "  SubStatus 0xC0000071    Password EXPIRED\n" +
         "=======================================================\n\n" +
         "THE TWO AGGREGATION AXES\n" +
@@ -214,16 +215,16 @@ const credentialAttacksRoom: Room = {
       type: "question",
       id: "cred-q1",
       question:
-        "A 4625 burst against the same account shows SubStatus 0xC000006A for its first 30 attempts, then switches to 0xC0000234 for every attempt after that. What changed?",
+        "A 4625 burst against the same account shows SubStatus 0xC000006A (under Status 0xC000006D) for its first 30 attempts; every attempt after that instead logs Status 0xC0000234. What changed?",
       options: [
         "The attacker switched from guessing passwords to enumerating usernames, and the DC now reports the targeted names as nonexistent",
         "The account crossed its lockout threshold, so the DC now rejects further attempts because of account state rather than a wrong password",
         "The password was correct on attempt 31, but a logon restriction on the account (such as logon hours) made the DC refuse the session",
-        "The DC began throttling the source host after repeated failures, so the substatus describes the client rather than the targeted account",
+        "The DC began throttling the source host after repeated failures, so the new code describes the client rather than the targeted account",
       ],
       answer: 1,
       explanation:
-        "0xC0000234 is specifically the account-locked-out substatus, not a username-guessing indicator, a success indicator, or a firewall signal — it only ever appears once the account's lockout threshold has actually been crossed, which is exactly why it appears only after attempt 30 rather than from the start. A genuine success would produce a 4624, not a further 4625; 0xC0000064 (not 0xC0000234) is the username-does-not-exist substatus; and this field describes the target account's own state, not the network layer.",
+        "0xC0000234 is specifically the account-locked-out status code (logged in the Status field, with SubStatus 0x0), not a username-guessing indicator, a success indicator, or a firewall signal — it only ever appears once the account's lockout threshold has actually been crossed, which is exactly why it appears only after attempt 30 rather than from the start. A genuine success would produce a 4624, not a further 4625; 0xC0000064 (not 0xC0000234) is the username-does-not-exist substatus; and this field describes the target account's own state, not the network layer.",
       xp: 20,
     },
     {
@@ -265,7 +266,7 @@ const credentialAttacksRoom: Room = {
         },
         {
           question:
-            "SubStatus stays 0xC000006A (wrong password) for all 47 attempts rather than ever switching to 0xC0000234. What does that specifically tell you, and why might it matter for how urgently this needs a response?",
+            "SubStatus stays 0xC000006A (wrong password) for all 47 attempts, and the Status never switches to 0xC0000234 (locked out). What does that specifically tell you, and why might it matter for how urgently this needs a response?",
           options: [
             "It proves the account was never actually at risk, since Windows automatically disables the TargetUserName field once 30 consecutive failures accumulate, which is why no lockout code ever appears in this burst",
             "The account's lockout threshold has not yet been crossed despite 47 attempts — meaning either the account has an unusually high lockout threshold (or a policy exemption), or the threshold simply hasn't been reached yet and the attack is still live and could still succeed",
@@ -274,7 +275,7 @@ const credentialAttacksRoom: Room = {
           ],
           answer: 1,
           explanation:
-            "SubStatus 0xC000006A means the password was wrong on that specific attempt; the fact that it never flips to 0xC0000234 (locked out) after 47 tries is itself informative — either d.solano's account is exempt from the org's normal lockout policy (worth checking) or the threshold simply hasn't been reached yet, meaning the attack is still actively running and could still land a correct guess. It says nothing about whether the account is privileged, and it certainly doesn't mean the account was never at risk.",
+            "SubStatus 0xC000006A means the password was wrong on that specific attempt; the fact that the event never flips to Status 0xC0000234 (locked out) after 47 tries is itself informative — either d.solano's account is exempt from the org's normal lockout policy (worth checking) or the threshold simply hasn't been reached yet, meaning the attack is still actively running and could still land a correct guess. It says nothing about whether the account is privileged, and it certainly doesn't mean the account was never at risk.",
           xp: 25,
         },
         {
@@ -777,7 +778,7 @@ const lateralMovementRoom: Room = {
       language: "kql",
       context: KQL_PRIMER + "Using the pattern confirmed in Log Analysis 1 and 2 — an NTLM network logon immediately followed by a new service on the same host — write the KQL that flags this sequence for any account not on an approved admin-source allowlist.",
       template:
-        "SecurityEvent\n| where EventID == {{logonid}} and LogonProcessName == \"{{logonproc}}\"\n| project Computer, Account = TargetUserName, LogonTime = TimeGenerated\n| join kind=inner (\n    SecurityEvent\n    | where EventID == {{svcid}}\n    | project Computer, InstallTime = TimeGenerated\n) on Computer\n| where InstallTime - LogonTime between (0min .. {{window}})",
+        "SecurityEvent\n| where EventID == {{logonid}} and LogonProcessName == \"{{logonproc}}\"\n| project Computer, Account = TargetUserName, LogonTime = TimeGenerated\n| join kind=inner (\n    Event\n    | where EventLog == \"System\" and EventID == {{svcid}}\n    | project Computer, InstallTime = TimeGenerated\n) on Computer\n| where InstallTime - LogonTime between (0min .. {{window}})",
       blanks: [
         { id: "logonid", answers: ["4624"], placeholder: "successful network logon Event ID" },
         { id: "logonproc", answers: ["NtLmSsp", "NtLmSsp "], placeholder: "LogonProcessName value for an NTLM network logon" },
@@ -785,7 +786,7 @@ const lateralMovementRoom: Room = {
         { id: "window", answers: ["2min", "5min", "1min", "3min"], placeholder: "how tight the logon-to-install gap should be to count" },
       ],
       explanation:
-        "This operationalizes exactly the correlation you did by hand in Log Analysis 1 and 2: join a network logon on one host to a service installation on the SAME host within a tight window, which turns a byte-for-byte-identical mechanism (Reading 2's central point) into a detection that still needs the same context check — an admin-source allowlist — to separate SRV-APP11's legitimate deployment from WKS-SALES14's unexplained one.",
+        "This operationalizes exactly the correlation you did by hand in Log Analysis 1 and 2: join a network logon on one host to a service installation on the SAME host within a tight window, which turns a byte-for-byte-identical mechanism (Reading 2's central point) into a detection that still needs the same context check — an admin-source allowlist — to separate SRV-APP11's legitimate deployment from WKS-SALES14's unexplained one. Note the two different tables: the 4624 logon lives in the Security log (Sentinel's SecurityEvent table), but 7045 is written by the Service Control Manager to the System log, which Sentinel stores in the Event table — querying SecurityEvent for 7045 returns nothing. (The Security-log equivalent of a service install is Event ID 4697, which requires 'Audit Security System Extension' to be enabled.)",
       xp: 35,
     },
     {
@@ -953,7 +954,7 @@ const webAttacksRoom: Room = {
         `**The fields that carry the story**\n\n` +
         `cs-uri-stem is the path being requested (/search.aspx); cs-uri-query is everything after the question mark — and for a web application attack, this is very often where the payload itself lives, since query parameters are exactly what SQL injection, path traversal, and command injection attempts try to smuggle malicious input through. c-ip is the address IIS believes it's talking to (with an important caveat covered in the next reading). cs(User-Agent) identifies the client software, or claims to — it's trivially spoofable, but a consistent, honest-looking value across an entire burst is itself informative. sc-status is the HTTP status code the server actually returned, and it is the single most important field for judging outcome, not intent.\n\n` +
         `**Status codes as outcome, not as intent**\n\n` +
-        `A 4xx status (404 Not Found, 403 Forbidden) means the server understood the request and refused or couldn't fulfill it — content discovery sweeps and blocked injection attempts both live here. A 5xx status, especially 500 Internal Server Error, means the application itself broke while trying to process the request — and for a SQL injection attempt specifically, a 500 very often means the malformed SQL syntax the attacker sent caused the database driver to throw an unhandled exception, which the application couldn't recover from. That's a critical, counter-intuitive point: a 500 in the middle of an injection attempt is usually a FAILED attempt, not a successful one — the payload broke the query before it could return anything useful. A 200 OK, by contrast, means the request was processed successfully end to end. In the middle of a calibration burst against a search endpoint, a lone 200 sitting among dozens of 500s is not the boring result — it's the one attempt whose SQL syntax was valid enough to actually execute.\n\n` +
+        `A 4xx status (404 Not Found, 403 Forbidden) means the server understood the request and refused or couldn't fulfill it — content discovery sweeps and blocked injection attempts both live here. A 5xx status, especially 500 Internal Server Error, means the application itself broke while trying to process the request — and for a SQL injection attempt specifically, a 500 very often means the malformed SQL syntax the attacker sent caused the database driver to throw an unhandled exception, which the application couldn't recover from. That's a critical, counter-intuitive point: a 500 in the middle of an injection attempt means the payload REACHED the SQL parser unsanitized and broke the query — strong evidence the parameter IS injectable, even though that particular request usually returned nothing useful. (Watch the exception: in error-based SQLi the attacker deliberately triggers 500s whose error body leaks data, so check sc-bytes on the 500s too. And blind/time-based SQLi returns ordinary 200s, where the tell is time-taken or a response-size flip rather than the status code.) A 200 OK, by contrast, means the request was processed successfully end to end. In the middle of a calibration burst against a search endpoint, a lone 200 sitting among dozens of 500s is not the boring result — it's the one attempt whose SQL syntax was valid enough to actually execute.\n\n` +
         `**The field most analysts skip past: response size**\n\n` +
         `sc-bytes (the size of the response body) is easy to ignore, but for exactly this scenario it's often the field that turns a hunch into a finding. A search endpoint that normally returns a few kilobytes for a real search term returning tens of kilobytes for a query-string payload containing UNION SELECT is a strong sign the injected query executed and returned far more data than a normal search result ever would — a classic signature of a successful UNION-based extraction. Reading a wall of access-log lines well means scanning past the sea of matching 500s and 403s for the outlier: a 200, especially paired with an outlier response size, sitting inside a burst that otherwise looks like nothing but failure.\n\n` +
         `**One line is one request, not a verdict**\n\n` +
@@ -1026,7 +1027,7 @@ const webAttacksRoom: Room = {
       ],
       answer: 1,
       explanation:
-        "500 means the server-side application broke processing the request — for injection attempts, that's usually the query parser choking on malformed syntax, a failed attempt, not a block. The three 200 responses inside the same burst, from the same source, in the same short window, are far more consistent with payloads that were syntactically valid and executed than with unrelated coincidental traffic, and a 500 is not evidence of successful blocking; it's an application error.",
+        "500 means the server-side application broke processing the request — for injection attempts, that's usually the query parser choking on malformed syntax — a failed extraction (though proof the input reaches the SQL parser unsanitized), not a block. The three 200 responses inside the same burst, from the same source, in the same short window, are far more consistent with payloads that were syntactically valid and executed than with unrelated coincidental traffic, and a 500 is not evidence of successful blocking; it's an application error.",
       xp: 20,
     },
     {
@@ -1034,7 +1035,7 @@ const webAttacksRoom: Room = {
       id: "web-la1",
       heading: "One 200 Among a Wall of 500s",
       context:
-        "Orbitline's WAF logged 40 requests to /search.aspx from 91.203.44.187 within a two-minute window: 37 returned sc-status 500, and 3 returned sc-status 200. This endpoint's normal response for a real search term is roughly 2,000-3,000 bytes. Review the record below — the third and final 200 in that burst.",
+        "Orbitline's WAF allowed 40 requests to /search.aspx from 91.203.44.187 within a two-minute window, and the IIS log on the web server shows the outcome: 37 returned sc-status 500, and 3 returned sc-status 200. This endpoint's normal response for a real search term is roughly 2,000-3,000 bytes. Review the record below — the third and final 200 in that burst.",
       event: orbitlineInjectionEvent,
       questions: [
         {
@@ -1163,7 +1164,7 @@ const webAttacksRoom: Room = {
       heading: "Order the Web Shell Attack Chain",
       instructions: "Arrange these events in the order a web shell compromise actually unfolds, from first probe to code execution.",
       items: [
-        { id: "probe", text: "AWS WAF blocks a burst of malformed injection payloads against /search.aspx from a single external IP — the attacker calibrating what the application's SQL parser will accept" },
+        { id: "probe", text: "A burst of malformed injection payloads against /search.aspx from a single external IP passes through AWS WAF (logged ALLOW) and hits the application — the attacker calibrating what the application's SQL parser will accept" },
         { id: "success", text: "One request in that same burst returns sc-status 200 with a response body far larger than this endpoint's normal size — the payload that actually executed" },
         { id: "oversize-post", text: "A POST request to an upload-capable endpoint, from the same external IP, is allowed through the WAF after exceeding its body-inspection size limit" },
         { id: "file-write", text: "IIS's own worker process, w3wp.exe, is observed writing a new file, checkout-widget.min.aspx, into the site's assets directory" },

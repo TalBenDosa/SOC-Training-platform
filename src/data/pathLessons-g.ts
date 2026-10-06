@@ -112,7 +112,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Isolating one host before scoping is the classic junior mistake: if the adversary has spread, the other compromised hosts keep them in the network and you have merely tipped them off. Scoping (pivoting across users, hosts, and time, plus an IOC sweep) must precede containment so the whole set can be contained at once. Option a skips scoping. Option c abandons a confirmed intrusion. Option d re-images before scoping and before preserving evidence, destroying forensic artifacts."
+        "explanation": "Isolating one host before scoping is the classic junior mistake: if the adversary has spread, the other compromised hosts keep them in the network and you have merely tipped them off. Scoping (pivoting across users, hosts, and time, plus an IOC sweep) must precede containment so the whole set can be contained at once. The option “Isolate WKS-4471 immediately, because any confirmed beacon…” skips scoping. The option “Close the alert as a true positive…” abandons a confirmed intrusion. The option “Re-image WKS-4471 right away to remove the…” re-images before scoping and before preserving evidence, destroying forensic artifacts."
       },
       {
         "question": "You are a SOC analyst building a timeline and you notice the firewall shows a C2 callback at 04:12 while the phishing email that supposedly delivered the payload arrived at 09:14 the same day. Both timestamps come from different systems. What is the most likely explanation and correct action?",
@@ -135,7 +135,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "An effect appearing before its cause is almost always a time-normalization error, not a real ordering. Different sources (firewall local time vs. cloud UTC) must be converted to a single reference — usually UTC — before the timeline can be trusted. Publishing a timeline where the callback precedes the delivery will destroy your credibility. Options a, c, and d all react to the symptom instead of fixing the root cause, which is un-normalized timestamps."
+        "explanation": "An effect appearing before its cause is almost always a time-normalization error, not a real ordering. Different sources (firewall local time vs. cloud UTC) must be converted to a single reference — usually UTC — before the timeline can be trusted. Publishing a timeline where the callback precedes the delivery will destroy your credibility. The options “The adversary used time travel; escalate to…” and “The firewall log is fabricated and should…”, and d all react to the symptom instead of fixing the root cause, which is un-normalized timestamps."
       },
       {
         "question": "You are a SOC analyst and scoping has revealed that the compromised service account svc_backup was used for lateral movement from three different hosts. Your manager wants to contain the incident. Which containment action gives you the highest leverage to shrink the scope?",
@@ -158,7 +158,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "A compromised credential is an identity that works from anywhere, so resetting it everywhere it is valid shrinks the blast radius faster than isolating machines one by one — but it must be done in a coordinated move with host isolation and C2 blocking so the adversary loses everything at once. Option a is piecemeal and gives the adversary days to react. Option c ignores the credential entirely. Option d destroys the malware sample you needed for analysis and sweeping, and still leaves the credential usable."
+        "explanation": "A compromised credential is an identity that works from anywhere, so resetting it everywhere it is valid shrinks the blast radius faster than isolating machines one by one — but it must be done in a coordinated move with host isolation and C2 blocking so the adversary loses everything at once. The option “Isolate the three hosts one at a…” is piecemeal and gives the adversary days to react. The option “Block only the C2 IP at the…” ignores the credential entirely. The option “Delete the malicious files from each host…” destroys the malware sample you needed for analysis and sweeping, and still leaves the credential usable."
       },
       {
         "question": "You are a SOC analyst about to power off a compromised workstation to stop an active infection. Before you take this irreversible action, which consideration is most important according to the containment workflow?",
@@ -181,7 +181,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Powering off a host wipes RAM, which may hold injected payloads, decryption keys, live C2 connections, and other artifacts that exist nowhere else. The rule is capture before you contain: take a memory capture (or an EDR forensic package) before any evidence-destroying action, or prefer EDR network-isolation which keeps the host live for forensics. Options a, c, and d are irrelevant to the irreversible loss of volatile evidence that a power-off causes."
+        "explanation": "Powering off a host wipes RAM, which may hold injected payloads, decryption keys, live C2 connections, and other artifacts that exist nowhere else. The rule is capture before you contain: take a memory capture (or an EDR forensic package) before any evidence-destroying action, or prefer EDR network-isolation which keeps the host live for forensics. The options “Whether the host has a fast enough…” and “Whether the workstation's antivirus definitions are up…”, and d are irrelevant to the irreversible loss of volatile evidence that a power-off causes."
       },
       {
         "question": "In the worked example, a login-history pivot shows r.alvarez has only ever logged into FIN-WKS-118, yet the lesson says scope 'stays open pending eradication.' What is the best reasoning for not declaring scope closed at this point?",
@@ -204,7 +204,7 @@ const lessons = [
           }
         ],
         "answer": "a",
-        "explanation": "Scoping ends only when every pivot axis — hosts, users, time, and the IOC sweep — comes back clean, not after a single check. A clean login-history pivot rules out one path (network logons for this account) but says nothing about persistence mechanisms eradication might still find, so the lesson keeps scope open until those are checked too. Option b invents a dependency on the report that does not exist at this stage. Option c is exactly the premature-closure mistake the lesson warns against. Option d overstates the rule — connectivity alone is not what keeps scope open, incomplete sweeps are."
+        "explanation": "Scoping ends only when every pivot axis — hosts, users, time, and the IOC sweep — comes back clean, not after a single check. A clean login-history pivot rules out one path (network logons for this account) but says nothing about persistence mechanisms eradication might still find, so the lesson keeps scope open until those are checked too. The option “Scope can only be closed after the…” invents a dependency on the report that does not exist at this stage. The option “The pivot alone was sufficient — closing…” is exactly the premature-closure mistake the lesson warns against. The option “Scope should never close while a host…” overstates the rule — connectivity alone is not what keeps scope open, incomplete sweeps are."
       },
       {
         "question": "You are a SOC analyst about to respond to an actively beaconing host and you are debating whether to pull the power cable to stop it immediately. Which order-of-volatility principle from RFC 3227 should change your plan?",
@@ -227,7 +227,7 @@ const lessons = [
           }
         ],
         "answer": "a",
-        "explanation": "RFC 3227's order of volatility places CPU registers/cache and then RAM near the top — the most fragile evidence, gone the instant power is lost. Pulling the plug destroys any injected payload, decryption key, or live connection state that existed only in memory. The correct action is to capture memory (or use EDR network-isolation, which keeps the host live) before any power-off. Option b reverses the actual order. Option c invents a workstation exception that does not exist. Option d gets the sequence backwards."
+        "explanation": "RFC 3227's order of volatility places CPU registers/cache and then RAM near the top — the most fragile evidence, gone the instant power is lost. Pulling the plug destroys any injected payload, decryption key, or live connection state that existed only in memory. The correct action is to capture memory (or use EDR network-isolation, which keeps the host live) before any power-off. The option “RFC 3227 says disk evidence must always…” reverses the actual order. The option “Order of volatility only applies to servers…” invents a workstation exception that does not exist. The option “RFC 3227 recommends powering off first to…” gets the sequence backwards."
       },
       {
         "question": "You are a SOC analyst scoring the severity of a confirmed incident using a NCISS-style rubric. The affected system is a single non-critical workstation, no data exposure has been confirmed, and recovery is expected within the hour using existing tools. What severity does this combination point to?",
@@ -250,7 +250,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "NCISS-style scoring combines Functional Impact, Information Impact, and Recoverability independently. Low functional impact (one non-critical host), no confirmed information impact, and regular recoverability (in-house, within the hour) together point to Medium or lower — not the extreme end of the scale. Option a wrongly treats any intrusion as automatically Emergency. Option c abandons the rubric for pessimistic guessing, which corrupts the score. Option d is wrong because severity is scored early, during triage, precisely to drive response decisions before the final report exists."
+        "explanation": "NCISS-style scoring combines Functional Impact, Information Impact, and Recoverability independently. Low functional impact (one non-critical host), no confirmed information impact, and regular recoverability (in-house, within the hour) together point to Medium or lower — not the extreme end of the scale. The option “Emergency, because any confirmed intrusion automatically qualifies…” wrongly treats any intrusion as automatically Emergency. The option “Severe, because severity should always be estimated…” abandons the rubric for pessimistic guessing, which corrupts the score. The option “The severity cannot be scored at all…” is wrong because severity is scored early, during triage, precisely to drive response decisions before the final report exists."
       }
     ],
     "references": [
@@ -378,7 +378,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "A gap in evidence is itself a finding, not something to paper over. Honestly stating that no evidence was recovered — and noting a logging gap if one explains it — is actionable and truthful. Options a and c fabricate a fact, which the grader penalizes because responders would act on the invented vector. Option d hides a real finding (the missing evidence and possible logging gap) that the organization needs to address."
+        "explanation": "A gap in evidence is itself a finding, not something to paper over. Honestly stating that no evidence was recovered — and noting a logging gap if one explains it — is actionable and truthful. The options “Write the most likely-sounding vector, such as…”, “Write the most likely-sounding vector, such as…”, “Delete the section entirely so no one…” and “Copy the initial access vector from a…” fabricate a fact, which the grader penalizes because responders would act on the invented vector. The option “Delete the section entirely so no one…” hides a real finding (the missing evidence and possible logging gap) that the organization needs to address."
       },
       {
         "question": "You are a SOC analyst writing the executive summary of a report for the CISO, who must decide within the hour whether to notify customers. Which of the following is the most appropriate content for that summary?",
@@ -401,7 +401,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "The executive summary is written for a decision-maker who needs to act fast and does not want field-level detail. Three to five plain-language sentences covering what happened, severity, containment status, and next steps let the CISO decide without reading further. Options a and c bury the executive in technical detail meant for responders. Option d forces the executive into the technical weeds, defeating the purpose of the summary."
+        "explanation": "The executive summary is written for a decision-maker who needs to act fast and does not want field-level detail. Three to five plain-language sentences covering what happened, severity, containment status, and next steps let the CISO decide without reading further. The options “A detailed list of every Sysmon Event…”, “A detailed list of every Sysmon Event…”, “A note saying 'see technical findings below'…” and “The full IOC table with all hashes…” bury the executive in technical detail meant for responders. The option “A note saying 'see technical findings below'…” forces the executive into the technical weeds, defeating the purpose of the summary."
       },
       {
         "question": "You are a SOC analyst and while writing the report you remember the C2 IP was 'something like 185.220.something' but you cannot immediately find the exact value in your notes. The report is due. What should you do?",
@@ -424,7 +424,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Evidence discipline requires quoting exact values retrieved from the evidence, not from memory. Responders will block and sweep for whatever IP you write, so a remembered-but-wrong value sends them chasing a ghost while the real C2 keeps beaconing. Retrieve and cite the real value, or explicitly mark it under investigation. Option a fabricates from imperfect memory. Options c and d leave a critical actionable IOC missing or unusable in a final report."
+        "explanation": "Evidence discipline requires quoting exact values retrieved from the evidence, not from memory. Responders will block and sweep for whatever IP you write, so a remembered-but-wrong value sends them chasing a ghost while the real C2 keeps beaconing. Retrieve and cite the real value, or explicitly mark it under investigation. The option “Write 185.220.101.44 from memory, since the network…” fabricates from imperfect memory. The options “Leave the IP field blank and submit…”, “Write 185.220.101.44 from memory, since the network…”, “Use a placeholder like 'x.x.x.x' and submit…” and “Use a placeholder like 'x.x.x.x' and submit…” leave a critical actionable IOC missing or unusable in a final report."
       },
       {
         "question": "You are a SOC analyst reviewing a draft report from a colleague. It contains a thorough technical timeline and a full IOC table, but the only impact statement is 'suspicious activity occurred on a server.' What is the most important improvement to request?",
@@ -447,7 +447,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Missing or vague impact is one of the most damaging report mistakes because it leaves the decision-maker unable to gauge severity or notification obligations. 'Suspicious activity occurred on a server' must be replaced with a precise, confirmed-versus-suspected statement of which assets, accounts, and data were affected. Option a adds detail that is not the gap. Option c removes IOCs responders need. Option d addresses cosmetics, not the substantive failure to state impact."
+        "explanation": "Missing or vague impact is one of the most damaging report mistakes because it leaves the decision-maker unable to gauge severity or notification obligations. 'Suspicious activity occurred on a server' must be replaced with a precise, confirmed-versus-suspected statement of which assets, accounts, and data were affected. The option “Add more Sysmon Event IDs to the…” adds detail that is not the gap. The option “Remove the IOC table, since executives skip…” removes IOCs responders need. The option “Apply the standard report template and formatting…” addresses cosmetics, not the substantive failure to state impact."
       },
       {
         "question": "The worked example's Impact and Scope section states that use of the stolen credential elsewhere 'was not observed,' rather than claiming it 'was not used elsewhere.' Why does this specific phrasing matter?",
@@ -470,7 +470,7 @@ const lessons = [
           }
         ],
         "answer": "a",
-        "explanation": "Evidence discipline means marking confidence honestly: 'confirmed' for what the evidence directly shows, and language like 'not observed' for what the checks performed did not find, which is not the same as proving it never happened. Overstating this to 'was not used elsewhere' would be a claim the evidence doesn't support. Option b invents a legal rule. Option c misreads careful phrasing as evasion. Option d treats a substantive evidence-discipline choice as mere formatting."
+        "explanation": "Evidence discipline means marking confidence honestly: 'confirmed' for what the evidence directly shows, and language like 'not observed' for what the checks performed did not find, which is not the same as proving it never happened. Overstating this to 'was not used elsewhere' would be a claim the evidence doesn't support. The option “'Not observed' is required legal terminology that…” invents a legal rule. The option “The analyst is avoiding personal responsibility in…” misreads careful phrasing as evasion. The option “Passive-voice wording is a formatting rule this…” treats a substantive evidence-discipline choice as mere formatting."
       },
       {
         "question": "You are a SOC analyst finishing a full technical incident report that contains real internal hostnames, an attacker-created account name, and IOCs. It needs to reach your own IR team and, on a need-to-know basis, the affected client's security contact — but must not spread further than that. Which TLP label is correct?",
@@ -516,7 +516,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "A clean, tabulated IOC list and MITRE mapping are close to machine-parseable already, which is what makes automated conversion into structured formats like STIX indicators (for threat-intel platforms) or VERIS classifications (for benchmarking) practical. A hash buried only in a sentence of prose is very hard to extract reliably by a machine. Option a understates the real functional purpose. Option c dismisses a genuine downstream benefit as mere cosmetics. Option d confuses the IOC table's purpose with the executive summary's, which serves a completely different audience and need."
+        "explanation": "A clean, tabulated IOC list and MITRE mapping are close to machine-parseable already, which is what makes automated conversion into structured formats like STIX indicators (for threat-intel platforms) or VERIS classifications (for benchmarking) practical. A hash buried only in a sentence of prose is very hard to extract reliably by a machine. The option “It makes the report shorter, which is…” understates the real functional purpose. The option “It satisfies a formatting rule that has…” dismisses a genuine downstream benefit as mere cosmetics. The option “It removes the need to include an…” confuses the IOC table's purpose with the executive summary's, which serves a completely different audience and need."
       }
     ],
     "references": [

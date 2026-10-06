@@ -119,7 +119,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Hashing is one-way, so a stolen password database yields digests an attacker still has to crack. Encryption is reversible by design, which means the recoverability the developer describes is exactly the weakness: whoever obtains the key obtains every password in plaintext. Option a mistakes a convenience feature for a safe design. Option c repeats the discredited idea that secrecy of the algorithm provides security, when in fact all strong algorithms are public and the key is the only secret. Option d misidentifies a fundamental security flaw as a performance concern."
+        "explanation": "Hashing is one-way, so a stolen password database yields digests an attacker still has to crack. Encryption is reversible by design, which means the recoverability the developer describes is exactly the weakness: whoever obtains the key obtains every password in plaintext. The option “Nothing is wrong here, since being able…” mistakes a convenience feature for a safe design. The option “Encryption is acceptable for passwords, but only…” repeats the discredited idea that secrecy of the algorithm provides security, when in fact all strong algorithms are public and the key is the only secret. The option “The concern is purely about performance, because…” misidentifies a fundamental security flaw as a performance concern."
       },
       {
         "question": "Your team blocks a malware sample by its SHA-256 hash after an incident. The same threat actor targets you again the following week with functionally identical malware, and the hash block does not fire. What is the most likely explanation?",
@@ -142,7 +142,7 @@ const lessons = [
           }
         ],
         "answer": "a",
-        "explanation": "Because of the avalanche property, any change to the file — even adding a comment or padding bytes — produces an entirely different digest while leaving the behaviour intact. This is why hashes sit at the bottom of the Pyramid of Pain: they cost the adversary almost nothing to change. Option b invents an expiry that hashes do not have. Option c invents a size limit that does not exist. Option d describes reversing a hash, which is precisely what the one-way property prevents."
+        "explanation": "Because of the avalanche property, any change to the file — even adding a comment or padding bytes — produces an entirely different digest while leaving the behaviour intact. This is why hashes sit at the bottom of the Pyramid of Pain: they cost the adversary almost nothing to change. The option “SHA-256 digests expire after a set period…” invents an expiry that hashes do not have. The option “Hash-based blocking only applies to files below…” invents a size limit that does not exist. The option “The attacker reversed the SHA-256 digest back…” describes reversing a hash, which is precisely what the one-way property prevents."
       },
       {
         "question": "A user forwards you a link and asks whether the site is safe, pointing out that the browser shows a padlock and reports a valid certificate. What does that certificate actually establish?",
@@ -165,7 +165,7 @@ const lessons = [
           }
         ],
         "answer": "a",
-        "explanation": "The browser checks name match, validity dates, chain to a trusted root, and revocation status — all properties of the connection and the binding, not of the operator's intentions. Domain-validated certificates are free and automatic, so a phishing domain registered minutes ago has a perfectly valid one. Options b and c both credit certificate authorities with content or business vetting they do not perform for standard certificates. Option d is wrong because certificate validity is unrelated to domain age or reputation."
+        "explanation": "The browser checks name match, validity dates, chain to a trusted root, and revocation status — all properties of the connection and the binding, not of the operator's intentions. Domain-validated certificates are free and automatic, so a phishing domain registered minutes ago has a perfectly valid one. The options “That an independent authority reviewed the content…”, “That the connection is encrypted and the…”, “That the domain has existed for a…” and “That the site is incapable of hosting…” both credit certificate authorities with content or business vetting they do not perform for standard certificates. The option “That the domain has existed for a…” is wrong because certificate validity is unrelated to domain age or reputation."
       },
       {
         "question": "During triage you find a PowerShell command line containing a long base64 string passed to the -enc <base64 blob>. What is the correct conclusion and next step?",
@@ -188,7 +188,7 @@ const lessons = [
           }
         ],
         "answer": "a",
-        "explanation": "Base64 is a transport encoding with no key, so it is trivially reversible and decoding it is a standard triage step that usually reveals the attacker's actual command. Attackers use it to obscure intent from casual inspection and from naive string matching, not to protect it. Option b confuses encoding with encryption. Option c confuses encoding with hashing, and would wrongly stop the investigation. Option d describes a signature, which serves to prove origin rather than to obscure content."
+        "explanation": "Base64 is a transport encoding with no key, so it is trivially reversible and decoding it is a standard triage step that usually reveals the attacker's actual command. Attackers use it to obscure intent from casual inspection and from naive string matching, not to protect it. The option “It is encrypted with a key held…” confuses encoding with encryption. The option “It is a hash of the original…” confuses encoding with hashing, and would wrongly stop the investigation. The option “It is a digital signature demonstrating that…” describes a signature, which serves to prove origin rather than to obscure content."
       },
       {
         "question": "You identify a malicious executable on one host and add its SHA-256 to your blocklist. A week later five more hosts are found running the same malware family — but each is a slightly different build, and none matched your blocklisted hash. What technique would have caught the family, and why does the exact hash fail?",
@@ -211,7 +211,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "An exact cryptographic hash is all-or-nothing: one changed byte yields a completely different digest, so a blocklist catches exactly one file. Fuzzy hashing (ssdeep) scores similarity so near-identical variants cluster, and imphash groups Windows executables by their import table, catching builds that share how they were made and what they do. Option a is defeatist and wrong — that is precisely what similarity hashing solves. Option c cannot scale to unbuilt future variants. Option d misunderstands the issue: a stronger exact hash is still exact, so it fails the same way."
+        "explanation": "An exact cryptographic hash is all-or-nothing: one changed byte yields a completely different digest, so a blocklist catches exactly one file. Fuzzy hashing (ssdeep) scores similarity so near-identical variants cluster, and imphash groups Windows executables by their import table, catching builds that share how they were made and what they do. The option “Nothing could have caught them, because once…” is defeatist and wrong — that is precisely what similarity hashing solves. The option “A larger exact-hash blocklist would have worked…” cannot scale to unbuilt future variants. The option “The problem was only that SHA-256 is…” misunderstands the issue: a stronger exact hash is still exact, so it fails the same way."
       },
       {
         "question": "An analyst sees a signed executable — Windows shows a valid Authenticode signature from a real, verified publisher — and concludes 'it's signed by a legitimate company, so it's safe; nothing to investigate.' Why is this reasoning flawed?",
@@ -234,7 +234,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "A code signature authenticates origin and guarantees the file was not tampered with after signing — but that trust stops at the file's edge. Attackers ride stolen signing keys to sign malware as a trusted publisher, abuse signed-but-legitimate tools (LOLBins, DLL sideloading), and obtain certs fraudulently, so a valid signature never certifies behaviour. Option a is the exact over-trust the question warns against. Option c fixates on the hash algorithm while ignoring stolen keys and abused-tool cases. Option d overcorrects into treating all signed files as malware, which is equally wrong."
+        "explanation": "A code signature authenticates origin and guarantees the file was not tampered with after signing — but that trust stops at the file's edge. Attackers ride stolen signing keys to sign malware as a trusted publisher, abuse signed-but-legitimate tools (LOLBins, DLL sideloading), and obtain certs fraudulently, so a valid signature never certifies behaviour. The option “It is perfectly sound: a valid Authenticode…” is the exact over-trust the question warns against. The option “The flaw is only that the analyst…” fixates on the hash algorithm while ignoring stolen keys and abused-tool cases. The option “Signed files are actually more dangerous than…” overcorrects into treating all signed files as malware, which is equally wrong."
       },
       {
         "question": "You run certutil -hashfile on a downloaded installer and paste the resulting SHA-256 into a threat-intel lookup: 41 of 48 engines flag that exact digest as trojan.infostealer. A colleague argues this proves nothing because 'a hash is just a number.' How should you weigh the result?",
@@ -257,7 +257,7 @@ const lessons = [
           }
         ],
         "answer": "a",
-        "explanation": "A hash match is an exact-equality test with no room for near-misses, so 41 engines independently flagging that precise digest is strong, actionable evidence — you never needed to open, run, or reverse the file to reach that confidence. Option b wrongly treats 41 engines matching one exact digest as equivalent to a single opinion. Option c is factually wrong: SHA-256 has no practical collisions, unlike broken MD5/SHA-1. Option d substitutes an irrelevant, easily-forged property (file size) for the far stronger cryptographic identifier."
+        "explanation": "A hash match is an exact-equality test with no room for near-misses, so 41 engines independently flagging that precise digest is strong, actionable evidence — you never needed to open, run, or reverse the file to reach that confidence. The option “Dismiss it entirely, because antivirus engines are…” wrongly treats 41 engines matching one exact digest as equivalent to a single opinion. The option “Treat it as inconclusive, because SHA-256 has…” is factually wrong: SHA-256 has no practical collisions, unlike broken MD5/SHA-1. The option “Ignore the verdict and focus only on…” substitutes an irrelevant, easily-forged property (file size) for the far stronger cryptographic identifier."
       },
       {
         "question": "A company learns that an attacker stole its web server's long-term TLS private key today. Two years of past encrypted traffic to that server were captured and stored by an unrelated third party during that time. Under TLS 1.3, what does the theft of the private key allow the attacker to do to that stored two-year traffic archive?",
@@ -280,7 +280,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "TLS 1.3 makes ephemeral Diffie-Hellman mandatory: the long-term certificate only signs each session's ephemeral exchange, it never encrypts the session directly. That means each past session's actual traffic key was derived from a temporary value that existed only for that session and is now gone, so stealing the long-term key today grants no access to the two-year archive. Option a describes the exact static-key weakness TLS 1.3 was designed to eliminate. Option c invents an irrelevant password-reuse condition. Option d confuses an unrelated concept, file hashing, with session key derivation."
+        "explanation": "TLS 1.3 makes ephemeral Diffie-Hellman mandatory: the long-term certificate only signs each session's ephemeral exchange, it never encrypts the session directly. That means each past session's actual traffic key was derived from a temporary value that existed only for that session and is now gone, so stealing the long-term key today grants no access to the two-year archive. The option “Decrypt all of it immediately, since under…” describes the exact static-key weakness TLS 1.3 was designed to eliminate. The option “Decrypt only sessions from the specific users…” invents an irrelevant password-reuse condition. The option “Decrypt all of it, but only after…” confuses an unrelated concept, file hashing, with session key derivation."
       },
       {
         "question": "A payment processor and a merchant's server both hold a pre-shared secret used to authenticate webhook notifications between them. A separate certificate authority's root certificate is trusted by every browser on the internet without any of those browsers ever sharing a secret with the CA. What explains why the payment processor uses HMAC for its webhooks while the CA uses a digital signature for its certificates?",
@@ -303,7 +303,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "The payment processor and merchant are a closed, known pair who can safely provision a shared secret in advance, which is exactly what HMAC requires. A CA's certificate must be verifiable by an unbounded, unknown population of browsers that can never share a secret with the CA in advance, which is exactly what a public/private key pair and a digital signature enable. Option a wrongly claims full interchangeability, ignoring the different trust models. Option c inverts the actual requirement -- digital signatures need no pre-shared secret at all. Option d is false; HMAC is used over the internet constantly, including in this exact webhook scenario."
+        "explanation": "The payment processor and merchant are a closed, known pair who can safely provision a shared secret in advance, which is exactly what HMAC requires. A CA's certificate must be verifiable by an unbounded, unknown population of browsers that can never share a secret with the CA in advance, which is exactly what a public/private key pair and a digital signature enable. The option “HMAC is simply a faster version of…” wrongly claims full interchangeability, ignoring the different trust models. The option “Digital signatures require both parties to share…” inverts the actual requirement -- digital signatures need no pre-shared secret at all. The option “HMAC cannot be used over the internet…” is false; HMAC is used over the internet constantly, including in this exact webhook scenario."
       }
     ],
     "createdAt": "2026-08-13T00:00:00.000Z",

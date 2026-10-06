@@ -192,7 +192,7 @@ Agents give you the richest, most reliable collection but require software deplo
 
 **2. Agentless collection (Syslog)** — network devices like firewalls and switches cannot have software installed on them. Instead, they are configured to send logs via the **Syslog protocol** over **UDP or TCP port 514** to a central log collector (often called a syslog server). Simple, low-overhead, but logs can be lost if the network drops.
 
-**3. API polling** — cloud services (Microsoft 365, AWS, Okta) expose APIs that the SIEM can call periodically to retrieve logs. For example, Microsoft Sentinel calls the Microsoft Graph Security API every few minutes to pull new Azure AD sign-in events.
+**3. API polling** — cloud services (Microsoft 365, AWS, Okta) expose APIs that the SIEM can call periodically to retrieve logs. For example, a SIEM connector calls the Office 365 Management Activity API (or the Okta System Log API) every few minutes to pull new audit events. (Entra ID sign-in logs reach Microsoft Sentinel differently — they are streamed in through Azure diagnostic settings, not polled.)
 
 **Log Normalisation: Speaking the Same Language**
 
@@ -768,10 +768,10 @@ SecurityEvent
 In SPL:
 \`\`\`
 index=windows EventCode=4625 earliest=-1h
-| stats count by Account
+| stats count by Account_Name
 \`\`\`
 
-Same question, same answer, different syntax. KQL builds the query as a pipeline of separate lines — start with the table (SecurityEvent), narrow it with where, narrow it again by time, then summarize. SPL front-loads its filtering into the base search itself: index=windows picks the data source, EventCode=4625 is the filter condition, and earliest=-1h is the time scope, all on one line, before the pipe hands the filtered results to stats for the count. Splunk analysts and Sentinel analysts are doing identical mental work; they are just typing it differently.
+Same question, same answer, different syntax. KQL builds the query as a pipeline of separate lines — start with the table (SecurityEvent), narrow it with where, narrow it again by time, then summarize. SPL front-loads its filtering into the base search itself: index=windows picks the data source, EventCode=4625 is the filter condition, and earliest=-1h is the time scope, all on one line, before the pipe hands the filtered results to stats for the count. Splunk analysts and Sentinel analysts are doing identical mental work; they are just typing it differently. (One Splunk detail: the Windows add-on extracts the account as Account_Name, and on a 4625 that field holds two values — the subject and the target account — so production searches often group by the CIM field user instead.)
 
 **The shared anatomy: filter, scope, aggregate**
 
@@ -817,7 +817,7 @@ A SIEM can hold billions of events across every index and every retention day it
         { id: "aggregation", answers: ["FailCount = count()", "count()"], placeholder: "aggregation expression" },
       ],
       explanation:
-        "4625 is the Windows Security Event ID for a failed logon attempt — 4624 is its easily-confused twin, a successful logon. ago(1h) scopes TimeGenerated to the last hour, the same relative-time shorthand you saw in the reading (30m, 1h, 24h, 7d all work). summarize ... by Account groups every matching failure row by account and counts them, turning a flat list of raw events into the exact shape a triage answer needs: how many failures per account. This is the identical logic the reading's SPL example reached with stats count by Account — same three steps, different keywords.",
+        "4625 is the Windows Security Event ID for a failed logon attempt — 4624 is its easily-confused twin, a successful logon. ago(1h) scopes TimeGenerated to the last hour, the same relative-time shorthand you saw in the reading (30m, 1h, 24h, 7d all work). summarize ... by Account groups every matching failure row by account and counts them, turning a flat list of raw events into the exact shape a triage answer needs: how many failures per account. This is the identical logic the reading's SPL example reached with stats count by Account_Name — same three steps, different keywords.",
       xp: 25,
     } satisfies QueryFillTask,
   ],
@@ -924,7 +924,7 @@ After decoding, Wazuh has structured fields like:
 - \`data.srcuser = admin\`
 - \`data.srcip = 185.220.101.45\`
 - \`data.program_name = sshd\`
-- \`data.dstport = 54321\`
+- \`data.srcport = 54321\` (the SSH client's source port — the "port 54321" in the sshd message)
 
 Wazuh ships with hundreds of built-in decoders covering Apache, Nginx, MySQL, Windows Event Log, sshd, sudo, useradd, and many more. You can also write custom decoders for proprietary applications.
 
@@ -960,7 +960,8 @@ By default, Wazuh writes an alert for any rule that fires at **level 3 or above*
 | 5300-5999 | Authentication — sshd, PAM, sudo, user and group changes |
 | 18100-18999 | Windows event log |
 | 31100-31999 | Web server (Apache/Nginx/IIS) — includes web attack signatures |
-| 60000-61999 | Windows Sysmon and rootcheck |
+| 500-599 | Wazuh internal — rootcheck (e.g. 510) and file-integrity/syscheck (e.g. 550, 554) |
+| 60000-61999 | Windows eventchannel — Security, System and Sysmon channels |
 | 80000+ | Integrations and vendor-specific decoders |
 | 100000+ | Reserved for YOUR custom rules — never write below this |
 
@@ -971,7 +972,7 @@ Some representative built-in rules you will meet often:
 - **5710** — sshd: attempt to log in using a non-existent user
 - **5503** — PAM: user login failed
 - **31103** — Web server attack: SQL injection attempt (successful SQLi escalates to **31106**)
-- **60104** — Rootkit detection by rootcheck
+- **510** — Host-based anomaly detection event (rootcheck)
 
 **Always confirm the exact ID against your own instance before you build anything on it.** Rule IDs and their descriptions shift between ruleset versions, and every organisation runs a slightly different mix of built-in and custom rules. Two commands settle it in seconds: **/var/ossec/bin/wazuh-logtest** lets you paste a raw log line and see precisely which rule fires and at what level, and the rule files under **/var/ossec/ruleset/rules/** are plain XML you can grep. An analyst who knows how to *look up* the rule that fired is far more useful than one who memorised a list that was accurate for one version two years ago.
 
@@ -1125,7 +1126,7 @@ The Wazuh Dashboard includes several built-in sections:
           options: [
             "Rule 5710, level 7 — medium severity SSH failure",
             "Rule 5903, level 12 — high severity, requiring prompt attention",
-            "Rule 60104, level 15 — critical rootkit detection",
+            "Rule 510, level 7 — rootcheck host-based anomaly detection",
             "Rule 5501, level 5 — low severity authentication failure",
           ],
           answer: 1,
@@ -1278,7 +1279,7 @@ Each data connector populates specific tables in the Log Analytics Workspace. Ke
 |-----------|---------|
 | **SecurityEvent** | Windows Security Event Log (Event IDs 4624, 4625, 4688, etc.) |
 | **Syslog** | Linux syslog messages from agents or syslog forwarders |
-| **SignInLogs** | Azure Active Directory / Entra ID sign-in events |
+| **SigninLogs** | Azure Active Directory / Entra ID sign-in events |
 | **AuditLogs** | Azure AD directory changes (user create/delete, group changes, role assignments) |
 | **OfficeActivity** | Microsoft 365 activity (Exchange, SharePoint, Teams, OneDrive) |
 | **DeviceEvents** | Microsoft Defender for Endpoint raw events |
@@ -1288,13 +1289,13 @@ Each data connector populates specific tables in the Log Analytics Workspace. Ke
 | **SecurityAlert** | Alerts from Microsoft security products (Defender, Sentinel analytics rules) |
 | **SecurityIncident** | Sentinel incidents (grouped alerts) |
 
-Knowing which table to query is the first step in any Sentinel investigation. A Windows failed login? Query SecurityEvent. A suspicious Azure AD login? Query SignInLogs.`,
+Knowing which table to query is the first step in any Sentinel investigation. A Windows failed login? Query SecurityEvent. A suspicious Azure AD login? Query SigninLogs.`,
       checkpoint: {
         question: "According to the reading, which Sentinel table would you query to investigate a suspicious Azure AD sign-in?",
-        options: ["SignInLogs", "SecurityEvent", "Syslog", "Heartbeat"],
+        options: ["SigninLogs", "SecurityEvent", "Syslog", "Heartbeat"],
         answer: 0,
         explanation:
-          "SignInLogs holds Azure Active Directory / Entra ID sign-in events. SecurityEvent is for Windows Security Event Log data (like 4624/4625), which is a different source entirely.",
+          "SigninLogs holds Azure Active Directory / Entra ID sign-in events. SecurityEvent is for Windows Security Event Log data (like 4624/4625), which is a different source entirely.",
       },
     } satisfies ReadingTask,
 
@@ -1350,7 +1351,7 @@ SecurityEvent
 | where TimeGenerated > ago(1h)
 | where EventID == 4625
 \`\`\`
-\`ago(1h)\` means "1 hour ago from now." You can use \`ago(24h)\`, \`ago(7d)\`, \`ago(30m)\`. The TimeGenerated column is always the authoritative timestamp for when an event was ingested into Sentinel.
+\`ago(1h)\` means "1 hour ago from now." You can use \`ago(24h)\`, \`ago(7d)\`, \`ago(30m)\`. TimeGenerated is the record's event time — when the event was generated at the source (or received by the agent), not when it landed in Sentinel. Ingestion time is a separate value you read with \`ingestion_time()\`; logs can arrive minutes late (ingestion delay), which is why scheduled rules use a lookback that overlaps the run interval.
 
 **6. sort / order by**
 \`\`\`
@@ -1383,8 +1384,8 @@ SecurityEvent
 This query finds all source IPs that generated more than 20 failed Windows logins in the past 24 hours, excluding your known internal scanners, showing how many distinct accounts each IP tried. This is a manual password spray investigation query.
 
 **Key KQL tips:**
-- KQL is **case-sensitive** for column values but **case-insensitive** for operators and function names
-- \`==\` is exact match; \`=~\` is case-insensitive match; \`contains\` is substring; \`startswith\` is prefix
+- KQL is **case-sensitive** for table names, column names, operators and functions — \`SecurityEvent | Where ...\` fails because the operator is \`where\`
+- String matching depends on the operator: \`==\` is an exact, case-sensitive match; \`=~\` is a case-insensitive match; \`has\`, \`contains\` and \`startswith\` are case-insensitive (their \`_cs\` variants are case-sensitive)
 - The pipe \`|\` must always be on the same line as or at the start of the next operator
 - String literals use double quotes: \`"value"\`
 - Run queries in the Sentinel Logs blade or in the Log Analytics Workspace directly`,
@@ -1406,12 +1407,12 @@ This query finds all source IPs that generated more than 20 failed Windows login
       options: [
         "SELECT * FROM SecurityEvent WHERE EventID = 4625 AND time > -6h",
         "SecurityEvent | where EventID == 4625 | where TimeGenerated > ago(6h)",
-        "SignInLogs | where EventID == 4625 | filter time > 6h",
+        "SigninLogs | where EventID == 4625 | filter time > 6h",
         "SecurityEvent | filter EventID = '4625' | timerange 6h",
       ],
       answer: 1,
       explanation:
-        "The correct KQL syntax is: start with the table name (SecurityEvent), then use pipe-separated operators. 'where EventID == 4625' filters for failed logins, and 'where TimeGenerated > ago(6h)' filters for the past 6 hours. Option A uses SQL syntax (not valid in KQL). Option C uses the wrong table (SignInLogs is for Azure AD, not Windows Security Events) and wrong syntax. Option D uses invalid KQL syntax.",
+        "The correct KQL syntax is: start with the table name (SecurityEvent), then use pipe-separated operators. 'where EventID == 4625' filters for failed logins, and 'where TimeGenerated > ago(6h)' filters for the past 6 hours. The SELECT ... FROM version is SQL syntax (not valid in KQL). The SigninLogs version uses the wrong table (SigninLogs is for Entra ID / Azure AD sign-ins, not Windows Security Events) and wrong syntax. The 'filter ... | timerange' version uses invalid KQL syntax.",
       xp: 25,
     } satisfies QuestionTask,
 
@@ -1546,10 +1547,10 @@ Workbooks are Sentinel's built-in dashboards, built on Azure Monitor Workbooks. 
         {
           question:
             "Which Sentinel table does this Windows Security Event 4625 (failed login) come from?",
-          options: ["SignInLogs", "AuditLogs", "SecurityEvent", "OfficeActivity"],
+          options: ["SigninLogs", "AuditLogs", "SecurityEvent", "OfficeActivity"],
           answer: 2,
           explanation:
-            "Windows Security Event Log entries — including failed logins (4625), successful logins (4624), process creation (4688), and all other Windows Security channel events — are stored in the 'SecurityEvent' table in Sentinel. SignInLogs is for Azure AD / Entra ID cloud logins. AuditLogs is for Azure AD directory changes. OfficeActivity is for Microsoft 365 (Exchange, SharePoint, Teams).",
+            "Windows Security Event Log entries — including failed logins (4625), successful logins (4624), process creation (4688), and all other Windows Security channel events — are stored in the 'SecurityEvent' table in Sentinel. SigninLogs is for Azure AD / Entra ID cloud logins. AuditLogs is for Azure AD directory changes. OfficeActivity is for Microsoft 365 (Exchange, SharePoint, Teams).",
           xp: 20,
         },
         {
@@ -1572,12 +1573,12 @@ Workbooks are Sentinel's built-in dashboards, built on Azure Monitor Workbooks. 
           options: [
             "Interactive logon — user physically sat at the machine and entered credentials",
             "Service logon — a Windows service started using a service account",
-            "Network logon — authentication over the network (e.g., SMB, RDP, mapped drive)",
+            "Network logon — authentication over the network (e.g., SMB file share, mapped drive)",
             "Cached credentials logon — offline login using cached domain credentials",
           ],
           answer: 2,
           explanation:
-            "Windows Logon Type 3 is a Network logon — the authentication request came over the network rather than at the physical console. This type is used by SMB (file shares), RDP network-level authentication, and many remote access methods. The source IP 185.220.101.45, an external address unrelated to the corporate network, combined with LogonType 3 and a WorkstationName that does not match any known corporate asset, confirms this is a remote network-based authentication attempt from outside the organisation.",
+            "Windows Logon Type 3 is a Network logon — the authentication request came over the network rather than at the physical console. This type is used by SMB (file shares), mapped drives and many other remote access methods. (A full interactive RDP session logs as LogonType 10, RemoteInteractive; only RDP's Network Level Authentication pre-check appears as type 3.) The source IP 185.220.101.45, an external address unrelated to the corporate network, combined with LogonType 3 and a WorkstationName that does not match any known corporate asset, confirms this is a remote network-based authentication attempt from outside the organisation.",
           xp: 25,
         },
       ],
@@ -1599,16 +1600,16 @@ Workbooks are Sentinel's built-in dashboards, built on Azure Monitor Workbooks. 
       type: "question",
       id: "sentinel-q2",
       question:
-        "A Sentinel analytics rule runs every 5 minutes and looks back at the last 15 minutes of SignInLogs. It detects a user account logging in from two countries 30 minutes apart (impossible travel). What type of analytics rule would be MOST appropriate for this detection?",
+        "You want a Sentinel detection that runs every 5 minutes, looks back at the last 1 hour of SigninLogs, and flags a user account signing in from two countries 30 minutes apart (impossible travel) using your own distance and time thresholds. What type of analytics rule is MOST appropriate for this detection?",
       options: [
         "Scheduled rule with a custom KQL query calculating geolocation distance and time difference",
         "NRT (Near Real Time) rule running every 1 minute",
-        "Fusion rule — this is automatically handled by Microsoft's ML",
-        "Both A and C are appropriate — Scheduled rules for custom logic, Fusion for automatic ML detection",
+        "Fusion rule — Fusion's ML engine detects impossible travel on its own from raw sign-in logs",
+        "Microsoft Security rule — it turns raw SigninLogs records directly into incidents",
       ],
-      answer: 3,
+      answer: 0,
       explanation:
-        "Both approaches work: Microsoft's Fusion ML engine automatically detects impossible travel as an anomaly without any custom configuration. However, you can also write your own Scheduled analytics rule using KQL to detect it with custom thresholds (e.g., alert only if the distance implies >900 km/h travel). In production environments, many organisations use both — Fusion for broad coverage and a custom scheduled rule with organisation-specific thresholds for higher-confidence alerts.",
+        "A Scheduled rule is the right tool: it runs a custom KQL query on a schedule (here every 5 minutes over a 1-hour lookback, which is long enough to see two sign-ins 30 minutes apart) and lets you set your own thresholds, e.g. alert only if the distance implies >900 km/h travel. An NRT rule runs every minute over a very short window and is meant for single-event, low-latency detections, not a comparison of sign-ins spread over half an hour. Fusion does not detect impossible travel itself: it is a correlation engine that chains alerts that already exist (for example an 'atypical travel' alert from Entra ID Protection or an 'impossible travel' alert from Defender for Cloud Apps) into multi-stage incidents. A Microsoft Security rule only creates incidents from alerts raised by other Microsoft security products; it does not query raw SigninLogs. Built-in behavioural detection of unusual travel comes from Anomaly rules/UEBA or Entra ID Protection, not from Fusion.",
       xp: 25,
     } satisfies QuestionTask,
 
@@ -1621,12 +1622,12 @@ Workbooks are Sentinel's built-in dashboards, built on Azure Monitor Workbooks. 
       options: [
         "SecurityEvent | where EventID == 4625 | where TimeGenerated > ago(24h) | summarize FailCount = count() by Account | top 5 by FailCount",
         "SELECT Account, COUNT(*) FROM SecurityEvent WHERE EventID=4625 GROUP BY Account LIMIT 5",
-        "SignInLogs | where ResultType != 0 | top 5 by Account",
+        "SigninLogs | where ResultType != 0 | top 5 by Account",
         "SecurityEvent | filter EventID=4625 | groupby Account | top 5",
       ],
       answer: 0,
       explanation:
-        "The correct KQL query chains the operators correctly: (1) start with SecurityEvent table, (2) filter for EventID 4625 using 'where', (3) apply time filter with ago(24h), (4) summarize with count() grouped by Account, (5) return top 5 by count. Option B is SQL syntax. Option C uses the wrong table and wrong failed login indicator (SignInLogs uses ResultType, not EventID). Option D uses invalid KQL syntax.",
+        "The correct KQL query chains the operators correctly: (1) start with SecurityEvent table, (2) filter for EventID 4625 using 'where', (3) apply time filter with ago(24h), (4) summarize with count() grouped by Account, (5) return top 5 by count. The SELECT ... GROUP BY version is SQL syntax. The SigninLogs version queries the wrong table: Windows failed logons (4625) live in SecurityEvent, while SigninLogs holds Entra ID sign-ins and marks failures with ResultType, not EventID. The 'filter ... | groupby' version uses invalid KQL syntax.",
       xp: 25,
     } satisfies QuestionTask,
 

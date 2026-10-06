@@ -365,7 +365,7 @@ const rooms = [
           `- **False Positive (FP) Rate**: What percentage of alerts turned out to be non-malicious? An FP rate above 90% is a sign of poorly tuned detection rules. Analyst time is being wasted.\n` +
           `- **Escalation Rate**: What percentage of Tier 1 tickets were escalated to Tier 2? Unusually high escalation rates may indicate Tier 1 needs more training.\n` +
           `- **Open Tickets**: How many incidents are currently unresolved? A growing backlog is a warning sign.\n` +
-          `- **SLA Compliance**: Are you meeting your Service Level Agreement commitments? (e.g., P1 incidents must be acknowledged within 15 minutes)\n\n` +
+          `- **SLA Compliance**: Are you meeting your Service Level Agreement commitments? (e.g., P1 incidents must be acknowledged within 15 minutes). A breached SLA is itself a reportable finding: most SOCs do not let the assigned analyst close a ticket whose SLA was breached on their own — the breach must be recorded in the ticket and the ticket escalated to a shift lead or SOC manager for review and sign-off before closure, even when the underlying incident is fully contained.\n\n` +
           `**The Shift Handover Report**\n\n` +
           `At the end of every shift, the outgoing analyst writes a **Shift Handover Report** for the incoming team. Think of it like a relay race — you don't just drop the baton, you make sure the next runner knows exactly where they are and what they're running toward.\n\n` +
           `A good shift handover report covers:\n\n` +
@@ -596,8 +596,8 @@ const rooms = [
       {
         type: "analyst_choice" as const,
         id: "rep-ac1",
-        heading: "Verdict: What Severity Should This Incident Be Reported At?",
-        scenario: "You are writing the post-incident report. The incident involved: a phishing email that bypassed filters, one user clicked and credential was stolen, attacker logged in for 22 minutes and accessed 3 SharePoint document libraries. No data was exfiltrated (DLP shows 0 uploads). The attacker's session was terminated when MFA was revoked. MTTR was 145 minutes (SLA is 120 minutes). The affected user was a junior marketing analyst with no access to sensitive financial or PII data. How should you classify this incident?",
+        heading: "Verdict: What Should Happen Before This Ticket Is Closed?",
+        scenario: "You are writing the post-incident report. The incident involved: a phishing email that bypassed filters, one user clicked and credential was stolen, attacker logged in for 22 minutes and accessed 3 SharePoint document libraries. No data was exfiltrated (DLP shows 0 uploads). The attacker's session was terminated when MFA was revoked. MTTR was 145 minutes (SLA is 120 minutes). The affected user was a junior marketing analyst with no access to sensitive financial or PII data. The ticket is now in pending_closure and you are the assigned analyst. What should you do with this ticket before it is closed?",
         event: {
           id: "evt-rep-ac-001",
           ts: "2026-06-18T16:30:00.000Z",
@@ -621,7 +621,8 @@ const rooms = [
             "ticket.sla_breached": true,
             "ticket.minutes_over_sla": 25,
             "incident.affected_users": 1,
-            "incident.affected_systems": 0,
+            "incident.affected_systems": 1,
+            "incident.resources_accessed": "SharePoint Online — 3 document libraries",
             "incident.data_exfiltrated": false,
             "incident.dlp_uploads": 0,
             "incident.attacker_dwell_minutes": 22,
@@ -633,7 +634,7 @@ const rooms = [
           },
         },
         correct_verdict: "escalate",
-        explanation: "Escalation (to a supervisor or senior analyst for sign-off) is correct before closing this incident. Here is why: (1) The SLA was breached by 25 minutes — this must be documented, and most organizations require management sign-off before closing any SLA breach incident. Closing without noting the breach would be a reporting integrity failure. (2) Even though no data was exfiltrated and no sensitive data was accessible, the 22-minute attacker session requires documentation of everything accessed — some documents in SharePoint may have contained more than standard marketing materials. (3) A post-incident review should be triggered to understand why the phishing email bypassed filters. The correct severity for the report is P3 (low business impact) but the SLA breach elevates the process requirement.",
+        explanation: "Escalation (to a supervisor or senior analyst for sign-off) is correct before closing this incident. Here is why: (1) The SLA was breached by 25 minutes — this must be documented, and (as Reading 2 explains) most organizations require shift-lead or management sign-off before closing any SLA-breach incident. Simply classifying it as a true positive and closing it yourself skips that required review. Closing without noting the breach would be a reporting integrity failure. (2) Even though no data was exfiltrated and no sensitive data was accessible, the 22-minute attacker session requires documentation of everything accessed — some documents in SharePoint may have contained more than standard marketing materials. (3) A post-incident review should be triggered to understand why the phishing email bypassed filters. The correct severity for the report is P3 (low business impact) but the SLA breach elevates the process requirement.",
         fp_trap: "It is tempting to call this 'informational' because: no sensitive data was accessed, no exfiltration occurred, and the attacker was contained in 22 minutes. But the SLA breach (145 vs 120 minutes) is a contractual/compliance finding that requires documentation and management acknowledgment before closing — it cannot be silently ignored in the report.",
         xp: 30,
       },
@@ -1217,7 +1218,7 @@ const rooms = [
           },
         },
         correct_verdict: "escalate",
-        explanation: "Escalate immediately — this is the textbook Tier-2 escalation scenario. The runbook explicitly requires escalation for confirmed T1 incidents. With active lateral movement spreading to 3 new hosts, you are a solo Tier-1 analyst managing 15 affected hosts at 2:30 AM — the scope is exceeding what a single analyst can effectively handle. Tier-2 will: (a) take incident command; (b) coordinate with the client's IT team for domain-wide isolation; (c) trigger crisis communication; (d) begin forensic investigation. The concern about 'waking someone at 2:30 AM' is exactly the feeling that causes incidents to spiral — T2 on-call signed up to be woken for exactly this situation. 'I already blocked C2 and isolated some hosts' is a good briefing to give T2, not a reason to delay the call.",
+        explanation: "Escalate immediately — this is the textbook Tier-2 escalation scenario. The runbook explicitly requires escalation for confirmed T1 incidents. With active lateral movement spreading to 3 new hosts, you are a solo Tier-1 analyst managing 15 affected hosts at 2:30 AM — the scope is exceeding what a single analyst can effectively handle. Tier-2 will: (1) take incident command; (2) coordinate with the client's IT team for domain-wide isolation; (3) trigger crisis communication; (4) begin forensic investigation. The concern about 'waking someone at 2:30 AM' is exactly the feeling that causes incidents to spiral — T2 on-call signed up to be woken for exactly this situation. 'I already blocked C2 and isolated some hosts' is a good briefing to give T2, not a reason to delay the call.",
         fp_trap: "You've already taken good containment steps (C2 blocked, isolation commands sent) and might feel the situation is 'under control'. But 5 hosts are still pending isolation, 3 new hosts just appeared, and you are alone at 2:30 AM. The runbook exists precisely because in high-pressure situations, solo analysts underestimate scope. Escalation is not admitting failure — it is the correct process for a T1 Critical incident.",
         xp: 35,
       },

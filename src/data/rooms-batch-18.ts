@@ -487,7 +487,7 @@ const kerberosRoom: Room = {
       id: "krb-ac1",
       heading: "Verdict: A Daily RC4 Ticket Request From a Backup Service Account",
       scenario:
-        "A detection rule tuned to flag any TicketEncryptionType: 0x17 in the environment (which enforces AES-only Kerberos policy for all standard accounts) fired on account svc_nasbackup. Review the event below alongside the change-ticket note attached to it.",
+        "A detection rule tuned to flag any TicketEncryptionType: 0x17 in the environment (which enforces AES-only Kerberos policy for all standard accounts) fired on account svc_nasbackup. Before deciding, you pulled the last 30 days of 4769 events for this account: exactly one TGS request per day, always at about 03:00 (the scheduled backup window), always for the same single SPN cifs/nas02.meridian.local, always from 10.55.2.44 — and no requests for any other SPN. Review the event below alongside the change-ticket note attached to it.",
       event: rc4LegacyBackupEvent,
       correct_verdict: "false_positive",
       explanation:
@@ -612,14 +612,14 @@ const uacConsentEvent: TelemetryEvent = {
     name: "MeridianExpenseInstaller.exe",
     pid: 5120,
     path: "C:\\Users\\r.chukwu\\Downloads\\MeridianExpenseInstaller.exe",
-    parent_name: "consent.exe",
-    parent_pid: 4880,
+    parent_name: "explorer.exe",
+    parent_pid: 3312,
     cmdline: "\"C:\\Users\\r.chukwu\\Downloads\\MeridianExpenseInstaller.exe\" /S",
     user: "MERIDIAN\\r.chukwu",
     integrity: "high",
   },
   description:
-    "MeridianExpenseInstaller.exe was created with consent.exe as its direct parent, following a UAC prompt this admin-approval-mode user accepted; the deployment is listed in this week's approved software rollout schedule.",
+    "MeridianExpenseInstaller.exe was created at High integrity with the user's explorer.exe as its parent; Sysmon on the same host recorded consent.exe (parent svchost.exe, the AppInfo service) starting in this user's session four seconds earlier.",
   it_verify_result: "confirmed",
   it_verify_message:
     "SCCM deployment record DPL-4471 confirms MeridianExpenseInstaller.exe was pushed to this host today as part of the approved finance-tool rollout.",
@@ -628,7 +628,7 @@ const uacConsentEvent: TelemetryEvent = {
     "winlog.provider_name": "Microsoft-Windows-Sysmon",
     "winlog.event_data.Image": "C:\\Users\\r.chukwu\\Downloads\\MeridianExpenseInstaller.exe",
     "winlog.event_data.CommandLine": "\"C:\\Users\\r.chukwu\\Downloads\\MeridianExpenseInstaller.exe\" /S",
-    "winlog.event_data.ParentImage": "C:\\Windows\\System32\\consent.exe",
+    "winlog.event_data.ParentImage": "C:\\Windows\\explorer.exe",
     "winlog.event_data.IntegrityLevel": "High",
     "winlog.event_data.User": "MERIDIAN\\r.chukwu",
     "winlog.event_data.Hashes": "SHA256=91AE7C40B6F1D82A5E3C9F0847B2D6A1E4C8F35907A2B6D1E4F8C0A3B5D7E2C1",
@@ -693,14 +693,18 @@ const privescRoom: Room = {
       content:
         `LSASS (Local Security Authority Subsystem Service) is the process that validates logons and holds credential material in memory — NTLM hashes, Kerberos tickets, and in some configurations cached plaintext credentials. It is the single highest-value target on any Windows endpoint for an attacker who wants credentials, and integrity levels are the exact reason reaching it isn't trivial even for a process already running under an administrator's account.\n\n` +
         `**Why you can't just open it**\n\n` +
-        `Reading another process's memory requires opening a handle to it with sufficient access rights — for a full memory dump of LSASS, that means requesting PROCESS_ALL_ACCESS, represented in Windows access masks as 0x1FFFFF. By default, even an administrator's Medium-integrity process is denied this: opening a handle to a SYSTEM-owned, protected process like LSASS with full access requires the calling process to both hold SeDebugPrivilege (a privilege that lets a process debug and adjust the memory of other processes, normally disabled even for administrator tokens until explicitly enabled) and be running at High integrity or above. A Medium-integrity process, even one owned by an admin, will be denied this access outright — the privilege has to be enabled first, and the process has to have already elevated.\n\n` +
+        `Reading another process's memory requires opening a handle to it with sufficient access rights. Dumping LSASS needs surprisingly little: PROCESS_VM_READ (0x0010) plus a query right — MiniDumpWriteDump documents PROCESS_QUERY_INFORMATION | PROCESS_VM_READ (0x0410), Mimikatz's sekurlsa module typically requests 0x1010 (PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ), and cruder tools simply ask for everything, PROCESS_ALL_ACCESS (0x1FFFFF). By default, even an administrator's Medium-integrity process is denied any of these: opening a memory-read handle to a SYSTEM-owned process like LSASS requires the calling process to both hold SeDebugPrivilege (a privilege that lets a process debug and adjust the memory of other processes, normally disabled even for administrator tokens until explicitly enabled) and be running at High integrity or above. A Medium-integrity process, even one owned by an admin, will be denied this access outright — the privilege has to be enabled first, and the process has to have already elevated.\n\n` +
+        `Two defences raise the bar further. **LSA Protection (RunAsPPL)** runs LSASS as a Protected Process Light, so even a SYSTEM process holding SeDebugPrivilege is refused a memory-read handle unless it is itself a signed protected process — attackers then need a vulnerable signed driver or similar kernel trick. **Credential Guard** moves NTLM hashes and Kerberos secrets into an isolated, virtualization-protected process (LsaIso.exe), so even a successful LSASS dump no longer contains them for protected accounts.\n\n` +
         `**What this looks like in EDR telemetry**\n\n` +
-        `This is exactly why credential-dumping detections center on the access mask, not just the target process name: a process requesting GrantedAccess: 0x1FFFFF against lsass.exe is asking for total control over its memory, and legitimate software essentially never needs that combination against LSASS specifically. Seeing this access mask granted at all confirms the requesting process was already running with SeDebugPrivilege enabled at High or System integrity — if it had still been at Medium, the access request would have failed and no dump would occur. This is why attackers chase privilege escalation before credential dumping, not the other way around: the escalation is the precondition, not an afterthought.`,
+        `This is exactly why credential-dumping detections center on the access mask, not just the target process name: Sysmon Event ID 10 (ProcessAccess) records each successfully opened handle with its TargetImage and GrantedAccess, and the masks dumpers most often leave against lsass.exe are 0x1010, 0x1410, 0x143A and 0x1FFFFF — a rule that only watches for 0x1FFFFF misses the most common tools. Legitimate software does open LSASS too (AV/EDR agents, MsMpEng.exe, some Windows components and backup tools), so tune on the requesting process (SourceImage) and its signer, not on the mask alone. Seeing a memory-read mask granted at all confirms the requesting process was already running with SeDebugPrivilege enabled at High or System integrity — if it had still been at Medium, the access request would have failed and no dump would occur. This is why attackers chase privilege escalation before credential dumping, not the other way around: the escalation is the precondition, not an afterthought.`,
       codeExample:
         "A CREDENTIAL-DUMPING ACCESS REQUEST, DECODED\n" +
         "=======================================================\n" +
         "TargetProcessName:  lsass.exe\n" +
-        "GrantedAccess:      0x1FFFFF          (PROCESS_ALL_ACCESS)\n" +
+        "GrantedAccess:      0x1010   (QUERY_LIMITED_INFORMATION\n" +
+        "                              | VM_READ -- Mimikatz-style)\n" +
+        "Other common dumper masks: 0x1410, 0x143A, 0x1FFFFF\n" +
+        "(0x1FFFFF = PROCESS_ALL_ACCESS)\n" +
         "\n" +
         "For this to succeed, the REQUESTING process needed:\n" +
         "  1. SeDebugPrivilege enabled in its token\n" +
@@ -715,16 +719,16 @@ const privescRoom: Room = {
       type: "question",
       id: "privesc-q1",
       question:
-        "An EDR alert shows a process at IntegrityLevel: Medium attempting to open lsass.exe with GrantedAccess: 0x1FFFFF, and the access request is logged as denied. What is the correct interpretation?",
+        "With kernel-object auditing enabled, Windows Security Event 4656 (Audit Failure) shows a process at IntegrityLevel: Medium requesting a handle to lsass.exe with access mask 0x1FFFFF, and the request failed. What is the correct interpretation?",
       options: [
-        "The read succeeded — GrantedAccess records the mask the process obtained, so 0x1FFFFF means LSASS memory was fully accessible",
+        "The read succeeded — the 0x1FFFFF mask in the event records what the process obtained, so LSASS memory was fully accessible",
         "Windows denied it — Medium integrity lacks the enabled SeDebugPrivilege and elevation for PROCESS_ALL_ACCESS on LSASS, so the tool must reach High or SYSTEM first",
         "Windows denied it only because Credential Guard is active; without it the same request at Medium integrity would have been granted",
-        "The mask is what was requested, not allowed, so GrantedAccess cannot confirm a denial and a separate log source is required",
+        "The failure is only about the oversized mask — retrying the same Medium-integrity process with a smaller read mask such as 0x1010 would have been granted",
       ],
       answer: 1,
       explanation:
-        "A denied access request means exactly what it says — no memory was read, because Windows enforced the SeDebugPrivilege/integrity-level requirement from Reading 2. GrantedAccess reflects what was actually granted (or, when a denial is separately logged, what was requested but refused), so a denial here is still valuable: it tells you an attempt occurred and that the attacker had not yet escalated. Being a local admin account does not bypass this check on its own — the process itself has to be running elevated.",
+        "A denied access request means exactly what it says — no memory was read, because Windows enforced the SeDebugPrivilege/integrity-level requirement from Reading 2. That requirement applies to ANY memory-read mask, so a smaller mask like 0x1010 would have been refused just the same, and Credential Guard is not what produced this denial. Note the log source: Event 4656 records handle requests including failures, whereas Sysmon Event 10's GrantedAccess only appears for handles that were actually opened. A denial here is still valuable: it tells you an attempt occurred and that the attacker had not yet escalated. Being a local admin account does not bypass this check on its own — the process itself has to be running elevated.",
       xp: 20,
     },
     {
@@ -738,7 +742,7 @@ const privescRoom: Room = {
         `**The mechanism**\n\n` +
         `fodhelper.exe, when it runs, internally checks a registry key under the current user's own hive — HKCU\\Software\\Classes\\ms-settings\\Shell\\Open\\command — to determine how to open the ms-settings handler, and it does so without validating that this particular path is a protected, trusted location. Because HKCU is the user's own per-user hive, a completely unprivileged, Medium-integrity process can write to it freely — no admin rights, no special privilege, just an ordinary registry write. An attacker sets that key's default value to an arbitrary command, then simply launches fodhelper.exe. fodhelper silently auto-elevates to High integrity as designed, internally invokes the ms-settings handler, reads the hijacked key the attacker planted, and executes the attacker's command — now running at High integrity, with no consent prompt ever shown.\n\n` +
         `**What this looks like in Sysmon**\n\n` +
-        `The registry write is captured by Sysmon Event ID 13 (RegistryEvent — value set), showing the TargetObject as the hijacked ms-settings command path. The payoff is captured by Sysmon Event ID 1 (process creation): fodhelper.exe appears as the parent of whatever command the attacker planted, and critically, that child process shows IntegrityLevel: High even though fodhelper's own launcher (almost always explorer.exe, at Medium integrity for this admin's ordinary desktop session) never went through an elevation prompt. The single strongest piece of corroborating evidence is a negative one: no consent.exe process anywhere in that session's tree, because the entire purpose of this technique is reaching High integrity without ever triggering the process that would normally show a prompt.`,
+        `The registry write is captured by Sysmon Event ID 13 (RegistryEvent — value set), showing the TargetObject as the hijacked ms-settings command path. The payoff is captured by Sysmon Event ID 1 (process creation): fodhelper.exe appears as the parent of whatever command the attacker planted, and critically, that child process shows IntegrityLevel: High even though fodhelper's own launcher (almost always explorer.exe, at Medium integrity for this admin's ordinary desktop session) never went through an elevation prompt. The strongest corroborating evidence is the Sysmon Event 13 write itself — to ...\\ms-settings\\Shell\\Open\\command, usually together with an empty DelegateExecute value under the same key, which fodhelper needs before it will honour the planted command — followed seconds later by fodhelper.exe parenting a High-integrity child. A supporting negative: no consent.exe process started at that moment. To read that correctly, know how a NORMAL elevation looks: the AppInfo service (hosted in svchost.exe) launches consent.exe only to draw the prompt; once the user approves, AppInfo itself creates the elevated process and re-parents it to the requester, so in Sysmon the elevated process shows its requester (usually explorer.exe) as ParentImage — never consent.exe. You therefore look for consent.exe as a separate process (child of svchost.exe) starting in the same session at the same moment, not in the elevated process's parent chain.`,
       codeExample:
         "THE FODHELPER UAC BYPASS, STEP BY STEP\n" +
         "=======================================================\n" +
@@ -758,7 +762,9 @@ const privescRoom: Room = {
         "   -- captured as Sysmon Event 1: fodhelper.exe (parent)\n" +
         "      spawns attacker's command (child) at IntegrityLevel: High\n" +
         "\n" +
-        "TELL: no consent.exe anywhere in the process tree\n" +
+        "TELL: Sysmon 13 on ms-settings\\Shell\\Open\\command\n" +
+        "      (+ DelegateExecute), then fodhelper -> High child,\n" +
+        "      and no consent.exe launched in that session\n" +
         "=======================================================",
       checkpoint: {
         question:
@@ -884,7 +890,7 @@ const privescRoom: Room = {
         `**Weak service permissions**\n\n` +
         `Separately, a service's own configuration (its registry entry under HKLM\\SYSTEM\\CurrentControlSet\\Services) or the binary it points to can simply have overly permissive access control lists — allowing a low-privileged user to reconfigure the service's ImagePath directly, or overwrite the target binary on disk, without needing to exploit any path-parsing quirk at all. Either misconfiguration produces the same outcome: the next time a SYSTEM-run service starts, it executes attacker-controlled code.\n\n` +
         `**What "the parent is Medium, the child is High" actually proves**\n\n` +
-        `Across every technique in this room, the single fastest triage signal in a process tree is a jump in integrity level between a parent and its child that doesn't have an obvious, expected explanation. A completely ordinary elevation — a user deliberately running an installer as administrator — shows consent.exe in the chain, and IT or deployment records typically corroborate it (as in the analyst_choice task ahead). An elevation with no consent.exe, no deployment record, and no auto-elevate binary that would explain it on its own is the pattern worth escalating every time: something made that jump happen without going through the path Windows normally requires, and your job is to work out which of the techniques in this room did it.`,
+        `Across every technique in this room, the single fastest triage signal in a process tree is a jump in integrity level between a parent and its child that doesn't have an obvious, expected explanation. A completely ordinary elevation — a user deliberately running an installer as administrator — is accompanied by a consent.exe process (launched by the AppInfo service, svchost.exe) in the same session at the same moment, while the elevated process itself shows its requester, usually explorer.exe, as its parent; IT or deployment records typically corroborate it (as in the analyst_choice task ahead). An elevation with no consent.exe, no deployment record, and no auto-elevate binary that would explain it on its own is the pattern worth escalating every time: something made that jump happen without going through the path Windows normally requires, and your job is to work out which of the techniques in this room did it.`,
       codeExample:
         "UNQUOTED SERVICE PATH -- HOW WINDOWS RESOLVES IT\n" +
         "=======================================================\n" +
@@ -902,7 +908,8 @@ const privescRoom: Room = {
         "=======================================================\n" +
         "Does a Medium -> High (or higher) integrity jump have an\n" +
         "explanation? Check for, in order:\n" +
-        "  [ ] consent.exe in the direct parent chain (normal UAC)\n" +
+        "  [ ] consent.exe (child of svchost) started in the same\n" +
+        "      session at that moment (normal UAC prompt)\n" +
         "  [ ] a known auto-elevate binary (fodhelper, etc.) AND\n" +
         "      a preceding registry hijack under HKCU (T1548.002)\n" +
         "  [ ] a SYSTEM-run service restarting with a modified or\n" +
@@ -945,13 +952,13 @@ const privescRoom: Room = {
       id: "privesc-ac1",
       heading: "Verdict: An Administrator Elevating an Approved Installer",
       scenario:
-        "A detection rule flagged a Medium-to-High integrity jump on WKS-FIN08: MeridianExpenseInstaller.exe launched at IntegrityLevel: High under r.chukwu's session. Review the event and the deployment record attached to it.",
+        "A detection rule flagged a Medium-to-High integrity jump on WKS-FIN08: MeridianExpenseInstaller.exe launched at IntegrityLevel: High under r.chukwu's session (r.chukwu is a local administrator in Admin Approval Mode). Pivoting on the host, you find a Sysmon Event 1 for C:\\Windows\\System32\\consent.exe (ParentImage: svchost.exe) in r.chukwu's session at 10:04:58 — four seconds before the event below. Review the event and the deployment record attached to it.",
       event: uacConsentEvent,
       correct_verdict: "false_positive",
       explanation:
-        "The direct parent of this process is consent.exe — the exact process Windows shows when a genuine UAC prompt is displayed and accepted, which is the corroborating evidence a fodhelper-style bypass specifically lacks. The binary is signed by Meridian Trust's own deployment CA, and an SCCM deployment record independently confirms this exact installer was scheduled to this host today as part of an approved rollout. A Medium-to-High integrity jump alone is not suspicious — it's the expected shape of any legitimate elevation; what makes it benign here is the presence of consent.exe and independent deployment corroboration.",
+        "The parent is the user's own explorer.exe — exactly what a normal UAC elevation looks like, because the AppInfo service creates the elevated process and re-parents it to whoever requested elevation. The corroborating UAC evidence is the consent.exe process (launched by svchost.exe/AppInfo) that started in the same session four seconds earlier: that is the prompt being drawn and accepted, which is exactly what a fodhelper-style bypass specifically lacks — there, the parent would be an auto-elevate binary and no consent.exe would appear. The binary is signed by Meridian Trust's own deployment CA, and an SCCM deployment record independently confirms this exact installer was scheduled to this host today as part of an approved rollout. A Medium-to-High integrity jump alone is not suspicious — it's the expected shape of any legitimate elevation; what makes it benign here is the consent.exe prompt at the same moment, an ordinary explorer.exe parent, and independent deployment corroboration.",
       fp_trap:
-        "Reading 5 taught 'an unexplained integrity jump is the fastest triage signal,' which makes it tempting to treat every Medium-to-High jump as worth escalating on sight. But this jump is explained: consent.exe is present in the parent chain (the UAC bypass techniques in this room specifically avoid triggering consent.exe), the binary is signed by an internal CA, and a deployment ticket independently corroborates it. Escalating this as an incident because 'integrity went up' without checking for consent.exe first is exactly the shortcut this room is trying to train out of you.",
+        "Reading 5 taught 'an unexplained integrity jump is the fastest triage signal,' which makes it tempting to treat every Medium-to-High jump as worth escalating on sight. But this jump is explained: a consent.exe prompt was launched in the same session seconds before (the UAC bypass techniques in this room specifically avoid triggering consent.exe) and the parent is the user's ordinary explorer.exe, not an auto-elevate binary, the binary is signed by an internal CA, and a deployment ticket independently corroborates it. Escalating this as an incident because 'integrity went up' without checking for a matching consent.exe first is exactly the shortcut this room is trying to train out of you.",
       xp: 30,
     },
     {
@@ -960,11 +967,11 @@ const privescRoom: Room = {
       heading: "Match Each Escalation Technique to Its Signature",
       instructions: "Match each privilege escalation technique to the artifact or precondition that best identifies it.",
       pairs: [
-        { id: "fodhelper", left: "fodhelper.exe as parent, IntegrityLevel: High, no consent.exe anywhere in the tree", right: "UAC bypass via registry hijack (T1548.002) — auto-elevate binary reading an attacker-planted HKCU command key" },
+        { id: "fodhelper", left: "fodhelper.exe as parent, IntegrityLevel: High, no consent.exe launched in the session", right: "UAC bypass via registry hijack (T1548.002) — auto-elevate binary reading an attacker-planted HKCU command key" },
         { id: "lsass-access", left: "GrantedAccess: 0x1FFFFF requested against lsass.exe", right: "PROCESS_ALL_ACCESS — requires SeDebugPrivilege and High/System integrity already held by the requesting process" },
         { id: "potato", left: "A Medium-integrity service account holding SeImpersonatePrivilege suddenly executing commands as SYSTEM", right: "Potato-family exploit — coerces a SYSTEM component to authenticate to an attacker-controlled listener, then impersonates that connection" },
         { id: "unquoted", left: "A SYSTEM-run service's unquoted ImagePath, with a new binary appearing at one of the intermediate space-delimited paths", right: "Unquoted service path abuse — Windows executes the attacker's binary as SYSTEM on the service's next start" },
-        { id: "consent", left: "consent.exe present as the direct parent of a newly High-integrity process", right: "Normal, expected UAC elevation — the exact evidence a bypass technique specifically avoids leaving behind" },
+        { id: "consent", left: "consent.exe (child of svchost.exe) starting in the same session seconds before a High-integrity process whose parent is explorer.exe", right: "Normal, expected UAC elevation — the exact evidence a bypass technique specifically avoids leaving behind" },
         { id: "duptoken", left: "DuplicateToken/ImpersonateLoggedOnUser used to act as another logged-on user's identity", right: "Token manipulation (T1134) — reusing an already-privileged token instead of escalating integrity directly" },
       ],
       explanation:
@@ -1004,16 +1011,16 @@ const privescRoom: Room = {
       heading: "Write It Yourself: Hunt for fodhelper-Style UAC Bypasses",
       language: "kql",
       context: KQL_PRIMER +
-        "Using the pattern from Log Analysis 1 (an auto-elevate binary as parent, a High-integrity child, no consent.exe in the session), write the KQL that would surface candidate UAC bypasses across the fleet.",
+        "Using the pattern from Log Analysis 1 (an auto-elevate binary as parent, a High-integrity child, no consent.exe prompt at that moment), write the KQL that would surface candidate UAC bypasses across the fleet. The join pairs each candidate with any UAC-prompt process on the same device; the summarize then keeps only candidates with NO such prompt within 60 seconds — excluding a whole device just because it once showed a UAC prompt would hide real bypasses.",
       template:
-        "DeviceProcessEvents\n| where InitiatingProcessFileName in~ (\"{{binary1}}\", \"computerdefaults.exe\", \"eventvwr.exe\", \"sdclt.exe\")\n| where ProcessIntegrityLevel == \"{{level}}\"\n| where InitiatingProcessAccountName !contains \"SYSTEM\"\n| join kind=leftanti (DeviceProcessEvents | where FileName == \"{{consentproc}}\") on DeviceId",
+        "DeviceProcessEvents\n| where InitiatingProcessFileName in~ (\"{{binary1}}\", \"computerdefaults.exe\", \"eventvwr.exe\", \"sdclt.exe\")\n| where ProcessIntegrityLevel == \"{{level}}\"\n| where InitiatingProcessAccountName !contains \"SYSTEM\"\n| join kind=leftouter (DeviceProcessEvents | where FileName =~ \"{{consentproc}}\" | project DeviceId, PromptTime = Timestamp) on DeviceId\n| summarize PromptsNearby = countif(isnotempty(PromptTime) and abs(datetime_diff('second', Timestamp, PromptTime)) <= 60) by DeviceId, ReportId, Timestamp, FileName, ProcessCommandLine, InitiatingProcessFileName\n| where PromptsNearby == 0",
       blanks: [
         { id: "binary1", answers: ["fodhelper.exe"], placeholder: "auto-elevate binary from this room's example" },
         { id: "level", answers: ["High", "high"], placeholder: "integrity level the child process shows" },
         { id: "consentproc", answers: ["consent.exe"], placeholder: "process that appears during a normal UAC prompt" },
       ],
       explanation:
-        "This mirrors the exact detection logic from Log Analysis 1: filter to the known auto-elevate binaries acting as a parent process, require the resulting child to be High integrity, and exclude sessions where consent.exe also appears — since consent.exe's presence is the signature of a normal, expected elevation rather than a bypass.",
+        "This mirrors the exact detection logic from Log Analysis 1: filter to the known auto-elevate binaries acting as a parent process, require the resulting child to be High integrity, and drop any candidate that had a consent.exe process start on the same device within 60 seconds — since a UAC prompt at that moment is the signature of a normal, expected elevation rather than a bypass. Correlating by device AND time matters: consent.exe is never the elevated process's parent (AppInfo re-parents the elevated process to the requester), and a device-wide exclusion would suppress every bypass on any machine that had ever shown a UAC prompt.",
       xp: 35,
     },
   ],
@@ -1251,7 +1258,7 @@ const persistenceRoom: Room = {
       content:
         `Two mechanisms in this reading share a common advantage for an attacker: both use trusted, built-in Windows components, and neither shows up in the "obvious" persistence locations (Run keys, Task Scheduler, Services) a defender might check first.\n\n` +
         `**BITS jobs**\n\n` +
-        `The Background Intelligent Transfer Service (BITS) is a Windows component designed to manage file transfers in the background — most visibly used by Windows Update itself — throttling bandwidth and resuming automatically after interruptions. bitsadmin.exe (or the modern BITS PowerShell cmdlets) can create a BITS job with a NotifyCmdLine parameter: a command that BITS will execute automatically once the associated transfer completes. An attacker can create a BITS job whose "transfer" is trivial or even already complete, purely to get NotifyCmdLine to execute a payload — and because BITS is a normal, trusted OS service that plenty of legitimate software also uses, this activity often blends into background noise far better than a scheduled task would. BITS activity is logged in the Microsoft-Windows-Bits-Client/Operational event log, with Event ID 3 marking job creation and the job's configured NotifyCmdLine visible in that record.\n\n` +
+        `The Background Intelligent Transfer Service (BITS) is a Windows component designed to manage file transfers in the background — most visibly used by Windows Update itself — throttling bandwidth and resuming automatically after interruptions. bitsadmin.exe (or the modern BITS PowerShell cmdlets) can create a BITS job with a NotifyCmdLine parameter: a command that BITS will execute automatically once the associated transfer completes. An attacker can create a BITS job whose "transfer" is trivial or even already complete, purely to get NotifyCmdLine to execute a payload — and because BITS is a normal, trusted OS service that plenty of legitimate software also uses, this activity often blends into background noise far better than a scheduled task would. BITS activity is logged in the Microsoft-Windows-Bits-Client/Operational event log, with Event ID 3 marking job creation (job title, owner and the creating process). That record does NOT show the job's NotifyCmdLine — to see the command a job will run, enumerate the queue with bitsadmin /list /allusers /verbose (or Get-BitsTransfer -AllUsers) or parse the BITS queue database during forensics.\n\n` +
         `**WMI event subscriptions**\n\n` +
         `Windows Management Instrumentation (WMI) supports permanent event subscriptions: a __EventFilter object defines a trigger condition (a specific time, a process starting, a user logging on — nearly anything WMI can observe), a __EventConsumer object defines the action to take (frequently, running a command), and a __FilterToConsumerBinding object connects the two. Once registered, this subscription lives in the WMI repository itself — not the file system, not the registry in any of the locations Reading 1 covered, not Task Scheduler — and fires automatically forever, surviving reboots indefinitely, with no process needing to remain running in the meantime. This makes it one of the stealthiest persistence mechanisms available, because standard "autoruns" tooling that checks the well-known locations won't find it at all; it has to be specifically inspected for in the WMI repository. Sysmon Event IDs 19, 20, and 21 (WmiEvent: Filter, Consumer, and Filter-to-Consumer-Binding activity, respectively) are the direct way to catch this being created.\n\n` +
         `**Why both matter to a defender the same way**\n\n` +
@@ -1263,6 +1270,8 @@ const persistenceRoom: Room = {
         "bitsadmin /SetNotifyCmdLine <job> <payload.exe> NULL\n" +
         "  -- NotifyCmdLine runs automatically on transfer completion\n" +
         "Log: Microsoft-Windows-Bits-Client/Operational, Event ID 3\n" +
+        "     (job created -- NOT the NotifyCmdLine; for that run\n" +
+        "      bitsadmin /list /allusers /verbose)\n" +
         "=======================================================\n\n" +
         "WMI EVENT SUBSCRIPTION PERSISTENCE\n" +
         "=======================================================\n" +
@@ -1361,13 +1370,13 @@ const persistenceRoom: Room = {
     {
       type: "reading",
       id: "persist-r5",
-      heading: "Cloud-Account and OAuth Persistence (T1136.003)",
+      heading: "Cloud Account (T1136.003) and OAuth App Persistence (T1671)",
       content:
         `Every mechanism so far has been endpoint-based — something planted on a single host. Cloud and identity-based persistence is fundamentally different in one important way: it can survive actions that would kill every technique covered so far, including resetting the compromised user's own password.\n\n` +
         `**Why a password reset doesn't automatically evict a cloud attacker**\n\n` +
         `If an attacker compromises a cloud identity (an Azure AD / Microsoft Entra ID account, for example) and creates a brand new cloud account, adds themselves to a privileged role, or — very commonly — grants an OAuth application consent to their compromised user's mailbox or data, none of those actions depend on continuing to know that user's password. An OAuth app grant works through a refresh token issued once at consent time, independent of the account's password entirely; resetting the password does not revoke previously issued OAuth tokens or app permissions unless the defender specifically also revokes app consents and active sessions as a separate remediation step. A newly created cloud account, similarly, has its own separate credentials from the very start.\n\n` +
         `**The specific techniques**\n\n` +
-        `T1136.003 covers an attacker creating an entirely new cloud account — often with an innocuous-looking name — as a durable foothold independent of any single compromised user. Malicious OAuth app consent is a closely related and, in practice, extremely common technique: a phishing page tricks a user into approving what looks like a normal third-party app permission request, and the attacker's app is granted delegated access (commonly to read mail, or in broader grants, to access files and other data) that persists as long as the consent remains active — again, entirely independent of the user's password. A related mailbox-level technique worth knowing: attacker-created inbox forwarding rules or mailbox delegation, which likewise survive a password reset because they're configured mailbox-side, not credential-side.\n\n` +
+        `T1136.003 covers an attacker creating an entirely new cloud account — often with an innocuous-looking name — as a durable foothold independent of any single compromised user. Malicious OAuth app consent is a closely related and, in practice, extremely common technique, tracked separately in ATT&CK as T1671 (Cloud Application Integration): a phishing page tricks a user into approving what looks like a normal third-party app permission request, and the attacker's app is granted delegated access (commonly to read mail, or in broader grants, to access files and other data) that persists as long as the consent remains active — again, entirely independent of the user's password. A related mailbox-level technique worth knowing: attacker-created inbox forwarding rules or mailbox delegation, which likewise survive a password reset because they're configured mailbox-side, not credential-side.\n\n` +
         `**The operational takeaway**\n\n` +
         `Any cloud account compromise investigation has to include a specific check for newly created accounts, newly granted OAuth app consents, and mailbox rule/delegation changes — a password reset alone, no matter how quickly it's done, does not remediate any of these, and treating it as sufficient is one of the most common incomplete-containment mistakes in cloud incident response.`,
       codeExample:
@@ -1378,7 +1387,7 @@ const persistenceRoom: Room = {
         "New cloud account created     YES -- has its own separate\n" +
         "(T1136.003)                   credentials from creation\n" +
         "OAuth app consent granted     YES -- refresh token issued at\n" +
-        "                              consent time, independent of\n" +
+        "(T1671)                       consent time, independent of\n" +
         "                              the account's password\n" +
         "Mailbox forwarding rule /     YES -- configured mailbox-side,\n" +
         "delegation                    not credential-side\n" +
@@ -1475,7 +1484,7 @@ const persistenceRoom: Room = {
         { id: "service", left: "New service installed, auto-start, running as LocalSystem", right: "T1543.003 — Windows Event ID 7045 (Service Installed)" },
         { id: "bits", left: "BITS job configured with a NotifyCmdLine", right: "T1197 — executes a command on transfer completion, using a trusted OS component" },
         { id: "wmi", left: "__EventFilter/__EventConsumer/__FilterToConsumerBinding created in the WMI repository", right: "WMI event subscription persistence — Sysmon Events 19/20/21, invisible to standard autoruns checks" },
-        { id: "oauth", left: "New OAuth app granted delegated mailbox permissions on a compromised account", right: "T1136.003 / cloud persistence — survives a password reset because it doesn't depend on the account's password" },
+        { id: "oauth", left: "New OAuth app granted delegated mailbox permissions on a compromised account", right: "T1671 (Cloud Application Integration) — survives a password reset because it doesn't depend on the account's password" },
       ],
       explanation:
         "Each pairing reflects a distinct mechanism and its specific detection source from this room: registry-based persistence shows up in Sysmon 13, task/service persistence show up in their own dedicated Windows Event IDs (4698/7045), BITS and WMI persistence deliberately avoid all of the 'usual' locations, and cloud/OAuth persistence is identity-side rather than endpoint-side entirely — which is exactly why it survives a password reset.",

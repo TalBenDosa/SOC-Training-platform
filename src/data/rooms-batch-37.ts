@@ -56,7 +56,7 @@ const passwordAcceptedEvent: TelemetryEvent = {
     "okta.securityContext.asOrg": "Alexhost SRL",
     "okta.securityContext.isp": "Alexhost SRL",
     "okta.securityContext.isProxy": "false",
-    "okta.authenticationContext.authenticationStep": "1",
+    "okta.authenticationContext.authenticationStep": "0",
     "okta.authenticationContext.credentialType": "PASSWORD",
     "okta.authenticationContext.externalSessionId": "trsA91kQmpTLxV0nFqZ",
     "okta.transaction.id": "TxRvC91k",
@@ -157,7 +157,7 @@ const oktaIdentityFundamentalsRoom = {
         "**okta.target: who or what it was done to.** Many events also carry one or more target entries — an array, because a single action can affect more than one object at once. A group-membership change names both the user being added (target.0) and the group they were added to (target.1). Reading actor and target together, and correctly telling them apart, is essential: in a group-membership event, the actor performed the change, and it is entirely possible (and highly significant when it happens) for the actor and the affected user in target.0 to be the exact same identity — someone adding themselves to a privileged group.\n\n" +
         "**Why the taxonomy matters more than any single event.** Because the same object.verb pattern applies everywhere, a detection built to watch for a category — every group.user_membership.* event, every policy.rule.* event — scales across the whole org without needing a separate rule per specific action. Learning the pattern, not memorising a fixed list of eventType strings, is what actually transfers to a real, unfamiliar Okta tenant.",
     },
-    // ── Reading 3: outcome.result / outcome.reason / authenticationStep ──────
+    // ── Reading 3: outcome.result / outcome.reason / follow-on MFA events ────
     {
       type: "reading" as const,
       id: "oktaf-r3",
@@ -167,28 +167,28 @@ const oktaIdentityFundamentalsRoom = {
         "**outcome.result: the top-level verdict.** Common values include SUCCESS, FAILURE, ALLOW, DENY, SKIPPED, and CHALLENGE. On its own this answers only 'did this specific step succeed,' not why, and not how far the overall sign-in transaction actually progressed.\n\n" +
         "**outcome.reason: the specific cause.** This is where the real detail lives. INVALID_CREDENTIALS means the password itself was wrong — the transaction never got past the first stage. LOCKED_OUT means the account has exceeded its allowed failure count. MFA_REQUIRED is the one every analyst needs to internalise precisely: Okta only ever writes MFA_REQUIRED once the password stage has been satisfied and the policy is now demanding the second factor. USER_REJECTED_PUSH, on a related mfa event, means a push challenge was sent and the user explicitly declined it. Each of these describes a genuinely different situation, even though several of them can attach to the same broad outcome.result of FAILURE.\n\n" +
         "**The single field flip that matters most.** Picture a burst of sign-in failures against one account, all reason INVALID_CREDENTIALS, from the same address. If one later attempt in that same burst instead carries reason MFA_REQUIRED, something important changed: the password submitted on that attempt was correct. An analyst who only checks whether a session was ultimately created, and closes the ticket the moment they see no successful login, misses this entirely — the account's password is now known to whoever was making those attempts, even though they never got past the second factor.\n\n" +
-        "**okta.authenticationContext.authenticationStep: the stage counter.** This numeric field corroborates the reason field directly: 0 means the transaction is still at the password (or equivalent primary factor) stage; 1 means it has moved on to a second factor. Seeing authenticationStep advance from 0 to 1 on an account that was previously failing at step 0 is independent, corroborating proof that the primary credential was just satisfied — exactly the same conclusion the reason field's flip to MFA_REQUIRED already pointed to, from a completely different field.\n\n" +
-        "**Why this specific reading skill gets its own emphasis.** It is the most common real-world Okta-analyst mistake this room addresses: treating 'the attacker didn't get a session' and 'nothing happened here' as the same conclusion. They are not. A blocked sign-in can still mean a lost credential, and the only way to know is reading outcome.reason and authenticationStep together, not just outcome.result.",
+        "**Corroborating it: the follow-on MFA events, not authenticationStep.** A field that looks like it should help — okta.authenticationContext.authenticationStep — does not: Okta's own API reference documents it as 'the zero-based step number in the authentication pipeline. Currently unused and always set to 0.' It reads 0 on every event, so it cannot show how far a transaction got. The real corroboration is what Okta logs next for the same account and transaction (same externalSessionId / transaction.id): an MFA challenge being sent (for example a system.push.send_factor_verify_push event for an Okta Verify push), then either a denial (such as user.mfa.okta_verify.deny_push) or a successful second-factor event (user.authentication.auth_via_mfa) followed by a user.session.start with outcome SUCCESS. A push being sent to the user at all independently proves the password stage was passed.\n\n" +
+        "**Why this specific reading skill gets its own emphasis.** It is the most common real-world Okta-analyst mistake this room addresses: treating 'the attacker didn't get a session' and 'nothing happened here' as the same conclusion. They are not. A blocked sign-in can still mean a lost credential, and the only way to know is reading outcome.reason together with the MFA events that follow it, not just outcome.result.",
       diagram:
         "flowchart LR\n" +
         "  A[Sign-in attempt] --> B{Password correct?}\n" +
-        "  B -->|No| C[outcome.reason: INVALID_CREDENTIALS\\nauthenticationStep stays 0]\n" +
-        "  B -->|Yes| D[outcome.reason: MFA_REQUIRED\\nauthenticationStep becomes 1]\n" +
+        "  B -->|No| C[outcome.reason: INVALID_CREDENTIALS\\nno MFA challenge follows]\n" +
+        "  B -->|Yes| D[outcome.reason: MFA_REQUIRED\\nan MFA challenge is sent next]\n" +
         "  D --> E{Second factor satisfied?}\n" +
         "  E -->|No, e.g. USER_REJECTED_PUSH| F[Session NOT created\\nbut password is now known]\n" +
         "  E -->|Yes| G[Session created]\n",
       diagramCaption: "The reason field flip from INVALID_CREDENTIALS to MFA_REQUIRED is the tell that the password was correct",
       checkpoint: {
-        question: "In a burst of failed Okta sign-ins against one account, the LAST attempt carries outcome.reason MFA_REQUIRED and authenticationContext.authenticationStep 1, where every earlier attempt showed INVALID_CREDENTIALS and step 0. What does that specific change mean?",
+        question: "In a burst of failed Okta sign-ins against one account, the LAST attempt carries outcome.reason MFA_REQUIRED, where every earlier attempt showed INVALID_CREDENTIALS, and an Okta Verify push is sent to the user a few seconds later. What does that specific change mean?",
         options: [
           "The account was locked out, so Okta stopped checking the password at all",
-          "The password submitted on that last attempt was correct -- MFA_REQUIRED is only ever written once the primary credential stage has been satisfied, and the step counter advancing to 1 confirms it independently",
+          "The password submitted on that last attempt was correct -- MFA_REQUIRED is only ever written once the primary credential stage has been satisfied, and the push being sent confirms it independently",
           "It is simply Okta's alternate wording for the exact same rejected-password outcome",
           "A conditional-access policy change mid-burst started demanding MFA tenant-wide",
         ],
         answer: 1,
         explanation:
-          "MFA_REQUIRED and a step advance to 1 both only ever occur after the password stage succeeds. Reading them together confirms, from two independent fields, that the correct password was used on that attempt -- a materially different fact than another rejected guess.",
+          "MFA_REQUIRED and a push challenge being sent both only ever occur after the password stage succeeds. Reading them together confirms, from two independent events, that the correct password was used on that attempt -- a materially different fact than another rejected guess.",
       },
     },
     // ── Question 1 ───────────────────────────────────────────────────────────
@@ -205,7 +205,7 @@ const oktaIdentityFundamentalsRoom = {
       ],
       answer: 1,
       explanation:
-        "Reading 3 built the whole point of this room around exactly this failure mode: 'blocked' and 'no impact' are not the same fact. A single MFA_REQUIRED reason inside an otherwise-failing burst proves the password was correct at least once, which is a live credential-exposure finding regardless of whether a session was ever created. The MFA stage (a) only runs after primary authentication passed, so it does not mean the password stayed secret. MFA_REQUIRED (c) is a challenge issued after a correct password, not an enrollment-gap signal. And nothing supports assuming benign autofill (d) without checking the source IP and user agent against the account's normal pattern.",
+        "Reading 3 built the whole point of this room around exactly this failure mode: 'blocked' and 'no impact' are not the same fact. A single MFA_REQUIRED reason inside an otherwise-failing burst proves the password was correct at least once, which is a live credential-exposure finding regardless of whether a session was ever created. The MFA stage only runs after primary authentication passed, so it does not mean the password stayed secret. MFA_REQUIRED is a challenge issued after a correct password, not an enrollment-gap signal. And nothing supports assuming benign autofill without checking the source IP and user agent against the account's normal pattern.",
       xp: 25,
     },
     // ── Reading 4: securityContext ────────────────────────────────────────────
@@ -247,7 +247,7 @@ const oktaIdentityFundamentalsRoom = {
       ],
       answer: 0,
       explanation:
-        "Reading 5 named this precisely: WebAuthn's cryptographic binding to the requesting site is what makes it phishing-resistant, whereas a push approval is just a tap with no such binding -- which is exactly why push-fatigue attacks work at all against push but not against WebAuthn. Validity-window timing (b) is not the actual security distinction, and push notifications are not carrier-delivered (c) -- Okta Verify push uses the app's own secure channel, not SMS. WebAuthn also does not store or replace the password (d); it is a second factor tied to the site's origin.",
+        "Reading 5 named this precisely: WebAuthn's cryptographic binding to the requesting site is what makes it phishing-resistant, whereas a push approval is just a tap with no such binding -- which is exactly why push-fatigue attacks work at all against push but not against WebAuthn. Validity-window timing is not the actual security distinction, and push notifications are not carrier-delivered or SIM-swappable -- Okta Verify push uses the app's own secure channel, not SMS. WebAuthn also does not store or replace the password; it is a second factor tied to the site's origin.",
       xp: 25,
     },
     // ── Reading 6: Okta vs Entra contrast ─────────────────────────────────────
@@ -258,7 +258,7 @@ const oktaIdentityFundamentalsRoom = {
       content:
         "This reading exists specifically because this platform teaches Entra ID in depth, and an Entra-trained analyst's biggest real risk on their first Okta tenant is assuming more carries over than actually does.\n\n" +
         "**The activity log itself.** Entra ID splits activity across separate sign-in logs and audit logs. Okta writes essentially everything — sign-ins, admin actions, group and policy changes, system events — into one unified System Log, distinguished by eventType rather than by which log the event lives in. An Okta investigation typically means one log to search, not two to correlate.\n\n" +
-        "**The verdict fields.** Entra's sign-in events centre on a numeric status/error code and a ConditionalAccessStatus field. Okta centres on the outcome.result / outcome.reason pair covered in Reading 3, plus the authenticationStep counter. Neither field set maps one-to-one onto the other; they encode overlapping information through structurally different mechanisms.\n\n" +
+        "**The verdict fields.** Entra's sign-in events centre on a numeric status/error code and a ConditionalAccessStatus field. Okta centres on the outcome.result / outcome.reason pair covered in Reading 3, read alongside the MFA events that follow it. Neither field set maps one-to-one onto the other; they encode overlapping information through structurally different mechanisms.\n\n" +
         "**The directory.** Entra ID is Microsoft's own directory service, natively integrated with Windows domain join, Group Policy heritage, and the wider Microsoft 365 ecosystem. Okta's Universal Directory is platform-agnostic by design — it can be the sole source of truth, or it can synchronise from an existing on-prem Active Directory, or from Google Workspace, or from an HR system, making Okta a common choice specifically for organisations that are not built primarily on a single vendor's stack.\n\n" +
         "**The policy layer.** Entra ID's Conditional Access is the policy engine deciding when to demand MFA, block risky sign-ins, or require a compliant device. Okta's rough equivalent is its own Sign-On Policies and Authentication Policies, expressed through Okta's own policy objects and evaluated by Okta's own rules engine — conceptually parallel, but a different rule syntax, a different admin console, and different log events (policy.rule.* in Okta's eventType taxonomy) recording changes to them.\n\n" +
         "**Risk detection.** Entra ID Premium layers Identity Protection on top of sign-in logs, scoring sign-in risk and user risk with Microsoft's own machine-learning signals. Okta has its own equivalent capability (ThreatInsight and Okta's own risk scoring in higher tiers), but the specific risk fields, scoring logic, and event names are Okta's own — not a reskinned copy of Microsoft's.\n\n" +
@@ -273,7 +273,7 @@ const oktaIdentityFundamentalsRoom = {
         ],
         answer: 1,
         explanation:
-          "Reading 6 built the whole contrast around this: one unified System Log keyed by eventType, and a completely different verdict-field pair. Assuming field-for-field portability (a) is the exact mistake this room exists to prevent, and Okta absolutely does track admin/policy changes (c) -- just within the same unified log, not a separate one. Timestamp format (d) is not the substantive difference being taught here.",
+          "Reading 6 built the whole contrast around this: one unified System Log keyed by eventType, and a completely different verdict-field pair. Assuming field-for-field portability is the exact mistake this room exists to prevent, and Okta absolutely does track admin/policy changes -- just within the same unified log, not a separate one. Timestamp format is not the substantive difference being taught here.",
       },
     },
     // ── Log Analysis 1: password accepted, escalating ────────────────────────
@@ -287,7 +287,7 @@ const oktaIdentityFundamentalsRoom = {
       questions: [
         {
           question:
-            "okta.outcome.reason on this event is MFA_REQUIRED, and okta.authenticationContext.authenticationStep is 1 -- both different from the INVALID_CREDENTIALS / step 0 pattern on the earlier failures in this same burst. What does that combination tell you?",
+            "okta.outcome.reason on this event is MFA_REQUIRED -- different from the INVALID_CREDENTIALS reason on every earlier failure in this same burst. What does that change tell you?",
           options: [
             "The password submitted on this specific attempt was correct -- the transaction reached the second-factor stage, which only happens after the primary credential succeeds",
             "The account has been permanently locked, and no further sign-in attempts of any kind will be processed",
@@ -296,7 +296,7 @@ const oktaIdentityFundamentalsRoom = {
           ],
           answer: 0,
           explanation:
-            "Reading 3 covered this exact pair of fields: MFA_REQUIRED only appears once the password stage has been satisfied, and the step counter advancing to 1 independently confirms it. This is a materially different, more serious fact than another rejected guess -- the account's real password is now known to whoever controls 185.220.101.44.",
+            "Reading 3 covered this exact field: MFA_REQUIRED only appears once the password stage has been satisfied. (Note that okta.authenticationContext.authenticationStep still reads 0 -- Okta documents it as unused and always 0, so it cannot corroborate anything; the corroboration comes from the MFA events that follow.) This is a materially different, more serious fact than another rejected guess -- the account's real password is now known to whoever controls 185.220.101.44.",
           xp: 25,
         },
         {
@@ -310,7 +310,7 @@ const oktaIdentityFundamentalsRoom = {
           ],
           answer: 0,
           explanation:
-            "Reading 4 was explicit: a hosting-provider ASN like this is one of the highest-signal, lowest-effort fields in an Okta investigation, because real employees do not sign in from datacenter address space. It says nothing about the browser build itself (b) -- Chrome is simply the client software being used from that infrastructure. asOrg is a network-attribution field with direct security relevance, not billing metadata (c). And a real city name does not make the underlying network legitimate (d) -- the point is precisely that geography and network type are separate signals, and this one is a hosting ASN regardless of which city it resolves to.",
+            "Reading 4 was explicit: a hosting-provider ASN like this is one of the highest-signal, lowest-effort fields in an Okta investigation, because real employees do not sign in from datacenter address space. It says nothing about the browser build itself -- Chrome is simply the client software being used from that infrastructure. asOrg is a network-attribution field with direct security relevance, not billing metadata. And a real city name does not make the underlying network legitimate -- the point is precisely that geography and network type are separate signals, and this one is a hosting ASN regardless of which city it resolves to.",
           xp: 25,
         },
         {
@@ -324,7 +324,7 @@ const oktaIdentityFundamentalsRoom = {
           ],
           answer: 0,
           explanation:
-            "The lost asset here is the password, so the fix is to invalidate it and check what else that source IP or account did around this window -- which is exactly what the next task in this room investigates. 'No session, no action' (b) repeats the precise mistake Question 1 in this room addressed. Deactivating the account outright (c) is disproportionate and punishes the legitimate user for a problem a reset solves. And a rate limiter defends Okta's infrastructure from request volume -- it does not reset a compromised password (d).",
+            "The lost asset here is the password, so the fix is to invalidate it and check what else that source IP or account did around this window -- which is exactly what the next task in this room investigates. 'No session, no action' repeats the precise mistake Question 1 in this room addressed. Deactivating the account outright is disproportionate and punishes the legitimate user for a problem a reset solves. And a rate limiter defends Okta's infrastructure from request volume -- it does not reset a compromised password.",
           xp: 30,
         },
       ],
@@ -361,7 +361,7 @@ const oktaIdentityFundamentalsRoom = {
         ],
         answer: 1,
         explanation:
-          "Reading 8 named this specific pattern directly: actor and target being the same identity in a privilege-granting event is a self-escalation shape, and it deserves more scrutiny than an admin granting access to someone else. It is a real, loggable action Okta permits (c is wrong), and the actor field here is a User type, not a SystemPrincipal (d is wrong).",
+          "Reading 8 named this specific pattern directly: actor and target being the same identity in a privilege-granting event is a self-escalation shape, and it deserves more scrutiny than an admin granting access to someone else. It is a real, loggable action Okta permits, not a logging error, and the actor field here is a User type, not a SystemPrincipal.",
       },
     },
     // ── Question 3 ───────────────────────────────────────────────────────────
@@ -378,7 +378,7 @@ const oktaIdentityFundamentalsRoom = {
       ],
       answer: 1,
       explanation:
-        "Reading 7 covered this precisely: a rate limiter's job is to slow down volume going forward -- it has no bearing on whether something inside that volume, like a correct password guess, already happened. Treating throttling as resolution is the exact mistake to avoid. Blocking one source (a) does not stop the same password being used from any other address; rate-limit events do not trigger password resets on their own (c); and blocking the IP while deferring the credential question (d) still leaves a known-correct password live.",
+        "Reading 7 covered this precisely: a rate limiter's job is to slow down volume going forward -- it has no bearing on whether something inside that volume, like a correct password guess, already happened. Treating throttling as resolution is the exact mistake to avoid. Blocking one source does not stop the same password being used from any other address; rate-limit events do not trigger password resets on their own; and blocking the IP while deferring the credential question still leaves a known-correct password live.",
       xp: 25,
     },
     // ── Log Analysis 2: group membership self-add ────────────────────────────
@@ -387,7 +387,7 @@ const oktaIdentityFundamentalsRoom = {
       id: "oktaf-la2",
       heading: "Seven Minutes Later, a Group Changes",
       context:
-        "Following on from the earlier finding, the analyst pulls the System Log for the seven minutes after n.abara@globallogis.com's password was confirmed correct. The event below appears in that window.",
+        "Following on from the earlier finding, the analyst pulls the System Log for the seven minutes after n.abara@globallogis.com's password was confirmed correct. At 03:15 the log shows an Okta Verify push sent to Nkem's phone and approved (user.authentication.auth_via_mfa, outcome SUCCESS), followed by user.session.start with outcome SUCCESS, both from 185.220.101.44. Okta's admin-role report also shows the account still holds a Group Administrator role delegated to it during a 2024 helpdesk project and never removed. The event below appears four minutes after that session started.",
       event: groupMembershipEvent,
       questions: [
         {
@@ -415,21 +415,21 @@ const oktaIdentityFundamentalsRoom = {
           ],
           answer: 0,
           explanation:
-            "A shared source IP across two events involving the same account, minutes apart, is exactly the kind of pivot that links separate log lines into one coherent incident timeline -- the same actor who obtained the password used it, from the same infrastructure, to grant itself administrative access. IP addresses do carry real evidentiary weight when correlated this tightly (b is wrong), nothing here suggests this is GlobalLogis's own network -- 185.220.101.44 was already established as a hosting-provider address in the earlier finding (c is wrong), and the actor field names a real User, not a SystemPrincipal (d is wrong).",
+            "A shared source IP across two events involving the same account, minutes apart, is exactly the kind of pivot that links separate log lines into one coherent incident timeline -- the same actor who obtained the password got a push approved, opened a session, and used it -- from the same infrastructure -- to grant itself administrative access. IP addresses do carry real evidentiary weight when correlated this tightly, nothing here suggests this is GlobalLogis's own network -- 185.220.101.44 was already established as a hosting-provider address in the earlier finding -- and the actor field names a real User, not a SystemPrincipal.",
           xp: 25,
         },
         {
           question:
             "What is the correct combined containment scope now that both events are read together?",
           options: [
-            "Reset the account's password AND remove it from Okta-Admins immediately, then audit everything that account did while it held that elevated group membership",
+            "Reset the account's password, clear its active sessions, AND remove it from Okta-Admins immediately, then audit everything that account did while it held that elevated group membership",
             "Only reset the password -- removing the account from Okta-Admins can wait until the next scheduled access review",
             "Only remove the group membership -- the password itself is not actually a concern once the group change is reverted",
             "No additional action beyond what was already decided for the password-confirmation event alone",
           ],
           answer: 0,
           explanation:
-            "Both findings compound: the password is known to an outside party, AND that party used it to grant itself administrative group membership. Fixing only one half leaves the other live -- resetting the password alone leaves a live admin-group membership in place, and removing the group membership alone leaves the password still compromised for future use. Both must be addressed together, plus a review of what the elevated access was actually used for in the interim.",
+            "Both findings compound: the password is known to an outside party, that party now holds a live session (the push was approved), AND it used that session to grant itself administrative group membership. Fixing only one half leaves the other live -- resetting the password alone leaves a live admin-group membership in place, and removing the group membership alone leaves the password still compromised for future use. Both must be addressed together, plus a review of what the elevated access was actually used for in the interim.",
           xp: 30,
         },
       ],
@@ -460,14 +460,14 @@ const oktaIdentityFundamentalsRoom = {
       items: [
         { id: "securitycontext", text: "Check securityContext (asOrg, asNumber, isProxy) on the source of the activity -- is this infrastructure an ordinary employee would plausibly use" },
         { id: "outcome", text: "Read outcome.result AND outcome.reason together across the whole burst, watching specifically for any reason value that differs from the rest" },
-        { id: "step", text: "Cross-check authenticationContext.authenticationStep against the reason field to confirm how far the transaction actually progressed" },
+        { id: "step", text: "Check the MFA events that follow for the same account and transaction (push sent, denied, or approved) to confirm how far the sign-in actually progressed" },
         { id: "pivot", text: "Pivot on the account and the source IP to find any other System Log events in the surrounding window -- group, policy, or admin changes" },
         { id: "scope", text: "Scope the full impact: was a password confirmed correct, was any privilege or group membership changed, was a session ever created" },
         { id: "contain", text: "Contain based on everything actually found -- reset credentials, revert privilege changes, document the full chain" },
       ],
       correct_order: ["securitycontext", "outcome", "step", "pivot", "scope", "contain"],
       explanation:
-        "Start with the network context, since a hosting-ASN source is a fast, high-signal reason to keep investigating at all. From there, read the outcome fields across the whole burst rather than just the final event, since the single most important fact -- a password confirmed correct -- can sit anywhere inside a long run of ordinary-looking failures. Cross-checking the step counter corroborates that reading independently. Only once the sign-in picture is clear does it make sense to pivot on the account and source IP for follow-on activity, exactly the way the group-membership finding in this room extended the password finding into a larger incident. Scoping and containment come last, once the full chain -- not just the first event -- is actually known.",
+        "Start with the network context, since a hosting-ASN source is a fast, high-signal reason to keep investigating at all. From there, read the outcome fields across the whole burst rather than just the final event, since the single most important fact -- a password confirmed correct -- can sit anywhere inside a long run of ordinary-looking failures. Checking the follow-on MFA events (a push sent, denied or approved) corroborates that reading independently. Only once the sign-in picture is clear does it make sense to pivot on the account and source IP for follow-on activity, exactly the way the group-membership finding in this room extended the password finding into a larger incident. Scoping and containment come last, once the full chain -- not just the first event -- is actually known.",
       xp: 35,
     },
     // ── Flag ──────────────────────────────────────────────────────────────────
@@ -494,7 +494,7 @@ const oktaIdentityFundamentalsRoom = {
       ],
       answer: 1,
       explanation:
-        "This is the exact synthesis Reading 6 built toward: the concepts rhyme (both are identity providers doing the same underlying job), but the schemas do not, and treating them as interchangeable (a) is the mistake this room is designed to prevent. Reducing the Okta ticket to IP and geography (c) throws away the outcome.reason and eventType fields that carry the real signal, and Okta absolutely tracks admin and policy changes, just within its own unified System Log rather than a separate audit log (d).",
+        "This is the exact synthesis Reading 6 built toward: the concepts rhyme (both are identity providers doing the same underlying job), but the schemas do not, and treating them as interchangeable is the mistake this room is designed to prevent. Reducing the Okta ticket to IP and geography throws away the outcome.reason and eventType fields that carry the real signal, and Okta absolutely tracks admin and policy changes, just within its own unified System Log rather than a separate audit log.",
       xp: 25,
     },
     // ── Question 5: synthesis ──────────────────────────────────────────────────
@@ -502,16 +502,16 @@ const oktaIdentityFundamentalsRoom = {
       type: "question" as const,
       id: "oktaf-q5",
       question:
-        "Summarising this room's central lesson: an Okta account shows a run of INVALID_CREDENTIALS failures from a hosting-provider ASN, then one MFA_REQUIRED event from the same source, then a rate-limit warning, and no session is ever created. What is the single most accurate way to classify this incident?",
+        "Applying this room's central lesson to a different ticket: a second Okta account shows a run of INVALID_CREDENTIALS failures from a hosting-provider ASN, then one MFA_REQUIRED event from the same source, then the push that followed was denied by the user, then a rate-limit warning, and no session is ever created and no other activity follows. What is the single most accurate way to classify this incident?",
       options: [
-        "A blocked credential-stuffing attempt with a confirmed password exposure -- the password is known to an outside party though no session was obtained, so reset and pivot checks are still required",
+        "A blocked password-guessing attack with a confirmed password exposure -- the password is known to an outside party though no session was obtained, so reset and pivot checks are still required",
         "A contained brute-force attempt -- MFA stopped the attacker and the rate limiter capped the volume, so the account only needs monitoring and no reset since no session ever existed",
         "A false positive -- INVALID_CREDENTIALS dominates the burst, so the single MFA_REQUIRED event is most likely a legitimate user retry and the ticket can be closed",
         "A misconfigured integration -- a datacenter-ASN burst plus a rate-limit warning is typical of a service retrying stale credentials, so the ticket belongs with the Okta admin team",
       ],
       answer: 0,
       explanation:
-        "This draws together the room's core threads: the reason-field flip (Reading 3) proves password exposure even without a session; the securityContext ASN (Reading 4) corroborates that this wasn't the legitimate user; and the rate-limit event (Reading 7) reflects Okta defending itself, not resolving the underlying exposure. Calling this contained or no-impact (b) or dismissing the one differing reason value as noise (c) both repeat mistakes this room specifically addressed. And this isn't a misconfigured integration (d): a service retrying stale credentials would never produce a correct-password MFA_REQUIRED, and the events form one coherent, ordered chain.",
+        "This draws together the room's core threads: the reason-field flip (Reading 3) proves password exposure even without a session; the securityContext ASN (Reading 4) corroborates that this wasn't the legitimate user; and the rate-limit event (Reading 7) reflects Okta defending itself, not resolving the underlying exposure. Calling this contained or no-impact, or dismissing the one differing reason value as a legitimate retry, both repeat mistakes this room specifically addressed. And this isn't a misconfigured integration: a service retrying stale credentials would never produce a correct-password MFA_REQUIRED, and the events form one coherent, ordered chain.",
       xp: 30,
     },
   ],

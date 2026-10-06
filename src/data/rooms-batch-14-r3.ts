@@ -132,22 +132,22 @@ const impossibleTravelFPEvent: TelemetryEvent = {
   severity: "medium",
   hostname: undefined,
   user_email: "k.oconnell@nexacorp.com",
-  src_ip: "185.107.56.20",
+  src_ip: "198.51.100.20",
   description: "Successful login for k.oconnell from a Dublin IP address, eleven minutes after a login from a Chicago IP address",
   raw: {
     "okta.eventType": "user.session.start",
     "okta.outcome.result": "SUCCESS",
     "okta.authenticationContext.authenticationStep": "0",
     "okta.authenticationContext.credentialProvider": "OKTA_CREDENTIAL_PROVIDER",
-    "okta.client.ipAddress": "185.107.56.20",
+    "okta.client.ipAddress": "198.51.100.20",
     "okta.client.geographicalContext.country": "Ireland",
     "okta.client.geographicalContext.city": "Dublin",
     "okta.actor.displayName": "Kevin O'Connell",
     "okta.actor.id": "00u3f7a9c1e88bb4a2f",
     "okta.actor.type": "User",
     "okta.securityContext.isProxy": "true",
-    "okta.securityContext.asNumber": "AS20473",
-    "okta.securityContext.asOrg": "NordVPN / Global Corporate Egress Pool",
+    "okta.securityContext.asNumber": "AS64500",
+    "okta.securityContext.asOrg": "NexaCorp Ltd - Corporate VPN Egress EMEA",
     "okta.previousLogin.ipAddress": "172.56.22.104",
     "okta.previousLogin.city": "Chicago",
     "okta.previousLogin.country": "United States",
@@ -397,8 +397,11 @@ const edgeCaseRoom = {
         "      the token itself IS the ongoing credential.\n\n" +
         "  From this point on, EVERY subsequent event is a normal,\n" +
         "  correctly-authenticated Microsoft Graph API call. There is\n" +
-        "  no malware, no C2 traffic, and no failed-login signal — ever.\n\n" +
-        "  THE ONLY DETECTABLE MOMENT: the consent grant event itself.\n" +
+        "  no malware, no C2 traffic, and no failed-login signal.\n" +
+        "  (The app's later access IS logged — service-principal\n" +
+        "  sign-ins, MailItemsAccessed with its AppId, Graph activity\n" +
+        "  logs — but it looks like normal, authorized API traffic.)\n\n" +
+        "  EARLIEST AND CHEAPEST DETECTION POINT: the consent grant.\n" +
         "    o365.Operation = 'Consent to application.'\n" +
         "    RequestedScopes CONTAINS 'offline_access'   <-- red flag\n" +
         "    ApplicationDisplayName = unverified / recently registered\n",
@@ -434,8 +437,8 @@ const edgeCaseRoom = {
         "    is_proxy: false | as_org: unrelated / unknown\n\n" +
         "  VPN FALSE POSITIVE:\n" +
         "    Login 1: Chicago, residential/mobile ASN\n" +
-        "    Login 2 (11 min later): Dublin, AS20473\n" +
-        "    is_proxy: TRUE | as_org: 'Global Corporate Egress Pool'\n" +
+        "    Login 2 (11 min later): Dublin, AS64500 (NexaCorp's own registered ASN)\n" +
+        "    is_proxy: TRUE | as_org: 'NexaCorp Ltd - Corporate VPN Egress EMEA'\n" +
         "    network.vpn_gateway_pool: nexacorp-vpn-emea-dublin-01  <-- THE TELL\n\n" +
         "BUSINESS LOGIC — PASSWORD RESET ENUMERATION\n" +
         "=============================================================\n" +
@@ -656,7 +659,7 @@ const edgeCaseRoom = {
       event: impossibleTravelFPEvent,
       correct_verdict: "false_positive",
       explanation:
-        "This is a VPN/corporate-egress false positive, not an account takeover. The decisive fields are okta.securityContext.isProxy = true, okta.securityContext.asOrg identifying 'NordVPN / Global Corporate Egress Pool' (in this case the organization's own registered VPN egress ASN), and network.vpn_gateway_pool explicitly naming 'nexacorp-vpn-emea-dublin-01' — a company-owned VPN gateway. The user connected to the corporate VPN from Chicago, and their traffic legitimately egressed from the nearest regional gateway in Dublin. Both logins carry the same valid MFA-backed identity; there is no credential compromise signal anywhere in the event. The correct action is to close this as a false positive but verify the vpn_gateway_pool value against your organization's known-good VPN infrastructure inventory once, since an attacker could theoretically spoof or ride a similar-looking commercial VPN to hide in this exact blind spot.",
+        "This is a VPN/corporate-egress false positive, not an account takeover. The decisive fields are okta.securityContext.isProxy = true, okta.securityContext.asNumber/asOrg identifying AS64500 'NexaCorp Ltd - Corporate VPN Egress EMEA' (the organization's own registered VPN egress ASN, not a consumer VPN or an unrelated hosting provider), and network.vpn_gateway_pool explicitly naming 'nexacorp-vpn-emea-dublin-01' — a company-owned VPN gateway. The user connected to the corporate VPN from Chicago, and their traffic legitimately egressed from the nearest regional gateway in Dublin. Both logins carry the same valid MFA-backed identity; there is no credential compromise signal anywhere in the event. The correct action is to close this as a false positive but verify the vpn_gateway_pool value against your organization's known-good VPN infrastructure inventory once, since an attacker could theoretically spoof or ride a similar-looking commercial VPN to hide in this exact blind spot.",
       fp_trap:
         "The alert title says 'impossible travel' and the raw geography genuinely IS impossible for a human traveler — it is tempting to treat the word 'impossible' as inherently high-severity and escalate immediately. But impossible travel detections were built before centralized VPN/SASE egress was common, and they systematically misfire whenever an organization routes remote traffic through geographically distant egress points. Always check is_proxy and the ASN/org name behind the IP before trusting the geography at face value — the raw distance-over-time math is only meaningful if both IPs represent the user's true physical location.",
       xp: 30,
@@ -736,7 +739,7 @@ const edgeCaseRoom = {
         {
           id: "oauth-phish",
           left: "OAuth consent-grant phishing",
-          right: "The requested scope list includes offline_access from a generic, unverified application — the only event in the entire attack chain",
+          right: "The requested scope list includes offline_access from a generic, unverified application — the earliest and cheapest point to detect the attack chain",
         },
         {
           id: "impossible-travel",

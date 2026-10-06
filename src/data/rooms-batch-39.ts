@@ -208,7 +208,7 @@ const esxiVirtualizationSecurityRoom = {
       ],
       answer: 1,
       explanation:
-        "Reading 2 was explicit: this is a structural, architectural gap, not a bypass or a misconfiguration. The sensors were never disabled (a would itself generate its own distinct removal events across 96 hosts, which did not happen) -- they simply have no visibility into a layer they were never able to reach in the first place. It is not a detection-only mode suppressing alerts (c), and EDR sensors do not and cannot extend into the hypervisor layer at all, bug or not (d) -- that capability does not exist on this platform by design.",
+        "Reading 2 was explicit: this is a structural, architectural gap, not a bypass or a misconfiguration. The sensors were never stopped -- stopping them with stolen credentials would itself generate distinct sensor-offline or tamper events across 96 hosts, which did not happen; they simply have no visibility into a layer they were never able to reach in the first place. It is not a detection-only mode suppressing alerts, and guest EDR sensors do not and cannot extend into the hypervisor layer through VMware Tools or any other channel, driver bug or not -- that capability does not exist on this platform by design.",
       xp: 25,
     },
     // ── Reading 3: vSphere permission model ──────────────────────────────────
@@ -309,7 +309,7 @@ const esxiVirtualizationSecurityRoom = {
           ],
           answer: 0,
           explanation:
-            "This is the root-cause tracing this room emphasises: establishing how the granting account itself got its access, and what the newly-privileged account did next, is what actually reconstructs the incident. Powering off every VM pre-emptively (b) is a drastic, disproportionate action given the evidence gathered so far. The account name 'Administrator' is the BUILT-IN SSO account name, not proof of legitimate use -- Reading 3's own framing treats any grant on this scope as worth scrutinising regardless of which account issued it (c). And vCenter logs routine successful administrative actions at 'info' severity by design; that field reflects vCenter's own logging convention, not an analyst's risk assessment (d).",
+            "This is the root-cause tracing this room emphasises: establishing how the granting account itself got its access, and what the newly-privileged account did next, is what actually reconstructs the incident. Powering off every VM pre-emptively is a drastic, disproportionate action given the evidence gathered so far. The account name 'Administrator' is the BUILT-IN SSO account name, not proof of legitimate use -- Reading 3's own framing treats any grant on this scope as worth scrutinising regardless of which account issued it. And the 'info' severity is no reason to stand down: vCenter logs routine successful administrative actions at 'info' severity by design; that field reflects vCenter's own logging convention, not an analyst's risk assessment.",
           xp: 30,
         },
       ],
@@ -328,7 +328,7 @@ const esxiVirtualizationSecurityRoom = {
       ],
       answer: 0,
       explanation:
-        "Reading 3 was explicit that a role has to be attached as a permission before it grants anything -- a PermissionAddedEvent is the specific, findable event that marks exactly when and how an account became capable of these actions. Creating a role (b) grants nothing until it is attached to a principal through a permission. Privileges are not established at login (d). esx.audit.ssh.enabled (c) is a CONSEQUENCE of already having the needed privilege, not the event that granted it -- confusing an action with its authorisation is exactly the root-cause-vs-symptom trap Reading 3 warned about.",
+        "Reading 3 was explicit that a role has to be attached as a permission before it grants anything -- a PermissionAddedEvent is the specific, findable event that marks exactly when and how an account became capable of these actions. A RoleAddedEvent is not enough: creating a role grants nothing until it is attached to a principal through a permission. Privileges are not established at login either, so the UserLoginSessionEvent cannot explain the access. And esx.audit.ssh.enabled is a CONSEQUENCE of already having the needed privilege, not the event that granted it -- confusing an action with its authorisation is exactly the root-cause-vs-symptom trap Reading 3 warned about.",
       xp: 25,
     },
     // ── Log Analysis 2: esx.audit.ssh.enabled ────────────────────────────────
@@ -351,7 +351,7 @@ const esxiVirtualizationSecurityRoom = {
           ],
           answer: 0,
           explanation:
-            "Reading 5 made this distinction directly: vpxd.log shows the vCenter-side authorization chain, while vobd.log on the specific host provides the on-host confirmation that the change genuinely took effect there, with its own exact timestamp. They are not duplicates of each other (b, d), and vCenter's own event feed typically does reflect related activity too -- vobd.log is not the sole source (c) -- but the host-local confirmation is what this specific event provides.",
+            "Reading 5 made this distinction directly: vpxd.log shows the vCenter-side authorization chain, while vobd.log on the specific host provides the on-host confirmation that the change genuinely took effect there, with its own exact timestamp. vobd.log is neither a backup copy of vpxd.log nor a log with identical contents, and it is not the only source either: vCenter's own event feed typically does reflect related activity too -- but the host-local confirmation is what this specific event provides.",
           xp: 25,
         },
         {
@@ -365,7 +365,7 @@ const esxiVirtualizationSecurityRoom = {
           ],
           answer: 0,
           explanation:
-            "Reading 5 covered this precisely: the default-off posture is what makes any occurrence a genuine deviation worth flagging, independent of attribution -- unlike a login attempt, which happens constantly and legitimately. SSH itself is a legitimate, widely-used administrative protocol (b). vCenter does not auto-block SSH enablement (c) -- it's a deliberate, permitted host configuration action when done properly. And legitimate administrators do sometimes need to enable it too, which is exactly why the NEXT task in this room specifically covers a benign case (d).",
+            "Reading 5 covered this precisely: the default-off posture is what makes any occurrence a genuine deviation worth flagging, independent of attribution -- unlike a login attempt, which happens constantly and legitimately. SSH itself is a legitimate, widely-used administrative protocol, not malicious software. vCenter does not auto-block SSH enablement -- it's a deliberate, permitted host configuration action when done properly. And the event is not attacker-only: legitimate administrators do sometimes need to enable SSH too, which is exactly why the NEXT task in this room specifically covers a benign case.",
           xp: 25,
         },
         {
@@ -379,7 +379,7 @@ const esxiVirtualizationSecurityRoom = {
           ],
           answer: 0,
           explanation:
-            "This is the payoff of tracing root cause to consequence across the two distinct logs this room has taught: the same principal (svc-backup) appears first receiving broad privilege in vpxd.log, then exercising exactly the kind of privilege it was just granted in vobd.log minutes later -- tying the authorization event to the action it made possible. This is a meaningful correlation, not a coincidence (b), and the two logs remain genuinely separate files on separate systems even when the same principal appears in both (c, d).",
+            "This is the payoff of tracing root cause to consequence across the two distinct logs this room has taught: the same principal (svc-backup) appears first receiving broad privilege in vpxd.log, then exercising exactly the kind of privilege it was just granted in vobd.log minutes later -- tying the authorization event to the action it made possible. This is a meaningful correlation, not a coincidence; the two logs remain genuinely separate files on separate systems (they are not one unified log), and the shared principal points to the same account, not a different one, acting in both.",
           xp: 30,
         },
       ],
@@ -390,7 +390,7 @@ const esxiVirtualizationSecurityRoom = {
       id: "esxf-ac1",
       heading: "Verdict: SSH Enabled at 02:10 on a Saturday",
       scenario:
-        "An automated rule flags every esx.audit.ssh.enabled event for review, exactly the pattern this room has taught you to treat as high-confidence. The event below fired five days before the incident investigated above, on a different host in a different cluster. Review it before deciding how to handle it.",
+        "An automated rule flags every esx.audit.ssh.enabled event for review, exactly the pattern this room has taught you to treat as high-confidence. The event below fired five days before the incident investigated above, on a different host in a different cluster. The identity directory lists the acting account, j.marchetti, as a named member of the virtualization team. Review it before deciding how to handle it.",
       event: benignMaintenanceSshEvent,
       correct_verdict: "false_positive",
       explanation:
@@ -449,7 +449,7 @@ const esxiVirtualizationSecurityRoom = {
       type: "question" as const,
       id: "esxf-q3",
       question:
-        "A detection engineer proposes a single rule that fires only once file-modification activity is observed directly on a VMFS datastore's -flat.vmdk files. Based on Reading 7, what is the main weakness of relying on ONLY that rule?",
+        "A detection engineer proposes a single rule that fires only once a mass rename/rewrite of a datastore's -flat.vmdk files is observed (e.g., many disk files suddenly gaining a new extension), using the storage array's or NAS's own file-audit telemetry. Based on Reading 7, what is the main weakness of relying on ONLY that rule?",
       options: [
         "It would fire only once encryption has begun, missing the earlier mass power-off step (T1489), which must happen first and is visible in vCenter and host logs, giving a real window to respond",
         "Its weakness is scope: it would catch only the first datastore to be encrypted and miss VMs on other datastores, which the encryptor processes later in the run",
@@ -458,7 +458,7 @@ const esxiVirtualizationSecurityRoom = {
       ],
       answer: 0,
       explanation:
-        "Reading 7 made this point directly: because the power-off step is a separate, earlier, mechanically-required precondition, it is visible before the encryption itself -- a rule watching only for the encryption step throws away that earlier warning window. Datastore monitoring does observe host-side encryption (c), which is exactly how this room's attack runs, and the weakness is not a datastore-by-datastore coverage gap (b). And while VMs do write to their own disk files during normal operation, the SPECIFIC pattern this room describes -- mass power-offs immediately followed by datastore-wide rewrites -- is a distinguishable shape, not indistinguishable noise (d); the weakness is timing, not false-positive volume.",
+        "Reading 7 made this point directly: because the power-off step is a separate, earlier, mechanically-required precondition, it is visible before the encryption itself -- a rule watching only for the encryption step throws away that earlier warning window. Nothing can run ON the ESXi host to watch this, but the storage layer underneath it (the array or NAS serving the datastore) sees every file operation regardless of whether the encryptor runs in a guest or on the host -- so host-side encryption is not invisible to it. The weakness is not a datastore-by-datastore coverage gap either. And while VMs do write to their own disk files during normal operation, the rule targets a mass rename/rewrite of many -flat.vmdk files at once, which is a distinguishable shape, not indistinguishable noise; the weakness is timing, not false-positive volume.",
       xp: 25,
     },
     // ── Reading 8: earliest high-fidelity signal ─────────────────────────────
@@ -482,7 +482,7 @@ const esxiVirtualizationSecurityRoom = {
         ],
         answer: 1,
         explanation:
-          "This is the earliness-versus-fidelity tradeoff Reading 8 built the whole reading around: the best available rule in this chain is the one balancing both qualities well, not the one maximising either alone. Every other option in this room's chain is a real, logged event too (a is false), legitimate administrators genuinely can and do trigger this event during proper maintenance -- which is exactly why the earlier analyst-choice task existed (c is false) -- and this room never claims any single log event stops an attack automatically without human review (d).",
+          "This is the earliness-versus-fidelity tradeoff Reading 8 built the whole reading around: the best available rule in this chain is the one balancing both qualities well, not the one maximising either alone. It is not the only event vSphere logs -- every other step in this room's chain is a real, logged event too; it is not impossible for legitimate administrators to trigger it -- they genuinely can and do during proper maintenance, which is exactly why the earlier analyst-choice task existed; and this room never claims any single log event stops an attack automatically without human review.",
       },
     },
     // ── Question 4 ───────────────────────────────────────────────────────────

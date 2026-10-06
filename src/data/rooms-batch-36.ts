@@ -38,22 +38,22 @@ const tccWriteEvent: TelemetryEvent = {
     parent_name: "sh",
     parent_pid: 6104,
     cmdline:
-      "sqlite3 /Users/l.tavor/Library/Application Support/com.apple.TCC/TCC.db INSERT OR REPLACE INTO access VALUES('kTCCServiceScreenCapture','com.safeclean.util',0,2,4,1,NULL,NULL,NULL,'UNUSED',NULL,0,1);",
+      "sqlite3 /Library/Application Support/com.apple.TCC/TCC.db INSERT OR REPLACE INTO access VALUES('kTCCServiceScreenCapture','com.safeclean.util',0,2,4,1,NULL,NULL,NULL,'UNUSED',NULL,0,1);",
     user: "root",
   },
   file: {
     name: "TCC.db",
-    path: "/Users/l.tavor/Library/Application Support/com.apple.TCC/TCC.db",
+    path: "/Library/Application Support/com.apple.TCC/TCC.db",
   },
   description:
-    "A shell process spawned by the SafeClean Utility installer's postinstall script ran /usr/bin/sqlite3 against the user's own TCC privacy database and inserted a new access row, all while running as root.",
+    "A shell process spawned by the SafeClean Utility installer's postinstall script ran /usr/bin/sqlite3 against the system-wide TCC privacy database and inserted a new access row, all while running as root on a Mac with SIP disabled.",
   raw: {
     "crowdstrike.ComputerName": "MAC-4471",
     "crowdstrike.UserName": "root",
     "crowdstrike.FileName": "TCC.db",
-    "crowdstrike.FilePath": "/Users/l.tavor/Library/Application Support/com.apple.TCC/",
+    "crowdstrike.FilePath": "/Library/Application Support/com.apple.TCC/",
     "crowdstrike.CommandLine":
-      "sqlite3 /Users/l.tavor/Library/Application Support/com.apple.TCC/TCC.db INSERT OR REPLACE INTO access VALUES('kTCCServiceScreenCapture','com.safeclean.util',0,2,4,1,NULL,NULL,NULL,'UNUSED',NULL,0,1);",
+      "sqlite3 /Library/Application Support/com.apple.TCC/TCC.db INSERT OR REPLACE INTO access VALUES('kTCCServiceScreenCapture','com.safeclean.util',0,2,4,1,NULL,NULL,NULL,'UNUSED',NULL,0,1);",
     "crowdstrike.ParentProcessName": "sh",
     "crowdstrike.OperationType": "FileWritten",
     "process.name": "sqlite3",
@@ -63,7 +63,7 @@ const tccWriteEvent: TelemetryEvent = {
     "process.code_signature.status": "valid",
     "process.code_signature.subject_name": "Software Signing",
     "file.name": "TCC.db",
-    "file.path": "/Users/l.tavor/Library/Application Support/com.apple.TCC/TCC.db",
+    "file.path": "/Library/Application Support/com.apple.TCC/TCC.db",
     "host.name": "MAC-4471",
     "host.os.name": "macOS",
     "host.os.version": "14.5",
@@ -175,7 +175,7 @@ const macosSecurityFundamentalsRoom = {
   id: "macos-security-fundamentals",
   title: "macOS Security Fundamentals",
   description:
-    "The macOS counterpart to Windows Fundamentals and Linux Fundamentals: how software actually arrives and runs on a Mac (DMG and PKG), how Gatekeeper, notarization and the quarantine attribute decide whether to let it, what Developer ID versus ad-hoc code signing tells an analyst, how osascript and the login Keychain get abused, what the TCC privacy database controls and how a root process can bypass it, and how LaunchAgents and LaunchDaemons persist software across logins and reboots.",
+    "The macOS counterpart to Windows Fundamentals and Linux Fundamentals: how software actually arrives and runs on a Mac (DMG and PKG), how Gatekeeper, notarization and the quarantine attribute decide whether to let it, what Developer ID versus ad-hoc code signing tells an analyst, how osascript and the login Keychain get abused, what the TCC privacy database controls and what it takes to bypass it, and how LaunchAgents and LaunchDaemons persist software across logins and reboots.",
   difficulty: "beginner" as const,
   category: "Threat Detection",
   estimatedMinutes: 60,
@@ -234,7 +234,7 @@ const macosSecurityFundamentalsRoom = {
       ],
       answer: 1,
       explanation:
-        "Reading 2 covered this directly: package installation is a root-level operation, so a .pkg's install scripts inherit root the moment the user clicks through the installer -- no exploit needed. Quarantine (a) is applied to downloaded files regardless of container, so Gatekeeper evaluates .pkg and .dmg alike. DMGs can absolutely contain executable .app bundles (c), which is exactly what most legitimate DMG installs are. And .pkg files can be signed and notarized just like apps (d) -- notarization status is not what drives the root-privilege difference.",
+        "Reading 2 covered this directly: package installation is a root-level operation, so a .pkg's install scripts inherit root the moment the user clicks through the installer -- no exploit needed. The quarantine attribute is applied to downloaded files regardless of container, so Gatekeeper evaluates .pkg and .dmg alike. DMGs can absolutely contain executable .app bundles, which is exactly what most legitimate DMG installs are. And .pkg files can be signed and notarized just like apps -- notarization status is not what drives the root-privilege difference.",
       xp: 20,
     },
     // ── Reading 3: Gatekeeper / quarantine / notarization ────────────────────
@@ -296,16 +296,16 @@ const macosSecurityFundamentalsRoom = {
       ],
       answer: 1,
       explanation:
-        "Reading 4 was explicit: osascript is a real Apple-signed binary and will show 'valid' every time it runs, regardless of what it was told to do. The signature attests to who built the binary, not to the intent behind a specific invocation -- which is why the parent process (what launched it) and the command line (what it was told to do) carry the real signal here, not the signature field alone. SIP (a) protects the binary on disk, not how it is used; and (c) and (d) misstate the facts -- 'Software Signing' is the normal subject on Apple system binaries, and notarization applies to third-party software, not to what a script does.",
+        "Reading 4 was explicit: osascript is a real Apple-signed binary and will show 'valid' every time it runs, regardless of what it was told to do. The signature attests to who built the binary, not to the intent behind a specific invocation -- which is why the parent process (what launched it) and the command line (what it was told to do) carry the real signal here, not the signature field alone. System Integrity Protection protects the binary on disk, not how it is used; and the 'Apple Root CA should be the subject' and 'a notarization ticket proves the script is safe' readings both misstate the facts -- 'Software Signing' is the normal subject on Apple system binaries, and notarization applies to third-party software, not to what a script does.",
       xp: 20,
     },
     // ── Log Analysis 1: TCC.db root write ────────────────────────────────────
     {
       type: "log_analysis" as const,
       id: "macf-la1",
-      heading: "A Root Shell Writes Into the User's Own Privacy Database",
+      heading: "A Root Shell Writes Into the System Privacy Database",
       context:
-        "Lior Tavor, a sales operations manager at NexaCorp, installed a utility called SafeClean Utility from a .pkg downloaded from a search-ad result promising to speed up her Mac. The installer ran normally and finished with no visible error. Minutes later, Falcon recorded the event below on her MacBook, MAC-4471.",
+        "Lior Tavor, a sales operations manager at NexaCorp, installed a utility called SafeClean Utility from a .pkg downloaded from a search-ad result promising to speed up her Mac. The installer ran normally and finished with no visible error. Minutes later, Falcon recorded the event below on her MacBook, MAC-4471. The device-management inventory shows System Integrity Protection (SIP) is disabled on MAC-4471 — a developer-tooling exception granted last year and never reverted.",
       event: tccWriteEvent,
       questions: [
         {
@@ -319,7 +319,7 @@ const macosSecurityFundamentalsRoom = {
           ],
           answer: 0,
           explanation:
-            "Reading 2 covered exactly this mechanism: installing a .pkg is itself a root-level operation, and its preinstall/postinstall scripts inherit that root privilege automatically -- no separate exploit or manual sudo needed. Nothing in the event suggests Lior opened Terminal herself (b), Falcon's agent does not spawn arbitrary shells against the privacy database (c), and SSH is not the only source of a root shell on macOS -- a local install script is a far more common and far better-evidenced one here (d).",
+            "Reading 2 covered exactly this mechanism: installing a .pkg is itself a root-level operation, and its preinstall/postinstall scripts inherit that root privilege automatically -- no separate exploit or manual sudo needed. Nothing in the event suggests Lior opened Terminal and typed sudo herself, Falcon's agent does not spawn arbitrary shells against the privacy database, and SSH is not the only source of a root shell on macOS -- a local install script is a far more common and far better-evidenced one here.",
           xp: 25,
         },
         {
@@ -333,7 +333,7 @@ const macosSecurityFundamentalsRoom = {
           ],
           answer: 0,
           explanation:
-            "TCC.db is where macOS stores exactly this kind of approval -- a row granting a specific bundle identifier a specific protected permission. Normally that row only appears after the user clicks Allow on a system consent prompt. Because this write came from a root process, the row was inserted directly, and the app is now treated as approved for Screen Recording with no prompt ever shown. It disabled nothing globally (b), the row's presence is not a mere log entry pending a further step (c), and nothing here touches any other bundle's existing permissions (d).",
+            "TCC.db is where macOS stores exactly this kind of approval -- a row granting a specific bundle identifier a specific protected permission. Normally that row only appears after the user clicks Allow on a system consent prompt. Because this write came from a root process on a Mac with SIP disabled (see the TCC reading for why both matter), the row was inserted directly, and the app is now treated as approved for Screen Recording with no prompt ever shown. It disabled nothing globally, the row's presence is not a mere log entry pending a further step, and nothing here resets any other bundle's existing permissions.",
           xp: 25,
         },
         {
@@ -347,7 +347,7 @@ const macosSecurityFundamentalsRoom = {
           ],
           answer: 0,
           explanation:
-            "A self-granted permission is a means to an end, not the end itself -- the natural next question is what the app does with that access, and whether it quietly granted itself others (Full Disk Access, Accessibility, Camera/Microphone) the same way. There is no evidence here of a compromised password (b) -- TCC.db and login credentials are unrelated stores. sqlite3 being a legitimate, signed tool (c) is exactly the living-off-the-land pattern Reading 4 warned against reasoning from the tool's own signature. And 'not blocked' (d) describes Falcon's disposition on this one event, not whether the underlying activity needs a response.",
+            "A self-granted permission is a means to an end, not the end itself -- the natural next question is what the app does with that access, and whether it quietly granted itself others (Full Disk Access, Accessibility, Camera/Microphone) the same way. There is no evidence here of a compromised password, so resetting it misses the point -- TCC.db and login credentials are unrelated stores. sqlite3 being a legitimate, signed tool is exactly the living-off-the-land pattern Reading 4 warned against reasoning from the tool's own signature. And 'not blocked' describes Falcon's disposition on this one event, not whether the underlying activity needs a response.",
           xp: 30,
         },
       ],
@@ -403,7 +403,7 @@ const macosSecurityFundamentalsRoom = {
       ],
       answer: 0,
       explanation:
-        "Reading 5 named this exact pattern: a hidden-answer display dialog worded around 'password' is the classic macOS credential-phishing move, and no legitimate system password prompt is triggered by a third-party app's own child process. Option (b) is the trap the reading specifically warned against -- display dialog is common, but the wording and hidden-answer combination here is not routine UI, it's a credential lure. Option (c) confuses the phishing step with the separate Keychain-read step that typically follows it, not the same event. And (d) is a distraction: osascript's own signature will read as valid every single time, which is precisely why it tells you nothing on its own -- the command line is what carries the signal.",
+        "Reading 5 named this exact pattern: a hidden-answer display dialog worded around 'password' is the classic macOS credential-phishing move, and no legitimate system password prompt is triggered by a third-party app's own child process. Calling it a routine installer UI step is the trap the reading specifically warned against -- display dialog is common, but the wording and hidden-answer combination here is not routine UI, it's a credential lure. Calling it proof the Keychain was already read confuses the phishing step with the separate Keychain-read step that typically follows it, not the same event. And waiting on osascript's own signature is a distraction: that signature will read as valid every single time, which is precisely why it tells you nothing on its own -- the command line is what carries the signal.",
       xp: 25,
     },
     // ── Reading 7: TCC ────────────────────────────────────────────────────────
@@ -415,8 +415,8 @@ const macosSecurityFundamentalsRoom = {
         "macOS gates access to a specific set of sensitive resources behind a subsystem called TCC — Transparency, Consent and Control — and understanding how it normally works is what makes the earlier log-analysis event fully make sense.\n\n" +
         "**What TCC protects.** A defined list of resources requires explicit, per-app approval before any application, however innocuous it looks, can touch them: Full Disk Access (reading broadly across the filesystem, including other apps' protected data and the user's Documents/Desktop/Downloads by default), Screen Recording, the camera and microphone, Accessibility (controlling other apps via the accessibility APIs), Automation (one app scripting another), and several more. None of these are things a normal app gets automatically just by being installed and signed — each one requires its own separate approval.\n\n" +
         "**How that approval is normally granted.** The first time an app tries to use one of these, macOS shows the user a system consent dialog naming the specific app and the specific permission it's requesting. If the user clicks Allow, macOS records that decision as a row in a database; if they click Deny, or ignore it, no row granting access is written. This is Apple's mechanism for making an invisible category of access (what an app can silently see or control) visible and consent-driven — hence the name.\n\n" +
-        "**Where the approvals are stored.** Those decisions live in a SQLite database called TCC.db. There is a per-user copy under that user's own Library/Application Support/com.apple.TCC folder, covering permissions scoped to that user's data, and a separate system-wide copy for machine-level grants. Each row in the database ties a specific service identifier (for example, one for Screen Recording, one for Full Disk Access) to a specific application's bundle identifier, along with the allow/deny decision.\n\n" +
-        "**Why a root process bypassing the prompt is such a significant event.** The consent dialog and the database write are meant to always travel together — a user sees the prompt, and only then does a row appear. A process running as root has direct filesystem write access to that same database file, though, and can insert an allow-row itself, exactly the way the earlier log-analysis event did. When that happens, the app ends up looking, from every other part of the system's perspective, exactly as if the user had clicked Allow — even though no prompt was ever shown and no consent was ever actually given. This is precisely why a TCC.db write coming from an unexpected root process, rather than from the normal consent-dialog flow, is one of the highest-confidence privilege-escalation signals available on macOS.\n\n" +
+        "**Where the approvals are stored.** Those decisions live in a SQLite database called TCC.db. There is a per-user copy under that user's own Library/Application Support/com.apple.TCC folder, covering permissions scoped to that user's data (camera, microphone, Documents/Desktop folders and similar), and a separate system-wide copy at /Library/Application Support/com.apple.TCC/TCC.db for machine-level grants — the most sensitive ones, including Full Disk Access and Screen Recording, live there. Each row in the database ties a specific service identifier (for example, one for Screen Recording, one for Full Disk Access) to a specific application's bundle identifier, along with the allow/deny decision.\n\n" +
+        "**Why a root process bypassing the prompt is such a significant event.** The consent dialog and the database write are meant to always travel together — a user sees the prompt, and only then does a row appear. Being root is NOT enough to break that link on a modern Mac (macOS 10.14 Mojave and later): the per-user TCC.db is itself TCC-protected, so writing it needs a process that holds Full Disk Access (for example one inheriting it from an app the user already granted it to, such as a terminal or an MDM agent), and the system-wide TCC.db is protected by System Integrity Protection (SIP) — the macOS feature that locks critical system files and settings even against root — so writing it needs SIP to be disabled. MITRE ATT&CK lists exactly these prerequisites for T1548.006 (TCC Manipulation). When root does meet one of them — as in the earlier log-analysis event, where SIP was off — it can insert an allow-row itself. When that happens, the app ends up looking, from every other part of the system's perspective, exactly as if the user had clicked Allow — even though no prompt was ever shown and no consent was ever actually given. This is precisely why a direct TCC.db write coming from an unexpected process — root plus Full Disk Access, or root on a SIP-disabled Mac — rather than from the normal consent-dialog flow, is one of the highest-confidence privilege-escalation signals available on macOS, and why a fleet inventory showing SIP disabled is itself worth flagging.\n\n" +
         "**tccutil, for completeness.** Administrators and users can also manage these grants deliberately through a command-line tool called tccutil, most commonly to reset a specific app's permissions back to an unconfigured state. Seeing tccutil used to reset permissions is ordinary administration; seeing sqlite3 or another generic tool write directly into TCC.db from a root shell is not.",
     },
     // ── Reading 8: LaunchAgents vs LaunchDaemons ──────────────────────────────
@@ -465,7 +465,7 @@ const macosSecurityFundamentalsRoom = {
       ],
       answer: 0,
       explanation:
-        "Reading 8 laid out the comparison directly: a LaunchDaemon runs as root, starts before any login, survives reboots regardless of which user is active, and its presence in /Library/LaunchDaemons already proves the actor had root when they placed it -- all of that is absent from a per-user LaunchAgent, which only runs as that one user, only while they're logged in, and requires no elevated privilege to create. Options (b), (c) and (d) all invert or invent facts the reading does not support.",
+        "Reading 8 laid out the comparison directly: a LaunchDaemon runs as root, starts before any login, survives reboots regardless of which user is active, and its presence in /Library/LaunchDaemons already proves the actor had root when they placed it -- all of that is absent from a per-user LaunchAgent, which only runs as that one user, only while they're logged in, and requires no elevated privilege to create. The other three statements -- LaunchAgent as the more serious item, both running as root, or ~/Library surviving a reinstall while the daemon is wiped -- all invert or invent facts the reading does not support.",
       xp: 25,
     },
     // ── Log Analysis 2: DMG mount + osascript chain ──────────────────────────
@@ -488,7 +488,7 @@ const macosSecurityFundamentalsRoom = {
           ],
           answer: 0,
           explanation:
-            "Reading 4 covered exactly this state: ad-hoc signing satisfies macOS's technical requirement that every executable be signed, without asserting any real identity -- a subject name of a single dash means no developer or company is named at all. This is the overwhelmingly common state for malware distributed outside official channels. It is not an Apple-built binary (b), not a revoked-then-abused certificate (c, which would show a 'revoked' status, not 'adhoc'), and it is very much still relevant to trust today (d).",
+            "Reading 4 covered exactly this state: ad-hoc signing satisfies macOS's technical requirement that every executable be signed, without asserting any real identity -- a subject name of a single dash means no developer or company is named at all. This is the overwhelmingly common state for malware distributed outside official channels. It is not an Apple-built binary, not a revoked-then-abused certificate (which would show a 'revoked' status, not 'adhoc'), and ad-hoc signing is not an obsolete format -- it is very much still relevant to trust today.",
           xp: 25,
         },
         {
@@ -502,7 +502,7 @@ const macosSecurityFundamentalsRoom = {
           ],
           answer: 0,
           explanation:
-            "osascript is a real, Apple-signed binary that will show 'valid' on every single invocation, whatever it was told to do -- Reading 4 named this exact trap. The signal that actually matters here is everything around the signature: an ad-hoc-signed parent process launched minutes earlier from a mounted disk image, spawning osascript with a command line that renders a credential-style prompt. Option (b) is precisely the reasoning error the reading warned against. Nothing supports a logging error (c) -- osascript appears constantly in real malicious chains specifically because it is trusted. And code signatures do not expire within a single execution the way (d) describes.",
+            "osascript is a real, Apple-signed binary that will show 'valid' on every single invocation, whatever it was told to do -- Reading 4 named this exact trap. The signal that actually matters here is everything around the signature: an ad-hoc-signed parent process launched seconds earlier from a mounted disk image, spawning osascript with a command line that renders a credential-style prompt. Treating a valid Apple signature as enough to clear the event is precisely the reasoning error the reading warned against. Nothing supports a logging error -- osascript appears constantly in real malicious chains specifically because it is trusted. And code signatures do not lapse after a process's first few seconds of execution.",
           xp: 25,
         },
         {
@@ -516,7 +516,7 @@ const macosSecurityFundamentalsRoom = {
           ],
           answer: 0,
           explanation:
-            "Reading 6 built directly on this: once a login password is captured, the next step in a credential-theft chain is very often /usr/bin/security reading the login Keychain, or a direct read of a browser's saved-password database, since the captured password is frequently what unlocks those stores. Nothing here suggests the chain simply stops (b) -- that ignores the entire point of phishing a password. Ransomware (c) and a domain-controller account creation (d) are both unrelated techniques this event gives no evidence for; this platform keeps techniques evidence-based rather than assuming the worst-case unconnected outcome.",
+            "Reading 6 built directly on this: once a login password is captured, the next step in a credential-theft chain is very often /usr/bin/security reading the login Keychain, or a direct read of a browser's saved-password database, since the captured password is frequently what unlocks those stores. Nothing here suggests the chain simply stops -- that ignores the entire point of phishing a password. Ransomware encryption and a domain-controller account creation are both unrelated techniques this event gives no evidence for; this platform keeps techniques evidence-based rather than assuming the worst-case unconnected outcome.",
           xp: 30,
         },
       ],
@@ -527,11 +527,11 @@ const macosSecurityFundamentalsRoom = {
       id: "macf-ac1",
       heading: "Verdict: A .pkg Install Followed by a New LaunchAgent",
       scenario:
-        "An automated rule fires on MAC-6610 for a pattern this room has spent several readings teaching you to take seriously: a .pkg installer ran, and a new launchd item was registered immediately afterward. Review the record before deciding how to handle it.",
+        "An automated rule fires on MAC-6610 for a pattern this room has spent several readings teaching you to take seriously: a .pkg installer ran, and a new launchd item was registered immediately afterward. Pivoting to the file-write telemetry for the same minute, you find the new item was written as /Users/r.golan/Library/LaunchAgents/notion.id.helper.plist, owned by r.golan, with ProgramArguments pointing inside /Applications/Notion.app. Review the record before deciding how to handle it.",
       event: benignNotarizedInstallEvent,
       correct_verdict: "false_positive",
       explanation:
-        "The install shape (a .pkg followed by a new launch item) is real, but every discriminator this room taught points to benign: process.code_signature.status is valid with a genuine Developer ID Application subject naming a real, identifiable company, file.signature.trusted is true, and the description states plainly that the registered item is a per-user LaunchAgent for the app's own updater -- not a system-wide LaunchDaemon. A LaunchAgent created by the app's own installer, under the current user's own privilege, to manage its own future update checks, is exactly the routine pattern Reading 8 described as unremarkable. There is no ad-hoc or revoked signature here, no root-owned script doing anything unusual, and no TCC or Keychain activity anywhere in the record.",
+        "The install shape (a .pkg followed by a new launch item) is real, but every discriminator this room taught points to benign: process.code_signature.status is valid with a genuine Developer ID Application subject naming a real, identifiable company, file.signature.trusted is true, and the file-write pivot shows the registered item is a per-user LaunchAgent (~/Library/LaunchAgents/notion.id.helper.plist, owned by the user, pointing back into Notion.app) for the app's own helper/updater -- not a system-wide LaunchDaemon. A LaunchAgent created by the app's own installer, under the current user's own privilege, to manage its own future update checks, is exactly the routine pattern Reading 8 described as unremarkable. There is no ad-hoc or revoked signature here, no root-owned script doing anything unusual, and no TCC or Keychain activity anywhere in the record.",
       fp_trap:
         "A .pkg install followed by a new launchd registration is precisely the shape this room has taught you to scrutinize -- installer scripts can run as root, and a LaunchDaemon can persist as root at boot. But real, entirely legitimate commercial software installs this way constantly, registering a per-user LaunchAgent to check for its own updates. Escalating every install-plus-launch-item pattern on shape alone, without checking the signature state and which of the two launchd locations was actually used, trains a team to drown in noise on the one pattern that most needs real scrutiny when it is genuinely malicious.",
       xp: 30,
@@ -603,7 +603,7 @@ const macosSecurityFundamentalsRoom = {
       ],
       answer: 0,
       explanation:
-        "Reading 8 covered exactly this middle case: persistence does not require root at all -- a LaunchAgent under the user's own Library folder needs no elevated privilege to create and would fully explain something continuing to run for that user after the original app was quit. Jumping straight to 'it must be a LaunchDaemon we haven't found' (b) ignores the room's own evidence-based approach -- a clean search result is a real finding, not something to override with an assumption. Login Items (c) are one persistence option among several, not the only one -- launchd items are the mechanism this room taught. And TCC permissions (d) govern what an app may access, not whether it relaunches itself; nothing in the described activity points to a TCC change.",
+        "Reading 8 covered exactly this middle case: persistence does not require root at all -- a LaunchAgent under the user's own Library folder needs no elevated privilege to create and would fully explain something continuing to run for that user after the original app was quit. Jumping straight to 'it must be a LaunchDaemon we haven't found' ignores the room's own evidence-based approach -- a clean search result is a real finding, not something to override with an assumption. Login Items are one persistence option among several, not the only one -- launchd items are the mechanism this room taught. And TCC permissions govern what an app may access, not whether it relaunches itself; nothing in the described activity points to a TCC change.",
       xp: 30,
     },
   ],

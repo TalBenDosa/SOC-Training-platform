@@ -245,7 +245,7 @@ const commodityInitialAccessRoom = {
       ],
       answer: 0,
       explanation:
-        "Reading 2 covered exactly this signature: a command run through the Run dialog never exists as a file at all, so there is nothing for a file_create event to record. Assuming a sensor gap (b) invents a failure with no supporting evidence. PowerShell processes routinely follow a preceding download in ordinary malicious chains, so (c) is false. (d) requires a delete event that also isn't present -- there is no evidence anything was ever written and removed.",
+        "Reading 2 covered exactly this signature: a command run through the Run dialog never exists as a file at all, so there is nothing for a file_create event to record. Assuming the sensor missed the download invents a failure with no supporting evidence. PowerShell processes routinely follow a preceding download in ordinary malicious chains, so the claim that a missing file_create is normal and says nothing is false. The download-then-instant-delete theory requires a delete event that also isn't present -- there is no evidence anything was ever written and removed.",
       xp: 20,
     },
     // ── Reading 3: Clipboard clippers ─────────────────────────────────────────
@@ -275,7 +275,7 @@ const commodityInitialAccessRoom = {
       ],
       answer: 0,
       explanation:
-        "This is the exact pattern Reading 3 described: no crash, no visible symptom, and the only outcome anyone notices is a payment gone to the wrong place -- the specific artefact to check for is a clipboard-format listener substituting wallet addresses. Keylogging (b) would produce a very different downstream symptom (stolen credentials used elsewhere, not a misdirected crypto payment). An infostealer (c) and a remote-access tool (d) both need network connections to send data out or receive commands, and the scenario states the process made none.",
+        "This is the exact pattern Reading 3 described: no crash, no visible symptom, and the only outcome anyone notices is a payment gone to the wrong place -- the specific artefact to check for is a clipboard-format listener substituting wallet addresses. Keylogging would produce a very different downstream symptom (stolen credentials used elsewhere, not a misdirected crypto payment). An infostealer and a remote-access tool both need network connections to send data out or receive commands, and the scenario states the process made none.",
       xp: 20,
     },
     // ── Reading 4: SEO-poisoned / malvertised installers ──────────────────────
@@ -322,7 +322,7 @@ const commodityInitialAccessRoom = {
           ],
           answer: 0,
           explanation:
-            "Reading 4 covered exactly this shape: an installer whose only real job is fetching a second, unrelated file is a loader, tracked as T1105. Legitimate installers occasionally fetch redistributable components, but not from infrastructure with zero naming or ownership relationship to the download site, which rules out (b) as the default explanation here. Nothing in the event suggests a misattributed connection (c), and the original download site being the delivery vector doesn't mean the second domain isn't also attacker-controlled (d) -- both can be true at once.",
+            "Reading 4 covered exactly this shape: an installer whose only real job is fetching a second, unrelated file is a loader, tracked as T1105. Legitimate installers occasionally fetch redistributable components, but not from infrastructure with zero naming or ownership relationship to the download site, which rules out 'normal installer behavior' as the default explanation here. Nothing in the event suggests the firewall misattributed the connection to the wrong process, and the original download site being the delivery vector doesn't mean the second domain isn't also attacker-controlled -- both can be true at once.",
           xp: 25,
         },
         {
@@ -336,7 +336,7 @@ const commodityInitialAccessRoom = {
           ],
           answer: 0,
           explanation:
-            "pan.action 'alert' is a deliberate policy outcome many organisations choose for risky-but-unconfirmed categories, because blocking every newly-registered domain wholesale breaks a large number of legitimate new sites. Full URLs and filenames are present in the log, which contradicts a TLS inspection failure (c). Nothing supports an allowlist (d) for a domain the log still categorises as risky, and assuming a bug (b) isn't warranted by a single alert-not-block decision.",
+            "pan.action 'alert' is a deliberate policy outcome many organisations choose for risky-but-unconfirmed categories, because blocking every newly-registered domain wholesale breaks a large number of legitimate new sites. Full URLs and filenames are present in the log, which contradicts a TLS inspection failure. Nothing supports an internal allowlist entry for a domain the log still categorises as risky, and assuming the rule is broken isn't warranted by a single alert-not-block decision.",
           xp: 25,
         },
         {
@@ -362,8 +362,8 @@ const commodityInitialAccessRoom = {
       heading: "ISO and Mark-of-the-Web Smuggling: A Warning That Never Travels",
       content:
         "Windows tries to protect users from files they download from the internet with a mechanism called Mark-of-the-Web (MOTW): the moment a browser saves a file from the web, Windows tags it with a small hidden marker — technically a 'Zone.Identifier' alternate data stream — recording that it came from the internet zone. That marker is what triggers SmartScreen's warning prompt when someone tries to run an unfamiliar downloaded executable, and it's a genuinely effective control against a plain downloaded .exe.\n\n" +
-        "**The gap this closes.** The marker belongs to the specific file object Windows tagged — the ISO, IMG, or VHD container itself, not to whatever is inside it. When a victim double-clicks a downloaded ISO file, Windows' own built-in container-mount handler presents it as a brand-new drive letter, exposing whatever files sit inside. Those inner files are read directly off the mounted volume; they never go through their own separate internet-download path, so they never receive their own Zone.Identifier tag — and a shortcut or executable inside that mounted volume can run with no SmartScreen prompt at all, even though the container that delivered it was correctly tagged the moment it landed in Downloads.\n\n" +
-        "**Why this pattern specifically became common after 2022.** Once Office started blocking macros from the internet by default, several loader families that had relied heavily on malicious Word or Excel documents moved to container formats specifically because Windows will mount them without flagging them the way it flags a raw .exe — MITRE ATT&CK tracks this as T1553.005, Subvert Trust Controls: Mark-of-the-Web Bypass.\n\n" +
+        "**The gap this exploits.** The marker belongs to the specific file object Windows tagged — the ISO, IMG, or VHD container itself, not automatically to whatever is inside it. When a victim double-clicks a downloaded ISO file, Windows' own built-in container-mount handler presents it as a brand-new drive letter, exposing whatever files sit inside. On Windows builds without the November 2022 security update, those inner files are read directly off the mounted volume, never go through their own internet-download path, and so never receive their own Zone.Identifier tag — a shortcut or executable inside that mounted volume can run with no SmartScreen prompt at all, even though the container that delivered it was correctly tagged the moment it landed in Downloads.\n\n" +
+        "**Why this pattern boomed in 2022 — and what changed.** Once Office started blocking macros from the internet by default in 2022, several loader families that had relied on malicious Word or Excel documents moved to container formats precisely because of this gap — MITRE ATT&CK tracks it as T1553.005, Subvert Trust Controls: Mark-of-the-Web Bypass. Microsoft closed the ISO case in the November 2022 Patch Tuesday (CVE-2022-41091): on a patched system, Windows now propagates the container's Mark-of-the-Web to the files inside it, so the shortcut does trigger a warning. The technique therefore still works on hosts that missed that update, and the same idea lives on wherever MOTW fails to propagate — most notably archive tools: 7-Zip before version 24.09 did not carry MOTW onto files extracted from a nested archive (CVE-2025-0411), and archivers or container formats that never propagate the mark leave the extracted files untagged. The analyst's question stays the same: did the file that actually ran carry its own Zone.Identifier, or did the mark stop at the wrapper?\n\n" +
         "**What the shortcut actually does.** The .lnk file sitting inside the mounted volume is rarely the payload itself — its target is almost always a short command that hands off to something else, most often cmd.exe launching a hidden, base64-encoded PowerShell command. cmd.exe's command line in this pattern typically carries no logic of its own beyond the instruction to start the next interpreter — it functions purely as a relay, a detail worth reading directly off the process's own command-line field rather than assuming from the process name alone.\n\n" +
         "**Why 'the file-filter policy didn't block it' isn't the same failure as it sounds like.** Most download-filtering policies were built to catch and block risky executable types outright. A policy that only inspects or blocks .exe downloads has nothing to say about an .iso — it simply isn't the file type the policy was designed to look at, which is exactly why closing this gap means extending container formats (.iso, .img, .vhd) into the same filtering policy that executables already get, not assuming the existing exe-focused control already covers it.\n\n" +
         "**MITRE ATT&CK coverage.** T1553.005 for the Mark-of-the-Web bypass itself; T1204.002 (User Execution: Malicious File) for the victim opening the container and its shortcut in the first place; T1059.001 for the PowerShell stage the relay hands off to.",
@@ -373,7 +373,7 @@ const commodityInitialAccessRoom = {
       type: "question" as const,
       id: "mcia-q3",
       question:
-        "A user double-clicks a shortcut sitting inside a mounted ISO volume that came from a downloaded file, and it launches cmd.exe with no SmartScreen warning at all -- even though the ISO file itself was tagged with a Mark-of-the-Web zone identifier when it was downloaded. Why didn't the warning appear?",
+        "A user on a Windows 10 workstation that has not received security updates since mid-2022 double-clicks a shortcut sitting inside a mounted ISO volume that came from a downloaded file, and it launches cmd.exe with no SmartScreen warning at all -- even though the ISO file itself was tagged with a Mark-of-the-Web zone identifier when it was downloaded. Why didn't the warning appear?",
       options: [
         "Mark-of-the-Web belongs to the downloaded container file; files exposed once Windows mounts it are read off the volume and never receive their own zone tag",
         "A Group Policy on this machine disables SmartScreen for removable and virtual volumes, so nothing launched from a mounted ISO is ever checked",
@@ -382,7 +382,7 @@ const commodityInitialAccessRoom = {
       ],
       answer: 0,
       explanation:
-        "Reading 5 covered exactly this mechanism: the mark belongs to the container file object, not to anything exposed once it's mounted -- inner files never go through their own download path and so never get their own tag. Nothing in the scenario supports an administrator disabling SmartScreen (b) or a trusted signature (c) -- both invent facts not in evidence. ISO files aren't categorically excluded from SmartScreen (d); the mount mechanism, not the file extension itself, is what explains the missing prompt.",
+        "Reading 5 covered exactly this mechanism: on a host without the November 2022 fix (CVE-2022-41091), the mark belongs to the container file object, not to anything exposed once it's mounted -- inner files never go through their own download path and so never get their own tag. (On a patched host Windows propagates the mark to the ISO's contents and the prompt would appear.) Nothing in the scenario supports an administrator disabling SmartScreen or a trusted-signature exemption for cmd.exe -- both invent facts not in evidence. ISO files aren't categorically excluded from SmartScreen either; the missing propagation of the mark, not the file extension itself, is what explains the missing prompt.",
       xp: 25,
     },
     // ── Reading 6: Drive-by browser cryptomining ────────────────────────────────
@@ -419,7 +419,7 @@ const commodityInitialAccessRoom = {
       event: legitPasteRunEvent,
       correct_verdict: "false_positive",
       explanation:
-        "The command line downloads and runs the install script from community.chocolatey.org — the real, publicly documented installation method for the Chocolatey package manager, not a lookalike or newly-registered domain. it_verify_result is 'confirmed', tied to change ticket CHG-44190 authorising exactly this rollout for the DevOps team this week, and the user, y.cohen, is a DevOps engineer performing the action on their own workstation. process.signed is 'true' for powershell.exe itself, which is expected either way (Reading 2 already established a signed interpreter says nothing about the intent of what it's told to run) — the deciding fields here are the verified domain and the confirmed change ticket, not the signature.",
+        "The command line downloads and runs the install script from community.chocolatey.org — the real, publicly documented installation method for the Chocolatey package manager, not a lookalike or newly-registered domain. The IT verification on the record is 'confirmed': change ticket CHG-44190 approves the DevOps team's Chocolatey rollout across engineering workstations this week, and y.cohen's install falls inside that approved window on their own workstation. process.signed is 'true' for powershell.exe itself, which is expected either way — powershell.exe is a Microsoft-signed interpreter on every Windows machine, so its signature says nothing about the intent of the script it is told to run — the deciding fields here are the verified domain and the confirmed change ticket, not the signature.",
       fp_trap:
         "explorer.exe launching a hidden-window PowerShell process that pulls a script straight from the internet is precisely the shape this room has been teaching you to treat as ClickFix-style paste-and-run. But real software vendors — Chocolatey among them — genuinely publish official one-line install commands that look identical in telemetry to a malicious paste-and-run chain. Escalating this pattern on shape alone, without checking the destination domain and it_verify_result, trains a team to drown in noise on the exact pattern that most needs real scrutiny when it's actually malicious.",
       xp: 30,
@@ -480,7 +480,7 @@ const commodityInitialAccessRoom = {
           ],
           answer: 0,
           explanation:
-            "Reading 6 was explicit that neither field rules anything in or out on its own -- what stands out is behavioural: pan.elapsed_time of 1140 seconds against one destination, with steady bytes_sent/bytes_received, is not how a typical page's WebSocket connections behave. WebSocket is mainstream, legitimate web infrastructure (b), 'unknown' is simply an absence of classification rather than a verdict (c), and 443 is the standard HTTPS/WebSocket port, not an anomaly (d).",
+            "Reading 6 was explicit that neither field rules anything in or out on its own -- what stands out is behavioural: pan.elapsed_time of 1140 seconds against one destination, with steady bytes_sent/bytes_received, is not how a typical page's WebSocket connections behave. WebSocket is mainstream, legitimate web infrastructure, not inherently malicious; 'unknown' is simply an absence of classification rather than a verdict; and 443 is the standard HTTPS/WebSocket port, not an anomaly.",
           xp: 25,
         },
         {
@@ -494,7 +494,7 @@ const commodityInitialAccessRoom = {
           ],
           answer: 0,
           explanation:
-            "Reading 6 covered this directly: the 'payload' is a WebAssembly module the browser's own renderer process compiles and runs inside its existing sandbox -- no separate executable, and therefore no new file or unfamiliar process name to notice. Nothing here shows a disabled sensor (b) or a replaced binary (c), and (d) is simply false -- WebAssembly is specifically designed to run compute-heavy code inside a browser at near-native speed.",
+            "Reading 6 covered this directly: the 'payload' is a WebAssembly module the browser's own renderer process compiles and runs inside its existing sandbox -- no separate executable, and therefore no new file or unfamiliar process name to notice. Nothing here shows a disabled EDR sensor or a lookalike replacement browser binary, and the claim that cryptomining cannot run inside a browser is simply false -- WebAssembly is specifically designed to run compute-heavy code inside a browser at near-native speed.",
           xp: 25,
         },
         {
@@ -508,7 +508,7 @@ const commodityInitialAccessRoom = {
           ],
           answer: 0,
           explanation:
-            "Reading 6 made this explicit: nothing here writes a persistence mechanism or touches a credential, so closing the tab and renderer ends the technical impact -- the remaining work is scoping the delivery, meaning the injected script's domain and the mining relay both belong on a blocklist so the same tab doesn't reconnect on reload. Reimaging (b) is disproportionate when nothing reached disk outside the browser's own ordinary caching. Resetting a password (c) has no basis -- no credential store or token was touched anywhere in this evidence. Doing nothing at all (d) leaves the delivery domains live for the next visitor.",
+            "Reading 6 made this explicit: nothing here writes a persistence mechanism or touches a credential, so closing the tab and renderer ends the technical impact -- the remaining work is scoping the delivery, meaning the injected script's domain and the mining relay both belong on a blocklist so the same tab doesn't reconnect on reload. Reimaging the laptop is disproportionate when nothing reached disk outside the browser's own ordinary caching. Resetting the user's password has no basis -- no credential store or token was touched anywhere in this evidence. Doing nothing at all leaves the delivery domains live for the next visitor.",
           xp: 30,
         },
       ],
@@ -537,7 +537,7 @@ const commodityInitialAccessRoom = {
       ],
       answer: 0,
       explanation:
-        "Only drive-by browser cryptomining matches every detail given: no downloaded file, no separate process outside the browser, and a symptom (heat, meaning sustained CPU) tied directly to an open tab. ClickFix (b) would leave a distinct powershell.exe process outside the browser. A clipboard clipper (c) produces no heat symptom at all -- its only sign is a misdirected payment, not CPU load. ISO smuggling (d) requires a downloaded container file, which the scenario explicitly rules out by saying Downloads is empty.",
+        "Only drive-by browser cryptomining matches every detail given: no downloaded file, no separate process outside the browser, and a symptom (heat, meaning sustained CPU) tied directly to an open tab. ClickFix would leave a distinct powershell.exe process outside the browser. A clipboard clipper produces no heat symptom at all -- its only sign is a misdirected payment, not CPU load. ISO smuggling requires a downloaded container file, which the scenario explicitly rules out by saying Downloads is empty.",
       xp: 30,
     },
   ],

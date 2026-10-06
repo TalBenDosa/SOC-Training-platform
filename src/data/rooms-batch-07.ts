@@ -116,7 +116,7 @@ The result is **Falcon**, a cloud-native endpoint protection platform. "Cloud-na
 
 **What Is the Falcon Sensor?**
 
-Think of the Falcon Sensor like a security camera permanently installed inside the operating system. It runs in **kernel mode** — the deepest, most privileged layer of Windows or Linux — which means nothing on the system can hide from it. Every time a program starts, accesses a file, makes a network connection, or touches the registry, the Sensor records it and streams that telemetry to CrowdStrike's cloud in near real-time.
+Think of the Falcon Sensor like a security camera permanently installed inside the operating system. It runs in **kernel mode** — the deepest, most privileged layer of Windows or Linux — which makes it very hard for anything on the system to hide from it. (Not impossible: attackers use "EDR killer" tools and vulnerable signed drivers — BYOVD — to blind or unload sensors, which is why a sensor suddenly going offline is itself an alert.) Every time a program starts, accesses a file, makes a network connection, or touches the registry, the Sensor records it and streams that telemetry to CrowdStrike's cloud in near real-time.
 
 The Sensor is deliberately tiny (under 5 MB) and uses very little CPU. Users generally can't tell it's there. It doesn't slow down the computer or interfere with normal work.
 
@@ -130,7 +130,7 @@ When the cloud spots something suspicious, it sends a detection back to the Falc
 
 **CrowdStrike's Adversary Focus**
 
-CrowdStrike publicly names and tracks over 200 threat actor groups using animal-themed codenames: **FANCY BEAR** (Russian state actors), **COZY BEAR** (another Russian group), **LAZARUS GROUP** (North Korea, sometimes called HIDDEN COBRA), **SCATTERED SPIDER** (English-speaking cybercriminal group). This adversary intelligence approach helps SOC teams understand *who* is attacking them and *why*, not just *what malware* was used.
+CrowdStrike publicly names and tracks over 200 threat actor groups using animal-themed codenames: **FANCY BEAR** (Russian state actors), **COZY BEAR** (another Russian group), **LABYRINTH CHOLLIMA** (North Korea — part of what other vendors call the Lazarus Group; HIDDEN COBRA is the US-government name), **SCATTERED SPIDER** (English-speaking cybercriminal group). The animal tells you the origin: BEAR = Russia, PANDA = China, KITTEN = Iran, CHOLLIMA = North Korea, SPIDER = eCrime (financially motivated criminals). This adversary intelligence approach helps SOC teams understand *who* is attacking them and *why*, not just *what malware* was used.
 
 **Prevention vs Detection: Two Modes of Falcon**
 
@@ -184,7 +184,8 @@ When you open a detection, these fields are critical for analysis:
 - **SHA256:** The cryptographic fingerprint of any file involved. You can paste this into VirusTotal to see if it's known malware.
 - **LocalIP / ExternalIP:** The IP addresses of the endpoint and any remote connection
 - **UserName:** Which user account was running the process (SYSTEM? A service account? A regular employee?)
-- **ContextProcessName:** The parent process — what launched the suspicious process
+- **ContextProcessName / ContextProcessId:** The process in whose context the event happened — the process that performed the action (for a process-creation event, that is the process that launched the new one)
+- **ParentBaseFileName / ParentProcessId:** The direct parent of the process the event is about
 
 **Investigate / Threat Graph**
 
@@ -300,12 +301,12 @@ After compromising one machine, attackers move to others. A common tool is **PsE
       options: [
         "To scan files on disk at kernel level against a local signature database",
         "To enforce USB device control and block removable media",
-        "To record system activity at the deepest OS level so threats cannot hide from it",
+        "To record system activity at the deepest OS level so threats find it very hard to hide from it",
         "To route endpoint traffic through a cloud proxy for inspection",
       ],
       answer: 2,
       explanation:
-        "Kernel mode is the most privileged layer of an operating system — even before the normal user-facing software loads. By running at kernel level, the Falcon Sensor can monitor every process, file operation, network connection, and registry change without any program being able to evade it. Malware that tries to hide itself cannot conceal activity from a kernel-mode sensor.",
+        "Kernel mode is the most privileged layer of an operating system — even before the normal user-facing software loads. By running at kernel level, the Falcon Sensor can monitor every process, file operation, network connection, and registry change from a vantage point ordinary user-mode programs cannot evade. Malware that tries to hide itself in user mode struggles to conceal activity from a kernel-mode sensor — which is why advanced attackers instead try to blind the sensor itself (EDR-killer tools, vulnerable signed drivers / BYOVD), and why a sensor going offline is treated as an alert.",
       xp: 35,
     },
 
@@ -606,8 +607,8 @@ The home screen shows a threat summary for your environment: total threats detec
 This is the core of a SOC analyst's daily work in SentinelOne. Every detected threat appears here as a card. Each threat card shows:
 - **Threat Name:** e.g., "Trojan.Ransom.LockBit3" (the malware family name)
 - **Risk Level:** Critical, High, Medium, Low — SentinelOne's severity score
-- **Classification:** Malicious, Suspicious, or Potentially Unwanted Application (PUA)
-- **Confidence Level:** A percentage (e.g., 99%) representing how certain the AI engines are
+- **Classification:** The threat type — e.g., Ransomware, Trojan, Infostealer, Malware, or PUA (Potentially Unwanted Application)
+- **Confidence Level:** A category, not a percentage — **Malicious** (the engines are confident it is a threat) or **Suspicious** (needs analyst review)
 - **Endpoint name and username:** Which machine and which user was affected
 - **Action Taken:** What SentinelOne automatically did (Quarantine, Kill, or Monitor)
 - **Storyline view button:** Click to see the complete attack story
@@ -788,8 +789,8 @@ SentinelOne detects Cobalt Strike through:
         },
         raw: {
           "s1.threatName": "Trojan.Ransom.LockBit3",
-          "s1.classification": "Malicious",
-          "s1.confidenceLevel": "99",
+          "s1.classification": "Ransomware",
+          "s1.confidenceLevel": "malicious",
           "s1.processName": "chrome_update.exe",
           "s1.processPath":
             "C:\\Users\\j.smith\\AppData\\Local\\Temp\\chrome_update.exe",
@@ -809,14 +810,14 @@ SentinelOne detects Cobalt Strike through:
           question:
             "The malware process is named 'chrome_update.exe' and appears to have been launched by 'explorer.exe' (the Windows file manager). Why is the name 'chrome_update.exe' significant as a red flag?",
           options: [
-            "Chrome ships standalone updater executables, so chrome_update.exe in a Temp folder is normal browser behaviour",
-            "Attackers mimic trusted app names; Chrome updates through itself, not through a .exe in AppData\\Temp",
+            "Any file named after a trusted vendor's product is presumed signed by that vendor, so chrome_update.exe is normal browser behaviour",
+            "Attackers mimic trusted app names; Chrome's real updater is Google-signed and lives under Google\\Update, not a chrome_update.exe in AppData\\Temp",
             "Windows policy blocks .exe files in Downloads and Temp by default, so any such file means tampering",
             "A parent of explorer.exe means the user double-clicked it, so the file is user-approved and low risk",
           ],
           answer: 1,
           explanation:
-            "This is a classic attacker technique called 'masquerading' (MITRE T1036). By naming ransomware 'chrome_update.exe', the attacker hopes users and analysts will dismiss it as a routine update. However, legitimate Google Chrome updates are delivered automatically through the Chrome application itself — they never appear as standalone .exe files in the user's AppData\\Local\\Temp folder. Any 'updater' in a Temp folder should be treated with extreme suspicion.",
+            "This is a classic attacker technique called 'masquerading' (MITRE T1036). By naming ransomware 'chrome_update.exe', the attacker hopes users and analysts will dismiss it as a routine update. However, legitimate Chrome updates are handled by Google's own signed updater (GoogleUpdate.exe / updater.exe), which lives under Program Files or AppData\\Local\\Google\\Update — not by a binary called chrome_update.exe launched by explorer.exe from AppData\\Local\\Temp. (Google's installer can briefly unpack files in %TEMP%, so location alone is not proof: what settles it is the non-standard name and the launch path outside Google's updater, which you would then confirm by checking the file's signer.) A file name says nothing about who signed it.",
           xp: 50,
         },
         {
@@ -1109,7 +1110,7 @@ rule Suspicious_Credential_Stealer_Strings
 
     strings:
         $s1 = "Login Data" wide ascii
-        $s2 = "\\AppData\\Local\\Google\\Chrome\\User Data" wide ascii
+        $s2 = "\\\\AppData\\\\Local\\\\Google\\\\Chrome\\\\User Data" wide ascii  // a literal backslash must be written as \\\\ in YARA text strings
         $s3 = { 4D 5A }  // MZ header — PE file
         $re1 = /https?:\\/\\/[a-z0-9]{16,}\\.(top|xyz|info)/ nocase
 
@@ -1204,7 +1205,7 @@ Beyond your own machine, VirusTotal lets you run YARA rules against its enormous
       ],
       answer: 1,
       explanation:
-        "If malware connects to a hardcoded domain like 'evil-c2.ru', defenders simply block that domain and the malware is neutralised. DGA solves this problem for attackers by generating a new, random-looking domain name every day (or hour). The attacker only needs to register *one* of those domains at the right time. Defenders must block potentially thousands of domains. DGA is used by sophisticated malware families including Emotet, Conficker, and Necurs botnet. Detection relies on analysing the statistical randomness of queried domain names.",
+        "If malware connects to a hardcoded domain like 'evil-c2.ru', defenders simply block that domain and the malware is neutralised. DGA solves this problem for attackers by generating a new, random-looking domain name every day (or hour). The attacker only needs to register *one* of those domains at the right time. Defenders must block potentially thousands of domains. DGA is used by malware families including Conficker, the Necurs botnet, and GameOver Zeus. Detection relies on analysing the statistical randomness of queried domain names.",
       xp: 35,
     },
 
@@ -1292,12 +1293,12 @@ Beyond your own machine, VirusTotal lets you run YARA rules against its enormous
           options: [
             "Search the DNS logs for the sender's domain to find which hosts resolved it",
             "Ask the mail team to purge the invoice email from all mailboxes and assume the file is gone",
-            "Search the SIEM or EDR for the file's SHA-256 hash ('5a6b7c8d...') across all endpoints to find every host that saw it",
+            "Search the SIEM or EDR for the file's SHA-256 hash ('fdfb6e68...') across all endpoints to find every host that saw it",
             "Submit the hash to VirusTotal and wait for other organisations to report having seen it",
           ],
           answer: 2,
           explanation:
-            "The SHA-256 hash is a unique fingerprint for this exact file. Any EDR platform (CrowdStrike, SentinelOne, Microsoft Defender) or SIEM with endpoint telemetry can be queried: 'Show me every endpoint that has seen the file with hash 5a6b7c8d...'. This search returns results in seconds and covers your entire environment simultaneously. This is exactly why SHA-256 hashes are a core IOC type — they enable instant enterprise-wide hunting.",
+            "The SHA-256 hash is a unique fingerprint for this exact file. Any EDR platform (CrowdStrike, SentinelOne, Microsoft Defender) or SIEM with endpoint telemetry can be queried: 'Show me every endpoint that has seen the file with hash fdfb6e68...'. This search returns results in seconds and covers your entire environment simultaneously. This is exactly why SHA-256 hashes are a core IOC type — they enable instant enterprise-wide hunting.",
           xp: 50,
         },
       ],
@@ -1309,7 +1310,7 @@ Beyond your own machine, VirusTotal lets you run YARA rules against its enormous
       id: "malware-flag1",
       prompt:
         "A SOC analyst needs to share the SHA-256 hash of the detected malware with another team so they can hunt for it in their environment. Looking at the detection above, what are the FIRST 8 characters of the SHA-256 hash? (Hint: find the 'data.ms365.SHA256' field in the raw log)",
-      answer: "5a6b7c8d",
+      answer: "fdfb6e68",
       hint: "SHA-256 hashes are 64 hexadecimal characters long. The field is 'data.ms365.SHA256' in the raw log section. Copy just the first 8 characters.",
       xp: 40,
     },
@@ -1402,13 +1403,15 @@ IOCs come in several varieties, each describing a different aspect of an attack:
 Security researcher David Bianco developed the **Pyramid of Pain** — a model that ranks IOC types by how *painful* it is for an attacker when defenders block them:
 
 At the **bottom of the pyramid** (easy to change, low pain for attackers):
-- **Hash values:** Attacker changes one byte of their malware → completely new hash. Trivially easy to evade.
+- **Hash values (Trivial):** Attacker changes one byte of their malware → completely new hash. Trivially easy to evade.
+- **IP addresses (Easy):** Attackers simply move to a new server, proxy or VPN exit.
+- **Domain names (Simple):** A little more effort — a new domain must be registered and pointed at infrastructure — but still cheap.
 
-In the **middle** (moderately difficult to change):
-- **IP addresses and Domain Names:** Attackers can rent new servers or change DNS records, but it takes time and resources.
+In the **middle**:
+- **Network/Host Artefacts (Annoying):** Specific patterns in network traffic (URI paths, User-Agent strings) or files and registry keys left on disk. Changing them forces the attacker to modify how their tooling behaves.
 
-Near the **top** (difficult to change, high pain for attackers):
-- **Network/Host Artefacts:** Specific patterns in network traffic or files left on disk. Harder to change because these are inherent to how the tool works.
+Near the **top**:
+- **Tools (Challenging):** Detecting the tool itself (e.g., any Mimikatz or Cobalt Strike variant, not one hash of it) forces the attacker to find or build a new tool and learn it.
 
 At the **very top** (hardest to change, maximum pain):
 - **TTPs (Tactics, Techniques, and Procedures):** The *way* an attacker operates — their playbook. If you can detect "PowerShell downloading a payload and injecting into svchost.exe", the attacker must completely retrain and retool to evade you. This is why MITRE ATT&CK is so valuable — it focuses on TTP-level detection.
@@ -1643,8 +1646,8 @@ Before adding an IOC to your blocklist, ask:
         description:
           "Outbound connection from LAPTOP-JSMITH to IP 185.220.101.45 matched threat intelligence feed. IP classified as Tor Exit Node with 3,847 abuse reports. Connection on port 443.",
         raw: {
-          "data.srcip": "185.220.101.45",
-          "data.dstip": "10.0.1.55",
+          "data.srcip": "10.0.1.55",
+          "data.dstip": "185.220.101.45",
           "data.dstport": "443",
           "data.proto": "tcp",
           "threat_intel.indicator": "185.220.101.45",
@@ -1669,7 +1672,7 @@ Before adding an IOC to your blocklist, ask:
           ],
           answer: 1,
           explanation:
-            "Tor routes internet traffic through multiple encrypted relays before exiting through a 'Tor Exit Node' — the last relay before the connection reaches its final destination. This hides the true destination from corporate monitoring (the company sees traffic going to the Tor Exit Node, not the final server). Malware uses Tor to hide C2 communications (defenders can't block the real C2 server if they don't know its IP). Employees might also use Tor browsers to bypass web content filters. Either way, corporate policy in most organisations prohibits Tor use, and it warrants immediate investigation.",
+            "Tor routes internet traffic through three encrypted relays: a guard (entry) relay, a middle relay, and an exit relay — the last hop before the connection reaches its final destination. A Tor client inside your company connects OUT to its guard relay, so corporate monitoring sees traffic to Tor relay IPs, never to the final server. An outbound connection like this one, from LAPTOP-JSMITH directly to a known Tor relay IP, therefore suggests a Tor client running on the laptop (many relays flagged as exits also serve as guard or middle relays, and the flag tells you the IP is part of Tor). The reverse direction means something different: an exit-node IP showing up as the SOURCE of inbound traffic means someone is using Tor to reach YOUR systems. Malware uses Tor to hide C2 communications (defenders can't block the real C2 server if they don't know its IP). Employees might also use Tor browsers to bypass web content filters. Either way, corporate policy in most organisations prohibits Tor use, and it warrants immediate investigation.",
           xp: 50,
         },
         {
@@ -1708,7 +1711,7 @@ Before adding an IOC to your blocklist, ask:
       type: "flag",
       id: "ioc-flag1",
       prompt:
-        "Looking at the threat intelligence alert above, the flagged IP address (185.220.101.45) has been categorised in the threat intelligence feed. What category has it been assigned? Check the 'threat_intel.category' field in the raw log. (Enter the category exactly as it appears — two words, initial caps)",
+        "Looking at the threat intelligence alert above, the flagged IP address (185.220.101.45) has been categorised in the threat intelligence feed. What category has it been assigned? Check the 'threat_intel.category' field in the raw log. (Enter the category exactly as it appears — three words, initial caps)",
       answer: "Tor Exit Node",
       hint: "Find the 'threat_intel.category' field in the raw log section of the alert above. It describes what *type* of potentially malicious network node this IP is classified as.",
       xp: 40,

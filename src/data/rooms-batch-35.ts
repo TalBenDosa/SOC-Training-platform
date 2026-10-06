@@ -223,7 +223,7 @@ const sigmaYaraRuleAuthoringRoom = {
       ],
       answer: 2,
       explanation:
-        "Option a fails Image|endswith entirely — the launched image is cmd.exe, which never ends in powershell.exe, so this selection cannot match it even though the nested command line contains both substrings. Option b is the right binary and contains '-enc', but it never contains '-nop', so contains|all fails on one of the two required items. Option c is the right binary and its command line contains both '-nop' and '-enc' as literal substrings, satisfying contains|all completely — this is the only match. Option d contains '-enc' as a substring of '-encodedcommand', but never contains '-nop' anywhere, so contains|all still fails on one of the two required items — a rule using |contains|all needs every listed substring present, not just one of them.",
+        "The 'cmd.exe /c powershell.exe …' line fails Image|endswith entirely — the launched image is cmd.exe, which never ends in powershell.exe, so this selection cannot match it even though the nested command line contains both substrings. The '-ep bypass -enc' line is the right binary and contains '-enc', but it never contains '-nop', so contains|all fails on one of the two required items. The '-nop -w hidden -enc' line is the right binary and its command line contains both '-nop' and '-enc' as literal substrings, satisfying contains|all completely — this is the only match. The '-windowstyle hidden -encodedcommand' line contains '-enc' as a substring of '-encodedcommand', but never contains '-nop' anywhere, so contains|all still fails on one of the two required items — a rule using |contains|all needs every listed substring present, not just one of them.",
       xp: 25,
     },
     // ── Reading 3: Sigma step-by-step case study ────────────────────────────
@@ -280,7 +280,7 @@ const sigmaYaraRuleAuthoringRoom = {
         ],
         answer: 1,
         explanation:
-          "Reading 3 was explicit: two words that must both be present, in any order, survive small variations in exact phrasing that a single literal phrase match would miss entirely. Option a invents a performance claim the reading never made; option c is simply false — Sigma's contains modifier can absolutely match a literal multi-word phrase, that is just not the best choice here; option d misdescribes what a single selection block does.",
+          "Reading 3 was explicit: two words that must both be present, in any order, survive small variations in exact phrasing that a single literal phrase match would miss entirely. The 'runs faster' option invents a performance claim the reading never made; the claim that Sigma cannot phrase-match is simply false — Sigma's contains modifier can absolutely match a literal multi-word phrase, that is just not the best choice here; and the 'two separate rules' option misdescribes what a single selection block does.",
       },
     },
     // ── Query Fill: complete the Sigma selection block ──────────────────────
@@ -502,7 +502,7 @@ const sigmaYaraRuleAuthoringRoom = {
         ],
         answer: 1,
         explanation:
-          "Reading 6 called this out directly: a rule that specific is really just a hash lookup wearing a YARA rule's clothing — it will never fire on the next sample once even one byte of the obfuscated blob changes, which happens constantly. The opposite mistake, matching too broadly, is the false-positive-flood failure mode (option c), not this one. There is no such length restriction in YARA.",
+          "Reading 6 called this out directly: a rule that specific is really just a hash lookup wearing a YARA rule's clothing — it will never fire on the next sample once even one byte of the obfuscated blob changes, which happens constantly. The opposite mistake, matching too broadly, is the false-positive-flood failure mode, not this one — an exact copy of one sample cannot flood the queue. There is no 64-byte length restriction in YARA, and an exact match is not 'always the strongest' detection.",
       },
     },
     // ── Query Fill: complete the YARA webshell condition ────────────────────
@@ -538,7 +538,7 @@ const sigmaYaraRuleAuthoringRoom = {
       ],
       answer: 0,
       explanation:
-        "This is the false-positive-flood failure mode from Reading 1 and Reading 6, playing out exactly as described: one common signal with no corroborating requirement and no size bound matches everything that happens to share it for unrelated reasons. Option b does the opposite of what is needed — adding more strings joined with or widens the match set and increases false positives. Option c allow-lists hashes, which hides the symptom without fixing the rule and fails on every new legitimate library version. Option d is wrong because the rule is clearly matching (340 hits); the problem is selectivity, not encoding. Reading 5 covered both filesize and and directly, and they are exactly the tools that fix this rule.",
+        "This is the false-positive-flood failure mode from Reading 1 and Reading 6, playing out exactly as described: one common signal with no corroborating requirement and no size bound matches everything that happens to share it for unrelated reasons. Adding more eval-style strings joined with or does the opposite of what is needed — it widens the match set and increases false positives. Adding the 340 hashes to an exclusion list hides the symptom without fixing the rule and fails on every new legitimate library version. The UTF-16/wide-modifier theory is wrong because the rule is clearly matching (340 hits); the problem is selectivity, not encoding. Reading 5 covered both filesize and and directly, and they are exactly the tools that fix this rule.",
       xp: 25,
     },
     // ── Log Analysis: verify a live alert against its own rule logic ────────
@@ -560,7 +560,7 @@ const sigmaYaraRuleAuthoringRoom = {
           ],
           answer: 1,
           explanation:
-            "The selection is evaluated independently of the filter; both fields hold exactly the required literal values. Option a invents a false GrantedAccess range — 0x1FFFFF is PROCESS_ALL_ACCESS, the value the rule is actually looking for. Option c invents a requirement not stated in the rule. Option d wrongly claims selection cannot be judged alone — Sigma explicitly evaluates named blocks independently, then the condition combines them.",
+            "The selection is evaluated independently of the filter; both fields hold exactly the required literal values. The 'lower-privilege value like 0x1400' option invents a false GrantedAccess range — 0x1FFFFF is PROCESS_ALL_ACCESS, the value the rule is actually looking for. The 'known hash' option invents a requirement not stated in the rule. The 'must check the filter first' option wrongly claims selection cannot be judged alone — Sigma explicitly evaluates named blocks independently, then the condition combines them.",
           xp: 30,
         },
         {
@@ -573,20 +573,20 @@ const sigmaYaraRuleAuthoringRoom = {
           ],
           answer: 1,
           explanation:
-            "The filter only excludes the two literal path prefixes actually defined, not user-profile paths generally, so option a is wrong. Option c is wrong for the same reason this room has repeated throughout: a filter matches fields and values, not how plausible a filename sounds — a file's name proves nothing about what it actually is. Sigma filters can reference any field the logsource provides, including FilePath, so option d is also wrong.",
+            "The filter only excludes the two literal path prefixes actually defined, not user-profile paths generally, so the 'AppData is trusted by default' option is wrong. The 'plausible monitoring-tool name' option is wrong for the same reason this room has repeated throughout: a filter matches fields and values, not how plausible a filename sounds — a file's name proves nothing about what it actually is. Sigma filters can reference any field the logsource provides, including FilePath, so the 'filters can only reference Image' option is also wrong.",
           xp: 35,
         },
         {
           question: "crowdstrike.CallStackModuleNames again lists dbghelp.dll among the loaded modules. A colleague proposes tightening the rule's condition to also require dbghelp.dll appear in CallStackModuleNames before firing at all. Based on this room's tuning principles, what is the risk in that specific change?",
           options: [
             "No risk — dbghelp.dll appears in literally every LSASS-access attempt ever recorded, so requiring it would have zero effect on the rule either way",
-            "It would make the rule too narrow: some credential-dumping techniques access LSASS without loading dbghelp.dll at all, so hard-requiring it in the condition would let those variants evade detection entirely, even though the GrantedAccess-based selection alone already catches them",
+            "It would make the rule too narrow: some credential-dumping techniques access LSASS without loading dbghelp.dll at all, so hard-requiring it in the condition would let those variants evade detection entirely, even when their access to LSASS matches the GrantedAccess-based selection",
             "It would make the rule too broad: adding any additional required string to a condition always increases, never decreases, the number of events a rule matches",
             "It would have no effect on detection quality, only on rule readability, since YARA and Sigma always evaluate every possible string regardless of what the condition requires",
           ],
           answer: 1,
           explanation:
-            "Option a overclaims universality — dbghelp.dll does not always appear. Option c inverts how adding a required AND condition works — it narrows the set of matching events, it does not broaden it. Option d conflates YARA's evaluation model with Sigma's and is simply false regardless. The correct narrowing risk exactly mirrors the specific-vs-brittle lesson from the YARA readings, applied here to Sigma: the access-mask-based selection is already the strong, general signal, and call-stack modules are corroborating detail, not something the core condition should hard-require.",
+            "The 'no risk' option overclaims universality — dbghelp.dll does not always appear. The 'too broad' option inverts how adding a required AND condition works — it narrows the set of matching events, it does not broaden it. The 'readability only' option conflates YARA's evaluation model with Sigma's and is simply false regardless. The correct narrowing risk exactly mirrors the specific-vs-brittle lesson from the YARA readings, applied here to Sigma: the access-mask selection is the core signal, and call-stack modules are corroborating detail, not something the core condition should hard-require. (The same lesson applies to the selection itself: requiring GrantedAccess to be exactly 0x1FFFFF is already narrow, because common dumpers such as Mimikatz request smaller masks like 0x1010 or 0x1410 — a production rule should list those masks too.)",
           xp: 35,
         },
         {
@@ -599,7 +599,7 @@ const sigmaYaraRuleAuthoringRoom = {
           ],
           answer: 1,
           explanation:
-            "'Detected, no action taken' means the access was only observed, not stopped — that raises urgency rather than lowering it, the opposite of what option a assumes. Option c wrongly treats one triage outcome as grounds to retune a rule's global severity — that is a tuning decision made from many observations over time, not something to change mid-investigation. Option d invents a duplicate-hit policy this room never taught. The correct move is exactly what a confirmed selection match, an unsuppressed filter, and a sensitive asset all point toward together.",
+            "'Detected, no action taken' means the access was only observed, not stopped — that raises urgency rather than lowering it, the opposite of what closing it as informational assumes. Downgrading the rule's level wrongly treats one triage outcome as grounds to retune a rule's global severity — that is a tuning decision made from many observations over time, not something to change mid-investigation. Waiting for a second hit invents a duplicate-hit policy this room never taught. The correct move is exactly what a confirmed selection match, an unsuppressed filter, and a sensitive asset all point toward together.",
           xp: 40,
         },
       ],

@@ -22,8 +22,8 @@ const introToCyberEvent: TelemetryEvent = {
   severity: "high",
   hostname: "DESKTOP-HR-042",
   user_email: "sarah.jones@acmecorp.com",
-  description: "Malware detected on HR workstation during email attachment open",
-  mitre_technique: "T1566.001",
+  description: "Malware detected on HR workstation as it was downloaded by the web browser",
+  mitre_technique: "T1566.002",
   mitre_tactic: "Initial Access",
   raw: {
     EventID: 1116,
@@ -33,11 +33,11 @@ const introToCyberEvent: TelemetryEvent = {
     Severity: "High",
     Action: "Quarantine",
     ActionSuccess: true,
-    FilePath: "C:\\Users\\sarah.jones\\AppData\\Local\\Temp\\invoice_Q1_2024.exe",
+    FilePath: "C:\\Users\\sarah.jones\\Downloads\\invoice_Q1_2024.exe",
     FileSize: 284672,
     SHA256: "76f742c920bc0aacf0d20dfb5b00325db6d48e2cac7957597b96d4cc150462a0",
     MD5: "42268af028499333858a9ec22709a6dc",
-    ProcessName: "outlook.exe",
+    ProcessName: "msedge.exe",
     ProcessPID: 4892,
     OriginUrl: "http://invoice-portal-acme.ru/download/invoice_Q1_2024.exe",
     ThreatCategory: "Trojan",
@@ -84,7 +84,7 @@ const introRoom = {
 Today, the numbers are staggering:
 - A cyberattack happens every **39 seconds** worldwide.
 - The global cost of cybercrime is expected to reach **$10.5 trillion per year** by 2025.
-- In 2020, the **SolarWinds** breach compromised 18,000 organisations, including the US Treasury and Department of Homeland Security, by hiding malware inside a software update.
+- In 2020, the **SolarWinds** breach hid a backdoor inside a software update that about 18,000 organisations installed; the attackers then hand-picked a much smaller set of high-value targets (around 100 companies and 9 US federal agencies, including the Treasury and Department of Homeland Security) for follow-on intrusion.
 - In 2021, the **Colonial Pipeline** ransomware attack caused fuel shortages across the US East Coast and cost the company $4.4 million in ransom.
 
 **The digital attack surface** is everything that can be targeted by an attacker: every computer, every server, every phone, every application, every employee's email inbox. The larger and more complex an organisation's technology environment, the bigger its attack surface.
@@ -168,7 +168,7 @@ Now let's look at **who attacks these systems**.
       content: `Understanding cybersecurity in the abstract is useful. Understanding it through real events makes it stick. Let's look at two landmark breaches that changed the industry forever.
 
 **Case Study 1: SolarWinds (2020)**
-SolarWinds makes software called **Orion** that thousands of organisations use to monitor their IT networks. In 2020, attackers (later attributed to Russian intelligence, APT29) compromised SolarWinds' own software build process and inserted malicious code into an Orion update. When organisations installed the update — trusting SolarWinds as a legitimate vendor — they unknowingly installed a backdoor. Over 18,000 organisations were affected, including the US Treasury, the Department of Homeland Security, and major tech companies. This attack is called a **supply chain attack**: instead of attacking a target directly, the attacker compromises a trusted supplier.
+SolarWinds makes software called **Orion** that thousands of organisations use to monitor their IT networks. In 2020, attackers (later attributed to Russian intelligence, APT29) compromised SolarWinds' own software build process and inserted malicious code into an Orion update. When organisations installed the update — trusting SolarWinds as a legitimate vendor — they unknowingly installed a backdoor. About 18,000 organisations installed the backdoored update; the attackers then chose a much smaller set of high-value victims (around 100 companies and 9 US federal agencies, including the US Treasury, the Department of Homeland Security and major tech companies) for hands-on follow-on intrusion. This attack is called a **supply chain attack**: instead of attacking a target directly, the attacker compromises a trusted supplier.
 
 **Case Study 2: Colonial Pipeline (2021)**
 Colonial Pipeline operates the largest fuel pipeline in the United States, carrying 45% of the East Coast's fuel supply. In May 2021, a ransomware group called **DarkSide** gained access using a compromised VPN (Virtual Private Network — a secure remote access tool) password. They encrypted critical systems and demanded ransom. The company proactively shut down pipeline operations, causing fuel shortages across the southeastern US. Panic buying led to long queues at petrol stations. Colonial paid $4.4 million in Bitcoin, though US authorities later recovered about $2.3 million of it.
@@ -302,21 +302,21 @@ You are about to join one of the most in-demand, dynamic, and impactful professi
           ],
           answer: 1,
           explanation:
-            "The OriginUrl is 'http://invoice-portal-acme.ru/download/invoice_Q1_2024.exe'. The .ru domain is a Russian country code top-level domain (ccTLD). The domain 'invoice-portal-acme' mimics ACME Corp's name to appear legitimate — a classic phishing tactic called typosquatting. The file name 'invoice_Q1_2024.exe' is designed to look like a legitimate invoice. This strongly indicates a spear-phishing attack targeting ACME Corp employees.",
+            "The OriginUrl is 'http://invoice-portal-acme.ru/download/invoice_Q1_2024.exe'. The .ru domain is a Russian country code top-level domain (ccTLD). The domain 'invoice-portal-acme' mimics ACME Corp's name to appear legitimate — a classic phishing tactic called brand impersonation (here 'combosquatting': the real company name combined with extra words on an attacker-owned domain). The file name 'invoice_Q1_2024.exe' is designed to look like a legitimate invoice. This strongly indicates a spear-phishing attack targeting ACME Corp employees.",
           xp: 25,
         },
         {
           question:
-            "The ProcessName field shows 'outlook.exe'. What does this tell you about how the user encountered the malicious file?",
+            "The ProcessName field shows 'msedge.exe', and the file sits in the user's Downloads folder. Together with the OriginUrl, what does this tell you about how the user encountered the malicious file?",
           options: [
             "The malware was delivered through a USB drive inserted into the computer",
-            "The malware was downloaded through a web browser",
-            "The malware came as an email attachment opened in Microsoft Outlook",
+            "The user clicked a link (most likely in a phishing email) and the web browser downloaded the file from the external site",
+            "The malware came as an email attachment opened directly in Microsoft Outlook",
             "The malware was installed by a system administrator",
           ],
-          answer: 2,
+          answer: 1,
           explanation:
-            "outlook.exe is the process name for Microsoft Outlook — the email client. The fact that Outlook was the parent process when the malicious file was executed tells us the user opened an email attachment that triggered the malware. This is consistent with the phishing origin URL and the filename (invoice_Q1_2024.exe), which was designed to trick the user into thinking it was a legitimate invoice.",
+            "msedge.exe is Microsoft Edge, the web browser — it is the process that was writing the file when Defender caught it. The OriginUrl shows the file came from an external website, and C:\\Users\\sarah.jones\\Downloads is the browser's default download folder. Together these point to a web download: the user followed a link (the look-alike domain and invoice lure are typical of a phishing email — MITRE T1566.002, Spearphishing Link) and the browser fetched the file. An Outlook attachment would show outlook.exe as the process and no web OriginUrl; a USB delivery would show a removable-drive path; and nothing here suggests an administrator install.",
           xp: 20,
         },
       ],
@@ -1134,13 +1134,13 @@ The Kill Chain is not the only way to model attacker behaviour. Two other import
             "The domain field shows 'updates.microsoft-cdn-services.net' and dns_category shows 'newly_registered_domain' (registered only 14 days ago). The destination IP geolocates to Moscow, Russia. What technique is the attacker using, and what is the significance of the domain name?",
           options: [
             "The domain is legitimate — Microsoft serves update content from *.microsoft-cdn-services.net nodes, some hosted in Moscow",
-            "Typosquatting — the name mimics Microsoft, and the 14-day registration plus Russian IP point to malicious infrastructure",
+            "Brand impersonation (combosquatting) — the name borrows 'microsoft', and the 14-day registration plus Russian IP point to malicious infrastructure",
             "Fast-flux DNS — the 14-day age shows the IP keeps rotating, and the Microsoft-style name carries no meaning",
             "Domain age is not a risk signal — URL filtering scores domains only by registrar reputation and TLD",
           ],
           answer: 1,
           explanation:
-            "The domain 'updates.microsoft-cdn-services.net' is designed to look like a legitimate Microsoft CDN (Content Delivery Network) domain — a technique called 'typosquatting' or 'domain impersonation'. The attacker hopes that security tools scanning network traffic will see 'microsoft' in the domain name and assume it is legitimate. However, the 14-day registration age (legitimate Microsoft infrastructure is years old) and the Russian geolocation of the IP expose the deception. Real Microsoft CDN servers do not use third-party .net domains like this.",
+            "The domain 'updates.microsoft-cdn-services.net' is designed to look like a legitimate Microsoft CDN (Content Delivery Network) domain — a technique called brand impersonation, or more specifically 'combosquatting': the real brand name ('microsoft') is combined with plausible extra words ('cdn-services') under an attacker-registered domain. There is no misspelling here, so it is not typosquatting (which relies on typos such as 'micros0ft' or 'microsfot'). The attacker hopes that security tools scanning network traffic will see 'microsoft' in the domain name and assume it is legitimate. However, the 14-day registration age (legitimate Microsoft infrastructure is years old) and the Russian geolocation of the IP expose the deception. Real Microsoft CDN servers do not use third-party .net domains like this.",
           xp: 20,
         },
       ],
@@ -1491,7 +1491,7 @@ This is the ATT&CK framework in action: observation → identification → detec
       ],
       answer: 1,
       explanation:
-        "In ATT&CK, Tactics (numbered TA0001 through TA0043) represent the attacker's objectives — what they are trying to accomplish at each stage of their operation. Techniques (numbered T1001, T1002, etc.) are the specific methods used to achieve those objectives. Sub-techniques add further specificity. For example, the Tactic might be 'Credential Access' (steal passwords) and the Technique might be 'T1110.003 Password Spraying' (a specific method of stealing passwords). Note: Tactics use the TA prefix; Techniques use T — the opposite of option D.",
+        "In ATT&CK, Tactics (numbered TA0001 through TA0043) represent the attacker's objectives — what they are trying to accomplish at each stage of their operation. Techniques (numbered T1001, T1002, etc.) are the specific methods used to achieve those objectives. Sub-techniques add further specificity. For example, the Tactic might be 'Credential Access' (steal passwords) and the Technique might be 'T1110.003 Password Spraying' (a specific method of stealing passwords). Note: Tactics use the TA prefix; Techniques use T — the opposite of the option claiming tactics are numbered with T and techniques with TA.",
       xp: 20,
     },
 
@@ -1531,7 +1531,7 @@ This is the ATT&CK framework in action: observation → identification → detec
       ],
       answer: 1,
       explanation:
-        "ATT&CK Navigator (available free at mitre-attack.github.io/attack-navigator) is specifically designed for this use case. You can load APT29's threat actor profile to see all their known techniques highlighted in the matrix, then overlay your current detection coverage to instantly visualise gaps. This 'coverage map' view is one of the most valuable outputs of ATT&CK Navigator for a SOC team. Reading 40+ technique pages manually (option A) would work but is extremely inefficient — that's exactly the problem Navigator solves.",
+        "ATT&CK Navigator (available free at mitre-attack.github.io/attack-navigator) is specifically designed for this use case. You can load APT29's threat actor profile to see all their known techniques highlighted in the matrix, then overlay your current detection coverage to instantly visualise gaps. This 'coverage map' view is one of the most valuable outputs of ATT&CK Navigator for a SOC team. Reading 40+ technique pages manually would work but is extremely inefficient — that's exactly the problem Navigator solves.",
       xp: 25,
     },
 
@@ -1585,7 +1585,7 @@ This is the ATT&CK framework in action: observation → identification → detec
           ],
           answer: 1,
           explanation:
-            "Multi-Factor Authentication (MFA) is the most effective mitigation for password-based attacks. Even if an attacker successfully guesses 'Winter2024!' as a user's password, MFA requires a second factor (phone push notification, authenticator app code, hardware token) that the attacker does not have. Without the second factor, the stolen password is useless. This is why ATT&CK lists MFA as the primary mitigation for T1110.003. Account lockout (option C) would not help here because the attacker only tried each account once. User agent blocking (option D) is easily defeated by changing the user agent string in the script.",
+            "Multi-Factor Authentication (MFA) is the most effective mitigation for password-based attacks. Even if an attacker successfully guesses 'Winter2024!' as a user's password, MFA requires a second factor (phone push notification, authenticator app code, hardware token) that the attacker does not have. Without the second factor, the stolen password is useless. This is why ATT&CK lists MFA as the primary mitigation for T1110.003. Account lockout after 5 failed attempts would not help here because the attacker only tried each account once. Blocking the Python-requests user agent is easily defeated by changing the user agent string in the script.",
           xp: 25,
         },
       ],
@@ -1626,7 +1626,7 @@ This is the ATT&CK framework in action: observation → identification → detec
           right: "Transferring stolen data out of the organization — via cloud storage, email, or DNS tunneling",
         },
       ],
-      explanation: "Understanding ATT&CK tactics is how SOC analysts classify what an attacker is doing at each moment. The sequence is intentional: attackers need Initial Access before Lateral Movement, and must complete Collection before Exfiltration. In a SIEM alert, each MITRE technique maps to exactly one tactic — which tells you what phase of the attack you have detected and what is likely to come next.",
+      explanation: "Understanding ATT&CK tactics is how SOC analysts classify what an attacker is doing at each moment. The sequence is intentional: attackers need Initial Access before Lateral Movement, and must complete Collection before Exfiltration. In a SIEM alert, the tactic attached to a technique tells you what phase of the attack you have detected and what is likely to come next. Note that a technique can serve more than one tactic (T1078 Valid Accounts appears under Initial Access, Persistence, Privilege Escalation and Defense Evasion), so the surrounding context tells you which goal it served in this incident.",
       xp: 30,
     },
 

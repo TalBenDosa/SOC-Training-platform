@@ -207,7 +207,7 @@ const edrDetectionInvestigationRoom = {
       ],
       answer: 1,
       explanation:
-        "Reading 2 was explicit: SeverityName is assigned the moment a behavior pattern matches, before any human has added organizational context — it's a prioritization signal, not a verdict. Whether the tool actually intervened is a separate question answered by PatternDispositionDescription, not SeverityName, which is exactly why option d is wrong. Severity is far from useless (option c) — it's just not sufficient on its own, which is the entire point of this room's workflow.",
+        "Reading 2 was explicit: SeverityName is assigned the moment a behavior pattern matches, before any human has added organizational context — it's a prioritization signal, not a verdict. Whether the tool actually intervened is a separate question answered by PatternDispositionDescription, not SeverityName, which is exactly why 'Critical means it was already blocked' is wrong. Severity is far from useless, so setting it aside entirely is also a mistake — it's just not sufficient on its own, which is the entire point of this room's workflow.",
       xp: 25,
     },
     // ── Matching: fields to meaning ──────────────────────────────────────────
@@ -320,7 +320,7 @@ const edrDetectionInvestigationRoom = {
       ],
       answer: 1,
       explanation:
-        "Reading 4 was direct about this exact pairing: Word has no legitimate reason to spawn PowerShell, and an encoded argument on top of that pairing reinforces the read further. Opening an attachment in Word (OUTLOOK.EXE to WINWORD.EXE) is itself completely routine, which is why option d overclaims. And Reading 4 was explicit that the tree anomaly itself is already strong evidence — hash reputation is a later pivot step (Reading 7), not a prerequisite for recognizing what this chain already shows.",
+        "Reading 4 was direct about this exact pairing: Word has no legitimate reason to spawn PowerShell, and an encoded argument on top of that pairing reinforces the read further. Opening an attachment in Word (OUTLOOK.EXE to WINWORD.EXE) is itself completely routine, which is why calling that first link the malicious action overclaims. And Reading 4 was explicit that the tree anomaly itself is already strong evidence — hash reputation is a later pivot step (Reading 7), not a prerequisite for recognizing what this chain already shows.",
       xp: 25,
     },
     // ── Log Analysis: LSASS process-tree investigation ──────────────────────
@@ -343,7 +343,7 @@ const edrDetectionInvestigationRoom = {
           ],
           answer: 1,
           explanation:
-            "explorer.exe is the normal parent for anything a user launches directly, so that link alone isn't the anomaly — but that doesn't mean nothing needs checking, which is why option a goes too far. A plausible-sounding file name proves nothing on its own (masquerading as a routine utility is a well-known tactic), and Temp/AppData folders legitimately host countless installers and browser downloads too, so option d overclaims just as much as option c does. The correct habit is checking whether this specific binary is actually signed and known-good — exactly the pivot the rest of this task performs.",
+            "explorer.exe is the normal parent for anything a user launches directly, so that link alone isn't the anomaly — but that doesn't mean nothing needs checking, which is why 'explorer.exe launching anything is always routine' goes too far. A plausible-sounding file name proves nothing on its own (masquerading as a routine utility is a well-known tactic), and Temp/AppData folders legitimately host countless installers and browser downloads too, so 'Temp means malicious' overclaims just as much as 'a routine-sounding name means legitimate' does. The correct habit is checking whether this specific binary is actually signed and known-good — exactly the pivot the rest of this task performs.",
           xp: 30,
         },
         {
@@ -385,7 +385,7 @@ const edrDetectionInvestigationRoom = {
           ],
           answer: 1,
           explanation:
-            "'Detected, no action taken' means Falcon only observed the behavior — it did not stop it, which raises urgency rather than lowering it, the opposite of what option a assumes. Reading 5 (covered right after this task) treats three correlated behaviors sharing one IncidentId inside twenty-two minutes as already a strong, actionable pattern, not a reason to wait. And resetting every domain password company-wide, before scoping has even confirmed what's actually compromised, is a wildly disproportionate first move — the correct next steps are exactly the pivot, scope, and contain phases of this room's workflow.",
+            "'Detected, no action taken' means Falcon only observed the behavior — it did not stop it, which raises urgency rather than lowering it, the opposite of what closing it as purely informational assumes. Reading 5 (covered right after this task) treats three correlated behaviors sharing one IncidentId inside twenty-two minutes as already a strong, actionable pattern, not a reason to wait. And resetting every domain password company-wide, before scoping has even confirmed what's actually compromised, is a wildly disproportionate first move — the correct next steps are exactly the pivot, scope, and contain phases of this room's workflow.",
           xp: 40,
         },
       ],
@@ -428,7 +428,7 @@ const edrDetectionInvestigationRoom = {
       ],
       answer: 1,
       explanation:
-        "Reading 5's core point is exactly this: severity alone doesn't establish whether behaviors are related, and the risk of triaging them separately is leaving an actual persistence mechanism in place. IncidentId is a correlation field with real investigative value, not a billing artifact. And option d overgeneralizes in the other direction — timing plus a shared IncidentId is precisely the signal Reading 5 said to weigh, not dismiss automatically.",
+        "Reading 5's core point is exactly this: severity alone doesn't establish whether behaviors are related, and the risk of triaging them separately is leaving an actual persistence mechanism in place. IncidentId is a correlation field with real investigative value, not a billing artifact. And the claim that Falcon assigns one IncidentId per MITRE tactic gets it backwards — behaviors from different tactics can share an IncidentId, and timing plus a shared IncidentId is precisely the signal Reading 5 said to weigh, not dismiss automatically.",
       xp: 30,
     },
     // ── Reading 6: severity reassessment ─────────────────────────────────────

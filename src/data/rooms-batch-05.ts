@@ -233,7 +233,7 @@ According to industry surveys, SOC analysts receive an average of 1,000–10,000
 
 **Rule too broad:** "Alert on any PowerShell execution" — but IT admins use PowerShell legitimately hundreds of times per day.
 
-**Missing context:** "Alert on any file downloaded by PowerShell" — but the Windows Update service (svc-wsus) uses PowerShell to download patches from microsoft.com every night.
+**Missing context:** "Alert on any file downloaded by PowerShell" — but the patch server's documented nightly patch-sync script (a scheduled task running as the svc-wsus service account) uses PowerShell to download patches from microsoft.com every night.
 
 **No asset context:** "Alert on any admin login outside business hours" — but your on-call engineer legitimately logs in at 2 AM during an incident.
 
@@ -282,7 +282,7 @@ Good detection rules have measurable quality metrics:
 
 **True Positive Rate (TPR) / Recall:** Of all real attacks, what % did the rule catch? (Higher = better coverage)
 
-**False Positive Rate (FPR):** Of all alerts, what % were false alarms? (Lower = less noise)
+**False-alarm share of alerts (1 − Precision):** Of all alerts, what % were false alarms? (Lower = less noise.) Note: this is NOT the statistical False Positive Rate. FPR = FP / (FP + TN) — of all BENIGN events, what % did the rule wrongly alert on. Because benign events vastly outnumber attacks, a rule can have a tiny FPR and still bury analysts in false alarms.
 
 **Precision:** Of all alerts, what % were real threats? (Higher = more trustworthy alerts)
 
@@ -391,7 +391,7 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
             "powershell.exe -Command Invoke-WebRequest -Uri https://updates.microsoft.com/kb123456.msp -OutFile C:\\Windows\\Temp\\update.msp",
           "data.user": "svc-wsus",
           "data.hostname": "WSUS-SERVER-01",
-          "data.process.parent": "wuauserv.exe",
+          "data.process.parent": "svchost.exe",
           "data.file.extension": ".msp",
           "data.network.dst_domain": "updates.microsoft.com",
           "rule.groups": ["powershell", "download", "network"],
@@ -411,7 +411,7 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
           ],
           answer: 1,
           explanation:
-            "This is a classic false positive. All the context indicators point to legitimate activity: svc-wsus is the Windows Update Service Account (not a human user), WSUS-SERVER-01 is the dedicated patch management server (as named), updates.microsoft.com is Microsoft's legitimate update domain, the parent process is wuauserv.exe (Windows Update service), and the timing (02:14 AM) matches the nightly patch download schedule. The rule is correct to flag 'PowerShell download' generically, but it lacks context awareness.",
+            "This is a classic false positive. All the context indicators point to legitimate activity: svc-wsus is the WSUS patch-management service account (not a human user), WSUS-SERVER-01 is the dedicated patch management server (as named), updates.microsoft.com is Microsoft's legitimate update domain, the parent process is wuauserv.exe (Windows Update service), and the timing (02:14 AM) matches the nightly patch download schedule. The rule is correct to flag 'PowerShell download' generically, but it lacks context awareness.",
           xp: 40,
         },
         {
@@ -445,7 +445,7 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
       ],
       answer: 1,
       explanation:
-        "True Positive Rate (Recall) = of all real attacks that actually occurred, what percentage did the rule catch? A 100% TPR means no attacks went undetected. Note this is different from Precision, which measures 'of all alerts fired, what percentage were real threats?'. A good rule has high precision (low false positive rate) AND high recall (low miss rate) — but tuning for one often trades off against the other.",
+        "True Positive Rate (Recall) = of all real attacks that actually occurred, what percentage did the rule catch? A 100% TPR means no attacks went undetected. Note this is different from Precision, which measures 'of all alerts fired, what percentage were real threats?'. A good rule has high precision (few false alarms among its alerts) AND high recall (low miss rate) — but tuning for one often trades off against the other.",
       xp: 30,
     },
 
@@ -653,9 +653,9 @@ A multi-purpose security agent that does more than just collect logs. It perform
 
 Microsoft Sentinel has 200+ built-in data connectors that simplify integration:
 - **Native connectors**: Azure AD, Office 365, Microsoft Defender — one click to enable, no agent required
-- **CEF connector**: Install the Log Analytics agent on a Linux server that acts as a Syslog/CEF collector; network devices send to this server, which forwards to Sentinel
+- **CEF / Syslog via AMA connectors**: Install the Azure Monitor Agent (AMA) on a Linux server that acts as a Syslog/CEF collector, configured by a Data Collection Rule (DCR) — the older Log Analytics agent (MMA/OMS) was retired in August 2024; network devices send to this server, which forwards to Sentinel
 - **API-based connectors**: Pull logs from cloud services (AWS CloudTrail, Okta, Salesforce) via scheduled API polling
-- **Custom connectors**: Send any data via the Log Analytics Data Collector API in JSON format
+- **Custom connectors**: Send any data in JSON format via the DCR-based Logs Ingestion API (which replaces the legacy HTTP Data Collector API)
 
 ---
 
@@ -721,7 +721,7 @@ After normalization, every log from every vendor has \`source.ip\`, \`destinatio
 
 **Escaped characters in strings**: A log message containing quotes, backslashes, or commas can break simple parsers. The CEF format, for example, requires escaping \`|\`, \`=\`, and \`\\\` characters.
 
-**Vendor-specific severity scales**: Palo Alto uses 1-5 (informational/low/medium/high/critical). CEF uses 0-10. Windows uses 0-16 (Level field). Syslog uses 0-7 (Emergency through Debug). Your SIEM must map all of these to a common severity scale.
+**Vendor-specific severity scales**: Palo Alto uses 1-5 (informational/low/medium/high/critical). CEF uses 0-10. Windows uses 0-5 in the Level field (1 Critical, 2 Error, 3 Warning, 4 Information, 5 Verbose; 0 = LogAlways, also shown as Information). Syslog uses 0-7 (Emergency through Debug). Your SIEM must map all of these to a common severity scale.
 
 ---
 
@@ -1049,7 +1049,7 @@ Phishing emails often include links to malicious websites. Safe Links protects u
 
 2. **Time-of-click checking**: When the user clicks the link, the wrapper URL resolves to MDO's servers. MDO re-checks the destination URL at that moment — because sometimes URLs are legitimate when the email arrives but switch to malicious content later (this is called a "delayed detonation" attack). If the URL is now malicious, the user sees a warning page instead of the malicious site.
 
-*Key log event:* When MDO Safe Links blocks a click, it generates a "URLClickBlocked" event in the audit log — critical for SOC investigation when a user reports they "clicked something suspicious."
+*Key log event:* Safe Links clicks are recorded in Defender XDR's **UrlClickEvents** table (ActionType "ClickBlocked", "ClickAllowed", or "ClickBlockedByTenantPolicy") and as **TIUrlClickData** records in the unified audit log — critical for SOC investigation when a user reports they "clicked something suspicious."
 
 ---
 
@@ -1139,7 +1139,7 @@ Operation name: \`MailItemsAccessed\`
 
 Records every time mail items are accessed by a client. Useful for detecting attacker reconnaissance — if a compromised account suddenly accesses thousands of emails in an hour (far more than a human could read), that's a red flag.
 
-Note: MailItemsAccessed is only available with Microsoft 365 E5 or E5 Compliance licensing.
+Note: MailItemsAccessed used to require E5 (Audit Premium). Since Microsoft's 2023 logging expansion it is part of Audit (Standard) and enabled by default for users with an Office 365 / Microsoft 365 E3 or E5 license — still, verify per tenant (mailbox auditing can be bypassed or disabled per mailbox).
 
 ---
 
@@ -1226,7 +1226,7 @@ The Sentinel rule fires → creates an incident → analyst investigates → wor
       ],
       answer: 1,
       explanation:
-        "MailItemsAccessed records every access to mail items, including by REST API clients (which attackers often use to programmatically read email). Normally, a human reads maybe 50-100 emails per day. If MailItemsAccessed shows thousands of emails accessed within an hour by an API client from an unusual IP address, that's a strong indicator that an attacker is programmatically dumping the mailbox for intelligence. Note that MailItemsAccessed requires E5 licensing and must be enabled explicitly.",
+        "MailItemsAccessed records every access to mail items, including by REST API clients (which attackers often use to programmatically read email). Normally, a human reads maybe 50-100 emails per day. If MailItemsAccessed shows thousands of emails accessed within an hour by an API client from an unusual IP address, that's a strong indicator that an attacker is programmatically dumping the mailbox for intelligence. Note that since Microsoft's 2023 logging expansion, MailItemsAccessed is part of Audit (Standard) and is on by default for users with an E3/E5 license — but verify it per tenant before relying on it.",
       xp: 30,
     },
 
@@ -1770,7 +1770,7 @@ When sign-in logs show authentication from two locations too far apart to travel
           ],
           answer: 1,
           explanation:
-            "A failed login (50126 = invalid credentials) from China does NOT mean all is well. The attacker at minimum knows the CEO's username (email address). The failure could mean: (1) the attacker has an old password that recently changed, (2) the attacker is spraying common passwords, or (3) they have the correct password but MFA blocked them. Required actions: (1) Alert the CEO, (2) Verify the CEO has not traveled to China (confirm impossible travel), (3) Force password reset as a precaution, (4) Check if any OTHER services the CEO uses with the same credentials show successful logins, (5) Enable Conditional Access to block sign-ins from high-risk countries.",
+            "A failed login (50126 = invalid credentials) from China does NOT mean all is well. The attacker at minimum knows the CEO's username (email address). The failure could mean: (1) the attacker has an old password that recently changed, or (2) the attacker is spraying or guessing common passwords. (If they had the correct password and MFA stopped them, you would see 50074/50076 instead — 50126 specifically means the password itself was wrong.) Required actions: (1) Alert the CEO, (2) Verify the CEO has not traveled to China (confirm impossible travel), (3) Force password reset as a precaution, (4) Check if any OTHER services the CEO uses with the same credentials show successful logins, (5) Enable Conditional Access to block sign-ins from high-risk countries.",
           xp: 40,
         },
       ],

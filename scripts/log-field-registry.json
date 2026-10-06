@@ -11994,6 +11994,8 @@
         "mft.si_created",
         "mft.si_mft_modified",
         "mft.si_modified",
+        "mft.usnjrnl_first_reason",
+        "mft.usnjrnl_first_timestamp",
         "mft.usnjrnl_last_reason",
         "mft.usnjrnl_last_timestamp",
         "velociraptor.artifact"

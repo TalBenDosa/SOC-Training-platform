@@ -112,7 +112,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "A service account self-granting AdministratorAccess is a classic IAM privilege-escalation pattern, and disabling CloudTrail immediately afterward is one of the loudest signals in cloud security because attackers disable logging specifically when they are about to do something they do not want recorded. Option a dismisses two strong signals as routine. Option c misattributes a customer-side identity misconfiguration to the provider. Option d ignores the security relevance entirely."
+        "explanation": "A service account self-granting AdministratorAccess is a classic IAM privilege-escalation pattern, and disabling CloudTrail immediately afterward is one of the loudest signals in cloud security because attackers disable logging specifically when they are about to do something they do not want recorded. The option “Routine administration - service accounts often self-grant…” dismisses two strong signals as routine. The option “A provider-side failure - AWS should have…” misattributes a customer-side identity misconfiguration to the provider. The option “A billing anomaly that should be routed…” ignores the security relevance entirely."
       },
       {
         "question": "You are a SOC analyst reviewing why a customer database was publicly readable on the internet for several days before discovery. The bucket policy explicitly granted read access to all principals. Under the shared responsibility model, whose failure is this?",
@@ -135,7 +135,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Identity, configuration, and data handling remain on the customer's side of the responsibility line across every service model. The provider supplies the controls (private-by-default settings, Block Public Access features) to prevent exactly this outcome; applying them is the customer's job. Option a misassigns responsibility for a configuration choice to the provider. Options c and d are not accurate descriptions of how the model actually works."
+        "explanation": "Identity, configuration, and data handling remain on the customer's side of the responsibility line across every service model. The provider supplies the controls (private-by-default settings, Block Public Access features) to prevent exactly this outcome; applying them is the customer's job. The option “The provider's, since their platform allowed the…” misassigns responsibility for a configuration choice to the provider. The options “Nobody's, since public object storage is inherently…”, “The provider's, since their platform allowed the…”, “Shared equally between the provider and the…” and “Shared equally between the provider and the…” are not accurate descriptions of how the model actually works."
       },
       {
         "question": "You are a SOC analyst and Azure AD sign-in logs show the same user account authenticating from Tel Aviv and then, nineteen minutes later, from a country on another continent — a classic impossible-travel pattern. Before concluding the account is compromised, what should you check first?",
@@ -158,7 +158,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Impossible travel has real false-positive causes — VPN egress points and IP geolocation inaccuracy chief among them — so the correct next step is to corroborate with MFA satisfaction and device compliance before concluding compromise, not to act on location alone. Option a is not a security control. Option c skips corroboration and risks an unnecessary disruptive action on a false positive. Option d is irrelevant to triage."
+        "explanation": "Impossible travel has real false-positive causes — VPN egress points and IP geolocation inaccuracy chief among them — so the correct next step is to corroborate with MFA satisfaction and device compliance before concluding compromise, not to act on location alone. The option “Whether the user's manager approved this international…” is not a security control. The option “Whether the account logged in from either…” skips corroboration and risks an unnecessary disruptive action on a false positive. The option “Whether the cyber insurance policy covers this…” is irrelevant to triage."
       },
       {
         "question": "In the worked CloudTrail example in this lesson, svc-report-gen calls GetCallerIdentity, then ListBuckets, then AttachUserPolicy, then StopLogging, all within five minutes. GetCallerIdentity and ListBuckets are not alarming by themselves. What specifically turned ListBuckets into a meaningful signal?",
@@ -181,7 +181,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "The event itself was not proof of compromise; comparing it against svc-report-gen's established baseline (only ever calling GetObject/PutObject against one bucket, never from this IP) is what turned an ordinary-looking call into a real signal. Option a wrongly treats one API call as automatic proof of exfiltration. Option c misdescribes how management events are handled — they are logged by default, not automatically treated as incidents. Option d makes a false blanket claim about user agents."
+        "explanation": "The event itself was not proof of compromise; comparing it against svc-report-gen's established baseline (only ever calling GetObject/PutObject against one bucket, never from this IP) is what turned an ordinary-looking call into a real signal. The option “ListBuckets always indicates data exfiltration and should…” wrongly treats one API call as automatic proof of exfiltration. The option “AWS classifies ListBuckets as a management event…” misdescribes how management events are handled — they are logged by default, not automatically treated as incidents. The option “The call used the aws-cli user agent…” makes a false blanket claim about user agents."
       },
       {
         "question": "A SOC analyst reviewing a Kubernetes audit log finds that a CI/CD service account, which has never done so before, just created a pod with securityContext.privileged set to true and a hostPath volume mount to the host's root filesystem. Which MITRE ATT&CK containers-matrix technique does this most directly set up?",
@@ -204,7 +204,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "MITRE ATT&CK's containers matrix documents T1611 (Escape to Host) as covering exactly this pattern: a privileged container or one with a hostPath mount to the host's root filesystem is the most common real-world method of breaking container isolation and reaching the underlying node. Option a describes reconnaissance, not the escalation this event actually represents. Option c misreads the event as image-building rather than pod creation with dangerous privileges. Option d assumes credential theft not evidenced by this event alone."
+        "explanation": "MITRE ATT&CK's containers matrix documents T1611 (Escape to Host) as covering exactly this pattern: a privileged container or one with a hostPath mount to the host's root filesystem is the most common real-world method of breaking container isolation and reaching the underlying node. The option “T1613 Container and Resource Discovery - the…” describes reconnaissance, not the escalation this event actually represents. The option “T1612 Build Image on Host - the…” misreads the event as image-building rather than pod creation with dangerous privileges. The option “T1078 Valid Accounts - the CI/CD service…” assumes credential theft not evidenced by this event alone."
       },
       {
         "question": "You are investigating a suspected data-theft incident against an S3 bucket that was encrypted at rest using an AWS KMS customer master key. CloudTrail shows the compromised identity successfully called kms:Decrypt against that key immediately before downloading the objects. What does this tell you?",
@@ -227,7 +227,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Envelope encryption only protects data if the party holding it cannot also unwrap the key. A successful kms:Decrypt call by the compromised identity (errorCode: null) means the attacker had both the door key and the safe key, so encryption at rest provided no real protection in this specific incident. Option a dismisses a directly relevant logged event. Option c misunderstands how KMS decryption works - the CMK never leaves the service, but its use can still be authorized to an attacker. Option d confuses encryption in transit with encryption at rest, which is what the finding actually concerns."
+        "explanation": "Envelope encryption only protects data if the party holding it cannot also unwrap the key. A successful kms:Decrypt call by the compromised identity (errorCode: null) means the attacker had both the door key and the safe key, so encryption at rest provided no real protection in this specific incident. The option “Nothing meaningful - KMS Decrypt calls are…” dismisses a directly relevant logged event. The option “The attacker must have physically extracted the…” misunderstands how KMS decryption works - the CMK never leaves the service, but its use can still be authorized to an attacker. The option “The finding is irrelevant to the investigation…” confuses encryption in transit with encryption at rest, which is what the finding actually concerns."
       }
     ],
     "references": [
@@ -360,7 +360,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Threat hunting borrows the scientific method's discipline: a specific, falsifiable hypothesis defined before touching the data is what separates a structured hunt from unguided browsing, which does not scale in high-volume environments. Option a describes exactly the failure mode this lesson warns against. Option c confuses hunting with a containment action requiring authorization. Option d contradicts the core definition of hunting as proactive, not alert-driven."
+        "explanation": "Threat hunting borrows the scientific method's discipline: a specific, falsifiable hypothesis defined before touching the data is what separates a structured hunt from unguided browsing, which does not scale in high-volume environments. The option “Nothing; browsing broadly is exactly how experienced…” describes exactly the failure mode this lesson warns against. The option “Approval from the incident response team, since…” confuses hunting with a containment action requiring authorization. The option “A confirmed alert to start from, since…” contradicts the core definition of hunting as proactive, not alert-driven."
       },
       {
         "question": "You are a SOC hunter running a stacking query on parent-child process pairs across a 5,000-host fleet. Which result is most likely to represent a genuine finding worth investigating first?",
@@ -383,7 +383,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Rarity analysis is the hunter's core technique: a parent-child pair occurring on exactly one host out of thousands is statistically anomalous and, in this case, also behaviorally suspicious (a document-editing process spawning a script-hosting utility). Options a, c, and d all describe pairs occurring on the overwhelming majority of the fleet, which is the profile of routine, organic Windows behavior rather than a long-tail anomaly."
+        "explanation": "Rarity analysis is the hunter's core technique: a parent-child pair occurring on exactly one host out of thousands is statistically anomalous and, in this case, also behaviorally suspicious (a document-editing process spawning a script-hosting utility). The options “svchost.exe with parent services.exe, occurring on 4,812…” and “explorer.exe with parent userinit.exe, occurring on 4,990…”, and d all describe pairs occurring on the overwhelming majority of the fleet, which is the profile of routine, organic Windows behavior rather than a long-tail anomaly."
       },
       {
         "question": "You are a SOC hunter choosing between two ways to operationalize a finding from a successful hunt: writing a detection rule that matches the exact malware hash you found, or writing one that matches the behavioral sequence of process injection followed by an outbound connection within 30 seconds. According to the Pyramid of Pain, why is the behavioral rule the better long-term investment?",
@@ -406,7 +406,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "The Pyramid of Pain ranks hash values at the base as trivial for an attacker to evade — one recompile invalidates the hash entirely — while TTPs and behavioral patterns sit at the top, forcing the attacker to rebuild their actual tradecraft to evade detection, which is expensive and slow. Option a is not a real performance claim the pyramid makes. Option c overstates behavioral rules, which still require tuning and baselining. Option d is factually incorrect."
+        "explanation": "The Pyramid of Pain ranks hash values at the base as trivial for an attacker to evade — one recompile invalidates the hash entirely — while TTPs and behavioral patterns sit at the top, forcing the attacker to rebuild their actual tradecraft to evade detection, which is expensive and slow. The option “Hash comparisons are computationally slower to evaluate…” is not a real performance claim the pyramid makes. The option “Behavioral rules require no environmental baseline and…” overstates behavioral rules, which still require tuning and baselining. The option “Hash-based detections are no longer supported as…” is factually incorrect."
       },
       {
         "question": "In the worked LSASS-access hunt in this lesson, the query returns a single hit: a process named svchost.exe requesting GrantedAccess 0x1FFFFF against lsass.exe. What detail, beyond the access level itself, makes this result worth escalating rather than dismissing as a false positive?",
@@ -429,7 +429,7 @@ const lessons = [
           }
         ],
         "answer": "a",
-        "explanation": "The real svchost.exe always runs from System32; a process using that name but running from a user-writable Temp directory is impersonating a trusted name rather than being it, which is the second confirming detail alongside the unusual access level. Option b is false — hexadecimal is the normal, routine format for GrantedAccess. Option c misrepresents what Sysmon Event ID 10 records. Option d over-reads a fleet-wide rarity count as proof about a single host's history."
+        "explanation": "The real svchost.exe always runs from System32; a process using that name but running from a user-writable Temp directory is impersonating a trusted name rather than being it, which is the second confirming detail alongside the unusual access level. The option “The GrantedAccess field is formatted in hexadecimal…” is false — hexadecimal is the normal, routine format for GrantedAccess. The option “Sysmon Event ID 10 is reserved exclusively…” misrepresents what Sysmon Event ID 10 records. The option “An occurrence_count of 1 proves by itself…” over-reads a fleet-wide rarity count as proof about a single host's history."
       },
       {
         "question": "A hunting program has excellent, well-indexed telemetry across its entire fleet, but every hunt its analysts run is a reproduction of a technique described in a public blog post or conference talk - none of the analysts have ever built an original hypothesis from scratch. According to the Hunting Maturity Model, what is the binding constraint holding this program back from HM3?",
@@ -452,7 +452,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "The HMM scores a program on data collection, data accessibility, and analyst skill. This program's telemetry is already excellent and well-indexed, ruling out collection and accessibility as the constraint. The described gap - following published procedures but never creating original ones - is precisely the boundary between HM2 (Procedural) and HM3 (Innovative). Options a and c misdiagnose a data problem that the scenario explicitly rules out. Option d describes the HM3-to-HM4 boundary, not HM2-to-HM3."
+        "explanation": "The HMM scores a program on data collection, data accessibility, and analyst skill. This program's telemetry is already excellent and well-indexed, ruling out collection and accessibility as the constraint. The described gap - following published procedures but never creating original ones - is precisely the boundary between HM2 (Procedural) and HM3 (Innovative). The options “Data collection - the program needs to…”, “Data collection - the program needs to…”, “Automation - the program lacks the engineering…” and “Data accessibility - the logs exist but…” misdiagnose a data problem that the scenario explicitly rules out. The option “Automation - the program lacks the engineering…” describes the HM3-to-HM4 boundary, not HM2-to-HM3."
       },
       {
         "question": "A hunt confirms a specific credential-dumping capability on one victim host, sourced from a threat intel report about a known adversary group. Using the Diamond Model of Intrusion Analysis, which of the following is the most disciplined next step?",
@@ -475,7 +475,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "The Diamond Model's core analytical value is that knowing three of its four features (here: adversary, capability, victim) with confidence gives a structured basis for hypothesizing the fourth (infrastructure), and that new hypothesis becomes the next hunt. Option a stops short of the model's actual purpose. Option c invents a reporting requirement the model does not impose. Option d confuses the model's analytical function with an unrelated remediation step."
+        "explanation": "The Diamond Model's core analytical value is that knowing three of its four features (here: adversary, capability, victim) with confidence gives a structured basis for hypothesizing the fourth (infrastructure), and that new hypothesis becomes the next hunt. The option “Close the hunt, since a single confirmed…” stops short of the model's actual purpose. The option “Escalate directly to law enforcement, since the…” invents a reporting requirement the model does not impose. The option “Rebuild the victim host immediately and skip…” confuses the model's analytical function with an unrelated remediation step."
       }
     ],
     "references": [

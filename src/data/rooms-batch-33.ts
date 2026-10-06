@@ -331,7 +331,7 @@ const ransomwareLifecycleRoom = {
       ],
       answer: 1,
       explanation:
-        "Reading 2's whole point is that not every ransomware case starts with phishing -- here, the specific evidence (no phishing indicator anywhere, a known public CVE, an appliance three versions behind current) fits edge-device exploitation far better than an assumption. Option c is wrong because a brute-force case would show a preceding burst of failed logons (Event 4625), which isn't described here -- this is one clean successful login. And option d contradicts Reading 2 directly: identifying the actual vector determines the specific remediation (patch the appliance and invalidate its sessions here, rather than retraining a user who did nothing wrong).",
+        "Reading 2's whole point is that not every ransomware case starts with phishing -- here, the specific evidence (no phishing indicator anywhere, a known public CVE, an appliance three versions behind current) fits edge-device exploitation far better than an assumption. The brute-force / password-spraying option is wrong because such a case would show a preceding burst of failed logons (Event 4625), which isn't described here -- this is one clean successful login. And deferring vector attribution to post-incident forensics contradicts Reading 2 directly: identifying the actual vector determines the specific remediation (patch the appliance and invalidate its sessions here, rather than retraining a user who did nothing wrong).",
       xp: 25,
     },
     // ── Reading 3: Execution & persistence ────────────────────────────────────
@@ -391,7 +391,7 @@ const ransomwareLifecycleRoom = {
           ],
           answer: 1,
           explanation:
-            "comsvcs.dll genuinely ships with Windows and genuinely exports a MiniDump function -- using it via rundll32.exe is a well-documented living-off-the-land credential-dumping technique precisely because it avoids ever writing a separate, obviously-malicious tool to disk. Option c invents a wrong purpose for the DLL, and option d ignores that the command line itself, read correctly, already tells the story before any external reputation lookup.",
+            "comsvcs.dll genuinely ships with Windows and genuinely exports a MiniDump function -- using it via rundll32.exe is a well-documented living-off-the-land credential-dumping technique precisely because it avoids ever writing a separate, obviously-malicious tool to disk. Calling comsvcs.dll a mail server component invents a wrong purpose for the DLL, and insisting on a third-party reputation score first ignores that the command line itself, read correctly, already tells the story before any external reputation lookup.",
           xp: 30,
         },
         {
@@ -459,7 +459,7 @@ const ransomwareLifecycleRoom = {
         ],
         answer: 1,
         explanation:
-          "Reading 5 was explicit that PsExec is legitimate and used constantly by IT -- the tell is the pattern (repetition across hosts, unusual account/source/timing), not the tool's identity. Option d overclaims too: a renamed service still leaves the underlying network-logon-then-service-creation pattern, which is exactly why reading the pattern matters more than matching one exact string.",
+          "Reading 5 was explicit that PsExec is legitimate and used constantly by IT -- the tell is the pattern (repetition across hosts, unusual account/source/timing), not the tool's identity. The 'only the service name matters' option overclaims too: a renamed service still leaves the underlying network-logon-then-service-creation pattern, which is exactly why reading the pattern matters more than matching one exact string.",
       },
       xp: 5,
     },
@@ -477,7 +477,7 @@ const ransomwareLifecycleRoom = {
       ],
       answer: 2,
       explanation:
-        "PsExec is legitimate, but the identical, repeating pattern across two hosts within nine minutes -- from the exact account this room's log analysis already flagged as compromised and carrying broad reach -- is the lateral-movement signature Reading 5 described, not routine single-admin activity. Option d wrongly conflates lateral movement (spreading access) with the later, distinct Impact stage covered further on in this room -- PsExec here is being used to move and stage, not to encrypt.",
+        "PsExec is legitimate, but the identical, repeating pattern across two hosts within nine minutes -- from the exact account this room's log analysis already flagged as compromised and carrying broad reach -- is the lateral-movement signature Reading 5 described, not routine single-admin activity. Reading it as the encryption stage already in progress wrongly conflates lateral movement (spreading access) with the later, distinct Impact stage covered further on in this room -- PsExec here is being used to move and stage, not to encrypt.",
       xp: 25,
     },
     // ── Matching: lifecycle stage -> MITRE technique ─────────────────────────
@@ -527,13 +527,13 @@ const ransomwareLifecycleRoom = {
         { id: "discover", text: "Discovery -- AD reconnaissance maps groups, trusts, and privileged accounts" },
         { id: "cred", text: "Credential Access -- LSASS is dumped or DCSync is run to harvest domain-wide credentials" },
         { id: "lateral", text: "Lateral Movement -- PsExec, WMI, or RDP spreads access to additional hosts using the stolen credential" },
-        { id: "evasion", text: "Defense Evasion -- shadow copies are deleted, EDR is disabled, and event logs are cleared" },
+        { id: "evasion", text: "Defense Evasion -- with the newly gained privileges, EDR/AV is stopped or excluded on the hosts the affiliate needs, so the bulk transfer and encryptor that follow run unseen" },
         { id: "exfil", text: "Exfiltration -- staged, compressed data is pushed out via rclone or a similar tool, before encryption starts" },
-        { id: "impact", text: "Impact and Extortion -- the encryptor runs fleet-wide and the ransom note appears, referencing already-published stolen data" },
+        { id: "impact", text: "Impact and Extortion -- shadow copies are deleted and logs cleared, then the encryptor runs fleet-wide and the ransom note appears, referencing already-published stolen data" },
       ],
       correct_order: ["init", "exec", "persist", "discover", "cred", "lateral", "evasion", "exfil", "impact"],
       explanation:
-        "Each stage depends on what the previous one produced: execution needs the foothold Initial Access delivered; Persistence protects that foothold before the affiliate risks losing it to a reboot; Discovery and Credential Access together are what make fleet-wide Lateral Movement possible in the first place; Defense Evasion is timed deliberately late, right before the noisiest stages, to blind the SOC for as long as possible; and -- as Reading 7 covers next -- Exfiltration now routinely runs before Impact rather than alongside it, because a well-organized affiliate wants the leverage fully banked before risking the detection an obvious mass-encryption event almost guarantees.",
+        "Each stage depends on what the previous one produced: execution needs the foothold Initial Access delivered; Persistence protects that foothold before the affiliate risks losing it to a reboot; Discovery and Credential Access together are what make fleet-wide Lateral Movement possible in the first place; disabling or excluding EDR needs the privileges the earlier stages won, and it comes before the bulk transfer and the encryptor so that those noisy stages run unseen; shadow-copy deletion (ATT&CK files it as T1490, an Impact technique) and log clearing are deliberately left to the final stage, run shortly before mass file activity begins as Reading 6 describes, because deleting backups early would itself be a loud alarm; and -- as Reading 7 covers next -- Exfiltration now routinely runs before Impact rather than alongside it, because a well-organized affiliate wants the leverage fully banked before risking the detection an obvious mass-encryption event almost guarantees.",
       xp: 35,
     },
     // ── Reading 7: 2025 exfiltration-first model ──────────────────────────────
@@ -604,7 +604,7 @@ const ransomwareLifecycleRoom = {
           ],
           answer: 1,
           explanation:
-            "Reading the command line closely -- not just noting that rclone ran -- shows a specific, high-value target (Finance Q4), deliberate quiet/high-throughput settings, and a destination remote name that doesn't match anything on NexaCorp's approved list. A friendly-sounding remote name proves nothing about legitimacy on its own, which is exactly the trap option c falls into.",
+            "Reading the command line closely -- not just noting that rclone ran -- shows a specific, high-value target (Finance Q4), deliberate quiet/high-throughput settings, and a destination remote name that doesn't match anything on NexaCorp's approved list. A friendly-sounding remote name proves nothing about legitimacy on its own, which is exactly the trap of reading 'sync' in 'gdrive-sync' as proof of an IT-sanctioned integration.",
           xp: 35,
         },
         {
@@ -632,7 +632,7 @@ const ransomwareLifecycleRoom = {
           ],
           answer: 1,
           explanation:
-            "This is exactly the highest-value moment Reading 7 described: staging caught before encryption is the point where the outcome can still change. Waiting for encryption to appear before acting (option a) throws away that window entirely, and Reading 7 was explicit that some affiliates skip encryption altogether -- there may be no later, more obvious signal coming at all.",
+            "This is exactly the highest-value moment Reading 7 described: staging caught before encryption is the point where the outcome can still change. Waiting for encryption to appear before acting throws away that window entirely, and Reading 7 was explicit that some affiliates skip encryption altogether -- there may be no later, more obvious signal coming at all.",
           xp: 40,
         },
       ],
@@ -737,7 +737,7 @@ const ransomwareLifecycleRoom = {
           ],
           answer: 2,
           explanation:
-            "Reading 6 already established that tamper protection and tooling state can vary by host -- this single successful block tells the analyst nothing about the other targeted hosts. The correct next step is exactly what option c describes: immediately check the outcome on every other host the same scheduled task reached, not assume uniform protection across the fleet.",
+            "Reading 6 already established that tamper protection and tooling state can vary by host -- this single successful block tells the analyst nothing about the other targeted hosts. The correct next step is exactly the host-to-host-variation answer: immediately check the outcome on every other host the same scheduled task reached, not assume uniform protection across the fleet.",
           xp: 35,
         },
       ],
@@ -756,7 +756,7 @@ const ransomwareLifecycleRoom = {
       ],
       answer: 1,
       explanation:
-        "Option b matches Reading 8's playbook directly: contain the still-active spread, scope accurately, preserve evidence, and deliver facts -- not a payment decision -- to the people actually authorized to make that call. Option a hands the SOC a decision and a level of external contact it should never have. Option c is disproportionate: powering off hosts destroys volatile evidence (memory, live connections) and the domain controllers needed for recovery, without scoping which hosts were actually affected. Option d gets the order wrong: restoring onto a network where the encryptor is still spreading just feeds it new victims, and stopping the spread to hosts NOT yet encrypted is the highest-value action still available.",
+        "Isolating, scoping, preserving evidence and briefing IR/legal/executives matches Reading 8's playbook directly: contain the still-active spread, scope accurately, preserve evidence, and deliver facts -- not a payment decision -- to the people actually authorized to make that call. Opening a negotiation channel hands the SOC a decision and a level of external contact it should never have. Hard power-off of everything is disproportionate: powering off hosts destroys volatile evidence (memory, live connections) and the domain controllers needed for recovery, without scoping which hosts were actually affected. Restoring encrypted hosts first gets the order wrong: restoring onto a network where the encryptor is still spreading just feeds it new victims, and stopping the spread to hosts NOT yet encrypted is the highest-value action still available.",
       xp: 30,
     },
     // ── Flag ───────────────────────────────────────────────────────────────

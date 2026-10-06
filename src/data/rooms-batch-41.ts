@@ -41,8 +41,8 @@ const singleDeniedPushEvent: TelemetryEvent = {
   it_verify_message:
     "r.aldana confirmed by phone: opened the wrong notification first (a calendar reminder was on top) and dismissed it before re-approving the real Okta prompt. Device and network match her registered laptop and home ISP.",
   raw: {
-    "okta.eventType": "user.mfa.okta_verify.push_response",
-    "okta.outcome.result": "DENIED",
+    "okta.eventType": "user.mfa.okta_verify.deny_push",
+    "okta.outcome.result": "FAILURE",
     "okta.actor.displayName": "Rosa Aldana",
     "okta.actor.alternateId": "r.aldana@castellanrisk.com",
     "okta.client.ipAddress": "70.114.22.89",
@@ -50,7 +50,7 @@ const singleDeniedPushEvent: TelemetryEvent = {
     "okta.client.geographicalContext.city": "Denver",
     "okta.client.userAgent.rawUserAgent": "Okta Verify/4.12.1 iOS/17.5",
     "okta.debugContext.debugData.factor": "OKTA_VERIFY_PUSH",
-    "okta.displayMessage": "MFA push notification denied",
+    "okta.displayMessage": "User rejected Okta push verify",
     "event.outcome": "failure",
     "source.ip": "70.114.22.89",
     "user.email": "r.aldana@castellanrisk.com",
@@ -216,7 +216,7 @@ const mfaSessionTokenAttacksRoom = {
       ],
       answer: 1,
       explanation:
-        "Every single push in the sequence is genuinely legitimate -- it really came from a correct-password login attempt. What flags the pattern is the burst shape over time: many denials from one correlated source followed by an acceptance, which an isolated accidental tap would never produce. The denials do not make the approval more trustworthy (a) -- they are what an attacker's repeated attempts look like. Option c is false (no such automatic block exists at that count), and option d misunderstands the attack entirely -- it requires only a working password, not a stolen session cookie or any other artifact.",
+        "Every single push in the sequence is genuinely legitimate -- it really came from a correct-password login attempt. What flags the pattern is the burst shape over time: many denials from one correlated source followed by an acceptance, which an isolated accidental tap would never produce. The denials do not make the approval more trustworthy -- they are what an attacker's repeated attempts look like. The claim that Okta locks the account after 10 denied pushes is false (no such automatic block exists at that count), and the idea that fatigue needs a stolen session cookie misunderstands the attack entirely -- it requires only a working password, not a stolen session cookie or any other artifact.",
       xp: 15,
     },
 
@@ -232,18 +232,21 @@ const mfaSessionTokenAttacksRoom = {
         "- **Geographic or network mismatch** — the attempts originate from an IP, country, or autonomous system (AS — a block of internet address space under one organization's control, useful for flagging known hosting/VPN ranges) inconsistent with the user's normal pattern.\n" +
         "- **A new device or auth method registered immediately after the accepted push** — attackers commonly enroll their own device within seconds of getting in, so they can pass MFA again even after a password reset.\n\n" +
         "### Reading the Okta System Log\n\n" +
-        "Okta writes every authentication action to its System Log using a dot-notation `eventType` taxonomy. The push-response event is `user.mfa.okta_verify.push_response`, with the outcome in `okta.outcome.result` (DENIED or SUCCESS):\n\n" +
+        "Okta writes every authentication action to its System Log using a dot-notation `eventType` taxonomy. A push-fatigue attack leaves three kinds of event: `system.push.send_factor_verify_push` (Okta sent a push), `user.mfa.okta_verify.deny_push` (the user tapped Deny), and `user.authentication.auth_via_mfa` with `okta.outcome.result: SUCCESS` and `okta.debugContext.debugData.factor: OKTA_VERIFY_PUSH` (the push was approved and MFA passed):\n\n" +
         "```\n" +
-        "okta.eventType: user.mfa.okta_verify.push_response\n" +
-        "okta.outcome.result: DENIED\n" +
+        "okta.eventType: system.push.send_factor_verify_push\n" +
         "okta.client.ipAddress: 91.108.4.33\n" +
-        "... (repeated 11 times over several minutes) ...\n" +
-        "okta.eventType: user.mfa.okta_verify.push_response\n" +
+        "okta.eventType: user.mfa.okta_verify.deny_push\n" +
+        "okta.outcome.result: FAILURE\n" +
+        "okta.client.ipAddress: 91.108.4.33\n" +
+        "... (send + deny repeated 11 times over several minutes) ...\n" +
+        "okta.eventType: system.push.send_factor_verify_push\n" +
+        "okta.eventType: user.authentication.auth_via_mfa\n" +
         "okta.outcome.result: SUCCESS\n" +
+        "okta.debugContext.debugData.factor: OKTA_VERIFY_PUSH\n" +
         "okta.client.ipAddress: 91.108.4.33\n" +
-        "okta.debugContext.debugData.pushApprovedAt: 2026-06-15T01:32:17Z\n" +
         "```\n\n" +
-        "A single `push_response` record proves nothing on its own. The detection is a correlation rule: count DENIED `push_response` events for the same actor within a window (commonly 15 minutes), and alert when the count exceeds a threshold (commonly 5-10) AND is immediately followed by one SUCCESS from the same source.\n\n" +
+        "A single denial proves nothing on its own. The detection is a correlation rule: count `deny_push` events for the same actor within a window (commonly 10-15 minutes), and alert when the count exceeds a threshold (commonly 5-10) AND is followed by a successful `auth_via_mfa` (or `user.session.start` / SSO success) for the same actor. On Okta Identity Engine, a denial can also appear as `user.authentication.auth_via_mfa` with `okta.outcome.reason: INVALID_CREDENTIALS`, so good rules count both.\n\n" +
         "### The mitigation that removes the attack surface: number matching\n\n" +
         "Both Microsoft (Entra ID / Microsoft Authenticator) and Okta ship **number matching**: instead of a simple Approve/Deny button, the sign-in screen shows a two-digit number that the user must type into the Authenticator app to complete the login. This closes the reflex-tap failure mode directly — an exhausted user tapping 'Approve' out of habit can no longer succeed by accident, because completing the login now requires reading a number off a separate screen and actively typing it. Microsoft made number matching mandatory tenant-wide after widespread fatigue-attack abuse; Okta's equivalent, delivered through Okta Verify, is called Number Challenge.\n\n" +
         "### The limit to remember (this comes back later in the room)\n\n" +
@@ -272,13 +275,13 @@ const mfaSessionTokenAttacksRoom = {
         "In the Okta System Log, which field pair together confirm a push notification was genuinely APPROVED by the user, as opposed to merely sent?",
       options: [
         "okta.eventType: user.session.start, paired with okta.outcome.reason: MFA_REQUIRED",
-        "okta.eventType: user.mfa.okta_verify.push_response, paired with okta.outcome.result: SUCCESS",
+        "okta.eventType: user.authentication.auth_via_mfa, paired with okta.outcome.result: SUCCESS",
         "okta.eventType: device.enrollment.create, paired with okta.outcome.result: SUCCESS",
-        "okta.eventType: system.api_token.create, paired with okta.debugContext.debugData.factor: OKTA_VERIFY_PUSH",
+        "okta.eventType: system.push.send_factor_verify_push, paired with okta.debugContext.debugData.factor: OKTA_VERIFY_PUSH",
       ],
       answer: 1,
       explanation:
-        "user.mfa.okta_verify.push_response is specifically the push-response event, and outcome.result: SUCCESS on that event confirms the user approved it -- DENIED would mean the same event type recorded a rejection instead. user.session.start with MFA_REQUIRED only shows the password stage was satisfied and a challenge is now pending, not that it was answered. device.enrollment.create and system.api_token.create are both later persistence actions, unrelated to confirming the push response itself.",
+        "user.authentication.auth_via_mfa records the MFA step itself, and outcome.result: SUCCESS on it (with debugData.factor OKTA_VERIFY_PUSH) confirms the push was approved; a rejection is logged as user.mfa.okta_verify.deny_push instead. system.push.send_factor_verify_push only shows that Okta SENT a push, not that anyone answered it. user.session.start with MFA_REQUIRED only shows the password stage was satisfied and a challenge is now pending. device.enrollment.create is a later persistence action, unrelated to confirming the push response itself.",
       xp: 15,
     },
 
@@ -409,7 +412,7 @@ const mfaSessionTokenAttacksRoom = {
           ],
           answer: 2,
           explanation:
-            "This is the central trap taught in this room: both fields evaluate the SIGNED TOKEN's claims, and a replayed token still carries a genuine MFA-satisfied claim from the original login. Neither field has visibility into whether the token itself was stolen. Option a repeats exactly the mistake the room warns against. Option b is factually wrong -- conditionalAccessStatus: success means a policy DID evaluate and pass, not that none applied. Option d is not how the field behaves; it is populated on domestic sign-ins too.",
+            "This is the central trap taught in this room: both fields evaluate the SIGNED TOKEN's claims, and a replayed token still carries a genuine MFA-satisfied claim from the original login. Neither field has visibility into whether the token itself was stolen. Calling the sign-in definitely benign repeats exactly the mistake the room warns against. Saying Conditional Access applied no policy is factually wrong -- conditionalAccessStatus: success means a policy DID evaluate and pass, not that none applied. The claim that riskLevelDuringSignIn only populates for foreign sign-ins is not how the field behaves; it is populated on domestic sign-ins too.",
           xp: 15,
         },
       ],
@@ -462,7 +465,7 @@ const mfaSessionTokenAttacksRoom = {
         "### How it's executed\n\n" +
         "The attacker must already control the on-premises AD FS server (the initial foothold is a separate, earlier step). From there: (1) read the AD FS DKM (Distributed Key Manager) master key out of Active Directory — the secret that decrypts the token-signing certificate; (2) export the token-signing certificate's private key using that DKM key; (3) with the private key in hand, sign a brand-new SAML assertion claiming to be any user, on the attacker's own machine, with no request ever sent to the real AD FS server; (4) present that forged assertion directly to the cloud service, which accepts it because it is validly signed by a key it trusts.\n\n" +
         "### The tell: an absence, not a presence\n\n" +
-        "This is one of the hardest cases in identity security because there is no 'loud' malicious artifact — the whole case turns on something MISSING. **A genuine federated login always leaves a token-issuance audit record on the AD FS server** (Windows Event ID 1200 on AD FS). A forged assertion, minted entirely offline with the stolen key, is never seen by the federation server at all, so it leaves **no matching issuance record**. A cloud sign-in that claims `tokenIssuerType: ADFSFederated` while the AD FS server shows no corresponding issuance for that session cannot have come from the identity provider — it was minted offline.\n\n" +
+        "This is one of the hardest cases in identity security because there is no 'loud' malicious artifact — the whole case turns on something MISSING. **A genuine federated login always leaves a token-issuance audit record on the AD FS server** (Windows Event ID 1200 on AD FS). A forged assertion, minted entirely offline with the stolen key, is never seen by the federation server at all, so it leaves **no matching issuance record**. A cloud sign-in that claims `tokenIssuerType: ADFederationServices` while the AD FS server shows no corresponding issuance for that session cannot have come from the identity provider — it was minted offline.\n\n" +
         "Reinforcing tells: forged sign-ins for privileged accounts, at odd hours, from external addresses, each carrying an MFA claim 'satisfied by a claim in the token' though no challenge was ever presented — the same MFA-by-claim pattern seen in session replay, but here explained by a forged assertion rather than a stolen cookie.\n\n" +
         "### Why MFA and a password reset don't help\n\n" +
         "The cloud delegates the entire authentication decision — including how strongly the user was verified — to the federation server, and reads that verdict from the signed token's own claims. Whoever holds the signing key controls those claims. A minted token simply asserts MFA was completed, and the cloud accepts it without ever contacting the user. Because the forged token carries no password at all, resetting the victim's password changes nothing the attacker used.\n\n" +
@@ -541,7 +544,7 @@ const mfaSessionTokenAttacksRoom = {
       ],
       answer: 0,
       explanation:
-        "Token Protection addresses artifact theft (binding a token to a device so a stolen copy fails elsewhere) -- it has nothing to do with fatigue, which targets the HUMAN during a live authentication attempt, not a token afterward. Option b overstates Token Protection's coverage: browser-based scenarios and non-covered resources remain exposed even with it deployed. Option c credits device binding with stopping fatigue, which it cannot do, since no token exists yet at that point. Option d incorrectly bundles two unrelated features -- Token Protection and number matching are separate controls addressing separate techniques.",
+        "Token Protection addresses artifact theft (binding a token to a device so a stolen copy fails elsewhere) -- it has nothing to do with fatigue, which targets the HUMAN during a live authentication attempt, not a token afterward. Saying none of the attacks would succeed overstates Token Protection's coverage: browser-based scenarios and non-covered resources remain exposed even with it deployed. The session-replay option credits device binding with stopping fatigue, which it cannot do, since no token exists yet at that point. The claim that Token Protection bundles number matching incorrectly links two unrelated features -- Token Protection and number matching are separate controls addressing separate techniques.",
       xp: 20,
     },
 

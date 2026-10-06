@@ -257,7 +257,7 @@ const becInvestigationRoom = {
       ],
       answer: 3,
       explanation:
-        "Reading 2 covered this exact case: when your own tenant genuinely shows no indicators at all, and the sending address is authentically correct, the compromise happened on the other side of the relationship. Dismissing this as an ATO logging gap or assuming a spoofed lookalike domain both miss the point — a lookalike domain would fail your own SPF/DKIM checks or at least show a different sending domain, which isn't what's described here.",
+        "Reading 2 covered this exact case: when your own tenant genuinely shows no indicators at all, and the sending address is authentically correct, the compromise happened on the other side of the relationship. Dismissing this as an ATO logging gap or assuming a spoofed lookalike domain both miss the point — a lookalike domain would show a different sending domain (it can still pass SPF/DKIM/DMARC for that attacker-registered domain), which isn't what's described here.",
       xp: 20,
     },
     // ── Reading 3: reading Entra ID sign-in logs for ATO ────────────────────

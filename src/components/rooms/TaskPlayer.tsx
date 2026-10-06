@@ -260,6 +260,28 @@ function IocNotebook({ iocs, onRemove }: { iocs: IocEntry[]; onRemove: (i: numbe
 const RAW_REVEAL_INITIAL = 8;
 const RAW_REVEAL_STEP    = 8;
 
+// Context the analyst gathered OUTSIDE the log (an IT call-back, the change calendar).
+// Several analyst-choice verdicts hinge on it ("approved change CHG-…"), so it must be
+// visible — the 2026-10-06 content review found rooms whose correct verdict depended on
+// it_verify_* fields that were in the event but never rendered. It is evidence, not the
+// verdict: the student still has to weigh it against what the log shows.
+function EventContextNote({ event }: { event: TelemetryEvent }) {
+  if (!event.it_verify_message) return null;
+  const confirmed = event.it_verify_result === "confirmed";
+  return (
+    <div className="border-t border-slate-700/60 bg-slate-800/30 px-4 py-2.5">
+      <p className="mb-1 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+        Context gathered · IT / change management
+        <span className={cn("rounded border px-1.5 py-px text-[9px] normal-case tracking-normal",
+          confirmed ? "border-emerald-500/40 text-emerald-300" : "border-amber-500/40 text-amber-300")}>
+          {confirmed ? "confirmed by IT" : "not confirmed"}
+        </span>
+      </p>
+      <p className="text-[12px] leading-relaxed text-slate-200">{event.it_verify_message}</p>
+    </div>
+  );
+}
+
 function InteractiveLogEventCard({
   event, iocs, onTag, onUntag,
 }: { event: TelemetryEvent; iocs: IocEntry[]; onTag: (entry: IocEntry) => void; onUntag: (value: string) => void; }) {
@@ -367,6 +389,7 @@ function InteractiveLogEventCard({
             </div>
           )}
         </div>
+        <EventContextNote event={event} />
       </div>
 
       {popover && (
@@ -1015,6 +1038,7 @@ export function ReadOnlyEventCard({ event }: { event: TelemetryEvent }) {
           </div>
         )}
       </div>
+      <EventContextNote event={event} />
     </div>
   );
 }

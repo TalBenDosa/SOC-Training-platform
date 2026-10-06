@@ -347,7 +347,7 @@ const encodingRoom: Room = {
       questions: [
         {
           question:
-            "You submit this file's SHA256 (e1a4c7f9...d0e3a) to threat intelligence via the platform's Check Hash feature and get back 'No match found.' Given what Reading 3 taught about how a hash identifies data, what should you conclude?",
+            "You submit this file's SHA256 (6fd13927...e4ac) to threat intelligence via the platform's Check Hash feature and get back 'No match found.' Given what Reading 3 taught about how a hash identifies data, what should you conclude?",
           options: [
             "'No match' is not proof of safety — it only means this exact byte sequence has never been catalogued as malicious before, which is exactly what you'd expect from a freshly compiled or slightly modified payload with no reputation history yet; further behavioral analysis is still warranted",
             "'No match' definitively proves the file is completely benign and safe to execute, since every malicious file in existence is always catalogued by threat intelligence vendors well before it is ever used in a real-world attack",
@@ -460,7 +460,7 @@ const encodingRoom: Room = {
       content:
         `A common beginner assumption is that encrypted traffic is a total black box to an analyst unless it's decrypted first (via TLS inspection, an intercepting proxy that most enterprises deploy specifically to regain that visibility). That's not actually true, and knowing exactly what's still visible without decryption is what makes an entire category of detection — beacon and command-and-control detection — possible at all.\n\n` +
         `**What is visible in plaintext, even inside an encrypted connection:**\n\n` +
-        `The SNI (Server Name Indication) field, sent as part of the TLS handshake before encryption is established, tells the server which hostname the client is trying to reach — and it travels unencrypted, in the clear, so any network monitoring tool can log exactly which domain a client connected to, encrypted session or not. The server's certificate, presented during the handshake, is also unencrypted and includes the domain(s) it's valid for, its issuer, and its validity dates. A JA3 (client-side) or JA3S (server-side) fingerprint — a hash of specific characteristics of how a TLS client or server negotiates the handshake (which cipher suites it offers, in what order, and other parameters) — can flag when a particular piece of malware's TLS library behaves distinctly differently from a normal browser, even without reading a single byte of the actual conversation. And regardless of encryption, an analyst can always observe connection metadata: timing (how often does this host talk to this destination, and how regularly), and byte volumes (small, near-identical request and response sizes repeating at fixed intervals is a classic beacon signature — a compromised host "checking in" with its command-and-control server on a schedule).\n\n` +
+        `The SNI (Server Name Indication) field, sent as part of the TLS handshake before encryption is established, tells the server which hostname the client is trying to reach — and it travels unencrypted, in the clear, so any network monitoring tool can log exactly which domain a client connected to, encrypted session or not. Under TLS 1.2, the server's certificate presented during the handshake is also unencrypted and shows the domain(s) it's valid for, its issuer, and its validity dates; under TLS 1.3 (now most traffic) the Certificate message is encrypted, so passive monitoring no longer sees it. And when the client uses Encrypted Client Hello (ECH), even the SNI is hidden — then you are left with the destination IP, the fingerprints and the traffic pattern. A JA3 (client-side) or JA3S (server-side) fingerprint — a hash of specific characteristics of how a TLS client or server negotiates the handshake (which cipher suites it offers, in what order, and other parameters) — can flag when a particular piece of malware's TLS library behaves distinctly differently from a normal browser, even without reading a single byte of the actual conversation. And regardless of encryption, an analyst can always observe connection metadata: timing (how often does this host talk to this destination, and how regularly), and byte volumes (small, near-identical request and response sizes repeating at fixed intervals is a classic beacon signature — a compromised host "checking in" with its command-and-control server on a schedule).\n\n` +
         `**What genuinely stays hidden without decryption:** the actual application data — the HTTP request path and parameters, headers, cookies, the response body, any credentials submitted through the encrypted channel. TLS protects the entire payload, not just part of it; there's no partial-encryption exception for headers versus body.\n\n` +
         `**Why this matters for your day-to-day work:** you do not need to break encryption to build a reasonable initial hypothesis that a host is beaconing to a C2 (command-and-control) server. A workstation making small, byte-identical HTTPS requests to an unfamiliar domain every 60 seconds, with an SNI that doesn't resolve to any business relationship you recognize, and a JA3 fingerprint that doesn't match any known legitimate application on that host, is a strong finding built entirely out of metadata — before any TLS inspection or decryption ever enters the picture.`,
     },
@@ -470,14 +470,14 @@ const encodingRoom: Room = {
       question:
         "An analyst can't decrypt a workstation's outbound TLS connection to an unfamiliar domain, but still flags it as a likely beacon to a command-and-control server. What could the analyst have legitimately observed without ever breaking the encryption?",
       options: [
-        "The SNI hostname, certificate details, JA3/JA3S fingerprints, and the connection's timing and byte-volume pattern, none of which require decryption",
+        "The SNI hostname, JA3/JA3S (or JA4) fingerprints, and the connection's timing and byte-volume pattern, none of which require decryption",
         "Nothing beyond the destination IP and port — TLS hides everything else, so a beacon hypothesis needs decryption first",
         "The full HTTP request path and headers, since TLS protects only the response body and leaves request metadata visible",
         "The names of files being transferred, which appear in cleartext in the TLS record headers of each session",
       ],
       answer: 0,
       explanation:
-        "This is the exact list from Reading 8: SNI, certificate metadata, JA3/JA3S, and connection timing/byte-volume patterns are all observable without decryption, and together they're enough to build a real beaconing hypothesis. TLS is not a total black box (ruling out the second option), but it also doesn't selectively protect only headers — the entire application payload, including the request path, body, and any submitted credentials, is fully encrypted with no exception.",
+        "This is the list from Reading 8: SNI, JA3/JA3S fingerprints, and connection timing/byte-volume patterns are all observable without decryption, and together they're enough to build a real beaconing hypothesis (the server certificate is visible too on TLS 1.2, but TLS 1.3 encrypts it, and ECH can hide the SNI). TLS is not a total black box (ruling out 'nothing beyond the destination IP and port'), but it also doesn't selectively protect only headers — the entire application payload, including the request path, body, and any submitted credentials, is fully encrypted with no exception.",
       xp: 25,
     },
   ],
@@ -535,6 +535,7 @@ const offHoursLogonEvent: TelemetryEvent = {
   it_verify_message:
     "Facilities badge log for the Bengaluru office confirms s.krishnan badged into the building at 09:15 local time (IST, UTC+5:30) that morning, consistent with the start of their normal shift.",
   raw: {
+    "@timestamp": "2026-03-10T03:50:00.000Z",
     "event.code": "4624",
     "winlog.channel": "Security",
     "winlog.computer_name": "WKS-BLR14",

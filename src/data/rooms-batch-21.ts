@@ -168,11 +168,11 @@ const logEntryAnatomyRoom: Room = {
     {
       type: "reading",
       id: "loganat-r3",
-      heading: "Key=Value: Why FortiGate and Palo Alto Logs Are Built to Be Grepped",
+      heading: "Key=Value: Why FortiGate and Check Point Logs Are Built to Be Grepped",
       content:
         `Key=value format writes each piece of information as a short field name, an equals sign, and its value, separated by spaces — no free-text sentence to parse, no need to guess where one fact ends and the next begins.\n\n` +
         `**Reading the sample.** Look at the line below: date and time are their own labelled fields, srcip and dstip name the two ends of the connection explicitly, and action states the outcome directly as a word, not a sentence.\n\n` +
-        `**Why vendors like Fortinet, Palo Alto Networks, and Check Point favour it.** Every fact is already labelled. A human, or a simple grep or regex, can pull "srcip" out of a million lines without needing to understand sentence structure, quoting rules, or where a free-text description happens to end. This is the format's whole appeal: self-describing, and still readable as plain text — a middle ground between syslog's free text and JSON's nested structure, covered next.\n\n` +
+        `**Why vendors like Fortinet and Check Point favour it.** Every fact is already labelled. A human, or a simple grep or regex, can pull "srcip" out of a million lines without needing to understand sentence structure, quoting rules, or where a free-text description happens to end. This is the format's whole appeal: self-describing, and still readable as plain text — a middle ground between syslog's free text and JSON's nested structure, covered next.\n\n` +
         `**Applying the five-question frame.** date/time answer WHEN. srcip and dstip both answer WHERE — srcip is where the traffic came from, dstip is where it was headed, and telling those apart correctly matters enormously once you start reading firewall logs at volume. action answers WHAT happened, including its outcome (deny means blocked). level answers HOW CONFIDENT the vendor is that this entry matters.\n\n` +
         `**One habit worth building now.** In key=value logs, always check whether a field name means "source" or "destination" before you trust your instinct — vendors are not consistent about which side of a connection gets which prefix, and misreading srcip as the target of an attack instead of its origin is an easy, embarrassing mistake to make under time pressure.`,
       codeExample:
@@ -240,7 +240,7 @@ const logEntryAnatomyRoom: Room = {
       instructions: "Match each short log sample to the format it is written in.",
       pairs: [
         { id: "syslog", left: "Priority code, no-year date, hostname, process[pid]: free-text message", right: "Plain syslog (RFC 3164-style)" },
-        { id: "kv", left: "srcip=10.10.4.55 dstport=443 action=deny policyid=12", right: "Key=value — self-describing pairs, common on Fortinet/Palo Alto/Check Point" },
+        { id: "kv", left: "srcip=10.10.4.55 dstport=443 action=deny policyid=12", right: "Key=value — self-describing pairs, common on Fortinet/Check Point" },
         { id: "json", left: "A field named winlog.event_data.TargetUserName inside nested braces", right: "JSON — nested objects; dots in a field name represent nesting" },
         { id: "csv", left: "A #Fields header line naming columns, followed by rows of space-separated values", right: "CSV/W3C — a column's meaning depends entirely on the header line" },
         { id: "cef", left: "CEF:0|Fortinet|FortiGate|7.0|0000000013|Traffic Deny|5|src=10.10.4.55 dst=203.0.113.55", right: "CEF — a SIEM-normalised format vendors emit so one parser works across products" },
@@ -256,7 +256,7 @@ const logEntryAnatomyRoom: Room = {
       heading: "CSV/W3C and CEF/LEEF: Spreadsheets and SIEM-Normalised Formats",
       content:
         `Two more formats round out what you will meet as a working analyst — one far older than JSON, one designed specifically to make a SIEM's job easier.\n\n` +
-        `**CSV and the W3C Extended Log Format.** Internet Information Services (IIS), Microsoft's web server, writes its access logs as plain columns of values separated by spaces, preceded by a #Fields header line that names each column in order. This is the same idea as a spreadsheet: the third value in every row means whatever the third column header says it means — nothing more. Look at the sample below: the header says date time c-ip cs-username s-sitename cs-method cs-uri-stem sc-status, so the third value on the data row is the client IP only because that specific file's header put c-ip in that position. Two IIS logs configured differently can have completely different column orders, and if you skip the header line, you will misread every single row with total confidence and no idea you are wrong.\n\n` +
+        `**CSV and the W3C Extended Log Format.** Internet Information Services (IIS), Microsoft's web server, writes its access logs as plain columns of values separated by spaces, preceded by a #Fields header line that names each column in order. This is the same idea as a spreadsheet: the third value in every row means whatever the third column header says it means — nothing more. Look at the sample below: the header says date time c-ip cs-username s-sitename cs-method cs-uri-stem sc-status, so the third value on the data row is the client IP only because that specific file's header put c-ip in that position. Two IIS logs configured differently can have completely different column orders, and if you skip the header line, you will misread every single row with total confidence and no idea you are wrong. Palo Alto Networks firewalls are the classic real-world case, and a harder one: PAN-OS's native syslog is a comma-separated line with no field names and no header at all, so the eighth value is the source address only because Palo Alto's published field-order table for that log type says so — and that table can change between PAN-OS versions.\n\n` +
         `**CEF and LEEF — normalised for the SIEM, not for the device.** Common Event Format (CEF, from ArcSight) and Log Event Extended Format (LEEF, from IBM QRadar) are not native formats devices invented on their own — they are formats a SIEM vendor defined so that other products could emit logs in one predictable shape instead of the SIEM needing a custom parser for every vendor. A CEF line starts with a fixed header (CEF, a version number, vendor, product, version, a signature ID, a name, and a severity) followed by key=value extension fields, similar in spirit to Reading 3's key=value logs but with a standardised header in front. You will not often read raw CEF by hand — its whole purpose is to be machine-parsed reliably — but recognising it tells you the source is emitting logs in a format built specifically for interoperability, not its own native voice.\n\n` +
         `**The lesson underneath both.** A format's meaning is never self-evident from position alone. CSV needs its header; CEF needs its spec. The five-question frame still applies to both, but which raw text answers which question depends entirely on reading the surrounding definition first — exactly the discipline the next tasks ask you to apply, including to a format this room never shows you a sample of.`,
       codeExample:
@@ -364,7 +364,7 @@ const logEntryAnatomyRoom: Room = {
       event: fortigateIpsEvent,
       correct_verdict: "false_positive",
       explanation:
-        "The signature genuinely matched — attack=SQL.Injection.Generic and action=detected are real, factual fields, not fabricated. But level=critical is the vendor's static rating for this signature family, not an assessment of this specific occurrence's actual risk. The source, 10.20.1.50, is the organisation's own authorised vulnerability scanner, running inside its documented weekly window, confirmed by a change ticket. Severity tells you how the vendor classified the pattern in general; it does not tell you whether this particular event is a real attack — that only comes from checking the context underneath it, exactly as Reading 7 taught.",
+        "The signature genuinely matched — attack=SQL.Injection.Generic and action=detected are real, factual fields, not fabricated. But level=critical is the vendor's static rating for this signature family, not an assessment of this specific occurrence's actual risk. The source, 10.20.1.50, is the organisation's own authorised vulnerability scanner, running inside its documented monthly scan window, confirmed by a change ticket. Severity tells you how the vendor classified the pattern in general; it does not tell you whether this particular event is a real attack — that only comes from checking the context underneath it, exactly as Reading 7 taught.",
       fp_trap:
         "level=critical paired with attack=SQL.Injection.Generic against a host named SRV-DB07 naturally reads as an active attack against a database server, and a student trained to escalate every 'critical' would fire this straight to incident response. But severity in a vendor log describes the signature's default classification, not the specific event's real-world risk — that only comes from context: is the source authorised, is this a known scan window, does IT verification confirm it. Skipping the source and context check and escalating on severity alone is exactly the over-alerting trap Reading 7 warns about.",
       xp: 25,
@@ -510,7 +510,7 @@ const identityBasicsRoom: Room = {
   id: "identity-basics",
   title: "Identity Basics: Credentials, Sessions & MFA",
   description:
-    "Learn the identity fundamentals every later room assumes you already have: authentication vs authorization, the three MFA factors and why two of the same kind isn't MFA, what a credential actually is (including why a password hash is a credential too), how session tokens work and why stealing one bypasses MFA entirely, the correct order for shutting an attacker out (revoke sessions before resetting the password), and how to read a Windows authentication log.",
+    "Learn the identity fundamentals every later room assumes you already have: authentication vs authorization, the three MFA factors and why two of the same kind isn't MFA, what a credential actually is (including why a password hash is a credential too), how session tokens work and why stealing one bypasses MFA entirely, the correct order for shutting an attacker out (block sign-in first, then reset the password and revoke sessions back-to-back), and how to read a Windows authentication log.",
   difficulty: "beginner",
   category: "Identity",
   estimatedMinutes: 45,
@@ -597,7 +597,7 @@ const identityBasicsRoom: Room = {
         ],
         answer: 1,
         explanation:
-          "The reading names this directly: in protocols like NTLM, the hash itself can be presented to satisfy the check, so an attacker who steals a hash from memory doesn't need to crack it at all -- that's the pass-the-hash technique. Hashes are one-way by design and are not reversible with brute computing power in any practical sense; they are stored as hashes, not alongside a plaintext copy; and pass-the-hash is a well-documented, widely used real-world technique, not a theoretical one.",
+          "The reading names this directly: in protocols like NTLM, the hash itself can be presented to satisfy the check, so an attacker who steals a hash from memory doesn't need to crack it at all -- that's the pass-the-hash technique. Hashes are one-way by design, so they cannot be mathematically reversed — but weak or common passwords are routinely recovered by guessing candidates and hashing them until one matches (offline cracking with tools like hashcat), and pass-the-hash skips even that step; they are stored as hashes, not alongside a plaintext copy; and pass-the-hash is a well-documented, widely used real-world technique, not a theoretical one.",
       },
     },
     // ----- Matching --------------------------------------------------------------------
@@ -665,19 +665,19 @@ const identityBasicsRoom: Room = {
         `This reading is one idea, stated as plainly as possible, because getting the order wrong during a real incident leaves an attacker with continued access while everyone believes the account is secured.\n\n` +
         `**The mistake.** A common, understandable first instinct when an account is confirmed compromised is to reset the password immediately. It feels decisive, and it genuinely does stop an attacker who only has the password from logging in again. But Reading 4 already established the problem: if the attacker already holds a valid session token from before the reset, that token is not tied to the password at all — it was issued once, and it keeps working until it is explicitly revoked or naturally expires, regardless of what the password becomes afterward.\n\n` +
         `**What "revoke sessions and tokens" actually means.** Most identity platforms provide an explicit action for this, separate from a password reset, that immediately invalidates every currently active session and token for an account, forcing every device and application using that account to re-authenticate from scratch. This is the action that actually removes an attacker who is already inside an open session.\n\n` +
-        `**The correct order, and why the order itself is the point.** Revoke sessions and tokens first. Only then reset the password. Done in that order, the attacker's existing token is killed immediately, and the new password prevents them from simply logging in again afterward with credentials they may also hold. Done in the reverse order — password first — there is a window, however brief, where the attacker's still-valid token keeps working exactly as before, undisturbed by a password change that was never the thing actually authorising their access in the first place.\n\n` +
+        `**The correct order, and why the order itself is the point.** Neither action alone closes the door. Password first leaves the attacker's still-valid token working, undisturbed by a password change that was never what authorised their access. Revoke first has the mirror-image gap: an attacker who also knows the password simply signs in again and gets a brand-new token. So the first step is to **block sign-in** (disable the account): no new sign-in and no token refresh can succeed while you work. Then **reset the password and revoke all sessions and tokens back-to-back** — with sign-in blocked, there is no window in between. Only when both are done do you re-enable the account for its real owner. This is the sequence Microsoft documents for emergency access revocation: disable the account, reset the password, revoke sessions.\n\n` +
         `**One more step worth remembering.** After both actions, review what the attacker's session actually touched while it was active, and check whether they created anything new during that window — a new registered device, a new app permission grant, a new mail forwarding rule — because a revoked session does not undo actions the attacker already took while it was valid.`,
       diagram:
         "flowchart TD\n" +
         "  subgraph Wrong_Order\n" +
-        "    W1[\"Step 1: Reset the password\"] --> W2[\"Step 2: Revoke sessions and tokens\"]\n" +
-        "    W2 --> W3[\"Result: the attacker's stolen token kept working the entire time between Step 1 and Step 2\"]\n" +
+        "    W1[\"Account still enabled: reset OR revoke first\"] --> W2[\"Reset first: the stolen token keeps working; Revoke first: the attacker signs in again with the password\"]\n" +
+        "    W2 --> W3[\"Result: a window in which the attacker keeps or regains access\"]\n" +
         "  end\n" +
         "  subgraph Correct_Order\n" +
-        "    C1[\"Step 1: Revoke sessions and tokens\"] --> C2[\"Step 2: Reset the password\"]\n" +
-        "    C2 --> C3[\"Result: the stolen token dies immediately, and the old password can no longer be used either\"]\n" +
+        "    C1[\"Step 1: Block sign-in (disable the account)\"] --> C2[\"Step 2: Reset the password and revoke sessions and tokens, back-to-back\"]\n" +
+        "    C2 --> C3[\"Step 3: Re-enable for the real owner — the stolen token is dead and the old password no longer works\"]\n" +
         "  end\n",
-      diagramCaption: "Containment order: why password-first leaves the attacker logged in",
+      diagramCaption: "Containment order: block sign-in first, then reset and revoke back-to-back",
     },
     // ----- Ordering ----------------------------------------------------------------------
     {
@@ -686,14 +686,14 @@ const identityBasicsRoom: Room = {
       heading: "Order the Correct Containment Steps for a Compromised Account",
       instructions: "An account is confirmed compromised, and the attacker may hold an active session. Put the response steps in the correct order.",
       items: [
-        { id: "revoke", text: "Revoke the account's active sessions and tokens" },
-        { id: "reset", text: "Reset the compromised account's password" },
+        { id: "revoke", text: "Block sign-in for the account (disable it) so no new sign-in or token refresh can succeed" },
+        { id: "reset", text: "Reset the compromised account's password and revoke all its active sessions and tokens, back-to-back" },
         { id: "review", text: "Review what the session accessed, and whether the attacker created anything new (a forwarding rule, a new device, a new app permission)" },
-        { id: "confirm", text: "Confirm with the user that the account is fully back under their sole control" },
+        { id: "confirm", text: "Re-enable the account and confirm with the user that it is fully back under their sole control" },
       ],
       correct_order: ["revoke", "reset", "review", "confirm"],
       explanation:
-        "This is the order from Reading 5: revoking sessions and tokens first kills any access the attacker already holds immediately; resetting the password afterward stops them from simply logging back in with credentials they may also have; reviewing what happened during the compromise catches anything the attacker planted or accessed while inside; and confirming with the user closes the loop. Resetting the password before revoking sessions leaves an already-open session untouched for as long as the gap lasts.",
+        "This is the order from Reading 5: blocking sign-in first means neither the password nor a refresh token can get the attacker new access while you work; resetting the password and revoking sessions back-to-back then kills the attacker's existing token and makes the old password useless, with no gap in between; reviewing what happened during the compromise catches anything the attacker planted or accessed while inside; and re-enabling the account with the user's confirmation closes the loop. Resetting or revoking on an account that is still enabled leaves a window — a live stolen token, or a fresh sign-in with a known password.",
       xp: 25,
     },
     // ----- Reading 6: MFA proves/doesn't -------------------------------------------------
@@ -840,14 +840,14 @@ const identityBasicsRoom: Room = {
           question:
             "What is the correct immediate response to this event?",
           options: [
-            "Revoke b.osei's active sessions and tokens first, then reset the account's password, review what the session accessed, and evaluate whether this account's NTLM network-logon path should be restricted or brought under MFA",
+            "Block sign-in for b.osei first, then reset the account's password and revoke its active sessions back-to-back, review what the session accessed, and evaluate whether this account's NTLM network-logon path should be restricted or brought under MFA",
             "Reset the account's password only — since this was an NTLM network logon rather than a browser-issued session token, there is no separate session to revoke, so changing the password by itself fully removes any access the attacker gained during the compromise",
             "Take no action at all — LogonType 3 (network) events are inherently lower-risk than interactive or RDP logons, so a successful 4624 that follows earlier failures on a file server is routine and does not warrant any follow-up review",
             "Block the source IP address at the perimeter firewall and consider the incident closed — stopping any further connection from that address is sufficient containment, regardless of whether the account's password or any access it already established are addressed separately",
           ],
           answer: 0,
           explanation:
-            "This is the correct containment order from Reading 5, applied to a real case: revoke sessions and tokens first so any access already granted is cut immediately, then reset the password so the same guessed credential can't be reused, then review what happened during the session and consider whether this account's exposure over NTLM without MFA needs to change. Resetting the password alone leaves an already-established session untouched — NTLM logons still create an authenticated access token for the duration of the connection, exactly like any other logon type, so 'no session to revoke' is false. Taking no action ignores the burst-then-success pattern Reading 8 taught as a strong compromise signature regardless of logon type. And blocking only the source IP does nothing about the account itself, which is now confirmed compromised — the attacker can simply reconnect from a different address using the same guessed credential.",
+            "This is the correct containment order from Reading 5, applied to a real case: block sign-in first so the guessed password can't open anything new, then reset the password and revoke sessions back-to-back so access already granted is cut and the same credential can't be reused, then review what happened during the session and consider whether this account's exposure over NTLM without MFA needs to change. Resetting the password alone leaves an already-established session untouched — NTLM logons still create an authenticated access token for the duration of the connection, exactly like any other logon type, so 'no session to revoke' is false. Taking no action ignores the burst-then-success pattern Reading 8 taught as a strong compromise signature regardless of logon type. And blocking only the source IP does nothing about the account itself, which is now confirmed compromised — the attacker can simply reconnect from a different address using the same guessed credential.",
           xp: 25,
         },
       ],

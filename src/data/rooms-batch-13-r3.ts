@@ -35,7 +35,7 @@ const edrInjectEvent: TelemetryEvent = {
     "crowdstrike.TacticId": "TA0005",
     "crowdstrike.Technique": "Process Injection",
     "crowdstrike.TechniqueId": "T1055",
-    "crowdstrike.Severity": "4",
+    "crowdstrike.Severity": "5",
     "crowdstrike.SeverityName": "Critical",
     "crowdstrike.FileName": "powershell.exe",
     "crowdstrike.CommandLine":
@@ -79,7 +79,7 @@ const avVsEdrMasterclass = {
         "In 2003, SQL Slammer spread so fast it brought down large portions of the internet in minutes. In 2004, Blaster and Sasser worms infected hundreds of thousands of Windows machines. Signature databases could not be updated fast enough to keep up with the volume.\n\n" +
         "Then came 2010 and Stuxnet — a watershed moment. Stuxnet was a nation-state cyberweapon targeting Iranian nuclear centrifuges. It used four zero-day vulnerabilities simultaneously, was signed with stolen digital certificates, and targeted Siemens industrial control software with extreme precision. When security researchers first found it, no antivirus had a signature for it. It had been operating undetected for years. Stuxnet proved that signature-based AV was fundamentally unable to stop targeted attacks.\n\n" +
         "Between 2011 and 2015, the Advanced Persistent Threat (APT) era revealed just how invisible skilled attackers could be. Groups like APT1 (Chinese military unit 61398) spent years inside corporate networks, completely invisible to AV scanners. The private cybersecurity firm Mandiant published its famous APT1 report in 2013 documenting over 141 compromised companies. That same year, Anton Chuvakin at Gartner coined the term EDR — Endpoint Detection and Response — to describe the new category of tools needed to find attackers already inside the network.\n\n" +
-        "In 2016, the Mirai botnet demonstrated a new threat: IoT devices (cameras, routers, DVRs) infected at massive scale to launch the largest DDoS attacks ever recorded. In 2017, NotPetya destroyed billions of dollars of infrastructure globally. NotPetya was fileless in its lateral movement phase — it spread via stolen Windows credentials and never wrote a suspicious file to disk, bypassing AV entirely.\n\n" +
+        "In 2016, the Mirai botnet demonstrated a new threat: IoT devices (cameras, routers, DVRs) infected at massive scale to launch the largest DDoS attacks ever recorded. In 2017, NotPetya destroyed billions of dollars of infrastructure globally. NotPetya spread like a worm: it combined the EternalBlue/EternalRomance SMB exploits with credentials harvested from memory, which it reused through legitimate admin tools (PsExec and WMIC). It did write files to disk, but because so much of its spread used trusted tools and valid credentials, signature-based AV gave defenders little warning before it encrypted machines and overwrote their boot records.\n\n" +
         "By 2018, the XDR (Extended Detection and Response) concept emerged: instead of detecting threats at just the endpoint, correlate signals from endpoints, network, email, and cloud into a unified detection platform. This is where the industry stands today.",
       codeExample:
         "ENDPOINT SECURITY TIMELINE\n" +
@@ -100,10 +100,10 @@ const avVsEdrMasterclass = {
         "2014  Sony Pictures hack — AV misses everything\n" +
         "2015  Carbanak: $1B stolen from banks, AV-invisible\n" +
         "2016  Mirai botnet — IoT DDoS at 1.2 Tbps\n" +
-        "2017  NotPetya — fileless lateral movement, AV-bypassing\n" +
+        "2017  NotPetya — worm spread via EternalBlue + stolen creds (PsExec/WMIC)\n" +
         "      WannaCry — global ransomware, EternalBlue exploit\n" +
         "2018  XDR concept emerges (Palo Alto Networks)\n" +
-        "2019  CrowdStrike, SentinelOne IPOs — EDR goes mainstream\n" +
+        "2019  CrowdStrike IPO — EDR goes mainstream (SentinelOne IPO: 2021)\n" +
         "2020  SolarWinds SUNBURST — supply chain attack\n" +
         "2021  Kaseya VSA — MSP ransomware supply chain\n" +
         "2023  Microsoft XDR + Sentinel unification\n" +
@@ -251,7 +251,7 @@ const avVsEdrMasterclass = {
         "  |                 |    |        |\n" +
         "  |                 |    |        +-- base64-encoded payload\n" +
         "  |                 |    +----------- WindowStyle Hidden\n" +
-        "  |                 +---------------- NoProfile (bypass logging)\n" +
+        "  |                 +---------------- NoProfile (skip profile scripts)\n" +
         "  +---------------------------------- PowerShell (trusted LOLBin)\n" +
         "  AV STATUS: powershell.exe is trusted -> NO DETECTION\n\n" +
         "STEP 3 — In-Memory Download Cradle (decoded payload)\n" +
@@ -415,7 +415,7 @@ const avVsEdrMasterclass = {
         "The most important conceptual distinction in CrowdStrike is IOC versus IOA:\n\n" +
         "IOC (Indicator of Compromise): Something known-bad — a specific file hash, a known malicious IP address, or a known malicious domain. IOC matching is essentially the same as signature detection. Fast and accurate for known threats, blind to new ones.\n\n" +
         "IOA (Indicator of Attack): A behavioral pattern that indicates an attack is in progress, regardless of whether the specific tools or files are known. An IOA says 'a process is injecting into lsass.exe with full access' — it does not care what the injecting process is called or whether its hash is in any database. IOAs detect the behavior of the attack, not the identity of the malware.\n\n" +
-        "Key log fields you will encounter in SIEM when working with CrowdStrike events: crowdstrike.EventType identifies the category of event (DetectionSummaryEvent for alerts). crowdstrike.DetectId is the unique detection identifier in the format ldt:hexstring:number. crowdstrike.DetectDescription is the human-readable description of what was detected. crowdstrike.Severity is the numeric severity (1=Low, 2=Medium, 3=High, 4=Critical). crowdstrike.Tactic and crowdstrike.Technique map to MITRE ATT&CK. crowdstrike.FileName is the process that triggered the detection. crowdstrike.CommandLine is the full command line of that process. crowdstrike.ParentImageFileName is the parent process. crowdstrike.GrantedAccess is the Windows access rights mask used when opening another process's handle.",
+        "Key log fields you will encounter in SIEM when working with CrowdStrike events: crowdstrike.EventType identifies the category of event (DetectionSummaryEvent for alerts). crowdstrike.DetectId is the unique detection identifier in the format ldt:hexstring:number. crowdstrike.DetectDescription is the human-readable description of what was detected. crowdstrike.Severity is the numeric severity on a five-level scale (1=Informational, 2=Low, 3=Medium, 4=High, 5=Critical), and crowdstrike.SeverityName carries the matching label. crowdstrike.Tactic and crowdstrike.Technique map to MITRE ATT&CK. crowdstrike.FileName is the process that triggered the detection. crowdstrike.CommandLine is the full command line of that process. crowdstrike.ParentImageFileName is the parent process. crowdstrike.GrantedAccess is the Windows access rights mask used when opening another process's handle.",
       codeExample:
         "CROWDSTRIKE FALCON DETECTION EVENT — SIEM LOG FIELDS\n" +
         "======================================================\n\n" +
@@ -432,7 +432,7 @@ const avVsEdrMasterclass = {
         '  "crowdstrike.Technique": "Process Injection: Portable Executable Injection",\n' +
         '  "crowdstrike.TechniqueId": "T1055.002",\n\n' +
         "  // Severity\n" +
-        '  "crowdstrike.Severity": "4",\n' +
+        '  "crowdstrike.Severity": "5",\n' +
         '  "crowdstrike.SeverityName": "Critical",\n\n' +
         "  // Process info\n" +
         '  "crowdstrike.FileName": "powershell.exe",\n' +
@@ -450,10 +450,11 @@ const avVsEdrMasterclass = {
         '  "crowdstrike.MachineDomain": "MEDCORE"\n' +
         "}\n\n" +
         "SEVERITY SCALE:\n" +
-        "  1 = Low       (informational, review when time permits)\n" +
-        "  2 = Medium    (investigate within shift)\n" +
-        "  3 = High      (investigate within 30 minutes)\n" +
-        "  4 = Critical  (immediate response required)\n\n" +
+        "  1 = Informational (context only)\n" +
+        "  2 = Low           (review when time permits)\n" +
+        "  3 = Medium        (investigate within shift)\n" +
+        "  4 = High          (investigate within 30 minutes)\n" +
+        "  5 = Critical      (immediate response required)\n\n" +
         "IOA vs IOC:\n" +
         "  IOC: hash 7f3e1c9b... is in the bad-hash database -> block\n" +
         "  IOA: ANY process writing to lsass.exe with 0x1FFFFF -> alert\n" +
@@ -700,7 +701,7 @@ const avVsEdrMasterclass = {
       id: "edr-la1",
       heading: "CrowdStrike Alert: PowerShell Injecting into Explorer.exe",
       context:
-        "You are a Tier-1 SOC analyst at MedCore Health. A Critical CrowdStrike Falcon alert fires on WS-EXEC-022, belonging to a hospital executive. The alert severity is 4 (Critical). Looking at the crowdstrike.ParentCommandLine field, you can see the user had a Word document open: contract_2024.docm. The .docm extension means it is a macro-enabled Word document. PowerShell was then spawned and injected shellcode into explorer.exe. This is a macro-based malware execution chain.",
+        "You are a Tier-1 SOC analyst at MedCore Health. A Critical CrowdStrike Falcon alert fires on WS-EXEC-022, belonging to a hospital executive. The alert severity is 5 (Critical). Looking at the crowdstrike.ParentCommandLine field, you can see the user had a Word document open: contract_2024.docm. The .docm extension means it is a macro-enabled Word document. PowerShell was then spawned and injected shellcode into explorer.exe. This is a macro-based malware execution chain.",
       event: edrInjectEvent,
       questions: [
         {
@@ -708,13 +709,13 @@ const avVsEdrMasterclass = {
             "The PowerShell CommandLine shows '-nop -w hidden -enc'. What do these three flags indicate?",
           options: [
             "Normal PowerShell flags used by system administrators for scheduled tasks",
-            "-nop disables execution policy bypass, -w hidden opens a minimized window, -enc enables enhanced logging — all legitimate administrative flags",
-            "-nop bypasses execution policy (NoProfile), -w hidden hides the window (WindowStyle Hidden), -enc executes a base64-encoded payload — the combination is almost exclusively used by malware",
+            "-nop disables PowerShell logging for the session, -w hidden opens a minimized window, -enc enables encrypted transport — all routine administrative flags",
+            "-nop skips loading the PowerShell profile (NoProfile), -w hidden hides the window (WindowStyle Hidden), -enc runs a Base64-encoded command — a combination strongly associated with malicious launchers",
             "These flags indicate PowerShell is running in a sandboxed container for security testing",
           ],
           answer: 2,
           explanation:
-            "-nop (NoProfile) skips loading the user's PowerShell profile, preventing logging hooks. -w hidden (WindowStyle Hidden) makes the PowerShell window invisible to the user. -enc (EncodedCommand) accepts a base64-encoded command string, obfuscating the actual payload from casual inspection. This combination — no profile + hidden + base64 encoded — is the most common PowerShell malware launch pattern. Legitimate administrative scripts almost never need all three flags simultaneously.",
+            "-nop (NoProfile) skips loading the user's PowerShell profile scripts, so nothing the user or admin put in a profile runs first. It does NOT bypass execution policy (that is -ExecutionPolicy Bypass) and does not switch off script-block or module logging, which are policy-driven and still fire. -w hidden (WindowStyle Hidden) makes the PowerShell window invisible to the user. -enc (EncodedCommand) accepts a base64-encoded command string, obfuscating the actual payload from casual inspection. This combination — no profile + hidden + base64 encoded — is one of the most common PowerShell malware launch patterns. Legitimate administrative scripts rarely need all three flags together, so it is a strong signal, especially with WINWORD.EXE as the parent.",
           xp: 25,
         },
         {

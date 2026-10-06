@@ -898,16 +898,16 @@ CrowdStrike Falcon is one of the most widely deployed EDR platforms. When it fir
 **Step-by-Step Alert Analysis**
 
 **Step 1: Read the alert title and technique**
-What is the alert about, broadly? If it says "T1059.001 — PowerShell" you know you're looking at PowerShell abuse, which is extremely common in attacks. If it says "T1003 — Credential Access" you know someone tried to dump credentials.
+What is the alert about, broadly? If it says "T1059.001 — PowerShell" you know you're looking at PowerShell abuse, which is extremely common in attacks. If it says "T1003 — OS Credential Dumping" (a technique under the Credential Access tactic, TA0006) you know someone tried to dump credentials.
 
 **Step 2: Identify the affected host and user**
 Who and what machine are affected? Is this a finance server (critical) or a developer laptop (important but lower blast radius)? Is the user an administrator or a regular employee?
 
 **Step 3: Examine the command line**
 The command line is often the most revealing field. For PowerShell alerts, look for:
-- \`-Enc\` or \`-EncodedCommand\`: The command is Base64-encoded to hide what it's doing. This is almost always malicious.
-- \`-ExecutionPolicy Bypass\` or \`-Exec Bypass\`: Bypassing PowerShell's safety restrictions. Legitimate scripts rarely need to do this.
-- \`-NoP\` or \`-NoProfile\`: Skipping the user profile to avoid PowerShell logging.
+- \`-Enc\` or \`-EncodedCommand\`: The command is Base64-encoded to hide what it's doing. Frequently abused and always worth decoding — but management tools (SCCM/ConfigMgr, Intune, many RMM agents) use it too, so judge by the parent process and the decoded content.
+- \`-ExecutionPolicy Bypass\` or \`-Exec Bypass\`: Bypassing PowerShell's script execution policy. Attackers use it constantly, but so do legitimate management tools — again, the parent process and what the script does decide it.
+- \`-NoP\` or \`-NoProfile\`: Skips loading the user's profile scripts, giving a clean, predictable session. It does NOT switch off PowerShell logging — Script Block Logging, Module Logging and Transcription are set by Group Policy and still record the session. Common in both admin tooling and malware.
 - \`-NonI\` or \`-NonInteractive\`: Running without user interaction — indicates automated/scripted execution.
 - \`-W Hidden\` or \`-WindowStyle Hidden\`: Hiding the PowerShell window from the user. Malware doesn't want to be seen.
 - \`IEX\` or \`Invoke-Expression\`: Executing a string as a command — often used to execute code downloaded from the internet.
@@ -932,7 +932,7 @@ Based on your analysis:
 
 | Flag | Short Form | Meaning | Malware Use |
 |---|---|---|---|
-| \`-NoProfile\` | \`-NoP\` | Skip loading the user's PowerShell profile | Avoid detection by profile-based monitoring |
+| \`-NoProfile\` | \`-NoP\` | Skip loading the user's PowerShell profile scripts | A clean, predictable session free of user customisations (does not disable Script Block Logging) |
 | \`-NonInteractive\` | \`-NonI\` | Run without prompting the user for input | Automated/scripted execution |
 | \`-WindowStyle Hidden\` | \`-W Hidden\` | Hide the PowerShell console window | Don't show the user a black window |
 | \`-ExecutionPolicy Bypass\` | \`-Exec Bypass\` | Skip PowerShell script execution policy | Run scripts blocked by policy |

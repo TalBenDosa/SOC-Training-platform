@@ -44,9 +44,9 @@ const secretsManagerAbuseEvent: TelemetryEvent = {
     "aws.cloudtrail.eventSource": "secretsmanager.amazonaws.com",
     "aws.cloudtrail.awsRegion": "eu-west-1",
     "aws.cloudtrail.userIdentity.type": "AssumedRole",
-    "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::719044852201:assumed-role/lambda-report-generator/i-0d2f9a7c1b3e4f501",
+    "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::719044852201:assumed-role/lambda-report-generator/brightloop-report-generator",
     "aws.cloudtrail.userIdentity.accountId": "719044852201",
-    "aws.cloudtrail.userIdentity.principalId": "AROAEXAMPLE123:i-0d2f9a7c1b3e4f501",
+    "aws.cloudtrail.userIdentity.principalId": "AROAEXAMPLE123:brightloop-report-generator",
     "aws.cloudtrail.sourceIPAddress": "154.16.88.203",
     "aws.cloudtrail.userAgent": "aws-cli/2.15.10 Python/3.11.6 Linux/6.1.0",
     "aws.cloudtrail.requestParameters.secretId": "arn:aws:secretsmanager:eu-west-1:719044852201:secret:prod/finance-db/creds-Ab3xQ9",
@@ -318,7 +318,7 @@ export const roomsBatch43 = [
             ],
             answer: 1,
             explanation:
-              "Lambda's managed runtime calls AWS APIs through its own SDK from AWS's internal network, not a hand-installed aws-cli binary from a residential/hosting IP. That mismatch is the direct evidence that this role's temporary credentials were exfiltrated (commonly via T1552.005 IMDS theft against the underlying compute, or a leaked build log) and are now being replayed from outside AWS entirely. The field is genuinely informative, not decorative, and CloudTrail logs AssumedRole activity identically to any other identity type.",
+              "Lambda's managed runtime calls AWS APIs through its own SDK from AWS's internal network, not a hand-installed aws-cli binary from a residential/hosting IP. That mismatch is the direct evidence that this role's temporary credentials were exfiltrated (Lambda has no instance metadata service — its role credentials sit in the function's environment variables AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_SESSION_TOKEN — so they are typically stolen through code execution or injection in the function, an exposed environment or /proc dump, or a leaked log, rather than the IMDS theft (T1552.005) you would expect against an EC2 instance) and are now being replayed from outside AWS entirely. The field is genuinely informative, not decorative, and CloudTrail logs AssumedRole activity identically to any other identity type.",
             xp: 25,
           },
           {
@@ -384,7 +384,7 @@ export const roomsBatch43 = [
         heading: "T1003.003 Revisited: NTDS.dit's File-Access Telemetry",
         content:
           `NTDS.dit is different in scale from everything else in this room: it is the Active Directory database on every Domain Controller, holding the password hash of every account in the domain. The extraction commands (ntdsutil, vssadmin, secretsdump.py) were already taught in the sibling lesson 'Credential Dumping: LSASS, SAM, and NTDS.dit' — if you have not completed that lesson, do so before this task; it is not repeated here. This room instead teaches the file-access telemetry angle that lesson does not cover.\n\n` +
-          `**Why an extraction always leaves a specific tell.** C:\\Windows\\NTDS\\ntds.dit is locked for exclusive use by the AD DS process while a domain controller is running — nothing can simply open and copy the live file. Every extraction method therefore routes through a **Volume Shadow Copy (VSS)**, either taken directly (vssadmin create shadow) or internally by ntdsutil's Install-From-Media feature, exposing the locked file as a readable copy at a shadow-copy DEVICE path rather than the live path.\n\n` +
+          `**Why an extraction always leaves a specific tell.** C:\\Windows\\NTDS\\ntds.dit is locked for exclusive use by the AD DS process while a domain controller is running — nothing can simply open and copy the live file. The common file-copy methods therefore route through a **Volume Shadow Copy (VSS)**, either taken directly (vssadmin create shadow, diskshadow) or internally by ntdsutil's Install-From-Media feature, exposing the locked file as a readable copy at a shadow-copy DEVICE path rather than the live path. Two routes skip VSS, so "no shadow-copy access" never proves "no NTDS theft": raw-volume readers (for example Invoke-NinjaCopy parsing NTFS directly) copy the locked file without a snapshot, and **DCSync** pulls the same password hashes over directory replication with no file access at all — hunt that with Security Event 4662 showing the replication-rights GUIDs requested by a non-DC account.\n\n` +
           `**Event ID 4663 ('An attempt was made to access an object')** fires for every read of the file — but only where an administrator has proactively enabled object-access (SACL) auditing on ntds.dit, a real hardening step that is often skipped, worth calling out honestly as a limitation of this whole detection path.\n\n` +
           `| 4663 field | What it holds | The tell |\n` +
           `| --- | --- | --- |\n` +
@@ -457,13 +457,13 @@ export const roomsBatch43 = [
               "ObjectName here is \\Device\\HarddiskVolumeShadowCopy3\\Windows\\NTDS\\ntds.dit rather than the live C:\\Windows\\NTDS\\ntds.dit path. What does that specific path format indicate?",
             options: [
               "Nothing significant at all — both paths ultimately refer to the exact same underlying physical file on disk and therefore carry completely identical meaning for any investigation",
-              "That the file was reached through a Volume Shadow Copy snapshot — exactly the workaround every real NTDS.dit extraction method (vssadmin, ntdsutil's IFM feature, secretsdump.py) must use, since the live file is locked while AD DS is running",
+              "That the file was reached through a Volume Shadow Copy snapshot — the workaround the common NTDS.dit file-copy methods (vssadmin, diskshadow, ntdsutil's IFM feature) rely on, since the live file is locked while AD DS is running",
               "That the Domain Controller's primary disk hardware has failed entirely and Windows automatically and silently rerouted this specific read request to a backup volume instead",
               "That this must be a logging error, since ntds.dit can never legitimately be accessed via a shadow-copy device path under any circumstance",
             ],
             answer: 1,
             explanation:
-              "The live ntds.dit is locked for exclusive AD DS use, so any extraction method must route through a VSS snapshot to get a readable copy — this device-path ObjectName is the specific, unavoidable artifact that workaround leaves behind, not a coincidence, a disk failure symptom, or a logging error.",
+              "The live ntds.dit is locked for exclusive AD DS use, so the common file-copy methods route through a VSS snapshot to get a readable copy — this device-path ObjectName is the specific artifact that workaround leaves behind, not a coincidence, a disk failure symptom, or a logging error. Keep the converse in mind: raw-volume readers and DCSync obtain the same secrets without any shadow-copy access, so the absence of this artifact does not rule NTDS theft out.",
             xp: 25,
           },
           {

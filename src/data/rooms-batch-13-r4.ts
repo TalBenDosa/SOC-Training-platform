@@ -244,8 +244,8 @@ const nacMasterclass = {
         "  NAS-IP-Address:          10.10.0.1          (switch IP)\n" +
         "  NAS-Port:                50114              (GigabitEthernet1/0/14)\n" +
         "  NAS-Port-Type:           Ethernet (15)\n" +
-        "  Called-Station-Id:       3C-22-FB-A1-D7-09  (endpoint MAC)\n" +
-        "  Calling-Station-Id:      3C-22-FB-A1-D7-09\n" +
+        "  Called-Station-Id:       00-2A-6A-91-4C-8E  (switch port MAC)\n" +
+        "  Calling-Station-Id:      3C-22-FB-A1-D7-09  (endpoint MAC)\n" +
         "  Service-Type:            Framed-User\n" +
         "  EAP-Message:             [TLS handshake data]\n" +
         "  Message-Authenticator:   [HMAC-MD5]\n\n" +
@@ -288,7 +288,7 @@ const nacMasterclass = {
       content:
         "Authentication answers the question 'Who are you?' Posture assessment answers the question 'Is your device safe to let in?' A user can have valid corporate credentials and still be connecting from a personal laptop infected with malware. NAC posture assessment addresses this second gate.\n\n" +
         "Posture assessment is the process by which ISE (or another NAC server) verifies that the endpoint meets a defined security baseline before granting it full network access. The checks typically include: antivirus software installed and running with signature database updated within a defined period (commonly 7 days, sometimes 30); operating system patches applied with no critical security updates missing beyond a grace period (commonly 30 days); disk encryption enabled (BitLocker on Windows, FileVault on macOS); a valid corporate certificate present on the device; specific software absent (personal VPN clients, P2P file sharing tools, remote access tools not approved by IT); and corporate endpoint agent (EDR) installed and running.\n\n" +
-        "Two mechanisms exist to perform the posture check. The persistent agent (also called a permanent agent) is a lightweight software package installed on all managed corporate devices by IT. It runs continuously in the background, reporting posture status to ISE via the RADIUS session. When the device connects to the network, ISE queries the agent for current posture data. The agent is the preferred method for managed endpoints because it provides real-time, continuous posture monitoring.\n\n" +
+        "Two mechanisms exist to perform the posture check. The persistent agent (also called a permanent agent) is a lightweight software package installed on all managed corporate devices by IT. It runs continuously in the background, reporting posture status directly to the ISE policy node over HTTPS (RADIUS carries only the authentication exchange between the switch and ISE, not the agent's posture report). When the device connects to the network, ISE queries the agent for current posture data. The agent is the preferred method for managed endpoints because it provides real-time, continuous posture monitoring.\n\n" +
         "The temporal agent (also called a dissolvable agent or web agent) is used for unmanaged or guest devices. When such a device connects, ISE redirects the browser to a captive portal. The user is instructed to download and run a small executable. The executable runs the posture checks, sends results to ISE, and then deletes itself. Because the device is unmanaged, posture requirements are typically lighter (or the device is placed in a limited-access VLAN regardless of posture outcome).\n\n" +
         "The outcome of posture assessment flows directly into VLAN assignment. A device that passes all posture checks is 'Compliant' and receives full corporate network access. A device that fails one or more checks is 'NonCompliant' and is placed in the Quarantine VLAN with access only to remediation resources. A device where the posture agent is not installed or does not respond is marked 'Unknown' and typically receives limited network access pending posture validation.\n\n" +
         "From a SOC investigation standpoint, posture assessment failures are high-value signals. They indicate devices that are not being managed correctly by IT, which may represent shadow IT (unauthorized devices), devices that have been offline long enough to fall out of patch compliance (potential dormant compromised devices), or devices where the AV has been disabled (a ransomware indicator on some malware families).",
@@ -522,7 +522,7 @@ const nacMasterclass = {
         "Traditional on-premises NAC (Cisco ISE, Aruba ClearPass) fits naturally into Zero Trust as the enforcement point at the physical network layer. When a device connects to an office switch or corporate wireless, ISE enforces identity and posture before granting any network access. This is a strong Zero Trust control for on-premises environments.\n\n" +
         "However, the shift to remote work, cloud applications, and BYOD has created scenarios that on-premises NAC was not designed for. An employee working from home is not connecting to a switch managed by ISE. They are connecting to the internet and then to cloud applications. On-premises NAC has zero visibility into this traffic. This gap is filled by cloud-native Zero Trust tools.\n\n" +
         "Microsoft Entra ID (formerly Azure Active Directory) combined with Microsoft Intune provides the cloud-native equivalent of NAC. Entra ID Conditional Access policies enforce authentication and authorization rules for every access to cloud applications. Conditional Access evaluates: user identity and MFA compliance, device compliance status (reported by Intune — is the device enrolled, encrypted, and patch-current?), sign-in risk score (from Microsoft's threat intelligence), and the application being accessed. Based on these signals, Conditional Access grants full access, requires additional authentication (step-up MFA), blocks access, or grants limited access to a restricted version of the application. This is functionally identical to the posture-based VLAN assignment in ISE — the mechanism is different but the Zero Trust policy logic is the same.\n\n" +
-        "SASE (Secure Access Service Edge) is the emerging architecture that converges NAC, CASB (Cloud Access Security Broker), SWG (Secure Web Gateway), and SD-WAN into a unified cloud-delivered security service. In a SASE architecture, identity and device posture are evaluated in the cloud for every session, regardless of where the user is connecting from. Vendors like Zscaler, Netskope, Palo Alto Prisma Access, and Cisco Umbrella are building SASE platforms. For SOC analysts, SASE logs combine what previously required ISE, firewall, proxy, and DLP log sources into a unified stream.",
+        "SASE (Secure Access Service Edge) is the emerging architecture (named by Gartner in 2019) that converges networking — SD-WAN (Software-Defined Wide Area Network) — with a cloud-delivered security stack: SWG (Secure Web Gateway), CASB (Cloud Access Security Broker), ZTNA (Zero Trust Network Access) and FWaaS (Firewall as a Service). NAC is not one of the SASE pillars — ZTNA is the component that takes over NAC's 'should this user and device get access?' decision for applications, while on-premises NAC still guards the wired and wireless ports themselves. In a SASE architecture, identity and device posture are evaluated in the cloud for every session, regardless of where the user is connecting from. Vendors like Zscaler, Netskope, Palo Alto Prisma Access, and Cisco Umbrella are building SASE platforms. For SOC analysts, SASE logs combine what previously required ISE, firewall, proxy, and DLP log sources into a unified stream.",
       codeExample:
         "ON-PREMISES NAC vs CLOUD-NATIVE ZERO TRUST\n" +
         "=============================================\n\n" +
@@ -550,7 +550,7 @@ const nacMasterclass = {
         "    - Location: trusted / untrusted?\n" +
         "       |\n" +
         "  Result: GRANT / REQUIRE MFA / BLOCK / LIMIT\n\n" +
-        "SASE (Converged Cloud NAC):\n" +
+        "SASE (SD-WAN + SWG/CASB/ZTNA/FWaaS):\n" +
         "  Any device, any location\n" +
         "       |\n" +
         "  All traffic routed through SASE cloud\n" +
@@ -559,21 +559,21 @@ const nacMasterclass = {
         "  Identity + posture + risk evaluated per session\n" +
         "       |\n" +
         "  Result enforced inline for ALL traffic\n" +
-        "  (replaces ISE + firewall + proxy + DLP + CASB)\n\n" +
+        "  (consolidates firewall + proxy + VPN + DLP + CASB)\n\n" +
         "WHEN TO USE EACH:\n" +
         "  On-premises NAC (ISE/ClearPass): Wired networks, campus, IoT\n" +
         "  Cloud NAC (Entra CA + Intune):   SaaS apps, remote workers\n" +
         "  SASE:                             All-location, all-app unified",
       checkpoint: {
-        question: "According to the reading, which four technologies does SASE (Secure Access Service Edge) converge into a unified cloud-delivered service?",
+        question: "According to the reading, which technologies does SASE (Secure Access Service Edge) converge into a unified cloud-delivered service?",
         options: [
-          "NAC, CASB, SWG, and SD-WAN",
+          "SD-WAN plus the cloud security stack: SWG, CASB, ZTNA, and FWaaS",
           "EDR, SIEM, SOAR, and UEBA",
           "Firewall, IDS, IPS, and WAF",
           "RADIUS, LDAP, Kerberos, and SAML",
         ],
         answer: 0,
-        explanation: "The reading states that SASE converges NAC, CASB (Cloud Access Security Broker), SWG (Secure Web Gateway), and SD-WAN into a unified cloud-delivered security service.",
+        explanation: "SASE (Gartner, 2019) converges SD-WAN networking with a cloud-delivered security stack — SWG (Secure Web Gateway), CASB (Cloud Access Security Broker), ZTNA (Zero Trust Network Access) and FWaaS (Firewall as a Service). NAC is not a SASE pillar; ZTNA is the piece that makes the per-session 'user + device' access decision for applications. EDR/SIEM/SOAR/UEBA are SOC detection-and-response tools, IDS/IPS/WAF are individual inspection controls, and RADIUS/LDAP/Kerberos/SAML are authentication protocols — none of those sets describes SASE.",
       },
     },
     // ── Reading 10 ─────────────────────────────────────────────────────────────

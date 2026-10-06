@@ -23,7 +23,7 @@ const synScanEvent: TelemetryEvent = {
   hostname: "WKS-ENG14.solvix.local",
   src_ip: "10.40.6.114",
   dst_ip: "10.40.2.30",
-  dst_port: 3389,
+  dst_port: 8080,
   protocol: "tcp",
   description:
     "Internal host WKS-ENG14 opened 1,024 short-lived TCP connection attempts to distinct destination ports on SRV-CORE02 within 38 seconds; the representative connection shown below is one of that set and never advanced past the initial packet",
@@ -31,7 +31,7 @@ const synScanEvent: TelemetryEvent = {
     "id.orig_h": "10.40.6.114",
     "id.orig_p": 51882,
     "id.resp_h": "10.40.2.30",
-    "id.resp_p": 3389,
+    "id.resp_p": 8080,
     proto: "tcp",
     service: "-",
     duration: 0.000412,
@@ -547,7 +547,7 @@ const tcpipDeepDiveRoom = {
       id: "tcpip-la1",
       heading: "Investigating a Rapid Port Sweep Against an Internal Server",
       context:
-        "You're triaging a NIDS alert. SRV-CORE02 (10.40.2.30) is a domain-joined print/file server that normally only receives connections on ports 445, 139, and 3389 from a small set of known IT hosts. The sensor captured 1,024 separate connection records from WKS-ENG14 (10.40.6.114) against SRV-CORE02 in a 38-second window: 1,017 ended S0 (no reply), 6 ended RSTR (destination reset), and 1 reached SF (full handshake). The record below is one representative sample from that set.",
+        "You're triaging a NIDS alert. SRV-CORE02 (10.40.2.30) is a domain-joined print/file server that normally only receives connections on ports 445, 139, and 3389 from a small set of known IT hosts. The sensor captured 1,024 separate connection records from WKS-ENG14 (10.40.6.114) against SRV-CORE02 in a 38-second window: 1,017 ended S0 (no reply), 6 ended REJ (SYN answered with RST — closed port), and 1 reached SF (full handshake). The record below is one representative sample from that set.",
       event: synScanEvent,
       questions: [
         {
@@ -566,7 +566,7 @@ const tcpipDeepDiveRoom = {
         },
         {
           question:
-            "The task's opening context states this sample is one of 1,024 connections in 38 seconds, of which 1,017 got the same S0 (no reply) outcome, 6 got RSTR, and 1 got SF (full handshake). How should that aggregate change your read of the single sample record above?",
+            "The task's opening context states this sample is one of 1,024 connections in 38 seconds, of which 1,017 got the same S0 (no reply) outcome, 6 got REJ, and 1 got SF (full handshake). How should that aggregate change your read of the single sample record above?",
           options: [
             "It shouldn't — every connection attempt should be scored purely on its own individual flag pattern and byte count, since aggregating separate flow records together only introduces noise and cannot itself reveal a coordinated reconnaissance pattern",
             "It confirms this sample record is one of a systematic sweep across essentially the entire well-known port range from a single internal source against a single target in under a minute — individually ambiguous flow records become an unambiguous scan pattern in aggregate",
@@ -575,7 +575,7 @@ const tcpipDeepDiveRoom = {
           ],
           answer: 1,
           explanation:
-            "One S0 record in isolation could plausibly be an application retry against a temporarily unavailable service. 1,024 attempts across that many distinct destination ports, from one source, against one target, inside 38 seconds — with the overwhelming majority landing S0 and a handful getting RSTR (a handful of ports did reply RST, meaning closed-but-reachable) and exactly one SF (one port, likely one of the three normally-open services, completed a real handshake) — is not something any legitimate application does. This is the textbook aggregate shape of a SYN/port sweep, and it's the aggregate view, not any single record, that turns ambiguous into conclusive. Aggregation is exactly what reveals the pattern (not noise), SRV-CORE02 is the target here, not the source (10.40.6.114/WKS-ENG14 is), and the context is explicit that this is one source's 1,024 attempts, not 1,024 distinct sources.",
+            "One S0 record in isolation could plausibly be an application retry against a temporarily unavailable service. 1,024 attempts across that many distinct destination ports, from one source, against one target, inside 38 seconds — with the overwhelming majority landing S0 and a handful getting REJ (those ports answered the SYN with RST,ACK, meaning closed-but-reachable) and exactly one SF (one port, likely one of the three normally-open services, completed a real handshake) — is not something any legitimate application does. This is the textbook aggregate shape of a SYN/port sweep, and it's the aggregate view, not any single record, that turns ambiguous into conclusive. Aggregation is exactly what reveals the pattern (not noise), SRV-CORE02 is the target here, not the source (10.40.6.114/WKS-ENG14 is), and the context is explicit that this is one source's 1,024 attempts, not 1,024 distinct sources.",
           xp: 30,
         },
         {
@@ -623,13 +623,13 @@ const tcpipDeepDiveRoom = {
             "Which explanations, taken together, should the analyst consider BEFORE concluding this is definitely a spoofed or hijacked source — recognizing that TTL is a corroborating signal, not standalone proof?",
           options: [
             "There is no other explanation worth considering — a TTL mismatch this large, by itself and without any further corroborating telemetry from EDR or the change log, is already conclusive, courtroom-grade proof that the source IP address has been spoofed by an external attacker",
-            "Legitimate explanations to rule out first include: BASTION-01 was re-imaged or its OS was legitimately changed, the session was routed through a different, unexpected network path with a different hop count, or the source IP is now NAT'd/shared with a different physical device — alongside the malicious explanation that another host is spoofing or otherwise using BASTION-01's expected source address",
+            "Legitimate explanations to rule out first include: BASTION-01 was re-imaged or its OS was legitimately changed, or the source IP is now NAT'd/shared with a different physical device — alongside the malicious explanation that another host is spoofing or otherwise using BASTION-01's expected source address",
             "TTL fields cannot be observed at all on already-established connections, only on the very first SYN packet of a session, so any finding based on this session's TTL value must be dismissed as an artifact of incomplete logging rather than investigated further",
             "Since the destination is a finance server, this must automatically be escalated and processed purely as a regulatory compliance violation rather than as a security incident, and the technical TTL evidence itself becomes irrelevant to a compliance-driven case",
           ],
           answer: 1,
           explanation:
-            "A single passive fingerprinting signal is corroborating evidence, not a verdict. Before escalating this as spoofing or compromise, a careful analyst rules out mundane explanations: was BASTION-01 recently reimaged or migrated to a different OS as part of an approved change, did the routing path between BASTION-01 and the sensor change (altering hop count enough to explain a shift, though a shift from ~60 to ~125 is far too large to be hop-count noise alone), or is there a NAT/infrastructure change sharing that IP. Ruling these out first is what turns a hunch into a defensible finding either way.",
+            "A single passive fingerprinting signal is corroborating evidence, not a verdict. Before escalating this as spoofing or compromise, a careful analyst rules out mundane explanations: was BASTION-01 recently reimaged or migrated to a different OS as part of an approved change, or is there a NAT/infrastructure change sharing that IP. (A routing-path change is NOT on the list: every hop only decrements TTL, so a longer or different path can lower an observed TTL that started at 64 but can never raise it to 125.) Ruling these out first is what turns a hunch into a defensible finding either way.",
           xp: 25,
         },
         {
@@ -692,7 +692,7 @@ const tcpipDeepDiveRoom = {
       explanation:
         "This pattern is characteristic of an application load balancer's active health-check probe, not a scan. Every session completes a genuine, full three-way handshake and a real (if small) TLS-capable data exchange with each backend web server before closing — a scanner does not bother completing a real TLS-capable exchange with every target it touches. The RST-based teardown (conn_state RSTO) instead of a FIN is simply the load balancer's health-check client choosing to abort quickly after collecting the response it needed, rather than performing a full graceful close — a common, deliberate optimization in load-balancer health-check implementations, not a sign of malicious tooling. The fixed ~15-second recurrence across exactly the six known backend servers in the web farm (not a broad, expanding, or random set of hosts) is exactly the fingerprint of scheduled infrastructure monitoring.",
       fp_trap:
-        "It's tempting to treat 'repeated RST-based connection teardowns at a fixed interval, hitting multiple hosts' as inherently scan-like or beacon-like, because both scans and beacons also produce repeating, small, regular connections. The differentiator here is that a scan or a beacon typically does NOT complete a full, real TLS-capable data exchange on every single attempt — it either never completes the handshake (scan) or repeats an identical tiny payload against ONE external destination (beacon). A source hitting a small, fixed, known set of internal backend servers, completing genuine full sessions with real (if small) application data every time, is the signature of legitimate infrastructure monitoring, not reconnaissance or C2. Escalating this indiscriminately just because of the RST-based close and fixed timing produces exactly the kind of alert fatigue that causes real anomalies to get lost in the noise.",
+        "It's tempting to treat 'repeated RST-based connection teardowns at a fixed interval, hitting multiple hosts' as inherently scan-like or beacon-like, because both scans and beacons also produce repeating, small, regular connections. Session completeness alone does not separate them: a scan usually never completes the handshake, but an HTTPS C2 beacon DOES complete a full TLS session on every check-in, with the same small, regular shape seen here. The real discriminators are direction and destinations: a beacon calls OUT from an internal host to an external server, while here the source is the load balancer's health-check host (LB-HEALTHCHECK), the traffic is internal-to-internal, and the destinations are exactly the six known backend servers of the web farm it fronts. A known infrastructure source polling exactly its own backend pool on a fixed schedule is the signature of legitimate infrastructure monitoring, not reconnaissance or C2. Escalating this indiscriminately just because of the RST-based close and fixed timing produces exactly the kind of alert fatigue that causes real anomalies to get lost in the noise.",
       xp: 30,
     },
 

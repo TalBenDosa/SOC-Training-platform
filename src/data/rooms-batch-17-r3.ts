@@ -432,16 +432,16 @@ const tlsRoom = {
       type: "question" as const,
       id: "tls-q2",
       question:
-        "A workstation makes repeated TLS sessions to the same external IP roughly every 60 seconds (with a small amount of jitter), each session's byte count nearly identical, using a self-signed certificate that was issued nine hours ago. Individually, which of these facts is the WEAKEST standalone evidence of malicious activity?",
+        "While triaging outbound TLS from a workstation, you have four separate findings. Judge each one on its own, with no other context. Based on this room's readings, which is the WEAKEST standalone evidence of malicious activity?",
       options: [
-        "The self-signed certificate issued nine hours ago, taken alone with no other context",
-        "The near-identical byte count on every session, taken alone with no other context",
-        "The interval of roughly 60 seconds with small jitter, taken alone with no other context",
-        "The interval and the byte-count consistency together, without the certificate or destination context",
+        "The destination server presents a self-signed certificate (its issue date is not known)",
+        "The client's JA3 matches a documented fingerprint of a known C2 framework's default, unmodified configuration",
+        "The SNI claims a well-known corporate SaaS product, but the destination IP sits in a residential ISP range",
+        "Every session to the destination carries a near-identical byte count, session after session",
       ],
       answer: 0,
       explanation:
-        "A self-signed, recently-issued certificate, by itself, is common on legitimate internal tools, lab environments, and some IoT/embedded management interfaces — weak evidence alone. The tight, jitter-consistent interval and near-identical byte-count-per-session pattern are each individually more distinctive of scripted/automated check-in behavior than a bare certificate fact is. It's the full combination — timing, byte consistency, AND the certificate anomaly together, especially against a rare/first-seen destination — that builds a genuinely strong case, exactly as this room's detection checklist emphasizes.",
+        "A self-signed certificate by itself is routine on legitimate internal tools, lab environments and IoT/embedded management interfaces, so on its own it is weak evidence — it only becomes a strong signal when combined with something else, such as being issued in the last day or two (Reading 2's 'substantially stronger combined signal'). The other three are each described in the detection reading as strong on their own: a JA3 match against a known C2 framework's default configuration is high-confidence evidence; an SNI that claims a corporate SaaS product from a residential ISP address is a strong red flag needing no decryption; and near-identical byte counts across sessions are a strong shape-based beacon signal. Even so, the case only becomes escalation-worthy in combination — timing, byte consistency, certificate anomaly, fingerprint and destination rarity together.",
       xp: 25,
     },
 

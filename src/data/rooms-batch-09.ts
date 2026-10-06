@@ -95,7 +95,7 @@ Consider this analogy: if you investigate a car accident by looking at individua
 
 Every system records timestamps, but not all in the same time zone. Your SIEM might ingest logs in UTC. The endpoint itself might be in Eastern Time (UTC-5). The email server might be in Pacific Time (UTC-8). If you do not normalize everything to **UTC** before building your timeline, events will appear in the wrong order and your investigation will be wrong.
 
-Rule: always work in UTC. When you pull events from your SIEM, confirm it is showing UTC. When you see a raw Windows Event log, the timestamp is in the system's local time — convert it. Most SIEM platforms (Microsoft Sentinel, Splunk, Elastic) normalize to UTC automatically, but always verify.
+Rule: always work in UTC. When you pull events from your SIEM, confirm it is showing UTC. Windows Event Log records store TimeCreated in UTC; it is the Event Viewer display that converts them to the viewer's local time, so check which view you are reading. Text logs are the usual local-time trap: many application logs, some syslog sources and IIS logs in the older IIS/NCSA formats (W3C-format IIS logs are UTC) write in the server's local zone without an offset — convert those. Most SIEM platforms (Microsoft Sentinel, Splunk, Elastic) normalize to UTC automatically, but always verify.
 
 **Evidence Pivoting**
 
@@ -221,7 +221,7 @@ A good case ticket contains:
       ],
       answer: 1,
       explanation:
-        "When you identify a suspicious IP, the first pivot is to search your SIEM for every internal host that communicated with it. One infected machine usually means others — attackers often run C2 (command-and-control) servers that multiple compromised hosts check in with. Blocking the IP (option A) should come after scoping, not before — you might tip off the attacker before you understand the full extent of the compromise. Port scanning the attacker's IP (option D) is not a SOC analyst task and could be illegal.",
+        "When you identify a suspicious IP, the first pivot is to search your SIEM for every internal host that communicated with it. One infected machine usually means others — attackers often run C2 (command-and-control) servers that multiple compromised hosts check in with. Blocking the IP straight away should come after scoping, not before — you might tip off the attacker before you understand the full extent of the compromise. Port scanning the attacker's IP is not a SOC analyst task and could be illegal.",
       xp: 30,
     },
 
@@ -341,7 +341,7 @@ A good case ticket contains:
       ],
       answer: 1,
       explanation:
-        "Good case documentation is a complete, reproducible record of the investigation. It must include the timeline of events, direct links to every piece of evidence (not screenshots), the list of all affected hosts and users, a narrative explaining how the attack unfolded, your conclusion, actions taken, and recommendations for improvement. This level of detail lets other analysts review your work, supports escalation to incident responders, and builds organisational knowledge. A screenshot and a reboot note (option C) would leave the next analyst with no idea what happened or why.",
+        "Good case documentation is a complete, reproducible record of the investigation. It must include the timeline of events, direct links to every piece of evidence (not screenshots), the list of all affected hosts and users, a narrative explaining how the attack unfolded, your conclusion, actions taken, and recommendations for improvement. This level of detail lets other analysts review your work, supports escalation to incident responders, and builds organisational knowledge. A screenshot and a reboot note would leave the next analyst with no idea what happened or why.",
       xp: 30,
     },
   ],
@@ -382,27 +382,31 @@ According to SANS 2024 research, **51% of organisations now run active threat hu
 
 **The Threat Hunting Maturity Model**
 
-The Hunting Maturity Model (HMM) defines four levels of sophistication:
+The Hunting Maturity Model (HMM), created by David Bianco at Sqrrl, defines **five** levels, HMM0 to HMM4. Each level is about *how much hunting the organisation can do on its own*:
 
-**Level 0 — Initial (fully reactive).** The organisation relies entirely on automated alerts and signature-based tools. No proactive hunting occurs. If an attacker evades signatures, they are invisible.
+**HMM0 — Initial.** The organisation relies on automated alerting (IDS, SIEM, antivirus) and collects little routine data. It is not really capable of hunting: if an attacker evades the alerts, they are invisible.
 
-**Level 1 — Minimal (IOC-based).** Analysts periodically search for known bad indicators (IP addresses, domains, file hashes) shared by threat intelligence feeds. This is reactive hunting — you are still looking for known-bad rather than attacker behaviour. It is better than nothing, but limited: attackers change IOCs constantly.
+**HMM1 — Minimal.** Still mainly alert-driven, but analysts also search their data for indicators from threat-intelligence reports (IP addresses, domains, file hashes). This is the first, limited form of hunting.
 
-**Level 2 — Procedural (TTP-based).** Analysts hunt for attacker behaviours described in MITRE ATT\&CK. Instead of searching for a specific file hash, they search for the *technique* — e.g., any process that accesses LSASS memory. This approach works even when attackers change their tools, because they cannot easily change their fundamental behaviour.
+**HMM2 — Procedural.** The team collects a lot of data and runs hunting procedures **created by others** — published playbooks, community hunt queries, vendor guidance — e.g. "search for any process that opens a handle to LSASS memory". Most hunting programmes sit here.
 
-**Level 3 — Innovative (analytics-driven).** The team develops its own statistical models and machine learning to detect anomalies unique to their environment. They generate new hunting procedures that may not exist anywhere else in the industry.
+**HMM3 — Innovative.** The team **creates its own** new hunting procedures and analysis techniques for its environment, rather than only applying published ones.
 
-Most organisations should aim for Level 2. Level 3 requires dedicated data science resources. Level 0 is a significant risk posture. **Getting from Level 1 to Level 2 — from IOC-hunting to TTP-hunting — is the most important leap a SOC team can make.**`,
+**HMM4 — Leading.** Like HMM3, plus automation: every successful hunt procedure is **turned into automated detection**, so analysts keep spending their time on new hunts.
+
+**Indicators vs. behaviours — the Pyramid of Pain**
+
+A separate idea, David Bianco's Pyramid of Pain, explains *what* to hunt for. At the bottom are hash values, IP addresses and domain names, which attackers can change in minutes. At the top are TTPs (tactics, techniques and procedures), which are expensive to change. Instead of searching for a specific file hash, you search for the *technique* — e.g. any process that accesses LSASS memory (MITRE ATT\&CK T1003.001). That approach still works when attackers change their tools, because they cannot easily change their fundamental behaviour. **Moving from indicator-hunting to behaviour (TTP) hunting is the most important leap a SOC team can make.**`,
       checkpoint: {
-        question: "According to the Hunting Maturity Model in the reading, which level hunts for attacker TECHNIQUES (e.g., any process accessing LSASS memory) rather than known-bad indicators like IPs or hashes?",
+        question: "Your team already writes its own hunt procedures. According to the Hunting Maturity Model, what distinguishes the next level (HMM4 — Leading) from where you are now?",
         options: [
-          "Level 0 — Initial (fully reactive)",
-          "Level 1 — Minimal (IOC-based)",
-          "Level 2 — Procedural (TTP-based)",
-          "Level 3 — Innovative (analytics-driven)",
+          "It adds searches for threat-intelligence indicators such as IPs, domains and hashes",
+          "It starts following hunt procedures published by others",
+          "Every successful hunt procedure is turned into automated detection",
+          "It switches from routine data collection to relying on automated alerts",
         ],
         answer: 2,
-        explanation: "Level 2 (Procedural) hunts for attacker behaviours mapped to MITRE ATT&CK techniques rather than specific IOCs — this works even when attackers rotate their tools, since the underlying technique stays the same.",
+        explanation: "Writing your own procedures is HMM3 (Innovative). HMM4 (Leading) is HMM3 plus automation: each successful hunt is operationalised as automated detection, so analysts can keep hunting for new things. Indicator searches describe HMM1, following others' procedures describes HMM2, and relying on automated alerts describes HMM0.",
       },
     },
 
@@ -535,7 +539,7 @@ The key insight: the platform does not matter as much as the hypothesis and the 
     {
       type: "question" as const,
       id: "threat-hunt-q2",
-      question: "What is the key advantage of TTP-based hunting (Level 2) over IOC-based hunting (Level 1)?",
+      question: "What is the key advantage of TTP-based hunting over IOC-based hunting?",
       options: [
         "TTP-based hunting is faster because it needs fewer queries",
         "TTPs describe attacker behaviour, which is harder to change than IPs or file hashes",
@@ -706,7 +710,7 @@ Digital evidence is not all equal. Some evidence disappears in seconds (CPU cach
 
 2. **RAM / main memory** — everything the computer currently has loaded: running processes, network connections, encryption keys, malware code that only exists in memory (fileless malware), and sometimes plaintext credentials. Lost immediately when the machine is powered off. **This is the most valuable and most time-sensitive forensic source.**
 
-3. **Network connections** — the list of active TCP/UDP connections at this moment. Changes constantly as connections open and close. Run "netstat -ano" on Windows or "ss -tulpn" on Linux to capture the current state.
+3. **Network connections** — the list of active TCP/UDP connections at this moment. Changes constantly as connections open and close. Run "netstat -ano" on Windows or "ss -tunap" on Linux to capture the current state (on Linux, "ss -tulpn" adds -l, which lists only LISTENING sockets and would miss an established C2 session, so keep it for checking listeners).
 
 4. **Running processes** — the list of processes currently executing. Unlike network connections, processes are somewhat more stable, but a malicious process may self-terminate if it detects forensic tools.
 
@@ -763,7 +767,7 @@ But even non-fileless malware leaves critical evidence in RAM: the decrypted ver
 - **DumpIt** — small, portable Windows executable. Run it as Administrator, it creates a full memory dump (.raw file). Takes 2–5 minutes depending on RAM size.
 - **winpmem** — open-source, runs from a USB drive, very reliable across Windows versions.
 - **Belkasoft RAM Capturer** — commercial tool, GUI-based, good for less technical responders.
-- On Linux: **/proc/mem** or the LiME (Linux Memory Extractor) kernel module.
+- On Linux: the LiME (Linux Memory Extractor) kernel module or Microsoft's AVML (direct reads of /dev/mem are restricted on modern kernels).
 
 Always verify the dump with a hash (MD5 or SHA256) immediately after collection. Record the hash in your chain of custody document.
 
@@ -1010,7 +1014,7 @@ const emailSecurity = {
   id: "email-security",
   title: "Email Security",
   description:
-    "Over 90% of cyber attacks start with a phishing email. Learn how email actually works, how to read email headers, how SPF/DKIM/DMARC authentication works, and how to analyse a suspicious email like a SOC analyst.",
+    "Phishing is one of the most common ways attackers get in. Learn how email actually works, how to read email headers, how SPF/DKIM/DMARC authentication works, and how to analyse a suspicious email like a SOC analyst.",
   difficulty: "intermediate" as const,
   category: "Threat Detection",
   estimatedMinutes: 45,
@@ -1023,7 +1027,7 @@ const emailSecurity = {
       type: "reading" as const,
       id: "email-sec-r1",
       heading: "How Email Works — Architecture and Headers",
-      content: `Email is the most targeted attack vector in cybersecurity. According to Verizon's Data Breach Investigations Report, over **90% of cyber attacks begin with a phishing email**. To defend against email-based attacks, you first need to understand how email actually works under the hood.
+      content: `Email is the most targeted attack vector in cybersecurity. Verizon's Data Breach Investigations Report (DBIR) consistently ranks **phishing among the top initial-access vectors**, and finds a human element (a click, a reply, a mistake) in the majority of breaches. To defend against email-based attacks, you first need to understand how email actually works under the hood.
 
 **The Email Journey — From Sender to Recipient**
 
@@ -1117,7 +1121,7 @@ Key fields in the DKIM-Signature header:
 
 **DMARC — Domain-based Message Authentication Reporting and Conformance**
 
-DMARC is the **policy layer** on top of SPF and DKIM. It answers: **"What should you do with email that fails SPF or DKIM?"**
+DMARC is the **policy layer** on top of SPF and DKIM. It answers: **"What should you do with email that fails BOTH aligned SPF and aligned DKIM?"** A message passes DMARC if either check passes *and* aligns with the From domain. For example, a legitimate email auto-forwarded through another server usually fails SPF (the forwarder is not in the sender's SPF record), but its DKIM signature survives, so it still passes DMARC.
 
 A domain publishes a DMARC record in DNS as a TXT record at _dmarc.domain.com. It defines a policy (p=):
 - **p=none** — do nothing special with failing email; just report it to the domain owner (monitoring mode).

@@ -272,7 +272,7 @@ The two states worth memorizing for security are **SYN-RECEIVED** (half-open —
 
 UDP is like shouting across a room. You send the message and hope it arrives — there's no confirmation, no handshake, no guaranteed order. This makes UDP much faster, which is perfect when speed matters more than perfection.
 
-UDP is used for: video streaming (Netflix uses it), online gaming, VoIP (voice calls), DNS lookups, and live video conferencing. If one frame of video is lost, the stream just continues — a brief glitch is better than buffering.
+UDP is used for: live video calls (Teams/Zoom media), online gaming, VoIP (voice calls), and DNS lookups. (On-demand streaming such as Netflix actually runs over TCP/HTTPS, buffering ahead to absorb loss.) If one frame of video is lost, the stream just continues — a brief glitch is better than buffering.
 
 **Security note:** UDP's lack of connection state makes it harder for firewalls to track. Attackers abuse this in **UDP amplification DDoS attacks** — sending a small spoofed UDP packet to a server that responds with a *huge* response directed at the victim.
 
@@ -384,7 +384,7 @@ You don't manually type your IP address every time you connect to a network — 
 
 DHCP gives your device an IP address, subnet mask, default gateway (the router to use), and DNS server address. It works automatically in the background.
 
-**Security implication:** A **rogue DHCP server** is a classic attack. An attacker plugs a device into the network and runs their own DHCP server. When your laptop asks for an IP, the attacker's server responds first and gives you a fake default gateway — now all your traffic flows through the attacker's machine. This is called a **DHCP starvation** or **DHCP poisoning** attack.
+**Security implication:** A **rogue DHCP server** is a classic attack. An attacker plugs a device into the network and runs their own DHCP server. When your laptop asks for an IP, the attacker's server responds first and gives you a fake default gateway — now all your traffic flows through the attacker's machine. This is called **DHCP spoofing** (a rogue DHCP server). Attackers often precede it with **DHCP starvation** — flooding the real server with forged requests until its address pool is exhausted, so only the rogue server is left to answer.
 
 **The SOC Analyst's Networking Toolkit**
 
@@ -1169,7 +1169,7 @@ A typical firewall log entry contains these key fields:
 
 **rule_name / rule_id:** Which firewall rule matched this traffic. Critical for understanding why a decision was made.
 
-**bytes_sent / bytes_received:** Volume of data transferred. 0 bytes received means the connection was blocked or never completed. Large bytes_received could indicate data exfiltration.
+**bytes_sent / bytes_received:** Volume of data transferred. 0 bytes received means the connection was blocked or never completed. Large bytes_sent from an internal host to an external destination could indicate data exfiltration (data leaving = upload); large bytes_received is a download.
 
 **duration:** How long the connection lasted. A 5-second connection is very different from a 3-hour connection.
 
@@ -1270,8 +1270,8 @@ A **proxy server** acts as an intermediary between clients and servers. Two type
             "Nmap SYN scan detected — attacker mapping open ports on company perimeter",
           mitre_technique: "T1046 - Network Service Discovery",
           raw: {
-            alert_signature: "ET SCAN Nmap Scripting Engine User-Agent Detected",
-            signature_id: "2024364",
+            alert_signature: "ET SCAN NMAP -sS window 1024",
+            signature_id: "2009582",
             src_ip: "91.235.234.192",
             dst_ip: "203.0.113.10",
             src_port: 45821,
@@ -1392,8 +1392,9 @@ The most important directory on a Windows system. Contains core OS files: the Wi
 - powershell.exe — PowerShell
 - svchost.exe — Service Host (runs Windows services)
 - lsass.exe — Local Security Authority Subsystem Service (manages authentication — primary target for credential dumping attacks like Mimikatz)
-- explorer.exe — Windows Explorer (the graphical shell)
 - wscript.exe / cscript.exe — Windows Script Host (runs .vbs and .js scripts)
+
+Note one important exception: **explorer.exe** (Windows Explorer, the graphical shell) does NOT live in System32 — the genuine binary is **C:\\Windows\\explorer.exe**, one level up.
 
 **Security note:** Malware frequently disguises itself by using names similar to legitimate system files — "svch0st.exe" (zero instead of 'o'), "1sass.exe" (one instead of 'l'), or placing malicious copies of legitimate file names in other directories like %TEMP%.
 
@@ -1585,8 +1586,8 @@ Legitimate processes rarely spawn command shells. When you see them doing so, in
 - **csrss.exe:** Client/Server Runtime Subsystem — critical Windows process. Should always be running from System32. If you see csrss.exe from another location, it's fake.
 - **winlogon.exe:** Handles login/logout, Ctrl+Alt+Del. Should only run from System32.
 - **lsass.exe:** Local Security Authority Subsystem Service — validates logins, generates security tokens, stores credentials in memory. This is the target of **Mimikatz** (a credential-dumping tool). Any process accessing lsass.exe memory is a critical alert. Should only run from System32, only one instance, runs as SYSTEM.
-- **svchost.exe:** Service Host — runs Windows services grouped together. Multiple legitimate instances are normal. Verify that all svchost.exe instances come from System32 and are running under SYSTEM, NetworkService, or LocalService — not a user account.
-- **explorer.exe:** Windows Explorer (the desktop). Should only have one instance and come from System32.
+- **svchost.exe:** Service Host — runs Windows services grouped together. Multiple legitimate instances are normal. Verify that all svchost.exe instances come from System32 and are started by services.exe with a -k group argument. Most run as SYSTEM, NetworkService, or LocalService, but on Windows 10/11 per-user service hosts (e.g., CDPUserSvc_xxxx, OneSyncSvc) legitimately run under the logged-on user's account — so check the path, parent and -k group rather than the account alone.
+- **explorer.exe:** Windows Explorer (the desktop). The genuine binary is **C:\\Windows\\explorer.exe** — NOT System32. Usually one instance per logged-on user (extra instances can be legitimate if "open folder windows in a separate process" is enabled), and its parent normally exits after logon (userinit.exe starts it).
 
 **PowerShell: The Attacker's Favorite Tool**
 
@@ -1594,7 +1595,7 @@ Legitimate processes rarely spawn command shells. When you see them doing so, in
 
 **Why attackers love PowerShell:**
 1. **Pre-installed:** Available on every modern Windows system — no need to drop tools
-2. **Trusted:** Windows trusts PowerShell; it won't trigger antivirus on its own
+2. **Trusted:** A signed Microsoft binary, so running it is never suspicious by itself. (Defenders are not blind to it, though: AMSI lets antivirus scan PowerShell script content — even decoded, in-memory scripts — before it runs, and Script Block Logging records it as Event ID 4104.)
 3. **Powerful:** Can download files, enumerate the system, access the network, modify the registry, manage services, run .NET code, and much more
 4. **In-memory execution:** Scripts can run entirely in memory without writing files to disk (called **fileless malware**)
 5. **Obfuscation:** PowerShell commands can be heavily obfuscated to evade detection
@@ -1739,7 +1740,7 @@ This is exactly why the indicators from the previous reading matter as much as t
         id: "win-fund-la1",
         heading: "Suspicious PowerShell Execution — Encoded Command Alert",
         context:
-          "Windows Defender for Endpoint (MDE / Microsoft Defender for Endpoint) has flagged a suspicious process creation event on a workstation. The alert was triggered by PowerShell executing an encoded command shortly after a user opened an email attachment (a .docx file). The parent process (winword.exe — Microsoft Word) spawning PowerShell is highly suspicious.",
+          "Windows Defender for Endpoint (MDE / Microsoft Defender for Endpoint) has flagged a suspicious process creation event on a workstation. The alert was triggered by PowerShell executing an encoded command shortly after a user opened an email attachment (a .docm file — a macro-enabled Word document). The parent process (winword.exe — Microsoft Word) spawning PowerShell is highly suspicious.",
         event: {
           id: "evt-ps-001",
           ts: "2025-11-20T10:14:22Z",

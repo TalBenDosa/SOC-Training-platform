@@ -408,20 +408,20 @@ const rmmAbuseRoom = {
     {
       type: "matching" as const,
       id: "rmm-m1",
-      heading: "Match Each Threat Actor to the Real RMM Tool(s) Documented Against Them",
+      heading: "Match Each Delivery Pattern, Case Study and Signal to What It Describes",
       instructions:
-        "Match each threat actor or group named in this room's sources to the specific remote-access/RMM tool or toolset documented against it.",
+        "Match each delivery pattern, case study, and detection signal taught in this room to the description that fits it.",
       pairs: [
-        { id: "p1", left: "Akira (ransomware group)", right: "AnyDesk, alongside PuTTY, to maintain remote access in victim environments" },
-        { id: "p2", left: "BlackByte (ransomware group)", right: "AnyDesk, deployed inside compromised environments" },
-        { id: "p3", left: "Carbanak / Cobalt Group", right: "Ammyy Admin and TeamViewer for interactive command-and-control" },
-        { id: "p4", left: "FIN7", right: "Atera remote monitoring and management software" },
-        { id: "p5", left: "Medusa (ransomware group)", right: "AnyDesk, Atera, ConnectWise, SimpleHelp, and Splashtop, among other RMM tools" },
-        { id: "p6", left: "Storm-1811", right: "Quick Assist, Windows' own built-in remote-assistance feature" },
-        { id: "p7", left: "Scattered Spider", right: "An 11-tool set named in CISA advisory AA23-320A: AnyDesk, TeamViewer, Splashtop, Fleetdeck.io, Level.io, Pulseway, Tactical.RMM, ScreenConnect, Tailscale, Teleport.sh, and Ngrok" },
+        { id: "p1", left: "Pattern A — callback vishing", right: "A caller posing as IT or Microsoft support talks an employee into installing and sharing a remote-support tool" },
+        { id: "p2", left: "Pattern B — ClickFix-style paste-and-run", right: "A fake verification page gets the user to paste a command into the Run dialog that silently installs an RMM client" },
+        { id: "p3", left: "Pattern C — attacking the RMM console", right: "One exploited RMM server hands the attacker every endpoint it manages in a single step" },
+        { id: "p4", left: "Storm-1811", right: "Email-bombing, then a fake help-desk call, then Quick Assist, ending in Black Basta ransomware pushed with PsExec" },
+        { id: "p5", left: "CVE-2024-1709", right: "A ScreenConnect authentication bypass that let unauthenticated attackers create an administrator account through the setup wizard" },
+        { id: "p6", left: "CISA advisory AA23-320A (Scattered Spider)", right: "One advisory naming eleven legitimate remote-access products abused by the same group, from AnyDesk and TeamViewer to Ngrok" },
+        { id: "p7", left: "Duplicate-coverage signal", right: "The sanctioned RMM tool and a second, unrecognized remote-access tool are both present on the same host" },
       ],
       explanation:
-        "Every pairing here comes directly from this room's sources: MITRE ATT&CK's own T1219 procedure examples name Akira, BlackByte, Carbanak, Cobalt Group, FIN7, Medusa, and TrickBot's tool choices; Microsoft's Security Blog documents Storm-1811's specific abuse of Quick Assist; and CISA's AA23-320A advisory names the full eleven-tool set used by Scattered Spider. The point of this matching exercise is the breadth it reveals: this is not one attacker's one favorite tool, but a systemic pattern across ransomware crews, financially motivated crime groups, and a prolific social-engineering-focused actor alike.",
+        "Every pairing comes from this room's readings. The three delivery patterns differ in who is fooled: vishing fools one employee by phone, ClickFix fools one user on a web page, and attacking the console needs no victim at all but yields the whole fleet. Storm-1811 is the Quick Assist case study (built-in Windows feature, no download step), CVE-2024-1709 is the ScreenConnect authentication bypass from the console case study, and AA23-320A shows the problem is systemic rather than one attacker's favourite tool. Duplicate coverage is one of the five concrete abuse signals: a second remote-access tool next to the sanctioned one suggests something outside the normal deployment process introduced it.",
       xp: 25,
     },
 

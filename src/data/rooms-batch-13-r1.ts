@@ -218,8 +218,8 @@ const protocolsMasterclass = {
         `**Four-Way Termination**\n\n` +
         `Ending a TCP connection properly requires four packets: FIN from one side, ACK from the other, then FIN from the second side, and a final ACK. This is the graceful close. RST bypasses this — it immediately terminates the connection without waiting for the other side to finish. An RST injection attack exploits this: an attacker who can forge a RST packet with the correct sequence number can force-terminate a legitimate TCP session.\n\n` +
         `**Connection States**\n\n` +
-        `TCP connections go through multiple states: LISTEN (waiting for connections), SYN_SENT (SYN sent, awaiting SYN-ACK), ESTABLISHED (active connection), FIN_WAIT_1 and FIN_WAIT_2 (closing), TIME_WAIT (waiting to ensure the remote end received the final ACK), and CLOSED.\n\n` +
-        `SOC analysts encounter these states in network flow data and firewall logs. A large number of connections stuck in SYN_SENT with no corresponding SYN-ACK can indicate a SYN flood or a scan of a non-listening service. Many connections in TIME_WAIT can indicate a high-volume application or a connection exhaustion attack.`,
+        `TCP connections go through multiple states: LISTEN (waiting for connections), SYN_SENT (client side: SYN sent, awaiting SYN-ACK), SYN_RECEIVED (server side: SYN received and SYN-ACK sent, awaiting the final ACK — a "half-open" connection), ESTABLISHED (active connection), FIN_WAIT_1 and FIN_WAIT_2 (closing), TIME_WAIT (waiting to ensure the remote end received the final ACK), and CLOSED.\n\n` +
+        `SOC analysts encounter these states in network flow data and firewall logs. A large number of half-open connections stuck in SYN_RECEIVED on a server can indicate a SYN flood against it; a large number of connections stuck in SYN_SENT on a client (no SYN-ACK ever comes back) points to outbound scanning or attempts to reach unreachable or non-listening destinations. Many connections in TIME_WAIT can indicate a high-volume application or a connection exhaustion attack.`,
       codeExample:
         "TCP THREE-WAY HANDSHAKE\n" +
         "=======================================================\n" +
@@ -699,7 +699,8 @@ const protocolsMasterclass = {
       heading: "How Attackers Abuse Protocols: C2, DNS Tunneling, and Protocol Attacks",
       content:
         `Understanding how protocols work is only half the picture. The other half is understanding how attackers exploit those same protocols to hide their activities. Advanced attackers don't announce themselves — they blend into normal traffic, using protocols that are permitted, expected, and difficult to inspect.\n\n` +
-        `**DNS Tunneling (MITRE T1048.003)**\n\n` +
+        `**DNS Tunneling (MITRE T1048.003 / T1071.004)**\n\n` +
+        `ATT&CK files DNS tunneling under two IDs depending on what the channel is used for. When DNS queries carry stolen data out of the network, that is T1048.003 — Exfiltration Over Alternative Protocol: Exfiltration Over Unencrypted Non-C2 Protocol (DNS is one of the protocols it names). When DNS is the command-and-control channel itself — the implant receives tasking in DNS responses, as dnscat2 and iodine do — that is T1071.004 — Application Layer Protocol: DNS (and wrapping other traffic inside DNS is also T1572 Protocol Tunneling).\n\n` +
         `DNS tunneling exploits the fact that DNS queries are almost universally permitted outbound — blocking DNS breaks the internet. Attackers install a DNS tunneling tool (iodine, dnscat2, dns2tcp) on the compromised host and control a domain whose authoritative nameserver is also attacker-controlled. Data to exfiltrate is encoded (typically base64) and sent as DNS subdomain labels: encoded-data-chunk.attacker-domain.com. The attacker's nameserver decodes the subdomain, extracts the data, and can send commands back in DNS responses (TXT records or encoded A records).\n\n` +
         `IOCs for DNS tunneling: subdomain strings that are 30+ characters long and appear to be random or base64, high volume of queries to a single domain in a short time, large number of unique subdomains under one parent domain, uncommon query types (TXT, NULL, MX used for data, not just A records), NXDOMAIN responses at high rates, and queries from processes that should not be making DNS queries (cmd.exe, PowerShell).\n\n` +
         `**HTTP/S C2 Beaconing (MITRE T1071.001)**\n\n` +
@@ -785,7 +786,7 @@ const protocolsMasterclass = {
       ],
       answer: 1,
       explanation:
-        "Long, random-looking subdomains sent at high frequency to a single domain is the classic signature of DNS tunneling. Legitimate CDN subdomains are short and predictable. The base64-like appearance confirms data is being encoded into the subdomain labels. This is MITRE technique T1048.003 — Exfiltration Over Alternative Protocol: DNS. The analyst should pull the full DNS query history for this host, decode sample subdomains to confirm exfiltrated content, isolate the workstation, and search for the same domain across all other hosts.",
+        "Long, random-looking subdomains sent at high frequency to a single domain is the classic signature of DNS tunneling. Legitimate CDN subdomains are short and predictable. The base64-like appearance confirms data is being encoded into the subdomain labels. When the encoded labels carry stolen data out, ATT&CK files it as T1048.003 (Exfiltration Over Unencrypted Non-C2 Protocol); when DNS is the C2 channel itself, it is T1071.004 (Application Layer Protocol: DNS). The analyst should pull the full DNS query history for this host, decode sample subdomains to confirm exfiltrated content, isolate the workstation, and search for the same domain across all other hosts.",
       xp: 25,
     },
     // ── Question 3 ────────────────────────────────────────────────────────────
@@ -833,13 +834,13 @@ const protocolsMasterclass = {
             "The log shows the query was made by cmd.exe (winlog.event_data.Image = C:\\Windows\\System32\\cmd.exe). Why is cmd.exe making DNS queries suspicious?",
           options: [
             "cmd.exe regularly performs DNS lookups during normal Windows operation — for example resolving hostnames for mapped network drives — so seeing it as the querying process is not inherently unusual",
-            "cmd.exe should never query DNS directly under normal operations — only browsers and dedicated apps do. This suggests a script or tool running in the command prompt is performing the exfiltration",
+            "cmd.exe itself rarely issues DNS queries in normal use — lookups normally come from browsers, services and dedicated apps — so cmd.exe as the querying Image is unexpected and points to command-line activity that needs explaining",
             "The location of cmd.exe in System32 is what makes this suspicious — any process that launches from System32 should be treated as attacker-controlled infrastructure and blocked at the DNS resolver",
             "The real point of investigation is the parent process explorer.exe — it is what actually generated the DNS traffic, while cmd.exe is just a pass-through process with no bearing on the query",
           ],
           answer: 1,
           explanation:
-            "Under normal operations, cmd.exe (the Windows command prompt) does not initiate DNS queries directly. DNS queries typically originate from browsers, system services (like svchost.exe), or dedicated applications. When cmd.exe appears as the process making DNS queries in Sysmon Event 22, it strongly suggests a script, batch file, or tool like iodine or dnscat2 is being executed from the command line to perform tunneling. The parent process explorer.exe is normal — the user likely launched a malicious file from their desktop. The malicious activity is in what cmd.exe is executing.",
+            "Under normal operations, cmd.exe (the Windows command prompt) rarely initiates DNS queries itself. DNS queries typically originate from browsers, system services (like svchost.exe), or dedicated applications. Sysmon Event 22 records the Image of the process that called the DNS client, so a separate tool launched from the prompt (nslookup, iodine, dnscat2) would appear under its own Image — cmd.exe appearing here is therefore unexpected and is worth explaining in its own right. The next pivot is process-creation telemetry (Sysmon Event 1 / Security 4688) for this host and time to see what cmd.exe was running and what it spawned. Nothing in this DNS record shows a parent process, so the investigation should focus on cmd.exe's own command line rather than on a parent.",
           xp: 20,
         },
         {
@@ -863,9 +864,9 @@ const protocolsMasterclass = {
       type: "flag" as const,
       id: "proto-f1",
       prompt:
-        "Look at the DNS log event above. The MITRE ATT&CK technique field identifies the exact exfiltration technique. What is the technique ID? Enter exactly as shown (e.g. T1234.567).",
+        "The DNS log event above shows encoded data being pushed OUT of the network inside DNS query names. Based on Reading 10, which MITRE ATT&CK sub-technique ID covers this exfiltration use of DNS? Enter it in the format T1234.567.",
       answer: "T1048.003",
-      hint: "Look at the mitre_technique field of the event. It describes exfiltration over an alternative protocol using a specific sub-technique number.",
+      hint: "Reading 10 gives two IDs for DNS tunneling: one for when DNS is used to move stolen data out (an Exfiltration sub-technique under T1048), and one for when DNS is the command-and-control channel (under T1071). This event is the exfiltration case.",
       xp: 30,
     },
   ],

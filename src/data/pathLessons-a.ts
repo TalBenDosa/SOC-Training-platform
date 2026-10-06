@@ -119,7 +119,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "You work by priority: highest severity first, then oldest within a severity. A Critical ransomware alert poses immediate, spreading risk and must be handled before anything else. The Low alert's age does not outrank a Critical (a). Chasing ticket count over risk (c) lets a live attack run. Title length (d) has nothing to do with priority."
+        "explanation": "You work by priority: highest severity first, then oldest within a severity. A Critical ransomware alert poses immediate, spreading risk and must be handled before anything else. The Low alert's age does not outrank a Critical. Chasing ticket count over risk lets a live attack run. Title length has nothing to do with priority."
       },
       {
         "question": "You are a SOC analyst reviewing an alert for a login from a new country for user a.cohen. You confirm the login is real and foreign, but you have not yet checked the user's travel history or whether other accounts were touched. What is the most appropriate verdict right now?",
@@ -142,7 +142,7 @@ const lessons = [
           }
         ],
         "answer": "c",
-        "explanation": "Suspicious is the correct, honest verdict when you cannot yet prove the activity is benign or malicious and further checks (travel history, scope) would resolve it. Closing as benign (a) assumes an innocent explanation you have not verified. Declaring malicious (b) overstates evidence you do not have. Closing with no verdict (d) drops a potentially real compromise."
+        "explanation": "Suspicious is the correct, honest verdict when you cannot yet prove the activity is benign or malicious and further checks (travel history, scope) would resolve it. Closing as benign assumes an innocent explanation you have not verified. Declaring malicious overstates evidence you do not have. Closing with no verdict drops a potentially real compromise."
       },
       {
         "question": "You are a SOC analyst investigating a 'Suspicious PowerShell' alert on an accountant's laptop. Applying the questioning framework, which action most directly answers 'what actually fired the rule?'",
@@ -165,7 +165,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "The alert title is never enough; you answer 'what fired the rule?' by opening the raw log and reading the exact command line that matched the detection. Checking the finance server (a) answers the impact question, not what fired the rule. A user's subjective feeling (c) is not the detection evidence. Escalating blind (d) skips the analysis entirely and hands Tier 3 no context."
+        "explanation": "The alert title is never enough; you answer 'what fired the rule?' by opening the raw log and reading the exact command line that matched the detection. Checking the finance server answers the impact question, not what fired the rule. A user's subjective feeling is not the detection evidence. Escalating blind skips the analysis entirely and hands Tier 3 no context."
       },
       {
         "question": "You are a SOC analyst who has confirmed an account compromise and need to escalate to Tier 2. Which handoff will let Tier 2 act fastest and reflects why 'the ticket is the product'?",
@@ -188,7 +188,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "A complete ticket carrying the alert, what you checked, the evidence, the scope, your verdict with reasoning, and recommended actions lets Tier 2 act in minutes instead of rebuilding context. A bare plea for help (a) forces them to redo your work. Closing it (c) removes the escalation entirely. Sending no notes (d) wastes your investigation and restarts the clock, which is the opposite of the ticket being the product."
+        "explanation": "A complete ticket carrying the alert, what you checked, the evidence, the scope, your verdict with reasoning, and recommended actions lets Tier 2 act in minutes instead of rebuilding context. A chat message asking them to take it over forces them to redo your work. Closing it as malicious in the SIEM removes the escalation entirely. Sending no notes wastes your investigation and restarts the clock, which is the opposite of the ticket being the product."
       },
       {
         "question": "Overnight, a firewall writes 40,000 connection records. One of them matches a threat-intelligence rule and raises a notification in the SIEM. A morning-shift analyst investigates and confirms the connection was a compromised internal host beaconing to a command-and-control server. Which term applies to which stage?",
@@ -211,7 +211,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Events are the raw observable occurrences (the 40,000 connection records). An alert is the notification a detection rule raises on one of them. An incident is the human-confirmed harm — the beaconing to C2 jeopardises the network. Option a inverts events and alerts. Option c treats every logged event as an incident, which is the funnel collapsed. Option d reverses the order of alert and incident."
+        "explanation": "Events are the raw observable occurrences (the 40,000 connection records). An alert is the notification a detection rule raises on one of them. An incident is the human-confirmed harm — the beaconing to C2 jeopardises the network. The option “The 40,000 records are alerts, the notification…” inverts events and alerts. The option “All 40,000 records are incidents because they…” treats every logged event as an incident, which is the funnel collapsed. The option “The notification is the incident, and it…” reverses the order of alert and incident."
       },
       {
         "question": "Your manager, tired of the noise, asks you to 'just make the alerts stop' by disabling the noisiest detection rule entirely. In the language of the four detection outcomes, what is the real risk of doing that?",
@@ -234,7 +234,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Turning a detection off is the fastest way to reach zero false positives — but any real threat it would have caught now fires no alert, becoming a false negative, the dangerous outcome. Option a misreads the trade: you are not gaining true negatives, you are blinding yourself to real positives. Option c is backwards — a disabled rule fires nothing, so it cannot create false positives. Option d is wrong because detection coverage is exactly what a rule provides."
+        "explanation": "Turning a detection off is the fastest way to reach zero false positives — but any real threat it would have caught now fires no alert, becoming a false negative, the dangerous outcome. The option “It increases true negatives, which is harmless…” misreads the trade: you are not gaining true negatives, you are blinding yourself to real positives. The option “It creates more false positives, because a…” is backwards — a disabled rule fires nothing, so it cannot create false positives. The option “It has no security effect; disabling a…” is wrong because detection coverage is exactly what a rule provides."
       },
       {
         "question": "You are a SOC analyst reviewing four raw Windows Security log lines for user r.katz: three EventID 4625 (failed logon) from IP 91.203.14.6 within three minutes, then one EventID 4624 (successful logon) from the same IP and TargetUserName. Applying the five-question framework, what is the most important next check before you write a verdict?",
@@ -257,7 +257,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Checking r.katz's normal sign-in baseline and whether the same source IP touched other accounts answers exactly the 'is this normal for this entity' and 'who else is affected' questions, turning a raw pattern into a defensible verdict. Closing immediately (a) skips the investigation the pattern demands. Escalating with zero checks (c) forces Tier 2/3 to redo the work you should have done first. Option d is wrong because 4624 and 4625 are the same logon type recorded before and after a change of result, and they correlate directly by TargetUserName and IpAddress."
+        "explanation": "Checking r.katz's normal sign-in baseline and whether the same source IP touched other accounts answers exactly the 'is this normal for this entity' and 'who else is affected' questions, turning a raw pattern into a defensible verdict. Closing immediately skips the investigation the pattern demands. Escalating with zero checks forces Tier 2/3 to redo the work you should have done first. Disregarding the alert is wrong because 4624 and 4625 are the same logon type recorded before and after a change of result, and they correlate directly by TargetUserName and IpAddress."
       },
       {
         "question": "Your organization pays a third-party provider to staff its 24/7 alert queue, while a small internal team owns tuning and business-context escalations. Which SOC delivery model is this, and what is its main trade-off?",
@@ -284,7 +284,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Splitting 24/7 monitoring to an MSSP while keeping tuning and business-context escalation internal is the co-managed / hybrid model, and its defining trade-off is that the two teams need a clear, well-documented handoff process. Option a describes a fully in-house model, which this is not. Option c ignores the internal team described in the question. Option d is false; hybrid is a standard, common model. Option e confuses SOAR (an automation tool) with a staffing model."
+        "explanation": "Splitting 24/7 monitoring to an MSSP while keeping tuning and business-context escalation internal is the co-managed / hybrid model, and its defining trade-off is that the two teams need a clear, well-documented handoff process. The option “In-house SOC; the trade-off is high staffing…” describes a fully in-house model, which this is not. The option “MSSP-only SOC; the trade-off is that no…” ignores the internal team described in the question. The option “This is not a recognized SOC model…” is false; hybrid is a standard, common model. Option e confuses SOAR (an automation tool) with a staffing model."
       },
       {
         "question": "You write a ticket recommending three separate actions: isolate the infected host from the network, then remove the malicious binary and patch the entry vulnerability, then restore the host from backup and verify it before reconnecting it. Which NIST 800-61 phase(s) do these three actions belong to, in order?",
@@ -307,7 +307,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Isolating the host is containment (stop the spread), removing the binary and patching is eradication (remove the cause), and restoring plus verifying is recovery (return to normal operation) — three distinct actions inside NIST's combined 'Containment, Eradication, and Recovery' phase. Option a misplaces all three in Detection and Analysis, which ends once the incident is confirmed. Option c wrongly places containment inside Preparation. Option d wrongly places all three after the incident is already closed, but Post-Incident Activity is the later lessons-learned review, not the response itself."
+        "explanation": "Isolating the host is containment (stop the spread), removing the binary and patching is eradication (remove the cause), and restoring plus verifying is recovery (return to normal operation) — three distinct actions inside NIST's combined 'Containment, Eradication, and Recovery' phase. The option “All three are Detection and Analysis, since…” misplaces all three in Detection and Analysis, which ends once the incident is confirmed. The option “Preparation, then Containment, then Post-Incident Activity” wrongly places containment inside Preparation. The option “They are all part of Post-Incident Activity…” wrongly places all three after the incident is already closed, but Post-Incident Activity is the later lessons-learned review, not the response itself."
       },
       {
         "question": "A detection rule blocks a single hash value seen in a recent attack. Using the Pyramid of Pain, why does a mature SOC consider this a lower-value detection than one built on the attacker's TTPs?",
@@ -330,7 +330,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "The Pyramid of Pain ranks hashes at the bottom because attackers can invalidate them instantly by recompiling, while TTPs sit at the top because they represent the attacker's actual behavior and are expensive to redesign — which is why behavioral, ATT&CK-aligned detections hold value far longer than simple IOC matching. Option a inverts the actual cost comparison. Option c is false; ATT&CK catalogs real-world observed adversary behavior. Option d contradicts the entire premise of the pyramid, which is that the levels are not equal in value."
+        "explanation": "The Pyramid of Pain ranks hashes at the bottom because attackers can invalidate them instantly by recompiling, while TTPs sit at the top because they represent the attacker's actual behavior and are expensive to redesign — which is why behavioral, ATT&CK-aligned detections hold value far longer than simple IOC matching. The option “Hashes are harder for defenders to compute…” inverts the actual cost comparison. The option “TTP-based rules are always false, since MITRE…” is false; ATT&CK catalogs real-world observed adversary behavior. The option “There is no difference; every level of…” contradicts the entire premise of the pyramid, which is that the levels are not equal in value."
       }
     ],
     "references": [
@@ -469,7 +469,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "10.x falls in the RFC 1918 private range, so 10.7.3.20 is an internal host, while 203.0.113.55 is outside all private ranges and is therefore a public, external address. Both being external (a) ignores that 10.x is private. Reversing them (c) is simply wrong. You can classify by range without DNS resolution (d); the ranges themselves tell you internal vs external."
+        "explanation": "10.x falls in the RFC 1918 private range, so 10.7.3.20 is an internal host, while 203.0.113.55 is outside all private ranges and is therefore a public, external address. Calling both external ignores that 10.x is private. Reversing them is simply wrong. You can classify by range without DNS resolution; the ranges themselves tell you internal vs external."
       },
       {
         "question": "You are a SOC analyst tracing malicious activity. An external web server's log shows the attacker connected from public IP 203.0.113.7, but your internal EDR only shows private 10.x addresses. Why might a single laptop appear under both, and how do you link them?",
@@ -515,7 +515,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Many SYN packets to many ports with no SYN-ACK replies is the classic signature of a port scan: the host is probing which ports are open without ever completing the three-way handshake. Normal browsing (a) completes handshakes and targets few ports. SYN packets initiate connections and do not carry file data (c). DNS uses UDP and does not use a TCP handshake, so (d) is contradictory."
+        "explanation": "Many SYN packets to many ports with no SYN-ACK replies is the classic signature of a port scan: the host is probing which ports are open without ever completing the three-way handshake. Normal browsing completes handshakes and targets few ports. SYN packets initiate connections and do not carry file data, so it cannot be a file transfer. DNS amplification abuses UDP queries, not TCP handshakes, so the DNS-flood reading is contradictory."
       },
       {
         "question": "You are a SOC analyst and your firewall log (a layer 3/4 source) shows an internal host connecting to a suspicious external IP on port 443, but it cannot tell you which website or domain was requested. What is the correct next step?",
@@ -538,7 +538,7 @@ const lessons = [
           }
         ],
         "answer": "c",
-        "explanation": "A layer 3/4 firewall log sees IPs, ports, and bytes but not the domain or URL, so you pivot to a layer 7 source (proxy, DNS logs, or Zeek) that can reveal where the connection was really going. Concluding it is benign (a) ignores the suspicious IP and byte context. A basic firewall physically cannot show a URL, so demanding it (b) misunderstands the layer. Port 443 is not inherently safe (d) — attackers hide C2 and exfiltration inside HTTPS."
+        "explanation": "A layer 3/4 firewall log sees IPs, ports, and bytes but not the domain or URL, so you pivot to a layer 7 source (proxy, DNS logs, or Zeek) that can reveal where the connection was really going. Concluding it is benign ignores the suspicious IP and byte context. A basic firewall physically cannot show a URL, so demanding it misunderstands the layer. Port 443 is not inherently safe — attackers hide C2 and exfiltration inside HTTPS."
       },
       {
         "question": "In a firewall log you see an internal workstation, 10.0.4.51, open connections to port 445 on 37 other internal hosts within two minutes, and to port 3389 on 12 of them. What is the most likely explanation, and why does the port tell you so much?",
@@ -561,7 +561,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "445/SMB and 3389/RDP are the two doors attackers use to move sideways through a Windows network — SMB to reach file shares and push payloads, RDP to log in interactively. One host fanning out to those ports across dozens of internal machines is textbook lateral movement. Option a is wrong: web is 80/443, not 445/3389. Option c confuses DNS (port 53) with these services. Option d is the dangerous myth that 'internal = safe' — most breaches do their real damage after they're already inside."
+        "explanation": "445/SMB and 3389/RDP are the two doors attackers use to move sideways through a Windows network — SMB to reach file shares and push payloads, RDP to log in interactively. One host fanning out to those ports across dozens of internal machines is textbook lateral movement. The option “Normal web browsing — 445 and 3389…” is wrong: web is 80/443, not 445/3389. The option “A DNS problem — the workstation is…” confuses DNS (port 53) with these services. The option “Nothing to investigate — internal-to-internal traffic is…” is the dangerous myth that 'internal = safe' — most breaches do their real damage after they're already inside."
       },
       {
         "question": "An analyst blames host 10.0.4.51 for beaconing to a malicious domain at 02:14, using a firewall log. Before escalating, what is the one plumbing fact they must confirm — and which protocol governs it?",
@@ -584,7 +584,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "DHCP hands out IP addresses as time-limited leases, so 10.0.4.51 at 02:14 may be a different device from the one holding it now. Before accusing a machine, you correlate the IP against DHCP lease records (or a hostname/MAC anchor) to confirm identity — skipping this is how the wrong device gets blamed. Option a misassigns ARP (which maps IP to MAC, not firewall ports). Option c overstates DNS, which resolves names but does not assign a host its own address. Option d is exactly the false assumption the question warns against."
+        "explanation": "DHCP hands out IP addresses as time-limited leases, so 10.0.4.51 at 02:14 may be a different device from the one holding it now. Before accusing a machine, you correlate the IP against DHCP lease records (or a hostname/MAC anchor) to confirm identity — skipping this is how the wrong device gets blamed. The option “That port 443 was open on the…” misassigns ARP (which maps IP to MAC, not firewall ports). The option “That DNS was working at 02:14, because…” overstates DNS, which resolves names but does not assign a host its own address. The option “Nothing — an IP address is a…” is exactly the false assumption the question warns against."
       },
       {
         "question": "In the worked example, DHCP lease records show 10.4.2.15 was held by FIN-PC7 from 18:00 to 06:00, covering the 02:14 connection to upd4t3-cdn.net. Why does checking this lease matter before you name a suspect in your ticket?",
@@ -607,7 +607,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "DHCP leases mean an IP is a temporary assignment, not a fixed identity; confirming which host held 10.4.2.15 at the exact time of the connection is what lets you safely name FIN-PC7 rather than risk blaming whichever device holds that address later. Option a is the exact false assumption the lesson warns against. Option c reverses DHCP's job — it leases IP addresses to devices, not MAC addresses. Option d is wrong because DNS logs show what domain was queried, not which physical host held a given IP at a given moment."
+        "explanation": "DHCP leases mean an IP is a temporary assignment, not a fixed identity; confirming which host held 10.4.2.15 at the exact time of the connection is what lets you safely name FIN-PC7 rather than risk blaming whichever device holds that address later. The option “It doesn't matter — an IP address…” is the exact false assumption the lesson warns against. The option “DHCP only assigns MAC addresses, not IP…” reverses DHCP's job — it leases IP addresses to devices, not MAC addresses. The option “Checking DHCP is optional because DNS logs…” is wrong because DNS logs show what domain was queried, not which physical host held a given IP at a given moment."
       },
       {
         "question": "A firewall rule description refers to inspecting 'Layer 7' traffic, while a network diagram shows a switch operating at 'Layer 2'. In the OSI model, what distinguishes what each of these devices can actually see?",
@@ -630,7 +630,7 @@ const lessons = [
           }
         ],
         "answer": "a",
-        "explanation": "Layer 2 (Data Link) is where switches operate, forwarding frames by MAC address on the local segment with no visibility into application content; Layer 7 (Application) is where HTTP, DNS, and SMB actually live, which is what a Layer 7-aware firewall or proxy can inspect. Option b conflates two very different layers. Option c is wrong; Layer 7 is the top of the seven-layer OSI model, and it maps to the Application layer in the simplified TCP/IP model. Option d is false; encryption specifically prevents lower-layer devices from reading payload content."
+        "explanation": "Layer 2 (Data Link) is where switches operate, forwarding frames by MAC address on the local segment with no visibility into application content; Layer 7 (Application) is where HTTP, DNS, and SMB actually live, which is what a Layer 7-aware firewall or proxy can inspect. The option “Layer 2 and Layer 7 are two…” conflates two very different layers. The option “Layer 7 only exists in the simplified…” is wrong; Layer 7 is the top of the seven-layer OSI model, and it maps to the Application layer in the simplified TCP/IP model. The option “A Layer 2 switch can already read…” is false; encryption specifically prevents lower-layer devices from reading payload content."
       },
       {
         "question": "You see a routing table with two matching entries for a destination address: 10.0.0.0/8 and 10.4.2.0/24. Which route does the router actually use, and why?",
@@ -653,7 +653,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Routers use longest-prefix (most specific) matching: a /24 covers a smaller, more precise range than a /8, so when a destination falls within both, the /24 route wins. Option a has the rule backwards — a larger slash number is more specific, not less preferred. Option c is not how IP routing works; a packet takes one path. Option d is wrong; overlapping routes at different specificities are completely normal and exactly what longest-prefix matching is designed to resolve."
+        "explanation": "Routers use longest-prefix (most specific) matching: a /24 covers a smaller, more precise range than a /8, so when a destination falls within both, the /24 route wins. The option “The /8 route, because a smaller slash…” has the rule backwards — a larger slash number is more specific, not less preferred. The option “Both routes are used simultaneously, splitting the…” is not how IP routing works; a packet takes one path. The option “Neither route is valid, because a routing…” is wrong; overlapping routes at different specificities are completely normal and exactly what longest-prefix matching is designed to resolve."
       },
       {
         "question": "An analyst is investigating traffic and wants to identify which domain a host connected to over an encrypted HTTPS session, without decrypting any traffic. Which unencrypted part of the TLS handshake makes this possible?",
@@ -676,7 +676,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "The SNI field in the ClientHello is sent unencrypted so the server knows which certificate to present, and it reveals the requested hostname even though everything after the handshake is encrypted — which is exactly how a proxy or Zeek-style sensor logs the domain without decrypting the session. Option a overstates TLS's protection of the handshake itself. Option c is wrong; TCP has no concept of domain names, that is an application-layer detail. Option d confuses DHCP (which leases IP addresses) with any knowledge of destination domains."
+        "explanation": "The SNI field in the ClientHello is sent unencrypted so the server knows which certificate to present, and it reveals the requested hostname even though everything after the handshake is encrypted — which is exactly how a proxy or Zeek-style sensor logs the domain without decrypting the session. The option “It is impossible; TLS encrypts the entire…” overstates TLS's protection of the handshake itself. The option “The TCP three-way handshake itself contains the…” is wrong; TCP has no concept of domain names, that is an application-layer detail. The option “DHCP lease records always include the destination…” confuses DHCP (which leases IP addresses) with any knowledge of destination domains."
       }
     ],
     "references": [

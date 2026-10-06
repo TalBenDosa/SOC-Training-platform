@@ -23,7 +23,8 @@ const managedIdentityKeyVaultEvent: TelemetryEvent = {
     "azure.activitylogs.resultSignature": "200",
     "azure.activitylogs.identity.claims.appid": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
     "azure.activitylogs.identity.claims.idtyp": "app",
-    "azure.activitylogs.identity.authorization.evidence.principalType": "ManagedIdentity",
+    "azure.activitylogs.identity.authorization.evidence.principalType": "ServicePrincipal",
+    "azure.activitylogs.identity.claims.xms_mirid": "/subscriptions/8f3a9c2e-4b1d-4e7a-9c6f-1a2b3c4d5e6f/resourcegroups/nexacorp-prod-rg/providers/Microsoft.Web/sites/nexacorp-webapp",
     "azure.activitylogs.identity.authorization.evidence.principalId": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
     "azure.activitylogs.identity.authorization.evidence.role": "Key Vault Secrets User",
     "azure.activitylogs.caller": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
@@ -63,7 +64,8 @@ const nsgRdpExposureEvent: TelemetryEvent = {
     "azure.activitylogs.resourceId": "/subscriptions/8f3a9c2e-4b1d-4e7a-9c6f-1a2b3c4d5e6f/resourceGroups/nexacorp-prod-rg/providers/Microsoft.Network/networkSecurityGroups/nexacorp-prod-vm-nsg/securityRules/allow-rdp-temp",
     "azure.activitylogs.resultType": "Success",
     "azure.activitylogs.identity.claims.appid": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
-    "azure.activitylogs.identity.authorization.evidence.principalType": "ManagedIdentity",
+    "azure.activitylogs.identity.authorization.evidence.principalType": "ServicePrincipal",
+    "azure.activitylogs.identity.claims.xms_mirid": "/subscriptions/8f3a9c2e-4b1d-4e7a-9c6f-1a2b3c4d5e6f/resourcegroups/nexacorp-prod-rg/providers/Microsoft.Web/sites/nexacorp-webapp",
     "azure.activitylogs.caller": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
     "azure.activitylogs.callerIpAddress": "203.0.113.44",
     "azure.activitylogs.properties.requestbody": "{\"properties\":{\"direction\":\"Inbound\",\"access\":\"Allow\",\"protocol\":\"Tcp\",\"sourcePortRange\":\"*\",\"destinationPortRange\":\"3389\",\"sourceAddressPrefix\":\"*\",\"destinationAddressPrefix\":\"10.40.2.15\",\"priority\":100}}",
@@ -102,7 +104,6 @@ const automationServicePrincipalEvent: TelemetryEvent = {
     "azure.activitylogs.callerIpAddress": "10.40.1.9",
     "azure.activitylogs.category": "Administrative",
     "azure.activitylogs.level": "Informational",
-    "azure.activitylogs.properties.changeTicket": "CHG0041823 - Approved nightly backup automation, recurring 06:00 UTC",
     "cloud.provider": "azure",
     "cloud.subscription_id": "8f3a9c2e-4b1d-4e7a-9c6f-1a2b3c4d5e6f",
     "action_result": "allowed",
@@ -131,7 +132,8 @@ const storagePublicSasEvent: TelemetryEvent = {
     "azure.activitylogs.subscriptionId": "8f3a9c2e-4b1d-4e7a-9c6f-1a2b3c4d5e6f",
     "azure.activitylogs.resultType": "Success",
     "azure.activitylogs.identity.claims.appid": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
-    "azure.activitylogs.identity.authorization.evidence.principalType": "ManagedIdentity",
+    "azure.activitylogs.identity.authorization.evidence.principalType": "ServicePrincipal",
+    "azure.activitylogs.identity.claims.xms_mirid": "/subscriptions/8f3a9c2e-4b1d-4e7a-9c6f-1a2b3c4d5e6f/resourcegroups/nexacorp-prod-rg/providers/Microsoft.Web/sites/nexacorp-webapp",
     "azure.activitylogs.caller": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
     "azure.activitylogs.callerIpAddress": "203.0.113.44",
     "azure.activitylogs.properties.requestbody": "{\"properties\":{\"publicAccess\":\"Container\"}}",
@@ -271,7 +273,7 @@ const azureSecurityRoom = {
         `**Service Principal: The Identity Behind an "App Registration"**\n\n` +
         `A **service principal** is the local, tenant-specific representation of an **application registration** in Azure AD — it is what lets an application, a script, a CI/CD pipeline, or an automation Runbook authenticate to Azure APIs. Unlike a managed identity, a service principal typically authenticates with either a **client secret** (a long-lived password-like value, which can be leaked exactly like an AWS IAM user access key) or a **certificate**. Service principals are the identity type behind most third-party integrations, Terraform deployments, and scheduled automation jobs — and, like an over-permissioned AWS IAM user or a GCP service account with a downloaded JSON key, an over-privileged or leaked service principal is one of the most common paths to a serious Azure compromise.\n\n` +
         `**Why This Distinction Matters When Reading a Log**\n\n` +
-        `In the Azure Activity Log, the azure.activitylogs.identity.claims.idtyp field of "app" tells you the caller is a non-human identity (either a managed identity or service principal), while azure.activitylogs.identity.authorization.evidence.principalType explicitly states which one — "ManagedIdentity" or "ServicePrincipal". This distinction directly changes your investigation path: a managed identity has no credential that can be independently leaked or phished (the risk is entirely about which permissions it was over-granted, and whether the resource it's attached to was compromised), whereas a service principal's client secret CAN be leaked on GitHub, in a CI/CD log, or in a configuration file, exactly like an AWS access key.\n\n` +
+        `In the Azure Activity Log, the azure.activitylogs.identity.claims.idtyp field of "app" tells you the caller is a non-human identity (either a managed identity or service principal). Do NOT expect azure.activitylogs.identity.authorization.evidence.principalType to tell them apart: in Azure RBAC a managed identity IS a service principal, so both show principalType "ServicePrincipal" (the valid values are User, Group, ServicePrincipal, ForeignGroup and Device). The tells are elsewhere: a managed identity's token carries an xms_mirid claim (azure.activitylogs.identity.claims.xms_mirid) naming the Azure resource it belongs to, which an app-registration service principal's token does not; in Entra ID the service principal object's servicePrincipalType reads "ManagedIdentity" rather than "Application"; and its sign-ins land in the managed identity sign-in log (AADManagedIdentitySignInLogs) rather than the service principal sign-in log (AADServicePrincipalSignInLogs). This distinction directly changes your investigation path: a managed identity has no credential that can be independently leaked or phished (the risk is entirely about which permissions it was over-granted, and whether the resource it's attached to was compromised), whereas a service principal's client secret CAN be leaked on GitHub, in a CI/CD log, or in a configuration file, exactly like an AWS access key.\n\n` +
         `**The Over-Privileged Managed Identity Problem**\n\n` +
         `A very common real-world misconfiguration is granting a managed identity attached to a public-facing web application far broader RBAC permissions than the application actually needs — for example, granting Key Vault Secrets User (or worse, Contributor) scoped to the entire resource group, when the application only ever needs to read one specific secret. If that public-facing application is ever compromised (through a web vulnerability, a dependency confusion attack, or a leaked deployment credential), the attacker inherits every permission the managed identity holds — turning a single web app vulnerability into a much wider blast radius across Key Vaults, storage accounts, or other resources in the same resource group.`,
       codeExample:
@@ -289,7 +291,11 @@ const azureSecurityRoom = {
         "                  Azure services       automation Runbooks\n" +
         "\n" +
         "identity.claims   idtyp: app,          idtyp: app,\n" +
-        "  .principalType   ManagedIdentity      ServicePrincipal\n" +
+        "                  xms_mirid present    no xms_mirid\n" +
+        "evidence          ServicePrincipal     ServicePrincipal\n" +
+        "  .principalType  (same value!)\n" +
+        "Entra SP object   servicePrincipalType servicePrincipalType\n" +
+        "                  ManagedIdentity      Application\n" +
         "\n" +
         "Risk if attached   Attacker inherits    Leaked secret works\n" +
         "resource is        every RBAC role     from ANYWHERE until\n" +
@@ -439,7 +445,7 @@ const azureSecurityRoom = {
       type: "question" as const,
       id: "azure-q2",
       question:
-        "An analyst sees azure.activitylogs.identity.claims.idtyp: 'app' and azure.activitylogs.identity.authorization.evidence.principalType: 'ServicePrincipal' on a suspicious event. What is the KEY investigative difference versus if this had instead shown principalType: 'ManagedIdentity'?",
+        "A suspicious Activity Log event shows idtyp 'app' and principalType 'ServicePrincipal', and carries no xms_mirid claim; looking the object up in Entra ID, its servicePrincipalType is 'Application' (an app registration). What is the KEY investigative difference versus an event whose token carried an xms_mirid claim and whose Entra object is of servicePrincipalType 'ManagedIdentity'?",
       options: [
         "Both authenticate with portable client secrets, so the difference is only naming; the steps (rotate the secret, review sign-ins) are identical for each",
         "A service principal usually holds a client secret or certificate that can leak (e.g. committed to a repo) and be reused anywhere; a managed identity has no extractable credential, so risk lies in its permissions and host",
@@ -481,7 +487,7 @@ const azureSecurityRoom = {
       questions: [
         {
           question:
-            "The event shows azure.activitylogs.identity.authorization.evidence.principalType as 'ManagedIdentity' with role 'Key Vault Secrets User', calling SECRETS.GET from callerIpAddress 203.0.113.44. Why is the source IP the most important anomaly here, given the identity type?",
+            "The event's identity.claims.xms_mirid names the web app (nexacorp-webapp) — marking the caller as that app's managed identity — with role 'Key Vault Secrets User', calling SECRETS.GET from callerIpAddress 203.0.113.44. Why is the source IP the most important anomaly here, given the identity type?",
           options: [
             "Managed identities are explicitly designed by Microsoft to be usable securely from any IP address anywhere on the public internet, so the specific source IP carries no investigative significance here",
             "Managed identities issue tokens that are meant to be used only from within Azure's own infrastructure serving that specific resource — legitimate use should originate from the web app's own outbound IP or Azure's internal ranges, not from an external, unfamiliar public IP like 203.0.113.44",
@@ -584,11 +590,11 @@ const azureSecurityRoom = {
       id: "azure-ac1",
       heading: "Verdict: Is This Service Principal's Storage Key Listing Suspicious?",
       scenario:
-        "A SIEM correlation rule flagged a 'listKeys' action against a production storage account, since storage account keys grant full read/write access to all data in the account. The event below occurred at 06:00 UTC, performed by service principal 'sp-nightly-backup', from an internal Azure automation worker IP (10.40.1.9), with a linked change-ticket reference in the event properties. Is this event suspicious?",
+        "A SIEM correlation rule flagged a 'listKeys' action against a production storage account, since storage account keys grant full read/write access to all data in the account. The event below occurred at 06:00 UTC, performed by service principal 'sp-nightly-backup', from an internal Azure automation worker IP (10.40.1.9). Checking the change calendar, you find standing change CHG0041823 covering the nightly backup automation for nexacorpbackupsa, scheduled to run daily at 06:00 UTC. Is this event suspicious?",
       event: automationServicePrincipalEvent,
       correct_verdict: "false_positive",
       explanation:
-        "This is a textbook false positive. The service principal sp-nightly-backup is calling listKeys — a sensitive action — but every contextual signal points to legitimate, expected automation: the source IP (10.40.1.9) is an internal Azure Automation Runbook worker, not an external address; the RBAC role held is the narrowly-scoped 'Storage Account Key Operator Service Role' (built specifically for this kind of automation, not a broad Contributor/Owner role); the timing (06:00 UTC) matches a recurring nightly schedule; and the event properties reference an approved change ticket (CHG0041823) for this exact recurring backup job. Correlation rules that alert purely on 'sensitive action name' without considering source, role scope, timing pattern, and change-management context will generate significant noise on routine automation.",
+        "This is a textbook false positive. The service principal sp-nightly-backup is calling listKeys — a sensitive action — but every contextual signal points to legitimate, expected automation: the source IP (10.40.1.9) is an internal Azure Automation Runbook worker, not an external address; the RBAC role held is the narrowly-scoped 'Storage Account Key Operator Service Role' (built specifically for this kind of automation, not a broad Contributor/Owner role); the timing (06:00 UTC) matches a recurring nightly schedule; and the change calendar holds an approved standing change (CHG0041823) for this exact recurring backup job. Correlation rules that alert purely on 'sensitive action name' without considering source, role scope, timing pattern, and change-management context will generate significant noise on routine automation.",
       fp_trap:
         "It's tempting to escalate immediately because listKeys against a storage account is a genuinely powerful, sensitive action — full data access hinges on those keys. But treating every listKeys call as equally risky regardless of WHO called it, FROM WHERE, WITH WHAT ROLE, and WHETHER it matches an approved recurring schedule leads to alert fatigue. The distinguishing signals here — narrowly-scoped role, internal automation IP, consistent recurring timing, and a referenced change ticket — are exactly what should be checked before escalating any sensitive-but-routine automation action, contrasted directly with the earlier Key Vault event where the SAME kind of sensitive action came from an external IP with no legitimate business context.",
       xp: 30,
@@ -651,7 +657,7 @@ const azureSecurityRoom = {
       content:
         `Once Azure Activity Log, NSG Flow Log, and Key Vault diagnostic events are forwarded into a SIEM, they typically appear as structured fields prefixed with azure.activitylogs.*, azure.nsgflowlogs.*, or azure.keyvault.* — the exact fields you've been reviewing throughout this room. A consistent triage workflow turns these into a fast, repeatable investigation.\n\n` +
         `**Step 1 — Establish the WHO**\n\n` +
-        `Start with azure.activitylogs.identity.claims.idtyp and azure.activitylogs.identity.authorization.evidence.principalType. Is this a human user, a ManagedIdentity (no extractable secret — the risk is over-granted permissions or a compromised host resource), or a ServicePrincipal (authenticates with a client secret or certificate — check whether it could have been leaked, and when it was last rotated)? Then check azure.activitylogs.caller — the object ID of the specific identity involved, which you can pivot on across the full timeline.\n\n` +
+        `Start with azure.activitylogs.identity.claims.idtyp and azure.activitylogs.identity.authorization.evidence.principalType. Is this a human user (principalType User) or a non-human identity (principalType ServicePrincipal, which covers BOTH managed identities and app registrations)? For a non-human identity, check for an azure.activitylogs.identity.claims.xms_mirid claim, or look the object up in Entra ID (servicePrincipalType ManagedIdentity vs Application). A managed identity has no extractable secret — the risk is over-granted permissions or a compromised host resource; an app-registration service principal authenticates with a client secret or certificate — check whether it could have been leaked, and when it was last rotated. Then check azure.activitylogs.caller — the object ID of the specific identity involved, which you can pivot on across the full timeline.\n\n` +
         `**Step 2 — Establish the WHERE**\n\n` +
         `Check azure.activitylogs.callerIpAddress. Is it within your organization's known Azure VNet ranges, a known corporate office IP, or an unfamiliar external address? For managed identities specifically, ANY external IP is highly suspicious, since their tokens are meant to be used only by the specific resource they're attached to, from within Azure's own infrastructure.\n\n` +
         `**Step 3 — Establish the WHAT and the OUTCOME**\n\n` +
@@ -665,8 +671,10 @@ const azureSecurityRoom = {
         "=======================================================\n" +
         "1. WHO    azure.activitylogs.identity.claims.idtyp /\n" +
         "          .authorization.evidence.principalType\n" +
-        "          -> ManagedIdentity (no leakable secret) or\n" +
-        "             ServicePrincipal (leakable client secret)?\n" +
+        "          -> User, or ServicePrincipal (covers BOTH)\n" +
+        "          -> xms_mirid claim present = managed identity\n" +
+        "             (no leakable secret); absent = app\n" +
+        "             registration (leakable client secret)\n" +
         "\n" +
         "2. WHERE  azure.activitylogs.callerIpAddress\n" +
         "          -> known VNet/office range, or unfamiliar\n" +
@@ -797,7 +805,7 @@ const azureSecurityRoom = {
       content:
         `Every reading in this room so far has built toward one skill: reading the Azure Activity Log, NSG Flow Logs, and Storage/Key Vault diagnostic events well enough to CONFIRM that a specific identity — a user, a managed identity, or a service principal — has been compromised. But confirming compromise is not the end of the job. Once a SOC analyst has enough evidence to say "this identity is compromised," the next question is immediate and practical: what do you actually DO about it, right now, in Azure?\n\n` +
         `**Revoke Sessions and Tokens — Not Just the Password**\n\n` +
-        `The single most common containment mistake is resetting a compromised user's password and stopping there. A password reset does NOT invalidate a token or session that Azure AD/Entra ID already issued before the reset — a stolen refresh token, or an already-authenticated browser session, can keep working against Microsoft Graph, Azure Resource Manager, or Outlook Web Access for as long as that token remains valid, completely independent of whether the password changes. To actually cut off an attacker holding a live token, an analyst must explicitly **revoke the user's sessions**. In the Microsoft Entra admin center, this is the "Revoke sessions" action on a user's profile. From PowerShell, the legacy cmdlet is Revoke-AzureADUserAllRefreshToken -ObjectId <user-object-id>, though Microsoft has been retiring the older AzureAD PowerShell module in favor of Microsoft Graph PowerShell — the modern equivalent is Invoke-MgInvalidateUserRefreshToken -UserId <user-object-id>. Either command forces every refresh token issued to that user to be invalidated immediately, meaning any application holding a stolen token is forced to re-authenticate — and re-authentication will now fail once the password has also been reset and any registered MFA method the attacker added has been removed.\n\n` +
+        `The single most common containment mistake is resetting a compromised user's password and stopping there. A password reset does NOT invalidate a token or session that Azure AD/Entra ID already issued before the reset — a stolen refresh token, or an already-authenticated browser session, can keep working against Microsoft Graph, Azure Resource Manager, or Outlook Web Access for as long as that token remains valid, completely independent of whether the password changes. To actually cut off an attacker holding a live token, an analyst must explicitly **revoke the user's sessions**. In the Microsoft Entra admin center, this is the "Revoke sessions" action on a user's profile. From PowerShell, the legacy cmdlet is Revoke-AzureADUserAllRefreshToken -ObjectId <user-object-id>, though Microsoft has been retiring the older AzureAD PowerShell module in favor of Microsoft Graph PowerShell — the modern equivalent is Revoke-MgUserSignInSession -UserId <user-object-id> (Microsoft's documented replacement in the AzureAD-to-Graph cmdlet map). Either command invalidates every refresh token and session cookie issued to that user, meaning any application holding a stolen refresh token is forced to re-authenticate — and re-authentication will now fail once the password has also been reset and any registered MFA method the attacker added has been removed. One caveat: access tokens already issued stay valid until they expire (typically about an hour) unless the target service supports Continuous Access Evaluation (CAE), which can cut them off within minutes — so revocation is fast, but not instantaneous for every token.\n\n` +
         `**Disable the Account or Kill the Credential**\n\n` +
         `For a compromised human user, disabling the account outright (in the Entra admin center, or via PowerShell with Set-AzureADUser -ObjectId <user-object-id> -AccountEnabled $false, or the Graph equivalent Update-MgUser -UserId <user-object-id> -AccountEnabled:$false) is often faster and more certain than a password reset alone, especially as an immediate first move while the rest of the investigation continues. For a compromised **service principal**, there is no password to reset in the human sense — the equivalent action is to reset or remove its credential: delete the leaked client secret or certificate from the app registration (or add a new one and revoke the old), so nothing authenticating with the old secret can obtain a new token, regardless of how many systems or scripts had it cached.\n\n` +
         `**Isolate a Compromised VM Without Destroying It**\n\n` +
@@ -815,7 +823,7 @@ const azureSecurityRoom = {
         "   PowerShell (legacy, being retired):\n" +
         "     Revoke-AzureADUserAllRefreshToken -ObjectId <user-id>\n" +
         "   PowerShell (Microsoft Graph, current):\n" +
-        "     Invoke-MgInvalidateUserRefreshToken -UserId <user-id>\n" +
+        "     Revoke-MgUserSignInSession -UserId <user-id>\n" +
         "\n" +
         "2. DISABLE THE ACCOUNT / KILL THE CREDENTIAL\n" +
         "   Compromised user:\n" +
@@ -854,7 +862,7 @@ const azureSecurityRoom = {
         ],
         answer: 1,
         explanation:
-          "A password reset alone does not invalidate tokens or sessions already issued before the reset — an attacker holding a stolen refresh token or active session can keep using it until it is explicitly revoked (via 'Revoke sessions' in the Entra admin center, or Invoke-MgInvalidateUserRefreshToken / the legacy Revoke-AzureADUserAllRefreshToken). This applies to human users too, not just service principals, and there is no automatic revocation triggered by a password change alone.",
+          "A password reset alone does not invalidate tokens or sessions already issued before the reset — an attacker holding a stolen refresh token or active session can keep using it until it is explicitly revoked (via 'Revoke sessions' in the Entra admin center, or Revoke-MgUserSignInSession / the legacy Revoke-AzureADUserAllRefreshToken). This applies to human users too, not just service principals, and there is no automatic revocation triggered by a password change alone.",
       },
     },
   ],

@@ -481,7 +481,7 @@ const emailRoom = {
           question:
             "header.authentication_results shows 'spf=fail ... dkim=none ... dmarc=fail (p=reject dis=none) header.from=solvix.com'. Given that solvix.com's own DMARC policy is p=reject, why did this message still reach k.osei's inbox instead of being blocked outright?",
           options: [
-            "dis=none in the DMARC result indicates the receiving system logged the failure and the applicable enforcement disposition was 'none' was actually applied for this delivery, rather than the domain's stated reject policy — meaning a gap exists between solvix.com's DMARC policy and what the receiving mail gateway actually enforced, which is itself worth escalating to whoever manages the gateway's DMARC enforcement configuration",
+            "dis=none in the DMARC result indicates the receiving system logged the failure but actually applied a disposition of 'none' to this delivery, rather than the domain's stated reject policy — meaning a gap exists between solvix.com's DMARC policy and what the receiving mail gateway actually enforced, which is itself worth escalating to whoever manages the gateway's DMARC enforcement configuration",
             "A dmarc=fail result always means the message was already deleted before reaching any inbox, so this must be a logging error — mail gateways are physically incapable of recording a DMARC verdict for any message that wasn't actually delivered somewhere, making this event's mere existence in the log a contradiction",
             "spf=fail and dmarc=fail messages are always delivered normally by design, since DMARC is purely advisory and never blocks anything — no DMARC policy configuration, including p=reject, has any technical capability to cause a receiving mail gateway to quarantine or reject a message under any circumstances",
             "The message must have been manually forwarded by someone inside Solvix, bypassing all filtering — DMARC and SPF evaluation only ever runs on a message's very first delivery attempt, and any subsequent internal forward is completely invisible to and unchecked by the mail gateway's authentication engine",
@@ -647,9 +647,10 @@ const emailRoom = {
       heading: "Write It Yourself: Surface DMARC-Failing Mail Impersonating Internal Domains in KQL",
       language: "kql",
       context: KQL_PRIMER +
+        "Note on this table: Defender XDR's EmailEvents has no separate SPF/DKIM/DMARC columns. All the verdicts live in one string column, AuthenticationDetails, holding JSON such as {\"SPF\":\"fail\",\"DKIM\":\"none\",\"DMARC\":\"fail\",\"CompAuth\":\"fail\"}. You unpack it with `extend AD = parse_json(AuthenticationDetails)` and then read each verdict as `tostring(AD.SPF)`, `tostring(AD.DKIM)` and so on (the values are lowercase: pass, fail, none…).\n\n" +
         "Using the pattern from Log Analysis 1 (a message whose header From claims an internal solvix.com identity but fails SPF and DMARC), write the KQL a detection engineer would deploy to catch messages exactly like it.",
       template:
-        "EmailEvents\n| where SenderFromDomain == \"{{domain}}\"\n| where SPFResult == \"{{spfresult}}\" or DMARCResult == \"{{dmarcresult}}\"\n| where DKIMResult != \"{{dkimresult}}\"",
+        "EmailEvents\n| where SenderFromDomain == \"{{domain}}\"\n| extend AD = parse_json(AuthenticationDetails)\n| where tostring(AD.SPF) == \"{{spfresult}}\" or tostring(AD.DMARC) == \"{{dmarcresult}}\"\n| where tostring(AD.DKIM) != \"{{dkimresult}}\"",
       blanks: [
         { id: "domain", answers: ["solvix.com"], placeholder: "internal domain being impersonated" },
         { id: "spfresult", answers: ["Fail", "fail"], placeholder: "SPF outcome to flag" },
@@ -657,7 +658,7 @@ const emailRoom = {
         { id: "dkimresult", answers: ["Pass", "pass"], placeholder: "DKIM outcome that would clear the message" },
       ],
       explanation:
-        "This mirrors exactly the case you investigated in Log Analysis 1: filter to messages whose header From claims your own protected internal domain, then flag any that failed SPF or DMARC and did NOT independently pass DKIM either — since a genuine internal message would be expected to pass at least one of SPF or DKIM aligned to that domain. A message claiming to be from solvix.com that fails all three is exactly the spoofing pattern this query is designed to surface for review.",
+        "This mirrors exactly the case you investigated in Log Analysis 1: filter to messages whose header From claims your own protected internal domain, unpack the AuthenticationDetails JSON column (EmailEvents stores every SPF/DKIM/DMARC/CompAuth verdict there rather than in separate columns), then flag any that failed SPF or DMARC and did NOT independently pass DKIM either — since a genuine internal message would be expected to pass at least one of SPF or DKIM aligned to that domain. A message claiming to be from solvix.com that fails all three is exactly the spoofing pattern this query is designed to surface for review.",
       xp: 35,
     },
 

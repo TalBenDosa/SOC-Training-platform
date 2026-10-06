@@ -74,12 +74,12 @@ const vulnFpEvent: TelemetryEvent = {
     "An unauthenticated web scan of api-gw02 flagged an eight-year-old Apache HTTP Server vulnerability based on the version string returned in the server banner.",
   raw: {
     "tenable.plugin_id": "103259",
-    "tenable.plugin_name": "Apache HTTP Server mod_expires Out-of-Bounds Read",
+    "tenable.plugin_name": "Apache 2.4.x < 2.4.30 <FilesMatch> Newline Bypass",
     "tenable.plugin_family": "Web Servers",
     "tenable.cve": "CVE-2017-15715",
-    "tenable.cwe": "CWE-125",
-    "tenable.cvss3_base_score": 8.6,
-    "tenable.cvss3_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+    "tenable.cwe": "CWE-20",
+    "tenable.cvss3_base_score": 8.1,
+    "tenable.cvss3_vector": "CVSS:3.0/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
     "tenable.vpr_score": 3.1,
     "tenable.epss_score": 0.02,
     "tenable.cisa_known_exploited": false,
@@ -446,13 +446,13 @@ const vulnerabilityManagementRoom = {
       id: "vm-ac1",
       heading: "Verdict: An Eight-Year-Old CVE on a Patched System",
       scenario:
-        "An unauthenticated scan of api-gw02 (an internal API gateway, not internet-facing) flagged CVE-2017-15715 with a CVSS of 8.6 (High), based on the Apache version string in the server's response banner. The platform team was asked to check.",
+        "An unauthenticated scan of api-gw02 (an internal API gateway, not internet-facing) flagged CVE-2017-15715 with a CVSS of 8.1 (High), based on the Apache version string in the server's response banner. The platform team was asked to check.",
       event: vulnFpEvent,
       correct_verdict: "false_positive",
       explanation:
         "tenable.plugin_output shows the banner reads 'Apache/2.4.6 (Red Hat Enterprise Linux)' — exactly the version pattern this plugin is designed to flag. But it_verify_result is confirmed: the platform team checked the installed package's changelog directly (rpm -q --changelog) and found the CVE-2017-15715 fix already present in the installed build, because Red Hat backports security fixes into its own point releases without bumping the version string the banner reports. tenable.scan_type is 'unauthenticated', which is exactly the scan method most prone to this specific false-positive pattern, as covered in Reading 4 and Reading 5. tenable.epss_score (0.02) and tenable.cisa_known_exploited (false) also don't support urgency even before the false-positive check.",
       fp_trap:
-        "CVSS 8.6 (High) on a well-known, named CVE is exactly the kind of finding that gets escalated on sight — and it's tempting to open a critical ticket immediately. But the plugin_output field is a version-banner guess, not direct inspection, and this exact pattern (RHEL/CentOS backporting fixes without changing the version string) is one of the single most common sources of false positives from unauthenticated web scans. The lesson from Reading 5 is to verify before escalating: check the package changelog directly, or request an authenticated rescan, rather than opening a ticket purely off a CVSS number and a banner string.",
+        "CVSS 8.1 (High) on a well-known, named CVE is exactly the kind of finding that gets escalated on sight — and it's tempting to open a critical ticket immediately. But the plugin_output field is a version-banner guess, not direct inspection, and this exact pattern (RHEL/CentOS backporting fixes without changing the version string) is one of the single most common sources of false positives from unauthenticated web scans. The lesson from Reading 5 is to verify before escalating: check the package changelog directly, or request an authenticated rescan, rather than opening a ticket purely off a CVSS number and a banner string.",
       xp: 30,
     },
 
@@ -538,8 +538,10 @@ const mftTimestompEvent: TelemetryEvent = {
     "mft.fn_modified": "2026-04-19T02:04:51.000Z",
     "mft.fn_accessed": "2026-04-19T02:04:51.000Z",
     "mft.fn_mft_modified": "2026-04-19T02:04:51.000Z",
-    "mft.usnjrnl_last_reason": "FILE_CREATE|DATA_EXTEND",
-    "mft.usnjrnl_last_timestamp": "2026-04-19T02:04:51.000Z",
+    "mft.usnjrnl_first_reason": "FILE_CREATE|DATA_EXTEND",
+    "mft.usnjrnl_first_timestamp": "2026-04-19T02:04:51.000Z",
+    "mft.usnjrnl_last_reason": "BASIC_INFO_CHANGE",
+    "mft.usnjrnl_last_timestamp": "2026-04-19T02:06:38.000Z",
   },
 };
 
@@ -757,7 +759,7 @@ const memoryDiskForensicsRoom = {
       heading: "Timeline Building Beyond the $MFT: $UsnJrnl, $LogFile, and Cross-Source Correlation",
       content:
         "The basics room introduced MACB timestamps ($STANDARD_INFORMATION's Modified, Accessed, Changed, and Birth/created times) from the $MFT and Plaso's supertimeline concept. There are two more NTFS artifacts worth knowing by name, because they answer a question the $MFT alone cannot: not just 'what does this file's current timestamp say,' but 'what actually happened to it, in what order, and can I trust the timestamp I'm looking at.'\n\n" +
-        "**$UsnJrnl (the USN Change Journal)** is NTFS's own append-only log of every change made to every file and directory on the volume — file created, data extended, file renamed, security descriptor changed, and more, each entry tagged with a reason code and a timestamp. Critically, it's a running LOG of events, not a snapshot of current state the way the $MFT's timestamps are — which means it can show you a SEQUENCE of things that happened to a file (created, then written to, then renamed) even when the $MFT itself only shows you the file's current, final state. This is often the artifact that catches a renamed or briefly-existing file that's already been deleted, because the $UsnJrnl entry can persist for a period after the file itself and its $MFT entry are gone.\n\n" +
+        "**$UsnJrnl (the USN Change Journal)** is NTFS's own append-only log of every change made to every file and directory on the volume — file created, data extended, file renamed, security descriptor changed, and more, each entry tagged with a reason code and a timestamp. Critically, it's a running LOG of events, not a snapshot of current state the way the $MFT's timestamps are — which means it can show you a SEQUENCE of things that happened to a file (created, then written to, then renamed) even when the $MFT itself only shows you the file's current, final state. This is often the artifact that catches a renamed or briefly-existing file that's already been deleted, because the $UsnJrnl entry can persist for a period after the file itself and its $MFT entry are gone. It also records timestomping itself: changing a file's timestamps (e.g., via the SetFileTime API) writes a BASIC_INFO_CHANGE reason code, so a BASIC_INFO_CHANGE entry shortly after a FILE_CREATE, on a file whose $STANDARD_INFORMATION dates now look years older, is the direct trace of the timestomp.\n\n" +
         "**$LogFile** is NTFS's transaction journal, used for filesystem crash recovery — it records low-level metadata operations (not file contents) as they happen, in transactional detail even more granular than $UsnJrnl. It's less commonly needed than $UsnJrnl for day-to-day investigation but becomes valuable specifically when you need to verify or challenge a $UsnJrnl or $MFT timestamp you don't fully trust, because $LogFile operations are harder for an attacker to selectively edit than a single MACB timestamp field.\n\n" +
         "**Why cross-referencing matters: two clocks that should agree.** Every file on NTFS actually has two separate sets of timestamps stored in two separate MFT attributes: $STANDARD_INFORMATION (the one every normal tool — Explorer, PowerShell's Get-Item, dir /T — shows you, and the one that's trivial to modify with a timestomping tool) and $FILE_NAME (stored inside the same MFT record but updated far less often, normally only when the file is created, renamed, or moved — and critically, NOT touched by the common consumer-grade timestomping tools that only target $STANDARD_INFORMATION). In an untouched file, both attributes' Created/Modified timestamps line up closely, because both get set together at file creation and neither one is being deliberately manipulated. When they disagree significantly — $STANDARD_INFORMATION claiming a file has existed since 2019, while $FILE_NAME shows it was actually created minutes ago — that gap is one of the most reliable single indicators of timestomping available, and it's exactly what you'll examine in this room's log analysis exercise.\n\n" +
         "**Building a defensible timeline means correlating, not trusting one source.** A supertimeline built purely from $STANDARD_INFORMATION timestamps inherits every timestomp an attacker applied without any way to flag it. Pulling $FILE_NAME, $UsnJrnl, and — where the finding matters enough to justify the extra work — $LogFile into the same timeline, and looking for exactly this kind of disagreement between sources, is what turns a plausible narrative into a defensible one.",
@@ -812,7 +814,7 @@ const memoryDiskForensicsRoom = {
         },
         {
           question:
-            "mft.usnjrnl_last_reason shows 'FILE_CREATE|DATA_EXTEND' with mft.usnjrnl_last_timestamp matching the $FILE_NAME time (2026-04-19), not the $STANDARD_INFORMATION time (2019). Why does this specific piece of corroborating evidence matter to the investigation?",
+            "mft.usnjrnl_first_reason shows 'FILE_CREATE|DATA_EXTEND' with mft.usnjrnl_first_timestamp matching the $FILE_NAME time (2026-04-19), not the $STANDARD_INFORMATION time (2019). Why does this specific piece of corroborating evidence matter to the investigation?",
           options: [
             "It doesn't add anything beyond what the $FILE_NAME timestamp already showed, since $UsnJrnl and $FILE_NAME are both generated from the exact same underlying MFT record update and will therefore always agree with each other by design regardless of what actually happened to the file",
             "The $UsnJrnl is an independent, append-only log of what actually happened to the file, not just a static timestamp field — its FILE_CREATE entry landing on the same 2026 date as $FILE_NAME, rather than the fabricated 2019 date, is a second, structurally different source confirming the real creation time, which strengthens the finding beyond a single attribute comparison",
@@ -821,7 +823,7 @@ const memoryDiskForensicsRoom = {
           ],
           answer: 1,
           explanation:
-            "As covered in Reading 4, a defensible timeline correlates multiple independent sources rather than trusting one attribute. The $UsnJrnl is a fundamentally different kind of artifact — an append-only change log, not a mutable timestamp field — and its entry agreeing with $FILE_NAME rather than the fabricated $STANDARD_INFORMATION date is exactly the kind of cross-source corroboration that turns 'these two fields disagree' into a well-supported conclusion. The reason code doesn't imply anything about who created the file or that it's malware-specific, and this evidence is meaningfully additive, not redundant.",
+            "As covered in Reading 4, a defensible timeline correlates multiple independent sources rather than trusting one attribute. The $UsnJrnl is a fundamentally different kind of artifact — an append-only change log, not a mutable timestamp field — and its entry agreeing with $FILE_NAME rather than the fabricated $STANDARD_INFORMATION date is exactly the kind of cross-source corroboration that turns 'these two fields disagree' into a well-supported conclusion. The journal even records the timestomp itself: the later BASIC_INFO_CHANGE entry (02:06:38, under two minutes after creation) is the reason code NTFS writes when a file's timestamps are changed. The FILE_CREATE reason code doesn't imply anything about who created the file or that it's malware-specific, and this evidence is meaningfully additive, not redundant.",
           xp: 35,
         },
       ],

@@ -55,7 +55,9 @@ const wafOversizeBypassEvent: TelemetryEvent = {
       {
         ruleGroupId: "AWS#AWSManagedRulesCommonRuleSet",
         terminatingRule: null,
-        nonTerminatingMatchingRules: [],
+        nonTerminatingMatchingRules: [
+          { ruleId: "SizeRestrictions_BODY", action: "COUNT", ruleMatchDetails: [] },
+        ],
         excludedRules: null,
       },
     ],
@@ -88,7 +90,7 @@ const nessusScanIdsEvent: TelemetryEvent = {
     "Suricata's internal sensor recorded an HTTP GET to an internal portal's admin path from a host inside the vulnerability-management subnet, matching a signature that flags a default scanner User-Agent string. alert.action reflects the sensor's deployment mode, not whether the request succeeded or failed.",
   src_ip: "10.44.8.15",
   dst_ip: "10.44.20.30",
-  dst_port: 443,
+  dst_port: 80,
   protocol: "TCP",
   network: {
     url: "/admin/config.php",
@@ -106,7 +108,7 @@ const nessusScanIdsEvent: TelemetryEvent = {
     src_ip: "10.44.8.15",
     src_port: 51422,
     dest_ip: "10.44.20.30",
-    dest_port: 443,
+    dest_port: 80,
     proto: "TCP",
     http: {
       hostname: "portal-internal.meridian.local",
@@ -153,7 +155,7 @@ const securityProductsRoom: Room = {
       type: "reading",
       id: "secprod-r1",
       heading: "The Detection Surface: Every Product Sits Somewhere",
-      content: `soc-structure introduced the SOC toolbox — SIEM, EDR, SOAR and a handful of others — as instruments in an orchestra. This room slows that down and asks the question the toolbox overview never had room for: why does each product see what it sees, and why does it miss what it misses?
+      content: `The SOC Structure room introduced the SOC toolbox — SIEM, EDR, SOAR and a handful of others — as instruments in an orchestra. This room slows that down and asks the question the toolbox overview never had room for: why does each product see what it sees, and why does it miss what it misses?
 
 The answer is almost always physical. A security product's visibility is a direct consequence of where someone installed it: on the device itself, inline in the network path, off to the side reading a copy of traffic, inside a cloud tenant's control plane, or in front of one specific application. That placement is called its detection surface, and it is not a bug or a vendor shortcoming — it is a structural fact. An agent installed on a laptop cannot see traffic between two servers it isn't running on. A tool reading a copy of network traffic cannot reach out and stop a connection, because by the time it reads the copy, the original packet has already been delivered. A tool that only receives what other systems forward to it cannot report on a source nobody connected.
 
@@ -202,7 +204,7 @@ Prevent vs. detect: a product sitting inline in the path of the traffic or the p
       type: "reading",
       id: "secprod-r2",
       heading: "Antivirus and EDR/XDR: On the Host, But Not on Every Host",
-      content: `Antivirus and EDR both run as agents installed directly on an endpoint, but they were built to answer different questions, and the difference explains most of what each one misses. (This reading stays deliberately brief on internals — av-vs-edr-masterclass covers kernel hooking, ML models and vendor-specific behaviour in depth; this room only needs the five-point shape.)
+      content: `Antivirus and EDR both run as agents installed directly on an endpoint, but they were built to answer different questions, and the difference explains most of what each one misses. (This reading stays deliberately brief on internals — the AV vs EDR Masterclass room covers kernel hooking, ML models and vendor-specific behaviour in depth; this room only needs the five-point shape.)
 
 Antivirus sits on the host and watches files. Its core method is scanning: comparing a file's contents against a database of known-malicious signatures, plus some heuristic analysis of file structure. Because it works on files, it sees exactly that — files written to disk, files opened, files downloaded — and nothing else. It is structurally blind to fileless attacks (malicious code that runs entirely in memory and never becomes a file), to Living-Off-the-Land Binaries or LOLBins (an attacker abusing powershell.exe, wmic.exe or certutil.exe — programs already trusted and present on every Windows machine, so there's no new file to flag), and to anything an attacker never writes to disk at all. When AV detects, it quarantines or deletes the file — an inline, preventive action, because the scan happens before or as the file is written. Its characteristic false positive is the generic heuristic flag: a legitimate but unusual program (an internal build tool, an uncommon packer, a newly signed installer) that trips a "looks like malware" heuristic without being malware at all.
 
@@ -269,7 +271,7 @@ But EDR's blind spot is not about behaviour — it's about coverage. An EDR agen
       type: "reading",
       id: "secprod-r2b",
       heading: "If EDR Can't See the Hypervisor, What Can? vCenter and ESXi Logs",
-      content: `Reading 2 and secprod-q1 established the gap: no EDR agent has ever run on an ESXi hypervisor, so a ransomware encryptor executing there produces zero endpoint detections. That gap is real and permanent — but it does not mean the SOC is blind. It means the SOC has to look somewhere else: at the hypervisor's own management and audit logs, which are a completely different log source from anything discussed so far.
+      content: `The Antivirus and EDR/XDR reading and the question that followed it established the gap: no EDR agent has ever run on an ESXi hypervisor, so a ransomware encryptor executing there produces zero endpoint detections. That gap is real and permanent — but it does not mean the SOC is blind. It means the SOC has to look somewhere else: at the hypervisor's own management and audit logs, which are a completely different log source from anything discussed so far.
 
 ESXi is VMware's hypervisor — the thin layer of software that runs directly on physical server hardware and hosts multiple virtual machines (VMs) on top of it, each unaware the others exist. Think of an apartment building: EDR watches what happens inside each individual apartment (each VM's guest operating system), but it has no view of the building's shared utility room, elevator machinery or front door — that shared infrastructure is the hypervisor layer, and vCenter is the building's management office. vCenter is VMware's centralized management server: a separate system that administrators log into to manage many ESXi hosts and their VMs at once — create/delete VMs, assign permissions, start/stop hosts — rather than logging into each hypervisor individually.
 
@@ -398,7 +400,7 @@ Because it sits inline, an NGFW's detection is always potentially preventive: it
 
 An IDS (Intrusion Detection System) sits out-of-band. It does not sit in the path of the traffic; instead, a network TAP or a switch's SPAN/mirror port sends it a copy of the traffic while the original packets continue on their way, uninterrupted. This means an IDS always sees a session slightly after the fact, from a duplicate, and by the time it has evaluated that copy against its signatures and raised an alert, the original packets have already been delivered to their destination. Structurally, an IDS can only ever detect and alert. It cannot drop a packet it never had — it was only ever given a copy.
 
-An IPS (Intrusion Prevention System) sits inline, in the direct path of the traffic, exactly like the NGFW from Reading 3 (in fact, on a modern NGFW, IPS functionality is usually built in as a "Threat Prevention" or "vulnerability protection" profile rather than shipped as a separate box). Because the IPS is the thing the packet must physically pass through, it can evaluate the packet against its signature and behavioral rules and decide, in real time, whether to let it continue, drop it, or reset the connection — before the payload ever reaches its target.
+An IPS (Intrusion Prevention System) sits inline, in the direct path of the traffic, exactly like the NGFW from the NGFW reading (in fact, on a modern NGFW, IPS functionality is usually built in as a "Threat Prevention" or "vulnerability protection" profile rather than shipped as a separate box). Because the IPS is the thing the packet must physically pass through, it can evaluate the packet against its signature and behavioral rules and decide, in real time, whether to let it continue, drop it, or reset the connection — before the payload ever reaches its target.
 
 Both use the same underlying detection technique — signature matching against known attack patterns, plus protocol anomaly detection — so a "smarter" IDS is not the fix for its structural limitation, and a "dumber" IPS still gets to block. The only variable that matters for prevent-vs-detect is where the box sits in the wire. This is also why the same detection engine can run in either mode: Suricata, one of the most widely deployed open-source engines, produces identical alerts whether deployed as an out-of-band IDS or an inline IPS — the field that changes is alert.action, reporting "allowed" in IDS mode (nothing was ever capable of being blocked) versus "blocked" or "dropped" in IPS mode.
 
@@ -450,7 +452,7 @@ The characteristic false positive for both is identical, because it comes from t
       ],
       answer: 1,
       explanation:
-        "The detection engine and signature were identical on both segments, so the differing outcome comes down to placement, exactly as Reading 4 lays out: inline (IPS) deployment can physically drop the packet before delivery, while out-of-band (IDS) deployment only ever receives a copy after the original has already gone through. The alert.action field is directly reporting that structural difference, not a cosmetic label, and nothing here implies a different exploit technique or signature quality gap.",
+        "The detection engine and signature were identical on both segments, so the differing outcome comes down to placement, exactly as the IDS vs IPS reading lays out: inline (IPS) deployment can physically drop the packet before delivery, while out-of-band (IDS) deployment only ever receives a copy after the original has already gone through. The alert.action field is directly reporting that structural difference, not a cosmetic label, and nothing here implies a different exploit technique or signature quality gap.",
       xp: 20,
     },
 
@@ -507,7 +509,7 @@ When a WAF does detect a match, its action is genuinely inline and preventive �
           ],
           answer: 0,
           explanation:
-            "This is the oversize-handling mechanism from Reading 5: managed rule groups cap how much of a body they inspect, and a body far larger than that cap means the excess — wherever it falls — was never evaluated. Content-Length is exactly the field that reveals this, which is why it matters here. 'No match' reported by a rule group reflects what it was able to check, not a guarantee about the entire payload, and the rule group entry in ruleGroupList shows it clearly was invoked (an empty match list, not an absence from the log).",
+            "This is the oversize-handling mechanism from the WAF reading: managed rule groups cap how much of a body they inspect, and a body far larger than that cap means the excess — wherever it falls — was never evaluated. Content-Length is exactly the field that reveals this, which is why it matters here. 'No match' reported by a rule group reflects what it was able to check, not a guarantee about the entire payload, and the rule group entry in ruleGroupList shows it clearly was invoked (an empty match list, not an absence from the log). The Core rule set entry confirms the size problem from the other side: its SizeRestrictions_BODY rule (which normally BLOCKS bodies over 8 KB) matched, but it has been overridden to COUNT on this web ACL — a common tuning for APIs that accept large JSON — so the oversized body was recorded and then allowed through.",
           xp: 20,
         },
         {
@@ -575,7 +577,7 @@ Its blind spots are specific and worth knowing by name. Many organizations route
         "itself, but exactly the combination worth a closer look.",
       checkpoint: {
         question:
-          "Per Reading 6, why can a compromised mailbox sending phishing to colleagues internally sometimes bypass the email security gateway entirely?",
+          "Per the Secure Web Gateway and Email Security Gateway reading, why can a compromised mailbox sending phishing to colleagues internally sometimes bypass the email security gateway entirely?",
         options: [
           "Email gateways can never detect phishing content, internal or external",
           "Many organizations route internal-to-internal mail directly through their mail platform without passing it back through the gateway at all",
@@ -663,7 +665,7 @@ Its two characteristic false positives are worth knowing by name, because they p
       event: nessusScanIdsEvent,
       correct_verdict: "false_positive",
       explanation:
-        "The signature name and the User-Agent field both point to the same conclusion: this is Tenable Nessus's own default HTTP User-Agent string, and the source IP belongs to Meridian's vulnerability-management host, not an unknown external actor. A confirmed, scheduled, credentialed weekly scan explains both the breadth (many ports and paths probed in a short window is exactly what a vulnerability scan does) and the specific signature that fired. alert.action: 'allowed' here reflects that this Suricata sensor runs in IDS, out-of-band mode — it reports what it saw, it did not and could not have blocked anything — which is a separate fact from whether the traffic was malicious. This is a textbook Vulnerability Scanner false positive on an IDS: the scanner is doing its authorized job of probing for weaknesses, and the IDS is doing its job of flagging scan-shaped traffic; neither is wrong, and neither indicates an attack.",
+        "The signature name and the User-Agent field both point to the same conclusion: this is Tenable Nessus's own default HTTP User-Agent string, and the source IP belongs to Meridian's vulnerability-management host, not an unknown external actor. A confirmed, scheduled, credentialed weekly scan explains both the breadth (many ports and paths probed in a short window is exactly what a vulnerability scan does) and the specific signature that fired. Note what actually decides this: a User-Agent is set by the client and is trivially spoofed, so the Nessus string alone would never clear an alert — it is the change ticket and the confirmed source host (10.44.8.15, the vulnerability-management server) that do. alert.action: 'allowed' here reflects that this Suricata sensor runs in IDS, out-of-band mode — it reports what it saw, it did not and could not have blocked anything — which is a separate fact from whether the traffic was malicious. This is a textbook Vulnerability Scanner false positive on an IDS: the scanner is doing its authorized job of probing for weaknesses, and the IDS is doing its job of flagging scan-shaped traffic; neither is wrong, and neither indicates an attack.",
       fp_trap:
         "The volume alone — 217 requests across 40 ports and paths from one host in two minutes — looks exactly like the reconnaissance phase of an intrusion, and 'ET SCAN' category alerts are trained into analysts as an early-attack signal. It's tempting to treat the sheer breadth as decisive on its own. But breadth is the shape of network scanning in general, and an organization's own authorized vulnerability scanner produces that exact shape every time it runs, which is often — as here — on a predictable schedule, from a known, dedicated host, against internal ranges nobody outside IT/security has any reason to be systematically probing. Escalating every 'ET SCAN' alert without first checking source host identity and IT verification is how legitimate, expected scanning traffic burns hours of investigation time that a genuine external reconnaissance attempt deserves instead.",
       xp: 30,
@@ -699,7 +701,7 @@ Identity Protection tools (like Azure AD/Entra Identity Protection) and CASB (Cl
         "after signing in. That's a separate log, from a separate\n" +
         "product, at a separate layer.",
       checkpoint: {
-        question: "What is the characteristic false positive for Identity Protection/CASB tools, per Reading 7?",
+        question: "What is the characteristic false positive for Identity Protection/CASB tools, per the NDR, DLP, and Identity Protection/CASB reading?",
         options: [
           "A newly deployed internal monitoring service whose regular polling interval statistically resembles a command-and-control beacon pattern",
           "An 'impossible travel' false alarm caused by an employee connecting through a corporate VPN exit node in a different country",
@@ -708,7 +710,7 @@ Identity Protection tools (like Azure AD/Entra Identity Protection) and CASB (Cl
         ],
         answer: 1,
         explanation:
-          "Reading 7 names this directly: a VPN exit node in a different country can make a sign-in look geographically impossible compared to the user's last known location, even though no actual travel happened -- this is the identity-layer tool's characteristic false positive, distinct from NDR's beacon-lookalike or DLP's/WAF's content-based false positives.",
+          "The NDR, DLP, and Identity Protection/CASB reading names this directly: a VPN exit node in a different country can make a sign-in look geographically impossible compared to the user's last known location, even though no actual travel happened -- this is the identity-layer tool's characteristic false positive, distinct from NDR's beacon-lookalike or DLP's/WAF's content-based false positives.",
       },
     },
 
@@ -721,7 +723,7 @@ Identity Protection tools (like Azure AD/Entra Identity Protection) and CASB (Cl
       heading: "SIEM and SOAR: Seeing Only What Reaches Them",
       content: `Every product covered so far in this room generates its own telemetry from its own vantage point. SIEM and SOAR are different in kind: neither one observes anything directly at all. Their entire value comes from what other products send them.
 
-A SIEM (Security Information and Event Management platform) has no sensor of its own — no agent on an endpoint, no tap on the network, no position in front of an application. It is a destination: logs and alerts from every product covered in this room get shipped to it (a step generally called log forwarding or ingestion), and the SIEM's job is to normalize that data into a common structure and run correlation rules across it — exactly the "47 failed logins from the Netherlands, then a success" example from the soc-structure toolbox overview, where no single log looked alarming but the pattern across many did. Correlation across sources is the SIEM's whole reason to exist; a SIEM that only ever shows you what one product already told you, one alert at a time, isn't earning its place in the stack.
+A SIEM (Security Information and Event Management platform) has no sensor of its own — no agent on an endpoint, no tap on the network, no position in front of an application. It is a destination: logs and alerts from every product covered in this room get shipped to it (a step generally called log forwarding or ingestion), and the SIEM's job is to normalize that data into a common structure and run correlation rules across it — exactly the "47 failed logins from the Netherlands, then a success" example from the SOC Structure room's toolbox overview, where no single log looked alarming but the pattern across many did. Correlation across sources is the SIEM's whole reason to exist; a SIEM that only ever shows you what one product already told you, one alert at a time, isn't earning its place in the stack.
 
 This is exactly why a SIEM's blind spot deserves to be internalized as a rule, not a footnote: if the SIEM has no data at all from a given source — a network segment whose firewall was never onboarded, a SaaS application whose audit logs were never connected, a legacy server nobody got around to installing a forwarder on — then an attack moving entirely through that gap will produce zero SIEM alerts, and it will look, from inside the SIEM, exactly like nothing happened. A gap in SIEM coverage is a missing log source, virtually always, not an absence of attack activity. When an investigation dead-ends with "the SIEM shows nothing," the correct next question is never "so nothing happened" — it's "what wasn't being forwarded to it from that part of the environment."
 
@@ -784,7 +786,7 @@ A SOAR (Security Orchestration, Automation and Response) platform sits one layer
       ],
       answer: 1,
       explanation:
-        "This is the rule from Reading 8 stated directly: a SIEM only ever knows what was shipped to it, so silence from a specific segment is exactly as consistent with 'nothing forwarded' as with 'nothing happened,' and the first move is always checking onboarding status, not accepting the absence as proof. SIEMs regularly do correlate lateral movement when the relevant logs (authentication, network, endpoint) are actually flowing into them, and encryption affects what individual products like NDR or NGFW can see in a payload — it doesn't explain a total SIEM silence on its own, since metadata-level events (logons, connections, process creation) are typically still logged and forwardable regardless of payload encryption.",
+        "This is the rule from the SIEM and SOAR reading stated directly: a SIEM only ever knows what was shipped to it, so silence from a specific segment is exactly as consistent with 'nothing forwarded' as with 'nothing happened,' and the first move is always checking onboarding status, not accepting the absence as proof. SIEMs regularly do correlate lateral movement when the relevant logs (authentication, network, endpoint) are actually flowing into them, and encryption affects what individual products like NDR or NGFW can see in a payload — it doesn't explain a total SIEM silence on its own, since metadata-level events (logons, connections, process creation) are typically still logged and forwardable regardless of payload encryption.",
       xp: 20,
     },
 
@@ -852,7 +854,7 @@ A SOAR (Security Orchestration, Automation and Response) platform sits one layer
       ],
       correct_order: ["email-gw", "edr", "ngfw-ips", "ndr", "identity-casb", "dlp"],
       explanation:
-        "This follows the attack's own physical progression through the environment, and therefore through the products positioned at each stage: delivery is visible to the email gateway first, execution on the host to EDR next, the first network egress to the NGFW/IPS, movement between internal hosts to NDR, cloud identity abuse to Identity Protection/CASB, and finally data leaving through a monitored channel to DLP. A SIEM could, in principle, surface all six as correlated alerts, but it only does so because each of these six products fed it telemetry in this order first — which is exactly Reading 8's point about a SIEM having no sensor of its own.",
+        "This follows the attack's own physical progression through the environment, and therefore through the products positioned at each stage: delivery is visible to the email gateway first, execution on the host to EDR next, the first network egress to the NGFW/IPS, movement between internal hosts to NDR, cloud identity abuse to Identity Protection/CASB, and finally data leaving through a monitored channel to DLP. A SIEM could, in principle, surface all six as correlated alerts, but it only does so because each of these six products fed it telemetry in this order first — which is exactly the SIEM and SOAR reading's point about a SIEM having no sensor of its own.",
       xp: 35,
     },
 

@@ -109,7 +109,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Sign-in logs record authentication events - how, when, and from where a user or attacker logged in - while audit logs record directory and configuration changes like a new application registration, a fundamentally separate category of activity. Option a incorrectly claims one log covers both. Option c assumes exfiltration occurred, which is not established. Option d confuses a posture metric with investigative log data."
+        "explanation": "Sign-in logs record authentication events - how, when, and from where a user or attacker logged in - while audit logs record directory and configuration changes like a new application registration, a fundamentally separate category of activity. The option “Only the sign-in log, since it records…” incorrectly claims one log covers both. The option “Only Purview DLP logs, since account compromise…” assumes exfiltration occurred, which is not established. The option “Only Secure Score, since it reflects whether…” confuses a posture metric with investigative log data."
       },
       {
         "question": "An organization runs entirely Microsoft-native infrastructure except for one third-party firewall whose logs it also wants correlated with its Microsoft telemetry in a single view. What is the most accurate description of how Defender XDR and Microsoft Sentinel fit this need?",
@@ -132,7 +132,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Sentinel is built for breadth, ingesting third-party sources like a firewall through Data Connectors, and it also has a native connector for Defender XDR itself, allowing an organization to combine deep Microsoft-native correlation with wider third-party visibility in one place. Option a is false - Defender XDR does not natively ingest arbitrary third-party firewall logs. Option c ignores Sentinel's core purpose. Option d incorrectly claims the two products are mutually exclusive."
+        "explanation": "Sentinel is built for breadth, ingesting third-party sources like a firewall through Data Connectors, and it also has a native connector for Defender XDR itself, allowing an organization to combine deep Microsoft-native correlation with wider third-party visibility in one place. The option “Defender XDR alone is sufficient, since it…” is false - Defender XDR does not natively ingest arbitrary third-party firewall logs. The option “Neither product supports third-party log ingestion, so…” ignores Sentinel's core purpose. The option “Defender XDR must be replaced entirely by…” incorrectly claims the two products are mutually exclusive."
       },
       {
         "question": "A director asks whether the organization's high Secure Score means the environment is now secure against being breached. What is the technically correct response?",
@@ -155,7 +155,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Secure Score reflects how many Microsoft-recommended controls, like MFA coverage and legacy authentication being disabled, an organization has adopted - it does not measure resistance to zero-days, social engineering, or gaps the score's checklist does not evaluate. Option a overstates the score as an absolute guarantee, which it explicitly is not. Option c incorrectly narrows its scope to one product. Option d attaches an irrelevant condition about Sentinel deployment."
+        "explanation": "Secure Score reflects how many Microsoft-recommended controls, like MFA coverage and legacy authentication being disabled, an organization has adopted - it does not measure resistance to zero-days, social engineering, or gaps the score's checklist does not evaluate. The option “Yes, a high Secure Score is Microsoft's…” overstates the score as an absolute guarantee, which it explicitly is not. The option “No, Secure Score only applies to Defender…” incorrectly narrows its scope to one product. The option “Yes, but only if Microsoft Sentinel is…” attaches an irrelevant condition about Sentinel deployment."
       },
       {
         "question": "You open a Defender XDR incident and its alerts array carries three entries with serviceSource values of microsoftDefenderForOffice365, microsoftDefenderForCloudApps, and microsoftDefenderForEndpoint. What does this tell you, and what should you do first?",
@@ -178,7 +178,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "serviceSource identifies which Defender product generated each alert, and Defender XDR's whole purpose is stitching alerts like these into one incident when an attack crosses products - reading them in order reconstructs the chain, here email to cloud app consent to endpoint activity. Option a contradicts exactly what Defender XDR is built to do. Option c misattributes the field to Purview, an unrelated product. Option d invents an unsupported starting point from a single alert."
+        "explanation": "serviceSource identifies which Defender product generated each alert, and Defender XDR's whole purpose is stitching alerts like these into one incident when an attack crosses products - reading them in order reconstructs the chain, here email to cloud app consent to endpoint activity. The option “It is a data error, since one…” contradicts exactly what Defender XDR is built to do. The option “The serviceSource field only labels which Purview…” misattributes the field to Purview, an unrelated product. The option “Since an Endpoint alert is present, the…” invents an unsupported starting point from a single alert."
       },
       {
         "question": "An attacker compromises the password of a user who is eligible, but not currently active, for the Global Administrator role in Entra ID Privileged Identity Management (PIM). What is true about the attacker's access at that exact moment?",
@@ -201,7 +201,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Eligible means the role is not currently held -- it must be activated, and a well-configured PIM policy can gate that activation behind MFA re-confirmation, a written justification, or approval from a named approver, exactly the controls this lesson described. Option a invents an automatic grant PIM does not provide. Option c overstates what Conditional Access does; it does not universally block every compromised-password sign-in. Option d invents a lockout behavior PIM does not have."
+        "explanation": "Eligible means the role is not currently held -- it must be activated, and a well-configured PIM policy can gate that activation behind MFA re-confirmation, a written justification, or approval from a named approver, exactly the controls this lesson described. The option “The attacker already holds Global Administrator rights…” invents an automatic grant PIM does not provide. The option “PIM eligibility is irrelevant to attackers, since…” overstates what Conditional Access does; it does not universally block every compromised-password sign-in. The option “The attacker's access is permanently blocked, because…” invents a lockout behavior PIM does not have."
       },
       {
         "question": "A misconfigured Azure storage account allowing public write access is flagged by Defender for Cloud. Which capability generated this specific finding, and what is the distinction from the alert generated moments later by Defender for Servers about a suspicious process on a VM?",
@@ -224,7 +224,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "CSPM assesses configuration -- exactly what flagged the public-write storage account -- while CWPP actively protects running workloads, which is what Defender for Servers does when it flags a suspicious process on a VM. These are two distinct capabilities bundled under one product, Defender for Cloud. Option a wrongly merges them into one capability. Option c misattributes the finding to Defender for Cloud Apps, an entirely different CASB product covering SaaS usage, not infrastructure. Option d is false -- Defender for Cloud explicitly extends CSPM to AWS and GCP through native connectors."
+        "explanation": "CSPM assesses configuration -- exactly what flagged the public-write storage account -- while CWPP actively protects running workloads, which is what Defender for Servers does when it flags a suspicious process on a VM. These are two distinct capabilities bundled under one product, Defender for Cloud. The option “Both findings came from the same CSPM…” wrongly merges them into one capability. The option “The storage finding actually came from Defender…” misattributes the finding to Defender for Cloud Apps, an entirely different CASB product covering SaaS usage, not infrastructure. The option “Neither finding is possible in a multicloud…” is false -- Defender for Cloud explicitly extends CSPM to AWS and GCP through native connectors."
       }
     ],
     "references": [

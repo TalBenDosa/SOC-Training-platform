@@ -8,17 +8,17 @@ const createSaKeyEvent: TelemetryEvent = {
   vendor: "GCP Cloud Audit Logs",
   event_type: "cloud_api_call",
   severity: "critical",
-  user_email: "svc-data@nexacorp.iam.gserviceaccount.com",
+  user_email: "web-frontend@nexacorp-prod.iam.gserviceaccount.com",
   src_ip: "185.220.101.47",
   geo: { country: "Netherlands", city: "Amsterdam" },
-  description: "A new JSON private key was minted for the svc-data service account from an unfamiliar external IP, minutes before that account escalated itself to Owner — the attacker giving themselves a durable, portable credential",
+  description: "The web-frontend service account minted a new JSON private key for a different service account, svc-data, from an unfamiliar external IP, minutes before svc-data escalated itself to Owner — the attacker giving themselves a durable, portable credential",
   mitre_technique: "T1098.001",
   mitre_tactic: "Persistence",
   raw: {
     "gcp.audit.method_name": "google.iam.admin.v1.CreateServiceAccountKey",
     "gcp.audit.service_name": "iam.googleapis.com",
     "gcp.audit.resource_name": "projects/nexacorp-prod/serviceAccounts/svc-data@nexacorp.iam.gserviceaccount.com",
-    "gcp.audit.authentication_info.principal_email": "svc-data@nexacorp.iam.gserviceaccount.com",
+    "gcp.audit.authentication_info.principal_email": "web-frontend@nexacorp-prod.iam.gserviceaccount.com",
     "gcp.audit.request_metadata.caller_ip": "185.220.101.47",
     "gcp.audit.request_metadata.caller_supplied_user_agent": "google-api-python-client/2.86.0",
     "gcp.audit.status.code": 0,
@@ -85,34 +85,33 @@ const publicBucketExfilEvent: TelemetryEvent = {
   id: "evt-gcp-storage-exfil-001",
   ts: "2026-05-19T03:05:44.000Z",
   source: "cloud_gcp",
-  vendor: "GCP Cloud Audit Logs",
+  vendor: "GCP Cloud Storage usage logs",
   event_type: "cloud_storage_access",
   severity: "critical",
-  user_email: "allUsers",
   src_ip: "91.108.56.19",
   geo: { country: "Russia", city: "Moscow" },
-  description: "An anonymous internet caller downloaded customer export files from a Cloud Storage bucket that had been made public, generating Data Access audit log entries rather than an Admin Activity change",
+  description: "An anonymous internet caller downloaded a customer export file from a Cloud Storage bucket that had been made public, as recorded in the bucket's Cloud Storage usage logs",
   mitre_technique: "T1530",
   mitre_tactic: "Collection",
   raw: {
-    "gcp.audit.method_name": "storage.objects.get",
-    "gcp.audit.service_name": "storage.googleapis.com",
-    "gcp.audit.resource_name": "projects/_/buckets/nexacorp-customer-exports/objects/exports/customers_full_2026Q2.csv",
-    "gcp.audit.authentication_info.principal_email": "allUsers",
-    "gcp.audit.request_metadata.caller_ip": "91.108.56.19",
-    "gcp.audit.request_metadata.caller_supplied_user_agent": "python-requests/2.31.0",
-    "gcp.audit.status.code": 0,
-    "gcp.audit.status.message": "",
-    "gcp.audit.log_type": "DATA_ACCESS",
-    "gcp.audit.severity": "INFO",
-    "storage.bucket.name": "nexacorp-customer-exports",
-    "storage.object.name": "exports/customers_full_2026Q2.csv",
-    "storage.object.size": 48302911,
-    "storage.bucket.iam_configuration.public_access_prevention": "inherited",
-    "storage.bucket.iam_binding.role": "roles/storage.objectViewer",
-    "storage.bucket.iam_binding.members": ["allUsers"],
+    "gcp.storage.usage.time_micros": 1779159944000000,
+    "gcp.storage.usage.c_ip": "91.108.56.19",
+    "gcp.storage.usage.c_ip_type": 1,
+    "gcp.storage.usage.c_ip_region": "",
+    "gcp.storage.usage.cs_method": "GET",
+    "gcp.storage.usage.cs_uri": "/nexacorp-customer-exports/exports/customers_full_2026Q2.csv",
+    "gcp.storage.usage.sc_status": 200,
+    "gcp.storage.usage.cs_bytes": 0,
+    "gcp.storage.usage.sc_bytes": 48302911,
+    "gcp.storage.usage.time_taken_micros": 8412000,
+    "gcp.storage.usage.cs_host": "storage.googleapis.com",
+    "gcp.storage.usage.cs_referer": "",
+    "gcp.storage.usage.cs_user_agent": "python-requests/2.31.0",
+    "gcp.storage.usage.s_request_id": "ADPycdtq3Rk9wLzX2mVb7nE4sHf8uJ1oQ6aYcG5iTp0rKe",
+    "gcp.storage.usage.cs_operation": "GET_Object",
+    "gcp.storage.usage.cs_bucket": "nexacorp-customer-exports",
+    "gcp.storage.usage.cs_object": "exports/customers_full_2026Q2.csv",
     "gcp.project.id": "nexacorp-prod",
-    "action_result": "allowed",
   },
 };
 
@@ -305,7 +304,7 @@ const gcpRoom = {
       content:
         `**Cloud Audit Logs** is GCP's audit-logging service — the direct equivalent of AWS CloudTrail. Nearly every action taken in a GCP project, whether through the web Console, the gcloud command-line tool, or an application calling a GCP API directly, generates an entry in Cloud Audit Logs. Just like CloudTrail, each entry answers who did it, what they did, where from, when, and whether it succeeded.\n\n` +
         `**The Four Types of Cloud Audit Logs**\n\n` +
-        `GCP splits audit activity into four log types, and knowing which is which is essential for a SOC analyst: **Admin Activity logs** record configuration and metadata changes — creating a VM, changing an IAM policy, creating a service account key. These are ALWAYS enabled and cannot be turned off, similar to AWS management events. **Data Access logs** record who accessed data — reading an object from a Cloud Storage bucket, querying a BigQuery table. Critically, Data Access logs are NOT enabled by default for most services (except for a few, like BigQuery) because of their high volume — this is the exact same visibility gap as AWS S3 data events not being logged by default, and it means a SOC analyst investigating a suspected data download may find no logs at all unless Data Access logging was explicitly turned on in advance. **System Event logs** record actions GCP itself takes automatically (like automatically restarting a VM after a hardware failure) — these are always enabled and rarely security-relevant. **Policy Denied logs** record when a request was blocked by a security policy (like an Organization Policy or VPC Service Controls) — these are extremely valuable for spotting an attacker's failed attempts to escalate access or exfiltrate data.\n\n` +
+        `GCP splits audit activity into four log types, and knowing which is which is essential for a SOC analyst: **Admin Activity logs** record configuration and metadata changes — creating a VM, changing an IAM policy, creating a service account key. These are ALWAYS enabled and cannot be turned off, similar to AWS management events. **Data Access logs** record who accessed data — reading an object from a Cloud Storage bucket, querying a BigQuery table. Critically, Data Access logs are NOT enabled by default for most services (except for a few, like BigQuery) because of their high volume — this is the exact same visibility gap as AWS S3 data events not being logged by default, and it means a SOC analyst investigating a suspected data download may find no logs at all unless Data Access logging was explicitly turned on in advance. One more blind spot sits on top of that: Cloud Audit Logs never record access to PUBLIC objects (those readable through allUsers or allAuthenticatedUsers), even with Data Access logging on — anonymous reads are visible only in Cloud Storage usage logs, which must also be enabled per bucket. **System Event logs** record actions GCP itself takes automatically (like automatically restarting a VM after a hardware failure) — these are always enabled and rarely security-relevant. **Policy Denied logs** record when a request was blocked by a security policy (like an Organization Policy or VPC Service Controls) — these are extremely valuable for spotting an attacker's failed attempts to escalate access or exfiltrate data.\n\n` +
         `**Where Cloud Audit Logs Go**\n\n` +
         `Cloud Audit Log entries are written into **Cloud Logging** (GCP's centralized logging service) and can be routed via a **log sink** to BigQuery, Cloud Storage, or exported to an external SIEM in near-real time — this is exactly analogous to CloudTrail delivering to an S3 bucket and then a SIEM. Every entry includes a gcp.audit.log_type field telling you which of the four categories it belongs to (ADMIN_ACTIVITY, DATA_ACCESS, SYSTEM_EVENT, or POLICY_DENIED).\n\n` +
         `**Security Command Center (SCC): GCP's Built-In Threat Detector**\n\n` +
@@ -515,49 +514,49 @@ const gcpRoom = {
       id: "gcp-la2",
       heading: "Investigating Data Exfiltration from a Public Cloud Storage Bucket",
       context:
-        "Continuing the same incident timeline: 18 minutes after the confirmed SetIamPolicy privilege escalation, Cloud Logging recorded a Data Access log entry for a Cloud Storage bucket. This bucket, nexacorp-customer-exports, was supposed to be reachable only by internal analytics service accounts, but its IAM policy had been altered to grant roles/storage.objectViewer to allUsers. Review the event below.",
+        "Continuing the same incident timeline: 18 minutes after the confirmed SetIamPolicy privilege escalation, a request hit the Cloud Storage bucket nexacorp-customer-exports. This bucket was supposed to be reachable only by internal analytics service accounts, but the Admin Activity audit log shows its IAM policy had been altered to grant roles/storage.objectViewer to allUsers. Cloud Audit Logs contain no record of the download itself — the entry below comes from the bucket's Cloud Storage usage logs, which NexaCorp had enabled on this bucket and which are delivered hourly as CSV files to a separate log bucket. Review the event below.",
       event: publicBucketExfilEvent,
       questions: [
         {
           question:
-            "The event shows gcp.audit.authentication_info.principal_email as 'allUsers' and storage.bucket.iam_binding.members includes 'allUsers'. What does the identity value 'allUsers' specifically mean in GCP IAM?",
+            "The usage-log entry carries no caller identity at all — only an IP (c_ip) and a user agent — and the bucket's IAM policy binds roles/storage.objectViewer to 'allUsers'. What does the member 'allUsers' specifically mean in GCP IAM?",
           options: [
             "'allUsers' refers exclusively to every employee inside NexaCorp's own Google Workspace domain, and never grants any access whatsoever to anyone outside the organization's managed accounts",
             "'allUsers' is a special GCP member representing literally anyone on the internet, authenticated or not — meaning the bucket object was readable by any anonymous caller with the object's URL, with no GCP account or credentials required at all",
-            "'allUsers' is simply a generic placeholder value that GCP inserts automatically into a log entry whenever the true underlying caller identity could not be reliably determined or resolved by the audit system",
+            "'allUsers' is simply a generic placeholder GCP writes into an IAM policy when the true owner of a binding could not be resolved, and it grants no access by itself",
             "'allUsers' as an IAM member only ever applies to Compute Engine VM-level firewall rules, and it can never legitimately appear as a binding on a Cloud Storage bucket's IAM policy",
           ],
           answer: 1,
           explanation:
-            "'allUsers' is one of GCP's special IAM members representing every person on the internet — anonymous, unauthenticated, no Google account required. When a bucket's IAM policy binds a role like roles/storage.objectViewer to allUsers, any object in that bucket becomes readable by anyone who has (or can guess) the URL. This is the direct GCP equivalent of an AWS S3 bucket policy granting access to Principal: '*' or the AllUsers group.",
+            "'allUsers' is one of GCP's special IAM members representing every person on the internet — anonymous, unauthenticated, no Google account required. When a bucket's IAM policy binds a role like roles/storage.objectViewer to allUsers, any object in that bucket becomes readable by anyone who has (or can guess) the URL. This is the direct GCP equivalent of an AWS S3 bucket policy granting access to Principal: '*' or the AllUsers group — and it is exactly why the usage log above has no identity to show: an anonymous caller has none.",
           xp: 25,
         },
         {
           question:
-            "This event's gcp.audit.log_type is 'DATA_ACCESS' rather than 'ADMIN_ACTIVITY', and the request came from caller_ip 91.108.56.19 (Russia) using a python-requests user agent. Why is the log_type field itself an important investigative clue here?",
+            "This download (c_ip 91.108.56.19, Russia, python-requests user agent) appears in the bucket's Cloud Storage usage logs, while Cloud Audit Logs have no DATA_ACCESS entry for it. Why does that matter to the investigation?",
           options: [
-            "DATA_ACCESS log entries are inherently less trustworthy and far more easily forged or spoofed than ADMIN_ACTIVITY entries, so any finding based purely on a DATA_ACCESS log type should always be dismissed and ignored entirely during triage",
-            "Because this is a DATA_ACCESS event, it means Data Access logging happened to be explicitly enabled for this bucket — without that configuration, this exact download might have left NO audit trail at all, even though the bucket's public IAM binding (an ADMIN_ACTIVITY change) would still have been logged",
-            "The log_type field carries absolutely no meaningful bearing on this investigation whatsoever — only the source IP address ever matters when deciding how seriously to treat any single Cloud Audit Log entry you come across",
-            "DATA_ACCESS entries are only ever generated automatically for BigQuery query jobs, and Cloud Storage object reads never produce a DATA_ACCESS log entry under any circumstances or configuration",
+            "Usage-log entries are inherently less trustworthy and more easily forged than Cloud Audit Log entries, so a finding that rests on a usage log alone should be dismissed during triage",
+            "Cloud Audit Logs never record access to public (allUsers / allAuthenticatedUsers) objects, even with Data Access logging enabled — the read is visible only because usage logs were enabled on this bucket, which is not the default; without them, the public IAM binding (an Admin Activity change) would be logged but the download itself would have left no record",
+            "The missing DATA_ACCESS entry proves the download never completed, because every successful Cloud Storage read is always written to Cloud Audit Logs",
+            "The missing DATA_ACCESS entry simply means Data Access audit logging was switched off for this bucket; turning it on would have captured this anonymous read along with the caller's identity",
           ],
           answer: 1,
           explanation:
-            "This event landing in Data Access logs (rather than being invisible) tells the analyst that Data Access logging was fortunately turned on for this bucket — a configuration that is NOT the default. If it had not been enabled, the analyst would only see that the bucket's IAM policy was changed (an Admin Activity event, always logged) but would have zero visibility into who actually read which objects afterward — a significant blind spot to flag for remediation regardless of this specific incident's outcome.",
+            "Google documents that Cloud Audit Logs do not track access to public objects — reads granted through allUsers or allAuthenticatedUsers produce no audit entry at all, whatever the Data Access configuration. To see them you need Cloud Storage usage logs, which are off by default. Here NexaCorp happened to have them enabled, so the analyst can see the download. Otherwise the only trace would be the IAM policy change (an Admin Activity event, always logged), with zero visibility into who read which objects afterward. Turning Data Access logging on would not have helped, and the sc_status 200 with sc_bytes equal to the full file size shows the download completed.",
           xp: 25,
         },
         {
           question:
-            "Given a 46 MB customer export file was successfully downloaded (status.code 0) by an anonymous internet caller from Russia, what is the correct immediate action?",
+            "Given a 46 MB customer export file was successfully downloaded (sc_status 200, sc_bytes equal to the full object size) by an anonymous internet caller from Russia, what is the correct immediate action?",
           options: [
             "No action is needed at all, since storage.objects.get is, by strict technical definition, always a read-only and therefore low-impact operation regardless of what data the object actually contains or who is calling it",
-            "Immediately remove the allUsers binding from the bucket's IAM policy to stop further exposure, treat this as confirmed data exfiltration of customer data (triggering incident response and potential breach-notification obligations), and audit the bucket's full Data Access history to determine how many other callers accessed it while it was public",
+            "Immediately remove the allUsers binding from the bucket's IAM policy to stop further exposure, treat this as confirmed data exfiltration of customer data (triggering incident response and potential breach-notification obligations), and review the bucket's full usage-log history to determine how many other callers accessed it while it was public",
             "Simply rename the bucket so that the old public URL no longer resolves for any future requests, and consider the entire incident fully closed, since renaming the resource is functionally equivalent to fixing the underlying IAM policy",
             "Wait for Security Command Center to automatically detect and revoke the public IAM binding on its own, since SCC is granted write access to directly remediate any finding it raises by default, with no analyst action required",
           ],
           answer: 1,
           explanation:
-            "A read-only API call can still represent serious data exfiltration when the object contains customer PII, as here. The bucket's public IAM binding must be removed immediately to stop ongoing exposure (renaming the bucket does not un-expose already-downloaded data and is not a substitute for fixing the IAM policy). Because a confirmed download of a customer data file by an anonymous external party occurred, this triggers full incident response and likely breach-notification requirements — and the analyst must review the complete Data Access history for the bucket to determine whether other anonymous or unauthorized callers accessed it during the exposure window. Note also that Security Command Center only raises findings by default; it does not auto-remediate unless a response automation is explicitly configured.",
+            "A read-only API call can still represent serious data exfiltration when the object contains customer PII, as here. The bucket's public IAM binding must be removed immediately to stop ongoing exposure (renaming the bucket does not un-expose already-downloaded data and is not a substitute for fixing the IAM policy). Because a confirmed download of a customer data file by an anonymous external party occurred, this triggers full incident response and likely breach-notification requirements — and the analyst must review the bucket's complete usage-log history (Cloud Audit Logs will not show anonymous reads of public objects) to determine whether other anonymous or unauthorized callers accessed it during the exposure window. Note also that Security Command Center only raises findings by default; it does not auto-remediate unless a response automation is explicitly configured.",
           xp: 30,
         },
       ],
@@ -631,7 +630,7 @@ const gcpRoom = {
       content:
         `Once Cloud Audit Logs are forwarded into a SIEM, they typically appear as structured fields prefixed with something like gcp.audit.* — the same fields you have been reviewing throughout this room. A consistent, repeatable workflow turns a wall of JSON into a fast investigation.\n\n` +
         `**Step 1 — Establish the WHO**\n\n` +
-        `Start with gcp.audit.authentication_info.principal_email. Is this a human Google account (a person — check whether their normal working pattern matches), a service account ending in .iam.gserviceaccount.com (check whether it's meant to run from a specific VM or pipeline only), or one of the special anonymous members allUsers / allAuthenticatedUsers (an immediate red flag if seen accessing anything other than intentionally public resources)? The identity tells you what kind of credential compromise, if any, you might be dealing with.\n\n` +
+        `Start with gcp.audit.authentication_info.principal_email. Is this a human Google account (a person — check whether their normal working pattern matches), a service account ending in .iam.gserviceaccount.com (check whether it's meant to run from a specific VM or pipeline only), or another identity entirely? Note that the special members allUsers / allAuthenticatedUsers never appear here as a caller: reads of public objects are not audited at all. Spot them instead in IAM bindings (a SetIamPolicy granting a role to allUsers is an immediate red flag) and in Cloud Storage usage logs, where the anonymous caller shows up only as an IP. The identity tells you what kind of credential compromise, if any, you might be dealing with.\n\n` +
         `**Step 2 — Establish the WHERE**\n\n` +
         `Check gcp.audit.request_metadata.caller_ip. Is it an internal GCP range (typically the 10.x private ranges used by Compute Engine or GKE nodes within your VPC), a known corporate office IP, or an unfamiliar external address? Cross-reference against threat intelligence — Tor exit nodes, known malicious IP lists, and unusual countries for your organization are all red flags, exactly as with CloudTrail investigations. Also check gcp.audit.request_metadata.caller_supplied_user_agent: legitimate automation has consistent, expected user agents (google-cloud-sdk gcloud/x.x.x, google-api-python-client, Terraform); a mismatched or unusual user agent for a given identity's normal behavior is worth investigating.\n\n` +
         `**Step 3 — Establish the WHAT and the OUTCOME**\n\n` +
@@ -645,7 +644,8 @@ const gcpRoom = {
         "=======================================================\n" +
         "1. WHO    gcp.audit.authentication_info.principal_email\n" +
         "          -> human account, service account, or the\n" +
-        "             red-flag values allUsers / allAuthenticatedUsers?\n" +
+        "             (allUsers / allAuthenticatedUsers show up in\n" +
+        "             bindings, never as the caller)\n" +
         "\n" +
         "2. WHERE  gcp.audit.request_metadata.caller_ip / UA\n" +
         "          -> internal GCP range, known office IP, or\n" +
@@ -691,7 +691,7 @@ const gcpRoom = {
       id: "gcp-la-sakey",
       heading: "Persistence: A New Service-Account Key Appears",
       context:
-        "Six minutes before svc-data granted itself Owner, this IAM event fired from the same external IP. Service-account keys are long-lived credentials that work from anywhere — read what was just created.",
+        "Six minutes before svc-data granted itself Owner, this IAM event fired from the same external IP. Service-account keys are long-lived credentials that work from anywhere — read what was just created, and note WHO created it versus WHICH account the key belongs to.",
       event: createSaKeyEvent,
       questions: [
         {
@@ -705,7 +705,7 @@ const gcpRoom = {
           ],
           answer: 1,
           explanation:
-            "CreateServiceAccountKey with status.code 0 succeeded, and a USER_MANAGED key is a downloadable JSON credential with no automatic expiry that authenticates from anywhere. Google strongly discourages user-managed keys precisely because they become long-lived, portable secrets — exactly what an attacker wants for persistence (T1098.001). Google-managed keys, by contrast, are rotated automatically and never exposed. Minting this key minutes before the Owner escalation is the attacker establishing a foothold that outlives the current session; the response.key_id identifies the specific credential to hunt for and revoke.",
+            "CreateServiceAccountKey with status.code 0 succeeded, and a USER_MANAGED key is a downloadable JSON credential with no automatic expiry that authenticates from anywhere. Google strongly discourages user-managed keys precisely because they become long-lived, portable secrets — exactly what an attacker wants for persistence (T1098.001). Google-managed keys, by contrast, are rotated automatically and never exposed. Minting this key minutes before the Owner escalation is the attacker establishing a foothold that outlives the current session; the response.key_id identifies the specific credential to hunt for and revoke. Note also that principal_email (the caller, web-frontend) differs from the account named in resource_name (svc-data): one identity minting a key for ANOTHER is itself a red flag, as the next reading unpacks.",
           xp: 25,
         },
       ],
@@ -735,8 +735,8 @@ const gcpRoom = {
         `This chain — compromise a low-value, internet-facing identity via SSRF, then use a narrow-but-overlooked permission (iam.serviceAccountKeys.create) to mint a fresh credential for a higher-value identity — lets an attacker "cash out" a temporary metadata-server foothold into a permanent, portable credential that works from anywhere, indefinitely. This is precisely why iam.serviceAccountKeys.create should be treated as a highly sensitive permission and restricted to only the humans and automation that genuinely need to mint keys — and why any CreateServiceAccountKey event targeting a DIFFERENT service account than the one making the call deserves immediate scrutiny.\n\n` +
         `**Defensive Best Practices Every SOC Should Verify**\n\n` +
         `- Disable service-account key creation at the organization level wherever possible (an Organization Policy constraint, iam.disableServiceAccountKeyCreation), forcing workloads to use attached, short-lived credentials instead\n` +
-        `- Alert immediately and unconditionally on CreateServiceAccountKey, SetIamPolicy grants of roles/owner or roles/editor, and any Data Access to a bucket bound to allUsers or allAuthenticatedUsers\n` +
-        `- Enable Data Access audit logging on Cloud Storage and other sensitive services, not just the always-on Admin Activity logs\n` +
+        `- Alert immediately and unconditionally on CreateServiceAccountKey, SetIamPolicy grants of roles/owner or roles/editor, and any SetIamPolicy that binds allUsers or allAuthenticatedUsers to a bucket\n` +
+        `- Enable Data Access audit logging on Cloud Storage and other sensitive services, not just the always-on Admin Activity logs — and enable Cloud Storage usage logs on sensitive buckets, since audit logs never record anonymous reads of public objects\n` +
         `- Enable Security Command Center Premium, including its Public bucket ACL and Anomalous IAM Grant findings\n` +
         `- Regularly review which service accounts hold basic roles (Owner/Editor) and replace them with narrowly-scoped predefined or custom roles`,
       codeExample:
@@ -830,7 +830,7 @@ const gcpRoom = {
         ],
         answer: 1,
         explanation:
-          "Disabling the specific compromised key stops it from authenticating immediately while preserving it for the investigation — you can still list it, timestamp it, and tie it to specific malicious API calls in your incident report. Deleting the key or the whole service account (option a) is irreversible and destroys that evidence. Waiting for a full timeline (option c) leaves an active, working credential in the attacker's hands during containment, which defeats the purpose of containment. Rotating every key in the project (option d) is disruptive, breaks unrelated legitimate workloads, and isn't targeted at the actual compromised credential.",
+          "Disabling the specific compromised key stops it from authenticating immediately while preserving it for the investigation — you can still list it, timestamp it, and tie it to specific malicious API calls in your incident report. Deleting the key or the whole service account is irreversible and destroys that evidence. Waiting for a full timeline leaves an active, working credential in the attacker's hands during containment, which defeats the purpose of containment. Rotating every key in the project at once is disruptive, breaks unrelated legitimate workloads, and isn't targeted at the actual compromised credential.",
       },
     },
   ],

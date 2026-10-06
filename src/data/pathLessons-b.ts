@@ -113,7 +113,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Every log, regardless of product, answers when/who/what, so hunting those three anchors first orients you instantly and lets you read a strange log in under a minute. Option a is impractical and unnecessary for the common cases where field-name intuition suffices. Option c abdicates the analyst's job — reading the raw evidence. Option d is dangerous overconfidence; genuinely exotic fields should be verified, not guessed, even though common families can be safely inferred."
+        "explanation": "Every log, regardless of product, answers when/who/what, so hunting those three anchors first orients you instantly and lets you read a strange log in under a minute. The option “Open the vendor's documentation and memorize every…” is impractical and unnecessary for the common cases where field-name intuition suffices. The option “Ignore the line and wait for the…” abdicates the analyst's job — reading the raw evidence. The option “Assume the field named 'src' means the…” is dangerous overconfidence; genuinely exotic fields should be verified, not guessed, even though common families can be safely inferred."
       },
       {
         "question": "You are a SOC analyst investigating whether a laptop reached out to a malicious external server. The firewall log clearly shows the laptop's IP connecting to a suspicious destination, but your manager asks which user and which program on the laptop made the connection. Why can the firewall log alone not answer that?",
@@ -136,7 +136,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Each log source has a limited field of view; the firewall sees the network envelope (which IP talked to which IP) but not the user or process behind it, which is exactly what endpoint/EDR telemetry provides. Option a is false — firewall logs are frequently structured or key-value, and format is unrelated to the visibility gap. Option c is false; firewalls log allowed and blocked traffic. Option d invents a corruption that is not the cause; the limitation is inherent to what a network sensor can observe."
+        "explanation": "Each log source has a limited field of view; the firewall sees the network envelope (which IP talked to which IP) but not the user or process behind it, which is exactly what endpoint/EDR telemetry provides. The option “Firewall logs arrive as unstructured free text…” is false — firewall logs are frequently structured or key-value, and format is unrelated to the visibility gap. The option “The firewall only logs traffic that its…” is false; firewalls log allowed and blocked traffic. The option “The firewall log was corrupted somewhere between…” invents a corruption that is not the cause; the limitation is inherent to what a network sensor can observe."
       },
       {
         "question": "You are a SOC analyst and the same login event appears one way in the raw log a server wrote and slightly differently in your SIEM's normalized view. Which statement best captures how you should treat these two versions?",
@@ -159,7 +159,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Normalization rewrites each product's private field names into one shared vocabulary so you can search across sources, but parsing can occasionally go wrong, so the raw log remains the authoritative record to confirm against. Option a is unsafe — the raw log is precisely what you fall back on when the parsed view looks off. Option c is wrong; the normalized log is derived from the same raw event. Option d misunderstands formats entirely; JSON is a structured, trustworthy form and unstructured text is actually the harder one for machines."
+        "explanation": "Normalization rewrites each product's private field names into one shared vocabulary so you can search across sources, but parsing can occasionally go wrong, so the raw log remains the authoritative record to confirm against. The option “Trust the normalized view over the raw…” is unsafe — the raw log is precisely what you fall back on when the parsed view looks off. The option “Treat them as two independent events and…” is wrong; the normalized log is derived from the same raw event. The option “Work only from the raw text and…” misunderstands formats entirely; JSON is a structured, trustworthy form and unstructured text is actually the harder one for machines."
       },
       {
         "question": "You are a SOC analyst who notices user jsmith logged in from the office IP at 08:14, and after pivoting on the account you find an earlier successful login at 07:05 from an external IP that geolocates to another country. What investigative concept does chaining these pivots reveal, and why is pivoting the right technique here?",
@@ -182,7 +182,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Pivoting takes one field's value and pulls every log that shares it; pivoting on user.name surfaced the earlier login, and pivoting on that login's IP revealed a distant location, exposing impossible travel — two logins too far apart to be the same person. Option a is wrong because chaining pivots is exactly how one line becomes a timeline. Option c misnames the pattern; brute force is many failed attempts before a success, not two successes from different places. Option d confuses 'succeeded' with 'legitimate' — a successful login from an impossible location is a strong compromise signal, not reassurance."
+        "explanation": "Pivoting takes one field's value and pulls every log that shares it; pivoting on user.name surfaced the earlier login, and pivoting on that login's IP revealed a distant location, exposing impossible travel — two logins too far apart to be the same person. The option “It reveals little, because both events are…” is wrong because chaining pivots is exactly how one line becomes a timeline. The option “It reveals a brute-force attack, because two…” misnames the pattern; brute force is many failed attempts before a success, not two successes from different places. The option “It shows the account is fine, because…” confuses 'succeeded' with 'legitimate' — a successful login from an impossible location is a strong compromise signal, not reassurance."
       },
       {
         "question": "You are building a timeline. A firewall logs an outbound block at 14:03:11 UTC, and the workstation that made the connection logs the responsible process starting at 09:03:09 in US Eastern time (UTC-5). A colleague says the process 'started five hours before the connection, so it's unrelated.' Why are they wrong?",
@@ -205,7 +205,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "The workstation logs in US Eastern (UTC-5), so 09:03:09 EST equals 14:03:09 UTC — two seconds before the firewall's 14:03:11 UTC block, placing them in the same tight chain. The colleague compared raw times across different zones, the classic error; the fix is to convert everything to UTC before correlating. Option a repeats the mistake. Option c invents a reliability hierarchy and discards real evidence. Option d fabricates a 'normal' five-hour delay that does not exist."
+        "explanation": "The workstation logs in US Eastern (UTC-5), so 09:03:09 EST equals 14:03:09 UTC — two seconds before the firewall's 14:03:11 UTC block, placing them in the same tight chain. The colleague compared raw times across different zones, the classic error; the fix is to convert everything to UTC before correlating. The option “They are correct: since 09:03 is numerically…” repeats the mistake. The option “It doesn't matter what the times say…” invents a reliability hierarchy and discards real evidence. The option “The colleague is right that they're unrelated…” fabricates a 'normal' five-hour delay that does not exist."
       },
       {
         "question": "During an investigation you notice a server that normally logs activity every few seconds went completely silent for the exact 20-minute window you're examining, and shortly after, Windows Event ID 1102 appears. How should you interpret this, and why?",
@@ -228,7 +228,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Attackers attack the logs you rely on. A normally-steady source going silent during exactly the window under investigation is a lead, not an absence, and Event 1102 (security audit log cleared) is a high-signal tamper indicator — together they point to impaired defenses / indicator removal (T1562/T1070). The move is to corroborate with sources the attacker didn't control (firewall, DC) that still recorded the host. Option a treats silence and a cleared-log alert as benign — the exact trap. Option c dismisses real tamper evidence as bugs. Option d invents a benign reboot the evidence does not support."
+        "explanation": "Attackers attack the logs you rely on. A normally-steady source going silent during exactly the window under investigation is a lead, not an absence, and Event 1102 (security audit log cleared) is a high-signal tamper indicator — together they point to impaired defenses / indicator removal (T1562/T1070). The move is to corroborate with sources the attacker didn't control (firewall, DC) that still recorded the host. The option “The silence proves nothing happened on that…” treats silence and a cleared-log alert as benign — the exact trap. The option “Both are simply data-quality bugs in the…” dismisses real tamper evidence as bugs. The option “The 20-minute silence means the server was…” invents a benign reboot the evidence does not support."
       },
       {
         "question": "You are a SOC analyst reviewing a Windows Event ID 4624 record. The 'Subject' block shows Account Name FIN-WKS-07$ (SID S-1-5-18, the computer's own system account), while the 'New Logon' block shows Account Name jsmith with Logon Type 10. How should you read this record?",
@@ -251,7 +251,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "The 'New Logon' section is always the account that actually logged on — here jsmith — while the top 'Subject' is the account that processed the logon (often the machine's own SYSTEM-level account, which is routine and not the person you care about). Logon Type is a separate field describing how the logon happened; type 10 specifically means RemoteInteractive, i.e. Remote Desktop, not a local keyboard logon. Option a swaps the two blocks' roles. Option c wrongly discards a real, informative event. Option d is false — 4624 only fires on success; a failed attempt would be logged as 4625 instead, and Logon Type does not encode success or failure."
+        "explanation": "The 'New Logon' section is always the account that actually logged on — here jsmith — while the top 'Subject' is the account that processed the logon (often the machine's own SYSTEM-level account, which is routine and not the person you care about). Logon Type is a separate field describing how the logon happened; type 10 specifically means RemoteInteractive, i.e. Remote Desktop, not a local keyboard logon. The option “The Subject block identifies the person who…” swaps the two blocks' roles. The option “Because the Subject SID is the well-known…” wrongly discards a real, informative event. The option “Logon Type 10 means the logon attempt…” is false — 4624 only fires on success; a failed attempt would be logged as 4625 instead, and Logon Type does not encode success or failure."
       },
       {
         "question": "A raw syslog line begins with the priority value <34>. Using the PRI formula (facility * 8 + severity), what does this tell an analyst before reading a single word of the message body?",
@@ -274,7 +274,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "The PRI value packs two facts into one number using PRI = facility*8 + severity; 34 = 4*8+2 decodes to facility 4 (security/authorization) at severity 2 (Critical) — a fast, pre-read triage signal. Option a is false; PRI is exactly what RFC 5424 defines and SIEMs use it constantly for filtering. Option c misreads PRI as an age value it has never represented. Option d is wrong; PRI is native to syslog itself, and CEF's severity field is a separate, later addition layered on top of a syslog message."
+        "explanation": "The PRI value packs two facts into one number using PRI = facility*8 + severity; 34 = 4*8+2 decodes to facility 4 (security/authorization) at severity 2 (Critical) — a fast, pre-read triage signal. The option “Nothing useful — PRI is a legacy…” is false; PRI is exactly what RFC 5424 defines and SIEMs use it constantly for filtering. The option “PRI 34 means the message is 34…” misreads PRI as an age value it has never represented. The option “PRI values only apply to CEF-formatted logs…” is wrong; PRI is native to syslog itself, and CEF's severity field is a separate, later addition layered on top of a syslog message."
       },
       {
         "question": "A host that normally sends Windows Security log events over Windows Event Forwarding (WEF) suddenly shows Event ID 1102 (security log cleared) locally, but the same events for that time window are still present in the Forwarded Events channel on the central WEC collector. What does this best illustrate?",
@@ -297,7 +297,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "WEF forwards events to a central collector as they occur; once forwarded, they exist outside the attacker's local reach, so a subsequent 1102 clearing the local .evtx file cannot touch the copy already sitting on the WEC/SIEM side — a direct, practical defense against the log-tampering problem raised earlier in the lesson. Option a wrongly treats the surviving central copy as disproving tampering; it is the opposite: the local clearing still happened, it just didn't succeed at destroying the evidence. Option c invents a clock problem the scenario gives no basis for. Option d describes a restoration behavior WEF does not perform — forwarding does not write back to the source."
+        "explanation": "WEF forwards events to a central collector as they occur; once forwarded, they exist outside the attacker's local reach, so a subsequent 1102 clearing the local .evtx file cannot touch the copy already sitting on the WEC/SIEM side — a direct, practical defense against the log-tampering problem raised earlier in the lesson. The option “It proves the 1102 event was a…” wrongly treats the surviving central copy as disproving tampering; it is the opposite: the local clearing still happened, it just didn't succeed at destroying the evidence. The option “The mismatch means the collector's clock is…” invents a clock problem the scenario gives no basis for. The option “WEC servers automatically restore a cleared local…” describes a restoration behavior WEF does not perform — forwarding does not write back to the source."
       }
     ],
     "references": [
@@ -432,7 +432,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Both programs are legitimate in isolation, so evaluating them alone tells you nothing; the tell is that Word launching PowerShell is not a normal pairing, which is the classic maldoc chain (document runs code that spawns PowerShell). Option a is wrong because PowerShell is a trusted, widely used tool — not malware. Option c is false; WINWORD.EXE is genuine Microsoft Word. Option d is nonsense — a PID is just an identifier and carries no verdict."
+        "explanation": "Both programs are legitimate in isolation, so evaluating them alone tells you nothing; the tell is that Word launching PowerShell is not a normal pairing, which is the classic maldoc chain (document runs code that spawns PowerShell). The option “Because powershell.exe with a hidden, encoded command…” is wrong because PowerShell is a trusted, widely used tool — not malware. The option “Because WINWORD.EXE is not a Microsoft binary…” is false; WINWORD.EXE is genuine Microsoft Word. The option “Because the PowerShell process has a higher…” is nonsense — a PID is just an identifier and carries no verdict."
       },
       {
         "question": "You are a SOC analyst and, moments after a suspicious PowerShell command runs on a host, a new scheduled task named 'SystemUpdateCheck' appears that re-launches a script from the user's Downloads folder at every logon. What attacker goal does this scheduled task most directly serve, and what should you ask about it?",
@@ -455,7 +455,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "A scheduled task that re-launches a payload at every logon is textbook persistence — it survives reboots and re-starts the malware even if you kill the running process — so the right questions are who created it, what it launches, and whether it belongs there. Option a misreads the mechanism; the task is about restarting the payload, not measuring data transfer. Option c is false — scheduled tasks routinely launch programs, malicious or not. Option d is wrong; scheduled tasks are a persistence mechanism, not an encryption method, and the boring name pointing to a Downloads-folder script is the tell."
+        "explanation": "A scheduled task that re-launches a payload at every logon is textbook persistence — it survives reboots and re-starts the malware even if you kill the running process — so the right questions are who created it, what it launches, and whether it belongs there. The option “It serves data exfiltration, and you should…” misreads the mechanism; the task is about restarting the payload, not measuring data transfer. The option “It serves nothing, because scheduled tasks cannot…” is false — scheduled tasks routinely launch programs, malicious or not. The option “It serves encryption, because scheduled tasks are…” is wrong; scheduled tasks are a persistence mechanism, not an encryption method, and the boring name pointing to a Downloads-folder script is the tell."
       },
       {
         "question": "You are a SOC analyst investigating a Windows host and you find a new value under HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run named 'OneDriveSync' pointing to C:\\Users\\jsmith\\AppData\\Roaming\\odsync.exe. Which reasoning best explains why this deserves suspicion?",
@@ -478,7 +478,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Run keys cause their target to launch automatically at logon, and this one masquerades as 'OneDriveSync' while pointing to an odd, user-writable path where the real OneDrive does not live — a classic persistence pattern. Option a is wrong because the registry legitimately holds countless normal settings; blanket deletion would break Windows. Option c is false; the registry routinely stores program paths. Option d misstates the hive — HKCU applies to the current user, not the whole machine (that would be HKLM) — and it is the imitation-plus-odd-path combination, not the hive alone, that raises the flag."
+        "explanation": "Run keys cause their target to launch automatically at logon, and this one masquerades as 'OneDriveSync' while pointing to an odd, user-writable path where the real OneDrive does not live — a classic persistence pattern. The option “Any value under a Run key is…” is wrong because the registry legitimately holds countless normal settings; blanket deletion would break Windows. The option “The registry stores configuration values rather than…” is false; the registry routinely stores program paths. The option “Because the value sits in HKCU, it…” misstates the hive — HKCU applies to the current user, not the whole machine (that would be HKLM) — and it is the imitation-plus-odd-path combination, not the hive alone, that raises the flag."
       },
       {
         "question": "You are a SOC analyst and an alert fires because certutil.exe on a finance workstation ran with a command line that downloaded an executable from a raw IP address. A junior colleague says certutil is a signed Microsoft tool so it must be safe. What is the correct way to reason about this LOLBin?",
@@ -501,7 +501,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "certutil is a trusted, signed built-in tool, so the signature says nothing about intent; the LOLBin mindset is to judge the use, and a certificate utility fetching an executable from a raw IP is out of character and warrants checking the parent, command line, and any network or file activity. Option a is dangerously wrong — being signed is exactly why attackers pick LOLBins. Option c is impractical because certutil has legitimate uses and blocklisting it would break real workflows; you judge behavior, not the binary. Option d confuses a code signature on the tool with any guarantee about the file it downloaded, which there is none."
+        "explanation": "certutil is a trusted, signed built-in tool, so the signature says nothing about intent; the LOLBin mindset is to judge the use, and a certificate utility fetching an executable from a raw IP is out of character and warrants checking the parent, command line, and any network or file activity. The option “The colleague is right in practice: certutil…” is dangerously wrong — being signed is exactly why attackers pick LOLBins. The option “Push an immediate enterprise-wide block on certutil.exe…” is impractical because certutil has legitimate uses and blocklisting it would break real workflows; you judge behavior, not the binary. The option “The signature on certutil.exe covers everything the…” confuses a code signature on the tool with any guarantee about the file it downloaded, which there is none."
       },
       {
         "question": "A workstation generates a Sysmon Event ID 10 (ProcessAccess) showing that a process named 'updater.exe', running from C:\\Users\\rana\\AppData\\Local\\Temp\\, opened a handle to lsass.exe with GrantedAccess 0x1010. Why is this a high-fidelity alert, and what is the attacker most likely doing?",
@@ -524,7 +524,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "LSASS holds cached credentials in memory, so a non-OS process opening it for read access (GrantedAccess 0x1010) is the signature of credential dumping — the attacker wants the hashes and Kerberos tickets to Pass-the-Hash / Pass-the-Ticket onward. The temp-folder origin makes it worse. Option a is false — legitimate access to LSASS comes from the OS, not random binaries. Option c is the exact trap the sideloading lesson warns about: a signature vouches for the file, not for its accessing LSASS. Option d misidentifies what Event ID 10 records (process access, not CPU)."
+        "explanation": "LSASS holds cached credentials in memory, so a non-OS process opening it for read access (GrantedAccess 0x1010) is the signature of credential dumping — the attacker wants the hashes and Kerberos tickets to Pass-the-Hash / Pass-the-Ticket onward. The temp-folder origin makes it worse. The option “It is completely routine — ordinary programs…” is false — legitimate access to LSASS comes from the OS, not random binaries. The option “It only matters if the process is…” is the exact trap the sideloading lesson warns about: a signature vouches for the file, not for its accessing LSASS. The option “Sysmon Event ID 10 measures a process's…” misidentifies what Event ID 10 records (process access, not CPU)."
       },
       {
         "question": "An attacker runs 'powershell.exe -version 2 -enc <base64 blob>' on a host. Two separate choices in that one command line are attempts to evade detection. What are they?",
@@ -547,7 +547,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Downgrading to PowerShell v2 deliberately loads an engine that lacks Script Block Logging, blinding the 4104 event that would otherwise record the decoded code; and -enc wraps the real command in Base64 to slip past naive keyword matching. Option a misreads both flags. Option c is wrong twice: v2 weakens logging rather than improving security, and Script Block Logging records the code after decoding, so encoding does not defeat a properly configured host. Option d is false — PowerShell runs fine without either flag; their presence is itself suspicious."
+        "explanation": "Downgrading to PowerShell v2 deliberately loads an engine that lacks Script Block Logging, blinding the 4104 event that would otherwise record the decoded code; and -enc wraps the real command in Base64 to slip past naive keyword matching. The option “'-version 2' simply makes the script run…” misreads both flags. The option “'-version 2' upgrades the host's security posture…” is wrong twice: v2 weakens logging rather than improving security, and Script Block Logging records the code after decoding, so encoding does not defeat a properly configured host. The option “Neither flag has anything to do with…” is false — PowerShell runs fine without either flag; their presence is itself suspicious."
       },
       {
         "question": "You are reviewing a Windows Event ID 4688 record: Creator Process Name is WINWORD.EXE, New Process Name is powershell.exe, the Mandatory Label reads 'Medium Mandatory Level', and the Token Elevation Type shows a limited (non-elevated) token. What does this combination most likely tell you?",
@@ -570,7 +570,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Mandatory Label 'Medium Mandatory Level' plus a limited Token Elevation Type both say the same thing: this PowerShell process launched with ordinary standard-user privilege, no administrator elevation occurred. The alarming part of the record is not privilege escalation but the parent-child pairing (Word launching PowerShell) and the hidden, encoded command line. Option a inverts what a limited token means. Option c is false — Creator Process Name/ID is precisely how 4688 records the parent-child relationship. Option d is wrong; a blank Target Subject is the normal case for an ordinary process start and does not indicate corruption."
+        "explanation": "Mandatory Label 'Medium Mandatory Level' plus a limited Token Elevation Type both say the same thing: this PowerShell process launched with ordinary standard-user privilege, no administrator elevation occurred. The alarming part of the record is not privilege escalation but the parent-child pairing (Word launching PowerShell) and the hidden, encoded command line. The option “The PowerShell process must have escalated to…” inverts what a limited token means. The option “The event carries no relationship information at…” is false — Creator Process Name/ID is precisely how 4688 records the parent-child relationship. The option “The Target Subject must always match the…” is wrong; a blank Target Subject is the normal case for an ordinary process start and does not indicate corruption."
       },
       {
         "question": "You see a process named svchost.exe running from C:\\Users\\jsmith\\AppData\\Local\\Temp\\svchost.exe, with WINWORD.EXE as its parent and no -k argument on its command line. Why is this a strong indicator despite the trusted-looking name?",
@@ -593,7 +593,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "A real svchost.exe always satisfies three properties together: the exact System32 path, services.exe as its parent, and a -k argument naming a genuine service group. This process fails all three — wrong path, wrong parent (a maldoc chain), and no -k group — which is a far stronger signal than the trusted-sounding name. Option a describes why many LEGITIMATE svchost.exe copies exist, but does not excuse one with these specific mismatches. Option c invents a meaning for -k that is false; -k always names the service group being hosted. Option d is a dangerous trust-by-association fallacy — exactly the instinct the DLL sideloading section of this lesson already warned against."
+        "explanation": "A real svchost.exe always satisfies three properties together: the exact System32 path, services.exe as its parent, and a -k argument naming a genuine service group. This process fails all three — wrong path, wrong parent (a maldoc chain), and no -k group — which is a far stronger signal than the trusted-sounding name. The option “It isn't suspicious — Windows legitimately runs…” describes why many LEGITIMATE svchost.exe copies exist, but does not excuse one with these specific mismatches. The option “The absence of a -k flag is…” invents a meaning for -k that is false; -k always names the service group being hosted. The option “Because WINWORD.EXE is a legitimate Microsoft application…” is a dangerous trust-by-association fallacy — exactly the instinct the DLL sideloading section of this lesson already warned against."
       },
       {
         "question": "Process telemetry shows a write to HKCU\\Software\\Classes\\ms-settings\\shell\\open\\command by a standard, non-elevated user process, immediately followed by fodhelper.exe launching a child process at High integrity with no consent.exe prompt recorded anywhere in the timeline. What is the best interpretation?",
@@ -616,7 +616,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "fodhelper.exe is on Microsoft's auto-elevate list, so it can silently reach High integrity with no consent.exe prompt; several UAC bypasses abuse this by planting a hijacked command in a user-writable HKCU key the binary reads during that silent elevation, so the attacker's own process inherits the High-integrity token — exactly ATT&CK T1548.002. Option a ignores the specific registry path being one of the well-documented hijack points and the suspicious timing. Option c is false; consent.exe is exactly the mechanism most elevation is supposed to trigger, and its absence alongside a jump to High integrity is the red flag, not evidence of normal operation. Option d repeats the trust-by-signature fallacy this whole lesson has warned against — a trusted binary's own elevation says nothing about the legitimacy of what it was tricked into launching next."
+        "explanation": "fodhelper.exe is on Microsoft's auto-elevate list, so it can silently reach High integrity with no consent.exe prompt; several UAC bypasses abuse this by planting a hijacked command in a user-writable HKCU key the binary reads during that silent elevation, so the attacker's own process inherits the High-integrity token — exactly ATT&CK T1548.002. The option “This is expected behavior any time a…” ignores the specific registry path being one of the well-documented hijack points and the suspicious timing. The option “The missing consent.exe prompt simply means UAC…” is false; consent.exe is exactly the mechanism most elevation is supposed to trigger, and its absence alongside a jump to High integrity is the red flag, not evidence of normal operation. The option “Because fodhelper.exe is signed by Microsoft, any…” repeats the trust-by-signature fallacy this whole lesson has warned against — a trusted binary's own elevation says nothing about the legitimacy of what it was tricked into launching next."
       }
     ],
     "references": [

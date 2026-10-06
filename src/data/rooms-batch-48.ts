@@ -131,7 +131,7 @@ export const roomsBatch48 = [
           "Because a password reset performed by a help-desk agent is, by MITRE's own definition, always classified as all four tactics simultaneously regardless of what the resulting login is later used for"
         ],
         "answer": 0,
-        "explanation": "This reading states the reason for each of the four tactics directly: initial entry, surviving remediation, inherited privilege, and blending in as a legitimate login. MITRE does not apply a blanket four-tactic rule to every Initial Access technique (option b is invented and false -- most Initial Access techniques carry only one or two tactics). T1078 is one technique with sub-techniques for account type (Default/Domain/Local/Cloud), not four unrelated techniques sharing an ID (option c). Option d overstates the claim into an absolute rule this reading never makes."
+        "explanation": "This reading states the reason for each of the four tactics directly: initial entry, surviving remediation, inherited privilege, and blending in as a legitimate login. MITRE does not apply a blanket four-tactic rule to every Initial Access technique (that rule is invented and false -- most Initial Access techniques carry only one or two tactics). T1078 is one technique with sub-techniques for account type (Default/Domain/Local/Cloud), not four unrelated techniques sharing an ID. And the claim that a help-desk reset is always all four tactics by MITRE's definition overstates this into an absolute rule this reading never makes."
       },
       "xp": 5
     },
@@ -149,7 +149,7 @@ export const roomsBatch48 = [
           "An SMS one-time-passcode requirement that the attacker bypassed using T1078 (Valid Accounts) before ever contacting MGM's help desk at all"
         ],
         "answer": 0,
-        "explanation": "This reading states the weakness directly: KBA relying on answers findable through public sources, with T1589/T1591 named as the reconnaissance techniques that gather exactly that information in advance. This reading never describes a stolen hardware key (option b), a biometric voice system (option c -- and this room's later reading is explicit that voice itself should never be treated as a verification method), or an SMS bypass preceding the call (option d, which also misuses T1078 as a bypass technique rather than the resulting access)."
+        "explanation": "This reading states the weakness directly: KBA relying on answers findable through public sources, with T1589/T1591 named as the reconnaissance techniques that gather exactly that information in advance. This reading never describes a stolen hardware key, a biometric voice system (and this room's later reading is explicit that voice itself should never be treated as a verification method), or an SMS bypass preceding the call (that option also misuses T1078 as a bypass technique rather than the resulting access)."
       },
       "xp": 5
     },
@@ -167,7 +167,7 @@ export const roomsBatch48 = [
           "The deepfake call was the very first stage of the Retool incident, with no smishing or any other message ever sent to any employee at any point before this call took place"
         ],
         "answer": 0,
-        "explanation": "This reading states the significance directly: a cloned voice resembling a real, specific colleague, familiar with real office details, kept the call credible enough that the employee -- despite growing suspicious -- still supplied one more MFA code. Retool's biometric building access (option b) is never mentioned or implied. This reading does not claim the deepfake was 'technically indistinguishable' in some absolute sense (option c). Option d reverses the actual sequence -- the smishing message with the fake identity-portal link came FIRST, and the deepfake call followed it."
+        "explanation": "This reading states the significance directly: a cloned voice resembling a real, specific colleague, familiar with real office details, kept the call credible enough that the employee -- despite growing suspicious -- still supplied one more MFA code. A biometric lock on Retool's building is never mentioned or implied. This reading does not claim the deepfake was 'technically indistinguishable' in some absolute sense. Calling the deepfake call the very first stage reverses the actual sequence -- the smishing message with the fake identity-portal link came FIRST, and the deepfake call followed it."
       },
       "xp": 5
     },
@@ -182,7 +182,7 @@ export const roomsBatch48 = [
         "T1589 (Gather Victim Identity Information) under Reconnaissance (TA0043) for the LinkedIn research, and T1656 (Impersonation) under Initial Access (TA0001) for claiming to be the employee during the call"
       ],
       "answer": 0,
-      "explanation": "This room's attack-flow reading assigns these two steps exactly this way: LinkedIn-based research is T1589 (Gather Victim Identity Information) under Reconnaissance (TA0043), and claiming to be a real employee on the call is T1656 (Impersonation) under Defense Evasion (TA0005). Option b gets the research right but maps the call to T1078 (Valid Accounts), which describes USING credentials after they are obtained, not the act of impersonating someone to get them. Option c treats passive LinkedIn research as T1598.004, an active phishing-for-information technique that requires contacting the target. Option d has both techniques right but assigns T1656 to the wrong tactic -- ATT&CK lists Impersonation under Defense Evasion.",
+      "explanation": "This room's attack-flow reading assigns these two steps exactly this way: LinkedIn-based research is T1589 (Gather Victim Identity Information) under Reconnaissance (TA0043), and claiming to be a real employee on the call is T1656 (Impersonation) under Defense Evasion (TA0005). The T1078 option gets the research right but maps the call to Valid Accounts, which describes USING credentials after they are obtained, not the act of impersonating someone to get them. The T1598.004 option treats passive LinkedIn research as Spearphishing Voice for information, an active phishing-for-information technique that requires contacting the target. The option placing T1656 under Initial Access has both techniques right but the wrong tactic -- ATT&CK lists Impersonation under Defense Evasion.",
       "xp": 25
     },
     {
@@ -229,7 +229,7 @@ export const roomsBatch48 = [
           "event.outcome and operationType, since a reset event recording a successful outcome is, by itself, sufficient proof that an administrator rather than the account holder performed it"
         ],
         "answer": 0,
-        "explanation": "This reading names exactly this pairing: a mismatch between initiatedBy.user.id and targetResources[0].id (someone else acted on the account) together with an administrative role present in initiatedBy.user.roles. riskLevelDuringSignIn and authenticationRequirement are sign-in log fields covering a later, separate event, not the reset action's actor (option b). deviceDetail.trustType and location describe the SIGN-IN that follows, not who performed the reset, and carry no such absolute rule (option c). event.outcome and operationType describe whether the action succeeded and what kind of change it was, not who initiated it (option d)."
+        "explanation": "This reading names exactly this pairing: a mismatch between initiatedBy.user.id and targetResources[0].id (someone else acted on the account) together with an administrative role present in initiatedBy.user.roles. riskLevelDuringSignIn and authenticationRequirement are sign-in log fields covering a later, separate event, not the reset action's actor. deviceDetail.trustType and location describe the SIGN-IN that follows, not who performed the reset, and carry no such absolute rule. event.outcome and operationType describe whether the action succeeded and what kind of change it was, not who initiated it."
       },
       "xp": 5
     },
@@ -247,7 +247,7 @@ export const roomsBatch48 = [
           "KBA is unreliable because it was deprecated by NIST in 2020 and is no longer a recognized verification method at all -- what resolves the case is any password reset performed outside business hours"
         ],
         "answer": 0,
-        "explanation": "This reading states the weakness precisely: KBA answers are exactly the kind of information T1589/T1591 reconnaissance gathers in advance, and the resolving control is a documented out-of-band check like a callback to a number already on file. KBA has nothing to do with hardware token cost (option b -- KBA is knowledge-based, not hardware-based, by definition). Language is never mentioned as a factor anywhere in this room (option c is invented). NIST has raised concerns about certain authenticator types over the years, but this reading never states KBA was formally 'deprecated,' and business hours are never named as a resolving fact in this room (option d)."
+        "explanation": "This reading states the weakness precisely: KBA answers are exactly the kind of information T1589/T1591 reconnaissance gathers in advance, and the resolving control is a documented out-of-band check like a callback to a number already on file. KBA has nothing to do with hardware token cost (KBA is knowledge-based, not hardware-based, by definition). Language is never mentioned as a factor anywhere in this room (the English-only claim is invented). NIST has raised concerns about certain authenticator types over the years, but this reading never states KBA was formally 'deprecated,' and business hours are never named as a resolving fact in this room."
       },
       "xp": 5
     },
@@ -262,7 +262,7 @@ export const roomsBatch48 = [
         "Incident A matches T1556.006 (Modify Authentication Process: MFA), visible in identity-administration audit logs; Incident B matches T1656 (Impersonation), visible in authentication/sign-in logs"
       ],
       "answer": 0,
-      "explanation": "This room's Twilio/Cisco reading covers exactly Incident A's pattern (calling the account owner directly to approve a push) as T1621, visible in authentication/sign-in logs. This room's MGM/Caesars reading covers exactly Incident B's pattern (calling the help desk to get someone else to act) as T1656 leading to T1078, visible in identity-administration audit logs. Option b has the right techniques but swaps the log sources: the push approval shows up at sign-in, while the admin-performed reset shows up in the audit log. Option c collapses the two flavors into one -- Incident B never involves the attacker generating MFA prompts, and this room's post-call-fingerprints reading is explicit that the two leave fingerprints in DIFFERENT log sources. Option d applies T1556.006, which covers modifying MFA configuration, to Incident A, where the existing MFA is satisfied by the victim rather than altered.",
+      "explanation": "This room's Twilio/Cisco reading covers exactly Incident A's pattern (calling the account owner directly to approve a push) as T1621, visible in authentication/sign-in logs. This room's MGM/Caesars reading covers exactly Incident B's pattern (calling the help desk to get someone else to act) as T1656 leading to T1078, visible in identity-administration audit logs. The option that swaps the log sources has the right techniques but the wrong logs: the push approval shows up at sign-in, while the admin-performed reset shows up in the audit log. Calling both incidents T1621 collapses the two flavors into one -- Incident B never involves the attacker generating MFA prompts, and this room's post-call-fingerprints reading is explicit that the two leave fingerprints in DIFFERENT log sources. The T1556.006 option applies Modify Authentication Process (MFA configuration changes) to Incident A, where the existing MFA is satisfied by the victim rather than altered.",
       "xp": 25
     },
     {
@@ -279,7 +279,7 @@ export const roomsBatch48 = [
           "An MFA-disable event performed by the account holder themselves (self-service), followed by a sign-in from that same account's own previously known device"
         ],
         "answer": 0,
-        "explanation": "The pseudocode's three conditions are exactly this: an admin-role reset or MFA-disable operation, a bounded time window (4 hours in the example), and a subsequent sign-in whose device or country does not match the account's baseline. Option b drops the admin-actor and anomaly conditions entirely, which would make the rule fire constantly on routine activity. Option c drops the same-account join, which the pseudocode's 'on $left.TargetUser == $right.UserPrincipalName' line explicitly requires. Option d describes a routine, self-service, no-anomaly case -- the opposite of what this rule is built to catch."
+        "explanation": "The pseudocode's three conditions are exactly this: an admin-role reset or MFA-disable operation, a bounded time window (4 hours in the example), and a subsequent sign-in whose device or country does not match the account's baseline. 'Any password reset at all' drops the admin-actor and anomaly conditions entirely, which would make the rule fire constantly on routine activity. The new-device-before-or-after option drops the same-account join, which the pseudocode's 'on $left.TargetUser == $right.UserPrincipalName' line explicitly requires. A self-service MFA-disable followed by a sign-in from a known device is a routine, no-anomaly case -- the opposite of what this rule is built to catch."
       },
       "xp": 5
     },
@@ -297,7 +297,7 @@ export const roomsBatch48 = [
           "Disabling all remote help-desk password resets permanently, because the advisory states in-person-only identity verification is the sole mitigation it recommends for any organization"
         ],
         "answer": 0,
-        "explanation": "This reading quotes the advisory directly: phishing-resistant MFA (FIDO/WebAuthn or PKI-based) is resistant to phishing and not susceptible to push bombing or SIM swap attacks. This reading explicitly warns AGAINST trusting voice as a verification method at all (option b is the opposite of this reading's point, and no such CISA claim exists). No 24-hour waiting period is mentioned anywhere in this room (option c is invented). The advisory does not call for eliminating remote resets entirely (option d overstates it into a claim this reading never makes)."
+        "explanation": "This reading quotes the advisory directly: phishing-resistant MFA (FIDO/WebAuthn or PKI-based) is resistant to phishing and not susceptible to push bombing or SIM swap attacks. This reading explicitly warns AGAINST trusting voice as a verification method at all (a voice-biometric check is the opposite of this reading's point, and no such CISA claim exists). No 24-hour waiting period is mentioned anywhere in this room (that option is invented). The advisory does not call for eliminating remote resets entirely (that option overstates it into a claim this reading never makes)."
       },
       "xp": 5
     },
@@ -312,7 +312,7 @@ export const roomsBatch48 = [
         "Whether Entra's risk engine scored the later sign-in as medium or high risk, since riskLevelDuringSignIn is the deciding field"
       ],
       "answer": 0,
-      "explanation": "This room's discriminator reading is explicit: the fact that actually resolves the case is whether a documented out-of-band verification occurred, not anything visible in the audit record alone. Device trust type, sign-in location, and Entra's risk score are useful corroborating signals from the sign-in log (option b, c, d), but a legitimate reset on a replacement phone or a trip can produce the same values, and an attacker can pass them -- so none of them settles the case without knowing what verification the help desk performed.",
+      "explanation": "This room's discriminator reading is explicit: the fact that actually resolves the case is whether a documented out-of-band verification occurred, not anything visible in the audit record alone. Device trust type, sign-in location, and Entra's risk score are useful corroborating signals from the sign-in log, but a legitimate reset on a replacement phone or a trip can produce the same values, and an attacker can pass them -- so none of them settles the case without knowing what verification the help desk performed.",
       "xp": 25
     },
     {
@@ -407,7 +407,7 @@ export const roomsBatch48 = [
             "azure.auditlogs.properties.result, since a value of \"success\" on this specific field appears exclusively on admin-initiated resets and never on any genuinely self-service reset event"
           ],
           "answer": 0,
-          "explanation": "This room's post-call-fingerprints reading names exactly this pairing: a mismatch between initiatedBy.user.id and targetResources[0].id, combined with an administrative role in initiatedBy.user.roles. event.outcome only records whether the action succeeded or failed, not who performed it, and carries no such rule (option b). operationType records the kind of change (Update, Delete, Add), not who initiated it, and this room never states any self-service-versus-admin split tied to that field (option c). azure.auditlogs.properties.result records the same success/failure fact as event.outcome and, likewise, says nothing about the actor (option d).",
+          "explanation": "This room's post-call-fingerprints reading names exactly this pairing: a mismatch between initiatedBy.user.id and targetResources[0].id, combined with an administrative role in initiatedBy.user.roles. event.outcome only records whether the action succeeded or failed, not who performed it, and carries no such rule. operationType records the kind of change (Update, Delete, Add), not who initiated it, and this room never states any self-service-versus-admin split tied to that field. azure.auditlogs.properties.result records the same success/failure fact as event.outcome and, likewise, says nothing about the actor.",
           "xp": 20
         },
         {
@@ -419,7 +419,7 @@ export const roomsBatch48 = [
             "Contact r.castillo's mobile carrier directly to request a list of recent SIM card changes on his account, since this room names that as the only fact relevant to resolving this type of case"
           ],
           "answer": 0,
-          "explanation": "This room's discriminator reading is explicit that the deciding fact is whether a documented out-of-band verification occurred, and its post-call-fingerprints reading names correlating the reset against subsequent sign-in anomalies as the corroborating step -- exactly what this option does. Disabling the account outright (option b) skips the actual investigation this room teaches and treats a routine-shaped event as automatically confirmed without evidence. Closing the ticket with no check at all (option c) is the opposite failure this room warns against -- a legitimate-looking role does not make a reset automatically legitimate. Contacting the mobile carrier for SIM records (option d) is relevant to a SIM-swap-preceded case like Caesars, not to this scenario, and this room never names it as the universal next step for every case.",
+          "explanation": "This room's discriminator reading is explicit that the deciding fact is whether a documented out-of-band verification occurred, and its post-call-fingerprints reading names correlating the reset against subsequent sign-in anomalies as the corroborating step -- exactly what this option does. Disabling the account outright skips the actual investigation this room teaches and treats a routine-shaped event as automatically confirmed without evidence. Closing the ticket with no check at all is the opposite failure this room warns against -- a legitimate-looking role does not make a reset automatically legitimate. Contacting the mobile carrier for SIM records is relevant to a SIM-swap-preceded case like Caesars, not to this scenario, and this room never names it as the universal next step for every case.",
           "xp": 20
         }
       ]
@@ -487,7 +487,7 @@ export const roomsBatch48 = [
         "Out-of-band callback verification by the help desk before every password or MFA change"
       ],
       "answer": 0,
-      "explanation": "This room's hardening reading quotes CISA's own advisory directly: FIDO/WebAuthn or PKI-based MFA is resistant to phishing and not susceptible to push bombing or SIM swap attacks. Number-matching push (option b) blunts blind push approval but a caller can still talk the victim into typing the code, and TOTP (option c) avoids SIM swap yet is still a code an employee can read aloud to a caller. Callback verification (option d) is a strong help-desk control this room recommends, but it is an industry best practice rather than the authenticator CISA names, and it does not remove voice from the process.",
+      "explanation": "This room's hardening reading quotes CISA's own advisory directly: FIDO/WebAuthn or PKI-based MFA is resistant to phishing and not susceptible to push bombing or SIM swap attacks. Number-matching push blunts blind push approval but a caller can still talk the victim into typing the code, and TOTP avoids SIM swap yet is still a code an employee can read aloud to a caller. Callback verification is a strong help-desk control this room recommends, but it is an industry best practice rather than the authenticator CISA names, and it does not remove voice from the process.",
       "xp": 25
     },
     {

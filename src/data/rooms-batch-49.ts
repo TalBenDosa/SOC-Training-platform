@@ -137,7 +137,7 @@ export const roomsBatch49 = [
             "Because LOLBins are not actually pre-installed on Windows and must be downloaded first, which is what makes them appear trusted to a scanner"
           ],
           "answer": 0,
-          "explanation": "This reading states the mechanism directly: the LOLBin is genuinely the approved file, and the malicious content is carried as an argument, a scriptlet, or a fetched payload rather than as the binary being evaluated. There is no file-size threshold rule in application allowlisting (option b is invented). No such universal Microsoft exemption agreement exists (option c is invented). LOLBins are pre-installed components of Windows itself, not downloaded add-ons (option d is false and contradicts this reading's opening paragraph)."
+          "explanation": "This reading states the mechanism directly: the LOLBin is genuinely the approved file, and the malicious content is carried as an argument, a scriptlet, or a fetched payload rather than as the binary being evaluated. There is no file-size threshold rule in application allowlisting (the 10 MB threshold is invented). No such universal Microsoft exemption agreement exists (that 'industry-wide agreement' is invented). LOLBins are pre-installed components of Windows itself, not downloaded add-ons (the claim that they must be downloaded first is false and contradicts this reading's opening paragraph)."
         },
         "xp": 5
       },
@@ -155,7 +155,7 @@ export const roomsBatch49 = [
             "It sees a Mark-of-the-Web flag already attached to the HTML file itself, which this reading states is what suppresses the gateway's scanning behavior entirely"
           ],
           "answer": 0,
-          "explanation": "This reading is explicit: the network-crossing artifact is an ordinary HTML document with script, not a recognizable payload file type -- the payload only becomes a file locally, in the browser, after the network chokepoint. Gateways commonly do scan many file types by default; the point here is that HTML is not treated as high-risk, not that scanning is universally absent (option b overstates and misattributes the mechanism). TLS encryption is not the mechanism this reading describes at all (option c is invented). Mark-of-the-Web is a Windows download-tagging feature relevant to what happens after a file lands on disk, not something that suppresses gateway scanning of network traffic (option d confuses the two distinct layers this reading is careful to separate)."
+          "explanation": "This reading is explicit: the network-crossing artifact is an ordinary HTML document with script, not a recognizable payload file type -- the payload only becomes a file locally, in the browser, after the network chokepoint. Gateways commonly do scan many file types by default; the point here is that HTML is not treated as high-risk, not that scanning is universally absent (the 'gateway not configured to scan' option overstates and misattributes the mechanism). TLS encryption is not the mechanism this reading describes at all (the 'undecryptable TLS' explanation is invented). Mark-of-the-Web is a Windows download-tagging feature relevant to what happens after a file lands on disk, not something that suppresses gateway scanning of network traffic (the Mark-of-the-Web option confuses the two distinct layers this reading is careful to separate)."
         },
         "xp": 5
       },
@@ -173,7 +173,7 @@ export const roomsBatch49 = [
             "Stage 4, VaporRage -- the in-memory shellcode downloader is itself a renamed copy of msiexec.exe"
           ],
           "answer": 0,
-          "explanation": "This reading states this directly: NativeZone, Stage 3 of the chain, is loaded and run using rundll32.exe. EnvyScout (Stage 1) is an HTML file opened by the browser, not executed via mshta.exe (option b is invented). BoomBox (Stage 2) is described as a downloader profiling the host and exfiltrating via Dropbox, with no regsvr32.exe role mentioned (option c is invented). VaporRage (Stage 4) is a shellcode downloader, not a renamed system binary (option d is invented)."
+          "explanation": "This reading states this directly: NativeZone, Stage 3 of the chain, is loaded and run using rundll32.exe. EnvyScout (Stage 1) is an HTML file opened by the browser, not executed via mshta.exe (the mshta.exe claim is invented). BoomBox (Stage 2) is described as a downloader profiling the host and exfiltrating via Dropbox, with no regsvr32.exe role mentioned (the regsvr32.exe claim is invented). VaporRage (Stage 4) is a shellcode downloader, not a renamed system binary (the renamed-msiexec claim is invented)."
         },
         "xp": 5
       },
@@ -191,7 +191,7 @@ export const roomsBatch49 = [
             "HTML Smuggling was invented in June 2022 specifically by QakBot's developers, making it unavailable to any other threat actor before that date"
           ],
           "answer": 0,
-          "explanation": "This reading names the cause directly: Microsoft's default macro-blocking change closed off the prior delivery route, and container files followed by HTML Smuggling filled the gap. No arrest or codebase rewrite is mentioned in this reading (option b is invented). Signature-based blocking of 'every possible macro' is not how antivirus detection works and is not claimed here (option c is invented). HTML Smuggling, as this room's earlier reading and the NOBELIUM case already established, predates QakBot's 2022 shift by at least a year (option d contradicts this room's own chronology)."
+          "explanation": "This reading names the cause directly: Microsoft's default macro-blocking change closed off the prior delivery route, and container files followed by HTML Smuggling filled the gap. No arrest or codebase rewrite is mentioned in this reading (the arrest-and-rewrite story is invented). Signature-based blocking of 'every possible macro' is not how antivirus detection works and is not claimed here (the 'signature for every macro' claim is invented). HTML Smuggling, as this room's earlier reading and the NOBELIUM case already established, predates QakBot's 2022 shift by at least a year (the 'invented in June 2022' claim contradicts this room's own chronology)."
         },
         "xp": 5
       },
@@ -206,7 +206,7 @@ export const roomsBatch49 = [
           "A Mark-of-the-Web bypass is the first delivery stage, getting the container past SmartScreen, and HTML Smuggling then runs the payload from inside that container"
         ],
         "answer": 0,
-        "explanation": "This room's HTML Smuggling reading is explicit about this exact distinction: HTML Smuggling operates at the network-delivery layer, before Mark-of-the-Web or SmartScreen get a chance to matter; the Mark-of-the-Web bypass this platform's Commodity Initial-Access room covers operates after the file has already landed. The Zone.Identifier stream is applied when the browser writes the file, and HTML Smuggling does not remove it -- the two techniques act at different layers, with different jobs (option b swaps them). They are not alternatives for a single stage (option c), and the order is reversed in option d: smuggling comes first, since the file must be delivered before any warning could be bypassed.",
+        "explanation": "This room's HTML Smuggling reading is explicit about this exact distinction: HTML Smuggling operates at the network-delivery layer, before Mark-of-the-Web or SmartScreen get a chance to matter; the Mark-of-the-Web bypass this platform's Commodity Initial-Access room covers operates after the file has already landed. The Zone.Identifier stream is applied when the browser writes the file, and HTML Smuggling does not remove it -- the two techniques act at different layers, with different jobs (the option that has HTML Smuggling stripping Zone.Identifier swaps them). Nor do they split one stage between the email gateway and the proxy as alternatives, and making the Mark-of-the-Web bypass the first stage reverses the order: smuggling comes first, since the file must be delivered before any warning could be bypassed.",
         "xp": 25
       },
       {
@@ -223,7 +223,7 @@ export const roomsBatch49 = [
             "T1127 covers macOS and Linux exclusively, and MITRE's tactic-assignment rules automatically double every cross-platform technique's tactic count for that reason alone"
           ],
           "answer": 0,
-          "explanation": "This reading states the reasoning directly, and is explicit that this is a formal-tagging distinction rather than a claim that T1218's sub-techniques lack an execution purpose. T1127 and T1218 are documented as separate, distinct techniques covering different binary families, not a duplication (option b is invented). Administrator privileges are not the basis for tactic assignment described anywhere in this reading (option c is invented). T1127's example utilities (MSBuild, WinDbg/CDB, Tracker.exe) are Windows-specific in this reading, and no such automatic cross-platform tactic-doubling rule exists in MITRE ATT&CK (option d is invented)."
+          "explanation": "This reading states the reasoning directly, and is explicit that this is a formal-tagging distinction rather than a claim that T1218's sub-techniques lack an execution purpose. T1127 and T1218 are documented as separate, distinct techniques covering different binary families, not a duplication (the 'clerical duplication' claim is invented). Administrator privileges are not the basis for tactic assignment described anywhere in this reading (the administrator-privileges explanation is invented). T1127's example utilities (MSBuild, WinDbg/CDB, Tracker.exe) are Windows-specific in this reading, and no such automatic cross-platform tactic-doubling rule exists in MITRE ATT&CK (the automatic tactic-doubling rule is invented)."
         },
         "xp": 5
       },
@@ -241,7 +241,7 @@ export const roomsBatch49 = [
             "The specific domain name 'attacker-host', since this reading states that exact domain is the only one ever used across every documented mshta.exe abuse case"
           ],
           "answer": 0,
-          "explanation": "This reading's closing point is exactly this: the command line -- a script-protocol prefix plus a remote URL -- is the tell, not the process name, since mshta.exe itself is a completely legitimate, signed Windows component (option b is false and contradicts this reading's own framing). Nothing in this reading claims Windows blocks .sct references outright (option c is invented -- the entire abuse pattern relies on .sct files loading successfully). 'attacker-host' is a placeholder in this reading's example command, not a real, singular domain named across every case (option d misreads the example as a specific claim)."
+          "explanation": "This reading's closing point is exactly this: the command line -- a script-protocol prefix plus a remote URL -- is the tell, not the process name, since mshta.exe itself is a completely legitimate, signed Windows component (the 'inherently malicious' claim is false and contradicts this reading's own framing). Nothing in this reading claims Windows blocks .sct references outright (the claim that Windows blocks .sct references is invented -- the entire abuse pattern relies on .sct files loading successfully). 'attacker-host' is a placeholder in this reading's example command, not a real, singular domain named across every case (the 'attacker-host' option misreads the example as a specific claim)."
         },
         "xp": 5
       },
@@ -259,7 +259,7 @@ export const roomsBatch49 = [
             "It disables Windows Defender entirely by modifying a registry key, which this reading identifies as the true and complete purpose of the /u flag in this specific command"
           ],
           "answer": 0,
-          "explanation": "This reading states the mechanism directly: the /i:URL flag fetches a scriptlet and hands it to scrobj.dll for execution, and the /u /n combination means nothing is genuinely registered, which is exactly why no persistent DLL-registration trace is left in the registry. No hidden undocumented registry key is described (option b is invented). This reading names real, documented threat-actor usage (APT32, Cobalt Group, Emotet, QakBot, Lazarus Group, Storm-0501), directly contradicting any claim that the technique is purely theoretical (option c). Disabling Windows Defender is not what this command does, and is not what /u means (option d is invented)."
+          "explanation": "This reading states the mechanism directly: the /i:URL flag fetches a scriptlet and hands it to scrobj.dll for execution, and the /u /n combination means nothing is genuinely registered, which is exactly why no persistent DLL-registration trace is left in the registry. No hidden undocumented registry key is described (the hidden-registry-key claim is invented). This reading names real, documented threat-actor usage (APT32, Cobalt Group, Emotet, QakBot, Lazarus Group, Storm-0501), directly contradicting any claim that the technique is purely theoretical. Disabling Windows Defender is not what this command does, and is not what /u means (the Defender-disabling claim is invented)."
         },
         "xp": 5
       },
@@ -274,7 +274,7 @@ export const roomsBatch49 = [
           "T1218.005 (Mshta) -- loading a .sct scriptlet from a URL is the mshta.exe scriptlet pattern, recognizable by the .sct file extension"
         ],
         "answer": 0,
-        "explanation": "This is exactly the Squiblydoo shape this room's regsvr32 reading described: a remote URL, scrobj.dll rather than a real application DLL, and no installer ancestry. explorer.exe is the normal parent of anything a user double-clicks, including a downloaded file that launches the LOLBin -- so it does not make the command routine, and a self-install would reference a local DLL path rather than a remote URL (option b). The binary being run is regsvr32.exe, not rundll32.exe (option c). The .sct scriptlet pattern is shared across several LOLBins, so the extension does not identify mshta.exe; the binary and /i: syntax here are regsvr32's (option d).",
+        "explanation": "This is exactly the Squiblydoo shape this room's regsvr32 reading described: a remote URL, scrobj.dll rather than a real application DLL, and no installer ancestry. explorer.exe is the normal parent of anything a user double-clicks, including a downloaded file that launches the LOLBin -- so it does not make the command routine, and a self-install would reference a local DLL path rather than a remote URL, so the 'routine self-install' reading fails. The binary being run is regsvr32.exe, not rundll32.exe, so it is not a Rundll32 variant. The .sct scriptlet pattern is shared across several LOLBins, so the extension does not identify mshta.exe; the binary and /i: syntax here are regsvr32's, not mshta's.",
         "xp": 25
       },
       {
@@ -291,7 +291,7 @@ export const roomsBatch49 = [
             "VaporRage, the Stage-4 shellcode downloader, which this reading states is a renamed copy of rundll32.exe rather than its own distinct component"
           ],
           "answer": 0,
-          "explanation": "This reading draws the connection explicitly to NativeZone, Stage 3, which this room's NOBELIUM reading already established runs via rundll32.exe. EnvyScout is opened directly by the browser as an HTML file, not via rundll32.exe (option b contradicts the earlier reading). BoomBox's exfiltration channel is Dropbox with a hardcoded access token, with no rundll32.exe transport role described (option c is invented). VaporRage is described as its own distinct shellcode-downloader component, not a renamed rundll32.exe (option d is invented)."
+          "explanation": "This reading draws the connection explicitly to NativeZone, Stage 3, which this room's NOBELIUM reading already established runs via rundll32.exe. EnvyScout is opened directly by the browser as an HTML file, not via rundll32.exe (the EnvyScout option contradicts the earlier reading). BoomBox's exfiltration channel is Dropbox with a hardcoded access token, with no rundll32.exe transport role described (the BoomBox-transport claim is invented). VaporRage is described as its own distinct shellcode-downloader component, not a renamed rundll32.exe (the renamed-rundll32 claim is invented)."
         },
         "xp": 5
       },
@@ -373,7 +373,7 @@ export const roomsBatch49 = [
           "msiexec.exe /fa C:\\Windows\\Installer\\{GUID}.msi -- repairing an installed application from its cached installer database entry"
         ],
         "answer": 0,
-        "explanation": "This room's rundll32/msiexec reading names the installation SOURCE as the key discriminator: a routine install references a known, catalogued repository or vendor location, while an abused invocation references an MSI from an unexpected network location with no established relationship to the organization. Option a is exactly that unfamiliar remote source. Option b is also a network path and also silent, but the source is the organization's own known software share -- a catalogued repository, which this reading treats as routine. Option c installs from the local SCCM cache, a recognized deployment tool's directory. Option d is a repair that references Windows' own local installer cache, which this reading does not treat as suspicious on its own.",
+        "explanation": "This room's rundll32/msiexec reading names the installation SOURCE as the key discriminator: a routine install references a known, catalogued repository or vendor location, while an abused invocation references an MSI from an unexpected network location with no established relationship to the organization. The silent install from http://185.221.20.44 is exactly that unfamiliar remote source. The FS01 software-share install is also a network path and also silent, but the source is the organization's own known software share -- a catalogued repository, which this reading treats as routine. The SCCM-cache install comes from the local SCCM cache, a recognized deployment tool's directory. The /fa command is a repair that references Windows' own local installer cache, which this reading does not treat as suspicious on its own.",
         "xp": 25
       },
       {
@@ -455,7 +455,7 @@ export const roomsBatch49 = [
               "winlog.event_data.Hashes contains a SHA256 value, and this room's readings state the mere presence of a hash field is itself the indicator of malicious activity"
             ],
             "answer": 0,
-            "explanation": "This room's regsvr32 reading names exactly this pairing: the /i:URL flag with scrobj.dll as the target, combined with the absence of any installer ancestry, is the Squiblydoo shape. SignatureStatus \"Valid\" is expected and correct here -- regsvr32.exe genuinely is signed by Microsoft; the binary being legitimate is precisely why the command line, not the signature, is what matters (option b inverts the room's own point). Medium integrity is the normal, default integrity level for a standard user's processes, not an anomaly (option c is invented). Every Sysmon process-creation event includes a Hashes field for the executed image as standard practice -- its mere presence signifies nothing (option d is invented).",
+            "explanation": "This room's regsvr32 reading names exactly this pairing: the /i:URL flag with scrobj.dll as the target, combined with the absence of any installer ancestry, is the Squiblydoo shape. SignatureStatus \"Valid\" is expected and correct here -- regsvr32.exe genuinely is signed by Microsoft; the binary being legitimate is precisely why the command line, not the signature, is what matters (the SignatureStatus option inverts the room's own point). Medium integrity is the normal, default integrity level for a standard user's processes, not an anomaly (the Medium-integrity claim is invented). Every Sysmon process-creation event includes a Hashes field for the executed image as standard practice -- its mere presence signifies nothing (the hash-field claim is invented).",
             "xp": 20
           },
           {
@@ -467,7 +467,7 @@ export const roomsBatch49 = [
               "Contact r.esposito to ask if they recall registering a DLL themselves recently, and close the case as resolved based solely on their verbal answer with no log correlation"
             ],
             "answer": 0,
-            "explanation": "This room's detection reading is explicit that outbound network activity following a LOLBin proxy-execution pattern is a key corroborating signal, visible in proxy/firewall/DNS logs -- exactly the pivot this option describes, paired with isolating the host as a reasonable containment step while that pivot runs. Treating a valid signature as proof of innocence repeats the exact misunderstanding this room's readings correct throughout (option b). Wiping the host with no corroborating investigation skips the evidence-gathering this room teaches, and destroys forensic value (option c). Relying solely on the user's unverified recollection, with no log correlation, is the same undocumented-verification failure this platform's other rooms warn against (option d).",
+            "explanation": "This room's detection reading is explicit that outbound network activity following a LOLBin proxy-execution pattern is a key corroborating signal, visible in proxy/firewall/DNS logs -- exactly the pivot this option describes, paired with isolating the host as a reasonable containment step while that pivot runs. Treating a valid signature as proof of innocence repeats the exact misunderstanding this room's readings correct throughout (the 'take no further action' option). Wiping the host with no corroborating investigation skips the evidence-gathering this room teaches, and destroys forensic value (the immediate-reimage option). Relying solely on the user's unverified recollection, with no log correlation, is the same undocumented-verification failure this platform's other rooms warn against (the 'ask the user and close' option).",
             "xp": 20
           }
         ]
@@ -486,7 +486,7 @@ export const roomsBatch49 = [
             "Without it, the rule would only be able to run once every 24 hours, since this reading states parent-process exclusions are what allow a correlation rule to run more frequently"
           ],
           "answer": 0,
-          "explanation": "This reading states the reasoning directly: the exclusion filters out the routine installer-driven cases that would otherwise flood the rule with noise and risk alert fatigue. msiexec.exe is not described as a required parent for malicious cases -- quite the opposite, it is the routine, legitimate parent this rule is designed to exclude (option b inverts the reading's point). The pseudocode's syntax is valid KQL with no such dependency described (option c is invented). Query run frequency has nothing to do with parent-process exclusions in this reading (option d is invented)."
+          "explanation": "This reading states the reasoning directly: the exclusion filters out the routine installer-driven cases that would otherwise flood the rule with noise and risk alert fatigue. msiexec.exe is not described as a required parent for malicious cases -- quite the opposite, it is the routine, legitimate parent this rule is designed to exclude (the 'msiexec.exe is a required parent' option inverts the reading's point). The pseudocode's syntax is valid KQL with no such dependency described (the KQL-syntax-error claim is invented). Query run frequency has nothing to do with parent-process exclusions in this reading (the once-every-24-hours claim is invented)."
         },
         "xp": 5
       },
@@ -550,15 +550,15 @@ export const roomsBatch49 = [
       {
         "type": "question" as const,
         "id": "hsl-q4",
-        "question": "An analyst is building a detection rule for T1218 (System Binary Proxy Execution) abuse and wants to avoid re-teaching content this platform's Commodity Initial-Access room already covers in depth. Per this room, which TWO techniques should the analyst treat as cross-referenced background rather than re-derive from scratch, and why?",
+        "question": "You are investigating a host where rundll32.exe, launched by explorer.exe, proxy-executed a DLL from a mounted ISO a few minutes after the user opened an HTML email attachment. Per this room's detection reading, which telemetry most directly links the HTML-smuggled container's arrival to that later LOLBin execution, end to end?",
         "options": [
-          "T1204.002 (User Execution: Malicious File) and T1105 (Ingress Tool Transfer) -- connective steps in this room's chain whose mechanics the Commodity Initial-Access room already covers in depth",
-          "T1027.006 (HTML Smuggling) and T1204.002 (User Execution: Malicious File) -- both open the delivery chain, so the Commodity Initial-Access room already covers them in depth",
-          "T1218.011 (Rundll32) and T1218.007 (Msiexec) -- both are proxy-execution neighbors of T1218, so the Commodity Initial-Access room already covers them in depth",
-          "T1127 (Trusted Developer Utilities Proxy Execution) and T1105 (Ingress Tool Transfer) -- both sit outside the four core binaries, so the Commodity Initial-Access room already covers them in depth"
+          "A file-creation event for the freshly written ISO carrying a Zone.Identifier alternate data stream with ZoneId=3, followed shortly on the same host by one of this room's LOLBin execution patterns",
+          "The proxy or firewall log entry for the ISO download itself, since HTML Smuggling transfers the ISO across the network as a distinct file the gateway can inspect and hash",
+          "An ISO with NO Zone.Identifier stream at all, since HTML Smuggling strips Mark-of-the-Web from the container at the moment the browser writes it to disk",
+          "A failed Authenticode signature check on rundll32.exe, since a signed Windows binary loses its valid Microsoft signature once it proxy-executes attacker code"
         ],
         "answer": 0,
-        "explanation": "This room's ordering task and its supporting readings are explicit that T1204.002 and T1105 are the connective steps in the delivery chain, cross-linked to this platform's Commodity Initial-Access room rather than re-taught in depth here. T1027.006 (HTML Smuggling) is taught in this room's own delivery readings, so it is not background (option b). T1218.011 and T1218.007 are two of this room's four core, in-depth LOLBin subjects (option c). T1127 is only mentioned as a sibling family and is not covered by the Commodity room, so pairing it with T1105 is only half right (option d).",
+        "explanation": "This room's detection reading names exactly this as its fourth, cross-referenced tell: the file-creation event for an HTML-smuggled ISO or ZIP typically carries a Zone.Identifier stream with ZoneId=3 (downloaded from the internet), and seeing that artifact on a freshly created container followed shortly by a LOLBin pattern is a strong end-to-end correlation across both techniques. The gateway cannot hand you the ISO as a file: HTML Smuggling's whole point is that the payload is assembled from script inside the HTML in the browser and never crosses the network as a distinguishable file. Nor does it strip Mark-of-the-Web -- the room's HTML Smuggling reading stresses that the Zone.Identifier stream is applied when the browser writes the file and HTML Smuggling does not remove it; that is a separate technique (T1553.005) covered in the Commodity Initial-Access room. And rundll32.exe stays a validly signed Microsoft binary throughout -- that trusted signature is precisely why attackers proxy execution through it.",
         "xp": 25
       },
       {

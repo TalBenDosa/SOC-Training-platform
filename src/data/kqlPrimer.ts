@@ -16,7 +16,7 @@ export const KQL_PRIMER =
   "**KQL in 90 seconds** — Kusto Query Language (KQL) is the query language Microsoft " +
   "Sentinel and Defender XDR use to search log tables. A query names a table and pipes " +
   "(`|`) its rows left-to-right through operators:\n\n" +
-  "- `where` filters rows by a condition — e.g. `where SPFResult == \"Fail\"`. Use `==` / `!=` " +
+  "- `where` filters rows by a condition — e.g. `where DeliveryAction == \"Delivered\"`. Use `==` / `!=` " +
   "for an exact match, `has` for a whole word, `contains` for a substring, `startswith` / `endswith` for edges.\n" +
   "- `summarize` aggregates — e.g. `summarize attempts = count(), targets = dcount(TargetAccount) by SourceIP`. " +
   "`count()` counts rows; `dcount()` counts DISTINCT values (that is how you catch \"one source, many targets\" " +

@@ -111,7 +111,7 @@ const firewallMasterclass = {
         `**Why stateless filtering is still used today**\n\n` +
         `Despite its limitations, stateless packet filtering survives in modern networks for a simple reason: speed. ACL processing is extremely fast and can be offloaded to dedicated hardware (ASICs) on routers and switches. Edge routers frequently use ACLs to perform coarse-grained filtering — blocking obviously malicious IP ranges, restricting management access to specific source IPs, or rate-limiting ICMP — before traffic even reaches the firewall. This reduces load on more sophisticated (and more expensive) inspection engines downstream.\n\n` +
         `**Classic bypass techniques**\n\n` +
-        `Because stateless filters trust only the header fields, attackers can abuse them in several ways. IP spoofing involves crafting packets with a forged source IP address. If a rule says "allow any traffic from 192.168.1.0/24," an attacker can set their source IP to 192.168.1.100 and the filter will pass the packet. Port manipulation is equally effective: many organizations configure ACLs to allow outbound traffic on port 53 (DNS) from any host. An attacker can configure their malware to send C2 traffic using source port 53, causing the filter to classify it as DNS and permit it. These weaknesses drove the development of stateful inspection.\n\n` +
+        `Because stateless filters trust only the header fields, attackers can abuse them in several ways. IP spoofing involves crafting packets with a forged source IP address. If a rule says "allow any traffic from 192.168.1.0/24," an attacker can set their source IP to 192.168.1.100 and the filter will pass the packet. Port manipulation is equally effective. A stateless filter cannot remember that an internal host sent a DNS query, so to let DNS replies back in, administrators often write an inbound rule that permits any UDP packet whose SOURCE port is 53. An attacker (or their C2 server) simply sends from source port 53, and the filter lets the packet reach any internal port, classifying it as a DNS reply. These weaknesses drove the development of stateful inspection.\n\n` +
         `**Reading ACL rules**\n\n` +
         `Cisco IOS syntax, still the most widely recognized format, follows the pattern: action, protocol, source, source-wildcard, destination, destination-wildcard, operator, port. Understanding this syntax lets you instantly evaluate whether a rule permits or blocks a given traffic flow — a skill tested regularly in incident investigations when you need to determine why a connection was allowed or denied.`,
       codeExample:
@@ -141,13 +141,22 @@ const firewallMasterclass = {
         `\n` +
         ` ! Implicit: deny ip any any  <-- this exists even if not written!\n` +
         `\n` +
-        `════════════════════════════════════════════════════════════════\n` +
-        `BYPASS EXAMPLES AGAINST THIS ACL:\n` +
+        `ip access-list extended INBOUND-FROM-INTERNET\n` +
+        ` ! Rule 10: Let DNS replies back in (keyed on SOURCE port 53;\n` +
+        ` !          "eq 53" placed after the SOURCE matches the source port)\n` +
+        ` 10  permit udp any eq 53 10.0.0.0 0.255.255.255\n` +
         `\n` +
-        `  Attack: C2 malware sets source port = 53\n` +
-        `  Packet: src=10.0.3.88:53 dst=185.220.101.47:4444 proto=UDP\n` +
-        `  Result: Rule 10 MATCHES (udp from 10.x.x.x, source port=53)\n` +
-        `  ---> PERMITTED  (stateless filter cannot distinguish real DNS)\n` +
+        `════════════════════════════════════════════════════════════════\n` +
+        `BYPASS EXAMPLES AGAINST THESE ACLs:\n` +
+        `\n` +
+        `  Attack: C2 server sends from source port = 53\n` +
+        `  Packet: src=203.0.113.47:53 dst=10.0.3.88:4444 proto=UDP\n` +
+        `  Result: INBOUND Rule 10 MATCHES (udp, source port=53, dst 10.x.x.x)\n` +
+        `  ---> PERMITTED  (stateless filter cannot tell a real DNS reply\n` +
+        `                  from any packet sent from port 53)\n` +
+        `  Note: OUTBOUND Rule 10 would NOT match a packet with source\n` +
+        `        port 53 — its "eq 53" follows the destination, so it\n` +
+        `        matches DESTINATION port 53 only.\n` +
         `\n` +
         `  Attack: Attacker spoofs IP 10.0.1.25 to relay through SMTP rule\n` +
         `  Packet: src=10.0.1.25 dst=attacker:25 proto=TCP\n` +

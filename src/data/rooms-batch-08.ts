@@ -123,9 +123,9 @@ The same threat actor often has different names from different security companie
 - **KITTEN** = Iran (Charming Kitten, Phosphorus)
 - **CHOLLIMA** = North Korea (Labyrinth Chollima = Lazarus Group)
 
-**MITRE** uses numbered designations: **APT28** (Russian GRU), **APT29** (Russian SVR/FSB), **APT41** (Chinese dual espionage/crime group), **APT34** (Iranian MOIS).
+**Mandiant/Google** (formerly FireEye) created the numbered **APT##** designations: **APT28** (Russian GRU), **APT29** (Russian SVR), **APT41** (Chinese dual espionage/crime group), **APT34** (Iranian MOIS). It also uses UNC groups for uncategorised clusters and FIN groups like **FIN7** (cybercriminal), **FIN11** (ransomware).
 
-**Mandiant/Google** (formerly FireEye) uses UNC groups for uncategorised clusters and named groups like **FIN7** (cybercriminal), **FIN11** (ransomware).
+**MITRE ATT&CK** reuses common names such as APT28/APT29 as group names, but assigns its own **Group IDs**: APT28 = **G0007**, APT29 = **G0016**. When someone asks for the ATT&CK *ID*, they mean the G-number.
 
 **Microsoft** has moved to weather-themed names: **Midnight Blizzard** (Russia), **Volt Typhoon** (China), **Peach Sandstorm** (Iran).
 
@@ -188,7 +188,7 @@ Not all IOCs are equal. Each indicator should carry a **confidence score** (high
 
 - **TLP:RED** — for named recipients only. Do not share outside the individuals you received it from, not even with the rest of your team.
 - **TLP:AMBER+STRICT** — share **within your organisation only**. This level exists specifically to say "not your clients, not your partners, not your sector peers" — the restriction that plain AMBER leaves ambiguous.
-- **TLP:AMBER** — share within your organisation *and* with clients or partners who need it to protect themselves.
+- **TLP:AMBER** — share within your organisation *and* with its clients, on a need-to-know basis, so they can protect themselves. (Not sector peers — that is GREEN.)
 - **TLP:GREEN** — share within the broader community and with peer organisations, but not on a public channel.
 - **TLP:CLEAR** — unrestricted, can be published publicly.
 
@@ -196,7 +196,7 @@ One historical note that matters, because you will still meet it in older feeds 
 
 The distinction between AMBER and AMBER+STRICT is the one that trips people up in practice, and it is exactly the one that matters in an MSSP or a multi-client SOC: plain AMBER lets you warn your clients, AMBER+STRICT does not.
 
-A high-confidence IOC from a government source (e.g., CISA KEV) carries more weight than a low-confidence community-submitted indicator from OTX.
+A high-confidence IOC from a government source (e.g., a CISA joint cybersecurity advisory or CISA's Automated Indicator Sharing (AIS) feed) carries more weight than a low-confidence community-submitted indicator from OTX.
 
 ---
 
@@ -214,7 +214,7 @@ This is why tactical intelligence (TTPs) has longer shelf life than technical in
 
 When a SOC analyst opens a high-severity alert, the first question is "is this real?" CTI enrichment dramatically speeds up that determination. A good SIEM/SOAR platform will automatically query threat intel platforms when an alert fires and attach context:
 
-- "Source IP 185.220.101.45 — known C2 for APT29, first seen 2024-12-13, associated with SolarWinds SUNBURST campaign, confidence: HIGH, source: CISA KEV"
+- "Source IP 185.220.101.45 — known C2 for APT29, first seen 2024-12-13, associated with SolarWinds SUNBURST campaign, confidence: HIGH, source: CISA joint cybersecurity advisory (via AIS)"
 
 That context transforms a vague "suspicious outbound connection" alert into a confirmed, high-priority incident requiring immediate containment.
 
@@ -247,7 +247,7 @@ This is called the **detect → learn → improve** loop, and CTI is the fuel th
     {
       type: "question" as const,
       id: "threat-intel-q2",
-      question: "CrowdStrike labels a Russian APT group as 'FANCY BEAR.' What is the MITRE ATT&CK designation for this same group?",
+      question: "CrowdStrike labels a Russian APT group as 'FANCY BEAR.' Which APT name do Mandiant and MITRE ATT&CK use for this same group?",
       options: [
         "APT34",
         "APT41",
@@ -255,7 +255,7 @@ This is called the **detect → learn → improve** loop, and CTI is the fuel th
         "APT28",
       ],
       answer: 3,
-      explanation: "Fancy Bear = APT28 (Russian GRU military intelligence). Cozy Bear = APT29 (Russian SVR/FSB intelligence services). APT34 is Iranian, APT41 is Chinese. Different vendors use different names for the same group — knowing the naming conventions helps you correlate intelligence across reports from different sources.",
+      explanation: "Fancy Bear = APT28 (Russian GRU military intelligence). Cozy Bear = APT29 (Russian SVR foreign intelligence service). APT34 is Iranian, APT41 is Chinese. Different vendors use different names for the same group — knowing the naming conventions helps you correlate intelligence across reports from different sources.",
       xp: 30,
     },
 
@@ -266,12 +266,12 @@ This is called the **detect → learn → improve** loop, and CTI is the fuel th
       question: "What is TLP:AMBER in the Traffic Light Protocol (TLP) framework?",
       options: [
         "The indicator is fully public and can be shared anywhere, including on social media",
-        "The indicator can be shared inside your organisation and with trusted partners, but not publicly",
+        "The indicator can be shared inside your organisation and with its clients on a need-to-know basis, but not publicly",
         "The indicator is restricted to the named recipients in the original report",
         "The indicator can be shared only inside your own organisation, never with partners",
       ],
       answer: 1,
-      explanation: "TLP:AMBER means share within your organisation and with trusted partners (clients, sector peers) who need it to protect themselves — but do NOT post it publicly. Watch the neighbouring level: TLP:AMBER+STRICT means your organisation ONLY, with no onward sharing to clients or partners, which is the distinction that matters most in an MSSP. TLP:CLEAR is fully public (it replaced the retired TLP:WHITE in TLP 2.0). TLP:RED is named-recipients only. TLP exists to stop sensitive IOCs leaking to attackers who monitor public feeds.",
+      explanation: "TLP:AMBER means share within your organisation and with its clients, on a need-to-know basis, so they can protect themselves — but not with the wider community (sector-peer sharing is TLP:GREEN) and never publicly. Watch the neighbouring level: TLP:AMBER+STRICT means your organisation ONLY, with no onward sharing to clients or partners, which is the distinction that matters most in an MSSP. TLP:CLEAR is fully public (it replaced the retired TLP:WHITE in TLP 2.0). TLP:RED is named-recipients only. TLP exists to stop sensitive IOCs leaking to attackers who monitor public feeds.",
       xp: 30,
     },
 
@@ -279,8 +279,8 @@ This is called the **detect → learn → improve** loop, and CTI is the fuel th
     {
       type: "log_analysis" as const,
       id: "threat-intel-la1",
-      heading: "IOC Hit — CISA Known Exploited Vulnerabilities Feed Match",
-      context: "You are a Tier-1 SOC analyst. The SIEM has fired a Priority-1 alert at 09:47 UTC. Your threat intelligence platform automatically enriched the alert with data from the CISA KEV feed and CrowdStrike Intelligence. The matched event is below. Your job is to understand what happened and determine the correct response.",
+      heading: "IOC Hit — CISA Automated Indicator Sharing (AIS) Feed Match",
+      context: "You are a Tier-1 SOC analyst. The SIEM has fired a Priority-1 alert at 09:47 UTC. Your threat intelligence platform automatically enriched the alert with data from CISA's Automated Indicator Sharing (AIS) feed and CrowdStrike Intelligence. The matched event is below. Your job is to understand what happened and determine the correct response.",
       event: {
         id: "evt-ti-001",
         ts: "2025-06-24T09:47:13Z",
@@ -288,24 +288,24 @@ This is called the **detect → learn → improve** loop, and CTI is the fuel th
         event_type: "ioc_hit",
         severity: "critical",
         hostname: "CORP-DC01",
-        src_ip: "185.220.101.45",
-        dst_ip: "10.0.1.55",
-        description: "Outbound connection matched CISA KEV threat intel feed — APT29 C2 infrastructure",
+        src_ip: "10.0.1.55",
+        dst_ip: "185.220.101.45",
+        description: "Outbound connection matched CISA AIS threat intel feed — APT29 C2 infrastructure",
         mitre_technique: "T1071.001",
         raw: {
-          "rule.name": "CISA KEV IOC Match",
+          "rule.name": "CISA AIS IOC Match",
           "rule.level": "13",
           "data.indicator": "185.220.101.45",
           "data.indicator_type": "ip",
           "data.confidence": "high",
-          "data.source": "CISA Known Exploited Vulnerabilities",
+          "data.source": "CISA Automated Indicator Sharing (AIS)",
           "data.campaign": "APT29 SolarWinds",
           "data.actor": "Cozy Bear",
           "data.first_seen": "2024-12-13",
           "data.tlp": "CLEAR",
           "data.description": "C2 server associated with SolarWinds SUNBURST supply chain compromise",
-          "matched.srcip": "185.220.101.45",
-          "matched.dstip": "10.0.1.55",
+          "matched.srcip": "10.0.1.55",
+          "matched.dstip": "185.220.101.45",
           "matched.hostname": "CORP-DC01",
         },
       } satisfies TelemetryEvent,
@@ -319,7 +319,7 @@ This is called the **detect → learn → improve** loop, and CTI is the fuel th
             "Needs more investigation — confidence is only 'high', not 'certain'",
           ],
           answer: 2,
-          explanation: "A domain controller (the most sensitive server in an Active Directory environment) communicating with a known APT29 C2 server that is listed in the CISA KEV database with HIGH confidence is a critical incident. Domain controllers do NOT legitimately connect to external internet IPs. TLP:CLEAR means the indicator itself can be shared publicly — that is a statement about handling the intelligence, not about the severity of the incident it just matched. Sharing restrictions and incident severity are unrelated axes. 'High' confidence from a government source (CISA) is more than sufficient to treat this as a True Positive.",
+          explanation: "A domain controller (the most sensitive server in an Active Directory environment) communicating with a known APT29 C2 server that CISA published as a HIGH-confidence indicator is a critical incident. Domain controllers do NOT legitimately connect to external internet IPs. TLP:CLEAR means the indicator itself can be shared publicly — that is a statement about handling the intelligence, not about the severity of the incident it just matched. Sharing restrictions and incident severity are unrelated axes. 'High' confidence from a government source (CISA) is more than sufficient to treat this as a True Positive.",
           xp: 50,
         },
         {
@@ -341,9 +341,9 @@ This is called the **detect → learn → improve** loop, and CTI is the fuel th
     {
       type: "flag" as const,
       id: "threat-intel-flag1",
-      prompt: `The IOC alert above references the actor "Cozy Bear." This actor is tracked by MITRE ATT&CK under a numbered APT designation. Based on what you learned in this room, what is the MITRE ATT&CK group ID for Cozy Bear? Enter just the designation (e.g. "APT##").`,
+      prompt: `The IOC alert above references the actor "Cozy Bear." This actor is also known by a numbered APT name, created by Mandiant and used as the group name in MITRE ATT&CK. Based on what you learned in this room, which APT name refers to Cozy Bear? Enter just the designation (e.g. "APT##").`,
       answer: "APT29",
-      hint: "CrowdStrike calls them COZY BEAR. MITRE uses a numbered system. This group is from Russia's SVR/FSB intelligence services. The number is 29.",
+      hint: "CrowdStrike calls them COZY BEAR. Look at the Mandiant line of the APT Naming Conventions section in Reading 2 — find the group attributed to Russia's SVR.",
       xp: 60,
     },
 
@@ -576,6 +576,8 @@ Examples of active OSINT:
 
 **When to use:** Only when passive OSINT has been exhausted, you have a specific need, and you are aware of the risks. In most SOC triage scenarios, passive OSINT is sufficient.
 
+**In between — "active by proxy":** Sandbox URL scanners such as URLScan.io and Any.run fetch the URL *live* from their own infrastructure, so the attacker's server DOES see a request — just not from your IP. On URLScan, scans are also **Public** by default, visible to anyone (including the actor) and able to leak victim-specific tokens embedded in the URL; use **Unlisted** or **Private** visibility. The same rule applies to files: *search* VirusTotal for a hash (passive), but don't *upload* a sample unless policy allows it — uploads are visible to other subscribers, and actors watch for their own samples.
+
 ---
 
 **Analyst OPSEC (Operational Security)**
@@ -601,7 +603,7 @@ Here is how an analyst would OSINT-investigate a suspicious IP step by step:
 1. **VirusTotal lookup** (passive): Is the IP already flagged by any vendor? What URLs and files are associated with it?
 2. **Shodan lookup** (passive): What services are running? Who is the hosting provider? Is the ASN known for bulletproof hosting?
 3. **WHOIS lookup** (passive): When was any associated domain registered? By which registrar?
-4. **URLScan** (passive/sandboxed): If there is a domain, what does the website show?
+4. **URLScan** (active by proxy — use an Unlisted/Private scan): If there is a domain, what does the website show?
 5. **Maltego pivot** (passive): Are there related domains or IPs on the same infrastructure?
 6. **ThreatFox/Abuse.ch** (passive): Is this IP in any C2 tracking databases?
 
@@ -683,7 +685,8 @@ Only after exhausting passive research would an analyst consider any active step
           "data.action": "allow",
           "data.hostname": "LAPTOP-JSMITH",
           "shodan.os": "Linux",
-          "shodan.org": "Tor Project",
+          "shodan.org": "Stiftung Erneuerbare Freiheit",
+          "shodan.tags": ["tor"],
           "shodan.open_ports": ["80", "443", "8080"],
           "shodan.ssl_subject": "CN=*.onion-router.net",
         },
@@ -698,7 +701,7 @@ Only after exhausting passive research would an analyst consider any active step
             "A public DNS resolver — a normal lookup carried over port 443 using DNS-over-HTTPS",
           ],
           answer: 1,
-          explanation: "Shodan data shows shodan.org: Tor Project and shodan.ssl_subject: CN=*.onion-router.net. A Tor exit node is the last server in the Tor anonymisation network before traffic reaches the public internet. Corporate laptops should never connect to Tor nodes during normal business activity. This could mean: (a) the user is bypassing corporate monitoring, or (b) malware on the laptop is using Tor to hide C2 communications. Both scenarios require investigation.",
+          explanation: "Shodan tags the IP as 'tor', its certificate subject is CN=*.onion-router.net, and the network owner (shodan.org) is Stiftung Erneuerbare Freiheit, a foundation that runs Tor relays. A Tor exit node is the last server in the Tor anonymisation network before traffic reaches the public internet; the authoritative way to confirm an IP is a Tor exit is the Tor Project's own exit list or its ExoneraTor lookup. Corporate laptops should never connect to Tor nodes during normal business activity. It could mean the user is bypassing corporate monitoring, or that malware on the laptop is using Tor to hide C2 communications. Both scenarios require investigation.",
           xp: 50,
         },
         {
@@ -706,11 +709,11 @@ Only after exhausting passive research would an analyst consider any active step
           options: [
             "Microsoft Corporation",
             "Amazon Web Services",
-            "Tor Project",
+            "Stiftung Erneuerbare Freiheit",
             "Cloudflare Inc.",
           ],
           answer: 2,
-          explanation: "The field shodan.org: Tor Project directly answers this question. Shodan's org field shows the organisation that owns the IP block according to ARIN/RIPE/APNIC registration records. The Tor Project is the nonprofit that operates the Tor anonymisation network.",
+          explanation: "The field shodan.org: Stiftung Erneuerbare Freiheit directly answers this question. Shodan's org field shows the organisation that owns the IP block according to ARIN/RIPE/APNIC registration records. Note that it is NOT 'Tor Project': the Tor Project develops the software, but Tor relays (including exits) are run by independent volunteers and organisations — here, a German foundation that operates Tor relays. That is why the org field alone never proves an IP is a Tor exit; confirm with the Tor Project's exit list or ExoneraTor.",
           xp: 50,
         },
       ],
@@ -721,7 +724,7 @@ Only after exhausting passive research would an analyst consider any active step
       type: "flag" as const,
       id: "osint-flag1",
       prompt: `Based on the Shodan enrichment data in the log analysis above, what organisation does the destination IP 185.220.101.47 belong to? Enter the exact organisation name as it appears in the Shodan data.`,
-      answer: "Tor Project",
+      answer: "Stiftung Erneuerbare Freiheit",
       hint: "Look at the `shodan.org` field in the raw log data from the log analysis task above.",
       xp: 60,
     },
@@ -888,13 +891,15 @@ Not all incidents are equal. Most organisations use a priority system:
 
 One of the most common mistakes in incident response is **turning off the affected computer first**. This destroys volatile memory (RAM), which contains running processes, open network connections, decryption keys in memory, and attacker tools that haven't been written to disk.
 
-**The rule: capture memory before anything else.**
+**The rule: never power off or reimage before memory is captured — but don't confuse powering off with isolating.**
 
-If the system must be preserved for forensics, the correct order is:
-1. Capture a memory dump (RAM image) using tools like WinPMEM, DumpIt, or the EDR's built-in memory acquisition
-2. Capture network state (open connections, listening ports)
-3. Capture running processes
-4. Then — only then — consider isolating or powering down
+**EDR network isolation** cuts the host off from the network while leaving it **powered on**, so RAM stays intact. If the system must be preserved for forensics, the correct order is:
+1. **Isolate** the host via EDR network isolation — immediately, if the attack is actively spreading (encrypting shares, moving laterally). Every minute of delay is more damage, and isolation costs you no volatile evidence.
+2. Capture a memory dump (RAM image) using tools like WinPMEM, DumpIt, or the EDR's built-in memory acquisition
+3. Capture network state (open connections, listening ports) and running processes
+4. Then — only then — consider powering down or reimaging
+
+(If nothing is actively spreading, some teams capture memory and live network connections *before* isolating, to see the C2 sessions in action. During active spread, isolate first.)
 
 For ransomware specifically: **do NOT power off** a system mid-encryption. This can corrupt files, making decryption impossible even if you pay the ransom.
 
@@ -930,12 +935,12 @@ While technical teams are containing the incident, the communications lead must 
         question: "According to the reading, what is the critical rule about evidence preservation when responding to a compromised system?",
         options: [
           "Power off the machine immediately to stop the attack",
-          "Capture memory (RAM) before anything else, since powering off destroys volatile evidence",
+          "Never power off or reimage before capturing memory (RAM) — isolate instead, since powering off destroys volatile evidence",
           "Wait for legal approval before touching the machine at all",
           "Reimage the system immediately to restore service",
         ],
         answer: 1,
-        explanation: "Turning off the machine first destroys volatile RAM — running processes, open connections, and decryption keys. The correct order is: capture memory, then network state, then processes, and only then consider isolating or powering down.",
+        explanation: "Turning off the machine first destroys volatile RAM — running processes, open connections, and decryption keys. EDR network isolation does not: the host stays powered on. So the order is: isolate (immediately if the attack is spreading), capture memory, then network state and processes, and only then consider powering down or reimaging.",
       },
     },
 
@@ -1008,15 +1013,15 @@ Break chain of custody, and the evidence may be inadmissible in court.`,
     {
       type: "question" as const,
       id: "ir-method-q1",
-      question: "A SOC analyst discovers an infected workstation is actively encrypting files on a network share. Before isolating the machine, what should happen FIRST according to IR best practices?",
+      question: "A SOC analyst discovers an infected workstation is actively encrypting files on a network share. What should happen FIRST according to IR best practices?",
       options: [
         "Power off the machine immediately to stop the encryption",
-        "Capture a memory dump to preserve volatile evidence such as running processes and keys",
+        "Isolate it via EDR network isolation, which stops the spread but keeps it powered on, then capture memory",
         "Delete the ransomware binary the EDR identified to stop the encryption",
         "Reset the affected user's password to cut off the attacker's session",
       ],
       answer: 1,
-      explanation: "Memory (RAM) contains volatile evidence that is lost forever when the machine powers off: running malware processes, encryption keys in memory, open network connections to C2, and attacker tools that never touched disk. Capturing RAM first preserves this critical forensic evidence. Powering off destroys it. Deleting files may not stop a running process and destroys evidence. Formatting is destructive and premature. After capturing memory, THEN isolate the machine via EDR network isolation.",
+      explanation: "The attack is actively spreading to a network share, so stopping the spread comes first — and EDR network isolation does that without costing any evidence: the host stays powered on, so RAM (running malware processes, encryption keys, attacker tools that never touched disk) is still there to capture right afterwards. Powering off would also stop the encryption but destroys that volatile evidence (and can corrupt half-encrypted files). Deleting the binary may not stop the running process and destroys evidence. Resetting the user's password does nothing to a process already running on the host. Isolate, then capture memory (CISA #StopRansomware Guide: immediately isolate impacted systems).",
       xp: 35,
     },
 
@@ -1093,7 +1098,7 @@ Break chain of custody, and the evidence may be inadmissible in court.`,
             "C:\\Windows\\Temp\\ is write-protected, so malware cannot normally place files there",
           ],
           answer: 1,
-          explanation: "The legitimate Windows svchost.exe (Service Host) ALWAYS runs from C:\\Windows\\System32\\. Malware authors frequently copy their malicious executable into C:\\Windows\\Temp\\ and name it 'svchost.exe' to blend in with normal process lists. This is called a living-off-the-land technique or process masquerading. Any svchost.exe running from Temp, AppData, or any path other than System32 is almost certainly malicious. The EDR caught this exact pattern.",
+          explanation: "The legitimate Windows svchost.exe (Service Host) ALWAYS runs from C:\\Windows\\System32\\. Malware authors frequently copy their malicious executable into C:\\Windows\\Temp\\ and name it 'svchost.exe' to blend in with normal process lists. This is called Masquerading (MITRE T1036.005 — Match Legitimate Name or Location). Note it is the opposite of living-off-the-land, which abuses the genuine built-in binaries; here a malicious file merely wears a system name. Any svchost.exe running from Temp, AppData, or any path other than System32 is almost certainly malicious. The EDR caught this exact pattern.",
           xp: 50,
         },
         {
@@ -1295,9 +1300,9 @@ A failed SSH brute force against a non-critical server from a known scanner IP =
 
 After steps 1-4, you should have enough information to make a determination:
 
-**Close as False Positive**: The activity is benign. Document your reasoning ("IT admin running scheduled script per change ticket CHG-4421"). Consider requesting a rule tune.
+**Close as False Positive**: The rule logic itself misfired — the activity does not actually match what the rule is meant to detect (e.g., a "credential dumping" rule matching a backup tool that only read a file with a similar name). Document your reasoning and request a rule tune.
 
-**Close as Benign True Positive**: The rule fired correctly but the activity is authorised. Document who approved the activity.
+**Close as Benign True Positive**: The rule fired correctly but the activity is authorised. Document who approved the activity (e.g., "IT admin running scheduled script per change ticket CHG-4421").
 
 **Escalate as True Positive**: This is a real attack or confirmed suspicious activity requiring incident response. Create a P1/P2/P3 ticket, write a triage summary (what you found and why it is suspicious), and hand off to Tier-2.
 
@@ -1326,10 +1331,12 @@ Never make a determination without documenting your reasoning. If you close an a
 
 ---
 
-**Common False Positive Patterns**
+**Common Benign Patterns (False Positives and Benign True Positives)**
+
+These patterns produce alerts that turn out not to be attacks. Label them carefully: if the rule matched real, authorised activity (an approved script, a scheduled scan), it is a **Benign True Positive**; reserve **False Positive** for cases where the rule logic itself misfired.
 
 **IT Admin Scripts**
-Your detection rule fires on "PowerShell script with base64-encoded commands" — and attackers do use base64-encoded PowerShell. But so does legitimate IT automation. If the alert came from a known IT admin's workstation at 10 AM on a weekday, the parent process is their RMM tool (e.g., Datto, ConnectWise), and there is a change ticket for scheduled maintenance — this is almost certainly a false positive.
+Your detection rule fires on "PowerShell script with base64-encoded commands" — and attackers do use base64-encoded PowerShell. But so does legitimate IT automation. If the alert came from a known IT admin's workstation at 10 AM on a weekday, the parent process is their RMM tool (e.g., Datto, ConnectWise), and there is a change ticket for scheduled maintenance — this is almost certainly a Benign True Positive (authorised activity that the rule correctly detected), not an attack.
 
 **Security Scanners**
 Your IDS fires on "Port Scan Detected" — that is exactly what a port scan looks like. But your company runs vulnerability scans every Wednesday night from a known scanner IP (say, your Nessus scanner at 10.0.0.50). Check the source IP before investigating further. Many orgs add scanner IPs to allowlists to avoid noise.
@@ -1432,7 +1439,7 @@ Good documentation protects you, helps your colleagues understand past alerts, a
         "Failed login from internal server that uses an outdated service account password",
       ],
       answer: 1,
-      explanation: "Option B has multiple True Positive indicators stacked together: external IP (not internal company IP), foreign country the user has never worked from (geolocation anomaly), successful login AFTER 200 failures (brute force that worked), and 03:14 AM timing (user is asleep, not at their desk). Any one of these alone would raise suspicion — all four together is almost certainly a successful credential stuffing or brute force attack. This needs immediate escalation. Options A, C, and D all describe benign false positive patterns.",
+      explanation: "The external-IP-from-a-new-country option has multiple True Positive indicators stacked together: external IP (not internal company IP), foreign country the user has never worked from (geolocation anomaly), successful login AFTER 200 failures (brute force that worked), and 03:14 AM timing (user is asleep, not at their desk). Any one of these alone would raise suspicion — all four together is almost certainly a successful brute-force attack. This needs immediate escalation. The other three describe benign patterns: a matched vulnerability scanner and ticketed admin PowerShell are authorised activity (Benign True Positives), and a service account with an outdated password is a misconfiguration, not an attack.",
       xp: 30,
     },
 
@@ -1509,7 +1516,7 @@ Good documentation protects you, helps your colleagues understand past alerts, a
       id: "alert-triage-flag1",
       prompt: `The alert above shows many different passwords tried against ONE account (administrator) from a single source IP. Under MITRE ATT&CK's Brute Force technique (T1110), this specific shape has its own sub-technique — and it is deliberately NOT the same one as an attack that tries one password against many accounts. Enter the exact sub-technique ID for what you are looking at (format: T####.###).`,
       answer: "T1110.001",
-      hint: "T1110 is the parent (Brute Force). Its sub-techniques split by attack SHAPE: .001 is many passwords against one account; .003 is one password against many accounts (spraying); .004 is reusing leaked username+password pairs (credential stuffing). Which shape does this event show? The `mitre_technique` field in the raw event confirms it.",
+      hint: "T1110 is the parent (Brute Force). Its sub-techniques split by attack SHAPE: .001 is many passwords against one account; .003 is one password against many accounts (spraying); .004 is reusing leaked username+password pairs (credential stuffing). Which shape does this event show?",
       xp: 60,
     },
 

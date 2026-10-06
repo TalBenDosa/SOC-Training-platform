@@ -210,7 +210,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Modern C2 deliberately routes through trusted, allow-listed services so the destination raises no flag — which is exactly why a trusted destination is not exoneration. The tell is behavioural: a near-metronomic ~90-second beacon with uniform small request/response sizes for hours is machine-to-machine, unlike a human's bursty, irregular GitHub use. Option a is the trusted-destination fallacy the section warns against. Option c rationalises a beacon rhythm as server efficiency. Option d misapplies DNS tunnelling to what is described as HTTPS traffic."
+        "explanation": "Modern C2 deliberately routes through trusted, allow-listed services so the destination raises no flag — which is exactly why a trusted destination is not exoneration. The tell is behavioural: a near-metronomic ~90-second beacon with uniform small request/response sizes for hours is machine-to-machine, unlike a human's bursty, irregular GitHub use. The option “It is definitely benign, because any traffic…” is the trusted-destination fallacy the section warns against. The option “The regular timing simply proves GitHub's servers…” rationalises a beacon rhythm as server efficiency. The option “This must be DNS tunnelling, because any…” misapplies DNS tunnelling to what is described as HTTPS traffic."
       },
       {
         "question": "An internal host is making thousands of DNS queries per hour to subdomains of one external domain, where the subdomains are long, random-looking strings like `f9a2c...b71.data.attacker-domain.com`, using TXT records, and the host rarely then connects anywhere as a result. What is this, and why does it work?",
@@ -233,7 +233,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Encoding data into long subdomain labels sent to a domain whose authoritative server the attacker controls is DNS tunnelling — used for stealthy C2 and low-and-slow exfiltration. It works because DNS is nearly always permitted and seldom inspected. The signatures are exactly those described: abnormally long, high-entropy subdomains, a flood of queries to one domain, data-carrying record types like TXT, and lookups that never lead to an actual connection (the lookup itself was the payload). Option a invents benign caching behaviour that does not produce this pattern. Option c ignores the exfiltration signature. Option d confuses a covert channel with a volumetric DDoS."
+        "explanation": "Encoding data into long subdomain labels sent to a domain whose authoritative server the attacker controls is DNS tunnelling — used for stealthy C2 and low-and-slow exfiltration. It works because DNS is nearly always permitted and seldom inspected. The signatures are exactly those described: abnormally long, high-entropy subdomains, a flood of queries to one domain, data-carrying record types like TXT, and lookups that never lead to an actual connection (the lookup itself was the payload). The option “Normal, healthy DNS caching behaviour, because busy…” invents benign caching behaviour that does not produce this pattern. The option “A misconfigured application retrying a lookup, which…” ignores the exfiltration signature. The option “Evidence of a DDoS attack the host…” confuses a covert channel with a volumetric DDoS."
       },
       {
         "question": "You are a SOC analyst reviewing raw proxy log lines for FINANCE-07 to one external IP. The connection deltas are 62s, 63s, 58s, 63s, 58s, the bytes_out values are 487, 491, 488, 485, 493, 489, and all six connections land between 03:14 and 03:19 to a destination this host has never contacted in its 90-day history. What is the most defensible next step?",
@@ -256,7 +256,7 @@ const lessons = [
           }
         ],
         "answer": "c",
-        "explanation": "A mean interval of roughly 60.8 seconds with only a 5-second spread, combined with near-identical byte sizes and a brand-new, off-hours destination, is a high-confidence beacon pattern — but rhythm and context alone are not proof, since a legitimate poller can also look periodic. The defensible step is to pivot to an independent source (process ancestry or JA3) before writing it up as confirmed. Option a dismisses a strong statistical and contextual signal. Option b overclaims certainty from behavioral signals alone, skipping the corroborating pivot the lesson requires. Option d discards the two strongest available signals in favor of a weak, easily-evaded one."
+        "explanation": "A mean interval of roughly 60.8 seconds with only a 5-second spread, combined with near-identical byte sizes and a brand-new, off-hours destination, is a high-confidence beacon pattern — but rhythm and context alone are not proof, since a legitimate poller can also look periodic. The defensible step is to pivot to an independent source (process ancestry or JA3) before writing it up as confirmed. The option “Close it as benign immediately, because six…” dismisses a strong statistical and contextual signal. The option “Report it as confirmed malware and file…” overclaims certainty from behavioral signals alone, skipping the corroborating pivot the lesson requires. The option “Ignore the timing and byte sizes entirely…” discards the two strongest available signals in favor of a weak, easily-evaded one."
       }
     ],
     "references": [
@@ -481,7 +481,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "The analyst has fallen into confirmation bias — championing one hypothesis and collecting only supporting evidence. ACH corrects it directly: enumerate competing hypotheses, evaluate every piece of evidence against all of them, and hunt for disconfirming evidence that rules hypotheses out, concluding by elimination rather than by confirming a favourite. Option a doubles down on the bias. Option c abandons analysis rather than structuring it. Option d closes on a statistical prior instead of evidence — the opposite error."
+        "explanation": "The analyst has fallen into confirmation bias — championing one hypothesis and collecting only supporting evidence. ACH corrects it directly: enumerate competing hypotheses, evaluate every piece of evidence against all of them, and hunt for disconfirming evidence that rules hypotheses out, concluding by elimination rather than by confirming a favourite. The option “Simply gathering even more evidence for the…” doubles down on the bias. The option “Escalating the alert to Tier-2 immediately without…” abandons analysis rather than structuring it. The option “Closing the alert as a false positive…” closes on a statistical prior instead of evidence — the opposite error."
       },
       {
         "question": "An analyst assesses an alert as benign and closes it with the note: 'Looks fine.' Why is this closure inadequate, and what would a professional finding include?",
@@ -504,7 +504,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "'Looks fine' preserves a conclusion but none of the reasoning, evidence, confidence, or revision conditions that make a finding usable later. A professional closure records what was observed, the disposition against the hypotheses tested, an explicit confidence level, and what would change the assessment — written for a stranger who may pick up the case at handover, on escalation, or in a later review. Option a wrongly treats documentation as optional. Option c mistakes length for substance. Option d injects an unfounded, unethical accusation, which good practice specifically avoids."
+        "explanation": "'Looks fine' preserves a conclusion but none of the reasoning, evidence, confidence, or revision conditions that make a finding usable later. A professional closure records what was observed, the disposition against the hypotheses tested, an explicit confidence level, and what would change the assessment — written for a stranger who may pick up the case at handover, on escalation, or in a later review. The option “It is perfectly adequate, because once an…” wrongly treats documentation as optional. The option “The only problem is that the note…” mistakes length for substance. The option “It is inadequate solely because it fails…” injects an unfounded, unethical accusation, which good practice specifically avoids."
       },
       {
         "question": "In the pivot trace — EDR alert to auth log to Sysmon process creation to mail log to passive DNS/threat intel — the final step sweeps the SIEM for the same destination IP and JA3 fingerprint across the whole environment, turning up a second host, ACCT-14. Why does this last pivot matter, and what does skipping it risk?",
@@ -527,7 +527,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "Pivoting outward finds new evidence, but pivoting back — checking whether the same indicator (IP, JA3, hash) appears anywhere else in your own environment — is what bounds or expands the incident's scope, and it is exactly the step junior analysts tend to skip. Missing it here would mean ACCT-14's active connection to the same C2 infrastructure goes unisolated while the case is written up as contained. Option a stops the investigation before scope is known. Option c ignores that containment actions scale directly with the number of affected hosts. Option d inverts the logic: a second host reaching the same indicator corroborates the finding, it does not disprove it."
+        "explanation": "Pivoting outward finds new evidence, but pivoting back — checking whether the same indicator (IP, JA3, hash) appears anywhere else in your own environment — is what bounds or expands the incident's scope, and it is exactly the step junior analysts tend to skip. Missing it here would mean ACCT-14's active connection to the same C2 infrastructure goes unisolated while the case is written up as contained. The option “It does not matter; once one host…” stops the investigation before scope is known. The option “It matters only for paperwork, since the…” ignores that containment actions scale directly with the number of affected hosts. The option “It matters because finding a second host…” inverts the logic: a second host reaching the same indicator corroborates the finding, it does not disprove it."
       }
     ],
     "references": [
