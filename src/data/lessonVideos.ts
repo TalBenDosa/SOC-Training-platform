@@ -223,4 +223,40 @@ export const LESSON_VIDEOS: Record<string, LessonVideoData> = {
       { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/static-vs-dynamic-malware-analysis/es.vtt" },
     ],
   },
+  "process-injection": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/process-injection/process-injection.mp4",
+    caption: "Explainer — Process Injection · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/process-injection/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/process-injection/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/process-injection/es.vtt" },
+    ],
+  },
+  "lolbins-living-off-the-land": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/lolbins-living-off-the-land/lolbins-living-off-the-land.mp4",
+    caption: "Explainer — LOLBins · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/lolbins-living-off-the-land/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/lolbins-living-off-the-land/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/lolbins-living-off-the-land/es.vtt" },
+    ],
+  },
+  "credential-dumping-lsass-sam-ntds": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/credential-dumping-lsass-sam-ntds/credential-dumping-lsass-sam-ntds.mp4",
+    caption: "Explainer — Credential Dumping · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/credential-dumping-lsass-sam-ntds/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/credential-dumping-lsass-sam-ntds/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/credential-dumping-lsass-sam-ntds/es.vtt" },
+    ],
+  },
+  "ip-addressing-subnets-nat": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ip-addressing-subnets-nat/ip-addressing-subnets-nat.mp4",
+    caption: "Explainer — IP Addressing, Subnets, and NAT · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ip-addressing-subnets-nat/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ip-addressing-subnets-nat/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ip-addressing-subnets-nat/es.vtt" },
+    ],
+  },
 };
