@@ -78,7 +78,7 @@ const DASHBOARD_STEPS: TourStep[] = [
     title: "Filters — focus your investigation",
     icon: "🔎",
     content:
-      "Filters narrow the event feed without deleting anything. Investigating one machine? Press '+ More filters' for HOST, USER, IP and MITRE filters. Too much noise? Set LEVEL to 7-10 HIGH. Filters stack — you can combine them.",
+      "Filters narrow the event feed without deleting anything. Investigating one machine? Press '+ More filters' for HOST, USER, IP and MITRE filters. Too much noise? Set LEVEL to 10-15 HIGH. Filters stack — you can combine them.",
     targetId: "ef-filter-row",
   },
   {

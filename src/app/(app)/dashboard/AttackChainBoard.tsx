@@ -137,7 +137,7 @@ export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoar
     onXpAward?.(xp);
   };
 
-  const canSubmit = Object.keys(slots).length >= Math.min(PHASES.length, events.filter(e => e.ruleLevel >= 7).length);
+  const canSubmit = Object.keys(slots).length >= Math.min(PHASES.length, events.filter(e => e.ruleLevel >= 10).length);
 
   return (
     <div

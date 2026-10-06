@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/Button";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { EventFeed } from "@/app/(app)/dashboard/EventFeed";
-import { enrichEvent, type LiveEvent } from "@/app/(app)/dashboard/liveEventEnrich";
+import { enrichEvent, severityBase, type LiveEvent } from "@/app/(app)/dashboard/liveEventEnrich";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { buildTeamEdrCases } from "@/lib/edr/teamCases";
 import { useTeamIocTruth } from "@/lib/team/useTeamIocTruth";
@@ -723,7 +723,7 @@ export default function TeamRoomPage() {
     // Keyed on the log's seq (not its position in a sliding window) so a log keeps
     // the same rule id in every view and as newer logs arrive.
     try { return enrichEvent(norm, e.seq); }
-    catch { return { ...norm, ruleLevel: 1, ruleId: "RULE-0000", displayDescription: asStr(p.description) || asStr(p.event_type) || "event" } as unknown as LiveEvent; }
+    catch { return { ...norm, ruleLevel: severityBase(String(norm.severity)), ruleId: "RULE-0000", displayDescription: asStr(p.description) || asStr(p.event_type) || "event" } as unknown as LiveEvent; }
   }, []);
   // P5-23: a log's enriched row never changes once it has arrived, so it is built
   // ONCE per seq and reused. Rebuilding all 120 rows on every session event gave

@@ -187,8 +187,8 @@ function RuleLevelBadge({ level }: { level: number }) {
   // colour must NOT flag "this is the attack" for the student. A subtle tonal
   // step keeps it readable without turning high levels into a red giveaway.
   const tone =
-    level >= 7 ? "bg-slate-500/25 text-slate-100 border-slate-400/40" :
-    level >= 4 ? "bg-slate-600/25 text-slate-200 border-slate-500/40" :
+    level >= 10 ? "bg-slate-500/25 text-slate-100 border-slate-400/40" :
+    level >= 7  ? "bg-slate-600/25 text-slate-200 border-slate-500/40" :
                  "bg-slate-700/30 text-slate-400 border-slate-600/40";
   return (
     <span className={cn("inline-flex h-6 w-6 items-center justify-center rounded border font-mono text-xs font-bold", tone)}>
@@ -1199,9 +1199,10 @@ export function EventFeed({
       if (cutoff !== null && ev.ts && new Date(ev.ts).getTime() < cutoff) return false;
       if (severityFilter !== "all") {
         const lvl = ev.ruleLevel;
-        if (severityFilter === "low"    && lvl > 3)            return false;
-        if (severityFilter === "medium" && (lvl < 4 || lvl > 6)) return false;
-        if (severityFilter === "high"   && lvl < 7)            return false;
+        // 3-15 scale (liveEventEnrich LEVEL_BANDS): low = 3-6, medium = 7-9, high = 10-15
+        if (severityFilter === "low"    && lvl > 6)              return false;
+        if (severityFilter === "medium" && (lvl < 7 || lvl > 9)) return false;
+        if (severityFilter === "high"   && lvl < 10)             return false;
       }
       if (sourceFilter !== "all" && ev.source         !== sourceFilter)   return false;
       if (userFilter  !== "all"  && ev.user_email     !== userFilter)     return false;
@@ -1262,7 +1263,7 @@ export function EventFeed({
               <th id="ef-th-agent"   className="py-2 pr-3"><HeaderTip label="Agent Name" tip="The hostname of the computer or device where this event was recorded." /></th>
               <th id="ef-th-source"  className="py-2 pr-3"><HeaderTip label="Source"     tip="Which security tool detected this event. Each tool sees different activity — EDR sees processes, Firewall sees network traffic, AD sees logins. Hover over the badge for details." /></th>
               <th id="ef-th-desc"    className="py-2 pr-3"><HeaderTip label="Description" tip="A plain-language summary of what happened, generated from the raw log fields. Click the row to see all raw fields and a guided analysis." /></th>
-              <th id="ef-th-level"   className="py-2 pr-3"><HeaderTip label="Level"      tip="Severity score 1-10. Levels 1-3: routine activity. Levels 4-6: investigate further. Levels 7-10: likely threat — take action." /></th>
+              <th id="ef-th-level"   className="py-2 pr-3"><HeaderTip label="Level"      tip="Rule level 3-15 (Wazuh-style). 3-6: routine or low. 7-9: investigate further. 10-12: high. 13-15: critical — act now. High levels still need verifying: false positives fire high rules too." /></th>
               <th id="ef-th-ruleid"  className="py-2 pr-4"><HeaderTip label="Rule ID"    tip="The detection rule that fired on this event. When a known attack technique is detected, the rule maps to MITRE ATT&CK. Expand the row to see its MITRE ATT&CK mapping." /></th>
             </tr>
           </thead>

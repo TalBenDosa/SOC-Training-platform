@@ -58,7 +58,7 @@ export function SiemStats({ events, attackTimerSeconds = null, avgCatchMs = null
   const uniqueIps = new Set(events.map(e => e.src_ip).filter((ip): ip is string => !!ip));
   const alertPct  = events.length === 0
     ? 0
-    : (events.filter(e => e.ruleLevel >= 7).length / events.length) * 100;
+    : (events.filter(e => e.ruleLevel >= 10).length / events.length) * 100;
   const alertRate = alertPct.toFixed(0);
 
   return (

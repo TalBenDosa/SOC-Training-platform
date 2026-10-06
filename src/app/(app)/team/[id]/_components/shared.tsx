@@ -1,5 +1,5 @@
 "use client";
-import { enrichEvent, type LiveEvent } from "@/app/(app)/dashboard/liveEventEnrich";
+import { enrichEvent, severityBase, type LiveEvent } from "@/app/(app)/dashboard/liveEventEnrich";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { asStr } from "@/lib/team/format";
 
@@ -21,7 +21,7 @@ export function enrichSnapshot(snap: Record<string, unknown> | undefined): LiveE
     severity: typeof snap.severity === "string" ? snap.severity : "informational",
   } as unknown as TelemetryEvent;
   try { return enrichEvent(norm, 0); }
-  catch { return { ...norm, ruleLevel: 1, ruleId: "RULE-0000", displayDescription: asStr(snap.description) || asStr(snap.event_type) || "event" } as unknown as LiveEvent; }
+  catch { return { ...norm, ruleLevel: severityBase(String(norm.severity)), ruleId: "RULE-0000", displayDescription: asStr(snap.description) || asStr(snap.event_type) || "event" } as unknown as LiveEvent; }
 }
 // Triage SLA by severity — defined once with the alert queue.
 export { slaMinFor } from "@/lib/team/alertQueue";

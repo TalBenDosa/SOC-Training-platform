@@ -970,7 +970,16 @@ function toPublicEntry(entry: TimelineEntry, i: number, seed: string, tier: stri
     v !== undefined && v !== null && !(typeof v === "object" && !Array.isArray(v) && Object.keys(v as object).length === 0)));
   const asEvent = { ...retimed, mitre_technique: undefined } as unknown as TelemetryEvent;
   const factual = describeEvent(asEvent, { preferFields: true, fieldsOnly: true });
-  const publicBody = { ...shown0, description: factual, severity: productSeverity(retimed as { source?: string; event_type?: string; severity?: string; is_detection?: boolean }) };
+  // Owner rule (2026-10-06, from the team-training review): the severity a player sees — and so the
+  // rule level (3-15) derived from it — must match what the event really is. Collapsing raw attack
+  // rows to the product's informational/low level put events that demanded escalation at level 1.
+  // The authored severity is shown; productSeverity is only the fallback for rows authored without
+  // one. Attack and benign/FP rows of the same severity still render identically (same level band,
+  // same field-built description), so the level is evidence to weigh, not the answer.
+  const shownSeverity = typeof retimed.severity === "string" && retimed.severity
+    ? retimed.severity
+    : productSeverity(retimed as { source?: string; event_type?: string; severity?: string; is_detection?: boolean });
+  const publicBody = { ...shown0, description: factual, severity: shownSeverity };
   return {
     ...entry,
     body: { ...publicBody, id: opaqueId(seed, i, "e"), tier },

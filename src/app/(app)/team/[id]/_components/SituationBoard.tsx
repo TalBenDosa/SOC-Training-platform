@@ -15,7 +15,7 @@ const MAX_SPAN = 7;
 export function SituationBoard({ liveFeed, events, feed, nameOf, roster, online, act }: { liveFeed: LiveEvent[]; events: Ev[]; feed: Ev[]; nameOf: (u: string | null) => string; roster: RosterMember[]; online: Set<string>; act: (t: string, p: Record<string, unknown>) => Promise<boolean> }) {
   const pulse = useMemo(() => {
     let high = 0, med = 0, low = 0;
-    for (const e of liveFeed) { const l = e.ruleLevel ?? 1; if (l >= 7) high++; else if (l >= 4) med++; else low++; }
+    for (const e of liveFeed) { const l = e.ruleLevel ?? 3; if (l >= 10) high++; else if (l >= 7) med++; else low++; }
     return { high, med, low, total: liveFeed.length };
   }, [liveFeed]);
   const bySource = useMemo(() => {
