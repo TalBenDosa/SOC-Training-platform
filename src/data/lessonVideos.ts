@@ -151,4 +151,40 @@ export const LESSON_VIDEOS: Record<string, LessonVideoData> = {
       { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/active-directory-attacks-explained/es.vtt" },
     ],
   },
+  "soc-playbooks-and-when-to-deviate": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/soc-playbooks-and-when-to-deviate/soc-playbooks-and-when-to-deviate.mp4",
+    caption: "Explainer — SOC Playbooks · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/soc-playbooks-and-when-to-deviate/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/soc-playbooks-and-when-to-deviate/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/soc-playbooks-and-when-to-deviate/es.vtt" },
+    ],
+  },
+  "kerberoasting-explained": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/kerberoasting-explained/kerberoasting-explained.mp4",
+    caption: "Explainer — Kerberoasting · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/kerberoasting-explained/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/kerberoasting-explained/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/kerberoasting-explained/es.vtt" },
+    ],
+  },
+  "pass-the-hash-and-pass-the-ticket": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/pass-the-hash-and-pass-the-ticket/pass-the-hash-and-pass-the-ticket.mp4",
+    caption: "Explainer — Pass-the-Hash and Pass-the-Ticket · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/pass-the-hash-and-pass-the-ticket/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/pass-the-hash-and-pass-the-ticket/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/pass-the-hash-and-pass-the-ticket/es.vtt" },
+    ],
+  },
+  "malware-types-field-guide": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/malware-types-field-guide/malware-types-field-guide.mp4",
+    caption: "Explainer — Malware Types · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/malware-types-field-guide/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/malware-types-field-guide/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/malware-types-field-guide/es.vtt" },
+    ],
+  },
 };
