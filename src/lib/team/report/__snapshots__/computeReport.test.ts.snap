@@ -26,6 +26,7 @@ exports[`computeReport — characterization (real ended session) > produces the 
       "isoCorrect": 0,
       "isoPct": null,
       "isolations": [],
+      "loadSharePct": null,
       "measuredCells": 0,
       "name": "Member B",
       "opened": 0,
@@ -91,7 +92,8 @@ exports[`computeReport — characterization (real ended session) > produces the 
       "isoCorrect": 0,
       "isoPct": null,
       "isolations": [],
-      "measuredCells": 5,
+      "loadSharePct": 0,
+      "measuredCells": 6,
       "name": "Member C",
       "opened": 0,
       "reported": [
@@ -114,6 +116,11 @@ exports[`computeReport — characterization (real ended session) > produces the 
         {
           "label": "Disposition accuracy (balanced)",
           "note": "capped at 8: no attack log in your work — full marks need a correct call on an attack log",
+          "score": 0,
+        },
+        {
+          "label": "Share of the load",
+          "note": "you triaged 1 log; a fair share of this feed was ~251 (0%) — logs a teammate handled never count against you",
           "score": 0,
         },
         {
@@ -150,7 +157,7 @@ exports[`computeReport — characterization (real ended session) > produces the 
           "score": null,
         },
       ],
-      "rubricPct": 40,
+      "rubricPct": 33,
       "slaMet": 0,
       "slaPct": 0,
       "slaTotal": 1,
@@ -180,6 +187,7 @@ exports[`computeReport — characterization (real ended session) > produces the 
       "isoCorrect": 0,
       "isoPct": null,
       "isolations": [],
+      "loadSharePct": null,
       "measuredCells": 3,
       "name": "Member D",
       "opened": 0,

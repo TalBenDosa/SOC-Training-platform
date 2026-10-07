@@ -957,3 +957,43 @@ describe("computeReport — balanced, severity-weighted disposition accuracy (P0
   });
 });
 
+
+describe("computeReport — share of the load + evidence misses (2026-10-07)", () => {
+  it("measures each Tier-1 against a fair share of the feed; the passive analyst scores low", () => {
+    const { events, add } = log();
+    for (let i = 0; i < 10; i++) add("feed.event", null, 10 + i, { id: `n${i}`, expected_verdict: "benign" });
+    for (let i = 0; i < 6; i++) add("disposition.set", "a", 40 + i, { event_id: `n${i}`, verdict: "benign" }, "t1");
+    add("disposition.set", "b", 60, { event_id: "n9", verdict: "benign" }, "t1");
+    const { perUser } = computeReport(events, [member("a", "t1"), member("b", "t1")]);
+    const a = perUser.find(u => u.user_id === "a")!, b = perUser.find(u => u.user_id === "b")!;
+    expect(a.loadSharePct).toBe(120);          // 6 of a fair share of 5
+    expect(b.loadSharePct).toBe(20);           // 1 of 5
+    expect(cell(a.rubric, "Share of the load").score).toBe(12);
+    expect(cell(b.rubric, "Share of the load").score).toBe(2);   // linear 10%→0 … 90%→12
+  });
+
+  it("a log a teammate handled never counts against you", () => {
+    const { events, add } = log();
+    add("feed.event", null, 10, { id: "atk", expected_verdict: "tp", incident_id: "inc-A", severity: "high" });
+    add("event.opened", "b", 20, { event_id: "atk" }, "t1");
+    add("escalation.requested", "a", 30, { event_id: "atk", summary: "s" }, "t1");
+    const b = computeReport(events, [member("a", "t1"), member("b", "t1")]).perUser.find(u => u.user_id === "b")!;
+    expect(b.attackHandling).toBeNull();
+    expect(b.walkedPast).toHaveLength(0);
+  });
+
+  it("an unmarked log of an incident caught through another log is half a miss", () => {
+    const run = (otherCaught: boolean) => {
+      const { events, add } = log();
+      add("feed.event", null, 10, { id: "hit", expected_verdict: "tp", incident_id: "inc-A", severity: "medium" });
+      add("feed.event", null, 20, { id: "left", expected_verdict: "tp", incident_id: otherCaught ? "inc-A" : "inc-B", severity: "medium" });
+      add("event.opened", "a", 30, { event_id: "hit" }, "t1");
+      add("disposition.set", "a", 31, { event_id: "hit", verdict: "true_positive" }, "t1");
+      add("event.opened", "a", 40, { event_id: "left" }, "t1");
+      return computeReport(events, [member("a", "t1")]).perUser[0];
+    };
+    expect(run(true).attackHandling).toBe(67);    // 2 / (2 + 0.5·2)
+    expect(run(false).attackHandling).toBe(50);   // 2 / (2 + 2) — a different, undetected incident
+    expect(run(true).walkedPast[0].detail).toMatch(/caught through another log/);
+  });
+});

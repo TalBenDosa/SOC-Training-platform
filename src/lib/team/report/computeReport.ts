@@ -59,6 +59,15 @@ const ATTACK_VERDICTS = new Set(["tp", "escalate"]);
 // handled: with no attack log in your work the cell is capped at 8/12.
 const SEV_WEIGHT: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1, informational: 1, info: 1 };
 const sevWeight = (s: string) => SEV_WEIGHT[(s || "").toLowerCase().trim()] ?? 1;
+/** An attack log you opened and left, from an incident the team DID detect through another
+ *  log, is a missed piece of evidence rather than a missed attack: it weighs half. */
+export const DETECTED_INCIDENT_MISS_WEIGHT = 0.5;
+// ── Share of the load (Tal, 2026-10-07): passivity used to cost nothing — an analyst who
+// barely touched the feed got "insufficient evidence" or a score built on three logs. Each
+// Tier-1 is now measured against a fair share of the queue: the logs that reached the feed
+// divided by the Tier-1 analysts on the roster. 90% of a fair share or more = full marks,
+// 10% or less = 0, linear in between. (Carrying more than your share caps at full marks.)
+const LOAD_SHARE_FULL = 90, LOAD_SHARE_ZERO = 10;
 
 // ── "Good catch" model (Tal, 2026-10-03). An incident is built from several logs, so a
 // binary "someone flagged one log" over-credits a shallow catch. Catch quality is graded
@@ -119,6 +128,8 @@ export interface UserReport {
   attackHandling: number | null;
   /** Benign half: benign/control logs you judged correctly (suspicious = half). */
   benignAcc: number | null;
+  /** Tier-1 only: distinct logs you triaged (verdict or escalation) as % of a fair share of the feed. */
+  loadSharePct: number | null;
   /** Distinct logs judged, and those whose final verdict is wrong (QA H2: XP counts distinct work, wrong calls cost). */
   dispDistinct: number; dispWrong: number;
   /** Distinct dispositions on logs this analyst never opened (0 when the session has no click telemetry). */
@@ -308,7 +319,7 @@ function rubricPercent(cells: RubricCell[]): number | null {
 }
 
 interface RubricCtx {
-  role: string; dispAcc: number | null; dispNoAttack: boolean; escAckRate: number | null; escPrecision: number | null; escQuality: number | null;
+  role: string; dispAcc: number | null; dispNoAttack: boolean; loadSharePct: number | null; loadHandled: number; loadFair: number; escAckRate: number | null; escPrecision: number | null; escQuality: number | null;
   triageMin: number | null; dwellTooShort: boolean; ackLatencyMin: number | null; approvalLatencyMin: number | null;
   huntCount: number; huntTech: number; huntQuality: number | null; noteCount: number; elevAnsweredPct: number | null;
   rulePublished: number; ruleMatched: number; ruleTechniques: number; ruleDocRate: number | null;
@@ -326,6 +337,7 @@ function roleRubric(c: RubricCtx): RubricCell[] {
       const triage = c.triageMin == null ? null : bandLow(c.triageMin, 5, 10, 15);
       return [
         { label: "Disposition accuracy (balanced)", score: c.dispAcc == null ? null : c.dispNoAttack ? Math.min(8, bandHigh(c.dispAcc, 90, 75, 50)) : bandHigh(c.dispAcc, 90, 75, 50), note: c.dispNoAttack ? "capped at 8: no attack log in your work — full marks need a correct call on an attack log" : "average of attack handling (severity-weighted; an attack log you opened and left counts as a miss) and benign accuracy; suspicious = partial credit; unopened logs count at reduced weight" },
+        { label: "Share of the load", score: c.loadSharePct == null ? null : smoothBand(c.loadSharePct, LOAD_SHARE_ZERO, LOAD_SHARE_FULL), note: c.loadSharePct == null ? undefined : `you triaged ${c.loadHandled} log${c.loadHandled === 1 ? "" : "s"}; a fair share of this feed was ~${Math.round(c.loadFair)} (${c.loadSharePct}%) — logs a teammate handled never count against you` },
         { label: "Escalation precision", score: c.escPrecision == null ? null : smoothBand(c.escPrecision, 10, 80), note: "per incident: of what you escalated, how much was a real incident (duplicates of one incident count once)" },
         { label: "Card completeness", score: c.escQuality == null ? null : bandHigh(c.escQuality, 90, 70, 40) },
         { label: "Handoff coordination", score: c.escAckRate == null ? null : bandHigh(c.escAckRate, 80, 60, 40), note: "share of your escalations Tier-2 closed the loop on (acknowledged or bounced)" },
@@ -783,6 +795,8 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[]) {
   const escOutcome = (eid: string): ReportedItem["outcome"] =>
     escResolvedIds.has(eid) ? "resolved" : escBouncedIds.has(eid) ? "bounced" : escAckedIds.has(eid) ? "acknowledged" : "open";
 
+  const detectedIncidents = new Set(incidentList.filter(i => i.detected).map(i => i.id));
+  const t1Count = players.filter(p => p.role === "t1" && p.status !== "left").length || players.filter(p => p.role === "t1").length;
   const perUser: UserReport[] = players.map(m => {
     const mine = events.filter(e => e.actor_id === m.user_id);
     // event.opened carries { event_id, dwell_ms }; count DISTINCT ids opened, max dwell per id.
@@ -832,7 +846,8 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[]) {
     // Opened an attack log, took no action, and nobody else caught it: a weighted miss.
     for (const eid of dwellByEid.keys()) {
       if (!attackIds.has(eid) || atkHandled.has(eid) || caughtByAnyone(eid)) continue;
-      atkDen += sevWeight(truth.get(eid)?.severity ?? "");
+      const inc = incidentOfEid(eid);
+      atkDen += sevWeight(truth.get(eid)?.severity ?? "") * (inc && detectedIncidents.has(inc) ? DETECTED_INCIDENT_MISS_WEIGHT : 1);
     }
     for (const [eid, v] of latestVerdict) {
       if (attackIds.has(eid)) continue;
@@ -843,6 +858,10 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[]) {
     const dispAcc = attackHandling != null && benignAcc != null ? Math.round((attackHandling + benignAcc) / 2)
       : attackHandling ?? benignAcc;
     const dispNoAttack = attackHandling == null && benignAcc != null;
+    // Share of the load (Tier-1): distinct logs you triaged vs a fair share of the feed.
+    const loadHandled = new Set<string>([...latestVerdict.keys(), ...mine.filter(e => e.type === "escalation.requested").map(eidOf).filter(eid => truth.has(eid))]).size;
+    const loadFair = m.role === "t1" && t1Count > 0 ? feed.length / t1Count : 0;
+    const loadSharePct = loadFair > 0 ? Math.round((loadHandled / loadFair) * 100) : null;
     const dwellTooShort = telemetry && avgDwellS != null && avgDwellS < MIN_EVIDENCE_DWELL_S && distinctDisp > 0;
 
     const esc = mine.filter(e => e.type === "escalation.requested");
@@ -985,7 +1004,9 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[]) {
     const falseNegatives = [...latestVerdict].filter(([eid, v]) => attackIds.has(eid) && (v === "benign" || v === "false_positive"))
       .map(([eid, v]) => missItem(eid, `called it ${v.replace("_", " ")}`));
     const walkedPast = [...dwellByEid.keys()].filter(eid => attackIds.has(eid) && !latestVerdict.has(eid) && !firstEsc.has(eid) && !caughtByAnyone(eid))
-      .map(eid => missItem(eid, "opened, no action — and nobody else caught it"));
+      .map(eid => { const inc = incidentOfEid(eid); return missItem(eid, inc && detectedIncidents.has(inc)
+        ? "opened, no action — the incident was caught through another log, but this evidence was never marked"
+        : "opened, no action — and nobody else caught it"); });
     const alarmEids = new Set<string>([
       ...[...firstEsc.keys()].filter(eid => truthClass(eid) === "benign"),
       ...[...latestVerdict].filter(([eid, v]) => v === "true_positive" && truthClass(eid) === "benign").map(([eid]) => eid),
@@ -999,7 +1020,7 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[]) {
     const isoPct = pct(isoCorrect, myIso.length);
 
     const rubric = roleRubric({
-      role: m.role, dispAcc, dispNoAttack, escAckRate, escPrecision, escQuality, triageMin, dwellTooShort, ackLatencyMin, approvalLatencyMin,
+      role: m.role, dispAcc, dispNoAttack, loadSharePct, loadHandled, loadFair, escAckRate, escPrecision, escQuality, triageMin, dwellTooShort, ackLatencyMin, approvalLatencyMin,
       huntCount: hunts.length, huntTech, huntQuality, noteCount, elevAnsweredPct,
       rulePublished: rules.length, ruleMatched, ruleTechniques, ruleDocRate,
       intelAttrib, intelNext, iocPrecision, contReason, contQuality, reportAcc, isoPct,
@@ -1012,7 +1033,7 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[]) {
     const measuredCells = rubric.filter(c => c.score != null).length;
     return {
       user_id: m.user_id, name: m.name, role: m.role, opened, avgDwellS,
-      dispCount: disp.length, dispCorrect, dispAcc, attackHandling, benignAcc, dispUnopened, dispDistinct: distinctDisp, dispWrong,
+      dispCount: disp.length, dispCorrect, dispAcc, attackHandling, benignAcc, loadSharePct, dispUnopened, dispDistinct: distinctDisp, dispWrong,
       escCount: esc.length, escQuality, acks, contReq: myContReq.length, contDecided, roleActions, firstActionS, contribution,
       rubric, rubricPct: rubricPercent(rubric),
       measuredCells, insufficientEvidence: rubric.length > 0 && measuredCells < MIN_MEASURED_CELLS,
