@@ -619,4 +619,40 @@ export const LESSON_VIDEOS: Record<string, LessonVideoData> = {
       { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/rdp-explained-standalone/es.vtt" },
     ],
   },
+  "osi-model-vs-tcp-ip-explained": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osi-model-vs-tcp-ip-explained/osi-model-vs-tcp-ip-explained.mp4",
+    caption: "Explainer — The OSI Model vs TCP/IP · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osi-model-vs-tcp-ip-explained/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osi-model-vs-tcp-ip-explained/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osi-model-vs-tcp-ip-explained/es.vtt" },
+    ],
+  },
+  "splunk-for-soc-analysts": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/splunk-for-soc-analysts/splunk-for-soc-analysts.mp4",
+    caption: "Explainer — Splunk for SOC Analysts · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/splunk-for-soc-analysts/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/splunk-for-soc-analysts/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/splunk-for-soc-analysts/es.vtt" },
+    ],
+  },
+  "ibm-qradar-for-soc-analysts": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ibm-qradar-for-soc-analysts/ibm-qradar-for-soc-analysts.mp4",
+    caption: "Explainer — IBM QRadar for SOC Analysts · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ibm-qradar-for-soc-analysts/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ibm-qradar-for-soc-analysts/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ibm-qradar-for-soc-analysts/es.vtt" },
+    ],
+  },
+  "ai-attacks-detection": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ai-attacks-detection/ai-attacks-detection.mp4",
+    caption: "Explainer — AI Attacks in the SOC · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ai-attacks-detection/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ai-attacks-detection/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ai-attacks-detection/es.vtt" },
+    ],
+  },
 };
