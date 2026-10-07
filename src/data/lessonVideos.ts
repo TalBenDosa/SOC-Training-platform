@@ -331,4 +331,40 @@ export const LESSON_VIDEOS: Record<string, LessonVideoData> = {
       { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/cia-triad-core-security-principles/es.vtt" },
     ],
   },
+  "enrichment-tools-virustotal-whois-passive-dns": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/enrichment-tools-virustotal-whois-passive-dns/enrichment-tools-virustotal-whois-passive-dns.mp4",
+    caption: "Explainer — Enrichment Tools · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/enrichment-tools-virustotal-whois-passive-dns/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/enrichment-tools-virustotal-whois-passive-dns/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/enrichment-tools-virustotal-whois-passive-dns/es.vtt" },
+    ],
+  },
+  "evidence-collection-chain-of-custody": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/evidence-collection-chain-of-custody/evidence-collection-chain-of-custody.mp4",
+    caption: "Explainer — Evidence Collection and Chain of Custody · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/evidence-collection-chain-of-custody/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/evidence-collection-chain-of-custody/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/evidence-collection-chain-of-custody/es.vtt" },
+    ],
+  },
+  "core-protocols-every-analyst-should-know": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/core-protocols-every-analyst-should-know/core-protocols-every-analyst-should-know.mp4",
+    caption: "Explainer — Core Protocols Every Analyst Should Know · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/core-protocols-every-analyst-should-know/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/core-protocols-every-analyst-should-know/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/core-protocols-every-analyst-should-know/es.vtt" },
+    ],
+  },
+  "kerberos-vs-ntlm-explained": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/kerberos-vs-ntlm-explained/kerberos-vs-ntlm-explained.mp4",
+    caption: "Explainer — Kerberos vs NTLM · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/kerberos-vs-ntlm-explained/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/kerberos-vs-ntlm-explained/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/kerberos-vs-ntlm-explained/es.vtt" },
+    ],
+  },
 };
