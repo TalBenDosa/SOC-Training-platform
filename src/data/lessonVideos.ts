@@ -439,4 +439,40 @@ export const LESSON_VIDEOS: Record<string, LessonVideoData> = {
       { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/microsoft-365-and-graph-for-security/es.vtt" },
     ],
   },
+  "active-directory-and-domain-controllers-explained": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/active-directory-and-domain-controllers-explained/active-directory-and-domain-controllers-explained.mp4",
+    caption: "Explainer — Active Directory & Domain Controllers · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/active-directory-and-domain-controllers-explained/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/active-directory-and-domain-controllers-explained/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/active-directory-and-domain-controllers-explained/es.vtt" },
+    ],
+  },
+  "processes-pids-and-the-process-tree": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/processes-pids-and-the-process-tree/processes-pids-and-the-process-tree.mp4",
+    caption: "Explainer — Processes, PIDs, and the Process Tree · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/processes-pids-and-the-process-tree/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/processes-pids-and-the-process-tree/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/processes-pids-and-the-process-tree/es.vtt" },
+    ],
+  },
+  "dlls-explained-shared-libraries-and-abuse": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/dlls-explained-shared-libraries-and-abuse/dlls-explained-shared-libraries-and-abuse.mp4",
+    caption: "Explainer — DLLs Explained · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/dlls-explained-shared-libraries-and-abuse/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/dlls-explained-shared-libraries-and-abuse/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/dlls-explained-shared-libraries-and-abuse/es.vtt" },
+    ],
+  },
+  "windows-registry-fundamentals": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/windows-registry-fundamentals/windows-registry-fundamentals.mp4",
+    caption: "Explainer — The Windows Registry · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/windows-registry-fundamentals/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/windows-registry-fundamentals/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/windows-registry-fundamentals/es.vtt" },
+    ],
+  },
 };
