@@ -7,12 +7,12 @@ export const lessons_sa2: Record<string, AuthoredPathLesson> = {
       {
         "pageNumber": 1,
         "video": {
-          "src": "/lesson-videos/containment-basics/containment-basics.mp4",
+          "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/containment-basics/containment-basics.mp4",
           "caption": "Explainer, Containment Basics · subtitles: English · עברית · Español (CC menu)",
           "tracks": [
-            { "srclang": "en", "label": "English", "src": "/lesson-videos/containment-basics/en.vtt", "default": true },
-            { "srclang": "he", "label": "עברית", "src": "/lesson-videos/containment-basics/he.vtt" },
-            { "srclang": "es", "label": "Español", "src": "/lesson-videos/containment-basics/es.vtt" }
+            { "srclang": "en", "label": "English", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/containment-basics/en.vtt", "default": true },
+            { "srclang": "he", "label": "עברית", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/containment-basics/he.vtt" },
+            { "srclang": "es", "label": "Español", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/containment-basics/es.vtt" }
           ]
         },
         "title": "Containment is not eradication",

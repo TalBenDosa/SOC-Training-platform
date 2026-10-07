@@ -53,24 +53,24 @@ const lessons = [
       {
         "heading": "Containment Decision Points and Their Trade-offs",
         "video": {
-          "src": "/lesson-videos/containment-basics/containment-basics.mp4",
+          "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/containment-basics/containment-basics.mp4",
           "caption": "Explainer, Containment Basics · subtitles: English · עברית · Español (CC menu)",
           "tracks": [
             {
               "srclang": "en",
               "label": "English",
-              "src": "/lesson-videos/containment-basics/en.vtt",
+              "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/containment-basics/en.vtt",
               "default": true
             },
             {
               "srclang": "he",
               "label": "עברית",
-              "src": "/lesson-videos/containment-basics/he.vtt"
+              "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/containment-basics/he.vtt"
             },
             {
               "srclang": "es",
               "label": "Español",
-              "src": "/lesson-videos/containment-basics/es.vtt"
+              "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/containment-basics/es.vtt"
             }
           ]
         },

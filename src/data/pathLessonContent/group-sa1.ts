@@ -922,12 +922,12 @@ export const lessons_sa1: Record<string, AuthoredPathLesson> = {
       {
         "pageNumber": 1,
         "video": {
-          "src": "/lesson-videos/reading-edr-alerts/reading-edr-alerts.mp4",
+          "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/reading-edr-alerts/reading-edr-alerts.mp4",
           "caption": "Explainer, Reading EDR Alerts · subtitles: English · עברית · Español (CC menu)",
           "tracks": [
-            { "srclang": "en", "label": "English", "src": "/lesson-videos/reading-edr-alerts/en.vtt", "default": true },
-            { "srclang": "he", "label": "עברית", "src": "/lesson-videos/reading-edr-alerts/he.vtt" },
-            { "srclang": "es", "label": "Español", "src": "/lesson-videos/reading-edr-alerts/es.vtt" }
+            { "srclang": "en", "label": "English", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/reading-edr-alerts/en.vtt", "default": true },
+            { "srclang": "he", "label": "עברית", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/reading-edr-alerts/he.vtt" },
+            { "srclang": "es", "label": "Español", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/reading-edr-alerts/es.vtt" }
           ]
         },
         "title": "What Is EDR, and What Is an Alert?",
@@ -1142,12 +1142,12 @@ export const lessons_sa1: Record<string, AuthoredPathLesson> = {
       {
         "pageNumber": 1,
         "video": {
-          "src": "/lesson-videos/process-trees-in-depth/process-trees-in-depth.mp4",
+          "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/process-trees-in-depth/process-trees-in-depth.mp4",
           "caption": "Explainer, Process Trees in Depth · subtitles: English · עברית · Español (CC menu)",
           "tracks": [
-            { "srclang": "en", "label": "English", "src": "/lesson-videos/process-trees-in-depth/en.vtt", "default": true },
-            { "srclang": "he", "label": "עברית", "src": "/lesson-videos/process-trees-in-depth/he.vtt" },
-            { "srclang": "es", "label": "Español", "src": "/lesson-videos/process-trees-in-depth/es.vtt" }
+            { "srclang": "en", "label": "English", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/process-trees-in-depth/en.vtt", "default": true },
+            { "srclang": "he", "label": "עברית", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/process-trees-in-depth/he.vtt" },
+            { "srclang": "es", "label": "Español", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/process-trees-in-depth/es.vtt" }
           ]
         },
         "title": "What Is a Process Tree?",
@@ -1364,12 +1364,12 @@ export const lessons_sa1: Record<string, AuthoredPathLesson> = {
       {
         "pageNumber": 1,
         "video": {
-          "src": "/lesson-videos/severity-vs-risk-score/severity-vs-risk-score.mp4",
+          "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/severity-vs-risk-score/severity-vs-risk-score.mp4",
           "caption": "Explainer: Severity vs. Risk Score · subtitles: English · עברית · Español (CC menu)",
           "tracks": [
-            { "srclang": "en", "label": "English", "src": "/lesson-videos/severity-vs-risk-score/en.vtt", "default": true },
-            { "srclang": "he", "label": "עברית", "src": "/lesson-videos/severity-vs-risk-score/he.vtt" },
-            { "srclang": "es", "label": "Español", "src": "/lesson-videos/severity-vs-risk-score/es.vtt" }
+            { "srclang": "en", "label": "English", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/severity-vs-risk-score/en.vtt", "default": true },
+            { "srclang": "he", "label": "עברית", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/severity-vs-risk-score/he.vtt" },
+            { "srclang": "es", "label": "Español", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/severity-vs-risk-score/es.vtt" }
           ]
         },
         "title": "Why Severity Alone Isn't Enough",
