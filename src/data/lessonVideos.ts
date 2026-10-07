@@ -511,4 +511,40 @@ export const LESSON_VIDEOS: Record<string, LessonVideoData> = {
       { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/antivirus-fundamentals/es.vtt" },
     ],
   },
+  "network-traffic-analysis-pcap-wireshark": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/network-traffic-analysis-pcap-wireshark/network-traffic-analysis-pcap-wireshark.mp4",
+    caption: "Explainer — Network Traffic Analysis with PCAP & Wireshark · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/network-traffic-analysis-pcap-wireshark/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/network-traffic-analysis-pcap-wireshark/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/network-traffic-analysis-pcap-wireshark/es.vtt" },
+    ],
+  },
+  "windows-forensic-artifacts": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/windows-forensic-artifacts/windows-forensic-artifacts.mp4",
+    caption: "Explainer — Windows Forensic Artifacts · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/windows-forensic-artifacts/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/windows-forensic-artifacts/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/windows-forensic-artifacts/es.vtt" },
+    ],
+  },
+  "memory-forensics-with-volatility": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/memory-forensics-with-volatility/memory-forensics-with-volatility.mp4",
+    caption: "Explainer — Memory Forensics with Volatility · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/memory-forensics-with-volatility/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/memory-forensics-with-volatility/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/memory-forensics-with-volatility/es.vtt" },
+    ],
+  },
+  "timeline-analysis-and-super-timelines": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/timeline-analysis-and-super-timelines/timeline-analysis-and-super-timelines.mp4",
+    caption: "Explainer — Timeline Analysis and Super-Timelines · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/timeline-analysis-and-super-timelines/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/timeline-analysis-and-super-timelines/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/timeline-analysis-and-super-timelines/es.vtt" },
+    ],
+  },
 };
