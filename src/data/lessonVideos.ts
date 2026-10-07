@@ -691,4 +691,22 @@ export const LESSON_VIDEOS: Record<string, LessonVideoData> = {
       { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/unsecured-credentials-and-credential-stores/es.vtt" },
     ],
   },
+  "data-staging-exfiltration-channels": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/data-staging-exfiltration-channels/data-staging-exfiltration-channels.mp4",
+    caption: "Explainer — Data Staging & Exfiltration Channels · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/data-staging-exfiltration-channels/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/data-staging-exfiltration-channels/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/data-staging-exfiltration-channels/es.vtt" },
+    ],
+  },
+  "ot-ics-security-for-soc-analysts": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ot-ics-security-for-soc-analysts/ot-ics-security-for-soc-analysts.mp4",
+    caption: "Explainer — OT/ICS Security for SOC Analysts · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ot-ics-security-for-soc-analysts/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ot-ics-security-for-soc-analysts/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ot-ics-security-for-soc-analysts/es.vtt" },
+    ],
+  },
 };
