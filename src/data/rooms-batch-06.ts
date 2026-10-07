@@ -31,23 +31,23 @@ const exchangeOnlineSecurity: Room = {
     {
       type: "reading",
       id: "exch-sec-r1",
-      heading: "How Exchange Online Works — The Journey of Every Email",
+      heading: "How Exchange Online Works: The Journey of Every Email",
       content: `**Exchange Online** is Microsoft's cloud-hosted email service. It is the email backbone for any organisation using Microsoft 365. Instead of running their own on-premises mail servers, companies pay Microsoft to host their email infrastructure in Azure datacentres. Today, hundreds of millions of mailboxes run on Exchange Online.
 
 **Why does a SOC analyst care about email?**
-Email is one of the most common initial-access vectors for attackers: industry breach reports such as the Verizon DBIR consistently rank phishing alongside stolen credentials and exploited vulnerabilities as a leading way in. Understanding how email flows through Microsoft's infrastructure — and where it can be inspected — is essential knowledge for any blue-team professional.
+Email is one of the most common initial-access vectors for attackers: industry breach reports such as the Verizon DBIR consistently rank phishing alongside stolen credentials and exploited vulnerabilities as a leading way in. Understanding how email flows through Microsoft's infrastructure (and where it can be inspected) is essential knowledge for any blue-team professional.
 
 **The Journey of an Inbound Email**
 
 Think of email delivery like a package moving through several inspection checkpoints at an airport:
 
-1. **Sender's mail server** — The attacker or legitimate sender composes a message and their mail server transmits it outbound.
-2. **MX Record lookup** — The sending server queries DNS for the recipient domain's **MX record** (Mail Exchanger). The MX record says "send mail for corp.com to mail.protection.outlook.com." This tells the internet that Microsoft is handling email for that domain.
-3. **Exchange Online Protection (EOP)** — Every inbound message first hits EOP, Microsoft's built-in filtering layer. EOP performs connection filtering (blocking known-bad IP ranges), anti-spam analysis, anti-malware scanning, and email authentication checks (SPF, DKIM, DMARC).
-4. **Microsoft Defender for Office 365 (MDO)** — If the organisation has licenced MDO (formerly Advanced Threat Protection), the message additionally passes through **Safe Attachments** (detonates attachments in a sandbox) and **Safe Links** (rewrites URLs and checks them at click-time).
-5. **Mailbox delivery** — If the message passes all checks, it lands in the recipient's inbox. If it is flagged as spam or malicious, it goes to the **Quarantine** instead.
+1. **Sender's mail server**: The attacker or legitimate sender composes a message and their mail server transmits it outbound.
+2. **MX Record lookup**: The sending server queries DNS for the recipient domain's **MX record** (Mail Exchanger). The MX record says "send mail for corp.com to mail.protection.outlook.com." This tells the internet that Microsoft is handling email for that domain.
+3. **Exchange Online Protection (EOP)**: Every inbound message first hits EOP, Microsoft's built-in filtering layer. EOP performs connection filtering (blocking known-bad IP ranges), anti-spam analysis, anti-malware scanning, and email authentication checks (SPF, DKIM, DMARC).
+4. **Microsoft Defender for Office 365 (MDO)**: If the organisation has licenced MDO (formerly Advanced Threat Protection), the message additionally passes through **Safe Attachments** (detonates attachments in a sandbox) and **Safe Links** (rewrites URLs and checks them at click-time).
+5. **Mailbox delivery**: If the message passes all checks, it lands in the recipient's inbox. If it is flagged as spam or malicious, it goes to the **Quarantine** instead.
 
-**Exchange Online Protection (EOP) — The Free First Line**
+**Exchange Online Protection (EOP): The Free First Line**
 
 Every Exchange Online subscription includes EOP at no extra cost. EOP provides:
 - **Connection filtering**: Blocks emails from IP addresses that appear on known-bad reputation lists.
@@ -56,16 +56,16 @@ Every Exchange Online subscription includes EOP at no extra cost. EOP provides:
 - **Anti-malware**: Scans attachments for known malware signatures.
 - **Zero-hour Auto Purge (ZAP)**: Even after delivery, if a message is later reclassified as malware or phishing, ZAP retroactively moves it out of the inbox.
 
-**Microsoft Defender for Office 365 (MDO) — The Premium Layer**
+**Microsoft Defender for Office 365 (MDO): The Premium Layer**
 
 MDO adds behaviour-based, sandboxed inspection on top of EOP:
 - **Safe Attachments**: Opens every attachment inside a detonation environment (a virtual machine) and observes what happens. Malicious behaviour = block.
 - **Safe Links**: Rewrites URLs inside emails and Teams messages to pass through Microsoft's real-time reputation check. If a URL turns malicious after delivery, Safe Links blocks it when the user clicks it.
 - **Anti-phishing / Impersonation Protection**: Detects look-alike sender names and domains designed to impersonate executives or trusted brands.
 
-**The Exchange Admin Center (EAC) — admin.exchange.microsoft.com**
+**The Exchange Admin Center (EAC): admin.exchange.microsoft.com**
 
-The EAC is the web portal where administrators manage Exchange Online. A SOC analyst uses the **Message Trace** feature here to track the delivery status of any individual email — where it came from, what happened to it, whether it was blocked, quarantined, or delivered.
+The EAC is the web portal where administrators manage Exchange Online. A SOC analyst uses the **Message Trace** feature here to track the delivery status of any individual email, where it came from, what happened to it, whether it was blocked, quarantined, or delivered.
 
 **Key takeaway for analysts**: Email filtering is not perfect. Attackers constantly evolve their techniques to bypass filters. Your job as a SOC analyst is to recognise the indicators that a message slipped through, or that something suspicious happened after delivery (like a user clicking a link or forwarding rules being created).`,
       checkpoint: {
@@ -78,7 +78,7 @@ The EAC is the web portal where administrators manage Exchange Online. A SOC ana
         ],
         answer: 0,
         explanation:
-          "SCL -1 is the bypass value: the message was explicitly allowed, so spam filtering did not apply — find out who created that allow and why. “High-confidence spam” is the other end of the scale (SCL 9), and anything at 5 or above would normally have gone to Junk. Safe Attachments is an MDO sandbox verdict, not part of the SCL score. An SPF lookup error shows up in the Authentication-Results header; it does not produce SCL -1.",
+          "SCL -1 is the bypass value: the message was explicitly allowed, so spam filtering did not apply. Find out who created that allow and why. “High-confidence spam” is the other end of the scale (SCL 9), and anything at 5 or above would normally have gone to Junk. Safe Attachments is an MDO sandbox verdict, not part of the SCL score. An SPF lookup error shows up in the Authentication-Results header; it does not produce SCL -1.",
       },
     } satisfies ReadingTask,
 
@@ -86,14 +86,14 @@ The EAC is the web portal where administrators manage Exchange Online. A SOC ana
     {
       type: "reading",
       id: "exch-sec-r2",
-      heading: "Email Authentication — SPF, DKIM, and DMARC Explained",
+      heading: "Email Authentication: SPF, DKIM, and DMARC Explained",
       content: `One of the biggest problems with email is that it was invented before anyone thought about security. By default, **anyone can send an email claiming to be from any address**. This is called **email spoofing**, and it is the foundation of almost every phishing and Business Email Compromise (BEC) attack.
 
 Three protocols were invented to fix this: SPF, DKIM, and DMARC. Together they let a receiving mail server verify whether an email really came from where it claims to come from. Think of them as the email equivalent of a passport, a seal of authenticity, and a border policy.
 
 ---
 
-**SPF — Sender Policy Framework**
+**SPF: Sender Policy Framework**
 
 SPF is a DNS record that answers the question: **"Which mail servers are authorised to send email on behalf of this domain?"**
 
@@ -108,9 +108,9 @@ When a receiving server gets an email claiming to be from corp.com, it checks th
 
 ---
 
-**DKIM — DomainKeys Identified Mail**
+**DKIM: DomainKeys Identified Mail**
 
-DKIM adds a **cryptographic signature** to every outgoing email. Think of it like a wax seal on a letter — it proves the message has not been tampered with in transit and really originated from the claimed domain.
+DKIM adds a **cryptographic signature** to every outgoing email. Think of it like a wax seal on a letter. It proves the message has not been tampered with in transit and really originated from the claimed domain.
 
 The sending organisation has a private key (kept secret on their mail servers) and publishes the corresponding public key in DNS. When the email arrives, the receiving server retrieves the public key from DNS and verifies the signature.
 
@@ -120,7 +120,7 @@ DKIM survives email forwarding better than SPF, because it is tied to the messag
 
 ---
 
-**DMARC — Domain-based Message Authentication, Reporting & Conformance**
+**DMARC: Domain-based Message Authentication, Reporting & Conformance**
 
 DMARC is the **policy layer** that sits on top of SPF and DKIM. It answers two questions:
 1. **What should receiving servers do when SPF or DKIM fail?**
@@ -130,9 +130,9 @@ A DMARC record in DNS looks like:
 \`v=DMARC1; p=reject; rua=mailto:dmarc-reports@corp.com\`
 
 The **p= (policy) field** is the most important:
-- \`p=none\` — Monitor only; take no action on failures. Used when first deploying DMARC.
-- \`p=quarantine\` — Send failing emails to spam/junk folder.
-- \`p=reject\` — Block and discard failing emails entirely. This is the most protective setting.
+- \`p=none\`Monitor only; take no action on failures. Used when first deploying DMARC.
+- \`p=quarantine\`Send failing emails to spam/junk folder.
+- \`p=reject\`Block and discard failing emails entirely. This is the most protective setting.
 
 **DMARC Alignment** is a critical concept: for DMARC to pass, either the SPF domain or the DKIM signing domain must **align** (match) with the visible "From:" header domain. This closes the SPF loophole mentioned above.
 
@@ -146,12 +146,12 @@ Example:
 \`Authentication-Results: spf=fail (sender IP is 185.234.5.6); dkim=none; dmarc=fail action=none header.from=corp.com\`
 
 Breaking this down:
-- **spf=fail** — The sending IP (185.234.5.6) is NOT in corp.com's SPF record. This IP is not authorised.
-- **dkim=none** — No DKIM signature was present at all. Legitimate email from Microsoft 365 always has DKIM.
-- **dmarc=fail** — Because both SPF and DKIM failed, DMARC also fails.
-- **action=none** — The DMARC policy is \`p=none\`, so the email was delivered anyway (just monitored).
+- **spf=fail**: The sending IP (185.234.5.6) is NOT in corp.com's SPF record. This IP is not authorised.
+- **dkim=none**: No DKIM signature was present at all. Legitimate email from Microsoft 365 always has DKIM.
+- **dmarc=fail**: Because both SPF and DKIM failed, DMARC also fails.
+- **action=none**: The DMARC policy is \`p=none\`, so the email was delivered anyway (just monitored).
 
-**Key insight for analysts**: An email with \`dmarc=fail action=none\` was delivered to the inbox despite failing authentication. This is a critical finding — especially if the "From:" domain appears to be a trusted organisation like your CEO's company.
+**Key insight for analysts**: An email with \`dmarc=fail action=none\` was delivered to the inbox despite failing authentication. This is a critical finding, especially if the "From:" domain appears to be a trusted organisation like your CEO's company.
 
 **Microsoft's 2025 enforcement update**: In May 2025, Microsoft began rejecting bulk email from senders who lack proper DMARC, SPF, and DKIM alignment when sending to consumer Microsoft addresses (Outlook.com, Hotmail). Enterprise tenants can enforce stricter policies in their own anti-phishing policies.`,
       checkpoint: {
@@ -173,14 +173,14 @@ Breaking this down:
       type: "reading",
       id: "exch-sec-r3",
       heading: "Detecting BEC Attacks and Monitoring Exchange Online",
-      content: `**Business Email Compromise (BEC)** is one of the most financially damaging cyber threats facing organisations today. The FBI's Internet Crime Complaint Center (IC3) reports billions of dollars in BEC losses every year. Unlike ransomware, BEC doesn't need malware — it relies on deception.
+      content: `**Business Email Compromise (BEC)** is one of the most financially damaging cyber threats facing organisations today. The FBI's Internet Crime Complaint Center (IC3) reports billions of dollars in BEC losses every year. Unlike ransomware, BEC doesn't need malware: it relies on deception.
 
 **How BEC Works**
 
 In a typical BEC scenario:
 1. An attacker identifies a target organisation (e.g. Acme Corp) and researches its executives (LinkedIn, company website).
 2. The attacker spoofs or typosquats the CEO's email address. Typosquatting means registering a domain that looks similar: \`acm3corp.com\` instead of \`acmecorp.com\`, or \`acmecorρ.com\` (using a Greek letter that looks like 'p').
-3. The attacker emails the CFO or Finance team, impersonating the CEO: "I need an urgent wire transfer of $450,000 to this account. I'm in a meeting and cannot talk — just do it now."
+3. The attacker emails the CFO or Finance team, impersonating the CEO: "I need an urgent wire transfer of $450,000 to this account. I'm in a meeting and cannot talk, just do it now."
 4. The sense of urgency, combined with authority, causes the victim to act without verifying.
 
 **Key BEC Detection Signals**
@@ -193,7 +193,7 @@ As a SOC analyst, watch for these in your email security tools:
 - **Mismatch between display name and email address**: The From display says "John Smith (CEO)" but the actual email address is \`ceo@randomdomain.ru\`.
 - **Reply-To header manipulation**: The visible From address looks legitimate but the Reply-To points to an attacker-controlled address.
 
-**Malicious Inbox Rules — The Silent Forwarder**
+**Malicious Inbox Rules: The Silent Forwarder**
 
 A sophisticated attacker who successfully compromises a mailbox often creates **inbox rules** to maintain persistence and steal information silently. A common rule:
 - Forward all incoming emails to an external address (attacker's mailbox)
@@ -204,7 +204,7 @@ These rules appear in the **Unified Audit Log** under different operation names 
 
 Forwarding does not even need a rule: an attacker with admin rights, or a user in the mailbox settings, can set mailbox-level forwarding to an external address. That change is logged as the \`Set-Mailbox\` operation with the \`ForwardingSmtpAddress\` parameter.
 
-**Monitoring Exchange Online — Key Tools**
+**Monitoring Exchange Online: Key Tools**
 
 | Tool | Where | What SOC Analysts Use It For |
 |---|---|---|
@@ -216,12 +216,12 @@ Forwarding does not even need a rule: an attacker with admin rights, or a user i
 
 **Key Audit Log Operations to Know**
 
-- \`MailItemsAccessed\` — Someone accessed specific emails (critical for OAuth token compromise investigations)
-- \`SendAs\` — Someone sent email as another user
-- \`AddDelegate\` — A delegate (another user) was given access to a mailbox
-- \`New-InboxRule\` / \`Set-InboxRule\` — An inbox rule was created / changed from Outlook on the web or PowerShell (check the forwarding and delete parameters)
-- \`UpdateInboxRules\` — An inbox rule was created or modified from the Outlook desktop client (check the external address in the rule details)
-- \`Set-Mailbox\` — Mailbox settings changed; with \`ForwardingSmtpAddress\` it means mailbox-level forwarding, no inbox rule needed
+- \`MailItemsAccessed\`Someone accessed specific emails (critical for OAuth token compromise investigations)
+- \`SendAs\`Someone sent email as another user
+- \`AddDelegate\`A delegate (another user) was given access to a mailbox
+- \`New-InboxRule\` / \`Set-InboxRule\`An inbox rule was created / changed from Outlook on the web or PowerShell (check the forwarding and delete parameters)
+- \`UpdateInboxRules\`An inbox rule was created or modified from the Outlook desktop client (check the external address in the rule details)
+- \`Set-Mailbox\`Mailbox settings changed; with \`ForwardingSmtpAddress\` it means mailbox-level forwarding, no inbox rule needed
 
 **Practical Analyst Workflow for Suspicious Email**
 
@@ -240,7 +240,7 @@ Forwarding does not even need a rule: an attacker with admin rights, or a user i
       id: "exch-sec-q1",
       question: "An email arrives at your company with the following header:\n\n`Authentication-Results: spf=pass; dkim=pass; dmarc=fail action=quarantine`\n\nWhat does this indicate?",
       options: [
-        "SPF and DKIM both passed, so DMARC must have passed too — a false alarm",
+        "SPF and DKIM both passed, so DMARC must have passed too: a false alarm",
         "SPF and DKIM passed for a domain that does not match the visible From: domain",
         "The DMARC record could not be fetched, so the message was quarantined",
         "The message body was altered after signing, which DMARC detects separately"
@@ -256,10 +256,10 @@ Forwarding does not even need a rule: an attacker with admin rights, or a user i
       id: "exch-sec-q2",
       question: "A finance employee reports receiving an urgent email from the CEO asking for a $200,000 wire transfer. The email passed SPF and DKIM. However, you notice the sender domain in the email is `c0rp.com` (with a zero) not `corp.com`. What attack technique is this?",
       options: [
-        "Exact-domain spoofing — a forged corp.com From: address that SPF did not catch",
-        "Lookalike domain — the attacker registered c0rp.com and authenticated it",
-        "Account takeover — the CEO's real mailbox was compromised and used to send it",
-        "Display-name spoofing — the display name says CEO; the domain is unrelated"
+        "Exact-domain spoofing: a forged corp.com From: address that SPF did not catch",
+        "Lookalike domain: the attacker registered c0rp.com and authenticated it",
+        "Account takeover: the CEO's real mailbox was compromised and used to send it",
+        "Display-name spoofing: the display name says CEO; the domain is unrelated"
       ],
       answer: 1,
       explanation: "This is a **lookalike (typosquatted) domain**. The attacker registered `c0rp.com` and published SPF and DKIM for it, so authentication passes: the checks prove the mail really came from c0rp.com. DMARC is evaluated for the From domain, c0rp.com, which the attacker controls, so corp.com's own DMARC policy plays no part. Only lookalike/impersonation protection (MDO anti-phishing) or a careful look at the P2 sender domain catches it. Exact-domain spoofing would show corp.com in From:, and SPF would then fail. A taken-over CEO mailbox would send from the real corp.com address. Display-name spoofing pairs a CEO display name with an unrelated domain; here the domain itself imitates corp.com.",
@@ -286,7 +286,7 @@ Forwarding does not even need a rule: an attacker with admin rights, or a user i
     {
       type: "log_analysis",
       id: "exch-sec-la1",
-      heading: "Suspicious Email — Wire Transfer Request",
+      heading: "Suspicious Email: Wire Transfer Request",
       context: "You are a SOC analyst at Corp Inc. The email security system has flagged an inbound message received by the Finance team. The message trace log below was pulled from the Exchange Admin Center. Analyse the event and answer the questions.",
       event: {
         id: "exch-la1-001",
@@ -294,7 +294,7 @@ Forwarding does not even need a rule: an attacker with admin rights, or a user i
         source: "exchange",
         event_type: "email_received",
         severity: "high",
-        description: "Inbound email to finance team — authentication failures detected",
+        description: "Inbound email to finance team: authentication failures detected",
         hostname: "mail.protection.outlook.com",
         user_email: "finance@corp.com",
         mitre_technique: "T1566.002",
@@ -305,7 +305,7 @@ Forwarding does not even need a rule: an attacker with admin rights, or a user i
           "data.office365.InternetMessageId": "<7f3a9b21@mail.c0rp.com>",
           "data.office365.SenderAddress": "ceo@c0rp.com",
           "data.office365.RecipientAddress": "finance@corp.com",
-          "data.office365.Subject": "URGENT: Wire Transfer Required — Confidential",
+          "data.office365.Subject": "URGENT: Wire Transfer Required, Confidential",
           "data.office365.AuthenticationResults": "spf=fail (sender IP is 185.234.91.7 not in c0rp.com SPF); dkim=none; dmarc=fail action=none",
           "data.office365.SCL": "1",
           "data.office365.BCL": "0",
@@ -378,26 +378,26 @@ const sharepointTeamsMonitoring: Room = {
     {
       type: "reading",
       id: "spt-teams-r1",
-      heading: "SharePoint Online & OneDrive — How Data Lives in Microsoft 365",
+      heading: "SharePoint Online & OneDrive: How Data Lives in Microsoft 365",
       content: `**SharePoint Online** is Microsoft's cloud-based document management and collaboration platform. If you've ever seen a shared company folder in a browser that looks like a file explorer, chances are it was SharePoint. In a Microsoft 365 organisation, SharePoint is where teams store, share, and collaborate on documents. It integrates tightly with Teams (every Teams channel has a SharePoint library behind it), Outlook, and OneDrive.
 
 **The SharePoint Architecture You Need to Know**
 
 Understanding how SharePoint is organised helps you understand where data lives and how it can be leaked:
 
-- **Tenant** — The entire organisation's Microsoft 365 environment. Everything lives under one tenant.
-- **Site Collections / Sites** — Think of these as top-level department folders. Example: \`corp.sharepoint.com/sites/Finance\`, \`corp.sharepoint.com/sites/HR\`, \`corp.sharepoint.com/sites/Engineering\`.
-- **Document Libraries** — Inside each site, there are document libraries. A library is like a folder that can have sub-folders, metadata, permissions, and version history.
-- **OneDrive for Business** — Every individual employee gets their own personal SharePoint site for personal work files. This is OneDrive. URL pattern: \`corp-my.sharepoint.com/personal/john_smith_corp_com/\`.
+- **Tenant**: The entire organisation's Microsoft 365 environment. Everything lives under one tenant.
+- **Site Collections / Sites**: Think of these as top-level department folders. Example: \`corp.sharepoint.com/sites/Finance\`, \`corp.sharepoint.com/sites/HR\`, \`corp.sharepoint.com/sites/Engineering\`.
+- **Document Libraries**: Inside each site, there are document libraries. A library is like a folder that can have sub-folders, metadata, permissions, and version history.
+- **OneDrive for Business**: Every individual employee gets their own personal SharePoint site for personal work files. This is OneDrive. URL pattern: \`corp-my.sharepoint.com/personal/john_smith_corp_com/\`.
 
-**External Sharing — The Biggest Security Risk**
+**External Sharing: The Biggest Security Risk**
 
 SharePoint makes it very easy to share files with people outside your organisation. This is useful for collaboration with clients and partners, but it is also a major data leakage risk. There are four levels of external sharing:
 
-1. **Anyone links (Anonymous links)** — The most dangerous setting. A link is created that anyone with the link can access, with no authentication required. Use of the link is still logged (\`AnonymousLinkUsed\`, with the client IP and user agent), but it cannot be attributed to a named identity.
-2. **Specific people links (external)** — A link sent to a specific external email address. The recipient must authenticate, and access is logged.
-3. **Existing external guests** — Sharing with people already added as Azure AD guest accounts.
-4. **Only people in your organisation** — Internal only; no external sharing.
+1. **Anyone links (Anonymous links)**: The most dangerous setting. A link is created that anyone with the link can access, with no authentication required. Use of the link is still logged (\`AnonymousLinkUsed\`, with the client IP and user agent), but it cannot be attributed to a named identity.
+2. **Specific people links (external)**: A link sent to a specific external email address. The recipient must authenticate, and access is logged.
+3. **Existing external guests**: Sharing with people already added as Azure AD guest accounts.
+4. **Only people in your organisation**: Internal only; no external sharing.
 
 **Key Audit Events in SharePoint**
 
@@ -414,7 +414,7 @@ Every action in SharePoint is logged in the Microsoft 365 Unified Audit Log (sea
 | \`AnonymousLinkUsed\` | An "Anyone" link was used to access a file |
 | \`SensitiveFileRead\` | A file classified as sensitive (by DLP) was accessed |
 
-**Bulk Downloads — The Classic Data Exfiltration Pattern**
+**Bulk Downloads: The Classic Data Exfiltration Pattern**
 
 A disgruntled or compromised user exfiltrating data from SharePoint will typically download hundreds or thousands of files in a short time window. Normal user behaviour might be 5–20 file downloads per day. Downloading 500+ files in a single session is highly anomalous.
 
@@ -426,7 +426,7 @@ Microsoft Purview (formerly Compliance Center) can generate alerts when bulk dow
 
 **Tenant-Level External Sharing Controls**
 
-Administrators can control external sharing at the SharePoint Admin Center (admin.microsoft.com → SharePoint → Policies → Sharing). SOC analysts should know whether their organisation allows "Anyone" links — if so, any created "Anyone" link is an exfiltration channel whose users cannot be identified once the URL is shared externally.`,
+Administrators can control external sharing at the SharePoint Admin Center (admin.microsoft.com → SharePoint → Policies → Sharing). SOC analysts should know whether their organisation allows "Anyone" links, if so, any created "Anyone" link is an exfiltration channel whose users cannot be identified once the URL is shared externally.`,
       checkpoint: {
         question: "The audit log shows a Finance spreadsheet being opened from an unfamiliar external IP address, but the access record carries no user identity at all. Which way of sharing the file produces that kind of record?",
         options: [
@@ -516,20 +516,20 @@ Microsoft Purview DLP policies can inspect Teams messages and files shared in Te
 **How Microsoft Purview DLP Works**
 
 DLP policies define three things:
-1. **What to protect** — Sensitive information types (e.g. credit card numbers, UK National Insurance numbers, patient health information, company-defined custom patterns like project codes).
-2. **Where to protect it** — Which services to monitor: Exchange email, SharePoint, OneDrive, Teams chats, Endpoint devices, Power BI.
-3. **What to do when a match occurs** — Options include: notify the user with a policy tip (warning), block the action (prevent sending/uploading), notify the admin, log the event for audit.
+1. **What to protect**: Sensitive information types (e.g. credit card numbers, UK National Insurance numbers, patient health information, company-defined custom patterns like project codes).
+2. **Where to protect it**, Which services to monitor: Exchange email, SharePoint, OneDrive, Teams chats, Endpoint devices, Power BI.
+3. **What to do when a match occurs**, Options include: notify the user with a policy tip (warning), block the action (prevent sending/uploading), notify the admin, log the event for audit.
 
 **Key DLP Audit Operations**
 
-- \`DlpRuleMatch\` — A DLP policy rule was triggered. The audit log entry includes: the policy name, the rule that matched, the workload (Exchange/SharePoint/Teams), the user who triggered it, the sensitive information type(s) detected, and the confidence level and count.
-- \`DlpRuleUndo\` — A user acknowledged a policy tip and provided a justification to override the block.
-- \`DlpRuleActivated\` — A DLP rule was enabled or changed.
+- \`DlpRuleMatch\`A DLP policy rule was triggered. The audit log entry includes: the policy name, the rule that matched, the workload (Exchange/SharePoint/Teams), the user who triggered it, the sensitive information type(s) detected, and the confidence level and count.
+- \`DlpRuleUndo\`A user acknowledged a policy tip and provided a justification to override the block.
+- \`DlpRuleActivated\`A DLP rule was enabled or changed.
 
-**Insider Threat — The Risk from Within**
+**Insider Threat: The Risk from Within**
 
 Insider threats come from current or former employees (or contractors) who misuse their legitimate access to steal, damage, or expose data. They are especially dangerous because:
-- They already have authorised access — no need to "break in"
+- They already have authorised access: no need to "break in"
 - They know where sensitive data lives
 - Their activity can look legitimate until you look closely
 
@@ -560,11 +560,11 @@ Even without Purview Insider Risk Management, SOC analysts can identify suspicio
 When you receive a DLP alert or a bulk-download alert:
 
 1. Go to **purview.microsoft.com → Audit** and search for the user's \`FileDownloaded\` operations in the last 24–72 hours.
-2. Count the volume and look at the file paths — were they from sensitive sites like /Finance/ or /HR/?
-3. Check the **ClientIP** field — is this the user's normal corporate IP or an unusual external IP?
-4. Cross-reference with **HR systems** — is this employee on a performance improvement plan, under investigation, or about to leave?
+2. Count the volume and look at the file paths. Were they from sensitive sites like /Finance/ or /HR/?
+3. Check the **ClientIP** field: is this the user's normal corporate IP or an unusual external IP?
+4. Cross-reference with **HR systems**: is this employee on a performance improvement plan, under investigation, or about to leave?
 5. Check for **external sharing** by the same user: search for \`AnonymousLinkCreated\` or \`SharingInvitationCreated\` with external email addresses.
-6. If warranted, **escalate to HR and Legal** — insider threat cases have legal and HR implications beyond technical response.`,
+6. If warranted, **escalate to HR and Legal**. Insider threat cases have legal and HR implications beyond technical response.`,
     } satisfies ReadingTask,
 
     // ── Question 1 ────────────────────────────────────────────────────────────
@@ -619,7 +619,7 @@ When you receive a DLP alert or a bulk-download alert:
     {
       type: "log_analysis",
       id: "spt-teams-la1",
-      heading: "Mass File Download Alert — SharePoint",
+      heading: "Mass File Download Alert: SharePoint",
       context: "You are reviewing alerts in the Microsoft Purview compliance portal. A bulk-download alert has fired for a user in the Finance department. The alert aggregated 847 individual FileDownloaded operations into this summary event. The user's last day of employment is in 3 days according to HR records.",
       event: {
         id: "spt-la1-001",
@@ -627,7 +627,7 @@ When you receive a DLP alert or a bulk-download alert:
         source: "sharepoint",
         event_type: "sharepoint_download",
         severity: "high",
-        description: "Mass file download alert — possible data exfiltration by departing employee",
+        description: "Mass file download alert: possible data exfiltration by departing employee",
         user_email: "departing.employee@corp.com",
         src_ip: "10.0.1.55",
         mitre_technique: "T1213.002",
@@ -641,7 +641,7 @@ When you receive a DLP alert or a bulk-download alert:
           "data.office365.Workload": "SharePoint",
           "data.office365.SourceFileName": "Q4_Revenue_Report.xlsx",
           "data.office365.SourceRelativeUrl": "/sites/Finance/Shared Documents/",
-          "rule.description": "Mass file download detected — 847 files in 4 minutes",
+          "rule.description": "Mass file download detected: 847 files in 4 minutes",
           "data.office365.SiteUrl": "https://corp.sharepoint.com/sites/Finance",
           "data.office365.EventData": "{\"ListItemUniqueId\":\"a7f9c2e1-...\",\"DestinationUrl\":\"\"}",
           "rule.level": "high"
@@ -709,14 +709,14 @@ const endpointSecurityFundamentals: Room = {
     {
       type: "reading",
       id: "ep-sec-r1",
-      heading: "From Antivirus to EDR — The Evolution of Endpoint Security",
+      heading: "From Antivirus to EDR: The Evolution of Endpoint Security",
       content: `**What is an Endpoint?**
 
 An **endpoint** is any device that connects to a network and can be a target for attack. In a corporate environment, this includes:
-- **Laptops and desktops** — The most common endpoints. Used by employees daily.
-- **Servers** — High-value targets. They host applications, databases, and sensitive data.
-- **Mobile devices** — Smartphones and tablets that connect to company email and apps.
-- **IoT devices** — Security cameras, badge readers, smart thermostats, industrial sensors. These are increasingly connected to corporate networks and often have weak security.
+- **Laptops and desktops**: The most common endpoints. Used by employees daily.
+- **Servers**: High-value targets. They host applications, databases, and sensitive data.
+- **Mobile devices**: Smartphones and tablets that connect to company email and apps.
+- **IoT devices**: Security cameras, badge readers, smart thermostats, industrial sensors. These are increasingly connected to corporate networks and often have weak security.
 
 **Why Endpoints?**
 
@@ -724,18 +724,18 @@ Attackers target endpoints because they are where humans interact with technolog
 
 ---
 
-**Generation 1: Traditional Antivirus (AV) — The Signature Era (1987–2010s)**
+**Generation 1: Traditional Antivirus (AV), The Signature Era (1987–2010s)**
 
-Traditional antivirus works like a criminal wanted-poster database. Every known piece of malware is given a unique "fingerprint" called a **signature** — a pattern of bytes found in that specific malware file. When the AV scans a file, it compares it against this database of signatures. If there is a match → malware detected.
+Traditional antivirus works like a criminal wanted-poster database. Every known piece of malware is given a unique "fingerprint" called a **signature**: a pattern of bytes found in that specific malware file. When the AV scans a file, it compares it against this database of signatures. If there is a match → malware detected.
 
 **Limitation**: Traditional AV is completely blind to **new malware it has never seen before** (zero-day malware). Attackers figured out that if they change the malware slightly (polymorphic malware) or pack it differently, the signature no longer matches and AV misses it entirely. By the early 2010s, attackers were generating thousands of new malware variants per day, and signature databases simply couldn't keep up.
 
 ---
 
-**Generation 2: NGAV — Next-Generation Antivirus (2012–present)**
+**Generation 2: NGAV, Next-Generation Antivirus (2012–present)**
 
 **NGAV** abandoned pure signature matching in favour of:
-- **Behavioural detection**: Instead of asking "does this file match a known bad signature?", NGAV asks "is this process *behaving* like malware?" — for example, does it enumerate all files and start encrypting them? That behaviour pattern is ransomware, even if the file has never been seen before.
+- **Behavioural detection**: Instead of asking "does this file match a known bad signature?", NGAV asks "is this process *behaving* like malware?", for example, does it enumerate all files and start encrypting them? That behaviour pattern is ransomware, even if the file has never been seen before.
 - **Machine learning**: Models trained on millions of malware samples can detect new malware based on subtle characteristics, even without an exact signature match.
 - **Memory scanning**: Detecting malicious code that runs only in memory without ever writing to disk (fileless malware).
 - **Exploit prevention**: Blocking exploitation techniques like buffer overflows and code injection, regardless of the specific vulnerability being exploited.
@@ -744,7 +744,7 @@ Products like **CrowdStrike Falcon Prevent**, **SentinelOne Singularity**, and *
 
 ---
 
-**Generation 3: EDR — Endpoint Detection & Response (2013–present)**
+**Generation 3: EDR, Endpoint Detection & Response (2013–present)**
 
 **EDR** is a quantum leap beyond NGAV. Think of NGAV as an alarm system that beeps when someone breaks in. EDR is an alarm system *plus* a full security camera system *plus* a recording of everything that happened before and after the break-in.
 
@@ -758,19 +758,19 @@ EDR's defining characteristic is **continuous monitoring and telemetry recording
 This **telemetry stream** flows to a central cloud platform where it is analysed in real time. This enables:
 
 1. **Threat detection**: Alert when a behaviour pattern matches a known attack technique.
-2. **Investigation**: When an alert fires, analysts can look back through the recorded telemetry to understand exactly what happened — a full **process tree** showing parent → child process chains.
-3. **Remote response**: Isolate a compromised laptop from the network with one click, kill a malicious process, delete a malicious file — all without touching the physical device.
+2. **Investigation**: When an alert fires, analysts can look back through the recorded telemetry to understand exactly what happened, a full **process tree** showing parent → child process chains.
+3. **Remote response**: Isolate a compromised laptop from the network with one click, kill a malicious process, delete a malicious file. All without touching the physical device.
 
 **Key EDR vendors today (2026)**:
-- **CrowdStrike Falcon Insight XDR** — Industry-leading threat intelligence and process telemetry depth.
-- **SentinelOne Singularity** — Best autonomous response (can auto-remediate without analyst intervention, including ransomware rollback).
-- **Microsoft Defender for Endpoint Plan 2 (MDE)** — Excellent value for Microsoft 365 E5 customers; deep Windows integration; native integration with Entra ID and Purview.
-- **Palo Alto Cortex XDR** — Strong in mixed-OS environments (Windows, macOS, Linux).
-- **VMware Carbon Black** — Popular in regulated industries.
+- **CrowdStrike Falcon Insight XDR**: Industry-leading threat intelligence and process telemetry depth.
+- **SentinelOne Singularity**: Best autonomous response (can auto-remediate without analyst intervention, including ransomware rollback).
+- **Microsoft Defender for Endpoint Plan 2 (MDE)**: Excellent value for Microsoft 365 E5 customers; deep Windows integration; native integration with Entra ID and Purview.
+- **Palo Alto Cortex XDR**: Strong in mixed-OS environments (Windows, macOS, Linux).
+- **VMware Carbon Black**: Popular in regulated industries.
 
 ---
 
-**Generation 4: XDR — Extended Detection & Response (2019–present)**
+**Generation 4: XDR, Extended Detection & Response (2019–present)**
 
 **XDR** takes the EDR concept and extends it beyond the endpoint:
 - **EDR**: Endpoint telemetry only
@@ -797,18 +797,18 @@ Instead of having separate tools for each domain that analysts must correlate ma
     {
       type: "reading",
       id: "ep-sec-r2",
-      heading: "EDR Deep Dive — What It Collects and What Analysts Do With It",
+      heading: "EDR Deep Dive: What It Collects and What Analysts Do With It",
       content: `Now that you understand *what* EDR is, let's go deeper into *how* it works and what a SOC analyst actually does with EDR data.
 
 **The EDR Agent**
 
 Every endpoint protected by EDR has a small software program installed on it called an **agent** (also called a sensor or client). This agent runs silently in the background, consuming minimal CPU and memory, and does two things:
-1. **Collects telemetry** — Records every process, file, network, and registry event.
-2. **Enforces prevention** — Can block malicious behaviour in real-time (NGAV function).
+1. **Collects telemetry**: Records every process, file, network, and registry event.
+2. **Enforces prevention**: Can block malicious behaviour in real-time (NGAV function).
 
 The agent sends telemetry to a central **cloud platform** (e.g. CrowdStrike's Threat Graph, SentinelOne's SentinelCloud, or Microsoft's Defender for Endpoint in Azure). This is where detection rules run and analysts investigate.
 
-**The Process Tree — The Most Powerful Investigation Tool**
+**The Process Tree: The Most Powerful Investigation Tool**
 
 Imagine you get an alert: "Suspicious PowerShell command detected on LAPTOP-JSMITH." You open the EDR console and see the **process tree**:
 
@@ -826,7 +826,7 @@ This chain tells an incredibly clear story: **a Word document was opened from Ou
 
 | Data Type | Fields Recorded | Why It Matters |
 |---|---|---|
-| **Process events** | Process name, PID, parent process, command line, file hash, user, integrity level | Core of investigation — who ran what? |
+| **Process events** | Process name, PID, parent process, command line, file hash, user, integrity level | Core of investigation, who ran what? |
 | **File events** | File path, operation (create/modify/delete), hash, process that caused it | Detect malware being written to disk |
 | **Network connections** | Process that made the connection, destination IP and port, bytes transferred | Detect C2 (command-and-control) communications |
 | **Registry events** | Key path, operation, new value, process that changed it | Detect persistence mechanisms (malware setting itself to run at boot) |
@@ -835,25 +835,25 @@ This chain tells an incredibly clear story: **a Word document was opened from Ou
 
 **EDR Response Capabilities**
 
-EDR platforms give analysts powerful remote response capabilities — all from a browser, without touching the physical machine:
+EDR platforms give analysts powerful remote response capabilities, all from a browser, without touching the physical machine:
 
-- **Network Isolation (Host Isolation)**: Cuts the endpoint off from the network (except for the EDR management channel). The machine cannot talk to anything — not even internal servers. Used when a host is confirmed compromised, to prevent lateral movement. Technically it is one click in the console.
+- **Network Isolation (Host Isolation)**: Cuts the endpoint off from the network (except for the EDR management channel). The machine cannot talk to anything, not even internal servers. Used when a host is confirmed compromised, to prevent lateral movement. Technically it is one click in the console.
 - **Kill Process**: Immediately terminate a malicious process running on the endpoint.
 - **Delete File**: Remove a malicious file from the endpoint.
 - **Live Response / Remote Shell**: Open a remote command-line shell on the endpoint for in-depth forensic investigation. SOC analysts can run commands, collect files, and examine artefacts without physically touching the device.
 - **Run Containment Script**: Push a custom script to the endpoint (e.g. to disable a compromised service or quarantine a file).
 - **Collect Forensic Package**: Collect a bundle of artefacts (event logs, memory dump, prefetch files, registry hives) from the endpoint for offline analysis.
 
-**"One click" is the technical cost, not the real one.** This is the part that separates a console operator from an analyst, so be clear-eyed about it: isolation is an *outage you are choosing to cause*. Isolating a developer's laptop costs that person an afternoon. Isolating a domain controller, a database server, a payment gateway, or the PC running a hospital ward's medication system can be more damaging than the malware you are containing — and on a busy shift, under pressure, that is a genuinely easy mistake to make.
+**"One click" is the technical cost, not the real one.** This is the part that separates a console operator from an analyst, so be clear-eyed about it: isolation is an *outage you are choosing to cause*. Isolating a developer's laptop costs that person an afternoon. Isolating a domain controller, a database server, a payment gateway, or the PC running a hospital ward's medication system can be more damaging than the malware you are containing, and on a busy shift, under pressure, that is a genuinely easy mistake to make.
 
 So before you isolate, answer three questions:
 - **What does this asset do?** A hostname alone tells you nothing. Check the asset inventory or CMDB for its role, its business owner, and its criticality tier.
-- **Who has to know?** Most organisations require the system owner to be notified, and many require a change/emergency-change approval for production systems. Some run a standing pre-authorisation for endpoints but not for servers — learn where that line sits in *your* environment, before you need it.
+- **Who has to know?** Most organisations require the system owner to be notified, and many require a change/emergency-change approval for production systems. Some run a standing pre-authorisation for endpoints but not for servers: learn where that line sits in *your* environment, before you need it.
 - **Is there a lighter option that still stops the bleeding?** Killing the malicious process, blocking one destination at the firewall, or disabling the compromised account will sometimes contain the incident without taking the whole host offline.
 
-None of this means "hesitate while an attacker encrypts your file server." When the evidence is strong and the spread is active, isolate and explain afterwards — a short outage beats a domain-wide compromise. The point is that isolation is a *decision with a cost on both sides*, and a good analyst can say out loud why they judged the cost of acting to be lower than the cost of waiting.
+None of this means "hesitate while an attacker encrypts your file server." When the evidence is strong and the spread is active, isolate and explain afterwards: a short outage beats a domain-wide compromise. The point is that isolation is a *decision with a cost on both sides*, and a good analyst can say out loud why they judged the cost of acting to be lower than the cost of waiting.
 
-**Endpoint Hardening — Reducing the Attack Surface**
+**Endpoint Hardening, Reducing the Attack Surface**
 
 EDR detects threats *after* they start. **Endpoint hardening** reduces the attack surface so fewer threats can start:
 - **Attack Surface Reduction (ASR) rules** in Microsoft Defender: Block Office macros from spawning processes, block credential theft from LSASS, block executable content in email.
@@ -871,7 +871,7 @@ EDR detects threats *after* they start. **Endpoint hardening** reduces the attac
         ],
         answer: 1,
         explanation:
-          "Host Isolation cuts the machine off from talking to anything else on the network — even internal servers — while keeping the EDR management channel alive, so analysts can still investigate and remediate remotely.",
+          "Host Isolation cuts the machine off from talking to anything else on the network, even internal servers, while keeping the EDR management channel alive, so analysts can still investigate and remediate remotely.",
       },
     } satisfies ReadingTask,
 
@@ -879,7 +879,7 @@ EDR detects threats *after* they start. **Endpoint hardening** reduces the attac
     {
       type: "reading",
       id: "ep-sec-r3",
-      heading: "How to Read an EDR Alert — A Step-by-Step Approach",
+      heading: "How to Read an EDR Alert: A Step-by-Step Approach",
       content: `When an alert appears in your EDR console, it can feel overwhelming at first. There's a lot of information. This reading walks you through a structured approach to reading any EDR alert.
 
 **The Anatomy of a CrowdStrike Alert**
@@ -891,7 +891,7 @@ CrowdStrike Falcon is one of the most widely deployed EDR platforms. When it fir
 | \`event_simpleName\` | Event type (a detection is a DetectionSummaryEvent) | "DetectionSummaryEvent" |
 | \`SeverityName\` | How bad CrowdStrike thinks it is | Critical, High, Medium, Low |
 | \`Tactic\` / \`Technique\` | MITRE ATT&CK tactic and technique, by name | "Execution" / "PowerShell" |
-| \`threat.technique.id\` | The MITRE technique ID — an ECS field beside the Falcon ones (sub-technique in \`threat.technique.subtechnique.id\`) | T1059 / T1059.001 |
+| \`threat.technique.id\` | The MITRE technique ID: an ECS field beside the Falcon ones (sub-technique in \`threat.technique.subtechnique.id\`) | T1059 / T1059.001 |
 | \`FileName\` | The process that triggered the alert | powershell.exe |
 | \`ParentBaseFileName\` | What launched the alerting process | cmd.exe |
 | \`CommandLine\` | The exact command that was run | powershell.exe -NoP -NonI -W Hidden -Exec Bypass -Enc JAB... |
@@ -905,23 +905,23 @@ CrowdStrike Falcon is one of the most widely deployed EDR platforms. When it fir
 **Step-by-Step Alert Analysis**
 
 **Step 1: Read the alert title and technique**
-What is the alert about, broadly? If it says "T1059.001 — PowerShell" you know you're looking at PowerShell abuse, which is extremely common in attacks. If it says "T1003 — OS Credential Dumping" (a technique under the Credential Access tactic, TA0006) you know someone tried to dump credentials.
+What is the alert about, broadly? If it says "T1059.001: PowerShell" you know you're looking at PowerShell abuse, which is extremely common in attacks. If it says "T1003, OS Credential Dumping" (a technique under the Credential Access tactic, TA0006) you know someone tried to dump credentials.
 
 **Step 2: Identify the affected host and user**
 Who and what machine are affected? Is this a finance server (critical) or a developer laptop (important but lower blast radius)? Is the user an administrator or a regular employee?
 
 **Step 3: Examine the command line**
 The command line is often the most revealing field. For PowerShell alerts, look for:
-- \`-Enc\` or \`-EncodedCommand\`: The command is Base64-encoded to hide what it's doing. Frequently abused and always worth decoding — but management tools (SCCM/ConfigMgr, Intune, many RMM agents) use it too, so judge by the parent process and the decoded content.
-- \`-ExecutionPolicy Bypass\` or \`-Exec Bypass\`: Bypassing PowerShell's script execution policy. Attackers use it constantly, but so do legitimate management tools — again, the parent process and what the script does decide it.
-- \`-NoP\` or \`-NoProfile\`: Skips loading the user's profile scripts, giving a clean, predictable session. It does NOT switch off PowerShell logging — Script Block Logging, Module Logging and Transcription are set by Group Policy and still record the session. Common in both admin tooling and malware.
-- \`-NonI\` or \`-NonInteractive\`: Running without user interaction — indicates automated/scripted execution.
+- \`-Enc\` or \`-EncodedCommand\`: The command is Base64-encoded to hide what it's doing. Frequently abused and always worth decoding, but management tools (SCCM/ConfigMgr, Intune, many RMM agents) use it too, so judge by the parent process and the decoded content.
+- \`-ExecutionPolicy Bypass\` or \`-Exec Bypass\`: Bypassing PowerShell's script execution policy. Attackers use it constantly, but so do legitimate management tools: again, the parent process and what the script does decide it.
+- \`-NoP\` or \`-NoProfile\`: Skips loading the user's profile scripts, giving a clean, predictable session. It does NOT switch off PowerShell logging. Script Block Logging, Module Logging and Transcription are set by Group Policy and still record the session. Common in both admin tooling and malware.
+- \`-NonI\` or \`-NonInteractive\`: Running without user interaction, indicates automated/scripted execution.
 - \`-W Hidden\` or \`-WindowStyle Hidden\`: Hiding the PowerShell window from the user. Malware doesn't want to be seen.
-- \`IEX\` or \`Invoke-Expression\`: Executing a string as a command — often used to execute code downloaded from the internet.
+- \`IEX\` or \`Invoke-Expression\`: Executing a string as a command, often used to execute code downloaded from the internet.
 - \`DownloadString\` or \`WebClient\`: Downloading code from the internet.
 
 **Step 4: Check the process tree**
-Who launched this process? Normal PowerShell usage might be launched by an admin tool or the Windows Task Scheduler. **PowerShell launched by Word, Excel, or Outlook is a major red flag** — it means a document executed malicious code.
+Who launched this process? Normal PowerShell usage might be launched by an admin tool or the Windows Task Scheduler. **PowerShell launched by Word, Excel, or Outlook is a major red flag**. It means a document executed malicious code.
 
 **Step 5: Check the hash against threat intelligence**
 Copy the SHA256 hash and paste it into **VirusTotal** (virustotal.com) or your threat intelligence platform. If 40 out of 72 antivirus engines flag it as malicious, that confirms the alert.
@@ -958,7 +958,7 @@ Based on your analysis:
         "Traditional AV can isolate a host on demand, whereas EDR is passive alerting with no containment"
       ],
       answer: 1,
-      explanation: "The key difference is **scope and approach**. Traditional AV relies on known-bad **signatures** — it cannot detect new malware it has never seen before. EDR continuously records all endpoint telemetry (processes, files, network connections, registry changes) and applies **behavioural analysis** to detect threats regardless of whether they have known signatures. EDR also provides **visibility** for investigation (process trees, command lines, timelines) and **response** capabilities (host isolation, remote shell) that traditional AV completely lacks.",
+      explanation: "The key difference is **scope and approach**. Traditional AV relies on known-bad **signatures**. It cannot detect new malware it has never seen before. EDR continuously records all endpoint telemetry (processes, files, network connections, registry changes) and applies **behavioural analysis** to detect threats regardless of whether they have known signatures. EDR also provides **visibility** for investigation (process trees, command lines, timelines) and **response** capabilities (host isolation, remote shell) that traditional AV completely lacks.",
       xp: 25,
     } satisfies QuestionTask,
 
@@ -974,7 +974,7 @@ Based on your analysis:
         "A Word add-in installer running an encoded PowerShell setup routine"
       ],
       answer: 1,
-      explanation: "**winword.exe spawning cmd.exe which spawns powershell.exe** is one of the most classic malicious process chains in endpoint security. Word does not normally spawn command prompts or PowerShell shells during legitimate use. This chain indicates a **malicious Office macro** (embedded in a document) that executed system commands. The `-Enc` flag on PowerShell means the actual command is Base64-encoded — a strong obfuscation indicator. This should be treated as a high-priority true positive.",
+      explanation: "**winword.exe spawning cmd.exe which spawns powershell.exe** is one of the most classic malicious process chains in endpoint security. Word does not normally spawn command prompts or PowerShell shells during legitimate use. This chain indicates a **malicious Office macro** (embedded in a document) that executed system commands. The `-Enc` flag on PowerShell means the actual command is Base64-encoded: a strong obfuscation indicator. This should be treated as a high-priority true positive.",
       xp: 25,
     } satisfies QuestionTask,
 
@@ -990,7 +990,7 @@ Based on your analysis:
         "Reboot the laptop so the malware is cleared from memory"
       ],
       answer: 2,
-      explanation: "**Host isolation** (also called network isolation or containment) is the single most important immediate action when a host is actively spreading malware. Isolation cuts the device off from all network communication (except the EDR management channel), preventing the malware from reaching additional hosts, communicating with a command-and-control server, or exfiltrating data. Deleting the malware file and rebooting are secondary steps that come after containment. A full AV scan is also secondary and may miss fileless malware.\n\nNote what makes this an easy call: it is a **user's laptop**, and the spread is **confirmed and active**. Both halves matter. Change either one — a production database server instead of a laptop, or a single suspicious process instead of confirmed spreading — and the calculation shifts, because isolation is an outage you are deliberately causing. Reading 2 covers the questions to ask first when the asset is business-critical.",
+      explanation: "**Host isolation** (also called network isolation or containment) is the single most important immediate action when a host is actively spreading malware. Isolation cuts the device off from all network communication (except the EDR management channel), preventing the malware from reaching additional hosts, communicating with a command-and-control server, or exfiltrating data. Deleting the malware file and rebooting are secondary steps that come after containment. A full AV scan is also secondary and may miss fileless malware.\n\nNote what makes this an easy call: it is a **user's laptop**, and the spread is **confirmed and active**. Both halves matter. Change either one: a production database server instead of a laptop, or a single suspicious process instead of confirmed spreading, and the calculation shifts, because isolation is an outage you are deliberately causing. Reading 2 covers the questions to ask first when the asset is business-critical.",
       xp: 25,
     } satisfies QuestionTask,
 
@@ -1006,7 +1006,7 @@ Based on your analysis:
         "XDR is the mobile-device tier of EDR, covering iOS and Android handsets"
       ],
       answer: 1,
-      explanation: "The 'X' in **XDR** stands for 'Extended' — it extends detection and response **across multiple security domains** beyond just the endpoint. While EDR sees only what happens on a single device, XDR correlates telemetry from endpoints, network traffic, identity systems (Active Directory, Entra ID), email (Exchange, phishing), and cloud workloads (AWS, Azure). This cross-domain correlation allows XDR to detect multi-stage attacks that would appear as disconnected, low-confidence signals in isolated tools. Microsoft Defender XDR, CrowdStrike Falcon XDR, and SentinelOne Singularity XDR are current examples.",
+      explanation: "The 'X' in **XDR** stands for 'Extended'. It extends detection and response **across multiple security domains** beyond just the endpoint. While EDR sees only what happens on a single device, XDR correlates telemetry from endpoints, network traffic, identity systems (Active Directory, Entra ID), email (Exchange, phishing), and cloud workloads (AWS, Azure). This cross-domain correlation allows XDR to detect multi-stage attacks that would appear as disconnected, low-confidence signals in isolated tools. Microsoft Defender XDR, CrowdStrike Falcon XDR, and SentinelOne Singularity XDR are current examples.",
       xp: 25,
     } satisfies QuestionTask,
 
@@ -1014,7 +1014,7 @@ Based on your analysis:
     {
       type: "log_analysis",
       id: "ep-sec-la1",
-      heading: "CrowdStrike Alert — Suspicious PowerShell Execution",
+      heading: "CrowdStrike Alert: Suspicious PowerShell Execution",
       context: "You are a Tier 1 SOC analyst. A CrowdStrike Falcon alert has just appeared in your queue. The alert was generated on an employee's laptop. Your task is to analyse the alert details and answer the investigation questions below.",
       event: {
         id: "ep-la1-001",
@@ -1023,7 +1023,7 @@ Based on your analysis:
         vendor: "CrowdStrike Falcon",
         event_type: "edr_alert",
         severity: "high",
-        description: "CrowdStrike: Suspicious encoded PowerShell execution — possible post-exploitation",
+        description: "CrowdStrike: Suspicious encoded PowerShell execution, possible post-exploitation",
         hostname: "LAPTOP-JSMITH",
         user_email: "j.smith@corp.com",
         src_ip: "10.0.1.55",
@@ -1072,7 +1072,7 @@ Based on your analysis:
             "The alert's business-impact severity is 95 on a 0–100 scale"
           ],
           answer: 1,
-          explanation: "In CrowdStrike, the **Confidence score (0–100)** represents how certain CrowdStrike's detection models are that the observed activity is malicious, based on machine-learning analysis, Threat Graph intelligence, and pattern matching against known attack techniques. A score of 95 is very high — this is almost certainly malicious activity and should be treated as a true positive pending analyst confirmation. Low confidence scores (below 50) warrant more careful evaluation for false positives.",
+          explanation: "In CrowdStrike, the **Confidence score (0–100)** represents how certain CrowdStrike's detection models are that the observed activity is malicious, based on machine-learning analysis, Threat Graph intelligence, and pattern matching against known attack techniques. A score of 95 is very high. This is almost certainly malicious activity and should be treated as a true positive pending analyst confirmation. Low confidence scores (below 50) warrant more careful evaluation for false positives.",
           xp: 35,
         },
         {
@@ -1084,7 +1084,7 @@ Based on your analysis:
             "It writes the command's output to a hidden file instead of the console"
           ],
           answer: 1,
-          explanation: "`-WindowStyle Hidden` (shortened to `-W Hidden`) instructs PowerShell to launch with a hidden window style — meaning no black PowerShell console window appears on screen. Legitimate PowerShell scripts sometimes use this for cleaner UX, but in the context of malware, it is used to hide the malicious activity from the victim user sitting at the keyboard. Combined with `-NoP` (no profile), `-NonI` (non-interactive), and `-Exec Bypass` (bypass execution policy), this is a textbook malicious PowerShell execution pattern.",
+          explanation: "`-WindowStyle Hidden` (shortened to `-W Hidden`) instructs PowerShell to launch with a hidden window style, meaning no black PowerShell console window appears on screen. Legitimate PowerShell scripts sometimes use this for cleaner UX, but in the context of malware, it is used to hide the malicious activity from the victim user sitting at the keyboard. Combined with `-NoP` (no profile), `-NonI` (non-interactive), and `-Exec Bypass` (bypass execution policy), this is a textbook malicious PowerShell execution pattern.",
           xp: 35,
         },
       ],
@@ -1094,7 +1094,7 @@ Based on your analysis:
     {
       type: "flag",
       id: "ep-sec-f1",
-      prompt: "Look at the CrowdStrike alert log above. Falcon killed the process, but your ticket still has to say what the script actually did — and from this alert alone, you can't. One of the flags in the PowerShell command line is the reason. Enter that flag exactly as it appears in the command line (the flag only, without the value that follows it).",
+      prompt: "Look at the CrowdStrike alert log above. Falcon killed the process, but your ticket still has to say what the script actually did, and from this alert alone, you can't. One of the flags in the PowerShell command line is the reason. Enter that flag exactly as it appears in the command line (the flag only, without the value that follows it).",
       answer: "-Enc",
       hint: "Read the crowdstrike.CommandLine field flag by flag. Most of the flags change HOW PowerShell runs (profile, prompts, window, policy); only one changes whether a human can READ what it ran. The 'Common PowerShell Flags' table in the reading maps each short form to its meaning.",
       xp: 50,
@@ -1124,7 +1124,7 @@ const defenderXdr: Room = {
     {
       type: "reading",
       id: "def-xdr-r1",
-      heading: "Microsoft Defender XDR — The Unified Security Platform",
+      heading: "Microsoft Defender XDR: The Unified Security Platform",
       content: `**Microsoft Defender XDR** (formerly Microsoft 365 Defender) is Microsoft's integrated extended detection and response platform. It is accessed at **security.microsoft.com** and unifies multiple security products into a single portal with correlated incidents, a shared alert queue, and cross-domain threat hunting.
 
 **The Components of Microsoft Defender XDR**
@@ -1142,9 +1142,9 @@ When an attack spans multiple domains (e.g. phishing email → compromised accou
 
 ---
 
-**Microsoft Defender for Endpoint (MDE) — Deep Dive**
+**Microsoft Defender for Endpoint (MDE): Deep Dive**
 
-**MDE Onboarding** — Getting devices under MDE management:
+**MDE Onboarding**, Getting devices under MDE management:
 
 - **GPO (Group Policy)**: Deploy the MDE onboarding package to domain-joined Windows machines via Active Directory Group Policy. Most common in enterprise environments.
 - **Microsoft Intune / Endpoint Manager**: Mobile Device Management (MDM) deployment, ideal for modern cloud-managed devices (Azure AD-joined laptops, BYOD).
@@ -1154,11 +1154,11 @@ When an attack spans multiple domains (e.g. phishing email → compromised accou
 
 Once onboarded, each device appears in the **Device Inventory** (security.microsoft.com → Assets → Devices).
 
-**Device Inventory — What You See**
+**Device Inventory: What You See**
 
 Each device in the inventory shows:
 - **Device name and OS**: LAPTOP-JSMITH, Windows 11 22H2
-- **Risk Level**: Critical / High / Medium / Low — calculated from active alerts and unpatched vulnerabilities
+- **Risk Level**: Critical / High / Medium / Low. Calculated from active alerts and unpatched vulnerabilities
 - **Exposure Score**: How vulnerable is this device to known attack techniques? (0–100)
 - **Onboarding status**: Whether the MDE agent is active and reporting
 - **Last seen**: When the device last checked in
@@ -1169,7 +1169,7 @@ Each device in the inventory shows:
 MDE generates alerts when it detects suspicious behaviour. Each alert shows:
 - **Severity**: Critical, High, Medium, Low, Informational
 - **Detection source**: EDR (behavioural detection), Antivirus, Network protection, Threat Intelligence
-- **MITRE ATT&CK mapping**: The technique (e.g. T1055 — Process Injection) and tactic (e.g. Defense Evasion)
+- **MITRE ATT&CK mapping**: The technique (e.g. T1055: Process Injection) and tactic (e.g. Defense Evasion)
 - **Affected entity**: Device name and user
 
 Multiple related alerts are automatically grouped into **Incidents**. The incident page shows:
@@ -1178,14 +1178,14 @@ Multiple related alerts are automatically grouped into **Incidents**. The incide
 - **Timeline**: Chronological sequence of events across all affected devices
 - **Recommendations**: Automated response suggestions (isolate device, run antivirus scan)
 
-**MDE Timeline — The Investigator's Best Friend**
+**MDE Timeline: The Investigator's Best Friend**
 
 Every onboarded device has a **Timeline** view (Device page → Timeline tab). This shows every recorded event on that device in chronological order, going back up to 180 days. SOC analysts use the timeline to:
 - Find the initial access event (when did the attacker first appear on this device?)
 - Trace the attack chain (what happened step by step?)
 - Identify the patient-zero device (was this machine the first compromised or was the malware spread from elsewhere?)
 
-**Live Response — Remote Forensics**
+**Live Response: Remote Forensics**
 
 MDE Live Response provides a remote interactive shell to any onboarded endpoint, including one that MDE has network-isolated (isolation keeps the device's connection to the Defender service open). From security.microsoft.com, analysts can:
 - Browse the file system
@@ -1249,7 +1249,7 @@ Click into each alert within the incident. For an MDE alert:
 
 **4. Check the Device Timeline**
 
-From the affected device page, open the Timeline. Filter the timeline around the time of the first alert and look 30–60 minutes earlier — attackers often perform reconnaissance before their loudest action. Look for:
+From the affected device page, open the Timeline. Filter the timeline around the time of the first alert and look 30–60 minutes earlier. Attackers often perform reconnaissance before their loudest action. Look for:
 - Unusual process executions before the alert time
 - Network connections to external IPs
 - Credential access attempts
@@ -1269,7 +1269,7 @@ Map the events to MITRE ATT&CK tactics (the attack stages; not to be confused wi
 - **Execution**: What code did they run? (Malicious macro, PowerShell, scheduled task?)
 - **Persistence**: How did they ensure they survive a reboot? (Registry run key, scheduled task, new service?)
 - **Privilege Escalation**: Did they move from a normal user to admin?
-- **Defense Evasion**: Did they try to avoid detection? (Disable AV, delete logs, use LOLBins — Living Off the Land Binaries?)
+- **Defense Evasion**: Did they try to avoid detection? (Disable AV, delete logs, use LOLBins, Living Off the Land Binaries?)
 - **Credential Access**: Did they steal credentials? (LSASS dump, Kerberoasting?)
 - **Discovery**: Did they map the network? (Port scans, AD enumeration?)
 - **Lateral Movement**: Did they move to other machines? (PsExec, WMI, RDP?)
@@ -1296,12 +1296,12 @@ MDI monitors your on-premises Active Directory domain controllers and Azure Entr
 
 | MDI Alert | Attack Technique |
 |---|---|
-| Suspected Kerberoasting activity | T1558.003 — Kerberoasting: request TGS tickets for service accounts to crack offline |
-| Suspected DCSync attack | T1003.006 — DCSync: simulate a DC to replicate all password hashes from AD |
+| Suspected Kerberoasting activity | T1558.003, Kerberoasting: request TGS tickets for service accounts to crack offline |
+| Suspected DCSync attack | T1003.006, DCSync: simulate a DC to replicate all password hashes from AD |
 | Lateral movement path to sensitive entity | Graph-based lateral movement risk |
-| Pass-the-Hash / Pass-the-Ticket | T1550 — Credential reuse without the plaintext password |
-| Reconnaissance using LDAP queries | T1087 — Account enumeration via LDAP |
-| Suspicious additions to sensitive groups | T1098 — Adding a backdoor account to Domain Admins |`,
+| Pass-the-Hash / Pass-the-Ticket | T1550. Credential reuse without the plaintext password |
+| Reconnaissance using LDAP queries | T1087. Account enumeration via LDAP |
+| Suspicious additions to sensitive groups | T1098, Adding a backdoor account to Domain Admins |`,
       checkpoint: {
         question: "An MDE alert fires at 14:05 for a PsExec launch on a workstation. Why should you open the device Timeline well before 14:05 instead of starting at the alert time?",
         options: [
@@ -1320,10 +1320,10 @@ MDI monitors your on-premises Active Directory domain controllers and Azure Entr
     {
       type: "reading",
       id: "def-xdr-r3",
-      heading: "Advanced Hunting with KQL — Proactive Threat Hunting",
-      content: `**Advanced Hunting** is one of the most powerful features in Microsoft Defender XDR. It allows analysts to write queries against raw telemetry data to proactively search for threats — even before an alert fires. Advanced Hunting is accessed at: **security.microsoft.com → Hunting → Advanced Hunting**.
+      heading: "Advanced Hunting with KQL: Proactive Threat Hunting",
+      content: `**Advanced Hunting** is one of the most powerful features in Microsoft Defender XDR. It allows analysts to write queries against raw telemetry data to proactively search for threats, even before an alert fires. Advanced Hunting is accessed at: **security.microsoft.com → Hunting → Advanced Hunting**.
 
-**KQL — Kusto Query Language**
+**KQL: Kusto Query Language**
 
 Advanced Hunting queries are written in **KQL (Kusto Query Language)**, which is also used by Microsoft Sentinel (Microsoft's SIEM). KQL is designed to be readable, intuitive, and powerful for security analysis.
 
@@ -1340,7 +1340,7 @@ TableName
 | limit 100                               // Return top 100 results
 \`\`\`
 
-KQL uses the **pipe operator** (\`|\`) — each step transforms the result of the previous step. Advanced Hunting tables use the \`Timestamp\` column for event time; the same data in Microsoft Sentinel uses \`TimeGenerated\`.
+KQL uses the **pipe operator** (\`|\`): each step transforms the result of the previous step. Advanced Hunting tables use the \`Timestamp\` column for event time; the same data in Microsoft Sentinel uses \`TimeGenerated\`.
 
 **The Advanced Hunting Tables**
 
@@ -1393,7 +1393,7 @@ DeviceProcessEvents
 | order by Timestamp desc
 \`\`\`
 
-**Query 4: Join tables — find processes that made network connections (hunting for C2)**
+**Query 4: Join tables, find processes that made network connections (hunting for C2)**
 \`\`\`kql
 DeviceProcessEvents
 | where Timestamp > ago(1d)
@@ -1403,13 +1403,13 @@ DeviceProcessEvents
 | project Timestamp, DeviceName, AccountName, ProcessCommandLine, RemoteIP, RemotePort, RemoteUrl
 | order by Timestamp desc
 \`\`\`
-This joins process events with network events to find PowerShell processes that made outbound connections — a strong C2 indicator.
+This joins process events with network events to find PowerShell processes that made outbound connections: a strong C2 indicator.
 
 **Custom Detection Rules**
 
 Advanced Hunting queries can be saved as **Custom Detection Rules** that run on a schedule (every hour, every day) and automatically create alerts when the query returns results. This is how threat hunters turn hunting queries into continuous monitoring. Go to: Advanced Hunting → Create detection rule.
 
-**Microsoft Secure Score — Endpoint Contribution**
+**Microsoft Secure Score: Endpoint Contribution**
 
 **Microsoft Secure Score** (security.microsoft.com → Secure Score) measures your organisation's security posture as a score from 0 to the maximum possible points. The endpoint section includes points for:
 - Percentage of devices onboarded to MDE
@@ -1473,7 +1473,7 @@ SOC analysts often track Secure Score as a KPI for endpoint security health.`,
     {
       type: "log_analysis",
       id: "def-xdr-la1",
-      heading: "MDE Alert — Lateral Movement via PsExec",
+      heading: "MDE Alert: Lateral Movement via PsExec",
       context: "You are investigating a Defender XDR incident. Its lateral-movement alert says that at 03:17 the service account CORP\\svc-backup authenticated from a developer workstation (WS-DEV-09, 10.0.5.21) to the file server SRV-FILE01 and started a remote process there. Below is the DeviceProcessEvents record from SRV-FILE01 that the alert points to. Analyse it and answer the questions.",
       event: {
         id: "def-xdr-la1-001",
@@ -1565,10 +1565,10 @@ SOC analysts often track Secure Score as a KPI for endpoint security health.`,
       id: "def-xdr-q4",
       question: "A hunter runs Query 1 from the reading (encoded PowerShell, last 7 days). It returns 40 rows: 36 have InitiatingProcessFileName = CcmExec.exe (the Configuration Manager client) spread across hundreds of devices, and 4 have InitiatingProcessFileName = WINWORD.EXE on two Finance laptops. How should the hunter handle the results?",
       options: [
-        "Escalate all 40 at once — encoded PowerShell is rarely legitimate, whatever the parent",
+        "Escalate all 40 at once: encoded PowerShell is rarely legitimate, whatever the parent",
         "Prioritise the 4 WINWORD.EXE rows; decode and baseline the CcmExec.exe rows",
-        "Close all 40 — Defender would already have alerted on any malicious encoded script",
-        "Treat the WINWORD.EXE rows as benign — Office add-ins routinely run encoded scripts"
+        "Close all 40: Defender would already have alerted on any malicious encoded script",
+        "Treat the WINWORD.EXE rows as benign: Office add-ins routinely run encoded scripts"
       ],
       answer: 1,
       explanation: "Encoded PowerShell is a lead, not a verdict. Configuration Manager's CcmExec.exe legitimately launches encoded commands across the fleet, so those rows are decoded and baselined rather than escalated. Word spawning encoded PowerShell on two Finance laptops is the classic macro-delivery pattern, so it comes first. Escalating everything treats management tooling as an attack and buries the 4 real leads. Closing everything assumes an alert would already exist, but hunting exists to find what did not alert. Office applications launching encoded PowerShell are a top-priority signal, not routine add-in behaviour.",

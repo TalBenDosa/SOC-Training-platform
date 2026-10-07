@@ -152,7 +152,7 @@ const otIcsSecurityRoom = {
           "Because it counts as Initial Access with default credentials, Lateral Movement otherwise"
         ],
         "answer": 1,
-        "explanation": "This reading explains the dual listing directly: the same remote-access mechanism can be the attacker's first foothold OR the pivot used once already inside the IT network, so MITRE documents it under both tactics. The tactic depends on the role the access plays, not on the protocol — RDP and VPN can each serve either role. Both listings are in ATT&CK for ICS. Default credentials are a separate technique (T0812) and do not decide which tactic Remote Services serves."
+        "explanation": "This reading explains the dual listing directly: the same remote-access mechanism can be the attacker's first foothold OR the pivot used once already inside the IT network, so MITRE documents it under both tactics. The tactic depends on the role the access plays, not on the protocol. RDP and VPN can each serve either role. Both listings are in ATT&CK for ICS. Default credentials are a separate technique (T0812) and do not decide which tactic Remote Services serves."
       },
       "xp": 5
     },

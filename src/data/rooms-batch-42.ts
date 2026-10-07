@@ -200,7 +200,7 @@ const discoveryEnumerationRoom = {
           "T1069.002 -- Permission Groups Discovery: Domain Groups",
         ],
         answer: 1,
-        explanation: "net localgroup administrators reads who belongs to a LOCAL group on this machine, which the reading attributes to T1069.001 (Permission Groups Discovery: Local Groups), with Event 4799 as its telemetry. T1033 is the umbrella an analyst reaches for first, but it covers whoami, query user and net config workstation — identifying the current user, not reading a group's members. T1087.001 is listing local ACCOUNTS (net user with no target), not group membership. T1069.002 is the domain-group version (net group /domain), which asks a Domain Controller rather than this machine's own SAM.",
+        explanation: "net localgroup administrators reads who belongs to a LOCAL group on this machine, which the reading attributes to T1069.001 (Permission Groups Discovery: Local Groups), with Event 4799 as its telemetry. T1033 is the umbrella an analyst reaches for first, but it covers whoami, query user and net config workstation, identifying the current user, not reading a group's members. T1087.001 is listing local ACCOUNTS (net user with no target), not group membership. T1069.002 is the domain-group version (net group /domain), which asks a Domain Controller rather than this machine's own SAM.",
       },
       xp: 5,
     },
@@ -299,7 +299,7 @@ const discoveryEnumerationRoom = {
           ],
           answer: 1,
           explanation:
-            "CallerProcessName recording net.exe -- a command-line tool -- rather than the expected admin console mmc.exe is exactly the tell this room's reading teaches. “GroupDomain … Builtin” misreads the field: Builtin is the name for the machine's own built-in local groups, which is why this is local, not domain, enumeration. “SubjectLogonId … remote session” over-reads a value: a logon ID is a session handle you use to join this event to its 4624, and on its own it says nothing about the logon type. “A standard user cannot read the Administrators group” is false — ordinary users can enumerate local group membership, which is exactly why this event appears under j.ramos's name.",
+            "CallerProcessName recording net.exe -- a command-line tool -- rather than the expected admin console mmc.exe is exactly the tell this room's reading teaches. “GroupDomain … Builtin” misreads the field: Builtin is the name for the machine's own built-in local groups, which is why this is local, not domain, enumeration. “SubjectLogonId … remote session” over-reads a value: a logon ID is a session handle you use to join this event to its 4624, and on its own it says nothing about the logon type. “A standard user cannot read the Administrators group” is false. Ordinary users can enumerate local group membership, which is exactly why this event appears under j.ramos's name.",
           xp: 15,
         },
         {
@@ -340,7 +340,7 @@ const discoveryEnumerationRoom = {
           "T1619 is Collection, since listing a bucket's objects already counts as gathering its data",
         ],
         answer: 1,
-        explanation: "T1580 (Cloud Infrastructure Discovery) is the broader existence check across compute, storage and database resources; T1619 (Cloud Storage Object Discovery) is the narrower follow-up of listing what objects sit inside a bucket already found. “T1580 lists objects; T1619 checks exposure” swaps the two — and GetPublicAccessBlock, the exposure check, is one of T1580's calls. “T1619 covers every storage call, including ListBuckets” is wrong: ListBuckets and HeadBucket are T1580 calls; T1619 is defined by ListObjectsV2 and List Blobs. “T1619 is Collection” confuses listing with taking — all three techniques in this reading sit on the Discovery tactic; Collection begins when files are actually read.",
+        explanation: "T1580 (Cloud Infrastructure Discovery) is the broader existence check across compute, storage and database resources; T1619 (Cloud Storage Object Discovery) is the narrower follow-up of listing what objects sit inside a bucket already found. “T1580 lists objects; T1619 checks exposure” swaps the two, and GetPublicAccessBlock, the exposure check, is one of T1580's calls. “T1619 covers every storage call, including ListBuckets” is wrong: ListBuckets and HeadBucket are T1580 calls; T1619 is defined by ListObjectsV2 and List Blobs. “T1619 is Collection” confuses listing with taking. All three techniques in this reading sit on the Discovery tactic; Collection begins when files are actually read.",
       },
       xp: 5,
     },
@@ -359,7 +359,7 @@ const discoveryEnumerationRoom = {
       ],
       answer: 1,
       explanation:
-        "The finding name reads Category:Resource/Name: Discovery on S3, from a MaliciousIPCaller -- the reading defines it as S3 ListObjectsV2-family calls from a known-malicious IP, which is T1619 (Cloud Storage Object Discovery). Because listing is the step that turns a bucket into a target, the key follow-up is whether Collection followed: GetObject calls by the same identity. “From a Tor exit node” describes a different finding (TorIPCaller), and listing objects is T1619, not bucket enumeration. “Object downloads … already exfiltrated” jumps the Discovery/Collection boundary — this finding is about listing, not retrieval. “Account-level reconnaissance” is what Recon:IAMUser/MaliciousIPCaller reports, not an S3 finding.",
+        "The finding name reads Category:Resource/Name: Discovery on S3, from a MaliciousIPCaller -- the reading defines it as S3 ListObjectsV2-family calls from a known-malicious IP, which is T1619 (Cloud Storage Object Discovery). Because listing is the step that turns a bucket into a target, the key follow-up is whether Collection followed: GetObject calls by the same identity. “From a Tor exit node” describes a different finding (TorIPCaller), and listing objects is T1619, not bucket enumeration. “Object downloads … already exfiltrated” jumps the Discovery/Collection boundary: this finding is about listing, not retrieval. “Account-level reconnaissance” is what Recon:IAMUser/MaliciousIPCaller reports, not an S3 finding.",
       xp: 20,
     },
 
@@ -383,7 +383,7 @@ const discoveryEnumerationRoom = {
           ],
           answer: 1,
           explanation:
-            "A single read-only call is exactly what routine automation looks like -- the signal is the burst: dozens of Describe/List calls across four services in eight minutes, from a role whose normal pattern is two scheduled invocations a day. “readOnly: true means IAM rejected the call” misreads the flag: it means the call changed no state, not that it was denied. “The empty errorCode shows CloudTrail failed” is backwards — no error recorded means the call succeeded. “Describe calls are data events” is contradicted by the record itself: managementEvent is true, and DescribeInstances returns configuration metadata, not stored data.",
+            "A single read-only call is exactly what routine automation looks like -- the signal is the burst: dozens of Describe/List calls across four services in eight minutes, from a role whose normal pattern is two scheduled invocations a day. “readOnly: true means IAM rejected the call” misreads the flag: it means the call changed no state, not that it was denied. “The empty errorCode shows CloudTrail failed” is backwards: no error recorded means the call succeeded. “Describe calls are data events” is contradicted by the record itself: managementEvent is true, and DescribeInstances returns configuration metadata, not stored data.",
           xp: 15,
         },
         {
@@ -397,7 +397,7 @@ const discoveryEnumerationRoom = {
           ],
           answer: 0,
           explanation:
-            "The role's known pattern is a scheduled Lambda run twice a day, but this call carries an aws-cli user agent from an outside source IP at 2 AM — the role's temporary credentials are being used from somewhere they normally never are, which is an independent tell. “AssumedRole shows AWS's Lambda service made the call” over-reads the type: AssumedRole only means temporary role credentials were presented, and anyone holding them can call from anywhere. “The session name … confirms the function made this call” makes the same mistake — the session name travels with the issued credentials, so it names who obtained them, not who is using them now. “readOnly and managementEvent … console session” misreads both flags: they describe the API call (no state change, control-plane operation), not how the caller connected.",
+            "The role's known pattern is a scheduled Lambda run twice a day, but this call carries an aws-cli user agent from an outside source IP at 2 AM: the role's temporary credentials are being used from somewhere they normally never are, which is an independent tell. “AssumedRole shows AWS's Lambda service made the call” over-reads the type: AssumedRole only means temporary role credentials were presented, and anyone holding them can call from anywhere. “The session name … confirms the function made this call” makes the same mistake: the session name travels with the issued credentials, so it names who obtained them, not who is using them now. “readOnly and managementEvent … console session” misreads both flags: they describe the API call (no state change, control-plane operation), not how the caller connected.",
           xp: 15,
         },
       ],
@@ -466,7 +466,7 @@ const discoveryEnumerationRoom = {
           "Because ATT&CK classifies by who acted, so authorised tools' activity falls outside the Discovery tactic entirely",
         ],
         answer: 1,
-        explanation: "This is the practical weight of the false-positive problem: legitimate scanning, audit and IaC tools generate the bulk of discovery-shaped telemetry, so an accurate allowlist of authorised accounts, hosts and schedules is what makes the detection usable rather than a flood of tickets. “A compromised scanner … deserves top-priority alerts” confuses asset value with alert volume; the reading's point is that the tools' routine runs are the noise. “Only alert when admin groups are targeted” is the wrong fix — attackers target exactly those groups too, and legitimate audits read them nightly, so narrowing by target does not separate the two; the allowlist of who and when does. “ATT&CK classifies by who acted” is wrong: techniques are classified by behaviour, which is exactly why authorised tools look identical to attackers.",
+        explanation: "This is the practical weight of the false-positive problem: legitimate scanning, audit and IaC tools generate the bulk of discovery-shaped telemetry, so an accurate allowlist of authorised accounts, hosts and schedules is what makes the detection usable rather than a flood of tickets. “A compromised scanner … deserves top-priority alerts” confuses asset value with alert volume; the reading's point is that the tools' routine runs are the noise. “Only alert when admin groups are targeted” is the wrong fix. Attackers target exactly those groups too, and legitimate audits read them nightly, so narrowing by target does not separate the two; the allowlist of who and when does. “ATT&CK classifies by who acted” is wrong: techniques are classified by behaviour, which is exactly why authorised tools look identical to attackers.",
       },
       xp: 5,
     },
