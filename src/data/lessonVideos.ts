@@ -655,4 +655,40 @@ export const LESSON_VIDEOS: Record<string, LessonVideoData> = {
       { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ai-attacks-detection/es.vtt" },
     ],
   },
+  "ai-attacks-detection-2": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ai-attacks-detection-2/ai-attacks-detection-2.mp4",
+    caption: "Explainer — AI Attacks in the SOC, Part 2 · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ai-attacks-detection-2/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ai-attacks-detection-2/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ai-attacks-detection-2/es.vtt" },
+    ],
+  },
+  "mfa-attacks-session-token-theft": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/mfa-attacks-session-token-theft/mfa-attacks-session-token-theft.mp4",
+    caption: "Explainer — MFA Attacks & Session/Token Theft · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/mfa-attacks-session-token-theft/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/mfa-attacks-session-token-theft/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/mfa-attacks-session-token-theft/es.vtt" },
+    ],
+  },
+  "discovery-enumeration-in-the-logs": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/discovery-enumeration-in-the-logs/discovery-enumeration-in-the-logs.mp4",
+    caption: "Explainer — Discovery & Enumeration in the Logs · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/discovery-enumeration-in-the-logs/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/discovery-enumeration-in-the-logs/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/discovery-enumeration-in-the-logs/es.vtt" },
+    ],
+  },
+  "unsecured-credentials-and-credential-stores": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/unsecured-credentials-and-credential-stores/unsecured-credentials-and-credential-stores.mp4",
+    caption: "Explainer — Where Credentials Hide · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/unsecured-credentials-and-credential-stores/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/unsecured-credentials-and-credential-stores/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/unsecured-credentials-and-credential-stores/es.vtt" },
+    ],
+  },
 };
