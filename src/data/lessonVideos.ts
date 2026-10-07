@@ -367,4 +367,40 @@ export const LESSON_VIDEOS: Record<string, LessonVideoData> = {
       { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/kerberos-vs-ntlm-explained/es.vtt" },
     ],
   },
+  "cloud-security-fundamentals-aws-azure": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/cloud-security-fundamentals-aws-azure/cloud-security-fundamentals-aws-azure.mp4",
+    caption: "Explainer — Cloud Security Fundamentals · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/cloud-security-fundamentals-aws-azure/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/cloud-security-fundamentals-aws-azure/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/cloud-security-fundamentals-aws-azure/es.vtt" },
+    ],
+  },
+  "cloud-authentication-and-access-keys": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/cloud-authentication-and-access-keys/cloud-authentication-and-access-keys.mp4",
+    caption: "Explainer — Cloud Authentication & Access Keys · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/cloud-authentication-and-access-keys/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/cloud-authentication-and-access-keys/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/cloud-authentication-and-access-keys/es.vtt" },
+    ],
+  },
+  "cloud-audit-logs-cloudtrail-azure-activity": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/cloud-audit-logs-cloudtrail-azure-activity/cloud-audit-logs-cloudtrail-azure-activity.mp4",
+    caption: "Explainer — Cloud Audit Logs · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/cloud-audit-logs-cloudtrail-azure-activity/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/cloud-audit-logs-cloudtrail-azure-activity/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/cloud-audit-logs-cloudtrail-azure-activity/es.vtt" },
+    ],
+  },
+  "cloud-storage-permissions-and-security-groups": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/cloud-storage-permissions-and-security-groups/cloud-storage-permissions-and-security-groups.mp4",
+    caption: "Explainer — Cloud Exposure · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/cloud-storage-permissions-and-security-groups/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/cloud-storage-permissions-and-security-groups/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/cloud-storage-permissions-and-security-groups/es.vtt" },
+    ],
+  },
 };
