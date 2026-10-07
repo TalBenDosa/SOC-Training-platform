@@ -7,12 +7,12 @@ export const lessons_sa1: Record<string, AuthoredPathLesson> = {
       {
         "pageNumber": 1,
         "video": {
-          "src": "/lesson-videos/what-is-a-soc/what-is-a-soc.mp4",
+          "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/what-is-a-soc/what-is-a-soc.mp4",
           "caption": "Explainer: What is a SOC? · subtitles: English · עברית · Español (CC menu)",
           "tracks": [
-            { "srclang": "en", "label": "English", "src": "/lesson-videos/what-is-a-soc/en.vtt", "default": true },
-            { "srclang": "he", "label": "עברית", "src": "/lesson-videos/what-is-a-soc/he.vtt" },
-            { "srclang": "es", "label": "Español", "src": "/lesson-videos/what-is-a-soc/es.vtt" }
+            { "srclang": "en", "label": "English", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/what-is-a-soc/en.vtt", "default": true },
+            { "srclang": "he", "label": "עברית", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/what-is-a-soc/he.vtt" },
+            { "srclang": "es", "label": "Español", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/what-is-a-soc/es.vtt" }
           ]
         },
         "title": "What a SOC Is (and Why It Exists)",
@@ -227,12 +227,12 @@ export const lessons_sa1: Record<string, AuthoredPathLesson> = {
       {
         "pageNumber": 1,
         "video": {
-          "src": "/lesson-videos/tier-model-and-slas/tier-model-and-slas.mp4",
+          "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/tier-model-and-slas/tier-model-and-slas.mp4",
           "caption": "Explainer, Tier Model & SLAs · subtitles: English · עברית · Español (CC menu)",
           "tracks": [
-            { "srclang": "en", "label": "English", "src": "/lesson-videos/tier-model-and-slas/en.vtt", "default": true },
-            { "srclang": "he", "label": "עברית", "src": "/lesson-videos/tier-model-and-slas/he.vtt" },
-            { "srclang": "es", "label": "Español", "src": "/lesson-videos/tier-model-and-slas/es.vtt" }
+            { "srclang": "en", "label": "English", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/tier-model-and-slas/en.vtt", "default": true },
+            { "srclang": "he", "label": "עברית", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/tier-model-and-slas/he.vtt" },
+            { "srclang": "es", "label": "Español", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/tier-model-and-slas/es.vtt" }
           ]
         },
         "title": "The Three-Tier Analyst Model, In Depth",
@@ -446,12 +446,12 @@ export const lessons_sa1: Record<string, AuthoredPathLesson> = {
       {
         "pageNumber": 1,
         "video": {
-          "src": "/lesson-videos/mental-models-for-triage/mental-models-for-triage.mp4",
+          "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/mental-models-for-triage/mental-models-for-triage.mp4",
           "caption": "Explainer, Mental Models for Triage · subtitles: English · עברית · Español (CC menu)",
           "tracks": [
-            { "srclang": "en", "label": "English", "src": "/lesson-videos/mental-models-for-triage/en.vtt", "default": true },
-            { "srclang": "he", "label": "עברית", "src": "/lesson-videos/mental-models-for-triage/he.vtt" },
-            { "srclang": "es", "label": "Español", "src": "/lesson-videos/mental-models-for-triage/es.vtt" }
+            { "srclang": "en", "label": "English", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/mental-models-for-triage/en.vtt", "default": true },
+            { "srclang": "he", "label": "עברית", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/mental-models-for-triage/he.vtt" },
+            { "srclang": "es", "label": "Español", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/mental-models-for-triage/es.vtt" }
           ]
         },
         "title": "Why Triage Needs a Framework",
