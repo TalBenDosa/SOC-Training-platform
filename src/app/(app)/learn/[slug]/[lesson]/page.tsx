@@ -495,7 +495,7 @@ export default function LessonReader() {
 
       {/* Header */}
       <header className="sticky top-0 z-30 border-b border-border bg-bg/80 py-3 pl-16 pr-6 backdrop-blur md:px-6">
-        <div className="mx-auto flex max-w-4xl items-center gap-4">
+        <div className="mx-auto flex max-w-[960px] items-center gap-4">
           <Link href={`/learn/${params.slug}`} className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white">
             <ChevronLeft className="h-4 w-4" /> Back
           </Link>
@@ -513,7 +513,7 @@ export default function LessonReader() {
         </div>
 
         {/* Progress bar */}
-        <div className="mx-auto mt-2 max-w-4xl">
+        <div className="mx-auto mt-2 max-w-[960px]">
           <div className="flex items-center gap-3">
             <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-bg-elevated">
               <div
@@ -529,7 +529,7 @@ export default function LessonReader() {
       </header>
 
       {/* Content */}
-      <main className="mx-auto max-w-4xl px-6 py-8">
+      <main className="mx-auto max-w-[960px] px-6 py-8">
         {loading ? (
           <LoadingSkeleton />
         ) : !content ? (

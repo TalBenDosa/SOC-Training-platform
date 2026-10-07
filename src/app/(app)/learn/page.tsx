@@ -411,181 +411,210 @@ function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void 
   const titleId = useId();
   useFocusTrap(true, dialogRef);
 
+  // Every page change starts the reader at the top of the new page (the old modal kept
+  // the previous page's scroll offset, so "Next" often landed mid-way down a section).
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { scrollRef.current?.scrollTo({ top: 0 }); }, [page]);
+
+  // Sidebar outline: intro, every section, then the wrap-up page.
+  const outline = [
+    "Introduction",
+    ...lesson.sections.map((s) => s.heading),
+    ...(hasSummary ? ["Key Takeaways"] : []),
+  ];
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 sm:p-6">
+    // Full-screen reader: the lesson owns the whole viewport (no centred card with
+    // a fixed max width), a section outline on wide screens, and one scroll area.
+    <div className="fixed inset-0 z-50 bg-[#070b14]">
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="relative w-full max-w-6xl h-[92vh] flex flex-col rounded-2xl border border-[#1e2d4a] bg-[#0b0f1e] shadow-2xl overflow-hidden"
+        className="flex h-full w-full flex-col"
       >
 
         {/* ── Header ─────────────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between border-b border-[#1e2d4a] px-6 py-4 shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-cyan-500/30 bg-cyan-500/10 text-cyan-400">
-              <FileText className="h-4 w-4" />
+        <div className="relative shrink-0 border-b border-[#1e2d4a] bg-[#0b0f1e]">
+          <div className="flex items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-400">
+                <FileText className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <h2 id={titleId} className="truncate text-sm font-bold text-white sm:text-[15px]">{lesson.title}</h2>
+                <p className="text-[11px] text-slate-400">
+                  Page {page + 1} of {totalPages}
+                </p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <h2 id={titleId} className="text-sm font-bold text-white truncate">{lesson.title}</h2>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                Page {page + 1} of {totalPages}
-              </p>
+            <div className="ml-3 flex shrink-0 items-center gap-2">
+              <span className={`rounded border px-2 py-0.5 text-[10px] font-bold uppercase ${diffCls}`}>
+                {capitalize(lesson.difficulty)}
+              </span>
+              <button onClick={onClose} aria-label="Close lesson" className="rounded-lg border border-slate-700 bg-slate-800 p-1.5 text-slate-400 transition-colors hover:text-white">
+                <X className="h-4 w-4" />
+              </button>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0 ml-3">
-            <span className={`rounded border px-2 py-0.5 text-[10px] font-bold uppercase ${diffCls}`}>
-              {capitalize(lesson.difficulty)}
-            </span>
-            <button onClick={onClose} aria-label="Close lesson" className="rounded-lg border border-slate-700 bg-slate-800 p-1.5 text-slate-400 hover:text-white transition-colors">
-              <X className="h-3.5 w-3.5" />
-            </button>
+          {/* Progress along the top edge */}
+          <div className="h-[3px] w-full bg-[#1a2035]" aria-hidden="true">
+            <div className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400 transition-all duration-500" style={{ width: `${progress}%` }} />
           </div>
         </div>
 
-        {/* ── Content ────────────────────────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto px-6 py-6">
+        {/* ── Body: outline + content ────────────────────────────────────── */}
+        <div className="flex min-h-0 flex-1">
+          <nav aria-label="Lesson sections" className="hidden w-72 shrink-0 overflow-y-auto border-r border-[#1e2d4a] bg-[#0b0f1e]/60 p-3 lg:block">
+            <ol className="space-y-0.5">
+              {outline.map((label, i) => {
+                const current = i === page;
+                const done = i < page;
+                return (
+                  <li key={i}>
+                    <button
+                      onClick={() => goTo(i)}
+                      aria-current={current ? "step" : undefined}
+                      className={`flex w-full items-start gap-2.5 rounded-md px-2.5 py-2 text-left text-[13px] leading-snug transition-colors ${
+                        current ? "bg-cyan-500/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                      }`}
+                    >
+                      <span className={`mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded text-[10px] font-bold ${
+                        current ? "bg-cyan-500 text-[#070b14]" : done ? "bg-emerald-500/15 text-emerald-300" : "bg-slate-800 text-slate-400"
+                      }`}>
+                        {done ? <CheckCircle2 className="h-3 w-3" aria-hidden="true" /> : i + 1}
+                      </span>
+                      <span>{label}{done && <span className="sr-only"> (read)</span>}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+          </nav>
 
-          {/* Intro page */}
-          {isIntro && (
-            <div className="space-y-6">
-              {/* H1 — Main topic title */}
-              <div className="pb-5 border-b border-[#1e2d4a]">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-cyan-500/70 block mb-2">
-                  Introduction
-                </span>
-                <h1 className="text-[22px] font-bold text-white leading-snug">
-                  {lesson.title}
-                </h1>
-              </div>
+          <div ref={scrollRef} className="min-w-0 flex-1 overflow-y-auto">
+            <div className="mx-auto w-full max-w-[920px] px-5 py-8 sm:px-8 lg:py-10 [&_p]:text-[15.5px] [&_li]:text-[15.5px]">
 
-              {renderContent(lesson.intro)}
+              {/* Intro page */}
+              {isIntro && (
+                <div className="space-y-6">
+                  {/* H1 — Main topic title */}
+                  <div className="pb-5 border-b border-[#1e2d4a]">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-cyan-500/70 block mb-2">
+                      Introduction
+                    </span>
+                    <h1 className="text-[22px] font-bold text-white leading-snug">
+                      {lesson.title}
+                    </h1>
+                  </div>
 
-              {/* ── "In this lesson" agenda ──────────────────────────────────
-                  The intro is a single framing paragraph, so on a full-height
-                  page it left a large empty area below it. This outline fills
-                  the page with genuinely useful content — the student sees the
-                  path ahead and can jump straight to any section. */}
-              {lesson.sections.length > 0 && (
-                <div className="rounded-xl border border-[#1e2d4a] bg-[#0d1322] p-5">
-                  <h3 className="mb-4 flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-cyan-500/70">
-                    <ListChecks className="h-3.5 w-3.5" /> In this lesson
-                  </h3>
-                  <ol className="space-y-2.5">
-                    {lesson.sections.map((s, i) => (
-                      <li key={i}>
-                        <button
-                          onClick={() => goTo(i + 1)}
-                          className="group flex w-full items-start gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-white/5"
-                        >
-                          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-cyan-500/30 bg-cyan-500/10 text-[11px] font-bold text-cyan-300">
-                            {i + 1}
-                          </span>
-                          <span className="text-[14px] leading-snug text-slate-300 group-hover:text-cyan-200">
-                            {s.heading}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ol>
+                  {renderContent(lesson.intro)}
+
+                  {/* ── "In this lesson" agenda ──────────────────────────────────
+                      The intro is a single framing paragraph, so on a full-height
+                      page it left a large empty area below it. This outline fills
+                      the page with genuinely useful content — the student sees the
+                      path ahead and can jump straight to any section. */}
+                  {lesson.sections.length > 0 && (
+                    <div className="rounded-xl border border-[#1e2d4a] bg-[#0d1322] p-5">
+                      <h3 className="mb-4 flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-cyan-500/70">
+                        <ListChecks className="h-3.5 w-3.5" /> In this lesson
+                      </h3>
+                      <ol className="space-y-2.5">
+                        {lesson.sections.map((s, i) => (
+                          <li key={i}>
+                            <button
+                              onClick={() => goTo(i + 1)}
+                              className="group flex w-full items-start gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-white/5"
+                            >
+                              <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-cyan-500/30 bg-cyan-500/10 text-[11px] font-bold text-cyan-300">
+                                {i + 1}
+                              </span>
+                              <span className="text-[14px] leading-snug text-slate-300 group-hover:text-cyan-200">
+                                {s.heading}
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Section page */}
+              {section && (
+                <SectionPageContent lesson={lesson} section={section} />
+              )}
+
+              {/* Summary page — key takeaways + references (previously unrendered) */}
+              {isSummary && (
+                <div className="space-y-6">
+                  <div className="pb-5 border-b border-[#1e2d4a]">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-cyan-500/70 block mb-2">
+                      Wrap-up
+                    </span>
+                    <h1 className="text-[22px] font-bold text-white leading-snug">Key Takeaways</h1>
+                  </div>
+
+                  {(lesson.keyTakeaways?.length ?? 0) > 0 && (
+                    <ul className="space-y-3">
+                      {lesson.keyTakeaways.map((t, i) => (
+                        <li key={i} className="flex items-start gap-3">
+                          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
+                          <span className="text-[15px] leading-relaxed text-slate-200">{t}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {(lesson.references?.length ?? 0) > 0 && (
+                    <div className="rounded-xl border border-[#1e2d4a] bg-[#0d1322] p-5">
+                      <h3 className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-cyan-500/70">
+                        <BookMarked className="h-3.5 w-3.5" /> References &amp; further reading
+                      </h3>
+                      <ul className="space-y-2">
+                        {lesson.references.map((r, i) => (
+                          <li key={i} className="flex items-start gap-2 text-[13px] leading-relaxed text-slate-400">
+                            <ArrowRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-500/60" />
+                            <span>{r}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-          )}
-
-          {/* Section page */}
-          {section && (
-            <SectionPageContent lesson={lesson} section={section} />
-          )}
-
-          {/* Summary page — key takeaways + references (previously unrendered) */}
-          {isSummary && (
-            <div className="space-y-6">
-              <div className="pb-5 border-b border-[#1e2d4a]">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-cyan-500/70 block mb-2">
-                  Wrap-up
-                </span>
-                <h1 className="text-[22px] font-bold text-white leading-snug">Key Takeaways</h1>
-              </div>
-
-              {(lesson.keyTakeaways?.length ?? 0) > 0 && (
-                <ul className="space-y-3">
-                  {lesson.keyTakeaways.map((t, i) => (
-                    <li key={i} className="flex items-start gap-3">
-                      <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
-                      <span className="text-[15px] leading-relaxed text-slate-200">{t}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              {(lesson.references?.length ?? 0) > 0 && (
-                <div className="rounded-xl border border-[#1e2d4a] bg-[#0d1322] p-5">
-                  <h3 className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-cyan-500/70">
-                    <BookMarked className="h-3.5 w-3.5" /> References &amp; further reading
-                  </h3>
-                  <ul className="space-y-2">
-                    {lesson.references.map((r, i) => (
-                      <li key={i} className="flex items-start gap-2 text-[13px] leading-relaxed text-slate-400">
-                        <ArrowRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-500/60" />
-                        <span>{r}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
+          </div>
         </div>
 
         {/* ── Footer nav ─────────────────────────────────────────────────── */}
-        <div className="border-t border-[#1e2d4a] px-6 py-4 shrink-0 space-y-3">
-          {/* Dot pagination */}
-          <div className="flex items-center justify-center gap-1.5">
-            {Array.from({ length: totalPages }).map((_, i) => (
-              <button
-                key={i}
-                onClick={() => goTo(i)}
-                className={`rounded-full transition-all duration-200 ${
-                  i === page
-                    ? "w-5 h-2 bg-cyan-400"
-                    : "w-2 h-2 bg-slate-700 hover:bg-slate-500"
-                }`}
-                aria-label={`Go to page ${i + 1}`}
-                aria-current={i === page ? "step" : undefined}
-              />
-            ))}
-          </div>
-
-          {/* Prev / Next */}
-          <div className="flex items-center justify-between gap-3">
+        <div className="shrink-0 border-t border-[#1e2d4a] bg-[#0b0f1e]">
+          <div className="flex">
+          {/* spacer under the outline so the buttons line up with the reading column */}
+          <div className="hidden w-72 shrink-0 lg:block" aria-hidden="true" />
+          <div className="mx-auto flex w-full max-w-[920px] items-center justify-between gap-3 px-5 py-3 sm:px-8">
             <button
               onClick={onPrev}
               disabled={page === 0}
-              className="flex items-center gap-1.5 rounded-xl border border-[#2a3555] bg-[#0d1322] px-4 py-2 text-[13px] font-semibold text-slate-300 hover:border-slate-500 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              className="flex items-center gap-1.5 rounded-xl border border-[#2a3555] bg-[#0d1322] px-4 py-2 text-[13px] font-semibold text-slate-300 transition-all hover:border-slate-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
             >
               <ChevronLeft className="h-4 w-4" /> Previous
             </button>
 
-            <span className="text-[11px] text-slate-400">{page + 1} / {totalPages}</span>
+            <span className="text-[12px] tabular-nums text-slate-400">{page + 1} / {totalPages}</span>
 
             <button
               onClick={page === totalPages - 1 ? onClose : onNext}
-              className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-semibold text-white transition-all bg-cyan-600 hover:bg-cyan-500"
+              className="flex items-center gap-1.5 rounded-xl bg-cyan-600 px-5 py-2 text-[13px] font-semibold text-white transition-all hover:bg-cyan-500"
             >
               {page === totalPages - 1 ? "Finish" : "Next"}
               {page !== totalPages - 1 && <ChevronRight className="h-4 w-4" />}
             </button>
           </div>
-
-          {/* Progress bar */}
-          <div className="h-1 w-full rounded-full bg-[#1a2035] overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-cyan-600 to-cyan-400"
-              style={{ width: `${progress}%` }}
-            />
           </div>
         </div>
       </div>

@@ -37,7 +37,7 @@ export function LessonVideo({ video }: { video: LessonVideoData }) {
         // /public videos. Supabase public objects send Access-Control-Allow-Origin.
         crossOrigin="anonymous"
         poster={video.poster}
-        className="mx-auto w-full max-h-[520px] bg-black"
+        className="mx-auto w-full max-h-[min(78vh,calc(100dvh-200px))] bg-black"
       >
         {/* Without a poster, append a #t media fragment so the browser seeks to the
             first frame and paints it as the still — otherwise preload="metadata"

@@ -617,7 +617,7 @@ export function RoomClient({ room }: RoomClientProps) {
     <div className="flex min-h-screen bg-bg">
 
       {/* ── Left Sidebar ─────────────────────────────────────────────────── */}
-      <aside className="hidden lg:flex w-64 shrink-0 flex-col border-r border-border bg-bg-elevated/40">
+      <aside className="hidden lg:flex sticky top-0 h-screen w-72 shrink-0 flex-col border-r border-border bg-bg-elevated/40">
         {/* Room header */}
         <div className="p-4 border-b border-border">
           <button
@@ -708,7 +708,7 @@ export function RoomClient({ room }: RoomClientProps) {
       </aside>
 
       {/* ── Main content ─────────────────────────────────────────────────── */}
-      <main className="flex-1 overflow-y-auto">
+      <main className="min-w-0 flex-1">
         {/* Mobile back link + progress */}
         <div className="lg:hidden flex items-center justify-between border-b border-border py-3 pl-16 pr-4 md:px-4">
           <button
@@ -723,7 +723,7 @@ export function RoomClient({ room }: RoomClientProps) {
           </span>
         </div>
 
-        <div className="max-w-3xl mx-auto px-6 py-8">
+        <div className="mx-auto w-full max-w-[1000px] px-5 py-8 sm:px-8 xl:px-12">
           {/* FB-001: review-mode banner — makes the read-only state unmistakable. */}
           {reviewMode && (
             <div role="status" className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-cyber-500/30 bg-cyber-500/5 px-4 py-3">
