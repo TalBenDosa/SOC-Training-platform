@@ -475,4 +475,40 @@ export const LESSON_VIDEOS: Record<string, LessonVideoData> = {
       { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/windows-registry-fundamentals/es.vtt" },
     ],
   },
+  "windows-services-fundamentals": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/windows-services-fundamentals/windows-services-fundamentals.mp4",
+    caption: "Explainer — Windows Services Fundamentals · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/windows-services-fundamentals/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/windows-services-fundamentals/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/windows-services-fundamentals/es.vtt" },
+    ],
+  },
+  "scheduled-tasks-and-cron-jobs": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/scheduled-tasks-and-cron-jobs/scheduled-tasks-and-cron-jobs.mp4",
+    caption: "Explainer — Scheduled Tasks and Cron Jobs · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/scheduled-tasks-and-cron-jobs/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/scheduled-tasks-and-cron-jobs/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/scheduled-tasks-and-cron-jobs/es.vtt" },
+    ],
+  },
+  "firewall-fundamentals": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/firewall-fundamentals/firewall-fundamentals.mp4",
+    caption: "Explainer — Firewall Fundamentals · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/firewall-fundamentals/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/firewall-fundamentals/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/firewall-fundamentals/es.vtt" },
+    ],
+  },
+  "antivirus-fundamentals": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/antivirus-fundamentals/antivirus-fundamentals.mp4",
+    caption: "Explainer — Antivirus Fundamentals · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/antivirus-fundamentals/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/antivirus-fundamentals/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/antivirus-fundamentals/es.vtt" },
+    ],
+  },
 };
