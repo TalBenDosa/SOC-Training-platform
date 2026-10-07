@@ -403,4 +403,40 @@ export const LESSON_VIDEOS: Record<string, LessonVideoData> = {
       { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/cloud-storage-permissions-and-security-groups/es.vtt" },
     ],
   },
+  "defender-for-office-365-safe-links-attachments": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/defender-for-office-365-safe-links-attachments/defender-for-office-365-safe-links-attachments.mp4",
+    caption: "Explainer — Defender for Office 365 · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/defender-for-office-365-safe-links-attachments/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/defender-for-office-365-safe-links-attachments/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/defender-for-office-365-safe-links-attachments/es.vtt" },
+    ],
+  },
+  "defender-xdr-alerts-incidents-device-timeline": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/defender-xdr-alerts-incidents-device-timeline/defender-xdr-alerts-incidents-device-timeline.mp4",
+    caption: "Explainer — Microsoft Defender XDR · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/defender-xdr-alerts-incidents-device-timeline/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/defender-xdr-alerts-incidents-device-timeline/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/defender-xdr-alerts-incidents-device-timeline/es.vtt" },
+    ],
+  },
+  "advanced-hunting-with-kql-in-defender": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/advanced-hunting-with-kql-in-defender/advanced-hunting-with-kql-in-defender.mp4",
+    caption: "Explainer — Advanced Hunting with KQL in Microsoft Defender · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/advanced-hunting-with-kql-in-defender/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/advanced-hunting-with-kql-in-defender/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/advanced-hunting-with-kql-in-defender/es.vtt" },
+    ],
+  },
+  "microsoft-365-and-graph-for-security": {
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/microsoft-365-and-graph-for-security/microsoft-365-and-graph-for-security.mp4",
+    caption: "Explainer — Microsoft 365 & Microsoft Graph for Security · subtitles: English · עברית · Español (CC menu)",
+    tracks: [
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/microsoft-365-and-graph-for-security/en.vtt", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/microsoft-365-and-graph-for-security/he.vtt" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/microsoft-365-and-graph-for-security/es.vtt" },
+    ],
+  },
 };
