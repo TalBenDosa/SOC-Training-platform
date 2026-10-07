@@ -19,7 +19,7 @@ const variants: Record<Variant,string> = {
   primary:   "bg-cyber-500 text-bg hover:bg-cyber-400 shadow-glow",
   secondary: "bg-bg-elevated text-slate-100 border border-border hover:bg-bg-hover",
   ghost:     "text-slate-300 hover:bg-bg-hover",
-  // red-600: white text 4.8:1 (severity-critical #ff2d55 was 3.65:1 — WCAG 1.4.3)
+  // red-600: white text 4.8:1 (severity-critical #ff2d55 was 3.65:1 - WCAG 1.4.3)
   danger:    "bg-red-600 text-white hover:bg-red-700 shadow-glow-red",
   outline:   "border border-cyber-500/40 text-cyber-300 hover:bg-cyber-500/10",
 };
