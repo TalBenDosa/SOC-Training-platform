@@ -31,7 +31,7 @@ const protocolsMasterclass = {
   id: "protocols-masterclass",
   title: "Network Protocols Deep Dive",
   description:
-    "Master the protocols that every SOC analyst must know — TCP/IP, DNS, HTTP/S, TLS — from how they work to how attackers abuse them and how to detect anomalies in your SIEM.",
+    "Master the protocols that every SOC analyst must know (TCP/IP, DNS, HTTP/S, TLS) from how they work to how attackers abuse them and how to detect anomalies in your SIEM.",
   difficulty: "intermediate" as const,
   category: "Network Security",
   estimatedMinutes: 75,
@@ -49,7 +49,7 @@ const protocolsMasterclass = {
       heading: "The OSI Model and TCP/IP: How Network Communication Is Organized",
       video: {
         src: "/lesson-videos/osi-model/osi-model.mp4",
-        caption: "Explainer — The OSI Model · subtitles: English · עברית · Español (CC menu)",
+        caption: "Explainer, The OSI Model · subtitles: English · עברית · Español (CC menu)",
         tracks: [
           { srclang: "en", label: "English", src: "/lesson-videos/osi-model/en.vtt", default: true },
           { srclang: "he", label: "עברית", src: "/lesson-videos/osi-model/he.vtt" },
@@ -57,22 +57,22 @@ const protocolsMasterclass = {
         ],
       },
       content:
-        `Every network conversation that happens in your organization — a user loading a webpage, an attacker exfiltrating data, a workstation querying Active Directory — follows a set of rules that organize how information travels from one machine to another. Those rules are captured in two related models: the OSI model and the TCP/IP model.\n\n` +
+        `Every network conversation that happens in your organization: a user loading a webpage, an attacker exfiltrating data, a workstation querying Active Directory. Follows a set of rules that organize how information travels from one machine to another. Those rules are captured in two related models: the OSI model and the TCP/IP model.\n\n` +
         `**The OSI Model (Open Systems Interconnection)**\n\n` +
-        `The OSI model divides networking into seven distinct layers, each responsible for a specific job. Think of it like a postal system: when you send a letter, it goes through packaging, addressing, sorting, transport, and delivery — each step handled by a different part of the system. The OSI layers work the same way.\n\n` +
-        `**Layer 7 — Application**: This is where end-user protocols live. HTTP, HTTPS, DNS, FTP, SMTP, RDP. When a user types a URL into a browser, the Application layer is where that request is formed. This is the layer most visible to SOC analysts — web logs, email logs, and DNS query logs all live here.\n\n` +
-        `**Layer 6 — Presentation**: Handles data formatting, encryption, and compression. TLS/SSL encryption is conceptually at this layer — it transforms the data before it travels. In practice, most modern SIEM tools don't produce separate Layer 6 logs; TLS is usually captured at the firewall or proxy level.\n\n` +
-        `**Layer 5 — Session**: Manages the establishment, maintenance, and termination of sessions between applications. SMB (Server Message Block, used for Windows file sharing) has session-layer concepts. Rarely logged separately — most session data is embedded in higher-layer logs.\n\n` +
-        `**Layer 4 — Transport**: TCP and UDP live here. This layer handles whether data delivery is guaranteed (TCP) or best-effort (UDP), and it introduces the concept of port numbers — the mechanism that tells the receiving computer which application should handle the incoming data. Firewall logs and IDS logs routinely capture Layer 4 data: source port, destination port, TCP flags.\n\n` +
-        `**Layer 3 — Network**: IP (Internet Protocol) lives here. This layer handles logical addressing (IP addresses) and routing — deciding which path packets take across networks. Every firewall log that shows a source IP, destination IP, and whether the packet was allowed or blocked is operating at Layer 3.\n\n` +
-        `**Layer 2 — Data Link**: MAC (Media Access Control) addresses and Ethernet frames live here. ARP (Address Resolution Protocol) operates at this layer to map IP addresses to MAC addresses. Layer 2 attacks like ARP poisoning and MAC spoofing are detected by NAC (Network Access Control) tools and switch logs, not by standard firewalls.\n\n` +
-        `**Layer 1 — Physical**: The actual cables, fiber, radio signals, and hardware ports. No security logging happens here in a meaningful sense — you detect physical tampering through physical security systems, not SIEMs.\n\n` +
+        `The OSI model divides networking into seven distinct layers, each responsible for a specific job. Think of it like a postal system: when you send a letter, it goes through packaging, addressing, sorting, transport, and delivery. Each step handled by a different part of the system. The OSI layers work the same way.\n\n` +
+        `**Layer 7, Application**: This is where end-user protocols live. HTTP, HTTPS, DNS, FTP, SMTP, RDP. When a user types a URL into a browser, the Application layer is where that request is formed. This is the layer most visible to SOC analysts: web logs, email logs, and DNS query logs all live here.\n\n` +
+        `**Layer 6, Presentation**: Handles data formatting, encryption, and compression. TLS/SSL encryption is conceptually at this layer. It transforms the data before it travels. In practice, most modern SIEM tools don't produce separate Layer 6 logs; TLS is usually captured at the firewall or proxy level.\n\n` +
+        `**Layer 5, Session**: Manages the establishment, maintenance, and termination of sessions between applications. SMB (Server Message Block, used for Windows file sharing) has session-layer concepts. Rarely logged separately: most session data is embedded in higher-layer logs.\n\n` +
+        `**Layer 4, Transport**: TCP and UDP live here. This layer handles whether data delivery is guaranteed (TCP) or best-effort (UDP), and it introduces the concept of port numbers: the mechanism that tells the receiving computer which application should handle the incoming data. Firewall logs and IDS logs routinely capture Layer 4 data: source port, destination port, TCP flags.\n\n` +
+        `**Layer 3, Network**: IP (Internet Protocol) lives here. This layer handles logical addressing (IP addresses) and routing, deciding which path packets take across networks. Every firewall log that shows a source IP, destination IP, and whether the packet was allowed or blocked is operating at Layer 3.\n\n` +
+        `**Layer 2, Data Link**: MAC (Media Access Control) addresses and Ethernet frames live here. ARP (Address Resolution Protocol) operates at this layer to map IP addresses to MAC addresses. Layer 2 attacks like ARP poisoning and MAC spoofing are detected by NAC (Network Access Control) tools and switch logs, not by standard firewalls.\n\n` +
+        `**Layer 1, Physical**: The actual cables, fiber, radio signals, and hardware ports. No security logging happens here in a meaningful sense: you detect physical tampering through physical security systems, not SIEMs.\n\n` +
         `**How data is wrapped at each layer: encapsulation and the PDU names**\n\n` +
-        `As your data travels down the layers on the sending machine, each layer wraps what it received from the layer above inside its own header — like putting a letter inside an envelope, then that envelope inside a shipping box, then the box onto a labelled pallet. This wrapping is called encapsulation, and the receiving machine unwraps it in reverse (decapsulation) as the data travels back up its own layers. The named bundle of data at each layer has a specific term — the PDU (Protocol Data Unit) — and knowing these names lets you read tool documentation and packet captures precisely. At Layers 7-5 (Application, Presentation, Session) the PDU is simply called data (or a message). At Layer 4 (Transport) a TCP PDU is called a segment and a UDP PDU is called a datagram. At Layer 3 (Network) it is a packet. At Layer 2 (Data Link) it is a frame. At Layer 1 (Physical) it is raw bits on the wire. When a firewall says it "drops malformed frames" (Layer 2) or an IDS says it "reassembles TCP segments" (Layer 4), the PDU name is telling you exactly which layer that tool operates at — and therefore which attacks it can and cannot see.\n\n` +
+        `As your data travels down the layers on the sending machine, each layer wraps what it received from the layer above inside its own header, like putting a letter inside an envelope, then that envelope inside a shipping box, then the box onto a labelled pallet. This wrapping is called encapsulation, and the receiving machine unwraps it in reverse (decapsulation) as the data travels back up its own layers. The named bundle of data at each layer has a specific term, the PDU (Protocol Data Unit), and knowing these names lets you read tool documentation and packet captures precisely. At Layers 7-5 (Application, Presentation, Session) the PDU is simply called data (or a message). At Layer 4 (Transport) a TCP PDU is called a segment and a UDP PDU is called a datagram. At Layer 3 (Network) it is a packet. At Layer 2 (Data Link) it is a frame. At Layer 1 (Physical) it is raw bits on the wire. When a firewall says it "drops malformed frames" (Layer 2) or an IDS says it "reassembles TCP segments" (Layer 4), the PDU name is telling you exactly which layer that tool operates at, and therefore which attacks it can and cannot see.\n\n` +
         `**The TCP/IP Model**\n\n` +
         `In practice, the networking world uses a simpler 4-layer model called TCP/IP (also called the Internet model). It collapses the OSI model's seven layers into four: Network Access (OSI Layers 1-2), Internet (OSI Layer 3), Transport (OSI Layer 4), and Application (OSI Layers 5-7).\n\n` +
         `**Why does this matter for a SOC analyst?**\n\n` +
-        `The layer at which an attack occurs determines which tool can detect it. An ARP poisoning attack at Layer 2 will not appear in your firewall logs (Layer 3-4) — you need switch logs or NAC telemetry. A SQL injection attack at Layer 7 will not be caught by a firewall that only inspects Layer 3-4 headers — you need a WAF or proxy. A port scan at Layer 4 shows up in firewall logs as many connection attempts. A DNS exfiltration attack at Layer 7 may pass right through a firewall that allows DNS traffic — you need DNS query logging.\n\n` +
+        `The layer at which an attack occurs determines which tool can detect it. An ARP poisoning attack at Layer 2 will not appear in your firewall logs (Layer 3-4). You need switch logs or NAC telemetry. A SQL injection attack at Layer 7 will not be caught by a firewall that only inspects Layer 3-4 headers. You need a WAF or proxy. A port scan at Layer 4 shows up in firewall logs as many connection attempts. A DNS exfiltration attack at Layer 7 may pass right through a firewall that allows DNS traffic. You need DNS query logging.\n\n` +
         `Understanding layers lets you instantly answer the question: "Which tool in my stack would capture this attack?" That question determines where you hunt and what log sources you query.`,
       codeExample:
         "OSI MODEL vs TCP/IP MODEL\n" +
@@ -130,24 +130,24 @@ const protocolsMasterclass = {
       id: "proto-r2",
       heading: "IP Addressing: How Computers Find Each Other on a Network",
       content:
-        `Every device on a network needs an address — just like every house on a street needs a number. In networking, that address is the IP address. Understanding IP addressing is foundational for SOC analysts because every log entry involving network traffic contains IP addresses, and correctly interpreting those addresses tells you whether you are looking at internal activity, external communication, or something suspicious.\n\n` +
+        `Every device on a network needs an address, just like every house on a street needs a number. In networking, that address is the IP address. Understanding IP addressing is foundational for SOC analysts because every log entry involving network traffic contains IP addresses, and correctly interpreting those addresses tells you whether you are looking at internal activity, external communication, or something suspicious.\n\n` +
         `**IPv4 Address Structure**\n\n` +
-        `An IPv4 address is a 32-bit number written as four groups of decimal digits separated by dots — for example, 192.168.1.100. Each group (called an octet) represents 8 bits and can range from 0 to 255. The full address therefore represents 2^32 = approximately 4.3 billion possible addresses.\n\n` +
+        `An IPv4 address is a 32-bit number written as four groups of decimal digits separated by dots, for example, 192.168.1.100. Each group (called an octet) represents 8 bits and can range from 0 to 255. The full address therefore represents 2^32 = approximately 4.3 billion possible addresses.\n\n` +
         `**Private vs Public IP Ranges**\n\n` +
         `Not all IP addresses are equal. Three ranges are reserved for use inside private networks and are never routed on the public internet. These are called RFC1918 ranges after the standards document that defines them:\n\n` +
-        `- 10.0.0.0 to 10.255.255.255 (written as 10.0.0.0/8) — used by large enterprise networks. Provides 16.7 million addresses.\n` +
-        `- 172.16.0.0 to 172.31.255.255 (written as 172.16.0.0/12) — used by medium-sized networks. Provides 1 million addresses.\n` +
-        `- 192.168.0.0 to 192.168.255.255 (written as 192.168.0.0/16) — used by small networks and home routers. Provides 65,536 addresses.\n\n` +
+        `- 10.0.0.0 to 10.255.255.255 (written as 10.0.0.0/8). Used by large enterprise networks. Provides 16.7 million addresses.\n` +
+        `- 172.16.0.0 to 172.31.255.255 (written as 172.16.0.0/12): used by medium-sized networks. Provides 1 million addresses.\n` +
+        `- 192.168.0.0 to 192.168.255.255 (written as 192.168.0.0/16). Used by small networks and home routers. Provides 65,536 addresses.\n\n` +
         `Any IP address that falls outside these three ranges is a public IP address, routable on the internet, and assigned to a specific organization or internet service provider.\n\n` +
         `**CIDR Notation**\n\n` +
-        `CIDR (Classless Inter-Domain Routing) notation expresses a range of addresses compactly using a slash followed by a number. The number after the slash indicates how many bits are fixed (the network portion). A /24 means the first 24 bits are fixed, leaving 8 bits variable — giving you 256 addresses (254 usable, since the first is the network address and the last is the broadcast address). A /16 gives you 65,536 addresses. A /8 gives you 16.7 million.\n\n` +
+        `CIDR (Classless Inter-Domain Routing) notation expresses a range of addresses compactly using a slash followed by a number. The number after the slash indicates how many bits are fixed (the network portion). A /24 means the first 24 bits are fixed, leaving 8 bits variable, giving you 256 addresses (254 usable, since the first is the network address and the last is the broadcast address). A /16 gives you 65,536 addresses. A /8 gives you 16.7 million.\n\n` +
         `**NAT: Why Your Laptop IP Is 192.168.x.x**\n\n` +
         `Network Address Translation (NAT) is the technology that allows thousands of internal devices with private IP addresses to share a single public IP address. Your laptop has a private address like 192.168.1.50. When you connect to a website, your router replaces the source IP in your packet with the router's public IP (say, 203.0.113.22) before sending it out. The website sees 203.0.113.22, not your laptop's address. When the response comes back, the router translates it back and delivers it to your laptop.\n\n` +
         `**SOC Relevance: Reading IP Addresses in Logs**\n\n` +
-        `When you read a log and see a private RFC1918 source IP, you know the connection originated inside your network. When you see a public IP, it came from outside. This matters enormously for alert triage: a connection from 10.10.5.42 to a database server is probably internal — but the same connection from 185.220.101.50 (a known Tor exit node) is alarming.\n\n` +
-        `A red flag pattern: an inbound connection with a source IP in the RFC1918 range arriving at your perimeter firewall from the internet. This is a spoofed packet — attackers sometimes forge private IPs as the source of traffic to confuse logging or bypass poorly configured ACLs. A well-configured firewall should drop these at the edge (this is called anti-spoofing).\n\n` +
+        `When you read a log and see a private RFC1918 source IP, you know the connection originated inside your network. When you see a public IP, it came from outside. This matters enormously for alert triage: a connection from 10.10.5.42 to a database server is probably internal, but the same connection from 185.220.101.50 (a known Tor exit node) is alarming.\n\n` +
+        `A red flag pattern: an inbound connection with a source IP in the RFC1918 range arriving at your perimeter firewall from the internet. This is a spoofed packet. Attackers sometimes forge private IPs as the source of traffic to confuse logging or bypass poorly configured ACLs. A well-configured firewall should drop these at the edge (this is called anti-spoofing).\n\n` +
         `**IPv6**\n\n` +
-        `IPv6 uses 128-bit addresses written as eight groups of four hexadecimal digits, such as 2001:0db8:85a3:0000:0000:8a2e:0370:7334. The loopback address (equivalent to IPv4's 127.0.0.1) is ::1. Link-local addresses (used only within a single network segment, not routed) start with fe80::. SOC analysts need to check for IPv6 traffic as a potential blind spot — organizations that log IPv4 extensively sometimes miss IPv6 tunneling attacks.`,
+        `IPv6 uses 128-bit addresses written as eight groups of four hexadecimal digits, such as 2001:0db8:85a3:0000:0000:8a2e:0370:7334. The loopback address (equivalent to IPv4's 127.0.0.1) is ::1. Link-local addresses (used only within a single network segment, not routed) start with fe80::. SOC analysts need to check for IPv6 traffic as a potential blind spot. Organizations that log IPv4 extensively sometimes miss IPv6 tunneling attacks.`,
       codeExample:
         "SUBNET REFERENCE TABLE\n" +
         "=======================================================\n" +
@@ -189,7 +189,7 @@ const protocolsMasterclass = {
           "126",
         ],
         answer: 1,
-        explanation: "A /24 subnet has 256 total addresses, but 254 are usable — the first address is reserved as the network address and the last as the broadcast address.",
+        explanation: "A /24 subnet has 256 total addresses, but 254 are usable: the first address is reserved as the network address and the last as the broadcast address.",
       },
     },
     // ── Reading 3 ─────────────────────────────────────────────────────────────
@@ -198,27 +198,27 @@ const protocolsMasterclass = {
       id: "proto-r3",
       heading: "TCP: The Protocol That Guarantees Delivery",
       content:
-        `When you send an important document by courier, you might request a signature on delivery — confirmation that it arrived intact. TCP (Transmission Control Protocol) is the networking equivalent of that signed delivery. It is a connection-oriented, reliable protocol that guarantees data will arrive at the destination in the correct order, without duplication, and without corruption.\n\n` +
+        `When you send an important document by courier, you might request a signature on delivery. Confirmation that it arrived intact. TCP (Transmission Control Protocol) is the networking equivalent of that signed delivery. It is a connection-oriented, reliable protocol that guarantees data will arrive at the destination in the correct order, without duplication, and without corruption.\n\n` +
         `**The Three-Way Handshake**\n\n` +
         `Before any TCP data is exchanged, two computers must establish a connection through the three-way handshake:\n\n` +
         `1. SYN (Synchronize): The client sends a packet with the SYN flag set. This announces: "I want to start a conversation, and I am starting my sequence numbers at X."\n` +
         `2. SYN-ACK (Synchronize-Acknowledge): The server responds with both SYN and ACK flags set. This says: "I received your SYN, I acknowledge it (ACK), and here are my own starting sequence numbers."\n` +
         `3. ACK (Acknowledge): The client sends a final ACK. The connection is now established and data can flow.\n\n` +
-        `This handshake is the foundation for many attack techniques. A SYN flood attack sends thousands of SYN packets but never completes the handshake — the server allocates memory for each half-open connection until it runs out of resources and crashes. Tools like Nmap perform SYN scans (also called half-open scans) by sending SYN packets and analyzing the response without completing the handshake. A SYN-ACK reply means the port is open, a RST means it is closed (the host is up but nothing is listening), and no reply at all usually means a firewall silently dropped the probe (filtered).\n\n` +
+        `This handshake is the foundation for many attack techniques. A SYN flood attack sends thousands of SYN packets but never completes the handshake: the server allocates memory for each half-open connection until it runs out of resources and crashes. Tools like Nmap perform SYN scans (also called half-open scans) by sending SYN packets and analyzing the response without completing the handshake. A SYN-ACK reply means the port is open, a RST means it is closed (the host is up but nothing is listening), and no reply at all usually means a firewall silently dropped the probe (filtered).\n\n` +
         `**TCP Flags**\n\n` +
-        `Each TCP packet carries flags — single-bit markers that indicate the purpose of the packet. The six primary flags are:\n\n` +
+        `Each TCP packet carries flags: single-bit markers that indicate the purpose of the packet. The six primary flags are:\n\n` +
         `- SYN: Initiate a connection or synchronize sequence numbers\n` +
         `- ACK: Acknowledge receipt of data\n` +
         `- FIN: Signal that the sender has finished sending data (graceful termination)\n` +
-        `- RST: Reset the connection immediately (abrupt termination — used to reject connections or inject session resets)\n` +
+        `- RST: Reset the connection immediately (abrupt termination. Used to reject connections or inject session resets)\n` +
         `- PSH: Push data to the application immediately, don't buffer\n` +
         `- URG: Mark data as urgent (rarely used in practice)\n\n` +
         `**Sequence and Acknowledgement Numbers**\n\n` +
         `TCP tracks the order of data using sequence numbers. Each byte of data has a sequence number. The ACK number in each packet tells the sender which byte the receiver is expecting next. This mechanism enables TCP to detect lost packets, request retransmission, and reassemble data in the correct order even if packets arrive out of sequence.\n\n` +
         `**Four-Way Termination**\n\n` +
-        `Ending a TCP connection properly requires four packets: FIN from one side, ACK from the other, then FIN from the second side, and a final ACK. This is the graceful close. RST bypasses this — it immediately terminates the connection without waiting for the other side to finish. An RST injection attack exploits this: an attacker who can forge a RST packet with the correct sequence number can force-terminate a legitimate TCP session.\n\n` +
+        `Ending a TCP connection properly requires four packets: FIN from one side, ACK from the other, then FIN from the second side, and a final ACK. This is the graceful close. RST bypasses this, it immediately terminates the connection without waiting for the other side to finish. An RST injection attack exploits this: an attacker who can forge a RST packet with the correct sequence number can force-terminate a legitimate TCP session.\n\n` +
         `**Connection States**\n\n` +
-        `TCP connections go through multiple states: LISTEN (waiting for connections), SYN_SENT (client side: SYN sent, awaiting SYN-ACK), SYN_RECEIVED (server side: SYN received and SYN-ACK sent, awaiting the final ACK — a "half-open" connection), ESTABLISHED (active connection), FIN_WAIT_1 and FIN_WAIT_2 (closing), TIME_WAIT (waiting to ensure the remote end received the final ACK), and CLOSED.\n\n` +
+        `TCP connections go through multiple states: LISTEN (waiting for connections), SYN_SENT (client side: SYN sent, awaiting SYN-ACK), SYN_RECEIVED (server side: SYN received and SYN-ACK sent, awaiting the final ACK, a "half-open" connection), ESTABLISHED (active connection), FIN_WAIT_1 and FIN_WAIT_2 (closing), TIME_WAIT (waiting to ensure the remote end received the final ACK), and CLOSED.\n\n` +
         `SOC analysts encounter these states in network flow data and firewall logs. A large number of half-open connections stuck in SYN_RECEIVED on a server can indicate a SYN flood against it; a large number of connections stuck in SYN_SENT on a client (no SYN-ACK ever comes back) points to outbound scanning or attempts to reach unreachable or non-listening destinations. Many connections in TIME_WAIT can indicate a high-volume application or a connection exhaustion attack.`,
       codeExample:
         "TCP THREE-WAY HANDSHAKE\n" +
@@ -269,13 +269,13 @@ const protocolsMasterclass = {
       id: "proto-r4",
       heading: "UDP: Speed Without Guarantees",
       content:
-        `If TCP is the signed-delivery courier, then UDP (User Datagram Protocol) is a postcard tossed in the mailbox — fast, lightweight, and no confirmation of receipt. UDP is connectionless: there is no handshake, no acknowledgement, no retransmission, and no guaranteed ordering. A packet either arrives or it does not, and UDP does not know the difference.\n\n` +
+        `If TCP is the signed-delivery courier, then UDP (User Datagram Protocol) is a postcard tossed in the mailbox: fast, lightweight, and no confirmation of receipt. UDP is connectionless: there is no handshake, no acknowledgement, no retransmission, and no guaranteed ordering. A packet either arrives or it does not, and UDP does not know the difference.\n\n` +
         `**Why Does UDP Exist?**\n\n` +
-        `For many applications, the overhead of TCP — the handshake, the acknowledgements, the retransmissions — costs more than the benefit is worth. Consider a VoIP call. If a voice packet is 200 milliseconds late, retransmitting it is useless — by the time it arrives, the conversation has moved on. Better to just drop it and keep going. UDP is ideal for latency-sensitive applications where occasional data loss is acceptable.\n\n` +
+        `For many applications, the overhead of TCP (the handshake, the acknowledgements, the retransmissions) costs more than the benefit is worth. Consider a VoIP call. If a voice packet is 200 milliseconds late, retransmitting it is useless, by the time it arrives, the conversation has moved on. Better to just drop it and keep going. UDP is ideal for latency-sensitive applications where occasional data loss is acceptable.\n\n` +
         `**UDP Header: Extreme Minimalism**\n\n` +
-        `The UDP header is only 8 bytes: source port (2 bytes), destination port (2 bytes), length (2 bytes), and checksum (2 bytes). Compare this to TCP's minimum 20-byte header plus options. The simplicity means UDP can process traffic much faster than TCP — critical for high-volume, low-latency applications.\n\n` +
+        `The UDP header is only 8 bytes: source port (2 bytes), destination port (2 bytes), length (2 bytes), and checksum (2 bytes). Compare this to TCP's minimum 20-byte header plus options. The simplicity means UDP can process traffic much faster than TCP: critical for high-volume, low-latency applications.\n\n` +
         `**Common UDP Applications**\n\n` +
-        `DNS uses UDP port 53 for standard queries — a query and response fits in a single packet exchange, making the three-way handshake unnecessary overhead. DHCP (Dynamic Host Configuration Protocol) uses UDP ports 67 and 68 to assign IP addresses — again, a simple request-response pattern. VoIP (voice calls over IP) uses UDP because real-time audio cannot tolerate TCP's retransmission delays. TFTP (Trivial File Transfer Protocol, port 69) is used for simple file transfers like PXE booting. NTP (Network Time Protocol, port 123) synchronizes clocks. SNMP (port 161) monitors network devices. Video streaming and multiplayer games almost universally use UDP.\n\n` +
+        `DNS uses UDP port 53 for standard queries: a query and response fits in a single packet exchange, making the three-way handshake unnecessary overhead. DHCP (Dynamic Host Configuration Protocol) uses UDP ports 67 and 68 to assign IP addresses: again, a simple request-response pattern. VoIP (voice calls over IP) uses UDP because real-time audio cannot tolerate TCP's retransmission delays. TFTP (Trivial File Transfer Protocol, port 69) is used for simple file transfers like PXE booting. NTP (Network Time Protocol, port 123) synchronizes clocks. SNMP (port 161) monitors network devices. Video streaming and multiplayer games almost universally use UDP.\n\n` +
         `**SOC Relevance: Why Attackers Love UDP**\n\n` +
         `UDP presents three advantages for attackers. First, many firewalls and IDS systems perform stateful inspection on TCP connections but apply less rigorous analysis to UDP traffic, creating potential blind spots. Second, UDP-based DDoS amplification attacks are highly effective: an attacker sends a small UDP request to a server (like a DNS resolver or NTP server) with the victim's IP spoofed as the source, and the server sends a much larger response to the victim. DNS amplification can produce a 50x amplification factor; NTP's MONLIST command was historically capable of 4,000x amplification. Third, ICMP and UDP floods can saturate network links with minimal attacker infrastructure because no connection state needs to be maintained.\n\n` +
         `Malware increasingly tunnels C2 traffic over UDP to evade detection. Tools like DNScat2 and similar DNS tunneling utilities use UDP port 53 (DNS) to carry C2 communications because DNS traffic is almost universally permitted outbound. Some advanced RATs (Remote Access Trojans) use custom UDP protocols that mimic legitimate traffic patterns.\n\n` +
@@ -324,14 +324,14 @@ const protocolsMasterclass = {
           "Its checksum is optional, so the server cannot detect the forged source",
         ],
         answer: 1,
-        explanation: "UDP is connectionless: with no handshake, a server answers whatever source address a request claims without ever checking it, which lets the attacker aim large replies at the victim — the reading's DNS (about 50x) and NTP MONLIST (up to 4,000x) amplification examples. Over TCP the handshake would fail, because the spoofed victim never sent the SYN. The small 8-byte header is true but is not what makes spoofing work. UDP has no retransmission at all. The checksum only detects corruption in transit; it was never a check on who sent the packet.",
+        explanation: "UDP is connectionless: with no handshake, a server answers whatever source address a request claims without ever checking it, which lets the attacker aim large replies at the victim, the reading's DNS (about 50x) and NTP MONLIST (up to 4,000x) amplification examples. Over TCP the handshake would fail, because the spoofed victim never sent the SYN. The small 8-byte header is true but is not what makes spoofing work. UDP has no retransmission at all. The checksum only detects corruption in transit; it was never a check on who sent the packet.",
       },
     },
     // ── Reading 5 ─────────────────────────────────────────────────────────────
     {
       type: "reading" as const,
       id: "proto-r5",
-      heading: "DNS: The Internet's Phone Book — How Names Become IP Addresses",
+      heading: "DNS: The Internet's Phone Book, How Names Become IP Addresses",
       content:
         `Humans remember names. Computers communicate with numbers. DNS (Domain Name System) is the global translation service that bridges this gap. When you type www.example.com into a browser, DNS converts that name into an IP address like 93.184.216.34 so your computer knows where to send the packets.\n\n` +
         `**The Full DNS Resolution Flow**\n\n` +
@@ -351,15 +351,15 @@ const protocolsMasterclass = {
         `- MX: Identifies the mail servers responsible for accepting email for a domain.\n` +
         `- CNAME: Creates an alias pointing one hostname to another (e.g., www.example.com is a CNAME for example.com).\n` +
         `- TXT: Stores arbitrary text. Used for SPF (email sender verification), DKIM (email signing), DMARC (email policy), and domain ownership verification.\n` +
-        `- PTR: Reverse DNS lookup — maps an IP address back to a hostname.\n` +
+        `- PTR: Reverse DNS lookup, maps an IP address back to a hostname.\n` +
         `- NS: Identifies the authoritative nameservers for a domain.\n` +
-        `- SOA: Start of Authority — metadata about the domain (primary nameserver, admin email, serial number, refresh intervals).\n\n` +
+        `- SOA: Start of Authority, metadata about the domain (primary nameserver, admin email, serial number, refresh intervals).\n\n` +
         `**TTL and Caching**\n\n` +
-        `Every DNS record has a Time To Live (TTL) measured in seconds. Caches honor this TTL — a record with TTL=3600 will be cached for one hour before being re-queried. Attackers use very short TTLs (fast-flux DNS) to rapidly change the IPs behind a domain, making blocklisting ineffective.\n\n` +
+        `Every DNS record has a Time To Live (TTL) measured in seconds. Caches honor this TTL: a record with TTL=3600 will be cached for one hour before being re-queried. Attackers use very short TTLs (fast-flux DNS) to rapidly change the IPs behind a domain, making blocklisting ineffective.\n\n` +
         `**DNS over HTTPS (DoH)**\n\n` +
-        `Traditional DNS sends queries in plaintext over UDP port 53 — visible to anyone monitoring the network. DNS over HTTPS (DoH) encrypts DNS queries by sending them as HTTPS requests to port 443, hiding them from network inspection. While this improves user privacy, it is a significant problem for SOC analysts: it bypasses corporate DNS resolvers, prevents DNS-based content filtering, and makes DNS-based C2 and tunneling invisible to traditional DNS logging.\n\n` +
+        `Traditional DNS sends queries in plaintext over UDP port 53. Visible to anyone monitoring the network. DNS over HTTPS (DoH) encrypts DNS queries by sending them as HTTPS requests to port 443, hiding them from network inspection. While this improves user privacy, it is a significant problem for SOC analysts: it bypasses corporate DNS resolvers, prevents DNS-based content filtering, and makes DNS-based C2 and tunneling invisible to traditional DNS logging.\n\n` +
         `**SOC Relevance: Why DNS Is the Most Abused Protocol**\n\n` +
-        `DNS is permitted outbound by nearly every firewall. Blocking port 53 breaks the internet. Attackers know this and abuse DNS in multiple ways: C2 channels that poll a DNS server for instructions, data exfiltration via DNS tunneling (encoding data in subdomain labels), and domain generation algorithms (DGAs) that generate hundreds of random-looking domain names and try each one until the C2 server responds. Detecting DNS abuse requires query logging at scale and behavioral analysis — not just blocklists.`,
+        `DNS is permitted outbound by nearly every firewall. Blocking port 53 breaks the internet. Attackers know this and abuse DNS in multiple ways: C2 channels that poll a DNS server for instructions, data exfiltration via DNS tunneling (encoding data in subdomain labels), and domain generation algorithms (DGAs) that generate hundreds of random-looking domain names and try each one until the C2 server responds. Detecting DNS abuse requires query logging at scale and behavioral analysis, not just blocklists.`,
       codeExample:
         "DNS RESOLUTION FLOW\n" +
         "=======================================================\n" +
@@ -407,7 +407,7 @@ const protocolsMasterclass = {
       id: "proto-r6",
       heading: "HTTP and HTTPS: The Protocol of the Web",
       content:
-        `HTTP (HyperText Transfer Protocol) is the language that web browsers and web servers use to communicate. Every time you visit a website, your browser sends HTTP requests and receives HTTP responses. Understanding HTTP structure is essential for SOC analysts — web-based attacks (SQL injection, XSS, path traversal, C2 beaconing) all live in HTTP traffic.\n\n` +
+        `HTTP (HyperText Transfer Protocol) is the language that web browsers and web servers use to communicate. Every time you visit a website, your browser sends HTTP requests and receives HTTP responses. Understanding HTTP structure is essential for SOC analysts: web-based attacks (SQL injection, XSS, path traversal, C2 beaconing) all live in HTTP traffic.\n\n` +
         `**HTTP Methods**\n\n` +
         `HTTP defines a set of methods that tell the server what action the client wants to perform:\n\n` +
         `- GET: Retrieve a resource. The most common method. Parameters are sent in the URL. GET requests should never change server state.\n` +
@@ -417,23 +417,23 @@ const protocolsMasterclass = {
         `- HEAD: Like GET, but the server returns only the headers, not the body. Used to check if a resource exists or get its size.\n` +
         `- OPTIONS: Ask the server what methods it supports for a given URL. Commonly used by browsers in CORS preflight requests. Attackers sometimes use OPTIONS to fingerprint web servers.\n` +
         `- PATCH: Partially update a resource.\n` +
-        `- CONNECT: Establish a network tunnel through a proxy to the destination server. This is the method a browser uses to tunnel an HTTPS session through a forward proxy. SOC relevance: tunneling malware and covert-channel tools abuse CONNECT to smuggle arbitrary TCP traffic through a permitted web proxy — a proxy log showing CONNECT requests to non-web ports (anything other than 443) is a strong indicator worth pivoting on.\n` +
-        `- TRACE: Ask the server to echo back the exact request it received, as a path-diagnostic loop-back test. It should be disabled on production web servers: when enabled it enables a Cross-Site Tracing (XST) attack, in which an attacker uses TRACE to read request headers — including session cookies that were marked HttpOnly to hide them from scripts. Seeing TRACE enabled on a server is itself a hardening finding.\n\n` +
+        `- CONNECT: Establish a network tunnel through a proxy to the destination server. This is the method a browser uses to tunnel an HTTPS session through a forward proxy. SOC relevance: tunneling malware and covert-channel tools abuse CONNECT to smuggle arbitrary TCP traffic through a permitted web proxy, a proxy log showing CONNECT requests to non-web ports (anything other than 443) is a strong indicator worth pivoting on.\n` +
+        `- TRACE: Ask the server to echo back the exact request it received, as a path-diagnostic loop-back test. It should be disabled on production web servers: when enabled it enables a Cross-Site Tracing (XST) attack, in which an attacker uses TRACE to read request headers, including session cookies that were marked HttpOnly to hide them from scripts. Seeing TRACE enabled on a server is itself a hardening finding.\n\n` +
         `**HTTP Status Codes**\n\n` +
         `The server responds to every request with a three-digit status code:\n\n` +
         `- 1xx (Informational): Request received, processing continues. Rarely logged meaningfully.\n` +
         `- 2xx (Success): 200 OK (standard success), 201 Created (new resource created), 204 No Content (success but no body).\n` +
-        `- 3xx (Redirection): 301 Moved Permanently (domain changed forever), 302 Found (temporary redirect — commonly abused in phishing to chain redirects).\n` +
+        `- 3xx (Redirection): 301 Moved Permanently (domain changed forever), 302 Found (temporary redirect. Commonly abused in phishing to chain redirects).\n` +
         `- 4xx (Client Error): 400 Bad Request, 401 Unauthorized (authentication required), 403 Forbidden (authenticated but not permitted), 404 Not Found, 429 Too Many Requests (rate limited).\n` +
         `- 5xx (Server Error): 500 Internal Server Error, 502 Bad Gateway, 503 Service Unavailable.\n\n` +
         `**HTTP Request Structure**\n\n` +
-        `An HTTP request has three parts: a request line (method + URL + HTTP version), headers (key-value pairs providing metadata — User-Agent, Host, Content-Type, Authorization, Cookie), and an optional body (present in POST and PUT).\n\n` +
+        `An HTTP request has three parts: a request line (method + URL + HTTP version), headers (key-value pairs providing metadata, User-Agent, Host, Content-Type, Authorization, Cookie), and an optional body (present in POST and PUT).\n\n` +
         `**HTTP Response Structure**\n\n` +
         `An HTTP response has a status line (HTTP version + status code + reason phrase), headers, and an optional body containing the returned content.\n\n` +
         `**HTTPS: Adding Encryption**\n\n` +
-        `HTTPS is HTTP transported inside a TLS (Transport Layer Security) tunnel. The TLS layer encrypts the content so that network observers can see the source IP, destination IP, destination port (443), and the SNI (Server Name Indication — the hostname sent during TLS negotiation) but cannot read the actual HTTP request or response.\n\n` +
+        `HTTPS is HTTP transported inside a TLS (Transport Layer Security) tunnel. The TLS layer encrypts the content so that network observers can see the source IP, destination IP, destination port (443), and the SNI (Server Name Indication: the hostname sent during TLS negotiation) but cannot read the actual HTTP request or response.\n\n` +
         `**SOC Relevance: What HTTP Logs Reveal**\n\n` +
-        `Proxy logs and web gateway logs capture HTTP metadata that is invaluable for threat detection. The User-Agent header identifies the client software — attackers often use custom or generic User-Agents (like "python-requests/2.28.0" or "curl/7.68.0") that stand out from normal browser traffic. The Referer header shows where the user came from. The URL contains query parameters that may show SQL injection attempts, path traversal strings, or C2 command parameters. A high rate of 403 or 404 responses from a single IP to a web server is a strong indicator of web scanning or exploitation attempts.`,
+        `Proxy logs and web gateway logs capture HTTP metadata that is invaluable for threat detection. The User-Agent header identifies the client software. Attackers often use custom or generic User-Agents (like "python-requests/2.28.0" or "curl/7.68.0") that stand out from normal browser traffic. The Referer header shows where the user came from. The URL contains query parameters that may show SQL injection attempts, path traversal strings, or C2 command parameters. A high rate of 403 or 404 responses from a single IP to a web server is a strong indicator of web scanning or exploitation attempts.`,
       codeExample:
         "RAW HTTP GET REQUEST\n" +
         "=======================================================\n" +
@@ -479,7 +479,7 @@ const protocolsMasterclass = {
           "The user sent too many requests and is being rate-limited by the server",
         ],
         answer: 1,
-        explanation: "403 Forbidden means the server knows who the user is but refuses this resource — a permissions boundary, worth noting when an ordinary user requests admin paths. 'Credentials required' is 401 Unauthorized. A missing resource is 404 Not Found, and rate limiting is 429 Too Many Requests.",
+        explanation: "403 Forbidden means the server knows who the user is but refuses this resource: a permissions boundary, worth noting when an ordinary user requests admin paths. 'Credentials required' is 401 Unauthorized. A missing resource is 404 Not Found, and rate limiting is 429 Too Many Requests.",
       },
     },
     // ── Reading 7 ─────────────────────────────────────────────────────────────
@@ -488,24 +488,24 @@ const protocolsMasterclass = {
       id: "proto-r7",
       heading: "TLS/SSL: How Encryption Protects Data in Transit",
       content:
-        `Before TLS existed, all web traffic was readable by anyone on the same network — a coffee shop, an ISP, or a nation-state could intercept and read every username and password sent over HTTP. TLS (Transport Layer Security) solved this by encrypting data in transit and authenticating the server's identity.\n\n` +
+        `Before TLS existed, all web traffic was readable by anyone on the same network: a coffee shop, an ISP, or a nation-state could intercept and read every username and password sent over HTTP. TLS (Transport Layer Security) solved this by encrypting data in transit and authenticating the server's identity.\n\n` +
         `**TLS 1.2 vs TLS 1.3**\n\n` +
-        `TLS 1.2 (introduced in 2008) is still widely deployed but has known weaknesses. TLS 1.3 (finalized in 2018) removes all the weak algorithms (RC4, DES, 3DES, RSA key exchange, SHA-1), simplifies the handshake to reduce latency, and enforces forward secrecy by default. SOC analysts should flag traffic negotiating TLS 1.0 or 1.1 — these versions are deprecated and may indicate an old, unpatched client or server, or a downgrade attack.\n\n` +
+        `TLS 1.2 (introduced in 2008) is still widely deployed but has known weaknesses. TLS 1.3 (finalized in 2018) removes all the weak algorithms (RC4, DES, 3DES, RSA key exchange, SHA-1), simplifies the handshake to reduce latency, and enforces forward secrecy by default. SOC analysts should flag traffic negotiating TLS 1.0 or 1.1. These versions are deprecated and may indicate an old, unpatched client or server, or a downgrade attack.\n\n` +
         `**The TLS Handshake (TLS 1.2)**\n\n` +
         `1. ClientHello: The client announces the TLS versions it supports, a list of cipher suites it can use, and a random value.\n` +
         `2. ServerHello: The server selects the TLS version and cipher suite, sends its own random value, and sends its digital certificate.\n` +
         `3. Certificate Verification: The client verifies the server's certificate against the trusted Certificate Authority (CA) store.\n` +
-        `4. Key Exchange: Client and server exchange key material (using the algorithm from the chosen cipher suite) to derive a shared session key. Neither side transmits the key directly — they each independently compute the same key.\n` +
+        `4. Key Exchange: Client and server exchange key material (using the algorithm from the chosen cipher suite) to derive a shared session key. Neither side transmits the key directly. They each independently compute the same key.\n` +
         `5. Finished: Both sides send a Finished message encrypted with the new session key, confirming the handshake succeeded.\n\n` +
         `**Certificate Chains**\n\n` +
         `Trust in TLS flows through a chain: your operating system and browser include a list of trusted Root Certificate Authorities (e.g., DigiCert, Let's Encrypt, Sectigo). Root CAs sign Intermediate CA certificates. Intermediate CAs sign Server certificates. When your browser sees a server certificate, it walks up the chain checking signatures until it reaches a trusted root.\n\n` +
         `A server certificate contains the Subject (CN = Common Name, SAN = Subject Alternative Names listing all valid hostnames), validity dates (Not Before, Not After), the public key, and the issuer.\n\n` +
         `**Cipher Suites**\n\n` +
-        `A cipher suite is a named combination of algorithms, for example: TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384. Breaking this down: ECDHE is the key exchange algorithm (Elliptic Curve Diffie-Hellman Ephemeral — provides forward secrecy), RSA is the authentication algorithm (used to verify the server certificate), AES_256_GCM is the symmetric encryption algorithm (encrypts the actual data), and SHA384 is the MAC algorithm (verifies data integrity).\n\n` +
+        `A cipher suite is a named combination of algorithms, for example: TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384. Breaking this down: ECDHE is the key exchange algorithm (Elliptic Curve Diffie-Hellman Ephemeral. Provides forward secrecy), RSA is the authentication algorithm (used to verify the server certificate), AES_256_GCM is the symmetric encryption algorithm (encrypts the actual data), and SHA384 is the MAC algorithm (verifies data integrity).\n\n` +
         `**JA3 Fingerprinting**\n\n` +
         `Even though TLS encrypts the payload, the ClientHello packet is sent in plaintext. JA3 is a technique that hashes specific fields from the ClientHello (TLS version, cipher suites offered, extensions, elliptic curves, elliptic curve point formats) into a 32-character MD5 fingerprint. Different clients produce different JA3 hashes. Cobalt Strike's default Beacon has a well-known JA3 hash (51c64c77e60f3980eea90869b68c58a8). SOC analysts can query proxy or firewall logs for known-malicious JA3 hashes to identify C2 tools even when the payload is encrypted.\n\n` +
         `**SOC Relevance: TLS in the Kill Chain**\n\n` +
-        `Attackers increasingly use TLS for C2 to blend in with legitimate HTTPS traffic. Detection techniques include: flagging self-signed certificates (issuer equals subject — legitimate services use CA-signed certs), checking for short-lived certificates (malware C2 infrastructure rotates certificates frequently), monitoring JA3 hashes against threat intelligence feeds, and looking for TLS traffic to IP addresses rather than domain names (legitimate sites don't usually do this).`,
+        `Attackers increasingly use TLS for C2 to blend in with legitimate HTTPS traffic. Detection techniques include: flagging self-signed certificates (issuer equals subject. Legitimate services use CA-signed certs), checking for short-lived certificates (malware C2 infrastructure rotates certificates frequently), monitoring JA3 hashes against threat intelligence feeds, and looking for TLS traffic to IP addresses rather than domain names (legitimate sites don't usually do this).`,
       codeExample:
         "TLS 1.2 HANDSHAKE DIAGRAM\n" +
         "=======================================================\n" +
@@ -562,23 +562,23 @@ const protocolsMasterclass = {
       id: "proto-r8",
       heading: "ICMP, ARP, and Other Essential Protocols",
       content:
-        `Not all network protocols carry application data. Some exist purely to manage and troubleshoot the network itself. Three of the most important — ICMP, ARP, and DHCP — are also frequently abused by attackers, making them a must-know for SOC analysts.\n\n` +
+        `Not all network protocols carry application data. Some exist purely to manage and troubleshoot the network itself. Three of the most important (ICMP, ARP, and DHCP) are also frequently abused by attackers, making them a must-know for SOC analysts.\n\n` +
         `**ICMP: Internet Control Message Protocol**\n\n` +
-        `ICMP is an IP-layer protocol used for network diagnostics and error reporting. It carries no application data — its job is to communicate conditions about the network itself. Key ICMP message types:\n\n` +
+        `ICMP is an IP-layer protocol used for network diagnostics and error reporting. It carries no application data: its job is to communicate conditions about the network itself. Key ICMP message types:\n\n` +
         `- Type 8, Code 0: Echo Request (the "ping" sent by the source)\n` +
         `- Type 0, Code 0: Echo Reply (the response to a ping)\n` +
         `- Type 3, various codes: Destination Unreachable (host down, port closed, protocol unreachable, fragmentation needed)\n` +
-        `- Type 11, Code 0: Time Exceeded (TTL expired in transit — what traceroute uses)\n` +
-        `- Type 5: Redirect (tells a host to use a different route — abused to redirect traffic)\n\n` +
-        `Ping works by sending ICMP Echo Requests and waiting for Echo Replies — the round-trip time is the measured latency. Traceroute sends packets with incrementally increasing TTL values (starting at 1). Each router that decrements the TTL to zero discards the packet and sends back an ICMP Time Exceeded message, revealing that router's IP address. By incrementing TTL from 1 upward, traceroute maps the entire path.\n\n` +
+        `- Type 11, Code 0: Time Exceeded (TTL expired in transit, what traceroute uses)\n` +
+        `- Type 5: Redirect (tells a host to use a different route, abused to redirect traffic)\n\n` +
+        `Ping works by sending ICMP Echo Requests and waiting for Echo Replies: the round-trip time is the measured latency. Traceroute sends packets with incrementally increasing TTL values (starting at 1). Each router that decrements the TTL to zero discards the packet and sends back an ICMP Time Exceeded message, revealing that router's IP address. By incrementing TTL from 1 upward, traceroute maps the entire path.\n\n` +
         `ICMP tunneling uses the data payload of ICMP Echo Request and Reply packets to carry arbitrary data. Because many firewalls permit ICMP pings (for diagnostic purposes), covert channels can be established through ICMP even when other protocols are blocked. Tools like ptunnel can tunnel TCP connections over ICMP.\n\n` +
         `**ARP: Address Resolution Protocol**\n\n` +
-        `IP addresses are logical — they exist in software. Ethernet networks use MAC (Media Access Control) addresses — 48-bit hardware identifiers burned into network interface cards. ARP is the protocol that bridges between them: given an IP address, ARP finds the corresponding MAC address.\n\n` +
+        `IP addresses are logical: they exist in software. Ethernet networks use MAC (Media Access Control) addresses, 48-bit hardware identifiers burned into network interface cards. ARP is the protocol that bridges between them: given an IP address, ARP finds the corresponding MAC address.\n\n` +
         `The ARP process: Computer A wants to send a packet to 192.168.1.1. It broadcasts "Who has 192.168.1.1? Tell 192.168.1.50." The device with that IP address (typically the default gateway/router) replies: "192.168.1.1 is at MAC address 00:1A:2B:3C:4D:5E." Computer A caches this mapping in its ARP table.\n\n` +
-        `ARP Poisoning (also called ARP Spoofing): An attacker sends unsolicited ARP replies (gratuitous ARP packets) claiming that the default gateway's IP address is at the attacker's MAC address. Victim machines update their ARP cache with the false mapping. Now all traffic destined for the gateway goes to the attacker instead — a man-in-the-middle position. The attacker can read, modify, or drop the traffic. Detection requires monitoring for unexpected ARP table changes or for ARP replies that nobody requested.\n\n` +
+        `ARP Poisoning (also called ARP Spoofing): An attacker sends unsolicited ARP replies (gratuitous ARP packets) claiming that the default gateway's IP address is at the attacker's MAC address. Victim machines update their ARP cache with the false mapping. Now all traffic destined for the gateway goes to the attacker instead: a man-in-the-middle position. The attacker can read, modify, or drop the traffic. Detection requires monitoring for unexpected ARP table changes or for ARP replies that nobody requested.\n\n` +
         `**DHCP: Dynamic Host Configuration Protocol**\n\n` +
         `DHCP automates IP address assignment. The DORA process: Discover (client broadcasts "I need an IP address"), Offer (server responds "Here is 192.168.1.100, valid for 24 hours"), Request (client accepts "I'll take 192.168.1.100"), Acknowledge (server confirms "It's yours").\n\n` +
-        `A rogue DHCP server attack: an attacker sets up an unauthorized DHCP server on the network. When clients send DHCP Discover broadcasts, the rogue server responds faster than the legitimate one and assigns IP addresses — including a gateway and DNS server pointing to attacker-controlled infrastructure. This gives the attacker a man-in-the-middle position over all newly-joining clients. Detection requires network access control (NAC) systems that enforce DHCP server authorization and alert on unexpected DHCP Offer packets.`,
+        `A rogue DHCP server attack: an attacker sets up an unauthorized DHCP server on the network. When clients send DHCP Discover broadcasts, the rogue server responds faster than the legitimate one and assigns IP addresses, including a gateway and DNS server pointing to attacker-controlled infrastructure. This gives the attacker a man-in-the-middle position over all newly-joining clients. Detection requires network access control (NAC) systems that enforce DHCP server authorization and alert on unexpected DHCP Offer packets.`,
       codeExample:
         "ARP REQUEST AND REPLY\n" +
         "=======================================================\n" +
@@ -634,21 +634,21 @@ const protocolsMasterclass = {
       heading: "The SOC Analyst Port Reference: 50 Ports You Must Know",
       content:
         `Port numbers are how TCP and UDP identify which application on a server should handle incoming traffic. Ports 0-1023 are well-known ports assigned by IANA (Internet Assigned Numbers Authority) to specific protocols. Ports 1024-49151 are registered ports. Ports 49152-65535 are dynamic/ephemeral ports used as source ports by clients.\n\n` +
-        `For a SOC analyst, knowing what normally runs on a port — and what absolutely should not — is a foundational skill. Unexpected traffic on a well-known port often indicates an attack or a misconfiguration. Traffic on unusual high-numbered ports can indicate malware C2.\n\n` +
+        `For a SOC analyst, knowing what normally runs on a port, and what absolutely should not, is a foundational skill. Unexpected traffic on a well-known port often indicates an attack or a misconfiguration. Traffic on unusual high-numbered ports can indicate malware C2.\n\n` +
         `**Remote Access and Administration Ports**\n\n` +
-        `Port 22 (SSH): Secure Shell — encrypted remote terminal access. Legitimate on servers, concerning on workstations. Brute-force attacks against SSH are extremely common on internet-exposed servers. External connections to internal SSH should be rare and authenticated with keys, not passwords.\n\n` +
-        `Port 23 (Telnet): Unencrypted remote terminal — transmits everything in plaintext including credentials. Should never be seen in a modern environment. Its presence indicates an extremely old or misconfigured device and is a critical finding.\n\n` +
+        `Port 22 (SSH): Secure Shell, encrypted remote terminal access. Legitimate on servers, concerning on workstations. Brute-force attacks against SSH are extremely common on internet-exposed servers. External connections to internal SSH should be rare and authenticated with keys, not passwords.\n\n` +
+        `Port 23 (Telnet): Unencrypted remote terminal, transmits everything in plaintext including credentials. Should never be seen in a modern environment. Its presence indicates an extremely old or misconfigured device and is a critical finding.\n\n` +
         `Port 3389 (RDP): Remote Desktop Protocol. Legitimate for remote administration, but exposure to the internet makes it a prime target for brute force and exploitation (BlueKeep CVE-2019-0708). Should be behind a VPN, not directly internet-facing. Alert on inbound connections to 3389 from non-VPN external IPs.\n\n` +
-        `Port 5985/5986 (WinRM): Windows Remote Management, used by PowerShell Remoting. Lateral movement via WinRM is very common in enterprise attacks — it is quieter than RDP and harder to detect. Alert on workstation-to-workstation WinRM connections.\n\n` +
+        `Port 5985/5986 (WinRM): Windows Remote Management, used by PowerShell Remoting. Lateral movement via WinRM is very common in enterprise attacks. It is quieter than RDP and harder to detect. Alert on workstation-to-workstation WinRM connections.\n\n` +
         `**File Transfer and Sharing Ports**\n\n` +
-        `Port 21 (FTP): File Transfer Protocol — cleartext. Never acceptable for transferring sensitive data. SFTP (port 22) or FTPS (port 990) should replace it. FTP traffic from internal workstations to external IPs is suspicious.\n\n` +
-        `Port 445 (SMB): Server Message Block — Windows file sharing and printer sharing. One of the most attacked ports in history (EternalBlue, WannaCry, NotPetya all used SMB). Should be blocked at the perimeter. Internal workstation-to-workstation SMB is how ransomware spreads laterally. Port 139 (NetBIOS) is the legacy predecessor to SMB 445.\n\n` +
+        `Port 21 (FTP): File Transfer Protocol, cleartext. Never acceptable for transferring sensitive data. SFTP (port 22) or FTPS (port 990) should replace it. FTP traffic from internal workstations to external IPs is suspicious.\n\n` +
+        `Port 445 (SMB): Server Message Block, Windows file sharing and printer sharing. One of the most attacked ports in history (EternalBlue, WannaCry, NotPetya all used SMB). Should be blocked at the perimeter. Internal workstation-to-workstation SMB is how ransomware spreads laterally. Port 139 (NetBIOS) is the legacy predecessor to SMB 445.\n\n` +
         `**Email Ports**\n\n` +
         `Port 25 (SMTP): Email transfer between servers. Outbound SMTP from workstations (rather than from the mail server) is a sign of spam bot activity or malware. Port 110 (POP3) and 143 (IMAP) are email retrieval protocols. Port 587 is the authenticated submission port for clients sending email.\n\n` +
         `**Directory and Identity Ports**\n\n` +
-        `Port 389 (LDAP) and 636 (LDAPS — encrypted LDAP): Active Directory queries. Tools like BloodHound generate massive LDAP query volumes against domain controllers. Alert on workstations making unusually high volumes of LDAP queries.\n\n` +
+        `Port 389 (LDAP) and 636 (LDAPS, encrypted LDAP): Active Directory queries. Tools like BloodHound generate massive LDAP query volumes against domain controllers. Alert on workstations making unusually high volumes of LDAP queries.\n\n` +
         `**Database Ports**\n\n` +
-        `Port 1433 (Microsoft SQL Server), 1521 (Oracle), 3306 (MySQL/MariaDB), 5432 (PostgreSQL): Database ports should never be directly reachable from workstations or the internet. Any traffic to these ports from non-application servers is a critical red flag — it may indicate SQL injection exploitation, lateral movement to a database server, or direct data exfiltration.\n\n` +
+        `Port 1433 (Microsoft SQL Server), 1521 (Oracle), 3306 (MySQL/MariaDB), 5432 (PostgreSQL): Database ports should never be directly reachable from workstations or the internet. Any traffic to these ports from non-application servers is a critical red flag. It may indicate SQL injection exploitation, lateral movement to a database server, or direct data exfiltration.\n\n` +
         `**Known Attacker Ports**\n\n` +
         `Port 4444 is the default listener port for Metasploit's Meterpreter shells. Port 31337 (spelled "elite" in leet speak) has been used by BackOrifice and many other tools. Any traffic to or from these ports is almost certainly malicious.`,
       codeExample:
@@ -698,17 +698,17 @@ const protocolsMasterclass = {
       id: "proto-r10",
       heading: "How Attackers Abuse Protocols: C2, DNS Tunneling, and Protocol Attacks",
       content:
-        `Understanding how protocols work is only half the picture. The other half is understanding how attackers exploit those same protocols to hide their activities. Advanced attackers don't announce themselves — they blend into normal traffic, using protocols that are permitted, expected, and difficult to inspect.\n\n` +
+        `Understanding how protocols work is only half the picture. The other half is understanding how attackers exploit those same protocols to hide their activities. Advanced attackers don't announce themselves. They blend into normal traffic, using protocols that are permitted, expected, and difficult to inspect.\n\n` +
         `**DNS Tunneling (MITRE T1048.003 / T1071.004)**\n\n` +
-        `ATT&CK files DNS tunneling under two IDs depending on what the channel is used for. When DNS queries carry stolen data out of the network, that is T1048.003 — Exfiltration Over Alternative Protocol: Exfiltration Over Unencrypted Non-C2 Protocol (DNS is one of the protocols it names). When DNS is the command-and-control channel itself — the implant receives tasking in DNS responses, as dnscat2 and iodine do — that is T1071.004 — Application Layer Protocol: DNS (and wrapping other traffic inside DNS is also T1572 Protocol Tunneling).\n\n` +
-        `DNS tunneling exploits the fact that DNS queries are almost universally permitted outbound — blocking DNS breaks the internet. Attackers install a DNS tunneling tool (iodine, dnscat2, dns2tcp) on the compromised host and control a domain whose authoritative nameserver is also attacker-controlled. Data to exfiltrate is encoded (typically base64) and sent as DNS subdomain labels: encoded-data-chunk.attacker-domain.com. The attacker's nameserver decodes the subdomain, extracts the data, and can send commands back in DNS responses (TXT records or encoded A records).\n\n` +
+        `ATT&CK files DNS tunneling under two IDs depending on what the channel is used for. When DNS queries carry stolen data out of the network, that is T1048.003. Exfiltration Over Alternative Protocol: Exfiltration Over Unencrypted Non-C2 Protocol (DNS is one of the protocols it names). When DNS is the command-and-control channel itself (the implant receives tasking in DNS responses, as dnscat2 and iodine do) that is T1071.004. Application Layer Protocol: DNS (and wrapping other traffic inside DNS is also T1572 Protocol Tunneling).\n\n` +
+        `DNS tunneling exploits the fact that DNS queries are almost universally permitted outbound, blocking DNS breaks the internet. Attackers install a DNS tunneling tool (iodine, dnscat2, dns2tcp) on the compromised host and control a domain whose authoritative nameserver is also attacker-controlled. Data to exfiltrate is encoded (typically base64) and sent as DNS subdomain labels: encoded-data-chunk.attacker-domain.com. The attacker's nameserver decodes the subdomain, extracts the data, and can send commands back in DNS responses (TXT records or encoded A records).\n\n` +
         `IOCs for DNS tunneling: subdomain strings that are 30+ characters long and appear to be random or base64, high volume of queries to a single domain in a short time, large number of unique subdomains under one parent domain, uncommon query types (TXT, NULL, MX used for data, not just A records), NXDOMAIN responses at high rates, and queries from processes that should not be making DNS queries (cmd.exe, PowerShell).\n\n` +
         `**HTTP/S C2 Beaconing (MITRE T1071.001)**\n\n` +
         `Many malware families communicate with their C2 servers over HTTP or HTTPS to blend in with legitimate web traffic. The key behavioral signature is beaconing: the malware connects to the C2 server at regular intervals (every 30 seconds, every 60 seconds, every 5 minutes) to check for commands. Detection clues: regular timing intervals between connections (low standard deviation in inter-connection times), consistent small request and response sizes, unusual User-Agent strings (or a repeating user-agent that differs from the host's actual browser), base64 or encoded data in URL parameters or POST bodies, and connections to domains registered recently or with no reputation.\n\n` +
         `**HTTPS C2 and JA3 Detection**\n\n` +
-        `When C2 uses HTTPS, the payload is encrypted. However, the TLS ClientHello is visible. JA3 fingerprinting hashes the TLS parameters (cipher suites offered, extensions, elliptic curves) to identify the TLS client implementation. Cobalt Strike Beacon has a well-documented JA3 hash (51c64c77e60f3980eea90869b68c58a8). Security researchers publish JA3 blocklists for known malware families — any proxy or firewall that logs JA3 hashes can be cross-referenced against these feeds.\n\n` +
+        `When C2 uses HTTPS, the payload is encrypted. However, the TLS ClientHello is visible. JA3 fingerprinting hashes the TLS parameters (cipher suites offered, extensions, elliptic curves) to identify the TLS client implementation. Cobalt Strike Beacon has a well-documented JA3 hash (51c64c77e60f3980eea90869b68c58a8). Security researchers publish JA3 blocklists for known malware families. Any proxy or firewall that logs JA3 hashes can be cross-referenced against these feeds.\n\n` +
         `**SMB Lateral Movement (MITRE T1021.002)**\n\n` +
-        `SMB (port 445) is how Windows systems share files and printers. It is also how ransomware spreads internally. EternalBlue (CVE-2017-0144) exploited an SMBv1 vulnerability to achieve unauthenticated remote code execution — it powered WannaCry and NotPetya. Even without exploits, authenticated SMB (using stolen credentials) enables lateral movement via PsExec, WMI, or direct file copy to ADMIN$ and C$ shares. Detection: workstation-to-workstation SMB connections (not workstation-to-file-server), Windows Event 4624 LogonType 3 (network logon) on servers receiving connections from unexpected sources.\n\n` +
+        `SMB (port 445) is how Windows systems share files and printers. It is also how ransomware spreads internally. EternalBlue (CVE-2017-0144) exploited an SMBv1 vulnerability to achieve unauthenticated remote code execution. It powered WannaCry and NotPetya. Even without exploits, authenticated SMB (using stolen credentials) enables lateral movement via PsExec, WMI, or direct file copy to ADMIN$ and C$ shares. Detection: workstation-to-workstation SMB connections (not workstation-to-file-server), Windows Event 4624 LogonType 3 (network logon) on servers receiving connections from unexpected sources.\n\n` +
         `**RDP Brute Force (MITRE T1110.001)**\n\n` +
         `Port 3389 (RDP) exposed to the internet receives constant brute-force attempts. Detection: Windows Event 4625 (logon failure) with LogonType 10 (RemoteInteractive) at high volume from a single external IP. Once credentials are found, a successful 4624 event with LogonType 10 follows. Alert immediately on successful RDP logins from external IPs to any non-jump-server host.\n\n` +
         `**ICMP Tunneling**\n\n` +
@@ -769,7 +769,7 @@ const protocolsMasterclass = {
       ],
       answer: 1,
       explanation:
-        "In a SYN scan, a SYN-ACK means open, a RST means closed (the host is up but nothing listens on that port), and silence usually means a firewall dropped the probe — filtered. An open port answers with SYN-ACK, so the RST rules out 'open' for port 23. The RST that tears down a half-open session is sent by the scanner to the server, not back from it. Silence is not a slow open port: an open port replies with SYN-ACK.",
+        "In a SYN scan, a SYN-ACK means open, a RST means closed (the host is up but nothing listens on that port), and silence usually means a firewall dropped the probe: filtered. An open port answers with SYN-ACK, so the RST rules out 'open' for port 23. The RST that tears down a half-open session is sent by the scanner to the server, not back from it. Silence is not a slow open port: an open port replies with SYN-ACK.",
       xp: 20,
     },
     // ── Question 2 ────────────────────────────────────────────────────────────
@@ -779,10 +779,10 @@ const protocolsMasterclass = {
       question:
         "A SOC analyst sees hundreds of DNS queries from a single workstation, all going to subdomains of the same domain, with subdomain strings that are 50+ characters long and look like random base64 text. What is the most likely explanation?",
       options: [
-        "Normal CDN activity — content delivery networks generate long, random-looking subdomains for cache-busting",
-        "DNS tunneling — the workstation encodes data into subdomain labels to exfiltrate it through DNS queries",
-        "A resolver retry storm — a failing upstream resolver causes repeated queries with mangled, base64-like hostnames",
-        "A software licence check — a newly installed application encodes machine identifiers into DNS lookups for activation",
+        "Normal CDN activity: content delivery networks generate long, random-looking subdomains for cache-busting",
+        "DNS tunneling: the workstation encodes data into subdomain labels to exfiltrate it through DNS queries",
+        "A resolver retry storm: a failing upstream resolver causes repeated queries with mangled, base64-like hostnames",
+        "A software licence check: a newly installed application encodes machine identifiers into DNS lookups for activation",
       ],
       answer: 1,
       explanation:
@@ -796,14 +796,14 @@ const protocolsMasterclass = {
       question:
         "Port 445 is blocked on your perimeter firewall. An attacker has already gained access to a workstation inside the network. What risk does port 445 STILL pose INTERNALLY?",
       options: [
-        "Minimal risk — the perimeter block makes SMB unreachable to anything inside the network as well",
+        "Minimal risk: the perimeter block makes SMB unreachable to anything inside the network as well",
         "Internal SMB on port 445 enables lateral movement between workstations, spreading ransomware and enabling credential relay",
-        "Limited risk — port 445 carries file and printer sharing, which cannot be used to execute code or move laterally",
+        "Limited risk: port 445 carries file and printer sharing, which cannot be used to execute code or move laterally",
         "The risk appears once the attacker opens port 445 on the perimeter firewall, since SMB abuse needs inbound internet access",
       ],
       answer: 1,
       explanation:
-        "Blocking port 445 at the perimeter only prevents EXTERNAL attacks. Once an attacker is inside the network, internal port 445 (SMB) traffic is often unrestricted, enabling lateral movement between workstations, ransomware propagation, and NTLM relay attacks. WannaCry and NotPetya spread entirely over internal networks using SMB — perimeter blocks did nothing to stop internal propagation. Network segmentation (blocking workstation-to-workstation SMB with firewall rules or host-based firewalls) is required to limit this risk.",
+        "Blocking port 445 at the perimeter only prevents EXTERNAL attacks. Once an attacker is inside the network, internal port 445 (SMB) traffic is often unrestricted, enabling lateral movement between workstations, ransomware propagation, and NTLM relay attacks. WannaCry and NotPetya spread entirely over internal networks using SMB. Perimeter blocks did nothing to stop internal propagation. Network segmentation (blocking workstation-to-workstation SMB with firewall rules or host-based firewalls) is required to limit this risk.",
       xp: 20,
     },
     // ── Log Analysis ──────────────────────────────────────────────────────────
@@ -812,49 +812,49 @@ const protocolsMasterclass = {
       id: "proto-la1",
       heading: "Investigating a DNS Tunneling Alert",
       context:
-        "You are a Tier-1 SOC analyst at NexaCorp. A SIEM rule fired on an unusually long DNS query from WS-FINANCE-011, a finance department workstation that belongs to m.cohen@nexacorp.com. Review the Sysmon Event ID 22 log below. (QueryStatus 9003 is the Windows DNS code for NXDOMAIN — the name does not exist.)",
+        "You are a Tier-1 SOC analyst at NexaCorp. A SIEM rule fired on an unusually long DNS query from WS-FINANCE-011, a finance department workstation that belongs to m.cohen@nexacorp.com. Review the Sysmon Event ID 22 log below. (QueryStatus 9003 is the Windows DNS code for NXDOMAIN: the name does not exist.)",
       event: dnsExfilEvent,
       questions: [
         {
           question:
             "QueryName is 'aGVsbG8td29ybGQtdGhpcy1pcy10ZXN0LWRhdGEtZXhmaWx0cmF0aW9u.evil-c2.net': one long base64-looking label under a single parent domain. Which explanation fits this query best?",
           options: [
-            "DGA — malware generating random domain names until one reaches its C2",
-            "DNS tunneling — data encoded into a label under an attacker's own domain",
-            "CDN cache-busting — long random labels are common on content-delivery hosts",
-            "A harmless failure — QueryStatus 9003 shows nothing reached the outside",
+            "DGA: malware generating random domain names until one reaches its C2",
+            "DNS tunneling: data encoded into a label under an attacker's own domain",
+            "CDN cache-busting: long random labels are common on content-delivery hosts",
+            "A harmless failure: QueryStatus 9003 shows nothing reached the outside",
           ],
           answer: 1,
           explanation:
-            "The label decodes from base64 to 'hello-world-this-is-test-data-exfiltration': data riding inside the query name to evil-c2.net, whose authoritative nameserver the attacker controls — DNS tunneling. A DGA varies the registered domain itself, trying many different random names; here the parent stays fixed and only the long label carries content. CDN names can look random, but they resolve successfully under well-known parents, while this one returned NXDOMAIN. And NXDOMAIN (9003) does not mean nothing left: the query, with the data in it, already reached the attacker's nameserver, which can answer NXDOMAIN on purpose to avoid caching.",
+            "The label decodes from base64 to 'hello-world-this-is-test-data-exfiltration': data riding inside the query name to evil-c2.net, whose authoritative nameserver the attacker controls, DNS tunneling. A DGA varies the registered domain itself, trying many different random names; here the parent stays fixed and only the long label carries content. CDN names can look random, but they resolve successfully under well-known parents, while this one returned NXDOMAIN. And NXDOMAIN (9003) does not mean nothing left: the query, with the data in it, already reached the attacker's nameserver, which can answer NXDOMAIN on purpose to avoid caching.",
           xp: 25,
         },
         {
           question:
             "The log shows the query was made by cmd.exe (winlog.event_data.Image = C:\\Windows\\System32\\cmd.exe). Why is cmd.exe making DNS queries suspicious?",
           options: [
-            "cmd.exe regularly performs DNS lookups during normal Windows operation — for example resolving hostnames for mapped network drives — so seeing it as the querying process is not inherently unusual",
-            "cmd.exe itself rarely issues DNS queries in normal use — lookups normally come from browsers, services and dedicated apps — so cmd.exe as the querying Image is unexpected and points to command-line activity that needs explaining",
-            "The location of cmd.exe in System32 is what makes this suspicious — any process that launches from System32 should be treated as attacker-controlled infrastructure and blocked at the DNS resolver",
-            "The real point of investigation is the parent process explorer.exe — it is what actually generated the DNS traffic, while cmd.exe is just a pass-through process with no bearing on the query",
+            "cmd.exe regularly performs DNS lookups during normal Windows operation (for example resolving hostnames for mapped network drives) so seeing it as the querying process is not inherently unusual",
+            "cmd.exe itself rarely issues DNS queries in normal use (lookups normally come from browsers, services and dedicated apps) so cmd.exe as the querying Image is unexpected and points to command-line activity that needs explaining",
+            "The location of cmd.exe in System32 is what makes this suspicious. Any process that launches from System32 should be treated as attacker-controlled infrastructure and blocked at the DNS resolver",
+            "The real point of investigation is the parent process explorer.exe. It is what actually generated the DNS traffic, while cmd.exe is just a pass-through process with no bearing on the query",
           ],
           answer: 1,
           explanation:
-            "Under normal operations, cmd.exe (the Windows command prompt) rarely initiates DNS queries itself. DNS queries typically originate from browsers, system services (like svchost.exe), or dedicated applications. Sysmon Event 22 records the Image of the process that called the DNS client, so a separate tool launched from the prompt (nslookup, iodine, dnscat2) would appear under its own Image — cmd.exe appearing here is therefore unexpected and is worth explaining in its own right. The next pivot is process-creation telemetry (Sysmon Event 1 / Security 4688) for this host and time to see what cmd.exe was running and what it spawned. Nothing in this DNS record shows a parent process, so the investigation should focus on cmd.exe's own command line rather than on a parent.",
+            "Under normal operations, cmd.exe (the Windows command prompt) rarely initiates DNS queries itself. DNS queries typically originate from browsers, system services (like svchost.exe), or dedicated applications. Sysmon Event 22 records the Image of the process that called the DNS client, so a separate tool launched from the prompt (nslookup, iodine, dnscat2) would appear under its own Image. Cmd.exe appearing here is therefore unexpected and is worth explaining in its own right. The next pivot is process-creation telemetry (Sysmon Event 1 / Security 4688) for this host and time to see what cmd.exe was running and what it spawned. Nothing in this DNS record shows a parent process, so the investigation should focus on cmd.exe's own command line rather than on a parent.",
           xp: 20,
         },
         {
           question:
             "What should be the analyst's NEXT step after identifying this alert as likely DNS tunneling?",
           options: [
-            "Close the alert as a false positive — NXDOMAIN confirms the domain doesn't exist, so even though the query contained encoded data, no attacker infrastructure actually received it and no exfiltration occurred",
+            "Close the alert as a false positive. NXDOMAIN confirms the domain doesn't exist, so even though the query contained encoded data, no attacker infrastructure actually received it and no exfiltration occurred",
             "Immediately isolate the workstation WS-FINANCE-011 via EDR containment, query the SIEM for all DNS queries from this host in the past 30 days, and check other hosts for similar queries to evil-c2.net",
             "Send an email to m.cohen asking whether they were intentionally running a DNS diagnostic tool, and wait for their reply before taking any containment or investigative action on the workstation",
             "Mark the alert as medium priority and schedule the investigation for next week's routine review, since a single DNS tunneling alert on one workstation is unlikely to indicate an active, ongoing compromise",
           ],
           answer: 1,
           explanation:
-            "DNS tunneling is an active exfiltration event — the analyst should contain first, then investigate. Isolate WS-FINANCE-011 via EDR network containment to stop the exfiltration channel immediately. Pull all DNS query history from this host to estimate when this started and how much data was sent. Search across all hosts for queries to evil-c2.net to determine whether this is an isolated compromise or part of a wider campaign. NXDOMAIN absolutely does not mean no data was transferred — the query itself carries the data in the subdomain label, and NXDOMAIN is simply the attacker's chosen response to avoid DNS caching.",
+            "DNS tunneling is an active exfiltration event: the analyst should contain first, then investigate. Isolate WS-FINANCE-011 via EDR network containment to stop the exfiltration channel immediately. Pull all DNS query history from this host to estimate when this started and how much data was sent. Search across all hosts for queries to evil-c2.net to determine whether this is an isolated compromise or part of a wider campaign. NXDOMAIN absolutely does not mean no data was transferred: the query itself carries the data in the subdomain label, and NXDOMAIN is simply the attacker's chosen response to avoid DNS caching.",
           xp: 25,
         },
       ],
