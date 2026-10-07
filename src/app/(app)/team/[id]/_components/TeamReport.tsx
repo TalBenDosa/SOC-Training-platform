@@ -686,7 +686,10 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
               <Line label="Logs opened" value={String(u.opened)} />
               <Line label="Avg dwell" value={u.avgDwellS != null ? `${u.avgDwellS}s` : "—"} />
               <Line label="First action" value={u.firstActionS != null ? `${u.firstActionS}s` : "—"} />
-              <Line label="Dispositions" value={`${u.dispCount}${u.dispAcc != null ? ` · ${u.dispAcc}%` : ""}${u.dispUnopened ? ` · ${u.dispUnopened} unread` : ""}`} />
+              <Line label="Dispositions" value={`${u.dispCount}${u.dispAcc != null ? ` · ${u.dispAcc}% balanced` : ""}${u.dispUnopened ? ` · ${u.dispUnopened} unread` : ""}`} />
+              {(u.attackHandling != null || u.benignAcc != null) && (
+                <Line label="Attack / benign" value={`${u.attackHandling != null ? `${u.attackHandling}% attacks` : "no attack logs"} · ${u.benignAcc != null ? `${u.benignAcc}% benign` : "no benign logs"}`} />
+              )}
               <Line label="Escalations" value={`${u.escCount}${u.escQuality != null ? ` · q${u.escQuality}` : ""}`} />
               <Line label="Acknowledged" value={String(u.acks)} />
               <Line label="Containment" value={`${u.contReq} req · ${u.contDecided} dec`} />

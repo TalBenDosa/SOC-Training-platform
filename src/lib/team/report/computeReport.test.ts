@@ -278,7 +278,8 @@ describe("computeReport — per-incident detection (fix 1)", () => {
     expect(team.incidentRecall).toBe(50);
     expect(team.incidents.find(i => i.id === "inc-A")).toMatchObject({ detected: true, escalated: true, attackEvents: 3, firstSeenS: 10, detectS: 70, dwellS: 60, label: "phish" });
     expect(team.incidents.find(i => i.id === "solo:s1")!.detected).toBe(false);
-    expect(cell(perUser[0].rubric, "Attack recall (team)").score).toBe(8); // bandHigh(50, 80, 50, 25)
+    // P0 (2026-10-07): the team's recall is a TEAM metric — it no longer sits on the personal card.
+    expect(perUser[0].rubric.some(r => r.label === "Attack recall (team)")).toBe(false);
     expect(team.detected).toBe(true);
     expect(team.timeToDetectS).toBe(60);   // 70 − first attack log (a1 at 10)
   });
@@ -899,3 +900,60 @@ describe("computeReport — detection time & SLA anchor (Phase 9)", () => {
     expect(() => computeReport(api.events, [member("a", "t1")])).not.toThrow();
   });
 });
+
+describe("computeReport — balanced, severity-weighted disposition accuracy (P0 fairness)", () => {
+  // A noise-heavy feed with one Critical attack log.
+  const feed = (add: ReturnType<typeof log>["add"]) => {
+    for (let i = 0; i < 9; i++) add("feed.event", null, 10 + i, { id: `n${i}`, expected_verdict: "benign", severity: "low" });
+    add("feed.event", null, 30, { id: "atk", expected_verdict: "tp", incident_id: "inc-A", severity: "critical" });
+  };
+
+  it("stamping noise benign while walking past the Critical attack no longer scores high", () => {
+    const { events, add } = log();
+    feed(add);
+    for (let i = 0; i < 9; i++) { add("event.opened", "a", 40 + i * 10, { event_id: `n${i}` }, "t1"); add("disposition.set", "a", 45 + i * 10, { event_id: `n${i}`, verdict: "benign" }, "t1"); }
+    add("event.opened", "a", 200, { event_id: "atk" }, "t1");   // opened, left, nobody caught it
+    const u = computeReport(events, [member("a", "t1")]).perUser[0];
+    expect(u.benignAcc).toBe(100);
+    expect(u.attackHandling).toBe(0);
+    expect(u.dispAcc).toBe(50);                                   // was 100% under the plain average
+    expect(cell(u.rubric, "Disposition accuracy (balanced)").score).toBe(4);
+  });
+
+  it("catching the attack as well earns full marks", () => {
+    const { events, add } = log();
+    feed(add);
+    for (let i = 0; i < 9; i++) { add("event.opened", "a", 40 + i * 10, { event_id: `n${i}` }, "t1"); add("disposition.set", "a", 45 + i * 10, { event_id: `n${i}`, verdict: "benign" }, "t1"); }
+    add("event.opened", "a", 200, { event_id: "atk" }, "t1");
+    add("escalation.requested", "a", 210, { event_id: "atk", summary: "s" }, "t1");
+    const u = computeReport(events, [member("a", "t1")]).perUser[0];
+    expect(u.attackHandling).toBe(100);
+    expect(u.dispAcc).toBe(100);
+    expect(cell(u.rubric, "Disposition accuracy (balanced)").score).toBe(12);
+  });
+
+  it("a missed Critical costs more than a missed Low", () => {
+    const run = (missSev: string) => {
+      const { events, add } = log();
+      add("feed.event", null, 10, { id: "hit", expected_verdict: "tp", incident_id: "inc-A", severity: "medium" });
+      add("feed.event", null, 20, { id: "miss", expected_verdict: "tp", incident_id: "inc-B", severity: missSev });
+      add("disposition.set", "a", 40, { event_id: "hit", verdict: "true_positive" }, "t1");
+      add("disposition.set", "a", 50, { event_id: "miss", verdict: "benign" }, "t1");
+      return computeReport(events, [member("a", "t1")]).perUser[0].attackHandling!;
+    };
+    expect(run("critical")).toBeLessThan(run("low"));
+    expect(run("critical")).toBe(33);   // 2 / (2 + 4)
+    expect(run("low")).toBe(67);        // 2 / (2 + 1)
+  });
+
+  it("with no attack log in your work the cell is capped at 8", () => {
+    const { events, add } = log();
+    for (let i = 0; i < 4; i++) add("feed.event", null, 10 + i, { id: `n${i}`, expected_verdict: "benign" });
+    for (let i = 0; i < 4; i++) add("disposition.set", "a", 40 + i, { event_id: `n${i}`, verdict: "benign" }, "t1");
+    const u = computeReport(events, [member("a", "t1")]).perUser[0];
+    expect(u.attackHandling).toBeNull();
+    expect(u.dispAcc).toBe(100);
+    expect(cell(u.rubric, "Disposition accuracy (balanced)").score).toBe(8);
+  });
+});
+

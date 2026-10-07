@@ -50,6 +50,16 @@ export const MIN_MEASURED_CELLS = 2;
 
 const ATTACK_VERDICTS = new Set(["tp", "escalate"]);
 
+// ── Balanced disposition accuracy (Tal, 2026-10-07 — report P0 fairness) ──────────────
+// Most of the feed is noise, so a plain "share of logs judged right" let an analyst who
+// stamps everything benign score high while walking past the attack. The T1 card now
+// averages TWO halves: attack handling (severity-weighted — a missed Critical costs four
+// times a missed Low, and an attack log you OPENED and left, with nobody else catching it,
+// counts as a miss) and accuracy on benign logs. Full marks need at least one attack log
+// handled: with no attack log in your work the cell is capped at 8/12.
+const SEV_WEIGHT: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1, informational: 1, info: 1 };
+const sevWeight = (s: string) => SEV_WEIGHT[(s || "").toLowerCase().trim()] ?? 1;
+
 // ── "Good catch" model (Tal, 2026-10-03). An incident is built from several logs, so a
 // binary "someone flagged one log" over-credits a shallow catch. Catch quality is graded
 // per incident: a detection FLOOR, then TIMELINESS (MTTD vs an SLA by severity), SCOPE
@@ -102,7 +112,13 @@ export interface IsolationItem {
 export interface MissedHost { host: string; attackLogs: number; firstAttackS: number | null }
 export interface UserReport {
   user_id: string; name: string; role: string;
-  opened: number; avgDwellS: number | null; dispCount: number; dispCorrect: number; dispAcc: number | null;
+  opened: number; avgDwellS: number | null; dispCount: number; dispCorrect: number;
+  /** Balanced disposition accuracy: mean of attackHandling and benignAcc (either alone when only one exists). */
+  dispAcc: number | null;
+  /** Attack half, severity-weighted: attack logs you flagged (TP / suspicious / escalated) vs those you called benign or opened and left. */
+  attackHandling: number | null;
+  /** Benign half: benign/control logs you judged correctly (suspicious = half). */
+  benignAcc: number | null;
   /** Distinct logs judged, and those whose final verdict is wrong (QA H2: XP counts distinct work, wrong calls cost). */
   dispDistinct: number; dispWrong: number;
   /** Distinct dispositions on logs this analyst never opened (0 when the session has no click telemetry). */
@@ -292,7 +308,7 @@ function rubricPercent(cells: RubricCell[]): number | null {
 }
 
 interface RubricCtx {
-  role: string; dispAcc: number | null; escAckRate: number | null; escPrecision: number | null; incidentRecall: number | null; escQuality: number | null;
+  role: string; dispAcc: number | null; dispNoAttack: boolean; escAckRate: number | null; escPrecision: number | null; escQuality: number | null;
   triageMin: number | null; dwellTooShort: boolean; ackLatencyMin: number | null; approvalLatencyMin: number | null;
   huntCount: number; huntTech: number; huntQuality: number | null; noteCount: number; elevAnsweredPct: number | null;
   rulePublished: number; ruleMatched: number; ruleTechniques: number; ruleDocRate: number | null;
@@ -309,9 +325,8 @@ function roleRubric(c: RubricCtx): RubricCell[] {
     case "t1": {
       const triage = c.triageMin == null ? null : bandLow(c.triageMin, 5, 10, 15);
       return [
-        { label: "Disposition accuracy", score: c.dispAcc == null ? null : bandHigh(c.dispAcc, 90, 75, 50), note: "latest verdict per log; suspicious = partial credit; logs you never opened count at reduced weight" },
+        { label: "Disposition accuracy (balanced)", score: c.dispAcc == null ? null : c.dispNoAttack ? Math.min(8, bandHigh(c.dispAcc, 90, 75, 50)) : bandHigh(c.dispAcc, 90, 75, 50), note: c.dispNoAttack ? "capped at 8: no attack log in your work — full marks need a correct call on an attack log" : "average of attack handling (severity-weighted; an attack log you opened and left counts as a miss) and benign accuracy; suspicious = partial credit; unopened logs count at reduced weight" },
         { label: "Escalation precision", score: c.escPrecision == null ? null : smoothBand(c.escPrecision, 10, 80), note: "per incident: of what you escalated, how much was a real incident (duplicates of one incident count once)" },
-        { label: "Attack recall (team)", score: c.incidentRecall == null ? null : bandHigh(c.incidentRecall, 80, 50, 25), note: "share of real incidents the team caught — any of its attack logs escalated or marked TP/suspicious" },
         { label: "Card completeness", score: c.escQuality == null ? null : bandHigh(c.escQuality, 90, 70, 40) },
         { label: "Handoff coordination", score: c.escAckRate == null ? null : bandHigh(c.escAckRate, 80, 60, 40), note: "share of your escalations Tier-2 closed the loop on (acknowledged or bounced)" },
         { label: "Time-to-triage", score: triage == null ? null : c.dwellTooShort ? Math.min(triage, 4) : triage, ...(c.dwellTooShort ? { note: `capped: average read time under ${MIN_EVIDENCE_DWELL_S}s — speed without reading isn't triage` } : {}) },
@@ -801,8 +816,33 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[]) {
       if (!wasOpened) dispUnopened++;
       credit += c * (wasOpened ? 1 : UNOPENED_DISPOSITION_WEIGHT);
     }
-    const dispAcc = distinctDisp ? Math.round((credit / distinctDisp) * 100) : null;
     const correctionsCount = corrected.size;
+
+    // Balanced accuracy (see SEV_WEIGHT). Escalating an attack log is an attack call (full
+    // credit) even without a separate verdict; a benign/control log keeps its verdict credit.
+    const myAttackEsc = new Set(mine.filter(e => e.type === "escalation.requested").map(eidOf).filter(eid => attackIds.has(eid)));
+    const openFactor = (eid: string) => (!telemetry || dwellByEid.has(eid) ? 1 : UNOPENED_DISPOSITION_WEIGHT);
+    let atkNum = 0, atkDen = 0, benNum = 0, benDen = 0;
+    const atkHandled = new Set<string>([...myAttackEsc, ...[...latestVerdict.keys()].filter(eid => attackIds.has(eid))]);
+    for (const eid of atkHandled) {
+      const w = sevWeight(truth.get(eid)?.severity ?? "");
+      const c = myAttackEsc.has(eid) ? 1 : verdictCredit(eid, latestVerdict.get(eid)!);
+      atkNum += w * c * openFactor(eid); atkDen += w;
+    }
+    // Opened an attack log, took no action, and nobody else caught it: a weighted miss.
+    for (const eid of dwellByEid.keys()) {
+      if (!attackIds.has(eid) || atkHandled.has(eid) || caughtByAnyone(eid)) continue;
+      atkDen += sevWeight(truth.get(eid)?.severity ?? "");
+    }
+    for (const [eid, v] of latestVerdict) {
+      if (attackIds.has(eid)) continue;
+      benNum += verdictCredit(eid, v) * openFactor(eid); benDen += 1;
+    }
+    const attackHandling = atkDen ? Math.round((atkNum / atkDen) * 100) : null;
+    const benignAcc = benDen ? Math.round((benNum / benDen) * 100) : null;
+    const dispAcc = attackHandling != null && benignAcc != null ? Math.round((attackHandling + benignAcc) / 2)
+      : attackHandling ?? benignAcc;
+    const dispNoAttack = attackHandling == null && benignAcc != null;
     const dwellTooShort = telemetry && avgDwellS != null && avgDwellS < MIN_EVIDENCE_DWELL_S && distinctDisp > 0;
 
     const esc = mine.filter(e => e.type === "escalation.requested");
@@ -959,7 +999,7 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[]) {
     const isoPct = pct(isoCorrect, myIso.length);
 
     const rubric = roleRubric({
-      role: m.role, dispAcc, escAckRate, escPrecision, incidentRecall, escQuality, triageMin, dwellTooShort, ackLatencyMin, approvalLatencyMin,
+      role: m.role, dispAcc, dispNoAttack, escAckRate, escPrecision, escQuality, triageMin, dwellTooShort, ackLatencyMin, approvalLatencyMin,
       huntCount: hunts.length, huntTech, huntQuality, noteCount, elevAnsweredPct,
       rulePublished: rules.length, ruleMatched, ruleTechniques, ruleDocRate,
       intelAttrib, intelNext, iocPrecision, contReason, contQuality, reportAcc, isoPct,
@@ -972,7 +1012,7 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[]) {
     const measuredCells = rubric.filter(c => c.score != null).length;
     return {
       user_id: m.user_id, name: m.name, role: m.role, opened, avgDwellS,
-      dispCount: disp.length, dispCorrect, dispAcc, dispUnopened, dispDistinct: distinctDisp, dispWrong,
+      dispCount: disp.length, dispCorrect, dispAcc, attackHandling, benignAcc, dispUnopened, dispDistinct: distinctDisp, dispWrong,
       escCount: esc.length, escQuality, acks, contReq: myContReq.length, contDecided, roleActions, firstActionS, contribution,
       rubric, rubricPct: rubricPercent(rubric),
       measuredCells, insufficientEvidence: rubric.length > 0 && measuredCells < MIN_MEASURED_CELLS,

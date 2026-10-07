@@ -5,7 +5,9 @@ exports[`computeReport — characterization (real ended session) > produces the 
   "perUser": [
     {
       "acks": 0,
+      "attackHandling": null,
       "avgDwellS": null,
+      "benignAcc": null,
       "contDecided": 0,
       "contReq": 0,
       "contribution": 0,
@@ -61,7 +63,9 @@ exports[`computeReport — characterization (real ended session) > produces the 
     },
     {
       "acks": 0,
+      "attackHandling": null,
       "avgDwellS": null,
+      "benignAcc": 0,
       "contDecided": 0,
       "contReq": 0,
       "contribution": 21,
@@ -87,7 +91,7 @@ exports[`computeReport — characterization (real ended session) > produces the 
       "isoCorrect": 0,
       "isoPct": null,
       "isolations": [],
-      "measuredCells": 6,
+      "measuredCells": 5,
       "name": "Member C",
       "opened": 0,
       "reported": [
@@ -108,18 +112,13 @@ exports[`computeReport — characterization (real ended session) > produces the 
       "roleActions": 0,
       "rubric": [
         {
-          "label": "Disposition accuracy",
-          "note": "latest verdict per log; suspicious = partial credit; logs you never opened count at reduced weight",
+          "label": "Disposition accuracy (balanced)",
+          "note": "capped at 8: no attack log in your work — full marks need a correct call on an attack log",
           "score": 0,
         },
         {
           "label": "Escalation precision",
           "note": "per incident: of what you escalated, how much was a real incident (duplicates of one incident count once)",
-          "score": 0,
-        },
-        {
-          "label": "Attack recall (team)",
-          "note": "share of real incidents the team caught — any of its attack logs escalated or marked TP/suspicious",
           "score": 0,
         },
         {
@@ -151,7 +150,7 @@ exports[`computeReport — characterization (real ended session) > produces the 
           "score": null,
         },
       ],
-      "rubricPct": 33,
+      "rubricPct": 40,
       "slaMet": 0,
       "slaPct": 0,
       "slaTotal": 1,
@@ -160,7 +159,9 @@ exports[`computeReport — characterization (real ended session) > produces the 
     },
     {
       "acks": 1,
+      "attackHandling": null,
       "avgDwellS": null,
+      "benignAcc": null,
       "contDecided": 0,
       "contReq": 1,
       "contribution": 25,
