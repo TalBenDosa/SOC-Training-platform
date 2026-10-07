@@ -1,12 +1,12 @@
 "use client";
 import { ApiError, messageFromResponse, userMessageFor } from "@/lib/http/apiError";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useId, useRef } from "react";
 import { labelForLang, lessonMarkdownToHtml } from "@/lib/lessons/lessonMarkdown";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, ArrowRight, BookOpen, CheckCircle2, ChevronLeft,
-  Loader2,
+  Loader2, XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
@@ -126,6 +126,13 @@ function Quiz({
   // The client no longer knows any answer until it has submitted (M-01).
   const [results, setResults] = useState<Record<number, LessonQuizResult>>({});
   const [score, setScore] = useState(0);
+  // a11y: each question's radios share a `name` (native grouping + arrow keys) and
+  // a radiogroup label; the Submit button unmounts on grading, so focus moves to
+  // the result panel (and back to the heading on Retry) instead of dropping to <body>.
+  const quizId = useId();
+  const resultRef = useRef<HTMLDivElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { if (submitted) resultRef.current?.focus(); }, [submitted]);
 
   /**
    * Display order for each question's options.
@@ -183,16 +190,16 @@ function Quiz({
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <BookOpen className="h-5 w-5 text-cyber-300" />
-        <h3 className="text-base font-semibold text-white">Knowledge Check</h3>
+        <h3 ref={headingRef} tabIndex={-1} className="text-base font-semibold text-white">Knowledge Check</h3>
         <span className="text-xs text-slate-400">{questions.length} questions · 70% to pass</span>
       </div>
 
       {questions.map((q, i) => (
         <div key={i} className="rounded-lg border border-border bg-bg p-4">
-          <p className="mb-3 text-sm font-semibold text-slate-100">
+          <p id={`${quizId}-q${i}`} className="mb-3 text-sm font-semibold text-slate-100">
             {i + 1}. {q.question}
           </p>
-          <div className="space-y-2">
+          <div className="space-y-2" role="radiogroup" aria-labelledby={`${quizId}-q${i}`}>
             {shuffled[i].map(opt => {
               const isSelected = answers[i] === opt.value;
               const isCorrect  = submitted && opt.value === results[i]?.answer;
@@ -212,13 +219,27 @@ function Quiz({
                 >
                   <input
                     type="radio"
+                    name={`${quizId}-q${i}`}
+                    value={opt.value}
                     disabled={submitted}
                     checked={isSelected}
                     onChange={() => setAnswers(prev => ({ ...prev, [i]: opt.value }))}
                     className="mt-0.5 accent-cyber-500"
                   />
                   <span>{opt.label}</span>
-                  {submitted && isCorrect && <CheckCircle2 className="ml-auto h-4 w-4 shrink-0" />}
+                  {/* Never colour-only: a ✓ / ✗ icon plus screen-reader text. */}
+                  {submitted && isCorrect && (
+                    <>
+                      <CheckCircle2 aria-hidden="true" className="ml-auto h-4 w-4 shrink-0" />
+                      <span className="sr-only">{isSelected ? "(your answer — correct)" : "(correct answer)"}</span>
+                    </>
+                  )}
+                  {isWrong && (
+                    <>
+                      <XCircle aria-hidden="true" className="ml-auto h-4 w-4 shrink-0" />
+                      <span className="sr-only">(your answer — incorrect)</span>
+                    </>
+                  )}
                 </label>
               );
             })}
@@ -232,7 +253,7 @@ function Quiz({
       ))}
 
       {error && (
-        <p className="text-sm text-severity-high">{error}</p>
+        <p role="alert" className="text-sm text-severity-high">{error}</p>
       )}
 
       {!submitted ? (
@@ -244,7 +265,7 @@ function Quiz({
           {submitting ? "Grading…" : "Submit Quiz"}
         </Button>
       ) : (
-        <div className={cn(
+        <div ref={resultRef} tabIndex={-1} role="status" className={cn(
           "rounded-lg border p-4",
           passed
             ? "border-neon-green/40 bg-neon-green/5 text-neon-green"
@@ -255,7 +276,7 @@ function Quiz({
           </p>
           {!passed && (
             <button
-              onClick={() => { setAnswers({}); setSubmitted(false); setResults({}); setError(null); }}
+              onClick={() => { setAnswers({}); setSubmitted(false); setResults({}); setError(null); headingRef.current?.focus(); }}
               className="mt-2 text-sm underline"
             >
               Retry quiz

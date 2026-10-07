@@ -140,7 +140,7 @@ export function AdminAccessCard({ orgId, refreshKey }: { orgId: string; refreshK
               <div key={a.user_id} className="rounded-lg border border-border/60 bg-bg px-3 py-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[12px] font-medium text-white">{a.name} <span className="font-mono text-[11px] font-normal text-slate-400">{a.email ?? ""}</span></p>
+                    <p className="truncate text-[12px] font-medium text-white"><bdi>{a.name}</bdi> <span className="font-mono text-[11px] font-normal text-slate-400">{a.email ?? ""}</span></p>
                     <p className="text-[10px] text-slate-500">
                       {ROLE[a.role] ?? a.role} · last sign-in:{" "}
                       <span className={!a.last_sign_in_at ? "text-neon-amber" : Date.now() - Date.parse(a.last_sign_in_at) > 14 * DAY ? "text-neon-amber" : "text-slate-400"}>{ago(a.last_sign_in_at)}</span>

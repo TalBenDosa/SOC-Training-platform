@@ -29,6 +29,9 @@ const config: Config = {
           panel: "#0f172a",
           hover: "#131c2f",
         },
+        // WCAG 1.4.3: stock slate-500 (#64748b) is only 3.6-4.1:1 on our dark surfaces, and it is the
+        // default "secondary text" colour (~370 uses). Lifted so it clears 4.5:1 on every surface up to #1e293b.
+        slate: { 500: "#8190a5" },
         border: {
           DEFAULT: "#1e293b",
           strong: "#334155",
@@ -51,6 +54,8 @@ const config: Config = {
           red: "#ff3860",
           amber: "#ffb020",
           purple: "#a855f7",
+          // referenced by focus styles on the invite/renew code fields but never defined
+          cyan: "#22d3ee",
           blue: "#3b82f6",
         },
         severity: {

@@ -142,11 +142,13 @@ export function MediaPanel() {
           value={title}
           onChange={e => setTitle(e.target.value)}
           placeholder="Title (e.g. Week 1 — Intro deck)"
-          className="min-w-[180px] flex-1 rounded border border-border bg-bg px-2.5 py-1.5 text-sm text-slate-200 placeholder:text-slate-600 focus:border-cyber-500/50 focus:outline-none"
+          aria-label="Material title"
+          className="min-w-[180px] flex-1 rounded border border-border bg-bg px-2.5 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none"
         />
         <input
           ref={fileRef}
           type="file"
+          aria-label="File to upload"
           accept=".pdf,.pptx,video/mp4,video/webm,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation"
           onChange={e => setFile(e.target.files?.[0] ?? null)}
           className="text-xs text-slate-400 file:mr-2 file:rounded file:border-0 file:bg-cyber-500/15 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-cyber-300 hover:file:bg-cyber-500/25"
@@ -168,9 +170,9 @@ export function MediaPanel() {
           const pub = r.status === "published";
           return (
             <div key={r.id} className="flex items-center gap-3 rounded-lg border border-border bg-bg px-3 py-2.5">
-              <Icon className="h-4 w-4 shrink-0 text-slate-400" />
+              <Icon className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm text-slate-100">{r.title}</p>
+                <p dir="auto" className="truncate text-sm text-slate-100">{r.title}</p>
                 <p className="text-[10px] text-slate-500">{r.kind.toUpperCase()} · {fmtSize(r.size_bytes)}</p>
               </div>
               <span className={cn("shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide border",
@@ -183,26 +185,30 @@ export function MediaPanel() {
                 onClick={() => setDownload(r.id, !r.allow_download)}
                 disabled={rowBusy === r.id}
                 title={r.allow_download ? "Downloads allowed — click to disable" : "View-only — click to allow download"}
+                aria-label={`Allow students to download ${r.title}`}
+                aria-pressed={r.allow_download}
                 className={cn("rounded p-1.5 transition disabled:opacity-50",
                   r.allow_download ? "text-cyber-300 hover:bg-cyber-500/10" : "text-slate-500 hover:bg-slate-500/10 hover:text-slate-300")}
               >
-                {r.allow_download ? <DownloadCloud className="h-4 w-4" /> : <Download className="h-4 w-4" />}
+                {r.allow_download ? <DownloadCloud className="h-4 w-4" aria-hidden="true" /> : <Download className="h-4 w-4" aria-hidden="true" />}
               </button>
               <button
                 onClick={() => setStatus(r.id, pub ? "draft" : "published")}
                 disabled={rowBusy === r.id}
                 title={pub ? "Unpublish" : "Publish to students"}
+                aria-label={pub ? `Unpublish ${r.title}` : `Publish ${r.title} to students`}
                 className="rounded p-1.5 text-slate-400 transition hover:bg-cyber-500/10 hover:text-cyber-300 disabled:opacity-50"
               >
-                {pub ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {pub ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
               </button>
               <button
                 onClick={() => remove(r.id, r.title)}
                 disabled={rowBusy === r.id}
                 title="Delete"
+                aria-label={`Delete ${r.title}`}
                 className="rounded p-1.5 text-slate-400 transition hover:bg-severity-high/10 hover:text-severity-high disabled:opacity-50"
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
           );

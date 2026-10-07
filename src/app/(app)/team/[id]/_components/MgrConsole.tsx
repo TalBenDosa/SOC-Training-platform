@@ -37,16 +37,16 @@ export function MgrConsole({ roster, events, act }: { roster: RosterMember[]; ev
       <div className="mt-2 space-y-1">
         {workload.map(w => (
           <div key={w.user_id} className="flex items-center justify-between text-xs">
-            <span className="text-slate-300">{w.name} <span className="font-mono text-[10px] text-slate-500">{ROLE_LABEL[w.role] ?? w.role}</span></span>
+            <span className="text-slate-300"><bdi>{w.name}</bdi> <span className="font-mono text-[10px] text-slate-500">{ROLE_LABEL[w.role] ?? w.role}</span></span>
             <span className="font-mono text-slate-400"><b className={w.open >= 3 ? "text-neon-amber" : "text-slate-300"}>{w.open} open</b> · <span className="text-slate-500">{w.actions} actions</span></span>
           </div>
         ))}
       </div>
       <div className="mt-3 space-y-1.5 border-t border-border/50 pt-2">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Shift passdown</p>
-        <textarea value={ho.open_cases} onChange={e => setHo(s => ({ ...s, open_cases: e.target.value }))} placeholder="Open cases (id · sev · status · last action)" rows={2} className="w-full resize-y rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
-        <input value={ho.blockers} onChange={e => setHo(s => ({ ...s, blockers: e.target.value }))} placeholder="Blockers (optional)" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
-        <input value={ho.next} onChange={e => setHo(s => ({ ...s, next: e.target.value }))} placeholder="Next actions + deadline" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+        <textarea aria-label="Open cases" value={ho.open_cases} onChange={e => setHo(s => ({ ...s, open_cases: e.target.value }))} placeholder="Open cases (id · sev · status · last action)" rows={2} className="w-full resize-y rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+        <input aria-label="Blockers (optional)" value={ho.blockers} onChange={e => setHo(s => ({ ...s, blockers: e.target.value }))} placeholder="Blockers (optional)" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+        <input aria-label="Next actions and deadline" value={ho.next} onChange={e => setHo(s => ({ ...s, next: e.target.value }))} placeholder="Next actions + deadline" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
         <Button variant="primary" size="sm" disabled={busy || !canPost} onClick={post}>Sign passdown</Button>
       </div>
     </Card>

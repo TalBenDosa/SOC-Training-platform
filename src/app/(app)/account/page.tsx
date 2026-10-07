@@ -96,7 +96,7 @@ function EditableField({
       <div className="flex items-start justify-between gap-4">
         <dt className="text-slate-400">{label}</dt>
         <dd className="flex items-center gap-2 text-right text-slate-200">
-          <span className="break-all">{value ?? "—"}</span>
+          <bdi className="break-all">{value ?? "—"}</bdi>
           <button
             ref={editBtnRef} type="button"
             onClick={() => { setDraft(value ?? ""); setError(null); setEditing(true); }}
@@ -346,7 +346,7 @@ export default function AccountPage() {
           {info?.enrolled && (
             <div className="flex justify-between gap-4">
               <dt className="flex items-center gap-1.5 text-slate-400"><Building2 className="h-3.5 w-3.5" /> Institution</dt>
-              <dd className="text-slate-200">{info.org_name ?? "Your college"}</dd>
+              <dd className="text-slate-200"><bdi>{info.org_name ?? "Your college"}</bdi></dd>
             </div>
           )}
         </dl>
@@ -416,16 +416,16 @@ export default function AccountPage() {
       {info && (
       <Card className="mt-6 border-red-500/30">
         <h2 className="flex items-center gap-2 text-sm font-bold text-white">
-          <AlertTriangle className="h-4 w-4 text-red-400" /> Delete your account
+          <AlertTriangle className="h-4 w-4 text-red-400" aria-hidden="true" /> Delete your account
         </h2>
 
         {pending || filed ? (
           <div className="mt-4 rounded-lg border border-neon-amber/30 bg-neon-amber/5 p-4">
             <p className="flex items-center gap-2 text-sm font-semibold text-neon-amber">
-              <Clock className="h-4 w-4" /> Deletion requested
+              <Clock className="h-4 w-4" aria-hidden="true" /> Deletion requested
             </p>
             <p className="mt-2 text-sm text-slate-300">
-              Your request is with {info?.org_name ?? "your institution"}. They administer your
+              Your request is with <bdi>{info?.org_name ?? "your institution"}</bdi>. They administer your
               account and will action it — you&apos;ll receive an answer within 30 days. Your
               account stays usable until then.
             </p>

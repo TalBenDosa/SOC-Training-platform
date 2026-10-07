@@ -89,7 +89,7 @@ function HotWash({ events, nameOf }: { events: Ev[]; nameOf: (u: string | null) 
             <div className="min-w-0 flex-1">
               {r.track === "attack"
                 ? <div className="rounded border-l-2 border-severity-high/60 bg-severity-high/[0.06] px-2 py-1 text-severity-high/90"><span className="text-[9px] font-bold uppercase tracking-wider text-severity-high/70">attack</span> {r.label}</div>
-                : <div className="ms-auto w-[85%] rounded border-l-2 border-cyber-500/60 bg-cyber-500/[0.06] px-2 py-1 text-slate-200"><span className="text-[9px] font-bold uppercase tracking-wider text-cyber-300/80">{r.who}</span> {r.label}</div>}
+                : <div className="ms-auto w-[85%] rounded border-l-2 border-cyber-500/60 bg-cyber-500/[0.06] px-2 py-1 text-slate-200"><span className="text-[9px] font-bold uppercase tracking-wider text-cyber-300/80"><bdi>{r.who}</bdi></span> {r.label}</div>}
             </div>
           </div>
         ))}
@@ -176,7 +176,7 @@ function HandoffLadder({ events, nameOf }: { events: Ev[]; nameOf: (u: string | 
             <div className="mt-1.5 flex flex-wrap items-center gap-x-1 gap-y-1">
               {c.steps.map((s, i) => (
                 <span key={i} className="inline-flex items-center gap-1">
-                  {i > 0 && <span className="font-mono text-[9px] text-slate-600">{fmtD(s.d)}→</span>}
+                  {i > 0 && <span className="font-mono text-[9px] text-slate-500">{fmtD(s.d)}→</span>}
                   <span className="rounded border border-border/60 bg-bg-elevated/40 px-1.5 py-0.5 text-[10px] text-slate-300" title={s.who}>{HOP[s.type]}</span>
                 </span>
               ))}
@@ -276,7 +276,7 @@ function IsolationList({ items, nameOf }: { items: IsolationItem[]; nameOf?: (u:
             {it.verdict === "compromised"
               ? <>compromised — real attack activity on this host{it.timeToIsolateS != null ? ` · isolated ${dur(it.timeToIsolateS)} after its first attack log` : ""}</>
               : <>clean — no attack activity on this host; isolating it cut a user off for nothing</>}
-            {nameOf ? ` · by ${nameOf(it.by)}` : ""}
+            {nameOf ? <> · by <bdi>{nameOf(it.by)}</bdi></> : ""}
             {it.releasedS != null ? ` · released at ${dur(it.releasedS)}` : ""}
           </p>
         </li>
@@ -643,7 +643,7 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
         {visible.map(u => (
           <Card key={u.user_id}>
             <div className="flex items-center justify-between">
-              <p className="text-sm font-bold text-white">{u.name}</p>
+              <p className="text-sm font-bold text-white"><bdi>{u.name}</bdi></p>
               <span className="flex items-center gap-1.5">
                 {typeof xp[u.user_id] === "number" && (
                   <span className="rounded border border-neon-green/40 bg-neon-green/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-neon-green" title="XP added to the account for this shift">+{xp[u.user_id]} XP</span>
@@ -676,7 +676,7 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
                     <span className="min-w-0 flex-1 truncate text-slate-400">{cell.label}</span>
                     {cell.score == null
                       // A null cell never shows its (positive-sounding) description as if it were a result.
-                      ? <span className="shrink-0 rounded border border-border/60 px-1 py-0.5 text-[9px] uppercase text-slate-600">{cell.note === "not yet measured" ? "not measured" : "n/a"}</span>
+                      ? <span className="shrink-0 rounded border border-border/60 px-1 py-0.5 text-[9px] uppercase text-slate-500">{cell.note === "not yet measured" ? "not measured" : "n/a"}</span>
                       : <span className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] font-bold ${cell.score >= 12 ? "bg-neon-green/15 text-neon-green" : cell.score >= 8 ? "bg-cyber-500/15 text-cyber-300" : cell.score >= 4 ? "bg-neon-amber/15 text-neon-amber" : "bg-severity-high/15 text-severity-high"}`}>{cell.score}</span>}
                   </div>
                 ))}

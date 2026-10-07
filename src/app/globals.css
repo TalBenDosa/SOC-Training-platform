@@ -132,3 +132,23 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* ─── Accessibility: keyboard focus + field boundaries ────────────────────────
+ * WCAG 2.4.7 / 1.4.11. Many controls use `focus:outline-none` and rely on a
+ * faint 30-50% ring (under 3:1 on our dark surfaces) or nothing at all. Every
+ * keyboard-focused element gets one clearly visible cyan outline (#22d3ee is
+ * 10:1 on bg), whatever its own classes say. :focus-visible means mouse clicks
+ * on buttons stay clean. */
+:focus-visible {
+  outline: 2px solid #22d3ee !important;
+  outline-offset: 1px;
+}
+
+/* Text-field boundaries: the default `border-border` (#1e293b) is ~1.3:1 against
+ * the page, so fields were hard to find. #64748b clears 3:1 on every surface.
+ * :where() keeps specificity at (0,1,1) so focus/error border classes still win. */
+input.border-border:where(:not([type="checkbox"], [type="radio"], [type="range"])),
+textarea.border-border,
+select.border-border {
+  border-color: #64748b;
+}

@@ -1,5 +1,7 @@
 "use client";
+import { useRef } from "react";
 import { cn } from "@/lib/utils";
+import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 import { COMPANY_PROFILES } from "@/lib/sim/companyProfilesMeta";
 import type { CompanyProfile } from "@/lib/sim/companyProfilesMeta";
 import { CheckCircle2, Cloud, Lock, Shield, Building2, Server, Users } from "lucide-react";
@@ -29,10 +31,15 @@ export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, cle
   const companies    = [...COMPANY_PROFILES, ...(extraCompanies ?? [])];
   const clearedCount = clearedIds?.length ?? 0;
   const totalCount   = companies.length;
+  // a11y: modal dialog. Escape closes only when closing is allowed (first visit
+  // is a mandatory choice — no onClose — so focus is trapped without Escape).
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(true, dialogRef, { onEscape: onClose });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-      <div className="w-full max-w-5xl rounded-2xl border border-border bg-bg-elevated shadow-2xl overflow-hidden">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="company-selector-title" tabIndex={-1}
+        className="w-full max-w-5xl rounded-2xl border border-border bg-bg-elevated shadow-2xl overflow-hidden">
 
         {/* Top gradient bar */}
         <div className="h-1 w-full bg-gradient-to-r from-cyber-500 via-neon-purple to-severity-critical" />
@@ -44,14 +51,14 @@ export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, cle
               <Shield className="h-5 w-5 text-cyber-300" />
               <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyber-300">SOC OPERATOR CONSOLE</span>
             </div>
-            <h2 className="text-xl font-bold text-white">Select Organisation to Monitor</h2>
+            <h2 id="company-selector-title" className="text-xl font-bold text-white">Select Organisation to Monitor</h2>
             <p className="mt-1 text-sm text-slate-400">
               Each organisation runs a distinct security stack.
             </p>
           </div>
           <div className="flex flex-col items-end gap-2">
             {onClose && (
-              <button onClick={onClose} className="text-slate-400 hover:text-slate-300 transition text-xs border border-border rounded px-2 py-1">
+              <button type="button" onClick={onClose} aria-label="Close (Escape)" className="text-slate-400 hover:text-slate-300 transition text-xs border border-border rounded px-2 py-1">
                 ESC
               </button>
             )}
@@ -60,7 +67,7 @@ export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, cle
                 <p className="text-[10px] font-bold uppercase tracking-widest text-neon-green">
                   {clearedCount}/{totalCount} Secured
                 </p>
-                <div className="mt-1 flex gap-1">
+                <div className="mt-1 flex gap-1" aria-hidden="true">
                   {companies.map(c => (
                     <div
                       key={c.id}
@@ -92,8 +99,10 @@ export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, cle
             return (
               <button
                 key={c.id}
+                type="button"
                 onClick={() => !isLocked && onSelect(c.id)}
                 disabled={isLocked}
+                aria-current={isActive ? "true" : undefined}
                 className={cn(
                   "group relative flex flex-col rounded-xl border p-5 text-left transition-all duration-150",
                   isLocked
@@ -134,7 +143,7 @@ export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, cle
 
                 {/* Industry + name */}
                 <div className="flex items-start gap-3 mb-3">
-                  <span className="text-2xl">{INDUSTRY_ICON[c.industry] ?? "🏢"}</span>
+                  <span className="text-2xl" aria-hidden="true">{INDUSTRY_ICON[c.industry] ?? "🏢"}</span>
                   <div className="min-w-0">
                     <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{c.industry}</p>
                     <h3 className="text-sm font-bold text-white leading-tight">{c.name}</h3>

@@ -40,8 +40,8 @@ export function DEConsole({ liveFeed, events, act }: { liveFeed: LiveEvent[]; ev
       <h3 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldAlert className="h-4 w-4 text-cyber-300" /> Detection engineering</h3>
       <p className="mt-1 text-[11px] text-slate-400">Write a field-based rule mid-incident — it back-tests live against the feed.</p>
       <div className="mt-2 space-y-2">
-        <input value={f.name} onChange={e => setF(s => ({ ...s, name: e.target.value }))} placeholder="Rule name" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
-        <input value={f.keyword} onChange={e => setF(s => ({ ...s, keyword: e.target.value }))} placeholder="Predicate (e.g. source:edr mitre:T1059, host:FIN-WS-07, PuTTY)" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 font-mono text-xs text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+        <input aria-label="Rule name" value={f.name} onChange={e => setF(s => ({ ...s, name: e.target.value }))} placeholder="Rule name" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+        <input aria-label="Rule predicate" value={f.keyword} onChange={e => setF(s => ({ ...s, keyword: e.target.value }))} placeholder="Predicate (e.g. source:edr mitre:T1059, host:FIN-WS-07, PuTTY)" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 font-mono text-xs text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
         <p className="text-[10px] text-slate-500">fields: source · host · user · ip · mitre · rule · vendor · event · severity — AND-ed</p>
         {f.keyword.trim() && (
           <div className={`rounded border px-2 py-1 text-[11px] ${matched.length > 0 ? "border-neon-green/30 bg-neon-green/[0.05] text-neon-green" : "border-border text-slate-500"}`}>
@@ -57,7 +57,7 @@ export function DEConsole({ liveFeed, events, act }: { liveFeed: LiveEvent[]; ev
         <div className="mt-2 space-y-1.5 border-t border-border/50 pt-2">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Tune a rule ({tuned.length})</p>
           <div className="flex gap-1.5">
-            <input value={tuneText} onChange={e => setTuneText(e.target.value)} onKeyDown={e => { if (e.key === "Enter") tune(); }} placeholder="Exclusion to cut FPs (e.g. user:svc-backup)" className="flex-1 rounded-lg border border-border bg-bg px-2 py-1.5 font-mono text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+            <input aria-label="Exclusion to cut false positives" value={tuneText} onChange={e => setTuneText(e.target.value)} onKeyDown={e => { if (e.key === "Enter") tune(); }} placeholder="Exclusion to cut FPs (e.g. user:svc-backup)" className="flex-1 rounded-lg border border-border bg-bg px-2 py-1.5 font-mono text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
             <Button variant="outline" size="sm" disabled={busyTune || !tuneText.trim()} onClick={tune}>Tune</Button>
           </div>
         </div>

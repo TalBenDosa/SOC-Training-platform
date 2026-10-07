@@ -1,5 +1,7 @@
 "use client";
+import { useRef } from "react";
 import { Button } from "@/components/ui/Button";
+import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 import { ROLE_LABEL } from "./shared";
 
 // How a real SOC ticket flows tier-to-tier (grounded in the SOC operations
@@ -47,11 +49,13 @@ export function roleDirective(role: string | null | undefined): string {
 }
 export function RoleGuideModal({ role, onClose }: { role: string | null; onClose: () => void }) {
   const g = ROLE_GUIDE[role ?? ""] ?? ROLE_GUIDE.instructor;
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(true, dialogRef, { onEscape: onClose });
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
-      <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-xl border border-border bg-bg-elevated p-5" onClick={e => e.stopPropagation()}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="role-guide-title" tabIndex={-1} className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-xl border border-border bg-bg-elevated p-5" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-white">Your role: {ROLE_LABEL[role ?? ""] ?? "Observer"}</h2>
+          <h2 id="role-guide-title" className="text-base font-bold text-white">Your role: {ROLE_LABEL[role ?? ""] ?? "Observer"}</h2>
           <button onClick={onClose} aria-label="Close" className="text-xl leading-none text-slate-400 hover:text-white">&times;</button>
         </div>
         <p className="mt-2 text-sm text-slate-200">{g.mission}</p>

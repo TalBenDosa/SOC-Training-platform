@@ -43,10 +43,12 @@ export function LessonVideo({ video }: { video: LessonVideoData }) {
             first frame and paints it as the still — otherwise preload="metadata"
             shows only a black box until the viewer presses play. */}
         <source src={video.poster ? video.src : `${video.src}#t=0.1`} type="video/mp4" />
+        {/* The narration is English, so the English track is same-language captions
+            (WCAG 1.2.2); translations (he/es) stay "subtitles". */}
         {(video.tracks ?? []).map((t) => (
           <track
             key={t.srclang}
-            kind="subtitles"
+            kind={/^en\b/i.test(t.srclang) ? "captions" : "subtitles"}
             srcLang={t.srclang}
             label={t.label}
             src={t.src}

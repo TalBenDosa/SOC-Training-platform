@@ -78,16 +78,18 @@ export function EnvironmentSwitcher({ onNavigate }: { onNavigate?: () => void })
         onClick={() => setOpen(v => !v)}
         className="flex w-full items-center gap-2 rounded-md border border-border bg-bg-elevated px-2.5 py-1.5 text-left text-xs text-slate-200 transition hover:border-cyber-500/50"
         aria-expanded={open}
-        aria-label="Switch environment"
       >
-        {atRoot ? <Home className="h-3.5 w-3.5 shrink-0 text-amber-300" /> : <Layers className="h-3.5 w-3.5 shrink-0 text-cyber-300" />}
+        {atRoot ? <Home className="h-3.5 w-3.5 shrink-0 text-amber-300" aria-hidden="true" /> : <Layers className="h-3.5 w-3.5 shrink-0 text-cyber-300" aria-hidden="true" />}
+        {/* No aria-label: the accessible name is built from the visible text
+            (WCAG 2.5.3 label-in-name), prefixed with the action for SR users. */}
+        <span className="sr-only">Switch environment: </span>
         <span className="min-w-0 flex-1">
           <span className="block text-[9px] uppercase tracking-wider text-slate-500">
             {atRoot ? "You are at the root" : "Inside environment"}
           </span>
           <span className="block truncate font-medium">{headerLabel}</span>
         </span>
-        <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+        <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden="true" />
       </button>
 
       {open && (
@@ -110,6 +112,7 @@ export function EnvironmentSwitcher({ onNavigate }: { onNavigate?: () => void })
               <button
                 onClick={() => switchTo(tree.root.id, true)}
                 disabled={switching !== null}
+                aria-current={atRoot ? "true" : undefined}
                 className={`flex w-full items-center gap-2 border-b border-border px-2.5 py-2 text-left text-[11px] transition hover:bg-white/5 ${atRoot ? "text-amber-300" : "text-slate-200"}`}
               >
                 <span className="w-3.5 shrink-0">
@@ -126,18 +129,22 @@ export function EnvironmentSwitcher({ onNavigate }: { onNavigate?: () => void })
                 <div className="px-2.5 py-2 text-[11px] text-slate-500">No client environments yet.</div>
               ) : (
                 <>
-                  <div className="px-2.5 pt-1.5 pb-0.5 text-[9px] uppercase tracking-wider text-slate-600">Client environments</div>
+                  <div className="px-2.5 pt-1.5 pb-0.5 text-[9px] uppercase tracking-wider text-slate-500">Client environments</div>
                   {tree.children.map(e => (
                     <button
                       key={e.id}
                       onClick={() => switchTo(e.id, false)}
                       disabled={switching !== null}
+                      aria-current={e.id === orgId ? "true" : undefined}
                       className={`flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[11px] transition hover:bg-white/5 ${e.id === orgId ? "text-cyber-300" : "text-slate-300"}`}
                     >
                       <span className="w-3.5 shrink-0">
                         {switching === e.id ? <Loader2 className="h-3 w-3 animate-spin" /> : e.id === orgId ? <Check className="h-3 w-3" /> : null}
                       </span>
-                      <span className="truncate">{e.name}</span>
+                      <span className="truncate">
+                        {e.name}
+                        {e.id === orgId && <span className="sr-only"> (current)</span>}
+                      </span>
                     </button>
                   ))}
                 </>

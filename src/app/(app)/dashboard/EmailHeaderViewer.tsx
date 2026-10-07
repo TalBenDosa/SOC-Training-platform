@@ -154,6 +154,8 @@ export function EmailHeaderViewer({ event, onXp }: { event: LiveEvent; onXp?: (x
       {/* Header row */}
       <div className="flex w-full items-center justify-between gap-2">
         <button
+          type="button"
+          aria-expanded={open}
           className="flex flex-1 items-center gap-2 min-w-0"
           onClick={() => setOpen(v => !v)}
         >
@@ -169,15 +171,16 @@ export function EmailHeaderViewer({ event, onXp }: { event: LiveEvent; onXp?: (x
         </button>
         <div className="flex shrink-0 items-center gap-1.5">
           <button
+            type="button"
             onClick={() => setShowInvestigation(true)}
             className="inline-flex items-center gap-1 rounded border border-cyber-500/40 bg-cyber-500/10 px-2 py-1 text-[9px] font-semibold text-cyber-400 hover:bg-cyber-500/20 transition-colors"
           >
-            <Search className="h-2.5 w-2.5" />
-            חקור Header זדוני
+            <Search aria-hidden="true" className="h-2.5 w-2.5" />
+            <span lang="he" dir="rtl">חקור Header זדוני</span>
           </button>
           {open
-            ? <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
-            : <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
+            ? <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 text-slate-400" />
+            : <ChevronRight aria-hidden="true" className="h-3.5 w-3.5 text-slate-400" />
           }
         </div>
       </div>
@@ -241,6 +244,8 @@ export function EmailHeaderViewer({ event, onXp }: { event: LiveEvent; onXp?: (x
           {hasChain && (
             <div className="border-t border-border/40 pt-3">
               <button
+                type="button"
+                aria-expanded={showChain}
                 className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-slate-400 hover:text-slate-200 transition-colors"
                 onClick={() => setShowChain(v => !v)}
               >

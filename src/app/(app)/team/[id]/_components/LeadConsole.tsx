@@ -69,7 +69,7 @@ export function LeadConsole({ events, nameOf, act }: { events: Ev[]; nameOf: (u:
               return (
                 <div key={e.seq} className="rounded-lg border border-border bg-bg px-3 py-2">
                   <p className="text-sm text-slate-200">{containmentVerb(asStr(p.containment_type))} <b className="text-white">{asStr(p.target) || "—"}</b>{asStr(p.incident) && <span className="ml-1.5 rounded border border-cyber-500/40 bg-cyber-500/10 px-1 py-0.5 font-mono text-[9px] text-cyber-300">{asStr(p.incident)}</span>}</p>
-                  <p className="mt-0.5 text-[11px] text-slate-400">{asStr(p.reason)} · requested by {nameOf(e.actor_id)}</p>
+                  <p className="mt-0.5 text-[11px] text-slate-400">{asStr(p.reason)} · requested by <bdi>{nameOf(e.actor_id)}</bdi></p>
                   {prior.length > 0 && <p className="mt-0.5 text-[10px] text-slate-500">request #{prior.length + 1} on this case — before: {prior.map(x => `${asStr((x.request.payload as { target?: string }).target) || "?"} (${x.status}${x.decisionReason ? `: ${x.decisionReason}` : ""})`).join(" · ")}</p>}
                   {/* B10: business-impact so approve/deny is a real risk trade-off */}
                   {(crit || asStr(p.blast_radius) || asStr(p.business_owner)) && (
@@ -88,7 +88,7 @@ export function LeadConsole({ events, nameOf, act }: { events: Ev[]; nameOf: (u:
                     </div>
                   ) : <p className="mt-1 text-[10px] text-neon-amber">⚠ No incident report filed for this case yet — ask Tier-2 to file it before you approve.</p>; })()}
                   {/* Decision rationale — optional to Approve (fast confident call), required to Deny */}
-                  <input value={note} onChange={ev => setNotes(n => ({ ...n, [e.seq]: ev.target.value }))} placeholder="Decision rationale — business impact / why (required to deny; say what to target instead)" className="mt-2 w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+                  <input aria-label="Decision rationale" value={note} onChange={ev => setNotes(n => ({ ...n, [e.seq]: ev.target.value }))} placeholder="Decision rationale — business impact / why (required to deny; say what to target instead)" className="mt-2 w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
                   <div className="mt-2 flex gap-1.5">
                     <Button variant="primary" size="sm" disabled={b} onClick={async () => { setBusy(e.seq + ""); await act("containment.approved", { event_id: eid, request_seq: e.seq, target: asStr(p.target) || undefined, reason: note.trim() || undefined }); setBusy(null); }}><Check className="mr-1 h-3.5 w-3.5" /> Approve</Button>
                     <Button variant="outline" size="sm" disabled={b || !note.trim()} onClick={async () => { setBusy(e.seq + ""); await act("containment.denied", { event_id: eid, request_seq: e.seq, target: asStr(p.target) || undefined, reason: note.trim() }); setBusy(null); }}>Deny</Button>

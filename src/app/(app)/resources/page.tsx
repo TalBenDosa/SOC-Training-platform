@@ -18,6 +18,7 @@ import { LibraryCard } from "@/components/ui/LibraryCard";
 import { cn } from "@/lib/utils";
 import { FileText, Presentation, Video, Loader2, Library, Eye, X, Download, AlertTriangle } from "lucide-react";
 import { fetchOrgResources, type OrgResource } from "@/lib/content/publicContent";
+import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 
 const KIND_META: Record<OrgResource["kind"], { label: string; icon: typeof FileText; cls: string }> = {
   pdf:   { label: "PDF",          icon: FileText,     cls: "text-severity-high border-severity-high/40 bg-severity-high/10" },
@@ -120,7 +121,7 @@ export default function ResourcesPage() {
       <Topbar title="College Materials" subtitle="Presentations, videos and documents from your college" />
       <div className="container mx-auto max-w-[1000px] px-6 py-6 space-y-4">
         {error && (
-          <div className="rounded-lg border border-severity-high/40 bg-severity-high/10 px-4 py-3 text-sm text-severity-high">{error}</div>
+          <div role="alert" className="rounded-lg border border-severity-high/40 bg-severity-high/10 px-4 py-3 text-sm text-severity-high">{error}</div>
         )}
 
         {items === null ? (
@@ -170,6 +171,10 @@ function ResourceViewer({ state, onClose }: { state: ViewerState; onClose: () =>
   // E-23 (QA phase 7): a video that fails to load (expired link, unsupported
   // codec) used to leave a black box with no explanation.
   const [videoFailed, setVideoFailed] = useState(false);
+  // Keep Tab inside the open viewer and return focus to the card on close
+  // (Escape is handled by the page-level keydown listener).
+  const panelRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(true, panelRef);
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
@@ -179,6 +184,8 @@ function ResourceViewer({ state, onClose }: { state: ViewerState; onClose: () =>
       onClick={onClose}
     >
       <div
+        ref={panelRef}
+        tabIndex={-1}
         className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-border bg-bg-elevated shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
@@ -228,7 +235,9 @@ function ResourceViewer({ state, onClose }: { state: ViewerState; onClose: () =>
           {r.kind === "video" && (videoFailed
             ? <ViewerError message="This video couldn't be played." />
             : (
-              <video src={url} controls autoPlay className="h-full w-full bg-black" onError={() => setVideoFailed(true)}>
+              // No autoPlay (WCAG 1.4.2 / 2.2.2): the learner starts playback. Org
+              // uploads carry no WebVTT file, so no caption <track> is invented here.
+              <video src={url} controls aria-label={r.title} className="h-full w-full bg-black" onError={() => setVideoFailed(true)}>
                 Your browser can&apos;t play this video.
               </video>
             ))}

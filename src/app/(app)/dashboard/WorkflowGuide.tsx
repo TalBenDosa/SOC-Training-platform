@@ -33,9 +33,11 @@ export function WorkflowGuide({ reportPassed }: Props) {
           Investigate the feed — read the logs, no hints, decide for yourself.
         </span>
 
-        <span className="text-slate-700">→</span>
+        <span className="text-slate-500">→</span>
 
         <button
+          type="button"
+          aria-expanded={open}
           onClick={() => setOpen(v => !v)}
           className={cn(
             "flex items-center gap-1.5 rounded px-2 py-1 text-[11px] font-semibold transition",
@@ -47,7 +49,7 @@ export function WorkflowGuide({ reportPassed }: Props) {
             : <Circle className="h-3.5 w-3.5 shrink-0 animate-pulse text-cyber-400" />
           }
           <span className={cn(reportPassed && "line-through decoration-neon-green/50")}>
-            Report the incident
+            Report the incident{reportPassed && <span className="sr-only"> (done)</span>}
           </span>
         </button>
 

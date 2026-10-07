@@ -139,6 +139,8 @@ export function SiemStats({ events, attackTimerSeconds = null, avgCatchMs = null
 
       {/* Compact-mode expander */}
       <button
+        type="button"
+        aria-expanded={showAll}
         onClick={() => setShowAll(v => !v)}
         className="ml-auto text-[10px] font-semibold text-slate-400 hover:text-slate-300 transition"
       >

@@ -21,7 +21,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
+import { buttonClasses } from "@/components/ui/Button";
 import { AlertTriangle, KeyRound, CheckCircle2 } from "lucide-react";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { EnterInviteCode } from "./EnterInviteCode";
@@ -45,10 +45,10 @@ function InvalidInvite({ reason }: { reason: string }) {
       </p>
       {/* Mistyped codes are the common case here, so offer another go before
           sending them to a sign-in page they have no account for yet. */}
-      <Link href="/join" className="mt-6 inline-block">
-        <Button variant="outline">Try another code</Button>
+      <Link href="/join" className={buttonClasses("outline", "md", "mt-6")}>
+        Try another code
       </Link>
-      <Link href="/login" className="mt-4 block text-xs text-slate-400 hover:text-white">
+      <Link href="/login" className="mt-4 block text-xs text-slate-400 underline underline-offset-2 hover:text-white">
         Already have an account? Sign in
       </Link>
     </Card>
@@ -71,8 +71,8 @@ function AlreadyRegistered({ orgName }: { orgName: string | null }) {
         {orgName ? <> for <span className="font-semibold text-white">{orgName}</span></> : null}.
         An invite link works once — there&apos;s nothing more to do here. Just sign in.
       </p>
-      <Link href="/login" className="mt-6 inline-block">
-        <Button>Continue to sign in</Button>
+      <Link href="/login" className={buttonClasses("primary", "md", "mt-6")}>
+        Continue to sign in
       </Link>
     </Card>
   );
@@ -94,7 +94,7 @@ export default async function JoinPage({ searchParams }: PageProps) {
           class — enter it and you&apos;ll move straight to registration.
         </p>
         <EnterInviteCode />
-        <Link href="/login" className="mt-6 inline-block text-xs text-slate-400 hover:text-white">
+        <Link href="/login" className="mt-6 inline-block text-xs text-slate-400 underline underline-offset-2 hover:text-white">
           Already have an account? Sign in
         </Link>
       </Card>

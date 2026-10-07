@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 import {
   AlertTriangle, ChevronDown, ChevronRight, Eye, EyeOff,
   Mail, RefreshCw, Shield, ShieldAlert, ShieldCheck, ShieldX, X,
@@ -74,6 +75,9 @@ export function EmailHeaderInvestigation({ onClose, onXp }: Props) {
   const [showRaw, setShowRaw]   = useState(false);
   const [showChain, setShowChain] = useState(false);
   const [xpAwarded, setXpAwarded] = useState(false);
+  // a11y: modal dialog — focus trapped inside, Escape closes, focus returns.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(true, dialogRef, { onEscape: onClose });
 
   const refresh = () => {
     setScenario(pickRandomHeaderScenario());
@@ -113,7 +117,8 @@ export function EmailHeaderInvestigation({ onClose, onXp }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="relative flex w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-border bg-[#0b1320] shadow-2xl" style={{ maxHeight: "92vh" }}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="email-investigation-title" tabIndex={-1}
+        className="relative flex w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-border bg-[#0b1320] shadow-2xl" style={{ maxHeight: "92vh" }}>
 
         {/* ── Top accent bar ───────────────────────────────────────────────── */}
         <div className="h-0.5 w-full bg-gradient-to-r from-cyber-500 via-neon-amber to-severity-high" />
@@ -125,7 +130,7 @@ export function EmailHeaderInvestigation({ onClose, onXp }: Props) {
               <Mail className="h-4 w-4 text-neon-amber" />
             </span>
             <div>
-              <h2 className="text-sm font-bold text-white">Email Header Investigation</h2>
+              <h2 id="email-investigation-title" className="text-sm font-bold text-white">Email Header Investigation</h2>
               <p className="text-[10px] text-slate-400 uppercase tracking-widest">
                 Analyst Training — Identify the IOCs before revealing the answer
               </p>
@@ -210,6 +215,8 @@ export function EmailHeaderInvestigation({ onClose, onXp }: Props) {
             {/* Received chain */}
             <div className="border-t border-border/40 pt-3">
               <button
+                type="button"
+                aria-expanded={showChain}
                 className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-slate-400 hover:text-slate-200 transition-colors"
                 onClick={() => setShowChain(v => !v)}
               >
@@ -234,6 +241,8 @@ export function EmailHeaderInvestigation({ onClose, onXp }: Props) {
           {/* ── Raw header toggle ─────────────────────────────────────────── */}
           <div className="rounded-lg border border-border/50 bg-[#0d1520]">
             <button
+              type="button"
+              aria-expanded={showRaw}
               className="flex w-full items-center justify-between px-4 py-2.5"
               onClick={() => setShowRaw(v => !v)}
             >

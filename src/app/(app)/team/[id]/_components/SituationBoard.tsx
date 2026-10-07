@@ -74,10 +74,10 @@ export function SituationBoard({ liveFeed, events, feed, nameOf, roster, online,
         <div className="mt-3">
           <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Team &amp; load</p>
           <div className="space-y-1">
-            {team.players.length === 0 ? <span className="text-[11px] text-slate-600">no analysts assigned</span> : team.players.map(m => { const load = team.loadByUser.get(m.user_id) ?? 0; const on = online.has(m.user_id); return (
+            {team.players.length === 0 ? <span className="text-[11px] text-slate-500">no analysts assigned</span> : team.players.map(m => { const load = team.loadByUser.get(m.user_id) ?? 0; const on = online.has(m.user_id); return (
               <div key={m.user_id} className="flex items-center gap-2 text-[11px]">
                 <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${on ? "bg-neon-green" : "bg-slate-600"}`} title={on ? "online" : "offline"} />
-                <span className="min-w-0 flex-1 truncate text-slate-300">{m.name}</span>
+                <bdi className="min-w-0 flex-1 truncate text-slate-300">{m.name}</bdi>
                 <span className="shrink-0 font-mono text-[9px] uppercase text-slate-500">{ROLE_LABEL[m.role] ?? m.role}</span>
                 <span className={`shrink-0 rounded border px-1 py-0.5 font-mono text-[9px] ${load >= 3 ? "border-neon-amber/50 bg-neon-amber/10 text-neon-amber" : "border-border text-slate-400"}`}>{load} open</span>
               </div>
@@ -93,7 +93,7 @@ export function SituationBoard({ liveFeed, events, feed, nameOf, roster, online,
         <div className="mt-3">
           <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Top sources</p>
           <div className="flex flex-wrap gap-1">
-            {bySource.length === 0 ? <span className="text-[11px] text-slate-600">—</span> : bySource.map(([s, n]) => (
+            {bySource.length === 0 ? <span className="text-[11px] text-slate-500">—</span> : bySource.map(([s, n]) => (
               <span key={s} className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-slate-300">{s} · {n}</span>
             ))}
           </div>
@@ -107,7 +107,7 @@ export function SituationBoard({ liveFeed, events, feed, nameOf, roster, online,
           <div className="mt-2 space-y-1.5">
             {overloaded.map(m => (
               <div key={m.user_id} className="flex items-center gap-2 rounded border border-neon-amber/30 bg-neon-amber/[0.06] px-2 py-1.5 text-[11px]">
-                <span className="min-w-0 flex-1 truncate text-slate-200">{m.name} <span className="font-mono text-[9px] uppercase text-slate-500">{ROLE_LABEL[m.role] ?? m.role}</span></span>
+                <span className="min-w-0 flex-1 truncate text-slate-200"><bdi>{m.name}</bdi> <span className="font-mono text-[9px] uppercase text-slate-500">{ROLE_LABEL[m.role] ?? m.role}</span></span>
                 <span className="shrink-0 rounded border border-neon-amber/50 bg-neon-amber/10 px-1 py-0.5 font-mono text-[9px] font-bold text-neon-amber">{m.load} open</span>
                 <Button variant="outline" size="sm" className="ml-1" disabled={nudgeBusy === m.user_id} onClick={() => nudge(m.user_id, m.load)}>{nudgedTargets.has(m.user_id) ? "Nudge again" : "Nudge"}</Button>
               </div>
@@ -131,7 +131,7 @@ export function SituationBoard({ liveFeed, events, feed, nameOf, roster, online,
                 <div key={e.seq} className={`flex items-center gap-2 rounded border border-border/60 bg-bg px-2 py-1.5 text-xs ${state === "bounced" || state === "resolved" ? "opacity-70" : ""}`}>
                   <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${sevColor(fe?.severity)}`} />
                   <span className="min-w-0 flex-1 truncate text-slate-300">{asStr(p.summary) || asStr(p.what) || "escalation"}{fe?.hostname ? ` · ${fe.hostname}` : ""}</span>
-                  <span className="shrink-0 font-mono text-[10px] text-slate-500" title="escalated by → owner">{nameOf(e.actor_id)}{st?.owner ? ` → ${nameOf(st.owner)}` : ""}</span>
+                  <span className="shrink-0 font-mono text-[10px] text-slate-500" title="escalated by → owner"><bdi>{nameOf(e.actor_id)}</bdi>{st?.owner ? <> → <bdi>{nameOf(st.owner)}</bdi></> : ""}</span>
                   {state === "open" && <span className="shrink-0 font-mono text-[9px] text-slate-500">{mins}m</span>}
                   <span className={`shrink-0 rounded border px-1 py-0.5 text-[9px] font-bold uppercase ${tone}`} title={state === "bounced" && st?.bounceReason ? st.bounceReason : undefined}>{state}</span>
                 </div>

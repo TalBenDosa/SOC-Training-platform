@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 import Link from "next/link";
 import { ShieldCheck, ShieldX, Trophy, RotateCcw, ArrowRight, Download, Loader2, LayoutGrid, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -99,6 +100,9 @@ function ScoreBar({ score }: { score: number }) {
 export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onClose }: Props) {
   const [downloading, setDownloading] = useState(false);
   const [certError, setCertError] = useState<string | null>(null);
+  // a11y: modal dialog — focus trapped inside, Escape closes, focus returns.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(true, dialogRef, { onEscape: onClose });
   // The certificate must carry the SIGNED-IN learner's name — it was hardcoded
   // to a single real person's name, so every certificate anyone generated bore
   // that name. Falls back to the email local part / "analyst" for guests.
@@ -250,7 +254,8 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-border bg-[#0d1520] shadow-2xl">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="completion-modal-title" aria-describedby="completion-modal-desc" tabIndex={-1}
+        className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-border bg-[#0d1520] shadow-2xl">
         {/* Header */}
         <div className={cn(
           "rounded-t-xl px-6 py-5 text-center",
@@ -260,10 +265,10 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
             ? <Trophy className="mx-auto h-10 w-10 text-neon-green mb-2" />
             : <ShieldX className="mx-auto h-10 w-10 text-severity-high mb-2" />
           }
-          <h2 className="text-xl font-bold text-white">
+          <h2 id="completion-modal-title" className="text-xl font-bold text-white">
             {result.passed ? "Investigation Complete" : "Investigation Closed"}
           </h2>
-          <p className="mt-1 text-sm text-slate-400">
+          <p id="completion-modal-desc" className="mt-1 text-sm text-slate-400">
             {result.passed ? "Well done — you cleared the case." : "Review the feedback and retry to improve your score."}
           </p>
         </div>

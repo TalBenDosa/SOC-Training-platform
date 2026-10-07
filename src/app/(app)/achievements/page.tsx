@@ -137,6 +137,7 @@ export default function AchievementsPage() {
               <div
                 key={rank.id}
                 className="rounded-xl border border-border/40 bg-[#0a0f18] overflow-hidden opacity-90"
+                role="group"
                 aria-label={`${meta.title} ${meta.tier} certificate — locked`}
               >
                 <div className="relative flex aspect-[1200/630] items-center justify-center bg-gradient-to-br from-[#0b1220] to-[#050810]">

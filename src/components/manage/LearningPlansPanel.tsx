@@ -211,7 +211,7 @@ export function LearningPlansPanel({ members, groupsRev = 0 }: { members: Roster
         </h2>
         <div className="flex items-center gap-2">
           {archivedCount > 0 && (
-            <button onClick={() => setShowArchived(v => !v)} className="text-[11px] text-slate-400 transition hover:text-white">
+            <button onClick={() => setShowArchived(v => !v)} aria-pressed={showArchived} className="text-[11px] text-slate-400 transition hover:text-white">
               {showArchived ? "Hide archived" : `Show archived (${archivedCount})`}
             </button>
           )}
@@ -255,7 +255,7 @@ export function LearningPlansPanel({ members, groupsRev = 0 }: { members: Roster
               <p className="mb-1.5 flex items-center justify-between text-[10px] uppercase tracking-wider text-slate-500">
                 <span>Selected ({draft.items.length}/{PLAN_LIMITS.items})</span>
                 {draft.items.length > 0 && (
-                  <button onClick={() => { setCapMsg(null); setDraft(d => d && { ...d, items: [] }); }} className="normal-case tracking-normal text-slate-500 hover:text-slate-200">clear</button>
+                  <button onClick={() => { setCapMsg(null); setDraft(d => d && { ...d, items: [] }); }} aria-label="Clear selected items" className="normal-case tracking-normal text-slate-500 hover:text-slate-200">clear</button>
                 )}
               </p>
               {capMsg && <p className="mb-1.5 rounded border border-neon-amber/40 bg-neon-amber/10 px-2 py-1 text-[11px] text-neon-amber">{capMsg}</p>}
@@ -272,17 +272,17 @@ export function LearningPlansPanel({ members, groupsRev = 0 }: { members: Roster
               <p className="text-[10px] uppercase tracking-wider text-slate-500">Details</p>
               <input
                 value={draft.title} onChange={e => setDraft(d => d && { ...d, title: e.target.value })} maxLength={PLAN_LIMITS.title}
-                placeholder="Plan title (e.g. Tier-1 onboarding)"
+                placeholder="Plan title (e.g. Tier-1 onboarding)" aria-label="Plan title" dir="auto"
                 className="rounded-md border border-border bg-bg px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none"
               />
               <textarea
                 value={draft.instructions} onChange={e => setDraft(d => d && { ...d, instructions: e.target.value })} maxLength={PLAN_LIMITS.instructions}
-                placeholder="Instructions for learners (optional)" rows={3}
+                placeholder="Instructions for learners (optional)" rows={3} aria-label="Instructions for learners (optional)" dir="auto"
                 className="resize-none rounded-md border border-border bg-bg px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none"
               />
               <div className="flex gap-2">
                 <label className="flex flex-1 items-center gap-2 rounded-md border border-border bg-bg px-2.5 py-1.5 text-xs text-slate-400">
-                  <Clock className="h-3.5 w-3.5 shrink-0" /> due
+                  <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> due
                   <input type="date" value={draft.due} onChange={e => setDraft(d => d && { ...d, due: e.target.value })} className="min-w-0 flex-1 bg-transparent text-slate-100 focus:outline-none" />
                 </label>
                 <select
@@ -294,9 +294,9 @@ export function LearningPlansPanel({ members, groupsRev = 0 }: { members: Roster
               </div>
 
               <p className="mt-1 text-[10px] uppercase tracking-wider text-slate-500">Recipients</p>
-              <div className="flex rounded-md border border-border bg-bg p-0.5 text-xs">
+              <div className="flex rounded-md border border-border bg-bg p-0.5 text-xs" role="group" aria-label="Recipients">
                 {(["org", "targeted"] as Audience[]).map(a => (
-                  <button key={a} onClick={() => setDraft(d => d && { ...d, audience: a })}
+                  <button key={a} onClick={() => setDraft(d => d && { ...d, audience: a })} aria-pressed={draft.audience === a}
                     className={`flex-1 rounded px-2 py-1 transition ${draft.audience === a ? "bg-cyber-500/20 font-semibold text-cyber-200" : "text-slate-400 hover:text-white"}`}>
                     {a === "org" ? "Whole org" : "Groups & people"}
                   </button>
@@ -314,7 +314,7 @@ export function LearningPlansPanel({ members, groupsRev = 0 }: { members: Roster
                         {groups.map(g => (
                           <label key={g.id} className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-[12px] text-slate-300 hover:bg-white/5">
                             <input type="checkbox" checked={draft.groupIds.includes(g.id)} onChange={() => setDraft(d => d && { ...d, groupIds: toggleId(d.groupIds, g.id) })} className="accent-cyan-500" />
-                            <span className="min-w-0 flex-1 truncate">{g.name}</span>
+                            <bdi className="min-w-0 flex-1 truncate">{g.name}</bdi>
                             <span className="font-mono text-[10px] text-slate-500">{g.member_count}</span>
                           </label>
                         ))}
@@ -324,17 +324,17 @@ export function LearningPlansPanel({ members, groupsRev = 0 }: { members: Roster
                   <div className="flex min-h-0 flex-1 flex-col rounded-md border border-border bg-bg p-1.5">
                     <div className="flex items-center gap-1.5 px-1 pb-1">
                       <span className="text-[10px] uppercase tracking-wider text-slate-500">People</span>
-                      <span className="font-mono text-[10px] text-slate-600">{draft.userIds.length ? `${draft.userIds.length} chosen` : ""}</span>
-                      <Search className="ml-auto h-3 w-3 text-slate-500" />
-                      <input value={peopleQ} onChange={e => setPeopleQ(e.target.value)} placeholder="find…"
-                        className="w-20 bg-transparent text-[11px] text-slate-200 placeholder:text-slate-600 focus:outline-none" />
+                      <span className="font-mono text-[10px] text-slate-500">{draft.userIds.length ? `${draft.userIds.length} chosen` : ""}</span>
+                      <Search className="ml-auto h-3 w-3 text-slate-500" aria-hidden="true" />
+                      <input value={peopleQ} onChange={e => setPeopleQ(e.target.value)} placeholder="find…" aria-label="Find people"
+                        className="w-20 bg-transparent text-[11px] text-slate-200 placeholder:text-slate-500 focus:outline-none" />
                     </div>
                     <div className="max-h-40 space-y-0.5 overflow-y-auto">
                       {people.length === 0 && <p className="px-1 text-[11px] text-slate-500">No matching learners.</p>}
                       {people.map(m => (
                         <label key={m.user_id} className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-[12px] text-slate-300 hover:bg-white/5">
                           <input type="checkbox" checked={draft.userIds.includes(m.user_id)} onChange={() => setDraft(d => d && { ...d, userIds: toggleId(d.userIds, m.user_id) })} className="accent-cyan-500" />
-                          <span className="min-w-0 flex-1 truncate">{memberName(m)}</span>
+                          <bdi className="min-w-0 flex-1 truncate">{memberName(m)}</bdi>
                           {m.role !== "student" && <span className="text-[9px] uppercase tracking-wider text-slate-500">{m.role.replace("_", " ")}</span>}
                         </label>
                       ))}
@@ -422,7 +422,7 @@ export function LearningPlansPanel({ members, groupsRev = 0 }: { members: Roster
                   </div>
                 </div>
                 {total > 0 && (
-                  <button onClick={() => setMatrixFor(v => (v === p.id ? null : p.id))} className="mt-2 flex w-full items-center gap-2 text-left">
+                  <button onClick={() => setMatrixFor(v => (v === p.id ? null : p.id))} aria-expanded={matrixFor === p.id} aria-label={`Progress: ${p.completed} of ${total} finished all — show per-learner progress`} className="mt-2 flex w-full items-center gap-2 text-left">
                     <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-bg">
                       <span className="block h-full bg-cyber-500" style={{ width: `${pct}%` }} />
                     </span>

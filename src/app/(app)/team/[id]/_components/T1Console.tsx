@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ArrowUpRight, ShieldAlert, X } from "lucide-react";
@@ -7,6 +7,7 @@ import type { Ev, Ioc } from "@/lib/team/types";
 import { asStr, detectIocType, isValidIoc, type ActR } from "@/lib/team/format";
 import { useServerNow } from "@/lib/team/clock";
 import { activeClaims } from "@/lib/team/projections";
+import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 
 // ── T1 console: pick a log → disposition + structured escalation report ───────
 const REQUESTED_ACTIONS = ["investigate", "contain", "monitor", "escalate-to-mgr"];
@@ -76,7 +77,7 @@ export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDr
       return (
         <div className="mt-2 rounded border border-neon-amber/40 bg-neon-amber/[0.08] px-2 py-1.5 text-[11px]">
           <div className="flex items-center gap-2">
-            <span className="text-neon-amber">🔒 {theirs ? nameOf(theirs.by) : "A teammate"} is working this alert ({theirs ? `claimed ${ago(theirs.at)}` : "claimed just now"}).</span>
+            <span className="text-neon-amber"><span aria-hidden="true">🔒</span> {theirs ? <bdi>{nameOf(theirs.by)}</bdi> : "A teammate"} is working this alert ({theirs ? `claimed ${ago(theirs.at)}` : "claimed just now"}).</span>
             {confirmTake !== sel && <Button variant="outline" size="sm" className="ml-auto" disabled={busy} onClick={() => setConfirmTake(sel)}>Take over</Button>}
           </div>
           {confirmTake === sel && (
@@ -190,6 +191,8 @@ export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDr
   const selUser = asStr(selP?.user_email) || asStr(selP?.user?.email);
   const selSev = asStr(selP?.severity);
   const selSource = asStr(selP?.source);
+  const reportRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(reportOpen && !!sel, reportRef, { onEscape: () => setReportOpen(false) });
   return (
     <>
     <Card>
@@ -221,7 +224,7 @@ export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDr
       {/* T1-2: four dispositions incl. Suspicious */}
       <div className="mt-2 flex flex-wrap gap-1.5">
         {[["true_positive", "true positive"], ["false_positive", "false positive"], ["benign", "benign"], ["suspicious", "suspicious"]].map(([v, label]) => (
-          <Button key={v} variant={selDisp === v ? "primary" : "outline"} size="sm" disabled={!sel || busy} onClick={() => disp(v)}>{label}</Button>
+          <Button key={v} variant={selDisp === v ? "primary" : "outline"} size="sm" aria-pressed={selDisp === v} disabled={!sel || busy} onClick={() => disp(v)}>{label}</Button>
         ))}
       </div>
 
@@ -237,9 +240,9 @@ export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDr
     {/* ── Escalation report modal — opens ON the log (🚩) or via "Write escalation report" ── */}
     {reportOpen && sel && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setReportOpen(false)}>
-        <div className="max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-xl border border-border bg-bg-elevated p-5" onClick={e => e.stopPropagation()}>
+        <div ref={reportRef} role="dialog" aria-modal="true" aria-labelledby="t1-report-title" tabIndex={-1} className="max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-xl border border-border bg-bg-elevated p-5" onClick={e => e.stopPropagation()}>
           <div className="flex items-center justify-between">
-            <h2 className="flex items-center gap-2 text-base font-bold text-white"><span className="text-lg leading-none">🚩</span> Escalation report → Tier-2</h2>
+            <h2 id="t1-report-title" className="flex items-center gap-2 text-base font-bold text-white"><span aria-hidden="true" className="text-lg leading-none">🚩</span> Escalation report → Tier-2</h2>
             <button onClick={() => setReportOpen(false)} aria-label="Close" className="text-xl leading-none text-slate-400 hover:text-white">&times;</button>
           </div>
 
@@ -276,8 +279,8 @@ export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDr
 
           <div className="mt-3 space-y-2">
             {isLowConf && <p className="rounded border border-neon-amber/30 bg-neon-amber/[0.06] px-2 py-1 text-[11px] text-neon-amber">Low-confidence lead — sending to Tier-2 for a second look.</p>}
-            <input value={form.summary} onChange={e => setForm(f => ({ ...f, summary: e.target.value }))} placeholder="Summary — one line: what happened + on what" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
-            <textarea value={form.observations} onChange={e => setForm(f => ({ ...f, observations: e.target.value }))} placeholder="Observations — the process/sequence/evidence" rows={3} className="w-full resize-y rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+            <input aria-label="Summary" value={form.summary} onChange={e => setForm(f => ({ ...f, summary: e.target.value }))} placeholder="Summary — one line: what happened + on what" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+            <textarea aria-label="Observations" value={form.observations} onChange={e => setForm(f => ({ ...f, observations: e.target.value }))} placeholder="Observations — the process/sequence/evidence" rows={3} className="w-full resize-y rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
             {/* T1-5: IOCs — pre-seeded from the flagged log; click "+IOC" on raw fields, or type here */}
             <div className="rounded-lg border border-border bg-bg px-2 py-1.5">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Indicators (IOCs) — click ＋IOC on the log&apos;s fields, or add below</p>
@@ -286,21 +289,21 @@ export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDr
                   {iocDraft.map(i => (
                     <span key={i.value} className="inline-flex items-center gap-1 rounded border border-cyber-500/40 bg-cyber-500/10 px-1.5 py-0.5 font-mono text-[10px] text-cyber-300">
                       <span className="text-slate-500">{i.type}:</span>{i.value}
-                      <button onClick={() => setIocDraft(d => d.filter(x => x.value !== i.value))} className="text-slate-400 hover:text-white"><X className="h-3 w-3" /></button>
+                      <button onClick={() => setIocDraft(d => d.filter(x => x.value !== i.value))} aria-label={`Remove IOC ${i.value}`} className="text-slate-400 hover:text-white"><X className="h-3 w-3" aria-hidden="true" /></button>
                     </span>
                   ))}
                 </div>
               )}
               <div className="mt-1 flex gap-1.5">
-                <input value={iocText} onChange={e => setIocText(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { addIoc(iocText, "manual"); setIocText(""); } }} placeholder="add an IOC (ip / domain / hash / user)…" className="flex-1 rounded border border-border bg-bg px-2 py-1 font-mono text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+                <input aria-label="Add an IOC" value={iocText} onChange={e => setIocText(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { addIoc(iocText, "manual"); setIocText(""); } }} placeholder="add an IOC (ip / domain / hash / user)…" className="flex-1 rounded border border-border bg-bg px-2 py-1 font-mono text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
                 <Button variant="outline" size="sm" onClick={() => { addIoc(iocText, "manual"); setIocText(""); }}>Add</Button>
               </div>
               {iocErr && <p className="mt-1 text-[10px] text-severity-high">{iocErr}</p>}
             </div>
-            <input value={form.assessment} onChange={e => setForm(f => ({ ...f, assessment: e.target.value }))} placeholder="Assessment — what you think this is" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+            <input aria-label="Assessment" value={form.assessment} onChange={e => setForm(f => ({ ...f, assessment: e.target.value }))} placeholder="Assessment — what you think this is" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
             <div className="flex gap-2">
-              <select value={form.severity} onChange={e => setForm(f => ({ ...f, severity: e.target.value }))} className="flex-1 rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 focus:outline-none">{SEVERITIES.map(s => <option key={s} value={s}>severity: {s}</option>)}</select>
-              <select value={form.requested_action} onChange={e => setForm(f => ({ ...f, requested_action: e.target.value }))} className="flex-1 rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 focus:outline-none">{REQUESTED_ACTIONS.map(a => <option key={a} value={a}>action: {a}</option>)}</select>
+              <select aria-label="Severity" value={form.severity} onChange={e => setForm(f => ({ ...f, severity: e.target.value }))} className="flex-1 rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 focus:outline-none">{SEVERITIES.map(s => <option key={s} value={s}>severity: {s}</option>)}</select>
+              <select aria-label="Requested action" value={form.requested_action} onChange={e => setForm(f => ({ ...f, requested_action: e.target.value }))} className="flex-1 rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 focus:outline-none">{REQUESTED_ACTIONS.map(a => <option key={a} value={a}>action: {a}</option>)}</select>
             </div>
             {/* T1-6: live checklist for the hard gate — ✓/○ per item + positive "all set" */}
             <div className="text-[10px] leading-relaxed text-slate-500">

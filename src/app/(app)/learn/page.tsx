@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useId, useRef } from "react";
 import Link from "next/link";
+import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 import { Topbar } from "@/components/nav/Topbar";
 import { BUILTIN_LESSONS } from "@/data/builtinLessons";
 import { fetchPublishedLessons } from "@/lib/content/publicContent";
@@ -404,9 +405,22 @@ function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void 
   const isSummary = hasSummary && page === totalPages - 1;
   const section   = !isIntro && !isSummary ? lesson.sections[page - 1] : null;
 
+  // Modal dialog semantics + focus trap (Tab cycles inside, focus returns to the
+  // lesson card on close). Escape is still handled by the keydown handler above.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  useFocusTrap(true, dialogRef);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 sm:p-6">
-      <div className="relative w-full max-w-6xl h-[92vh] flex flex-col rounded-2xl border border-[#1e2d4a] bg-[#0b0f1e] shadow-2xl overflow-hidden">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className="relative w-full max-w-6xl h-[92vh] flex flex-col rounded-2xl border border-[#1e2d4a] bg-[#0b0f1e] shadow-2xl overflow-hidden"
+      >
 
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between border-b border-[#1e2d4a] px-6 py-4 shrink-0">
@@ -415,7 +429,7 @@ function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void 
               <FileText className="h-4 w-4" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-sm font-bold text-white truncate">{lesson.title}</h2>
+              <h2 id={titleId} className="text-sm font-bold text-white truncate">{lesson.title}</h2>
               <p className="text-[11px] text-slate-400 mt-0.5">
                 Page {page + 1} of {totalPages}
               </p>
@@ -540,6 +554,7 @@ function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void 
                     : "w-2 h-2 bg-slate-700 hover:bg-slate-500"
                 }`}
                 aria-label={`Go to page ${i + 1}`}
+                aria-current={i === page ? "step" : undefined}
               />
             ))}
           </div>
@@ -687,6 +702,7 @@ export default function LearnPage() {
             <input
               type="text"
               placeholder="Search lessons..."
+              aria-label="Search lessons"
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="w-full rounded-xl border border-[#2a3555] bg-[#0d1322] py-2.5 pl-10 pr-4 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500/60"
@@ -696,6 +712,7 @@ export default function LearnPage() {
             <select
               value={level}
               onChange={e => setLevel(e.target.value)}
+              aria-label="Filter by difficulty level"
               className="appearance-none rounded-xl border border-[#2a3555] bg-[#0d1322] pl-4 pr-10 py-2.5 text-sm text-slate-300 focus:outline-none focus:border-cyan-500/60 cursor-pointer min-w-[160px]"
             >
               <option value="all">All Levels</option>
@@ -710,7 +727,7 @@ export default function LearnPage() {
 
         {!mounted ? null : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
-            <FileText className="h-12 w-12 text-slate-700 mb-4" />
+            <FileText className="h-12 w-12 text-slate-500 mb-4" />
             <p className="text-base font-semibold text-slate-400">
               {lessons.length === 0 ? "No lessons yet" : "No lessons match your filters"}
             </p>

@@ -103,11 +103,11 @@ export function GroupsPanel({ members, onChanged }: { members: RosterMember[]; o
       {creating && (
         <div className="mt-3 flex flex-wrap gap-2 rounded-lg border border-border bg-bg-elevated p-3">
           <input
-            value={newName} onChange={e => setNewName(e.target.value)} maxLength={PLAN_LIMITS.groupName} placeholder="Group name (e.g. Tier-1 analysts)"
+            value={newName} onChange={e => setNewName(e.target.value)} maxLength={PLAN_LIMITS.groupName} placeholder="Group name (e.g. Tier-1 analysts)" aria-label="Group name" dir="auto"
             className="min-w-[200px] flex-1 rounded-md border border-border bg-bg px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none"
           />
           <input
-            value={newDesc} onChange={e => setNewDesc(e.target.value)} maxLength={PLAN_LIMITS.groupDescription} placeholder="Description (optional)"
+            value={newDesc} onChange={e => setNewDesc(e.target.value)} maxLength={PLAN_LIMITS.groupDescription} placeholder="Description (optional)" aria-label="Group description (optional)" dir="auto"
             className="min-w-[200px] flex-1 rounded-md border border-border bg-bg px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none"
           />
           <Button variant="primary" size="sm" disabled={busy} onClick={create}>
@@ -125,32 +125,32 @@ export function GroupsPanel({ members, onChanged }: { members: RosterMember[]; o
             return (
               <div key={g.id} className="rounded-lg border border-border bg-bg-elevated">
                 <div className="flex items-center gap-2 px-3 py-2">
-                  <button onClick={() => open(g)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
-                    <ChevronRight className={`h-3.5 w-3.5 shrink-0 text-slate-500 transition-transform ${isOpen ? "rotate-90" : ""}`} />
-                    <span className="truncate text-sm font-medium text-slate-100">{g.name}</span>
+                  <button onClick={() => open(g)} aria-expanded={isOpen} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                    <ChevronRight aria-hidden="true" className={`h-3.5 w-3.5 shrink-0 text-slate-500 transition-transform ${isOpen ? "rotate-90" : ""}`} />
+                    <bdi className="truncate text-sm font-medium text-slate-100">{g.name}</bdi>
                     <span className="shrink-0 font-mono text-[10px] text-slate-500">{g.member_ids.length} member{g.member_ids.length === 1 ? "" : "s"}</span>
                     {!isOpen && g.member_ids.length > 0 && (
                       <span className="hidden min-w-0 truncate text-[11px] text-slate-500 sm:inline">
-                        · {g.member_ids.slice(0, 4).map(id => nameOf.get(id) ?? "—").join(", ")}{g.member_ids.length > 4 ? "…" : ""}
+                        · <bdi>{g.member_ids.slice(0, 4).map(id => nameOf.get(id) ?? "—").join(", ")}</bdi>{g.member_ids.length > 4 ? "…" : ""}
                       </span>
                     )}
                   </button>
                   <button onClick={() => open(g)} aria-label={`Edit ${g.name}`} title="Edit"
-                    className="rounded p-1 text-slate-500 transition hover:bg-white/5 hover:text-slate-200"><Pencil className="h-3.5 w-3.5" /></button>
+                    className="rounded p-1 text-slate-500 transition hover:bg-white/5 hover:text-slate-200"><Pencil className="h-3.5 w-3.5" aria-hidden="true" /></button>
                   <button onClick={() => remove(g)} aria-label={`Delete ${g.name}`} title="Delete"
-                    className="rounded p-1 text-slate-500 transition hover:bg-severity-high/10 hover:text-severity-high"><Trash2 className="h-3.5 w-3.5" /></button>
+                    className="rounded p-1 text-slate-500 transition hover:bg-severity-high/10 hover:text-severity-high"><Trash2 className="h-3.5 w-3.5" aria-hidden="true" /></button>
                 </div>
-                {g.description && !isOpen && <p className="px-3 pb-2 pl-9 text-[11px] text-slate-500">{g.description}</p>}
+                {g.description && !isOpen && <p dir="auto" className="px-3 pb-2 pl-9 text-[11px] text-slate-500">{g.description}</p>}
 
                 {isOpen && (
                   <div className="space-y-2 border-t border-border/60 px-3 py-3">
                     <input
-                      value={editName} onChange={e => setEditName(e.target.value)} maxLength={PLAN_LIMITS.groupName} aria-label="Group name"
+                      value={editName} onChange={e => setEditName(e.target.value)} maxLength={PLAN_LIMITS.groupName} aria-label="Group name" dir="auto"
                       className="w-full rounded-md border border-border bg-bg px-3 py-1.5 text-sm text-slate-100 focus:border-cyber-500/50 focus:outline-none"
                     />
                     <div className="flex items-center gap-2 rounded-md border border-border bg-bg px-2.5 py-1.5">
-                      <Search className="h-3.5 w-3.5 shrink-0 text-slate-500" />
-                      <input value={q} onChange={e => setQ(e.target.value)} placeholder="Find a learner…"
+                      <Search className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden="true" />
+                      <input value={q} onChange={e => setQ(e.target.value)} placeholder="Find a learner…" aria-label="Find a learner"
                         className="flex-1 bg-transparent text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none" />
                       <span className="font-mono text-[10px] text-slate-500">{editMembers.length} selected</span>
                     </div>
@@ -162,7 +162,7 @@ export function GroupsPanel({ members, onChanged }: { members: RosterMember[]; o
                             checked={editMembers.includes(m.user_id)}
                             onChange={() => setEditMembers(list => (list.includes(m.user_id) ? list.filter(x => x !== m.user_id) : [...list, m.user_id]))}
                           />
-                          <span className="min-w-0 flex-1 truncate">{memberName(m)}</span>
+                          <bdi className="min-w-0 flex-1 truncate">{memberName(m)}</bdi>
                           {m.handle && <span className="truncate font-mono text-[10px] text-slate-500">@{m.handle}</span>}
                         </label>
                       ))}

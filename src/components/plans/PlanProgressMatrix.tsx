@@ -14,8 +14,8 @@ import { CODE_STATUS, type ItemStatus, type StaffPlan } from "@/lib/plans/types"
 const CELL: Record<ItemStatus, { glyph: string; cls: string; label: string }> = {
   done:        { glyph: "✓", cls: "bg-neon-green/15 text-neon-green", label: "done" },
   in_progress: { glyph: "◐", cls: "bg-neon-amber/10 text-neon-amber", label: "in progress" },
-  not_started: { glyph: "·", cls: "text-slate-600",                   label: "not started" },
-  untracked:   { glyph: "—", cls: "text-slate-700",                   label: "not tracked" },
+  not_started: { glyph: "·", cls: "text-slate-500",                   label: "not started" },
+  untracked:   { glyph: "—", cls: "text-slate-500",                   label: "not tracked" },
 };
 
 export function PlanProgressMatrix({ plan }: { plan: StaffPlan }) {
@@ -52,7 +52,7 @@ export function PlanProgressMatrix({ plan }: { plan: StaffPlan }) {
               return (
                 <tr key={row.user_id} className="hover:bg-white/[0.02]">
                   <td className="sticky left-0 bg-bg-elevated px-3 py-1.5">
-                    <Link href={`/manage/students/${row.user_id}`} className="text-slate-200 hover:text-cyber-300">{row.name}</Link>
+                    <Link href={`/manage/students/${row.user_id}`} className="text-slate-200 hover:text-cyber-300"><bdi>{row.name}</bdi></Link>
                     {overdue && (
                       <span className="ml-2 inline-flex items-center gap-0.5 text-[10px] font-semibold text-severity-high">
                         <AlertTriangle className="h-3 w-3" /> overdue
@@ -63,7 +63,7 @@ export function PlanProgressMatrix({ plan }: { plan: StaffPlan }) {
                     <td key={i} className="px-1 py-1.5 text-center">
                       <span title={`${plan.items[i]?.title ?? ""} — ${CELL[s].label}`}
                         className={`inline-flex h-5 w-5 items-center justify-center rounded font-mono text-[11px] ${CELL[s].cls}`}>
-                        {CELL[s].glyph}
+                        <span aria-hidden="true">{CELL[s].glyph}</span><span className="sr-only">{`${plan.items[i]?.title ?? `Item ${i + 1}`}: ${CELL[s].label}`}</span>
                       </span>
                     </td>
                   ))}

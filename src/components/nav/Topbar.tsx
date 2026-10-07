@@ -53,6 +53,15 @@ export function Topbar({ title, subtitle, actions }: { title?: string; subtitle?
       : `${rank.label} — ${rank.blurb}\n\nTop rank reached.`
     : undefined;
 
+  // The title tooltip is mouse-only, so the same rank details are also rendered
+  // as sr-only text (WCAG 1.3.1 / 2.1.1) — the visible chip is aria-hidden to
+  // avoid reading the label twice.
+  const rankSrText = ready
+    ? next && progress
+      ? `Rank: ${rank.label} (${rank.tier}). ${rank.blurb} ${progress.earned.toLocaleString()} of ${progress.needed.toLocaleString()} XP toward ${next.label} (${next.tier}).`
+      : `Rank: ${rank.label} (${rank.tier}). ${rank.blurb} Top rank reached.`
+    : displayName;
+
   // pl-16 on mobile leaves a safe zone for the fixed hamburger (Sidebar, drawer
   // mode) so it never overlaps the title; lg screens have a persistent sidebar
   // and no hamburger, so revert to px-6.
@@ -88,6 +97,9 @@ export function Topbar({ title, subtitle, actions }: { title?: string; subtitle?
           {streakReady && streak > 0 && (
             <Link
               href="/progress"
+              aria-label={atRisk
+                ? `Streak: ${streak} ${streak === 1 ? "day" : "days"}, at risk — train today to keep it`
+                : `Streak: ${streak} ${streak === 1 ? "day" : "days"}`}
               title={atRisk
                 ? `${streak}-day streak — at risk! Train today to keep it alive.`
                 : `${streak}-day streak — keep it going!`}
@@ -98,7 +110,7 @@ export function Topbar({ title, subtitle, actions }: { title?: string; subtitle?
                   : "border-border bg-bg-elevated text-orange-400 hover:border-orange-400/40",
               )}
             >
-              <Flame className="h-4 w-4" fill={atRisk ? "none" : "currentColor"} />
+              <Flame className="h-4 w-4" fill={atRisk ? "none" : "currentColor"} aria-hidden="true" />
               <span className="text-xs font-bold tabular-nums">{streak}</span>
             </Link>
           )}
@@ -109,10 +121,11 @@ export function Topbar({ title, subtitle, actions }: { title?: string; subtitle?
             className="flex items-center gap-2 rounded-md border border-border bg-bg-elevated px-2 py-1.5"
             title={tooltip}
           >
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-cyber-500/20 text-cyber-300 text-xs font-bold">
+            <span className="sr-only">{rankSrText}</span>
+            <span aria-hidden="true" className="flex h-6 w-6 items-center justify-center rounded-full bg-cyber-500/20 text-cyber-300 text-xs font-bold">
               {initial}
             </span>
-            <span className="hidden md:flex flex-col items-start leading-tight">
+            <span aria-hidden="true" className="hidden md:flex flex-col items-start leading-tight">
               <span className="text-xs font-semibold text-slate-100">{ready ? rank.label : displayName}</span>
               <span className="text-[10px] text-slate-400 font-mono">{tierLine}</span>
             </span>

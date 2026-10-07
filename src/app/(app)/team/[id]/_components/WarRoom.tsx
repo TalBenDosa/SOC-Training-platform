@@ -35,6 +35,10 @@ export function WarRoom({ events, me, nameOf, act }: { events: Ev[]; me: Me; nam
     const el = listRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [msgs.length]);
+  // The message list is a polite live log, switched on only after the chat history
+  // has loaded — so screen readers hear NEW messages, not the whole backlog.
+  const [liveLog, setLiveLog] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setLiveLog(true), 2000); return () => clearTimeout(t); }, []);
 
   async function send() {
     if (!canPost || busy) return;
@@ -48,15 +52,15 @@ export function WarRoom({ events, me, nameOf, act }: { events: Ev[]; me: Me; nam
     <Card className={`border-cyber-500/40 transition-shadow ${unread > 0 ? "shadow-[0_0_0_1px_rgba(34,211,238,0.35),0_0_24px_-6px_rgba(34,211,238,0.45)]" : ""}`}>
       <div onClick={() => setSeen(fromOthers)}>
         <div className="mb-2 flex items-center gap-2">
-          <MessagesSquare className="h-4 w-4 text-cyber-300" />
-          <h3 className="text-sm font-bold text-white">Team chat</h3>
+          <MessagesSquare className="h-4 w-4 text-cyber-300" aria-hidden="true" />
+          <h3 id="team-chat-heading" className="text-sm font-bold text-white">Team chat</h3>
           {unread > 0 && (
-            <span className="rounded-full bg-cyber-500 px-1.5 py-px text-[10px] font-bold text-bg" aria-live="polite">{unread} new</span>
+            <span className="rounded-full bg-cyber-500 px-1.5 py-px text-[10px] font-bold text-bg">{unread} new</span>
           )}
           <span className="ml-auto text-[10px] text-slate-500">Everyone on the team sees this · {msgs.length} {msgs.length === 1 ? "message" : "messages"}</span>
         </div>
 
-        <div ref={listRef} className="mb-2 max-h-72 min-h-[5rem] space-y-2 overflow-y-auto rounded-lg border border-border/60 bg-bg/60 p-2">
+        <div ref={listRef} role="log" aria-live={liveLog ? "polite" : "off"} aria-relevant="additions" aria-labelledby="team-chat-heading" className="mb-2 max-h-72 min-h-[5rem] space-y-2 overflow-y-auto rounded-lg border border-border/60 bg-bg/60 p-2">
           {msgs.length === 0 ? (
             <p className="py-4 text-center text-xs text-slate-500">No messages yet. Coordinate here: ask for context, call out what you found, hand off work.</p>
           ) : msgs.map(e => {
@@ -66,11 +70,11 @@ export function WarRoom({ events, me, nameOf, act }: { events: Ev[]; me: Me; nam
               <div key={e.seq} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                 <div className={`max-w-[85%] rounded-lg px-2.5 py-1.5 ${mine ? "bg-cyber-500/15 border border-cyber-500/30" : "bg-bg-elevated border border-border/60"}`}>
                   <p className="mb-0.5 flex flex-wrap items-center gap-x-1.5 text-[10px]">
-                    <span className="font-semibold text-slate-200">{mine ? "You" : nameOf(e.actor_id)}</span>
+                    <bdi className="font-semibold text-slate-200">{mine ? "You" : nameOf(e.actor_id)}</bdi>
                     {role && <span className="text-cyber-300/80">{role}</span>}
                     <span className="text-slate-500">{timeOf(e.occurred_at)}</span>
                   </p>
-                  <p className="whitespace-pre-wrap break-words text-xs text-slate-200">{asStr((e.payload as { text?: string }).text)}</p>
+                  <p dir="auto" className="whitespace-pre-wrap break-words text-xs text-slate-200">{asStr((e.payload as { text?: string }).text)}</p>
                 </div>
               </div>
             );
@@ -88,6 +92,7 @@ export function WarRoom({ events, me, nameOf, act }: { events: Ev[]; me: Me; nam
               placeholder="Message the team… (Enter to send, Shift+Enter for a new line)"
               rows={2}
               aria-label="Message the team"
+              dir="auto"
               className="min-h-[2.5rem] flex-1 resize-y rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none"
             />
             <Button variant="primary" size="sm" disabled={busy || !canPost} onClick={() => void send()}><Send className="mr-1 h-3.5 w-3.5" /> Send</Button>

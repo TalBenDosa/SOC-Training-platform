@@ -28,16 +28,16 @@ export function SitrepConsole({ events, nameOf, act }: { events: Ev[]; nameOf: (
           {sitreps.slice().reverse().map(e => { const p = e.payload as { situation?: string; status?: string }; return (
             <div key={e.seq} className="rounded border border-border/60 bg-bg px-2 py-1 text-xs">
               <p className="text-slate-200">{asStr(p.situation)}</p>
-              <p className="text-[10px] text-slate-500">status: {asStr(p.status)} · {nameOf(e.actor_id)}</p>
+              <p className="text-[10px] text-slate-500">status: {asStr(p.status)} · <bdi>{nameOf(e.actor_id)}</bdi></p>
             </div>
           ); })}
         </div>
       )}
       <div className="mt-2 space-y-1.5">
-        <input value={f.situation} onChange={e => setF(s => ({ ...s, situation: e.target.value }))} placeholder="1. What's happening?" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
-        <input value={f.actions} onChange={e => setF(s => ({ ...s, actions: e.target.value }))} placeholder="2. Actions taken" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
-        <input value={f.status} onChange={e => setF(s => ({ ...s, status: e.target.value }))} placeholder="3. Current status" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
-        <input value={f.next} onChange={e => setF(s => ({ ...s, next: e.target.value }))} placeholder="4. Next steps" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+        <input aria-label="What is happening" value={f.situation} onChange={e => setF(s => ({ ...s, situation: e.target.value }))} placeholder="1. What's happening?" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+        <input aria-label="Actions taken" value={f.actions} onChange={e => setF(s => ({ ...s, actions: e.target.value }))} placeholder="2. Actions taken" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+        <input aria-label="Current status" value={f.status} onChange={e => setF(s => ({ ...s, status: e.target.value }))} placeholder="3. Current status" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+        <input aria-label="Next steps" value={f.next} onChange={e => setF(s => ({ ...s, next: e.target.value }))} placeholder="4. Next steps" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
         {!canSend && <p className="text-[10px] text-slate-500">Answer all four.</p>}
         <Button variant="outline" size="sm" disabled={busy || !canSend} onClick={send}>Send SITREP</Button>
       </div>

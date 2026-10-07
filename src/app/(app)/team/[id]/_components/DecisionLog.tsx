@@ -27,14 +27,14 @@ export function DecisionLog({ events, nameOf, act }: { events: Ev[]; nameOf: (u:
           {decisions.slice().reverse().map(e => { const p = e.payload as { decision?: string; rationale?: string }; return (
             <div key={e.seq} className="rounded border border-border/60 bg-bg px-2 py-1 text-xs">
               <p className="text-slate-200">{asStr(p.decision)}</p>
-              {asStr(p.rationale) && <p className="text-[10px] text-slate-500">why: {asStr(p.rationale)} · {nameOf(e.actor_id)}</p>}
+              {asStr(p.rationale) && <p className="text-[10px] text-slate-500">why: {asStr(p.rationale)} · <bdi>{nameOf(e.actor_id)}</bdi></p>}
             </div>
           ); })}
         </div>
       )}
       <div className="mt-2 space-y-1.5">
-        <input value={f.decision} onChange={e => setF(s => ({ ...s, decision: e.target.value }))} placeholder="Decision (e.g. 'isolate FIN-WS-07, keep DC online')" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
-        <textarea value={f.rationale} onChange={e => setF(s => ({ ...s, rationale: e.target.value }))} placeholder="Rationale — why this call, and the business impact considered " rows={2} className="w-full resize-y rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+        <input aria-label="Decision" value={f.decision} onChange={e => setF(s => ({ ...s, decision: e.target.value }))} placeholder="Decision (e.g. 'isolate FIN-WS-07, keep DC online')" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+        <textarea aria-label="Rationale" value={f.rationale} onChange={e => setF(s => ({ ...s, rationale: e.target.value }))} placeholder="Rationale — why this call, and the business impact considered " rows={2} className="w-full resize-y rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
         {!canLog && <p className="text-[10px] text-slate-500">Needs: a decision and its rationale.</p>}
         <Button variant="outline" size="sm" disabled={busy || !canLog} onClick={log}>Log decision</Button>
       </div>

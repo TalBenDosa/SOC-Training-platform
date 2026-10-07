@@ -68,8 +68,8 @@ export default function SuperadminStudentsPage() {
             {/* filters */}
             <div className="flex flex-wrap items-center gap-3">
               <div className="relative flex-1 min-w-[200px]">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-                <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search name, handle or college…" className={`${control} w-full pl-8`} />
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" aria-hidden="true" />
+                <input value={q} onChange={e => setQ(e.target.value)} aria-label="Search name, handle or college" placeholder="Search name, handle or college…" className={`${control} w-full pl-8`} />
               </div>
               <select value={orgFilter} onChange={e => setOrgFilter(e.target.value)} className={control} aria-label="Filter by college">
                 <option value="all">All colleges</option>
@@ -110,17 +110,17 @@ export default function SuperadminStudentsPage() {
                     ) : rows.map(s => (
                       <tr key={`${s.org_id}-${s.user_id}`} className="hover:bg-white/[0.02]">
                         <td className="px-4 py-2.5">
-                          <p className="font-medium text-white">{s.display_name || s.handle || s.user_id.slice(0, 8)}</p>
+                          <p className="font-medium text-white"><bdi>{s.display_name || s.handle || s.user_id.slice(0, 8)}</bdi></p>
                           <p className="font-mono text-[11px] text-slate-500">{s.handle ? `@${s.handle}` : ""} · {s.role}{s.status !== "active" ? ` · ${s.status}` : ""}</p>
                         </td>
                         <td className="px-4 py-2.5 font-mono text-[12px] text-slate-300">{s.email ?? "—"}</td>
-                        <td className="px-4 py-2.5 text-slate-300">{s.org_name}</td>
+                        <td className="px-4 py-2.5 text-slate-300"><bdi>{s.org_name}</bdi></td>
                         <td className="px-4 py-2.5 font-mono text-slate-400">{s.rooms_completed}/{s.rooms_started}</td>
                         <td className="px-4 py-2.5 font-mono text-slate-400">{s.scenarios_completed}</td>
                         <td className={`px-4 py-2.5 font-mono ${s.scenario_avg_score !== null && s.scenario_avg_score < 60 ? "text-severity-high" : "text-slate-300"}`}>{s.scenario_avg_score === null ? "—" : `${s.scenario_avg_score}%`}</td>
                         <td className={`px-4 py-2.5 font-mono ${s.mistakes > 0 ? "text-neon-amber" : "text-slate-500"}`}>{s.mistakes}</td>
                         <td className="px-4 py-2.5 font-mono text-cyber-300">{s.xp.toLocaleString()}</td>
-                        <td className={`px-4 py-2.5 text-[12px] ${!s.last_active_at ? "text-slate-600" : Date.now() - Date.parse(s.last_active_at) >= 14 * 86_400_000 ? "text-neon-amber" : "text-slate-400"}`}>{since(s.last_active_at)}</td>
+                        <td className={`px-4 py-2.5 text-[12px] ${!s.last_active_at ? "text-slate-500" : Date.now() - Date.parse(s.last_active_at) >= 14 * 86_400_000 ? "text-neon-amber" : "text-slate-400"}`}>{since(s.last_active_at)}</td>
                       </tr>
                     ))}
                   </tbody>

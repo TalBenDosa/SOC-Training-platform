@@ -100,7 +100,7 @@ export default function PrivacyPage() {
         <section>
           <h2 className="mb-2 text-xl font-semibold text-white">Your rights</h2>
           <p>
-            Under Israeli privacy law (חוק הגנת הפרטיות והתקנות מכוחו, כולל תיקון 13) you have the
+            Under Israeli privacy law (<span lang="he">חוק הגנת הפרטיות והתקנות מכוחו, כולל תיקון 13</span>) you have the
             right to know what is held about you, and to have it corrected or deleted. We answer
             such requests within <strong className="text-white">30 days</strong>.
           </p>
@@ -109,7 +109,7 @@ export default function PrivacyPage() {
             {contactEmail ? (
               <>
                 write to{" "}
-                <a href={`mailto:${contactEmail}`} className="text-cyber-300 hover:underline">
+                <a href={`mailto:${contactEmail}`} className="text-cyber-300 underline underline-offset-2 hover:text-cyber-200">
                   {contactEmail}
                 </a>
                 . If you study through a college or employer, you can also ask your course

@@ -86,7 +86,7 @@ export default function StudentDetailPage() {
             <Card>
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <h1 className="text-xl font-bold text-white">{name}</h1>
+                  <h1 className="text-xl font-bold text-white"><bdi>{name}</bdi></h1>
                   <p className="mt-0.5 font-mono text-xs text-slate-400">
                     {data.handle ? `@${data.handle}` : ""} · {data.role} · {data.status}
                   </p>

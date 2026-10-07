@@ -23,7 +23,7 @@ export default function AccessibilityPage() {
       </Link>
 
       <h1 className="mb-2 text-3xl font-bold text-white">Accessibility Statement</h1>
-      <p className="mb-10 text-sm text-slate-400">Last updated: 22 July 2026</p>
+      <p className="mb-10 text-sm text-slate-400">Last updated: 7 October 2026</p>
 
       <div className="space-y-8 leading-relaxed">
         <section>
@@ -41,21 +41,34 @@ export default function AccessibilityPage() {
         <section>
           <h2 className="mb-2 text-xl font-semibold text-white">What we have done</h2>
           <ul className="ml-5 list-disc space-y-2">
-            <li>Semantic structure with landmarks and headings, and a &ldquo;skip to content&rdquo; link.</li>
-            <li>Form fields with programmatically associated labels.</li>
-            <li>Visible keyboard focus on interactive elements, and keyboard operability.</li>
+            <li>Semantic structure with landmarks and headings, and a &ldquo;skip to content&rdquo; link on every page.</li>
+            <li>A unique, descriptive title for every page, and full support for browser zoom (no zoom lock).</li>
+            <li>Form fields with programmatically associated labels and visible hints; validation errors and success messages are announced to screen readers.</li>
+            <li>A clearly visible keyboard-focus outline on every interactive element; dialogs and menus can be closed with Escape and return focus to where you were.</li>
+            <li>Text and form-field borders meet WCAG AA contrast ratios on the platform&rsquo;s dark theme.</li>
+            <li>Results and states are shown with text and icons, not by color alone.</li>
+            <li>Every Learning Path explainer video has subtitles in English, Hebrew and Spanish.</li>
             <li>Respect for the operating-system &ldquo;reduce motion&rdquo; setting.</li>
-            <li>Descriptive page titles and support for browser zoom.</li>
           </ul>
         </section>
 
         <section>
           <h2 className="mb-2 text-xl font-semibold text-white">Known limitations</h2>
           <p>
-            Accessibility is an ongoing effort. We are still improving color-contrast in some
-            secondary text, and we have not yet completed a full review with screen readers
-            (NVDA / VoiceOver). If you encounter a barrier that is not listed here, please tell
-            us — it helps us prioritize.
+            Accessibility is an ongoing effort. Some parts of the platform reproduce the dense,
+            real-time consoles a SOC analyst works in, and are harder to use with assistive
+            technology:
+          </p>
+          <ul className="ml-5 mt-2 list-disc space-y-2">
+            <li>The live SOC event feed updates continuously; new events are not read out one by one, so that a screen reader is not flooded.</li>
+            <li>The EDR process tree and the simulated response shell are visual, keyboard-operable tools that have not yet been fully optimised for screen readers.</li>
+            <li>Raw log samples are shown exactly as the source system writes them (long JSON / syslog lines).</li>
+          </ul>
+          <p className="mt-2">
+            We have not yet completed a full review with screen readers (NVDA / VoiceOver). If any
+            of these limits stops you from completing a task, contact us and we will provide the
+            content in another accessible way. If you meet a barrier that is not listed here,
+            please tell us too — it helps us prioritize.
           </p>
         </section>
 
@@ -66,11 +79,12 @@ export default function AccessibilityPage() {
             problem, contact the platform&rsquo;s accessibility contact:
           </p>
           <ul className="ml-5 mt-2 list-disc space-y-1 text-slate-400">
-            <li>Email: <a href="mailto:tal14997@gmail.com" className="text-cyber-300 underline-offset-2 hover:underline">tal14997@gmail.com</a></li>
+            <li>Accessibility contact: Tal Ben Dosa</li>
+            <li>Email: <a href="mailto:tal14997@gmail.com" className="text-cyber-300 underline underline-offset-2">tal14997@gmail.com</a></li>
           </ul>
           <p className="mt-2 text-sm text-slate-400">
-            We will do our best to respond and to provide the information or service through an
-            accessible channel.
+            Please describe the page and what you were trying to do. We aim to reply within
+            5 business days and to provide the information or service through an accessible channel.
           </p>
         </section>
       </div>

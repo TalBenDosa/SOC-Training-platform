@@ -122,11 +122,12 @@ export function PersonalPrioritiesCard({ studentId, studentName }: { studentId: 
               <textarea
                 value={instructions} onChange={e => { setInstructions(e.target.value); setDirty(true); }} maxLength={PLAN_LIMITS.instructions} rows={2}
                 placeholder={`A note for ${studentName} (optional)`}
+                aria-label={`A note for ${studentName} (optional)`} dir="auto"
                 className="resize-none rounded-md border border-border bg-bg px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none"
               />
               <div className="flex flex-wrap items-center gap-2">
                 <label className="flex flex-1 items-center gap-2 rounded-md border border-border bg-bg px-2.5 py-1.5 text-xs text-slate-400">
-                  <Clock className="h-3.5 w-3.5 shrink-0" /> due
+                  <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> due
                   <input type="date" value={due} onChange={e => { setDue(e.target.value); setDirty(true); }} className="min-w-0 flex-1 bg-transparent text-slate-100 focus:outline-none" />
                 </label>
                 {items.length > 0 && data.email_enabled && (

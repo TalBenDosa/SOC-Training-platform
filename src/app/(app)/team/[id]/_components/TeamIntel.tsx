@@ -38,12 +38,12 @@ export function TeamIntel({ events, nameOf }: { events: Ev[]; nameOf: (u: string
               {asStr(p.case_label) && <p className="mt-0.5 text-[10px] text-slate-500">re: {asStr(p.case_label)}</p>}
               {asStr(p.next_expected) && <p className="mt-0.5 text-slate-400">next: {asStr(p.next_expected)}</p>}
               {asStr(p.recommendation) && <p className="mt-0.5 text-cyber-300">→ {asStr(p.recommendation)}</p>}
-              <p className="mt-0.5 font-mono text-[10px] text-slate-500">{nameOf(e.actor_id)}</p>
+              <p className="mt-0.5 font-mono text-[10px] text-slate-500"><bdi>{nameOf(e.actor_id)}</bdi></p>
             </div>
           );
         })}
       </div>
-      {intel.length > 3 && <button onClick={() => setAll(a => !a)} className="mt-1.5 text-[11px] text-cyber-300 underline-offset-2 hover:underline">{all ? "show latest only" : `show all ${intel.length}`}</button>}
+      {intel.length > 3 && <button onClick={() => setAll(a => !a)} aria-expanded={all} className="mt-1.5 text-[11px] text-cyber-300 underline-offset-2 hover:underline">{all ? "show latest only" : `show all ${intel.length}`}</button>}
     </Card>
   );
 }

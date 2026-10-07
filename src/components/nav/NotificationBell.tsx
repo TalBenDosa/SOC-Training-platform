@@ -111,7 +111,7 @@ export function NotificationBell() {
               type="button"
               onClick={markAll}
               disabled={unread === 0}
-              className="inline-flex items-center gap-1 text-[11px] text-cyber-300 transition hover:text-white disabled:cursor-default disabled:text-slate-600"
+              className="inline-flex items-center gap-1 text-[11px] text-cyber-300 transition hover:text-white disabled:cursor-default disabled:text-slate-500"
             >
               <CheckCheck className="h-3.5 w-3.5" /> Mark all read
             </button>

@@ -382,7 +382,7 @@ function LeaderboardCard() {
               {r.rank}
             </span>
             <span className={cn("flex-1 min-w-0 truncate text-xs font-semibold", r.isMe ? "text-cyber-300" : "text-slate-200")}>
-              {r.displayName}{r.isMe && <span className="ml-1 text-[10px] text-cyber-500">(you)</span>}
+              <span className="sr-only">Rank {r.rank}: </span><bdi>{r.displayName}</bdi>{r.isMe && <span className="ml-1 text-[10px] text-cyber-500">(you)</span>}
             </span>
             <span className="shrink-0 text-[10px] text-slate-400">Lv {r.level}</span>
             <span className="shrink-0 font-mono text-xs font-bold text-cyber-300">{r.xp.toLocaleString()}</span>
@@ -674,7 +674,12 @@ export default function ProgressPage() {
               </h3>
               <span className="text-xs text-slate-400">XP earned per day</span>
             </div>
-            <div className="mt-4 h-48">
+            {/* Text alternative for the chart (WCAG 1.1.1): the SVG is presentational. */}
+            <div
+              className="mt-4 h-48"
+              role="img"
+              aria-label={`XP earned per day, last 7 days: ${activityData.map(d => `${d.day} ${d.xp} XP`).join(", ")}. Total ${activityData.reduce((sum, d) => sum + d.xp, 0)} XP.`}
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={activityData}>
                   <defs>
@@ -684,8 +689,8 @@ export default function ProgressPage() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1e2a38" />
-                  <XAxis dataKey="day" tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="day" tick={{ fill: "#8190a5", fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: "#8190a5", fontSize: 11 }} axisLine={false} tickLine={false} />
                   <Tooltip
                     contentStyle={{ background: "#0d1520", border: "1px solid #1e2a38", borderRadius: 6 }}
                     labelStyle={{ color: "#94a3b8" }}
@@ -707,13 +712,14 @@ export default function ProgressPage() {
               </h3>
               <span className="text-xs text-slate-400">Based on your activity</span>
             </div>
-            <div className="mt-2 h-56">
+            {/* Decorative duplicate of the per-skill list below, which carries the values as text. */}
+            <div className="mt-2 h-56" aria-hidden="true">
               <ResponsiveContainer width="100%" height="100%">
                 <RadarChart data={skillsData} outerRadius="75%">
                   <PolarGrid stroke="#1e2a38" />
                   <PolarAngleAxis
                     dataKey="skill"
-                    tick={{ fill: "#64748b", fontSize: 9 }}
+                    tick={{ fill: "#8190a5", fontSize: 9 }}
                   />
                   <Radar
                     name="Skills"
@@ -794,12 +800,25 @@ export default function ProgressPage() {
                           onClick={() => hasReport && setOpenReport(isOpen ? null : i)}
                         >
                           <td className="px-5 py-2.5 text-slate-200">
-                            <span className="flex items-center gap-1.5">
-                              {hasReport
-                                ? (isOpen ? <ChevronDown className="h-3.5 w-3.5 text-cyber-300" /> : <ChevronRight className="h-3.5 w-3.5 text-slate-400" />)
-                                : <span className="w-3.5" />}
-                              {s.title ?? s.slug}
-                            </span>
+                            {/* Keyboard-operable disclosure; the whole row stays clickable too. */}
+                            {hasReport ? (
+                              <button
+                                type="button"
+                                aria-expanded={isOpen}
+                                aria-controls={`scenario-report-${i}`}
+                                onClick={e => { e.stopPropagation(); setOpenReport(isOpen ? null : i); }}
+                                className="flex items-center gap-1.5 text-left"
+                              >
+                                {isOpen ? <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 text-cyber-300" /> : <ChevronRight aria-hidden="true" className="h-3.5 w-3.5 text-slate-400" />}
+                                {s.title ?? s.slug}
+                                <span className="sr-only">{isOpen ? " — hide report" : " — show report"}</span>
+                              </button>
+                            ) : (
+                              <span className="flex items-center gap-1.5">
+                                <span className="w-3.5" />
+                                {s.title ?? s.slug}
+                              </span>
+                            )}
                           </td>
                           <td className="py-2.5 text-slate-400">{new Date(s.date).toLocaleDateString("en-GB")}</td>
                           <td className="py-2.5"><span className={cn("font-mono font-bold", s.score >= 80 ? "text-neon-green" : s.score >= 60 ? "text-severity-medium" : "text-severity-critical")}>{s.score}%</span></td>
@@ -807,7 +826,7 @@ export default function ProgressPage() {
                           <td className="py-2.5 pr-5 font-mono font-bold text-cyber-300">{s.xpEarned}</td>
                         </tr>
                         {isOpen && s.report && (
-                          <tr className="border-t border-border/40 bg-bg">
+                          <tr id={`scenario-report-${i}`} className="border-t border-border/40 bg-bg">
                             <td colSpan={5} className="px-5 py-4">
                               <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-cyber-300">
                                 <FileText className="h-3.5 w-3.5" /> Your Investigation Report

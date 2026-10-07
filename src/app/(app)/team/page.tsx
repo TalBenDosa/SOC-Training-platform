@@ -316,7 +316,7 @@ export default function TeamIndexPage() {
                 <p className="text-xs uppercase tracking-wider text-slate-400">Invite &amp; assign roles</p>
                 {orgLabel && (
                   <p className="inline-flex items-center gap-1 text-[11px] text-slate-400">
-                    <Building2 className="h-3 w-3" aria-hidden /> Inviting from <span className="font-semibold text-slate-200">{orgLabel}</span>
+                    <Building2 className="h-3 w-3" aria-hidden /> Inviting from <bdi className="font-semibold text-slate-200">{orgLabel}</bdi>
                     {roster && !rosterError && <span className="text-slate-500">· {roster.length} active member{roster.length === 1 ? "" : "s"}</span>}
                   </p>
                 )}
@@ -345,7 +345,7 @@ export default function TeamIndexPage() {
                     <input value={query} onChange={e => setQuery(e.target.value)} type="search"
                       aria-label="Search members by name, handle or e-mail"
                       placeholder="Search by name, @handle or full e-mail…"
-                      className="w-full rounded-lg border border-border bg-bg py-2 pl-8 pr-3 text-sm text-slate-200 placeholder:text-slate-600 focus:border-cyber-500/50 focus:outline-none" />
+                      className="w-full rounded-lg border border-border bg-bg py-2 pl-8 pr-3 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
                   </div>
                   {emailMode && emailMatch?.q === query.trim() && !emailId && (
                     <p className="mb-2 text-[11px] text-slate-500">No active member of {orgLabel ?? "your organisation"} has that e-mail.</p>
@@ -361,7 +361,7 @@ export default function TeamIndexPage() {
                           <input type="checkbox" checked={on} onChange={() => togglePick(m.user_id)} className="h-4 w-4 accent-cyber-500"
                             aria-label={`Invite ${m.display_name || m.handle || "member"}`} />
                           <span className="min-w-0 flex-1 truncate text-sm text-slate-200">
-                            {m.display_name || m.handle || m.user_id.slice(0, 8)}
+                            <bdi>{m.display_name || m.handle || m.user_id.slice(0, 8)}</bdi>
                             {m.handle && <span className="ml-1 font-mono text-[11px] text-slate-500">@{m.handle}</span>}
                             {m.role && m.role !== "student" && <span className="ml-1.5 rounded border border-border px-1 py-px text-[9px] uppercase tracking-wider text-slate-500">{ORG_ROLE_LABEL[m.role] ?? m.role}</span>}
                           </span>
@@ -416,7 +416,7 @@ export default function TeamIndexPage() {
                       {s.status === "running" ? <span className="inline-flex items-center gap-1"><Radio className="h-2.5 w-2.5" />live</span> : closed ? "closed" : s.status}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className={`truncate text-sm font-medium ${closed ? "text-slate-400" : "text-white"}`}>{companyName(s)}</p>
+                      <p className={`truncate text-sm font-medium ${closed ? "text-slate-400" : "text-white"}`}><bdi>{companyName(s)}</bdi></p>
                       <p className="font-mono text-[11px] text-slate-500">
                         {s.difficulty} · {s.ready_count}/{s.player_count} ready
                         {s.my_role && s.my_role !== "instructor" && <span className="ml-1 text-cyber-300">· you: {s.my_role}</span>}
@@ -425,7 +425,7 @@ export default function TeamIndexPage() {
                     </div>
                     {closed
                       ? <span className="shrink-0 rounded-md border border-border px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-cyber-300">Shift review</span>
-                      : <ChevronRight className="h-4 w-4 text-slate-600" aria-hidden />}
+                      : <ChevronRight className="h-4 w-4 text-slate-500" aria-hidden />}
                   </>
                 );
                 // U7: the whole row is the link. Closed sessions open their read-only

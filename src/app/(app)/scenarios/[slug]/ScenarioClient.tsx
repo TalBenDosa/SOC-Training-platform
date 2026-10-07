@@ -19,6 +19,7 @@ import {
 } from "@/components/threat-intel/ThreatIntelDrawer";
 import { describeEventForRow } from "@/lib/sim/describeEvent";
 import { EdrConsole } from "@/components/edr/EdrConsole";
+import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 import { buildInvestigationsFromScenario } from "@/lib/edr/fromLiveStory";
 import type { EdrInvestigation } from "@/lib/edr/investigations";
 import { buildAlertIndex, effectiveSeverity, severityLabel, severityAtLeast } from "@/lib/scenarios/eventClass";
@@ -198,6 +199,7 @@ function LogDetail({ ev, isAlert, effSev, onThreatQuery }: {
           <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-400 select-none">
             Raw log
             <button
+              type="button"
               role="switch"
               aria-checked={showJson}
               onClick={() => setShowJson(v => !v)}
@@ -348,7 +350,8 @@ const LogRow = memo(function LogRow({
   useEffect(() => {
     if (!focusReq) return;
     setExpanded(true);
-    rowRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+    const reduceMotion = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    rowRef.current?.scrollIntoView({ block: "center", behavior: reduceMotion ? "auto" : "smooth" });
   }, [focusReq]);
 
   // Same plain-language line as the Live SOC feed (observable fields only — the
@@ -361,6 +364,7 @@ const LogRow = memo(function LogRow({
     <>
       <tr
         ref={rowRef}
+        // Mouse: click anywhere on the row. Keyboard / AT: the button in the first cell.
         onClick={() => setExpanded(v => !v)}
         className={cn(
           "cursor-pointer border-t border-border/60 transition-colors",
@@ -373,7 +377,15 @@ const LogRow = memo(function LogRow({
         )}
       >
         <td className="w-5 pl-3">
-          <ChevronRight className={cn("h-3 w-3 text-slate-400 transition-transform", expanded && "rotate-90")} />
+          <button
+            type="button"
+            aria-expanded={expanded}
+            aria-label={`Show raw fields: ${timeStr} UTC${ev.hostname ? `, ${ev.hostname}` : ""}`}
+            onClick={e => { e.stopPropagation(); setExpanded(v => !v); }}
+            className="flex items-center rounded"
+          >
+            <ChevronRight aria-hidden="true" className={cn("h-3 w-3 text-slate-400 transition-transform", expanded && "rotate-90")} />
+          </button>
         </td>
         <td className="py-2.5 pr-3 font-mono text-[11px] text-slate-400">{timeStr}</td>
         <td className="py-2.5 pr-3 font-mono text-[11px] text-slate-200 max-w-[120px]">
@@ -410,6 +422,8 @@ const LogRow = memo(function LogRow({
             )}
             {canCorrelate && (
               <button
+                type="button"
+                aria-expanded={focused ? undefined : menuOpen}
                 onClick={e => {
                   e.stopPropagation();
                   if (focused) { onPivot(null); setMenuOpen(false); } else setMenuOpen(v => !v);
@@ -420,16 +434,17 @@ const LogRow = memo(function LogRow({
                   focused || menuOpen ? "bg-cyber-500/25 text-cyber-200" : "text-slate-500 hover:text-cyber-300",
                 )}
               >
-                🔗 {focused ? "correlated" : "correlate"}
+                <span aria-hidden="true">🔗 </span>{focused ? "correlated" : "correlate"}
               </button>
             )}
             {canInvestigate && ev.incident_id && (
               <button
+                type="button"
                 onClick={e => { e.stopPropagation(); onInvestigate(ev.incident_id!); }}
                 title="Open this incident on the endpoint — walk the process tree in the EDR console"
                 className="inline-flex items-center gap-0.5 rounded border border-cyber-500/40 bg-cyber-500/15 px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase tracking-wider text-cyber-200 transition hover:bg-cyber-500/25"
               >
-                🔎 Investigate in EDR
+                <span aria-hidden="true">🔎 </span>Investigate in EDR
               </button>
             )}
             {menuOpen && !focused && (
@@ -631,10 +646,12 @@ const ScenarioLogViewer = memo(function ScenarioLogViewer({ events, title, iocTr
         <span className="rounded bg-bg-elevated px-2 py-0.5 font-mono text-[10px] text-slate-400">
           {filtered.length} events · {alertCount} alert{alertCount !== 1 ? "s" : ""}
         </span>
-        <div className="flex gap-1">
+        <div className="flex gap-1" role="group" aria-label="View">
           {(["events", "timeline"] as const).map(t => (
             <button
               key={t}
+              type="button"
+              aria-pressed={tab === t}
               onClick={() => setTab(t)}
               className={cn(
                 "rounded px-2 py-1 text-[10px] font-semibold uppercase tracking-wider transition",
@@ -646,10 +663,12 @@ const ScenarioLogViewer = memo(function ScenarioLogViewer({ events, title, iocTr
           ))}
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <div className="flex gap-1">
+          <div className="flex gap-1" role="group" aria-label="Severity filter">
             {(["all", "medium", "high"] as const).map(f => (
               <button
                 key={f}
+                type="button"
+                aria-pressed={sevFilter === f}
                 onClick={() => setSevFilter(f)}
                 className={cn(
                   "rounded px-2 py-1 text-[10px] font-semibold uppercase tracking-wider transition",
@@ -662,6 +681,8 @@ const ScenarioLogViewer = memo(function ScenarioLogViewer({ events, title, iocTr
               </button>
             ))}
             <button
+              type="button"
+              aria-pressed={detectionsOnly}
               onClick={() => setDetectionsOnly(v => !v)}
               title="Hide EDR telemetry — show only detections and SIEM logs. Walk the hidden process/file telemetry inside the EDR console (Investigate in EDR)."
               className={cn(
@@ -675,9 +696,10 @@ const ScenarioLogViewer = memo(function ScenarioLogViewer({ events, title, iocTr
             </button>
           </div>
           <div className="relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400" />
+            <Search aria-hidden="true" className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400" />
             <input
-              type="text"
+              type="search"
+              aria-label="Search all fields"
               placeholder="Search all fields — e.g. user:svc_backup"
               title={'Searches every field name and value of the raw log. Terms are ANDed. field:value (user:, host:, ip:, src_ip:, dst_ip:, hash:, process:, cmd:, domain:, port: or any raw field name), "quoted phrase", -exclude.'}
               value={search}
@@ -691,7 +713,7 @@ const ScenarioLogViewer = memo(function ScenarioLogViewer({ events, title, iocTr
       {pivot && pivotEvents.length > 0 && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-cyber-500/25 bg-cyber-500/[0.05] px-4 py-2.5">
           <span className="text-[11px] font-semibold text-cyber-200">
-            🔗 {pivot.kind === "entity" ? `Pivot: ${pivot.label}` : "Correlated incident"}
+            <span aria-hidden="true">🔗 </span>{pivot.kind === "entity" ? `Pivot: ${pivot.label}` : "Correlated incident"}
           </span>
           <span className="rounded bg-bg-elevated px-2 py-0.5 font-mono text-[10px] text-slate-300">
             {pivotEvents.length} events · {pivotHosts.length} host{pivotHosts.length !== 1 ? "s" : ""} · {new Set(pivotEvents.map(e => e.source)).size} sources
@@ -702,8 +724,10 @@ const ScenarioLogViewer = memo(function ScenarioLogViewer({ events, title, iocTr
             {pivotEvents.map(e => (
               <button
                 key={e.id}
+                type="button"
                 onClick={() => focusEvent(e.id)}
                 title={`${utcTime(e.ts)} UTC · ${e.hostname ?? "—"} · ${SOURCE_LABEL[e.source] ?? e.source}${alertIds.has(e.id) ? " · ALERT" : ""}`}
+                aria-label={`Open event ${utcTime(e.ts)} UTC · ${e.hostname ?? "no host"} · ${SOURCE_LABEL[e.source] ?? e.source}${alertIds.has(e.id) ? " · alert" : ""}`}
                 className={cn(
                   "h-2.5 w-2.5 rounded-full border",
                   alertIds.has(e.id) ? "bg-cyber-400 border-cyber-300" : "bg-slate-500/50 border-slate-500",
@@ -718,10 +742,12 @@ const ScenarioLogViewer = memo(function ScenarioLogViewer({ events, title, iocTr
             open as timeline →
           </button>
           <button
+            type="button"
             onClick={() => setPivot(null)}
+            aria-label="Clear pivot"
             className="ml-auto text-[10px] font-semibold text-slate-400 transition hover:text-white"
           >
-            clear ✕
+            clear <span aria-hidden="true">✕</span>
           </button>
         </div>
       )}
@@ -748,6 +774,7 @@ const ScenarioLogViewer = memo(function ScenarioLogViewer({ events, title, iocTr
                 return (
                   <tr
                     key={e.id}
+                    // Mouse: click the row. Keyboard / AT: the time button in the first cell.
                     onClick={() => focusEvent(e.id)}
                     className={cn(
                       "cursor-pointer border-t border-border/60 transition-colors hover:bg-bg-hover/60",
@@ -755,7 +782,16 @@ const ScenarioLogViewer = memo(function ScenarioLogViewer({ events, title, iocTr
                       alertIds.has(e.id) && "bg-cyber-500/[0.06]",
                     )}
                   >
-                    <td className="whitespace-nowrap py-2 pl-4 pr-3 font-mono text-[11px] text-slate-400">{utcTime(e.ts)}</td>
+                    <td className="whitespace-nowrap py-2 pl-4 pr-3 font-mono text-[11px] text-slate-400">
+                      <button
+                        type="button"
+                        onClick={ev => { ev.stopPropagation(); focusEvent(e.id); }}
+                        aria-label={`${utcTime(e.ts)} UTC, ${host} — open in the event table`}
+                        className="rounded text-left"
+                      >
+                        {utcTime(e.ts)}
+                      </button>
+                    </td>
                     <td className="whitespace-nowrap py-2 pr-3 font-mono text-[10px] text-slate-500">+{formatTime(offsetSec)}</td>
                     <td className={cn("whitespace-nowrap py-2 pr-3 font-mono text-[11px]", hostChanged ? "text-cyber-200" : "text-slate-200")}>{host}</td>
                     <td className="whitespace-nowrap py-2 pr-3">
@@ -784,7 +820,7 @@ const ScenarioLogViewer = memo(function ScenarioLogViewer({ events, title, iocTr
         <table className="w-full text-xs">
           <thead className="sticky top-0 bg-bg-elevated/95 backdrop-blur">
             <tr className="text-left text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-              <th className="w-5 pl-3 py-2" />
+              <th className="w-5 pl-3 py-2"><span className="sr-only">Expand</span></th>
               <th className="py-2 pr-3">Time (UTC)</th>
               <th className="py-2 pr-3">Agent</th>
               <th className="py-2 pr-3">Source</th>
@@ -856,13 +892,17 @@ function ScenarioEdrPanel({ investigations, caseId, onClose }: {
   caseId: string;
   onClose: () => void;
 }) {
+  // a11y: full-screen modal — focus trapped inside, Escape closes, focus returns.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(investigations.length > 0, dialogRef, { onEscape: onClose });
   if (investigations.length === 0) return null;
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-bg/95 backdrop-blur-sm">
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="scenario-edr-title" tabIndex={-1}
+      className="fixed inset-0 z-50 flex flex-col bg-bg/95 backdrop-blur-sm">
       <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3">
         <div className="flex items-center gap-2">
-          <Shield className="h-4 w-4 text-cyber-300" />
-          <span className="text-sm font-bold text-white">EDR Console</span>
+          <Shield aria-hidden="true" className="h-4 w-4 text-cyber-300" />
+          <span id="scenario-edr-title" className="text-sm font-bold text-white">EDR Console</span>
           {investigations.length > 1 && (
             <span
               title="Each incident is a separate, isolated case — switch between them without mixing their process trees"
@@ -872,8 +912,8 @@ function ScenarioEdrPanel({ investigations, caseId, onClose }: {
             </span>
           )}
         </div>
-        <button onClick={onClose} className="rounded p-1 text-slate-400 transition hover:text-white" aria-label="Close EDR console">
-          <X className="h-5 w-5" />
+        <button type="button" onClick={onClose} className="rounded p-1 text-slate-400 transition hover:text-white" aria-label="Close EDR console">
+          <X aria-hidden="true" className="h-5 w-5" />
         </button>
       </div>
       <div className="flex-1 overflow-y-auto px-5 py-4">
@@ -1005,18 +1045,36 @@ function InvestigationPanel({
           <h3 className="text-sm font-bold text-white">Investigation Report</h3>
         </div>
         <span className="text-[10px] font-mono text-slate-400">
-          {completedCount}<span className="text-slate-700">/3</span>
+          {completedCount}<span className="text-slate-500">/3</span>
         </span>
       </div>
 
       {/* ── Tab bar ───────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-3 border-b border-border/60">
+      <div className="grid grid-cols-3 border-b border-border/60" role="tablist" aria-label="Investigation report sections"
+        onKeyDown={e => {
+          const i = REPORT_TABS.findIndex(t => t.id === activeTab);
+          let next: number | null = null;
+          if (e.key === "ArrowRight") next = (i + 1) % REPORT_TABS.length;
+          else if (e.key === "ArrowLeft") next = (i - 1 + REPORT_TABS.length) % REPORT_TABS.length;
+          else if (e.key === "Home") next = 0;
+          else if (e.key === "End") next = REPORT_TABS.length - 1;
+          if (next === null) return;
+          e.preventDefault();
+          setActiveTab(REPORT_TABS[next].id);
+          document.getElementById(`report-tab-${REPORT_TABS[next].id}`)?.focus();
+        }}>
         {REPORT_TABS.map(tab => {
           const active = activeTab === tab.id;
           const done   = sectionDone[tab.id];
           return (
             <button
               key={tab.id}
+              type="button"
+              role="tab"
+              id={`report-tab-${tab.id}`}
+              aria-selected={active}
+              aria-controls="report-tabpanel"
+              tabIndex={active ? 0 : -1}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
                 "relative py-2.5 text-[11px] font-medium transition-colors",
@@ -1026,8 +1084,9 @@ function InvestigationPanel({
               )}
             >
               {tab.label}
+              {done && <span className="sr-only"> (completed)</span>}
               {done && !active && (
-                <span className="absolute right-2 top-1.5 h-1.5 w-1.5 rounded-full bg-[#2dd4bf]" />
+                <span aria-hidden="true" className="absolute right-2 top-1.5 h-1.5 w-1.5 rounded-full bg-[#2dd4bf]" />
               )}
             </button>
           );
@@ -1035,15 +1094,17 @@ function InvestigationPanel({
       </div>
 
       {/* ── Tab content ───────────────────────────────────────────────── */}
-      <div className="px-5 py-5">
+      <div className="px-5 py-5" role="tabpanel" id="report-tabpanel" aria-labelledby={`report-tab-${activeTab}`}>
 
         {/* NARRATIVE */}
         {activeTab === "narrative" && (
           <div>
-            <p className="mb-0.5 text-sm font-semibold text-white">Narrative</p>
-            <p className="mb-3 text-[11px] text-slate-400">Document your investigation process step by step</p>
+            <p id="report-narrative-label" className="mb-0.5 text-sm font-semibold text-white">Narrative</p>
+            <p id="report-narrative-desc" className="mb-3 text-[11px] text-slate-400">Document your investigation process step by step</p>
             <DraftTextarea
               key={draftKey}
+              aria-labelledby="report-narrative-label"
+              aria-describedby="report-narrative-desc"
               rows={10}
               disabled={disabled}
               initial={notesRef.current}
@@ -1074,6 +1135,7 @@ function InvestigationPanel({
             {/* Add row */}
             <div className="flex gap-2 mb-4">
               <select
+                aria-label="Indicator type"
                 disabled={disabled}
                 value={newType}
                 onChange={e => setNewType(e.target.value as IocType)}
@@ -1084,6 +1146,7 @@ function InvestigationPanel({
                 ))}
               </select>
               <input
+                aria-label="Indicator value"
                 disabled={disabled}
                 type="text"
                 value={newValue}
@@ -1093,6 +1156,7 @@ function InvestigationPanel({
                 className="flex-1 rounded border border-border/60 bg-[#060b12] px-3 py-1.5 text-[11px] text-slate-200 placeholder-slate-500 focus:border-[#2dd4bf]/40 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
               />
               <button
+                type="button"
                 disabled={disabled || !newValue.trim()}
                 onClick={addIoc}
                 className="flex items-center gap-1 rounded border border-[#2dd4bf]/30 bg-[#2dd4bf]/10 px-3 py-1.5 text-[11px] font-semibold text-[#2dd4bf] hover:bg-[#2dd4bf]/20 transition disabled:opacity-40 disabled:cursor-not-allowed"
@@ -1110,10 +1174,12 @@ function InvestigationPanel({
                     </span>
                     <span className="flex-1 truncate font-mono text-[11px] text-slate-200">{ioc.value}</span>
                     <button
+                      type="button"
                       onClick={() => onRemoveIoc(ioc.id)}
+                      aria-label={`Remove indicator ${ioc.value}`}
                       className="shrink-0 rounded p-0.5 text-slate-400 hover:text-severity-high hover:bg-severity-high/10 transition"
                     >
-                      <X className="h-3.5 w-3.5" />
+                      <X aria-hidden="true" className="h-3.5 w-3.5" />
                     </button>
                   </li>
                 ))}
@@ -1132,8 +1198,10 @@ function InvestigationPanel({
             <p className="mb-0.5 text-sm font-semibold text-white">Final Verdict</p>
             <p className="mb-4 text-[11px] text-slate-400">Based on your investigation, classify this alert</p>
 
-            <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="grid grid-cols-2 gap-3 mb-4" role="group" aria-label="Verdict">
               <button
+                type="button"
+                aria-pressed={verdict === "tp"}
                 disabled={disabled}
                 onClick={() => onVerdictChange("tp")}
                 className={cn(
@@ -1157,6 +1225,8 @@ function InvestigationPanel({
               </button>
 
               <button
+                type="button"
+                aria-pressed={verdict === "fp"}
                 disabled={disabled}
                 onClick={() => onVerdictChange("fp")}
                 className={cn(
@@ -1182,11 +1252,12 @@ function InvestigationPanel({
 
             {verdict && (
               <div>
-                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">
+                <p id="report-reasoning-label" className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">
                   Reasoning
                 </p>
                 <DraftTextarea
                   key={draftKey}
+                  aria-labelledby="report-reasoning-label"
                   rows={3}
                   disabled={disabled}
                   initial={reasonRef.current}
@@ -1755,7 +1826,7 @@ export function ScenarioClient({ bundle, slug, iocTruth = null }: {
                   </span>
                 )}
                 {gradingError && (
-                  <span className="text-[11px] text-severity-high">{gradingError}</span>
+                  <span role="alert" className="text-[11px] text-severity-high">{gradingError}</span>
                 )}
                 <button
                   onClick={handleSubmit}
@@ -1769,7 +1840,7 @@ export function ScenarioClient({ bundle, slug, iocTruth = null }: {
             </>
           )}
           {phase === "submitted" && (
-            <div className="flex items-center gap-3 text-sm text-slate-400">
+            <div className="flex items-center gap-3 text-sm text-slate-400" role="status">
               <span className="animate-pulse">Analysing your investigation…</span>
             </div>
           )}
@@ -1914,7 +1985,7 @@ export function ScenarioClient({ bundle, slug, iocTruth = null }: {
                   answered ? "border-cyber-500/30 bg-cyber-500/5" : "border-border bg-bg"
                 )}>
                   <div className="flex items-start justify-between gap-3">
-                    <p className="text-sm text-slate-100">
+                    <p id={`q-prompt-${q.id}`} className="text-sm text-slate-100">
                       <span className="mr-2 font-mono text-cyber-300">Q{idx + 1}.</span>
                       {q.prompt}
                       {isMulti && <span className="ml-1 text-[10px] text-slate-400">(select all that apply)</span>}
@@ -1924,7 +1995,7 @@ export function ScenarioClient({ bundle, slug, iocTruth = null }: {
                     </span>
                   </div>
                   {q.options && (
-                    <ul className="mt-3 space-y-1.5">
+                    <ul className="mt-3 space-y-1.5" role={isMulti ? "group" : "radiogroup"} aria-labelledby={`q-prompt-${q.id}`}>
                       {/* Shuffled for display — see shuffleSeeded's header. Measured
                           across the 89 scenario questions, the correct answer was the
                           FIRST option 56 times (63%), so a student who never read a

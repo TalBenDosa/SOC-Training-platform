@@ -28,7 +28,7 @@ interface Row {
 }
 
 const inputCls =
-  "w-full rounded border border-border bg-bg px-2.5 py-1.5 text-sm text-slate-200 placeholder:text-slate-600 focus:border-cyber-500/50 focus:outline-none";
+  "w-full rounded border border-border bg-bg px-2.5 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none";
 const labelCls = "block text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-1";
 
 // ─── shared list + CRUD hook ─────────────────────────────────────────────────
@@ -110,24 +110,24 @@ function ItemList({
         return (
           <div key={r.id} className="flex items-center gap-3 rounded-lg border border-border bg-bg px-3 py-2.5">
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm text-slate-100">{title}</p>
+              <p dir="auto" className="truncate text-sm text-slate-100">{title}</p>
               <p className="text-[10px] text-slate-500">Updated {new Date(r.updated_at).toLocaleDateString()}</p>
             </div>
             <span className={cn("shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide border",
               pub ? "border-neon-green/40 bg-neon-green/10 text-neon-green" : "border-slate-500/40 bg-slate-500/10 text-slate-400")}>
               {pub ? "Published" : "Draft"}
             </span>
-            <button onClick={() => onEdit(r)} title="Edit"
+            <button onClick={() => onEdit(r)} title="Edit" aria-label={`Edit ${title}`}
               className="rounded p-1.5 text-slate-400 transition hover:bg-cyber-500/10 hover:text-cyber-300 disabled:opacity-50"
               disabled={rowBusy === r.id}>
-              <Pencil className="h-4 w-4" />
+              <Pencil className="h-4 w-4" aria-hidden="true" />
             </button>
-            <button onClick={() => onToggle(r)} title={pub ? "Unpublish" : "Publish to students"}
+            <button onClick={() => onToggle(r)} title={pub ? "Unpublish" : "Publish to students"} aria-label={pub ? `Unpublish ${title}` : `Publish ${title} to students`}
               className="rounded p-1.5 text-slate-400 transition hover:bg-cyber-500/10 hover:text-cyber-300 disabled:opacity-50"
               disabled={rowBusy === r.id}>
-              {pub ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              {pub ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
             </button>
-            <button onClick={() => onDelete(r)} title="Delete"
+            <button onClick={() => onDelete(r)} title="Delete" aria-label={`Delete ${title}`}
               className="rounded p-1.5 text-slate-400 transition hover:bg-severity-high/10 hover:text-severity-high disabled:opacity-50"
               disabled={rowBusy === r.id}>
               <Trash2 className="h-4 w-4" />
@@ -201,7 +201,7 @@ function LessonsTab() {
       <div className="mt-3 space-y-3 rounded-lg border border-cyber-500/30 bg-bg-elevated p-4">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-bold text-white">{draft.id ? "Edit lesson" : "New lesson"}</h3>
-          <button onClick={() => setDraft(null)} className="rounded p-1 text-slate-400 hover:text-white"><X className="h-4 w-4" /></button>
+          <button onClick={() => setDraft(null)} aria-label="Close editor" className="rounded p-1 text-slate-400 hover:text-white"><X className="h-4 w-4" aria-hidden="true" /></button>
         </div>
         <Banner error={error} notice={null} />
         <label className="block"><span className={labelCls}>Title</span><input className={inputCls} value={draft.title} onChange={e => up("title", e.target.value)} placeholder="e.g. Reading a Windows 4624 logon event" /></label>
@@ -223,13 +223,13 @@ function LessonsTab() {
             {draft.sections.map((s, i) => (
               <div key={i} className="rounded border border-border bg-bg p-3 space-y-2">
                 <div className="flex items-center gap-2">
-                  <input className={inputCls} value={s.heading} onChange={e => upSection(i, "heading", e.target.value)} placeholder={`Section ${i + 1} heading`} />
+                  <input aria-label={`Section ${i + 1} heading`} className={inputCls} value={s.heading} onChange={e => upSection(i, "heading", e.target.value)} placeholder={`Section ${i + 1} heading`} />
                   {draft.sections.length > 1 && (
                     <button onClick={() => up("sections", draft.sections.filter((_, j) => j !== i))} className="rounded p-1.5 text-slate-400 hover:text-severity-high" title="Remove section"><Trash2 className="h-4 w-4" /></button>
                   )}
                 </div>
-                <textarea className={cn(inputCls, "min-h-[72px]")} value={s.content} onChange={e => upSection(i, "content", e.target.value)} placeholder="Body text (Markdown supported)." />
-                <textarea className={cn(inputCls, "min-h-[40px] font-mono text-xs")} value={s.codeExample} onChange={e => upSection(i, "codeExample", e.target.value)} placeholder="Optional code / log block" />
+                <textarea aria-label={`Section ${i + 1} body`} className={cn(inputCls, "min-h-[72px]")} value={s.content} onChange={e => upSection(i, "content", e.target.value)} placeholder="Body text (Markdown supported)." />
+                <textarea aria-label={`Section ${i + 1} code example`} className={cn(inputCls, "min-h-[40px] font-mono text-xs")} value={s.codeExample} onChange={e => upSection(i, "codeExample", e.target.value)} placeholder="Optional code / log block" />
               </div>
             ))}
           </div>
@@ -317,7 +317,7 @@ function QuizzesTab() {
       <div className="mt-3 space-y-3 rounded-lg border border-cyber-500/30 bg-bg-elevated p-4">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-bold text-white">{draft.id ? "Edit quiz" : "New quiz"}</h3>
-          <button onClick={() => setDraft(null)} className="rounded p-1 text-slate-400 hover:text-white"><X className="h-4 w-4" /></button>
+          <button onClick={() => setDraft(null)} aria-label="Close editor" className="rounded p-1 text-slate-400 hover:text-white"><X className="h-4 w-4" aria-hidden="true" /></button>
         </div>
         <Banner error={error} notice={null} />
         <label className="block"><span className={labelCls}>Title</span><input className={inputCls} value={draft.title} onChange={e => up("title", e.target.value)} placeholder="e.g. Phishing triage fundamentals" /></label>
@@ -339,7 +339,7 @@ function QuizzesTab() {
             {draft.questions.map((q, qi) => (
               <div key={qi} className="rounded border border-border bg-bg p-3 space-y-2">
                 <div className="flex items-start gap-2">
-                  <textarea className={cn(inputCls, "min-h-[44px]")} value={q.question} onChange={e => upQ(qi, { question: e.target.value })} placeholder={`Question ${qi + 1}`} />
+                  <textarea aria-label={`Question ${qi + 1}`} className={cn(inputCls, "min-h-[44px]")} value={q.question} onChange={e => upQ(qi, { question: e.target.value })} placeholder={`Question ${qi + 1}`} />
                   {draft.questions.length > 1 && (
                     <button onClick={() => up("questions", draft.questions.filter((_, j) => j !== qi))} className="mt-1 rounded p-1.5 text-slate-400 hover:text-severity-high" title="Remove question"><Trash2 className="h-4 w-4" /></button>
                   )}
@@ -348,8 +348,8 @@ function QuizzesTab() {
                 <div className="space-y-1.5">
                   {q.options.map((o, oi) => (
                     <div key={oi} className="flex items-center gap-2">
-                      <input type="radio" name={`correct-${qi}`} checked={q.answer === oi} onChange={() => upQ(qi, { answer: oi })} className="accent-cyber-500" title="Mark correct" />
-                      <input className={inputCls} value={o} onChange={e => upOpt(qi, oi, e.target.value)} placeholder={`Option ${oi + 1}`} />
+                      <input type="radio" aria-label={`Option ${oi + 1} is the correct answer`} name={`correct-${qi}`} checked={q.answer === oi} onChange={() => upQ(qi, { answer: oi })} className="accent-cyber-500" title="Mark correct" />
+                      <input aria-label={`Question ${qi + 1} option ${oi + 1}`} className={inputCls} value={o} onChange={e => upOpt(qi, oi, e.target.value)} placeholder={`Option ${oi + 1}`} />
                       {q.options.length > 2 && (
                         <button onClick={() => upQ(qi, { options: q.options.filter((_, k) => k !== oi), answer: q.answer > oi ? q.answer - 1 : q.answer })} className="rounded p-1 text-slate-400 hover:text-severity-high" title="Remove option"><X className="h-3.5 w-3.5" /></button>
                       )}
@@ -359,7 +359,7 @@ function QuizzesTab() {
                 {q.options.length < 6 && (
                   <Button variant="ghost" size="sm" onClick={() => upQ(qi, { options: [...q.options, ""] })}><Plus className="h-3.5 w-3.5" /> Add option</Button>
                 )}
-                <textarea className={cn(inputCls, "min-h-[40px]")} value={q.explanation} onChange={e => upQ(qi, { explanation: e.target.value })} placeholder="Explanation shown after answering (optional)." />
+                <textarea aria-label={`Question ${qi + 1} explanation`} className={cn(inputCls, "min-h-[40px]")} value={q.explanation} onChange={e => upQ(qi, { explanation: e.target.value })} placeholder="Explanation shown after answering (optional)." />
               </div>
             ))}
           </div>
@@ -403,20 +403,20 @@ function EventListEditor({ events, onChange, withMitre }: { events: CEvent[]; on
         {events.map((ev, i) => (
           <div key={i} className="rounded border border-border bg-bg p-3 space-y-2">
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <div><span className="text-[10px] text-slate-500">+min</span><input type="number" className={inputCls} value={ev.offsetMin} onChange={e => upd(i, { offsetMin: Number(e.target.value) })} /></div>
+              <div><span className="text-[10px] text-slate-500">+min</span><input type="number" className={inputCls} aria-label={`Event ${i + 1} minute offset`} value={ev.offsetMin} onChange={e => upd(i, { offsetMin: Number(e.target.value) })} /></div>
               <div><span className="text-[10px] text-slate-500">source</span>
-                <select className={inputCls} value={ev.source} onChange={e => upd(i, { source: e.target.value })}>{LOG_SOURCES.map(s => <option key={s} value={s}>{s}</option>)}</select>
+                <select className={inputCls} aria-label={`Event ${i + 1} source`} value={ev.source} onChange={e => upd(i, { source: e.target.value })}>{LOG_SOURCES.map(s => <option key={s} value={s}>{s}</option>)}</select>
               </div>
               <div className="sm:col-span-2"><span className="text-[10px] text-slate-500">event type</span>
-                <select className={inputCls} value={ev.eventType} onChange={e => upd(i, { eventType: e.target.value })}>{EVENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select>
+                <select className={inputCls} aria-label={`Event ${i + 1} event type`} value={ev.eventType} onChange={e => upd(i, { eventType: e.target.value })}>{EVENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select>
               </div>
             </div>
             <div className="flex items-start gap-2">
-              <input className={inputCls} value={ev.description} onChange={e => upd(i, { description: e.target.value })} placeholder="Analyst-facing summary of this log line" />
-              {events.length > 1 && <button onClick={() => onChange(events.filter((_, j) => j !== i))} className="rounded p-1.5 text-slate-400 hover:text-severity-high"><Trash2 className="h-4 w-4" /></button>}
+              <input className={inputCls} aria-label={`Event ${i + 1} summary`} value={ev.description} onChange={e => upd(i, { description: e.target.value })} placeholder="Analyst-facing summary of this log line" />
+              {events.length > 1 && <button onClick={() => onChange(events.filter((_, j) => j !== i))} aria-label={`Remove event ${i + 1}`} className="rounded p-1.5 text-slate-400 hover:text-severity-high"><Trash2 className="h-4 w-4" aria-hidden="true" /></button>}
             </div>
-            {withMitre && <input className={inputCls} value={ev.mitreTechnique ?? ""} onChange={e => upd(i, { mitreTechnique: e.target.value })} placeholder="MITRE technique (optional, e.g. T1059.001)" />}
-            <textarea className={cn(inputCls, "min-h-[36px] font-mono text-xs")} value={ev.rawText} onChange={e => upd(i, { rawText: e.target.value })} placeholder={"raw fields, one per line — e.g.\nsrc_ip: 10.0.0.5"} />
+            {withMitre && <input className={inputCls} aria-label={`Event ${i + 1} MITRE technique`} value={ev.mitreTechnique ?? ""} onChange={e => upd(i, { mitreTechnique: e.target.value })} placeholder="MITRE technique (optional, e.g. T1059.001)" />}
+            <textarea className={cn(inputCls, "min-h-[36px] font-mono text-xs")} aria-label={`Event ${i + 1} raw fields`} value={ev.rawText} onChange={e => upd(i, { rawText: e.target.value })} placeholder={"raw fields, one per line — e.g.\nsrc_ip: 10.0.0.5"} />
           </div>
         ))}
       </div>
@@ -530,7 +530,7 @@ function ScenariosTab() {
       <div className="mt-3 space-y-3 rounded-lg border border-cyber-500/30 bg-bg-elevated p-4">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-bold text-white">{draft.id ? "Edit scenario" : "New scenario"}</h3>
-          <button onClick={() => setDraft(null)} className="rounded p-1 text-slate-400 hover:text-white"><X className="h-4 w-4" /></button>
+          <button onClick={() => setDraft(null)} aria-label="Close editor" className="rounded p-1 text-slate-400 hover:text-white"><X className="h-4 w-4" aria-hidden="true" /></button>
         </div>
         <Banner error={error} notice={null} />
         <label className="block"><span className={labelCls}>Title</span><input className={inputCls} value={draft.title} onChange={e => up("title", e.target.value)} placeholder="e.g. After-hours data staging on the file server" /></label>
@@ -561,19 +561,19 @@ function ScenariosTab() {
             {draft.events.map((ev, i) => (
               <div key={i} className="rounded border border-border bg-bg p-3 space-y-2">
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  <div><span className="text-[10px] text-slate-500">+min</span><input type="number" className={inputCls} value={ev.offsetMin} onChange={e => upEvent(i, { offsetMin: Number(e.target.value) })} /></div>
+                  <div><span className="text-[10px] text-slate-500">+min</span><input type="number" className={inputCls} aria-label={`Event ${i + 1} minute offset`} value={ev.offsetMin} onChange={e => upEvent(i, { offsetMin: Number(e.target.value) })} /></div>
                   <div className="sm:col-span-1"><span className="text-[10px] text-slate-500">source</span>
-                    <select className={inputCls} value={ev.source} onChange={e => upEvent(i, { source: e.target.value })}>{LOG_SOURCES.map(s => <option key={s} value={s}>{s}</option>)}</select>
+                    <select className={inputCls} aria-label={`Event ${i + 1} source`} value={ev.source} onChange={e => upEvent(i, { source: e.target.value })}>{LOG_SOURCES.map(s => <option key={s} value={s}>{s}</option>)}</select>
                   </div>
                   <div className="sm:col-span-2"><span className="text-[10px] text-slate-500">event type</span>
-                    <select className={inputCls} value={ev.eventType} onChange={e => upEvent(i, { eventType: e.target.value })}>{EVENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select>
+                    <select className={inputCls} aria-label={`Event ${i + 1} event type`} value={ev.eventType} onChange={e => upEvent(i, { eventType: e.target.value })}>{EVENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
-                  <input className={inputCls} value={ev.description} onChange={e => upEvent(i, { description: e.target.value })} placeholder="Analyst-facing summary of this log line" />
-                  {draft.events.length > 1 && <button onClick={() => up("events", draft.events.filter((_, j) => j !== i))} className="rounded p-1.5 text-slate-400 hover:text-severity-high"><Trash2 className="h-4 w-4" /></button>}
+                  <input className={inputCls} aria-label={`Event ${i + 1} summary`} value={ev.description} onChange={e => upEvent(i, { description: e.target.value })} placeholder="Analyst-facing summary of this log line" />
+                  {draft.events.length > 1 && <button onClick={() => up("events", draft.events.filter((_, j) => j !== i))} aria-label={`Remove event ${i + 1}`} className="rounded p-1.5 text-slate-400 hover:text-severity-high"><Trash2 className="h-4 w-4" aria-hidden="true" /></button>}
                 </div>
-                <textarea className={cn(inputCls, "min-h-[40px] font-mono text-xs")} value={ev.rawText} onChange={e => upEvent(i, { rawText: e.target.value })} placeholder={"raw fields, one per line — e.g.\nprocess.name: powershell.exe\nsrc_ip: 10.0.0.5"} />
+                <textarea className={cn(inputCls, "min-h-[40px] font-mono text-xs")} aria-label={`Event ${i + 1} raw fields`} value={ev.rawText} onChange={e => upEvent(i, { rawText: e.target.value })} placeholder={"raw fields, one per line — e.g.\nprocess.name: powershell.exe\nsrc_ip: 10.0.0.5"} />
               </div>
             ))}
           </div>
@@ -586,9 +586,9 @@ function ScenariosTab() {
           <div className="space-y-2">
             {draft.iocs.map((io, i) => (
               <div key={i} className="flex items-center gap-2">
-                <select className={cn(inputCls, "max-w-[120px]")} value={io.type} onChange={e => upIoc(i, { type: e.target.value })}>{IOC_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select>
-                <input className={inputCls} value={io.value} onChange={e => upIoc(i, { value: e.target.value })} placeholder="value (must also appear in an event above)" />
-                <button onClick={() => up("iocs", draft.iocs.filter((_, j) => j !== i))} className="rounded p-1 text-slate-400 hover:text-severity-high"><X className="h-3.5 w-3.5" /></button>
+                <select className={cn(inputCls, "max-w-[120px]")} aria-label={`IOC ${i + 1} type`} value={io.type} onChange={e => upIoc(i, { type: e.target.value })}>{IOC_TYPES.map(t => <option key={t} value={t}>{t}</option>)}</select>
+                <input className={inputCls} aria-label={`IOC ${i + 1} value`} value={io.value} onChange={e => upIoc(i, { value: e.target.value })} placeholder="value (must also appear in an event above)" />
+                <button onClick={() => up("iocs", draft.iocs.filter((_, j) => j !== i))} aria-label={`Remove IOC ${i + 1}`} className="rounded p-1 text-slate-400 hover:text-severity-high"><X className="h-3.5 w-3.5" aria-hidden="true" /></button>
               </div>
             ))}
           </div>
@@ -602,28 +602,28 @@ function ScenariosTab() {
             {draft.questions.map((q, qi) => (
               <div key={qi} className="rounded border border-border bg-bg p-3 space-y-2">
                 <div className="flex items-start gap-2">
-                  <textarea className={cn(inputCls, "min-h-[44px]")} value={q.prompt} onChange={e => upQ(qi, { prompt: e.target.value })} placeholder={`Question ${qi + 1}`} />
-                  <select className={cn(inputCls, "max-w-[110px]")} value={q.kind} onChange={e => upQ(qi, { kind: e.target.value as "single" | "multi", correct: [] })}>
+                  <textarea className={cn(inputCls, "min-h-[44px]")} aria-label={`Question ${qi + 1}`} value={q.prompt} onChange={e => upQ(qi, { prompt: e.target.value })} placeholder={`Question ${qi + 1}`} />
+                  <select className={cn(inputCls, "max-w-[110px]")} aria-label={`Question ${qi + 1} answer type`} value={q.kind} onChange={e => upQ(qi, { kind: e.target.value as "single" | "multi", correct: [] })}>
                     <option value="single">Single</option><option value="multi">Multi</option>
                   </select>
-                  {draft.questions.length > 1 && <button onClick={() => up("questions", draft.questions.filter((_, j) => j !== qi))} className="mt-1 rounded p-1.5 text-slate-400 hover:text-severity-high"><Trash2 className="h-4 w-4" /></button>}
+                  {draft.questions.length > 1 && <button onClick={() => up("questions", draft.questions.filter((_, j) => j !== qi))} aria-label={`Remove question ${qi + 1}`} className="mt-1 rounded p-1.5 text-slate-400 hover:text-severity-high"><Trash2 className="h-4 w-4" aria-hidden="true" /></button>}
                 </div>
                 <p className="text-[10px] text-slate-500">Mark the correct {q.kind === "multi" ? "answers" : "answer"}.</p>
                 <div className="space-y-1.5">
                   {q.options.map((o, oi) => (
                     <div key={oi} className="flex items-center gap-2">
-                      <input type={q.kind === "multi" ? "checkbox" : "radio"} name={`s-correct-${qi}`} checked={q.correct.includes(oi)} onChange={() => setCorrect(qi, oi, q.kind)} className="accent-cyber-500" />
-                      <input className={inputCls} value={o} onChange={e => upQOpt(qi, oi, e.target.value)} placeholder={`Option ${oi + 1}`} />
-                      {q.options.length > 2 && <button onClick={() => upQ(qi, { options: q.options.filter((_, k) => k !== oi), correct: q.correct.filter(x => x !== oi).map(x => x > oi ? x - 1 : x) })} className="rounded p-1 text-slate-400 hover:text-severity-high"><X className="h-3.5 w-3.5" /></button>}
+                      <input type={q.kind === "multi" ? "checkbox" : "radio"} aria-label={`Option ${oi + 1} is correct`} name={`s-correct-${qi}`} checked={q.correct.includes(oi)} onChange={() => setCorrect(qi, oi, q.kind)} className="accent-cyber-500" />
+                      <input aria-label={`Question ${qi + 1} option ${oi + 1}`} className={inputCls} value={o} onChange={e => upQOpt(qi, oi, e.target.value)} placeholder={`Option ${oi + 1}`} />
+                      {q.options.length > 2 && <button onClick={() => upQ(qi, { options: q.options.filter((_, k) => k !== oi), correct: q.correct.filter(x => x !== oi).map(x => x > oi ? x - 1 : x) })} aria-label={`Remove option ${oi + 1}`} className="rounded p-1 text-slate-400 hover:text-severity-high"><X className="h-3.5 w-3.5" aria-hidden="true" /></button>}
                     </div>
                   ))}
                 </div>
                 {q.options.length < 6 && <Button variant="ghost" size="sm" onClick={() => upQ(qi, { options: [...q.options, ""] })}><Plus className="h-3.5 w-3.5" /> Add option</Button>}
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] text-slate-500">XP</span>
-                  <input type="number" className={cn(inputCls, "max-w-[90px]")} value={q.xp} onChange={e => upQ(qi, { xp: Number(e.target.value) })} />
+                  <input type="number" className={cn(inputCls, "max-w-[90px]")} aria-label={`Question ${qi + 1} XP`} value={q.xp} onChange={e => upQ(qi, { xp: Number(e.target.value) })} />
                 </div>
-                <textarea className={cn(inputCls, "min-h-[40px]")} value={q.explanation} onChange={e => upQ(qi, { explanation: e.target.value })} placeholder="Explanation shown after answering (optional)." />
+                <textarea aria-label={`Question ${qi + 1} explanation`} className={cn(inputCls, "min-h-[40px]")} value={q.explanation} onChange={e => upQ(qi, { explanation: e.target.value })} placeholder="Explanation shown after answering (optional)." />
               </div>
             ))}
           </div>
@@ -731,7 +731,7 @@ function RoomsTab() {
       <div className="mt-3 space-y-3 rounded-lg border border-cyber-500/30 bg-bg-elevated p-4">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-bold text-white">{draft.id ? "Edit room" : "New room"}</h3>
-          <button onClick={() => setDraft(null)} className="rounded p-1 text-slate-400 hover:text-white"><X className="h-4 w-4" /></button>
+          <button onClick={() => setDraft(null)} aria-label="Close editor" className="rounded p-1 text-slate-400 hover:text-white"><X className="h-4 w-4" aria-hidden="true" /></button>
         </div>
         <Banner error={error} notice={null} />
         <label className="block"><span className={labelCls}>Title</span><input className={inputCls} value={draft.title} onChange={e => up("title", e.target.value)} placeholder="e.g. Reading Windows logon events" /></label>
@@ -757,33 +757,33 @@ function RoomsTab() {
                   {draft.tasks.length > 1 && <button onClick={() => up("tasks", draft.tasks.filter((_, j) => j !== i))} className="rounded p-1 text-slate-400 hover:text-severity-high" title="Remove task"><Trash2 className="h-4 w-4" /></button>}
                 </div>
                 {t.kind === "reading" && (<>
-                  <input className={inputCls} value={t.heading ?? ""} onChange={e => upTask(i, { heading: e.target.value })} placeholder="Section heading" />
-                  <textarea className={cn(inputCls, "min-h-[72px]")} value={t.body ?? ""} onChange={e => upTask(i, { body: e.target.value })} placeholder="Reading content (Markdown supported)." />
-                  <textarea className={cn(inputCls, "min-h-[40px] font-mono text-xs")} value={t.codeExample ?? ""} onChange={e => upTask(i, { codeExample: e.target.value })} placeholder="Optional code / log block" />
+                  <input className={inputCls} aria-label={`Task ${i + 1} section heading`} value={t.heading ?? ""} onChange={e => upTask(i, { heading: e.target.value })} placeholder="Section heading" />
+                  <textarea className={cn(inputCls, "min-h-[72px]")} aria-label={`Task ${i + 1} reading content`} value={t.body ?? ""} onChange={e => upTask(i, { body: e.target.value })} placeholder="Reading content (Markdown supported)." />
+                  <textarea className={cn(inputCls, "min-h-[40px] font-mono text-xs")} aria-label={`Task ${i + 1} code example`} value={t.codeExample ?? ""} onChange={e => upTask(i, { codeExample: e.target.value })} placeholder="Optional code / log block" />
                 </>)}
                 {t.kind === "question" && (<>
-                  <textarea className={cn(inputCls, "min-h-[40px]")} value={t.question ?? ""} onChange={e => upTask(i, { question: e.target.value })} placeholder="Question" />
+                  <textarea className={cn(inputCls, "min-h-[40px]")} aria-label={`Task ${i + 1} question`} value={t.question ?? ""} onChange={e => upTask(i, { question: e.target.value })} placeholder="Question" />
                   <p className="text-[10px] text-slate-500">Select the radio next to the correct answer.</p>
                   <div className="space-y-1.5">
                     {(t.options ?? []).map((o, oi) => (
                       <div key={oi} className="flex items-center gap-2">
-                        <input type="radio" name={`r-correct-${i}`} checked={t.correct === oi} onChange={() => upTask(i, { correct: oi })} className="accent-cyber-500" />
-                        <input className={inputCls} value={o} onChange={e => upOpt(i, oi, e.target.value)} placeholder={`Option ${oi + 1}`} />
-                        {(t.options ?? []).length > 2 && <button onClick={() => upTask(i, { options: (t.options ?? []).filter((_, k) => k !== oi), correct: (t.correct ?? 0) > oi ? (t.correct ?? 0) - 1 : t.correct })} className="rounded p-1 text-slate-400 hover:text-severity-high"><X className="h-3.5 w-3.5" /></button>}
+                        <input type="radio" aria-label={`Option ${oi + 1} is the correct answer`} name={`r-correct-${i}`} checked={t.correct === oi} onChange={() => upTask(i, { correct: oi })} className="accent-cyber-500" />
+                        <input aria-label={`Task ${i + 1} option ${oi + 1}`} className={inputCls} value={o} onChange={e => upOpt(i, oi, e.target.value)} placeholder={`Option ${oi + 1}`} />
+                        {(t.options ?? []).length > 2 && <button onClick={() => upTask(i, { options: (t.options ?? []).filter((_, k) => k !== oi), correct: (t.correct ?? 0) > oi ? (t.correct ?? 0) - 1 : t.correct })} aria-label={`Remove option ${oi + 1}`} className="rounded p-1 text-slate-400 hover:text-severity-high"><X className="h-3.5 w-3.5" aria-hidden="true" /></button>}
                       </div>
                     ))}
                   </div>
                   {(t.options ?? []).length < 6 && <Button variant="ghost" size="sm" onClick={() => upTask(i, { options: [...(t.options ?? []), ""] })}><Plus className="h-3.5 w-3.5" /> Add option</Button>}
-                  <textarea className={cn(inputCls, "min-h-[40px]")} value={t.explanation ?? ""} onChange={e => upTask(i, { explanation: e.target.value })} placeholder="Explanation shown after answering." />
+                  <textarea className={cn(inputCls, "min-h-[40px]")} aria-label={`Task ${i + 1} explanation`} value={t.explanation ?? ""} onChange={e => upTask(i, { explanation: e.target.value })} placeholder="Explanation shown after answering." />
                 </>)}
                 {t.kind === "flag" && (<>
-                  <textarea className={cn(inputCls, "min-h-[40px]")} value={t.prompt ?? ""} onChange={e => upTask(i, { prompt: e.target.value })} placeholder="Prompt — what value should the analyst find?" />
-                  <input className={inputCls} value={t.answer ?? ""} onChange={e => upTask(i, { answer: e.target.value })} placeholder="Exact flag value (matched case-insensitively)" />
-                  <input className={inputCls} value={t.hint ?? ""} onChange={e => upTask(i, { hint: e.target.value })} placeholder="Optional hint" />
+                  <textarea className={cn(inputCls, "min-h-[40px]")} aria-label={`Task ${i + 1} prompt`} value={t.prompt ?? ""} onChange={e => upTask(i, { prompt: e.target.value })} placeholder="Prompt — what value should the analyst find?" />
+                  <input className={inputCls} aria-label={`Task ${i + 1} flag value`} value={t.answer ?? ""} onChange={e => upTask(i, { answer: e.target.value })} placeholder="Exact flag value (matched case-insensitively)" />
+                  <input className={inputCls} aria-label={`Task ${i + 1} hint`} value={t.hint ?? ""} onChange={e => upTask(i, { hint: e.target.value })} placeholder="Optional hint" />
                 </>)}
                 {t.kind !== "reading" && (
                   <div className="flex items-center gap-2"><span className="text-[10px] text-slate-500">XP</span>
-                    <input type="number" className={cn(inputCls, "max-w-[90px]")} value={t.xp ?? 25} onChange={e => upTask(i, { xp: Number(e.target.value) })} /></div>
+                    <input type="number" className={cn(inputCls, "max-w-[90px]")} aria-label={`Task ${i + 1} XP`} value={t.xp ?? 25} onChange={e => upTask(i, { xp: Number(e.target.value) })} /></div>
                 )}
               </div>
             ))}
@@ -888,7 +888,7 @@ function CompaniesTab() {
       <div className="mt-3 space-y-3 rounded-lg border border-cyber-500/30 bg-bg-elevated p-4">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-bold text-white">{draft.id ? "Edit environment" : "New environment"}</h3>
-          <button onClick={() => setDraft(null)} className="rounded p-1 text-slate-400 hover:text-white"><X className="h-4 w-4" /></button>
+          <button onClick={() => setDraft(null)} aria-label="Close editor" className="rounded p-1 text-slate-400 hover:text-white"><X className="h-4 w-4" aria-hidden="true" /></button>
         </div>
         <Banner error={error} notice={null} />
         <p className="text-[11px] text-slate-500">A custom company your students monitor in the SOC Dashboard live feed: its profile, its benign background noise, and one hidden attack story.</p>
@@ -904,7 +904,7 @@ function CompaniesTab() {
           <label className={labelCls}>Active log sources (drives the feed's source filter)</label>
           <div className="flex flex-wrap gap-1.5">
             {COMMON_LOG_SOURCES.map(s => (
-              <button key={s} onClick={() => toggleSource(s)}
+              <button key={s} onClick={() => toggleSource(s)} aria-pressed={draft.sources.includes(s)}
                 className={cn("rounded border px-2 py-1 text-[11px] font-mono transition",
                   draft.sources.includes(s) ? "border-cyber-500/60 bg-cyber-500/15 text-cyber-300" : "border-border bg-bg text-slate-400 hover:text-slate-200")}>
                 {s}
@@ -917,8 +917,8 @@ function CompaniesTab() {
         </div>
         <div className="rounded border border-severity-high/30 bg-severity-high/5 p-3 space-y-2">
           <label className={labelCls}>Hidden attack story</label>
-          <input className={inputCls} value={draft.storyTitle} onChange={e => up("storyTitle", e.target.value)} placeholder="Attack title (the ground truth graded against the report)" />
-          <input className={inputCls} value={draft.storyMitre} onChange={e => up("storyMitre", e.target.value)} placeholder="MITRE techniques, comma-separated (optional — else derived from events)" />
+          <input className={inputCls} aria-label="Attack title" value={draft.storyTitle} onChange={e => up("storyTitle", e.target.value)} placeholder="Attack title (the ground truth graded against the report)" />
+          <input className={inputCls} aria-label="MITRE techniques" value={draft.storyMitre} onChange={e => up("storyMitre", e.target.value)} placeholder="MITRE techniques, comma-separated (optional — else derived from events)" />
           <EventListEditor events={draft.storyEvents} onChange={e => up("storyEvents", e)} withMitre />
         </div>
         <div className="flex items-center gap-2 pt-1">
@@ -963,12 +963,12 @@ export function ContentAuthoringPanel() {
         Write lessons, quizzes, scenarios, rooms and live-feed environments unique to your college. Published items appear to your students alongside the global built-in content. Drafts are visible only to you.
       </p>
 
-      <div className="mt-3 flex gap-1 border-b border-border">
+      <div role="tablist" aria-label="Content type" className="mt-3 flex gap-1 border-b border-border">
         {TABS.map(({ id, label, icon: Icon }) => (
-          <button key={id} onClick={() => setTab(id)}
+          <button key={id} onClick={() => setTab(id)} role="tab" aria-selected={tab === id}
             className={cn("flex items-center gap-1.5 px-3 py-2 text-xs font-semibold transition -mb-px border-b-2",
               tab === id ? "border-cyber-400 text-cyber-300" : "border-transparent text-slate-400 hover:text-slate-200")}>
-            <Icon className="h-3.5 w-3.5" /> {label}
+            <Icon className="h-3.5 w-3.5" aria-hidden="true" /> {label}
           </button>
         ))}
       </div>

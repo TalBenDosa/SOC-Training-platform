@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
-import { Button } from "@/components/ui/Button";
+import { buttonClasses } from "@/components/ui/Button";
 import { RecoveryRedirect } from "@/components/auth/RecoveryRedirect";
 import {
   Activity, ArrowRight, BookOpen, ClipboardCheck, Cloud, Fingerprint, Lock,
@@ -126,14 +126,17 @@ export default function Landing() {
           <Link href="/login" className="hidden text-sm text-slate-300 transition hover:text-cyber-300 sm:block">
             Sign in
           </Link>
-          <Link href="/join">
-            <Button variant="primary">Get access</Button>
+          <Link href="/join" className={buttonClasses("primary", "md")}>
+            Get access
           </Link>
         </div>
       </header>
 
+      {/* <main> wraps every content section (hero → access) so all page content
+          sits in a landmark; the skip link targets it. */}
+      <main id="main-content">
       {/* ── Hero ────────────────────────────────────────────────────────────── */}
-      <section id="main-content" className="container mx-auto max-w-7xl px-6 pb-8 pt-12 md:pt-20">
+      <section className="container mx-auto max-w-7xl px-6 pb-8 pt-12 md:pt-20">
         <div className="mx-auto max-w-3xl text-center">
           <div className="rise-in inline-flex items-center gap-2 rounded-full border border-cyber-500/30 bg-cyber-500/5 px-3 py-1 text-xs">
             <span className="relative flex h-1.5 w-1.5">
@@ -175,13 +178,11 @@ export default function Landing() {
             className="rise-in mt-9 flex flex-wrap items-center justify-center gap-3"
             style={{ animationDelay: "300ms" }}
           >
-            <Link href="/join">
-              <Button size="lg" variant="primary">
-                Get access <ArrowRight className="h-4 w-4" />
-              </Button>
+            <Link href="/join" className={buttonClasses("primary", "lg")}>
+              Get access <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
-            <Link href="/login">
-              <Button size="lg" variant="outline">Sign in</Button>
+            <Link href="/login" className={buttonClasses("outline", "lg")}>
+              Sign in
             </Link>
           </div>
           <p className="rise-in mt-4 text-xs text-slate-500" style={{ animationDelay: "340ms" }}>
@@ -303,7 +304,7 @@ export default function Landing() {
         <ol className="mt-14 grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
           {SHIFT.map(s => (
             <li key={s.n} className="group bg-bg-elevated p-6 transition hover:bg-bg-hover">
-              <span className="font-mono text-2xl font-bold text-cyber-500/40 transition group-hover:text-cyber-400">
+              <span className="font-mono text-2xl font-bold text-cyber-500/70 transition group-hover:text-cyber-400">
                 {s.n}
               </span>
               <h3 className="mt-3 font-semibold text-white">{s.t}</h3>
@@ -473,19 +474,18 @@ export default function Landing() {
                   </li>
                 ))}
               </ul>
-              <Link href="/join" className="mt-7 block">
-                <Button size="lg" variant="primary" className="w-full">
-                  Get access <ArrowRight className="h-4 w-4" />
-                </Button>
+              <Link href="/join" className={buttonClasses("primary", "lg", "mt-7 flex w-full")}>
+                Get access <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Link>
               <p className="mt-3 text-center text-xs text-slate-500">
-                Already registered? <Link href="/login" className="text-cyber-300 underline-offset-2 hover:underline">Sign in</Link>
+                Already registered? <Link href="/login" className="text-cyber-300 underline underline-offset-2 hover:text-cyber-200">Sign in</Link>
                 {" · "}Licensing an environment is arranged directly — talk to us first.
               </p>
             </div>
           </div>
         </div>
       </section>
+      </main>
 
       {/* ── Footer ──────────────────────────────────────────────────────────── */}
       <footer className="border-t border-border py-8">
@@ -493,10 +493,10 @@ export default function Landing() {
           <Logo size="sm" />
           <p>© 2026 HACK THE SOC · Synthetic data only · Not a replacement for production SOC tooling.</p>
           <div className="flex items-center gap-4">
-            <Link href="/privacy" className="text-slate-400 underline-offset-2 hover:text-cyber-300 hover:underline">
+            <Link href="/privacy" className="text-slate-400 underline underline-offset-2 hover:text-cyber-300">
               Privacy &amp; data
             </Link>
-            <Link href="/accessibility" className="text-slate-400 underline-offset-2 hover:text-cyber-300 hover:underline">
+            <Link href="/accessibility" className="text-slate-400 underline underline-offset-2 hover:text-cyber-300">
               Accessibility
             </Link>
           </div>

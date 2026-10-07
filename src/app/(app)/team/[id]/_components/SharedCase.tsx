@@ -8,6 +8,7 @@ import { sevColor, asStr } from "@/lib/team/format";
 import { containmentRequests, escalationStates, incidentByEvent, scopeByIncident, type ScopeSnapshot } from "@/lib/team/projections";
 import { ROLE_LABEL } from "./shared";
 import { containmentVerb } from "./T2Console";
+import { useNewItemsAnnouncement, LiveRegion, clip } from "./useLiveAnnounce";
 
 // ── Shared Case panel (§5.1) — the one artifact the whole team works ──────────
 const CASE_STATUSES = ["new", "triaged", "investigating", "contained", "eradicated", "closed"];
@@ -97,27 +98,39 @@ export function SharedCase({ events, feed, roster, me, act, nameOf }: { events: 
   const canAssign = ["lead", "mgr"].includes(me.role ?? "");
   const players = roster.filter(r => r.role !== "instructor" && r.role !== "observer");
 
+  // Throttled screen-reader updates for new case evidence, assignments and status moves.
+  const caseUpdates = useMemo(() => events.filter(e => e.type === "escalation.requested" || e.type === "case.assigned" || e.type === "case.status_set"), [events]);
+  const announcement = useNewItemsAnnouncement(caseUpdates, e => e.seq, fresh => {
+    const last = fresh[fresh.length - 1];
+    const p = last.payload as { summary?: string; what?: string; owner?: string; status?: string };
+    const latest = last.type === "case.assigned" ? `case owner assigned to ${p.owner ? nameOf(p.owner) : "nobody"}`
+      : last.type === "case.status_set" ? `case status set to ${asStr(p.status)}`
+      : `new escalation from ${nameOf(last.actor_id)}: ${clip(asStr(p.summary) || asStr(p.what) || "a log", 100)}`;
+    return fresh.length === 1 ? `Shared case: ${latest}` : `Shared case: ${fresh.length} updates. Latest: ${latest}`;
+  }, { throttleMs: 8000 });
+
   async function addNote() { if (!note.trim()) return; setBusy(true); const ok = await act("note.added", { text: note }); setBusy(false); if (ok) setNote(""); }
 
   const huntRow = (h: Ev) => { const p = h.payload as { hypothesis?: string; finding?: string; technique?: string; conclusion?: string }; const c = asStr(p.conclusion); return (
     <div key={h.seq} className="rounded border border-neon-purple/25 bg-neon-purple/[0.05] px-2 py-1 text-[11px]">
       <p className="text-slate-200"><Crosshair className="mr-1 inline h-3 w-3 text-neon-purple" />{asStr(p.hypothesis)} <span className={`ml-1 rounded border px-1 py-px text-[9px] font-bold uppercase ${c === "confirmed" ? "border-severity-high/40 text-severity-high" : c === "refuted" ? "border-neon-green/40 text-neon-green" : "border-border text-slate-400"}`}>{c || "logged"}</span>{asStr(p.technique) && <span className="ml-1 font-mono text-[10px] text-cyber-300">{asStr(p.technique)}</span>}</p>
       {asStr(p.finding) && <p className="mt-0.5 text-slate-400">{asStr(p.finding)}</p>}
-      <p className="font-mono text-[10px] text-slate-500">{nameOf(h.actor_id)}</p>
+      <p className="font-mono text-[10px] text-slate-500"><bdi>{nameOf(h.actor_id)}</bdi></p>
     </div>
   ); };
 
   return (
     <Card>
+      <LiveRegion message={announcement} />
       {/* G-02: thin collapsible summary bar — status·sev·owner·scope·evidence — the
           feed stays the team's primary truth; the case opens to full detail on click */}
-      <button onClick={() => setOpen(o => !o)} className="flex w-full flex-wrap items-center gap-2 text-left">
-        <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${open ? "" : "-rotate-90"}`} />
+      <button onClick={() => setOpen(o => !o)} aria-expanded={open} className="flex w-full flex-wrap items-center gap-2 text-left">
+        <ChevronDown aria-hidden="true" className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${open ? "" : "-rotate-90"}`} />
         <h2 className="flex items-center gap-2 text-sm font-bold text-white"><FolderOpen className="h-4 w-4 text-cyber-300" /> Shared case</h2>
         <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${status === "closed" ? "border-neon-green/40 bg-neon-green/10 text-neon-green" : status === "contained" || status === "eradicated" ? "border-cyber-500/40 bg-cyber-500/10 text-cyber-300" : "border-neon-amber/40 bg-neon-amber/10 text-neon-amber"}`}>{status}</span>
         <span className={`rounded border px-1.5 py-0.5 text-[10px] font-bold uppercase ${sevRank(severity) >= 3 ? "border-severity-high/40 bg-severity-high/10 text-severity-high" : "border-border text-slate-400"}`}>sev {severity}</span>
         <span className="hidden font-mono text-[10px] text-slate-500 sm:inline">{groups.list.length} incident{groups.list.length === 1 ? "" : "s"} · {dispHosts.length}h · {dispUsers.length}u · {dispTechs.length}t · {escs.length} ev{hunts.length ? ` · ${hunts.length} hunt` : ""}{executed.length ? ` · ${executed.length} contained` : ""}</span>
-        <span className="ml-auto text-[11px] text-slate-400">owner: <span className="text-slate-200">{ownerId ? nameOf(ownerId) : "unassigned"}</span></span>
+        <span className="ml-auto text-[11px] text-slate-400">owner: <bdi className="text-slate-200">{ownerId ? nameOf(ownerId) : "unassigned"}</bdi></span>
       </button>
 
       {open && (<>
@@ -128,14 +141,14 @@ export function SharedCase({ events, feed, roster, me, act, nameOf }: { events: 
       {/* lifecycle stepper */}
       <div className="mt-3 flex flex-wrap items-center gap-1">
         {CASE_STATUSES.map(s => (
-          <button key={s} disabled={!canStatus || busy || s === status}
+          <button key={s} aria-pressed={s === status} disabled={!canStatus || busy || s === status}
             onClick={async () => { setBusy(true); await act("case.status_set", { status: s, severity }); setBusy(false); }}
-            className={`rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-wider transition ${s === status ? "border-cyber-500/50 bg-cyber-500/10 text-cyber-300" : canStatus ? "border-border text-slate-400 hover:text-white" : "border-border/50 text-slate-600"}`}>{s}</button>
+            className={`rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-wider transition ${s === status ? "border-cyber-500/50 bg-cyber-500/10 text-cyber-300" : canStatus ? "border-border text-slate-400 hover:text-white" : "border-border/50 text-slate-500"}`}>{s}</button>
         ))}
       </div>
       {canAssign && (
         <div className="mt-2">
-          <select value={ownerId ?? ""} onChange={async e => { setBusy(true); await act("case.assigned", { owner: e.target.value }); setBusy(false); }}
+          <select aria-label="Assign case owner" value={ownerId ?? ""} onChange={async e => { setBusy(true); await act("case.assigned", { owner: e.target.value }); setBusy(false); }}
             className="rounded-lg border border-border bg-bg px-2 py-1 text-xs text-slate-200 focus:outline-none">
             <option value="">assign owner…</option>
             {players.map(p => <option key={p.user_id} value={p.user_id}>{p.name} · {ROLE_LABEL[p.role] ?? p.role}</option>)}
@@ -179,7 +192,7 @@ export function SharedCase({ events, feed, roster, me, act, nameOf }: { events: 
                         <div className="flex items-center gap-2">
                           <span className={`h-1 w-1 shrink-0 rounded-full ${sevColor(fe?.severity)}`} />
                           <span className="min-w-0 flex-1 truncate text-slate-300">{asStr(p.summary) || asStr(p.what) || "escalation"}</span>
-                          <span className="shrink-0 font-mono text-[10px] text-slate-500">{nameOf(e.actor_id)}{st?.owner ? ` → ${nameOf(st.owner)}` : ""}</span>
+                          <span className="shrink-0 font-mono text-[10px] text-slate-500"><bdi>{nameOf(e.actor_id)}</bdi>{st?.owner ? <> → <bdi>{nameOf(st.owner)}</bdi></> : ""}</span>
                           <span className="shrink-0 font-mono text-[9px] uppercase text-slate-500">{st?.resolved ? "resolved" : st?.bounced ? "bounced" : st?.acked ? "taken" : "open"}</span>
                         </div>
                         {cont.map(r => <p key={r.seq} className={`ml-3 text-[10px] ${r.status === "denied" ? "text-severity-high" : r.status === "executed" ? "text-neon-green" : "text-cyber-300"}`}>{containmentVerb(asStr((r.request.payload as { containment_type?: string }).containment_type))} {asStr((r.request.payload as { target?: string }).target)} — {r.status}</p>)}
@@ -193,7 +206,7 @@ export function SharedCase({ events, feed, roster, me, act, nameOf }: { events: 
                     <div className="flex items-center gap-2">
                       {v && <span className={`shrink-0 rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase ${v === "true_positive" || v === "escalate" ? "border-severity-high/40 bg-severity-high/10 text-severity-high" : "border-border text-slate-400"}`}>{v.replace("_", " ")}</span>}
                       <span className="min-w-0 flex-1 truncate text-slate-200">{asStr(p.summary) || "incident report"}</span>
-                      <span className="shrink-0 font-mono text-[10px] text-slate-500">{nameOf(e.actor_id)}</span>
+                      <span className="shrink-0 font-mono text-[10px] text-slate-500"><bdi>{nameOf(e.actor_id)}</bdi></span>
                     </div>
                     {asStr(p.recommendation) && <p className="mt-0.5 text-cyber-200"><span className="text-slate-500">▶ recommends:</span> {asStr(p.recommendation)}</p>}
                   </div>
@@ -217,11 +230,11 @@ export function SharedCase({ events, feed, roster, me, act, nameOf }: { events: 
         <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Case notes ({notes.length})</p>
         {notes.length > 0 && (
           <div className="mb-2 max-h-40 space-y-1 overflow-y-auto">
-            {notes.slice().reverse().map(e => <p key={e.seq} className="whitespace-pre-wrap break-words text-xs text-slate-300"><span className="font-medium text-slate-200">{nameOf(e.actor_id)}:</span> {String((e.payload as { text?: string }).text ?? "")}</p>)}
+            {notes.slice().reverse().map(e => <p key={e.seq} className="whitespace-pre-wrap break-words text-xs text-slate-300"><bdi className="font-medium text-slate-200">{nameOf(e.actor_id)}</bdi>: <bdi>{String((e.payload as { text?: string }).text ?? "")}</bdi></p>)}
           </div>
         )}
         <div className="flex gap-2">
-          <input value={note} onChange={e => setNote(e.target.value)} onKeyDown={e => { if (e.key === "Enter") addNote(); }} placeholder="Add a case note…" className="flex-1 rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+          <input aria-label="Add a case note" dir="auto" value={note} onChange={e => setNote(e.target.value)} onKeyDown={e => { if (e.key === "Enter") addNote(); }} placeholder="Add a case note…" className="flex-1 rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
           <Button variant="outline" size="sm" disabled={busy || !note.trim()} onClick={addNote}>Add</Button>
         </div>
       </div>
@@ -233,7 +246,7 @@ function ScopeBox({ label, items, accent }: { label: string; items: string[]; ac
   return (
     <div className="rounded-lg border border-border bg-bg px-2 py-1.5">
       <p className="text-[10px] uppercase tracking-wider text-slate-400">{label}</p>
-      {items.length === 0 ? <p className="text-[11px] text-slate-600">—</p> : (
+      {items.length === 0 ? <p className="text-[11px] text-slate-500">—</p> : (
         <div className="mt-1 flex flex-wrap gap-1">{items.slice(0, 8).map(i => <span key={i} className={`rounded px-1.5 py-0.5 font-mono text-[10px] ${accent ? "bg-cyber-500/10 text-cyber-300" : "bg-white/5 text-slate-300"}`}>{i}</span>)}{items.length > 8 && <span className="text-[10px] text-slate-500">+{items.length - 8}</span>}</div>
       )}
     </div>

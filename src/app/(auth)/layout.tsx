@@ -12,6 +12,12 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <main id="main-content" className="flex items-center justify-center px-6 py-12">
         {children}
       </main>
+      {/* Accessibility statement — reachable from every auth page. */}
+      <footer className="px-6 pb-8 text-center">
+        <Link href="/accessibility" className="text-xs text-slate-400 underline underline-offset-2 hover:text-slate-200">
+          Accessibility
+        </Link>
+      </footer>
     </div>
   );
 }

@@ -1,9 +1,9 @@
 "use client";
-import React, { useState, useRef, useEffect, useCallback, createContext, useContext } from "react";
+import React, { useState, useRef, useEffect, useCallback, useId, createContext, useContext } from "react";
 import { ApiError, messageFromResponse, userMessageFor } from "@/lib/http/apiError";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
-import { ChevronRight, CheckCircle2, ChevronDown, Flag, Lightbulb, Tag, X, BookOpen, Shield, FileText } from "lucide-react";
+import { ChevronRight, CheckCircle2, ChevronDown, Flag, Lightbulb, Tag, X, Check, BookOpen, Shield, FileText } from "lucide-react";
 import type {
   SanitizedRoomTask as RoomTask,
   SanitizedReadingTask as ReadingTask,
@@ -85,6 +85,45 @@ async function submitTask(roomId: string, taskId: string, body: unknown): Promis
   // status — instead of a bare "Grading request failed (503)" nobody ever saw.
   if (!res.ok) throw new ApiError(await messageFromResponse(res), res.status);
   return res.json();
+}
+
+// ─── A11y helpers ───────────────────────────────────────────────────────────────
+/**
+ * Focus an element when `cond` flips false → true. The submit buttons unmount (or
+ * go disabled) the moment an answer is graded, which would drop keyboard focus
+ * onto <body>; this hands it to the result panel (tabIndex={-1}) instead, so the
+ * verdict is announced and Tab continues from the right place (WCAG 2.4.3).
+ */
+function useFocusWhen<T extends HTMLElement>(cond: boolean) {
+  const ref = useRef<T>(null);
+  const prev = useRef(cond);
+  useEffect(() => {
+    if (cond && !prev.current) ref.current?.focus();
+    prev.current = cond;
+  }, [cond]);
+  return ref;
+}
+
+/**
+ * Arrow-key / Home / End navigation for a role="radiogroup" of role="radio"
+ * buttons (WAI-ARIA radio pattern): focus moves and the selection follows it.
+ */
+function onRadioGroupKeyDown(e: React.KeyboardEvent<HTMLElement>) {
+  const step = e.key === "ArrowDown" || e.key === "ArrowRight" ? 1 : e.key === "ArrowUp" || e.key === "ArrowLeft" ? -1 : 0;
+  if (!step && e.key !== "Home" && e.key !== "End") return;
+  const radios = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]:not(:disabled)'));
+  const idx = radios.indexOf(document.activeElement as HTMLButtonElement);
+  if (idx === -1 || radios.length === 0) return;
+  e.preventDefault();
+  const next = e.key === "Home" ? 0 : e.key === "End" ? radios.length - 1 : (idx + step + radios.length) % radios.length;
+  radios[next].focus();
+  radios[next].click();
+}
+
+/** Visible ✓ / ✗ marker (decorative — pair it with sr-only text). */
+function ResultMark({ correct, className }: { correct: boolean; className?: string }) {
+  const Icon = correct ? Check : X;
+  return <Icon aria-hidden="true" className={cn("inline-block h-4 w-4 shrink-0 align-text-bottom", className)} />;
 }
 
 /** E-01: a failed grading request is SHOWN (every sub-player used to drop it silently). */
@@ -332,6 +371,7 @@ function InteractiveLogEventCard({
         <div>
           <button
             onClick={() => setExpanded(v => !v)}
+            aria-expanded={expanded}
             className="flex w-full items-center gap-2 px-4 py-2 text-[11px] text-slate-400 hover:text-slate-200 hover:bg-bg-elevated/40 transition-colors"
           >
             <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")} />
@@ -411,10 +451,16 @@ interface OptionProps {
   /** `index` is the ORIGINAL option index (compared to the revealed answer);
    *  `displayIndex` is the on-screen position (drives the A/B/C/D letter). */
   label: string; index: number; displayIndex: number; selected: boolean; revealed: boolean; correctIndex: number; onSelect: () => void;
+  /** Roving tabindex: true for the one radio in the group that takes Tab focus. */
+  tabStop: boolean;
 }
-function OptionButton({ label, index, displayIndex, selected, revealed, correctIndex, onSelect }: OptionProps) {
+function OptionButton({ label, index, displayIndex, selected, revealed, correctIndex, onSelect, tabStop }: OptionProps) {
   const isCorrect = index === correctIndex;
   const letter = String.fromCharCode(65 + displayIndex);
+  // After the reveal, correct / incorrect is never colour-only: a ✓ / ✗ mark plus text.
+  const mark = revealed && (isCorrect || selected)
+    ? { correct: isCorrect, text: isCorrect ? (selected ? "(your answer — correct)" : "(correct answer)") : "(your answer — incorrect)" }
+    : null;
   const classes = cn(
     "w-full rounded-lg border px-4 py-3 text-left text-sm transition-all",
     revealed
@@ -428,9 +474,18 @@ function OptionButton({ label, index, displayIndex, selected, revealed, correctI
         : "border-border/50 bg-bg-elevated/40 text-slate-300 hover:border-cyber-500/40 hover:bg-cyber-500/5 hover:text-white cursor-pointer",
   );
   return (
-    <button onClick={revealed ? undefined : onSelect} className={classes} disabled={revealed}>
+    <button
+      type="button" role="radio" aria-checked={selected} tabIndex={tabStop ? 0 : -1}
+      onClick={revealed ? undefined : onSelect} className={classes} disabled={revealed}
+    >
       <span className="font-mono font-bold text-xs mr-2 opacity-60">{letter}.</span>
       {label}
+      {mark && (
+        <>
+          <ResultMark correct={mark.correct} className="ml-2" />
+          <span className="sr-only"> {mark.text}</span>
+        </>
+      )}
     </button>
   );
 }
@@ -529,6 +584,9 @@ function ReadingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { ro
   const cp = task.checkpoint;
   const gateOpen  = reachedEnd || dwellDone;
   const canFinish = gateOpen && (!cp || cpCorrect);
+  // The option buttons go disabled on a correct answer — keep focus on the result.
+  const cpResultRef = useFocusWhen<HTMLParagraphElement>(cpCorrect);
+  const cpQuestionId = useId();
 
   return (
     <div className="space-y-7">
@@ -545,15 +603,18 @@ function ReadingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { ro
             <p className="text-sm font-semibold text-white">Quick check</p>
             <span className="text-[10px] text-slate-400">— confirms you read it, not graded</span>
           </div>
-          <p className="text-sm text-slate-200">{cp.question}</p>
-          <div className="space-y-2">
+          <p id={cpQuestionId} className="text-sm text-slate-200">{cp.question}</p>
+          <div className="space-y-2" role="group" aria-labelledby={cpQuestionId}>
             {displayOptions(cp.options, `${shuffleSeed}:cp`).map(({ label: opt, srcIdx: i }) => {
               const chosen = cpChoice === i;
               const isRight = cpAnswer !== null && i === cpAnswer;
               const show = cpChoice !== null && cpAnswer !== null;
+              const markText = show && isRight ? (chosen ? "(your answer — correct)" : "(correct answer)")
+                : show && chosen ? "(your answer — incorrect)" : null;
               return (
                 <button
                   key={i}
+                  type="button"
                   disabled={cpCorrect || cpBusy}
                   onClick={async () => {
                     // `i` is the ORIGINAL index (display order is presentation only).
@@ -584,15 +645,26 @@ function ReadingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { ro
                   )}
                 >
                   {opt}
+                  {markText && (
+                    <>
+                      <ResultMark correct={isRight} className="ml-2" />
+                      <span className="sr-only"> {markText}</span>
+                    </>
+                  )}
                 </button>
               );
             })}
           </div>
           {cpChoice !== null && !cpCorrect && !cpBusy && (
-            <p className="text-[11px] text-neon-amber">Not quite — re-read the section above and try again.</p>
+            <p role="status" className="text-[11px] text-neon-amber">Not quite — re-read the section above and try again.</p>
           )}
-          {cpCorrect && cpExplanation && (
-            <p className="text-[11px] text-slate-300 leading-relaxed">{cpExplanation}</p>
+          {cpCorrect && (
+            <p
+              ref={cpResultRef} tabIndex={-1} role="status"
+              className={cpExplanation ? "text-[11px] text-slate-300 leading-relaxed" : "sr-only"}
+            >
+              <span className="sr-only">Correct. </span>{cpExplanation}
+            </p>
           )}
         </div>
       )}
@@ -642,6 +714,11 @@ function QuestionPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
   const [awardedXp, setAwardedXp] = useState(0);
   const [answerIndex, setAnswerIndex] = useState<number | null>(null);
   const [explanation, setExplanation] = useState("");
+  const questionId = useId();
+  const resultRef = useFocusWhen<HTMLDivElement>(revealed);
+  // The first-miss nudge: the Confirm button goes disabled (selection cleared), so
+  // move focus to the nudge rather than leaving it on a dead control.
+  const nudgeRef = useFocusWhen<HTMLDivElement>(wrongOnce);
 
   if (isCompleted) {
     return (
@@ -692,21 +769,25 @@ function QuestionPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
     }
   }
 
+  const shownOptions = displayOptions(task.options, shuffleSeed);
+  const correctOption = answerIndex !== null ? shownOptions.find(o => o.srcIdx === answerIndex) : undefined;
+
   return (
     <div className="space-y-5">
-      <p className="text-slate-200 leading-relaxed text-base">{task.question}</p>
-      <div className="space-y-2">
-        {displayOptions(task.options, shuffleSeed).map(({ label, srcIdx, displayIdx }) => (
+      <p id={questionId} className="text-slate-200 leading-relaxed text-base">{task.question}</p>
+      <div className="space-y-2" role="radiogroup" aria-labelledby={questionId} onKeyDown={onRadioGroupKeyDown}>
+        {shownOptions.map(({ label, srcIdx, displayIdx }) => (
           <OptionButton
             key={srcIdx} label={label} index={srcIdx} displayIndex={displayIdx}
             selected={selected === srcIdx} revealed={revealed} correctIndex={answerIndex ?? -1}
             onSelect={() => !revealed && setSelected(srcIdx)}
+            tabStop={selected === null ? displayIdx === 0 : selected === srcIdx}
           />
         ))}
       </div>
       {/* First wrong answer: a nudge, not the answer — one more try for half credit. */}
       {wrongOnce && !confirmed && (
-        <div className="rounded-lg border border-neon-amber/40 bg-neon-amber/10 p-3 text-sm text-neon-amber">
+        <div ref={nudgeRef} tabIndex={-1} role="status" className="rounded-lg border border-neon-amber/40 bg-neon-amber/10 p-3 text-sm text-neon-amber">
           Not quite — take another look. One more try, worth half credit.
         </div>
       )}
@@ -716,10 +797,14 @@ function QuestionPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
         </Button>
       )}
       {revealed && (
-        <div className={cn("rounded-lg border p-4 text-sm",
+        <div ref={resultRef} tabIndex={-1} role="status" className={cn("rounded-lg border p-4 text-sm",
           correct ? "border-neon-green/40 bg-neon-green/10 text-neon-green" : "border-severity-high/40 bg-severity-high/10 text-severity-high",
         )}>
           <p className="font-semibold mb-1">{correct ? `Correct! +${awardedXp} XP` : "Incorrect"}</p>
+          {/* The options are disabled (out of the tab order) once revealed — state the answer in text. */}
+          {!correct && correctOption && (
+            <p className="sr-only">Correct answer: {String.fromCharCode(65 + correctOption.displayIdx)}. {correctOption.label}</p>
+          )}
           <p className="text-slate-300">{remapOptionLetters(explanation, optionDisplayOrder(task.options, shuffleSeed))}</p>
         </div>
       )}
@@ -743,6 +828,15 @@ function LogAnalysisPlayer({ roomId, task, onComplete, isCompleted, onRecord }: 
   const [busy, setBusy]           = useState<boolean[]>(Array(task.questions.length).fill(false));
   const [totalXp, setTotalXp]     = useState(0);
   const [results, setResults]     = useState<Record<number, { correct: boolean; answer: number; explanation: string }>>({});
+  const baseId = useId();
+  // Focus each question's result panel once it is graded (its Confirm button unmounts).
+  const panelRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const [focusQ, setFocusQ] = useState<number | null>(null);
+  useEffect(() => {
+    if (focusQ === null) return;
+    panelRefs.current[focusQ]?.focus();
+    setFocusQ(null);
+  }, [focusQ]);
 
   const addIoc = useCallback((entry: IocEntry) => {
     setIocs(prev => prev.some(i => i.value === entry.value) ? prev : [...prev, entry]);
@@ -795,6 +889,7 @@ function LogAnalysisPlayer({ roomId, task, onComplete, isCompleted, onRecord }: 
       setRevealed(prev  => prev.map((v, idx) => idx === i ? true : v));
       setConfirmed(prev => prev.map((v, idx) => idx === i ? true : v));
       setTotalXp(prev => prev + result.xpEarned);
+      setFocusQ(i);
     } catch (e) {
       reportError(e);
     } finally {
@@ -820,9 +915,12 @@ function LogAnalysisPlayer({ roomId, task, onComplete, isCompleted, onRecord }: 
         {task.questions.map((q, i) => {
           const result = results[i];
           const isCorrect = !!result?.correct;
+          const qId = `${baseId}-q${i}`;
+          const shownOptions = displayOptions(q.options, `${shuffleSeed}:q${i}`);
+          const correctOption = result ? shownOptions.find(o => o.srcIdx === result.answer) : undefined;
           return (
             <div key={i} className="space-y-3">
-              <p className="text-sm font-semibold text-white">
+              <p id={qId} className="text-sm font-semibold text-white">
                 <span className="text-slate-400 mr-2">Q{i + 1}.</span>
                 {q.question}
               </p>
@@ -843,12 +941,13 @@ function LogAnalysisPlayer({ roomId, task, onComplete, isCompleted, onRecord }: 
                 </div>
               )}
 
-              <div className="space-y-2">
-                {displayOptions(q.options, `${shuffleSeed}:q${i}`).map(({ label, srcIdx, displayIdx }) => (
+              <div className="space-y-2" role="radiogroup" aria-labelledby={qId} onKeyDown={onRadioGroupKeyDown}>
+                {shownOptions.map(({ label, srcIdx, displayIdx }) => (
                   <OptionButton
                     key={srcIdx} label={label} index={srcIdx} displayIndex={displayIdx}
                     selected={answers[i] === srcIdx} revealed={revealed[i]} correctIndex={result?.answer ?? -1}
                     onSelect={() => !revealed[i] && setAnswers(prev => prev.map((v, j) => j === i ? srcIdx : v))}
+                    tabStop={answers[i] === null ? displayIdx === 0 : answers[i] === srcIdx}
                   />
                 ))}
               </div>
@@ -859,10 +958,13 @@ function LogAnalysisPlayer({ roomId, task, onComplete, isCompleted, onRecord }: 
                 </Button>
               )}
               {revealed[i] && result && (
-                <div className={cn("rounded-lg border p-3 text-sm",
+                <div ref={el => { panelRefs.current[i] = el; }} tabIndex={-1} role="status" className={cn("rounded-lg border p-3 text-sm",
                   isCorrect ? "border-neon-green/40 bg-neon-green/10 text-neon-green" : "border-severity-high/40 bg-severity-high/10 text-severity-high",
                 )}>
                   <p className="font-semibold mb-1">{isCorrect ? `Correct! +${q.xp} XP` : "Incorrect"}</p>
+                  {!isCorrect && correctOption && correctOption.srcIdx !== answers[i] && (
+                    <p className="sr-only">Correct answer: {String.fromCharCode(65 + correctOption.displayIdx)}. {correctOption.label}</p>
+                  )}
                   <p className="text-slate-300">{remapOptionLetters(result.explanation, optionDisplayOrder(q.options, `${shuffleSeed}:q${i}`))}</p>
                 </div>
               )}
@@ -899,6 +1001,10 @@ function FlagPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent, onRec
   const [status, setStatus]     = useState<"idle" | "correct" | "wrong" | "checking">("idle");
   const [showHint, setShowHint] = useState(false);
   const [awardedXp, setAwardedXp] = useState(task.xp);
+  const flagIds = useId();
+  const labelId = `${flagIds}-label`, promptId = `${flagIds}-prompt`, wrongId = `${flagIds}-wrong`;
+  // The input + Submit unmount on a correct flag — move focus to the result.
+  const resultRef = useFocusWhen<HTMLDivElement>(status === "correct");
 
   if (isCompleted) {
     return (
@@ -942,17 +1048,18 @@ function FlagPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent, onRec
     <div className="space-y-5">
       <div className="flex items-center gap-2 mb-1">
         <Flag className="h-5 w-5 text-cyber-300" />
-        <span className="text-xs font-semibold uppercase tracking-wider text-cyber-300">Flag Challenge</span>
+        <span id={labelId} className="text-xs font-semibold uppercase tracking-wider text-cyber-300">Flag Challenge</span>
       </div>
 
       {prevLogEvent && <ReadOnlyEventCard event={prevLogEvent} />}
 
-      <p className="text-slate-200 leading-relaxed whitespace-pre-line">{task.prompt}</p>
+      <p id={promptId} className="text-slate-200 leading-relaxed whitespace-pre-line">{task.prompt}</p>
 
       {task.hint && (
         <div>
           <button
             onClick={() => setShowHint(v => !v)}
+            aria-expanded={showHint}
             className="inline-flex items-center gap-1.5 text-xs text-neon-amber hover:text-neon-amber/80 transition-colors"
           >
             <Lightbulb className="h-3.5 w-3.5" />
@@ -973,6 +1080,9 @@ function FlagPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent, onRec
             onChange={e => { setInput(e.target.value); setStatus("idle"); }}
             onKeyDown={e => e.key === "Enter" && submit()}
             placeholder="Enter your answer…"
+            aria-labelledby={labelId}
+            aria-describedby={status === "wrong" ? `${promptId} ${wrongId}` : promptId}
+            aria-invalid={status === "wrong" || undefined}
             className={cn(
               "h-10 flex-1 rounded-md border bg-[#080d14] px-3 font-mono text-sm text-white placeholder-slate-500",
               "focus:outline-none focus:ring-2",
@@ -986,13 +1096,13 @@ function FlagPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent, onRec
       )}
 
       {status === "wrong" && (
-        <div className="rounded-lg border border-severity-high/40 bg-severity-high/10 px-4 py-3 text-sm text-severity-high">
+        <div id={wrongId} role="status" className="rounded-lg border border-severity-high/40 bg-severity-high/10 px-4 py-3 text-sm text-severity-high">
           Incorrect — try again
         </div>
       )}
       {status === "correct" && (
         <>
-          <div className="rounded-lg border border-neon-green/40 bg-neon-green/10 px-4 py-3 text-sm text-neon-green font-semibold">
+          <div ref={resultRef} tabIndex={-1} role="status" className="rounded-lg border border-neon-green/40 bg-neon-green/10 px-4 py-3 text-sm text-neon-green font-semibold">
             Correct! +{awardedXp} XP
           </div>
           <Button variant="primary" size="md" onClick={() => onComplete(awardedXp)}>
@@ -1021,6 +1131,7 @@ export function ReadOnlyEventCard({ event }: { event: TelemetryEvent }) {
       <div>
         <button
           onClick={() => setExpanded(v => !v)}
+          aria-expanded={expanded}
           className="flex w-full items-center gap-2 px-4 py-2 text-[11px] text-slate-400 hover:text-slate-200 hover:bg-bg-elevated/40 transition-colors"
         >
           <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")} />
@@ -1067,6 +1178,9 @@ function AnalystChoicePlayer({ roomId, task, onComplete, isCompleted, onRecord }
   const [explanation, setExplanation] = useState("");
   const [fpTrap, setFpTrap] = useState<string | undefined>(undefined);
   const [resultCorrect, setResultCorrect] = useState(false);
+  const verdictLabelId = useId();
+  const resultRef = useFocusWhen<HTMLDivElement>(revealed);
+  const nudgeRef = useFocusWhen<HTMLDivElement>(wrongOnce);
 
   async function handleSubmit() {
     if (!selected) return;
@@ -1132,11 +1246,19 @@ function AnalystChoicePlayer({ roomId, task, onComplete, isCompleted, onRecord }
       <ReadOnlyEventCard event={task.event} />
 
       <div className="space-y-3">
-        <p className="text-sm font-semibold text-slate-200">What is your verdict on this alert?</p>
-        <div className="grid grid-cols-2 gap-3">
-          {VERDICTS.map(v => (
+        <p id={verdictLabelId} className="text-sm font-semibold text-slate-200">What is your verdict on this alert?</p>
+        <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-labelledby={verdictLabelId} onKeyDown={onRadioGroupKeyDown}>
+          {VERDICTS.map((v, vi) => {
+            const isSel = selected === v.key;
+            const isRight = revealed && v.key === correctVerdict;
+            const isWrongPick = revealed && isSel && !isCorrect;
+            return (
             <button
               key={v.key}
+              type="button"
+              role="radio"
+              aria-checked={isSel}
+              tabIndex={(selected === null ? vi === 0 : isSel) ? 0 : -1}
               onClick={() => !revealed && setSelected(v.key)}
               disabled={revealed}
               className={cn(
@@ -1152,16 +1274,27 @@ function AnalystChoicePlayer({ roomId, task, onComplete, isCompleted, onRecord }
                     : "border-border/50 bg-bg-elevated/40 text-slate-400 hover:border-border/70 hover:text-slate-200 cursor-pointer",
               )}
             >
-              <p className="font-semibold text-sm">{v.label}</p>
+              <p className="font-semibold text-sm">
+                {v.label}
+                {(isRight || isWrongPick) && (
+                  <>
+                    <ResultMark correct={isRight} className="ml-1.5" />
+                    <span className="sr-only">
+                      {" "}{isRight ? (isSel ? "(your answer — correct)" : "(correct answer)") : "(your answer — incorrect)"}
+                    </span>
+                  </>
+                )}
+              </p>
               <p className="text-xs opacity-70 mt-0.5">{v.desc}</p>
             </button>
-          ))}
+            );
+          })}
         </div>
       </div>
 
       {/* First wrong verdict: a nudge, not the answer — one more try for half credit. */}
       {wrongOnce && !revealed && (
-        <div className="rounded-lg border border-neon-amber/40 bg-neon-amber/10 p-3 text-sm text-neon-amber">
+        <div ref={nudgeRef} tabIndex={-1} role="status" className="rounded-lg border border-neon-amber/40 bg-neon-amber/10 p-3 text-sm text-neon-amber">
           Not quite — reconsider what the evidence actually supports. One more try, worth half credit.
         </div>
       )}
@@ -1173,12 +1306,18 @@ function AnalystChoicePlayer({ roomId, task, onComplete, isCompleted, onRecord }
       )}
 
       {revealed && (
-        <div className={cn("rounded-lg border p-4 text-sm space-y-2",
+        <div ref={resultRef} tabIndex={-1} role="status" className={cn("rounded-lg border p-4 text-sm space-y-2",
           isCorrect ? "border-neon-green/40 bg-neon-green/10" : "border-severity-high/40 bg-severity-high/10",
         )}>
           <p className={cn("font-semibold", isCorrect ? "text-neon-green" : "text-severity-high")}>
             {isCorrect ? `Correct! +${awardedXp} XP` : "Incorrect — review the reasoning below"}
           </p>
+          {/* Verdict cards are disabled once revealed — state the correct one in text. */}
+          {!isCorrect && correctVerdict && (
+            <p className="sr-only">
+              Correct verdict: {ANALYST_VERDICTS.find(v => v.key === correctVerdict)?.label ?? correctVerdict}
+            </p>
+          )}
           <p className="text-slate-300">{explanation}</p>
           {fpTrap && !isCorrect && (
             <div className="mt-2 border-l-2 border-neon-amber/40 pl-3">
@@ -1220,6 +1359,8 @@ function MatchingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
   const allConnected = Object.keys(connections).length === task.left.length;
   const allCorrect = !!result && result.correctCount === result.total;
   const correctOf = (leftId: string) => result?.perPair.find(p => p.id === leftId)?.correct;
+  const matchIds = useId();
+  const resultRef = useFocusWhen<HTMLDivElement>(revealed);
 
   function handleLeftClick(leftId: string) {
     if (revealed) return;
@@ -1276,8 +1417,8 @@ function MatchingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
 
       <div className="grid grid-cols-2 gap-3">
         {/* Left column */}
-        <div className="space-y-2">
-          <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Match from</p>
+        <div className="space-y-2" role="group" aria-labelledby={`${matchIds}-left`}>
+          <p id={`${matchIds}-left`} className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Match from</p>
           {task.left.map(item => {
             const connectedText = connections[item.id];
             const isSelected = selectedLeft === item.id;
@@ -1286,6 +1427,8 @@ function MatchingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
             return (
               <button
                 key={item.id}
+                type="button"
+                aria-pressed={isSelected}
                 onClick={() => handleLeftClick(item.id)}
                 disabled={revealed}
                 className={cn(
@@ -1300,8 +1443,14 @@ function MatchingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
                 )}
               >
                 <span className="font-medium">{item.text}</span>
+                {(isCorrect || isWrong) && (
+                  <>
+                    <ResultMark correct={isCorrect} className="ml-1.5" />
+                    <span className="sr-only"> {isCorrect ? "(correct match)" : "(incorrect match)"}</span>
+                  </>
+                )}
                 {connectedText && !revealed && (
-                  <span className="mt-0.5 block text-[10px] text-cyber-400">connected</span>
+                  <span className="mt-0.5 block text-[10px] text-cyber-400">connected<span className="sr-only"> to {connectedText}</span></span>
                 )}
               </button>
             );
@@ -1309,8 +1458,8 @@ function MatchingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
         </div>
 
         {/* Right column */}
-        <div className="space-y-2">
-          <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">
+        <div className="space-y-2" role="group" aria-labelledby={`${matchIds}-right`}>
+          <p id={`${matchIds}-right`} className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">
             {selectedLeft ? "Click to connect" : "Select left first"}
           </p>
           {/* Already shuffled server-side — do NOT reorder here. */}
@@ -1322,6 +1471,7 @@ function MatchingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
             return (
               <button
                 key={rightText}
+                type="button"
                 onClick={() => handleRightClick(rightText)}
                 disabled={revealed || !selectedLeft}
                 className={cn(
@@ -1336,6 +1486,13 @@ function MatchingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
                 )}
               >
                 {rightText}
+                {(isCorrect || isWrong) && (
+                  <>
+                    <ResultMark correct={isCorrect} className="ml-1.5" />
+                    <span className="sr-only"> {isCorrect ? "(correct match)" : "(incorrect match)"}</span>
+                  </>
+                )}
+                {isConnected && !revealed && <span className="sr-only"> (connected)</span>}
               </button>
             );
           })}
@@ -1356,7 +1513,7 @@ function MatchingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
       )}
 
       {revealed && result && (
-        <div className={cn("rounded-lg border p-4 text-sm space-y-2",
+        <div ref={resultRef} tabIndex={-1} role="status" className={cn("rounded-lg border p-4 text-sm space-y-2",
           allCorrect ? "border-neon-green/40 bg-neon-green/10" : "border-neon-amber/40 bg-neon-amber/10",
         )}>
           <p className={cn("font-semibold", allCorrect ? "text-neon-green" : "text-neon-amber")}>
@@ -1415,6 +1572,8 @@ function OrderingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
   const placedSet = new Set(placed.filter(Boolean) as string[]);
   const allCorrect = !!result && result.correctCount === result.total;
   const slotCorrect = (i: number) => result?.perSlot.find(s => s.slot === i)?.correct;
+  const orderIds = useId();
+  const resultRef = useFocusWhen<HTMLDivElement>(revealed);
 
   async function submitOrder() {
     setBusy(true);
@@ -1489,8 +1648,8 @@ function OrderingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
 
       <div className="grid gap-5 md:grid-cols-2">
         {/* Numbered slots */}
-        <div className="space-y-2">
-          <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Correct Order</p>
+        <div className="space-y-2" role="group" aria-labelledby={`${orderIds}-slots`}>
+          <p id={`${orderIds}-slots`} className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Correct Order</p>
           {task.items.map((_, slotIdx) => {
             const placedId = placed[slotIdx];
             const placedItem = placedId ? task.items.find(i => i.id === placedId) : null;
@@ -1499,6 +1658,7 @@ function OrderingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
             return (
               <button
                 key={slotIdx}
+                type="button"
                 onClick={() => handleSlotClick(slotIdx)}
                 disabled={revealed}
                 className={cn(
@@ -1529,14 +1689,20 @@ function OrderingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
                 )}>
                   {placedItem ? placedItem.text : "— empty —"}
                 </span>
+                {(isCorrect || isWrong) && (
+                  <>
+                    <ResultMark correct={isCorrect} className={isCorrect ? "text-neon-green" : "text-severity-high"} />
+                    <span className="sr-only">{isCorrect ? "(correct position)" : "(wrong position)"}</span>
+                  </>
+                )}
               </button>
             );
           })}
         </div>
 
         {/* Items pool */}
-        <div className="space-y-2">
-          <p className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">
+        <div className="space-y-2" role="group" aria-labelledby={`${orderIds}-pool`}>
+          <p id={`${orderIds}-pool`} className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">
             {selectedItem ? "Now click a numbered slot" : "Select an item to place"}
           </p>
           {poolItems.map(item => {
@@ -1545,6 +1711,8 @@ function OrderingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
             return (
               <button
                 key={item.id}
+                type="button"
+                aria-pressed={isSelected}
                 onClick={() => handleItemClick(item.id)}
                 disabled={revealed}
                 className={cn(
@@ -1578,7 +1746,7 @@ function OrderingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
       )}
 
       {revealed && result && (
-        <div className={cn("rounded-lg border p-4 text-sm space-y-2",
+        <div ref={resultRef} tabIndex={-1} role="status" className={cn("rounded-lg border p-4 text-sm space-y-2",
           allCorrect ? "border-neon-green/40 bg-neon-green/10" : "border-neon-amber/40 bg-neon-amber/10",
         )}>
           <p className={cn("font-semibold", allCorrect ? "text-neon-green" : "text-neon-amber")}>
@@ -1633,6 +1801,7 @@ function QueryFillPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { 
   const allFilled = blankIds.every(id => (values[id] ?? "").trim().length > 0);
   const isBlankCorrect = (id: string) => !!blankResults[id]?.correct;
   const correctCount = blankIds.filter(isBlankCorrect).length;
+  const resultRef = useFocusWhen<HTMLDivElement>(revealed);
 
   async function runQuery() {
     setBusy(true);
@@ -1688,10 +1857,12 @@ function QueryFillPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { 
             const blank = task.blanks.find(b => b.id === id);
             const correct = revealed && isBlankCorrect(id);
             const wrong   = revealed && !isBlankCorrect(id);
+            const blankNo = (i + 1) / 2;
             return (
               <input
                 key={id}
                 type="text"
+                aria-label={`${task.language} query blank ${blankNo}${blank?.placeholder ? ` (${blank.placeholder})` : ""}${correct ? " — correct" : wrong ? " — incorrect" : ""}`}
                 value={values[id] ?? ""}
                 onChange={e => setValues(v => ({ ...v, [id]: e.target.value }))}
                 disabled={revealed}
@@ -1728,7 +1899,7 @@ function QueryFillPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { 
       )}
 
       {revealed && (
-        <div className={cn("rounded-lg border p-4 text-sm space-y-2",
+        <div ref={resultRef} tabIndex={-1} role="status" className={cn("rounded-lg border p-4 text-sm space-y-2",
           allCorrect ? "border-neon-green/40 bg-neon-green/10" : "border-neon-amber/40 bg-neon-amber/10",
         )}>
           <p className={cn("font-semibold", allCorrect ? "text-neon-green" : "text-neon-amber")}>
@@ -1757,6 +1928,8 @@ function WrittenReportPlayer({ roomId, task, onComplete, isCompleted, onRecord }
   const [passed, setPassed]     = useState(false);
 
   const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+  const reportIds = useId();
+  const resultRef = useFocusWhen<HTMLDivElement>(revealed);
 
   async function submit() {
     setBusy(true);
@@ -1804,7 +1977,7 @@ function WrittenReportPlayer({ roomId, task, onComplete, isCompleted, onRecord }
         <h2 className="text-xl font-bold text-white">{task.heading}</h2>
       </div>
       <p className="text-sm text-slate-400 leading-relaxed">{task.context}</p>
-      <p className="text-sm text-white font-medium">{task.prompt}</p>
+      <p id={`${reportIds}-prompt`} className="text-sm text-white font-medium">{task.prompt}</p>
 
       {!revealed && (
         <div className="rounded-lg border border-cyber-500/30 bg-cyber-500/5 p-3 space-y-1">
@@ -1823,9 +1996,11 @@ function WrittenReportPlayer({ roomId, task, onComplete, isCompleted, onRecord }
             disabled={busy}
             rows={10}
             placeholder="Write your report here…"
-            className="w-full rounded-lg border border-border bg-[#080d14] p-4 font-mono text-sm leading-relaxed text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-cyber-500/30 resize-y"
+            aria-labelledby={`${reportIds}-prompt`}
+            aria-describedby={`${reportIds}-count`}
+            className="w-full rounded-lg border border-border bg-[#080d14] p-4 font-mono text-sm leading-relaxed text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyber-500/30 resize-y"
           />
-          <p className="text-xs text-slate-500">{wordCount} word{wordCount === 1 ? "" : "s"} (aim for {task.minWords}+)</p>
+          <p id={`${reportIds}-count`} className="text-xs text-slate-500">{wordCount} word{wordCount === 1 ? "" : "s"} (aim for {task.minWords}+)</p>
         </div>
       )}
 
@@ -1836,8 +2011,8 @@ function WrittenReportPlayer({ roomId, task, onComplete, isCompleted, onRecord }
       )}
 
       {revealed && result && (
-        <div className={cn("rounded-lg border p-4 text-sm space-y-2",
-          passed ? "border-neon-green/40 bg-neon-green/10" : "border-neon-amber/40 bg-neon-amber/10",
+        <div ref={resultRef} tabIndex={-1} role="status" className={cn("rounded-lg border p-4 text-sm space-y-2",
+          passed ?"border-neon-green/40 bg-neon-green/10" : "border-neon-amber/40 bg-neon-amber/10",
         )}>
           <p className={cn("font-semibold", passed ? "text-neon-green" : "text-neon-amber")}>
             {passed ? `Passed — ${result.score}/100, +${xpEarned} XP` : `${result.score}/100 — below the pass bar`}

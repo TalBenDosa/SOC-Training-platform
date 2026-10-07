@@ -84,9 +84,9 @@ export function ModuleTree({
           {isLeaf ? (
             <span className="w-4 shrink-0" />
           ) : (
-            <button type="button" onClick={() => toggleOpen(n.key)} aria-label={expanded ? `Collapse ${n.label}` : `Expand ${n.label}`}
+            <button type="button" onClick={() => toggleOpen(n.key)} aria-label={n.label} aria-expanded={expanded}
               className="flex h-5 w-4 shrink-0 items-center justify-center text-slate-500 hover:text-slate-200">
-              <ChevronRight className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-90" : ""}`} />
+              <ChevronRight aria-hidden="true" className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-90" : ""}`} />
             </button>
           )}
           <button
@@ -113,12 +113,12 @@ export function ModuleTree({
   return (
     <div className={`flex min-h-0 flex-col rounded-lg border border-border bg-bg ${className}`}>
       <div className="flex items-center gap-2 border-b border-border px-2.5 py-1.5">
-        <Search className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+        <Search className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden="true" />
         <input
-          value={q} onChange={e => setQ(e.target.value)} placeholder="Search modules…"
+          value={q} onChange={e => setQ(e.target.value)} placeholder="Search modules…" aria-label="Search modules"
           className="min-w-0 flex-1 bg-transparent text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none"
         />
-        {q && <button type="button" onClick={() => setQ("")} aria-label="Clear search" className="text-slate-500 hover:text-slate-200"><X className="h-3.5 w-3.5" /></button>}
+        {q && <button type="button" onClick={() => setQ("")} aria-label="Clear search" className="text-slate-500 hover:text-slate-200"><X className="h-3.5 w-3.5" aria-hidden="true" /></button>}
       </div>
       <ul className="min-h-0 flex-1 overflow-y-auto p-1.5">
         {shown.length === 0

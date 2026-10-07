@@ -96,8 +96,8 @@ export function AnswerKeyPanel({ sessionId, events, nameOf }: { sessionId: strin
 
   return (
     <Card className="border-neon-amber/30">
-      <button onClick={() => setOpen(o => !o)} className="flex w-full items-center gap-2 text-left">
-        <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${open ? "" : "-rotate-90"}`} />
+      <button onClick={() => setOpen(o => !o)} aria-expanded={open} className="flex w-full items-center gap-2 text-left">
+        <ChevronDown aria-hidden="true" className={`h-4 w-4 text-slate-400 transition-transform ${open ? "" : "-rotate-90"}`} />
         <h3 className="flex items-center gap-2 text-sm font-bold text-white"><KeyRound className="h-4 w-4 text-neon-amber" /> Answer key vs team</h3>
         <span className="ml-auto rounded border border-neon-amber/40 px-1 py-0.5 text-[9px] font-bold uppercase text-neon-amber">staff only</span>
       </button>
@@ -125,9 +125,9 @@ export function AnswerKeyPanel({ sessionId, events, nameOf }: { sessionId: strin
                             <span className="shrink-0 font-mono text-slate-500">#{s.seq}</span>
                             <span className={`shrink-0 rounded px-1 font-mono uppercase ${s.control ? "bg-white/5 text-slate-400" : "bg-severity-high/15 text-severity-high"}`}>{s.control ? `control·${s.expected}` : s.expected}</span>
                             <span className="min-w-0 flex-1 truncate text-slate-300" title={s.desc}>{s.desc}</span>
-                            {s.claimedBy && <span className="shrink-0 text-slate-500">🔒{nameOf(s.claimedBy)}</span>}
+                            {s.claimedBy && <span className="shrink-0 text-slate-500"><span aria-hidden="true">🔒</span><span className="sr-only">claimed by </span><bdi>{nameOf(s.claimedBy)}</bdi></span>}
                             {s.verdict && <span className={`shrink-0 font-mono ${s.correct ? "text-neon-green" : "text-neon-amber"}`}>{s.verdict.replace("_", " ")}</span>}
-                            {s.escalated ? <span className={`shrink-0 font-mono ${s.control ? "text-neon-amber" : "text-neon-green"}`}>↑{s.state}</span> : !s.control && !s.verdict && <span className="shrink-0 font-mono text-slate-600">untouched</span>}
+                            {s.escalated ? <span className={`shrink-0 font-mono ${s.control ? "text-neon-amber" : "text-neon-green"}`}>↑{s.state}</span> : !s.control && !s.verdict && <span className="shrink-0 font-mono text-slate-500">untouched</span>}
                           </div>
                         ))}
                       </div>

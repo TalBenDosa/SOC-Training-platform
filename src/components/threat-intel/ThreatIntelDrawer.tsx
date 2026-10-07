@@ -12,7 +12,8 @@
  * returns the same answer on every lookup surface (URL and domain included).
  */
 
-import { useEffect, useContext, useState } from "react";
+import { useEffect, useContext, useRef, useState } from "react";
+import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 import { createPortal } from "react-dom";
 import { IocTruthContext } from "./iocTruthContext";
 import { motion } from "framer-motion";
@@ -183,7 +184,7 @@ function HashPanel({ data, onClose }: { data: HashIntelData; onClose: () => void
                 <span className={cn("font-medium w-[140px] shrink-0", eng.detected ? "text-slate-200" : "text-slate-400")}>{eng.name}</span>
                 {eng.detected
                   ? <span className={cn("font-mono truncate", data.verdict === "suspicious" ? "text-neon-amber" : "text-severity-critical")}>{eng.result}</span>
-                  : <span className="text-slate-700">— (no detection)</span>
+                  : <span className="text-slate-500">— (no detection)</span>
                 }
               </div>
             ))}
@@ -424,19 +425,17 @@ export function ThreatIntelDrawer({ query, onClose, truth }: {
   /** Scenario IOC truth table (server-built). Also accepted on the query itself. */
   truth?: IocTruth | null;
 }) {
-  // Close on Escape
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [onClose]);
-
   // Render through a portal to <body> so the fixed overlay escapes any
   // transformed / filtered / backdrop-blurred ancestor (e.g. the team consoles'
   // panels) — otherwise position:fixed is relative to that ancestor and the
   // drawer renders trapped inside a column, overlapping the UI (team-room bug).
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  // a11y: modal drawer — focus trapped inside, Escape closes, focus returns to
+  // the "Check …" button that opened it.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(mounted, dialogRef, { onEscape: onClose });
 
   // A team room provides the server-built truth through context (its feed has no answer key).
   const ctxTruth = useContext(IocTruthContext);
@@ -454,6 +453,9 @@ export function ThreatIntelDrawer({ query, onClose, truth }: {
         onClick={onClose}
       />
       <motion.div
+        ref={dialogRef}
+        role="dialog" aria-modal="true" tabIndex={-1}
+        aria-label={`Threat intelligence — ${query.type === "hash" ? "file hash" : query.type === "ip" ? "IP address" : "domain"} ${query.value}`}
         initial={{ x: 460 }} animate={{ x: 0 }} exit={{ x: 460 }}
         transition={{ type: "spring", damping: 28, stiffness: 260 }}
         className="fixed right-0 top-0 h-screen w-full sm:w-[440px] bg-[#080d14] border-l border-border/80 z-[70] shadow-2xl"

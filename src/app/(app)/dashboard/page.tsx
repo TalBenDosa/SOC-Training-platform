@@ -21,6 +21,7 @@ import { useProgressSnapshot } from "@/lib/storage/useProgressSnapshot";
 import { AttackChainBoard } from "./AttackChainBoard";
 import { CompanyClearedModal } from "./CompanyClearedModal";
 import { startDashboardTour } from "./OnboardingTour";
+import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 import { COMPANY_PROFILES, NEXACORP_PROFILE } from "@/lib/sim/companyProfilesMeta";
 import type { CompanyProfile } from "@/lib/sim/companyProfilesMeta";
 import type { TelemetryEvent } from "@/lib/sim/types";
@@ -124,12 +125,16 @@ const WELCOME_KEY = "soc_welcome_seen_v1";
  * could touch anything), which is what made onboarding feel cluttered.
  */
 function SOCWelcomeModal({ onStart, onTakeTour }: { onStart: () => void; onTakeTour: () => void }) {
+  // a11y: modal dialog — focus trapped inside, Escape = "Start my shift" (dismiss).
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(true, dialogRef, { onEscape: onStart });
   return (
     // Overlay is fixed and scrollable so the card never pushes the page (no jump).
     // data-blocks-announcements: the plan-announcement popup waits until this closes.
     <div data-blocks-announcements className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 p-4 py-[7vh] backdrop-blur-sm">
       {/* Card is capped at viewport height and scrolls internally if needed. */}
-      <div className="relative w-full max-w-[30rem] max-h-[86vh] overflow-y-auto rounded-2xl border border-border bg-bg-elevated shadow-2xl shadow-black/60">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="soc-welcome-title" tabIndex={-1}
+        className="relative w-full max-w-[30rem] max-h-[86vh] overflow-y-auto rounded-2xl border border-border bg-bg-elevated shadow-2xl shadow-black/60">
 
         {/* Top accent bar */}
         <div className="sticky top-0 z-10 h-[3px] w-full bg-gradient-to-r from-cyber-500 via-neon-purple to-severity-critical" />
@@ -142,7 +147,7 @@ function SOCWelcomeModal({ onStart, onTakeTour }: { onStart: () => void; onTakeT
             </span>
             <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cyber-500">Shift briefing</p>
-              <h2 className="text-[17px] font-bold leading-tight text-white">You&apos;re the SOC analyst on shift</h2>
+              <h2 id="soc-welcome-title" className="text-[17px] font-bold leading-tight text-white">You&apos;re the SOC analyst on shift</h2>
             </div>
           </div>
 
@@ -237,14 +242,18 @@ function StartTrainingModal({
   const [selected, setSelected] = useState<Difficulty>("easy");
   // Security products this session runs on (spec §3) — remembered per company.
   const [stack, setStack] = useState<Stack>(() => savedStack(companyId));
+  // a11y: modal dialog — focus trapped inside, Escape closes, focus returns to the trigger.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(true, dialogRef, { onEscape: onClose });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-xl border border-border bg-bg-elevated p-6 shadow-2xl">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="start-training-title" tabIndex={-1}
+        className="w-full max-w-lg rounded-xl border border-border bg-bg-elevated p-6 shadow-2xl">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-white">Start Training Session</h2>
-          <button onClick={onClose} className="rounded p-1 text-slate-400 hover:text-white">
-            <X className="h-5 w-5" />
+          <h2 id="start-training-title" className="text-lg font-bold text-white">Start Training Session</h2>
+          <button type="button" onClick={onClose} aria-label="Close" className="rounded p-1 text-slate-400 hover:text-white">
+            <X aria-hidden="true" className="h-5 w-5" />
           </button>
         </div>
 
@@ -253,10 +262,12 @@ function StartTrainingModal({
           You won&apos;t be told what it is: watch the feed, spot it, and report it.
         </p>
 
-        <div className="mt-5 space-y-3">
+        <div className="mt-5 space-y-3" role="group" aria-label="Difficulty">
           {DIFFICULTIES.map((d) => (
             <button
               key={d.id}
+              type="button"
+              aria-pressed={selected === d.id}
               onClick={() => setSelected(d.id)}
               className={cn(
                 "w-full rounded-lg border p-4 text-left transition",
@@ -331,6 +342,104 @@ function getSourcesForCompany(id: string): { value: string; label: string }[] {
     { value: "all", label: "All Sources" },
     ...SOURCES.filter(s => s.value !== "all" && active.includes(s.value)),
   ];
+}
+
+// ─── a11y helpers ─────────────────────────────────────────────────────────────
+
+/** Modal overlay with dialog semantics + focus trap (Escape → onEscape). */
+function TrappedDialog({ className, labelledBy, onEscape, children }: {
+  className: string; labelledBy: string; onEscape?: () => void; children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useFocusTrap(true, ref, { onEscape });
+  return (
+    <div ref={ref} className={className} role="dialog" aria-modal="true" aria-labelledby={labelledBy} tabIndex={-1}>
+      {children}
+    </div>
+  );
+}
+
+const ANNOUNCE_GAP_MS = 10_000;
+
+/**
+ * ONE visually hidden, polite live region for the whole dashboard (WCAG 4.1.3).
+ * New feed events are summarised in batches ("3 new events, 1 high severity"),
+ * at most once every ~10 s and only while the feed is streaming; changes to the
+ * EDR alert badge and the Session XP chip ride along in the same throttled
+ * message. Never announces every event.
+ */
+function LiveAnnouncer({ events, isStreaming, edrAlertCount, sessionXp }: {
+  events: { id: string; ruleLevel: number }[];
+  isStreaming: boolean;
+  edrAlertCount: number;
+  sessionXp: number;
+}) {
+  const [message, setMessage] = useState("");
+  const seenRef = useRef<Set<string> | null>(null);
+  const pendingRef = useRef({ count: 0, high: 0 });
+  const lastEdrRef = useRef(edrAlertCount);
+  const lastXpRef = useRef(sessionXp);
+  const lastFlushRef = useRef(0);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const streamingRef = useRef(isStreaming);
+  streamingRef.current = isStreaming;
+  const latestRef = useRef({ edrAlertCount, sessionXp });
+  latestRef.current = { edrAlertCount, sessionXp };
+
+  const flush = () => {
+    timerRef.current = null;
+    const parts: string[] = [];
+    const { count, high } = pendingRef.current;
+    pendingRef.current = { count: 0, high: 0 };
+    if (count > 0 && streamingRef.current) {
+      parts.push(`${count} new event${count > 1 ? "s" : ""}${high > 0 ? `, ${high} high severity` : ""}`);
+    }
+    const { edrAlertCount: edr, sessionXp: xp } = latestRef.current;
+    if (edr !== lastEdrRef.current) {
+      if (edr > 0) parts.push(`${edr} EDR alert${edr > 1 ? "s" : ""} on the endpoint — Investigate in EDR is available`);
+      lastEdrRef.current = edr;
+    }
+    if (xp !== lastXpRef.current) {
+      if (xp > lastXpRef.current) parts.push(`Session XP ${xp} (+${xp - lastXpRef.current})`);
+      lastXpRef.current = xp;
+    }
+    if (parts.length === 0) return;
+    lastFlushRef.current = Date.now();
+    const next = parts.join(". ") + ".";
+    // identical text twice in a row is not re-announced — nudge it
+    setMessage(m => (m === next ? next + "\u00a0" : next));
+  };
+  const schedule = () => {
+    if (timerRef.current) return;
+    const wait = Math.max(0, lastFlushRef.current + ANNOUNCE_GAP_MS - Date.now());
+    timerRef.current = setTimeout(flush, wait);
+  };
+
+  useEffect(() => {
+    const seen = seenRef.current;
+    if (seen === null) { seenRef.current = new Set(events.map(e => e.id)); return; } // initial fill: silent
+    let count = 0, high = 0;
+    for (const e of events) {
+      if (seen.has(e.id)) continue;
+      seen.add(e.id);
+      count++;
+      if (e.ruleLevel >= 10) high++;
+    }
+    if (seen.size > 5000) seenRef.current = new Set(events.map(e => e.id)); // bound memory over a long shift
+    if (count === 0 || !isStreaming) return;
+    pendingRef.current = { count: pendingRef.current.count + count, high: pendingRef.current.high + high };
+    schedule();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events]);
+
+  useEffect(() => {
+    if (edrAlertCount !== lastEdrRef.current || sessionXp !== lastXpRef.current) schedule();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [edrAlertCount, sessionXp]);
+
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+
+  return <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">{message}</div>;
 }
 
 export default function DashboardPage() {
@@ -1085,6 +1194,8 @@ export default function DashboardPage() {
       className="transition-[padding] duration-300 ease-out"
       style={{ paddingRight: showReportModal && isWideViewport ? 480 : 0 }}
     >
+      <LiveAnnouncer events={live.events} isStreaming={live.isStreaming} edrAlertCount={edrAlertCount} sessionXp={live.sessionXp} />
+
       {showWelcome && <SOCWelcomeModal onStart={handleCloseWelcome} onTakeTour={handleTakeTour} />}
 
       {showCompanySelector && (
@@ -1165,7 +1276,7 @@ export default function DashboardPage() {
                 Investigate in EDR
                 {edrAlertCount > 0 && (
                   <span className="absolute -top-2 -right-2 flex h-5 min-w-[1.25rem] animate-pulse items-center justify-center rounded-full bg-severity-critical px-1 text-[10px] font-bold text-white shadow ring-2 ring-bg-elevated">
-                    {edrAlertCount}
+                    <span className="sr-only">, </span>{edrAlertCount}<span className="sr-only"> endpoint alert{edrAlertCount > 1 ? "s" : ""}</span>
                   </span>
                 )}
               </a>
@@ -1212,8 +1323,8 @@ export default function DashboardPage() {
                 <BookOpen className="h-3.5 w-3.5" /> Go to Learning Rooms
               </Link>
             </div>
-            <button onClick={dismissReadiness} aria-label="Dismiss" className="shrink-0 rounded p-1 text-slate-500 hover:text-slate-300">
-              <X className="h-4 w-4" />
+            <button type="button" onClick={dismissReadiness} aria-label="Dismiss" className="shrink-0 rounded p-1 text-slate-500 hover:text-slate-300">
+              <X aria-hidden="true" className="h-4 w-4" />
             </button>
           </div>
         )}
@@ -1317,8 +1428,8 @@ export default function DashboardPage() {
           <div className="flex items-center gap-3 rounded-lg border border-neon-purple/30 bg-neon-purple/5 px-5 py-3">
             <Target className="h-4 w-4 shrink-0 text-neon-purple" />
             <p className="text-sm text-slate-200">{scenarioObjective}</p>
-            <button onClick={() => setScenarioObjective(null)} className="ml-auto text-slate-400 hover:text-slate-300">
-              <X className="h-4 w-4" />
+            <button type="button" onClick={() => setScenarioObjective(null)} aria-label="Dismiss objective" className="ml-auto text-slate-400 hover:text-slate-300">
+              <X aria-hidden="true" className="h-4 w-4" />
             </button>
           </div>
         )}
@@ -1357,9 +1468,9 @@ export default function DashboardPage() {
             .sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime())
             .slice(0, 6);
           return (
-            <div
+            <TrappedDialog
               className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
-              role="dialog" aria-modal="true" aria-labelledby="learning-moment-title"
+              labelledBy="learning-moment-title" onEscape={handleContinueFromDebrief}
             >
               <div className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-cyber-500/40 bg-bg-elevated shadow-2xl shadow-cyber-500/10">
                 <div className="h-1 w-full bg-gradient-to-r from-cyber-500 via-neon-purple to-neon-green" />
@@ -1430,7 +1541,7 @@ export default function DashboardPage() {
                   </Button>
                 </div>
               </div>
-            </div>
+            </TrappedDialog>
           );
         })()}
 
@@ -1456,7 +1567,7 @@ export default function DashboardPage() {
               {/* Pulsing green only while the feed is actually streaming; a
                   static amber dot (no ping) when paused, so the indicator never
                   claims "live" while stopped. */}
-              <span className="relative flex h-2 w-2" title={live.isStreaming ? "Live — streaming" : "Paused"}>
+              <span className="relative flex h-2 w-2" title={live.isStreaming ? "Live — streaming" : "Paused"} aria-hidden="true">
                 {live.isStreaming && (
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-neon-green opacity-75" />
                 )}
@@ -1466,7 +1577,7 @@ export default function DashboardPage() {
                 )} />
               </span>
               <div>
-                <h3 className="text-sm font-semibold text-white">Live Event Feed</h3>
+                <h3 className="text-sm font-semibold text-white">Live Event Feed<span className="sr-only">{live.isStreaming ? " (streaming)" : " (paused)"}</span></h3>
                 <p className="text-[10px] text-slate-400">Click a row to expand and read the full log</p>
               </div>
             </div>
@@ -1477,6 +1588,8 @@ export default function DashboardPage() {
               <div className="relative">
                 <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                 <input
+                  type="search"
+                  aria-label="Search events"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search events…"
@@ -1496,11 +1609,13 @@ export default function DashboardPage() {
 
               {/* Reset */}
               <button
+                type="button"
                 onClick={() => live.reset()}
                 className="flex items-center gap-1.5 rounded border border-border bg-bg px-2.5 py-1.5 text-xs text-slate-300 hover:bg-bg-hover"
                 title="Clear and restart"
+                aria-label="Clear and restart the feed"
               >
-                <RefreshCw className="h-3.5 w-3.5" />
+                <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />
               </button>
             </div>
           </div>
@@ -1508,12 +1623,14 @@ export default function DashboardPage() {
           {/* Filter bar — row 1: level + source */}
           <div className="flex flex-wrap items-center gap-3 border-b border-border/60 bg-bg/60 px-5 py-2.5">
             <Filter className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Level:</span>
+            <span id="dash-level-label" className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Level:</span>
 
-            <div className="flex gap-1">
+            <div className="flex gap-1" role="group" aria-labelledby="dash-level-label">
               {(["all", "low", "medium", "high"] as const).map((lv) => (
                 <button
                   key={lv}
+                  type="button"
+                  aria-pressed={severityFilter === lv}
                   onClick={() => setSeverityFilter(lv)}
                   className={cn(
                     "rounded border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider transition",
@@ -1530,9 +1647,10 @@ export default function DashboardPage() {
               ))}
             </div>
 
-            <span className="text-[10px] text-slate-400">|</span>
+            <span aria-hidden="true" className="text-[10px] text-slate-400">|</span>
 
             <select
+              aria-label="Filter events by source"
               value={sourceFilter}
               onChange={(e) => setSourceFilter(e.target.value)}
               className="h-6 rounded border border-border bg-bg px-2 text-[10px] text-slate-300 focus:border-cyber-500/50 focus:outline-none"
@@ -1543,6 +1661,8 @@ export default function DashboardPage() {
             </select>
 
             <button
+              type="button"
+              aria-expanded={showAdvancedFilters}
               onClick={() => setShowAdvancedFilters(v => !v)}
               className={cn(
                 "ml-auto rounded border px-2 py-0.5 text-[10px] font-semibold transition",
@@ -1811,7 +1931,7 @@ export default function DashboardPage() {
           paused; ask before resuming so the analyst isn't dropped back into a
           moving feed unexpectedly. ─────────────────────────────────────────── */}
       {showResumePrompt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="resume-shift-title">
+        <TrappedDialog className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" labelledBy="resume-shift-title" onEscape={stayPaused}>
           <div className="w-full max-w-sm rounded-2xl border border-border bg-bg-elevated p-6 shadow-2xl">
             <div className="flex items-center gap-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-neon-green/30 bg-neon-green/10">
@@ -1831,7 +1951,7 @@ export default function DashboardPage() {
               </button>
             </div>
           </div>
-        </div>
+        </TrappedDialog>
       )}
 
     </div>

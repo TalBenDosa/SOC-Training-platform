@@ -42,16 +42,16 @@ export function AddMemberPanel({ sessionId, roster }: { sessionId: string; roste
   return (
     <div className="mt-3 border-t border-border/50 pt-3">
       {!open ? (
-        <button onClick={() => setOpen(true)} className="inline-flex items-center gap-1 text-[11px] font-semibold text-cyber-300 hover:underline"><UserPlus className="h-3.5 w-3.5" /> Add a member</button>
+        <button onClick={() => setOpen(true)} className="inline-flex items-center gap-1 text-[11px] font-semibold text-cyber-300 hover:underline"><UserPlus className="h-3.5 w-3.5" aria-hidden="true" /> Add a member</button>
       ) : (
         <div className="space-y-1.5">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Add a member</p>
           <div className="flex gap-1.5">
-            <select value={pick.user_id} onChange={e => setPick(s => ({ ...s, user_id: e.target.value }))} className="min-w-0 flex-1 rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 focus:outline-none">
+            <select aria-label="Member to add" value={pick.user_id} onChange={e => setPick(s => ({ ...s, user_id: e.target.value }))} className="min-w-0 flex-1 rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 focus:outline-none">
               <option value="">{members === null ? "Loading members…" : "— member —"}</option>
               {available.map(m => <option key={m.user_id} value={m.user_id}>{m.display_name || m.handle || m.user_id.slice(0, 8)}</option>)}
             </select>
-            <select value={pick.role} onChange={e => setPick(s => ({ ...s, role: e.target.value }))} className="rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 focus:outline-none">
+            <select aria-label="Role for the new member" value={pick.role} onChange={e => setPick(s => ({ ...s, role: e.target.value }))} className="rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 focus:outline-none">
               {["t1", "t2", "t3", "mgr", "observer"].map(r => <option key={r} value={r}>{ROLE_LABEL[r] ?? r}</option>)}
             </select>
             <Button variant="outline" size="sm" disabled={busy || !pick.user_id} onClick={add}>Add</Button>

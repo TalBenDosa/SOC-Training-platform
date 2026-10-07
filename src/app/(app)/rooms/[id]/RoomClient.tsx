@@ -661,7 +661,7 @@ export function RoomClient({ room }: RoomClientProps) {
                   )}
                 </span>
                 {/* Task type icon */}
-                <TaskIcon type={task.type} className={current ? "text-cyber-300" : done ? "text-slate-400" : "text-slate-700"} />
+                <TaskIcon type={task.type} className={current ? "text-cyber-300" : done ? "text-slate-400" : "text-slate-500"} />
                 {/* Title — use heading for reading tasks, question text for others */}
                 <span className="truncate">
                   {task.type === "reading"

@@ -9,7 +9,7 @@
  * IOC truth table), so the two surfaces never disagree on one hash. The RTR shell
  * is src/lib/edr/rtr.ts over the host's normal background (hostBaseline.ts).
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Topbar } from "@/components/nav/Topbar";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -150,6 +150,10 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null }: { 
   };
   const [hashResult, setHashResult] = useState<Record<number, { label: string; bad: boolean }>>({});
   const [decided, setDecided] = useState<null | { correct: boolean }>(null);
+  // a11y: the decision buttons unmount when the verdict shows, so move focus to
+  // the result heading (otherwise focus drops to <body> and nothing is announced).
+  const resultRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { if (decided) resultRef.current?.focus(); }, [decided]);
   const [tab, setTab] = useState<"overview" | "network" | "files">("overview");
   const [rtr, setRtr] = useState<{ cmd: string; out: string }[]>([]);
   const [rtrIn, setRtrIn] = useState("");
@@ -307,13 +311,13 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null }: { 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.15fr_1fr]">
           {/* process tree */}
           <Card className="p-0">
-            <h2 className="border-b border-border px-4 py-3 text-sm font-bold text-white">Process tree</h2>
-            <div className="max-h-[460px] overflow-auto p-2 font-mono text-[12px]">
+            <h2 id="edr-process-tree-heading" className="border-b border-border px-4 py-3 text-sm font-bold text-white">Process tree</h2>
+            <ul aria-labelledby="edr-process-tree-heading" className="max-h-[460px] overflow-auto p-2 font-mono text-[12px]">
               {roots.map(r => (
                 <TreeNode key={r.pid} p={r} depth={0} childrenOf={childrenOf} expanded={expanded} toggle={toggle}
                   selPid={selPid} setSel={setSelPid} detByPid={detByPid} reveal={decided !== null} />
               ))}
-            </div>
+            </ul>
           </Card>
 
           {/* detail + timeline */}
@@ -325,15 +329,31 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null }: { 
                   {!sel.signed && <span className="rounded border border-severity-high/40 bg-severity-high/10 px-2 py-0.5 text-[10px] font-bold text-severity-high">UNSIGNED</span>}
                 </div>
                 {/* tabs: Overview / Network / Files (Falcon execution-details style) */}
-                <div className="flex gap-1 border-b border-border px-3 pt-2 text-[11px]">
+                <div role="tablist" aria-label="Process details" className="flex gap-1 border-b border-border px-3 pt-2 text-[11px]"
+                  onKeyDown={e => {
+                    // WAI-ARIA tabs: Left/Right (and Home/End) move between tabs.
+                    const order = ["overview", "network", "files"] as const;
+                    const i = order.indexOf(tab);
+                    let next: number | null = null;
+                    if (e.key === "ArrowRight") next = (i + 1) % order.length;
+                    else if (e.key === "ArrowLeft") next = (i - 1 + order.length) % order.length;
+                    else if (e.key === "Home") next = 0;
+                    else if (e.key === "End") next = order.length - 1;
+                    if (next === null) return;
+                    e.preventDefault();
+                    setTab(order[next]);
+                    document.getElementById(`edr-tab-${order[next]}`)?.focus();
+                  }}>
                   {(["overview", "network", "files"] as const).map(t => (
-                    <button key={t} onClick={() => setTab(t)}
+                    <button key={t} type="button" role="tab" id={`edr-tab-${t}`} aria-selected={tab === t} aria-controls="edr-tabpanel"
+                      tabIndex={tab === t ? 0 : -1} onClick={() => setTab(t)}
                       className={`rounded-t px-2.5 py-1.5 font-medium capitalize transition ${tab === t ? "bg-bg text-cyber-300" : "text-slate-400 hover:text-white"}`}>
                       {t}{t === "network" && sel.network?.length ? ` (${sel.network.length})` : ""}{t === "files" && sel.files?.length ? ` (${sel.files.length})` : ""}
                     </button>
                   ))}
                 </div>
 
+                <div role="tabpanel" id="edr-tabpanel" aria-labelledby={`edr-tab-${tab}`} tabIndex={0}>
                 {tab === "overview" && (
                   <div className="space-y-2 px-4 py-3 text-[12px]">
                     <Field label="Command line"><code className="break-all text-slate-200">{sel.cmdline}</code></Field>
@@ -362,11 +382,13 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null }: { 
                             const intel = hashIntel(sel.sha256!, { truth: inv.iocTruth, process: { signed: sel.signed, flagged } });
                             setHashResult(r => ({ ...r, [sel.pid]: { label: hashVerdictLabel(intel), bad: intel.verdict === "malicious" || intel.verdict === "suspicious" } }));
                           }}><FileSearch className="mr-1.5 h-3.5 w-3.5" /> Look up hash</Button>
-                          {hashResult[sel.pid] && (
-                            <span className={`text-[12px] font-bold ${hashResult[sel.pid].bad ? "text-severity-critical" : "text-slate-400"}`}>
-                              {hashResult[sel.pid].label}
-                            </span>
-                          )}
+                          <span role="status">
+                            {hashResult[sel.pid] && (
+                              <span className={`text-[12px] font-bold ${hashResult[sel.pid].bad ? "text-severity-critical" : "text-slate-400"}`}>
+                                {hashResult[sel.pid].label}
+                              </span>
+                            )}
+                          </span>
                         </div>
                       </div>
                     )}
@@ -424,6 +446,7 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null }: { 
                     ) : <p className="text-slate-500">No file activity recorded for this process.</p>}
                   </div>
                 )}
+                </div>
               </Card>
             )}
 
@@ -452,7 +475,8 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null }: { 
               ))}
             </div>
           </div>
-          <div className="max-h-[240px] overflow-auto bg-black/40 px-4 py-3 font-mono text-[11.5px] leading-relaxed">
+          <div role="log" aria-live="polite" aria-label={`Real Time Response output — ${inv.host.name}`} tabIndex={0}
+            className="max-h-[240px] overflow-auto bg-black/40 px-4 py-3 font-mono text-[11.5px] leading-relaxed">
             {rtr.length === 0 && <p className="text-slate-500">Connected to {inv.host.name}. Type <span className="text-slate-300">help</span>, or use the quick commands above. RTR runs on the endpoint — <span className="text-neon-amber">kill</span>, <span className="text-neon-amber">get</span> and <span className="text-neon-amber">contain</span> take real action.</p>}
             {rtr.map((l, i) => (
               <div key={i} className="mb-2">
@@ -462,9 +486,9 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null }: { 
             ))}
           </div>
           <form onSubmit={e => { e.preventDefault(); runRtr(rtrIn); setRtrIn(""); }} className="flex items-center gap-2 border-t border-border px-4 py-2.5">
-            <span className="font-mono text-[12px] text-neon-green">&gt;</span>
+            <span aria-hidden="true" className="font-mono text-[12px] text-neon-green">&gt;</span>
             <input value={rtrIn} onChange={e => setRtrIn(e.target.value)} placeholder="ps · netstat · kill <pid> · get <path> · reg query Run · schtasks /query · sc query · wmi"
-              className="flex-1 bg-transparent font-mono text-[12px] text-white placeholder-slate-600 focus:outline-none" aria-label="RTR command" />
+              className="flex-1 bg-transparent font-mono text-[12px] text-white placeholder-slate-500 focus:outline-none" aria-label={`RTR command for ${inv.host.name}`} />
             <Button type="submit" variant="outline" size="sm">Run</Button>
           </form>
         </Card>
@@ -487,7 +511,7 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null }: { 
             </>
           ) : (
             <>
-              <h2 className={`flex items-center gap-2 text-sm font-bold ${decided.correct ? "text-neon-green" : "text-severity-high"}`}>
+              <h2 ref={resultRef} tabIndex={-1} className={`flex items-center gap-2 text-sm font-bold ${decided.correct ? "text-neon-green" : "text-severity-high"}`}>
                 {decided.correct ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
                 {decided.correct ? "Correct" : "Not quite"}
               </h2>
@@ -532,33 +556,52 @@ function TreeNode({ p, depth, childrenOf, expanded, toggle, selPid, setSel, detB
       : p.verdict === "suspicious" ? "text-neon-amber"
       : "text-slate-300"
     : "text-slate-200";
+  const selected = selPid === p.pid;
+  const groupId = `edr-proc-children-${p.pid}`;
+  // a11y: the row is a plain container; selecting is a real <button aria-pressed>
+  // (keyboard-operable, named by its text) and the expand chevron is a sibling
+  // button — never nested — so both are reachable with Tab and Enter/Space.
   return (
-    <div>
+    <li>
       <div
         onClick={() => setSel(p.pid)}
         style={{ paddingLeft: depth * 16 + 4 }}
-        className={`flex cursor-pointer items-center gap-1.5 rounded px-1.5 py-1 transition ${selPid === p.pid ? "bg-cyber-500/15" : "hover:bg-white/[0.03]"}`}
+        className={`flex cursor-pointer items-center gap-1.5 rounded px-1.5 py-1 transition ${selected ? "bg-cyber-500/15" : "hover:bg-white/[0.03]"}`}
       >
         {kids.length > 0 ? (
-          <button onClick={e => { e.stopPropagation(); toggle(p.pid); }} className="shrink-0 text-slate-500">
-            {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+          <button type="button" onClick={e => { e.stopPropagation(); toggle(p.pid); }} className="shrink-0 text-slate-500"
+            aria-expanded={open} aria-controls={open ? groupId : undefined}
+            aria-label={`${open ? "Collapse" : "Expand"} ${p.name} (pid ${p.pid})`}>
+            {open ? <ChevronDown aria-hidden="true" className="h-3.5 w-3.5" /> : <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />}
           </button>
         ) : <span className="w-3.5 shrink-0" />}
-        <span className={`truncate font-medium ${verdictColor}`}>{p.name}</span>
-        <span className="shrink-0 text-[10px] text-slate-500">{p.pid}</span>
-        {!p.signed && <span className="shrink-0 rounded bg-severity-high/15 px-1 text-[9px] font-bold text-severity-high">unsigned</span>}
-        {reveal && p.verdict === "abused" && <span className="shrink-0 rounded bg-cyber-500/15 px-1 text-[9px] font-bold text-cyber-300">abused</span>}
-        {dets.length > 0 && (
-          <span className={`shrink-0 rounded border px-1 text-[9px] font-bold ${SEV_STYLE[dets[0].severity]}`}>
-            ⚠ {dets[0].technique}
-          </span>
-        )}
+        <button type="button" aria-pressed={selected}
+          onClick={e => { e.stopPropagation(); setSel(p.pid); }}
+          className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
+          <span className={`truncate font-medium ${verdictColor}`}>{p.name}</span>
+          <span className="shrink-0 text-[10px] text-slate-500"><span className="sr-only">pid </span>{p.pid}</span>
+          {!p.signed && <span className="shrink-0 rounded bg-severity-high/15 px-1 text-[9px] font-bold text-severity-high">unsigned</span>}
+          {/* After the decision the tree is colour-coded by verdict; the text badges
+              carry the same meaning for anyone who can't rely on colour (1.4.1). */}
+          {reveal && p.verdict === "malicious" && <span className="shrink-0 rounded bg-severity-critical/15 px-1 text-[9px] font-bold text-severity-critical">malicious</span>}
+          {reveal && p.verdict === "suspicious" && <span className="shrink-0 rounded bg-neon-amber/15 px-1 text-[9px] font-bold text-neon-amber">suspicious</span>}
+          {reveal && p.verdict === "abused" && <span className="shrink-0 rounded bg-cyber-500/15 px-1 text-[9px] font-bold text-cyber-300">abused</span>}
+          {dets.length > 0 && (
+            <span className={`shrink-0 rounded border px-1 text-[9px] font-bold ${SEV_STYLE[dets[0].severity]}`}>
+              <span aria-hidden="true">⚠ </span><span className="sr-only">detection: </span>{dets[0].technique}
+            </span>
+          )}
+        </button>
       </div>
-      {open && kids.map(k => (
-        <TreeNode key={k.pid} p={k} depth={depth + 1} childrenOf={childrenOf} expanded={expanded} toggle={toggle}
-          selPid={selPid} setSel={setSel} detByPid={detByPid} reveal={reveal} />
-      ))}
-    </div>
+      {open && kids.length > 0 && (
+        <ul id={groupId}>
+          {kids.map(k => (
+            <TreeNode key={k.pid} p={k} depth={depth + 1} childrenOf={childrenOf} expanded={expanded} toggle={toggle}
+              selPid={selPid} setSel={setSel} detByPid={detByPid} reveal={reveal} />
+          ))}
+        </ul>
+      )}
+    </li>
   );
 }
 

@@ -1,5 +1,7 @@
 "use client";
+import { useRef } from "react";
 import { ChevronRight, Shield, Trophy, Zap } from "lucide-react";
+import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 
 interface Props {
   clearedCompanyName: string;
@@ -12,9 +14,13 @@ interface Props {
 }
 
 export function CompanyClearedModal({ clearedCompanyName, nextCompanyName, xpAwarded, attacksCaught, onContinue }: Props) {
+  // a11y: modal dialog with a single required action — focus is trapped, no Escape.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(true, dialogRef);
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
-      <div className="w-full max-w-md rounded-2xl border border-neon-green/40 bg-bg-elevated shadow-[0_0_60px_0_rgba(57,255,20,0.15)] overflow-hidden">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="company-cleared-title" aria-describedby="company-cleared-desc" tabIndex={-1}
+        className="w-full max-w-md rounded-2xl border border-neon-green/40 bg-bg-elevated shadow-[0_0_60px_0_rgba(57,255,20,0.15)] overflow-hidden">
         <div className="h-1 w-full bg-gradient-to-r from-neon-green via-cyber-500 to-neon-green" />
         <div className="p-8 text-center space-y-6">
 
@@ -26,9 +32,9 @@ export function CompanyClearedModal({ clearedCompanyName, nextCompanyName, xpAwa
           </div>
 
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-neon-green mb-2">🎉 Mission Complete</p>
-            <h2 className="text-2xl font-bold text-white">{clearedCompanyName} Secured</h2>
-            <p className="text-sm text-slate-400 mt-2 leading-relaxed">
+            <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-neon-green mb-2"><span aria-hidden="true">🎉 </span>Mission Complete</p>
+            <h2 id="company-cleared-title" className="text-2xl font-bold text-white">{clearedCompanyName} Secured</h2>
+            <p id="company-cleared-desc" className="text-sm text-slate-400 mt-2 leading-relaxed">
               You caught {attacksCaught ?? 2} attacks within 30 minutes and secured the company. Outstanding work, analyst.
             </p>
           </div>
@@ -60,6 +66,7 @@ export function CompanyClearedModal({ clearedCompanyName, nextCompanyName, xpAwa
           )}
 
           <button
+            type="button"
             onClick={onContinue}
             className="w-full flex items-center justify-center gap-2 rounded-xl bg-neon-green py-3 text-sm font-bold text-bg hover:bg-neon-green/90 transition"
           >

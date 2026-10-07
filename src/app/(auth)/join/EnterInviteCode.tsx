@@ -39,6 +39,8 @@ export function EnterInviteCode() {
   const [value, setValue] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** True when the error says the entered code itself is wrong (vs. a busy server). */
+  const [codeInvalid, setCodeInvalid] = useState(false);
   const router = useRouter();
   // A SIGNED-IN user entering a code isn't registering — they're joining an
   // additional environment with the account they already have.
@@ -50,6 +52,7 @@ export function EnterInviteCode() {
     e.preventDefault();
     if (!token || submitting) return;
     setError(null);
+    setCodeInvalid(false);
 
     // Invite links are UUIDs (36 chars, dashed) → the invitation resolver.
     if (!/^[A-Z0-9]{6,12}$/i.test(token)) {
@@ -77,6 +80,7 @@ export function EnterInviteCode() {
           return;
         }
         setError(data.error ?? "Couldn't join with this code.");
+        setCodeInvalid(res.status < 500 && res.status !== 429);
         setSubmitting(false);
         return;
       }
@@ -94,6 +98,7 @@ export function EnterInviteCode() {
         setError(`The server is busy right now — your code may well be fine. Try again in ${Number.isFinite(ra) && ra > 0 ? `${Math.ceil(ra)} seconds` : "a moment"}.`);
       } else {
         setError("That access code isn't valid or has expired — codes are refreshed daily. Ask your instructor for today's code.");
+        setCodeInvalid(true);
       }
     } catch {
       setError("Couldn't check the code just now. Try again in a moment.");
@@ -113,7 +118,9 @@ export function EnterInviteCode() {
         autoComplete="off"
         autoFocus
         value={value}
-        onChange={e => { setValue(e.target.value); setError(null); }}
+        onChange={e => { setValue(e.target.value); setError(null); setCodeInvalid(false); }}
+        aria-invalid={codeInvalid || undefined}
+        aria-describedby={error ? "invite-code-error" : undefined}
         placeholder="e.g. K7MRW3TQ — or paste an invite link"
         className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 font-mono text-sm tracking-widest text-white placeholder:text-slate-500 focus:border-neon-cyan focus:outline-none focus:ring-1 focus:ring-neon-cyan"
       />
@@ -126,7 +133,7 @@ export function EnterInviteCode() {
           will be added to your account, alongside any you&apos;re already in.
         </p>
       )}
-      {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
+      {error && <p id="invite-code-error" role="alert" className="mt-3 text-sm text-red-400">{error}</p>}
     </form>
   );
 }

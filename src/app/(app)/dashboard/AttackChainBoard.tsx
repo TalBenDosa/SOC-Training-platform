@@ -1,5 +1,6 @@
 "use client";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
+import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 import { cn } from "@/lib/utils";
 import { X, Check, ChevronRight } from "lucide-react";
 import type { LiveEvent } from "./useLiveEvents";
@@ -90,12 +91,9 @@ export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoar
   // click an event to select it, then click a slot to drop it there.
   const [selected, setSelected]     = useState<LiveEvent | null>(null);
 
-  // Escape closes the modal (mirrors the missed-attack/resume dialogs).
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [onClose]);
+  // Escape closes the modal; focus is trapped inside and returns on close.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(true, dialogRef, { onEscape: onClose });
 
   const placed = new Set(Object.values(slots).map(e => e?.id));
   const unplaced = events.filter(e => !placed.has(e.id));
@@ -141,6 +139,7 @@ export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoar
 
   return (
     <div
+      ref={dialogRef} tabIndex={-1}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
       role="dialog" aria-modal="true" aria-labelledby="attack-chain-title"
     >

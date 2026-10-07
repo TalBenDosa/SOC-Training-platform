@@ -12,7 +12,7 @@
  */
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
+import { buttonClasses } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import { useDisplayName } from "@/lib/auth/useDisplayName";
 import { useRank } from "@/lib/progression/useRank";
@@ -29,7 +29,7 @@ export default function WelcomePage() {
       <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[600px] bg-cyber-grid" />
       <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[600px] bg-cyber-glow" />
 
-      <div id="main-content" className="w-full max-w-xl text-center">
+      <main id="main-content" className="w-full max-w-xl text-center">
 
         <p className="text-lg text-slate-300">
           Hello <span className="font-semibold text-white">{name}</span>
@@ -75,13 +75,11 @@ export default function WelcomePage() {
 
         {/* ── The one way forward ────────────────────────────────────── */}
         <div className="mt-10">
-          <Link href="/rooms">
-            <Button variant="primary" size="lg">
-              Start Training <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
+          <Link href="/rooms" className={buttonClasses("primary", "lg")}>
+            Start Training <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
           </Link>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

@@ -170,6 +170,8 @@ export function HintPanel({ story, resetKey }: Props) {
           Optional nudges — they point you at where to look, never at the verdict, and asking costs nothing.
         </span>
         <button
+          type="button"
+          aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
           className={cn(
             "ml-auto flex items-center gap-1.5 rounded px-2 py-1 text-[11px] font-semibold transition",
@@ -187,7 +189,7 @@ export function HintPanel({ story, resetKey }: Props) {
       </div>
 
       {open && (
-        <div className="mt-2 space-y-2">
+        <div className="mt-2 space-y-2" aria-live="polite">
           {tiers.slice(0, revealed).map((tier, i) => (
             <div key={i} className="rounded border border-border/50 bg-[#0b0a06] px-3 py-2">
               <div className="mb-1 flex items-center gap-2">

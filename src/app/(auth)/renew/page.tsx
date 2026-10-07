@@ -57,9 +57,10 @@ export default function RenewPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-6">
+    // A div, not <main>: the (auth) layout already renders the page's <main>.
+    <div className="flex min-h-screen items-center justify-center px-6">
       <Card className="w-full max-w-md text-center">
-        <KeyRound className="mx-auto h-8 w-8 text-neon-cyan" />
+        <KeyRound className="mx-auto h-8 w-8 text-neon-cyan" aria-hidden="true" />
         <h1 className="mt-4 text-lg font-bold text-white">Renew your enrolment</h1>
         <p className="mt-2 text-sm text-slate-400">
           Your 100-day course enrolment has ended. Enter your class&apos;s current
@@ -77,6 +78,8 @@ export default function RenewPage() {
             autoFocus
             value={code}
             onChange={e => setCode(e.target.value.toUpperCase())}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? "renew-error" : undefined}
             placeholder="e.g. K7MRW3TQ"
             className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 font-mono text-sm tracking-widest text-white placeholder:text-slate-500 focus:border-neon-cyan focus:outline-none focus:ring-1 focus:ring-neon-cyan"
           />
@@ -84,18 +87,18 @@ export default function RenewPage() {
             {busy ? "Checking…" : "Renew enrolment"}
           </Button>
         </form>
-        {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
+        {error && <p id="renew-error" role="alert" className="mt-3 text-sm text-red-400">{error}</p>}
         <p className="mt-5 text-xs text-slate-500">
           In another course too? Enter that course&apos;s code above to continue there.
         </p>
         <button
           type="button"
           onClick={async () => { await signOut(); router.push("/login"); }}
-          className="mt-3 inline-flex items-center gap-1.5 text-xs text-slate-400 underline-offset-2 hover:text-slate-200 hover:underline"
+          className="mt-3 inline-flex items-center gap-1.5 text-xs text-slate-400 underline underline-offset-2 hover:text-slate-200"
         >
-          <LogOut className="h-3.5 w-3.5" /> Sign out
+          <LogOut className="h-3.5 w-3.5" aria-hidden="true" /> Sign out
         </button>
       </Card>
-    </main>
+    </div>
   );
 }

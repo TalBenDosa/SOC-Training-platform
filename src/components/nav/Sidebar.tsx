@@ -1,8 +1,9 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 import { Logo } from "../Logo";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useOrgContext } from "@/lib/auth/useOrgContext";
@@ -93,6 +94,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
                 <Link
                   href={href}
                   onClick={onNavigate}
+                  aria-current={active ? "page" : undefined}
                   className={cn(
                     "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
                     active
@@ -100,7 +102,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
                       : "text-slate-300 hover:bg-white/5 hover:text-white"
                   )}
                 >
-                  <Icon className="h-[18px] w-[18px] shrink-0" />
+                  <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
                   <span>{label}</span>
                 </Link>
               </li>
@@ -224,6 +226,14 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
         {/* Super-admin environment switcher — present in all tenants, switch
             between them in one click. Self-gates on the platform-admin claim. */}
         <EnvironmentSwitcher onNavigate={onNavigate} />
+        {/* Accessibility statement — reachable from every in-app page. */}
+        <Link
+          href="/accessibility"
+          onClick={onNavigate}
+          className="mt-1 block px-3 py-1 text-xs text-slate-400 underline underline-offset-2 hover:text-slate-200 transition-colors"
+        >
+          Accessibility
+        </Link>
       </div>
     </>
   );
@@ -238,6 +248,11 @@ export function Sidebar() {
   // public marketing landing at "/" — which renders its logged-out view and made
   // it look as though the session had been lost (it hadn't; the cookie is intact).
   const homeHref = user ? "/rooms" : "/";
+  const drawerRef = useRef<HTMLElement>(null);
+  const drawerCloseRef = useRef<HTMLButtonElement>(null);
+  // Mobile drawer is a modal dialog: focus moves in, Tab is trapped, Escape
+  // closes, and focus returns to the hamburger on close.
+  useFocusTrap(drawerOpen, drawerRef, { onEscape: () => setDrawerOpen(false), initialFocus: drawerCloseRef });
 
   // Close the mobile drawer whenever the route changes (belt-and-suspenders
   // alongside the per-link onNavigate handler).
@@ -284,6 +299,8 @@ export function Sidebar() {
       <button
         onClick={() => setDrawerOpen(true)}
         aria-label="Open navigation menu"
+        aria-expanded={drawerOpen}
+        aria-controls="mobile-nav-drawer"
         className="md:hidden fixed top-3 left-3 z-40 flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-[#0d1520]/95 text-slate-200 shadow-lg backdrop-blur"
       >
         <Menu className="h-5 w-5" />
@@ -298,12 +315,23 @@ export function Sidebar() {
             aria-hidden="true"
           />
           {/* Drawer panel */}
-          <aside className="relative flex w-64 max-w-[80vw] flex-col border-r border-border bg-[#0d1520] h-full">
+          <aside
+            ref={drawerRef}
+            id="mobile-nav-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mobile-nav-drawer-title"
+            tabIndex={-1}
+            className="relative flex w-64 max-w-[80vw] flex-col border-r border-border bg-[#0d1520] h-full outline-none"
+          >
+            <h2 id="mobile-nav-drawer-title" className="sr-only">Navigation menu</h2>
             <div className="flex items-center justify-between px-5 py-5">
               <Link href={homeHref} className="block" onClick={() => setDrawerOpen(false)}>
                 <Logo />
               </Link>
               <button
+                ref={drawerCloseRef}
+                type="button"
                 onClick={() => setDrawerOpen(false)}
                 aria-label="Close navigation menu"
                 className="rounded p-1 text-slate-400 hover:text-white"

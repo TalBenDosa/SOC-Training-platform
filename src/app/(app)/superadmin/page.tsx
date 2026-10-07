@@ -5,7 +5,8 @@
  * middleware (platform-admin only) and by every API route's requireSuperAdmin;
  * this page renders nothing sensitive until those pass.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 import { fetchOrError } from "@/lib/http/safeFetch";
 import Link from "next/link";
 import { Topbar } from "@/components/nav/Topbar";
@@ -187,7 +188,7 @@ export default function SuperAdminPage() {
                             <Building2 className="h-4.5 w-4.5 text-cyber-300" />
                           </span>
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-bold text-white">{o.name}</p>
+                            <p className="truncate text-sm font-bold text-white"><bdi>{o.name}</bdi></p>
                             <p className="truncate font-mono text-[11px] text-slate-400">/{o.slug}</p>
                           </div>
                         </div>
@@ -307,6 +308,8 @@ function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated
 
   const field = "h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white placeholder-slate-500 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30";
   const label = "mb-1.5 block text-xs font-semibold text-slate-400";
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(true, dialogRef, { onEscape: createdLink ? onCreated : onClose });
 
   return (
     // P5-19: close only when the press starts on the backdrop itself — a click
@@ -315,12 +318,12 @@ function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
       onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}>
       <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto" >
-        <div>
+        <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="create-org-title" tabIndex={-1}>
           {createdLink ? (
             <div>
               <div className="mb-3 flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-neon-green" />
-                <h2 className="text-lg font-bold text-white">{createdName} is ready</h2>
+                <CheckCircle2 className="h-5 w-5 text-neon-green" aria-hidden="true" />
+                <h2 id="create-org-title" className="text-lg font-bold text-white"><bdi>{createdName}</bdi> is ready</h2>
               </div>
               <p className="mb-3 text-sm text-slate-400">
                 This is the <strong className="text-slate-200">admin&apos;s invite link</strong> — for the person who will run
@@ -333,8 +336,8 @@ function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated
                 </span>
                 <input readOnly value={createdLink} onFocus={e => e.currentTarget.select()}
                   className="h-10 flex-1 rounded-md border border-border bg-bg px-3 font-mono text-[11px] text-white focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30" aria-label="Admin invite link" />
-                <Button type="button" variant="outline" size="sm" onClick={copyLink}>
-                  {copied ? <Check className="h-4 w-4 text-neon-green" /> : <Copy className="h-4 w-4" />}
+                <Button type="button" variant="outline" size="sm" onClick={copyLink} aria-label={copied ? "Link copied" : "Copy invite link"}>
+                  {copied ? <Check className="h-4 w-4 text-neon-green" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
                 </Button>
               </div>
               {emailed && (
@@ -349,12 +352,12 @@ function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated
             </div>
           ) : (
           <>
-          <h2 className="mb-1 text-lg font-bold text-white">New organization</h2>
+          <h2 id="create-org-title" className="mb-1 text-lg font-bold text-white">New organization</h2>
           <p className="mb-4 text-[12px] text-slate-400">The three essentials. The org-admin gets an emailed invite + the first class code.</p>
           <form onSubmit={submit} className="space-y-3">
             <div>
               <label className={label} htmlFor="org-name">College name</label>
-              <input id="org-name" className={field} value={name} required
+              <input id="org-name" dir="auto" className={field} value={name} required
                 onChange={e => { setName(e.target.value); if (!slug) setSlug(autoSlug(e.target.value)); }}
                 placeholder="e.g. Sapir College" />
             </div>
@@ -372,7 +375,7 @@ function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated
             {/* Slug/seats/expiry are operational knobs, not part of the essential
                 three — tucked away with sensible defaults (auto slug, 50 seats,
                 no expiry) so the common case is a 3-field form. */}
-            <button type="button" onClick={() => setShowAdvanced(v => !v)}
+            <button type="button" onClick={() => setShowAdvanced(v => !v)} aria-expanded={showAdvanced}
               className="text-[12px] font-medium text-cyber-300 hover:text-cyber-200">
               {showAdvanced ? "− Hide" : "+ Advanced"} (slug · seats · expiry)
             </button>
@@ -394,7 +397,7 @@ function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated
                 </div>
               </div>
             )}
-            {error && <div className="rounded border border-severity-high/40 bg-severity-high/10 px-3 py-2 text-xs text-severity-high">{error}</div>}
+            {error && <div role="alert" className="rounded border border-severity-high/40 bg-severity-high/10 px-3 py-2 text-xs text-severity-high">{error}</div>}
             <div className="flex justify-end gap-2 pt-1">
               <Button type="button" variant="outline" size="sm" onClick={onClose}>Cancel</Button>
               <Button type="submit" variant="primary" size="sm" disabled={submitting}>

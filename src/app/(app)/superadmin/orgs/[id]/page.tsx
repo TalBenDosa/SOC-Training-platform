@@ -280,7 +280,7 @@ export default function OrgDetailPage() {
               <div className="flex flex-wrap items-end gap-3">
                 <div className="min-w-[16rem] flex-1">
                   <label className={label} htmlFor="l-name">Name</label>
-                  <input id="l-name" type="text" maxLength={120} className={field} value={orgName}
+                  <input id="l-name" type="text" dir="auto" maxLength={120} className={field} value={orgName}
                     onChange={e => setOrgName(e.target.value)} placeholder="e.g. מערך הסייבר הלאומי" />
                 </div>
                 <Button variant="primary" size="sm"
@@ -467,8 +467,8 @@ export default function OrgDetailPage() {
                   <div className="mt-2 flex items-center gap-2">
                     <input readOnly value={adminInvite.link} onFocus={e => e.currentTarget.select()}
                       className={`${field} flex-1 font-mono text-[11px]`} aria-label="Admin invite link" />
-                    <Button variant="outline" size="sm" onClick={() => { navigator.clipboard.writeText(adminInvite.link); setAdminCopied(true); setTimeout(() => setAdminCopied(false), 2000); }}>
-                      {adminCopied ? <Check className="h-4 w-4 text-neon-green" /> : <Copy className="h-4 w-4" />}
+                    <Button variant="outline" size="sm" aria-label={adminCopied ? "Link copied" : "Copy admin invite link"} onClick={() => { navigator.clipboard.writeText(adminInvite.link); setAdminCopied(true); setTimeout(() => setAdminCopied(false), 2000); }}>
+                      {adminCopied ? <Check className="h-4 w-4 text-neon-green" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
                     </Button>
                   </div>
                 </div>
@@ -510,13 +510,13 @@ export default function OrgDetailPage() {
                             {rows.map(s => (
                                 <tr key={s.user_id} className={`hover:bg-white/[0.02] ${s.status === "active" ? "" : "opacity-60"}`}>
                                   <td className="px-4 py-2.5">
-                                    <p className="font-medium text-white">{s.display_name || s.handle || s.user_id.slice(0, 8)}</p>
+                                    <p className="font-medium text-white"><bdi>{s.display_name || s.handle || s.user_id.slice(0, 8)}</bdi></p>
                                     <p className="font-mono text-[10px] text-slate-500">{s.handle ? `@${s.handle}` : ""}{s.status !== "active" ? " · inactive" : ""}</p>
                                   </td>
                                   <td className="px-4 py-2.5 font-mono text-[12px] text-slate-300">{s.email ?? "—"}</td>
                                   <td className="px-4 py-2.5 font-mono text-slate-200">{s.scenario_avg_score === null ? "—" : `${s.scenario_avg_score}%`}</td>
                                   <td className="px-4 py-2.5 font-mono font-bold text-cyber-300">{s.xp.toLocaleString()}</td>
-                                  <td className={`px-4 py-2.5 text-[12px] ${!s.last_active_at ? "text-slate-600" : Date.now() - Date.parse(s.last_active_at) >= 14 * 86_400_000 ? "text-neon-amber" : "text-slate-400"}`}>{sinceLabel(s.last_active_at)}</td>
+                                  <td className={`px-4 py-2.5 text-[12px] ${!s.last_active_at ? "text-slate-500" : Date.now() - Date.parse(s.last_active_at) >= 14 * 86_400_000 ? "text-neon-amber" : "text-slate-400"}`}>{sinceLabel(s.last_active_at)}</td>
                                 </tr>
                             ))}
                           </tbody>
@@ -547,7 +547,7 @@ export default function OrgDetailPage() {
                   {members.map(m => (
                     <div key={m.user_id} className="flex items-center justify-between py-2.5">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-white">{m.display_name || m.handle || m.user_id.slice(0, 8)}</p>
+                        <p className="truncate text-sm font-medium text-white"><bdi>{m.display_name || m.handle || m.user_id.slice(0, 8)}</bdi></p>
                         <p className="truncate font-mono text-[11px] text-slate-400">{m.handle ? `@${m.handle}` : ""} · {m.role}{m.status !== "active" ? ` · ${m.status}` : ""}</p>
                       </div>
                       <button onClick={() => removeMember(m)} aria-label={`Remove ${m.handle ?? "member"}`}
@@ -569,7 +569,7 @@ export default function OrgDetailPage() {
                 <Download className="h-4 w-4" /> Export data (JSON)
               </a>
               <h3 className="mb-1 flex items-center gap-2 text-sm font-bold text-severity-high"><Trash2 className="h-4 w-4" /> Delete organization</h3>
-              <p className="mb-3 text-xs text-slate-400">Deletes the org and its learner data; accounts are re-homed as unaffiliated. Type <span className="font-mono text-white">{org.name}</span> to confirm.</p>
+              <p className="mb-3 text-xs text-slate-400">Deletes the org and its learner data; accounts are re-homed as unaffiliated. Type <bdi className="font-mono text-white">{org.name}</bdi> to confirm.</p>
               <div className="flex flex-wrap items-center gap-2">
                 <input className={`${field} max-w-xs`} value={confirmName} onChange={e => setConfirmName(e.target.value)} placeholder={org.name} aria-label="Confirm org name" />
                 <Button variant="outline" size="sm" disabled={confirmName !== org.name} onClick={deleteOrg}

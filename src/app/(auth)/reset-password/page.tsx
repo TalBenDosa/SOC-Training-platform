@@ -1,10 +1,10 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { KeyRound, Mail } from "lucide-react";
 import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
+import { Button, buttonClasses } from "@/components/ui/Button";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 export default function ResetPasswordPage() {
@@ -13,6 +13,9 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
+  // The "check your email" view replaces the form: move focus to its heading.
+  const sentHeadingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { if (sent) sentHeadingRef.current?.focus(); }, [sent]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -50,7 +53,7 @@ export default function ResetPasswordPage() {
     return (
       <Card className="w-full max-w-md text-center">
         <p className="text-sm text-slate-400">Accounts aren&apos;t set up on this deployment yet.</p>
-        <Link href="/rooms" className="mt-4 inline-block"><Button variant="outline">Back to app</Button></Link>
+        <Link href="/rooms" className={buttonClasses("outline", "md", "mt-4")}>Back to app</Link>
       </Card>
     );
   }
@@ -58,12 +61,14 @@ export default function ResetPasswordPage() {
   if (sent) {
     return (
       <Card className="w-full max-w-md text-center">
-        <Mail className="mx-auto h-8 w-8 text-cyber-300" />
-        <h1 className="mt-4 text-lg font-bold text-white">Check your email</h1>
-        <p className="mt-2 text-sm text-slate-400">
-          If an account exists for <span className="text-slate-200">{email}</span>, we sent a link to reset your password.
-        </p>
-        <Link href="/login" className="mt-6 inline-block"><Button variant="outline">Back to sign in</Button></Link>
+        <Mail className="mx-auto h-8 w-8 text-cyber-300" aria-hidden="true" />
+        <div role="status">
+          <h1 ref={sentHeadingRef} tabIndex={-1} className="mt-4 text-lg font-bold text-white outline-none">Check your email</h1>
+          <p className="mt-2 text-sm text-slate-400">
+            If an account exists for <span className="text-slate-200">{email}</span>, we sent a link to reset your password.
+          </p>
+        </div>
+        <Link href="/login" className={buttonClasses("outline", "md", "mt-6")}>Back to sign in</Link>
       </Card>
     );
   }
@@ -91,14 +96,14 @@ export default function ResetPasswordPage() {
           />
         </div>
         {error && (
-          <div className="rounded border border-severity-high/40 bg-severity-high/10 px-3 py-2 text-xs text-severity-high">{error}</div>
+          <div role="alert" className="rounded border border-severity-high/40 bg-severity-high/10 px-3 py-2 text-xs text-severity-high">{error}</div>
         )}
         <Button type="submit" variant="primary" size="lg" className="w-full" disabled={submitting}>
           {submitting ? "Sending…" : "Send reset link"}
         </Button>
       </form>
       <p className="mt-5 text-center text-xs text-slate-400">
-        <Link href="/login" className="text-cyber-300 hover:underline">Back to sign in</Link>
+        <Link href="/login" className="text-cyber-300 underline underline-offset-2 hover:text-cyber-200">Back to sign in</Link>
       </p>
     </Card>
   );

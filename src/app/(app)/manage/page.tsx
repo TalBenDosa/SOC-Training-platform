@@ -259,7 +259,7 @@ export default function ManagePage() {
                 </span>
                 <div className="min-w-0">
                   <p className="text-[10px] uppercase tracking-wider text-slate-400">College</p>
-                  <p className="truncate text-lg font-bold text-white">{org?.name ?? "—"}</p>
+                  <p className="truncate text-lg font-bold text-white"><bdi>{org?.name ?? "—"}</bdi></p>
                 </div>
               </div>
               <div className="text-right">
@@ -305,7 +305,7 @@ export default function ManagePage() {
                         />
                       </span>
                       <span className="w-16 shrink-0 text-right font-mono text-[11px] text-slate-400">
-                        {st.percent}% <span className="text-slate-600">· {st.roomCount}</span>
+                        {st.percent}% <span className="text-slate-500">· {st.roomCount}</span>
                       </span>
                     </div>
                   ))}
@@ -396,7 +396,7 @@ export default function ManagePage() {
                     <div key={r.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-bg-elevated px-3 py-2.5">
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-slate-100">
-                          {r.display_name || r.handle || "Unnamed student"}
+                          <bdi>{r.display_name || r.handle || "Unnamed student"}</bdi>
                         </p>
                         <p className="text-xs text-slate-400">
                           Requested {sinceLabel(r.requested_at)}
@@ -483,7 +483,7 @@ export default function ManagePage() {
                     return (
                       <Link key={s.user_id} href={`/manage/students/${s.user_id}`}
                         className="inline-flex items-center gap-2 rounded-lg border border-border bg-bg-elevated px-2.5 py-1.5 text-xs text-slate-200 transition hover:border-neon-amber/50">
-                        <span className="font-medium">{s.display_name || s.handle || s.user_id.slice(0, 8)}</span>
+                        <bdi className="font-medium">{s.display_name || s.handle || s.user_id.slice(0, 8)}</bdi>
                         <span className="text-[10px] text-neon-amber">{why}</span>
                       </Link>
                     );
@@ -536,8 +536,8 @@ export default function ManagePage() {
                             {/* Full name → per-student drill-down (progress, mistakes, timing) */}
                             <td className="px-4 py-2.5">
                               <Link href={`/manage/students/${m.user_id}`} className="group inline-flex items-center gap-1">
-                                <span className="font-medium text-white group-hover:text-cyber-300">{m.display_name || m.handle || m.user_id.slice(0, 8)}</span>
-                                <ChevronRight className="h-3.5 w-3.5 text-slate-600 transition group-hover:translate-x-0.5 group-hover:text-cyber-300" />
+                                <bdi className="font-medium text-white group-hover:text-cyber-300">{m.display_name || m.handle || m.user_id.slice(0, 8)}</bdi>
+                                <ChevronRight className="h-3.5 w-3.5 text-slate-500 transition group-hover:translate-x-0.5 group-hover:text-cyber-300" />
                               </Link>
                               <p className="font-mono text-[10px] text-slate-500">{m.handle ? `@${m.handle} · ` : ""}{m.role}{isActive ? "" : " · inactive"}</p>
                             </td>
@@ -554,26 +554,26 @@ export default function ManagePage() {
                                   </span>
                                   <span className="font-mono text-[11px] text-slate-400">{studentPathPercent(s.completed_room_ids)}%</span>
                                 </div>
-                              ) : <span className="text-slate-600">—</span>}
+                              ) : <span className="text-slate-500">—</span>}
                             </td>
                             <td className="px-4 py-2.5 font-mono text-[12px] text-slate-300" title="Average detection rate on the live dashboard">
                               {s && s.avg_detect_rate !== null ? `${s.avg_detect_rate}%` : "—"}
                             </td>
                             <td className="px-4 py-2.5 font-mono font-bold text-cyber-300">{(m.xp ?? 0).toLocaleString()}</td>
-                            <td className={`px-4 py-2.5 text-[12px] ${!s?.last_active_at ? "text-slate-600" : Date.now() - Date.parse(s.last_active_at) >= 14 * 86_400_000 ? "text-neon-amber" : "text-slate-400"}`}>
+                            <td className={`px-4 py-2.5 text-[12px] ${!s?.last_active_at ? "text-slate-500" : Date.now() - Date.parse(s.last_active_at) >= 14 * 86_400_000 ? "text-neon-amber" : "text-slate-400"}`}>
                               {sinceLabel(s?.last_active_at ?? null)}
                             </td>
                             <td className="px-4 py-2.5">
                               <div className="flex items-center justify-end gap-1">
                                 {isActive ? (
                                   <button onClick={() => setActive(m.user_id, false)} aria-label={`Deactivate ${m.handle ?? "student"}`} title="Set inactive"
-                                    className="rounded p-1.5 text-slate-400 transition hover:bg-neon-amber/10 hover:text-neon-amber"><PowerOff className="h-4 w-4" /></button>
+                                    className="rounded p-1.5 text-slate-400 transition hover:bg-neon-amber/10 hover:text-neon-amber"><PowerOff className="h-4 w-4" aria-hidden="true" /></button>
                                 ) : (
                                   <button onClick={() => setActive(m.user_id, true)} aria-label={`Activate ${m.handle ?? "student"}`} title="Set active"
-                                    className="rounded p-1.5 text-slate-400 transition hover:bg-neon-green/10 hover:text-neon-green"><Power className="h-4 w-4" /></button>
+                                    className="rounded p-1.5 text-slate-400 transition hover:bg-neon-green/10 hover:text-neon-green"><Power className="h-4 w-4" aria-hidden="true" /></button>
                                 )}
                                 <button onClick={() => removeMember(m.user_id)} aria-label={`Remove ${m.handle ?? "student"}`} title="Remove from class"
-                                  className="rounded p-1.5 text-slate-400 transition hover:bg-severity-high/10 hover:text-severity-high"><Trash2 className="h-4 w-4" /></button>
+                                  className="rounded p-1.5 text-slate-400 transition hover:bg-severity-high/10 hover:text-severity-high"><Trash2 className="h-4 w-4" aria-hidden="true" /></button>
                               </div>
                             </td>
                           </tr>

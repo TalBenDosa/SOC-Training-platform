@@ -7,7 +7,7 @@ import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LogIn, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
+import { Button, buttonClasses } from "@/components/ui/Button";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -114,8 +114,8 @@ function LoginForm() {
           This deployment hasn&apos;t been connected to a database. You can still use the platform —
           your progress is saved on this device.
         </p>
-        <Link href="/rooms" className="mt-6 inline-block">
-          <Button variant="primary">Continue as guest</Button>
+        <Link href="/rooms" className={buttonClasses("primary", "md", "mt-6")}>
+          Continue as guest
         </Link>
       </Card>
     );
@@ -188,7 +188,7 @@ function LoginForm() {
         <div>
           <div className="mb-1.5 flex items-center justify-between">
             <label htmlFor="login-password" className="text-xs font-semibold text-slate-400">Password</label>
-            <Link href="/reset-password" className="text-[11px] text-cyber-300 hover:underline">Forgot password?</Link>
+            <Link href="/reset-password" className="text-[11px] text-cyber-300 underline underline-offset-2 hover:text-cyber-200">Forgot password?</Link>
           </div>
           <input
             id="login-password"
@@ -199,7 +199,7 @@ function LoginForm() {
         </div>
 
         {error && (
-          <div className="rounded border border-severity-high/40 bg-severity-high/10 px-3 py-2 text-xs text-severity-high">
+          <div role="alert" className="rounded border border-severity-high/40 bg-severity-high/10 px-3 py-2 text-xs text-severity-high">
             {error}
           </div>
         )}
@@ -211,7 +211,7 @@ function LoginForm() {
       )}
 
       <p className="mt-5 text-center text-xs text-slate-400">
-        New here? <Link href="/signup" className="text-cyber-300 hover:underline">Create an account</Link>
+        New here? <Link href="/signup" className="text-cyber-300 underline underline-offset-2 hover:text-cyber-200">Create an account</Link>
       </p>
     </Card>
   );

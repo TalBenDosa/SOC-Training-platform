@@ -203,7 +203,11 @@ function TourCard({
   useEffect(() => {
     if (current.targetId) {
       document.getElementById(current.targetId)
-        ?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+        ?.scrollIntoView({
+          // Respect prefers-reduced-motion (WCAG 2.3.3): jump instead of animating.
+          behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+          block: "nearest", inline: "nearest",
+        });
     }
   }, [step, current.targetId]);
 
@@ -224,6 +228,8 @@ function TourCard({
         transition={{ type: "spring", damping: 24, stiffness: 300 }}
         style={{ ...DOCK_STYLE, zIndex: 60 }}
         data-blocks-announcements
+        // Non-modal: the page stays usable while the tour card is docked.
+        role="dialog" aria-modal="false" aria-labelledby="tour-step-title"
         className="fixed flex flex-col"
       >
         <div className="flex flex-col rounded-2xl border border-cyber-500/30 bg-[#07111f] shadow-2xl shadow-black/70 overflow-hidden max-h-full">
@@ -239,6 +245,9 @@ function TourCard({
                 {steps.map((_, i) => (
                   <button
                     key={i}
+                    type="button"
+                    aria-label={`Go to step ${i + 1} of ${steps.length}`}
+                    aria-current={i === step ? "step" : undefined}
                     onClick={() => setStep(i)}
                     className={cn(
                       "rounded-full transition-all duration-200",
@@ -251,11 +260,13 @@ function TourCard({
               </div>
               <span className="font-mono text-[9px] text-slate-400 shrink-0">{step + 1}/{steps.length}</span>
               <button
+                type="button"
                 onClick={onDone}
                 title="Skip tour"
+                aria-label="Skip tour"
                 className="text-slate-400 hover:text-white transition p-0.5 shrink-0"
               >
-                <X className="h-3.5 w-3.5" />
+                <X aria-hidden="true" className="h-3.5 w-3.5" />
               </button>
             </div>
           </div>
@@ -263,9 +274,9 @@ function TourCard({
           {/* Body — scrolls internally if content is tall, card box never grows off-screen */}
           <div className="px-5 py-4 space-y-3 overflow-y-auto">
             <div className="flex items-start gap-3">
-              <span className="text-[22px] shrink-0 leading-none mt-0.5">{current.icon}</span>
+              <span className="text-[22px] shrink-0 leading-none mt-0.5" aria-hidden="true">{current.icon}</span>
               <div className="min-w-0 flex-1">
-                <h3 className="text-[13px] font-bold text-white mb-1.5 leading-snug">{current.title}</h3>
+                <h3 id="tour-step-title" className="text-[13px] font-bold text-white mb-1.5 leading-snug">{current.title}</h3>
                 <p className="text-[11px] leading-relaxed text-slate-300">{current.content}</p>
               </div>
             </div>
@@ -285,7 +296,7 @@ function TourCard({
               className={cn(
                 "inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition",
                 isFirst
-                  ? "border-transparent text-slate-700 pointer-events-none"
+                  ? "border-transparent text-slate-500 pointer-events-none"
                   : "border-slate-600/50 text-slate-300 hover:bg-slate-700/40"
               )}
             >

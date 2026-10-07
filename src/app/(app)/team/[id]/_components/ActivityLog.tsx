@@ -2,6 +2,7 @@
 import { Card } from "@/components/ui/Card";
 import type { Ev } from "@/lib/team/types";
 import { asStr } from "@/lib/team/format";
+import { useNewItemsAnnouncement, LiveRegion, clip } from "./useLiveAnnounce";
 
 // ── Team activity log (everyone sees the coordination) ───────────────────────
 export function ActivityLog({ activity, nameOf }: { activity: Ev[]; nameOf: (u: string | null) => string }) {
@@ -41,13 +42,20 @@ export function ActivityLog({ activity, nameOf }: { activity: Ev[]; nameOf: (u: 
       default: return e.type;
     }
   };
+  // Throttled screen-reader summary of new team actions (not every item).
+  const announcement = useNewItemsAnnouncement(activity, e => e.seq, fresh => {
+    const last = fresh[fresh.length - 1];
+    const latest = clip(`${nameOf(last.actor_id)} ${label(last)}`);
+    return fresh.length === 1 ? `Team activity: ${latest}` : `${fresh.length} new team actions. Latest: ${latest}`;
+  }, { throttleMs: 15000 });
   return (
     <Card>
+      <LiveRegion message={announcement} />
       <h3 className="text-sm font-bold text-white">Team activity</h3>
       {activity.length === 0 ? <p className="mt-2 text-xs text-slate-400">Actions your team takes appear here, live.</p> : (
         <div className="mt-2 max-h-64 space-y-1.5 overflow-y-auto">
           {activity.slice().reverse().map(e => (
-            <p key={e.seq} className="text-[11px] text-slate-400"><span className="font-medium text-slate-200">{nameOf(e.actor_id)}</span> {label(e)}</p>
+            <p key={e.seq} className="text-[11px] text-slate-400"><bdi className="font-medium text-slate-200">{nameOf(e.actor_id)}</bdi> <bdi>{label(e)}</bdi></p>
           ))}
         </div>
       )}

@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { DetailPanelBody } from "@/app/(app)/dashboard/EventFeed";
@@ -111,6 +112,10 @@ export function T2Console({ role, meId, escalations, escState, reportedIds, repo
   // Assisted pull: the most urgent case nobody has taken yet.
   const nextUnacked = prioritized.find(e => { const st = stOf(eidOf(e)); return !!st && !st.acked && !st.bounced && !st.resolved; }) || null;
   async function takeNextCase() { if (nextUnacked) await ack(eidOf(nextUnacked)); }
+  const fullLogRef = useRef<HTMLDivElement>(null);
+  // Trap focus in the full-screen log; hand off while the threat-intel drawer is on top of it.
+  useFocusTrap(!!fullLog && !threatQuery, fullLogRef, { onEscape: () => setFullLog(null) });
+  const uid = useId();
   const incidentList = <datalist id="team-incidents">{incidents.map(i => <option key={i} value={i} />)}</datalist>;
   return (
     <div className="space-y-4">
@@ -118,7 +123,7 @@ export function T2Console({ role, meId, escalations, escState, reportedIds, repo
       <Card>
         <div className="flex items-center justify-between gap-2">
           <h3 className="flex items-center gap-2 text-sm font-bold text-white">
-            {role === "t3" && <button onClick={() => setInboxOpen(o => !o)} className="text-slate-400 hover:text-white"><ChevronDown className={`h-4 w-4 transition-transform ${inboxOpen ? "" : "-rotate-90"}`} /></button>}
+            {role === "t3" && <button onClick={() => setInboxOpen(o => !o)} aria-expanded={inboxOpen} aria-label={inboxOpen ? "Collapse escalations" : "Expand escalations"} className="text-slate-400 hover:text-white"><ChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform ${inboxOpen ? "" : "-rotate-90"}`} /></button>}
             <Siren className="h-4 w-4 text-neon-amber" /> Escalations for you ({escalations.length})
           </h3>
           <div className="flex items-center gap-2">
@@ -186,7 +191,7 @@ export function T2Console({ role, meId, escalations, escState, reportedIds, repo
                         className="flex items-center gap-1 rounded border border-cyber-500/40 bg-cyber-500/10 px-2 py-0.5 text-[11px] font-semibold text-cyber-300 hover:bg-cyber-500/20">
                         <Maximize2 className="h-3 w-3" /> Read the log full-screen
                       </button>
-                      <button onClick={() => setOpenLog(isOpen ? null : e.seq)} className="flex items-center gap-1 text-[11px] text-cyber-300 underline-offset-2 hover:underline">
+                      <button onClick={() => setOpenLog(isOpen ? null : e.seq)} aria-expanded={isOpen} className="flex items-center gap-1 text-[11px] text-cyber-300 underline-offset-2 hover:underline">
                         <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? "" : "-rotate-90"}`} /> {isOpen ? "Hide the log" : "Show it here"}
                       </button>
                     </div>
@@ -266,11 +271,11 @@ export function T2Console({ role, meId, escalations, escState, reportedIds, repo
                   {/* Bounce from a preset reason list (+ optional detail) — real, specific feedback to T1 */}
                   {!isResolved && bouncingId === eid && (
                     <div className="mt-2 space-y-1.5">
-                      <select value={bounceReason} onChange={ev => setBounceReason(ev.target.value)} className="w-full rounded border border-border bg-bg px-2 py-1 text-[11px] text-slate-200 focus:outline-none">{BOUNCE_REASONS.map(r => <option key={r} value={r}>{r}</option>)}</select>
+                      <select aria-label="Bounce reason" value={bounceReason} onChange={ev => setBounceReason(ev.target.value)} className="w-full rounded border border-border bg-bg px-2 py-1 text-[11px] text-slate-200 focus:outline-none">{BOUNCE_REASONS.map(r => <option key={r} value={r}>{r}</option>)}</select>
                       <div className="flex gap-1.5">
-                        <input value={bounceMsg} onChange={ev => setBounceMsg(ev.target.value)} placeholder="Optional detail for Tier-1…" className="flex-1 rounded border border-border bg-bg px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+                        <input aria-label="Optional detail for Tier-1" value={bounceMsg} onChange={ev => setBounceMsg(ev.target.value)} placeholder="Optional detail for Tier-1…" className="flex-1 rounded border border-border bg-bg px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
                         <Button variant="outline" size="sm" disabled={b} onClick={async () => { const reason = bounceReason + (bounceMsg.trim() ? ` — ${bounceMsg.trim()}` : ""); setBusy(e.seq + ""); await act("escalation.bounced", { event_id: eid, reason }); setBusy(null); setBouncingId(null); }}>Send bounce</Button>
-                        <Button variant="outline" size="sm" onClick={() => setBouncingId(null)}>✕</Button>
+                        <Button variant="outline" size="sm" aria-label="Cancel bounce" onClick={() => setBouncingId(null)}>✕</Button>
                       </div>
                     </div>
                   )}
@@ -279,12 +284,12 @@ export function T2Console({ role, meId, escalations, escState, reportedIds, repo
                   {!isResolved && elevatingId === eid && (() => { const rpt = reportByEid.get(eid); return (
                     <div className="mt-2 space-y-1.5 rounded-lg border border-neon-purple/30 bg-neon-purple/[0.05] p-2">
                       <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Hand off to Tier-3 — what should they hunt?</p>
-                      <textarea value={huntAsk} onChange={ev => setHuntAsk(ev.target.value)} placeholder="What to hunt & why you're elevating (e.g. 'confirmed C2 beacon from WS-FIN-2847 — hunt lateral movement to the DC and check other finance hosts for the same hash')" rows={2} className="w-full resize-y rounded border border-border bg-bg px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+                      <textarea aria-label="What to hunt and why you are elevating" value={huntAsk} onChange={ev => setHuntAsk(ev.target.value)} placeholder="What to hunt & why you're elevating (e.g. 'confirmed C2 beacon from WS-FIN-2847 — hunt lateral movement to the DC and check other finance hosts for the same hash')" rows={2} className="w-full resize-y rounded border border-border bg-bg px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
                       {rpt ? <p className="text-[10px] text-neon-green">✓ your filed report (verdict + findings + recommendation) will travel with this elevation.</p>
                            : <p className="text-[10px] text-neon-amber">⚠ no report filed yet — Tier-3 gets more to work with if you write the report first.</p>}
                       <div className="flex gap-1.5">
                         <Button variant="primary" size="sm" disabled={b || !huntAsk.trim()} onClick={async () => { setBusy(e.seq + ""); await act("elevation.requested", { event_id: eid, summary: asStr(p.summary) || asStr(p.what), snapshot: p.snapshot, hostname: asStr(p.hostname), entity: asStr(p.entity), severity: asStr(p.severity), iocs, hunt_ask: huntAsk.trim(), t2_verdict: rpt?.verdict, t2_findings: rpt?.findings, t2_recommendation: rpt?.recommendation }); setBusy(null); setElevatingId(null); }}><ArrowUpRight className="mr-1 h-3.5 w-3.5" /> Send to Tier-3</Button>
-                        <Button variant="outline" size="sm" onClick={() => setElevatingId(null)}>✕</Button>
+                        <Button variant="outline" size="sm" aria-label="Cancel elevation" onClick={() => setElevatingId(null)}>✕</Button>
                       </div>
                     </div>
                   ); })()}
@@ -295,24 +300,24 @@ export function T2Console({ role, meId, escalations, escState, reportedIds, repo
                     <div className="mt-2 space-y-1.5 rounded-lg border border-severity-high/30 bg-severity-high/[0.05] p-2">
                       <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Request containment — give the Manager the trade-off</p>
                       <div className="flex gap-1.5">
-                        <select value={contForm.type} onChange={ev => setContForm(s => ({ ...s, type: ev.target.value }))} className="rounded border border-border bg-bg px-2 py-1 text-[11px] text-slate-200 focus:outline-none">{CONTAINMENT_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
-                        <input value={contForm.target} onChange={ev => setContForm(s => ({ ...s, target: ev.target.value }))} placeholder="Target — host, account, DC or indicator" className="min-w-0 flex-1 rounded border border-border bg-bg px-2 py-1 font-mono text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+                        <select aria-label="Containment type" value={contForm.type} onChange={ev => setContForm(s => ({ ...s, type: ev.target.value }))} className="rounded border border-border bg-bg px-2 py-1 text-[11px] text-slate-200 focus:outline-none">{CONTAINMENT_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+                        <input aria-label="Containment target" value={contForm.target} onChange={ev => setContForm(s => ({ ...s, target: ev.target.value }))} placeholder="Target — host, account, DC or indicator" className="min-w-0 flex-1 rounded border border-border bg-bg px-2 py-1 font-mono text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
                       </div>
-                      {picks.length > 0 && <div className="flex flex-wrap gap-1">{picks.map(v => <button key={v} onClick={() => setContForm(s => ({ ...s, target: v }))} className={`rounded border px-1.5 py-0.5 font-mono text-[9px] ${contForm.target === v ? "border-cyber-500/50 bg-cyber-500/10 text-cyber-300" : "border-border text-slate-400 hover:text-white"}`}>{v}</button>)}</div>}
+                      {picks.length > 0 && <div className="flex flex-wrap gap-1">{picks.map(v => <button key={v} aria-pressed={contForm.target === v} onClick={() => setContForm(s => ({ ...s, target: v }))} className={`rounded border px-1.5 py-0.5 font-mono text-[9px] ${contForm.target === v ? "border-cyber-500/50 bg-cyber-500/10 text-cyber-300" : "border-border text-slate-400 hover:text-white"}`}>{v}</button>)}</div>}
                       <p className="text-[9px] text-slate-500">Prefilled from the log — check it&apos;s the asset that actually matters (a domain change is on the DC, a compromised identity is the account).</p>
-                      <select value={contForm.criticality} onChange={ev => setContForm(s => ({ ...s, criticality: ev.target.value }))} className="w-full rounded border border-border bg-bg px-2 py-1 text-[11px] text-slate-200 focus:outline-none">
+                      <select aria-label="Asset criticality" value={contForm.criticality} onChange={ev => setContForm(s => ({ ...s, criticality: ev.target.value }))} className="w-full rounded border border-border bg-bg px-2 py-1 text-[11px] text-slate-200 focus:outline-none">
                         <option value="crown_jewel">asset criticality: crown-jewel (domain controller / core system)</option>
                         <option value="standard">asset criticality: standard</option>
                         <option value="low">asset criticality: low (spare / test)</option>
                       </select>
-                      <input value={contForm.blast} onChange={ev => setContForm(s => ({ ...s, blast: ev.target.value }))} placeholder="What breaks if contained? (e.g. 'payroll run in progress' / 'none')" className="w-full rounded border border-border bg-bg px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+                      <input aria-label="What breaks if contained" value={contForm.blast} onChange={ev => setContForm(s => ({ ...s, blast: ev.target.value }))} placeholder="What breaks if contained? (e.g. 'payroll run in progress' / 'none')" className="w-full rounded border border-border bg-bg px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
                       <div className="flex gap-1.5">
-                        <input value={contForm.owner} onChange={ev => setContForm(s => ({ ...s, owner: ev.target.value }))} placeholder="Business owner / hours (e.g. 'Finance · business hours')" className="min-w-0 flex-1 rounded border border-border bg-bg px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
-                        <input value={contForm.incident} onChange={ev => setContForm(s => ({ ...s, incident: ev.target.value }))} list="team-incidents" placeholder="Incident (optional)" className="w-32 rounded border border-border bg-bg px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+                        <input aria-label="Business owner and hours" value={contForm.owner} onChange={ev => setContForm(s => ({ ...s, owner: ev.target.value }))} placeholder="Business owner / hours (e.g. 'Finance · business hours')" className="min-w-0 flex-1 rounded border border-border bg-bg px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+                        <input aria-label="Incident (optional)" value={contForm.incident} onChange={ev => setContForm(s => ({ ...s, incident: ev.target.value }))} list="team-incidents" placeholder="Incident (optional)" className="w-32 rounded border border-border bg-bg px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
                       </div>
                       <div className="flex gap-1.5">
                         <Button variant="primary" size="sm" disabled={b || !contForm.blast.trim() || !contForm.target.trim()} onClick={async () => { setBusy(e.seq + ""); const ok = await act("containment.requested", { event_id: eid, target: contForm.target.trim(), containment_type: contForm.type, incident: contForm.incident.trim() || undefined, reason: asStr(p.summary) || asStr(p.what), asset_criticality: contForm.criticality, blast_radius: contForm.blast.trim(), business_owner: contForm.owner.trim() || undefined }); setBusy(null); if (ok) setContainingId(null); }}><ShieldAlert className="mr-1 h-3.5 w-3.5" /> Send request</Button>
-                        <Button variant="outline" size="sm" onClick={() => setContainingId(null)}>✕</Button>
+                        <Button variant="outline" size="sm" aria-label="Cancel containment request" onClick={() => setContainingId(null)}>✕</Button>
                       </div>
                     </div>
                   )}
@@ -360,8 +365,8 @@ export function T2Console({ role, meId, escalations, escState, reportedIds, repo
           <div className="mt-3 space-y-2">
             {/* Which case is this report for */}
             <div>
-              <label className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Case this report is for</label>
-              <select value={selEid ?? ""} onChange={ev => { setReportFor(ev.target.value); setRep({ ...EMPTY_REP, incident: incidentOf.get(ev.target.value) ?? "" }); }} className="mt-1 w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 focus:border-cyber-500/50 focus:outline-none">
+              <label htmlFor={`${uid}-case`} className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Case this report is for</label>
+              <select id={`${uid}-case`} value={selEid ?? ""} onChange={ev => { setReportFor(ev.target.value); setRep({ ...EMPTY_REP, incident: incidentOf.get(ev.target.value) ?? "" }); }} className="mt-1 w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 focus:border-cyber-500/50 focus:outline-none">
                 {myCases.map(e => { const eid = eidOf(e); const p = e.payload as { summary?: string; what?: string }; return <option key={eid} value={eid}>{reportedIds.has(eid) ? "✓ " : ""}{asStr(p.summary) || asStr(p.what) || eid}</option>; })}
               </select>
             </div>
@@ -371,26 +376,26 @@ export function T2Console({ role, meId, escalations, escState, reportedIds, repo
               <div className="space-y-1.5 rounded-lg border border-cyber-500/30 bg-cyber-500/[0.05] p-3">
                 <p className="text-[10px] text-slate-400">Reporting on: <b className="text-slate-200">{selLabel}</b></p>
                 <div>
-                  <label className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Summary — what this incident is</label>
-                  <input value={rep.summary} onChange={ev => setRep(s => ({ ...s, summary: ev.target.value }))} placeholder="e.g. Malicious macro on WS-FIN-2847 dropped an encoded PowerShell C2 beacon" className="mt-1 w-full rounded border border-border bg-bg px-2 py-1.5 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+                  <label htmlFor={`${uid}-summary`} className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Summary — what this incident is</label>
+                  <input id={`${uid}-summary`} value={rep.summary} onChange={ev => setRep(s => ({ ...s, summary: ev.target.value }))} placeholder="e.g. Malicious macro on WS-FIN-2847 dropped an encoded PowerShell C2 beacon" className="mt-1 w-full rounded border border-border bg-bg px-2 py-1.5 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
                 </div>
                 <div>
-                  <label className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Findings — what you investigated, the evidence, the scope</label>
-                  <textarea value={rep.findings} onChange={ev => setRep(s => ({ ...s, findings: ev.target.value }))} placeholder="What you confirmed in the log/EDR, the indicators, the affected hosts/users, whether it spread…" rows={3} className="mt-1 w-full resize-y rounded border border-border bg-bg px-2 py-1.5 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+                  <label htmlFor={`${uid}-findings`} className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Findings — what you investigated, the evidence, the scope</label>
+                  <textarea id={`${uid}-findings`} value={rep.findings} onChange={ev => setRep(s => ({ ...s, findings: ev.target.value }))} placeholder="What you confirmed in the log/EDR, the indicators, the affected hosts/users, whether it spread…" rows={3} className="mt-1 w-full resize-y rounded border border-border bg-bg px-2 py-1.5 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
                 </div>
                 <div className="flex gap-2">
                   <div className="flex-1">
-                    <label className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Determination (verdict)</label>
-                    <select value={rep.verdict} onChange={ev => setRep(s => ({ ...s, verdict: ev.target.value }))} className="mt-1 w-full rounded border border-border bg-bg px-2 py-1.5 text-[11px] text-slate-200 focus:border-cyber-500/50 focus:outline-none">{T2_REPORT_VERDICTS.map(v => <option key={v} value={v}>{v.replace("_", " ")}</option>)}</select>
+                    <label htmlFor={`${uid}-verdict`} className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Determination (verdict)</label>
+                    <select id={`${uid}-verdict`} value={rep.verdict} onChange={ev => setRep(s => ({ ...s, verdict: ev.target.value }))} className="mt-1 w-full rounded border border-border bg-bg px-2 py-1.5 text-[11px] text-slate-200 focus:border-cyber-500/50 focus:outline-none">{T2_REPORT_VERDICTS.map(v => <option key={v} value={v}>{v.replace("_", " ")}</option>)}</select>
                   </div>
                   <div className="flex-1">
-                    <label className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Incident (optional — group related cases)</label>
-                    <input value={rep.incident} onChange={ev => setRep(s => ({ ...s, incident: ev.target.value }))} list="team-incidents" placeholder="e.g. INC-B drive-by" className="mt-1 w-full rounded border border-border bg-bg px-2 py-1.5 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+                    <label htmlFor={`${uid}-incident`} className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Incident (optional — group related cases)</label>
+                    <input id={`${uid}-incident`} value={rep.incident} onChange={ev => setRep(s => ({ ...s, incident: ev.target.value }))} list="team-incidents" placeholder="e.g. INC-B drive-by" className="mt-1 w-full rounded border border-border bg-bg px-2 py-1.5 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
                   </div>
                 </div>
                 <div>
-                  <label className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Recommendations — what should happen next</label>
-                  <input value={rep.recommendation} onChange={ev => setRep(s => ({ ...s, recommendation: ev.target.value }))} placeholder="e.g. Isolate the host, block the domain, reset the user, hunt the hash fleet-wide" className="mt-1 w-full rounded border border-border bg-bg px-2 py-1.5 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+                  <label htmlFor={`${uid}-rec`} className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Recommendations — what should happen next</label>
+                  <input id={`${uid}-rec`} value={rep.recommendation} onChange={ev => setRep(s => ({ ...s, recommendation: ev.target.value }))} placeholder="e.g. Isolate the host, block the domain, reset the user, hunt the hash fleet-wide" className="mt-1 w-full rounded border border-border bg-bg px-2 py-1.5 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
                 </div>
                 <div className="flex items-center gap-2 pt-0.5">
                   <Button variant="primary" size="sm" disabled={busy === "rep" + selEid || !rep.summary.trim() || !rep.findings.trim() || !rep.recommendation.trim()} onClick={() => submitReport(selEid)}><FileText className="mr-1 h-3.5 w-3.5" /> File report</Button>
@@ -404,14 +409,14 @@ export function T2Console({ role, meId, escalations, escState, reportedIds, repo
       )}
       {fullLog && (
         <div className="fixed inset-0 z-[35] flex items-start justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm" onClick={() => setFullLog(null)}>
-          <div role="dialog" aria-modal="true" aria-label="Escalated log" className="my-4 w-full max-w-5xl rounded-xl border border-border bg-bg shadow-2xl" onClick={ev => ev.stopPropagation()}>
+          <div ref={fullLogRef} role="dialog" aria-modal="true" aria-labelledby={`${uid}-fulllog-title`} tabIndex={-1} className="my-4 w-full max-w-5xl rounded-xl border border-border bg-bg shadow-2xl" onClick={ev => ev.stopPropagation()}>
             <div className="flex items-start gap-3 border-b border-border px-5 py-3">
               <div className="min-w-0 flex-1">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Escalated by {fullLog.from}</p>
-                <p className="break-words text-sm font-bold text-white">{fullLog.title}</p>
+                <h2 id={`${uid}-fulllog-title`} className="break-words text-sm font-bold text-white">{fullLog.title}</h2>
                 {fullLog.notes && <p className="mt-1 whitespace-pre-wrap break-words text-xs text-slate-400">{fullLog.notes}</p>}
               </div>
-              <button onClick={() => setFullLog(null)} aria-label="Close" className="rounded p-1 text-slate-400 hover:bg-bg-elevated hover:text-white"><X className="h-5 w-5" /></button>
+              <button onClick={() => setFullLog(null)} aria-label="Close" className="rounded p-1 text-slate-400 hover:bg-bg-elevated hover:text-white"><X className="h-5 w-5" aria-hidden="true" /></button>
             </div>
             <DetailPanelBody event={fullLog.snap} onThreatQuery={setThreatQuery} onPivot={onPivot ? (f, v) => { onPivot(f, v); setFullLog(null); } : undefined} />
           </div>

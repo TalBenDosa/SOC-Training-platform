@@ -2,13 +2,13 @@
 import { PASSWORD_MAX_BYTES } from "@/app/(app)/account/accountValidation";
 import { disposableIssue } from "@/lib/auth/emailBlocklist";
 import { authErrorMessage } from "@/lib/http/apiError";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { useRouter } from "next/navigation";
 import { UserPlus, Mail, CheckCircle2, AlertTriangle, Loader2, Check, X, Building2, Lock, ArrowRight } from "lucide-react";
 import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
+import { Button, buttonClasses } from "@/components/ui/Button";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { cn } from "@/lib/utils";
@@ -48,9 +48,18 @@ export default function SignupPage() {
   const [codeState, setCodeState] = useState<"none" | "checking" | "valid" | "invalid" | "unavailable">("none");
   const [codeOrg, setCodeOrg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** Which input the current submit error is about, so that input can expose
+   *  aria-invalid + aria-describedby (WCAG 3.3.1). null = a form-level error. */
+  const [errorField, setErrorField] = useState<"password" | "confirm" | "handle" | "email" | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [checkEmail, setCheckEmail] = useState(false);
   const [signedUp, setSignedUp] = useState(false);
+  // Success views replace the form; move focus to their heading so keyboard and
+  // screen-reader users land on the confirmation (WCAG 2.4.3 / 4.1.3).
+  const successHeadingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (signedUp || checkEmail) successHeadingRef.current?.focus();
+  }, [signedUp, checkEmail]);
   /** null = not checked yet (blank, or too short to be worth asking about). */
   const [handleFree, setHandleFree] = useState<boolean | null>(null);
   const [checkingHandle, setCheckingHandle] = useState(false);
@@ -146,26 +155,32 @@ export default function SignupPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setErrorField(null);
 
     // P5-16: same bound the server/bcrypt enforce (72 BYTES — a Hebrew letter is 2).
     if (new TextEncoder().encode(password).length > PASSWORD_MAX_BYTES) {
       setError("That password is too long — keep it under 72 bytes (about 36 Hebrew or 72 English characters).");
+      setErrorField("password");
       return;
     }
     if (password.length < 8) {
       setError("Password must be at least 8 characters.");
+      setErrorField("password");
       return;
     }
     if (password !== confirm) {
       setError("Passwords don't match.");
+      setErrorField("confirm");
       return;
     }
     if (normalisedHandle !== "" && !HANDLE_RE.test(normalisedHandle)) {
       setError("A nickname must be 3-20 characters, using only letters, numbers and underscores.");
+      setErrorField("handle");
       return;
     }
     if (normalisedHandle !== "" && handleFree === false) {
       setError(`The nickname "${normalisedHandle}" is already taken. Pick another one.`);
+      setErrorField("handle");
       return;
     }
     // Instant, in-memory check (no network → no added signup latency): refuse throwaway /
@@ -175,6 +190,7 @@ export default function SignupPage() {
     const disposable = disposableIssue(email);
     if (disposable) {
       setError(disposable);
+      setErrorField("email");
       return;
     }
 
@@ -312,8 +328,8 @@ export default function SignupPage() {
           This deployment hasn&apos;t been connected to a database. You can still use the platform —
           your progress is saved on this device.
         </p>
-        <Link href="/rooms" className="mt-6 inline-block">
-          <Button variant="primary">Continue as guest</Button>
+        <Link href="/rooms" className={buttonClasses("primary", "md", "mt-6")}>
+          Continue as guest
         </Link>
       </Card>
     );
@@ -323,24 +339,25 @@ export default function SignupPage() {
     return (
       <Card className="w-full max-w-md text-center">
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-neon-green/40 bg-neon-green/10">
-          <CheckCircle2 className="h-8 w-8 text-neon-green" />
+          <CheckCircle2 className="h-8 w-8 text-neon-green" aria-hidden="true" />
         </div>
-        <h1 className="mt-5 text-xl font-bold text-white">You&apos;re registered!</h1>
+        {/* role="status": this view replaces the form, so announce it (WCAG 4.1.3). */}
+        <div role="status">
+        <h1 ref={successHeadingRef} tabIndex={-1} className="mt-5 text-xl font-bold text-white outline-none">You&apos;re registered!</h1>
         <p className="mt-2 text-sm text-slate-300">
           Your account is ready
           {codeOrg ? <> in <span className="font-semibold text-white">{codeOrg}</span></> : null}
           {normalisedHandle ? <>, as <span className="font-semibold text-white">{normalisedHandle}</span></> : null}.
         </p>
         <p className="mt-1 text-sm text-slate-400">Sign in to start training.</p>
+        </div>
         {/* The confirmation is the point, so the button is the primary path.
             An auto-redirect follows a couple of seconds later as a fallback. */}
         {/* Plain anchor (hard navigation), not next/link — a soft client nav
             here can race the sign-out that's clearing the session and bounce
             back to the form. A full-page load of /login is race-free. */}
-        <a href="/login?registered=1" className="mt-6 block">
-          <Button variant="primary" size="lg" className="w-full">
-            Continue to sign in <ArrowRight className="h-4 w-4" />
-          </Button>
+        <a href="/login?registered=1" className={buttonClasses("primary", "lg", "mt-6 flex w-full")}>
+          Continue to sign in <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </a>
         <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-slate-500">
           <Loader2 className="h-3 w-3 animate-spin" /> Taking you there automatically…
@@ -361,8 +378,8 @@ export default function SignupPage() {
           The link has expired or has already been used, so we can&apos;t add you to the course it
           belongs to. Ask your course administrator to send you a fresh invite link.
         </p>
-        <Link href="/login" className="mt-6 inline-block">
-          <Button variant="outline">Back to sign in</Button>
+        <Link href="/login" className={buttonClasses("outline", "md", "mt-6")}>
+          Back to sign in
         </Link>
       </Card>
     );
@@ -379,8 +396,8 @@ export default function SignupPage() {
           Codes are refreshed daily and each one lasts 24 hours. Ask your instructor for
           today&apos;s code, then try again.
         </p>
-        <Link href="/join" className="mt-6 inline-block">
-          <Button variant="outline">Enter a different code</Button>
+        <Link href="/join" className={buttonClasses("outline", "md", "mt-6")}>
+          Enter a different code
         </Link>
       </Card>
     );
@@ -413,14 +430,17 @@ export default function SignupPage() {
   if (checkEmail) {
     return (
       <Card className="w-full max-w-md text-center">
-        <Mail className="mx-auto h-8 w-8 text-cyber-300" />
-        <h1 className="mt-4 text-lg font-bold text-white">Check your email</h1>
+        <Mail className="mx-auto h-8 w-8 text-cyber-300" aria-hidden="true" />
+        {/* role="status": this view replaces the form, so announce it (WCAG 4.1.3). */}
+        <div role="status">
+        <h1 ref={successHeadingRef} tabIndex={-1} className="mt-4 text-lg font-bold text-white outline-none">Check your email</h1>
         <p className="mt-2 text-sm text-slate-400">
           We sent a confirmation link to <span className="text-slate-200">{email}</span>.
           Click it to activate your account, then sign in.
         </p>
-        <Link href="/login" className="mt-6 inline-block">
-          <Button variant="outline">Back to sign in</Button>
+        </div>
+        <Link href="/login" className={buttonClasses("outline", "md", "mt-6")}>
+          Back to sign in
         </Link>
       </Card>
     );
@@ -487,7 +507,7 @@ export default function SignupPage() {
                 <Lock className="h-3 w-3" /> {orgCode}
               </span>
             </div>
-            <Link href="/join" className="mt-2 inline-block text-[11px] text-slate-400 underline-offset-2 hover:text-cyber-300 hover:underline">
+            <Link href="/join" className="mt-2 inline-block text-[11px] text-slate-400 underline underline-offset-2 hover:text-cyber-300">
               Use a different code
             </Link>
           </div>
@@ -517,7 +537,10 @@ export default function SignupPage() {
             <label htmlFor="signup-handle" className="text-xs font-semibold text-slate-400">
               Nickname <span className="font-normal text-slate-400">(optional)</span>
             </label>
-            {/* Only speak once there is something worth saying. */}
+            {/* Only speak once there is something worth saying. The wrapper is a
+                persistent polite live region so availability is announced, and
+                its id is referenced by the input's aria-describedby. */}
+            <span id="signup-handle-status" aria-live="polite">
             {normalisedHandle !== "" && (
               checkingHandle ? (
                 <span className="flex items-center gap-1 text-[11px] text-slate-400">
@@ -531,19 +554,22 @@ export default function SignupPage() {
                 </span>
               ) : handleFree === false ? (
                 <span className="flex items-center gap-1 text-[11px] text-severity-high">
-                  <X className="h-3 w-3" /> taken
+                  <X className="h-3 w-3" aria-hidden="true" /> taken
                 </span>
               ) : null
             )}
+            </span>
           </div>
           <input
             id="signup-handle"
             type="text" autoComplete="username" value={handle} maxLength={20}
             onChange={e => setHandle(e.target.value)}
+            aria-invalid={errorField === "handle" || (normalisedHandle !== "" && (!handleWellFormed || handleFree === false)) || undefined}
+            aria-describedby={cn("signup-handle-status signup-handle-hint", errorField === "handle" && "signup-error")}
             className="h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white placeholder-slate-500 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
             placeholder="How you'll appear on the platform"
           />
-          <p className="mt-1 text-[11px] text-slate-400">
+          <p id="signup-handle-hint" className="mt-1 text-[11px] text-slate-400">
             Leave blank and we&apos;ll use the first part of your email.
           </p>
         </div>
@@ -564,6 +590,8 @@ export default function SignupPage() {
             // editable box here would just invite a signup that fails on submit.
             readOnly={!!inviteEmail}
             aria-readonly={!!inviteEmail}
+            aria-invalid={errorField === "email" || undefined}
+            aria-describedby={cn(inviteEmail && "signup-email-hint", errorField === "email" && "signup-error") || undefined}
             className={cn(
               "h-10 w-full rounded-md border px-3 text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyber-500/30",
               inviteEmail
@@ -573,7 +601,7 @@ export default function SignupPage() {
             placeholder="you@company.com"
           />
           {inviteEmail && (
-            <p className="mt-1 text-[11px] text-slate-400">
+            <p id="signup-email-hint" className="mt-1 text-[11px] text-slate-400">
               Your course administrator issued this invitation to this address. Need a different
               one? Ask them to send a new invite.
             </p>
@@ -585,33 +613,44 @@ export default function SignupPage() {
             id="signup-password"
             type="password" required minLength={8} autoComplete="new-password" value={password}
             onChange={e => setPassword(e.target.value)}
+            aria-invalid={errorField === "password" || undefined}
+            aria-describedby={cn("signup-password-hint", errorField === "password" && "signup-error")}
             className="h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white placeholder-slate-500 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
             placeholder="At least 8 characters"
           />
+          {/* The rule used to live only in the placeholder, which disappears on
+              typing and isn't reliably announced (WCAG 3.3.2). */}
+          <p id="signup-password-hint" className="mt-1 text-[11px] text-slate-400">
+            At least 8 characters.
+          </p>
         </div>
         <div>
           <div className="mb-1.5 flex items-baseline justify-between">
             <label htmlFor="signup-confirm" className="text-xs font-semibold text-slate-400">Confirm password</label>
             {/* Live match feedback — mirrors the nickname field, so a mismatch is
                 caught while typing instead of only on submit. */}
+            <span id="signup-confirm-status" aria-live="polite">
             {confirm !== "" && (
               password === confirm ? (
                 <span className="flex items-center gap-1 text-[11px] text-neon-green"><Check className="h-3 w-3" /> match</span>
               ) : (
-                <span className="flex items-center gap-1 text-[11px] text-severity-high"><X className="h-3 w-3" /> no match yet</span>
+                <span className="flex items-center gap-1 text-[11px] text-severity-high"><X className="h-3 w-3" aria-hidden="true" /> no match yet</span>
               )
             )}
+            </span>
           </div>
           <input
             id="signup-confirm"
             type="password" required autoComplete="new-password" value={confirm}
             onChange={e => setConfirm(e.target.value)}
+            aria-invalid={errorField === "confirm" || (confirm !== "" && password !== confirm) || undefined}
+            aria-describedby={cn("signup-confirm-status", errorField === "confirm" && "signup-error")}
             className="h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white placeholder-slate-500 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
           />
         </div>
 
         {error && (
-          <div className="rounded border border-severity-high/40 bg-severity-high/10 px-3 py-2 text-xs text-severity-high">
+          <div id="signup-error" role="alert" className="rounded border border-severity-high/40 bg-severity-high/10 px-3 py-2 text-xs text-severity-high">
             {error}
             {/* The one error whose FIX is a different door: an existing account
                 holding a code signs in, and the code joins the environment to
@@ -654,9 +693,9 @@ export default function SignupPage() {
       </form>
 
       <p className="mt-5 text-center text-xs text-slate-400">
-        Already have an account? <Link href="/login" className="text-cyber-300 hover:underline">Sign in</Link>
+        Already have an account? <Link href="/login" className="text-cyber-300 underline underline-offset-2 hover:text-cyber-200">Sign in</Link>
         {" · "}
-        <Link href="/reset-password" className="text-cyber-300 hover:underline">Forgot password?</Link>
+        <Link href="/reset-password" className="text-cyber-300 underline underline-offset-2 hover:text-cyber-200">Forgot password?</Link>
       </p>
       <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[11px] text-slate-400">
         {/* This used to read "progress you've made on this device carries over".

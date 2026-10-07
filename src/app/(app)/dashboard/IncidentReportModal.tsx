@@ -1,7 +1,7 @@
 "use client";
 import { ApiError, messageFromResponse, userMessageFor } from "@/lib/http/apiError";
 import { lsGet, lsSet, lsRemove } from "@/lib/storage/safeStorage";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { X, FileText, Shield, AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Term } from "@/components/ui/Term";
@@ -24,7 +24,7 @@ function ScoreRing({ score }: { score: number }) {
   const color  = score >= 80 ? "#22c55e" : score >= 60 ? "#3b82f6" : score >= 40 ? "#f59e0b" : "#ef4444";
 
   return (
-    <svg width="96" height="96" viewBox="0 0 96 96">
+    <svg width="96" height="96" viewBox="0 0 96 96" role="img" aria-label={`Score ${score} out of 100`}>
       <circle cx="48" cy="48" r={radius} fill="none" stroke="#1e293b" strokeWidth="8" />
       <circle
         cx="48" cy="48" r={radius}
@@ -40,7 +40,7 @@ function ScoreRing({ score }: { score: number }) {
       <text x="48" y="44" textAnchor="middle" fill={color} fontSize="20" fontWeight="bold" fontFamily="monospace">
         {score}
       </text>
-      <text x="48" y="60" textAnchor="middle" fill="#64748b" fontSize="10" fontFamily="sans-serif">
+      <text x="48" y="60" textAnchor="middle" fill="#8190a5" fontSize="10" fontFamily="sans-serif">
         / 100
       </text>
     </svg>
@@ -147,6 +147,19 @@ export function IncidentReportModal({
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
 
+  // a11y: this is a deliberately NON-modal drawer (the feed beside it must stay
+  // clickable while the analyst writes), so focus is not trapped — but focus
+  // moves into it on open (the first field autoFocuses) and returns to whatever
+  // opened it (normally "Report Incident") when it closes.
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    return () => { if (previous && document.contains(previous)) previous.focus(); };
+  }, []);
+
+  // Move focus to the verdict when grading finishes so it is announced.
+  const resultRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (phase === "result") resultRef.current?.focus(); }, [phase]);
+
   const buildGuidedSummary = () => [
     gWhat.trim()   && `What happened: ${gWhat.trim()}`,
     gIocs.trim()   && `Evidence (IOCs): ${gIocs.trim()}`,
@@ -209,7 +222,8 @@ export function IncidentReportModal({
        clickable: rows can still be expanded to re-read raw fields mid-write,
        which is how a real analyst works (SIEM on one side, case ticket on the
        other). Full width on narrow screens where side-by-side isn't possible. */
-    <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-full lg:w-[480px]">
+    <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-full lg:w-[480px]"
+      role="dialog" aria-modal="false" aria-labelledby="incident-report-title">
       <div className="relative flex h-full w-full flex-col border-l border-border bg-bg-elevated shadow-2xl shadow-black/60">
         <div className="h-1 w-full shrink-0 bg-gradient-to-r from-cyber-500 via-neon-purple to-neon-green" />
 
@@ -221,11 +235,11 @@ export function IncidentReportModal({
               <FileText className="h-5 w-5 text-cyber-300 shrink-0" />
               <div>
                 <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Tier-1 Analyst Report</p>
-                <h2 className="text-sm font-bold text-white">Incident Report — {companyName}</h2>
+                <h2 id="incident-report-title" className="text-sm font-bold text-white">Incident Report — {companyName}</h2>
               </div>
             </div>
-            <button onClick={onClose} aria-label="Close incident report" className="rounded p-1 text-slate-400 hover:text-white transition">
-              <X className="h-4 w-4" />
+            <button type="button" onClick={onClose} aria-label="Close incident report" className="rounded p-1 text-slate-400 hover:text-white transition">
+              <X aria-hidden="true" className="h-4 w-4" />
             </button>
           </div>
 
@@ -254,13 +268,15 @@ export function IncidentReportModal({
               {/* Mode toggle */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">Incident Summary</p>
+                  <p id="ir-summary-label" className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">Incident Summary</p>
                   {(gWhat || gIocs || gAction || gImpact || summary) && (
                     <span className="text-[9px] text-slate-400">· draft saved, safe to close and come back</span>
                   )}
                 </div>
-                <div className="flex rounded border border-border/60 overflow-hidden">
+                <div className="flex rounded border border-border/60 overflow-hidden" role="group" aria-label="Report mode">
                   <button
+                    type="button"
+                    aria-pressed={guided}
                     onClick={() => setMode(true)}
                     className={cn("px-2.5 py-1 text-[10px] font-semibold transition",
                       guided ? "bg-cyber-500/20 text-cyber-300" : "text-slate-400 hover:text-slate-300")}
@@ -268,6 +284,8 @@ export function IncidentReportModal({
                     Guided
                   </button>
                   <button
+                    type="button"
+                    aria-pressed={!guided}
                     onClick={() => setMode(false)}
                     className={cn("px-2.5 py-1 text-[10px] font-semibold transition",
                       !guided ? "bg-cyber-500/20 text-cyber-300" : "text-slate-400 hover:text-slate-300")}
@@ -291,10 +309,12 @@ export function IncidentReportModal({
                       ph: "e.g. \"The attacker had access to customer financial data — potential data-breach and regulatory exposure.\"" },
                   ].map((f, i) => (
                     <div key={f.label}>
-                      <p className="mb-1 text-[10px] font-semibold text-slate-400">
-                        {f.label} {f.req && <span className="text-neon-amber">*</span>}
+                      <p id={`ir-guided-label-${i}`} className="mb-1 text-[10px] font-semibold text-slate-400">
+                        {f.label} {f.req && <span className="text-neon-amber" aria-hidden="true">*</span>}{f.req && <span className="sr-only">(required)</span>}
                       </p>
                       <textarea
+                        aria-labelledby={`ir-guided-label-${i}`}
+                        aria-required={f.req}
                         rows={f.rows}
                         value={f.value}
                         onChange={e => f.set(e.target.value)}
@@ -309,11 +329,14 @@ export function IncidentReportModal({
                 /* Free-text mode — the classic single textarea */
                 <div>
                   <div className="flex items-center justify-end mb-1.5">
-                    <span className={cn("text-[9px] font-mono", summary.length < 30 ? "text-slate-400" : "text-neon-green")}>
+                    <span id="ir-summary-count" className={cn("text-[9px] font-mono", summary.length < 30 ? "text-slate-400" : "text-neon-green")}>
                       {summary.length} chars {summary.length < 30 ? `(min 30)` : ""}
                     </span>
                   </div>
                   <textarea
+                    aria-labelledby="ir-summary-label"
+                    aria-describedby="ir-summary-count"
+                    aria-required
                     rows={6}
                     value={summary}
                     onChange={e => setSummary(e.target.value)}
@@ -325,7 +348,7 @@ export function IncidentReportModal({
               )}
 
               <div className="flex items-center justify-between pt-1">
-                <button onClick={onClose} className="text-xs text-slate-400 hover:text-slate-300 transition">
+                <button type="button" onClick={onClose} className="text-xs text-slate-400 hover:text-slate-300 transition">
                   Cancel
                 </button>
                 <button
@@ -346,8 +369,8 @@ export function IncidentReportModal({
 
           {/* ── GRADING phase ── */}
           {phase === "grading" && (
-            <div className="py-8 flex flex-col items-center gap-5">
-              <Loader2 className="h-8 w-8 text-cyber-300 animate-spin" />
+            <div className="py-8 flex flex-col items-center gap-5" role="status">
+              <Loader2 aria-hidden="true" className="h-8 w-8 text-cyber-300 animate-spin" />
               <div className="text-center space-y-1">
                 <p className="text-sm font-semibold text-white">AI Analyst reviewing your report…</p>
                 <p className="text-[11px] text-slate-400">Checking attack identification, IOC coverage, and recommended actions</p>
@@ -375,7 +398,7 @@ export function IncidentReportModal({
                 </div>
               )}
               {/* Score + pass/fail header */}
-              <div className={cn(
+              <div ref={resultRef} tabIndex={-1} className={cn(
                 "rounded-lg border p-4 flex items-center gap-5",
                 passed
                   ? "border-neon-green/30 bg-neon-green/5"

@@ -1,6 +1,6 @@
 "use client";
 import { ApiError, messageFromResponse, userMessageFor } from "@/lib/http/apiError";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2, XCircle, ChevronRight, Trophy, RotateCcw, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -69,6 +69,19 @@ function ScoreRing({ score }: { score: number }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+/** WAI-ARIA radio pattern: arrow / Home / End move focus and the selection. */
+function onRadioGroupKeyDown(e: ReactKeyboardEvent<HTMLElement>) {
+  const step = e.key === "ArrowDown" || e.key === "ArrowRight" ? 1 : e.key === "ArrowUp" || e.key === "ArrowLeft" ? -1 : 0;
+  if (!step && e.key !== "Home" && e.key !== "End") return;
+  const radios = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]:not(:disabled)'));
+  const idx = radios.indexOf(document.activeElement as HTMLButtonElement);
+  if (idx === -1 || radios.length === 0) return;
+  e.preventDefault();
+  const next = e.key === "Home" ? 0 : e.key === "End" ? radios.length - 1 : (idx + step + radios.length) % radios.length;
+  radios[next].focus();
+  radios[next].click();
+}
+
 export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug: string }) {
   // Allow admin edits stored in localStorage to override the built-in quiz data.
   // Answers are stripped from any overridden questions — grading is server-side
@@ -107,6 +120,15 @@ export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug
   const [startTime, setStartTime] = useState<number>(0);
   const [elapsed, setElapsed]     = useState(0);
   const [save, setSave] = useState<SaveState>({ status: "idle" });
+  // a11y: after a server grade, move focus to the explanation panel so the result
+  // is announced (the Confirm button is disabled while grading, which drops focus).
+  const resultRef = useRef<HTMLDivElement>(null);
+  const [focusResult, setFocusResult] = useState(false);
+  useEffect(() => {
+    if (!focusResult) return;
+    resultRef.current?.focus();
+    setFocusResult(false);
+  }, [focusResult]);
   const savingRef = useRef(false);
 
   const question   = quiz.questions[current];
@@ -156,6 +178,7 @@ export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug
         ...prev,
         [question.id]: { ...prev[question.id], revealed: true },
       }));
+      setFocusResult(true);
     } catch (e) {
       setGradeError(`Couldn't check your answer — ${userMessageFor(e)}`);   // E-09
     } finally {
@@ -464,6 +487,12 @@ export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug
   // ANSWERING STATE
   // ═══════════════════════════════════════════════════════════════
   const isCorrect = qState.revealed && !!qResult?.correct;
+  const correctOptionText = (() => {
+    const ci = qResult?.answer;
+    if (typeof ci !== "number" || !question.options[ci]) return null;
+    const di = orderOf(question).indexOf(ci);
+    return `${di >= 0 ? String.fromCharCode(65 + di) + ". " : ""}${question.options[ci]}`;
+  })();
 
   return (
     <div className="min-h-screen bg-bg">
@@ -494,7 +523,10 @@ export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug
               return (
                 <button
                   key={q.id}
+                  type="button"
                   onClick={() => { if (done) setCurrent(i); }}
+                  aria-label={`Question ${i + 1}${done ? (ok ? " — correct" : " — incorrect") : ""}${done ? "" : " (not answered yet)"}`}
+                  aria-current={i === current ? "step" : undefined}
                   className={cn(
                     "h-2 rounded-full transition-all",
                     i === current ? "w-6 bg-cyber-400" :
@@ -520,13 +552,13 @@ export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug
                 +{question.xp} XP
               </span>
             </div>
-            <p className="text-base font-semibold text-white leading-relaxed">
+            <p id={`quiz-q-${question.id}`} className="text-base font-semibold text-white leading-relaxed">
               {question.question}
             </p>
           </div>
 
           {/* Options */}
-          <div className="px-6 pb-4 space-y-2">
+          <div className="px-6 pb-4 space-y-2" role="radiogroup" aria-labelledby={`quiz-q-${question.id}`} onKeyDown={onRadioGroupKeyDown}>
             {orderOf(question).map((idx, displayIdx) => {
               const opt       = question.options[idx];
               const selected  = qState.selected === idx;
@@ -537,6 +569,10 @@ export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug
               return (
                 <button
                   key={idx}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  tabIndex={(qState.selected === null ? displayIdx === 0 : selected) ? 0 : -1}
                   disabled={qState.revealed}
                   onClick={() => handleSelect(idx)}
                   className={cn(
@@ -554,13 +590,15 @@ export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug
                     !qState.revealed && selected  && "border-cyber-400 text-cyber-300",
                     revCorr   && "border-neon-green text-neon-green",
                     revWrong  && "border-severity-high text-severity-high",
-                    qState.revealed && !selected && idx !== correctIdx && "border-slate-700 text-slate-700",
+                    qState.revealed && !selected && idx !== correctIdx && "border-slate-700 text-slate-500",
                   )}>
                     {String.fromCharCode(65 + displayIdx)}
                   </span>
                   <span>{opt}</span>
-                  {revCorr  && <CheckCircle2 className="ml-auto h-4 w-4 shrink-0 text-neon-green" />}
-                  {revWrong && <XCircle       className="ml-auto h-4 w-4 shrink-0 text-severity-high" />}
+                  {revCorr  && <CheckCircle2 aria-hidden="true" className="ml-auto h-4 w-4 shrink-0 text-neon-green" />}
+                  {revWrong && <XCircle       aria-hidden="true" className="ml-auto h-4 w-4 shrink-0 text-severity-high" />}
+                  {revCorr  && <span className="sr-only">{selected ? "(your answer — correct)" : "(correct answer)"}</span>}
+                  {revWrong && <span className="sr-only">(your answer — incorrect)</span>}
                 </button>
               );
             })}
@@ -568,7 +606,7 @@ export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug
 
           {/* Explanation (after reveal) */}
           {qState.revealed && (
-            <div className={cn(
+            <div ref={resultRef} tabIndex={-1} role="status" className={cn(
               "mx-6 mb-4 rounded border px-4 py-3",
               isCorrect ? "border-neon-green/20 bg-neon-green/5" : "border-severity-medium/20 bg-severity-medium/5"
             )}>
@@ -577,13 +615,19 @@ export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug
               )}>
                 {isCorrect ? "Correct!" : "Explanation"}
               </p>
+              {/* Options are disabled once revealed — state the result + answer in text. */}
+              {!isCorrect && (
+                <p className="sr-only">
+                  Incorrect.{correctOptionText !== null ? ` Correct answer: ${correctOptionText}` : ""}
+                </p>
+              )}
               <p className="text-xs text-slate-300 leading-relaxed">{remapOptionLetters(qResult?.explanation ?? "", orderOf(question))}</p>
             </div>
           )}
 
           {/* Grade error */}
           {gradeError && !qState.revealed && (
-            <p className="mx-6 mb-4 text-xs text-severity-high">{gradeError}</p>
+            <p role="alert" className="mx-6 mb-4 text-xs text-severity-high">{gradeError}</p>
           )}
 
           {/* Action buttons */}

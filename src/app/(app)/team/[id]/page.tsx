@@ -503,6 +503,11 @@ export default function TeamRoomPage() {
       : pausedReason === "owner_left" ? (pausedDetail || "The instructor dropped out of the live room.")
       : (pausedDetail || "Not enough of the team is online right now."))
     : (haltReason ?? "");
+  // The halt overlay is a blocking alert dialog: move focus into it when it appears
+  // (no trap — it may coexist with another modal's trap; aria-modal hides the rest).
+  const haltRef = useRef<HTMLDivElement>(null);
+  const haltOpen = haltActive && !haltDismissed;
+  useEffect(() => { if (haltOpen) haltRef.current?.focus(); }, [haltOpen]);
   // Debounce coverage loss: only confirm a halt if it persists ~12s (matches the
   // spirit of the owner-left grace). Resume/clear is immediate.
   useEffect(() => {
@@ -864,8 +869,11 @@ export default function TeamRoomPage() {
         {/* B8: EDR feedback shows in ANY phase (a pop-up-blocked click mid-shift must not be silent) */}
         {edrNote && <div role="alert" className="fixed bottom-4 right-4 z-50 flex max-w-md items-center gap-2 rounded-lg border border-neon-amber/50 bg-bg-elevated px-4 py-3 text-sm text-neon-amber shadow-2xl"><AlertTriangle className="h-4 w-4 shrink-0" />{edrNote}<button onClick={() => setEdrNote(null)} aria-label="Dismiss" className="ml-auto rounded text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50"><X className="h-3.5 w-3.5" /></button></div>}
 
+        {/* 3-2-1 countdown: one assertive announcement per number. The region stays
+            mounted so the first number ("3") is announced too; the big visual is hidden from AT. */}
+        <p className="sr-only" role="status" aria-live="assertive" aria-atomic="true">{countdown !== null ? `Exercise starts in ${countdown}` : ""}</p>
         {countdown !== null && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+          <div aria-hidden="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
             <div className="text-center"><p className="text-sm uppercase tracking-[0.3em] text-cyber-300">Exercise starts in</p><p className="mt-2 font-mono text-8xl font-black text-white">{countdown}</p></div>
           </div>
         )}
@@ -877,8 +885,8 @@ export default function TeamRoomPage() {
           <div className="fixed right-4 top-20 z-50 flex w-72 flex-col gap-2">
             {leftNotices.map(n => (
               <div key={n.key} className="flex items-start gap-2 rounded-lg border border-neon-amber/40 bg-bg-elevated px-3 py-2 shadow-lg">
-                <UserMinus className="mt-0.5 h-4 w-4 shrink-0 text-neon-amber" />
-                <p className="text-[12px] text-slate-200"><b>{n.name}</b> <span className="text-slate-400">({n.role})</span> left the session.</p>
+                <UserMinus className="mt-0.5 h-4 w-4 shrink-0 text-neon-amber" aria-hidden="true" />
+                <p className="text-[12px] text-slate-200"><b><bdi>{n.name}</bdi></b> <span className="text-slate-400">({n.role})</span> left the session.</p>
                 <button onClick={() => setLeftNotices(ns => ns.filter(x => x.key !== n.key))} aria-label="Dismiss notice" className="ml-auto shrink-0 rounded text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50"><X className="h-3.5 w-3.5" /></button>
               </div>
             ))}
@@ -889,10 +897,10 @@ export default function TeamRoomPage() {
             team is back (auto-clears), or staff/Manager reassign / end. */}
         {haltActive && !haltDismissed && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-6">
-            <div className="max-w-md rounded-xl border border-neon-amber/40 bg-bg-elevated p-6 text-center shadow-2xl">
-              <PauseCircle className="mx-auto h-10 w-10 text-neon-amber" />
-              <h3 className="mt-3 text-lg font-bold text-white">Training paused</h3>
-              <p className="mt-1 text-sm text-neon-amber">{haltMessage}</p>
+            <div ref={haltRef} role="alertdialog" aria-modal="true" aria-labelledby="team-halt-title" aria-describedby="team-halt-msg" tabIndex={-1} className="max-w-md rounded-xl border border-neon-amber/40 bg-bg-elevated p-6 text-center shadow-2xl">
+              <PauseCircle className="mx-auto h-10 w-10 text-neon-amber" aria-hidden="true" />
+              <h3 id="team-halt-title" className="mt-3 text-lg font-bold text-white">Training paused</h3>
+              <p id="team-halt-msg" className="mt-1 text-sm text-neon-amber">{haltMessage}</p>
               <p className="mt-2 text-[12px] text-slate-400">{pausedReason === "manual"
                 ? "The instructor paused the shift. It stays paused until they resume it."
                 : pausedReason === "owner_left"
@@ -928,8 +936,8 @@ export default function TeamRoomPage() {
           return (
             <div role="status" className="flex items-center gap-2 rounded-lg border border-cyber-500/40 bg-cyber-500/[0.08] px-3 py-2 text-sm text-cyber-200">
               <Siren className="h-4 w-4 shrink-0 text-cyber-300" /> {mine
-                ? <span><b>You&apos;re carrying {myLoad > 0 ? myLoad : "several"} open case{myLoad === 1 ? "" : "s"}</b> — {nameOf(activeNudge.actor_id)} asks you to hand one off or release a claim you&apos;re not actively working.</span>
-                : <span><b>{queue}</b> is backing up — {nameOf(activeNudge.actor_id)} asks the team to rebalance. If you&apos;re light, take the next case.</span>}
+                ? <span><b>You&apos;re carrying {myLoad > 0 ? myLoad : "several"} open case{myLoad === 1 ? "" : "s"}</b> — <bdi>{nameOf(activeNudge.actor_id)}</bdi> asks you to hand one off or release a claim you&apos;re not actively working.</span>
+                : <span><b>{queue}</b> is backing up — <bdi>{nameOf(activeNudge.actor_id)}</bdi> asks the team to rebalance. If you&apos;re light, take the next case.</span>}
               <button onClick={() => setDismissedNudgeSeq(activeNudge.seq ?? 0)} aria-label="Dismiss rebalance request" className="ml-auto shrink-0 rounded text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50"><X className="h-3.5 w-3.5" /></button>
             </div>
           );
@@ -981,8 +989,8 @@ export default function TeamRoomPage() {
                   const isOn = online.has(m.user_id); const rdy = !!readyMap[m.user_id]; const isMe = me?.id === m.user_id;
                   return (
                     <div key={m.user_id} className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${rdy ? "border-neon-green/30 bg-neon-green/[0.05]" : "border-border"}`}>
-                      <span className={`h-2 w-2 shrink-0 rounded-full ${isOn ? "bg-neon-green" : "bg-slate-600"}`} title={isOn ? "connected" : "not connected"} />
-                      <span className="min-w-0 flex-1 truncate text-sm text-slate-200">{m.name}{isMe && <span className="ml-1 text-[11px] text-cyber-300">(you)</span>}
+                      <span className={`h-2 w-2 shrink-0 rounded-full ${isOn ? "bg-neon-green" : "bg-slate-600"}`} title={isOn ? "connected" : "not connected"} aria-hidden="true" />
+                      <span className="min-w-0 flex-1 truncate text-sm text-slate-200"><span className="sr-only">{isOn ? "Connected: " : "Not connected: "}</span><bdi>{m.name}</bdi>{isMe && <span className="ml-1 text-[11px] text-cyber-300">(you)</span>}
                         <span className="ml-2 rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-slate-400">{ROLE_LABEL[m.role] ?? m.role}</span></span>
                       {m.role === "instructor" ? <span className="inline-flex items-center gap-1 text-[11px] text-neon-amber"><ShieldCheck className="h-3.5 w-3.5" /> runs it</span>
                         : rdy ? <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-neon-green"><CheckCircle2 className="h-3.5 w-3.5" /> ready</span>
@@ -1029,7 +1037,7 @@ export default function TeamRoomPage() {
                     <p className="text-sm font-bold text-white">Start the exercise</p>
                     <p className="text-xs text-slate-400">{allReady ? "All players are ready." : "Locked until every player marks ready — remove a no-show from the roster to start without them."}</p>
                     {lapsedPlayers.length > 0 && (
-                      <p className="mt-1 flex items-center gap-1 text-xs text-severity-high"><AlertTriangle className="h-3.5 w-3.5" /> {lapsedPlayers.map(p => p.name).join(", ")} can&apos;t mark ready — access to your organisation has expired. Remove {lapsedPlayers.length === 1 ? "them" : "them all"} to start.</p>
+                      <p className="mt-1 flex items-center gap-1 text-xs text-severity-high"><AlertTriangle className="h-3.5 w-3.5" /> <bdi>{lapsedPlayers.map(p => p.name).join(", ")}</bdi> can&apos;t mark ready — access to your organisation has expired. Remove {lapsedPlayers.length === 1 ? "them" : "them all"} to start.</p>
                     )}
                     {!hasManager && (
                       <p className="mt-1 flex items-center gap-1 text-xs text-neon-amber"><AlertTriangle className="h-3.5 w-3.5" /> No SOC Manager or Lead on this team — CISO / Legal / exec requests will go unanswered. Add one below.</p>

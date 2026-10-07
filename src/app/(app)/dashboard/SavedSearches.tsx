@@ -156,6 +156,7 @@ export function SavedSearches({ current, onApply }: Props) {
               if (e.key === "Escape") { setNaming(false); setName(""); }
             }}
             placeholder="Name this search…"
+            aria-label="Name this saved search"
             maxLength={40}
             className="h-6 w-40 rounded border border-cyber-500/50 bg-bg px-2 text-[11px] text-slate-200 placeholder-slate-500 focus:outline-none"
           />
@@ -181,7 +182,7 @@ export function SavedSearches({ current, onApply }: Props) {
             "ml-auto flex items-center gap-1 rounded border px-2 py-0.5 text-[10px] font-semibold transition",
             canSave
               ? "border-cyber-500/40 text-cyber-300 hover:bg-cyber-500/10"
-              : "cursor-not-allowed border-border/50 text-slate-600"
+              : "cursor-not-allowed border-border/50 text-slate-500"
           )}
         >
           <BookmarkPlus className="h-3 w-3" /> Save current

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo, memo, useRef } from "react";
+import { useState, useMemo, memo, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronRight, Info, AlertTriangle, Clock, ExternalLink, Shield, X, PhoneCall, CheckCircle2, Copy, BookOpen } from "lucide-react";
 import { ecsTechnique } from "@/lib/logs/ecsFields";
@@ -24,6 +24,7 @@ import { mitreVisible } from "@/lib/sim/mitreVisible";
 const opaqueEventId = (id: string) =>
   "EVT-" + hashString(id).toString(16).toUpperCase().padStart(8, "0");
 import { DashboardTour, LogReadingTour } from "./OnboardingTour";
+import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 import {
   ThreatIntelDrawer, isSha256Field, isIpCheckField, isDomainCheckField,
   type ThreatQuery,
@@ -540,14 +541,18 @@ export function DetailPanelBody({
             <span className="text-sm font-semibold text-white">Log Analysis</span>
           </div>
           {/* Analysis ↔ Raw log segmented control — Raw shows the authentic vendor wire format */}
-          <div className="inline-flex items-center rounded-md border border-border/70 bg-[#0a0f18] p-0.5 text-[11px] font-semibold">
+          <div className="inline-flex items-center rounded-md border border-border/70 bg-[#0a0f18] p-0.5 text-[11px] font-semibold" role="group" aria-label="Log view">
             <button
+              type="button"
+              aria-pressed={!showRawJson}
               onClick={() => setShowRawJson(false)}
               className={cn("rounded px-2.5 py-1 transition-colors", !showRawJson ? "bg-cyber-500/20 text-cyber-200" : "text-slate-400 hover:text-slate-200")}
             >
               Analysis
             </button>
             <button
+              type="button"
+              aria-pressed={showRawJson}
               onClick={() => setShowRawJson(true)}
               className={cn("rounded px-2.5 py-1 transition-colors", showRawJson ? "bg-cyber-500/20 text-cyber-200" : "text-slate-400 hover:text-slate-200")}
             >
@@ -666,8 +671,10 @@ export function DetailPanelBody({
                         )}
                         {canPivot && (
                           <button
+                            type="button"
                             onClick={e => { e.stopPropagation(); onPivot!(pivotField!, value); }}
                             title={`Filter the feed to ${value}`}
+                            aria-label={`Pivot: filter the feed to ${value}`}
                             className="rounded border border-cyber-500/40 bg-cyber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-cyber-300 hover:bg-cyber-500/20"
                           >⤢ pivot</button>
                         )}
@@ -752,6 +759,8 @@ export function DetailPanelBody({
                             report (team feed only), so it isn't hand-retyped. */}
                         {onAddIoc && hasBtn && (
                           <button
+                            type="button"
+                            aria-label={`Add ${v} as an IOC`}
                             onClick={e => { e.stopPropagation(); onAddIoc!(v, showHash ? "sha256" : showIp ? "ip" : "domain"); }}
                             className="inline-flex w-fit items-center gap-1 rounded border border-cyber-500/50 bg-cyber-500/10 px-2 py-0.5 text-[9px] font-bold text-cyber-300 hover:bg-cyber-500/20 transition"
                           >＋ IOC</button>
@@ -784,11 +793,9 @@ function MitreSlideout({ techniqueId, onClose }: { techniqueId: string; onClose:
   const technique = techniqueById(techniqueId);
   const tactic = technique ? tacticById(technique.tactic) : undefined;
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [onClose]);
+  // a11y: modal slide-out — focus trapped inside, Escape closes, focus returns.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(!!technique, dialogRef, { onEscape: onClose });
 
   if (!technique) return null;
 
@@ -800,6 +807,8 @@ function MitreSlideout({ techniqueId, onClose }: { techniqueId: string; onClose:
         onClick={onClose}
       />
       <motion.div
+        ref={dialogRef}
+        role="dialog" aria-modal="true" aria-labelledby="mitre-slideout-title" tabIndex={-1}
         initial={{ x: 440 }} animate={{ x: 0 }} exit={{ x: 440 }}
         transition={{ type: "spring", damping: 28, stiffness: 260 }}
         className="fixed right-0 top-0 h-screen w-full sm:w-[420px] bg-[#080d14] border-l border-border/80 z-50 shadow-2xl overflow-y-auto"
@@ -810,9 +819,9 @@ function MitreSlideout({ techniqueId, onClose }: { techniqueId: string; onClose:
               <span className="rounded border border-neon-purple/50 bg-neon-purple/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-neon-purple">{technique.id}</span>
               {tactic && <span className="text-[10px] text-slate-400">{tactic.name}</span>}
             </div>
-            <h3 className="text-sm font-semibold text-white">{technique.name}</h3>
+            <h3 id="mitre-slideout-title" className="text-sm font-semibold text-white">{technique.name}</h3>
           </div>
-          <button onClick={onClose} aria-label="Close MITRE details" className="mt-0.5 shrink-0 rounded p-1 text-slate-400 hover:bg-slate-700/50 hover:text-white">
+          <button type="button" onClick={onClose} aria-label="Close MITRE details" className="mt-0.5 shrink-0 rounded p-1 text-slate-400 hover:bg-slate-700/50 hover:text-white">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -907,6 +916,8 @@ function SocMethodologyBanner() {
   return (
     <div className="border-b border-border/40 bg-[#06101a]">
       <button
+        type="button"
+        aria-expanded={expanded}
         onClick={() => setExpanded(v => !v)}
         className="w-full flex items-center gap-3 px-4 py-2 hover:bg-white/[0.02] transition text-left"
       >
@@ -916,7 +927,7 @@ function SocMethodologyBanner() {
           {!expanded && steps.map(s => (
             <span key={s.num} className="hidden sm:flex items-center gap-1 text-[9px] text-slate-400">
               <span className="font-bold text-slate-400">{s.num}.</span> {s.label}
-              {s.num !== "5" && <span className="text-slate-700 ml-1">→</span>}
+              {s.num !== "5" && <span className="text-slate-500 ml-1">→</span>}
             </span>
           ))}
         </div>
@@ -981,6 +992,7 @@ const EventRow = memo(function EventRow({
   const timeStr = event.ts
     ? new Date(event.ts).toLocaleTimeString("en-GB", { hour12: false })
     : "—";
+  const detailId = `ef-detail-${event.id}`;
 
   return (
     <>
@@ -989,25 +1001,25 @@ const EventRow = memo(function EventRow({
         initial={isNew ? { opacity: 0, y: -8 } : false}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.25 }}
-        tabIndex={0}
-        role="button"
-        aria-expanded={expanded}
+        // Mouse users click anywhere on the row; keyboard / AT users get the real
+        // <button> in the first cell (the <tr> keeps its row semantics).
         onClick={toggleExpanded}
-        onKeyDown={(e) => {
-          // Enter / Space toggles the row so keyboard users reach the same
-          // expand interaction as a mouse click.
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            toggleExpanded();
-          }
-        }}
         className={cn(
-          "group cursor-pointer border-t border-border/60 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-cyber-500/60",
+          "group cursor-pointer border-t border-border/60 transition-colors",
           expanded ? "bg-bg-hover" : "hover:bg-bg-hover/60",
         )}
       >
         <td className="w-6 pl-3">
-          <ChevronRight className={cn("h-3 w-3 text-slate-400 transition-transform", expanded && "rotate-90")} />
+          <button
+            type="button"
+            aria-expanded={expanded}
+            aria-controls={expanded ? detailId : undefined}
+            aria-label={`Log details: ${timeStr}${event.hostname ? `, ${event.hostname}` : ""}`}
+            onClick={(e) => { e.stopPropagation(); toggleExpanded(); }}
+            className="flex items-center rounded"
+          >
+            <ChevronRight aria-hidden="true" className={cn("h-3 w-3 text-slate-400 transition-transform", expanded && "rotate-90")} />
+          </button>
         </td>
         <td className="py-2.5 pr-3 font-mono text-[11px] text-slate-400 truncate">{timeStr}</td>
         <td className="py-2.5 pr-3 font-mono text-xs text-slate-200 truncate" title={event.hostname ?? undefined}>{event.hostname ?? "—"}</td>
@@ -1116,6 +1128,7 @@ const EventRow = memo(function EventRow({
         {expanded && (
           <motion.tr
             key={`${event.id}-detail`}
+            id={detailId}
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
           >
@@ -1222,10 +1235,10 @@ export function EventFeed({
       {/* Time-range filter */}
       <div id="ef-filter-row" className="flex items-center gap-2 border-b border-border/40 bg-bg-elevated/60 px-4 py-2">
         <Clock className="h-3 w-3 shrink-0 text-slate-400" />
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mr-1">Time range</span>
-        <div className="flex items-center gap-1">
+        <span id="ef-time-range-label" className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mr-1">Time range</span>
+        <div className="flex items-center gap-1" role="group" aria-labelledby="ef-time-range-label">
           {TIME_OPTIONS.map(opt => (
-            <button key={opt.value} onClick={() => setTimeFilter(opt.value)}
+            <button key={opt.value} type="button" aria-pressed={timeFilter === opt.value} onClick={() => setTimeFilter(opt.value)}
               className={cn(
                 "rounded px-2.5 py-0.5 text-[10px] font-semibold transition",
                 timeFilter === opt.value
@@ -1259,7 +1272,7 @@ export function EventFeed({
           </colgroup>
           <thead className="sticky top-0 bg-bg-elevated/95 backdrop-blur">
             <tr className="text-left text-[10px] font-semibold uppercase tracking-widest text-slate-400">
-              <th className="w-6 pl-3 py-2" />
+              <th className="w-6 pl-3 py-2"><span className="sr-only">Expand</span></th>
               <th id="ef-th-time"    className="py-2 pr-3"><HeaderTip label="Time"       tip="When the event occurred. Unusual hours (3 AM logins, weekend data transfers) are red flags worth investigating." /></th>
               <th id="ef-th-agent"   className="py-2 pr-3"><HeaderTip label="Agent Name" tip="The hostname of the computer or device where this event was recorded." /></th>
               <th id="ef-th-source"  className="py-2 pr-3"><HeaderTip label="Source"     tip="Which security tool detected this event. Each tool sees different activity — EDR sees processes, Firewall sees network traffic, AD sees logins. Hover over the badge for details." /></th>

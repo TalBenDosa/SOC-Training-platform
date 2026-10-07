@@ -59,7 +59,7 @@ export function AcceptInvite({ token, orgName, role, invitedEmail, signedInAs }:
         </>
       )}
       {error && <p role="alert" className="mt-3 text-sm text-severity-high">{error}</p>}
-      <Link href="/dashboard" className="mt-5 block text-xs text-slate-400 hover:text-white">Not now</Link>
+      <Link href="/dashboard" className="mt-5 block text-xs text-slate-400 underline underline-offset-2 hover:text-white">Not now</Link>
     </Card>
   );
 }

@@ -61,8 +61,8 @@ export function InstructorPanel({ sessionId, roster, online, events, act, isStaf
       <div className="mt-2 space-y-1">
         {members.map(m => (
           <div key={m.user_id} className="flex items-center gap-2 text-xs">
-            <span className={`h-1.5 w-1.5 rounded-full ${online.has(m.user_id) ? "bg-neon-green" : "bg-slate-600"}`} />
-            <span className="text-slate-300">{m.name}</span>
+            <span className={`h-1.5 w-1.5 rounded-full ${online.has(m.user_id) ? "bg-neon-green" : "bg-slate-600"}`} aria-hidden="true" /><span className="sr-only">{online.has(m.user_id) ? "online" : "offline"}</span>
+            <bdi className="text-slate-300">{m.name}</bdi>
             <span className="font-mono text-[10px] text-slate-500">{ROLE_LABEL[m.role] ?? m.role}</span>
             {m.lapsed && <span className="text-[10px] text-severity-high" title="Their access to your organisation has expired — they can't act.">access expired</span>}
             {isStaff && <span className="ml-auto"><RemoveMemberButton sessionId={sessionId} userId={m.user_id} name={m.name} onError={onError} /></span>}
@@ -73,15 +73,15 @@ export function InstructorPanel({ sessionId, roster, online, events, act, isStaf
         <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Inject ({injects.length} sent)</p>
         {!canInject && <p className="text-[11px] text-slate-500">Injects are sent from the session owner&apos;s instructor seat.</p>}
         {canInject && <>
-        <select value={inj.kind} onChange={e => setInj(s => ({ ...s, kind: e.target.value }))} className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 focus:outline-none">
+        <select aria-label="Inject type" value={inj.kind} onChange={e => setInj(s => ({ ...s, kind: e.target.value }))} className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 focus:outline-none">
           <option value="announcement">announcement (all roles)</option>
           <option value="ticket">help-desk ticket (Tier-1 answers)</option>
           <option value="mgmt_pressure">management pressure (Manager)</option>
           <option value="twist">plot twist (forces a re-scope)</option>
           <option value="false_lead">false lead (a decoy to reject)</option>
         </select>
-        <textarea value={inj.text} onChange={e => setInj(s => ({ ...s, text: e.target.value }))} placeholder="Inject text (e.g. 'User in Finance says a vendor called asking for an MFA code')" rows={2} className="w-full resize-y rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
-        {inj.kind !== "announcement" && <input value={inj.expected} onChange={e => setInj(s => ({ ...s, expected: e.target.value }))} placeholder="Expected response (staff-only answer key — shown in the review)" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />}
+        <textarea aria-label="Inject text" value={inj.text} onChange={e => setInj(s => ({ ...s, text: e.target.value }))} placeholder="Inject text (e.g. 'User in Finance says a vendor called asking for an MFA code')" rows={2} className="w-full resize-y rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+        {inj.kind !== "announcement" && <input aria-label="Expected response (staff-only answer key)" value={inj.expected} onChange={e => setInj(s => ({ ...s, expected: e.target.value }))} placeholder="Expected response (staff-only answer key — shown in the review)" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />}
         <Button variant="primary" size="sm" disabled={busy || !inj.text.trim()} onClick={post}>Send inject</Button>
         </>}
       </div>
@@ -90,11 +90,11 @@ export function InstructorPanel({ sessionId, roster, online, events, act, isStaf
       <div className="mt-3 space-y-1.5 border-t border-border/50 pt-2">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Reassign a role (recover a dropped seat)</p>
         <div className="flex gap-1.5">
-          <select value={ra.user_id} onChange={e => setRa(s => ({ ...s, user_id: e.target.value }))} className="flex-1 rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 focus:outline-none">
+          <select aria-label="Member to reassign" value={ra.user_id} onChange={e => setRa(s => ({ ...s, user_id: e.target.value }))} className="flex-1 rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 focus:outline-none">
             <option value="">— member —</option>
             {members.map(m => <option key={m.user_id} value={m.user_id}>{m.name}{online.has(m.user_id) ? "" : " (offline)"}</option>)}
           </select>
-          <select value={ra.role} onChange={e => setRa(s => ({ ...s, role: e.target.value }))} className="flex-1 rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 focus:outline-none">
+          <select aria-label="New role" value={ra.role} onChange={e => setRa(s => ({ ...s, role: e.target.value }))} className="flex-1 rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 focus:outline-none">
             <option value="">— role —</option>
             {REASSIGN_ROLES.map(r => <option key={r} value={r}>{ROLE_LABEL[r] ?? r}</option>)}
           </select>

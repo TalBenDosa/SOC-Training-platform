@@ -20,7 +20,7 @@ export const KIND_LABEL: Record<string, string> = { room: "room", scenario: "sce
 export function StatusIcon({ status }: { status?: ItemStatus }) {
   if (status === "done") return <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-neon-green" aria-label="Done" />;
   if (status === "in_progress") return <CircleDot className="h-3.5 w-3.5 shrink-0 text-neon-amber" aria-label="In progress" />;
-  if (status === "untracked") return <Circle className="h-3.5 w-3.5 shrink-0 text-slate-700" aria-label="Not tracked" />;
+  if (status === "untracked") return <Circle className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-label="Not tracked" />;
   return <Circle className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-label="Not started" />;
 }
 
@@ -90,7 +90,7 @@ export function PlanItemsEditor({
                 title="Drag to reorder"
                 className="shrink-0 cursor-grab active:cursor-grabbing"
               >
-                <GripVertical className="h-3.5 w-3.5 text-slate-600" aria-hidden />
+                <GripVertical className="h-3.5 w-3.5 text-slate-500" aria-hidden />
               </span>
               <span className="w-5 shrink-0 text-right font-mono text-[10px] text-slate-500">{i + 1}</span>
               {statuses && <StatusIcon status={statuses[key]} />}
@@ -108,7 +108,7 @@ export function PlanItemsEditor({
               </select>
               <button type="button" onClick={() => setNoteOpen(s => new Set(s).add(key))} title="Add a note" aria-label="Add a note"
                 className={`rounded p-0.5 transition hover:bg-white/5 ${it.note ? "text-cyber-300" : "text-slate-500 hover:text-slate-200"}`}>
-                <MessageSquare className="h-3.5 w-3.5" />
+                <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
               </button>
               <button type="button" onClick={() => move(i, i - 1)} disabled={i === 0} aria-label="Move up"
                 className="rounded p-0.5 text-slate-500 transition hover:bg-white/5 hover:text-slate-200 disabled:opacity-30"><ArrowUp className="h-3.5 w-3.5" /></button>
@@ -125,7 +125,9 @@ export function PlanItemsEditor({
                 maxLength={PLAN_LIMITS.note}
                 autoFocus={!it.note}
                 placeholder="Note for the learner (optional)"
-                className="mt-1 w-full rounded border border-border bg-bg px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-600 focus:border-cyber-500/50 focus:outline-none"
+                aria-label={`Note for the learner on ${leaf?.label ?? it.id} (optional)`}
+                dir="auto"
+                className="mt-1 w-full rounded border border-border bg-bg px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none"
               />
             )}
           </li>

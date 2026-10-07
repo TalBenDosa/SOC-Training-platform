@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { Topbar } from "@/components/nav/Topbar";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { lookupHash, vtLabel, vtColor } from "@/lib/sim/hashDatabase";
 import { ecsTechnique } from "@/lib/logs/ecsFields";
@@ -193,6 +194,7 @@ function EventRow({
   return (
     <>
       <tr
+        // Mouse: click the row. Keyboard / AT: the expander button in the first cell.
         onClick={() => setExpanded(v => !v)}
         className={cn(
           "cursor-pointer border-t border-border/40 transition-colors group",
@@ -201,7 +203,15 @@ function EventRow({
         )}
       >
         <td className="w-6 pl-3 py-2.5">
-          <ChevronRight className={cn("h-3 w-3 text-slate-400 transition-transform", expanded && "rotate-90")} />
+          <button
+            type="button"
+            aria-expanded={expanded}
+            aria-label={`Show raw fields: ${timeStr}${ev.hostname ? `, ${ev.hostname}` : ""}`}
+            onClick={e => { e.stopPropagation(); setExpanded(v => !v); }}
+            className="flex items-center rounded"
+          >
+            <ChevronRight aria-hidden="true" className={cn("h-3 w-3 text-slate-400 transition-transform", expanded && "rotate-90")} />
+          </button>
         </td>
         <td className="py-2.5 pr-3 font-mono text-[11px] text-slate-400 whitespace-nowrap">{timeStr}</td>
         <td className="py-2.5 pr-3 font-mono text-[10px] text-slate-400 whitespace-nowrap">{ev.hostname ?? "—"}</td>
@@ -224,15 +234,18 @@ function EventRow({
         {/* Mark FP button */}
         <td className="py-2.5 pr-3 w-10" onClick={e => { e.stopPropagation(); onToggleFp(ev.id); }}>
           <button
+            type="button"
             title={markedFp ? "Unmark FP" : "Mark as False Positive"}
+            aria-label="Mark as false positive"
+            aria-pressed={markedFp}
             className={cn(
               "rounded p-1 transition-colors",
               markedFp
                 ? "bg-neon-amber/20 text-neon-amber"
-                : "text-slate-400 hover:text-neon-amber hover:bg-neon-amber/10 opacity-0 group-hover:opacity-100"
+                : "text-slate-400 hover:text-neon-amber hover:bg-neon-amber/10 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
             )}
           >
-            <ThumbsDown className="h-3 w-3" />
+            <ThumbsDown aria-hidden="true" className="h-3 w-3" />
           </button>
         </td>
       </tr>
@@ -379,10 +392,14 @@ function CompletionOverlay({
   const score = calcScore(scenario.events, taggedIocs, fpMarked, notes, verdict);
   const grade = score.total >= 85 ? "A" : score.total >= 70 ? "B" : score.total >= 55 ? "C" : "D";
   const gradeColor = grade === "A" ? "text-neon-green" : grade === "B" ? "text-cyber-300" : grade === "C" ? "text-neon-amber" : "text-severity-high";
+  // a11y: modal dialog — focus trapped inside, Escape closes, focus returns.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(true, dialogRef, { onEscape: onClose });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-6">
-      <div className="w-full max-w-xl rounded-xl border border-border bg-[#080d14] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="preview-complete-title" tabIndex={-1}
+        className="w-full max-w-xl rounded-xl border border-border bg-[#080d14] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="border-b border-border bg-[#0d1520] px-6 py-4 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
@@ -390,12 +407,12 @@ function CompletionOverlay({
               <CheckCircle className="h-5 w-5 text-neon-green" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-white">Investigation Complete</p>
+              <p id="preview-complete-title" className="text-sm font-semibold text-white">Investigation Complete</p>
               <p className="text-[11px] text-slate-400">{scenario.title}</p>
             </div>
           </div>
-          <button onClick={onClose} className="rounded p-1 text-slate-400 hover:text-white transition-colors">
-            <X className="h-4 w-4" />
+          <button type="button" onClick={onClose} aria-label="Close" className="rounded p-1 text-slate-400 hover:text-white transition-colors">
+            <X aria-hidden="true" className="h-4 w-4" />
           </button>
         </div>
 
@@ -651,9 +668,9 @@ export default function ScenarioPreviewPage() {
                   Log Timeline — {filteredEvents.length} events
                 </p>
                 {/* Severity filter */}
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1" role="group" aria-label="Severity filter">
                   {["all", "critical", "high", "medium", "low", "fp"].map(sev => (
-                    <button key={sev} onClick={() => setFilterSev(sev)}
+                    <button key={sev} type="button" aria-pressed={filterSev === sev} onClick={() => setFilterSev(sev)}
                       className={cn("rounded px-2 py-0.5 text-[10px] font-semibold uppercase transition-colors",
                         filterSev === sev ? "bg-cyber-500/20 text-cyber-300" : "text-slate-400 hover:text-slate-300"
                       )}>
@@ -667,7 +684,7 @@ export default function ScenarioPreviewPage() {
                 <table className="w-full">
                   <thead className="sticky top-0 bg-[#080d14]/95 backdrop-blur z-10">
                     <tr className="border-b border-border/40">
-                      <th className="w-6 pl-3" />
+                      <th className="w-6 pl-3"><span className="sr-only">Expand</span></th>
                       <th className="py-2 pr-3 text-left font-mono text-[10px] text-slate-400 uppercase tracking-widest">Time</th>
                       <th className="py-2 pr-3 text-left font-mono text-[10px] text-slate-400 uppercase tracking-widest">Host</th>
                       <th className="py-2 pr-3 text-left font-mono text-[10px] text-slate-400 uppercase tracking-widest">Source</th>
@@ -755,12 +772,12 @@ export default function ScenarioPreviewPage() {
             {/* Notes */}
             <div className="rounded border border-border bg-[#080d14]">
               <div className="border-b border-border/60 px-4 py-2.5">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 flex items-center gap-1.5">
-                  <FileText className="h-3 w-3" /> Investigation Notes
+                <p id="preview-notes-label" className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 flex items-center gap-1.5">
+                  <FileText aria-hidden="true" className="h-3 w-3" /> Investigation Notes
                 </p>
               </div>
               <div className="px-3 py-3">
-                <textarea value={notes} onChange={e => { setNotes(e.target.value); startTimer(); }}
+                <textarea aria-labelledby="preview-notes-label" value={notes} onChange={e => { setNotes(e.target.value); startTimer(); }}
                   placeholder="Document your findings, timeline reconstruction, attacker TTPs, and evidence…"
                   rows={7}
                   className="w-full resize-none rounded border border-border/40 bg-[#060b12] px-3 py-2.5 font-mono text-[11px] text-slate-200 placeholder:text-slate-400 focus:border-cyber-500/40 focus:outline-none leading-relaxed"
@@ -771,12 +788,12 @@ export default function ScenarioPreviewPage() {
             {/* Verdict */}
             <div className="rounded border border-border bg-[#080d14]">
               <div className="border-b border-border/60 px-4 py-2.5">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 flex items-center gap-1.5">
-                  <Zap className="h-3 w-3" /> Analyst Verdict
+                <p id="preview-verdict-label" className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 flex items-center gap-1.5">
+                  <Zap aria-hidden="true" className="h-3 w-3" /> Analyst Verdict
                 </p>
               </div>
               <div className="px-3 py-3 space-y-2">
-                <textarea value={verdict} onChange={e => { setVerdict(e.target.value); startTimer(); }}
+                <textarea aria-labelledby="preview-verdict-label" value={verdict} onChange={e => { setVerdict(e.target.value); startTimer(); }}
                   placeholder="Initial access vector, lateral movement, data impacted, recommended containment steps…"
                   rows={5}
                   className="w-full resize-none rounded border border-border/40 bg-[#060b12] px-3 py-2.5 font-mono text-[11px] text-slate-200 placeholder:text-slate-400 focus:border-cyber-500/40 focus:outline-none leading-relaxed"
