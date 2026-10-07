@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 // Unique, descriptive tab title per route (WCAG 2.4.2) — the page itself is a client component.
-export const metadata: Metadata = { title: "Live SOC Dashboard" };
+export const metadata: Metadata = { title: { absolute: "Live SOC Dashboard // HACK THE SOC" } };
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return children;
