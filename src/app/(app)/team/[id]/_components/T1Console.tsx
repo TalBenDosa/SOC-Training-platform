@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useMemo, useRef } from "react";
+import { AttachImageButton, PendingImages, uploadTeamImage, useImageAttachments, type TeamImage } from "./teamImages";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ArrowUpRight, ShieldAlert, X } from "lucide-react";
@@ -13,7 +14,8 @@ import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 const REQUESTED_ACTIONS = ["investigate", "contain", "monitor", "escalate-to-mgr"];
 const SEVERITIES = ["low", "medium", "high", "critical"];
 
-export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDraft, nameOf, act, actR, sel, setSel, reportOpen, setReportOpen }: {
+export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraft, setIocDraft, nameOf, act, actR, sel, setSel, reportOpen, setReportOpen }: {
+  sessionId: string;
   feed: Ev[]; dispositions: Map<string, string>; events: Ev[]; meId: string;
   iocDraft: Ioc[]; setIocDraft: React.Dispatch<React.SetStateAction<Ioc[]>>;
   nameOf: (u: string | null) => string; act: (t: string, p: Record<string, unknown>) => Promise<boolean>;
@@ -24,6 +26,8 @@ export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDr
   sel: string; setSel: (v: string) => void; reportOpen: boolean; setReportOpen: (v: boolean) => void;
 }) {
   const [form, setForm] = useState({ summary: "", observations: "", assessment: "", requested_action: "investigate", severity: "medium" });
+  // Screenshots that travel with the escalation (EDR view, a query result, a header…).
+  const shots = useImageAttachments(3);
   const [iocText, setIocText] = useState("");
   const [busy, setBusy] = useState(false);
   const selDisp = sel ? dispositions.get(sel) : undefined;
@@ -168,6 +172,11 @@ export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDr
       const rawText = JSON.stringify(full.raw ?? "");
       snapshot = { ...full, raw: rawText.length > 4000 ? `${rawText.slice(0, 4000)}…` : full.raw, snapshot_truncated: true };
     }
+    let images: TeamImage[] = [];
+    if (shots.items.length) {
+      try { images = await Promise.all(shots.items.map(it => uploadTeamImage(sessionId, it))); }
+      catch (e) { setBusy(false); shots.setError(e instanceof Error ? e.message : "The screenshots couldn't be uploaded."); return; }
+    }
     const fe = full as { hostname?: string; user_email?: string; user?: { email?: string } } | undefined;
     const entity = asStr(fe?.hostname) || asStr(fe?.user_email) || asStr(fe?.user?.email) || "the affected asset";
     const res = await actR("escalation.requested", {
@@ -175,13 +184,14 @@ export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDr
       iocs: iocDraft, requested_action: form.requested_action, severity: form.severity,
       confidence: isLowConf ? 0.3 : 0.7, low_confidence: isLowConf || undefined,
       hostname: asStr(fe?.hostname) || undefined, entity, snapshot,
+      ...(images.length ? { images } : {}),
       what: form.summary, why: form.observations, // back-compat aliases
     }, { handled: ["claim_held"] });
     const ok = res.ok;
     if (res.code === "claim_held") setHeldFor(sel);
     if (ok) await act("alert.released", { event_id: sel }); // escalated → hand off the claim (the load replay reads the release)
     setBusy(false);
-    if (ok) { setForm({ summary: "", observations: "", assessment: "", requested_action: "investigate", severity: "medium" }); setIocDraft([]); setSel(""); setReportOpen(false); }
+    if (ok) { setForm({ summary: "", observations: "", assessment: "", requested_action: "investigate", severity: "medium" }); setIocDraft([]); shots.clear(); setSel(""); setReportOpen(false); }
   }
   // The selected log's payload — powers the modal's log-summary header + the escalate snapshot.
   const selRaw = sel ? feed.find(e => String((e.payload as { id?: string }).id ?? e.seq) === sel) : undefined;
@@ -280,7 +290,16 @@ export function T1Console({ feed, dispositions, events, meId, iocDraft, setIocDr
           <div className="mt-3 space-y-2">
             {isLowConf && <p className="rounded border border-neon-amber/30 bg-neon-amber/[0.06] px-2 py-1 text-[11px] text-neon-amber">Low-confidence lead — sending to Tier-2 for a second look.</p>}
             <input aria-label="Summary" value={form.summary} onChange={e => setForm(f => ({ ...f, summary: e.target.value }))} placeholder="Summary — one line: what happened + on what" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
-            <textarea aria-label="Observations" value={form.observations} onChange={e => setForm(f => ({ ...f, observations: e.target.value }))} placeholder="Observations — the process/sequence/evidence" rows={3} className="w-full resize-y rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+            <textarea aria-label="Observations" value={form.observations} onChange={e => setForm(f => ({ ...f, observations: e.target.value }))} onPaste={shots.onPaste} placeholder="Observations — the process/sequence/evidence (paste a screenshot with Ctrl+V)" rows={3} className="w-full resize-y rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+            {/* Screenshots as evidence: paste into Observations, drop here, or use the button (up to 3). */}
+            <div className="rounded-lg border border-dashed border-border bg-bg px-2 py-1.5" {...shots.dropProps}>
+              <div className="flex items-center gap-2">
+                <AttachImageButton onPick={f => void shots.add(f)} label="Attach a screenshot to the escalation" />
+                <p className="text-[10px] text-slate-400">Screenshots (optional, up to 3): paste, drop, or attach. Tier-2 sees them on the ticket.</p>
+              </div>
+              {shots.items.length > 0 && <div className="mt-1.5"><PendingImages items={shots.items} onRemove={shots.remove} /></div>}
+              {shots.error && <p role="alert" className="mt-1 text-[10px] text-severity-high">{shots.error}</p>}
+            </div>
             {/* T1-5: IOCs — pre-seeded from the flagged log; click "+IOC" on raw fields, or type here */}
             <div className="rounded-lg border border-border bg-bg px-2 py-1.5">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Indicators (IOCs) — click ＋IOC on the log&apos;s fields, or add below</p>

@@ -1165,14 +1165,14 @@ export default function TeamRoomPage() {
                   </>
                 )}
                 {/* The team chat — always visible next to the feed, not folded away. */}
-                <WarRoom events={events} me={me} nameOf={nameOf} act={act} />
+                <WarRoom sessionId={id} events={events} me={me} nameOf={nameOf} act={act} />
               </div>
               {/* YOUR ROLE — the dominant role panel(s), then secondary panels tabbed (G-03) */}
               <div className="min-w-0 space-y-4">
-                {me.role === "t1" && <T1Console feed={feed} dispositions={dispositions} events={events} meId={me.id} iocDraft={iocDraft} setIocDraft={setIocDraft} nameOf={nameOf} act={act} actR={actR} sel={t1Sel} setSel={setT1Sel} reportOpen={t1ReportOpen} setReportOpen={setT1ReportOpen} />}
+                {me.role === "t1" && <T1Console sessionId={id} feed={feed} dispositions={dispositions} events={events} meId={me.id} iocDraft={iocDraft} setIocDraft={setIocDraft} nameOf={nameOf} act={act} actR={actR} sel={t1Sel} setSel={setT1Sel} reportOpen={t1ReportOpen} setReportOpen={setT1ReportOpen} />}
                 {/* B12: Tier-3's dominant surface is HUNTING — render it above the (secondary) inbox. */}
                 {me.role === "t3" && <HuntConsole scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} elevations={elevations} elevAcked={elevAcked} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={onFeedPivot} />}
-                {(me.role === "t2" || me.role === "t3") && <T2Console role={me.role} meId={me.id} escalations={escalations} escState={escStates} reportedIds={reportedIds} reportByEid={reportByEid} elevatedIds={elevatedIds} containments={containments} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} nameOf={nameOf} act={act} actR={actR} onEdr={openEdr} onPivot={onFeedPivot} pauses={pauseSpans} />}
+                {(me.role === "t2" || me.role === "t3") && <T2Console sessionId={id} role={me.role} meId={me.id} escalations={escalations} escState={escStates} reportedIds={reportedIds} reportByEid={reportByEid} elevatedIds={elevatedIds} containments={containments} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} nameOf={nameOf} act={act} actR={actR} onEdr={openEdr} onPivot={onFeedPivot} pauses={pauseSpans} />}
                 {/* SOC Manager now holds the coordinator authority (approve containment,
                     decision log, SITREP) as well as shift management. 'lead'/'de' branches
                     stay for backward-compatibility with older sessions; 'ti' is a live seat. */}

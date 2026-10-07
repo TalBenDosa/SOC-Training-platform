@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useId, useRef, useState } from "react";
+import { TeamImageThumb, imagesOf } from "./teamImages";
 import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -23,8 +24,8 @@ export const CONTAINMENT_TYPES: [string, string][] = [["isolate_host", "Isolate 
 export const containmentVerb = (t?: string) => (t === "disable_account" ? "Disable" : t === "block_indicator" ? "Block" : "Isolate");
 const EMPTY_REP = { summary: "", findings: "", verdict: "true_positive", recommendation: "", incident: "" };
 
-export function T2Console({ role, meId, escalations, escState, reportedIds, reportByEid, elevatedIds, containments, scope, scopes, incidents, incidentOf, nameOf, act, actR, onEdr, onPivot, pauses = [] }: {
-  role: string; meId: string;
+export function T2Console({ sessionId, role, meId, escalations, escState, reportedIds, reportByEid, elevatedIds, containments, scope, scopes, incidents, incidentOf, nameOf, act, actR, onEdr, onPivot, pauses = [] }: {
+  sessionId: string; role: string; meId: string;
   /** The CURRENT round of every escalated log (one row per log). */
   escalations: Ev[]; escState: Map<string, EscalationState>;
   reportedIds: Set<string>; reportByEid: Map<string, { verdict?: string; findings?: string; recommendation?: string; summary?: string }>; elevatedIds: Set<string>;
@@ -135,7 +136,7 @@ export function T2Console({ role, meId, escalations, escState, reportedIds, repo
           : escalations.length === 0 ? <p className="mt-2 text-xs text-slate-400">Nothing escalated yet. Tier-1 sends cases here.</p> : (
           <div className="mt-2 space-y-2">
             {prioritized.map(e => {
-              const p = e.payload as { event_id?: string; what?: string; summary?: string; why?: string; observations?: string; assessment?: string; impact?: string; severity?: string; confidence?: number; requested_action?: string; entity?: string; hostname?: string; low_confidence?: boolean; iocs?: Ioc[]; snapshot?: Record<string, unknown> };
+              const p = e.payload as { event_id?: string; what?: string; summary?: string; why?: string; observations?: string; assessment?: string; impact?: string; severity?: string; confidence?: number; requested_action?: string; entity?: string; hostname?: string; low_confidence?: boolean; iocs?: Ioc[]; snapshot?: Record<string, unknown>; images?: unknown };
               const eid = String(p.event_id); const st = stOf(eid);
               const isAck = !!st?.acked; const isBounced = !!st?.bounced; const isResolved = !!st?.resolved; const mine = isMine(eid);
               const b = busy === e.seq + "" || busy === "ack" + eid;
@@ -167,6 +168,14 @@ export function T2Console({ role, meId, escalations, escState, reportedIds, repo
                       <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Tier-1 initial investigation</p>
                       <p className="mt-0.5 text-[11px] text-slate-300">{asStr(p.observations) || asStr(p.why)}</p>
                       {asStr(p.assessment) && <p className="mt-0.5 text-[11px] text-slate-400">Assessment: {asStr(p.assessment)}</p>}
+                    </div>
+                  )}
+                  {imagesOf(p.images).length > 0 && (
+                    <div className="mt-1">
+                      <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Screenshots ({imagesOf(p.images).length})</p>
+                      <div className="mt-0.5 flex flex-wrap gap-1.5">
+                        {imagesOf(p.images).map((img, i) => <TeamImageThumb key={img.path} sessionId={sessionId} image={img} alt={`Tier-1 screenshot ${i + 1} for this escalation`} className="max-h-28" />)}
+                      </div>
                     </div>
                   )}
                   {iocs.length > 0 && (
