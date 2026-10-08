@@ -2,14 +2,14 @@ import "server-only";
 /**
  * The learning-plan catalogue: every assignable item, as the module TREE the
  * manager ticks from and as a flat INDEX (title + deep link) the routes resolve
- * stored items against. Server-only — it reads the full corpora (quizzes carry
- * their answer keys, scenarios their builders), and the browser only ever gets
- * the plain id/title tree this produces.
+ * stored items against. Server-only; it reads only generated id/title indexes
+ * (src/data/roomsMeta.ts, src/data/catalogMeta.ts) and LESSON_PATHS, and the
+ * browser only ever gets the plain id/title tree this produces.
  *
  *   Learning Path → path → module → lesson   (LESSON_PATHS, id "{path}--{lesson}")
  *   Rooms         → category → room          (ROOMS_META)
- *   Quizzes       → category → quiz          (ALL_QUIZZES)
- *   Scenarios     → difficulty → scenario    (SCENARIOS)
+ *   Quizzes       → category → quiz          (QUIZZES_META, from ALL_QUIZZES)
+ *   Scenarios     → difficulty → scenario    (SCENARIOS_META, from SCENARIOS)
  *   Custom        → type → item              (this org's PUBLISHED authored content)
  *
  * The static part is built once per server instance; the org part is a few
@@ -18,8 +18,10 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { LESSON_PATHS } from "@/lib/lessons/paths";
 import { ROOMS_META } from "@/data/roomsMeta";
-import { ALL_QUIZZES } from "@/lib/quizzes/data";
-import { SCENARIOS } from "@/lib/sim/scenarios";
+// Quizzes and scenarios come from their generated id/title index, not the full
+// corpora: importing those here dragged the whole quiz bank and every scenario
+// builder into each server function that touches plans.
+import { QUIZZES_META, SCENARIOS_META } from "@/data/catalogMeta";
 import { itemKey, type CatalogNode, type PlanItemKind } from "./types";
 
 export interface CatalogEntry {
@@ -94,14 +96,14 @@ function buildStatic(): StaticCatalog {
   const quizzes: CatalogNode = {
     key: "grp:quizzes",
     label: "Quizzes",
-    children: groupBy(ALL_QUIZZES, q => q.category).map(([cat, list]) => ({
+    children: groupBy(QUIZZES_META, q => q.category).map(([cat, list]) => ({
       key: `grp:quizzes:${cat}`,
       label: cat,
       children: list.map(q => leaf(add({ kind: "quiz", id: q.slug, title: q.title, href: `/quizzes/${q.slug}` }), q.difficulty)),
     })),
   };
 
-  const byDiff = groupBy(SCENARIOS, s => String(s.difficulty))
+  const byDiff = groupBy(SCENARIOS_META, s => s.difficulty)
     .sort((a, b) => DIFF_ORDER.indexOf(a[0]) - DIFF_ORDER.indexOf(b[0]));
   const scenarios: CatalogNode = {
     key: "grp:scenarios",

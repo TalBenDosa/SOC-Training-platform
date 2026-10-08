@@ -32,6 +32,7 @@ const quizMod = await imp("src/lib/quizzes/data.ts");
 const QUIZZES = quizMod.ALL_QUIZZES ?? quizMod.QUIZZES ?? [];
 const { SCENARIOS } = await imp("src/lib/sim/scenarios.ts");
 const { ROOMS_META } = await imp("src/data/roomsMeta.ts");
+const { QUIZZES_META, SCENARIOS_META } = await imp("src/data/catalogMeta.ts");
 
 const findings = [];
 const add = (sev, where, msg) => findings.push({ sev, where, msg });
@@ -95,6 +96,31 @@ const add = (sev, where, msg) => findings.push({ sev, where, msg });
       }
     }
   }
+}
+
+// ── catalogMeta staleness ─────────────────────────────────────────────────
+// QUIZZES_META / SCENARIOS_META (src/data/catalogMeta.ts) are what the
+// learning-plan catalogue reads instead of the full corpora. If a quiz or
+// scenario is added, renamed or regrouped without re-running
+// `npx tsx scripts/generate-catalog-meta.mjs`, managers would stop seeing it
+// in the plan builder. Compare item by item, in order.
+{
+  const regen = "regenerate with: npx tsx scripts/generate-catalog-meta.mjs";
+  const same = (label, real, meta, pick) => {
+    const want = real.map(pick);
+    if (want.length !== meta.length) {
+      add("ERROR", "catalogMeta", `${meta.length} ${label} in catalogMeta.ts vs ${want.length} in the corpus. ${regen}`);
+      return;
+    }
+    for (let i = 0; i < want.length; i++) {
+      if (JSON.stringify(want[i]) !== JSON.stringify(meta[i])) {
+        add("ERROR", `catalogMeta/${want[i].slug}`, `${label} entry ${i} differs from the corpus. ${regen}`);
+        return;
+      }
+    }
+  };
+  same("quizzes", QUIZZES, QUIZZES_META, q => ({ slug: q.slug, title: q.title, category: q.category, difficulty: q.difficulty }));
+  same("scenarios", SCENARIOS, SCENARIOS_META, sc => ({ slug: sc.slug, title: sc.title, difficulty: String(sc.difficulty) }));
 }
 
 const DEPRECATED = ["T1076", "T1086", "T1064", "T1035", "T1117"];

@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { requireOrgAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { ROOMS } from "@/data/rooms";
+import { ROOMS_META } from "@/data/roomsMeta";
 import { fetchAll } from "@/lib/plans/server";
 
 // Room ids are stored in the DB; titles live in the content corpus. Resolved
 // HERE rather than in the client so /manage doesn't have to bundle the entire
 // room corpus (megabytes of task content) just to render five labels.
-const ROOM_TITLE: Record<string, string> = Object.fromEntries(ROOMS.map(r => [r.id, r.title]));
+const ROOM_TITLE: Record<string, string> = Object.fromEntries(ROOMS_META.map(r => [r.id, r.title]));
 
 /**
  * Cohort analytics for an org-admin / instructor.

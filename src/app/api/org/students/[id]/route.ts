@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { requireOrgAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { ROOMS } from "@/data/rooms";
+import { ROOMS_META } from "@/data/roomsMeta";
 
-const ROOM_TITLE: Record<string, string> = Object.fromEntries(ROOMS.map(r => [r.id, r.title]));
+const ROOM_TITLE: Record<string, string> = Object.fromEntries(ROOMS_META.map(r => [r.id, r.title]));
 
 /**
  * Per-student drill-down for an org-admin / instructor. Surfaces the timeline
