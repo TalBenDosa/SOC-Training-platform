@@ -80,12 +80,12 @@ export const LESSON_VIDEOS: Record<string, LessonVideoData> = {
     ],
   },
   "phishing-email-analysis-and-investigation-workflow": {
-    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/phishing-email-analysis-and-investigation-workflow/phishing-email-analysis-and-investigation-workflow.mp4",
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/phishing-email-analysis-and-investigation-workflow/phishing-email-analysis-and-investigation-workflow.mp4?v=2",
     caption: "Explainer: Phishing Email Analysis and Investigation Workflow for SOC Analysts Using Microsoft Defender XDR (Microsoft 365 Defender) · subtitles: English · עברית · Español (CC menu)",
     tracks: [
-      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/phishing-email-analysis-and-investigation-workflow/en.vtt", default: true },
-      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/phishing-email-analysis-and-investigation-workflow/he.vtt" },
-      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/phishing-email-analysis-and-investigation-workflow/es.vtt" },
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/phishing-email-analysis-and-investigation-workflow/en.vtt?v=2", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/phishing-email-analysis-and-investigation-workflow/he.vtt?v=2" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/phishing-email-analysis-and-investigation-workflow/es.vtt?v=2" },
     ],
   },
   "credential-attacks-explained": {
@@ -359,12 +359,12 @@ export const LESSON_VIDEOS: Record<string, LessonVideoData> = {
     ],
   },
   "kerberos-vs-ntlm-explained": {
-    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/kerberos-vs-ntlm-explained/kerberos-vs-ntlm-explained.mp4",
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/kerberos-vs-ntlm-explained/kerberos-vs-ntlm-explained.mp4?v=2",
     caption: "Explainer: Kerberos vs NTLM · subtitles: English · עברית · Español (CC menu)",
     tracks: [
-      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/kerberos-vs-ntlm-explained/en.vtt", default: true },
-      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/kerberos-vs-ntlm-explained/he.vtt" },
-      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/kerberos-vs-ntlm-explained/es.vtt" },
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/kerberos-vs-ntlm-explained/en.vtt?v=2", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/kerberos-vs-ntlm-explained/he.vtt?v=2" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/kerberos-vs-ntlm-explained/es.vtt?v=2" },
     ],
   },
   "cloud-security-fundamentals-aws-azure": {
@@ -638,12 +638,12 @@ export const LESSON_VIDEOS: Record<string, LessonVideoData> = {
     ],
   },
   "ibm-qradar-for-soc-analysts": {
-    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ibm-qradar-for-soc-analysts/ibm-qradar-for-soc-analysts.mp4",
+    src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ibm-qradar-for-soc-analysts/ibm-qradar-for-soc-analysts.mp4?v=2",
     caption: "Explainer: IBM QRadar for SOC Analysts · subtitles: English · עברית · Español (CC menu)",
     tracks: [
-      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ibm-qradar-for-soc-analysts/en.vtt", default: true },
-      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ibm-qradar-for-soc-analysts/he.vtt" },
-      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ibm-qradar-for-soc-analysts/es.vtt" },
+      { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ibm-qradar-for-soc-analysts/en.vtt?v=2", default: true },
+      { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ibm-qradar-for-soc-analysts/he.vtt?v=2" },
+      { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ibm-qradar-for-soc-analysts/es.vtt?v=2" },
     ],
   },
   "ai-attacks-detection": {
