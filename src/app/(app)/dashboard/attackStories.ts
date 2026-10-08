@@ -94,6 +94,10 @@ import { AI_EXTRA_STORIES } from "./ai-stories/extra";
 import { AI_WAVE2_STORIES } from "./ai-stories/wave2";
 import { AI_FOUNDATION_STORIES } from "./ai-stories/foundation";
 import { AI_ADVANCED_A_STORIES } from "./ai-stories/advanced-a";
+import { AI_WAVE3_A_STORIES } from "./ai-stories/wave3-a";
+import { AI_WAVE3_B_STORIES } from "./ai-stories/wave3-b";
+import { AI_WAVE3_C_STORIES } from "./ai-stories/wave3-c";
+import { AI_WAVE3_D_STORIES } from "./ai-stories/wave3-d";
 import { aiLlmJackingScenarioEvents } from "@/lib/sim/scenario-packs/aiLlmJacking.events";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { ecsTechnique } from "@/lib/logs/ecsFields";
@@ -883,6 +887,10 @@ const AI_STORIES: AttackStory[] = [
   ...AI_EXTRA_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
   ...AI_WAVE2_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
   ...AI_ADVANCED_A_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
+  ...AI_WAVE3_A_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
+  ...AI_WAVE3_B_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
+  ...AI_WAVE3_C_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
+  ...AI_WAVE3_D_STORIES.map(d => story(d.id, { title: d.title, events: d.events }, d.complexity, d.companies)),
   story("ai-llmjacking-bedrock", { title: "Stolen CI Key Used for Bedrock Inference (LLMjacking)", events: aiLlmJackingScenarioEvents().events }, "advanced", ["quantumbank"]),
 ];
 
