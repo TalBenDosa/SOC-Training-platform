@@ -255,12 +255,12 @@ const lessons = [
       {
         "heading": "Start Here: Hypothesis, Baseline, and the Hunt Loop",
         "video": {
-          "src": "/lesson-videos/coverage-thinking/coverage-thinking.mp4",
+          "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/coverage-thinking/coverage-thinking.mp4",
           "caption": "Explainer, Coverage Thinking · subtitles: English · עברית · Español (CC menu)",
           "tracks": [
-            { "srclang": "en", "label": "English", "src": "/lesson-videos/coverage-thinking/en.vtt", "default": true },
-            { "srclang": "he", "label": "עברית", "src": "/lesson-videos/coverage-thinking/he.vtt" },
-            { "srclang": "es", "label": "Español", "src": "/lesson-videos/coverage-thinking/es.vtt" }
+            { "srclang": "en", "label": "English", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/coverage-thinking/en.vtt", "default": true },
+            { "srclang": "he", "label": "עברית", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/coverage-thinking/he.vtt" },
+            { "srclang": "es", "label": "Español", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/coverage-thinking/es.vtt" }
           ]
         },
         "content": "Three terms carry this whole lesson, and each has a precise meaning in hunting that is worth pinning down before the method.\n\n### Hypothesis\n\nIn everyday language, a hypothesis is simply an educated guess you can test. In threat hunting it means the same thing, made specific: a written, one- or two-sentence statement of what an adversary might be doing in your environment right now, precise enough that you can build one query that would either turn up evidence for it or come back empty. 'Someone might be doing something bad' is not a hypothesis; 'an adversary may be using scheduled tasks with legitimate-sounding names to persist on our Windows servers' is.\n\n### Baseline\n\nA baseline is simply what normal looks like for your specific environment, built by observing it over a representative stretch of time. You cannot say an event is unusual without first knowing what usual is: a scheduled task name that would be alarming at one company might be an everyday admin script at another. Building a baseline is unglamorous work, but every rarity-based technique in this lesson depends on having one first.\n\n### The hunt loop\n\nThe hunt loop is the repeating cycle a hunting program runs: form a hypothesis, query the data to test it, analyze what comes back, and then either escalate a real finding or document why the hunt came back clean. Before moving on to the next hypothesis. It is called a loop because the output of one hunt (a new detection rule, a newly proven piece of coverage, or a newly exposed visibility gap) directly shapes what the next hypothesis should be, so a mature hunting program is never really 'finished'. It is always mid-loop.\n\nWith hypothesis, baseline, and the hunt loop defined, the rest of this lesson is really just teaching you to run that loop well, where good hypotheses come from, how to use a baseline to find what actually stands out, why some findings matter more than others, and how to make sure every loop closes into something the organization keeps.",

@@ -233,12 +233,12 @@ export const lessons_sa2: Record<string, AuthoredPathLesson> = {
       {
         "pageNumber": 1,
         "video": {
-          "src": "/lesson-videos/tactics-and-techniques/tactics-and-techniques.mp4",
+          "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/tactics-and-techniques/tactics-and-techniques.mp4",
           "caption": "Explainer, MITRE ATT&CK: Tactics & Techniques · subtitles: English · עברית · Español (CC menu)",
           "tracks": [
-            { "srclang": "en", "label": "English", "src": "/lesson-videos/tactics-and-techniques/en.vtt", "default": true },
-            { "srclang": "he", "label": "עברית", "src": "/lesson-videos/tactics-and-techniques/he.vtt" },
-            { "srclang": "es", "label": "Español", "src": "/lesson-videos/tactics-and-techniques/es.vtt" }
+            { "srclang": "en", "label": "English", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/tactics-and-techniques/en.vtt", "default": true },
+            { "srclang": "he", "label": "עברית", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/tactics-and-techniques/he.vtt" },
+            { "srclang": "es", "label": "Español", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/tactics-and-techniques/es.vtt" }
           ]
         },
         "title": "A shared language for attacker behavior",
@@ -447,12 +447,12 @@ export const lessons_sa2: Record<string, AuthoredPathLesson> = {
       {
         "pageNumber": 1,
         "video": {
-          "src": "/lesson-videos/mapping-alerts-to-attack/mapping-alerts-to-attack.mp4",
+          "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/mapping-alerts-to-attack/mapping-alerts-to-attack.mp4",
           "caption": "Explainer, Mapping Alerts to ATT&CK · subtitles: English · עברית · Español (CC menu)",
           "tracks": [
-            { "srclang": "en", "label": "English", "src": "/lesson-videos/mapping-alerts-to-attack/en.vtt", "default": true },
-            { "srclang": "he", "label": "עברית", "src": "/lesson-videos/mapping-alerts-to-attack/he.vtt" },
-            { "srclang": "es", "label": "Español", "src": "/lesson-videos/mapping-alerts-to-attack/es.vtt" }
+            { "srclang": "en", "label": "English", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/mapping-alerts-to-attack/en.vtt", "default": true },
+            { "srclang": "he", "label": "עברית", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/mapping-alerts-to-attack/he.vtt" },
+            { "srclang": "es", "label": "Español", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/mapping-alerts-to-attack/es.vtt" }
           ]
         },
         "title": "Why mapping is a practiced skill, not a lookup",
@@ -661,12 +661,12 @@ export const lessons_sa2: Record<string, AuthoredPathLesson> = {
       {
         "pageNumber": 1,
         "video": {
-          "src": "/lesson-videos/coverage-thinking/coverage-thinking.mp4",
+          "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/coverage-thinking/coverage-thinking.mp4",
           "caption": "Explainer, Coverage Thinking · subtitles: English · עברית · Español (CC menu)",
           "tracks": [
-            { "srclang": "en", "label": "English", "src": "/lesson-videos/coverage-thinking/en.vtt", "default": true },
-            { "srclang": "he", "label": "עברית", "src": "/lesson-videos/coverage-thinking/he.vtt" },
-            { "srclang": "es", "label": "Español", "src": "/lesson-videos/coverage-thinking/es.vtt" }
+            { "srclang": "en", "label": "English", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/coverage-thinking/en.vtt", "default": true },
+            { "srclang": "he", "label": "עברית", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/coverage-thinking/he.vtt" },
+            { "srclang": "es", "label": "Español", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/coverage-thinking/es.vtt" }
           ]
         },
         "title": "What 'coverage' actually means",
