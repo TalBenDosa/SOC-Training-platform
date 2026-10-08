@@ -286,8 +286,10 @@ function dnsRequest(b: Base, ev: TelemetryEvent): Record<string, unknown> | null
   const status = rcode === "NXDOMAIN" ? "9003" : rcode === "SERVFAIL" ? "9002" : "0";
   const ips = status === "0" ? (f.dns.response ?? "").split(/[;,\s]+/).filter(isIPv4) : [];
   const ipParts = b.hostIp.split(".");
+  const a = actor(b, f.proc, `dns-client:${f.eventId}`);
+  delete a.ContextImageFileName; // not in the DnsRequest schema (only ContextBaseFileName names the process)
   return {
-    ...common(b, "DnsRequest"), ...actor(b, f.proc, `dns-client:${f.eventId}`),
+    ...common(b, "DnsRequest"), ...a,
     DomainName: q, RequestType: QTYPE[(f.dns.type ?? "A").toUpperCase()] ?? "1", QueryStatus: status,
     IP4Records: ips.length ? `${ips.join(";")};` : undefined, FirstIP4Record: ips[0],
     RespondingDnsServer: ips.length ? `${ipParts[0]}.${ipParts[1]}.0.10` : undefined, DnsResponseType: ips.length ? "1" : undefined,
