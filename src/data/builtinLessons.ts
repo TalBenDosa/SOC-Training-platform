@@ -102,12 +102,12 @@ const CORE_LESSONS = [
       {
         "heading": "The OSI Model as a Placement Tool for Protocols and Evidence",
         "video": {
-          "src": "/lesson-videos/osi-model/osi-model.mp4",
+          "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osi-model/osi-model.mp4",
           "caption": "Explainer, The OSI Model · subtitles: English · עברית · Español (CC menu)",
           "tracks": [
-            { "srclang": "en", "label": "English", "src": "/lesson-videos/osi-model/en.vtt", "default": true },
-            { "srclang": "he", "label": "עברית", "src": "/lesson-videos/osi-model/he.vtt" },
-            { "srclang": "es", "label": "Español", "src": "/lesson-videos/osi-model/es.vtt" }
+            { "srclang": "en", "label": "English", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osi-model/en.vtt", "default": true },
+            { "srclang": "he", "label": "עברית", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osi-model/he.vtt" },
+            { "srclang": "es", "label": "Español", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osi-model/es.vtt" }
           ]
         },
         "content": "The OSI model itself is covered in its own lesson. What matters here is using it as a placement tool for the protocols in this lesson: naming the layer an attack lives at tells you which control can see it and which log will hold the evidence.\n\n| Layer | Protocols from this lesson | Attack examples | Evidence and control that can see it |\n|---|---|---|---|\n| 7 Application | HTTP/S, DNS, DHCP, SMTP, SMB, LDAP, Kerberos, RDP, WinRM | DNS tunnelling (T1071.004), Kerberoasting, rogue DHCP (T1557.003) | Zeek protocol logs, proxy and WAF logs, DC security events |\n| 6 Presentation | TLS | Downgrade, C2 hidden in TLS | Zeek ssl.log and x509.log, JA3/JA4, TLS inspection |\n| 4 Transport | TCP, UDP, QUIC (over UDP) | SYN scans, UDP amplification | Firewall and NetFlow, conn.log conn_state and history |\n| 3 Network | IP, ICMP | ICMP tunnelling (T1095), spoofing | Flow logs, TTL and route analysis |\n| 2 Data Link | Ethernet, ARP | ARP spoofing (T1557.002), MAC flooding | Switch port security, DHCP snooping and dynamic ARP inspection, ARP-table monitoring |\n\nThe rule that falls out of the table: a device can only show you the layers it parses. A layer 3-4 firewall or flow record proves that a connection to port 443 happened, never which URL or DNS name travelled inside it. When the question is about content (which domain, which LDAP filter, which Kerberos service), go to a log source that parses layer 7, and remember that once traffic is encrypted, layer 7 content is gone and only the metadata covered in the encrypted-traffic section of this lesson remains."

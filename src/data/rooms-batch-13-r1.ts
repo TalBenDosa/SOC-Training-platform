@@ -48,12 +48,12 @@ const protocolsMasterclass = {
       id: "proto-r1",
       heading: "The OSI Model and TCP/IP: How Network Communication Is Organized",
       video: {
-        src: "/lesson-videos/osi-model/osi-model.mp4",
+        src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osi-model/osi-model.mp4",
         caption: "Explainer, The OSI Model · subtitles: English · עברית · Español (CC menu)",
         tracks: [
-          { srclang: "en", label: "English", src: "/lesson-videos/osi-model/en.vtt", default: true },
-          { srclang: "he", label: "עברית", src: "/lesson-videos/osi-model/he.vtt" },
-          { srclang: "es", label: "Español", src: "/lesson-videos/osi-model/es.vtt" },
+          { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osi-model/en.vtt", default: true },
+          { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osi-model/he.vtt" },
+          { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/osi-model/es.vtt" },
         ],
       },
       content:

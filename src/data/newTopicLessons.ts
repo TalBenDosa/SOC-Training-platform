@@ -2553,12 +2553,12 @@ const NEW_TOPIC_LESSONS = [
       {
         "heading": "Two Independent Choices: Where the Sensor Sits and How It Decides",
         "video": {
-          "src": "/lesson-videos/ids-vs-ips/ids-vs-ips.mp4",
+          "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ids-vs-ips/ids-vs-ips.mp4",
           "caption": "Explainer, IDS vs IPS · subtitles: English · עברית · Español (CC menu)",
           "tracks": [
-            { "srclang": "en", "label": "English", "src": "/lesson-videos/ids-vs-ips/en.vtt", "default": true },
-            { "srclang": "he", "label": "עברית", "src": "/lesson-videos/ids-vs-ips/he.vtt" },
-            { "srclang": "es", "label": "Español", "src": "/lesson-videos/ids-vs-ips/es.vtt" }
+            { "srclang": "en", "label": "English", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ids-vs-ips/en.vtt", "default": true },
+            { "srclang": "he", "label": "עברית", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ids-vs-ips/he.vtt" },
+            { "srclang": "es", "label": "Español", "src": "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ids-vs-ips/es.vtt" }
           ]
         },
         "content": "Every IDS or IPS deployment is described by two separate design choices, and keeping them apart is the fastest way to read any vendor datasheet or alert correctly.\n\n- **Placement**: is the sensor *out-of-band*, receiving a copy of the traffic, or *inline*, with the real packets flowing through it? This decides whether it can only alert (IDS) or can also block (IPS).\n- **Detection method**: does it match known-bad patterns (signatures), flag deviations from a learned baseline (anomaly), or check traffic against a protocol's legal behaviour (stateful protocol analysis)? This decides what kinds of attack it can catch and how explainable its alerts are.\n\nThe two are independent. The same Suricata engine, with the same rules, runs as an IDS when fed from a SPAN port and as an IPS when placed inline (for example through NFQUEUE on Linux or AF_PACKET in inline mode), and the only change in its output is whether `alert.action` says `allowed` or `blocked`. The rest of this lesson takes placement first, then detection, then what you do with the alerts."

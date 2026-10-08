@@ -388,12 +388,12 @@ Because it sits inline, an NGFW's detection is always potentially preventive: it
       id: "secprod-r4",
       heading: "IDS vs IPS: The Pair Everyone Confuses",
       video: {
-        src: "/lesson-videos/ids-vs-ips/ids-vs-ips.mp4",
+        src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ids-vs-ips/ids-vs-ips.mp4",
         caption: "Explainer, IDS vs IPS · subtitles: English · עברית · Español (CC menu)",
         tracks: [
-          { srclang: "en", label: "English", src: "/lesson-videos/ids-vs-ips/en.vtt", default: true },
-          { srclang: "he", label: "עברית", src: "/lesson-videos/ids-vs-ips/he.vtt" },
-          { srclang: "es", label: "Español", src: "/lesson-videos/ids-vs-ips/es.vtt" },
+          { srclang: "en", label: "English", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ids-vs-ips/en.vtt", default: true },
+          { srclang: "he", label: "עברית", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ids-vs-ips/he.vtt" },
+          { srclang: "es", label: "Español", src: "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ids-vs-ips/es.vtt" },
         ],
       },
       content: `IDS and IPS are so often used interchangeably that many analysts never learn the one fact that actually separates them: it is entirely a question of physical placement, not of what signatures they know or how smart their detection logic is.
