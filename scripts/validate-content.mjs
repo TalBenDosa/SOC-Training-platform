@@ -33,6 +33,8 @@ const QUIZZES = quizMod.ALL_QUIZZES ?? quizMod.QUIZZES ?? [];
 const { SCENARIOS } = await imp("src/lib/sim/scenarios.ts");
 const { ROOMS_META } = await imp("src/data/roomsMeta.ts");
 const { QUIZZES_META, SCENARIOS_META } = await imp("src/data/catalogMeta.ts");
+const { LIBRARY_INDEX } = await imp("src/data/libraryIndex.ts");
+const { libraryEntry } = await imp("src/lib/lessons/libraryEntry.ts");
 
 const findings = [];
 const add = (sev, where, msg) => findings.push({ sev, where, msg });
@@ -92,6 +94,27 @@ const add = (sev, where, msg) => findings.push({ sev, where, msg });
     for (let i = 0; i < room.tasks.length; i++) {
       if (meta.tasks[i].id !== room.tasks[i].id) {
         add("ERROR", `roomsMeta/${room.id}`, `task ${i} id mismatch ("${meta.tasks[i].id}" vs "${room.tasks[i].id}") — regenerate`);
+        break;
+      }
+    }
+  }
+}
+
+// ── libraryIndex staleness ────────────────────────────────────────────────
+// LIBRARY_INDEX (src/data/libraryIndex.ts) is what the /learn grid and the
+// admin syllabus list render; full lessons load on demand. A lesson added,
+// removed or edited (title, topic, level, XP, minutes, sections, intro line)
+// without re-running `npx tsx scripts/generate-library-index.mjs` would show a
+// stale or missing card. Compare every record, in order.
+{
+  const regen = "regenerate with: npx tsx scripts/generate-library-index.mjs";
+  const want = BUILTIN_LESSONS.map(libraryEntry);
+  if (want.length !== LIBRARY_INDEX.length) {
+    add("ERROR", "libraryIndex", `${LIBRARY_INDEX.length} lessons in libraryIndex.ts vs ${want.length} in BUILTIN_LESSONS. ${regen}`);
+  } else {
+    for (let i = 0; i < want.length; i++) {
+      if (JSON.stringify(want[i]) !== JSON.stringify(LIBRARY_INDEX[i])) {
+        add("ERROR", `libraryIndex/${want[i].slug}`, `entry ${i} differs from BUILTIN_LESSONS. ${regen}`);
         break;
       }
     }

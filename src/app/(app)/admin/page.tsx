@@ -19,7 +19,9 @@ import { SCENARIOS_META as SCENARIOS } from "@/lib/sim/scenariosMeta";
 import { useAdminBuiltinQuizzes, useAdminScenarioInfo, useAdminScenarioBundle } from "@/lib/admin/useAdminContent";
 import type { Quiz, QuizQuestion } from "@/lib/quizzes/data";
 import type { GeneratedQuiz } from "@/app/api/quizzes/generate/route";
-import { BUILTIN_LESSONS } from "@/data/builtinLessons";
+// Built-in lessons are listed from the small generated index; the full lesson
+// (quiz included) is fetched from /api/library/[id]?full=1 only to preview or edit.
+import { LIBRARY_INDEX } from "@/data/libraryIndex";
 
 import { safeFetch, NETWORK_ERROR } from "@/lib/http/safeFetch";
 import { ecsTechnique } from "@/lib/logs/ecsFields";
@@ -1391,6 +1393,20 @@ interface SyllabusLesson {
   // legacy fields kept for backwards compat
   pathSlug?:        string;
   moduleSlug?:      string;
+  // A built-in listed from LIBRARY_INDEX: sections/quiz not loaded yet.
+  stub?:            boolean;
+  sectionCount?:    number;
+}
+
+/** A built-in lesson's index record as a not-yet-loaded syllabus entry. */
+function builtinStub(e: (typeof LIBRARY_INDEX)[number]): SyllabusLesson {
+  return {
+    id: e.id, slug: e.slug, title: e.title, topic: e.topic, difficulty: e.difficulty,
+    kind: "lesson", intro: e.blurb, sections: [], keyTakeaways: [],
+    xp: e.xp ?? 0, estimatedMinutes: e.estimatedMinutes ?? 0,
+    published_at: e.published_at ?? "", researchUsed: e.researchUsed,
+    stub: true, sectionCount: e.sectionCount,
+  };
 }
 
 // --------- Generator phases ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1493,13 +1509,32 @@ function LessonsTab() {
         ? ((await res.json() as { items: { content: SyllabusLesson }[] }).items.map(i => i.content))
         : [];
       const savedIds = new Set(saved.map(l => l.id));
-      const builtins = (BUILTIN_LESSONS as unknown as SyllabusLesson[])
-        .filter(l => !savedIds.has(l.id) && !deletedSet.has(l.id));
+      const builtins = LIBRARY_INDEX
+        .filter(l => !savedIds.has(l.id) && !deletedSet.has(l.id))
+        .map(builtinStub);
       setLessons([...saved, ...builtins]);
     })();
   }, []);
 
-  const builtinIds = new Set(BUILTIN_LESSONS.map(l => l.id as string));
+  const builtinIds = new Set(LIBRARY_INDEX.map(l => l.id));
+
+  // Preview / edit need the full lesson; a built-in stub is loaded first.
+  const [loadingFull, setLoadingFull] = useState<string | null>(null);
+  async function withFull(lesson: SyllabusLesson, then: (full: SyllabusLesson) => void) {
+    if (!lesson.stub) { then(lesson); return; }
+    setLoadingFull(lesson.id);
+    try {
+      const res = await fetch(`/api/library/${encodeURIComponent(lesson.id)}?full=1`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const full = (await res.json()) as SyllabusLesson;
+      setLessons(ls => ls.map(l => (l.id === full.id ? full : l)));
+      then(full);
+    } catch {
+      alert(`Couldn't load "${lesson.title}". Try again.`);
+    } finally {
+      setLoadingFull(null);
+    }
+  }
 
   /**
    * `next` is always the FULL desired list (unchanged calling convention from
@@ -1910,9 +1945,9 @@ function LessonsTab() {
           ) : (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filtered.map(lesson => (
-                <LessonCard key={lesson.id} lesson={lesson}
-                  onPreview={() => setPreview(lesson)}
-                  onEdit={() => setEditLesson(JSON.parse(JSON.stringify(lesson)))}
+                <LessonCard key={lesson.id} lesson={lesson} loading={loadingFull === lesson.id}
+                  onPreview={() => withFull(lesson, full => setPreview(full))}
+                  onEdit={() => withFull(lesson, full => setEditLesson(JSON.parse(JSON.stringify(full))))}
                   onDelete={() => deleteLesson(lesson.id)} />
               ))}
             </div>
@@ -2384,8 +2419,9 @@ function LessonsTab() {
 
 // --------- Lesson card ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-function LessonCard({ lesson, onPreview, onEdit, onDelete }: {
+function LessonCard({ lesson, loading, onPreview, onEdit, onDelete }: {
   lesson: SyllabusLesson;
+  loading?: boolean;
   onPreview: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -2409,7 +2445,8 @@ function LessonCard({ lesson, onPreview, onEdit, onDelete }: {
         <div className="flex items-center gap-3 text-[10px] text-slate-400">
           <span>~{lesson.estimatedMinutes}m</span>
           <span className="text-amber-400 font-mono">+{lesson.xp} XP</span>
-          <span>{lesson.sections.length} sec</span>
+          <span>{lesson.stub ? lesson.sectionCount ?? 0 : lesson.sections.length} sec</span>
+          {loading && <span className="text-cyan-400">Loading…</span>}
         </div>
         <div className="flex items-center gap-1">
           <button onClick={onEdit}

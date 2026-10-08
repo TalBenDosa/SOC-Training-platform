@@ -4,9 +4,12 @@ import { useState, useEffect, useMemo, useCallback, useId, useRef } from "react"
 import Link from "next/link";
 import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 import { Topbar } from "@/components/nav/Topbar";
-import { BUILTIN_LESSONS } from "@/data/builtinLessons";
+// The grid reads the small generated index; a lesson's full content is fetched
+// from /api/library/[id] only when it is opened (BUILTIN_LESSONS was ~4.9MB of JS).
+import { LIBRARY_INDEX } from "@/data/libraryIndex";
+import { libraryEntry, type LibraryEntry } from "@/lib/lessons/libraryEntry";
 import { fetchPublishedLessons } from "@/lib/content/publicContent";
-import { Search, FileText, ChevronLeft, ChevronRight, CheckCircle2, X, Layers, ArrowRight, BookOpen, ListChecks, BookMarked } from "lucide-react";
+import { Search, FileText, ChevronLeft, ChevronRight, CheckCircle2, X, Layers, ArrowRight, BookOpen, ListChecks, BookMarked, Loader2 } from "lucide-react";
 import { MermaidDiagram } from "@/components/rooms/MermaidDiagram";
 import { MyLearningPlan } from "@/components/plans/MyLearningPlan";
 import { AssignedChip } from "@/components/plans/AssignedChip";
@@ -28,13 +31,17 @@ interface Lesson {
   intro: string;
   sections: { heading: string; content: string; codeExample?: string; imageQuery?: string; image?: LessonImage; video?: LessonVideoData }[];
   keyTakeaways: string[];
-  quiz: { question: string; options: { label: string; value: string }[]; answer: string; explanation: string }[];
+  // Not shown by this reader, and stripped by /api/library/[id] (it carries the answer key).
+  quiz?: { question: string; options: { label: string; value: string }[]; answer: string; explanation: string }[];
   references: string[];
   xp: number;
   estimatedMinutes: number;
   researchUsed?: boolean;
   createdAt?: string;
 }
+
+/** A grid card: the index record, plus the full lesson when it is already in hand (org-authored lessons). */
+type CardItem = LibraryEntry & { full?: Lesson };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -49,7 +56,7 @@ function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function tagsForLesson(l: Lesson): string[] {
+function tagsForLesson(l: { topic: string; title: string; difficulty: string }): string[] {
   const topic = (l.topic + " " + l.title).toLowerCase();
   const tags: string[] = [];
   if (/protocol|network|dns|tcp|smb|http/.test(topic))  tags.push("Network Analysis");
@@ -255,15 +262,19 @@ function renderTextBlocks(text: string, keyPrefix: string) {
 
 // ─── Lesson Card ──────────────────────────────────────────────────────────────
 
-function LessonCard({ lesson, onClick, assigned }: { lesson: Lesson; onClick: () => void; assigned?: AssignedInfo }) {
+function LessonCard({ lesson, onClick, onIntent, assigned }: { lesson: CardItem; onClick: () => void; onIntent: () => void; assigned?: AssignedInfo }) {
   const diffCls = DIFF_COLORS[lesson.difficulty] ?? DIFF_COLORS.intermediate;
   const tags     = tagsForLesson(lesson);
-  const pages    = lesson.sections.length + 1; // intro + sections
+  const pages    = lesson.sectionCount + 1; // intro + sections
   const isExpanded = pages >= 8;               // deepened lessons carry extended depth
 
   return (
     <button
       onClick={onClick}
+      // Start fetching the lesson as soon as the reader shows intent, so it is
+      // usually already loaded by the time they click.
+      onMouseEnter={onIntent}
+      onFocus={onIntent}
       className="group text-left w-full rounded-2xl border border-[#1e2d4a] bg-[#0d1322] p-5 hover:border-cyan-500/40 hover:bg-[#0f1830] transition-all duration-200 flex flex-col gap-3"
     >
       {/* title + badge */}
@@ -286,9 +297,9 @@ function LessonCard({ lesson, onClick, assigned }: { lesson: Lesson; onClick: ()
       </div>
 
       {/* description */}
-      {lesson.intro && (
+      {lesson.blurb && (
         <p className="text-[13px] text-slate-400 leading-relaxed line-clamp-4">
-          {lesson.intro.replace(/\*\*/g, "").split("\n")[0]}
+          {lesson.blurb}
         </p>
       )}
 
@@ -623,14 +634,54 @@ function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void 
 }
 
 
+// ─── Loading state for an on-demand lesson ─────────────────────────────────────
+
+function LessonLoading({ title, failed, onRetry, onCancel }: { title: string; failed: boolean; onRetry: () => void; onCancel: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onCancel(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onCancel]);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#070b14]/80 px-4">
+      <div role={failed ? "alertdialog" : "status"} aria-live="polite" aria-label={failed ? "Lesson failed to load" : "Loading lesson"}
+        className="w-full max-w-sm rounded-2xl border border-[#1e2d4a] bg-[#0d1322] p-6 text-center">
+        {failed ? (
+          <>
+            <p className="text-sm font-semibold text-white">Couldn&apos;t open this lesson</p>
+            <p className="mt-1 text-[13px] text-slate-400">{title}</p>
+            <p className="mt-3 text-[12px] text-slate-400">Check your connection and try again.</p>
+            <div className="mt-5 flex justify-center gap-2">
+              <button onClick={onCancel} className="rounded-xl border border-slate-700 px-4 py-2 text-[13px] text-slate-300 hover:text-white">Close</button>
+              <button onClick={onRetry} className="rounded-xl bg-cyan-600 px-4 py-2 text-[13px] font-semibold text-white hover:bg-cyan-500">Try again</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <Loader2 className="mx-auto h-6 w-6 animate-spin text-cyan-400" aria-hidden="true" />
+            <p className="mt-3 text-sm font-semibold text-white">Opening lesson</p>
+            <p className="mt-1 text-[13px] text-slate-400 line-clamp-2">{title}</p>
+            <button onClick={onCancel} className="mt-4 text-[12px] text-slate-400 underline hover:text-slate-200">Cancel</button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function LearnPage() {
-  const [lessons,    setLessons]    = useState<Lesson[]>([]);
+  const [lessons,    setLessons]    = useState<CardItem[]>([]);
   const [search,     setSearch]     = useState("");
   const [level,      setLevel]      = useState("all");
   const [openLesson, setOpenLesson] = useState<Lesson | null>(null);
   const [mounted,    setMounted]    = useState(false);
+  // On-demand loading of a built-in lesson's full content.
+  const [pending,    setPending]    = useState<CardItem | null>(null);
+  const [loadFailed, setLoadFailed] = useState<CardItem | null>(null);
+  const fullCache = useRef(new Map<string, Promise<Lesson>>());
+  const pendingRef = useRef<string | null>(null);
   // "Assigned" chips for org-authored library lessons that sit in a plan.
   const assigned = useAssignedItems();
 
@@ -648,17 +699,55 @@ export default function LearnPage() {
 
     const saved = await fetchPublishedLessons<Lesson>();
     const savedIds = new Set(saved.map(l => l.id));
-    const builtins = (BUILTIN_LESSONS as unknown as Lesson[])
+    const builtins: CardItem[] = LIBRARY_INDEX
       .filter(l => !savedIds.has(l.id) && !deletedSet.has(l.id));
-    const all = [...saved, ...builtins];
+    // Org-authored lessons arrive complete, so their card carries the full lesson.
+    const all: CardItem[] = [...saved.map(l => ({ ...libraryEntry(l), full: l })), ...builtins];
     setLessons(all);
     // Deep link (?open=<lessonId>) — used by Learning Path lessons that point
     // to related Library lessons while they are in preparation.
     try {
       const openId = new URLSearchParams(window.location.search).get("open");
       const hit = openId ? all.find(l => l.id === openId) : undefined;
-      if (hit) setOpenLesson(hit);
+      if (hit) openItem(hit);
     } catch { /* no window / malformed URL */ }
+  }
+
+  /** The full lesson for a card: in hand already, or one cached fetch per lesson. */
+  function loadFull(item: CardItem): Promise<Lesson> {
+    if (item.full) return Promise.resolve(item.full);
+    let p = fullCache.current.get(item.id);
+    if (!p) {
+      p = fetch(`/api/library/${encodeURIComponent(item.id)}`).then(async r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return (await r.json()) as Lesson;
+      });
+      // A failed load must not stick: drop it so the next attempt refetches.
+      p.catch(() => fullCache.current.delete(item.id));
+      fullCache.current.set(item.id, p);
+    }
+    return p;
+  }
+
+  function prefetch(item: CardItem) {
+    loadFull(item).catch(() => { /* surfaced if they actually open it */ });
+  }
+
+  function openItem(item: CardItem) {
+    setLoadFailed(null);
+    if (item.full) { setOpenLesson(item.full); return; }
+    pendingRef.current = item.id;
+    setPending(item);
+    loadFull(item)
+      .then(full => { if (pendingRef.current === item.id) setOpenLesson(full); })
+      .catch(() => { if (pendingRef.current === item.id) setLoadFailed(item); })
+      .finally(() => { if (pendingRef.current === item.id) { pendingRef.current = null; setPending(null); } });
+  }
+
+  function cancelPending() {
+    pendingRef.current = null;
+    setPending(null);
+    setLoadFailed(null);
   }
 
   useEffect(() => {
@@ -772,7 +861,7 @@ export default function LearnPage() {
             <p className="mb-4 text-[12px] text-slate-400">{filtered.length} item{filtered.length !== 1 ? "s" : ""}</p>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filtered.map(l => (
-                <LessonCard key={l.id} lesson={l} onClick={() => setOpenLesson(l)} assigned={assigned[`lesson:${l.id}`]} />
+                <LessonCard key={l.id} lesson={l} onClick={() => openItem(l)} onIntent={() => prefetch(l)} assigned={assigned[`lesson:${l.id}`]} />
               ))}
             </div>
           </>
@@ -781,6 +870,18 @@ export default function LearnPage() {
       </div>
 
       {openLesson && <LessonModal lesson={openLesson} onClose={() => setOpenLesson(null)} />}
+
+      {/* Opening a lesson that isn't loaded yet: a brief, cancellable loading
+          state, or a retry if the fetch failed. Usually skipped entirely because
+          hovering or focusing the card already started the fetch. */}
+      {!openLesson && (pending || loadFailed) && (
+        <LessonLoading
+          title={(pending ?? loadFailed)!.title}
+          failed={!!loadFailed}
+          onRetry={() => loadFailed && openItem(loadFailed)}
+          onCancel={cancelPending}
+        />
+      )}
     </div>
   );
 }
