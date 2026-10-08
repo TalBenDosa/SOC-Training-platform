@@ -1597,14 +1597,20 @@ export default function DashboardPage() {
                 />
               </div>
 
-              {/* Pause / resume */}
+              {/* Start / pause / resume. Before a shift exists there is nothing to resume: the
+                  button reads "Start" and opens the same Start Training dialog the empty feed
+                  points to (a user report: "Press Start Training" next to a "Resume" button). */}
               <button
-                onClick={live.isStreaming ? live.pause : live.resume}
+                onClick={sessionStartedAt === null
+                  ? () => { loadSimData().catch(() => {}); setShowTrainingModal(true); }
+                  : live.isStreaming ? live.pause : live.resume}
                 className="flex items-center gap-1.5 rounded border border-border bg-bg px-2.5 py-1.5 text-xs text-slate-300 hover:bg-bg-hover"
               >
-                {live.isStreaming
-                  ? <><Pause className="h-3.5 w-3.5" /> Pause</>
-                  : <><Play  className="h-3.5 w-3.5 text-neon-green" /> Resume</>}
+                {sessionStartedAt === null
+                  ? <><Play className="h-3.5 w-3.5 text-neon-green" /> Start</>
+                  : live.isStreaming
+                    ? <><Pause className="h-3.5 w-3.5" /> Pause</>
+                    : <><Play  className="h-3.5 w-3.5 text-neon-green" /> Resume</>}
               </button>
 
               {/* Reset */}
