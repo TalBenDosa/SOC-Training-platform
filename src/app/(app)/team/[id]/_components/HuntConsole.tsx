@@ -12,10 +12,11 @@ import { enrichSnapshot } from "./shared";
 import { ScopeConsole } from "./ScopeConsole";
 
 // ── T3 threat-hunt console ───────────────────────────────────────────────────
-export function HuntConsole({ scope, scopes, incidents = [], incidentOf, elevations, elevAcked, nameOf, act, onEdr, onPivot }: {
+export function HuntConsole({ canEdr, scope, scopes, incidents = [], incidentOf, elevations, elevAcked, nameOf, act, onEdr, onPivot }: {
   scope: ScopeState; scopes?: Map<string, ScopeSnapshot>; incidents?: string[]; incidentOf?: Map<string, string>;
   elevations: Ev[]; elevAcked: Set<string>; nameOf: (u: string | null) => string;
   act: (t: string, p: Record<string, unknown>) => Promise<boolean>; onEdr?: (description?: string, host?: string) => void;
+  canEdr?: (host?: string) => boolean;
   onPivot?: (field: "user" | "host" | "ip", value: string) => void;
 }) {
   // event_id = the elevation this hunt answers (T3 playtest: hunts weren't linked to the
@@ -79,7 +80,7 @@ export function HuntConsole({ scope, scopes, incidents = [], incidentOf, elevati
       <Card>
         <div className="flex items-center justify-between gap-2">
           <h3 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldAlert className="h-4 w-4 text-cyber-300" /> Threat hunt (Tier-3)</h3>
-          {onEdr && <Button variant="outline" size="sm" onClick={() => onEdr()}><Search className="mr-1 h-3.5 w-3.5" /> Investigate in EDR</Button>}
+          {onEdr && (canEdr?.() ?? true) && <Button variant="outline" size="sm" onClick={() => onEdr()}><Search className="mr-1 h-3.5 w-3.5" /> Investigate in EDR</Button>}
         </div>
         <p className="mt-1 text-[11px] text-slate-400">Beyond the queue: form a hypothesis, hunt the feed, record what you found.</p>
         <div className="mt-2 space-y-2">

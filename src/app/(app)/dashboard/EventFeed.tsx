@@ -1,5 +1,6 @@
 "use client";
 import { useState, useMemo, memo, useRef, useContext } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronRight, Info, AlertTriangle, Clock, ExternalLink, Shield, X, PhoneCall, CheckCircle2, Copy, BookOpen } from "lucide-react";
 import { ecsTechnique } from "@/lib/logs/ecsFields";
@@ -782,20 +783,29 @@ export function DetailPanel(props: DetailPanelProps) {
 // ─── MITRE Technique Badge + Slideout ─────────────────────────────────────────
 
 function MitreSlideout({ techniqueId, onClose }: { techniqueId: string; onClose: () => void }) {
-  const technique = techniqueById(techniqueId);
+  // The built-in library is a curated subset: a sub-technique missing from it falls back to its
+  // parent (T1055.001 → T1055), and an ID missing altogether still opens, with the official link.
+  // (A badge whose technique wasn't in the library used to do nothing at all.)
+  const exact = techniqueById(techniqueId);
+  const parentId = techniqueId.split(".")[0];
+  const parent = !exact && parentId !== techniqueId ? techniqueById(parentId) : undefined;
+  const technique = exact ?? parent;
   const tactic = technique ? tacticById(technique.tactic) : undefined;
 
   // a11y: modal slide-out — focus trapped inside, Escape closes, focus returns.
   const dialogRef = useRef<HTMLDivElement>(null);
-  useFocusTrap(!!technique, dialogRef, { onEscape: onClose });
+  useFocusTrap(true, dialogRef, { onEscape: onClose });
 
-  if (!technique) return null;
+  if (typeof document === "undefined") return null;
 
-  return (
+  // Portalled to <body>: rendered in place, the drawer lived inside the team page's sticky
+  // feed column — its own stacking context — so the role column painted OVER it and the
+  // panel showed half-hidden behind the cards (Tal, 2026-10-08).
+  return createPortal(
     <>
       <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/50 z-40"
+        className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-[1px]"
         onClick={onClose}
       />
       <motion.div
@@ -803,37 +813,44 @@ function MitreSlideout({ techniqueId, onClose }: { techniqueId: string; onClose:
         role="dialog" aria-modal="true" aria-labelledby="mitre-slideout-title" tabIndex={-1}
         initial={{ x: 440 }} animate={{ x: 0 }} exit={{ x: 440 }}
         transition={{ type: "spring", damping: 28, stiffness: 260 }}
-        className="fixed right-0 top-0 h-screen w-full sm:w-[420px] bg-[#080d14] border-l border-border/80 z-50 shadow-2xl overflow-y-auto"
+        className="fixed right-0 top-0 z-[71] h-screen w-full overflow-y-auto overscroll-contain border-l border-border/80 bg-[#080d14] shadow-2xl sm:w-[440px]"
       >
-        <div className="px-5 py-4 border-b border-border/60 flex items-start justify-between gap-3">
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-border/60 bg-[#080d14]/95 px-5 py-4 backdrop-blur">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className="rounded border border-neon-purple/50 bg-neon-purple/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-neon-purple">{technique.id}</span>
+              <span className="rounded border border-neon-purple/50 bg-neon-purple/10 px-1.5 py-0.5 font-mono text-[11px] font-bold text-neon-purple">{techniqueId}</span>
               {tactic && <span className="text-[10px] text-slate-400">{tactic.name}</span>}
             </div>
-            <h3 id="mitre-slideout-title" className="text-sm font-semibold text-white">{technique.name}</h3>
+            <h3 id="mitre-slideout-title" className="text-base font-semibold text-white">{exact?.name ?? (parent ? `${parent.name}: sub-technique` : "MITRE ATT&CK technique")}</h3>
+            {parent && <p className="mt-1 text-[11px] text-slate-400">Sub-technique of {parent.id} {parent.name}. The guidance below is for the parent technique.</p>}
           </div>
           <button type="button" onClick={onClose} aria-label="Close MITRE details" className="mt-0.5 shrink-0 rounded p-1 text-slate-400 hover:bg-slate-700/50 hover:text-white">
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="px-5 py-4 space-y-4">
+        <div className="px-5 py-4 space-y-5">
+          {!technique && (
+            <p className="text-xs leading-relaxed text-slate-300">
+              This technique isn&apos;t in the platform&apos;s built-in ATT&amp;CK library yet. Open it on MITRE ATT&amp;CK for the full description, detection guidance and mitigations.
+            </p>
+          )}
+          {technique && <>
           {/* What attacker does */}
           {technique.whatAttackerDoes && (
             <div>
-              <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-slate-400 mb-2">What the attacker does</p>
-              <p className="text-[11px] leading-relaxed text-slate-200">{technique.whatAttackerDoes}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 mb-2">What the attacker does</p>
+              <p className="text-xs leading-relaxed text-slate-200">{technique.whatAttackerDoes}</p>
             </div>
           )}
 
           {/* Log indicators */}
           {technique.logIndicators && technique.logIndicators.length > 0 && (
             <div>
-              <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-slate-400 mb-2">What to look for in logs</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 mb-2">What to look for in logs</p>
               <ul className="space-y-1.5">
                 {technique.logIndicators.map((ind, i) => (
-                  <li key={i} className="flex items-start gap-2 text-[11px] text-slate-300">
+                  <li key={i} className="flex items-start gap-2 text-xs text-slate-300">
                     <span className="mt-0.5 shrink-0 text-neon-green">•</span>
                     <span>{ind}</span>
                   </li>
@@ -846,31 +863,33 @@ function MitreSlideout({ techniqueId, onClose }: { techniqueId: string; onClose:
           {technique.detection_hint && (
             <div className="rounded border border-neon-amber/30 bg-neon-amber/5 px-3 py-2.5">
               <p className="text-[9px] font-semibold text-neon-amber mb-1">Detection tip</p>
-              <p className="text-[10px] leading-relaxed text-slate-300">{technique.detection_hint}</p>
+              <p className="text-[11px] leading-relaxed text-slate-300">{technique.detection_hint}</p>
             </div>
           )}
 
           {/* Data sources */}
           <div>
-            <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-slate-400 mb-1.5">Data sources</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 mb-1.5">Data sources</p>
             <div className="flex flex-wrap gap-1">
-              {technique.data_sources.map(ds => (
+              {technique.data_sources.map((ds: string) => (
                 <span key={ds} className="rounded border border-slate-600/50 bg-slate-800/50 px-2 py-0.5 text-[9px] text-slate-400">{ds}</span>
               ))}
             </div>
           </div>
 
+          </>}
           {/* External link */}
           <a
             href={`https://attack.mitre.org/techniques/${techniqueId.replace(".", "/")}/`}
             target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-[10px] text-cyber-400 hover:text-cyber-300 transition"
+            className="inline-flex items-center gap-1.5 rounded border border-cyber-500/40 bg-cyber-500/10 px-2.5 py-1.5 text-xs text-cyber-300 transition hover:bg-cyber-500/20"
           >
             View on MITRE ATT&CK <ExternalLink className="h-3 w-3" />
           </a>
         </div>
       </motion.div>
-    </>
+    </>,
+    document.body,
   );
 }
 

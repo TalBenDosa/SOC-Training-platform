@@ -24,7 +24,7 @@ export const CONTAINMENT_TYPES: [string, string][] = [["isolate_host", "Isolate 
 export const containmentVerb = (t?: string) => (t === "disable_account" ? "Disable" : t === "block_indicator" ? "Block" : "Isolate");
 const EMPTY_REP = { summary: "", findings: "", verdict: "true_positive", recommendation: "", incident: "" };
 
-export function T2Console({ sessionId, role, meId, escalations, escState, reportedIds, reportByEid, elevatedIds, containments, scope, scopes, incidents, incidentOf, nameOf, act, actR, onEdr, onPivot, pauses = [] }: {
+export function T2Console({ canEdr, sessionId, role, meId, escalations, escState, reportedIds, reportByEid, elevatedIds, containments, scope, scopes, incidents, incidentOf, nameOf, act, actR, onEdr, onPivot, pauses = [] }: {
   sessionId: string; role: string; meId: string;
   /** The CURRENT round of every escalated log (one row per log). */
   escalations: Ev[]; escState: Map<string, EscalationState>;
@@ -32,6 +32,8 @@ export function T2Console({ sessionId, role, meId, escalations, escState, report
   containments: ContainmentRequest[];
   scope: ScopeState; scopes: Map<string, ScopeSnapshot>; incidents: string[]; incidentOf: Map<string, string>;
   nameOf: (u: string | null) => string; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; actR: ActR; onEdr?: (description?: string, host?: string) => void;
+  /** Whether the EDR console has endpoint telemetry for this host (no host: for the escalated cases). */
+  canEdr?: (host?: string) => boolean;
   onPivot?: (field: "user" | "host" | "ip", value: string) => void;
   /** Paused spans of the session (pausedSpans) — waits and SLA badges skip them. */
   pauses?: PauseSpan[];
@@ -129,7 +131,7 @@ export function T2Console({ sessionId, role, meId, escalations, escState, report
           </h3>
           <div className="flex items-center gap-2">
             {nextUnacked && <Button variant="outline" size="sm" disabled={busy != null} onClick={takeNextCase}>Take next case</Button>}
-            {onEdr && <Button variant="outline" size="sm" onClick={() => onEdr()}><Search className="mr-1 h-3.5 w-3.5" /> Investigate in EDR</Button>}
+            {onEdr && (canEdr?.() ?? true) && <Button variant="outline" size="sm" onClick={() => onEdr()}><Search className="mr-1 h-3.5 w-3.5" /> Investigate in EDR</Button>}
           </div>
         </div>
         {!inboxOpen ? <p className="mt-2 text-[11px] text-slate-500">{escalations.length} case(s) waiting — expand to review. Your focus is hunting &amp; scope below; a case you take here you can also report and close.</p>
@@ -233,8 +235,13 @@ export function T2Console({ sessionId, role, meId, escalations, escState, report
                       description in its header. Shown when the flagged log has endpoint context. */}
                   {isAck && mine && (() => {
                     const sn = p.snapshot as { source?: string; hostname?: string } | undefined;
-                    const hasEndpoint = !!sn && (sn.source === "edr" || sn.source === "sysmon" || !!sn.hostname);
-                    if (!hasEndpoint || !onEdr) return null;
+                    const hasEndpoint = canEdr ? canEdr(sn?.hostname) : !!sn && (sn.source === "edr" || sn.source === "sysmon" || !!sn.hostname);
+                    if (!onEdr) return null;
+                    if (!hasEndpoint) return sn?.hostname ? (
+                      <p className="mt-2 rounded-lg border border-border/60 bg-bg/60 px-2.5 py-1.5 text-[11px] text-slate-400">
+                        No endpoint (EDR) telemetry for <bdi className="font-mono text-slate-300">{sn.hostname}</bdi> in this exercise: investigate it from the SIEM logs in the feed (pivot on the host and the user).
+                      </p>
+                    ) : null;
                     return (
                       <div className="mt-2 flex items-center gap-2 rounded-lg border border-cyber-500/40 bg-cyber-500/[0.08] px-2.5 py-1.5">
                         <span className="text-sm leading-none">🖥</span>

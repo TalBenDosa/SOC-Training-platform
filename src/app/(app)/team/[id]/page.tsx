@@ -30,7 +30,7 @@ import { useTeamIocTruth } from "@/lib/team/useTeamIocTruth";
 import { IocTruthContext } from "@/components/threat-intel/iocTruthContext";
 import { Loader2, AlertTriangle, CheckCircle2, Circle, Radio, Play, ShieldCheck, ArrowLeft, Users, Siren, X, UserMinus, PauseCircle, LogOut } from "lucide-react";
 import type { RosterMember, SessionMeta, Me, Ev, Ioc } from "@/lib/team/types";
-import { asStr, detectIocType, friendlyActionError, hashString, actionErrorCode, type ActOutcome, type ActionErrorCode } from "@/lib/team/format";
+import { asStr, detectIocType, friendlyActionError, hashString, actionErrorCode, hostKey, type ActOutcome, type ActionErrorCode } from "@/lib/team/format";
 import { deriveReadyMap } from "@/lib/team/lobbyReady";
 import { withRebasedTime } from "@/lib/sim/rebaseTime";
 import { useTeamHeartbeat } from "@/lib/team/useTeamHeartbeat";
@@ -810,6 +810,17 @@ export default function TeamRoomPage() {
   // /edr console pre-loaded on the process tree. Returns null for pure identity/
   // cloud attacks with no endpoint telemetry → we tell the analyst instead of
   // opening an empty console.
+  // Hosts with endpoint (EDR / Sysmon) telemetry in the feed: "Investigate in EDR" is offered
+  // only for those. A case on a host the scenario has no EDR for (a DC seen only through its
+  // Security log) used to show the button and answer with an error (Tal, 2026-10-08).
+  const edrHosts = useMemo(() => new Set(feed
+    .filter(e => { const s = (e.payload as { source?: unknown }).source; return s === "edr" || s === "sysmon"; })
+    .map(e => hostKey(asStr((e.payload as { hostname?: unknown }).hostname))).filter(Boolean)), [feed]);
+  const canEdr = useCallback((host?: string) => {
+    if (host) return edrHosts.has(hostKey(host));
+    const escHosts = escalations.map(e => asStr((e.payload as { snapshot?: { hostname?: unknown } }).snapshot?.hostname)).filter(Boolean);
+    return escHosts.length ? escHosts.some(h => edrHosts.has(hostKey(h))) : edrHosts.size > 0;
+  }, [edrHosts, escalations]);
   const openEdr = useCallback((description?: string, host?: string) => {
     try {
       // Same re-timing as the feed rows, so EDR shows the times the team saw.
@@ -1191,8 +1202,8 @@ export default function TeamRoomPage() {
               <div className="min-w-0 space-y-4">
                 {me.role === "t1" && <T1Console sessionId={id} feed={feed} dispositions={dispositions} events={events} meId={me.id} iocDraft={iocDraft} setIocDraft={setIocDraft} nameOf={nameOf} act={act} actR={actR} sel={t1Sel} setSel={setT1Sel} reportOpen={t1ReportOpen} setReportOpen={setT1ReportOpen} />}
                 {/* B12: Tier-3's dominant surface is HUNTING — render it above the (secondary) inbox. */}
-                {me.role === "t3" && <HuntConsole scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} elevations={elevations} elevAcked={elevAcked} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={onFeedPivot} />}
-                {(me.role === "t2" || me.role === "t3") && <T2Console sessionId={id} role={me.role} meId={me.id} escalations={escalations} escState={escStates} reportedIds={reportedIds} reportByEid={reportByEid} elevatedIds={elevatedIds} containments={containments} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} nameOf={nameOf} act={act} actR={actR} onEdr={openEdr} onPivot={onFeedPivot} pauses={pauseSpans} />}
+                {me.role === "t3" && <HuntConsole canEdr={canEdr} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} elevations={elevations} elevAcked={elevAcked} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={onFeedPivot} />}
+                {(me.role === "t2" || me.role === "t3") && <T2Console canEdr={canEdr} sessionId={id} role={me.role} meId={me.id} escalations={escalations} escState={escStates} reportedIds={reportedIds} reportByEid={reportByEid} elevatedIds={elevatedIds} containments={containments} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} nameOf={nameOf} act={act} actR={actR} onEdr={openEdr} onPivot={onFeedPivot} pauses={pauseSpans} />}
                 {/* SOC Manager now holds the coordinator authority (approve containment,
                     decision log, SITREP) as well as shift management. 'lead'/'de' branches
                     stay for backward-compatibility with older sessions; 'ti' is a live seat. */}
