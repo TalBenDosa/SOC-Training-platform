@@ -28,6 +28,7 @@ import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { useOrgContext } from "@/lib/auth/useOrgContext";
 import { COMPANY_PROFILES } from "@/lib/sim/companyProfilesMeta";
 import { Users, Plus, Loader2, AlertTriangle, ChevronRight, Radio, Search, Building2 } from "lucide-react";
+import { groupByCategory, type StoryCategory } from "@/lib/team/storyCategory";
 import { builderStatus, filterCandidates, looksLikeEmail, MAX_INVITES, type Candidate } from "./_lib/builder";
 
 type Diff = "easy" | "medium" | "hard";
@@ -44,7 +45,7 @@ interface SessionRow {
   my_role: string | null; player_count: number; ready_count: number;
 }
 interface OrgInfo { id: string; name: string; is_root: boolean }
-interface Storyline { id: string; title: string; complexity: string; steps: number }
+interface Storyline { id: string; title: string; complexity: string; steps: number; category: StoryCategory }
 /** An attack slot switched off (attacks 2–3). */
 const OFF = "__off__";
 
@@ -80,6 +81,8 @@ export default function TeamIndexPage() {
   const tenant = tenantCheck && !("error" in tenantCheck) ? tenantCheck : null;
   const [difficulty, setDifficulty] = useState<Diff>("medium");
   const [storylines, setStorylines] = useState<Storyline[] | null>(null);
+  // picker options grouped by attack category (Phishing, Identity, AI, ...) instead of one long list
+  const storyGroups = useMemo(() => groupByCategory(storylines ?? []), [storylines]);
   // The attack plan: three attack slots, each a chosen storyline, "" = a random pick at start,
   // or OFF = no attack. A slot the instructor hasn't touched follows the team size (load.ts).
   const [slots, setSlots] = useState<string[]>(["", "", ""]);
@@ -285,7 +288,11 @@ export default function TeamIndexPage() {
                         className={`w-full rounded-lg border border-border bg-bg-elevated px-2.5 py-2 text-xs disabled:opacity-50 focus:border-cyber-500/50 focus:outline-none ${value === OFF ? "text-slate-500" : "text-slate-200"}`}>
                         {i > 0 && <option value={OFF}>No attack</option>}
                         <option value="">{storylines === null ? "Loading storylines…" : "Random — picked at start"}</option>
-                        {(storylines ?? []).map(s => <option key={s.id} value={s.id} disabled={takenElsewhere.has(s.id)}>{s.title}{takenElsewhere.has(s.id) ? " (another attack)" : ""}</option>)}
+                        {storyGroups.map(g => (
+                          <optgroup key={g.id} label={`${g.label} (${g.items.length})`}>
+                            {g.items.map(s => <option key={s.id} value={s.id} disabled={takenElsewhere.has(s.id)}>{s.title}{takenElsewhere.has(s.id) ? " (another attack)" : ""}</option>)}
+                          </optgroup>
+                        ))}
                       </select>
                     </label>
                   );

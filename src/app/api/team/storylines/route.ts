@@ -5,6 +5,7 @@ import { sanitizeStack } from "@/lib/logs/native";
 import { teamStoryFilter, teamStoryPool } from "@/lib/team/buildTimeline";
 import { sanitizeEnv, type TeamEnv } from "@/lib/team/environment";
 import { TENANT_TEMPLATE } from "@/lib/team/tenant";
+import { storyCategory } from "@/lib/team/storyCategory";
 
 /**
  * Team-SOC storylines (read-only) — the attack stories the Session Builder can
@@ -45,7 +46,7 @@ export async function GET(req: Request) {
   const fits = teamStoryFilter(company, stack, env);
   const stories = teamStoryPool(company, difficulty as "easy" | "medium" | "hard", env, stack)
     .filter(fits)
-    .map(s => ({ id: s.id, title: s.title, complexity: s.complexity, steps: s.events.length }))
+    .map(s => ({ id: s.id, title: s.title, complexity: s.complexity, steps: s.events.length, category: storyCategory(s.id) }))
     .sort((a, b) => a.title.localeCompare(b.title));
   return NextResponse.json({ storylines: stories });
 }
