@@ -294,8 +294,8 @@ export function esxiRansomwareScenarioEvents() {
       hostname: esxi.host,
       user_email: "svc-monitor@vsphere.local",
       severity: "critical",
-      mitre_technique: "T1562.004",
-      mitre_tactic: "Defense Evasion",
+      mitre_technique: "T1686",
+      mitre_tactic: "Defense Impairment",
       description:
         "The ESXi host firewall ruleset sshServer on esx-prod-03 was set with allowedAll true and an empty allowed-IP list, by svc-monitor.",
       raw: {

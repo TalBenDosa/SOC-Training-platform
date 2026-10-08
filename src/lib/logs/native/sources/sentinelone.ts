@@ -385,13 +385,13 @@ function taskRegister(b: Base, t: TaskFacts): Record<string, unknown> | null {
 // ── threats ──────────────────────────────────────────────────────────────────
 
 const S1_CATEGORY: Record<string, string> = {
-  "credential access": "InfoStealer", "defense evasion": "Evasion", persistence: "Persistence", "privilege escalation": "Exploitation",
+  "credential access": "InfoStealer", stealth: "Evasion", "defense impairment": "Evasion", persistence: "Persistence", "privilege escalation": "Exploitation",
   execution: "General", discovery: "Reconnaissance", "lateral movement": "PostExploitation", collection: "InfoStealer",
   exfiltration: "InfoStealer", "command and control": "PostExploitation", impact: "Ransomware", "initial access": "Exploitation",
 };
 const TACTIC_BY_TECH: [RegExp, string][] = [
   [/^T1003|^T1555|^T1552|^T1558|^T1110/, "Credential Access"], [/^T1486|^T1490|^T1496|^T1485/, "Impact"], [/^T1547|^T1053|^T1543|^T1546/, "Persistence"],
-  [/^T1027|^T1070|^T1562|^T1218|^T1036|^T1055/, "Defense Evasion"], [/^T1059|^T1204|^T1203/, "Execution"], [/^T1021|^T1570/, "Lateral Movement"],
+  [/^T1685|^T1686|^T1112/, "Defense Impairment"], [/^T1027|^T1070|^T1218|^T1036|^T1055/, "Stealth"], [/^T1059|^T1204|^T1203/, "Execution"], [/^T1021|^T1570/, "Lateral Movement"],
   [/^T1071|^T1105|^T1219|^T1572|^T1090/, "Command and Control"], [/^T1048|^T1041|^T1567/, "Exfiltration"], [/^T1115|^T1056|^T1113|^T1005/, "Collection"],
   [/^T1566|^T1195|^T1190/, "Initial Access"], [/^T1082|^T1087|^T1018|^T1046/, "Discovery"],
 ];

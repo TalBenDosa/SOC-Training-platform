@@ -1169,7 +1169,7 @@ Each device in the inventory shows:
 MDE generates alerts when it detects suspicious behaviour. Each alert shows:
 - **Severity**: Critical, High, Medium, Low, Informational
 - **Detection source**: EDR (behavioural detection), Antivirus, Network protection, Threat Intelligence
-- **MITRE ATT&CK mapping**: The technique (e.g. T1055: Process Injection) and tactic (e.g. Defense Evasion)
+- **MITRE ATT&CK mapping**: The technique (e.g. T1055: Process Injection) and tactic (e.g. Stealth; a console not yet updated to ATT&CK v19 may still show its former name, Defense Evasion)
 - **Affected entity**: Device name and user
 
 Multiple related alerts are automatically grouped into **Incidents**. The incident page shows:
@@ -1269,7 +1269,8 @@ Map the events to MITRE ATT&CK tactics (the attack stages; not to be confused wi
 - **Execution**: What code did they run? (Malicious macro, PowerShell, scheduled task?)
 - **Persistence**: How did they ensure they survive a reboot? (Registry run key, scheduled task, new service?)
 - **Privilege Escalation**: Did they move from a normal user to admin?
-- **Defense Evasion**: Did they try to avoid detection? (Disable AV, delete logs, use LOLBins, Living Off the Land Binaries?)
+- **Stealth**: Did they try to hide or blend in? (Use LOLBins, Living Off the Land Binaries? Masquerade as legitimate files? Delete their tools?)
+- **Defense Impairment**: Did they break the defences? (Disable AV/EDR, add exclusions, clear or stop event logs?) ATT&CK v19 split the former Defense Evasion tactic into these two.
 - **Credential Access**: Did they steal credentials? (LSASS dump, Kerberoasting?)
 - **Discovery**: Did they map the network? (Port scans, AD enumeration?)
 - **Lateral Movement**: Did they move to other machines? (PsExec, WMI, RDP?)

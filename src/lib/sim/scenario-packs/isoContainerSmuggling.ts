@@ -193,7 +193,7 @@ Falcon's detection caught up ten seconds after PowerShell started and killed the
       { ts: T(-90_000), phase: "Initial Access", action: `Phishing link opened from webmail → ${shareSite}/invoice/84421 (T1566.002)` },
       { ts: T(0), phase: "Initial Access", action: `Invoice_84421.iso downloaded from ${shareSite}` },
       { ts: T(4 * MIN + 20_000), phase: "Execution", action: "User opens the ISO; Windows mounts it as D:\\, propagating MotW to its files (T1204.002)" },
-      { ts: T(4 * MIN + 34_000), phase: "Defense Evasion", action: "User clicks through the MotW warning; .lnk runs rundll32 against D:\\update.dat (T1218.011)" },
+      { ts: T(4 * MIN + 34_000), phase: "Stealth", action: "User clicks through the MotW warning; .lnk runs rundll32 against D:\\update.dat (T1218.011)" },
       { ts: T(4 * MIN + 35_000), phase: "Execution", action: "rundll32 (hosting update.dat) spawns hidden, encoded PowerShell (T1059.001)" },
       { ts: T(4 * MIN + 37_000), phase: "Command and Control", action: `core.dll fetched from ${c2}, passed through as Uncategorized` },
       { ts: T(4 * MIN + 39_000), phase: "Execution", action: "core.dll written to AppData\\Roaming" },

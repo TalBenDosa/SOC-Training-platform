@@ -82,7 +82,7 @@ export function isoContainerSmugglingScenarioEvents() {
       processName: "rundll32.exe", processPath: "C:\\Windows\\System32\\rundll32.exe",
       cmdline: "rundll32.exe D:\\update.dat,Start",
       parentName: "explorer.exe", parentPid: 3184, pid: 6620, signed: true,
-      mitre: "T1218.011", tactic: "Defense Evasion", severity: "high", incidentId: INCIDENT,
+      mitre: "T1218.011", tactic: "Stealth", severity: "high", incidentId: INCIDENT,
       description: "Fourteen seconds later she opened Invoice_84421.lnk on D:\\. Windows showed the Open File - Security Warning for the Mark-of-the-Web .lnk; she chose Run anyway, and the shortcut ran rundll32.exe against D:\\update.dat, the data file bundled in the ISO.",
     }),
     // 5. THE CRUX — the loaded update.dat spawns a hidden, encoded PowerShell (alert-grade).

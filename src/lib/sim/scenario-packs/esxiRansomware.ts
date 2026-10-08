@@ -115,7 +115,7 @@ export function buildEsxiRansomwareScenario(
     },
     {
       ts: T(31 * MIN),
-      phase: "Defense Evasion",
+      phase: "Defense Impairment",
       action:
         "ESXi host firewall sshServer ruleset opened to all source addresses",
     },

@@ -102,11 +102,11 @@ export function buildS3ExfilExposureScenario(
       description: "ListBuckets on account 612498330517 by the reporting-export-svc access key AKIA4MC2X7QF9EXAMPLE from 91.242.217.35 — the first call this long-lived key has made from an internet address.",
     }),
 
-    // 2. CONFIG ORIGIN #1 — PutBucketPublicAccessBlock turns OFF Block Public Access (T1562.007).
+    // 2. CONFIG ORIGIN #1 — PutBucketPublicAccessBlock turns OFF Block Public Access (T1686.001).
     cloudTrailEvent({
       companyId: cx, id: "s3exfil_02_disable_bpa", ts: T(3 * MIN), eventName: "PutBucketPublicAccessBlock", srcIp: attackerIp, region, accountId: awsAccount,
       actorType: "IAMUser", actorName: iamUser, arn: iamUserArn, accessKeyId, s3Bucket: bucket, readOnly: false, managementEvent: true, userAgent: "aws-cli/2.15.30 Python/3.11.6 Linux/6.5 exe/x86_64",
-      userTitle: "Service Account", mitre: "T1562.007", tactic: "Defense Evasion", severity: "critical", incidentId: INCIDENT,
+      userTitle: "Service Account", mitre: "T1686.001", tactic: "Defense Impairment", severity: "critical", incidentId: INCIDENT,
       extra: {
         "aws.cloudtrail.requestParameters.PublicAccessBlockConfiguration.BlockPublicAcls": "false",
         "aws.cloudtrail.requestParameters.PublicAccessBlockConfiguration.IgnorePublicAcls": "false",
@@ -116,11 +116,11 @@ export function buildS3ExfilExposureScenario(
       description: "PutBucketPublicAccessBlock on medcore-patient-exports-prod set all four BlockPublicAcls / IgnorePublicAcls / BlockPublicPolicy / RestrictPublicBuckets flags to false, by the reporting-export-svc key from 91.242.217.35.",
     }),
 
-    // 3. CONFIG ORIGIN #2 — PutBucketPolicy attaches an allow-anyone policy (T1562.007).
+    // 3. CONFIG ORIGIN #2 — PutBucketPolicy attaches an allow-anyone policy (T1686.001).
     cloudTrailEvent({
       companyId: cx, id: "s3exfil_03_public_policy", ts: T(3 * MIN + 40 * SEC), eventName: "PutBucketPolicy", srcIp: attackerIp, region, accountId: awsAccount,
       actorType: "IAMUser", actorName: iamUser, arn: iamUserArn, accessKeyId, s3Bucket: bucket, readOnly: false, managementEvent: true, userAgent: "aws-cli/2.15.30 Python/3.11.6 Linux/6.5 exe/x86_64",
-      userTitle: "Service Account", mitre: "T1562.007", tactic: "Defense Evasion", severity: "critical", incidentId: INCIDENT,
+      userTitle: "Service Account", mitre: "T1686.001", tactic: "Defense Impairment", severity: "critical", incidentId: INCIDENT,
       extra: {
         "aws.cloudtrail.requestParameters.bucketPolicy.Statement.0.Effect": "Allow",
         "aws.cloudtrail.requestParameters.bucketPolicy.Statement.0.Principal": "*",
@@ -130,11 +130,11 @@ export function buildS3ExfilExposureScenario(
       description: "PutBucketPolicy on medcore-patient-exports-prod attached a statement with Principal \"*\" allowing s3:GetObject on every object, by the reporting-export-svc key from 91.242.217.35.",
     }),
 
-    // 4. CONFIG ORIGIN #3 — PutBucketAcl grants the AllUsers group READ (T1562.007).
+    // 4. CONFIG ORIGIN #3 — PutBucketAcl grants the AllUsers group READ (T1686.001).
     cloudTrailEvent({
       companyId: cx, id: "s3exfil_04_public_acl", ts: T(4 * MIN), eventName: "PutBucketAcl", srcIp: attackerIp, region, accountId: awsAccount,
       actorType: "IAMUser", actorName: iamUser, accessKeyId, s3Bucket: bucket, readOnly: false, managementEvent: true, userAgent: "aws-cli/2.15.30 Python/3.11.6 Linux/6.5 exe/x86_64",
-      userTitle: "Service Account", mitre: "T1562.007", tactic: "Defense Evasion", severity: "high", incidentId: INCIDENT,
+      userTitle: "Service Account", mitre: "T1686.001", tactic: "Defense Impairment", severity: "high", incidentId: INCIDENT,
       extra: {
         "aws.cloudtrail.requestParameters.AccessControlPolicy.AccessControlList.Grant.Grantee.URI": "http://acs.amazonaws.com/groups/global/AllUsers",
         "aws.cloudtrail.requestParameters.AccessControlPolicy.AccessControlList.Grant.Permission": "READ",
@@ -149,7 +149,7 @@ export function buildS3ExfilExposureScenario(
         title: "S3 bucket medcore-patient-exports-prod grants access to the internet through a bucket policy", srcIp: attackerIp, region, accountId: awsAccount,
         api: "PutBucketPolicy", serviceName: "s3.amazonaws.com", callerType: "Remote IP", asnOrg: "Serverius Holding B.V.",
         resourceType: "S3Bucket", bucketName: bucket, effectivePermission: "PUBLIC", userType: "IAMUser", userName: iamUser, accessKeyId, count: 1,
-        mitre: "T1562.007", tactic: "Defense Evasion", severity: "high", incidentId: INCIDENT,
+        mitre: "T1686.001", tactic: "Defense Impairment", severity: "high", incidentId: INCIDENT,
         description: "GuardDuty raised Policy:S3/BucketAnonymousAccessGranted (severity 8) on medcore-patient-exports-prod: the bucket's policy now grants access to the AllUsers group after the reporting-export-svc key changed it.",
       }),
       edr_scope: "non_edr",
@@ -340,9 +340,9 @@ Read as a whole, the case has a clean shape: the CloudTrail management events ar
     killchain: [
       { ts: "2026-08-30T02:15:00.000Z", phase: "Baseline", action: `${backupRole} reads ${bucket} over VPC endpoint from inside AWS — nightly backup (control case)` },
       { ts: T(0), phase: "Initial Access", action: `Leaked ${iamUser} access key first used from ${attackerIp} — ListBuckets (T1078.004)` },
-      { ts: T(3 * MIN), phase: "Defense Evasion", action: "PutBucketPublicAccessBlock — all four Block Public Access guards set false (T1562.007)" },
-      { ts: T(3 * MIN + 40 * SEC), phase: "Defense Evasion", action: "PutBucketPolicy — Principal \"*\" allowed s3:GetObject on the bucket (T1562.007)" },
-      { ts: T(4 * MIN), phase: "Defense Evasion", action: "PutBucketAcl — AllUsers group granted READ (T1562.007)" },
+      { ts: T(3 * MIN), phase: "Defense Impairment", action: "PutBucketPublicAccessBlock — all four Block Public Access guards set false (T1686.001, formerly T1562.007)" },
+      { ts: T(3 * MIN + 40 * SEC), phase: "Defense Impairment", action: "PutBucketPolicy — Principal \"*\" allowed s3:GetObject on the bucket (T1686.001)" },
+      { ts: T(4 * MIN), phase: "Defense Impairment", action: "PutBucketAcl — AllUsers group granted READ (T1686.001)" },
       { ts: T(9 * MIN), phase: "Detection", action: `GuardDuty Policy:S3/BucketAnonymousAccessGranted on ${bucket}` },
       { ts: T(11 * MIN), phase: "Discovery", action: `ListObjectsV2 — 20,000 keys enumerated from ${attackerIp} (T1619)` },
       { ts: T(12 * MIN), phase: "Collection", action: `GetObject burst — 20,000 objects, 41 GB pulled from ${attackerIp} (T1530)` },

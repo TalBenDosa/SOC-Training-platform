@@ -9,7 +9,7 @@
  * malware types) teaches one stage or one detection in isolation. This room
  * follows one intrusion — NexaCorp, 14 April 2026 — from a phished helpdesk
  * technician through credential theft, discovery, lateral movement, defense
- * evasion, the 2025 exfiltration-first double-extortion model, and finally
+ * impairment, the 2025 exfiltration-first double-extortion model, and finally
  * fleet-wide encryption, teaching what a SOC analyst actually does at every
  * single stage, not just at the moment the ransom note appears.
  *
@@ -19,8 +19,8 @@
  *     force T1110/T1021.001), execution/persistence (LOLBins, scheduled
  *     tasks, run keys), discovery/credential access (AD recon, LSASS T1003.001,
  *     DCSync T1003.006), lateral movement (PsExec T1021.002, WMI, RDP),
- *     defense evasion (shadow-copy deletion T1490, disabling EDR T1562.001,
- *     clearing logs T1070.001), the exfiltration-first double-extortion model
+ *     defense impairment (shadow-copy deletion T1490, disabling EDR T1685,
+ *     clearing logs T1685.005), the exfiltration-first double-extortion model
  *     (T1567.002), impact (T1486) and the full-chain containment playbook.
  */
 
@@ -253,7 +253,7 @@ const ransomwareLifecycleRoom = {
         "**The Ransomware-as-a-Service (RaaS) model.** Most large-scale ransomware today is not one gang doing everything themselves. A RaaS operator builds and maintains the encryptor, the negotiation portal, and the leak site, then rents that whole toolkit to independent affiliates who carry out the actual intrusion (the phishing, the credential theft, the lateral movement) and split the ransom proceeds with the operator, commonly weighted heavily toward the affiliate, though the exact split varies group to group and shifts over time. This means a ransomware family name is a brand for a rented toolkit, not a single, consistent group of people behind the keyboard: two intrusions using the same encryptor can have completely different initial access methods, tempo, and even native language, because they were run by two different affiliates.\n\n" +
         "**Initial Access Brokers (IABs).** A further specialization exists one layer upstream: criminals who do nothing but break into networks (via phishing, credential stuffing, or exploiting exposed services) and then sell that already-compromised foothold on a criminal marketplace to whichever ransomware affiliate is buying. The person who broke in and the person who eventually deploys the encryptor are frequently not the same person, or even part of the same group, which is part of why dwell time (the gap between initial access and the final impact stage) can be so unpredictable.\n\n" +
         "**Why double extortion exists.** Encryption alone used to be the entire attack: lock the files, demand payment for the key. Once organizations got serious about offline and immutable backups, that leverage collapsed: a victim with a clean, tested backup can simply restore and ignore the ransom note entirely. Starting around 2019-2020, ransomware operators responded by adding a second, independent form of leverage: steal a copy of the victim's sensitive data before encrypting anything, and threaten to publish it on a dedicated leak site regardless of whether the victim restores from backup or not. This is double extortion, and it is why a strong backup strategy, while still essential, stopped being sufficient on its own to guarantee an organization walks away from a ransomware incident unscathed.\n\n" +
-        "**Why this framing matters before anything else in this room.** If the goal is only to stop 'the encryption,' the SOC is defending against the last five minutes of a much longer intrusion. Every stage between initial access and impact. Discovery, credential theft, lateral movement, defense evasion, and especially the exfiltration-staging window covered later in this room. Is a chance to stop the intrusion before the leverage the attacker is counting on ever actually leaves the building, or before a single file gets touched at all.",
+        "**Why this framing matters before anything else in this room.** If the goal is only to stop 'the encryption,' the SOC is defending against the last five minutes of a much longer intrusion. Every stage between initial access and impact. Discovery, credential theft, lateral movement, defense impairment, and especially the exfiltration-staging window covered later in this room. Is a chance to stop the intrusion before the leverage the attacker is counting on ever actually leaves the building, or before a single file gets touched at all.",
       diagram:
         "flowchart LR\n" +
         "  IAB[\"Initial Access Broker sells a foothold\"] --> AFF[\"RaaS affiliate buys access, runs the intrusion\"]\n" +
@@ -494,23 +494,23 @@ const ransomwareLifecycleRoom = {
         { id: "dcsync", left: "An account that already holds replication rights asks a Domain Controller to replicate every password hash at once", right: "T1003.006 -- DCSync" },
         { id: "psexec", left: "PsExec pushes access to additional hosts using a stolen credential", right: "T1021.002 -- SMB/Windows Admin Shares" },
         { id: "vss", left: "vssadmin deletes every shadow copy on a host before encryption starts", right: "T1490 -- Inhibit System Recovery" },
-        { id: "clearlog", left: "Windows Security event log is cleared right after the intrusion", right: "T1070.001 -- Clear Windows Event Logs" },
+        { id: "clearlog", left: "Windows Security event log is cleared right after the intrusion", right: "T1685.005 -- Clear Windows Event Logs" },
         { id: "exfil", left: "Bulk data is copied to a cloud remote using rclone before the ransom note ever appears", right: "T1567.002 -- Exfiltration to Cloud Storage" },
       ],
       explanation:
-        "Notice how many different ATT&CK tactics one ransomware intrusion touches -- Initial Access, Persistence, Credential Access, Lateral Movement, Defense Evasion, and Exfiltration all show up before Impact ever fires. This is exactly why treating ransomware as 'one detection at the encryption stage' misses the five or six earlier chances a SOC actually had to stop it.",
+        "Notice how many different ATT&CK tactics one ransomware intrusion touches -- Initial Access, Persistence, Credential Access, Lateral Movement, Defense Impairment, and Exfiltration all show up before Impact ever fires. This is exactly why treating ransomware as 'one detection at the encryption stage' misses the five or six earlier chances a SOC actually had to stop it.",
       xp: 35,
     },
-    // ── Reading 6: Defense evasion ─────────────────────────────────────────────
+    // ── Reading 6: Defense impairment ──────────────────────────────────────────
     {
       type: "reading" as const,
       id: "rw-r6",
-      heading: "Defense Evasion: Deleting Recovery, Disabling Detection, Erasing Evidence",
+      heading: "Defense Impairment: Deleting Recovery, Disabling Detection, Erasing Evidence",
       content:
         "Before detonating the encryptor, a competent affiliate spends real effort making recovery as hard as possible and leaving the SOC as little as possible to work with. Three specific techniques account for most of what shows up in real cases.\n\n" +
         "**Shadow copy deletion (T1490: Inhibit System Recovery).** Windows' Volume Shadow Copy Service keeps point-in-time snapshots that would otherwise let a victim restore pre-encryption versions of their own files in minutes, without needing any external backup at all. \"vssadmin.exe delete shadows /all /quiet\" (or the WMI equivalent, or wbadmin deleting the backup catalog outright) removes exactly that safety net. As this platform's forensics content already covers, this single command line. Launched from an unexpected parent process, shortly before mass file activity begins, on a host that isn't a documented backup server running its normal retention job. Is one of the single strongest ransomware precursor signals a detection rule can fire on, precisely because there are very few legitimate reasons for it to run outside that one narrow, scheduled context.\n\n" +
-        "**Disabling security tooling (T1562.001: Impair Defenses).** An affiliate with sufficient privilege attempts to stop or uninstall the EDR/AV agent outright, disable Windows Defender's real-time protection (for example, via \"Set-MpPreference -DisableRealtimeMonitoring $true\"), or add broad path exclusions covering wherever the encryptor is about to run from. Modern EDR platforms increasingly ship tamper protection specifically to resist exactly this, which is part of why, in a real fleet-wide incident, some hosts end up fully protected while others, where tamper protection was misconfigured, out of date, or simply never deployed, do not.\n\n" +
-        "**Clearing evidence (T1070.001: Clear Windows Event Logs).** \"wevtutil cl Security\" (often run against System and Application alongside it) wipes the very log a defender would normally use to reconstruct what happened. But, as this platform's forensics content already established, the act of clearing a log is itself logged: a fresh Event ID 1102 records exactly who cleared it and precisely when, turning an erasure attempt into a precise timestamp for exactly where in every OTHER available log source to keep looking.\n\n" +
+        "**Disabling security tooling (T1685: Disable or Modify Tools, formerly T1562.001).** An affiliate with sufficient privilege attempts to stop or uninstall the EDR/AV agent outright, disable Windows Defender's real-time protection (for example, via \"Set-MpPreference -DisableRealtimeMonitoring $true\"), or add broad path exclusions covering wherever the encryptor is about to run from. Modern EDR platforms increasingly ship tamper protection specifically to resist exactly this, which is part of why, in a real fleet-wide incident, some hosts end up fully protected while others, where tamper protection was misconfigured, out of date, or simply never deployed, do not.\n\n" +
+        "**Clearing evidence (T1685.005: Disable or Modify Tools: Clear Windows Event Logs, formerly T1070.001).** \"wevtutil cl Security\" (often run against System and Application alongside it) wipes the very log a defender would normally use to reconstruct what happened. But, as this platform's forensics content already established, the act of clearing a log is itself logged: a fresh Event ID 1102 records exactly who cleared it and precisely when, turning an erasure attempt into a precise timestamp for exactly where in every OTHER available log source to keep looking.\n\n" +
         "**Why this stage is worth a dedicated read, not just a footnote.** Every one of these three techniques is loud in its own way (a shadow-copy deletion command, a security-tooling change, a log-clear event) and every one of them, done outside its narrow legitimate context, is close to unambiguous. This is genuinely one of the last stages where a SOC that's paying attention can still catch the intrusion before Impact, and it's exactly why the Ordering exercise that follows asks you to place it correctly in the full sequence.",
       xp: 5,
     },
@@ -527,7 +527,7 @@ const ransomwareLifecycleRoom = {
         { id: "discover", text: "Discovery -- AD reconnaissance maps groups, trusts, and privileged accounts" },
         { id: "cred", text: "Credential Access -- LSASS is dumped or DCSync is run to harvest domain-wide credentials" },
         { id: "lateral", text: "Lateral Movement -- PsExec, WMI, or RDP spreads access to additional hosts using the stolen credential" },
-        { id: "evasion", text: "Defense Evasion -- with the newly gained privileges, EDR/AV is stopped or excluded on the hosts the affiliate needs, so the bulk transfer and encryptor that follow run unseen" },
+        { id: "evasion", text: "Defense Impairment -- with the newly gained privileges, EDR/AV is stopped or excluded on the hosts the affiliate needs, so the bulk transfer and encryptor that follow run unseen" },
         { id: "exfil", text: "Exfiltration -- staged, compressed data is pushed out via rclone or a similar tool, before encryption starts" },
         { id: "impact", text: "Impact and Extortion -- shadow copies are deleted and logs cleared, then the encryptor runs fleet-wide and the ransom note appears, referencing already-published stolen data" },
       ],
@@ -678,7 +678,7 @@ const ransomwareLifecycleRoom = {
         "Lateral Movement      Repeating 4624(type3)+7045 pattern (PsExec),    Isolate the source host; scope every\n" +
         "                      WmiPrvSE anomaly, or unexpected 4624 type10     host the credential has reached\n" +
         "\n" +
-        "Defense Evasion       vssadmin/wbadmin shadow-copy delete,            Escalate immediately -- this is one\n" +
+        "Defense Impairment    vssadmin/wbadmin shadow-copy delete,            Escalate immediately -- this is one\n" +
         "                      security-tooling disabled, or a fresh 1102     of the last quiet windows before Impact\n" +
         "\n" +
         "Exfiltration          Large outbound transfer to an unrecognized     Cut external network access for the\n" +

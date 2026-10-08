@@ -63,7 +63,7 @@ export function bundledCryptominerScenarioEvents() {
     // 3. The miner binary, masqueraded (T1036.005).
     csFile({
       ...cx, id: "evt_bcm_03_miner_written", ts: T(4 * MIN + 40_000), path: AGENT, sha256: minerHash, signed: false,
-      mitre: "T1036.005", tactic: "Defense Evasion", severity: "medium",
+      mitre: "T1036.005", tactic: "Stealth", severity: "medium",
       description: "The installer wrote C:\\Users\\o.mizrahi\\AppData\\Local\\WinHost\\svchost_helper.exe, unsigned, 6.4 MB.",
     }),
 

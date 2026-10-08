@@ -40,7 +40,7 @@ export const QUIZZES: Quiz[] = [
         question: "Which MITRE ATT&CK tactic describes an adversary attempting to steal credentials such as account names and passwords?",
         options: [
         "Credential Access",
-        "Defense Evasion",
+        "Stealth",
         "Privilege Escalation",
         "Lateral Movement",
       ],
@@ -432,7 +432,7 @@ export const QUIZZES: Quiz[] = [
           "Business Email Compromise (BEC) — attacker creating a mail forwarding rule for persistent access",
           "Spam campaign from a compromised account, which typically sends bulk outbound mail directly rather than silently forwarding the victim's own inbox elsewhere",
           "Phishing link sent from the account, which requires the attacker to compose and send a new message rather than create a passive forwarding rule",
-          "Account lockout evasion technique, a defense-evasion method aimed at avoiding failed-login thresholds, not at exfiltrating mailbox contents",
+          "Account lockout evasion technique, a detection-avoidance method aimed at avoiding failed-login thresholds, not at exfiltrating mailbox contents",
         ],
         answer: 0,
         explanation: "New-InboxRule with external forwarding is a classic BEC indicator. After compromising an account, attackers create forwarding rules to silently copy all email — monitoring financial conversations and impersonating the victim. This is a critical alert that requires immediate response.",

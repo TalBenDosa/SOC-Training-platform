@@ -230,7 +230,7 @@ export function roleFromEvent(e: TelemetryEvent): IocRole | undefined {
   if (/exfiltration/.test(tactic) || /^T(1567|1041|1048|1537)/.test(tech)) return "exfil";
   if (/command and control/.test(tactic) || /^T(1071|1573|1090|1095|1102|1219|1572)/.test(tech)) return "c2";
   if (/initial access/.test(tactic) || /^T(1566|1189|1204|1195)/.test(tech)) return "delivery";
-  if (/execution|defense evasion|persistence/.test(tactic)) return "payload";
+  if (/execution|stealth|defense impairment|defense evasion|persistence/.test(tactic)) return "payload";
   return undefined;
 }
 

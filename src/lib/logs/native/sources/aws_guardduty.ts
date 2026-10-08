@@ -295,7 +295,7 @@ const useCases: UseCase[] = [
   {
     id: "aws_guardduty.bedrock_logging_disabled",
     title: "Bedrock model logging disabled (GuardDuty)",
-    sourceId: "aws_guardduty", severity: "medium", mitre: ["T1562.008"],
+    sourceId: "aws_guardduty", severity: "medium", mitre: ["T1685.002"],
     description: "DefenseEvasion:IAMUser/AnomalousBehavior on DeleteModelInvocationLoggingConfiguration — GuardDuty's anomaly detection firing on the call that turns Bedrock model-invocation logging off, the LLMjacking defense-evasion step.",
     logic: "SPL: type=\"DefenseEvasion:IAMUser/AnomalousBehavior\" service.action.awsApiCallAction.api=DeleteModelInvocationLoggingConfiguration",
     match: { all: [{ field: "type", op: "icontains", value: "DefenseEvasion:IAMUser/AnomalousBehavior" }, { field: "service.action.awsApiCallAction.api", op: "eq", value: "DeleteModelInvocationLoggingConfiguration" }] },

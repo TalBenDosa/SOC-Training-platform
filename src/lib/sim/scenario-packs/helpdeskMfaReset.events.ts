@@ -78,7 +78,7 @@ export function helpdeskMfaResetScenarioEvents() {
     serviceNowRecord({
       companyId: cx, id: "evt_hmr_02_ticket_created", ts: T(41 * MIN), table: "incident", number: ticket, state: "New",
       shortDescription: "Locked out — lost phone, needs password and MFA reset", callerId: victim.email,
-      mitre: "T1656", tactic: "Defense Evasion", severity: "low",
+      mitre: "T1684.001", tactic: "Stealth", severity: "low",
       extra: {
         "servicenow.description": "Caller states she is locked out of her account and lost the mobile device used for Microsoft Authenticator. Requesting password reset and MFA re-registration to regain access before the EOD trading window.",
         "servicenow.category": "Access", "servicenow.subcategory": "Password Reset", "servicenow.contact_type": "Phone",
@@ -122,7 +122,7 @@ export function helpdeskMfaResetScenarioEvents() {
       companyId: cx, id: "evt_hmr_05_mfa_reset", ts: T(53 * MIN), operationName: "Update user", loggedByService: "Core Directory",
       result: "success", resultReason: "Authentication methods reset by administrator", correlationId: "c7e29a4d-1f8b-4306-9a52-3d7e08c4f1a6",
       initiatedByUpn: helpdesk.email, initiatedById: helpdesk.id, initiatedByIp: helpdesk.ip, initiatedByRoles: ["Helpdesk Administrator"],
-      targetUpn: victim.email, targetId: victim.id, mitre: "T1556.006", tactic: "Defense Evasion", severity: "medium",
+      targetUpn: victim.email, targetId: victim.id, mitre: "T1556.006", tactic: "Defense Impairment", severity: "medium",
       extra: {
         "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].displayName": "StrongAuthenticationMethod",
         "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].oldValue": "[{\"MethodType\":\"PhoneAppNotification\",\"Default\":true}]",

@@ -40,7 +40,7 @@ const exposedKeyS3ExfilEvent: TelemetryEvent = {
   },
 };
 
-// ── Event 1b: Attacker disables the CloudTrail trail (defense evasion) ────────
+// ── Event 1b: Attacker disables the CloudTrail trail (defense impairment) ─────
 const cloudTrailStopLoggingEvent: TelemetryEvent = {
   id: "evt-aws-stoplogging-001",
   ts: "2026-06-11T04:02:09.000Z",
@@ -52,8 +52,8 @@ const cloudTrailStopLoggingEvent: TelemetryEvent = {
   src_ip: "185.220.101.47",
   geo: { country: "Netherlands", city: "Amsterdam" },
   description: "The organisation's primary CloudTrail trail was stopped via StopLogging, minutes before a burst of EC2 RunInstances calls: a classic move to blind the SOC before the noisy part of the attack",
-  mitre_technique: "T1562.008",
-  mitre_tactic: "Defense Evasion",
+  mitre_technique: "T1685.002",
+  mitre_tactic: "Defense Impairment",
   raw: {
     "aws.cloudtrail.eventName": "StopLogging",
     "aws.cloudtrail.eventSource": "cloudtrail.amazonaws.com",
@@ -168,8 +168,8 @@ const cloudTrailDisabledEvent: TelemetryEvent = {
   src_ip: "185.220.101.47",
   geo: { country: "Netherlands", city: "Amsterdam" },
   description: "The primary CloudTrail logging trail was stopped shortly before large EC2 GPU instances were launched in an unused region",
-  mitre_technique: "T1562.008",
-  mitre_tactic: "Defense Evasion",
+  mitre_technique: "T1685.002",
+  mitre_tactic: "Defense Impairment",
   raw: {
     "aws.cloudtrail.eventName": "StopLogging",
     "aws.cloudtrail.eventSource": "cloudtrail.amazonaws.com",
@@ -276,7 +276,7 @@ const awsSecurityRoom = {
         `**Management Events vs Data Events**\n\n` +
         `CloudTrail splits activity into two categories. **Management events** are control-plane actions, creating resources, changing permissions, starting or stopping services (e.g. CreateUser, StopLogging, RunInstances). These are logged by default. **Data events** are high-volume operations on the data itself, most commonly reading or writing individual objects inside an S3 bucket (e.g. GetObject, PutObject) or invoking a Lambda function. Data events are NOT logged by default because of their volume and cost: an organization must explicitly turn on S3 data event logging. This is a critical fact for a SOC analyst: if your organization has not enabled S3 data events, you may have zero visibility into who downloaded which file from a bucket, even though you can see that the bucket itself was created or its permissions were changed.\n\n` +
         `**Why Attackers Try to Kill CloudTrail**\n\n` +
-        `Because CloudTrail is the camera system, one of the very first things a sophisticated attacker with sufficient permissions will try to do is turn it off, using the StopLogging API call, or deleting the trail entirely, or modifying the S3 bucket that stores the logs so they can no longer be written. This is why StopLogging, DeleteTrail, UpdateTrail, and PutBucketPolicy against the CloudTrail log bucket should always be treated as a critical severity event: a defender's camera going dark, mid-investigation, is one of the strongest signals of malicious intent in all of cloud security (MITRE T1562.008. Impair Defenses: Disable Cloud Logs). Be precise about what goes dark: StopLogging halts that trail's delivery, the S3 log archive, the SIEM feed, and every data event the trail was collecting. It does NOT erase CloudTrail Event History (the built-in, 90-day record of management events that exists independently of any trail), and GuardDuty keeps analysing its own independent copy of the CloudTrail stream. Those two sources are how you reconstruct the blind window afterwards.\n\n` +
+        `Because CloudTrail is the camera system, one of the very first things a sophisticated attacker with sufficient permissions will try to do is turn it off, using the StopLogging API call, or deleting the trail entirely, or modifying the S3 bucket that stores the logs so they can no longer be written. This is why StopLogging, DeleteTrail, UpdateTrail, and PutBucketPolicy against the CloudTrail log bucket should always be treated as a critical severity event: a defender's camera going dark, mid-investigation, is one of the strongest signals of malicious intent in all of cloud security (MITRE T1685.002, Disable or Modify Tools: Disable or Modify Cloud Log, under the Defense Impairment tactic; formerly T1562.008 before ATT&CK v19). Be precise about what goes dark: StopLogging halts that trail's delivery, the S3 log archive, the SIEM feed, and every data event the trail was collecting. It does NOT erase CloudTrail Event History (the built-in, 90-day record of management events that exists independently of any trail), and GuardDuty keeps analysing its own independent copy of the CloudTrail stream. Those two sources are how you reconstruct the blind window afterwards.\n\n` +
         `**Where CloudTrail Logs Go**\n\n` +
         `By default, CloudTrail writes JSON log files to an S3 bucket roughly every 5 minutes. Most organizations also forward these events in near-real-time to a SIEM (Security Information and Event Management) platform, which is what allows a SOC analyst to search, alert, and correlate CloudTrail activity the same way they would with a Windows Event Log or a firewall log.`,
       codeExample:
@@ -718,11 +718,11 @@ const awsSecurityRoom = {
       },
     },
 
-    // ── Log Analysis: CloudTrail disabled (defense evasion) — precedes the flag ──
+    // ── Log Analysis: CloudTrail disabled (defense impairment) — precedes the flag ──
     {
       type: "log_analysis" as const,
       id: "aws-la-stoplogging",
-      heading: "Defense Evasion: The Trail Goes Quiet",
+      heading: "Defense Impairment: The Trail Goes Quiet",
       context:
         "At 04:02 UTC: minutes before a burst of EC2 RunInstances calls the team expected from the crypto-mining stage. This single management event landed in CloudTrail. Read it before the trail's own events stop arriving.",
       event: cloudTrailStopLoggingEvent,
@@ -738,7 +738,7 @@ const awsSecurityRoom = {
           ],
           answer: 1,
           explanation:
-            "StopLogging (T1562.008, Impair Defenses) stops the trail from delivering API activity. The empty errorCode plus action_result 'allowed' confirm it succeeded, and managementEvent:true / readOnly:false mark it as a state-changing control-plane action. From this timestamp on, the trail delivers nothing, management AND data events, so the attacker's crypto-mining RunInstances calls never reach the S3 archive or the SIEM feed. The disabling itself is the alert to chase: re-enable logging, pivot to the sources the attacker did not switch off (CloudTrail Event History, which keeps 90 days of management events independently of any trail; GuardDuty, which reads its own CloudTrail stream; VPC Flow Logs; billing) to reconstruct the blind window, and treat the identity that issued it as compromised. “Deleted the trail's existing log files” overstates it: StopLogging stops new delivery, and the files already written to S3 remain. “Pauses data events only” is wrong because the whole trail stops, management events included. “A blocked attempt” misreads the fields: an empty errorCode means success, and readOnly false only means the call changes state.",
+            "StopLogging (T1685.002, Disable or Modify Cloud Log) stops the trail from delivering API activity. The empty errorCode plus action_result 'allowed' confirm it succeeded, and managementEvent:true / readOnly:false mark it as a state-changing control-plane action. From this timestamp on, the trail delivers nothing, management AND data events, so the attacker's crypto-mining RunInstances calls never reach the S3 archive or the SIEM feed. The disabling itself is the alert to chase: re-enable logging, pivot to the sources the attacker did not switch off (CloudTrail Event History, which keeps 90 days of management events independently of any trail; GuardDuty, which reads its own CloudTrail stream; VPC Flow Logs; billing) to reconstruct the blind window, and treat the identity that issued it as compromised. “Deleted the trail's existing log files” overstates it: StopLogging stops new delivery, and the files already written to S3 remain. “Pauses data events only” is wrong because the whole trail stops, management events included. “A blocked attempt” misreads the fields: an empty errorCode means success, and readOnly false only means the call changes state.",
           xp: 25,
         },
       ],

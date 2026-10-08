@@ -147,7 +147,7 @@ export function gwsPhishingAttachmentScenarioEvents() {
       src_ip: host.ip,
       severity: "medium",
       mitre_technique: "T1027.006",
-      mitre_tactic: "Defense Evasion",
+      mitre_tactic: "Stealth",
       description:
         "At 08:45 the same Google Chrome process wrote /Users/s.amir/Downloads/Invoice_8842.dmg, 4.1 MB; no network row shows a .dmg fetched from any host.",
       file: {

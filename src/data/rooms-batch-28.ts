@@ -81,7 +81,7 @@ const regsvr32DeploymentEvent: TelemetryEvent = {
   hostname: "SRV-DEPLOY-07",
   user_email: "svc-sccm@nexacorp.com",
   mitre_technique: "T1218.010",
-  mitre_tactic: "Defense Evasion",
+  mitre_tactic: "Stealth",
   it_verify_result: "confirmed",
   it_verify_message:
     "Change ticket CHG0052291 authorizes NexaDeploy's scheduled rollout of ReportViewerCtl.dll to finance-team workstations during this maintenance window. svc-sccm is the deployment service account used for all NexaDeploy software pushes.",
@@ -104,7 +104,7 @@ const regsvr32DeploymentEvent: TelemetryEvent = {
     "crowdstrike.DetectId": "ldt:8006beb3bcd2593362266fe370c2b36f:55102",
     "crowdstrike.AggregateId": "aggind:8006beb3bcd2593362266fe370c2b36f:2147925683",
     "crowdstrike.SeverityName": "High",
-    "crowdstrike.Tactic": "Defense Evasion",
+    "crowdstrike.Tactic": "Stealth",
     "crowdstrike.Technique": "Signed Binary Proxy Execution",
     "crowdstrike.PatternDispositionDescription": "Detected, no action taken",
     "crowdstrike.ContextBaseFileName": "cmd.exe",
@@ -198,7 +198,7 @@ const edrDetectionInvestigationRoom = {
       type: "question" as const,
       id: "edr-q1",
       question:
-        "A CrowdStrike detection fires with crowdstrike.SeverityName: 'Critical' and crowdstrike.Tactic: 'Defense Evasion', tagged for a well-known LOLBin technique pattern. Based on Reading 2, what is the correct way to treat the SeverityName field at this stage of the investigation?",
+        "A CrowdStrike detection fires with crowdstrike.SeverityName: 'Critical' and crowdstrike.Tactic: 'Stealth', tagged for a well-known LOLBin technique pattern. Based on Reading 2, what is the correct way to treat the SeverityName field at this stage of the investigation?",
       options: [
         "As the final verdict: Critical means confirmed compromise, so escalate without reading the tree",
         "As the tool's automatic rating at match time: good for queue order, not a substitute for the tree",
@@ -449,11 +449,11 @@ const edrDetectionInvestigationRoom = {
       id: "edr-ac1",
       heading: "Verdict: A High-Severity LOLBin Detection During a Deployment Window",
       scenario:
-        "Falcon fires a High-severity detection on SRV-DEPLOY-07, tagged Tactic: Defense Evasion and Technique: Signed Binary Proxy Execution, the LOLBin technique family covered earlier in this room. Review the detection before deciding whether this is a true positive or a false positive.",
+        "Falcon fires a High-severity detection on SRV-DEPLOY-07, tagged Tactic: Stealth and Technique: Signed Binary Proxy Execution, the LOLBin technique family covered earlier in this room. Review the detection before deciding whether this is a true positive or a false positive.",
       event: regsvr32DeploymentEvent,
       correct_verdict: "false_positive",
       explanation:
-        "crowdstrike.UserName is NEXACORP\\svc-sccm, a known deployment service account, not a human user's account behaving unusually. crowdstrike.CommandLine points at an internal deployment path (C:\\ProgramData\\NexaDeploy\\Modules\\...) rather than a generic Temp or AppData location. crowdstrike.PatternDispositionDescription reads 'Detected, no action taken', which only tells you the command ran; as in the log analysis task, a disposition says whether the action happened, not whether it was benign, so it neither clears nor condemns this case. What decides it is the IT verification note: change ticket CHG0052291 authorizing exactly this rollout, on this host, during this window. SeverityName 'High' and Tactic 'Defense Evasion' were assigned automatically the instant the regsvr32 pattern matched, Reading 6's exact point, regardless of who ran it or why.",
+        "crowdstrike.UserName is NEXACORP\\svc-sccm, a known deployment service account, not a human user's account behaving unusually. crowdstrike.CommandLine points at an internal deployment path (C:\\ProgramData\\NexaDeploy\\Modules\\...) rather than a generic Temp or AppData location. crowdstrike.PatternDispositionDescription reads 'Detected, no action taken', which only tells you the command ran; as in the log analysis task, a disposition says whether the action happened, not whether it was benign, so it neither clears nor condemns this case. What decides it is the IT verification note: change ticket CHG0052291 authorizing exactly this rollout, on this host, during this window. SeverityName 'High' and Tactic 'Stealth' were assigned automatically the instant the regsvr32 pattern matched, Reading 6's exact point, regardless of who ran it or why.",
       fp_trap:
         "A High-severity Signed Binary Proxy Execution detection is precisely the kind of alert that gets escalated on reflex, because this room's earlier reading and log analysis task both taught you to take LOLBin patterns and credential-access attempts seriously. But High severity here is the tool's automatic technique-based rating, not a verdict on its own: the service account, the internal (not generic) deployment path and the matching change ticket are the specific fields that separate this case from the log analysis task's genuine credential-access attempt. Escalating every LOLBin detection without checking these fields either buries a SOC in noise on every deployment night, or, just as dangerously, teaches the team to stop reading past the technique name entirely.",
       xp: 35,

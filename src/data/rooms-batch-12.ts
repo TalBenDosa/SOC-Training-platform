@@ -63,7 +63,7 @@ const rooms = [
         id: "ucd-read-2",
         heading: "MITRE ATT&CK as a Use Case Framework and Writing Sigma Rules",
         content:
-          `Think of **MITRE ATT&CK** as the world's most comprehensive cookbook for attacker behavior. Just as a chef's cookbook catalogs every known recipe, ATT&CK catalogs every known attacker technique, from how they first get into a network (Initial Access) to how they steal data and leave (Exfiltration). As of 2025, the Enterprise matrix covers 14 Tactics and over 200 Techniques.\n\n` +
+          `Think of **MITRE ATT&CK** as the world's most comprehensive cookbook for attacker behavior. Just as a chef's cookbook catalogs every known recipe, ATT&CK catalogs every known attacker technique, from how they first get into a network (Initial Access) to how they steal data and leave (Exfiltration). As of ATT&CK v19 (2026), the Enterprise matrix covers 15 Tactics and over 200 Techniques.\n\n` +
           `For use case developers, ATT&CK is the starting point for almost every detection. Instead of guessing what to detect, you can systematically walk through the matrix and ask: "For each technique an attacker might use against us, do we have a detection use case?"\n\n` +
           `**Prioritizing Use Cases with ATT&CK**\n\n` +
           `You can't build a use case for every single ATT&CK technique. There are too many, and you may not have the right log sources for all of them. Prioritization matters:\n\n` +

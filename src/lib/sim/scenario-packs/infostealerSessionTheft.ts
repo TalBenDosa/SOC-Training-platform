@@ -206,7 +206,7 @@ Falcon's behavioural engine catches up at 11:45:10, quarantining PDF_Converter_P
       { ts: T(3 * HOUR + 47 * MIN + 4 * SEC), phase: "Credential Access", action: "Chrome's Login Data (saved passwords) copied out of the locked profile (T1555.003)" },
       { ts: T(3 * HOUR + 47 * MIN + 9 * SEC), phase: "Credential Access", action: "Chrome's Cookies database (live session state) copied out of the locked profile (T1539)" },
       { ts: T(3 * HOUR + 47 * MIN + 24 * SEC), phase: "Exfiltration", action: `Harvested archive POSTed to ${c2Domain} (T1041)` },
-      { ts: T(3 * HOUR + 52 * MIN + 40 * SEC), phase: "Defense Evasion", action: "Stolen session replayed from Moscow on an unmanaged device — MFA satisfied by a primary refresh token, no interactive step (T1550.004)" },
+      { ts: T(3 * HOUR + 52 * MIN + 40 * SEC), phase: "Lateral Movement", action: "Stolen session replayed from Moscow on an unmanaged device — MFA satisfied by a primary refresh token, no interactive step (T1550.004)" },
       { ts: T(3 * HOUR + 53 * MIN + 10 * SEC), phase: "Detection", action: "Falcon raises a Critical detection and quarantines the installer — after the transfer and the replay" },
       { ts: T(3 * HOUR + 53 * MIN + 55 * SEC), phase: "Collection", action: "Replayed session opens a sales forecast on SharePoint" },
     ],

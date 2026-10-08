@@ -671,7 +671,7 @@ const useCases: UseCase[] = [
   },
   {
     id: "windows_security.audit_log_cleared", title: "Security audit log cleared (1102)",
-    sourceId: "windows_security", kinds: ["1102"], severity: "high", mitre: ["T1070.001"],
+    sourceId: "windows_security", kinds: ["1102"], severity: "high", mitre: ["T1685.005"],
     description: "The Security event log was cleared (1102). Rare in normal operations and a classic anti-forensics step after hands-on-keyboard activity — correlate with what happened just before on the same host.",
     logic: "SPL: EventID=1102",
     match: { field: "EventID", op: "eq", value: 1102 },

@@ -419,11 +419,11 @@ const AI_BEDROCK_KEY_ABUSE: TelemetryEvent[] = [
       "PutFoundationModelEntitlement for anthropic.claude-sonnet-4-20250514-v1:0 in us-east-1 by the same key from 62.210.71.148, 37 seconds after the use-case submission. Platform engineers enable models with this same API through an SSO session in the console; the credential class, user agent and address around this call are different.",
   }),
 
-  // 8. DEFENSE EVASION. The invocation-logging configuration is deleted (T1562.008).
+  // 8. DEFENSE IMPAIRMENT. The invocation-logging configuration is deleted (T1685.002).
   bkAtk({
     id: "aibk8", ts: "2026-09-22T08:03:54.037Z", name: "DeleteModelInvocationLoggingConfiguration", region: "us-east-1",
     host: "bedrock.us-east-1.amazonaws.com", requestId: "e1a94c37-8b05-4d62-9f7e-0a6d3b58c412",
-    eventType: "policy_modification", severity: "critical", mitre: "T1562.008", tactic: "Defense Evasion",
+    eventType: "policy_modification", severity: "critical", mitre: "T1685.002", tactic: "Defense Impairment",
     description:
       "DeleteModelInvocationLoggingConfiguration in us-east-1 by the same key from 62.210.71.148, two minutes after the entitlement, deleting the configuration the key read at 07:58. From this call on, Bedrock requests in that region leave metadata in CloudTrail but no request or response content.",
   }),
@@ -438,12 +438,12 @@ const AI_BEDROCK_KEY_ABUSE: TelemetryEvent[] = [
       "InvokeModelWithResponseStream on eu.anthropic.claude-sonnet-4-20250514-v1:0 in eu-central-1 by the same key from 62.210.71.148, with a different aiohttp version in the user agent, 111 seconds after the logging configuration was deleted. One record from a continuous stream of similar calls (the total belongs in a correlation alert, not in this log). CloudTrail names the caller, model and region but carries no prompt text (ATLAS AML.T0040 AI Model Inference API Access).",
   }),
 
-  // 10. DETECTION. GuardDuty anomaly detection on a defense-evasion API (T1562.008).
+  // 10. DETECTION. GuardDuty anomaly detection on a defense-impairment API (T1685.002, formerly T1562.008).
   gd({
     id: "aibk10", ts: "2026-09-22T08:09:12.660Z", type: "DefenseEvasion:IAMUser/AnomalousBehavior", score: 5,
     title: "The API DeleteModelInvocationLoggingConfiguration was invoked using an IAM user's credentials in an anomalous way.",
     api: "DeleteModelInvocationLoggingConfiguration", service: "bedrock.amazonaws.com", ip: BK_IP, country: "France",
-    asn: "SCALEWAY S.A.S.", region: "us-east-1", ident: bkCi, geo: BK_GEO, severity: "high", mitre: "T1562.008", tactic: "Defense Evasion",
+    asn: "SCALEWAY S.A.S.", region: "us-east-1", ident: bkCi, geo: BK_GEO, severity: "high", mitre: "T1685.002", tactic: "Defense Impairment",
     seen: "2026-09-22T08:03:54.037Z",
     detail: "An API commonly used to evade defensive measures was invoked in an anomalous way.",
     description:

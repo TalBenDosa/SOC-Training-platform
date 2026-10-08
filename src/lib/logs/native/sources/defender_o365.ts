@@ -422,7 +422,7 @@ const useCases: UseCase[] = [
   {
     id: "defender_o365.impersonation-bec",
     title: "User / domain impersonation (BEC) verdict",
-    sourceId: "defender_o365", kinds: ["EmailEvents"], severity: "high", mitre: ["T1566", "T1656"],
+    sourceId: "defender_o365", kinds: ["EmailEvents"], severity: "high", mitre: ["T1566", "T1684.001"],
     description: "DetectionMethods \"Impersonation user/domain\" or EmailActionPolicy Anti-phishing impersonation: a display name or domain imitating an executive / partner. Even when junked, check whether the recipient replied (outbound mail to the Reply-To) and whether the same sender reached others.",
     logic: "Defender KQL:\nEmailEvents | where DetectionMethods has \"Impersonation\" or EmailActionPolicy has \"impersonation\"\n| project Timestamp, SenderFromAddress, SenderDisplayName, RecipientEmailAddress, DeliveryLocation",
     match: { any: [{ field: "properties.DetectionMethods", op: "icontains", value: "impersonation" }, { field: "properties.EmailActionPolicy", op: "icontains", value: "impersonation" }] },

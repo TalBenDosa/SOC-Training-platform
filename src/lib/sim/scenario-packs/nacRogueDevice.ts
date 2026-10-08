@@ -241,7 +241,7 @@ export function buildNacRogueDeviceScenario(
       src_ip: rogueIp,
       severity: "high",
       mitre_technique: "T1036",
-      mitre_tactic: "Defense Evasion",
+      mitre_tactic: "Stealth",
       incident_id: INCIDENT,
       edr_scope: "non_edr",
       description:
@@ -291,7 +291,7 @@ export function buildNacRogueDeviceScenario(
       src_ip: rogueIp,
       severity: "high",
       mitre_technique: "T1078",
-      mitre_tactic: "Defense Evasion",
+      mitre_tactic: "Stealth",
       incident_id: INCIDENT,
       edr_scope: "non_edr",
       description:
@@ -352,7 +352,7 @@ export function buildNacRogueDeviceScenario(
       dst_ip: "10.30.9.55",
       severity: "high",
       mitre_technique: "T1078",
-      mitre_tactic: "Defense Evasion",
+      mitre_tactic: "Stealth",
       incident_id: INCIDENT,
       edr_scope: "non_edr",
       description:
@@ -629,7 +629,7 @@ The managed laptop NEXA-LT-4471, shown first, is the contrast: 802.1X EAP-TLS wi
     killchain: [
       { ts: T(0), phase: "Baseline", action: `Managed laptop ${goodLaptop.name} onboards cleanly — EAP-TLS, Compliant posture, CORP VLAN (the comparison)` },
       { ts: T(52 * MIN), phase: "Initial Access", action: `Rogue device plugged into ${accessSwitch.name} ${accessSwitch.port}; MAB accepts spoofed printer MAC ${printerMac} onto VLAN 50` },
-      { ts: T(52 * MIN + 40_000), phase: "Defense Evasion", action: `DHCP request leaks a Windows fingerprint (MSFT 5.0) and hostname ${rogueHostname} — not a printer` },
+      { ts: T(52 * MIN + 40_000), phase: "Stealth", action: `DHCP request leaks a Windows fingerprint (MSFT 5.0) and hostname ${rogueHostname} — not a printer` },
       { ts: T(54 * MIN), phase: "Discovery", action: `ISE profiler reprofiles HP-Device → Microsoft-Workstation and raises Anomalous Behaviour (MAC spoofing)` },
       { ts: T(56 * MIN), phase: "Credential Access", action: "Posture assessment fails — unknown CA, no AV, no EDR, firewall off; device is unmanaged" },
       { ts: T(58 * MIN), phase: "Lateral Movement", action: "Attempt to reach the Finance segment denied by ISE authorization (restrictive dACL)" },

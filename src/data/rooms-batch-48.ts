@@ -15,10 +15,12 @@
  * time (2026-09-09):
  *   - T1566.004 -- Spearphishing Voice, sub-technique of T1566 (Phishing),
  *     Initial Access (TA0001).
- *   - T1656 -- Impersonation, Defense Evasion (TA0005).
+ *   - T1684.001 -- Social Engineering: Impersonation, Stealth (TA0005).
+ *     Updated to ATT&CK v19 (April 2026): formerly T1656 under the tactic
+ *     then named Defense Evasion; TA0005 kept its ID and became Stealth.
  *   - T1078 -- Valid Accounts, verified to carry FOUR tactics: Initial
  *     Access (TA0001), Persistence (TA0003), Privilege Escalation (TA0004),
- *     Defense Evasion (TA0005) -- all four listed throughout this room's
+ *     Stealth (TA0005) -- all four listed throughout this room's
  *     readings, never just one.
  *   - T1621 -- Multi-Factor Authentication Request Generation, Credential
  *     Access (TA0006).
@@ -29,10 +31,10 @@
  *     Persistence room (rooms-batch-27.ts), NOT re-taught in depth here.
  *
  * REAL INCIDENTS covered, with technique(s) each maps to:
- *   - MGM Resorts (10 Sep 2023) -> T1656 -> T1078, via CISA/FBI advisory
+ *   - MGM Resorts (10 Sep 2023) -> T1684.001 -> T1078, via CISA/FBI advisory
  *     AA23-320A (Scattered Spider / UNC3944 / Scatter Swine / Oktapus /
  *     Octo Tempest / Storm-0875 / Muddled Libra).
- *   - Caesars Entertainment (Sep 2023) -> SIM swap + T1656 -> T1078, same
+ *   - Caesars Entertainment (Sep 2023) -> SIM swap + T1684.001 -> T1078, same
  *     advisory.
  *   - Retool (27 Aug 2023) -> smishing + deepfake T1566.004 -> T1098.005
  *     (cross-linked, not re-taught).
@@ -62,7 +64,8 @@
  * SOURCES consulted directly for this content:
  *  - MITRE ATT&CK, T1566.004 Spearphishing Voice
  *    (attack.mitre.org/techniques/T1566/004/)
- *  - MITRE ATT&CK, T1656 Impersonation (attack.mitre.org/techniques/T1656/)
+ *  - MITRE ATT&CK, T1684.001 Social Engineering: Impersonation
+ *    (attack.mitre.org/techniques/T1684/001/)
  *  - MITRE ATT&CK, T1078 Valid Accounts (attack.mitre.org/techniques/T1078/)
  *  - MITRE ATT&CK, T1621 Multi-Factor Authentication Request Generation
  *    (attack.mitre.org/techniques/T1621/)
@@ -88,7 +91,7 @@ export const roomsBatch48 = [
 {
   "id": "vishing-helpdesk-social-engineering",
   "title": "Vishing and Voice-Based Social Engineering: The Help-Desk Attack",
-  "description": "Every technical email control this platform's other rooms teach -- SPF/DKIM/DMARC, URL sandboxing, attachment detonation -- inspects a message, and a phone call has no message to inspect. This room covers vishing (voice phishing), MITRE ATT&CK's T1566.004 (Spearphishing Voice), through the single highest-leverage target it exploits inside almost every organization: the IT help desk, whose job is to say yes to a locked-out caller. Follow the full attack arc from LinkedIn-sourced reconnaissance (T1589/T1591) through impersonation (T1656) to a help-desk-performed password or MFA reset and the resulting valid-account access (T1078); study four real, publicly documented incidents -- MGM Resorts and Caesars Entertainment (Scattered Spider/UNC3944, September 2023, per CISA advisory AA23-320A), Retool's 2023 deepfake voice call, and the Twilio/Cisco 2022 MFA-push pattern; read genuine Microsoft Entra ID identity-administration and sign-in log fields for the fingerprints a call leaves behind; and learn the one fact that actually separates a legitimate help-desk reset from a vishing-driven takeover -- an out-of-band identity check the caller cannot control, not the sound of a voice a deepfake can now convincingly fake.",
+  "description": "Every technical email control this platform's other rooms teach -- SPF/DKIM/DMARC, URL sandboxing, attachment detonation -- inspects a message, and a phone call has no message to inspect. This room covers vishing (voice phishing), MITRE ATT&CK's T1566.004 (Spearphishing Voice), through the single highest-leverage target it exploits inside almost every organization: the IT help desk, whose job is to say yes to a locked-out caller. Follow the full attack arc from LinkedIn-sourced reconnaissance (T1589/T1591) through impersonation (T1684.001, formerly T1656) to a help-desk-performed password or MFA reset and the resulting valid-account access (T1078); study four real, publicly documented incidents -- MGM Resorts and Caesars Entertainment (Scattered Spider/UNC3944, September 2023, per CISA advisory AA23-320A), Retool's 2023 deepfake voice call, and the Twilio/Cisco 2022 MFA-push pattern; read genuine Microsoft Entra ID identity-administration and sign-in log fields for the fingerprints a call leaves behind; and learn the one fact that actually separates a legitimate help-desk reset from a vishing-driven takeover -- an out-of-band identity check the caller cannot control, not the sound of a voice a deepfake can now convincingly fake.",
   "difficulty": "intermediate",
   "category": "Threat Detection",
   "estimatedMinutes": 80,
@@ -108,12 +111,12 @@ export const roomsBatch48 = [
         "question": "Per this reading, under which MITRE ATT&CK tactic and parent technique does T1566.004 (Spearphishing Voice) sit?",
         "options": [
           "It sits under the Initial Access tactic (TA0001), as one of four sub-techniques of T1566, Phishing",
-          "It sits under the Defense Evasion tactic (TA0005), as a sub-technique of T1656, Impersonation",
+          "It sits under the Stealth tactic (TA0005), as a sub-technique of T1684, Social Engineering",
           "It sits under the Credential Access tactic (TA0006), as a sub-technique of T1621, MFA Request Generation",
           "It sits under the Persistence tactic (TA0003), as a sub-technique of T1098, Account Manipulation"
         ],
         "answer": 0,
-        "explanation": "This reading states it directly: T1566.004 is Spearphishing Voice, one of four sub-techniques of T1566 Phishing, filed under Initial Access (TA0001) -- the same tactic every other phishing sub-technique carries. T1656 (Impersonation), T1621 (MFA Request Generation), and T1098 (Account Manipulation) are all real, separate techniques this room covers later, but none of them is T1566.004's parent or tactic."
+        "explanation": "This reading states it directly: T1566.004 is Spearphishing Voice, one of four sub-techniques of T1566 Phishing, filed under Initial Access (TA0001) -- the same tactic every other phishing sub-technique carries. T1684 (Social Engineering, whose sub-technique T1684.001 is Impersonation), T1621 (MFA Request Generation), and T1098 (Account Manipulation) are all real, separate techniques this room covers later, but none of them is T1566.004's parent or tactic."
       },
       "xp": 5
     },
@@ -121,7 +124,7 @@ export const roomsBatch48 = [
       "type": "reading" as const,
       "id": "vish-r1",
       "heading": "The Help-Desk Attack, End to End: From OSINT to Account Takeover",
-      "content": "Every real vishing-against-a-help-desk incident this room covers follows the same four-stage arc, whether the target is a casino operator, a software company, or a telecom. Understanding the stages in order is what lets an analyst recognize which stage a piece of evidence belongs to, rather than treating a single reset ticket as the whole story.\n\n### Stage 1: Reconnaissance -- Building a Convincing Identity to Steal\n\nBefore ever placing a call, an attacker gathers exactly the personal and organizational details a help-desk verification script is likely to ask for: full name, job title, manager's name, employee ID format, recent projects, even a home address or the last four digits of a phone number. MITRE ATT&CK names two Reconnaissance-tactic (`TA0043`) techniques for this: `T1589`, Gather Victim Identity Information (personal details about a specific person -- names, credentials, security-question-style answers), and `T1591`, Gather Victim Org Information (organizational structure, departments, and internal terminology that makes an impersonation sound like it comes from inside the building). LinkedIn, a company's own public \"About the team\" page, a data broker site, or an unrelated prior data breach are all realistic sources -- none of this requires hacking anything.\n\n### Stage 2: The Call -- Spearphishing Voice and Impersonation\n\nThe attacker calls the target's help desk (or, in some documented cases, sends a text first to build a pretext before calling). This is `T1566.004`, Spearphishing Voice, and the act of claiming to be someone the agent will trust -- a real, named employee, sometimes even referencing a real manager or ticket number gathered in Stage 1 -- is `T1656`, Impersonation. MITRE places `T1656` under the Defense Evasion tactic (`TA0005`): the impersonation itself is what lets the fraudulent request slip past the human verification step that exists specifically to catch it, the same functional role a spoofed sender header plays in email phishing.\n\n### Stage 3: The Ask -- What the Attacker Actually Requests\n\nOnce the agent believes the caller is legitimate, the request itself is almost always one of three things, and all three appear in this room's real-incident readings: a password reset, so the attacker can sign in with a credential they now control; disabling or resetting the account's existing MFA method, so a stolen or reset password is sufficient on its own; or registering a brand-new authentication method or device on the account, which -- as this platform's Device Registration & MFA Persistence room covers in depth (`T1098.005`, Account Manipulation: Device Registration) -- creates a standing foothold that a later password reset alone will not remove. This room focuses on the moment a help-desk agent performs one of these three actions believing they are helping a real employee; that other room covers what an attacker does with the foothold once obtained.\n\n### Stage 4: The Payoff -- Valid Accounts\n\nWith a reset password, a disabled MFA requirement, or a newly registered device in hand, the attacker signs in using entirely legitimate, working credentials. This is `T1078`, Valid Accounts -- MITRE ATT&CK's own name for exactly this situation, and one of the few techniques listed under four different tactics at once: Initial Access (`TA0001`), Persistence (`TA0003`), Privilege Escalation (`TA0004`), and Defense Evasion (`TA0005`). The reason for all four listings is direct: a valid, working login gets an attacker in the door (Initial Access), keeps working after the original entry point is closed (Persistence), can carry whatever privileges the compromised account already held (Privilege Escalation), and produces a sign-in that looks, to nearly every automated control, identical to the real employee logging in (Defense Evasion) -- because, technically, it is the real employee's account.\n\n### A Second Flavor Worth Knowing: Vishing the Victim Directly\n\nNot every vishing case targets the help desk. A related but distinct pattern -- covered with real examples later in this room -- has the attacker call the actual account owner instead, already holding a valid password from an earlier compromise, and talk them into approving a live MFA push notification the attacker just triggered. MITRE names this specific abuse `T1621`, Multi-Factor Authentication Request Generation, filed under the Credential Access tactic (`TA0006`). The difference matters for an investigator: a help-desk-targeted vishing case leaves its fingerprints in identity-administration logs (who reset what, and who authorized it); an MFA-push vishing case leaves its fingerprints in authentication logs (an approved push the real user did not consciously mean to approve).",
+      "content": "Every real vishing-against-a-help-desk incident this room covers follows the same four-stage arc, whether the target is a casino operator, a software company, or a telecom. Understanding the stages in order is what lets an analyst recognize which stage a piece of evidence belongs to, rather than treating a single reset ticket as the whole story.\n\n### Stage 1: Reconnaissance -- Building a Convincing Identity to Steal\n\nBefore ever placing a call, an attacker gathers exactly the personal and organizational details a help-desk verification script is likely to ask for: full name, job title, manager's name, employee ID format, recent projects, even a home address or the last four digits of a phone number. MITRE ATT&CK names two Reconnaissance-tactic (`TA0043`) techniques for this: `T1589`, Gather Victim Identity Information (personal details about a specific person -- names, credentials, security-question-style answers), and `T1591`, Gather Victim Org Information (organizational structure, departments, and internal terminology that makes an impersonation sound like it comes from inside the building). LinkedIn, a company's own public \"About the team\" page, a data broker site, or an unrelated prior data breach are all realistic sources -- none of this requires hacking anything.\n\n### Stage 2: The Call -- Spearphishing Voice and Impersonation\n\nThe attacker calls the target's help desk (or, in some documented cases, sends a text first to build a pretext before calling). This is `T1566.004`, Spearphishing Voice, and the act of claiming to be someone the agent will trust -- a real, named employee, sometimes even referencing a real manager or ticket number gathered in Stage 1 -- is `T1684.001`, Social Engineering: Impersonation (formerly `T1656`; ATT&CK v19 moved it under a new parent technique, `T1684` Social Engineering). MITRE places `T1684.001` under the Stealth tactic (`TA0005`, called Defense Evasion before ATT&CK v19): the impersonation itself is what lets the fraudulent request slip past the human verification step that exists specifically to catch it, the same functional role a spoofed sender header plays in email phishing.\n\n### Stage 3: The Ask -- What the Attacker Actually Requests\n\nOnce the agent believes the caller is legitimate, the request itself is almost always one of three things, and all three appear in this room's real-incident readings: a password reset, so the attacker can sign in with a credential they now control; disabling or resetting the account's existing MFA method, so a stolen or reset password is sufficient on its own; or registering a brand-new authentication method or device on the account, which -- as this platform's Device Registration & MFA Persistence room covers in depth (`T1098.005`, Account Manipulation: Device Registration) -- creates a standing foothold that a later password reset alone will not remove. This room focuses on the moment a help-desk agent performs one of these three actions believing they are helping a real employee; that other room covers what an attacker does with the foothold once obtained.\n\n### Stage 4: The Payoff -- Valid Accounts\n\nWith a reset password, a disabled MFA requirement, or a newly registered device in hand, the attacker signs in using entirely legitimate, working credentials. This is `T1078`, Valid Accounts -- MITRE ATT&CK's own name for exactly this situation, and one of the few techniques listed under four different tactics at once: Initial Access (`TA0001`), Persistence (`TA0003`), Privilege Escalation (`TA0004`), and Stealth (`TA0005`). The reason for all four listings is direct: a valid, working login gets an attacker in the door (Initial Access), keeps working after the original entry point is closed (Persistence), can carry whatever privileges the compromised account already held (Privilege Escalation), and produces a sign-in that looks, to nearly every automated control, identical to the real employee logging in (Stealth) -- because, technically, it is the real employee's account.\n\n### A Second Flavor Worth Knowing: Vishing the Victim Directly\n\nNot every vishing case targets the help desk. A related but distinct pattern -- covered with real examples later in this room -- has the attacker call the actual account owner instead, already holding a valid password from an earlier compromise, and talk them into approving a live MFA push notification the attacker just triggered. MITRE names this specific abuse `T1621`, Multi-Factor Authentication Request Generation, filed under the Credential Access tactic (`TA0006`). The difference matters for an investigator: a help-desk-targeted vishing case leaves its fingerprints in identity-administration logs (who reset what, and who authorized it); an MFA-push vishing case leaves its fingerprints in authentication logs (an approved push the real user did not consciously mean to approve).",
       "checkpoint": {
         "question": "Per this reading, why is T1078 (Valid Accounts) listed under four different MITRE ATT&CK tactics at once?",
         "options": [
@@ -131,7 +134,7 @@ export const roomsBatch48 = [
           "ATT&CK files a technique under one tactic for each threat group seen using it, and four groups have used T1078",
         ],
         "answer": 0,
-        "explanation": "The reading gives one reason per tactic: a valid login is the way in (Initial Access), keeps working after the entry point is closed (Persistence), brings whatever privileges the account already had (Privilege Escalation), and looks like the real employee (Defense Evasion). “Initial Access, Lateral Movement, Collection and finally Exfiltration” names the wrong tactics: those are later stages of an intrusion, not T1078's listings. “Each of the four sub-techniques is filed under a different tactic” confuses sub-techniques (account types) with tactics: all of them share the same four tactics. “One tactic for each threat group” is not how ATT&CK assigns tactics: a tactic is the goal a technique achieves, not who used it.",
+        "explanation": "The reading gives one reason per tactic: a valid login is the way in (Initial Access), keeps working after the entry point is closed (Persistence), brings whatever privileges the account already had (Privilege Escalation), and looks like the real employee (Stealth). “Initial Access, Lateral Movement, Collection and finally Exfiltration” names the wrong tactics: those are later stages of an intrusion, not T1078's listings. “Each of the four sub-techniques is filed under a different tactic” confuses sub-techniques (account types) with tactics: all of them share the same four tactics. “One tactic for each threat group” is not how ATT&CK assigns tactics: a tactic is the goal a technique achieves, not who used it.",
       },
       "xp": 5
     },
@@ -144,12 +147,12 @@ export const roomsBatch48 = [
         "question": "Per this reading, what specific weakness in MGM's help-desk verification process did the attacker exploit, and what MITRE ATT&CK techniques does this room's earlier reading assign to gathering the information needed to exploit it?",
         "options": [
           "Knowledge-based questions whose answers were public, gathered in advance via T1589 and T1591",
-          "Knowledge-based questions, which the caller passed with T1656 alone and no research beforehand",
+          "Knowledge-based questions, which the caller passed with T1684.001 alone and no research done",
           "SMS one-time codes, intercepted after a SIM swap that was planned through T1591 research",
           "Push MFA approvals, triggered in bulk via T1621 until the employee finally accepted one",
         ],
         "answer": 0,
-        "explanation": "MGM's help desk relied on knowledge-based authentication (KBA), and its answers could be found or inferred from public sources. That is exactly what Stage 1 reconnaissance (T1589 Gather Victim Identity Information, T1591 Gather Victim Org Information) collects before the call. “Passed with T1656 alone and no research beforehand” gets the weakness right but drops the reconnaissance that made the impersonation convincing. “SMS one-time codes, intercepted after a SIM swap” describes the Caesars-style SIM-swap element, not MGM's verification weakness. “Push MFA approvals, triggered in bulk via T1621” is the Twilio/Cisco pattern, aimed at the account owner rather than at a help desk.",
+        "explanation": "MGM's help desk relied on knowledge-based authentication (KBA), and its answers could be found or inferred from public sources. That is exactly what Stage 1 reconnaissance (T1589 Gather Victim Identity Information, T1591 Gather Victim Org Information) collects before the call. “Passed with T1684.001 alone and no research done” gets the weakness right but drops the reconnaissance that made the impersonation convincing. “SMS one-time codes, intercepted after a SIM swap” describes the Caesars-style SIM-swap element, not MGM's verification weakness. “Push MFA approvals, triggered in bulk via T1621” is the Twilio/Cisco pattern, aimed at the account owner rather than at a help desk.",
       },
       "xp": 5
     },
@@ -176,13 +179,13 @@ export const roomsBatch48 = [
       "id": "vish-q1",
       "question": "An analyst reconstructs a suspected vishing case: an attacker found an employee's name and manager on LinkedIn, then called the help desk claiming to be that employee, and the agent reset the account's password. Which two MITRE ATT&CK techniques describe the LinkedIn research step and the impersonation-during-the-call step, and under which tactics does each sit?",
       "options": [
-        "T1589 (Gather Victim Identity Information) under Reconnaissance (TA0043) for the LinkedIn research, and T1656 (Impersonation) under Defense Evasion (TA0005) for claiming to be the employee during the call",
+        "T1589 (Gather Victim Identity Information) under Reconnaissance (TA0043) for the LinkedIn research, and T1684.001 (Impersonation) under Stealth (TA0005) for claiming to be the employee during the call",
         "T1589 (Gather Victim Identity Information) under Reconnaissance (TA0043) for the LinkedIn research, and T1078 (Valid Accounts) under Initial Access (TA0001) for claiming to be the employee during the call",
-        "T1598.004 (Phishing for Information: Spearphishing Voice) under Reconnaissance (TA0043) for the LinkedIn research, and T1656 (Impersonation) under Defense Evasion (TA0005) for claiming to be the employee during the call",
-        "T1589 (Gather Victim Identity Information) under Reconnaissance (TA0043) for the LinkedIn research, and T1656 (Impersonation) under Initial Access (TA0001) for claiming to be the employee during the call"
+        "T1598.004 (Phishing for Information: Spearphishing Voice) under Reconnaissance (TA0043) for the LinkedIn research, and T1684.001 (Impersonation) under Stealth (TA0005) for claiming to be the employee during the call",
+        "T1589 (Gather Victim Identity Information) under Reconnaissance (TA0043) for the LinkedIn research, and T1684.001 (Impersonation) under Initial Access (TA0001) for claiming to be the employee during the call"
       ],
       "answer": 0,
-      "explanation": "This room's attack-flow reading assigns these two steps exactly this way: LinkedIn-based research is T1589 (Gather Victim Identity Information) under Reconnaissance (TA0043), and claiming to be a real employee on the call is T1656 (Impersonation) under Defense Evasion (TA0005). The T1078 option gets the research right but maps the call to Valid Accounts, which describes USING credentials after they are obtained, not the act of impersonating someone to get them. The T1598.004 option treats passive LinkedIn research as Spearphishing Voice for information, an active phishing-for-information technique that requires contacting the target. The option placing T1656 under Initial Access has both techniques right but the wrong tactic -- ATT&CK lists Impersonation under Defense Evasion.",
+      "explanation": "This room's attack-flow reading assigns these two steps exactly this way: LinkedIn-based research is T1589 (Gather Victim Identity Information) under Reconnaissance (TA0043), and claiming to be a real employee on the call is T1684.001 (Social Engineering: Impersonation, formerly T1656) under Stealth (TA0005, called Defense Evasion before ATT&CK v19). The T1078 option gets the research right but maps the call to Valid Accounts, which describes USING credentials after they are obtained, not the act of impersonating someone to get them. The T1598.004 option treats passive LinkedIn research as Spearphishing Voice for information, an active phishing-for-information technique that requires contacting the target. The option placing T1684.001 under Initial Access has both techniques right but the wrong tactic -- ATT&CK lists Impersonation under Stealth.",
       "xp": 25
     },
     {
@@ -256,13 +259,13 @@ export const roomsBatch48 = [
       "id": "vish-q2",
       "question": "Incident A: an attacker who already held a stolen password called the employee directly to get them to approve a live MFA push. Incident B: an attacker called the company's help desk, impersonating the employee, to get an agent to reset the account's password and MFA method. Based on this room's incident readings, which technique and log-source pairing correctly matches each incident?",
       "options": [
-        "Incident A matches T1621 (MFA Request Generation), visible in authentication/sign-in logs; Incident B matches T1656 (Impersonation) leading to T1078 (Valid Accounts), visible in identity-administration audit logs",
-        "Incident A matches T1621 (MFA Request Generation), visible in identity-administration audit logs; Incident B matches T1656 (Impersonation) leading to T1078 (Valid Accounts), visible in authentication/sign-in logs",
+        "Incident A matches T1621 (MFA Request Generation), visible in authentication/sign-in logs; Incident B matches T1684.001 (Impersonation) leading to T1078 (Valid Accounts), visible in identity-administration audit logs",
+        "Incident A matches T1621 (MFA Request Generation), visible in identity-administration audit logs; Incident B matches T1684.001 (Impersonation) leading to T1078 (Valid Accounts), visible in authentication/sign-in logs",
         "Both incidents match T1621 (MFA Request Generation), since each ends with the attacker triggering an MFA prompt, and both are visible in authentication/sign-in logs",
-        "Incident A matches T1556.006 (Modify Authentication Process: MFA), visible in identity-administration audit logs; Incident B matches T1656 (Impersonation), visible in authentication/sign-in logs"
+        "Incident A matches T1556.006 (Modify Authentication Process: MFA), visible in identity-administration audit logs; Incident B matches T1684.001 (Impersonation), visible in authentication/sign-in logs"
       ],
       "answer": 0,
-      "explanation": "This room's Twilio/Cisco reading covers exactly Incident A's pattern (calling the account owner directly to approve a push) as T1621, visible in authentication/sign-in logs. This room's MGM/Caesars reading covers exactly Incident B's pattern (calling the help desk to get someone else to act) as T1656 leading to T1078, visible in identity-administration audit logs. The option that swaps the log sources has the right techniques but the wrong logs: the push approval shows up at sign-in, while the admin-performed reset shows up in the audit log. Calling both incidents T1621 collapses the two flavors into one -- Incident B never involves the attacker generating MFA prompts, and this room's post-call-fingerprints reading is explicit that the two leave fingerprints in DIFFERENT log sources. The T1556.006 option applies Modify Authentication Process (MFA configuration changes) to Incident A, where the existing MFA is satisfied by the victim rather than altered.",
+      "explanation": "This room's Twilio/Cisco reading covers exactly Incident A's pattern (calling the account owner directly to approve a push) as T1621, visible in authentication/sign-in logs. This room's MGM/Caesars reading covers exactly Incident B's pattern (calling the help desk to get someone else to act) as T1684.001 (Impersonation, formerly T1656) leading to T1078, visible in identity-administration audit logs. The option that swaps the log sources has the right techniques but the wrong logs: the push approval shows up at sign-in, while the admin-performed reset shows up in the audit log. Calling both incidents T1621 collapses the two flavors into one -- Incident B never involves the attacker generating MFA prompts, and this room's post-call-fingerprints reading is explicit that the two leave fingerprints in DIFFERENT log sources. The T1556.006 option applies Modify Authentication Process (MFA configuration changes) to Incident A, where the existing MFA is satisfied by the victim rather than altered.",
       "xp": 25
     },
     {
@@ -327,7 +330,7 @@ export const roomsBatch48 = [
         },
         {
           "id": "call",
-          "text": "Attacker calls the help desk, impersonating the employee (T1566.004 + T1656)"
+          "text": "Attacker calls the help desk, impersonating the employee (T1566.004 + T1684.001)"
         },
         {
           "id": "ask",
@@ -349,7 +352,7 @@ export const roomsBatch48 = [
         "login",
         "persist"
       ],
-      "explanation": "This is the exact four-stage arc this room's second reading walked, with the optional fifth persistence step this room cross-references to the Device Registration & MFA Persistence room: reconnaissance builds the identity to steal (T1589/T1591), the call and impersonation follow (T1566.004 + T1656), the help desk performs the requested reset believing the caller, the attacker signs in with now-valid credentials (T1078), and only after all of that can the attacker optionally register their own MFA method to outlast a later remediation attempt (T1098.005). Reversing recon and the call would require the attacker to already know details they have not yet gathered; performing the reset before the call has no impersonation to act on; and registering a persistence method requires the working access that only comes after a successful login.",
+      "explanation": "This is the exact four-stage arc this room's second reading walked, with the optional fifth persistence step this room cross-references to the Device Registration & MFA Persistence room: reconnaissance builds the identity to steal (T1589/T1591), the call and impersonation follow (T1566.004 + T1684.001), the help desk performs the requested reset believing the caller, the attacker signs in with now-valid credentials (T1078), and only after all of that can the attacker optionally register their own MFA method to outlast a later remediation attempt (T1098.005). Reversing recon and the call would require the attacker to already know details they have not yet gathered; performing the reset before the call has no impersonation to act on; and registering a persistence method requires the working access that only comes after a successful login.",
       "xp": 30
     },
     {
@@ -364,8 +367,8 @@ export const roomsBatch48 = [
         "vendor": "Microsoft Entra ID",
         "event_type": "account_modify",
         "severity": "high",
-        "mitre_technique": "T1656",
-        "mitre_tactic": "Defense Evasion",
+        "mitre_technique": "T1684.001",
+        "mitre_tactic": "Stealth",
         "edr_scope": "non_edr",
         "user_email": "r.castillo@solsticefg.com",
         "src_ip": "198.51.100.44",
@@ -436,8 +439,8 @@ export const roomsBatch48 = [
         "vendor": "Microsoft Entra ID",
         "event_type": "account_modify",
         "severity": "medium",
-        "mitre_technique": "T1656",
-        "mitre_tactic": "Defense Evasion",
+        "mitre_technique": "T1684.001",
+        "mitre_tactic": "Stealth",
         "edr_scope": "non_edr",
         "user_email": "m.alvarez@solsticefg.com",
         "src_ip": "203.0.113.19",

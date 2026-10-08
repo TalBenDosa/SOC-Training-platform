@@ -232,11 +232,11 @@ const dataStagingExfilRoom = {
       "options": [
         "The colleague is wrong: T1560.001 is Collection (TA0009), because packaging leaves the data on the host; Exfiltration begins only when data is moved off it",
         "The colleague is right: T1560.001 becomes Exfiltration (TA0010) once the archive is encrypted, since encryption is where data stops being inspectable",
-        "The colleague is partly right: T1560.001 is Defense Evasion (TA0005), because encrypting the archive mainly hides contents from DLP rather than gathering data",
+        "The colleague is partly right: T1560.001 is Stealth (TA0005), because encrypting the archive mainly hides contents from DLP rather than gathering data",
         "The colleague is right only for split archives. Volume splitting with -v is T1030 behaviour, so the archive step turns into Exfiltration once it is applied"
       ],
       "answer": 0,
-      "explanation": "T1560.001 sits under the Collection tactic (TA0009) precisely because packaging data does not move it anywhere: the archive still sits on the same host it was created on. The tactic changes to Exfiltration only at the technique that actually removes data from the compromised system (T1052.001, T1567.002, T1048, etc.). ATT&CK does not use password-protection as a tactic boundary, so encrypting the archive does not turn it into Exfiltration; encryption's effect on DLP is a defender-side consequence, but the technique's assigned tactic remains Collection, not Defense Evasion; and volume splitting alone does not move data, so it does not change the tactic of the archive step either (T1030 is a separate technique applied during the actual transfer).",
+      "explanation": "T1560.001 sits under the Collection tactic (TA0009) precisely because packaging data does not move it anywhere: the archive still sits on the same host it was created on. The tactic changes to Exfiltration only at the technique that actually removes data from the compromised system (T1052.001, T1567.002, T1048, etc.). ATT&CK does not use password-protection as a tactic boundary, so encrypting the archive does not turn it into Exfiltration; encryption's effect on DLP is a defender-side consequence, but the technique's assigned tactic remains Collection, not Stealth (the v19 name for Defense Evasion); and volume splitting alone does not move data, so it does not change the tactic of the archive step either (T1030 is a separate technique applied during the actual transfer).",
       "xp": 20
     },
     {

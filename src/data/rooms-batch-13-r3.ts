@@ -12,7 +12,7 @@ const edrInjectEvent: TelemetryEvent = {
   description:
     "Falcon detection on WS-EXEC-022: powershell.exe opened a handle to another process with elevated access rights",
   mitre_technique: "T1055.002",
-  mitre_tactic: "Defense Evasion",
+  mitre_tactic: "Stealth",
   process: {
     name: "powershell.exe",
     pid: 9944,
@@ -31,7 +31,7 @@ const edrInjectEvent: TelemetryEvent = {
     "crowdstrike.DetectId": "ldt:c3b1f2a4e5d6:9988776655",
     "crowdstrike.DetectDescription":
       "A process opened a handle to another running process with elevated access rights",
-    "crowdstrike.Tactic": "Defense Evasion",
+    "crowdstrike.Tactic": "Stealth",
     "threat.tactic.id": "TA0005",
     "crowdstrike.Technique": "Process Injection",
     "threat.technique.id": "T1055",
@@ -426,7 +426,7 @@ const avVsEdrMasterclass = {
         '  "crowdstrike.DetectId": "ldt:c3b1f2a4e5d6:9988776655",\n' +
         '  "crowdstrike.DetectDescription": "Process injection: powershell.exe injected shellcode into explorer.exe",\n\n' +
         "  // MITRE ATT&CK mapping\n" +
-        '  "crowdstrike.Tactic": "Defense Evasion",\n' +
+        '  "crowdstrike.Tactic": "Stealth",\n' +
         '  "threat.tactic.id": "TA0005",\n' +
         '  "crowdstrike.Technique": "Process Injection: Portable Executable Injection",\n' +
         '  "threat.technique.id": "T1055",\n' +

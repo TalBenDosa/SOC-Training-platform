@@ -35,7 +35,7 @@ export function buildAitmTokenTheftScenario(scenarioId = "aitm-token-theft-2026"
     { ts: T(4 * MIN + 9 * SEC),     phase: "Collection",          action: "Browser loads the reverse-proxy sign-in page (Zscaler category: Newly Registered Domains)" },
     { ts: T(5 * MIN + 41 * SEC),    phase: "Credential Access",   action: "Credentials and the live MFA response are relayed through the proxy to the real Microsoft endpoint" },
     { ts: T(6 * MIN + 3 * SEC),     phase: "Initial Access",      action: "Entra records a genuine interactive sign-in, MFA satisfied, sourced from the proxy in Amsterdam" },
-    { ts: T(6 * MIN + 12 * SEC),    phase: "Defense Evasion",     action: "Victim redirected to the real office.com — the sign-in appears to have simply worked" },
+    { ts: T(6 * MIN + 12 * SEC),    phase: "Stealth",             action: "Victim redirected to the real office.com — the sign-in appears to have simply worked" },
     { ts: T(12 * MIN + 3 * SEC),    phase: "Lateral Movement",    action: "Stolen session cookie replayed from Frankfurt on the same sessionId; MFA satisfied by token claim" },
     { ts: T(12 * MIN + 20 * SEC),   phase: "Lateral Movement",    action: "Replayed session brokers a non-interactive token for Office 365 Exchange Online" },
     { ts: T(13 * MIN + 47 * SEC),   phase: "Collection",          action: "Mailbox bind against the Inbox recorded in the Unified Audit Log with the same SessionId" },

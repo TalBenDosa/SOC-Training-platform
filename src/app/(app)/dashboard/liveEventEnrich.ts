@@ -40,7 +40,7 @@ const RULE_ID_MAP: Record<string, string> = {
   "T1567.002": "HTS-9200",   // Exfil to cloud
   "T1486":     "HTS-99201",  // Ransomware encrypt
   "T1490":     "HTS-99202",  // VSS delete
-  "T1070.001": "HTS-92511",  // Clear event logs
+  "T1685.005": "HTS-92511",  // Clear event logs
   "T1569.002": "HTS-92511",  // PsExec service
   "T1021.001": "HTS-5712",   // RDP lateral
   "T1098.005": "HTS-99301",  // OAuth app

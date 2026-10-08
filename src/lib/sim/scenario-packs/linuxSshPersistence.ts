@@ -52,7 +52,7 @@ export function buildLinuxSshPersistenceScenario(
     { ts: T(60 * MIN), phase: "Discovery", action: "/usr/bin/id run in session 41 as uid 1004 (T1033)" },
     { ts: T(61 * MIN), phase: "Discovery", action: "sudo -l returns res=failed — no root path for svc-backup (T1033)" },
     { ts: T(64 * MIN), phase: "Command and Control", action: "curl pulls an ELF over plain HTTP from 147.45.112.38 into a hidden directory in the account's own home (T1105)" },
-    { ts: T(66 * MIN), phase: "Defense Evasion", action: "chmod 755 on ~/.cache/.fontconfig/kworker, a file owned by uid 1004 in a dot-directory (T1564.001)" },
+    { ts: T(66 * MIN), phase: "Stealth", action: "chmod 755 on ~/.cache/.fontconfig/kworker, a file owned by uid 1004 in a dot-directory (T1564.001)" },
     { ts: T(68 * MIN), phase: "Persistence", action: "User crontab created via the setgid crontab binary — /var/spool/cron/crontabs/svc-backup, ouid 1004 ogid 102 (T1053.003)" },
     { ts: T(70 * MIN), phase: "Detection", action: "Falcon detection: 'kworker' — a kernel-thread name — running from the hidden directory as svc-backup, parent bash (T1036.004)" },
     { ts: T(70 * MIN), phase: "Command and Control", action: "kworker connects to 38.180.62.144:443; the firewall shows the same 3-second, ~1.9 KB session again five minutes later (T1071.001)" },

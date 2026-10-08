@@ -337,7 +337,7 @@ In summary: a log aggregator is a **storage and search engine**. A SIEM is a **d
         severity: "high",
         hostname: "DC01-CORP",
         description: "Security audit log was cleared on domain controller",
-        mitre_technique: "T1070.001",
+        mitre_technique: "T1685.005",
         vendor: "Windows Security",
         raw: {
           "event.code": "1102",

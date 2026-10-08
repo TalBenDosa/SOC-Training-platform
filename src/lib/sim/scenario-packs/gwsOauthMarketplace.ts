@@ -420,7 +420,7 @@ export function buildGwsOauthMarketplaceScenario(
       geo: { country: "Germany", city: "Frankfurt" },
       severity: "critical",
       mitre_technique: "T1550.001",
-      mitre_tactic: "Defense Evasion",
+      mitre_tactic: "Lateral Movement",
       incident_id: INCIDENT,
       description:
         "At 10:35, 25 minutes after the password reset, the Docs Merge Pro token successfully called the Drive API again for m.varga from 45.87.43.19 — the token was issued at 09:26 and remained valid; the reset did not revoke it.",
@@ -613,7 +613,7 @@ The instructive comparison is Tomas Nowak, who authorized Calendly the day befor
       { ts: T(19 * MIN), phase: "Collection", action: "Gmail API mailbox reads over the token from a hosting ASN (T1114.002)" },
       { ts: T(27 * MIN), phase: "Collection", action: "Drive API download burst — 612 files via the token (T1530)" },
       { ts: T(55 * MIN), phase: "Containment", action: "Admin resets password and forces sign-out — does NOT revoke the OAuth token" },
-      { ts: T(80 * MIN), phase: "Defense Evasion", action: "Token still valid — Drive API calls succeed 25 min after the reset (T1550.001)" },
+      { ts: T(80 * MIN), phase: "Lateral Movement", action: "Token still valid — Drive API calls succeed 25 min after the reset (T1550.001)" },
     ],
     questions,
   };

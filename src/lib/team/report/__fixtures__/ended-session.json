@@ -1253,7 +1253,7 @@
     "description": "Fourteen seconds later she double-clicked Invoice_84421.lnk on D:\\. explorer.exe resolved its target and launched cmd.exe — with no SmartScreen prompt, because the Mark-of-the-Web on the ISO does not carry over to files inside the mounted container.",
     "incident_id": "inc:ics:1",
     "is_detection": false,
-    "mitre_tactic": "Defense Evasion",
+    "mitre_tactic": "Defense Impairment",
     "mitre_technique": "T1553.005",
     "expected_verdict": "tp"
    },

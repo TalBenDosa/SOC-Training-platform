@@ -200,7 +200,7 @@ export function buildPamVaultAbuseScenario(
       src_ip: engineerWs.ip,
       severity: "medium",
       mitre_technique: "T1078.002",
-      mitre_tactic: "Defense Evasion",
+      mitre_tactic: "Stealth",
       incident_id: INCIDENT,
       description:
         "DC-NEXA-01 logged a 4768 Kerberos TGT request for adm-nexa-da at 02:13, sourced from WKS-ROPS-14 (10.20.6.77) — the domain-admin credential authenticating from a server-ops engineer's workstation.",
@@ -338,7 +338,7 @@ export function buildPamVaultAbuseScenario(
       src_ip: finDb.ip,
       severity: "high",
       mitre_technique: "T1078.002",
-      mitre_tactic: "Defense Evasion",
+      mitre_tactic: "Stealth",
       incident_id: INCIDENT,
       description:
         "Sysmon on SRV-FIN-DB-02 recorded adm-nexa-da running sqlcmd under the interactive RDP session, querying the finance database directly — the vaulted credential being used hands-on-keyboard on the target host.",
@@ -634,10 +634,10 @@ export function buildPamVaultAbuseScenario(
     killchain: [
       { ts: "2026-08-23T03:02:11.000Z", phase: "Baseline", action: `Break-glass PSM checkout of ${daAccount} — dual-control confirmed, change CHG0049211, recorded PSM session: the sanctioned control case` },
       { ts: T(0), phase: "Credential Access", action: `CyberArk Retrieve Password (Copy) on ${daAccount} — no dual control, no change record, no PSM session (T1555.005)` },
-      { ts: T(3 * MIN), phase: "Defense Evasion", action: `4768 TGT for ${daAccount} requested from ${engineerWs.hostname} — the copied credential authenticating (T1078.002)` },
+      { ts: T(3 * MIN), phase: "Stealth", action: `4768 TGT for ${daAccount} requested from ${engineerWs.hostname} — the copied credential authenticating (T1078.002)` },
       { ts: T(4 * MIN), phase: "Lateral Movement", action: `4624 LogonType 10 (RDP) on ${finDb.hostname} from ${engineerWs.hostname} — direct, not via the PSM proxy (T1021.001)` },
       { ts: T(4 * MIN + 5 * SEC), phase: "Privilege Escalation", action: "4672 — the RDP session carries domain-admin privileges (T1078.002)" },
-      { ts: T(6 * MIN), phase: "Defense Evasion", action: `Sysmon: sqlcmd queries the finance database under the ${daAccount} session — credential used outside PSM (T1078.002)` },
+      { ts: T(6 * MIN), phase: "Stealth", action: `Sysmon: sqlcmd queries the finance database under the ${daAccount} session — credential used outside PSM (T1078.002)` },
       { ts: T(9 * MIN), phase: "Lateral Movement", action: `4769 service ticket for the DC requested from ${finDb.hostname} (T1021.002)` },
       { ts: T(10 * MIN), phase: "Lateral Movement", action: `4624 LogonType 3 on ${dc.hostname} from ${finDb.hostname} — the credential reaches a Domain Controller (T1021.002)` },
     ],

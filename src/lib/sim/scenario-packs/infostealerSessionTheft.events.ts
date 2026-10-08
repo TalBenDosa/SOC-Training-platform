@@ -139,7 +139,7 @@ export function infostealerSessionTheftScenarioEvents() {
       userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
       tokenIssuerType: "AzureAD", incomingTokenType: "primaryRefreshToken", riskLevel: "none", conditionalAccess: "success", riskEventTypes: [],
       geo: { country: "Russia", city: "Moscow", latitude: 55.7558, longitude: 37.6173 },
-      mitre: "T1550.004", tactic: "Defense Evasion", severity: "critical", incidentId: INCIDENT,
+      mitre: "T1550.004", tactic: "Lateral Movement", severity: "critical", incidentId: INCIDENT,
       extra: {
         "azure.signinlogs.properties.location.state": "Moscow",
         "azure.signinlogs.properties.riskDetail": "none",

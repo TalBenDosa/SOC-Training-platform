@@ -489,7 +489,7 @@ After compromising one machine, attackers move to others. A common tool is **PsE
         hostname: "WKST-FINANCE07",
         user_email: "l.chen@corp.local",
         mitre_technique: "T1055",
-        mitre_tactic: "Defense Evasion",
+        mitre_tactic: "Stealth",
         description:
           "PowerShell spawned by WINWORD.EXE executed an encoded command; Falcon observed a subsequent full-access request into a running explorer.exe process",
         process: {

@@ -165,7 +165,7 @@ Nothing was stolen. One account was involved and only for its local session, and
     killchain: [
       { ts: T(0), phase: "Initial Access", action: `VideoConvertPro_Setup.exe downloaded from ${downloadSite}` },
       { ts: T(4 * MIN), phase: "Execution", action: "User runs the unsigned installer (T1204.002)" },
-      { ts: T(4 * MIN + 40_000), phase: "Defense Evasion", action: "svchost_helper.exe written to AppData under a system-like name (T1036.005)" },
+      { ts: T(4 * MIN + 40_000), phase: "Stealth", action: "svchost_helper.exe written to AppData under a system-like name (T1036.005)" },
       { ts: T(4 * MIN + 45_000), phase: "Persistence", action: "Scheduled task WinHostSync registered at logon with a 5-minute delay (T1053.005)" },
       { ts: T(10 * MIN), phase: "Impact", action: "Miner starts with pool and wallet arguments (T1496)" },
       { ts: T(10 * MIN + 6_000), phase: "Impact", action: `11-hour TCP/3333 session to ${pool}, allowed as unknown-tcp` },

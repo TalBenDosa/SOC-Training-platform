@@ -392,7 +392,7 @@ export function buildMobileMdmCompromiseScenario(
       geo: { country: "Netherlands", city: "Amsterdam", latitude: 52.3676, longitude: 4.9041 },
       severity: "high",
       mitre_technique: "T1078.004",
-      mitre_tactic: "Defense Evasion",
+      mitre_tactic: "Stealth",
       incident_id: INCIDENT,
       description:
         "A second Entra sign-in for d.okafor at 21:19 into SharePoint Online, same session and same 45.148.10.62 origin, from AND-Okafor-Pixel7 with deviceDetail.isCompliant false and conditionalAccessStatus success.",

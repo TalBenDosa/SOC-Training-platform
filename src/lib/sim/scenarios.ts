@@ -186,7 +186,8 @@ function tacticForTechnique(t: string): string | undefined {
   if (t.startsWith("T1219")) return "TA0011";   // Command and Control (remote access software, incl. T1219.002)
   if (t.startsWith("T1059")) return "TA0002";
   if (t.startsWith("T1547") || t.startsWith("T1543")) return "TA0003";
-  if (t.startsWith("T1218") || t.startsWith("T1027") || t.startsWith("T1562")) return "TA0005";
+  if (t.startsWith("T1218") || t.startsWith("T1027")) return "TA0005";   // Stealth (ATT&CK v19)
+  if (t.startsWith("T1685") || t.startsWith("T1686")) return "TA0112";   // Defense Impairment (ATT&CK v19)
   if (t.startsWith("T1003") || t.startsWith("T1110") || t.startsWith("T1555")) return "TA0006";
   if (t.startsWith("T1021")) return "TA0008";
   if (t.startsWith("T1569")) return "TA0002";
@@ -204,15 +205,15 @@ function tacticForTechnique(t: string): string | undefined {
   if (t.startsWith("T1552")) return "TA0006";   // Credential Access
   if (t === "T1078.004") return "TA0001";        // Initial Access (valid cloud accounts)
   if (t.startsWith("T1580")) return "TA0007";   // Discovery
-  if (t.startsWith("T1578")) return "TA0005";   // Defense Evasion / Resource Development
+  if (t.startsWith("T1578")) return "TA0112";   // Defense Impairment (ATT&CK v19)
   if (t === "T1136.003") return "TA0003";        // Persistence (cloud account created)
   if (t === "T1098.001") return "TA0003";        // Persistence (account manipulation)
   if (t.startsWith("T1496")) return "TA0040";   // Impact (resource hijacking)
   if (t.startsWith("T1136")) return "TA0003";   // Persistence (account creation)
-  if (t.startsWith("T1070")) return "TA0005";   // Defense Evasion (log clearing)
+  if (t.startsWith("T1070")) return "TA0005";   // Stealth (indicator removal; log clearing is T1685.005)
   if (t.startsWith("T1195")) return "TA0001";   // Initial Access (supply chain)
   if (t === "T1083") return "TA0007";           // Discovery (file search)
-  if (t.startsWith("T1036")) return "TA0005";   // Defense Evasion (masquerading)
+  if (t.startsWith("T1036")) return "TA0005";   // Stealth (masquerading)
   if (t === "T1621")        return "TA0006";   // Credential Access (MFA fatigue)
   if (t === "T1558.004")    return "TA0006";   // Credential Access (AS-REP Roasting)
   if (t === "T1557.001")    return "TA0009";   // Collection (LLMNR/NTLM relay)
@@ -345,7 +346,7 @@ export function buildBecScenario(scenarioId = "bec-spray-2026"): ScenarioBundle 
   const killchain = [
     { ts: T(0),        phase: "Credential Access",        action: "Password spray — 47 failures across 14 accounts from 158.131.159.30" },
     { ts: T(12 * MIN), phase: "Initial Access",           action: "l.harris accepted MFA push at 02:12 from Netherlands — account compromised" },
-    { ts: T(13 * MIN), phase: "Defense Evasion / Concealment", action: "Hidden inbox rule '..' diverts wire/invoice/payment mail to RSS Feeds, marked read" },
+    { ts: T(13 * MIN), phase: "Stealth / Concealment", action: "Hidden inbox rule '..' diverts wire/invoice/payment mail to RSS Feeds, marked read" },
     { ts: T(15 * MIN), phase: "Collection",               action: "340 emails scraped in 2 minutes — attacker profiles payment workflows" },
     { ts: T(20 * MIN), phase: "Persistence",              action: "Auto-forward to personal gmail — persistent copy of all inbound mail" },
     { ts: T(25 * MIN), phase: "Impact",                   action: "$247K wire fraud email sent to CFO from compromised account" },
@@ -435,7 +436,7 @@ export function buildRansomwareScenario(scenarioId = "ransomware-lockbit-2026"):
     { ts: T(90 * MIN),   phase: "Credential Access",           action: "LSASS dumped via comsvcs.dll — domain admin hash extracted" },
     { ts: T(105 * MIN),  phase: "Lateral Movement",            action: "Pass-the-hash SMB to FS-CORP-01 ADMIN$ — PsExec deployed" },
     { ts: T(120 * MIN),  phase: "Impact — Recovery Inhibition", action: "vssadmin deletes all 12 shadow copies — recovery prevented" },
-    { ts: T(121 * MIN),  phase: "Defense Evasion",              action: "Security, System and Application logs cleared — Event 1102 survives" },
+    { ts: T(121 * MIN),  phase: "Defense Impairment",           action: "Security, System and Application logs cleared — Event 1102 survives" },
     { ts: T(123 * MIN),  phase: "Impact — Encryption",         action: "LockBit 3.0 encrypts 2,847 files (18GB) across Finance, HR, Contracts shares" },
   ];
 
@@ -1046,7 +1047,7 @@ export function buildImpossibleTravelScenario(scenarioId = "impossible-travel-20
       { ts: T(-28 * MIN), phase: "Credential Access", action: "Password-spray burst from a Nigerian IP ends in a valid password for k.taylor" },
       { ts: T(0),        phase: "Normal Baseline",  action: "k.taylor VPN login from Tel Aviv — looks normal" },
       { ts: T(4 * MIN),  phase: "Impossible Travel", action: "Same user VPN login from Lagos, Nigeria — 4 min later, 4,320 km away" },
-      { ts: T(4 * MIN + 20_000), phase: "Defense Evasion", action: "VPN app sign-in through Entra with a single factor — no MFA" },
+      { ts: T(4 * MIN + 20_000), phase: "Stealth", action: "VPN app sign-in through Entra with a single factor — no MFA" },
       { ts: T(6 * MIN),  phase: "Detection",        action: "Entra ID Protection flags the O365 sign-in high risk (unlikely travel)" },
       { ts: T(9 * MIN),  phase: "Email Persistence", action: "Inbox forwarding rule created: all mail → protonmail attacker address" },
       { ts: T(11 * MIN), phase: "Lateral Movement",  action: "VPN tunnel IP opens an SMB session to the engineering file server" },
@@ -1766,11 +1767,11 @@ export function buildLOLBinsScenario(scenarioId = "lolbins-2026"): ScenarioBundl
     killchain: [
       { ts: T(-2 * MIN), phase: "Initial Access",              action: "Phishing email 'HR_Policy_Update.docm' delivered to s.patel (T1566.001)" },
       { ts: T(0),        phase: "Initial Access / Download",  action: "certutil.exe downloads malicious EXE from pkg-mirror-eu.ru (T1105)" },
-      { ts: T(4 * MIN),  phase: "Defense Evasion",            action: "regsvr32.exe Squiblydoo — remote COM scriptlet bypasses AppLocker (T1218.010)" },
+      { ts: T(4 * MIN),  phase: "Stealth",            action: "regsvr32.exe Squiblydoo — remote COM scriptlet bypasses AppLocker (T1218.010)" },
       { ts: T(7 * MIN),  phase: "Execution",                  action: "mshta.exe loads stage-2 VBScript from attacker URL (T1218.005)" },
       { ts: T(10 * MIN), phase: "Discovery",                  action: "wmic.exe enumerates all running processes (T1057)" },
       { ts: T(13 * MIN), phase: "Persistence / Download",     action: "bitsadmin.exe BITS job downloads persistence binary — survives reboot (T1197)" },
-      { ts: T(16 * MIN), phase: "Defense Evasion",            action: "rundll32.exe loads unsigned attacker DLL from C:\\Users\\Public (T1218.011)" },
+      { ts: T(16 * MIN), phase: "Stealth",            action: "rundll32.exe loads unsigned attacker DLL from C:\\Users\\Public (T1218.011)" },
       { ts: T(20 * MIN), phase: "Persistence",                action: "schtasks.exe creates user-context task 'NexaCorpHealthCheck' — every 5 minutes (T1053.005)" },
     ],
     questions: [
@@ -1956,14 +1957,14 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
   const killchain = [
     { ts: T(0),        phase: "Initial Access",    action: "Attacker RDPs to DC01 from Netherlands IP using stolen it.admin credentials (T1021.001)" },
     { ts: T(3 * MIN),  phase: "Credential Access", action: "A renamed Mimikatz binary (wdhelper.exe) dropped and executed on DC01 — Defender detects but takes no action" },
-    { ts: T(5 * MIN),  phase: "Defense Evasion",   action: "Windows Defender real-time protection disabled via registry (T1562.001)" },
+    { ts: T(5 * MIN),  phase: "Defense Impairment",   action: "Windows Defender real-time protection disabled via registry (T1685, formerly T1562.001)" },
     { ts: T(8 * MIN),  phase: "Credential Access", action: "DCSync attack — DS-Replication-Get-Changes + Get-Changes-All via Event 4662 (T1003.006)" },
     { ts: T(10 * MIN), phase: "Credential Access", action: "DCSync targeting krbtgt account — extracting Kerberos TGT signing key (T1003.006)" },
     { ts: T(13 * MIN), phase: "Credential Access", action: "Golden Ticket forged offline from the stolen krbtgt hash — a TGT the KDC never issued or recorded, then used to request a 4769 service ticket with no preceding 4768 (T1558.001)" },
     { ts: T(17 * MIN), phase: "Lateral Movement",  action: "Golden Ticket used to authenticate to DC02 directly from Netherlands IP (T1550.003)" },
     { ts: T(20 * MIN), phase: "Credential Access", action: "ntdsutil.exe creates NTDS.dit snapshot (2.7 GB) — entire AD password database staged (T1003.003)" },
     { ts: T(23 * MIN), phase: "Persistence",       action: "Shadow admin account svc-monitoring-prod created and added to Domain Admins (T1136.001)" },
-    { ts: T(25 * MIN), phase: "Defense Evasion",   action: "Security event log cleared (Event 1102) — covering tracks on DC01 (T1070.001)" },
+    { ts: T(25 * MIN), phase: "Defense Impairment",   action: "Security event log cleared (Event 1102) — covering tracks on DC01 (T1685.005, formerly T1070.001)" },
   ];
 
   const questions: ScenarioQuestion[] = [
@@ -2179,7 +2180,7 @@ export function buildMfaFatigueScenario(scenarioId = "mfa-fatigue-ato"): Scenari
     { ts: T(14 * MIN),           phase: "Collection",        action: "3,847 mailbox items accessed via Microsoft Graph API MailItemsAccessed" },
     { ts: T(16 * MIN),           phase: "Exfiltration",      action: "847 SharePoint files (2.3 GB) bulk-downloaded in 4 minutes — far above j.chen's daily baseline" },
     { ts: T(20 * MIN),           phase: "Persistence",       action: "Okta API token 'j.chen-api-token-2026' created with no expiry" },
-    { ts: T(22 * MIN),           phase: "Defense Evasion",   action: "Conditional Access policy modified to permanently whitelist DESKTOP-MOSCOW-99" },
+    { ts: T(22 * MIN),           phase: "Defense Impairment", action: "Conditional Access policy modified to permanently whitelist DESKTOP-MOSCOW-99" },
     { ts: T(24 * MIN),           phase: "Persistence",       action: "Exchange inbox forwarding rule created — all email forwarded to j.chen.backup@proton.me" },
   ];
 

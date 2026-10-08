@@ -16,6 +16,7 @@
 import { pathToFileURL } from "node:url";
 import path from "node:path";
 import fs from "node:fs";
+import { staleAttackIds, REVOKED } from "./attack-deprecated.mjs";
 
 const ROOT = process.cwd();
 const imp = f => import(pathToFileURL(path.join(ROOT, f)).href);
@@ -146,7 +147,14 @@ const add = (sev, where, msg) => findings.push({ sev, where, msg });
   same("scenarios", SCENARIOS, SCENARIOS_META, sc => ({ slug: sc.slug, title: sc.title, difficulty: String(sc.difficulty) }));
 }
 
-const DEPRECATED = ["T1076", "T1086", "T1064", "T1035", "T1117"];
+// Retired and revoked ATT&CK IDs (incl. the v19 T1562 / T1070.001 / T1656
+// revocations). Teaching text may name one as history ("formerly T1562.001");
+// see scripts/attack-deprecated.mjs for the exact allowance.
+const citeStale = (where, obj) => {
+  for (const d of staleAttackIds(JSON.stringify(obj))) {
+    add("ERROR", where, `cites deprecated ATT&CK ID ${d}${REVOKED[d] ? ` (revoked, now ${REVOKED[d]}); write the current ID, or mark it as history ("formerly ${d}")` : ""}`);
+  }
+};
 
 /**
  * Options answerable by shape alone — the correct one being much the longest.
@@ -291,10 +299,12 @@ for (const l of BUILTIN_LESSONS) {
     }
     checkOptionBalance(w, labels, correctIdx, "ERROR");
 
-    for (const d of DEPRECATED) {
-      if (JSON.stringify(q).includes(d)) add("ERROR", w, `cites deprecated ATT&CK ID ${d}`);
-    }
+    citeStale(w, q);
   }
+  // Sections and intro too, not just the quiz: a lesson teaching a revoked ID
+  // as current misleads as much as a question citing it.
+  const { quiz: _quiz, ...body } = l;
+  citeStale(at, body);
 }
 
 // ── Quizzes ────────────────────────────────────────────────────────────────
@@ -327,9 +337,7 @@ for (const q of QUIZZES) {
     if (!qq.explanation || qq.explanation.length < 40) {
       add("ERROR", w, "explanation missing or too short to teach anything");
     }
-    for (const d of DEPRECATED) {
-      if (JSON.stringify(qq).includes(d)) add("ERROR", w, `cites deprecated ATT&CK ID ${d}`);
-    }
+    citeStale(w, qq);
   }
 }
 
@@ -460,10 +468,10 @@ for (const r of ROOMS) {
         }
       }
     }
-    for (const d of DEPRECATED) {
-      if (JSON.stringify(t).includes(d)) add("ERROR", w, `cites deprecated ATT&CK ID ${d}`);
-    }
+    citeStale(w, t);
   }
+  const { tasks: _tasks, ...roomBody } = r;
+  citeStale(at, roomBody);
 }
 
 // ── Foundational concept coverage ──────────────────────────────────────────

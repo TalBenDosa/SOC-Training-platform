@@ -170,7 +170,7 @@ Two facts remain open. The sender has delivered 41 authenticated messages over f
       { ts: T(0), phase: "Initial Access", action: "Authenticated reply from a compromised supplier mailbox, delivered to the inbox (T1566.001)" },
       { ts: T(2 * MIN), phase: "Initial Access", action: "Same message delivered to finance@ (08:33) and d.shapira@ (08:36)" },
       { ts: T(13 * MIN + 52_000), phase: "Execution", action: "User saves and opens Invoice_8842.html from Gmail (T1204.002)" },
-      { ts: T(14 * MIN), phase: "Defense Evasion", action: "HTML attachment assembles Invoice_8842.dmg locally in the browser (T1027.006)" },
+      { ts: T(14 * MIN), phase: "Stealth", action: "HTML attachment assembles Invoice_8842.dmg locally in the browser (T1027.006)" },
       { ts: T(16 * MIN + 20_000), phase: "Execution", action: "User mounts the image and launches the unnotarized app (T1204.002)" },
       { ts: T(16 * MIN + 24_000), phase: "Execution", action: "App spawns osascript with a credential-prompt-to-curl one-liner (T1059.002)" },
       { ts: T(16 * MIN + 49_000), phase: "Credential Access", action: "Dialog answered — osascript starts curl (T1056.002)" },

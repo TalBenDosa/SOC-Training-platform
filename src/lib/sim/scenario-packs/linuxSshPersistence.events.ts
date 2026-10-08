@@ -383,7 +383,7 @@ export function linuxSshPersistenceScenarioEvents() {
       hostname: host.name,
       severity: "medium",
       mitre_technique: "T1564.001",
-      mitre_tactic: "Defense Evasion",
+      mitre_tactic: "Stealth",
       description:
         "auditd PATH (key perm-mod) on nix-bkp-01: /home/svc-backup/.cache/.fontconfig/kworker is now mode 0100755, ouid 1004, ogid 1004.",
       process: {
@@ -487,11 +487,11 @@ export function linuxSshPersistenceScenarioEvents() {
       src_ip: host.privateIp,
       severity: "high",
       mitre_technique: "T1036.004",
-      mitre_tactic: "Defense Evasion",
+      mitre_tactic: "Stealth",
       is_detection: true, // alert-grade: the first page of the shift — a kernel-thread name running from a hidden home directory
       edr_scope: "edr",   // host-primary Linux intrusion → investigated in the EDR console
       description:
-        "Falcon detection (High, Defense Evasion) on nix-bkp-01: process kworker started from /home/svc-backup/.cache/.fontconfig/ as svc-backup, parent bash, no arguments; disposition detect-only.",
+        "Falcon detection (High, Stealth) on nix-bkp-01: process kworker started from /home/svc-backup/.cache/.fontconfig/ as svc-backup, parent bash, no arguments; disposition detect-only.",
       process: {
         name: "kworker",
         pid: 1974,
@@ -515,7 +515,7 @@ export function linuxSshPersistenceScenarioEvents() {
         "crowdstrike.UID": "1004",
         "crowdstrike.GID": "1004",
         "crowdstrike.SHA256HashData": implantHash,
-        "crowdstrike.Tactic": "Defense Evasion",
+        "crowdstrike.Tactic": "Stealth",
         "threat.tactic.id": "TA0005",
         "crowdstrike.Technique": "Masquerade Task or Service",
         "threat.technique.id": "T1036",

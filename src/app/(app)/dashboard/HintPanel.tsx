@@ -49,7 +49,8 @@ const TACTIC_PRIORITY: string[] = [
   "TA0003", // Persistence
   "TA0011", // Command and Control
   "TA0009", // Collection
-  "TA0005", // Defense Evasion
+  "TA0112", // Defense Impairment
+  "TA0005", // Stealth
   "TA0007", // Discovery
   "TA0002", // Execution
   "TA0001", // Initial Access
@@ -64,7 +65,8 @@ const TACTIC_HINT: Record<string, string> = {
   TA0003: "The attacker sets up persistence — look for new accounts, scheduled tasks, services, run keys, or mailbox rules being created.",
   TA0011: "This involves command-and-control — focus on repeated or beaconing outbound connections to an unfamiliar destination.",
   TA0009: "This involves data collection — look for staging, bulk file access, or new mail-forwarding / inbox rules.",
-  TA0005: "The attacker tries to evade defenses — watch for cleared logs, disabled tooling, or a process masquerading under a trusted name.",
+  TA0112: "The attacker tries to impair defenses: watch for cleared or disabled logs, stopped or tampered security tooling, and weakened firewall or auth controls.",
+  TA0005: "The attacker tries to stay hidden: watch for a process masquerading under a trusted name, obfuscated commands, or signed system binaries proxying execution.",
   TA0007: "This involves discovery — look for enumeration of accounts, hosts, groups, or the network.",
   TA0002: "This involves code execution — focus on unusual process launches and, crucially, their parent processes.",
   TA0001: "Start at the entry point — focus on how the first foothold was gained (a phishing email, an exploit, or valid stolen accounts).",

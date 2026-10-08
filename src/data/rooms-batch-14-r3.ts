@@ -208,7 +208,7 @@ const lolbinEvent: TelemetryEvent = {
   user_email: "t.mendes@nexacorp.com",
   description: "regsvr32.exe registered a DLL on an application server outside the scheduled maintenance window",
   mitre_technique: "T1218.010",
-  mitre_tactic: "Defense Evasion",
+  mitre_tactic: "Stealth",
   process: {
     name: "regsvr32.exe",
     pid: 4420,
@@ -725,7 +725,7 @@ const edgeCaseRoom = {
       id: "edge-ac3",
       heading: "Verdict: Squiblydoo Attack or Legitimate Admin Deployment?",
       scenario:
-        "EDR fires a medium-severity alert on SRV-APP-0044: regsvr32.exe registered a DLL outside the scheduled maintenance window. The technique maps to T1218.010 (System Binary Proxy Execution: Regsvr32), a documented Defense Evasion technique. regsvr32 is a well-known LOLBin used in the Squiblydoo attack chain. Before escalating this as an intrusion, review every field in the event, not just the alert title.",
+        "EDR fires a medium-severity alert on SRV-APP-0044: regsvr32.exe registered a DLL outside the scheduled maintenance window. The technique maps to T1218.010 (System Binary Proxy Execution: Regsvr32), a documented Stealth technique (the tactic formerly called Defense Evasion). regsvr32 is a well-known LOLBin used in the Squiblydoo attack chain. Before escalating this as an intrusion, review every field in the event, not just the alert title.",
       event: lolbinEvent,
       correct_verdict: "false_positive",
       explanation:

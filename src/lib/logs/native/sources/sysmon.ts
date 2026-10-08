@@ -513,7 +513,7 @@ const useCases: UseCase[] = [
   },
   {
     id: "sysmon.event_log_clearing", title: "Windows event logs cleared from the command line", sourceId: "sysmon", kinds: ["1"],
-    severity: "high", mitre: ["T1070.001"],
+    severity: "high", mitre: ["T1685.005"],
     description: "`wevtutil cl Security` (or Clear-EventLog) wipes the evidence an investigation needs; ransomware operators do it right before or after encryption. The parent and user tell you which session did it.",
     logic: "KQL: Sysmon | where EventID == 1 and (CommandLine matches regex @\"wevtutil(\\.exe)?\\s+(cl|clear-log)\\b\" or CommandLine has \"Clear-EventLog\")",
     match: { all: [{ field: "EventID", op: "eq", value: 1 }, { any: [{ field: "CommandLine", op: "regex", value: "wevtutil(\\.exe)?\\s+(cl|clear-log)\\b" }, { field: "CommandLine", op: "icontains", value: "Clear-EventLog" }] }] },

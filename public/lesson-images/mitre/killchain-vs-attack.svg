@@ -73,8 +73,8 @@
   <!-- gap: tactics with no killchain slot -->
   <rect class="panel" x="24" y="392" width="892" height="70" rx="4"/>
   <text class="ui crit" x="40" y="414">TACTICS WITH NO CLEAN KILL CHAIN STAGE AT ALL</text>
-  <text class="mono note" x="40" y="434">TA0004 Privilege Escalation · TA0005 Defense Evasion · TA0006 Credential Access ·</text>
-  <text class="mono note" x="40" y="450">TA0007 Discovery · TA0008 Lateral Movement — these recur constantly mid-intrusion,</text>
+  <text class="mono note" x="40" y="434">TA0004 Privilege Escalation · TA0005 Stealth · TA0112 Defense Impairment · TA0006 Credential Access ·</text>
+  <text class="mono note" x="40" y="450">TA0007 Discovery · TA0008 Lateral Movement: these recur constantly mid-intrusion,</text>
 
   <!-- bottom explanation -->
   <rect class="panel" x="24" y="474" width="892" height="70" rx="6"/>

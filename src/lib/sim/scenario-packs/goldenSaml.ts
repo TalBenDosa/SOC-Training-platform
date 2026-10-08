@@ -168,7 +168,7 @@ export function buildGoldenSamlScenario(
       federatedTokenId: "d5a71e08-3c92-4b46-8f13-2a9e6c0b7d51", authenticationProtocol: "saml20",
       authStepResultDetail: "MFA requirement satisfied by claim in the token", conditionalAccess: "notApplicable", riskLevel: "none",
       geo: { country: "Germany", city: "Frankfurt" },
-      mitre: "T1078.004", tactic: "Defense Evasion", severity: "critical", incidentId: INCIDENT,
+      mitre: "T1078.004", tactic: "Stealth", severity: "critical", incidentId: INCIDENT,
       description: "A second federated sign-in from 185.220.101.61 minutes later, this time for the Cloud Administrator m.abbott — again ADFSFederated, again with no matching AD FS issuance on ADFS-NEXA-01.",
     }),
 
@@ -180,7 +180,7 @@ export function buildGoldenSamlScenario(
       isInteractive: false, incomingTokenType: "saml", tokenIssuerType: "ADFSFederated", tokenIssuerName: issuerUri,
       authenticationProtocol: "saml20", conditionalAccess: "notApplicable",
       geo: { country: "Germany", city: "Frankfurt" },
-      mitre: "T1550.001", tactic: "Defense Evasion", severity: "high", incidentId: INCIDENT,
+      mitre: "T1550.001", tactic: "Lateral Movement", severity: "high", incidentId: INCIDENT,
       description: "The a.whitfield token was exchanged for an access token to the directory management API from the same external address — a federation assertion carried straight into privileged tenant access with no interactive logon behind it.",
     }),
 
@@ -367,8 +367,8 @@ The one legitimate comparison in the data is two days earlier: r.donovan's feder
       { ts: T(0), phase: "Credential Access", action: `AD FS DKM master-key object read from AD (4662 on ${dc.hostname}) — decrypts the signing certificate (T1552.004)` },
       { ts: T(2 * MIN), phase: "Credential Access", action: `Token-signing certificate private key exported off ${adfs.hostname} (5058) (T1552.004)` },
       { ts: T(11 * MIN), phase: "Credential Access", action: `Federated sign-in for Global Admin ${ga1.sam} accepted by the cloud with no on-prem AD FS issuance (T1606.002)` },
-      { ts: T(14 * MIN), phase: "Defense Evasion", action: `Second minted token for ${ga2.sam} — the key signs tokens for arbitrary users (T1078.004)` },
-      { ts: T(17 * MIN), phase: "Defense Evasion", action: `${ga1.sam} token carried into the directory management API (T1550.001)` },
+      { ts: T(14 * MIN), phase: "Stealth", action: `Second minted token for ${ga2.sam} — the key signs tokens for arbitrary users (T1078.004)` },
+      { ts: T(17 * MIN), phase: "Lateral Movement", action: `${ga1.sam} token carried into the directory management API (T1550.001)` },
       { ts: T(20 * MIN), phase: "Detection", action: "Sentinel correlates federated sign-ins against the AD FS issuance log and flags the missing issuance" },
     ],
     questions,

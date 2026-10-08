@@ -497,7 +497,7 @@ export const LIBRARY_INDEX: LibraryEntry[] = [
     "xp": 360,
     "estimatedMinutes": 69,
     "sectionCount": 9,
-    "blurb": "Process injection (MITRE ATT&CK T1055) is one of the most common defence-evasion techniques: instead of running malware as its own suspicious process, an attacker runs malicious code inside a legitimate, trusted, often signed process. This lesson starts from zero, defining"
+    "blurb": "Process injection (MITRE ATT&CK T1055) is one of the most common stealth techniques (ATT&CK's Stealth tactic, called Defense Evasion before v19): instead of running malware as its own suspicious process, an attacker runs malicious code inside a legitimate, trusted, often signed"
   },
   {
     "id": "topic-lesson-lolbins-living-off-the-land",

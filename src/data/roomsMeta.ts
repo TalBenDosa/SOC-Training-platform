@@ -154,7 +154,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "cyber-kill-chain",
     "title": "Cyber Kill Chain",
-    "description": "Master the Cyber Kill Chain — Lockheed Martin's 7-stage model of how cyber attacks unfold from initial planning to final impact. Learn to identify and disrupt attacks at every stage.",
+    "description": "Master the Cyber Kill Chain: Lockheed Martin's 7-stage model of how cyber attacks unfold from initial planning to final impact. Learn to identify and disrupt attacks at every stage.",
     "difficulty": "beginner",
     "category": "Threat Detection",
     "estimatedMinutes": 42,
@@ -216,7 +216,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "mitre-attack",
     "title": "MITRE ATT&CK Framework",
-    "description": "Learn the MITRE ATT&CK framework — the world's most comprehensive catalogue of real-world attack techniques. Understand how to use it for threat detection, threat hunting, and building better defences.",
+    "description": "Learn the MITRE ATT&CK framework: the world's most comprehensive catalogue of real-world attack techniques. Understand how to use it for threat detection, threat hunting, and building better defences.",
     "difficulty": "beginner",
     "category": "Threat Intelligence",
     "estimatedMinutes": 45,
@@ -279,7 +279,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "networking-fundamentals",
     "title": "Networking Fundamentals",
-    "description": "Learn how computer networks actually work — from sending your first packet to reading a suspicious connection log like a SOC analyst.",
+    "description": "Learn how computer networks actually work, from sending your first packet to reading a suspicious connection log like a SOC analyst.",
     "difficulty": "beginner",
     "category": "Network Security",
     "estimatedMinutes": 45,
@@ -332,7 +332,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "networking-protocols",
     "title": "Common Network Protocols",
-    "description": "Dive deep into the protocols that power the internet — and learn how attackers exploit each one.",
+    "description": "Dive deep into the protocols that power the internet, and learn how attackers exploit each one.",
     "difficulty": "beginner",
     "category": "Network Security",
     "estimatedMinutes": 40,
@@ -387,7 +387,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "firewall-network-security",
     "title": "Firewall & Network Security",
-    "description": "Understand how firewalls, IDS/IPS, and network segmentation protect organizations — and how SOC analysts read and act on network security logs.",
+    "description": "Understand how firewalls, IDS/IPS, and network segmentation protect organizations, and how SOC analysts read and act on network security logs.",
     "difficulty": "beginner",
     "category": "Network Security",
     "estimatedMinutes": 40,
@@ -443,7 +443,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "windows-fundamentals",
     "title": "Windows Fundamentals for SOC Analysts",
-    "description": "Master the Windows internals that matter most in security investigations — from registry run keys to suspicious PowerShell commands.",
+    "description": "Master the Windows internals that matter most in security investigations, from registry run keys to suspicious PowerShell commands.",
     "difficulty": "beginner",
     "category": "Endpoint Security",
     "estimatedMinutes": 45,
@@ -608,7 +608,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "windows-event-logs",
     "title": "Windows Event Logs",
-    "description": "Windows writes a detailed diary of everything that happens on a system. Learn to read that diary — critical Event IDs, logon types, failure codes — and identify attacks hidden inside authentication and process logs.",
+    "description": "Windows writes a detailed diary of everything that happens on a system. Learn to read that diary (critical Event IDs, logon types, failure codes) and identify attacks hidden inside authentication and process logs.",
     "difficulty": "intermediate",
     "category": "Log Analysis",
     "estimatedMinutes": 50,
@@ -827,7 +827,7 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "log-mgmt-la1",
         "type": "log_analysis",
         "xp": 80,
-        "mitreTechnique": "T1070.001"
+        "mitreTechnique": "T1685.005"
       },
       {
         "id": "log-mgmt-flag1",
@@ -1107,7 +1107,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "log-sources-integration",
     "title": "Log Sources & SIEM Integration",
-    "description": "Understand where security logs come from, how they travel to your SIEM, and what happens when they arrive — parsing, normalization, and integration challenges.",
+    "description": "Understand where security logs come from, how they travel to your SIEM, and what happens when they arrive, parsing, normalization, and integration challenges.",
     "difficulty": "intermediate",
     "category": "SIEM",
     "estimatedMinutes": 45,
@@ -1615,7 +1615,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "sentinelone",
     "title": "SentinelOne Singularity",
-    "description": "Explore SentinelOne's Singularity platform — the autonomous endpoint security solution that combines EPP, EDR, and XDR in a single agent. Learn how Storyline automatically constructs attack stories, how to use the management console, and how SentinelOne's unique rollback capability can restore files encrypted by ransomware.",
+    "description": "Explore SentinelOne's Singularity platform: the autonomous endpoint security solution that combines EPP, EDR, and XDR in a single agent. Learn how Storyline automatically constructs attack stories, how to use the management console, and how SentinelOne's unique rollback capability can restore files encrypted by ransomware.",
     "difficulty": "intermediate",
     "category": "Endpoint Security",
     "estimatedMinutes": 50,
@@ -1682,7 +1682,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "malware-analysis-fundamentals",
     "title": "Malware Analysis Fundamentals",
-    "description": "Learn how to analyse malware — the malicious software behind most cyber attacks. Understand the difference between static and dynamic analysis, what tools analysts use, and how to extract indicators of compromise (IOCs) from a suspicious file without ever needing to be a programmer.",
+    "description": "Learn how to analyse malware: the malicious software behind most cyber attacks. Understand the difference between static and dynamic analysis, what tools analysts use, and how to extract indicators of compromise (IOCs) from a suspicious file without ever needing to be a programmer.",
     "difficulty": "intermediate",
     "category": "Threat Intelligence",
     "estimatedMinutes": 55,
@@ -1754,7 +1754,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "ioc-analysis",
     "title": "IOC Analysis & Threat Pivoting",
-    "description": "Master the art of investigating Indicators of Compromise. Learn to use VirusTotal, AbuseIPDB, Shodan, and other open-source intelligence (OSINT) tools to research suspicious IPs, domains, hashes, and URLs. Understand IOC pivoting — the technique of starting with one indicator and discovering an entire threat actor's infrastructure.",
+    "description": "Master the art of investigating Indicators of Compromise. Learn to use VirusTotal, AbuseIPDB, Shodan, and other open-source intelligence (OSINT) tools to research suspicious IPs, domains, hashes, and URLs. Understand IOC pivoting: the technique of starting with one indicator and discovering an entire threat actor's infrastructure.",
     "difficulty": "intermediate",
     "category": "Threat Intelligence",
     "estimatedMinutes": 50,
@@ -1888,7 +1888,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "osint-fundamentals",
     "title": "OSINT Fundamentals",
-    "description": "Master Open Source Intelligence techniques used by SOC analysts to investigate threat actors, enrich IOCs, and research attacker infrastructure — all from publicly available sources. Covers Shodan, Censys, URLScan, WHOIS, Maltego, and analyst OPSEC.",
+    "description": "Master Open Source Intelligence techniques used by SOC analysts to investigate threat actors, enrich IOCs, and research attacker infrastructure. All from publicly available sources. Covers Shodan, Censys, URLScan, WHOIS, Maltego, and analyst OPSEC.",
     "difficulty": "intermediate",
     "category": "Threat Intelligence",
     "estimatedMinutes": 45,
@@ -2081,7 +2081,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "investigation-methodology",
     "title": "Investigation Methodology",
-    "description": "Learn how SOC analysts think and work through an investigation — from the first alert all the way to a documented conclusion. Master timeline analysis, evidence pivoting, and SIEM workflows.",
+    "description": "Learn how SOC analysts think and work through an investigation, from the first alert all the way to a documented conclusion. Master timeline analysis, evidence pivoting, and SIEM workflows.",
     "difficulty": "intermediate",
     "category": "Incident Response",
     "estimatedMinutes": 55,
@@ -2344,7 +2344,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "phishing-analysis",
     "title": "Phishing Analysis",
-    "description": "Learn to dissect malicious emails like a forensics expert — decode spoofed headers, failed authentication records, weaponised attachments, and Business Email Compromise patterns.",
+    "description": "Learn to dissect malicious emails like a forensics expert: decode spoofed headers, failed authentication records, weaponised attachments, and Business Email Compromise patterns.",
     "difficulty": "intermediate",
     "category": "Threat Detection",
     "estimatedMinutes": 45,
@@ -2467,7 +2467,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "firewall-log-analysis",
     "title": "Firewall Log Analysis",
-    "description": "Master the art of reading firewall logs — identify port scans, C2 beacon patterns, and blocked outbound threats across FortiGate, Palo Alto, and Check Point NGFW telemetry.",
+    "description": "Master the art of reading firewall logs. Identify port scans, C2 beacon patterns, and blocked outbound threats across FortiGate, Palo Alto, and Check Point NGFW telemetry.",
     "difficulty": "intermediate",
     "category": "Log Analysis",
     "estimatedMinutes": 40,
@@ -2529,7 +2529,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "dns-investigation",
     "title": "DNS Investigation",
-    "description": "Uncover the hidden intelligence in DNS logs — detect DGA domains, DNS exfiltration tunnels, fast flux C2, typosquatting, and analyse Sysmon Event ID 22 to identify malicious processes calling home.",
+    "description": "Uncover the hidden intelligence in DNS logs. Detect DGA domains, DNS exfiltration tunnels, fast flux C2, typosquatting, and analyse Sysmon Event ID 22 to identify malicious processes calling home.",
     "difficulty": "intermediate",
     "category": "Threat Detection",
     "estimatedMinutes": 40,
@@ -2653,7 +2653,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "privileged-access-monitoring",
     "title": "Privileged Access Monitoring",
-    "description": "Master the detection of privilege abuse — from Domain Admin misuse and SeDebugPrivilege to LSASS dumping and PAM vault anomalies.",
+    "description": "Master the detection of privilege abuse, from Domain Admin misuse and SeDebugPrivilege to LSASS dumping and PAM vault anomalies.",
     "difficulty": "advanced",
     "category": "Threat Detection",
     "estimatedMinutes": 50,
@@ -2796,7 +2796,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "detection-engineering",
     "title": "Detection Engineering Fundamentals",
-    "description": "Learn how to write, tune, and manage SIEM detection rules — from Sigma format to MITRE ATT&CK coverage mapping, alert fatigue, and the full rule lifecycle.",
+    "description": "Learn how to write, tune, and manage SIEM detection rules, from Sigma format to MITRE ATT&CK coverage mapping, alert fatigue, and the full rule lifecycle.",
     "difficulty": "advanced",
     "category": "SIEM",
     "estimatedMinutes": 50,
@@ -2867,7 +2867,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "use-case-development",
     "title": "Use Case Development",
-    "description": "Learn how to build, test, document, and maintain detection use cases — the engine that powers every SOC alert. Go from raw threat idea to deployed Sigma rule.",
+    "description": "Learn how to build, test, document, and maintain detection use cases: the engine that powers every SOC alert. Go from raw threat idea to deployed Sigma rule.",
     "difficulty": "advanced",
     "category": "SIEM",
     "estimatedMinutes": 50,
@@ -2923,7 +2923,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "reporting-documentation",
     "title": "Reporting & Documentation",
-    "description": "Master the art of SOC documentation — incident tickets, shift handovers, management reports, and the key metrics that show whether your SOC is performing.",
+    "description": "Master the art of SOC documentation: incident tickets, shift handovers, management reports, and the key metrics that show whether your SOC is performing.",
     "difficulty": "intermediate",
     "category": "SOC Operations",
     "estimatedMinutes": 35,
@@ -2985,7 +2985,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "customer-communication",
     "title": "Customer Communication",
-    "description": "Learn how to communicate security incidents to clients clearly, on time, and without jargon — a critical skill for analysts working in Managed Security Service Providers (MSSPs).",
+    "description": "Learn how to communicate security incidents to clients clearly, on time, and without jargon: a critical skill for analysts working in Managed Security Service Providers (MSSPs).",
     "difficulty": "intermediate",
     "category": "SOC Operations",
     "estimatedMinutes": 30,
@@ -3042,7 +3042,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "escalation-procedures",
     "title": "Escalation Procedures",
-    "description": "Understand when and how to escalate security incidents through the SOC tier structure — from initial Tier 1 triage all the way to external parties like CISA and law enforcement.",
+    "description": "Understand when and how to escalate security incidents through the SOC tier structure, from initial Tier 1 triage all the way to external parties like CISA and law enforcement.",
     "difficulty": "intermediate",
     "category": "SOC Operations",
     "estimatedMinutes": 35,
@@ -3099,7 +3099,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "protocols-masterclass",
     "title": "Network Protocols Deep Dive",
-    "description": "Master the protocols that every SOC analyst must know — TCP/IP, DNS, HTTP/S, TLS — from how they work to how attackers abuse them and how to detect anomalies in your SIEM.",
+    "description": "Master the protocols that every SOC analyst must know (TCP/IP, DNS, HTTP/S, TLS) from how they work to how attackers abuse them and how to detect anomalies in your SIEM.",
     "difficulty": "intermediate",
     "category": "Network Security",
     "estimatedMinutes": 75,
@@ -3191,7 +3191,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "firewall-masterclass",
     "title": "Firewalls: From Packet Filter to NGFW",
-    "description": "Master firewalls from the ground up — stateless ACLs, stateful inspection, deep packet inspection, NGFW App-ID and User-ID, SSL inspection, rule-base design, and reading real FortiGate logs in your SIEM.",
+    "description": "Master firewalls from the ground up: stateless ACLs, stateful inspection, deep packet inspection, NGFW App-ID and User-ID, SSL inspection, rule-base design, and reading real FortiGate logs in your SIEM.",
     "difficulty": "intermediate",
     "category": "Network Security",
     "estimatedMinutes": 70,
@@ -3283,7 +3283,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "av-vs-edr-masterclass",
     "title": "Antivirus vs EDR vs XDR: Endpoint Security Evolution",
-    "description": "Master the full evolution of endpoint security — from 1987 signature-based antivirus to modern XDR platforms. Learn how EDR hooks the OS kernel, why fileless malware defeats AV, and how to analyze real CrowdStrike Falcon alerts in a hospital environment.",
+    "description": "Master the full evolution of endpoint security, from 1987 signature-based antivirus to modern XDR platforms. Learn how EDR hooks the OS kernel, why fileless malware defeats AV, and how to analyze real CrowdStrike Falcon alerts in a hospital environment.",
     "difficulty": "intermediate",
     "category": "Endpoint Security",
     "estimatedMinutes": 70,
@@ -3541,7 +3541,7 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "aws-la-stoplogging",
         "type": "log_analysis",
         "xp": 25,
-        "mitreTechnique": "T1562.008"
+        "mitreTechnique": "T1685.002"
       },
       {
         "id": "aws-f1",
@@ -3563,7 +3563,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "analyst-mindset",
     "title": "The Analyst Mindset: How to Think and Ask the Right Questions",
-    "description": "Learn to think like a SOC analyst, not just operate like one. This room is not about clicking through a workflow — it is about the mental habits that separate an analyst who spots real threats from one who rubber-stamps alerts. You will practice forming hypotheses, asking the right questions of every alert, building a baseline of 'normal', catching your own cognitive biases in the act, and knowing when to keep digging versus when to close a case with confidence.",
+    "description": "Learn to think like a SOC analyst, not just operate like one. This room is not about clicking through a workflow. It is about the mental habits that separate an analyst who spots real threats from one who rubber-stamps alerts. You will practice forming hypotheses, asking the right questions of every alert, building a baseline of 'normal', catching your own cognitive biases in the act, and knowing when to keep digging versus when to close a case with confidence.",
     "difficulty": "beginner",
     "category": "SOC Operations",
     "estimatedMinutes": 55,
@@ -3958,7 +3958,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "soar-automation",
     "title": "SOAR and Security Automation",
-    "description": "Learn how modern SOCs use SOAR (Security Orchestration, Automation and Response) to cut through alert volume — automating the repetitive parts of investigation and response so analysts can focus on judgment calls. You will learn what a playbook actually is, how enrichment automation works, how automated containment works and why a human approval gate is non-negotiable for high-impact actions, how to measure whether SOAR is actually helping, and — critically — the real-world risk of over-automation, where a well-intentioned playbook auto-blocks a legitimate business partner.",
+    "description": "Learn how modern SOCs use SOAR (Security Orchestration, Automation and Response) to cut through alert volume, automating the repetitive parts of investigation and response so analysts can focus on judgment calls. You will learn what a playbook actually is, how enrichment automation works, how automated containment works and why a human approval gate is non-negotiable for high-impact actions, how to measure whether SOAR is actually helping, and, critically, the real-world risk of over-automation, where a well-intentioned playbook auto-blocks a legitimate business partner.",
     "difficulty": "intermediate",
     "category": "SOC Operations",
     "estimatedMinutes": 60,
@@ -4042,7 +4042,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "kubernetes-container-security",
     "title": "Kubernetes & Container Security",
-    "description": "Learn how attackers escalate from a compromised container to the underlying node and the cloud account behind it — privileged pods, hostPath/hostPID/hostNetwork abuse, RBAC over-permissioning, and the metadata-service theft path that ties container security back into cloud security monitoring.",
+    "description": "Learn how attackers escalate from a compromised container to the underlying node and the cloud account behind it. Privileged pods, hostPath/hostPID/hostNetwork abuse, RBAC over-permissioning, and the metadata-service theft path that ties container security back into cloud security monitoring.",
     "difficulty": "advanced",
     "category": "Cloud Security",
     "estimatedMinutes": 55,
@@ -4109,7 +4109,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "azure-security",
     "title": "Azure IaaS Security for SOC Analysts",
-    "description": "Learn to investigate Microsoft Azure's cloud infrastructure layer as a SOC analyst — beyond Entra ID sign-ins and M365 mailboxes. Cover Azure's resource model (subscriptions, resource groups, RBAC role assignments, managed identities, service principals), the Azure Activity Log as the control-plane audit trail, Network Security Groups and NSG Flow Logs, Key Vault secret access, Storage Account exposure and SAS token abuse, VM run-command abuse, and Microsoft Defender for Cloud with Azure Monitor/Log Analytics (KQL) as the detection surface. Azure concepts are mapped throughout against the AWS and GCP equivalents you may already know.",
+    "description": "Learn to investigate Microsoft Azure's cloud infrastructure layer as a SOC analyst. Beyond Entra ID sign-ins and M365 mailboxes. Cover Azure's resource model (subscriptions, resource groups, RBAC role assignments, managed identities, service principals), the Azure Activity Log as the control-plane audit trail, Network Security Groups and NSG Flow Logs, Key Vault secret access, Storage Account exposure and SAS token abuse, VM run-command abuse, and Microsoft Defender for Cloud with Azure Monitor/Log Analytics (KQL) as the detection surface. Azure concepts are mapped throughout against the AWS and GCP equivalents you may already know.",
     "difficulty": "intermediate",
     "category": "Cloud Security",
     "estimatedMinutes": 70,
@@ -4409,7 +4409,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "tls-encrypted-traffic",
     "title": "TLS & Encrypted Traffic Analysis",
-    "description": "Learn to investigate encrypted traffic like an analyst who can't (and often shouldn't try to) decrypt it: the TLS handshake step by step, why SNI remains the last cleartext field, how to read a certificate chain and spot self-signed or suspiciously short-lived certs, JA3/JA3S/JARM fingerprinting, and how to detect C2 hiding inside TLS purely from metadata, timing, and certificate anomalies — plus when SSL interception is genuinely possible and when it isn't.",
+    "description": "Learn to investigate encrypted traffic like an analyst who can't (and often shouldn't try to) decrypt it: the TLS handshake step by step, why SNI remains the last cleartext field, how to read a certificate chain and spot self-signed or suspiciously short-lived certs, JA3/JA3S/JARM fingerprinting, and how to detect C2 hiding inside TLS purely from metadata, timing, and certificate anomalies, plus when SSL interception is genuinely possible and when it isn't.",
     "difficulty": "advanced",
     "category": "Network Security",
     "estimatedMinutes": 70,
@@ -4600,7 +4600,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "email-protocols-forensics",
     "title": "Email Protocols & Header Forensics",
-    "description": "Go past 'check SPF/DKIM/DMARC' into the protocol mechanics behind email spoofing: the raw SMTP conversation itself, why envelope-from and header-From are two entirely different things, how to read a full Received-header chain correctly (bottom to top), the precise alignment and qualifier rules that make SPF, DKIM, and DMARC work — and exactly why DMARC can legitimately pass on a phishing email that a careless analyst would otherwise trust — plus ARC, and a full step-by-step header forensics walkthrough.",
+    "description": "Go past 'check SPF/DKIM/DMARC' into the protocol mechanics behind email spoofing: the raw SMTP conversation itself, why envelope-from and header-From are two entirely different things, how to read a full Received-header chain correctly (bottom to top), the precise alignment and qualifier rules that make SPF, DKIM, and DMARC work, and exactly why DMARC can legitimately pass on a phishing email that a careless analyst would otherwise trust, plus ARC, and a full step-by-step header forensics walkthrough.",
     "difficulty": "advanced",
     "category": "Network Security",
     "estimatedMinutes": 65,
@@ -4696,7 +4696,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "tunneling-c2-channels",
     "title": "Tunneling, Proxies & C2 Channels",
-    "description": "Learn to recognize covert channels the way an analyst investigating an active intrusion actually finds them: SSH local/remote/dynamic port forwarding and what each looks like on the wire, SOCKS proxy pivoting and reverse shells, ICMP and DNS tunneling mechanics, the exact math behind HTTP(S) beacon interval and jitter, and why attackers increasingly prefer legitimate, signed living-off-the-land tools like ngrok, Chisel, and plink over custom malware — plus how to tell dual-use tooling used maliciously apart from the same tools used for approved IT work.",
+    "description": "Learn to recognize covert channels the way an analyst investigating an active intrusion actually finds them: SSH local/remote/dynamic port forwarding and what each looks like on the wire, SOCKS proxy pivoting and reverse shells, ICMP and DNS tunneling mechanics, the exact math behind HTTP(S) beacon interval and jitter, and why attackers increasingly prefer legitimate, signed living-off-the-land tools like ngrok, Chisel, and plink over custom malware, plus how to tell dual-use tooling used maliciously apart from the same tools used for approved IT work.",
     "difficulty": "advanced",
     "category": "Network Security",
     "estimatedMinutes": 70,
@@ -4887,7 +4887,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "windows-privilege-escalation",
     "title": "Windows Privilege Escalation & UAC Bypass",
-    "description": "Learn to read a Windows process tree the way privilege escalation actually happens: integrity levels and what each one is and isn't allowed to do, why reading LSASS memory requires SeDebugPrivilege and an elevated token, how fodhelper-style UAC bypasses reach High integrity without ever showing a consent prompt, token manipulation and the SeImpersonatePrivilege abused by the Potato exploit family, and the service misconfigurations — unquoted paths and weak permissions — that hand SYSTEM to anyone who can restart a service.",
+    "description": "Learn to read a Windows process tree the way privilege escalation actually happens: integrity levels and what each one is and isn't allowed to do, why reading LSASS memory requires SeDebugPrivilege and an elevated token, how fodhelper-style UAC bypasses reach High integrity without ever showing a consent prompt, token manipulation and the SeImpersonatePrivilege abused by the Potato exploit family, and the service misconfigurations, unquoted paths and weak permissions, that hand SYSTEM to anyone who can restart a service.",
     "difficulty": "advanced",
     "category": "Endpoint Security",
     "estimatedMinutes": 65,
@@ -4972,7 +4972,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "persistence-mechanisms",
     "title": "Persistence: How Attackers Survive a Reboot",
-    "description": "Learn the mechanisms attackers plant to survive a reboot, a logoff, or even a password reset: Run and RunOnce registry keys, scheduled tasks and cron jobs, Windows services, BITS jobs, WMI event subscriptions, and cloud-account and OAuth persistence — plus the operational lesson that separates a contained incident from one that reopens itself: persistence is what turns an intrusion into an incident, and its presence changes the order in which you're allowed to remediate.",
+    "description": "Learn the mechanisms attackers plant to survive a reboot, a logoff, or even a password reset: Run and RunOnce registry keys, scheduled tasks and cron jobs, Windows services, BITS jobs, WMI event subscriptions, and cloud-account and OAuth persistence, plus the operational lesson that separates a contained incident from one that reopens itself: persistence is what turns an intrusion into an incident, and its presence changes the order in which you're allowed to remediate.",
     "difficulty": "intermediate",
     "category": "Endpoint Security",
     "estimatedMinutes": 55,
@@ -5137,7 +5137,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "memory-disk-forensics",
     "title": "Memory & Disk Forensics for Analysts",
-    "description": "Go beyond the basics into live acquisition that doesn't contaminate the scene, what a memory image yields that a disk image structurally cannot, MACB timeline building past the $MFT, the anti-forensics techniques attackers actually use — log clearing, timestomping, shadow-copy deletion — and what each one still leaves behind, and the real tension between preserving evidence and shutting down an active intrusion.",
+    "description": "Go beyond the basics into live acquisition that doesn't contaminate the scene, what a memory image yields that a disk image structurally cannot, MACB timeline building past the $MFT, the anti-forensics techniques attackers actually use (log clearing, timestomping, shadow-copy deletion) and what each one still leaves behind, and the real tension between preserving evidence and shutting down an active intrusion.",
     "difficulty": "advanced",
     "category": "Forensics",
     "estimatedMinutes": 65,
@@ -5221,8 +5221,8 @@ export const ROOMS_META: RoomMeta[] = [
   },
   {
     "id": "encoding-encryption-hashing",
-    "title": "Encoding, Encryption & Hashing — What They Actually Are",
-    "description": "The three operations analysts confuse constantly, taught from first principles: encoding (reversible by anyone, no key — just a transport format), encryption (reversible only with the right key), and hashing (not reversible at all, ever). Goes deep on what a hash IS mechanically, why it's one-way, the properties that make it useful, and the four things a SOC analyst actually uses it for — plus the two misconceptions that trip up almost every junior analyst at least once: 'Base64 is encrypted' and 'hashed passwords are encrypted passwords.'",
+    "title": "Encoding, Encryption & Hashing: What They Actually Are",
+    "description": "The three operations analysts confuse constantly, taught from first principles: encoding (reversible by anyone, no key, just a transport format), encryption (reversible only with the right key), and hashing (not reversible at all, ever). Goes deep on what a hash IS mechanically, why it's one-way, the properties that make it useful, and the four things a SOC analyst actually uses it for, plus the two misconceptions that trip up almost every junior analyst at least once: 'Base64 is encrypted' and 'hashed passwords are encrypted passwords.'",
     "difficulty": "beginner",
     "category": "Foundations",
     "estimatedMinutes": 60,
@@ -5317,7 +5317,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "timestamps-and-timelines",
     "title": "Timestamps, Timezones & Building a Timeline",
-    "description": "The formats you'll meet in every investigation — ISO 8601, Unix epoch seconds vs milliseconds, Windows FILETIME, syslog's year-less format — plus the discipline that actually prevents mistakes: why every mature SIEM stores UTC and renders local, why your raw log and your screen can legitimately disagree, why three log sources rarely agree on the exact second something happened, and how to build a timeline that's ordered by when things really happened rather than by which alert you happened to open first.",
+    "description": "The formats you'll meet in every investigation (ISO 8601, Unix epoch seconds vs milliseconds, Windows FILETIME, syslog's year-less format) plus the discipline that actually prevents mistakes: why every mature SIEM stores UTC and renders local, why your raw log and your screen can legitimately disagree, why three log sources rarely agree on the exact second something happened, and how to build a timeline that's ordered by when things really happened rather than by which alert you happened to open first.",
     "difficulty": "beginner",
     "category": "Foundations",
     "estimatedMinutes": 50,
@@ -5392,7 +5392,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "log-entry-anatomy",
     "title": "Anatomy of a Log Entry",
-    "description": "Learn to read any log you have never seen before: the five questions every entry answers (when, who, where, what, how confident), the formats you will actually meet — plain syslog, key=value, JSON, CSV/W3C, and CEF/LEEF — why the same fact gets a different field name in every product and how a SIEM normalises them, why severity is a vendor's opinion and not a fact, and how to tell 'it didn't happen' apart from 'it wasn't logged.'",
+    "description": "Learn to read any log you have never seen before: the five questions every entry answers (when, who, where, what, how confident), the formats you will actually meet (plain syslog, key=value, JSON, CSV/W3C, and CEF/LEEF) why the same fact gets a different field name in every product and how a SIEM normalises them, why severity is a vendor's opinion and not a fact, and how to tell 'it didn't happen' apart from 'it wasn't logged.'",
     "difficulty": "beginner",
     "category": "Log Analysis",
     "estimatedMinutes": 45,
@@ -5582,7 +5582,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "malware-types",
     "title": "Malware Types and What Each One Wants",
-    "description": "The platform's scenarios say 'trojan-dropper', 'loader', 'infostealer', 'wiper', and 'RAT' as if you already know what each one is for — and you can't triage what you can't name. This room organises the whole malware taxonomy around one question per type: what does it want, how does it arrive, what does it look like in telemetry, and what should you do the moment you recognise it?",
+    "description": "The platform's scenarios say 'trojan-dropper', 'loader', 'infostealer', 'wiper', and 'RAT' as if you already know what each one is for, and you can't triage what you can't name. This room organises the whole malware taxonomy around one question per type: what does it want, how does it arrive, what does it look like in telemetry, and what should you do the moment you recognise it?",
     "difficulty": "beginner",
     "category": "Threat Intelligence",
     "estimatedMinutes": 55,
@@ -5677,7 +5677,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "asset-context-prioritisation",
     "title": "Asset Context: Why the Same Alert Is Not the Same Alert",
-    "description": "Prioritisation is the daily job of a SOC analyst, and it depends on something most training skips: what the affected asset actually is. Failed logons on a disposable test VM, a finance workstation, and a domain controller can be the exact same log line — and three completely different incidents. This room teaches asset criticality, blast radius, exposure, and business context, then has you rank concurrent alerts where the correct order isn't the order the products assigned.",
+    "description": "Prioritisation is the daily job of a SOC analyst, and it depends on something most training skips: what the affected asset actually is. Failed logons on a disposable test VM, a finance workstation, and a domain controller can be the exact same log line, and three completely different incidents. This room teaches asset criticality, blast radius, exposure, and business context, then has you rank concurrent alerts where the correct order isn't the order the products assigned.",
     "difficulty": "beginner",
     "category": "SOC Operations",
     "estimatedMinutes": 50,
@@ -5879,7 +5879,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "credential-attacks-practice",
     "title": "Credential Attacks in the Logs",
-    "description": "The theory lesson taught you what brute forcing, password spraying, credential stuffing, and credential dumping are. This room makes you tell them apart from the raw authentication telemetry alone — no labels, no detection-rule names, just TargetUserName, IpAddress, LogonType, and Status/SubStatus fields deciding which attack you're actually looking at, plus the trap that catches analysts who escalate every repeated-failure pattern without checking its shape first.",
+    "description": "The theory lesson taught you what brute forcing, password spraying, credential stuffing, and credential dumping are. This room makes you tell them apart from the raw authentication telemetry alone: no labels, no detection-rule names, just TargetUserName, IpAddress, LogonType, and Status/SubStatus fields deciding which attack you're actually looking at, plus the trap that catches analysts who escalate every repeated-failure pattern without checking its shape first.",
     "difficulty": "intermediate",
     "category": "Threat Detection",
     "estimatedMinutes": 55,
@@ -5951,7 +5951,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "lateral-movement-practice",
     "title": "Tracing Lateral Movement",
-    "description": "Windows Protocols & Lateral Movement taught you the wire-level mechanics — SMB, Kerberos, NTLM, DCERPC. This room hands you the scattered evidence a real intrusion leaves across three hosts and asks you to reconstruct it: decide whether a network logon is admin tooling or an intrusion, connect a service installation back to the session that caused it, and order a multi-host movement chain by what the timestamps actually say.",
+    "description": "Windows Protocols & Lateral Movement taught you the wire-level mechanics: SMB, Kerberos, NTLM, DCERPC. This room hands you the scattered evidence a real intrusion leaves across three hosts and asks you to reconstruct it: decide whether a network logon is admin tooling or an intrusion, connect a service installation back to the session that caused it, and order a multi-host movement chain by what the timestamps actually say.",
     "difficulty": "advanced",
     "category": "Threat Detection",
     "estimatedMinutes": 65,
@@ -6090,8 +6090,8 @@ export const ROOMS_META: RoomMeta[] = [
   },
   {
     "id": "web-application-security",
-    "title": "How Web Applications Work — and How They Break",
-    "description": "Before you can investigate a web attack you have to know what a web request actually is. This room builds that from zero: what travels in an HTTP request and response, why nothing the browser sends can ever be trusted, the browser-to-server-to-application-to-database path every request takes, the attack classes that live at each stop mapped onto the OWASP Top 10 2021, what a WAF genuinely catches versus what it is blind to, and how to read a real IIS access-log line field by field — including two things it does not record by default: the request body, and, behind a load balancer, the true client IP.",
+    "title": "How Web Applications Work, and How They Break",
+    "description": "Before you can investigate a web attack you have to know what a web request actually is. This room builds that from zero: what travels in an HTTP request and response, why nothing the browser sends can ever be trusted, the browser-to-server-to-application-to-database path every request takes, the attack classes that live at each stop mapped onto the OWASP Top 10 2021, what a WAF genuinely catches versus what it is blind to, and how to read a real IIS access-log line field by field, including two things it does not record by default: the request body, and, behind a load balancer, the true client IP.",
     "difficulty": "beginner",
     "category": "Application Security",
     "estimatedMinutes": 60,
@@ -6172,8 +6172,8 @@ export const ROOMS_META: RoomMeta[] = [
   },
   {
     "id": "playbook-execution-and-escalation",
-    "title": "Running the Playbook — and Knowing When to Stop",
-    "description": "You are handed a routine impossible-travel ticket and Northvale's compromised-account playbook, IR-014. You will run it properly: validate, collect, scope, then contain. The early steps fit and doing them carefully is what makes the rest of the room possible. Then the evidence stops matching what the playbook assumes, and you have to decide whether to finish the procedure as written or stop and escalate — and then document that you deviated, and why. Built on real Entra ID sign-in fields, with no log field anywhere that tells you the answer.",
+    "title": "Running the Playbook, and Knowing When to Stop",
+    "description": "You are handed a routine impossible-travel ticket and Northvale's compromised-account playbook, IR-014. You will run it properly: validate, collect, scope, then contain. The early steps fit and doing them carefully is what makes the rest of the room possible. Then the evidence stops matching what the playbook assumes, and you have to decide whether to finish the procedure as written or stop and escalate, and then document that you deviated, and why. Built on real Entra ID sign-in fields, with no log field anywhere that tells you the answer.",
     "difficulty": "intermediate",
     "category": "Incident Response",
     "estimatedMinutes": 50,
@@ -6246,7 +6246,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "remote-email-collection",
     "title": "Remote Email Collection & Malicious Inbox Rules",
-    "description": "Learn what an attacker does once they already hold a working session on someone's mailbox — MITRE ATT&CK T1114.002. Covers how remote mail access shows up in the Office 365 Unified Audit Log (MailItemsAccessed, ClientInfoString, Bind vs Sync, SessionId), how attackers build inbox rules that silently forward and delete finance-relevant mail, how to tell a compromised account from a legitimate delegate or migration tool, and the correct order of response for a confirmed Business Email Compromise.",
+    "description": "Learn what an attacker does once they already hold a working session on someone's mailbox: MITRE ATT&CK T1114.002. Covers how remote mail access shows up in the Office 365 Unified Audit Log (MailItemsAccessed, ClientInfoString, Bind vs Sync, SessionId), how attackers build inbox rules that silently forward and delete finance-relevant mail, how to tell a compromised account from a legitimate delegate or migration tool, and the correct order of response for a confirmed Business Email Compromise.",
     "difficulty": "intermediate",
     "category": "Identity",
     "estimatedMinutes": 55,
@@ -6337,7 +6337,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "device-registration-persistence",
     "title": "Device Registration Abuse & MFA Persistence",
-    "description": "Learn MITRE ATT&CK T1098.005 — how an attacker who already holds a working, MFA-satisfied session registers their own authentication method or device against the account, turning a one-time compromise into standing access that survives a password reset. Covers Entra ID audit log fields (User registered security info, StrongAuthenticationMethod, targetResources, initiatedBy), how to tell self-service abuse from routine device changes, and why removing the rogue method is its own required remediation step.",
+    "description": "Learn MITRE ATT&CK T1098.005: how an attacker who already holds a working, MFA-satisfied session registers their own authentication method or device against the account, turning a one-time compromise into standing access that survives a password reset. Covers Entra ID audit log fields (User registered security info, StrongAuthenticationMethod, targetResources, initiatedBy), how to tell self-service abuse from routine device changes, and why removing the rogue method is its own required remediation step.",
     "difficulty": "intermediate",
     "category": "Identity",
     "estimatedMinutes": 55,
@@ -6429,8 +6429,8 @@ export const ROOMS_META: RoomMeta[] = [
   },
   {
     "id": "edr-detection-investigation",
-    "title": "Investigating an EDR Detection — End to End",
-    "description": "Follow one EDR detection from the moment it lands to the moment a host is contained. Covers CrowdStrike Falcon and Microsoft Defender for Endpoint fields (Tactic, Technique, SeverityName, PatternDispositionDescription, ContextProcessName, CommandLine, SHA256HashData, GrantedAccess, CallStackModuleNames), how to read a process tree for parent-child anomalies and LOLBins, why sibling behavioral alerts on the same host need to be merged before triage, why a tool's own severity rating is never the analyst's verdict, and the full pivot-scope-contain workflow real investigations actually run.",
+    "title": "Investigating an EDR Detection: End to End",
+    "description": "Follow one EDR detection from the moment it lands to the moment a host is contained. Covers CrowdStrike Falcon and Microsoft Defender for Endpoint fields (Tactic, Technique, SeverityName, PatternDispositionDescription, ContextBaseFileName, CommandLine, SHA256HashData, DesiredAccess, CallStackModuleNames), how to read a process tree for parent-child anomalies and LOLBins, why sibling behavioral alerts on the same host need to be merged before triage, why a tool's own severity rating is never the analyst's verdict, and the full pivot-scope-contain workflow real investigations actually run.",
     "difficulty": "advanced",
     "category": "Endpoint Security",
     "estimatedMinutes": 75,
@@ -6537,8 +6537,8 @@ export const ROOMS_META: RoomMeta[] = [
   },
   {
     "id": "investigate-alert-workflow",
-    "title": "How to Investigate an Alert — The 7-Step Analyst Workflow",
-    "description": "A repeatable, defensible sequence for what to actually do once an alert lands in your queue: validate, scope, collect and preserve, reconstruct the timeline, map to ATT&CK and find root cause, document, and report and hand off. Built on one running case — a macro-spawned PowerShell process at Castleton Underwriting that becomes lateral movement onto a finance database server and a staged archive of export files — using real Microsoft Defender for Endpoint and Windows Security fields throughout, with no field anywhere that hands you the verdict.",
+    "title": "How to Investigate an Alert: The 7-Step Analyst Workflow",
+    "description": "A repeatable, defensible sequence for what to actually do once an alert lands in your queue: validate, scope, collect and preserve, reconstruct the timeline, map to ATT&CK and find root cause, document, and report and hand off. Built on one running case: a macro-spawned PowerShell process at Castleton Underwriting that becomes lateral movement onto a finance database server and a staged archive of export files, using real Microsoft Defender for Endpoint and Windows Security fields throughout, with no field anywhere that hands you the verdict.",
     "difficulty": "intermediate",
     "category": "Incident Response",
     "estimatedMinutes": 55,
@@ -6636,8 +6636,8 @@ export const ROOMS_META: RoomMeta[] = [
   },
   {
     "id": "incident-report-writing",
-    "title": "Writing the Incident Report — Documentation That Holds Up",
-    "description": "The investigation is only half the job. This room teaches the other half: writing an incident report that serves two different audiences from one document, extracting IOCs correctly, building a technical timeline a stranger can follow six months later, writing a root cause that names an actual control gap instead of blaming a user, and keeping the whole thing defensible under later scrutiny. Built on a second case — a persistence foothold at Solstice Actuarial Partners — using real Microsoft Defender for Endpoint and Entra ID fields.",
+    "title": "Writing the Incident Report: Documentation That Holds Up",
+    "description": "The investigation is only half the job. This room teaches the other half: writing an incident report that serves two different audiences from one document, extracting IOCs correctly, building a technical timeline a stranger can follow six months later, writing a root cause that names an actual control gap instead of blaming a user, and keeping the whole thing defensible under later scrutiny. Built on a second case (a persistence foothold at Solstice Actuarial Partners) using real Microsoft Defender for Endpoint and Entra ID fields.",
     "difficulty": "intermediate",
     "category": "Incident Response",
     "estimatedMinutes": 60,
@@ -6732,7 +6732,7 @@ export const ROOMS_META: RoomMeta[] = [
   },
   {
     "id": "risk-fundamentals",
-    "title": "Risk Fundamentals — Threat, Vulnerability, and What Actually Gets Prioritised",
+    "title": "Risk Fundamentals: Threat, Vulnerability, and What Actually Gets Prioritised",
     "description": "Learn the classic Threat x Vulnerability x Impact model that determines real-world risk, why a critical CVSS score does not automatically mean urgent action, how active threat intelligence changes prioritisation, and what Attack Surface and Attack Vector actually mean and how to reduce exposure before any specific vulnerability is even known.",
     "difficulty": "beginner",
     "category": "Foundations",
@@ -6788,8 +6788,8 @@ export const ROOMS_META: RoomMeta[] = [
   },
   {
     "id": "powershell-for-soc-analyst",
-    "title": "PowerShell for the SOC Analyst — The Defender's Side of the Same Tool",
-    "description": "You have already seen PowerShell used against you — encoded commands, execution-policy bypass, winword.exe spawning a payload downloader. This room teaches the other half: the seven cmdlets an analyst actually reaches for during an investigation, how the object pipeline chains them together, and how to turn a live query into evidence you can hand to an incident lead.",
+    "title": "PowerShell for the SOC Analyst: The Defender's Side of the Same Tool",
+    "description": "You have already seen PowerShell used against you: encoded commands, execution-policy bypass, winword.exe spawning a payload downloader. This room teaches the other half: the seven cmdlets an analyst actually reaches for during an investigation, how the object pipeline chains them together, and how to turn a live query into evidence you can hand to an incident lead.",
     "difficulty": "intermediate",
     "category": "Endpoint Security",
     "estimatedMinutes": 55,
@@ -6854,7 +6854,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "commodity-initial-access",
     "title": "Modern Commodity Initial-Access Techniques (2024–2026)",
-    "description": "Five ways attackers get their first foothold without a malicious document macro and often without a classic file download at all: a fake CAPTCHA that pastes its own command (ClickFix), a bundled utility that silently swaps cryptocurrency wallet addresses (clipboard clipper), a sponsored search result leading to a fake installer (SEO poisoning), a downloaded ISO that slips past the Mark-of-the-Web warning, and a compromised web page that mines cryptocurrency inside a browser tab. Learn to recognise each one, the exact MITRE ATT&CK techniques behind them, and the terms — Mark-of-the-Web, fileless execution, loader, WebAssembly, Stratum relay — that no one can guess from context alone.",
+    "description": "Five ways attackers get their first foothold without a malicious document macro and often without a classic file download at all: a fake CAPTCHA that pastes its own command (ClickFix), a bundled utility that silently swaps cryptocurrency wallet addresses (clipboard clipper), a sponsored search result leading to a fake installer (SEO poisoning), a downloaded ISO that slips past the Mark-of-the-Web warning, and a compromised web page that mines cryptocurrency inside a browser tab. Learn to recognise each one, the exact MITRE ATT&CK techniques behind them, and the terms (Mark-of-the-Web, fileless execution, loader, WebAssembly, Stratum relay) that no one can guess from context alone.",
     "difficulty": "beginner",
     "category": "Threat Detection",
     "estimatedMinutes": 55,
@@ -6951,8 +6951,8 @@ export const ROOMS_META: RoomMeta[] = [
   },
   {
     "id": "ransomware-full-lifecycle",
-    "title": "Ransomware: Full Attack Lifecycle — From Initial Access to Extortion",
-    "description": "Follow one ransomware intrusion end to end: how the affiliate gets in (phishing, edge-device exploitation, RDP brute force), what they do once inside (execution, persistence, AD discovery, LSASS/DCSync credential access, PsExec/WMI/RDP lateral movement, shadow-copy deletion, disabling EDR, clearing logs), the 2025 exfiltration-first double-extortion model that moves stolen data out before a single file is encrypted, and finally fleet-wide encryption and the extortion note — with the specific detection point and containment action a SOC analyst owns at every single stage, not just at the moment the ransom note appears.",
+    "title": "Ransomware: Full Attack Lifecycle, From Initial Access to Extortion",
+    "description": "Follow one ransomware intrusion end to end: how the affiliate gets in (phishing, edge-device exploitation, RDP brute force), what they do once inside (execution, persistence, AD discovery, LSASS/DCSync credential access, PsExec/WMI/RDP lateral movement, shadow-copy deletion, disabling EDR, clearing logs), the 2025 exfiltration-first double-extortion model that moves stolen data out before a single file is encrypted, and finally fleet-wide encryption and the extortion note, with the specific detection point and containment action a SOC analyst owns at every single stage, not just at the moment the ransom note appears.",
     "difficulty": "advanced",
     "category": "Incident Response",
     "estimatedMinutes": 105,
@@ -7063,7 +7063,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "bec-investigation",
     "title": "Business Email Compromise (BEC): End-to-End Investigation",
-    "description": "Walk a real Business Email Compromise case from account takeover to a fraudulent wire transfer and back to full analyst response — the single costliest reported category of cybercrime, and one that runs almost entirely without malware. Covers the four BEC vectors (account takeover, lookalike domains, thread hijacking, vendor email compromise), how to read Entra ID sign-in logs for token replay and impossible travel (isInteractive, incomingTokenType, conditionalAccessStatus, riskLevelDuringSignIn, deviceDetail), the inbox-rule concealment techniques attackers build specifically to hide wire-fraud threads, timeline reconstruction, and the full response — technical containment, financial recall, scoping, and reporting.",
+    "description": "Walk a real Business Email Compromise case from account takeover to a fraudulent wire transfer and back to full analyst response: the single costliest reported category of cybercrime, and one that runs almost entirely without malware. Covers the four BEC vectors (account takeover, lookalike domains, thread hijacking, vendor email compromise), how to read Entra ID sign-in logs for token replay and impossible travel (isInteractive, incomingTokenType, conditionalAccessStatus, riskLevelDuringSignIn, deviceDetail), the inbox-rule concealment techniques attackers build specifically to hide wire-fraud threads, timeline reconstruction, and the full response: technical containment, financial recall, scoping, and reporting.",
     "difficulty": "intermediate",
     "category": "Identity",
     "estimatedMinutes": 65,
@@ -7373,7 +7373,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "okta-identity-fundamentals",
     "title": "Okta Identity & Authentication Fundamentals",
-    "description": "The Okta counterpart to Entra ID: how to read the Okta System Log on its own terms — the okta.eventType taxonomy, outcome.result and outcome.reason (including the single field flip that separates a rejected password from an accepted one), securityContext network signals, factor enrollment and MFA types, and the admin/group events attackers target for persistence. Includes a direct, explicit contrast against Entra ID so a student who only knows Microsoft's identity platform doesn't misread an Okta tenant.",
+    "description": "The Okta counterpart to Entra ID: how to read the Okta System Log on its own terms, the okta.eventType taxonomy, outcome.result and outcome.reason (including the single field flip that separates a rejected password from an accepted one), securityContext network signals, factor enrollment and MFA types, and the admin/group events attackers target for persistence. Includes a direct, explicit contrast against Entra ID so a student who only knows Microsoft's identity platform doesn't misread an Okta tenant.",
     "difficulty": "intermediate",
     "category": "Identity",
     "estimatedMinutes": 60,
@@ -7697,7 +7697,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "ai-attacks-soc-detection",
     "title": "AI Attacks in the SOC, Part 1: Prompt Injection and Attacks on LLM Apps",
-    "description": "Part 1 of 3. Why AI is now a SOC problem, then the attacks aimed at the organization's own LLM applications: direct and indirect prompt injection, sensitive data leaking out of a model's answers, poisoned training and RAG data, and model theft — each with the log signals an analyst sees and how to detect it. Grounded in OWASP Top 10 for LLM Applications (2025) and MITRE ATLAS.",
+    "description": "Part 1 of 3. Why AI is now a SOC problem, then the attacks aimed at the organization's own LLM applications: direct and indirect prompt injection, sensitive data leaking out of a model's answers, poisoned training and RAG data, and model theft. Each with the log signals an analyst sees and how to detect it. Grounded in OWASP Top 10 for LLM Applications (2025) and MITRE ATLAS.",
     "difficulty": "intermediate",
     "category": "Threat Detection",
     "estimatedMinutes": 40,
@@ -7773,7 +7773,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "ai-attacks-soc-llm-risks",
     "title": "AI Attacks in the SOC, Part 2: Agents, Output Handling and Jailbreaks",
-    "description": "Part 2 of 3. The rest of the OWASP Top 10 for LLM Applications in depth: excessive agency when an AI agent holds too much power, improper output handling, unbounded consumption, adversarial evasion of AI models, and jailbreaks — how each turns an injection attempt into real impact, and the controls and detections that stop it.",
+    "description": "Part 2 of 3. The rest of the OWASP Top 10 for LLM Applications in depth: excessive agency when an AI agent holds too much power, improper output handling, unbounded consumption, adversarial evasion of AI models, and jailbreaks. How each turns an injection attempt into real impact, and the controls and detections that stop it.",
     "difficulty": "intermediate",
     "category": "Threat Detection",
     "estimatedMinutes": 40,
@@ -7853,7 +7853,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "ai-attacks-soc-social",
     "title": "AI Attacks in the SOC, Part 3: Deepfakes, AI Phishing and Shadow AI",
-    "description": "Part 3 of 3. AI used against people and processes: deepfake voice and video vishing (the $25M Arup case), LLM-written phishing and BEC at scale, and employees pasting secrets into public AI tools — then MITRE ATLAS, NIST AI RMF and how to build AI-attack detection use cases for your SOC.",
+    "description": "Part 3 of 3. AI used against people and processes: deepfake voice and video vishing (the $25M Arup case), LLM-written phishing and BEC at scale, and employees pasting secrets into public AI tools, then MITRE ATLAS, NIST AI RMF and how to build AI-attack detection use cases for your SOC.",
     "difficulty": "intermediate",
     "category": "Threat Detection",
     "estimatedMinutes": 40,
@@ -7919,7 +7919,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "mfa-session-token-attacks",
     "title": "MFA Attacks & Session/Token Theft: When 'MFA Enabled' Isn't 'Solved'",
-    "description": "MFA fatigue and push bombing (T1621), adversary-in-the-middle reverse-proxy phishing that steals a session cookie after a genuine login (T1539 + T1550.004), Windows OS access-token impersonation (T1134.001), stolen OAuth application tokens (T1528), and Golden SAML assertion forgery (T1606.002) — five real ATT&CK techniques that all defeat MFA without ever cracking a password. Grounded in the CISA/FBI Scattered Spider advisory, Microsoft and Okta identity documentation, and NIST SP 800-63B.",
+    "description": "MFA fatigue and push bombing (T1621), adversary-in-the-middle reverse-proxy phishing that steals a session cookie after a genuine login (T1539 + T1550.004), Windows OS access-token impersonation (T1134.001), stolen OAuth application tokens (T1528), and Golden SAML assertion forgery (T1606.002). Five real ATT&CK techniques that all defeat MFA without ever cracking a password. Grounded in the CISA/FBI Scattered Spider advisory, Microsoft and Okta identity documentation, and NIST SP 800-63B.",
     "difficulty": "advanced",
     "category": "Identity",
     "estimatedMinutes": 80,
@@ -8129,7 +8129,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "unsecured-credentials-practice",
     "title": "Unsecured Credentials & Credential Stores",
-    "description": "The theory lesson 'Where Credentials Hide' taught you where secrets end up exposed without anyone actively dumping them — files, private keys, OS password stores, cloud secrets managers, and NTDS.dit's file-access telemetry. This room makes you find and interpret them from real artifacts: a GPP cpassword decrypt, a CloudTrail GetSecretValue burst, a Windows Event 4663 record with a Volume Shadow Copy device path, and the hardest professional skill in this whole domain — telling a compromised identity's secrets-manager sweep apart from a legitimate rotation job's own scheduled burst.",
+    "description": "The theory lesson 'Where Credentials Hide' taught you where secrets end up exposed without anyone actively dumping them: files, private keys, OS password stores, cloud secrets managers, and NTDS.dit's file-access telemetry. This room makes you find and interpret them from real artifacts: a GPP cpassword decrypt, a CloudTrail GetSecretValue burst, a Windows Event 4663 record with a Volume Shadow Copy device path, and the hardest professional skill in this whole domain, telling a compromised identity's secrets-manager sweep apart from a legitimate rotation job's own scheduled burst.",
     "difficulty": "advanced",
     "category": "Threat Detection",
     "estimatedMinutes": 65,
@@ -8233,7 +8233,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "rmm-abuse-remote-access-tools",
     "title": "RMM Abuse & Remote Access Tools: When the Legitimate Tool Is the Attack",
-    "description": "Remote Monitoring and Management (RMM) software — AnyDesk, TeamViewer, ConnectWise ScreenConnect, Atera, Splashtop, and Windows' own built-in Quick Assist — is exactly what IT help desks use every day, and exactly what attackers increasingly ride into a network as MITRE ATT&CK technique T1219 (Remote Access Software, Command and Control tactic). Learn how a signed, legitimate binary becomes an intrusion channel, two real documented case studies (Storm-1811/Quick Assist/Black Basta and the CVE-2024-1709 ConnectWise ScreenConnect authentication bypass), and the allowlist discipline that is the only detection strategy that actually works against this technique.",
+    "description": "Remote Monitoring and Management (RMM) software. AnyDesk, TeamViewer, ConnectWise ScreenConnect, Atera, Splashtop, and Windows' own built-in Quick Assist. Is exactly what IT help desks use every day, and exactly what attackers increasingly ride into a network as MITRE ATT&CK technique T1219 (Remote Access Software, Command and Control tactic). Learn how a signed, legitimate binary becomes an intrusion channel, two real documented case studies (Storm-1811/Quick Assist/Black Basta and the CVE-2024-1709 ConnectWise ScreenConnect authentication bypass), and the allowlist discipline that is the only detection strategy that actually works against this technique.",
     "difficulty": "intermediate",
     "category": "Threat Detection",
     "estimatedMinutes": 65,
@@ -8443,8 +8443,8 @@ export const ROOMS_META: RoomMeta[] = [
   },
   {
     "id": "cloud-attacker-defense-evasion",
-    "title": "Cloud Attacker Actions: Defense Evasion & Manipulation Inside a Compromised Tenant",
-    "description": "The platform's existing cloud rooms teach you to monitor a tenant: what CloudTrail, Azure Activity Log, and GCP Audit Logs record, and how GuardDuty or Defender for Cloud raise findings. This room teaches the other side of that same coin — the exact actions a real attacker takes once they are already sitting inside a compromised cloud account with a working identity: opening a security group to the entire internet, spinning up a new instance to sidestep the restrictions on the ones already running, sharing a snapshot of a sensitive volume with an external account, escalating privilege through a vulnerable workload, and finally destroying evidence and locking administrators out. Every technique is verified against MITRE ATT&CK's current (2026) classification, including a real, dated restructuring — ATT&CK v19's split of Defense Evasion into Stealth and Defense Impairment — that changed the technique IDs this exact subject matter uses.",
+    "title": "Cloud Attacker Actions: Defense Impairment & Manipulation Inside a Compromised Tenant",
+    "description": "The platform's existing cloud rooms teach you to monitor a tenant: what CloudTrail, Azure Activity Log, and GCP Audit Logs record, and how GuardDuty or Defender for Cloud raise findings. This room teaches the other side of that same coin, the exact actions a real attacker takes once they are already sitting inside a compromised cloud account with a working identity: opening a security group to the entire internet, spinning up a new instance to sidestep the restrictions on the ones already running, sharing a snapshot of a sensitive volume with an external account, escalating privilege through a vulnerable workload, and finally destroying evidence and locking administrators out. Every technique is verified against MITRE ATT&CK's current (2026) classification, including a real, dated restructuring (ATT&CK v19's split of Defense Evasion into Stealth and Defense Impairment) that changed the technique IDs this exact subject matter uses.",
     "difficulty": "advanced",
     "category": "Cloud Security",
     "estimatedMinutes": 60,
@@ -8646,7 +8646,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "vishing-helpdesk-social-engineering",
     "title": "Vishing and Voice-Based Social Engineering: The Help-Desk Attack",
-    "description": "Every technical email control this platform's other rooms teach -- SPF/DKIM/DMARC, URL sandboxing, attachment detonation -- inspects a message, and a phone call has no message to inspect. This room covers vishing (voice phishing), MITRE ATT&CK's T1566.004 (Spearphishing Voice), through the single highest-leverage target it exploits inside almost every organization: the IT help desk, whose job is to say yes to a locked-out caller. Follow the full attack arc from LinkedIn-sourced reconnaissance (T1589/T1591) through impersonation (T1656) to a help-desk-performed password or MFA reset and the resulting valid-account access (T1078); study four real, publicly documented incidents -- MGM Resorts and Caesars Entertainment (Scattered Spider/UNC3944, September 2023, per CISA advisory AA23-320A), Retool's 2023 deepfake voice call, and the Twilio/Cisco 2022 MFA-push pattern; read genuine Microsoft Entra ID identity-administration and sign-in log fields for the fingerprints a call leaves behind; and learn the one fact that actually separates a legitimate help-desk reset from a vishing-driven takeover -- an out-of-band identity check the caller cannot control, not the sound of a voice a deepfake can now convincingly fake.",
+    "description": "Every technical email control this platform's other rooms teach -- SPF/DKIM/DMARC, URL sandboxing, attachment detonation -- inspects a message, and a phone call has no message to inspect. This room covers vishing (voice phishing), MITRE ATT&CK's T1566.004 (Spearphishing Voice), through the single highest-leverage target it exploits inside almost every organization: the IT help desk, whose job is to say yes to a locked-out caller. Follow the full attack arc from LinkedIn-sourced reconnaissance (T1589/T1591) through impersonation (T1684.001, formerly T1656) to a help-desk-performed password or MFA reset and the resulting valid-account access (T1078); study four real, publicly documented incidents -- MGM Resorts and Caesars Entertainment (Scattered Spider/UNC3944, September 2023, per CISA advisory AA23-320A), Retool's 2023 deepfake voice call, and the Twilio/Cisco 2022 MFA-push pattern; read genuine Microsoft Entra ID identity-administration and sign-in log fields for the fingerprints a call leaves behind; and learn the one fact that actually separates a legitimate help-desk reset from a vishing-driven takeover -- an out-of-band identity check the caller cannot control, not the sound of a voice a deepfake can now convincingly fake.",
     "difficulty": "intermediate",
     "category": "Threat Detection",
     "estimatedMinutes": 80,
@@ -8726,13 +8726,13 @@ export const ROOMS_META: RoomMeta[] = [
         "id": "vish-la1",
         "type": "log_analysis",
         "xp": 40,
-        "mitreTechnique": "T1656"
+        "mitreTechnique": "T1684.001"
       },
       {
         "id": "vish-ac1",
         "type": "analyst_choice",
         "xp": 25,
-        "mitreTechnique": "T1656"
+        "mitreTechnique": "T1684.001"
       },
       {
         "id": "vish-q4",

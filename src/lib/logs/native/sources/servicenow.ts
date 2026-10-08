@@ -180,7 +180,7 @@ ${text}` : "";
 const useCases: UseCase[] = [
   {
     id: "servicenow.emergency_change", title: "Emergency change raised", sourceId: "servicenow", kinds: ["change_request"],
-    severity: "medium", mitre: ["T1078", "T1562"],
+    severity: "medium", mitre: ["T1078", "T1685"],
     description: "Emergency changes skip the normal CAB review. Attackers and insiders use them (or forge them) to justify disabling controls or making admin changes at odd hours. Check there is a matching incident, who requested it, and whether the same person approved it.",
     logic: "ServiceNow Table API: GET /api/now/table/change_request?sysparm_query=type=emergency^sys_created_on>=javascript:gs.daysAgoStart(1)  |  SIEM: snow_change type=emergency | table number requested_by start_date end_date",
     match: { field: "result.type", op: "eq", value: "emergency" },
@@ -204,7 +204,7 @@ const useCases: UseCase[] = [
   },
   {
     id: "servicenow.helpdesk_auth_reset_by_phone", title: "Password / MFA reset requested by phone", sourceId: "servicenow", kinds: ["incident"],
-    severity: "medium", mitre: ["T1656", "T1078"],
+    severity: "medium", mitre: ["T1684.001", "T1078"],
     description: "Help-desk social engineering (Scattered Spider, voice-cloned callers) starts as an ordinary phone ticket asking for a password or MFA reset. Compare the caller's real activity (sign-ins from their own device minutes earlier) with the ticket and check how identity was verified.",
     logic: "sysparm_query=contact_type=phone^subcategoryLIKEpassword^ORsubcategoryLIKEmfa",
     match: { all: [{ field: "result.contact_type", op: "eq", value: "phone" }, { field: "result.subcategory", op: "regex", value: "password|mfa|authenticator" }] },
@@ -212,7 +212,7 @@ const useCases: UseCase[] = [
   },
   {
     id: "servicenow.weak_identity_verification", title: "Reset ticket closed on knowledge-based / voice-only verification", sourceId: "servicenow", kinds: ["incident"],
-    severity: "medium", mitre: ["T1656"],
+    severity: "medium", mitre: ["T1684.001"],
     description: "Employee ID, date of birth or 'voice recognised' are all things an attacker can obtain or synthesise. A credential/MFA reset verified only that way (and no call-back to the number on file) is the weak link to report.",
     logic: "sysparm_query=u_identity_verificationLIKEvoice^ORu_identity_verificationLIKEdate of birth^ORu_identity_verificationLIKEemployee id",
     match: { field: "result.u_identity_verification", op: "regex", value: "voice|date of birth|employee id" },

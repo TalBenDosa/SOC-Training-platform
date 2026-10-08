@@ -1835,7 +1835,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_mde_02", ts: T(27), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "av_detection", severity: "high",
-    mitre_technique: "T1036.005", mitre_tactic: "Defense Evasion",
+    mitre_technique: "T1036.005", mitre_tactic: "Stealth",
     expected_verdict: "tp", is_detection: true,
     hostname: "WS-FIN-2847", user_email: "j.chen@nexacorp.com",
     file: { path: "C:\\Windows\\Temp\\svchost32.exe",
@@ -1857,7 +1857,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
   {
     id: "b_mde_03", ts: T(48), source: "edr", vendor: "Microsoft Defender for Endpoint",
     event_type: "av_detection", severity: "critical",
-    mitre_technique: "T1055.001", mitre_tactic: "Defense Evasion",
+    mitre_technique: "T1055.001", mitre_tactic: "Stealth",
     hostname: "SRV-NXC-FS02",
     file: { path: "C:\\Windows\\Temp\\update_helper.dll",
             sha256: "e70272b32fb3bcee5fe5e1707340fdd0419c342b670fbf58a1e9f203124498e3" },

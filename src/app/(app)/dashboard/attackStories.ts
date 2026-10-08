@@ -435,7 +435,7 @@ const QB_SWIFT_WIRE_FRAUD: TelemetryEvent[] = [
     id: "qbwf4", ts: "2026-06-15T08:04:00.000Z", source: "okta", event_type: "auth_success",
     severity: "critical", vendor: "Okta", user_email: "p.meier@quantumbank.ch", src_ip: "185.220.101.77",
     description: "A new Okta session for p.meier was established from 185.220.101.77 using the stolen browser session cookie — no fresh password or MFA prompt",
-    mitre_technique: "T1550.004", mitre_tactic: "Defense Evasion",
+    mitre_technique: "T1550.004", mitre_tactic: "Lateral Movement",
     raw: { "okta.eventType": "user.session.start", "okta.outcome.result": "SUCCESS", "okta.debugContext.debugData.riskLevel": "CRITICAL", "okta.debugContext.debugData.behaviors": "New Device=POSITIVE, New IP=POSITIVE", "okta.client.ipAddress": "185.220.101.77", "action_result": "allowed" }
   },
   {
@@ -465,7 +465,7 @@ const QB_SWIFT_WIRE_FRAUD: TelemetryEvent[] = [
     id: "qbwf8", ts: "2026-06-15T08:27:00.000Z", source: "iam", event_type: "privileged_operation",
     severity: "high", vendor: "CyberArk PAM", src_ip: "10.100.1.10",
     description: "svc-swift-app was checked back in to the vault, but the mandatory PSM session recording for the checkout is missing",
-    mitre_technique: "T1070", mitre_tactic: "Defense Evasion",
+    mitre_technique: "T1070", mitre_tactic: "Stealth",
     raw: { "pam.vault.name": "SWIFT-Operations", "pam.account.name": "svc-swift-app@corebanking-app01", "pam.checkout.status": "returned", "session.state": "recording_missing", "cyberark.session.recorded": "false", "event.action": "session-checkin", "event.outcome": "anomalous", "action_result": "allowed" }
   },
   {
@@ -473,9 +473,9 @@ const QB_SWIFT_WIRE_FRAUD: TelemetryEvent[] = [
     severity: "critical", vendor: "CrowdStrike Falcon Elite", hostname: "SRV-QB-ADMIN01", user_email: "svc-swift-app@quantumbank.ch", src_ip: "10.100.1.10",
     is_detection: true,
     description: "wevtutil.exe cl Security ran as svc-swift-app on SRV-QB-ADMIN01 to clear the logon trail; CrowdStrike terminated the process",
-    mitre_technique: "T1070.001", mitre_tactic: "Defense Evasion",
+    mitre_technique: "T1685.005", mitre_tactic: "Defense Impairment",
     process: { name: "wevtutil.exe", pid: 7810, parent_name: "cmd.exe", parent_pid: 7700, user: "svc-swift-app", cmdline: "wevtutil.exe cl Security" },
-    raw: { "crowdstrike.event_simpleName": "DetectionSummaryEvent", "crowdstrike.Technique": "Clear Windows Event Logs", "crowdstrike.Tactic": "Defense Evasion", "crowdstrike.SeverityName": "CRITICAL", "crowdstrike.PatternDispositionDescription": "Process Terminated", "action_result": "process_killed" }
+    raw: { "crowdstrike.event_simpleName": "DetectionSummaryEvent", "crowdstrike.Technique": "Clear Windows Event Logs", "crowdstrike.Tactic": "Defense Impairment", "crowdstrike.SeverityName": "CRITICAL", "crowdstrike.PatternDispositionDescription": "Process Terminated", "action_result": "process_killed" }
   },
   {
     id: "qbwf10", ts: "2026-06-15T08:37:00.000Z", source: "firewall", event_type: "net_connection",
@@ -488,7 +488,7 @@ const QB_SWIFT_WIRE_FRAUD: TelemetryEvent[] = [
     id: "qbwf11", ts: "2026-06-15T08:41:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
     severity: "high", vendor: "AWS CloudTrail (GovCloud)", src_ip: "194.36.189.20",
     description: "An attempt to stop logging on the GovCloud CloudTrail trail from 194.36.189.20 was denied by an IAM permission boundary",
-    mitre_technique: "T1562.008", mitre_tactic: "Defense Evasion",
+    mitre_technique: "T1685.002", mitre_tactic: "Defense Impairment",
     raw: { "aws.cloudtrail.eventName": "StopLogging", "aws.cloudtrail.eventSource": "cloudtrail.amazonaws.com", "aws.cloudtrail.errorCode": "AccessDenied", "aws.cloudtrail.errorMessage": "User is not authorized to perform: cloudtrail:StopLogging", "aws.cloudtrail.sourceIPAddress": "194.36.189.20", "action_result": "denied" }
   },
 ];
@@ -513,7 +513,7 @@ const QB_FRAUD_MONITORING_TAMPERING: TelemetryEvent[] = [
     id: "qbft3", ts: "2026-06-20T22:24:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
     severity: "critical", vendor: "AWS CloudTrail (GovCloud)", src_ip: "10.100.1.20",
     description: "Using svc-fraud-monitor's assumed role, alarm actions were disabled on the composite alarm qb-fraud-threshold-alerts",
-    mitre_technique: "T1562.001", mitre_tactic: "Defense Evasion",
+    mitre_technique: "T1685", mitre_tactic: "Defense Impairment",
     raw: { "aws.cloudtrail.eventName": "DisableAlarmActions", "aws.cloudtrail.eventSource": "monitoring.amazonaws.com", "aws.cloudtrail.requestParameters.alarmNames": "qb-fraud-threshold-alerts", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::552134008821:assumed-role/qb-fraud-monitor-role/svc-fraud-monitor", "aws.cloudtrail.awsRegion": "us-gov-west-1", "aws.cloudtrail.sourceIPAddress": "10.100.1.20", "action_result": "allowed" }
   },
   {
@@ -521,7 +521,7 @@ const QB_FRAUD_MONITORING_TAMPERING: TelemetryEvent[] = [
     id: "qbft3b", ts: "2026-06-20T22:24:40.000Z", source: "siem", event_type: "risk_score_change",
     severity: "high", vendor: "Microsoft Sentinel", is_detection: true,
     description: "Sentinel raised a High alert: alarm actions disabled on qb-fraud-threshold-alerts by the svc-fraud-monitor assumed role, with no open change request.",
-    mitre_technique: "T1562.001", mitre_tactic: "Defense Evasion",
+    mitre_technique: "T1685", mitre_tactic: "Defense Impairment",
     raw: { "AlertName": "Alarm actions disabled on a fraud-monitoring alarm", "ProductName": "Azure Sentinel", "AlertSeverity": "High", "Status": "New",
       "Entities.Account.Name": "svc-fraud-monitor", "ExtendedProperties.Alarm": "qb-fraud-threshold-alerts", "ExtendedProperties.API": "DisableAlarmActions",
       "ExtendedProperties.Principal": "assumed-role/qb-fraud-monitor-role/svc-fraud-monitor", "ExtendedProperties.Open Change Requests": "0", "event.action": "alert" }
@@ -530,14 +530,14 @@ const QB_FRAUD_MONITORING_TAMPERING: TelemetryEvent[] = [
     id: "qbft4", ts: "2026-06-20T22:26:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
     severity: "critical", vendor: "AWS CloudTrail (GovCloud)", src_ip: "10.100.1.20",
     description: "The same session raised the qb-large-wire-alarm reporting threshold from CHF 10,000 to CHF 500,000",
-    mitre_technique: "T1562.001", mitre_tactic: "Defense Evasion",
+    mitre_technique: "T1685", mitre_tactic: "Defense Impairment",
     raw: { "aws.cloudtrail.eventName": "PutMetricAlarm", "aws.cloudtrail.eventSource": "monitoring.amazonaws.com", "aws.cloudtrail.requestParameters.alarmName": "qb-large-wire-alarm", "aws.cloudtrail.requestParameters.threshold": "500000", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::552134008821:assumed-role/qb-fraud-monitor-role/svc-fraud-monitor", "aws.cloudtrail.sourceIPAddress": "10.100.1.20", "action_result": "allowed" }
   },
   {
     id: "qbft5", ts: "2026-06-20T22:31:00.000Z", source: "edr", event_type: "process_create",
     severity: "high", vendor: "CrowdStrike Falcon Elite", hostname: "SRV-QB-ADMIN01", user_email: "svc-fraud-monitor@quantumbank.ch", src_ip: "10.100.1.10",
     description: "Running as svc-fraud-monitor on SRV-QB-ADMIN01, PowerShell stopped the local SIEM forwarder service",
-    mitre_technique: "T1562.001", mitre_tactic: "Defense Evasion",
+    mitre_technique: "T1685", mitre_tactic: "Defense Impairment",
     process: { name: "powershell.exe", pid: 8802, parent_name: "cmd.exe", parent_pid: 8800, user: "svc-fraud-monitor", cmdline: "powershell.exe -Command \"Stop-Service -Name SplunkForwarder -Force\"" },
     raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "powershell.exe -Command \"Stop-Service -Name SplunkForwarder -Force\"", "crowdstrike.FileName": "powershell.exe", "crowdstrike.ParentBaseFileName": "cmd.exe", "crowdstrike.UserName": "svc-fraud-monitor", "crowdstrike.SeverityName": "HIGH", "action_result": "allowed" }
   },
@@ -552,14 +552,14 @@ const QB_FRAUD_MONITORING_TAMPERING: TelemetryEvent[] = [
     id: "qbft7", ts: "2026-06-20T22:49:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
     severity: "high", vendor: "AWS CloudTrail (GovCloud)", src_ip: "10.100.1.20",
     description: "Nine minutes after the transfer cleared, the qb-large-wire-alarm threshold was restored to its original CHF 10,000 value",
-    mitre_technique: "T1070", mitre_tactic: "Defense Evasion",
+    mitre_technique: "T1070", mitre_tactic: "Stealth",
     raw: { "aws.cloudtrail.eventName": "PutMetricAlarm", "aws.cloudtrail.eventSource": "monitoring.amazonaws.com", "aws.cloudtrail.requestParameters.alarmName": "qb-large-wire-alarm", "aws.cloudtrail.requestParameters.threshold": "10000", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::552134008821:assumed-role/qb-fraud-monitor-role/svc-fraud-monitor", "aws.cloudtrail.sourceIPAddress": "10.100.1.20", "action_result": "allowed" }
   },
   {
     id: "qbft8", ts: "2026-06-20T22:51:00.000Z", source: "edr", event_type: "process_create",
     severity: "medium", vendor: "CrowdStrike Falcon Elite", hostname: "SRV-QB-ADMIN01", user_email: "svc-fraud-monitor@quantumbank.ch", src_ip: "10.100.1.10",
     description: "The SIEM forwarder service was restarted on SRV-QB-ADMIN01 moments after the alarm threshold was restored",
-    mitre_technique: "T1070", mitre_tactic: "Defense Evasion",
+    mitre_technique: "T1070", mitre_tactic: "Stealth",
     process: { name: "powershell.exe", pid: 8830, parent_name: "cmd.exe", parent_pid: 8800, user: "svc-fraud-monitor", cmdline: "powershell.exe -Command \"Start-Service -Name SplunkForwarder\"" },
     raw: { "crowdstrike.event_simpleName": "ProcessRollup2", "crowdstrike.CommandLine": "powershell.exe -Command \"Start-Service -Name SplunkForwarder\"", "crowdstrike.FileName": "powershell.exe", "crowdstrike.ParentBaseFileName": "cmd.exe", "crowdstrike.UserName": "svc-fraud-monitor", "crowdstrike.SeverityName": "MEDIUM", "action_result": "allowed" }
   },
@@ -567,7 +567,7 @@ const QB_FRAUD_MONITORING_TAMPERING: TelemetryEvent[] = [
     id: "qbft9", ts: "2026-06-20T22:58:00.000Z", source: "iam", event_type: "privileged_operation",
     severity: "high", vendor: "CyberArk PAM", src_ip: "10.100.1.10",
     description: "svc-fraud-monitor was checked back in, but the PSM session recording for the entire window is flagged incomplete",
-    mitre_technique: "T1562.001", mitre_tactic: "Defense Evasion",
+    mitre_technique: "T1685", mitre_tactic: "Defense Impairment",
     raw: { "pam.vault.name": "FraudOps", "pam.account.name": "svc-fraud-monitor@siem01", "pam.checkout.status": "returned", "session.state": "recording_incomplete", "cyberark.session.recorded": "false", "event.action": "session-checkin", "event.outcome": "anomalous", "action_result": "allowed" }
   },
 ];
@@ -592,7 +592,7 @@ const QB_CYBERARK_MULE_PAYOUT: TelemetryEvent[] = [
     id: "qbmp3", ts: "2026-06-25T13:11:00.000Z", source: "iam", event_type: "privileged_operation",
     severity: "high", vendor: "CyberArk PAM", user_email: "e.steiner@quantumbank.ch", src_ip: "10.100.1.44",
     description: "The PSM session opened for svc-corebanking-admin shows session recording disabled before connecting to the core-banking admin console",
-    mitre_technique: "T1562.001", mitre_tactic: "Defense Evasion",
+    mitre_technique: "T1685", mitre_tactic: "Defense Impairment",
     raw: { "pam.vault.name": "CoreBankingAdmins", "pam.account.name": "svc-corebanking-admin@corebanking-db01", "pam.session.type": "PSM-RDP", "session.state": "recording_disabled", "cyberark.session.recorded": "false", "event.action": "session-start", "event.outcome": "anomalous", "action_result": "allowed" }
   },
   {
@@ -620,7 +620,7 @@ const QB_CYBERARK_MULE_PAYOUT: TelemetryEvent[] = [
     id: "qbmp7", ts: "2026-06-25T14:20:00.000Z", source: "iam", event_type: "privileged_operation",
     severity: "high", vendor: "CyberArk PAM", src_ip: "10.100.1.44",
     description: "svc-corebanking-admin was checked back in; the vault confirms the PSM recording for the session is missing",
-    mitre_technique: "T1070", mitre_tactic: "Defense Evasion",
+    mitre_technique: "T1070", mitre_tactic: "Stealth",
     raw: { "pam.vault.name": "CoreBankingAdmins", "pam.account.name": "svc-corebanking-admin@corebanking-db01", "pam.checkout.status": "returned", "session.state": "recording_missing", "cyberark.session.recorded": "false", "event.action": "session-checkin", "event.outcome": "anomalous", "action_result": "allowed" }
   },
   {
@@ -628,9 +628,9 @@ const QB_CYBERARK_MULE_PAYOUT: TelemetryEvent[] = [
     severity: "critical", vendor: "CrowdStrike Falcon Elite", hostname: "SRV-QB-ADMIN01", user_email: "svc-corebanking-admin@quantumbank.ch", src_ip: "10.100.1.10",
     is_detection: true,
     description: "wevtutil.exe cl Security ran as svc-corebanking-admin on SRV-QB-ADMIN01; CrowdStrike terminated the process",
-    mitre_technique: "T1070.001", mitre_tactic: "Defense Evasion",
+    mitre_technique: "T1685.005", mitre_tactic: "Defense Impairment",
     process: { name: "wevtutil.exe", pid: 7920, parent_name: "cmd.exe", parent_pid: 7900, user: "svc-corebanking-admin", cmdline: "wevtutil.exe cl Security" },
-    raw: { "crowdstrike.event_simpleName": "DetectionSummaryEvent", "crowdstrike.Technique": "Clear Windows Event Logs", "crowdstrike.Tactic": "Defense Evasion", "crowdstrike.SeverityName": "CRITICAL", "crowdstrike.PatternDispositionDescription": "Process Terminated", "action_result": "process_killed" }
+    raw: { "crowdstrike.event_simpleName": "DetectionSummaryEvent", "crowdstrike.Technique": "Clear Windows Event Logs", "crowdstrike.Tactic": "Defense Impairment", "crowdstrike.SeverityName": "CRITICAL", "crowdstrike.PatternDispositionDescription": "Process Terminated", "action_result": "process_killed" }
   },
   {
     id: "qbmp9", ts: "2026-06-25T14:31:00.000Z", source: "firewall", event_type: "net_connection",
@@ -685,7 +685,7 @@ const RS_CICD_PIPELINE_POISONING: TelemetryEvent[] = [
     id: "rscp6", ts: "2026-06-18T09:09:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
     severity: "critical", vendor: "AWS CloudTrail", src_ip: "185.220.101.42",
     description: "The stolen instance-role credentials called GetCallerIdentity from 185.220.101.42, confirming they were valid off-host",
-    mitre_technique: "T1078.004", mitre_tactic: "Defense Evasion",
+    mitre_technique: "T1078.004", mitre_tactic: "Stealth",
     raw: { "aws.cloudtrail.eventName": "GetCallerIdentity", "aws.cloudtrail.eventSource": "sts.amazonaws.com", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::247316892041:assumed-role/rocketstack-ci-deploy-role/i-0abc123def456789", "aws.cloudtrail.sourceIPAddress": "185.220.101.42", "action_result": "allowed" }
   },
   {

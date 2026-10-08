@@ -83,10 +83,10 @@
   <text class="warn" x="60" y="226">Shadow-copy &amp; backup deletion (T1490)</text>
   <text class="mono val" x="60" y="242">vssadmin delete shadows /all /quiet · Veeam/Commvault repos targeted directly</text>
 
-  <text class="warn" x="60" y="266">Security tooling disabled (T1562.001)</text>
+  <text class="warn" x="60" y="266">Security tooling disabled (T1685, formerly T1562.001)</text>
   <text class="mono val" x="60" y="282">EDR/AV agents stopped or uninstalled across hosts, sometimes via a vulnerable signed driver (BYOVD)</text>
 
-  <text class="warn" x="60" y="306">Audit log cleared (T1070.001)</text>
+  <text class="warn" x="60" y="306">Audit log cleared (T1685.005, formerly T1070.001)</text>
   <text class="mono val" x="60" y="322">wevtutil cl Security → Event ID 1102 fires — almost no legitimate process does this at all</text>
 
   <text class="ui cap" x="60" y="340">Detections tuned to these three signals are close to the last automatable tripwires before a full-fleet outage.</text>

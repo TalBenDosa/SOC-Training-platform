@@ -428,13 +428,13 @@ function logon(b: Base, ev: TelemetryEvent): { simple: string; rec: Record<strin
 
 const SEV: Record<string, [number, string]> = { critical: [90, "Critical"], high: [70, "High"], medium: [50, "Medium"], low: [30, "Low"], informational: [10, "Informational"] };
 const TACTIC_ID: Record<string, string> = {
-  "initial access": "TA0001", execution: "TA0002", persistence: "TA0003", "privilege escalation": "TA0004", "defense evasion": "TA0005",
+  "initial access": "TA0001", execution: "TA0002", persistence: "TA0003", "privilege escalation": "TA0004", stealth: "TA0005", "defense impairment": "TA0112",
   "credential access": "TA0006", discovery: "TA0007", "lateral movement": "TA0008", collection: "TA0009", exfiltration: "TA0010",
   "command and control": "TA0011", impact: "TA0040", reconnaissance: "TA0043", "resource development": "TA0042",
 };
 const OBJECTIVE: Record<string, string> = {
   "initial access": "Gain Access", execution: "Follow Through", persistence: "Keep Access", "privilege escalation": "Gain Access",
-  "defense evasion": "Keep Access", "credential access": "Gain Access", discovery: "Explore", "lateral movement": "Explore",
+  stealth: "Keep Access", "defense impairment": "Keep Access", "credential access": "Gain Access", discovery: "Explore", "lateral movement": "Explore",
   collection: "Follow Through", exfiltration: "Follow Through", "command and control": "Contact Controlled Systems", impact: "Follow Through",
 };
 /** What the sensor did. Code 0 / "Detection, standard detection." is card-confirmed; the non-zero codes and texts are

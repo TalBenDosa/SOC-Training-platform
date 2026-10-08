@@ -184,7 +184,7 @@ function buildKeyCapacityAbuse(): TelemetryEvent[] {
       alertDescription: "Your Azure AI resource was accessed from an IP address flagged by Microsoft Threat Intelligence.",
       description: "Defender for Cloud raised 'Access from suspicious IP' on aoai-support-weu: key-authenticated requests from 162.55.84.19 (Hetzner, Falkenstein), an address Microsoft threat intelligence flags." }),
     azureActivity({ ...req, id: "aiakc5", ts: "2026-09-26T22:37:04.880Z", operation: "MICROSOFT.COGNITIVESERVICES/ACCOUNTS/DEPLOYMENTS/WRITE", subResource: "deployments/gpt-4o-2",
-      caller: admin, callerIp: signInIp, geo: signInGeo, severity: "high", mitre: "T1578", tactic: "Defense Evasion",
+      caller: admin, callerIp: signInIp, geo: signInGeo, severity: "high", mitre: "T1578", tactic: "Defense Impairment",
       description: "Azure Activity Log: t.harris created a new model deployment gpt-4o-2 on aoai-support-weu from the Amsterdam address, in the same portal session that listed the keys." }),
     azureOpenAiRequest({ ...req, id: "aiakc6", ts: "2026-09-26T23:05:33.019Z", deployment: "gpt-4o-2", callerIp: keyIp, status: 200, durationMs: 14870, requestLength: 62904, responseLength: 29711, stream: true,
       severity: "high", mitre: "T1496.004", tactic: "Impact",

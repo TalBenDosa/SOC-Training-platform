@@ -5,7 +5,7 @@
  * behind the largest 2023-2025 identity breaches. No malware, no exploit —
  * a phone call.
  *
- * An attacker calls the IT help desk impersonating a real employee (T1656),
+ * An attacker calls the IT help desk impersonating a real employee (T1684.001),
  * convinces the agent to reset her password and clear her MFA. The ticket is
  * opened and resolved like any other MFA-reset call — because on its face it
  * is one; NexaCorp's help desk handles several of these a week. Within
@@ -24,7 +24,7 @@
  * legitimate owner was demonstrably still working from London ten minutes
  * before the reset even started.
  *
- * Covers T1656 (Impersonation), T1556.006 (Modify Authentication Process:
+ * Covers T1684.001 (Social Engineering: Impersonation, formerly T1656), T1556.006 (Modify Authentication Process:
  * Multi-Factor Authentication), T1098.005 (Account Manipulation: Device
  * Registration) and T1078.004 (Valid Accounts: Cloud Accounts) — an
  * identity-help-desk-abuse case the live feed did not previously have.
@@ -216,7 +216,7 @@ export function buildHelpdeskMfaResetScenario(
       "A ServiceNow ticket for l.ferreira@nexacorp.com was opened and resolved this morning as a routine MFA reset. Entra sign-in logs show two successful, MFA-satisfied sign-ins for the same account within the same hour, and CrowdStrike recorded a new interactive session landing on an internal VDI host shortly after. Determine whether this is ordinary help-desk support or an account takeover, and what to do about it.",
     narrative: `At 09:00 Lucia Ferreira, a trade settlements analyst, signed in to Office from her usual London address on her corporate laptop, MFA completed by an Authenticator push — an entirely ordinary start to the day.
 
-At 09:41 the IT Service Desk opened ticket INC0048217: the caller reported being locked out and having lost her phone, and asked for a password and MFA reset. James Oduya verified the caller with an employee ID and date of birth over the phone — the bank's standard phone-verification procedure, and also exactly what a caller who has done a little research on their target can usually produce (T1656). At 09:45, four minutes into that call, Lucia's own account signed in again from the same London address on the same laptop — she was at her desk in SharePoint the entire time.
+At 09:41 the IT Service Desk opened ticket INC0048217: the caller reported being locked out and having lost her phone, and asked for a password and MFA reset. James Oduya verified the caller with an employee ID and date of birth over the phone — the bank's standard phone-verification procedure, and also exactly what a caller who has done a little research on their target can usually produce (T1684.001). At 09:45, four minutes into that call, Lucia's own account signed in again from the same London address on the same laptop — she was at her desk in SharePoint the entire time.
 
 At 09:52 the ticket was resolved: password reset, MFA requirement cleared, caller told to re-enroll on next sign-in — closed exactly the way this help desk closes several tickets like it every week. One minute later the reset itself landed in the directory (T1556.006). Five minutes after that, at 09:58, a new Microsoft Authenticator was registered as Lucia's security info. The identity performing the registration was hers — because by then anyone holding the new password could act as her — but the IP address behind it was 5.181.234.19 in Amsterdam, an address that appears nowhere else in her telemetry (T1098.005).
 
@@ -224,7 +224,7 @@ At 10:01 that account signed in to Exchange Online from the same Amsterdam addre
 
 No single record here reads as malicious. The ticket looks like routine support. The reset looks like routine administration. The sign-in genuinely passes every automated check available to it. What gives this away is only the sequence, laid against one plain fact the automated tooling never checked: the real Lucia Ferreira was still working from London when someone else, five minutes after her ticket closed, registered a new phone on her account from the Netherlands.`,
     learning_objectives: [
-      "Recognise help-desk-driven MFA reset abuse (T1656, T1556.006, T1098.005) as an identity attack path that produces no malware and no exploit telemetry at all",
+      "Recognise help-desk-driven MFA reset abuse (T1684.001 Impersonation, formerly T1656; T1556.006; T1098.005) as an identity attack path that produces no malware and no exploit telemetry at all",
       "Read Entra AuditLogs initiatedBy fields correctly: an action attributed to the victim's own identity is not proof the victim performed it once MFA has been cleared",
       "Use a concurrent, independently-authenticated session as stronger evidence of takeover than an anomalous IP or geography alone",
       "Distinguish a genuine lost-device MFA reset from a social-engineered one using network-layer evidence (source IP) rather than the presence of a reset itself",
@@ -235,10 +235,10 @@ No single record here reads as malicious. The ticket looks like routine support.
     iocs,
     killchain: [
       { ts: T(0), phase: "Baseline", action: "l.ferreira signs in normally from London with an Authenticator push" },
-      { ts: T(41 * MIN), phase: "Impersonation", action: "Caller impersonates l.ferreira to the help desk, requests password + MFA reset (T1656)" },
+      { ts: T(41 * MIN), phase: "Impersonation", action: "Caller impersonates l.ferreira to the help desk, requests password + MFA reset (T1684.001)" },
       { ts: T(45 * MIN), phase: "Baseline", action: "l.ferreira signs in again from the same London address — still genuinely active" },
       { ts: T(52 * MIN), phase: "Impersonation", action: "Ticket INC0048217 resolved: password reset, MFA cleared" },
-      { ts: T(53 * MIN), phase: "Defense Evasion", action: "Registered authentication methods cleared on the account (T1556.006)" },
+      { ts: T(53 * MIN), phase: "Defense Impairment", action: "Registered authentication methods cleared on the account (T1556.006)" },
       { ts: T(58 * MIN), phase: "Persistence", action: "New Microsoft Authenticator registered from 5.181.234.19, Amsterdam (T1098.005)" },
       { ts: T(61 * MIN), phase: "Initial Access", action: "Account signs in from Amsterdam, MFA genuinely satisfied on the new device (T1078.004)" },
       { ts: T(66 * MIN), phase: "Lateral Movement", action: "New session lands on internal host VDI-POOL-014" },

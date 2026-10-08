@@ -1282,7 +1282,7 @@ The key word is "Common Knowledge": the entire database is **free and publicly a
 
 **How big is it?**
 ATT&CK for Enterprise (the version covering Windows, macOS, Linux, and cloud environments) is large and grows with each release (MITRE revises it roughly twice a year), but the orders of magnitude are what matter:
-- **14 Tactics** (the high-level attacker goals: this number is stable)
+- **15 Tactics** (the high-level attacker goals: this number rarely changes; ATT&CK v19 in April 2026 added the 15th by splitting Defense Evasion in two)
 - **~200 Techniques** (specific methods to achieve each goal)
 - **~450 Sub-techniques** (more specific variations of techniques)
 - **140+ documented threat-actor groups** (real-world adversary behaviour)
@@ -1318,12 +1318,12 @@ When you see "T1566.001" in a log, an alert, or a threat intelligence report, yo
     },
 
     // ------------------------------------------------------------------
-    // Reading 2 — The 14 Tactics and How to Read a Technique
+    // Reading 2 — The 15 Tactics and How to Read a Technique
     // ------------------------------------------------------------------
     {
       type: "reading" as const,
       id: "mitre-r2",
-      heading: "The 14 Tactics: ATT&CK's Attack Roadmap",
+      heading: "The 15 Tactics: ATT&CK's Attack Roadmap",
       content: `ATT&CK is organised into **Tactics** and **Techniques**. Here is the crucial distinction:
 
 - **Tactic** = the attacker's *goal* at a given moment (the "why")
@@ -1332,7 +1332,7 @@ When you see "T1566.001" in a log, an alert, or a threat intelligence report, yo
 
 **Think of it like cooking:** The Tactic is "feed your guests" (the goal). The Technique is "make pasta" (one method to achieve the goal). The Sub-technique is "make spaghetti carbonara" (a specific variant of pasta).
 
-**The 14 ATT&CK Tactics (in order of attack progression)**
+**The 15 ATT&CK Enterprise Tactics (v19, in order of attack progression)**
 
 **1. Reconnaissance (TA0043)**
 The attacker gathers information before attacking: scanning for open ports, researching employees on LinkedIn, looking for known vulnerabilities in the target's software. Example technique: T1595 Active Scanning.
@@ -1352,28 +1352,31 @@ The attacker ensures they can get back in even if the system restarts or their a
 **6. Privilege Escalation (TA0004)**
 The attacker gains higher permissions (e.g., becoming a system administrator). Example techniques: T1548 Abuse Elevation Control Mechanism, T1055 Process Injection.
 
-**7. Defence Evasion (TA0005)**
-The attacker hides their activity to avoid detection. Example techniques: T1036 Masquerading (disguising malware as legitimate software), T1070 Indicator Removal (clearing log files).
+**7. Stealth (TA0005)**
+The attacker hides their activity and blends in to avoid detection. Example techniques: T1036 Masquerading (disguising malware as legitimate software), T1070 Indicator Removal (deleting dropped files, timestomping). Until ATT&CK v19 (April 2026) this tactic was called Defense Evasion; v19 kept the ID TA0005, renamed it Stealth, and moved the "break the defences" techniques into a new tactic, listed next.
 
-**8. Credential Access (TA0006)**
+**8. Defense Impairment (TA0112)**
+The attacker directly breaks or degrades security controls: stopping the EDR agent, turning off logging, opening the firewall. Example techniques: T1685 Disable or Modify Tools (stopping or excluding AV/EDR), T1685.005 Clear Windows Event Logs.
+
+**9. Credential Access (TA0006)**
 The attacker steals account credentials (usernames and passwords). Example techniques: T1110 Brute Force, T1003 OS Credential Dumping (tools like Mimikatz dump password hashes from memory).
 
-**9. Discovery (TA0007)**
+**10. Discovery (TA0007)**
 The attacker learns about the internal network after getting in: finding other systems, discovering which users have administrator rights, mapping the network. Example technique: T1083 File and Directory Discovery.
 
-**10. Lateral Movement (TA0008)**
+**11. Lateral Movement (TA0008)**
 The attacker moves from their initial beachhead to other systems in the network, spreading their access. Example techniques: T1021 Remote Services (using RDP, SSH), T1550 Use Alternate Authentication Material (Pass-the-Hash attacks).
 
-**11. Collection (TA0009)**
+**12. Collection (TA0009)**
 The attacker gathers the data they plan to steal. Example techniques: T1560 Archive Collected Data (compressing files before exfiltration), T1074 Data Staged.
 
-**12. Command and Control (TA0011)**
+**13. Command and Control (TA0011)**
 The attacker communicates with their implants (same as Kill Chain Stage 6). Example techniques: T1071 Application Layer Protocol, T1573 Encrypted Channel.
 
-**13. Exfiltration (TA0010)**
+**14. Exfiltration (TA0010)**
 The attacker sends stolen data out of the network to their own infrastructure. Example techniques: T1048 Exfiltration Over Alternative Protocol, T1041 Exfiltration Over C2 Channel.
 
-**14. Impact (TA0040)**
+**15. Impact (TA0040)**
 The attacker achieves their destructive goal: encrypting files (ransomware), wiping data, disrupting services. Example techniques: T1486 Data Encrypted for Impact (ransomware), T1529 System Shutdown/Reboot.
 
 **How to read an ATT&CK technique page**
@@ -1475,7 +1478,7 @@ This is the ATT&CK framework in action: observation → identification → detec
       ],
       answer: 1,
       explanation:
-        "In ATT&CK, Tactics (numbered TA0001 through TA0043) represent the attacker's objectives. What they are trying to accomplish at each stage of their operation. Techniques (numbered T1001, T1002, etc.) are the specific methods used to achieve those objectives. Sub-techniques add further specificity. For example, the Tactic might be 'Credential Access' (steal passwords) and the Technique might be 'T1110.003 Password Spraying' (a specific method of stealing passwords). The first option reverses the two terms. A threat group's campaign is described by a group profile, not by a tactic. And the numbering runs the other way: tactics use TA (TA0001), techniques use T (T1566).",
+        "In ATT&CK, Tactics (TA-numbers such as TA0001, TA0043 or TA0112) represent the attacker's objectives. What they are trying to accomplish at each stage of their operation. Techniques (numbered T1001, T1002, etc.) are the specific methods used to achieve those objectives. Sub-techniques add further specificity. For example, the Tactic might be 'Credential Access' (steal passwords) and the Technique might be 'T1110.003 Password Spraying' (a specific method of stealing passwords). The first option reverses the two terms. A threat group's campaign is described by a group profile, not by a tactic. And the numbering runs the other way: tactics use TA (TA0001), techniques use T (T1566).",
       xp: 20,
     },
 
@@ -1488,14 +1491,14 @@ This is the ATT&CK framework in action: observation → identification → detec
       question:
         "A ransomware operator encrypts every file on a company's file servers and leaves a ransom note. Which ATT&CK tactic does the encryption itself belong to?",
       options: [
-        "Defense Evasion (TA0005): encryption hides the files from defenders",
+        "Stealth (TA0005): encryption hides the files from defenders",
         "Collection (TA0009): the attacker gathers every file before locking it",
         "Exfiltration (TA0010): the files are taken hostage, out of the owner's control",
         "Impact (TA0040), disrupting the availability of the company's systems and data",
       ],
       answer: 3,
       explanation:
-        "Encrypting data for ransom is T1486 Data Encrypted for Impact, under Impact (TA0040): the goal is to deny the owner their data. Defense Evasion covers hiding the attacker's own activity, not locking the victim's files. Collection gathers data the attacker plans to take; encryption in place takes nothing. Exfiltration means sending data out of the network. Modern crews often do that first (double extortion), but the encryption step itself is Impact.",
+        "Encrypting data for ransom is T1486 Data Encrypted for Impact, under Impact (TA0040): the goal is to deny the owner their data. Stealth (the v19 name for the former Defense Evasion tactic) covers hiding the attacker's own activity, not locking the victim's files. Collection gathers data the attacker plans to take; encryption in place takes nothing. Exfiltration means sending data out of the network. Modern crews often do that first (double extortion), but the encryption step itself is Impact.",
       xp: 20,
     },
 
@@ -1582,7 +1585,7 @@ This is the ATT&CK framework in action: observation → identification → detec
       type: "matching" as const,
       id: "mitre-m1",
       heading: "Match ATT&CK Tactics to Their Definitions",
-      instructions: "ATT&CK organizes attacker techniques into 14 tactics: each representing a goal. Match these 5 tactics to the correct definition.",
+      instructions: "ATT&CK organizes attacker techniques into 15 tactics: each representing a goal. Match these 5 tactics to the correct definition.",
       pairs: [
         {
           id: "ia",
@@ -1610,7 +1613,7 @@ This is the ATT&CK framework in action: observation → identification → detec
           right: "Transferring stolen data out of the organization, via cloud storage, email, or DNS tunneling",
         },
       ],
-      explanation: "Understanding ATT&CK tactics is how SOC analysts classify what an attacker is doing at each moment. The sequence is intentional: attackers need Initial Access before Lateral Movement, and must complete Collection before Exfiltration. In a SIEM alert, the tactic attached to a technique tells you what phase of the attack you have detected and what is likely to come next. Note that a technique can serve more than one tactic (T1078 Valid Accounts appears under Initial Access, Persistence, Privilege Escalation and Defense Evasion), so the surrounding context tells you which goal it served in this incident.",
+      explanation: "Understanding ATT&CK tactics is how SOC analysts classify what an attacker is doing at each moment. The sequence is intentional: attackers need Initial Access before Lateral Movement, and must complete Collection before Exfiltration. In a SIEM alert, the tactic attached to a technique tells you what phase of the attack you have detected and what is likely to come next. Note that a technique can serve more than one tactic (T1078 Valid Accounts appears under Initial Access, Persistence, Privilege Escalation and Stealth), so the surrounding context tells you which goal it served in this incident.",
       xp: 30,
     },
 

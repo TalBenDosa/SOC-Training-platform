@@ -467,7 +467,7 @@ const useCases: UseCase[] = [
   {
     id: "aws_cloudtrail.trail_disabled",
     title: "CloudTrail logging disabled or tampered",
-    sourceId: "aws_cloudtrail", severity: "critical", mitre: ["T1562.008", "T1562.001"],
+    sourceId: "aws_cloudtrail", severity: "critical", mitre: ["T1685.002", "T1685"],
     description: "StopLogging / DeleteTrail / UpdateTrail / PutEventSelectors on cloudtrail.amazonaws.com — an attacker blinding the audit trail to cover later actions.",
     logic: "SPL: eventSource=cloudtrail.amazonaws.com eventName IN (StopLogging,DeleteTrail,UpdateTrail,PutEventSelectors)",
     match: { all: [{ field: "eventSource", op: "eq", value: "cloudtrail.amazonaws.com" }, { field: "eventName", op: "in", value: ["StopLogging", "DeleteTrail", "UpdateTrail", "PutEventSelectors"] }] },
@@ -476,7 +476,7 @@ const useCases: UseCase[] = [
   {
     id: "aws_cloudtrail.bedrock_logging_disabled",
     title: "Bedrock model-invocation logging disabled",
-    sourceId: "aws_cloudtrail", severity: "high", mitre: ["T1562.008"],
+    sourceId: "aws_cloudtrail", severity: "high", mitre: ["T1685.002"],
     description: "DeleteModelInvocationLoggingConfiguration on bedrock.amazonaws.com — turns off prompt/response capture so later model abuse leaves only metadata (an LLMjacking defense-evasion step).",
     logic: "SPL: eventSource=bedrock.amazonaws.com eventName=DeleteModelInvocationLoggingConfiguration",
     match: { all: [{ field: "eventSource", op: "eq", value: "bedrock.amazonaws.com" }, { field: "eventName", op: "eq", value: "DeleteModelInvocationLoggingConfiguration" }] },

@@ -2405,7 +2405,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     id: "qb_cs_003", ts: "2026-05-10T10:45:00.000Z",
     source: "edr", event_type: "av_detection", severity: "critical",
     vendor: "CrowdStrike Falcon", hostname: "WKS-QB-012", src_ip: "10.100.1.12",
-    mitre_technique: "T1055.001", mitre_tactic: "Defense Evasion",
+    mitre_technique: "T1055.001", mitre_tactic: "Stealth",
     expected_verdict: "tp", is_detection: true,
     description: "CrowdStrike raised a memory-based detection inside svchost.exe on WKS-QB-012 and killed the process",
     file: { path: "memory://svchost.exe", sha256: "32519b85c0b422e4656de6e6c41878e95fd95026267daab4215ee59c107d6c77" },
@@ -3358,7 +3358,7 @@ const ROCKETSTACK_ATTACKS: TelemetryEvent[] = [
     id: "rs_a4", ts: "2026-05-10T10:30:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
     severity: "critical", vendor: "AWS CloudTrail", user_email: "t.levy@rocketstack.io", src_ip: "185.220.101.15",
     description: "t.levy's AWS credentials changed the event selectors on trail rocketstack-prod-trail to write-only, management events off",
-    mitre_technique: "T1562.008",
+    mitre_technique: "T1685.002",
     raw: { "aws.cloudtrail.eventSource": "cloudtrail.amazonaws.com", "aws.cloudtrail.eventName": "PutEventSelectors", "aws.cloudtrail.request_parameters.trail_name": "arn:aws:cloudtrail:us-east-1:123456789:trail/rocketstack-prod-trail", "aws.cloudtrail.request_parameters.event_selectors": "ReadWriteType=WriteOnly; IncludeManagementEvents=false", "aws.cloudtrail.errorCode": "", "aws.cloudtrail.sourceIPAddress": "185.220.101.15", "action_result": "allowed" }
   },
   // ── Chain B ──────────────────────────────────────────────────────────────
@@ -3728,9 +3728,9 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
     id: "qb_b4", ts: "2026-05-10T11:32:00.000Z", is_detection: true, source: "edr", event_type: "process_create",
     severity: "critical", vendor: "CrowdStrike Falcon", hostname: "SRV-QB-ADMIN01", src_ip: "10.100.1.10",
     description: "wevtutil.exe cl Security ran as l.brunner on SRV-QB-ADMIN01; CrowdStrike terminated the process",
-    mitre_technique: "T1070.001",
+    mitre_technique: "T1685.005",
     process: { name: "wevtutil.exe", pid: 6621, parent_name: "cmd.exe", parent_pid: 6620, user: "l.brunner", cmdline: "wevtutil.exe cl Security" },
-    raw: { "crowdstrike.event_simpleName": "DetectionSummaryEvent", "crowdstrike.Technique": "Clear Windows Event Logs", "threat.technique.id": "T1070", "threat.technique.subtechnique.id": "T1070.001", "crowdstrike.Tactic": "Defense Evasion", "crowdstrike.SeverityName": "Critical", "crowdstrike.PatternDispositionDescription": "Process Terminated", "action_result": "process_killed", "process.killed": "true" }
+    raw: { "crowdstrike.event_simpleName": "DetectionSummaryEvent", "crowdstrike.Technique": "Clear Windows Event Logs", "threat.technique.id": "T1685", "threat.technique.subtechnique.id": "T1685.005", "crowdstrike.Tactic": "Defense Impairment", "crowdstrike.SeverityName": "Critical", "crowdstrike.PatternDispositionDescription": "Process Terminated", "action_result": "process_killed", "process.killed": "true" }
   },
   // ── Chain C ──────────────────────────────────────────────────────────────
   {
@@ -3759,7 +3759,7 @@ const QUANTUMBANK_ATTACKS: TelemetryEvent[] = [
     id: "qb_c4", ts: "2026-05-10T13:52:00.000Z", source: "cloudtrail", event_type: "cloud_api_call",
     severity: "critical", vendor: "AWS CloudTrail", src_ip: "188.166.44.12",
     description: "An attempt from the Amsterdam IP to delete audit log files in S3 was blocked by write-protection (Object Lock)",
-    mitre_technique: "T1562.008",
+    mitre_technique: "T1685.002",
     raw: { "aws.cloudtrail.eventName": "DeleteObject", "aws.cloudtrail.requestParameters.bucketName": "qb-audit-logs-immutable", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.userIdentity.arn": "arn:aws:sts::552134008821:assumed-role/qb-trading-okta-role/a.keller@quantumbank.ch", "aws.cloudtrail.userIdentity.accessKeyId": "ASIAQBTRADINGKELLER", "aws.cloudtrail.recipientAccountId": "552134008821", "aws.cloudtrail.errorCode": "AccessDenied", "aws.cloudtrail.errorMessage": "Access Denied because object protected by object lock.", "aws.cloudtrail.sourceIPAddress": "188.166.44.12", "action_result": "blocked" }
   },
   // ── Chain D — SWIFT password spray → core banking session hijack ──────────

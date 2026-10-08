@@ -517,7 +517,7 @@ const investigateAlertRoom: Room = {
         "Tactic: Exfiltration; Technique: T1041 (Exfiltration Over C2 Channel), compressing the files is the first stage of the C2 transfer, so the data has already left",
         "Tactic: Collection; Technique: T1560.001 (Archive Collected Data via Utility). Files are gathered and compressed into one package, preparing for removal rather than being removed",
         "Tactic: Discovery; Technique: T1083 (File and Directory Discovery), enumerating a folder of export files, with no evidence yet that any content was read or copied",
-        "Tactic: Defense Evasion; Technique: T1027 (Obfuscated Files or Information), packing the files into an archive hides their content from DLP and content inspection",
+        "Tactic: Stealth; Technique: T1027 (Obfuscated Files or Information), packing the files into an archive hides their content from DLP and content inspection",
       ],
       answer: 1,
       explanation:

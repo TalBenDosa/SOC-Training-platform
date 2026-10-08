@@ -88,7 +88,7 @@ describe.each(KITS)("$name emitters", (kit) => {
       kit.process({ id: "k1", ts: T(1), companyId: c, host, processName: "WINWORD.EXE", cmdline: "WINWORD.EXE /n Invoice.docm", parentName: "explorer.exe" }),
       kit.process({ id: "k2", ts: T(2), companyId: c, host, processName: "powershell.exe", cmdline: "powershell.exe -enc SQBF", parentName: "WINWORD.EXE", mitre: "T1059.001", tactic: "Execution", severity: "high", isDetection: true }),
       kit.network({ id: "k3", ts: T(3), companyId: c, host, remoteIp: "45.135.232.44", remotePort: 443, application: "tls", domain: "cdn-metrics-eu.com", mitre: "T1071.001", tactic: "Command and Control", isDetection: true }),
-      kit.detection({ id: "k4", ts: T(4), companyId: c, host, processName: "beacon.exe", threatName: "CobaltStrike.Beacon", mitre: "T1055.001", tactic: "Defense Evasion", severity: "critical", action: "quarantined", expectedVerdict: "tp" }),
+      kit.detection({ id: "k4", ts: T(4), companyId: c, host, processName: "beacon.exe", threatName: "CobaltStrike.Beacon", mitre: "T1055.001", tactic: "Stealth", severity: "critical", action: "quarantined", expectedVerdict: "tp" }),
     ];
     const inv = buildInvestigationFromStory({ id: "chain", title: "chain", events: chain });
     expect(inv).not.toBeNull();

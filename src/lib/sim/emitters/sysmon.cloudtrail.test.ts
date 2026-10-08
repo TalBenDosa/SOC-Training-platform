@@ -53,7 +53,7 @@ describe("AWS CloudTrail emitter", () => {
     cloudTrailEvent({ id: "c1", ts: T(1), eventName: "ConsoleLogin", srcIp: "45.142.212.61", outcome: "success", mfa: false, actorName: "cyberark.svc", mitre: "T1078.004", tactic: "Initial Access" }),
     cloudTrailEvent({ id: "c2", ts: T(2), eventName: "GetObject", srcIp: "45.142.212.61", s3Bucket: "qb-customer-exports", s3Key: "2026/pii.csv", bytes: 193000000, mitre: "T1530", tactic: "Exfiltration" }),
     cloudTrailEvent({ id: "c3", ts: T(3), eventName: "CreateAccessKey", srcIp: "45.142.212.61", actorName: "svc-deploy", mitre: "T1098", tactic: "Persistence" }),
-    cloudTrailEvent({ id: "c4", ts: T(4), eventName: "StopLogging", srcIp: "45.142.212.61", mitre: "T1562.008", tactic: "Defense Evasion" }),
+    cloudTrailEvent({ id: "c4", ts: T(4), eventName: "StopLogging", srcIp: "45.142.212.61", mitre: "T1685.002", tactic: "Defense Impairment" }),
     cloudTrailEvent({ id: "c5", ts: T(5), eventName: "GetObject", srcIp: "10.100.1.5", outcome: "failure", errorCode: "AccessDenied" }),
   ];
 

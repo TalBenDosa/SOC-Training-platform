@@ -218,7 +218,7 @@ function buildClaudeComplianceKeyHarvest(): TelemetryEvent[] {
       mitre: "T1078.004", tactic: "Initial Access",
       description: "a.kim signed in to Claude Enterprise through Okta SSO from the same VPN exit address at 02:16." }),
     claudeActivity({ ...ownerCtx, id: "aicak4", ts: "2026-09-24T02:17:22.905Z", type: "org_ip_restriction_deleted",
-      severity: "high", mitre: "T1562.007", tactic: "Defense Evasion",
+      severity: "high", mitre: "T1686.001", tactic: "Defense Impairment",
       description: "a.kim deleted the organization's IP restriction at 02:17: the allow-list that limited API-key access to the RocketStack office egress, where the SIEM collector's key runs." }),
     // The created key's id is a type-specific top-level field of the activity.
     withRaw(claudeActivity({ ...ownerCtx, id: "aicak5", ts: "2026-09-24T02:18:33.605Z", type: "api_key_created",

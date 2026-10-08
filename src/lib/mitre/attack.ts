@@ -1,7 +1,9 @@
 /**
  * Curated MITRE ATT&CK Enterprise data — the techniques most commonly seen
  * by SOC analysts. This is intentionally a working subset (not the full ~600
- * techniques) but is faithful to MITRE naming and IDs as of v15.
+ * techniques) but is faithful to MITRE tactic names and technique IDs as of
+ * ATT&CK v19 (April 2026), which split Defense Evasion into Stealth (TA0005)
+ * and Defense Impairment (TA0112). See docs/mitre-attack-v19-mapping.md.
  */
 
 export type MitreTactic = {
@@ -31,7 +33,8 @@ export const TACTICS: MitreTactic[] = [
   { id: "TA0002", name: "Execution",             short: "Exec",        description: "Running malicious code." },
   { id: "TA0003", name: "Persistence",           short: "Persist",     description: "Maintaining foothold across reboots." },
   { id: "TA0004", name: "Privilege Escalation",  short: "PrivEsc",     description: "Gaining higher-level permissions." },
-  { id: "TA0005", name: "Defense Evasion",       short: "Evasion",     description: "Avoiding detection." },
+  { id: "TA0005", name: "Stealth",               short: "Stealth",     description: "Hiding activity by blending in with legitimate behavior." },
+  { id: "TA0112", name: "Defense Impairment",    short: "Impair",      description: "Disabling or degrading security tools, logging and controls." },
   { id: "TA0006", name: "Credential Access",     short: "CredAcc",     description: "Stealing account names and passwords." },
   { id: "TA0007", name: "Discovery",             short: "Discover",    description: "Mapping the environment." },
   { id: "TA0008", name: "Lateral Movement",      short: "LatMove",     description: "Moving through the environment." },
@@ -148,7 +151,7 @@ export const TECHNIQUES: MitreTechnique[] = [
     logIndicators: ["Process accessing Chrome's Login Data SQLite database", "Process reading Windows Credential Manager (vaultcli.dll)", "Suspicious process opening browser profile directories", "Sensitive file path in process file access events"],
   },
 
-  // Defense Evasion
+  // Stealth / Defense Impairment
   { id: "T1218.011", name: "Signed Binary Proxy: Rundll32", tactic: "TA0005",
     description: "Use rundll32.exe to execute attacker DLLs.", platforms: ["Windows"],
     data_sources: ["EDR","Sysmon"],
@@ -161,8 +164,8 @@ export const TECHNIQUES: MitreTechnique[] = [
     whatAttackerDoes: "Encodes or encrypts the malicious payload to hide it from security tools that scan for known bad strings. Base64 encoding is most common — the encoded payload is decoded and run in memory.",
     logIndicators: ["Long Base64-encoded string in command line", "PowerShell with -EncodedCommand or [System.Convert]::FromBase64String", "File written with .txt or .jpg extension that is actually an executable", "Obfuscated script with variable substitution or string splitting"],
   },
-  { id: "T1562.001", name: "Disable or Modify Tools", tactic: "TA0005",
-    description: "Tampering with EDR/AV.", platforms: ["Windows","macOS","Linux"],
+  { id: "T1685", name: "Disable or Modify Tools", tactic: "TA0112",
+    description: "Tampering with EDR/AV (formerly T1562.001).", platforms: ["Windows","macOS","Linux"],
     data_sources: ["EDR","Service Logs"],
     whatAttackerDoes: "Disables or tampers with endpoint security tools (antivirus, EDR) so that subsequent malicious actions are not detected or blocked.",
     logIndicators: ["EDR/AV service stopped or disabled (Event ID 7036)", "Registry key for security software set to disabled", "Process killing antivirus process (MsMpEng.exe, CSFalconService)", "Windows Defender real-time protection turned off via PowerShell"],

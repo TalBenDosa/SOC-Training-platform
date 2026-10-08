@@ -210,7 +210,7 @@ function buildVoiceReset(): TelemetryEvent[] {
     serviceNowRecord({
       companyId: cx, id: "aihvr2", ts: "2026-09-22T08:34:09.771Z", table: "incident", number: TICKET, state: "New",
       shortDescription: T_SHORT,
-      callerId: VICTIM, mitre: "T1656", tactic: "Defense Evasion", severity: "low",
+      callerId: VICTIM, mitre: "T1684.001", tactic: "Stealth", severity: "low",
       extra: {
         ...snowRow("2026-09-22T08:34:09.771Z"),
         "servicenow.priority": "2 - High", "servicenow.urgency": "1 - High", "servicenow.impact": "3 - Low",
@@ -252,7 +252,7 @@ function buildVoiceReset(): TelemetryEvent[] {
       companyId: cx, id: "aihvr6", ts: "2026-09-22T08:48:31.097Z", operationName: "Admin deleted security info", loggedByService: "Authentication Methods",
       result: "success", correlationId: "3d90b8f5-71a2-4e64-9b08-c62e4a17d5f3",
       initiatedByUpn: AGENT, initiatedById: AGENT_ID, initiatedByIp: AGENT_IP, initiatedByRoles: ["Authentication Administrator"],
-      targetUpn: VICTIM, targetId: VICTIM_ID, mitre: "T1556.006", tactic: "Defense Evasion", severity: "high",
+      targetUpn: VICTIM, targetId: VICTIM_ID, mitre: "T1556.006", tactic: "Defense Impairment", severity: "high",
       extra: {
         ...auditEnvelope("aihvr6", "3d90b8f5-71a2-4e64-9b08-c62e4a17d5f3", EDGE_UA),
         "azure.auditlogs.properties.targetResources[0].modifiedProperties[0].displayName": "StrongAuthenticationMethod",
@@ -266,7 +266,7 @@ function buildVoiceReset(): TelemetryEvent[] {
     serviceNowRecord({
       companyId: cx, id: "aihvr4", ts: "2026-09-22T08:49:20.334Z", table: "incident", number: TICKET, state: "Resolved",
       shortDescription: T_SHORT,
-      callerId: VICTIM, mitre: "T1656", tactic: "Defense Evasion", severity: "low",
+      callerId: VICTIM, mitre: "T1684.001", tactic: "Stealth", severity: "low",
       extra: {
         ...snowRow("2026-09-22T08:49:20.334Z"),
         "servicenow.priority": "2 - High", "servicenow.urgency": "1 - High", "servicenow.impact": "3 - Low",
@@ -409,7 +409,7 @@ function buildVoiceReset(): TelemetryEvent[] {
     serviceNowRecord({
       companyId: cx, id: "aihvr11", ts: "2026-09-22T09:41:05.276Z", table: "incident", number: TICKET, state: "In Progress",
       shortDescription: T_SHORT,
-      callerId: VICTIM, mitre: "T1656", tactic: "Defense Evasion", severity: "high",
+      callerId: VICTIM, mitre: "T1684.001", tactic: "Stealth", severity: "high",
       extra: {
         ...snowRow("2026-09-22T09:41:05.276Z"),
         "servicenow.urgency": "1 - High", "servicenow.impact": "1 - High", "servicenow.assigned_to": AGENT,

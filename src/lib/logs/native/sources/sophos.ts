@@ -123,7 +123,7 @@ const SIEM_SEV: Record<string, string> = { critical: "critical", high: "high", m
 const DET_SEV: Record<string, number> = { critical: 9, high: 8, medium: 5, low: 3, informational: 1, info: 1 };
 /** Sophos behavioural rule families (detection_name prefix / detectionRule segment) per tactic. */
 const RULE_FAMILY: Record<string, [string, string]> = {
-  "Execution": ["Exec", "EXEC"], "Credential Access": ["Creds", "CREDS"], "Defense Evasion": ["Evade", "EVADE"],
+  "Execution": ["Exec", "EXEC"], "Credential Access": ["Creds", "CREDS"], "Stealth": ["Evade", "EVADE"], "Defense Impairment": ["Evade", "EVADE"],
   "Persistence": ["Persist", "PERSIST"], "Privilege Escalation": ["Privesc", "PRIVESC"], "Impact": ["Impact", "IMPACT"],
   "Collection": ["Collect", "COLLECT"], "Lateral Movement": ["Lateral", "LATERAL"], "Exfiltration": ["Exfil", "EXFIL"],
   "Command and Control": ["C2", "C2"], "Discovery": ["Discovery", "DISCOVERY"], "Initial Access": ["Access", "ACCESS"],

@@ -740,7 +740,7 @@ const useCases: UseCase[] = [
   {
     id: "mde.event-log-cleared-wevtutil",
     title: "Windows event log cleared with wevtutil",
-    sourceId: "mde", kinds: ["DeviceProcessEvents", "AlertEvidence"], severity: "high", mitre: ["T1070.001"],
+    sourceId: "mde", kinds: ["DeviceProcessEvents", "AlertEvidence"], severity: "high", mitre: ["T1685.005"],
     description: "wevtutil.exe ran with the clear-log verb (cl / clear-log). Wiping Security or System logs destroys the evidence trail and is almost always done by an intruder covering tracks after privilege escalation.",
     logic: "// KQL\nunion DeviceProcessEvents, (AlertEvidence | where EntityType == \"Process\")\n| where FileName =~ \"wevtutil.exe\"\n| where ProcessCommandLine matches regex @\"(?i)\\s(cl|clear-log)\\s\"\n| project Timestamp, DeviceName, AccountName, ProcessCommandLine",
     match: { all: [

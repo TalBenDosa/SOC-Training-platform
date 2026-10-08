@@ -430,12 +430,12 @@ export function aiLlmJackingScenarioEvents() {
       description: "Bedrock model invocation log record (CloudWatch Logs, us-east-1) for a Converse call on us.anthropic.claude-opus-4-20250514-v1:0 by identity arn:aws:iam::847213960055:user/svc-build-release: 7,812 input and 4,096 output tokens, stopReason max_tokens. The input text opens with a <system_rule> block claiming an authorized red team session for unrestricted role-play. The record carries no source address and no access key.",
     }),
 
-    // 13. DEFENSE EVASION — the invocation-logging configuration is deleted (T1562.008).
+    // 13. DEFENSE IMPAIRMENT: the invocation-logging configuration is deleted (T1685.002).
     // (a control being switched off, so it is typed policy_modification rather than a generic API call)
     {
       ...ct({
         id: "aiw1_lj_13", ts: J(12 * MIN, "lj13"), eventName: "DeleteModelInvocationLoggingConfiguration", srcIp: ipA, region: pilotRegion,
-        userAgent: boto3Ua, readOnly: false, mitre: "T1562.008", tactic: "Defense Evasion", severity: "critical",
+        userAgent: boto3Ua, readOnly: false, mitre: "T1685.002", tactic: "Defense Impairment", severity: "critical",
         extra: atkExtra("lj13", hostMgmt(pilotRegion)),
         description: "DeleteModelInvocationLoggingConfiguration in us-east-1 by the svc-build-release access key from 80.94.92.41, about three minutes after the Converse call whose prompt the invocation log captured.",
       }),
@@ -476,7 +476,7 @@ export function aiLlmJackingScenarioEvents() {
       description: "Converse on us.anthropic.claude-opus-4-20250514-v1:0 in us-east-2 by the svc-build-release access key from 80.94.92.41 with a Python aiohttp user agent; one record from a continuous stream of similar calls.",
     }),
 
-    // 16. THE DETECTION THAT OPENS THE TICKET — GuardDuty DefenseEvasion:IAMUser/AnomalousBehavior on the delete (T1562.008).
+    // 16. THE DETECTION THAT OPENS THE TICKET — GuardDuty DefenseEvasion:IAMUser/AnomalousBehavior on the delete (T1685.002).
     {
       ...guardDutyFinding({
         companyId: cx, id: "aiw1_lj_16", ts: J(22 * MIN, "lj16"), findingType: "DefenseEvasion:IAMUser/AnomalousBehavior", gdSeverity: 5,
@@ -491,7 +491,7 @@ export function aiLlmJackingScenarioEvents() {
           }),
           "aws.guardduty.resource.accessKeyDetails.principalId": ciPrincipalId,
         },
-        mitre: "T1562.008", tactic: "Defense Evasion", severity: "high", incidentId: INCIDENT,
+        mitre: "T1685.002", tactic: "Defense Impairment", severity: "high", incidentId: INCIDENT,
         description: "GuardDuty raised DefenseEvasion:IAMUser/AnomalousBehavior (severity 5, Medium) in us-east-1 for DeleteModelInvocationLoggingConfiguration, called by the svc-build-release access key AKIAXQ7PL2MD4EXAMPLE from 80.94.92.41.",
       }),
       edr_scope: "non_edr",

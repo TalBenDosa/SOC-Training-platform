@@ -100,7 +100,7 @@ function threatsOf(ev: TelemetryEvent, f: EmailFacts): Threat[] {
   for (const a of risky) out.push({ indicator: a.sha256 ?? a.name, type: "attachment", classification: "malware" });
   for (const u of f.urls) out.push({ indicator: u, type: "url", classification: malware && !risky.length ? "malware" : "phish" });
   if (!out.length) {
-    const bec = !!f.replyTo && domainOf(f.replyTo) !== domainOf(f.from) || /T1534|T1656/.test(ev.mitre_technique ?? "") ||
+    const bec = !!f.replyTo && domainOf(f.replyTo) !== domainOf(f.from) || /T1534|T1684.001/.test(ev.mitre_technique ?? "") ||
       /impersonat|bec\b|ceo|lookalike|look-alike|display name/i.test(ev.description ?? "");
     if (f.from) out.push({ indicator: f.from, type: "message", classification: bec ? "impostor" : "phish" });
   }
@@ -262,7 +262,7 @@ const useCases: UseCase[] = [
   {
     id: "proofpoint.impostor-bec",
     title: "Impostor (BEC) message",
-    sourceId: "proofpoint", kinds: ["messagesDelivered", "messagesBlocked"], severity: "high", mitre: ["T1566", "T1656"],
+    sourceId: "proofpoint", kinds: ["messagesDelivered", "messagesBlocked"], severity: "high", mitre: ["T1566", "T1684.001"],
     description: "classification impostor or impostorScore ≥ 80: a display-name / look-alike sender, frequently with a Reply-To on a free-mail domain. No link or attachment is needed for the fraud — confirm whether the recipient replied or acted on payment instructions.",
     logic: "Splunk: sourcetype=\"pps:tap:message\" (impostorScore>=80 OR threatsInfoMap{}.classification=impostor) | table messageTime headerFrom headerReplyTo recipient{} subject impostorScore",
     match: { any: [{ field: "impostorScore", op: "gte", value: 80 }, { field: "threatsInfoMap[].classification", op: "eq", value: "impostor" }] },

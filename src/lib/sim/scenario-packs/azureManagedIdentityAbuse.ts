@@ -230,7 +230,7 @@ export function buildAzureManagedIdentityAbuseScenario(
       src_ip: attackerIp,
       severity: "high",
       mitre_technique: "T1078.004",
-      mitre_tactic: "Defense Evasion",
+      mitre_tactic: "Stealth",
       incident_id: INCIDENT,
       description:
         "svc-billing-connector authenticated to Microsoft Graph as a service principal from 45.155.205.211. The sign-in is non-interactive, presents a client secret, and carries no user and no MFA.",
@@ -273,7 +273,7 @@ export function buildAzureManagedIdentityAbuseScenario(
       src_ip: attackerIp,
       severity: "high",
       mitre_technique: "T1078.004",
-      mitre_tactic: "Defense Evasion",
+      mitre_tactic: "Stealth",
       incident_id: INCIDENT,
       description:
         "svc-billing-connector acquired a token for the Azure Resource Manager API (Windows Azure Service Management API) from the same address, again as a non-interactive service-principal sign-in.",
@@ -695,8 +695,8 @@ The one legitimate comparison in the data is two days earlier: platform engineer
     killchain: [
       { ts: "2026-08-27T14:20:00.000Z", phase: "Baseline", action: `Platform engineer rotates ${terraformSp.displayName}'s client secret under approved change CHG-2211 — the sanctioned, attributable path (T1098.001)` },
       { ts: T(0), phase: "Persistence", action: `New client secret appended to the existing ${app.displayName} app registration by ${workloadMi.displayName} (T1098.001)` },
-      { ts: T(3 * MIN), phase: "Defense Evasion", action: `${app.displayName} signs in non-interactively to Microsoft Graph with the new secret (T1078.004)` },
-      { ts: T(4 * MIN), phase: "Defense Evasion", action: "Same identity acquires an Azure Resource Manager token (T1078.004)" },
+      { ts: T(3 * MIN), phase: "Stealth", action: `${app.displayName} signs in non-interactively to Microsoft Graph with the new secret (T1078.004)` },
+      { ts: T(4 * MIN), phase: "Stealth", action: "Same identity acquires an Azure Resource Manager token (T1078.004)" },
       { ts: T(6 * MIN), phase: "Discovery", action: `Subscription and resource groups enumerated in ${subName} (T1526)` },
       { ts: T(9 * MIN), phase: "Persistence", action: `roleAssignments/write grants Key Vault Secrets Officer at ${resourceGroup} scope — standing access (T1098.003)` },
       { ts: T(12 * MIN), phase: "Credential Access", action: `Secret sql-conn-prod read from ${keyVault} (T1555.006)` },

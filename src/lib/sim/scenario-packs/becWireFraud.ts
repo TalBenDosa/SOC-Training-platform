@@ -28,7 +28,7 @@
  * approval workflow. The discriminator is email authentication + real domain +
  * process — not the fact that a finance email is urgent.
  *
- * Covers T1656 (Impersonation — the display-name/domain spoof of the CFO, and the
+ * Covers T1684.001 (Social Engineering: Impersonation, formerly T1656 — the display-name/domain spoof of the CFO, and the
  * deepfake voice call), T1566.002 (Spearphishing Link — the payment-portal link in
  * the message) and T1583.001 (Acquire Infrastructure: Domains — the attacker's
  * lookalike, newly-registered sending domain).
@@ -150,7 +150,7 @@ export function buildBecWireFraudScenario(
     //    as the CFO but fails SPF/DKIM/DMARC, carries a display-name spoof, and
     //    has the envelope (P1) and header (P2) senders on a lookalike domain.
     //    Defender's impersonation protection raises the alert that opens the
-    //    case. Impersonation (T1656). is_detection + non_edr.
+    //    case. Impersonation (T1684.001). is_detection + non_edr.
     // ─────────────────────────────────────────────────────────────────────
     {
       id: "evt_becwf_01_impersonation_email",
@@ -163,8 +163,8 @@ export function buildBecWireFraudScenario(
       src_ip: senderIp,
       geo: { country: "Nigeria", city: "Lagos" },
       severity: "high",
-      mitre_technique: "T1656",
-      mitre_tactic: "Defense Evasion",
+      mitre_technique: "T1684.001",
+      mitre_tactic: "Stealth",
       incident_id: INCIDENT,
       is_detection: true,   // Defender impersonation protection — opens the case
       edr_scope: "non_edr", // email / identity control-plane, no host process to walk
@@ -337,7 +337,7 @@ export function buildBecWireFraudScenario(
     // 5. THE DEEPFAKE PHONE CALL — a Finance fraud report in the service desk:
     //    a caller whose voice matched the CFO phoned Accounts Payable to chase
     //    the same wire, from a spoofed number, and no callback to a listed number
-    //    was made. Out-of-band impersonation reinforcement (T1656).
+    //    was made. Out-of-band impersonation reinforcement (T1684.001).
     // ─────────────────────────────────────────────────────────────────────
     {
       id: "evt_becwf_05_fraud_report",
@@ -347,8 +347,8 @@ export function buildBecWireFraudScenario(
       event_type: "policy_modification",
       user_email: victim.email,
       severity: "high",
-      mitre_technique: "T1656",
-      mitre_tactic: "Defense Evasion",
+      mitre_technique: "T1684.001",
+      mitre_tactic: "Stealth",
       incident_id: INCIDENT,
       description:
         `Finance filed ticket ${fraudTicket}: p.nair reports a phone call from someone whose voice matched the CFO, pressing her to release the wire "before the bank cut-off". The number was not the CFO's directory number and no callback to a listed number was made.`,
@@ -524,11 +524,11 @@ The instructive comparison is the CFO's genuine payment email the day before: th
     iocs,
     killchain: [
       { ts: T(-26 * HOUR), phase: "Context", action: `Benign control — the real CFO (${cfo.email}) sends a genuine payment email that passes SPF/DKIM/DMARC` },
-      { ts: T(0), phase: "Defense Evasion", action: `Impersonation email to ${victim.sam} — display-name spoof of the CFO from lookalike ${lookalikeDomain}, auth fail/none (T1656)` },
+      { ts: T(0), phase: "Stealth", action: `Impersonation email to ${victim.sam} — display-name spoof of the CFO from lookalike ${lookalikeDomain}, auth fail/none (T1684.001)` },
       { ts: T(1 * MIN), phase: "Initial Access", action: `Message delivered to the inbox with a link to ${lookalikeDomain}/secure/beneficiary-update (T1566.002)` },
       { ts: T(6 * MIN), phase: "Resource Development", action: `Domain lookup — ${lookalikeDomain} registered eight days earlier, a lookalike of ${cfo.email.split("@")[1]} (T1583.001)` },
       { ts: T(9 * MIN), phase: "Investigation", action: `Genuine CFO account reviewed — routine sign-ins only, no new inbox rules; the real mailbox was never accessed` },
-      { ts: T(22 * MIN), phase: "Defense Evasion", action: `Deepfake voice-clone phone call chases the same wire from a spoofed number — out-of-band reinforcement (T1656)` },
+      { ts: T(22 * MIN), phase: "Stealth", action: `Deepfake voice-clone phone call chases the same wire from a spoofed number — out-of-band reinforcement (T1684.001)` },
     ],
     questions,
   };

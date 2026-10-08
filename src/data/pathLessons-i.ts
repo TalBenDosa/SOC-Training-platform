@@ -409,7 +409,7 @@ const lessons = [
         "explanation": "In most cases the right response (contain the hosts, reset exposed credentials, eradicate persistence, close the access gap) is the same whichever group is behind it, so that work comes first. “Build the attribution case first, since leadership will ask” spends the shift on a question the evidence cannot settle, while scoping and containment wait. “Treat the likelier group's past TTP list as this intrusion's confirmed scope” turns a moderate-confidence guess into scope: you would hunt for things that may not be there and could miss what is. “Hold eradication until one group is confirmed” is wrong because you remove the persistence and tools you actually find in your environment, not the ones a named group is known for."
       },
       {
-        "question": "You are a SOC analyst comparing an indicator of compromise (a specific C2 IP address) against an indicator of attack (a behavioral pattern of process injection followed by defense evasion). Why is the IOA generally more valuable for building durable detection?",
+        "question": "You are a SOC analyst comparing an indicator of compromise (a specific C2 IP address) against an indicator of attack (a behavioral pattern of process injection followed by EDR tampering). Why is the IOA generally more valuable for building durable detection?",
         "options": [
           {
             "label": "IOA rules are cheaper and quicker to write than an IOC blocklist",
@@ -429,7 +429,7 @@ const lessons = [
           }
         ],
         "answer": "b",
-        "explanation": "On the Pyramid of Pain, an IP or hash is trivial for the adversary to replace, so an IOC detection expires as soon as they rotate. A behaviour such as injection followed by defence evasion is a TTP, and changing it means changing how they operate, so the detection survives new samples and infrastructure. “IOA rules are cheaper and quicker to write” reverses the cost: IOC lookups are the cheap, fast option. “IOCs depend on a paid feed” is wrong because IOCs also come from OSINT, ISACs and government advisories, and cost has nothing to do with durability anyway. “IOAs raise fewer false positives” is also backwards: an exact IOC match is precise when it hits, while behavioural logic usually needs more tuning."
+        "explanation": "On the Pyramid of Pain, an IP or hash is trivial for the adversary to replace, so an IOC detection expires as soon as they rotate. A behaviour such as injection followed by EDR tampering is a TTP, and changing it means changing how they operate, so the detection survives new samples and infrastructure. “IOA rules are cheaper and quicker to write” reverses the cost: IOC lookups are the cheap, fast option. “IOCs depend on a paid feed” is wrong because IOCs also come from OSINT, ISACs and government advisories, and cost has nothing to do with durability anyway. “IOAs raise fewer false positives” is also backwards: an exact IOC match is precise when it hits, while behavioural logic usually needs more tuning."
       },
       {
         "question": "You are a SOC analyst who just read a government advisory stating that ransomware affiliates are actively exploiting a specific VPN vulnerability against organizations in your sector, but the advisory includes no IOCs specific to your environment. What is the best use of this intelligence?",

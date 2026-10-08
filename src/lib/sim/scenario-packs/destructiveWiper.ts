@@ -137,13 +137,13 @@ export function buildDestructiveWiperScenario(
       description: "Sysmon Event 1 shows cl64.exe spawning bcdedit.exe to set recoveryenabled to no and ignore boot failures on VNT-WKS-27 — the Windows recovery environment being switched off.",
     }),
 
-    // 6. EVENT LOG CLEARED — Falcon process_create, wevtutil (T1070.001).
+    // 6. EVENT LOG CLEARED — Falcon process_create, wevtutil (T1685.005).
     csProcess({
       companyId: cx, id: "dw_05_wevtutil_clear", ts: T(50 * SEC), host: host.name, srcIp: host.ip,
       processName: "wevtutil.exe", processPath: "C:\\Windows\\System32\\wevtutil.exe", cmdline: "wevtutil.exe cl Security",
       parentName: "cl64.exe", parentPid: 6620, pid: 6790, integrity: "system", runAsUser: "NT AUTHORITY\\SYSTEM",
-      mitre: "T1070.001", tactic: "Defense Evasion", severity: "high", incidentId: INCIDENT,
-      extra: { ...osExtra, "threat.technique.id": "T1070", "threat.technique.subtechnique.id": "T1070.001", "threat.technique.name": "Clear Windows Event Logs", "threat.tactic.name": "Defense Evasion", "threat.tactic.id": "TA0005" },
+      mitre: "T1685.005", tactic: "Defense Impairment", severity: "high", incidentId: INCIDENT,
+      extra: { ...osExtra, "threat.technique.id": "T1685", "threat.technique.subtechnique.id": "T1685.005", "threat.technique.name": "Clear Windows Event Logs", "threat.tactic.name": "Defense Impairment", "threat.tactic.id": "TA0112" },
       description: "Falcon recorded cl64.exe spawning wevtutil.exe with 'cl Security' as SYSTEM on VNT-WKS-27 — the Security event log being emptied.",
     }),
 
@@ -333,7 +333,7 @@ This is where the exercise bites. Everything about VNT-WKS-27 rhymes with ransom
       { ts: T(4 * SEC), phase: "Privilege Escalation", action: "Signed driver epmntdrv.sys loaded for kernel-mode raw disk access (T1543.003)" },
       { ts: T(20 * SEC), phase: "Impact", action: "vssadmin delete shadows /all /quiet — Volume Shadow Copies removed (T1490)" },
       { ts: T(35 * SEC), phase: "Impact", action: "bcdedit /set {default} recoveryenabled no — boot recovery disabled (T1490)" },
-      { ts: T(50 * SEC), phase: "Defense Evasion", action: "wevtutil cl Security — Security event log cleared (T1070.001)" },
+      { ts: T(50 * SEC), phase: "Defense Impairment", action: "wevtutil cl Security — Security event log cleared (T1685.005, formerly T1070.001)" },
       { ts: T(70 * SEC), phase: "Impact", action: "Raw write to \\\\.\\PhysicalDrive0 — MBR and partition table destroyed (T1561.002)" },
       { ts: T(80 * SEC), phase: "Impact", action: "User files overwritten with junk (T1561.001)" },
       { ts: T(2 * MIN), phase: "Detection", action: "Falcon raises the Critical destructive-attack detection; deploying account a.novak attributed" },
