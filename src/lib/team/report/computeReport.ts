@@ -479,6 +479,9 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[]) {
     return m;
   };
   const escTimes = timesByEid("escalation.requested");
+  // A case a Tier-2 / Tier-3 opened themselves (0092): they acknowledge it the same moment, so
+  // it is no hand-off, and it must not count toward acknowledge latency / team MTTA.
+  const selfOpened = new Set(escReq.filter(e => e.role === "t2" || e.role === "t3").map(eidOf));
   const contTimes = timesByEid("containment.requested");
   const reqBefore = (m: Map<string, number[]>, eid: string, t: number): number | null => {
     const ts = m.get(eid); if (!ts?.length) return null;
@@ -883,7 +886,7 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[]) {
       const ft = feedTs.get(eid); const dt = tsOf(d);
       return ft != null && dt != null ? runMs(ft, dt) / 60000 : null;
     }).filter((x): x is number => x != null && x >= 0));
-    const ackLatencyMin = median(mine.filter(e => e.type === "escalation.acknowledged").map(e => {
+    const ackLatencyMin = median(mine.filter(e => e.type === "escalation.acknowledged" && !selfOpened.has(eidOf(e))).map(e => {
       const at = tsOf(e); if (at == null) return null; const rt = reqBefore(escTimes, eidOf(e), at);
       return rt != null ? runMs(rt, at) / 60000 : null;
     }).filter((x): x is number => x != null && x >= 0));
@@ -1076,7 +1079,7 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[]) {
   }).filter((x): x is number => x != null && x >= 0));
   // Handoff latency (team MTTA): per log, first ack − the request it acknowledged.
   const ackFirstTs = new Map<string, number>();
-  for (const e of events.filter(x => x.type === "escalation.acknowledged")) { const eid = eidOf(e); const at = tsOf(e); if (at != null && !ackFirstTs.has(eid)) ackFirstTs.set(eid, at); }
+  for (const e of events.filter(x => x.type === "escalation.acknowledged" && !selfOpened.has(eidOf(x)))) { const eid = eidOf(e); const at = tsOf(e); if (at != null && !ackFirstTs.has(eid)) ackFirstTs.set(eid, at); }
   const handoffLatS = median([...ackFirstTs].map(([eid, at]) => { const rt = reqBefore(escTimes, eid, at); return rt != null ? runMs(rt, at) / 1000 : null; }).filter((x): x is number => x != null && x >= 0));
 
   // ── Evaluable MSEL injects ─────────────────────────────────────────────────────

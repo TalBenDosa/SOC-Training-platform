@@ -6,25 +6,44 @@ export function asStr(v: unknown): string { return typeof v === "string" ? v : "
 /** Host names compare case-insensitively and by short name (WS-FIN-2847 ≡ ws-fin-2847.corp.local). */
 export const hostKey = (h: string) => h.trim().toLowerCase().split(".")[0];
 /** Auto-detect an IOC's type for display + accuracy scoring (T1-5). */
+// Host-based artifacts an analyst quotes as indicators: the command that spawned a process,
+// the file it dropped, the registry value it set, the URL it fetched (Tal, 2026-10-08).
+const REGISTRY = /^(HKLM|HKCU|HKCR|HKU|HKCC|HKEY_[A-Z_]+)(\\|:|$)/i;
+const FILE_PATH = /^([a-z]:\\|\\\\[^\\\s]+\\|%[a-z]+%\\|\/(usr|bin|sbin|etc|home|opt|var|tmp|root|dev|proc|lib)\/)/i;
+const PROCESS = /^[\w.-]+\.(exe|dll|sys|ps1|psm1|bat|cmd|vbs|vbe|js|jse|hta|scr|msi|lnk|jar|py|sh|elf)$/i;
+// A command line: a known binary first (or any .exe), or command-line switches — never plain prose.
+const COMMAND_BIN = /^"?([\w.\\:/ -]*\\)?(reg|powershell|pwsh|cmd|net|net1|wmic|schtasks|sc|rundll32|regsvr32|certutil|bitsadmin|mshta|cscript|wscript|msiexec|vssadmin|bcdedit|wevtutil|netsh|icacls|attrib|taskkill|tasklist|whoami|nltest|dsquery|adfind|psexec|procdump|curl|wget|bash|sh|zsh|python3?|perl|nc|ncat|ssh|scp|crontab|chmod|chown|sudo|useradd|usermod|systemctl|kubectl|aws|az|gcloud|ipconfig|systeminfo|quser|query|mimikatz|rclone|ngrok)(\.exe)?"?(\s|$)/i;
+const SWITCH = /\s(\/[a-z?]{1,12}|--?[a-z][\w-]*)(\s|=|$)/i;
+
 export function detectIocType(v: string): string {
   const s = v.trim();
   if (/^[a-f0-9]{64}$/i.test(s)) return "sha256";
   if (/^[a-f0-9]{40}$/i.test(s)) return "sha1";
   if (/^[a-f0-9]{32}$/i.test(s)) return "md5";
-  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(s)) return "ip";
-  if (/@/.test(s)) return "email";
+  if (/^\d{1,3}(\.\d{1,3}){3}(:\d{1,5})?$/.test(s)) return "ip";
+  if (/^(https?|ftp|wss?):\/\//i.test(s)) return "url";
+  if (REGISTRY.test(s)) return "registry";
+  if (/\s/.test(s) && (COMMAND_BIN.test(s) || /\.exe"?\s/i.test(s) || SWITCH.test(s))) return "command";
+  if (FILE_PATH.test(s)) return "file_path";
+  if (PROCESS.test(s)) return "process";
+  if (/^[^\s@]+@[^\s@]+$/.test(s)) return "email";
   if (/\.[a-z]{2,}$/i.test(s) && !/\s/.test(s)) return "domain";
   return "host";
 }
-// A4: a MANUAL IOC must be a real indicator shape — a strong type (hash/ip/email/domain)
-// or a plausible hostname (has a hyphen/dot/digit, no spaces) — so junk free text like
-// "asdf" can't satisfy the ≥1-indicator escalation gate. Picked-from-log IOCs are trusted.
+// A4: a MANUAL IOC must be a real indicator shape — a hash / IP / email / domain / URL, a
+// host artifact (command line, file path, registry key, process image) or a plausible
+// hostname — so junk free text like "asdf" or "lateral movement?" can't satisfy the
+// ≥1-indicator escalation gate. Picked-from-log IOCs are trusted.
 export function isValidIoc(v: string): boolean {
   const s = v.trim();
-  if (!s || /\s/.test(s)) return false;
-  if (detectIocType(s) !== "host") return true;       // hash / ip / email / domain
+  if (!s || s.length > 1000) return false;
+  const t = detectIocType(s);
+  if (t === "command" || t === "registry" || t === "file_path") return true;
+  if (/\s/.test(s)) return false;
+  if (t !== "host") return true;
   return /^[A-Za-z0-9][A-Za-z0-9._-]{2,62}$/.test(s) && /[-.\d]/.test(s); // plausible hostname
 }
+export const IOC_HELP = "hash / IP / domain / URL / email / hostname / command line / file path / registry key / process";
 export const wordCount = (s: string) => s.trim().split(/\s+/).filter(Boolean).length;
 
 /** Short stable hash (FNV-1a) — used to derive idempotency keys from an action payload. */

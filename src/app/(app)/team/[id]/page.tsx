@@ -21,6 +21,8 @@ import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { EventFeed } from "@/app/(app)/dashboard/EventFeed";
 import { ItVerifyContext, type TeamItVerifier } from "@/app/(app)/dashboard/itVerifyContext";
+import { EscalateCopyContext } from "@/app/(app)/dashboard/escalateCopyContext";
+import { OpenCaseModal } from "./_components/OpenCaseModal";
 import { enrichEvent, severityBase, type LiveEvent } from "@/app/(app)/dashboard/liveEventEnrich";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { buildTeamEdrCases } from "@/lib/edr/teamCases";
@@ -62,6 +64,8 @@ import { SecondaryPanels } from "./_components/SecondaryPanels";
 import { WarRoom } from "./_components/WarRoom";
 import { TeamIntel } from "./_components/TeamIntel";
 import { NativeLogProvider, type NativeRenderer } from "@/lib/logs/native/NativeLogContext";
+
+const OPEN_CASE_COPY = { title: "Open a case on this log", hint: "You found it: start the case yourself and own it" };
 
 export default function TeamRoomPage() {
   const { id } = useParams<{ id: string }>();
@@ -783,6 +787,15 @@ export default function TeamRoomPage() {
     // fields, or free text) so choosing the evidence is part of the exercise.
     setT1ReportOpen(true);
   }, []);
+  // Tier-2 / Tier-3 open a case on a log they found themselves (0092).
+  const [caseLog, setCaseLog] = useState<Ev | null>(null);
+  const onFeedOpenCase = useCallback((ev: LiveEvent) => {
+    const raw = feedRef.current.find(f => {
+      const p = f.payload as { id?: string };
+      return (typeof p.id === "string" ? p.id : `ev_${f.seq}`) === ev.id;
+    });
+    if (raw) setCaseLog(raw);
+  }, []);
   const takeNextAlert = useCallback(() => {
     const next = me ? nextAlertFor(alertQueue, claimByEid, me.id) : null;
     if (!next) { setPulledNote("Nothing unclaimed right now — every open alert is being worked."); return; }
@@ -865,6 +878,7 @@ export default function TeamRoomPage() {
   return (
     <IocTruthContext.Provider value={iocTruth}>
     <ItVerifyContext.Provider value={itVerify}>
+    <EscalateCopyContext.Provider value={me?.role === "t2" || me?.role === "t3" ? OPEN_CASE_COPY : null}>
     <NativeLogProvider value={nativeRender}>
     <div>
       <Topbar title={phase === "running" ? "Live team exercise" : phase === "ended" ? "Shift review" : "Team lobby"} subtitle={session ? `${session.tenant?.name ?? session.company_id} · ${session.difficulty}` : ""} />
@@ -1168,12 +1182,10 @@ export default function TeamRoomPage() {
                       onPivot={onFeedPivot}
                       onAddIoc={me.role === "t1" ? onFeedAddIoc : undefined}
                       rowStatus={rowStatus}
-                      onEscalate={me.role === "t1" ? onFeedEscalate : undefined}
+                      onEscalate={me.role === "t1" ? onFeedEscalate : me.role === "t2" || me.role === "t3" ? onFeedOpenCase : undefined}
                     />
                   </>
                 )}
-                {/* The team chat — always visible next to the feed, not folded away. */}
-                <WarRoom sessionId={id} events={events} me={me} nameOf={nameOf} act={act} />
               </div>
               {/* YOUR ROLE — the dominant role panel(s), then secondary panels tabbed (G-03) */}
               <div className="min-w-0 space-y-4">
@@ -1191,6 +1203,9 @@ export default function TeamRoomPage() {
                 {/* QA L4: another instructor of the org (staff, no seat in this session) gets the panel too — every
                     staff tool except the inject composer, which posts as the session's instructor seat. */}
                 {(me.role === "instructor" || (me.is_staff && !me.role)) && <InstructorPanel sessionId={id} roster={roster} online={online} events={events} act={act} isStaff={!!me.is_staff} nameOf={nameOf} canInject={me.role === "instructor"} onError={showError} />}
+                {/* The team chat sits with the role panels, never under the feed: a chat under the
+                    log list covered the log being read (Tal, 2026-10-08). It folds to one line. */}
+                <WarRoom sessionId={id} events={events} me={me} nameOf={nameOf} act={act} />
                 {/* Team intel — its own visible card (was buried in a folded tab) */}
                 <TeamIntel events={events} nameOf={nameOf} />
                 {/* G-14: injects / announcements / help-desk tickets — visible to everyone */}
@@ -1210,7 +1225,11 @@ export default function TeamRoomPage() {
         )}
       </div>
     </div>
+      {caseLog && (me?.role === "t2" || me?.role === "t3") && (
+        <OpenCaseModal log={caseLog} role={me.role} onClose={() => setCaseLog(null)} act={act} actR={actR} />
+      )}
     </NativeLogProvider>
+    </EscalateCopyContext.Provider>
     </ItVerifyContext.Provider>
     </IocTruthContext.Provider>
   );

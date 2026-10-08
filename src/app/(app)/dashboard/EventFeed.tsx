@@ -17,6 +17,7 @@ import { techniqueById, tacticById } from "@/lib/mitre/attack";
 import { mitreVisible } from "@/lib/sim/mitreVisible";
 import { itVerifyAnswer, itVerifyApplies, remoteToolOf, type ItVerifyAnswer } from "@/lib/sim/itVerify";
 import { ItVerifyContext } from "./itVerifyContext";
+import { EscalateCopyContext } from "./escalateCopyContext";
 
 // L-01: the internal event id (b_… baseline, atk_evt_…<phase> attack) named the
 // answer — and it was shown verbatim in the Analysis detail panel's event.id row,
@@ -404,6 +405,7 @@ export function DetailPanelBody({
   // dashboard it is computed from the full event; in a team exercise the log carries no answer
   // key, so the team page provides a verifier that asks the server.
   const teamVerify = useContext(ItVerifyContext);
+  const escalateCopy = useContext(EscalateCopyContext);
   const hasItVerify = teamVerify ? !!event.it_check : itVerifyApplies(event);
   const tool = hasItVerify ? remoteToolOf(event) : null;
   const [itAnswer, setItAnswer] = useState<ItVerifyAnswer | null>(null);
@@ -511,8 +513,8 @@ export function DetailPanelBody({
             <span className="flex items-center gap-2.5">
               <span className="text-lg leading-none">🚩</span>
               <span className="flex flex-col">
-                <span className="text-sm font-semibold text-amber-200">Escalate this log to Tier-2</span>
-                <span className="text-[11px] text-amber-300/70">Flag it and write a short report — case info + indicators</span>
+                <span className="text-sm font-semibold text-amber-200">{escalateCopy?.title ?? "Escalate this log to Tier-2"}</span>
+                <span className="text-[11px] text-amber-300/70">{escalateCopy?.hint ?? "Flag it and write a short report — case info + indicators"}</span>
               </span>
             </span>
             <span className="shrink-0 rounded-md border border-amber-400/60 bg-amber-400/20 px-3 py-1 text-xs font-semibold text-amber-100">

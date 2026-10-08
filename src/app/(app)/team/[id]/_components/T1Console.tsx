@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ArrowUpRight, ShieldAlert, X } from "lucide-react";
 import type { Ev, Ioc } from "@/lib/team/types";
-import { asStr, detectIocType, isValidIoc, type ActR } from "@/lib/team/format";
+import { asStr, detectIocType, isValidIoc, IOC_HELP, type ActR } from "@/lib/team/format";
 import { useServerNow } from "@/lib/team/clock";
 import { activeClaims } from "@/lib/team/projections";
 import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
@@ -13,6 +13,8 @@ import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 // ── T1 console: pick a log → disposition + structured escalation report ───────
 const REQUESTED_ACTIONS = ["investigate", "contain", "monitor", "escalate-to-mgr"];
 const SEVERITIES = ["low", "medium", "high", "critical"];
+
+const EMPTY_FORM = { summary: "", observations: "", assessment: "", requested_action: "investigate", severity: "medium" };
 
 export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraft, setIocDraft, nameOf, act, actR, sel, setSel, reportOpen, setReportOpen }: {
   sessionId: string;
@@ -25,9 +27,33 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
   // DetailPanel) can select that event and open this report modal directly.
   sel: string; setSel: (v: string) => void; reportOpen: boolean; setReportOpen: (v: boolean) => void;
 }) {
-  const [form, setForm] = useState({ summary: "", observations: "", assessment: "", requested_action: "investigate", severity: "medium" });
+  const [form, setForm] = useState(EMPTY_FORM);
   // Screenshots that travel with the escalation (EDR view, a query result, a header…).
   const shots = useImageAttachments(3);
+  // One draft PER LOG: escalating a new log used to reopen the last log's summary and
+  // observations (Tal, 2026-10-08). Switching logs parks the current draft under its log and
+  // loads the new log's own draft (empty the first time). Indicators already picked that occur
+  // in the new log come along: they were clicked (＋IOC) on that log's fields just before.
+  const drafts = useRef(new Map<string, { form: typeof EMPTY_FORM; iocs: Ioc[] }>());
+  const draftSel = useRef(sel);
+  const formNow = useRef(form); formNow.current = form;
+  const iocsNow = useRef(iocDraft); iocsNow.current = iocDraft;
+  useEffect(() => {
+    const prev = draftSel.current;
+    if (prev === sel) return;
+    draftSel.current = sel;
+    if (prev) drafts.current.set(prev, { form: formNow.current, iocs: iocsNow.current });
+    const logText = sel ? JSON.stringify(feed.find(e => String((e.payload as { id?: string }).id ?? e.seq) === sel)?.payload ?? {}).toLowerCase() : "";
+    const saved = sel ? drafts.current.get(sel) : undefined;
+    const carried = iocsNow.current.filter(i => i.source === "picked" && logText.includes(i.value.toLowerCase()));
+    const iocs = [...(saved?.iocs ?? [])];
+    for (const i of carried) if (!iocs.some(x => x.value.toLowerCase() === i.value.toLowerCase())) iocs.push(i);
+    setForm(saved?.form ?? EMPTY_FORM);
+    setIocDraft(iocs);
+    setIocText("");
+    shots.clear();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs on a log switch only
+  }, [sel]);
   const [iocText, setIocText] = useState("");
   const [busy, setBusy] = useState(false);
   const selDisp = sel ? dispositions.get(sel) : undefined;
@@ -123,7 +149,7 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
   function addIoc(value: string, source: "picked" | "manual") {
     const v = value.trim(); if (!v) return;
     // A4: a MANUAL indicator must look like a real IOC; picked-from-log values are trusted.
-    if (source === "manual" && !isValidIoc(v)) { setIocErr(`"${v}" isn't a valid indicator (hash / IP / domain / email / hostname).`); return; }
+    if (source === "manual" && !isValidIoc(v)) { setIocErr(`"${v.length > 80 ? v.slice(0, 80) + "…" : v}" isn't a valid indicator (${IOC_HELP}).`); return; }
     setIocErr("");
     setIocDraft(d => d.some(x => x.value.toLowerCase() === v.toLowerCase()) ? d : [...d, { type: detectIocType(v), value: v, source }]);
   }
@@ -191,7 +217,7 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
     if (res.code === "claim_held") setHeldFor(sel);
     if (ok) await act("alert.released", { event_id: sel }); // escalated → hand off the claim (the load replay reads the release)
     setBusy(false);
-    if (ok) { setForm({ summary: "", observations: "", assessment: "", requested_action: "investigate", severity: "medium" }); setIocDraft([]); shots.clear(); setSel(""); setReportOpen(false); }
+    if (ok) { drafts.current.delete(sel); draftSel.current = ""; setForm(EMPTY_FORM); setIocDraft([]); shots.clear(); setSel(""); setReportOpen(false); }
   }
   // The selected log's payload — powers the modal's log-summary header + the escalate snapshot.
   const selRaw = sel ? feed.find(e => String((e.payload as { id?: string }).id ?? e.seq) === sel) : undefined;

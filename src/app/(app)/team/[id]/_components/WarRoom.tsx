@@ -2,7 +2,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { MessagesSquare, Send } from "lucide-react";
+import { ChevronDown, ChevronUp, MessagesSquare, Send } from "lucide-react";
 import type { Me, Ev } from "@/lib/team/types";
 import { asStr } from "@/lib/team/format";
 import { ROLE_LABEL } from "./shared";
@@ -19,10 +19,13 @@ const timeOf = (iso?: string) => {
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 };
 
-// ── G-13: team chat — the war-room channel, always visible (not folded away) ──
-// Oldest → newest like any chat, auto-scrolls to the latest message, and flags
+// ── G-13: team chat — the war-room channel ──
+// Oldest → newest like any chat, auto-scrolls its own list to the latest message, and flags
 // messages from teammates that arrived while you were busy elsewhere. Screenshots can
 // be pasted (Ctrl+V), dropped, or attached with the image button.
+// 2026-10-08 (Tal: "the chat jumped over the log"): it lives in the role column, not under the
+// feed, and folds to a one-line bar (last message + unread count). A new message never opens
+// it or moves anything; it only lights the badge. Open/closed is remembered per session.
 export function WarRoom({ sessionId, events, me, nameOf, act }: { sessionId: string; events: Ev[]; me: Me; nameOf: (u: string | null) => string; act: (t: string, p: Record<string, unknown>) => Promise<boolean> }) {
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
@@ -35,11 +38,22 @@ export function WarRoom({ sessionId, events, me, nameOf, act }: { sessionId: str
   const listRef = useRef<HTMLDivElement>(null);
   const canWrite = !!(me.role && me.role !== "observer");
   const canPost = canWrite && (msg.trim().length > 0 || att.items.length > 0) && msg.trim().length <= MAX_MESSAGE;
+  const openKey = `team-chat-open:${sessionId}`;
+  const [open, setOpen] = useState(true);
+  useEffect(() => { try { const v = localStorage.getItem(openKey); if (v !== null) setOpen(v === "1"); } catch { /* storage blocked */ } }, [openKey]);
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    if (next) setSeen(fromOthers);
+    try { localStorage.setItem(openKey, next ? "1" : "0"); } catch { /* storage blocked */ }
+  };
+  const last = msgs[msgs.length - 1];
+  const lastText = last ? (asStr((last.payload as { text?: unknown }).text) || IMAGE_ONLY_TEXT) : "";
 
   useEffect(() => {
     const el = listRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [msgs.length]);
+  }, [msgs.length, open]);
   // The message list is a polite live log, switched on only after the chat history
   // has loaded — so screen readers hear NEW messages, not the whole backlog.
   const [liveLog, setLiveLog] = useState(false);
@@ -60,17 +74,23 @@ export function WarRoom({ sessionId, events, me, nameOf, act }: { sessionId: str
 
   return (
     <Card className={`border-cyber-500/40 transition-shadow ${unread > 0 ? "shadow-[0_0_0_1px_rgba(34,211,238,0.35),0_0_24px_-6px_rgba(34,211,238,0.45)]" : ""}`}>
-      <div onClick={() => setSeen(fromOthers)} {...(canWrite ? att.dropProps : {})}>
-        <div className="mb-2 flex items-center gap-2">
-          <MessagesSquare className="h-4 w-4 text-cyber-300" aria-hidden="true" />
-          <h3 id="team-chat-heading" className="text-sm font-bold text-white">Team chat</h3>
+      <div onClick={() => open && setSeen(fromOthers)} {...(canWrite && open ? att.dropProps : {})}>
+        <button type="button" onClick={e => { e.stopPropagation(); toggle(); }} aria-expanded={open} aria-controls="team-chat-body"
+          className={`flex w-full items-center gap-2 rounded-md text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-400 ${open ? "mb-2" : ""}`}>
+          <MessagesSquare className="h-4 w-4 shrink-0 text-cyber-300" aria-hidden="true" />
+          <h3 id="team-chat-heading" className="shrink-0 text-sm font-bold text-white">Team chat</h3>
           {unread > 0 && (
-            <span className="rounded-full bg-cyber-500 px-1.5 py-px text-[10px] font-bold text-bg">{unread} new</span>
+            <span className="shrink-0 rounded-full bg-cyber-500 px-1.5 py-px text-[10px] font-bold text-bg">{unread} new</span>
           )}
-          <span className="ml-auto text-[10px] text-slate-500">Everyone on the team sees this · {msgs.length} {msgs.length === 1 ? "message" : "messages"}</span>
-        </div>
+          {open
+            ? <span className="ml-auto truncate text-[10px] text-slate-500">Everyone on the team sees this · {msgs.length} {msgs.length === 1 ? "message" : "messages"}</span>
+            : <span className="ml-1 min-w-0 flex-1 truncate text-[11px] text-slate-400">{last ? <><bdi className="text-slate-300">{last.actor_id === me.id ? "You" : nameOf(last.actor_id)}:</bdi> <span dir="auto">{lastText}</span></> : "No messages yet"}</span>}
+          {open ? <ChevronUp className="ml-1 h-4 w-4 shrink-0 text-slate-400" aria-hidden /> : <ChevronDown className="ml-auto h-4 w-4 shrink-0 text-slate-400" aria-hidden />}
+          <span className="sr-only">{open ? "Collapse the team chat" : "Open the team chat"}</span>
+        </button>
 
-        <div ref={listRef} role="log" aria-live={liveLog ? "polite" : "off"} aria-relevant="additions" aria-labelledby="team-chat-heading" className="mb-2 max-h-72 min-h-[5rem] space-y-2 overflow-y-auto rounded-lg border border-border/60 bg-bg/60 p-2">
+        <div id="team-chat-body" hidden={!open}>
+        <div ref={listRef} role="log" aria-live={liveLog && open ? "polite" : "off"} aria-relevant="additions" aria-labelledby="team-chat-heading" className="mb-2 max-h-56 min-h-[4rem] space-y-2 overflow-y-auto overscroll-contain rounded-lg border border-border/60 bg-bg/60 p-2">
           {msgs.length === 0 ? (
             <p className="py-4 text-center text-xs text-slate-500">No messages yet. Coordinate here: ask for context, call out what you found, hand off work, paste a screenshot.</p>
           ) : msgs.map(e => {
@@ -131,6 +151,7 @@ export function WarRoom({ sessionId, events, me, nameOf, act }: { sessionId: str
         )}
         {failed && <p className="mt-1 text-[10px] text-severity-high">The message wasn&apos;t sent. Check your connection and press Send again.</p>}
         {att.error && <p role="alert" className="mt-1 text-[10px] text-severity-high">{att.error}</p>}
+        </div>
       </div>
     </Card>
   );
