@@ -24,10 +24,10 @@ export type Difficulty = "easy" | "medium" | "hard";
 const NON_PLAYER = new Set(["instructor", "observer"]);
 
 export const LOAD_RULES = {
-  /** Logs per minute each Tier-1 analyst is budgeted to read and disposition. */
-  perAnalystLogsPerMin: { easy: 1.5, medium: 2, hard: 2.5 } as Record<Difficulty, number>,
+  /** Logs per minute each Tier-1 analyst is budgeted to read and disposition (raised ~25% on 2026-10-08, Tal: a busier feed). */
+  perAnalystLogsPerMin: { easy: 2, medium: 2.5, hard: 3 } as Record<Difficulty, number>,
   /** Ceiling for the whole room, however many Tier-1s join. */
-  maxLogsPerMin: { easy: 5, medium: 6.5, hard: 8 } as Record<Difficulty, number>,
+  maxLogsPerMin: { easy: 6, medium: 8, hard: 10 } as Record<Difficulty, number>,
   /** Live-telemetry length of the shift. */
   shiftMin: { easy: 30, medium: 35, hard: 40 } as Record<Difficulty, number>,
 } as const;
