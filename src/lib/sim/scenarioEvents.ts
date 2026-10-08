@@ -4940,6 +4940,7 @@ export function oauthConsentPhishingScenarioEvents() {
       event_type: "role_assignment", severity: "high", mitre_technique: "T1528",
       hostname: "aad.nexacorp.com", user_email: "j.chen@nexacorp.com", src_ip: "207.154.110.53",
       description: "j.chen granted OAuth consent to an app named Productivity Suite Pro, requesting Mail.ReadWrite, Files.ReadWrite.All, and Calendars.Read.",
+      it_context: { result: "confirmed", message: "No ticket was needed: the consent policy lets staff approve apps that act only on their own mail and files, and IT has nothing on file against Productivity Suite Pro." },
       fp_explanation: "OAuth consent grants are extremely common — users consent to dozens of productivity apps. This looks like Slack/Zoom/Notion onboarding from a corporate IP, at a time the user is still at the office (22:14).",
       raw: {
         "data.office365.Operation": "Consent to application",

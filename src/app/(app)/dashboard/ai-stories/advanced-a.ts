@@ -705,7 +705,9 @@ const AI_AGENTIC_INTRUSION_TEMPO: TelemetryEvent[] = [
   }),
 
   // 12. CONTAINMENT. AWSRevokeOlderSessions invalidates the stolen session.
-  ct({
+  {
+  it_context: { result: "confirmed", message: "Yes, that was us: the cloud security responder revoked every session issued for this role before 03:04 (the standard Revoke active sessions action) as containment for the open incident." },
+  ...ct({
     id: "aiag12", ts: "2026-09-23T03:04:18.412Z", name: "PutRolePolicy", source: "iam.amazonaws.com", region: "us-east-1",
     ip: AG_ADMIN_EGRESS, ua: UA_CHROME_MAC, ident: agResponder, readOnly: false, eventType: "cloud_role_change", severity: "medium",
     params: {
@@ -720,6 +722,7 @@ const AI_AGENTIC_INTRUSION_TEMPO: TelemetryEvent[] = [
     description:
       "PutRolePolicy: an MFA-authenticated AWSReservedSSO_SecurityResponder session attached the inline policy AWSRevokeOlderSessions to customer-api-instance-role, denying every session issued before 03:04:18 UTC, which invalidates the stolen session key. Requiring IMDSv2 on the instance and validating the link-preview URL in the application are the follow-up fixes.",
   }),
+  },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════════

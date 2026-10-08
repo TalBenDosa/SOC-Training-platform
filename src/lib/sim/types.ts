@@ -198,6 +198,14 @@ export interface TelemetryEvent {
    */
   it_verify_result?: "confirmed" | "unverified";
   it_verify_message?: string;
+  /**
+   * The IT answer for a story step whose verdict that answer must NOT change: a defender's
+   * own containment action, a genuine HR record inside an insider story. (it_verify_result
+   * "confirmed" makes a step an FP decoy; this does not.) Read by itVerifyAnswer().
+   */
+  it_context?: { result: "confirmed" | "unverified"; message: string };
+  /** Team feed only: the log offers "Verify with IT" (set on the server, the answer stays there). */
+  it_check?: boolean;
   raw: Record<string, unknown>;
 }
 

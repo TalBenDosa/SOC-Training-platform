@@ -19,6 +19,7 @@ import "server-only";
  * (story steps AND the legitimate control steps inside a story; standalone pool
  * attacks get their own), and supports_inject on logs that back a scripted inject.
  */
+import { approvalRefOf, itVerifyApplies } from "@/lib/sim/itVerify";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { BENIGN_EVENTS } from "@/app/(app)/dashboard/benignEvents";
 import { COMPANY_EVENTS } from "@/lib/sim/companyProfiles";
@@ -267,20 +268,7 @@ const TICKET_RE = /\b(CHG-?\d[\d-]*|INC-?\d+|RITM\d+|ONB-\d+|NXC-\d+|NX-\d+|REQ-
  * — so the team gets that ticket as an ordinary ServiceNow record in the feed, and
  * has to correlate it with the change itself.
  */
-/**
- * The approval reference an FP decoy's explanation cites ("ticket HR-2026-117",
- * "Reference GL-AUDIT-2026-03", "(QB-HR-2026-S14)") — an ID with a digit, right
- * after a ticket/reference word or in parentheses, never a hostname.
- */
-export function approvalRefOf(text: string | undefined): string | null {
-  if (!text) return null;
-  const re = /(?:ticket|ref(?:erence)?|approval ref|access request|request|covers)\s*:?\s*([A-Za-z]{2,}[A-Za-z0-9]*(?:-[A-Za-z0-9]+)*)|\(([A-Za-z]{2,}[A-Za-z0-9]*(?:-[A-Za-z0-9]+)*)\)/gi;
-  for (const m of text.matchAll(re)) {
-    const id = m[1] ?? m[2] ?? "";
-    if (id === id.toUpperCase() && /\d/.test(id) && !/^(WS|LT|LAP|WKS|SRV|DC|NB)-/.test(id)) return id;
-  }
-  return null;
-}
+export { approvalRefOf };
 
 /** The approval a decoy rests on, as one plain line: the explanation's first clause. */
 function approvalSummaryOf(ev: TelemetryEvent): string {
@@ -893,7 +881,7 @@ export function productSeverity(e: { is_detection?: boolean; source?: string; ev
 }
 
 /** Feed fields that reveal the ground truth or the attack story — never sent to players. */
-export const TEAM_ANSWER_FIELDS = ["expected_verdict", "fp_explanation", "incident_id", "edr_scope", "is_baseline", "it_verify_result", "it_verify_message", "supports_inject", "feed_origin"] as const;
+export const TEAM_ANSWER_FIELDS = ["expected_verdict", "fp_explanation", "incident_id", "edr_scope", "is_baseline", "it_verify_result", "it_verify_message", "it_context", "supports_inject", "feed_origin"] as const;
 /** Inject kinds that must look identical live (the real kind is the answer). A
  *  management request is not a spoiler — who answers it (the SOC Manager, with a
  *  SITREP) is part of the job — so it gets its own public kind; only the twist and
@@ -949,7 +937,7 @@ function toPublicEntry(entry: TimelineEntry, i: number, seed: string, tier: stri
     };
   }
   const {
-    expected_verdict, fp_explanation, incident_id, edr_scope, is_baseline, it_verify_result, it_verify_message,
+    expected_verdict, fp_explanation, incident_id, edr_scope, is_baseline, it_verify_result, it_verify_message, it_context,
     supports_inject, feed_origin, tier: originalTier, id, bonus_attack, auto_contained, ...rest
   } = body;
   // A held bonus row is stamped as if it followed the planned shift; the client re-bases every
@@ -979,7 +967,10 @@ function toPublicEntry(entry: TimelineEntry, i: number, seed: string, tier: stri
   const shownSeverity = typeof retimed.severity === "string" && retimed.severity
     ? retimed.severity
     : productSeverity(retimed as { source?: string; event_type?: string; severity?: string; is_detection?: boolean });
-  const publicBody = { ...shown0, description: factual, severity: shownSeverity };
+  // "Verify with IT" is offered on the same logs as on the dashboard (admin changes, remote-access
+  // tools, logs with an authored IT answer); the answer itself stays on the server (it-verify route).
+  const itCheck = itVerifyApplies(body as unknown as TelemetryEvent);
+  const publicBody = { ...shown0, description: factual, severity: shownSeverity, ...(itCheck ? { it_check: true } : {}) };
   return {
     ...entry,
     body: { ...publicBody, id: opaqueId(seed, i, "e"), tier },
@@ -987,7 +978,7 @@ function toPublicEntry(entry: TimelineEntry, i: number, seed: string, tier: stri
       // contract 1: an explicit verdict on every feed log — never missing
       expected_verdict: expected_verdict ?? "benign",
       fp_explanation, incident_id, supports_inject, origin: feed_origin, edr_scope, is_baseline,
-      it_verify_result, it_verify_message, original_id: id, original_tier: originalTier, bonus: bonus_attack,
+      it_verify_result, it_verify_message, it_context, original_id: id, original_tier: originalTier, bonus: bonus_attack,
       authored_description: retimed.description, authored_severity: retimed.severity, auto_contained,
       ...(tagged ? {} : { mitre_technique, mitre_tactic }),
     }),

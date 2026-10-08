@@ -1571,6 +1571,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     vendor: "Microsoft 365 Unified Audit Log", user_email: "j.vandijk@medcorehealth.org", src_ip: "10.50.2.11",
     description: "j.vandijk created an Outlook rule forwarding on-call alerts to j.vandijk-mobile@medcorehealth.org",
     it_verify_result: "confirmed",
+    it_verify_message: "IT confirms request INC-MC-2207: j.vandijk asked to forward on-call alerts to their hospital mobile mailbox, which is a MedCore-owned address.",
     raw: {
       "data.office365.Operation": "New-InboxRule", "data.office365.UserId": "j.vandijk@medcorehealth.org",
       "data.office365.Parameters": "ForwardTo=j.vandijk-mobile@medcorehealth.org; SubjectContainsWords=on-call,alert,pager",
@@ -1599,6 +1600,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     expected_verdict: "tp", is_detection: true,
     description: "r.hendriks created a hidden O365 inbox rule forwarding all mail to an external protonmail.com address",
     it_verify_result: "unverified",
+    it_verify_message: "No change request or HR approval covers forwarding r.hendriks's mail outside MedCore. External forwarding is blocked by policy and r.hendriks says they did not create the rule.",
     raw: {
       "data.office365.Operation": "New-InboxRule", "data.office365.UserId": "r.hendriks@medcorehealth.org",
       "data.office365.Parameters": "ForwardTo=r.hendriks@protonmail.com; SubjectContainsWords=patient,budget,contract",
@@ -2290,6 +2292,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     user_title: "Logistics Coordinator",
     description: "m.wagner created an Exchange rule forwarding dispatch alerts to a personal Outlook address — IT confirmed",
     it_verify_result: "confirmed",
+    it_verify_message: "IT confirms request INC-GL-7740: m.wagner asked to forward dispatch alerts to their personal Outlook address while on the night rota, approved by the logistics manager.",
     raw: {
       "data.office365.Operation": "New-InboxRule", "data.office365.UserId": "m.wagner@globallogis.de",
       "data.office365.Parameters": "ForwardTo=m.wagner@outlook.com; SubjectContainsWords=dispatch,urgent,delivery",
@@ -2318,6 +2321,7 @@ const GLOBALLOGIS_EVENTS: TelemetryEvent[] = [
     expected_verdict: "tp", is_detection: true,
     description: "h.schneider created a hidden O365 rule forwarding all mail to an external protonmail.com address from an unrecognised country at 23:04",
     it_verify_result: "unverified",
+    it_verify_message: "No change request or HR approval covers forwarding h.schneider's mail outside GlobalLogis, and h.schneider says they did not create the rule.",
     raw: {
       "data.office365.Operation": "New-InboxRule", "data.office365.UserId": "h.schneider@globallogis.de",
       "data.office365.Parameters": "ForwardTo=h.schneider@protonmail.com; SubjectContainsWords=contract,customer,supplier",
@@ -2708,6 +2712,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     user_title: "Equity Trader",
     description: "f.zimmermann created Outlook rule forwarding alerts to compliance-team@quantumbank.ch (IT confirmed)",
     it_verify_result: "confirmed",
+    it_verify_message: "IT confirms request INC-QB-3318: f.zimmermann asked to forward alerts to the compliance-team mailbox, a QuantumBank-owned shared mailbox.",
     raw: {
       "data.office365.Operation": "New-InboxRule", "data.office365.Workload": "Exchange",
       "data.office365.UserId": "f.zimmermann@quantumbank.ch",
@@ -2738,6 +2743,7 @@ const QUANTUMBANK_EVENTS: TelemetryEvent[] = [
     expected_verdict: "tp", is_detection: true,
     description: "e.steiner created covert O365 rule forwarding all SWIFT notifications to e.steiner@protonmail.com",
     it_verify_result: "unverified",
+    it_verify_message: "No change request covers forwarding e.steiner's mail to an outside address. Forwarding SWIFT notifications externally is forbidden by policy, and nobody in IT set this rule up.",
     raw: {
       "data.office365.Operation": "New-InboxRule", "data.office365.UserId": "e.steiner@quantumbank.ch",
       "data.office365.Parameters": "ForwardTo=e.steiner@protonmail.com; SubjectContainsWords=SWIFT,transfer,payment,EUR",

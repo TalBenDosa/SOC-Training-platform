@@ -238,7 +238,9 @@ function buildVoiceReset(): TelemetryEvent[] {
     },
 
     // 5. Password reset by the help-desk admin (privilege chain: Authentication Administrator).
-    entraAudit({
+    {
+    it_context: { result: "unverified", message: "The help desk did this under ticket INC0051764, after a phone call in the account owner's voice. The caller was not called back on the number on file as the reset procedure requires, and the account owner says they never phoned the help desk." },
+    ...entraAudit({
       companyId: cx, id: "aihvr5", ts: "2026-09-22T08:47:58.615Z", operationName: "Reset password (by admin)", loggedByService: "Core Directory",
       result: "success", correlationId: "a7e63d02-4b91-4c58-8f27-d15b0c9e3a64",
       initiatedByUpn: AGENT, initiatedById: AGENT_ID, initiatedByIp: AGENT_IP, initiatedByRoles: ["Authentication Administrator"],
@@ -246,9 +248,12 @@ function buildVoiceReset(): TelemetryEvent[] {
       extra: auditEnvelope("aihvr5", "a7e63d02-4b91-4c58-8f27-d15b0c9e3a64", EDGE_UA),
       description: "j.oduya, holding the Authentication Administrator role and working from the internal help desk network, reset the password of d.cohen's account at 08:47 while INC0051764 was open.",
     }),
+    },
 
     // 6. Registered authentication methods wiped (T1556.006).
-    entraAudit({
+    {
+    it_context: { result: "unverified", message: "The help desk did this under ticket INC0051764, after a phone call in the account owner's voice. The caller was not called back on the number on file as the reset procedure requires, and the account owner says they never phoned the help desk." },
+    ...entraAudit({
       companyId: cx, id: "aihvr6", ts: "2026-09-22T08:48:31.097Z", operationName: "Admin deleted security info", loggedByService: "Authentication Methods",
       result: "success", correlationId: "3d90b8f5-71a2-4e64-9b08-c62e4a17d5f3",
       initiatedByUpn: AGENT, initiatedById: AGENT_ID, initiatedByIp: AGENT_IP, initiatedByRoles: ["Authentication Administrator"],
@@ -261,6 +266,7 @@ function buildVoiceReset(): TelemetryEvent[] {
       },
       description: "j.oduya deleted the registered Microsoft Authenticator method on d.cohen's account 33 seconds after the password reset, leaving the account with a password and no second factor until new security info is registered.",
     }),
+    },
 
     // 7. Ticket resolved after the reset and the wipe — verification was a voice match and an employee id.
     serviceNowRecord({
@@ -541,6 +547,8 @@ function buildClaudeDeparture(): TelemetryEvent[] {
     {
       id: "aicld1", ts: "2026-09-24T09:14:07.330Z", source: "hr", vendor: "Workday", event_type: "account_modify",
       user_email: USER, severity: "informational",
+      // a genuine HR record: the resignation is real (its place in the story is context, not an FP)
+      it_context: { result: "confirmed", message: "HR confirms the resignation is genuine: the last working day is 2026-10-08 and access removal is scheduled for that evening. IT has no other request on file for this employee." },
       description: "Workday recorded a voluntary resignation submitted by a.kaplan at 09:14, with an employment end date of 2026-10-08 and access revocation scheduled for that evening.",
       raw: {
         "workday.event_type": "Worker_Resignation_Submitted",

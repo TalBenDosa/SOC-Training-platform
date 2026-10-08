@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/Button";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { EventFeed } from "@/app/(app)/dashboard/EventFeed";
+import { ItVerifyContext, type TeamItVerifier } from "@/app/(app)/dashboard/itVerifyContext";
 import { enrichEvent, severityBase, type LiveEvent } from "@/app/(app)/dashboard/liveEventEnrich";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { buildTeamEdrCases } from "@/lib/edr/teamCases";
@@ -64,6 +65,12 @@ import { NativeLogProvider, type NativeRenderer } from "@/lib/logs/native/Native
 
 export default function TeamRoomPage() {
   const { id } = useParams<{ id: string }>();
+  // "Verify with IT": the log carries no answer key, so IT's reply comes from the server.
+  const itVerify = useCallback<TeamItVerifier>(async (eventId) => {
+    const r = await fetch(`/api/team/sessions/${id}/it-verify`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ event_id: eventId }) });
+    if (!r.ok) throw new Error(`it-verify ${r.status}`);
+    return r.json();
+  }, [id]);
   usePageTitle("Team session");
 
   const [session, setSession] = useState<SessionMeta | null>(null);
@@ -857,6 +864,7 @@ export default function TeamRoomPage() {
 
   return (
     <IocTruthContext.Provider value={iocTruth}>
+    <ItVerifyContext.Provider value={itVerify}>
     <NativeLogProvider value={nativeRender}>
     <div>
       <Topbar title={phase === "running" ? "Live team exercise" : phase === "ended" ? "Shift review" : "Team lobby"} subtitle={session ? `${session.tenant?.name ?? session.company_id} · ${session.difficulty}` : ""} />
@@ -1203,6 +1211,7 @@ export default function TeamRoomPage() {
       </div>
     </div>
     </NativeLogProvider>
+    </ItVerifyContext.Provider>
     </IocTruthContext.Provider>
   );
 }

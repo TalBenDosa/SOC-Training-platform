@@ -13,7 +13,7 @@
  *       OWASP LLM Top 10 (2025): LLM01 Prompt Injection, LLM03 Supply Chain. MCP tool
  *       poisoning (Invariant Labs, Apr 2025). MITRE ATLAS tool/agent abuse.
  *
- *  2. ai-malicious-model-pickle  (advanced, rocketstack / medcore) — a data scientist
+ *  2. ai-malicious-model-pickle  (advanced, rocketstack; MedCore runs no Linux servers) — a data scientist
  *     downloads a model file from a public model hub and loads it in a Jupyter
  *     environment on a Linux ML server. Loading the pickle-based file runs embedded code
  *     that opens an outbound connection and installs a cron persistence entry. Linux
@@ -32,6 +32,7 @@
  * No exploit code: only what the logs capture.
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { makeSha256 } from "@/lib/sim/iocs";
 import type { AiStoryDef } from "./wave2";
 import { csProcess, csNetwork, csDns, csFile, csDetection } from "@/lib/sim/emitters/crowdstrike";
 import { cloudTrailEvent, guardDutyFinding } from "@/lib/sim/emitters/cloudtrail";
@@ -74,7 +75,7 @@ function buildMcpToolPoisoning(): TelemetryEvent[] {
         description: "AWS CloudTrail: GetCallerIdentity by the access key AKIAZ7QW3MNP5EXAMPLE from 198.51.100.22 (the office network), the developer checking which identity their CLI uses. This is the key's normal origin.",
       }),
       is_baseline: true, expected_verdict: "fp" as const,
-      fp_explanation: "The developer's own long-term key, used from the corporate egress during working hours — its established pattern.",
+      fp_explanation: "The developer's own long-term key, used from the corporate egress during working hours, its established pattern.",
     },
     // 1. BASELINE. The coding agent's own process, running normally on the host.
     {
@@ -89,7 +90,7 @@ function buildMcpToolPoisoning(): TelemetryEvent[] {
     },
     // 2. DNS: the host resolves the newly-added third-party MCP host.
     csDns({
-      companyId: cx, id: "aimcp02", ts: "2026-10-06T10:02:31.000Z", host, srcIp: hostIp, user,
+      companyId: cx, id: "aimcp02", ts: "2026-10-06T10:02:31.000Z", host, user,
       domain: mcpDomain, resolvedIp: mcpIp, qtype: "A",
       mitre: "T1071.001", tactic: "Command and Control", severity: "low",
       description: `The host resolved ${mcpDomain}, a third-party tool host the developer added to the coding assistant; this is the first lookup of that name from the host.`,
@@ -110,7 +111,7 @@ function buildMcpToolPoisoning(): TelemetryEvent[] {
       processName: "cat", processPath: "/usr/bin/cat", cmdline: `cat /home/${bareUser}/.aws/credentials`,
       parentName: "node", parentPid: 4821, signed: true,
       mitre: "T1552.001", tactic: "Credential Access", severity: "high",
-      description: `A shell tool launched by the coding-assistant process read the local cloud-credentials file /home/${bareUser}/.aws/credentials — a file the agent has no task-related reason to open. The read followed immediately after the external tool list was fetched.`,
+      description: `A shell tool launched by the coding-assistant process read the local cloud-credentials file /home/${bareUser}/.aws/credentials, a file the agent has no task-related reason to open. The read followed immediately after the external tool list was fetched.`,
     }),
     // 5. NETWORK: the agent sends an outbound tool call to the MCP host carrying the file.
     csNetwork({
@@ -134,7 +135,7 @@ function buildMcpToolPoisoning(): TelemetryEvent[] {
       eventName: "ListBuckets", eventSource: "s3.amazonaws.com", srcIp: attackerIp,
       actorType: "IAMUser", actorName: iamUser, accessKeyId: key, arn, userAgent: UA_BOTO,
       readOnly: true, geo: attackerGeo, severity: "high", mitre: "T1580", tactic: "Discovery",
-      description: "AWS CloudTrail: ListBuckets by the same key from 203.0.113.140, 47 seconds after the identity check — the account's entire S3 bucket inventory read in one call.",
+      description: "AWS CloudTrail: ListBuckets by the same key from 203.0.113.140, 47 seconds after the identity check, the account's entire S3 bucket inventory read in one call.",
     }),
     // 8. CloudTrail: GetObject burst, first bucket (one representative row; the count is in the text).
     cloudTrailEvent({
@@ -143,7 +144,7 @@ function buildMcpToolPoisoning(): TelemetryEvent[] {
       actorType: "IAMUser", actorName: iamUser, accessKeyId: key, arn, userAgent: UA_BOTO,
       s3Bucket: bucketA, s3Key: "exports/2026-10/customers.parquet", bytes: 48_221_904,
       readOnly: true, geo: attackerGeo, severity: "high", mitre: "T1530", tactic: "Collection",
-      description: `AWS CloudTrail: GetObject on s3://${bucketA}/exports/2026-10/customers.parquet by the same key from 203.0.113.140 — one of a burst of several hundred GetObject calls on this bucket within two minutes.`,
+      description: `AWS CloudTrail: GetObject on s3://${bucketA}/exports/2026-10/customers.parquet by the same key from 203.0.113.140, one of a burst of several hundred GetObject calls on this bucket within two minutes.`,
     }),
     // 9. CloudTrail: GetObject burst, second bucket.
     cloudTrailEvent({
@@ -152,7 +153,7 @@ function buildMcpToolPoisoning(): TelemetryEvent[] {
       actorType: "IAMUser", actorName: iamUser, accessKeyId: key, arn, userAgent: UA_BOTO,
       s3Bucket: bucketB, s3Key: "daily/2026-10-06/accounts.csv.gz", bytes: 15_882_310,
       readOnly: true, geo: attackerGeo, severity: "high", mitre: "T1530", tactic: "Collection",
-      description: `AWS CloudTrail: GetObject on s3://${bucketB}/daily/2026-10-06/accounts.csv.gz by the same key from 203.0.113.140 — the burst moved to a second bucket; across both buckets the key copied tens of gigabytes in minutes.`,
+      description: `AWS CloudTrail: GetObject on s3://${bucketB}/daily/2026-10-06/accounts.csv.gz by the same key from 203.0.113.140, the burst moved to a second bucket; across both buckets the key copied tens of gigabytes in minutes.`,
     }),
     // 10. GuardDuty: anomalous S3 access from the key.
     guardDutyFinding({
@@ -199,7 +200,7 @@ function buildMcpToolPoisoning(): TelemetryEvent[] {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 2. ai-malicious-model-pickle — advanced, rocketstack / medcore
+// 2. ai-malicious-model-pickle — advanced, rocketstack
 // ══════════════════════════════════════════════════════════════════════════════
 
 /** One Linux auditd record authored inline (vendor-native field names), with the
@@ -218,7 +219,8 @@ interface AuditOpts {
 function auditd(o: AuditOpts): TelemetryEvent {
   return {
     id: o.id, ts: o.ts, source: "linux_audit", vendor: "Linux auditd", event_type: o.eventType, severity: o.severity,
-    hostname: o.host, user_email: o.user, ...(o.dstIp ? { dst_ip: o.dstIp } : {}), ...(o.dstPort ? { dst_port: o.dstPort, protocol: "tcp" } : {}),
+    // an exec renders as the EXECVE record (its argv), which names no account: the row names none either
+    hostname: o.host, ...(o.eventType === "linux_execve" ? {} : { user_email: o.user }), ...(o.dstIp ? { dst_ip: o.dstIp } : {}), ...(o.dstPort ? { dst_port: o.dstPort, protocol: "tcp" } : {}),
     ...(o.mitre ? { mitre_technique: o.mitre } : {}), ...(o.tactic ? { mitre_tactic: o.tactic } : {}),
     ...(o.baseline ? { is_baseline: true, expected_verdict: "fp" as const } : {}),
     process: o.process, ...(o.file ? { file: o.file } : {}),
@@ -261,6 +263,7 @@ function buildMaliciousModelPickle(): TelemetryEvent[] {
   const helper = `/tmp/.ml/.sync/agentd`;
   const cronFile = `/var/spool/cron/crontabs/${bareUser}`;
   const pythonPath = "/opt/conda/bin/python3.11";
+  const helperSha = makeSha256("aimp:agentd-helper");
 
   const events: TelemetryEvent[] = [
     // 0. BASELINE. The notebook kernel running ordinary analysis.
@@ -279,7 +282,7 @@ function buildMaliciousModelPickle(): TelemetryEvent[] {
     }),
     // 1. DNS: the server resolves the public model hub.
     csDns({
-      companyId: cx, id: "aimp01", ts: "2026-10-07T09:14:05.000Z", host, srcIp: hostIp, user,
+      companyId: cx, id: "aimp01", ts: "2026-10-07T09:14:05.000Z", host, user,
       domain: hubDomain, resolvedIp: hubIp, qtype: "A", severity: "low",
       description: `The ML server resolved ${hubDomain}, a public model hub, as the data scientist began downloading a pre-trained model.`,
     }),
@@ -304,11 +307,11 @@ function buildMaliciousModelPickle(): TelemetryEvent[] {
         "audit.a0": "sh", "audit.a1": "-c", "audit.a2": helper,
         "event.action": "executed", "event.outcome": "success",
       },
-      description: `auditd EXECVE: the python kernel (pid 20144) spawned /bin/sh as a child the moment the downloaded model was loaded — a shell the notebook code never calls for. Loading a pickle-based model file runs any code embedded in it.`,
+      description: `auditd EXECVE: the python kernel (pid 20144) spawned /bin/sh as a child the moment the downloaded model was loaded, a shell the notebook code never calls for. Loading a pickle-based model file runs any code embedded in it.`,
     }),
     // 4. DNS: the host resolves the callback host just after the shell spawned.
     csDns({
-      companyId: cx, id: "aimp04", ts: "2026-10-07T09:16:41.000Z", host, srcIp: hostIp, user,
+      companyId: cx, id: "aimp04", ts: "2026-10-07T09:16:41.000Z", host, user,
       domain: cbDomain, resolvedIp: cbIp, qtype: "A",
       mitre: "T1071.001", tactic: "Command and Control", severity: "medium",
       description: `Immediately after the shell was spawned, the host resolved ${cbDomain}, a name it had never looked up before.`,
@@ -356,31 +359,31 @@ function buildMaliciousModelPickle(): TelemetryEvent[] {
         "data.audit.file.ouid": uid, "data.audit.file.ogid": "102", "data.audit.file.nametype": "CREATE",
         "event.action": "created", "event.outcome": "success",
       },
-      description: `auditd PATH (objtype=CREATE): the shell used the crontab binary to create ${cronFile} at mode 0100600 — a user cron job that re-launches the dropped helper after reboot.`,
+      description: `auditd PATH (objtype=CREATE): the shell used the crontab binary to create ${cronFile} at mode 0100600, a user cron job that re-launches the dropped helper after reboot.`,
     }),
     // 9. EDR on Linux: the dropped helper written to a hidden directory.
     csFile({
       companyId: cx, id: "aimp09", ts: "2026-10-07T09:16:43.000Z", host, srcIp: hostIp, user,
       path: helper, size: 1_048_576, action: "file_create",
       actorProcess: "sh", actorPid: 20390, actorPath: "/bin/sh", actorParentName: "python3.11", actorParentPid: 20144,
-      runAsUser: bareUser, mitre: "T1564.001", tactic: "Defense Evasion", severity: "high",
-      description: `The endpoint sensor recorded the shell writing an executable file to ${helper}, a hidden directory under /tmp — the helper the cron job re-launches.`,
+      runAsUser: bareUser, mitre: "T1564.001", tactic: "Stealth", severity: "high", sha256: helperSha,
+      description: `The endpoint sensor recorded the shell writing an executable file to ${helper}, a hidden directory under /tmp, the helper the cron job re-launches.`,
     }),
     // 10. DETECTION: the EDR behavioural detection on the chain.
     csDetection({
       companyId: cx, id: "aimp10", ts: "2026-10-07T09:17:20.000Z", host, srcIp: hostIp, user,
-      processName: "sh", processPath: "/bin/sh", parentName: "python3.11",
-      cmdline: `sh -c ${helper}`, threatName: "SuspiciousInterpreterChild",
+      processName: "agentd", processPath: helper, parentName: "sh", sha256: helperSha,
+      cmdline: helper, threatName: "SuspiciousInterpreterChild",
       mitre: "T1059.004", tactic: "Execution", technique: "Command and Scripting Interpreter: Unix Shell",
       action: "detected", severity: "high", eventType: "edr_alert",
-      description: `The endpoint detection platform flagged a Python interpreter spawning a shell that made an external connection and dropped a file — behaviour consistent with code executing on model load. The process was not blocked.`,
+      description: `The endpoint detection platform flagged the helper dropped in a hidden /tmp directory as it ran under the shell the Python interpreter spawned, after that shell's external connection: behaviour consistent with code executing on model load. The process was not blocked.`,
     }),
     // 11. DETECTION: Sentinel correlates the download, the shell, the C2 and the cron entry.
     sentinelAlert({
       companyId: cx, id: "aimp11", ts: "2026-10-07T09:22:10.000Z", host, srcIp: hostIp, user,
       alertName: "Model file loaded then interpreter spawned a shell, external connection and cron persistence",
       eventType: "linux_cron", severity: "high", mitre: "T1053.003", tactic: "Persistence",
-      detail: "A scheduled rule joined the model-hub download, the auditd shell-spawn and connect, the firewall session to the callback host, and the crontab write — one chain on one host within minutes.",
+      detail: "A scheduled rule joined the model-hub download, the auditd shell-spawn and connect, the firewall session to the callback host, and the crontab write, one chain on one host within minutes.",
       startTime: "2026-10-07T09:14:11.000Z", endTime: "2026-10-07T09:16:55.000Z",
       extendedProperties: {
         "Model source": hubDomain,
@@ -389,7 +392,7 @@ function buildMaliciousModelPickle(): TelemetryEvent[] {
         "Persistence": cronFile,
         "Dropped file": helper,
       },
-      description: `Microsoft Sentinel correlated the pickle-model download from ${hubDomain} with the python-spawned shell, its outbound connection to ${cbDomain}, and the new cron entry ${cronFile} on ${host} — a single load-time code-execution chain ending in persistence.`,
+      description: `Microsoft Sentinel correlated the pickle-model download from ${hubDomain} with the python-spawned shell, its outbound connection to ${cbDomain}, and the new cron entry ${cronFile} on ${host}, a single load-time code-execution chain ending in persistence.`,
     }),
   ];
 
@@ -406,6 +409,6 @@ export const AI_WAVE3_C_STORIES: AiStoryDef[] = [
   {
     id: "ai-malicious-model-pickle",
     title: "Malicious Model File Runs Code on Load: Shell, Callback and Cron Persistence on an ML Server",
-    complexity: "advanced", companies: ["rocketstack", "medcore"], events: buildMaliciousModelPickle(),
+    complexity: "advanced", companies: ["rocketstack"], events: buildMaliciousModelPickle(),
   },
 ];

@@ -855,12 +855,14 @@ const RS_OAUTH_CONSENT_CHAINING: TelemetryEvent[] = [
     id: "rsoc8", ts: "2026-06-28T10:50:00.000Z", source: "gws", event_type: "account_modify",
     severity: "medium", vendor: "Google Workspace", user_email: "admin@rocketstack.io",
     description: "A Workspace admin revoked QuickSync Analytics' OAuth grant organization-wide",
+    it_context: { result: "confirmed", message: "Yes, that was us: the Security team asked the Workspace admins to revoke QuickSync Analytics' access for everyone as containment for the open incident." },
     raw: { "gws.event.type": "revoke", "application.name": "QuickSync Analytics", "event.action": "revoke", "event.outcome": "success", "user.email": "admin@rocketstack.io", "action_result": "blocked" }
   },
   {
     id: "rsoc9", ts: "2026-06-28T10:55:00.000Z", source: "okta", event_type: "account_modify",
     severity: "medium", vendor: "Okta", src_ip: "172.16.10.7",
     description: "An Okta admin revoked the leaked CI Automation Token and cleared r.cohen's active sessions",
+    it_context: { result: "confirmed", message: "Yes, that was us: the Identity team revoked the CI Automation Token and signed the user out everywhere as containment for the open incident." },
     raw: { "okta.eventType": "system.api_token.revoke", "okta.actor.displayName": "CI Automation Token", "okta.outcome.result": "SUCCESS", "action_result": "blocked" }
   },
 ];
@@ -1636,6 +1638,7 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
       // shows them; an approved-ticket record in the feed quotes the explanation).
       fp_explanation: e.fp_explanation ? subStr(e.fp_explanation) : e.fp_explanation,
       it_verify_message: e.it_verify_message ? subStr(e.it_verify_message) : e.it_verify_message,
+      it_context: e.it_context ? { ...e.it_context, message: subStr(e.it_context.message) } : e.it_context,
       process: rep(e.process),
       network: rep(e.network),
       file: rep(e.file),

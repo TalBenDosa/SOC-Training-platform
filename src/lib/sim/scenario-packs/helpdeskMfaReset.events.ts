@@ -118,7 +118,9 @@ export function helpdeskMfaResetScenarioEvents() {
     }),
 
     // 5. The MFA reset lands in the directory (T1556.006).
-    entraAudit({
+    {
+    it_context: { result: "unverified", message: "The Service Desk did this under ticket INC0048217 after a caller reported a lost phone. The caller was checked only by name and employee number, with no callback to the number on file, and the account owner says they never phoned the help desk." },
+    ...entraAudit({
       companyId: cx, id: "evt_hmr_05_mfa_reset", ts: T(53 * MIN), operationName: "Update user", loggedByService: "Core Directory",
       result: "success", resultReason: "Authentication methods reset by administrator", correlationId: "c7e29a4d-1f8b-4306-9a52-3d7e08c4f1a6",
       initiatedByUpn: helpdesk.email, initiatedById: helpdesk.id, initiatedByIp: helpdesk.ip, initiatedByRoles: ["Helpdesk Administrator"],
@@ -130,6 +132,7 @@ export function helpdeskMfaResetScenarioEvents() {
       },
       description: "James Oduya (Helpdesk Administrator) cleared l.ferreira's registered authentication methods from the internal help desk network, one minute after the ticket was closed.",
     }),
+    },
 
     // 6. A NEW authenticator is registered — but from the attacker's address (T1098.005).
     entraAudit({

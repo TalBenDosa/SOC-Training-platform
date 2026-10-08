@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo, memo, useRef } from "react";
+import { useState, useMemo, memo, useRef, useContext } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronRight, Info, AlertTriangle, Clock, ExternalLink, Shield, X, PhoneCall, CheckCircle2, Copy, BookOpen } from "lucide-react";
 import { ecsTechnique } from "@/lib/logs/ecsFields";
@@ -15,6 +15,8 @@ import { useNativeLog, nativeRows, type NativeView } from "@/lib/logs/native/Nat
 import { hashString } from "@/lib/sim/rng";
 import { techniqueById, tacticById } from "@/lib/mitre/attack";
 import { mitreVisible } from "@/lib/sim/mitreVisible";
+import { itVerifyAnswer, itVerifyApplies, remoteToolOf, type ItVerifyAnswer } from "@/lib/sim/itVerify";
+import { ItVerifyContext } from "./itVerifyContext";
 
 // L-01: the internal event id (b_… baseline, atk_evt_…<phase> attack) named the
 // answer — and it was shown verbatim in the Analysis detail panel's event.id row,
@@ -373,16 +375,6 @@ const SEVERITY_COLORS: Record<string, string> = {
   informational: "text-slate-400",
 };
 
-// Every privileged / domain-admin action (create/modify/delete an account, a
-// password change, a group or role change, a privilege escalation) gets the
-// "Verify with IT" step — the analyst confirms with the Help Desk whether a
-// change ticket exists before deciding.
-const ADMIN_EVENT_TYPES = new Set([
-  "group_modify", "account_modify", "account_create", "account_delete",
-  "privilege_escalation", "privileged_operation", "role_assignment",
-  "cloud_role_change", "linux_priv_change",
-]);
-
 type DetailPanelProps = {
   event: LiveEvent;
   onThreatQuery: (q: ThreatQuery) => void;
@@ -403,37 +395,31 @@ export function DetailPanelBody({
   onEscalate,
 }: DetailPanelProps) {
   const [showRawJson, setShowRawJson] = useState(false);
-  const [itVerifyState, setItVerifyState] = useState<"idle" | "verifying" | "done">("idle");
+  const [itVerifyState, setItVerifyState] = useState<"idle" | "verifying" | "done" | "failed">("idle");
   // Native-format view of this log (null → legacy SIEM-style fields below).
   const nativeView = useNativeLog(event);
 
-  // Resolve the IT-verify outcome for an admin ACTION (a group/role/account
-  // change). An explicitly-authored result wins. Otherwise: an event that is
-  // part of an attack (it carries a MITRE technique) is NEVER assumed benign —
-  // it defaults to "unverified" (escalate); only routine admin activity with no
-  // attack technique defaults to a confirmed change ticket. Attack SYMPTOMS
-  // (e.g. account lockouts from a spray) are not admin changes at all and are
-  // excluded from ADMIN_EVENT_TYPES, so they get no "authorised change" verdict.
-  // An admin action is only ever auto-"confirmed" (benign) when it looks like
-  // routine, low-risk background activity. If it carries a MITRE technique OR is
-  // High/Critical severity, it is treated as suspicious and defaults to
-  // "unverified" (escalate) — a malicious admin action (a rogue account
-  // exercising privileges, an attacker-created forwarding rule) must never read
-  // as an authorised change just because IT wasn't explicitly asked.
-  const looksSuspicious =
-    !!event.mitre_technique || event.severity === "high" || event.severity === "critical";
-  const verifyResult: "confirmed" | "unverified" | undefined =
-    event.it_verify_result ??
-    (ADMIN_EVENT_TYPES.has(event.event_type)
-      ? (looksSuspicious ? "unverified" : "confirmed")
-      : undefined);
-  const hasItVerify = verifyResult !== undefined;
+  // "Verify with IT" (src/lib/sim/itVerify): every privileged / account change and every
+  // remote-access tool gets the call. The answer follows the log's ground truth: on the
+  // dashboard it is computed from the full event; in a team exercise the log carries no answer
+  // key, so the team page provides a verifier that asks the server.
+  const teamVerify = useContext(ItVerifyContext);
+  const hasItVerify = teamVerify ? !!event.it_check : itVerifyApplies(event);
+  const tool = hasItVerify ? remoteToolOf(event) : null;
+  const [itAnswer, setItAnswer] = useState<ItVerifyAnswer | null>(null);
+  const verifyResult = itAnswer?.result;
 
   function handleItVerify(e: React.MouseEvent) {
     e.stopPropagation();
-    if (!verifyResult) return;
     setItVerifyState("verifying");
-    setTimeout(() => setItVerifyState("done"), 1400 + Math.random() * 600);
+    const ring = new Promise(r => setTimeout(r, 1400 + Math.random() * 600));
+    const ask: Promise<ItVerifyAnswer | null> = teamVerify
+      ? teamVerify(event.id).catch(() => null)
+      : Promise.resolve(itVerifyAnswer(event));
+    void Promise.all([ask, ring]).then(([a]) => {
+      setItAnswer(a);
+      setItVerifyState(a ? "done" : "failed");
+    });
   }
 
   const severityColor = SEVERITY_COLORS[event.severity ?? ""] ?? "text-slate-300";
@@ -568,7 +554,9 @@ export function DetailPanelBody({
             {itVerifyState === "idle" && (
               <>
                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                  This event involves a privileged administrative action. Verify with the IT Help Desk whether a change ticket was raised for this activity.
+                  {tool
+                    ? `This log shows ${tool}, a remote-access tool. Ask the IT Help Desk whether it is approved here and whether anyone requested it.`
+                    : "This event involves a privileged administrative action. Verify with the IT Help Desk whether a change ticket was raised for this activity."}
                 </p>
                 <button
                   onClick={handleItVerify}
@@ -585,15 +573,19 @@ export function DetailPanelBody({
                 Contacting IT Help Desk&hellip;
               </div>
             )}
+            {itVerifyState === "failed" && (
+              <div className="flex flex-wrap items-center gap-2 py-1 text-[11px] text-slate-400">
+                Couldn&apos;t reach the IT Help Desk.
+                <button type="button" onClick={handleItVerify} className="rounded border border-border px-2 py-0.5 text-[11px] text-slate-300 hover:bg-white/5">Call again</button>
+              </div>
+            )}
             {itVerifyState === "done" && verifyResult === "confirmed" && (
               <div className="rounded border border-neon-green/40 bg-neon-green/5 px-3 py-2.5">
                 <div className="flex items-start gap-2.5">
                   <CheckCircle2 className="h-4 w-4 text-neon-green mt-0.5 shrink-0" />
                   <div>
-                    <p className="text-xs font-semibold text-neon-green mb-1">Authorised Change Confirmed</p>
-                    <p className="text-[11px] leading-relaxed text-slate-300">
-                      {event.it_verify_message ?? "IT confirmed a valid change ticket exists for this action. This is expected activity — classify as benign."}
-                    </p>
+                    <p className="text-xs font-semibold text-neon-green mb-1">{tool ? "IT: approved" : "IT: authorised"}</p>
+                    <p className="text-[11px] leading-relaxed text-slate-300">{itAnswer?.message}</p>
                   </div>
                 </div>
               </div>
@@ -603,10 +595,8 @@ export function DetailPanelBody({
                 <div className="flex items-start gap-2.5">
                   <AlertTriangle className="h-4 w-4 text-severity-critical mt-0.5 shrink-0" />
                   <div>
-                    <p className="text-xs font-semibold text-severity-critical mb-1">Unverified — No Ticket Found</p>
-                    <p className="text-[11px] leading-relaxed text-slate-300">
-                      {event.it_verify_message ?? "IT has no record of a change request for this action. Treat as suspicious and escalate for further investigation."}
-                    </p>
+                    <p className="text-xs font-semibold text-severity-critical mb-1">{tool ? "IT: not an approved tool" : "IT: no authorisation on file"}</p>
+                    <p className="text-[11px] leading-relaxed text-slate-300">{itAnswer?.message}</p>
                   </div>
                 </div>
               </div>

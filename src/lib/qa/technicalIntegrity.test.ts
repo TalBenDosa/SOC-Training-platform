@@ -305,7 +305,9 @@ describe("technical integrity gate", { timeout: 600_000 }, () => {
       // An IP is part of the record only where the product logs one (a connection, a sign-in, a DNS
       // query) — a Defender process event has no address field, and inventing one would be wrong.
       const netLike = (/net|dns|http|conn|vpn|auth|login|sign|session|url|web|email/i.test(e.event_type) || ["firewall", "proxy", "dns", "vpn", "idp", "okta", "waf"].includes(e.source))
-        && !(sid === "sysmon" && /dns/i.test(e.event_type));   // Sysmon EID 22 (DNS query) has no address field
+        // Sysmon EID 22, a SentinelOne "DNS Resolved" event and a Defender DeviceEvents DnsQueryResponse
+        // name the query and the process, never the endpoint's own address
+        && !(["sysmon", "sentinelone", "mde"].includes(sid ?? "") && /dns/i.test(e.event_type));
       // A DNS server's debug log names the client, not itself; Okta / Entra see a corporate user's
       // public egress, never the internal address.
       // auditd writes the remote addr, never the server's own address.

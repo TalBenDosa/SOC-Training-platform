@@ -2513,6 +2513,7 @@ export const BENIGN_EVENTS: TelemetryEvent[] = [
     user_email: "s.patel@nexacorp.com", src_ip: "10.10.40.20",
     description: "s.patel created inbox forwarding rule — forwards all mail to s.patel@outlook.com",
     expected_verdict: "fp",
+    it_context: { result: "confirmed", message: "IT confirms ticket INC-90123: s.patel is on parental leave and asked to forward mail to their personal address for the leave period, approved by their manager and HR." },
     fp_explanation: "An auto-forward of ALL mail to an external personal address is one of the strongest BEC signals, so it fires a HIGH alert — that is correct, the level reflects the signal, not the outcome. Triage resolves it to benign: s.patel is on parental leave and requested the forward via IT ticket INC-90123, approved by manager and HR. The lesson is to triage on content (the HR ticket, the destination) — not to assume a high alert is the attack. Contrast b_fwd_atk_01, an identical-looking forward that is silent and unapproved.",
     raw: { "data.office365.Operation": "New-InboxRule", "data.office365.RuleName": "AutoForward-Leave",
            "data.office365.ForwardTo": "s.patel@outlook.com", "data.office365.ForwardDomain": "outlook.com",

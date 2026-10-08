@@ -90,13 +90,16 @@ export function rogueAdminAccountScenarioEvents() {
     }),
 
     // 4. The privilege set the admin session is issued (4672).
-    winSpecialPrivileges({
+    {
+    it_context: { result: "unverified", message: "The Service Desk has no task, change or call logged for this administrator at this hour. Their shift ended in the early evening, and nobody asked them to sign in to the admin server tonight." },
+    ...winSpecialPrivileges({
       companyId: cx, id: "evt_ra_04_admin_privs", ts: T(N + 2 * MIN), host: adminServer.hostname, fqdn: adminServer.fqdn, userEmail: admin.email,
       targetUser: admin.sam, targetSid: adminSid, logonId: "0xB17C440",
       privilegeList: "SeSecurityPrivilege\n\t\t\tSeTakeOwnershipPrivilege\n\t\t\tSeLoadDriverPrivilege\n\t\t\tSeSystemtimePrivilege\n\t\t\tSeRemoteShutdownPrivilege",
       recordId: "2214906", severity: "low",
       description: "The t.aharoni logon session on SRV-ADM-07 was issued its privilege set (Event 4672), including SeSecurityPrivilege, SeTakeOwnershipPrivilege and SeLoadDriverPrivilege.",
     }),
+    },
 
     // 5. 22:51 — the account at the centre of the ticket is created (unverified) (T1136.002).
     {
