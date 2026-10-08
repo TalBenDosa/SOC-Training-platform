@@ -9,7 +9,7 @@ import { Topbar } from "@/components/nav/Topbar";
 import { LIBRARY_INDEX } from "@/data/libraryIndex";
 import { libraryEntry, type LibraryEntry } from "@/lib/lessons/libraryEntry";
 import { fetchPublishedLessons } from "@/lib/content/publicContent";
-import { Search, FileText, ChevronLeft, ChevronRight, CheckCircle2, X, Layers, ArrowRight, BookOpen, ListChecks, BookMarked, Loader2 } from "lucide-react";
+import { Search, FileText, ChevronLeft, ChevronRight, CheckCircle2, X, Layers, ArrowRight, BookOpen, ListChecks, Loader2 } from "lucide-react";
 import { MermaidDiagram } from "@/components/rooms/MermaidDiagram";
 import { MyLearningPlan } from "@/components/plans/MyLearningPlan";
 import { AssignedChip } from "@/components/plans/AssignedChip";
@@ -385,10 +385,10 @@ function SectionPageContent({
 function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void }) {
   const [page, setPage]             = useState(0);
 
-  // A closing summary page is shown whenever the lesson carries takeaways or
-  // references — content the reader previously never surfaced, and which also
+  // A closing summary page is shown whenever the lesson carries key takeaways,
+  // which also
   // gives the final page real substance instead of ending mid-section.
-  const hasSummary = (lesson.keyTakeaways?.length ?? 0) > 0 || (lesson.references?.length ?? 0) > 0;
+  const hasSummary = (lesson.keyTakeaways?.length ?? 0) > 0;
 
   // Page layout:  0 = intro,  1..N = sections,  N+1 = summary (if any)
   const totalPages = 1 + lesson.sections.length + (hasSummary ? 1 : 0);
@@ -560,7 +560,7 @@ function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void 
                 <SectionPageContent lesson={lesson} section={section} />
               )}
 
-              {/* Summary page — key takeaways + references (previously unrendered) */}
+              {/* Summary page: key takeaways. Reference URLs are kept in the data as provenance, not shown to students. */}
               {isSummary && (
                 <div className="space-y-6">
                   <div className="pb-5 border-b border-[#1e2d4a]">
@@ -581,21 +581,6 @@ function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void 
                     </ul>
                   )}
 
-                  {(lesson.references?.length ?? 0) > 0 && (
-                    <div className="rounded-xl border border-[#1e2d4a] bg-[#0d1322] p-5">
-                      <h3 className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-cyan-500/70">
-                        <BookMarked className="h-3.5 w-3.5" /> References &amp; further reading
-                      </h3>
-                      <ul className="space-y-2">
-                        {lesson.references.map((r, i) => (
-                          <li key={i} className="flex items-start gap-2 text-[13px] leading-relaxed text-slate-400">
-                            <ArrowRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-500/60" />
-                            <span>{r}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
