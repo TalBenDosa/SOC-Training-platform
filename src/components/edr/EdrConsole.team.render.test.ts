@@ -27,20 +27,29 @@ describe("EdrConsole — team isolation", () => {
   it("records the isolation in the session (not localStorage) and shows the team's state", async () => {
     const state = new Map<string, HostIsolation>();
     const set = vi.fn(async (host: string, isolated: boolean) => { state.set(host.toLowerCase(), { host, isolated, by: "me", at: null, seq: 1 }); return null; });
-    mount({ state, set });
+    mount({ state, set, canContain: true });
     expect(el!.textContent).toContain("Recorded for the team");
     await act(async () => { isolateBtn().click(); });
     expect(set).toHaveBeenCalledWith(inv.host.name, true, inv.title);
     expect(containedHosts()).toEqual([]);                       // the single-player store is untouched
     // a re-render with the refreshed team state shows the host as isolated
-    act(() => { root!.render(React.createElement(EdrConsole, { investigations: [inv], initialCaseId: inv.id, teamIsolation: { state: new Map(state), set } })); });
+    act(() => { root!.render(React.createElement(EdrConsole, { investigations: [inv], initialCaseId: inv.id, teamIsolation: { state: new Map(state), set, canContain: true } })); });
     expect(isolateBtn().textContent).toContain("Host isolated ✓");
   });
 
   it("shows the server's refusal next to the button", async () => {
     const set = vi.fn(async () => "Can't send that yet — WS-X is already isolated.");
-    mount({ state: new Map(), set });
+    mount({ state: new Map(), set, canContain: true });
     await act(async () => { isolateBtn().click(); });
     expect(el!.querySelector('[role="alert"]')?.textContent).toContain("already isolated");
+  });
+
+  it("Tier-1 investigates but cannot isolate: the button is disabled and nothing is recorded", async () => {
+    const set = vi.fn(async () => null);
+    mount({ state: new Map(), set, canContain: false });
+    expect((isolateBtn() as HTMLButtonElement).disabled).toBe(true);
+    expect(el!.textContent).toContain("Tier-2 / Tier-3 decide on isolation");
+    await act(async () => { isolateBtn().click(); });
+    expect(set).not.toHaveBeenCalled();
   });
 });

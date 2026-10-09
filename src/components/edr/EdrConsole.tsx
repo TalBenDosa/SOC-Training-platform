@@ -139,8 +139,10 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null }: { 
   const isolated = teamIsolation ? !!teamIsolation.state.get(inv.host.name.toLowerCase())?.isolated : localIsolated;
   const [isoBusy, setIsoBusy] = useState(false);
   const [isoErr, setIsoErr] = useState<string | null>(null);
+  const canContain = !teamIsolation || teamIsolation.canContain;
   const isolate = (next: boolean) => {
     if (teamIsolation) {
+      if (!canContain) { setIsoErr("Isolation is Tier-2 / Tier-3's call. Escalate this host from the feed with what you found here."); return; }
       if (isoBusy) return;
       setIsoBusy(true); setIsoErr(null);
       void teamIsolation.set(inv.host.name, next, inv.title).then(err => { setIsoBusy(false); setIsoErr(err); });
@@ -248,10 +250,11 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null }: { 
             </span>
           </div>
           <div className="flex flex-col items-end gap-1">
-            <Button variant={isolated ? "outline" : "primary"} size="sm" disabled={isoBusy} onClick={() => isolate(!isolated)}>
+            <Button variant={isolated ? "outline" : "primary"} size="sm" disabled={isoBusy || !canContain} onClick={() => isolate(!isolated)}
+              title={canContain ? undefined : "Tier-1 investigates; Tier-2 / Tier-3 decide on isolation"}>
               <MonitorX className="mr-1.5 h-4 w-4" /> {isoBusy ? "Saving…" : isolated ? "Host isolated ✓ — release" : "Isolate host"}
             </Button>
-            {teamIsolation && !isoErr && <span className="text-[10px] text-slate-500">Recorded for the team — reviewed in the after-action report.</span>}
+            {teamIsolation && !isoErr && <span className="text-[10px] text-slate-500">{canContain ? "Recorded for the team — reviewed in the after-action report." : "Tier-1: investigate here, then escalate. Tier-2 / Tier-3 decide on isolation."}</span>}
             {isoErr && <span role="alert" className="max-w-xs text-right text-[11px] text-neon-amber">{isoErr}</span>}
           </div>
         </div>

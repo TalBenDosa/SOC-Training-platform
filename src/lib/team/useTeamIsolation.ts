@@ -13,6 +13,8 @@ export interface TeamIsolation {
   state: Map<string, HostIsolation>;
   /** Record an isolate / release in the session log; resolves to an error message, or null on success. */
   set: (host: string, isolated: boolean, caseTitle?: string) => Promise<string | null>;
+  /** Isolation is Tier-2 / Tier-3's call (the DB gate, 0082); Tier-1 investigates and escalates. */
+  canContain: boolean;
 }
 
 /**
@@ -22,7 +24,7 @@ export interface TeamIsolation {
  * the same record the after-action report scores ("was it right to isolate this host?").
  * Returns null outside a team session (the console then keeps its local, single-player store).
  */
-export function useTeamIsolation(sessionId: string | null): TeamIsolation | null {
+export function useTeamIsolation(sessionId: string | null, role: string | null = null): TeamIsolation | null {
   const [state, setState] = useState<Map<string, HostIsolation>>(new Map());
 
   const refresh = useCallback(async () => {
@@ -56,5 +58,6 @@ export function useTeamIsolation(sessionId: string | null): TeamIsolation | null
     return error ? friendlyActionError(error.message) : null;
   }, [sessionId, refresh]);
 
-  return sessionId ? { state, set } : null;
+  // Unknown role (an older link without &r=) keeps the button; the server still decides.
+  return sessionId ? { state, set, canContain: role === null || role === "t2" || role === "t3" } : null;
 }

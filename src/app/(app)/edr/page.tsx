@@ -32,8 +32,9 @@ export default function EdrConsolePage() {
   // the server-side lifecycle while they investigate here — T2/T3 can spend
   // minutes in this tab, and the room's own tab is then hidden/throttled.
   const [teamSession, setTeamSession] = useState<string | null>(null);
+  const [teamRole, setTeamRole] = useState<string | null>(null);
   useTeamHeartbeat(teamSession);
-  const teamIsolation = useTeamIsolation(teamSession);
+  const teamIsolation = useTeamIsolation(teamSession, teamRole);
 
   useEffect(() => {
     // The EDR console is ONLY reachable from an active shift — the student must
@@ -48,6 +49,8 @@ export default function EdrConsolePage() {
     if (!isTrainingActive() && !teamCtx) { router.replace("/dashboard"); return; }
     setAllowed(true);
     if (teamCtx && /^[0-9a-fA-F-]{36}$/.test(teamCtx)) setTeamSession(teamCtx);
+    const r = params.get("r");
+    if (r && /^[a-z0-9]{1,16}$/.test(r)) setTeamRole(r);   // display only: the server gates the action
     // Deep-link from the SOC Dashboard: /edr?case=<id> opens that host, the
     // "Investigate in EDR" pivot. case=live loads the EdrInvestigation the
     // Dashboard (or a team room) generated from the attack running in the feed.

@@ -842,12 +842,12 @@ export default function TeamRoomPage() {
       localStorage.setItem(`edr_live_investigation_${uid}`, JSON.stringify(cases.length === 1 ? cases[0] : cases));
       // NOT the "noopener" feature: with it window.open() returns null even when the tab
       // DID open, which showed a false "Pop-up blocked". Cut the opener link by hand.
-      const w = window.open(`/edr?case=live&team=${id}&u=${encodeURIComponent(uid)}`, "_blank");
+      const w = window.open(`/edr?case=live&team=${id}&u=${encodeURIComponent(uid)}${me?.role ? `&r=${encodeURIComponent(me.role)}` : ""}`, "_blank");
       if (!w) { setEdrNote("Pop-up blocked — allow pop-ups for this site, then click “Investigate in EDR” again."); return; }
       try { w.opener = null; } catch { /* cross-origin guard — nothing to cut */ }
       setEdrNote(null);
     } catch { setEdrNote("Couldn't open the EDR console for this incident."); }
-  }, [feed, escalations, id, me?.id, iocTruth]);
+  }, [feed, escalations, id, me?.id, me?.role, iocTruth]);
 
   // EDR alerts in the team feed (Tal, 2026-10-09): endpoint detections on hosts the EDR console
   // can open. They light up the "Investigate in EDR" button above the feed with a count, and a
