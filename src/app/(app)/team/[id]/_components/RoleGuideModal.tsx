@@ -27,9 +27,9 @@ const ROLE_GUIDE: Record<string, RoleGuide> = {
   ti: { mission: "Threat Intel — turn indicators into context and prediction.",
     steps: ["Follow the incident's indicators.", "Publish an intel note: actor/technique · confidence · recommended action · next expected step.", "Tell the team what to block and what's coming."],
     flow: "You support T1/T2/Lead with actionable intel (intel.published → Team intel card).", measured: ["Actionable notes", "Attribution accuracy", "Predicting the next step"] },
-  mgr: { mission: "SOC Manager — the incident authority: approve containment, coordinate, and keep the shift healthy.",
-    steps: ["Approve or deny containment requests from Tier-2 (weigh the business impact).", "Log key decisions and send a SITREP as the picture develops.", "Watch workload/SLA; at shift end, sign the passdown (open cases · next steps)."],
-    flow: "You approve containment (containment.approved), record decisions & SITREPs, and own the shift handover.", measured: ["Time-to-approval", "Workload balance", "SITREP cadence", "Handover quality"] },
+  mgr: { mission: "SOC Manager: you command the incident. You manage the team, handle the stakeholders, and keep management informed. You don't investigate yourself.",
+    steps: ["Declare the incident and its severity as soon as the first real escalation lands; change it when the picture changes.", "Decide the requests on your Command desk (CISO, Legal, the business, your own analysts) before the deadline, and say how sure you are.", "Approve or deny containment requests (weigh the business impact), and give every case an owner.", "Send a SITREP at a steady rhythm; at shift end, sign the passdown."],
+    flow: "IN: escalations, containment requests and stakeholder pressure.  OUT: declarations, decisions, SITREPs and the passdown.", measured: ["Team & incident 35%", "Stakeholders 25%", "Reporting to management 25%", "Team outcome 15%"] },
   instructor: { mission: "You run the exercise — monitor every role, then end it to reveal the report.",
     steps: ["Watch the roster and Team activity.", "Let the incident unfold; the feed streams to everyone live.", "Click 'End session' to close the shift and open the Shift review."],
     flow: "You control the session; the players work their roles.", measured: ["—"] },
@@ -42,7 +42,7 @@ export function roleDirective(role: string | null | undefined): string {
     case "lead": return "Command the incident — approve/deny containment and drive the case status.";
     case "de": return "Write & publish detection rules that catch the attack (they back-test live).";
     case "ti": return "Publish intel — actor, technique, and the next expected step.";
-    case "mgr": return "Approve/deny containment, log decisions & SITREPs, balance the shift, and sign the passdown.";
+    case "mgr": return "Declare the incident, decide the requests on your Command desk, approve containment, and keep management informed with SITREPs.";
     case "instructor": return "Monitor all roles; end the exercise to reveal the report.";
     default: return "Watch the shared feed.";
   }

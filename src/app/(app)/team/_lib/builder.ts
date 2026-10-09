@@ -4,7 +4,7 @@
  *
  * The REAL server rules (POST /api/team/sessions) are: invitees must be active
  * members of the caller's org, at most MAX_INVITES are taken at creation (the rest
- * were silently dropped before), and T3 / SOC Manager are single-seat. The builder
+ * were silently dropped before), and the SOC Manager is single-seat (Tier-3 is multi-seat since 0093). The builder
  * additionally requires at least one invitee — a lobby with no players can't run a
  * shift (see the dry-run note in the exercise report). Missing Tier-1 / Tier-2 is a
  * warning, not a blocker: an instructor may deliberately run a partial team.

@@ -32,12 +32,12 @@ import { groupByCategory, type StoryCategory } from "@/lib/team/storyCategory";
 import { builderStatus, filterCandidates, looksLikeEmail, MAX_INVITES, type Candidate } from "./_lib/builder";
 
 type Diff = "easy" | "medium" | "hard";
-// Team role set: T1 & T2 take MANY players; T3 and the SOC Manager are single-seat.
+// Team role set: T1, T2 and T3 take MANY players; the SOC Manager is single-seat.
 const PLAY_ROLES = [
   { id: "t1", label: "Tier-1 Triage" }, { id: "t2", label: "Tier-2 Investigator" },
   { id: "t3", label: "Tier-3 / Threat Hunter" }, { id: "mgr", label: "SOC Manager" },
 ];
-const SINGLE_SEAT = new Set(["t3", "mgr"]); // at most one participant each
+const SINGLE_SEAT = new Set(["mgr"]); // at most one participant
 const ORG_ROLE_LABEL: Record<string, string> = { org_admin: "admin", instructor: "instructor", student: "student" };
 
 interface SessionRow {
@@ -187,7 +187,7 @@ export default function TeamIndexPage() {
     });
   }
 
-  // Enforce single-seat roles (T3, Manager): block a second assignment.
+  // Enforce the single-seat role (SOC Manager): block a second assignment.
   function setRole(userId: string, role: string) {
     if (SINGLE_SEAT.has(role) && Object.entries(picked).some(([u, r]) => u !== userId && r === role)) {
       const lbl = PLAY_ROLES.find(r => r.id === role)?.label ?? role;
@@ -329,7 +329,7 @@ export default function TeamIndexPage() {
                 )}
               </div>
               <p className="mb-2 text-[11px] text-slate-500">
-                Tier-1 &amp; Tier-2 can hold several analysts each · Tier-3 and SOC Manager are single-seat · up to {MAX_INVITES} invitees now, more from inside the lobby.
+                Tier-1, Tier-2 &amp; Tier-3 can hold several analysts each · the SOC Manager is single-seat · up to {MAX_INVITES} invitees now, more from inside the lobby.
               </p>
               {isPlatformAdmin && (
                 <p className="mb-2 text-[11px] text-slate-500">

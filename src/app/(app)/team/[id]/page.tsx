@@ -58,6 +58,7 @@ import { HuntConsole } from "./_components/HuntConsole";
 import { DEConsole } from "./_components/DEConsole";
 import { TIConsole } from "./_components/TIConsole";
 import { MgrConsole } from "./_components/MgrConsole";
+import { CommandDesk } from "./_components/CommandDesk";
 import { TeamReport } from "./_components/TeamReport";
 import { FeedFilterBar } from "./_components/FeedFilterBar";
 import { SituationBoard } from "./_components/SituationBoard";
@@ -1272,6 +1273,8 @@ export default function TeamRoomPage() {
                 {/* SOC Manager now holds the coordinator authority (approve containment,
                     decision log, SITREP) as well as shift management. 'lead'/'de' branches
                     stay for backward-compatibility with older sessions; 'ti' is a live seat. */}
+                {/* Command desk first: declaration, severity and the decision cards the director raises from what is really happening. */}
+                {(me.role === "lead" || me.role === "mgr") && <CommandDesk sessionId={id} events={events} act={act} running={phase === "running"} />}
                 {(me.role === "lead" || me.role === "mgr") && <LeadConsole events={events} nameOf={nameOf} act={act} />}
                 {me.role === "de" && <DEConsole liveFeed={liveFeed} events={events} act={act} />}
                 {me.role === "ti" && <TIConsole events={events} feed={feed} nameOf={nameOf} act={act} />}

@@ -2,6 +2,7 @@ import type { RosterMember, Ev } from "@/lib/team/types";
 import { CLAIM_TTL_MS } from "@/lib/team/projections";
 import { asStr, hostKey } from "@/lib/team/format";
 import { pausedSpans, activeMs, addActive } from "@/lib/team/pauses";
+import { computeManagerReview } from "./managerReview";
 
 // ── After-action report — derived entirely from the event log (isomorphic: no React,
 // no server-only imports, so the server computes it once and the client can re-run it).
@@ -18,7 +19,7 @@ import { pausedSpans, activeMs, addActive } from "@/lib/team/pauses";
 // control at 3–7 direct reports — beyond 7 a single coordinator loses oversight.
 export const OVERLOAD_CASES = 3;
 /** Bumped whenever the report's shape/semantics change (cached reports older than this are stale). */
-export const REPORT_VERSION = 4;   // 3: per-event SLA, misses, team triage metrics · 4: EDR host isolation judged
+export const REPORT_VERSION = 5;   // 3: per-event SLA, misses, team triage metrics · 4: EDR host isolation judged · 5: SOC-Manager Command Review
 // (QA M3 pause-aware timing — like H2 — applies to reports built from now on; no bump, so a
 // cached report keeps matching the XP already awarded from it. Without pauses nothing changes.)
 
@@ -171,7 +172,7 @@ export interface InjectResult {
   evaluable: boolean; note?: string;
 }
 
-const ROLE_ACTION_TYPES = new Set(["hunt.logged", "rule.published", "rule.tuned", "intel.published", "handover.noted", "decision.logged", "evidence.pinned", "case.status_set", "case.assigned", "note.added", "containment.executed", "scope.set", "scope.confirmed", "sitrep.sent", "ticket.answered", "escalation.resolved", "elevation.requested", "report.submitted"]);
+const ROLE_ACTION_TYPES = new Set(["hunt.logged", "rule.published", "rule.tuned", "intel.published", "handover.noted", "decision.logged", "evidence.pinned", "case.status_set", "case.assigned", "note.added", "containment.executed", "scope.set", "scope.confirmed", "sitrep.sent", "ticket.answered", "escalation.resolved", "elevation.requested", "report.submitted", "decision.answered", "incident.declared", "incident.severity_changed"]);
 
 // ── small helpers ──────────────────────────────────────────────────────────────
 const eidOf = (e: Ev) => { const v = (e.payload as { event_id?: unknown } | null)?.event_id; return v == null ? "" : String(v); };
@@ -1107,7 +1108,8 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[]) {
   // A role must exist to own a management inject — with no SOC Manager / Lead / Tier-3 in the room,
   // a CISO/Legal/Exec SITREP request is skipped, not counted missed (diagnostic P1).
   const hasSenior = players.some(p => ["mgr", "lead", "ti", "t3"].includes(p.role));
-  const injectResults: InjectResult[] = events.filter(e => e.type === "staff.inject").map(e => {
+  // Decision cards (kind "decision") are the SOC Manager's and are graded in the Command Review.
+  const injectResults: InjectResult[] = events.filter(e => e.type === "staff.inject" && asStr((e.payload as { kind?: unknown }).kind) !== "decision").map(e => {
     const p = e.payload as { id?: string; original_id?: string; kind?: string; text?: string; expected_response?: string; linked_objective?: string };
     const kind = String(p.kind ?? ""); const at = tsOf(e);
     const base = { kind, text: asStr(p.text), expected: asStr(p.expected_response), objective: asStr(p.linked_objective), decoy: false, evaluable: true };
@@ -1251,5 +1253,18 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[]) {
       .sort((a, b) => (a[1].first ?? 0) - (b[1].first ?? 0))
       .map(([, h]): MissedHost => ({ host: h.host, attackLogs: h.logs, firstAttackS: relS(h.first) })).slice(0, 10),
   };
-  return { team, perUser };
+  // SOC Manager: a separate Command Review (decision quality, stakeholders, reporting), not the analyst card.
+  const isolatedAt = new Map<string, number>();
+  for (const e of isoEvents) {
+    if (e.type !== "edr.host_isolated") continue;
+    const k = hostKey(isoHost(e)); const t = tsOf(e);
+    if (t != null && !isolatedAt.has(k)) isolatedAt.set(k, t);
+  }
+  const managerReview = computeManagerReview({
+    events, roster, startedMs, endMs: endTs, runMs, relS,
+    truthOf: eid => truth.get(eid),
+    incidents: incidentList.map(i => ({ id: i.id, maxSeverity: i.maxSeverity })),
+    avgHandlingScore, handoffLatS, isolatedAt, hostKey, loadBalanceRate,
+  });
+  return { team, perUser, managerReview };
 }

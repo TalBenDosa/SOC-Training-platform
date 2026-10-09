@@ -64,7 +64,8 @@ describe("buildTeamTimeline — answer key off the wire (audit S4)", () => {
     expect(attacks.length).toBeGreaterThan(0);
     expect(attacks.every(e => typeof e.answer?.original_id === "string")).toBe(true);
     const kinds = tl.filter(e => e.channel === "inject").map(e => e.answer?.kind);
-    expect(kinds).toEqual(expect.arrayContaining(["twist", "false_lead", "mgmt_pressure", "ticket"]));
+    expect(kinds).toEqual(expect.arrayContaining(["twist", "false_lead", "ticket"]));
+    expect(kinds).not.toContain("mgmt_pressure");          // raised by the manager director, not the clock
     const twist = tl.find(e => e.answer?.kind === "twist");
     expect(twist?.body.kind).toBe("update");
     expect(typeof twist?.answer?.expected_response).toBe("string");

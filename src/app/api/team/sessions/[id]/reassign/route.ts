@@ -7,7 +7,7 @@ import { SINGLE_SEAT, rosterConflict } from "@/lib/team/roster";
 
 /**
  * Reassign a member's role in a live session (F7 — resilience to disconnects).
- * When a single-seat holder (Tier-3 / SOC Manager) drops, the relay stalls; the
+ * When the single-seat holder (the SOC Manager) drops, the relay stalls; the
  * instructor hands the vacant seat to another member so the exercise keeps moving.
  *
  * Staff-only, own org, open sessions only. The session owner (instructor row) is
@@ -61,7 +61,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       .select("user_id, status").eq("session_id", id).eq("role", role);
     if (holdersErr) return NextResponse.json({ error: "Couldn't check that right now — nothing was changed. Please try again." }, { status: 503 });   // E-03: a failed read never seats a second Manager
     if ((holders ?? []).some(h => h.user_id !== targetUserId && h.status !== "left")) {
-      return NextResponse.json({ error: `${role === "mgr" ? "SOC Manager" : "Tier-3"} is a single-seat role and is already filled.` }, { status: 409 });
+      return NextResponse.json({ error: `The SOC Manager is a single-seat role and is already filled.` }, { status: 409 });
     }
   }
 

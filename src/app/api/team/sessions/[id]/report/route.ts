@@ -2,6 +2,7 @@ import { NextResponse, after } from "next/server";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { ServerReport } from "@/lib/team/report/serverReport";
+import { redactManagerReview } from "@/lib/team/report/managerReview";
 import { loadOrBuildReport, awardTeamXpOnce, awardedTeamXp, xpFromReport, ReportBuildingError } from "@/lib/team/awardTeamXp";
 
 /**
@@ -75,6 +76,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   return NextResponse.json({
     team: report.team,
     perUser: seesAll ? report.perUser : report.perUser.filter(u => u.user_id === user.id),
+    // Command Review: the manager and staff get it whole; the rest of the team sees the
+    // command timeline and what was decided, without the manager's grades.
+    managerReview: report.managerReview == null ? null : seesAll || mem?.role === "lead" ? report.managerReview : redactManagerReview(report.managerReview),
     answers: report.answers,
     xp: xpShown,
     myTotalXp: typeof me?.xp === "number" ? me.xp : null,

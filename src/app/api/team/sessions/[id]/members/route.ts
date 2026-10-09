@@ -62,7 +62,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!existing && active >= MAX_ROSTER) return NextResponse.json({ error: `A session holds at most ${MAX_ROSTER} members.` }, { status: 409 });
 
   if (SINGLE_SEAT.has(role) && (roster ?? []).some(h => h.role === role && h.user_id !== targetUserId && h.status !== "left")) {
-    return NextResponse.json({ error: `${role === "mgr" ? "SOC Manager" : "Tier-3"} is a single-seat role and is already filled.` }, { status: 409 });
+    return NextResponse.json({ error: `The SOC Manager is a single-seat role and is already filled.` }, { status: 409 });
   }
 
   if (existing) {

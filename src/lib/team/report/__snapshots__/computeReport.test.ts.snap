@@ -2,6 +2,190 @@
 
 exports[`computeReport — characterization (real ended session) > produces the same report as before the extraction 1`] = `
 {
+  "managerReview": {
+    "calibration": {
+      "calibrated": null,
+      "grid": {
+        "good": {
+          "high": 0,
+          "low": 0,
+          "medium": 0,
+        },
+        "great": {
+          "high": 0,
+          "low": 0,
+          "medium": 0,
+        },
+        "okay": {
+          "high": 0,
+          "low": 0,
+          "medium": 0,
+        },
+        "weak": {
+          "high": 0,
+          "low": 0,
+          "medium": 0,
+        },
+      },
+      "highGreat": 0,
+      "highTotal": 0,
+    },
+    "criticalErrors": [],
+    "debrief": [
+      "Which decision would you make differently with what you know now?",
+      "What did the team need from you that it did not get?",
+    ],
+    "decisions": [],
+    "declared": null,
+    "endS": 1683,
+    "finalSeverity": null,
+    "gaps": [],
+    "improve": [],
+    "indicatorTrail": [],
+    "indicators": {
+      "capacity": 3,
+      "continuity": 3,
+      "regulatory": 3,
+      "trust": 3,
+    },
+    "keep": [],
+    "level": null,
+    "levelLabel": "Not enough evidence",
+    "managerId": "00000000-0000-4000-8000-000000000002",
+    "managerName": "Member B",
+    "pillars": [
+      {
+        "cells": [
+          {
+            "label": "Incident declared on time",
+            "note": "no real attack was escalated, nothing to declare",
+            "score": null,
+          },
+          {
+            "label": "Severity accuracy",
+            "score": null,
+          },
+          {
+            "label": "Containment calls",
+            "note": undefined,
+            "score": null,
+          },
+          {
+            "label": "Time to decide containment",
+            "note": undefined,
+            "score": null,
+          },
+          {
+            "label": "Internal decision cards",
+            "note": undefined,
+            "score": null,
+          },
+          {
+            "label": "Team organised",
+            "note": undefined,
+            "score": null,
+          },
+          {
+            "label": "Load balancing",
+            "note": undefined,
+            "score": null,
+          },
+        ],
+        "key": "team",
+        "label": "Team & incident",
+        "measured": 0,
+        "score": null,
+        "weight": 0.35,
+      },
+      {
+        "cells": [
+          {
+            "label": "External decision cards",
+            "note": undefined,
+            "score": null,
+          },
+          {
+            "label": "Answered before the deadline",
+            "note": undefined,
+            "score": null,
+          },
+        ],
+        "key": "stakeholders",
+        "label": "Stakeholders",
+        "measured": 0,
+        "score": null,
+        "weight": 0.25,
+      },
+      {
+        "cells": [
+          {
+            "label": "SITREP cadence",
+            "score": null,
+          },
+          {
+            "label": "SITREP completeness",
+            "note": undefined,
+            "score": null,
+          },
+          {
+            "label": "Status requests answered",
+            "note": undefined,
+            "score": null,
+          },
+          {
+            "label": "Decision log",
+            "note": undefined,
+            "score": null,
+          },
+          {
+            "label": "Accuracy to management",
+            "score": null,
+          },
+        ],
+        "key": "reporting",
+        "label": "Reporting to management",
+        "measured": 0,
+        "score": null,
+        "weight": 0.25,
+      },
+      {
+        "cells": [
+          {
+            "label": "Incidents handled",
+            "note": "team handling score 0/100",
+            "score": 0,
+          },
+          {
+            "label": "Escalation pickup (MTTA)",
+            "note": "median 68 s from escalation to acknowledgement",
+            "score": 12,
+          },
+          {
+            "label": "Impact indicators at the end",
+            "note": undefined,
+            "score": null,
+          },
+        ],
+        "key": "outcome",
+        "label": "Team outcome",
+        "measured": 2,
+        "score": 50,
+        "weight": 0.15,
+      },
+    ],
+    "profile": [],
+    "score": null,
+    "timeline": [
+      {
+        "label": "first attack log",
+        "lane": "attacker",
+        "t": 117,
+        "tone": "neutral",
+      },
+    ],
+    "truthSeverity": 1,
+    "uncappedScore": null,
+  },
   "perUser": [
     {
       "acks": 0,
@@ -384,7 +568,7 @@ exports[`computeReport — characterization (real ended session) > produces the 
     "timeToDetectS": null,
     "triageActions": 2,
     "triagers": 1,
-    "version": 4,
+    "version": 5,
   },
 }
 `;

@@ -772,7 +772,7 @@ describe("computeReport — v4: EDR host isolation judged against the answer key
     add("edr.host_released", "t3", 150, { host: "WS-FIN-2847" }, "t3");
     add("edr.host_isolated", "t2", 160, { host: "WS-FIN-2847" }, "t2");     // re-isolation is not a new team decision
     const r = computeReport(events, roster);
-    expect(r.team.version).toBe(4);
+    expect(r.team.version).toBe(5);
     expect(r.team.isoTotal).toBe(1);
     expect(r.team.isoCorrect).toBe(1);
     expect(r.team.isolations[0]).toMatchObject({ host: "WS-FIN-2847", by: "t3", correct: true, releasedS: 150, timeToIsolateS: 90 });

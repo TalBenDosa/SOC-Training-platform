@@ -9,6 +9,8 @@ import { asStr } from "@/lib/team/format";
 import type { computeReport, ReportedItem, MissItem, IsolationItem, MissedHost } from "@/lib/team/report/computeReport";
 import { mergeAnswers, type AnswerMap } from "@/lib/team/report/serverReport";
 import { ROLE_LABEL, Metric } from "./shared";
+import { CommandReview } from "./CommandReview";
+import type { ManagerReview } from "@/lib/team/report/managerReview";
 
 // ── Guided hot-wash (§6.6) — a dual-track replay reconstructed from the event log:
 // attack activity vs the team's response, key moments, and reflection prompts. This
@@ -371,7 +373,7 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
         }
         if (!res.ok) { setLoadError(data?.error ?? "Couldn't load the report."); return; }
         buildingRetries.current = 0;
-        setReport({ team: data.team, perUser: data.perUser } as Report);
+        setReport({ team: data.team, perUser: data.perUser, managerReview: data.managerReview ?? null } as Report);
         setAnswers(data.answers ?? {});
         setSeesAll(!!data.seesAll);
         setXp(data.xp && typeof data.xp === "object" ? data.xp : {});
@@ -394,7 +396,10 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
   if (!report) return <Card><p className="text-sm text-slate-400">Building the shift review…</p></Card>;
 
   const { team, perUser } = report;
-  const visible = perUser;   // the server already limited this to my card unless I'm staff / the Manager
+  const managerReview = (report.managerReview ?? null) as ManagerReview | null;
+  // The server already limited this to my card unless I'm staff / the Manager. The Manager's
+  // own work is graded in the Command Review, so their generic card steps aside for it.
+  const visible = managerReview && !managerReview.redacted ? perUser.filter(u => u.user_id !== managerReview.managerId) : perUser;
 
   function exportCsv() {
     const header = ["Name", "Role", "Rubric score %", "Criteria measured", "Logs opened", "Avg dwell (s)", "Dispositions", "Disposition accuracy %", "Dispositions on unopened logs", "Escalations", "Escalation quality", "Acks", "Containment requests", "Containment decisions", "Role actions", "First action (s)", "Contribution", "Reported within SLA", "Reported (SLA judged)", "SLA %", "False negatives", "Walked past", "False alarms", "Hosts isolated", "Isolations correct"];
@@ -581,6 +586,9 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
           </div>
         </Card>
       )}
+
+      {/* SOC Manager: Command Review (decision quality, stakeholders, reporting) */}
+      {managerReview && <CommandReview review={managerReview} xp={managerReview.redacted ? undefined : xp[managerReview.managerId]} />}
 
       {/* Guided hot-wash FIRST — the debrief conversation, reconstructed from the log (U2) */}
       <HotWash events={revealed} nameOf={nameOf} />

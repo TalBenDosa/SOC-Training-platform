@@ -17,6 +17,7 @@ function injectLabel(kind: string, isStaff: boolean): string {
   if (kind === "ticket") return "help-desk ticket";
   if (kind === "announcement") return "announcement";
   if (kind === "mgmt_request") return "management request";
+  if (kind === "decision") return "decision for the SOC Manager";
   return "update"; // mgmt_pressure · twist · false_lead — indistinguishable live
 }
 
@@ -27,6 +28,7 @@ export function InjectFeed({ sessionId, events, me, nameOf, act, hasManager = tr
   // what they actually did (caller, verification, whether a code was shared).
   const [details, setDetails] = useState<Record<number, string>>({});
   const injects = useMemo(() => events.filter(e => e.type === "staff.inject"), [events]);
+  const decided = useMemo(() => new Set(events.filter(e => e.type === "decision.answered").map(e => asStr((e.payload as { inject_id?: unknown }).inject_id))), [events]);
   // Staff: map inject_id → the real (answer-key) kind. RLS lets only session staff read it.
   const [realKind, setRealKind] = useState<Record<string, string>>({});
   const injectCount = injects.length;
@@ -78,6 +80,19 @@ export function InjectFeed({ sessionId, events, me, nameOf, act, hasManager = tr
           const isTicket = publicKind === "ticket"; const done = answered.has(String(e.seq)); const b = busy === e.seq + "";
           // A management request (public kind, or the real kind for staff on an
           // instructor-typed one) — answered by the first SITREP sent after it.
+          // A decision card is the SOC Manager's, answered on the Command desk; the team sees who asked what.
+          if (publicKind === "decision") {
+            const dp = e.payload as { from?: { name?: string; role?: string } };
+            const done = !!p.inject_id && decided.has(p.inject_id);
+            return (
+              <div key={e.seq} className="rounded-lg border border-neon-purple/30 bg-neon-purple/[0.05] px-2 py-1.5 text-xs">
+                <p className="text-slate-200"><span className="mr-1 font-mono text-[9px] uppercase text-slate-400">{injectLabel("decision", false)}</span><b className="text-slate-100"><bdi>{asStr(dp.from?.name)}</bdi></b>{asStr(dp.from?.role) && <span className="text-slate-400"> ({asStr(dp.from?.role)})</span>}: <bdi>{asStr(p.text)}</bdi></p>
+                {done ? <p className="mt-0.5 text-[10px] text-neon-green">✓ the SOC Manager decided</p>
+                  : isMgr ? <Button variant="outline" size="sm" className="mt-1.5" onClick={() => document.querySelector("[data-command-desk]")?.scrollIntoView({ behavior: "smooth", block: "start" })}>Decide on the Command desk</Button>
+                    : <p className="mt-0.5 text-[10px] text-neon-purple">The SOC Manager is deciding. Keep your case notes current: they decide from what you write.</p>}
+              </div>
+            );
+          }
           const isMgmt = publicKind === "mgmt_request" || kind === "mgmt_pressure";
           const reply = isMgmt ? sitreps.find(s => s.seq > e.seq) : undefined;
           return (

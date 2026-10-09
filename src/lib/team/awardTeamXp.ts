@@ -62,8 +62,15 @@ export async function loadOrBuildReport(admin: SupabaseClient, sessionId: string
 }
 
 /** user_id → XP for every player of a report (deterministic — the same numbers the award writes). */
+/** The SOC Manager's performance is the Command Review score (same formula, PLAN §10.8). */
+function xpOf(report: ServerReport, u: ServerReport["perUser"][number]): number {
+  const mr = report.managerReview;
+  if (mr && mr.managerId === u.user_id && mr.score != null) return teamXpFor({ ...u, rubricPct: mr.score, insufficientEvidence: false });
+  return teamXpFor(u);
+}
+
 export function xpFromReport(report: ServerReport): Record<string, number> {
-  return Object.fromEntries(report.perUser.map(u => [u.user_id, teamXpFor(u)]));
+  return Object.fromEntries(report.perUser.map(u => [u.user_id, xpOf(report, u)]));
 }
 
 /**
@@ -73,7 +80,7 @@ export function xpFromReport(report: ServerReport): Record<string, number> {
  */
 export async function awardTeamXp(admin: SupabaseClient, sessionId: string, report?: ServerReport): Promise<Record<string, number>> {
   const r = report ?? (await loadOrBuildReport(admin, sessionId)).report;
-  const rows = r.perUser.map(u => ({ user_id: u.user_id, xp: teamXpFor(u) }));
+  const rows = r.perUser.map(u => ({ user_id: u.user_id, xp: xpOf(r, u) }));
   const { error } = await admin.rpc("award_team_session_xp", { p_session: sessionId, p_rows: rows, p_version: TEAM_XP_VERSION });
   if (error) throw new Error(`award_team_session_xp: ${error.message}`);
   return Object.fromEntries(rows.map(x => [x.user_id, x.xp]));

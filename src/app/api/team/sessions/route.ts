@@ -82,7 +82,7 @@ export async function POST(req: Request) {
     .slice(0, 12);
   for (const seat of SINGLE_SEAT) {
     if (invites.filter(i => i.role === seat).length > 1) {
-      return NextResponse.json({ error: `${seat === "mgr" ? "SOC Manager" : "Tier-3"} is a single-seat role — invite one person to it.` }, { status: 400 });
+      return NextResponse.json({ error: `The SOC Manager is a single-seat role: invite one person to it.` }, { status: 400 });
     }
   }
 

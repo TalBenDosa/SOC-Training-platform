@@ -1,5 +1,6 @@
-/** Single-seat exercise roles: at most one non-left holder each (DB: 0065 team_session_single_seat). */
-export const SINGLE_SEAT = new Set(["t3", "mgr"]);
+/** Single-seat exercise roles: at most one non-left holder each (DB: 0093 team_session_single_manager).
+ *  Tier-3 is multi-seat since 0093: several forensic analysts can split the hosts. */
+export const SINGLE_SEAT = new Set(["mgr"]);
 /** Members per session, the instructor included (realtime fan-out budget; DB: 0088 team_roster_cap). */
 export const MAX_ROSTER = 60;
 
