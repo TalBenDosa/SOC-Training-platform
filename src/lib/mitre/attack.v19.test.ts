@@ -10,7 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 // Plain .mjs helper shared with the content gates (validate-content / validate-scenarios).
 import { isRevokedId, REVOKED as REVOKED_MAP } from "../../../scripts/attack-deprecated.mjs";
-import { TACTICS, TECHNIQUES, tacticById } from "./attack";
+import { TACTICS, TECHNIQUES, tacticById, techniqueById } from "./attack";
 
 const SRC = path.join(process.cwd(), "src");
 const REVOKED: Record<string, string> = REVOKED_MAP;
@@ -48,6 +48,30 @@ describe("ATT&CK v19 consistency", () => {
       for (const m of text.matchAll(TACTIC_FIELD)) bad.push(`${f}: ${m[0]}`);
     }
     expect(bad).toEqual([]);
+  });
+
+  it("every technique ID cited in a structured field has a library entry", () => {
+    // The MITRE drawer (EventFeed MitreSlideout) reads this library; a missing ID shows only a link.
+    const missing = new Set<string>();
+    for (const { f, text } of FILES) {
+      if (f.includes(path.join("lib", "mitre"))) continue;
+      for (const m of text.matchAll(ID_FIELD)) {
+        for (const id of m[1].match(/T1\d{3}(?:\.\d{3})?/g) ?? []) {
+          if (!isRevokedId(id) && !techniqueById(id)) missing.add(id);
+        }
+      }
+    }
+    expect([...missing].sort()).toEqual([]);
+  });
+
+  it("library entries are unique and sub-technique names carry the parent name", () => {
+    const ids = TECHNIQUES.map(t => t.id);
+    expect(ids.length).toBe(new Set(ids).size);
+    for (const t of TECHNIQUES) {
+      const parent = t.id.includes(".") ? techniqueById(t.id.split(".")[0]) : undefined;
+      if (parent) expect(t.name.startsWith(`${parent.name}: `), `${t.id} ${t.name}`).toBe(true);
+      if (t.tactics) expect(t.tactics, t.id).toContain(t.tactic);
+    }
   });
 
   it("catalog uses the v19 tactics", () => {
