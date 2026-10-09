@@ -22,13 +22,14 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { EventFeed } from "@/app/(app)/dashboard/EventFeed";
 import { ItVerifyContext, type TeamItVerifier } from "@/app/(app)/dashboard/itVerifyContext";
 import { EscalateCopyContext } from "@/app/(app)/dashboard/escalateCopyContext";
+import { EdrPivotContext, type EdrPivot } from "@/app/(app)/dashboard/edrPivotContext";
 import { OpenCaseModal } from "./_components/OpenCaseModal";
 import { enrichEvent, severityBase, type LiveEvent } from "@/app/(app)/dashboard/liveEventEnrich";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { buildTeamEdrCases } from "@/lib/edr/teamCases";
 import { useTeamIocTruth } from "@/lib/team/useTeamIocTruth";
 import { IocTruthContext } from "@/components/threat-intel/iocTruthContext";
-import { Loader2, AlertTriangle, CheckCircle2, Circle, Radio, Play, ShieldCheck, ArrowLeft, Users, Siren, X, UserMinus, PauseCircle, LogOut } from "lucide-react";
+import { Loader2, AlertTriangle, CheckCircle2, Circle, Radio, Play, ShieldCheck, ArrowLeft, Users, Siren, X, UserMinus, PauseCircle, LogOut, Cpu } from "lucide-react";
 import type { RosterMember, SessionMeta, Me, Ev, Ioc } from "@/lib/team/types";
 import { asStr, detectIocType, friendlyActionError, hashString, actionErrorCode, hostKey, type ActOutcome, type ActionErrorCode } from "@/lib/team/format";
 import { deriveReadyMap } from "@/lib/team/lobbyReady";
@@ -848,6 +849,33 @@ export default function TeamRoomPage() {
     } catch { setEdrNote("Couldn't open the EDR console for this incident."); }
   }, [feed, escalations, id, me?.id, iocTruth]);
 
+  // EDR alerts in the team feed (Tal, 2026-10-09): endpoint detections on hosts the EDR console
+  // can open. They light up the "Investigate in EDR" button above the feed with a count, and a
+  // NEW one pops a short corner notice (like the single-user dashboard's EDR button). An alert is
+  // what the analyst's own EDR would raise, so this leaks no verdict.
+  const edrAlerts = useMemo(() => feed.flatMap(e => {
+    const p = e.payload as { source?: unknown; is_detection?: unknown; event_type?: unknown; hostname?: unknown; description?: unknown };
+    const host = asStr(p.hostname);
+    const isAlert = p.source === "edr" && (p.is_detection === true || /alert|detection|quarantine/.test(asStr(p.event_type)));
+    return isAlert && host && edrHosts.has(hostKey(host)) ? [{ seq: e.seq, host, title: asStr(p.description) || "Endpoint detection" }] : [];
+  }), [feed, edrHosts]);
+  const edrSeen = useRef<number | null>(null);
+  const [edrToast, setEdrToast] = useState<{ seq: number; host: string; title: string } | null>(null);
+  useEffect(() => {
+    const newest = edrAlerts[edrAlerts.length - 1];
+    if (edrSeen.current === null) { edrSeen.current = newest?.seq ?? 0; return; }   // joining mid-shift: no backlog pop-ups
+    if (newest && newest.seq > edrSeen.current) { edrSeen.current = newest.seq; setEdrToast(newest); }
+  }, [edrAlerts]);
+  useEffect(() => {
+    if (!edrToast) return;
+    const t = setTimeout(() => setEdrToast(null), 15_000);
+    return () => clearTimeout(t);
+  }, [edrToast]);
+  const edrPivot = useMemo<EdrPivot>(() => ({
+    canOpen: ev => !!ev.hostname && edrHosts.has(hostKey(ev.hostname)),
+    open: ev => openEdr(asStr(ev.description) || "Endpoint alert", ev.hostname),
+  }), [edrHosts, openEdr]);
+
 
   // The shift's load for the team currently in the lobby — the same numbers /start
   // will seed from (src/lib/team/load.ts), so the instructor sees them before starting.
@@ -890,6 +918,7 @@ export default function TeamRoomPage() {
     <IocTruthContext.Provider value={iocTruth}>
     <ItVerifyContext.Provider value={itVerify}>
     <EscalateCopyContext.Provider value={me?.role === "t2" || me?.role === "t3" ? OPEN_CASE_COPY : null}>
+    <EdrPivotContext.Provider value={me?.role === "t1" || me?.role === "t2" || me?.role === "t3" ? edrPivot : null}>
     <NativeLogProvider value={nativeRender}>
     <div>
       <Topbar title={phase === "running" ? "Live team exercise" : phase === "ended" ? "Shift review" : "Team lobby"} subtitle={session ? `${session.tenant?.name ?? session.company_id} · ${session.difficulty}` : ""} />
@@ -900,6 +929,23 @@ export default function TeamRoomPage() {
         {error && <div className="flex items-center gap-2 rounded-lg border border-severity-high/40 bg-severity-high/10 px-4 py-3 text-sm text-severity-high"><AlertTriangle className="h-4 w-4" />{error}</div>}
         {note && phase !== "running" && <div className="rounded-lg border border-neon-green/30 bg-neon-green/10 px-4 py-3 text-sm text-neon-green">{note}</div>}
         {/* B8: EDR feedback shows in ANY phase (a pop-up-blocked click mid-shift must not be silent) */}
+        {edrToast && phase === "running" && (me?.role === "t1" || me?.role === "t2" || me?.role === "t3") && (
+          <div role="status" className="fixed bottom-20 right-4 z-50 w-[22rem] max-w-[calc(100vw-2rem)] rounded-lg border border-cyber-500/50 bg-bg-elevated px-4 py-3 shadow-2xl">
+            <div className="flex items-start gap-2.5">
+              <Cpu className="mt-0.5 h-4 w-4 shrink-0 text-cyber-300" aria-hidden />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold uppercase tracking-wider text-cyber-300">New EDR alert</p>
+                <p className="mt-0.5 text-sm text-slate-200"><bdi className="font-mono">{edrToast.host}</bdi></p>
+                <p className="mt-0.5 line-clamp-2 text-[11px] text-slate-400">{edrToast.title}</p>
+                <div className="mt-2 flex gap-2">
+                  <Button size="sm" onClick={() => { openEdr(edrToast.title, edrToast.host); setEdrToast(null); }}>Investigate in EDR</Button>
+                  <Button size="sm" variant="outline" onClick={() => setEdrToast(null)}>Later</Button>
+                </div>
+              </div>
+              <button type="button" onClick={() => setEdrToast(null)} aria-label="Dismiss the EDR alert" className="rounded text-slate-400 hover:text-white"><X className="h-3.5 w-3.5" /></button>
+            </div>
+          </div>
+        )}
         {edrNote && <div role="alert" className="fixed bottom-4 right-4 z-50 flex max-w-md items-center gap-2 rounded-lg border border-neon-amber/50 bg-bg-elevated px-4 py-3 text-sm text-neon-amber shadow-2xl"><AlertTriangle className="h-4 w-4 shrink-0" />{edrNote}<button onClick={() => setEdrNote(null)} aria-label="Dismiss" className="ml-auto rounded text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50"><X className="h-3.5 w-3.5" /></button></div>}
 
         {/* 3-2-1 countdown: one assertive announcement per number. The region stays
@@ -1176,6 +1222,25 @@ export default function TeamRoomPage() {
                         <Button variant="outline" size="sm" className="ml-auto" disabled={alertQueue.length === 0} onClick={takeNextAlert}>Take next alert</Button>
                       </div>
                     )}
+                    {/* Endpoint alerts → EDR, for the analysts (muted until an EDR alert arrives). */}
+                    {(me.role === "t1" || me.role === "t2" || me.role === "t3") && (() => {
+                      const last = edrAlerts[edrAlerts.length - 1];
+                      return (
+                        <div className="flex items-center gap-2">
+                          <button type="button" disabled={!last} onClick={() => last && openEdr(last.title, last.host)}
+                            title={last ? `Latest EDR alert: ${last.title} (${last.host})` : "No endpoint alerts yet: this lights up when an EDR alert reaches the feed"}
+                            className={`relative flex items-center gap-1.5 rounded border px-2.5 py-1.5 text-xs font-semibold transition ${last ? "border-cyber-500/50 bg-cyber-500/10 text-cyber-200 hover:bg-cyber-500/20" : "cursor-not-allowed border-border bg-bg text-slate-500"}`}>
+                            <Cpu className="h-3.5 w-3.5" aria-hidden /> Investigate in EDR
+                            {edrAlerts.length > 0 && (
+                              <span className="absolute -right-2 -top-2 flex h-5 min-w-[1.25rem] animate-pulse items-center justify-center rounded-full bg-severity-critical px-1 text-[10px] font-bold text-white shadow ring-2 ring-bg-elevated">
+                                {edrAlerts.length}<span className="sr-only"> endpoint alert{edrAlerts.length > 1 ? "s" : ""}</span>
+                              </span>
+                            )}
+                          </button>
+                          {last && <span className="min-w-0 truncate text-[11px] text-slate-400">Latest: <bdi className="font-mono text-slate-300">{last.host}</bdi></span>}
+                        </div>
+                      );
+                    })()}
                     {/* G-04: surfaced feed filters + active click-to-pivot chips */}
                     <FeedFilterBar
                       severity={fSeverity} setSeverity={setFSeverity}
@@ -1240,6 +1305,7 @@ export default function TeamRoomPage() {
         <OpenCaseModal log={caseLog} role={me.role} onClose={() => setCaseLog(null)} act={act} actR={actR} />
       )}
     </NativeLogProvider>
+    </EdrPivotContext.Provider>
     </EscalateCopyContext.Provider>
     </ItVerifyContext.Provider>
     </IocTruthContext.Provider>

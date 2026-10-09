@@ -2,7 +2,7 @@
 import { useState, useMemo, memo, useRef, useContext } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronRight, Info, AlertTriangle, Clock, ExternalLink, Shield, X, PhoneCall, CheckCircle2, Copy, BookOpen } from "lucide-react";
+import { ChevronRight, Info, AlertTriangle, Clock, ExternalLink, Shield, X, PhoneCall, CheckCircle2, Copy, BookOpen, Cpu } from "lucide-react";
 import { ecsTechnique } from "@/lib/logs/ecsFields";
 
 export type TimeFilter = "15m" | "1h" | "4h" | "all";
@@ -19,6 +19,7 @@ import { mitreVisible } from "@/lib/sim/mitreVisible";
 import { itVerifyAnswer, itVerifyApplies, remoteToolOf, type ItVerifyAnswer } from "@/lib/sim/itVerify";
 import { ItVerifyContext } from "./itVerifyContext";
 import { EscalateCopyContext } from "./escalateCopyContext";
+import { EdrPivotContext } from "./edrPivotContext";
 
 // L-01: the internal event id (b_… baseline, atk_evt_…<phase> attack) named the
 // answer — and it was shown verbatim in the Analysis detail panel's event.id row,
@@ -407,6 +408,8 @@ export function DetailPanelBody({
   // key, so the team page provides a verifier that asks the server.
   const teamVerify = useContext(ItVerifyContext);
   const escalateCopy = useContext(EscalateCopyContext);
+  const edrPivot = useContext(EdrPivotContext);
+  const canEdrPivot = !!edrPivot && (event.source === "edr" || event.source === "sysmon") && edrPivot.canOpen(event);
   const hasItVerify = teamVerify ? !!event.it_check : itVerifyApplies(event);
   const tool = hasItVerify ? remoteToolOf(event) : null;
   const [itAnswer, setItAnswer] = useState<ItVerifyAnswer | null>(null);
@@ -504,6 +507,20 @@ export function DetailPanelBody({
       {/* Log reading tour — fires once on first-ever event expansion */}
       <LogReadingTour />
       <div className="border-t border-border/50 px-5 py-4 space-y-3">
+        {/* Team exercise: an endpoint log whose host has EDR telemetry opens straight in the EDR console. */}
+        {canEdrPivot && (
+          <button
+            type="button"
+            onClick={e => { e.stopPropagation(); edrPivot!.open(event); }}
+            className="flex w-full items-center justify-between gap-3 rounded-lg border border-cyber-500/50 bg-cyber-500/10 px-4 py-2.5 text-left transition-colors hover:bg-cyber-500/20"
+          >
+            <span className="flex flex-col">
+              <span className="text-sm font-semibold text-cyber-200">Investigate this host in EDR</span>
+              <span className="text-[11px] text-cyber-300/70">Process tree, network and file activity on {event.hostname}</span>
+            </span>
+            <Cpu className="h-4 w-4 shrink-0 text-cyber-300" aria-hidden />
+          </button>
+        )}
         {/* Escalate-this-log CTA — Tier-1 only (parent passes onEscalate). Opens the
             structured escalation report pre-loaded with THIS log + its indicators. */}
         {onEscalate && (
