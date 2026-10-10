@@ -79,6 +79,21 @@ describe("timing and the bonus attack", () => {
       expect(firstTenth.some(t => ["story", "pool_attack"].includes(String(ans(t).origin))), seed).toBe(false);
     }
   });
+  it("the warm-up holds for every storyline in the environment's pool", () => {
+    const pool = teamStoryPool(TENANT_TEMPLATE, "medium", DEFAULT_ENV).filter(teamStoryFilter(TENANT_TEMPLATE, {}, DEFAULT_ENV));
+    expect(pool.length).toBeGreaterThan(5);
+    for (const s of pool) {
+      const feed = buildTeamTimeline(TENANT_TEMPLATE, "medium", "warm", [s.id, null, null], loadWithPlan(teamLoad("medium", roster), { count: 3, slots: [], bonus: false }), {}, null, DEFAULT_ENV).filter(t => t.channel === "feed");
+      const first = feed.findIndex(t => ["story", "pool_attack"].includes(String(ans(t).origin)));
+      expect(first, s.id).toBeGreaterThanOrEqual(Math.ceil(feed.length * 0.1));
+    }
+  }, 60_000);
+  it("one seed always replays the same incidents; other seeds pick other ones", () => {
+    const incidents = (seed: string) => [...new Set(build(seed, true).map(t => ans(t)).filter(a => a.origin === "story").map(a => a.incident_id))];
+    expect(build("r1", true)).toEqual(build("r1", true));
+    const seen = new Set(["r1", "r2", "r3", "r4"].map(s => incidents(s).sort().join("|")));
+    expect(seen.size).toBeGreaterThan(1);
+  });
   it("the attacks start at staggered points, and the timing differs between sessions", () => {
     const startsOf = (seed: string) => {
       const feed = build(seed, false).filter(t => t.channel === "feed");

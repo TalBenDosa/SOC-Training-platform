@@ -28,7 +28,7 @@
  *
  * MITRE (Mobile + Enterprise, pairings verified against current ATT&CK):
  *   T1660 Phishing (Mobile) — Initial Access — the smishing-delivered sideload
- *   T1626 Abuse Elevation Control Mechanism (Mobile) — Privilege Escalation — rooting
+ *   T1404 Exploitation for Privilege Escalation (Mobile), Privilege Escalation: rooting
  *   T1078.004 Valid Accounts: Cloud Accounts (Enterprise) — the corporate access
  *
  * SOURCES (fields registry-valid for the declared vendor): Microsoft Intune (app
@@ -237,8 +237,8 @@ export function buildMobileMdmCompromiseScenario(
     // 3. THE THREAT SIGNAL — Microsoft Defender for Endpoint (the Intune Mobile-
     //    Threat-Defense connector) reports the phone as rooted. This is the
     //    case-opening detection: control-plane only (no mobile EDR console to
-    //    walk), so is_detection + edr_scope "non_edr". Abuse of an elevation
-    //    control to root the device (T1626).
+    //    walk), so is_detection + edr_scope "non_edr". Exploiting a vulnerability
+    //    to root the device (T1404).
     // ─────────────────────────────────────────────────────────────────────
     {
       id: "evt_mmc_03_mtd_threat_signal",
@@ -249,7 +249,7 @@ export function buildMobileMdmCompromiseScenario(
       user_email: victim.upn,
       user_title: victim.title,
       severity: "critical",
-      mitre_technique: "T1626",
+      mitre_technique: "T1404",
       mitre_tactic: "Privilege Escalation",
       incident_id: INCIDENT,
       is_detection: true,   // the Mobile-Threat-Defense signal that opens the case
@@ -547,7 +547,7 @@ export function buildMobileMdmCompromiseScenario(
       answer: "compromise_wipe_revoke",
       xp: 65,
       explanation:
-        "The telemetry confirms a mobile compromise: a rooted device (T1626) after a sideloaded app (T1660), then corporate mail and file access from that non-compliant phone using its valid cloud account (T1078.004). Response must act on both the device and the identity: retire/wipe the handset in Intune, revoke the user's sessions and refresh tokens (a password reset alone does not kill an already-issued token, so (c) is insufficient), reset the credential, scope what mail and files were reached, and fix the Conditional-Access gap so a non-compliant device cannot reach those apps again. (b) is the benign-non-compliance trap the control disproves. (d) waits for a host signal that will never come — the affected asset is a phone with no EDR console. attack_kind is mobile_compromise: escalate.",
+        "The telemetry confirms a mobile compromise: a rooted device (T1404) after a sideloaded app (T1660), then corporate mail and file access from that non-compliant phone using its valid cloud account (T1078.004). Response must act on both the device and the identity: retire/wipe the handset in Intune, revoke the user's sessions and refresh tokens (a password reset alone does not kill an already-issued token, so (c) is insufficient), reset the credential, scope what mail and files were reached, and fix the Conditional-Access gap so a non-compliant device cannot reach those apps again. (b) is the benign-non-compliance trap the control disproves. (d) waits for a host signal that will never come — the affected asset is a phone with no EDR console. attack_kind is mobile_compromise: escalate.",
     },
   ];
 
@@ -560,7 +560,7 @@ export function buildMobileMdmCompromiseScenario(
       "Overnight, Microsoft Intune flagged a corporate-enrolled Android phone belonging to d.okafor (Regional Sales Lead) as non-compliant, right after a new app appeared on the handset. Within the same window that same phone reached corporate mail and file storage. Work out what happened to the device and whether that corporate access should be trusted.",
     narrative: `Daniel Okafor, a regional sales lead who lives out of his phone, tapped a text that looked like a delivery notice. The link walked him into installing an app from outside the company's managed store — "SalesRoute Tracker", com.salesroute.tracker, publisher unknown. At 21:00 Intune's app inventory recorded it on his enrolled Android handset, AND-Okafor-Pixel7, installed from outside the managed catalog.
 
-On the device the app abused an elevation weakness and rooted the phone. At 21:06 the Mobile-Threat-Defense connector — Microsoft Defender for Endpoint on Android — reported the handset at a High device threat level with a rooted-device finding. That signal, not any laptop, is where the case begins: there is no mobile endpoint console to walk, so the investigation lives in the Intune and Entra control planes. A minute later Intune acted on the signal and flipped the device's compliance state to non-compliant.
+On the device the app exploited a vulnerability to root the phone. At 21:06 the Mobile-Threat-Defense connector — Microsoft Defender for Endpoint on Android — reported the handset at a High device threat level with a rooted-device finding. That signal, not any laptop, is where the case begins: there is no mobile endpoint console to walk, so the investigation lives in the Intune and Entra control planes. A minute later Intune acted on the signal and flipped the device's compliance state to non-compliant.
 
 Then the impact. At 21:14 an Entra sign-in for Okafor reached Exchange Online from 45.148.10.62 in Amsterdam — from AND-Okafor-Pixel7, with deviceDetail.isCompliant false, riskState atRisk. And yet conditionalAccessStatus came back success: the require-compliant-device policy did not cover that app, so a phone the MDM had just failed was allowed straight into corporate mail. At 21:19 the same session reached SharePoint Online the same way. The valid cloud account was the disguise; the non-compliant device was the tell.
 
@@ -568,7 +568,7 @@ The instructive comparison sits two hours earlier: s.mendel's managed Galaxy als
     learning_objectives: [
       "Investigate a mobile / MDM compromise from the control plane — an Intune Mobile-Threat-Defense signal and the device-compliance flip it drives — when there is no mobile endpoint console or process tree to walk",
       "Read Entra sign-in fields to catch corporate access from a non-compliant device: deviceDetail.isCompliant false with conditionalAccessStatus success is a Conditional-Access gap, not a safe sign-in",
-      "Trace a smishing-led sideload (T1660) to a rooted device (T1626) using Intune app-inventory (unknown publisher, installed-from-outside-managed-app) and the Mobile-Threat-Defense device-threat-level signal",
+      "Trace a smishing-led sideload (T1660) to a rooted device (T1404) using Intune app-inventory (unknown publisher, installed-from-outside-managed-app) and the Mobile-Threat-Defense device-threat-level signal",
       "Distinguish a real mobile compromise from a benign non-compliance blip (a pending OS update that self-remediates) by the reason for the flip and whether a threat signal fired — not by the compliance record alone",
       "Scope response for a mobile identity compromise: retire/wipe the device in Intune, revoke sessions and refresh tokens, reset the credential, review what was reached, and close the Conditional-Access gap",
     ],
@@ -577,7 +577,7 @@ The instructive comparison sits two hours earlier: s.mendel's managed Galaxy als
     iocs,
     killchain: [
       { ts: T(0), phase: "Initial Access", action: `Sideloaded app "${rogueApp.display}" (${rogueApp.pkg}), unknown publisher, appears on ${device.name} (T1660)` },
-      { ts: T(6 * MIN), phase: "Privilege Escalation", action: `Mobile-Threat-Defense reports ${device.name} rooted, High device threat level (T1626)` },
+      { ts: T(6 * MIN), phase: "Privilege Escalation", action: `Mobile-Threat-Defense reports ${device.name} rooted, High device threat level (T1404)` },
       { ts: T(7 * MIN), phase: "Detection", action: `Intune flips ${device.name} to complianceState noncompliant` },
       { ts: T(14 * MIN), phase: "Impact", action: `Entra sign-in into Exchange Online from ${sessionIp}, isCompliant false, conditionalAccessStatus success (T1078.004)` },
       { ts: T(19 * MIN), phase: "Impact", action: `Same session reaches SharePoint Online from the non-compliant device (T1078.004)` },

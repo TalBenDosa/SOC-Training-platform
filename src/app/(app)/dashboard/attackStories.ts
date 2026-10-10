@@ -1322,7 +1322,9 @@ function serverOs(h: string, events: TelemetryEvent[]): "linux" | "windows" | un
   return LINUX_NAME.test(h) ? "linux" : undefined;
 }
 
-export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], companyEdr?: string, companyId?: string): AttackStory {
+// `rnd` draws the replacement victim: the dashboard's Math.random by default; the team
+// timeline passes its seeded stream so a session seed always replays the same people.
+export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], companyEdr?: string, companyId?: string, rnd: () => number = Math.random): AttackStory {
   const targetNs = edrNsOfVendor(companyEdr);
   // Before any vendor reshape drops the authored keys: a hash-only alert names its file; one
   // client IP keeps one place / network owner and one login flow keeps one session id across rows.
@@ -1386,7 +1388,7 @@ export function instantiateStory(s: AttackStory, companyPool: TelemetryEvent[], 
   const IT_TITLE = /admin|engineer|devops|it\b|sysadmin|infrastructure|sre|security|network|platform|operations/i;
   const itRoster = roster.filter(u => IT_TITLE.test(titleOf.get(u) ?? "") || /(^|[-._])(admin|it|ops)([-._@]|$)/i.test(u));
   const candidates = adminStory && itRoster.length ? itRoster : roster;
-  const replacement = candidates.length ? candidates[Math.floor(Math.random() * candidates.length)] : undefined;
+  const replacement = candidates.length ? candidates[Math.floor(rnd() * candidates.length)] : undefined;
   if (victim && replacement && victim !== replacement) {
     const on = victim.split("@")[0], nn = replacement.split("@")[0];
     pairs.push([victim, replacement], [on, nn], [on.replace(/\./g, ""), nn.replace(/\./g, "")]);
