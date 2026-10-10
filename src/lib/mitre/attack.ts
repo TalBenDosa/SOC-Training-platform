@@ -8,8 +8,8 @@
  * Names are the attack.mitre.org page headings ("Parent: Sub" for
  * sub-techniques). `tactic` is the earliest of the technique's tactics in
  * matrix order; `tactics` lists them all when there is more than one.
- * Two Mobile-matrix techniques (T1660, T1626) are included for the MDM
- * scenario, under the Mobile tactic IDs.
+ * A few Mobile-matrix techniques (T1404, T1626, T1660) are included for the
+ * MDM scenario, under the Mobile tactic IDs.
  */
 
 export type MitreTactic = {
@@ -1915,6 +1915,14 @@ export const TECHNIQUES: MitreTechnique[] = [
   },
 
   // Mobile: Privilege Escalation
+  { id: "T1404", name: "Exploitation for Privilege Escalation", tactic: "TA0029",
+    description: "Exploiting an OS or app vulnerability on a mobile device to gain root, the usual route to a rooted or jailbroken phone.",
+    platforms: ["Android","iOS"],
+    data_sources: ["MDM","Mobile Threat Defense"],
+    detection_hint: "Mobile Threat Defense or device attestation reporting a rooted or jailbroken device shortly after a new or sideloaded app appears on it.",
+    whatAttackerDoes: "A malicious app exploits a vulnerability in the operating system or another app to escape its sandbox and run as root. A rooted device ignores the platform's normal app isolation, so the attacker can read other apps' data, including corporate mail and tokens.",
+    logIndicators: ["Mobile Threat Defense finding of a rooted or jailbroken device with a high device threat level", "Device attestation or integrity check failing on a device that passed before", "Compliance state flipping to non-compliant right after the threat signal, not because of a pending update", "Sideloaded or unknown-publisher app installed shortly before the rooting finding, often on an OS version missing security patches"],
+  },
   { id: "T1626", name: "Abuse Elevation Control Mechanism", tactic: "TA0029",
     description: "Circumventing Android elevation controls, chiefly by obtaining Device Administrator rights, to gain higher privileges.",
     platforms: ["Android"],
