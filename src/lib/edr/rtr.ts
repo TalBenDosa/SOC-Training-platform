@@ -74,6 +74,9 @@ function wmi(inv: EdrInvestigation): WmiEntry[] {
   return [...baselineWmi(), ...(inv.persistence?.wmi ?? []).map(w => ({ filter: w.filter, query: w.query ?? "(not captured)", consumer: w.consumer, command: w.command, malicious: true }))];
 }
 
+/** The host's autostart entries (case + normal background), for the forensic workbench's triage views. */
+export const hostAutostarts = (inv: EdrInvestigation) => ({ runKeys: runKeys(inv), tasks: tasks(inv), services: services(inv), wmi: wmi(inv) });
+
 function listening(inv: EdrInvestigation, procs: EdrProcess[]): string[] {
   const find = (pred: (p: EdrProcess) => boolean) => procs.find(pred);
   const rpc = find(p => /-k RPCSS/i.test(p.cmdline));

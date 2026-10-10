@@ -197,7 +197,13 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null }: { 
     const res = runRtrCommand(raw, { inv, killed, isolated });
     if (!res) return;
     if (res.clear) { setRtr([]); return; }
-    if (res.kill != null) setKilled(s => { const n = new Set(s); n.add(res.kill!); return n; });
+    if (res.kill != null) {
+      setKilled(s => { const n = new Set(s); n.add(res.kill!); return n; });
+      const proc = inv.processes.find(p => p.pid === res.kill);
+      void teamIsolation?.recordRtr?.({ host: inv.host.name, action: "kill", pid: res.kill, name: proc?.name });
+    } else if (/^\s*get\s+\S/i.test(raw)) {
+      void teamIsolation?.recordRtr?.({ host: inv.host.name, action: "get", path: raw.trim().replace(/^get\s+/i, "").slice(0, 260) });
+    }
     if (res.contain) isolate(true);
     setRtr(r => [...r, { cmd: raw.trim(), out: res.out }]);
   }

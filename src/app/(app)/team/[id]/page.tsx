@@ -65,6 +65,7 @@ import { EscalationsPanel, waitingEscalations, pendingApprovals } from "./_compo
 import { StakeholderWindow, openStakeholderQuestions } from "./_components/StakeholderWindow";
 import { StakeholderReportModal, ReportsSent, type ReportSeed, type ReportDraft } from "./_components/StakeholderReportModal";
 import { ContainmentAdvice } from "./_components/ContainmentAdvice";
+import { ForensicWorkbench, FindingsBoard } from "./_components/ForensicWorkbench";
 import { TeamReport } from "./_components/TeamReport";
 import { FeedFilterBar } from "./_components/FeedFilterBar";
 import { SituationBoard } from "./_components/SituationBoard";
@@ -149,6 +150,8 @@ export default function TeamRoomPage() {
   const [t1Sel, setT1Sel] = useState<string>("");
   // Tier-1 queue = a VIEW of the SIEM table ("Needs triage"), not a separate card.
   const [feedView, setFeedView] = useState<"all" | "triage">("all");
+  // Tier-3: most of the work is forensics, so the workbench is the default; the live feed is one tab away.
+  const [t3View, setT3View] = useState<"workbench" | "feed">("workbench");
   // SOC Manager menu: the situation board, the raw logs (to back up the analysts), every
   // escalation, the stakeholder report and the stakeholder window.
   const [mgrView, setMgrView] = useState<"board" | "logs" | "escalations" | "stakeholders" | "reporting">("board");
@@ -1293,7 +1296,7 @@ export default function TeamRoomPage() {
                 logs and writing reports in the role column — get an even split instead
                 of a narrow side rail. The left column is sticky so the feed and the team
                 chat stay in view while the role column scrolls (no empty half-page). */}
-            <div className={`grid gap-4 ${me.role === "t2" || me.role === "t3" ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" : "lg:grid-cols-[minmax(0,1fr)_minmax(360px,32%)]"}`}>
+            <div className={`grid gap-4 ${me.role === "t3" && t3View === "workbench" ? "lg:grid-cols-[minmax(0,1.7fr)_minmax(340px,1fr)]" : me.role === "t2" || me.role === "t3" ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" : "lg:grid-cols-[minmax(0,1fr)_minmax(360px,32%)]"}`}>
               {/* Left column: raw feed for analysts; a summaries-only Situation Board
                   for the coordinator SEAT (Lead/Mgr) — §3.7 keeps coordinators OUT of
                   raw (G-08). Decided by the seat, not org rights (U9): a Manager who
@@ -1306,6 +1309,7 @@ export default function TeamRoomPage() {
                 {(me.role === "lead" || me.role === "mgr") && mgrView === "board" ? (
                   <>
                     <SituationBoard liveFeed={liveFeed} events={events} feed={feed} nameOf={nameOf} roster={roster} online={online} act={act} onOpenEscalations={() => setMgrView("escalations")} />
+                    {events.some(e => e.type === "forensic.finding") && <FindingsBoard events={events} nameOf={nameOf} compact />}
                     <TeamIntel events={events} nameOf={nameOf} />
                     <InjectFeed sessionId={id} events={events} me={me} nameOf={nameOf} act={act} hasManager={hasManager}
                       onWriteSitrep={() => { setMgrView("reporting"); setTimeout(() => document.querySelector<HTMLInputElement>("#team-sitrep input")?.focus(), 150); }} />
@@ -1326,6 +1330,17 @@ export default function TeamRoomPage() {
                   </>
                 ) : (
                   <>
+                    {me.role === "t3" && (
+                      <div role="tablist" aria-label="Tier-3 views" data-tour="t3-views" className="flex gap-1 rounded-lg border border-border bg-bg-elevated/50 p-1">
+                        {([["workbench", "Forensic workbench"], ["feed", "Live feed"]] as const).map(([v, label]) => (
+                          <button key={v} type="button" role="tab" aria-selected={t3View === v} onClick={() => setT3View(v)}
+                            className={`rounded-md px-3 py-1.5 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-400 ${t3View === v ? "border border-cyber-500/50 bg-cyber-500/15 text-white" : "border border-transparent text-slate-400 hover:text-slate-200"}`}>{label}</button>
+                        ))}
+                      </div>
+                    )}
+                    {me.role === "t3" && t3View === "workbench" ? (
+                      <div data-tour="workbench"><ForensicWorkbench sessionId={id} feed={feed} events={events} meId={me.id} nameOf={nameOf} act={act} onEdr={h => openEdr(undefined, h)} /></div>
+                    ) : (<>
                     {(me.role === "lead" || me.role === "mgr") && (
                       <p className="rounded-lg border border-border bg-bg-elevated/40 px-3 py-2 text-[11px] text-slate-400">The raw logs, read-only, so you can back up your analysts and check what they report. Triage and escalation stay with the analysts.</p>
                     )}
@@ -1397,6 +1412,7 @@ export default function TeamRoomPage() {
                       rowStatus={rowStatus}
                       onEscalate={me.role === "t1" ? onFeedEscalate : me.role === "t2" || me.role === "t3" ? onFeedOpenCase : undefined}
                     /></div>
+                    </>)}
                   </>
                 )}
               </div>

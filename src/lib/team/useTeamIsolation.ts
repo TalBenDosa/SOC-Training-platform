@@ -15,6 +15,8 @@ export interface TeamIsolation {
   set: (host: string, isolated: boolean, caseTitle?: string) => Promise<string | null>;
   /** Isolation is Tier-2 / Tier-3's call (the DB gate, 0082); Tier-1 investigates and escalates. */
   canContain: boolean;
+  /** Put an RTR kill / get / memdump on the session record (0095). */
+  recordRtr?: (payload: { host: string; action: "kill" | "get" | "memdump"; pid?: number; name?: string; path?: string }) => Promise<void>;
 }
 
 /**
@@ -58,6 +60,15 @@ export function useTeamIsolation(sessionId: string | null, role: string | null =
     return error ? friendlyActionError(error.message) : null;
   }, [sessionId, refresh]);
 
+  // RTR actions (0095): a kill or a file collection goes on the session record, so evidence
+  // destroyed before a memory capture (or preserved by one) is visible to the team and the review.
+  const recordRtr = useCallback(async (payload: { host: string; action: "kill" | "get" | "memdump"; pid?: number; name?: string; path?: string }): Promise<void> => {
+    const sb = getSupabaseBrowserClient();
+    if (!sessionId || !sb) return;
+    const idem = `rtr:${payload.action}:${payload.host.toLowerCase()}:${payload.pid ?? payload.path ?? ""}:${Date.now().toString(36)}`;
+    await sb.rpc("apply_session_action", { p_session: sessionId, p_type: "rtr.action", p_payload: payload, p_idempotency_key: idem });
+  }, [sessionId]);
+
   // Unknown role (an older link without &r=) keeps the button; the server still decides.
-  return sessionId ? { state, set, canContain: role === null || role === "t2" || role === "t3" } : null;
+  return sessionId ? { state, set, recordRtr, canContain: role === null || role === "t2" || role === "t3" } : null;
 }
