@@ -44,6 +44,8 @@ export interface CardPublicBody {
   text: string;
   options: { id: string; label: string }[];
   deadline_s: number;
+  /** The containment request a card is about (decided under Escalations): links the two. */
+  about?: { target: string };
 }
 export interface CardAnswerKey {
   card: string;
@@ -73,7 +75,8 @@ export function materialize(def: CardDef, ctx: Ctx, s: MgrState, seed: string): 
     return { id, label: o.label };
   });
   return {
-    body: { audience: def.audience, pillar: def.pillar, from: b.from, channel: b.channel, text: b.text, options, deadline_s: b.deadlineS },
+    body: { audience: def.audience, pillar: def.pillar, from: b.from, channel: b.channel, text: b.text, options, deadline_s: b.deadlineS,
+      ...((def.id === "isolate_or_wait" || def.id === "owner_veto") && ctx.target ? { about: { target: ctx.target } } : {}) },
     answer: { card: def.id, ranks, notes, deltas, best, timeout_delta: b.timeoutDelta, objective: b.objective, context: ctx, ...(Object.keys(critical).length ? { critical } : {}) },
   };
 }

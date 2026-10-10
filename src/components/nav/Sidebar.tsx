@@ -301,9 +301,9 @@ export function Sidebar() {
           title="Expand sidebar"
           className={cn("hidden md:flex fixed z-40 items-center justify-center border border-border bg-[#0d1520]/95 text-slate-200 shadow-lg backdrop-blur hover:text-white",
             // In the exercise room: a slim tab on the left edge that sits in the page gutter, over nothing.
-            focusRoute ? "left-0 top-1/2 h-16 w-3.5 -translate-y-1/2 rounded-r-md border-l-0 hover:w-6" : "top-3 left-3 h-10 w-10 rounded-lg")}
+            focusRoute ? "left-0 top-1/2 h-16 w-5 -translate-y-1/2 rounded-r-md border-l-0 hover:w-7" : "top-3 left-3 h-10 w-10 rounded-lg")}
         >
-          <PanelLeft className={focusRoute ? "h-3 w-3" : "h-5 w-5"} />
+          <PanelLeft className={focusRoute ? "h-3.5 w-3.5" : "h-5 w-5"} />
         </button>
       )}
 

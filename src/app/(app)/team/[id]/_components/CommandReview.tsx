@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Card } from "@/components/ui/Card";
-import { Gavel, AlertOctagon } from "lucide-react";
+import { Gavel, AlertOctagon, ChevronDown } from "lucide-react";
 import type { ManagerReview, CommandPillar, DecisionRow, TimelineMark, QuestionRow, ReportRow } from "@/lib/team/report/managerReview";
 
 /**
@@ -15,7 +15,9 @@ const RANK_STYLE: Record<string, string> = {
   okay: "border-neon-amber/50 bg-neon-amber/10 text-neon-amber",
   weak: "border-severity-critical/50 bg-severity-critical/10 text-severity-critical",
 };
-const RANK_LABEL: Record<string, string> = { great: "Best", good: "Good", okay: "Acceptable", weak: "Weak" };
+const RANK_LABEL: Record<string, string> = { great: "Best", good: "Good", okay: "Acceptable", weak: "Costly" };
+// No-fault wording for the levels (labels are mapped here, so older cached reports read the same).
+const LEVEL_LABEL: Record<string, string> = { command_ready: "Ready to command", proficient: "Proficient", developing: "Developing", needs_coaching: "Keep practising" };
 const LEVEL_TONE: Record<string, string> = { command_ready: "text-neon-green", proficient: "text-cyber-200", developing: "text-neon-amber", needs_coaching: "text-severity-critical" };
 const LANE_LABEL: Record<TimelineMark["lane"], string> = { attacker: "Attacker", manager: "You", pressure: "Pressure" };
 const IND_LABEL = { continuity: "Business continuity", trust: "Stakeholder trust", capacity: "Team capacity", regulatory: "Regulatory exposure" } as const;
@@ -41,7 +43,7 @@ export function CommandReview({ review, xp }: { review: ManagerReview; xp?: numb
             <p key={i} className="flex gap-2 text-xs text-slate-200"><AlertOctagon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-severity-critical" aria-hidden />
               <span><b className="text-severity-critical">{c.label}</b>{c.atS != null && <span className="font-mono text-[10px] text-slate-400"> at {fmt(c.atS)}</span>}. {c.detail}</span></p>
           ))}
-          <p className="text-[10px] text-slate-400">A critical error caps the score at 69: in a real organisation it alone would do serious damage.</p>
+          <p className="text-[11px] text-slate-300">These are the key lessons of the shift. Each one caps the score at 69, because in a real organisation it alone would do serious damage; talk them through in the debrief.</p>
         </div>
       )}
       <Timeline marks={r.timeline} endS={r.endS} gaps={r.gaps} />
@@ -78,11 +80,14 @@ function Headline({ r }: { r: ManagerReview }) {
     <>
       <div className="mt-2 flex flex-wrap items-end gap-3">
         <span className={`font-mono text-3xl font-bold ${LEVEL_TONE[r.level ?? ""] ?? "text-slate-300"}`}>{r.score ?? "-"}</span>
-        <span className={`pb-1 text-sm font-semibold ${LEVEL_TONE[r.level ?? ""] ?? "text-slate-400"}`}>{r.levelLabel}</span>
+        <span className={`pb-1 text-sm font-semibold ${LEVEL_TONE[r.level ?? ""] ?? "text-slate-400"}`}>{r.level ? LEVEL_LABEL[r.level] ?? r.levelLabel : "Not enough evidence yet"}</span>
         {r.uncappedScore != null && r.score != null && r.uncappedScore > r.score && <span className="pb-1 text-[11px] text-slate-400">({r.uncappedScore} before the critical-error cap)</span>}
         {r.declared && <span className="ml-auto pb-1 text-[11px] text-slate-400">Declared Sev-{r.declared.severity} at {fmt(r.declared.atS)}{r.truthSeverity && <> · the incident was Sev-{r.truthSeverity}</>}</span>}
       </div>
-      <p className="mt-1 text-[10px] text-slate-500">85% how you commanded (team &amp; incident 35, stakeholders 25, reporting 25) + 15% the team&apos;s outcome. Decisions are judged on what was visible when they were made.</p>
+      <div className="mt-2 space-y-0.5 text-[11px] text-slate-400">
+        <p>Your score out of 100 has four parts: how you ran the team and the incident (35%), the stakeholders (25%), reporting to management (25%), and the team&apos;s outcome (15%).</p>
+        <p>Inside each part every line scores <b className="text-neon-green">12</b> strong, <b className="text-neon-green">8</b> good, <b className="text-neon-amber">4</b> needs work or <b className="text-severity-critical">0</b> missed. Decisions are judged on what you could see when you made them, not on hindsight.</p>
+      </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-2">{r.pillars.map(p => <Pillar key={p.key} p={p} />)}</div>
     </>
   );
@@ -92,10 +97,12 @@ function Pillar({ p }: { p: CommandPillar }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="rounded-lg border border-border bg-bg px-2.5 py-2">
-      <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open} className="flex w-full items-center gap-2 text-left">
-        <span className="flex-1 text-xs font-semibold text-slate-200">{p.label} <span className="font-normal text-slate-500">{Math.round(p.weight * 100)}%</span></span>
-        <span className="font-mono text-sm font-bold text-slate-100">{p.score ?? "-"}</span>
+      <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open} className="flex w-full items-center gap-2 rounded text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-400">
+        <span className="flex-1 text-xs font-semibold text-slate-200">{p.label} <span className="font-normal text-slate-400">{Math.round(p.weight * 100)}%</span></span>
+        <span className="font-mono text-sm font-bold text-slate-100">{p.score ?? "-"}<span className="text-[10px] font-normal text-slate-400">{p.score != null ? "/100" : ""}</span></span>
+        <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden />
       </button>
+      {!open && p.cells.some(c => c.score != null) && <button type="button" onClick={() => setOpen(true)} className="mt-1 text-[11px] text-cyber-300 underline-offset-2 hover:underline">See what made this score</button>}
       <div className="mt-1 h-1.5 w-full rounded bg-slate-700" aria-hidden><div className="h-1.5 rounded bg-neon-purple" style={{ width: `${p.score ?? 0}%` }} /></div>
       {p.score == null && <p className="mt-1 text-[10px] text-slate-500">Not enough evidence to score this part.</p>}
       {open && (

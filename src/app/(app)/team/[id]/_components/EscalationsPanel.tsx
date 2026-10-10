@@ -52,7 +52,7 @@ export function EscalationsPanel({ events, nameOf, onAddToReport }: { events: Ev
       summary: `${asStr(p.containment_type) || "isolate"} ${asStr(p.target)}${asStr(p.reason) ? `: ${asStr(p.reason)}` : ""}`, status: c.status === "pending" ? "waiting for your approval" : c.status, owner: c.decidedBy });
   }
   items.sort((a, b) => b.seq - a.seq);
-  const waiting = items.filter(i => ["waiting", "waiting for Tier-3", "waiting for your approval"].includes(i.status)).length;
+  const waiting = waitingEscalations(events);
 
   const statusTone = (s: string) => s.startsWith("waiting") ? "border-neon-amber/50 bg-neon-amber/10 text-neon-amber"
     : s === "resolved" || s === "executed" || s === "approved" ? "border-neon-green/40 bg-neon-green/10 text-neon-green"
@@ -94,6 +94,7 @@ export function EscalationsPanel({ events, nameOf, onAddToReport }: { events: Ev
                   {asStr(p.severity) && <p className="text-slate-400">Severity given: {asStr(p.severity)}</p>}
                   {rep && <p className="text-slate-300"><span className="text-slate-500">Tier-2 report ({nameOf(rep.actor_id)}): </span>{asStr((rep.payload as { verdict?: unknown }).verdict).replace("_", " ")}{asStr((rep.payload as { summary?: unknown }).summary) && <> · {asStr((rep.payload as { summary?: unknown }).summary)}</>}</p>}
                   {adv.map(a => <p key={a.seq} className={(a.payload as { stance?: unknown }).stance === "object" ? "text-neon-amber" : "text-neon-green"}><bdi>{nameOf(a.actor_id)}</bdi> ({ROLE[a.role ?? ""] ?? "analyst"}) {(a.payload as { stance?: unknown }).stance === "object" ? "objects" : "supports"}{asStr((a.payload as { reason?: unknown }).reason) && <>: &quot;{asStr((a.payload as { reason?: unknown }).reason)}&quot;</>}</p>)}
+                  {it.kind === "containment" && it.status.startsWith("waiting") && <p className="text-neon-amber">Approve or deny it in Containment approvals, at the top of this view.</p>}
                   <button type="button" onClick={() => onAddToReport(it.host, it.summary)} className="flex items-center gap-1 text-cyber-300 hover:underline"><FilePlus2 className="h-3.5 w-3.5" aria-hidden /> Add to the stakeholder report</button>
                 </div>
               )}
@@ -105,10 +106,22 @@ export function EscalationsPanel({ events, nameOf, onAddToReport }: { events: Ev
   );
 }
 
-/** How many escalations wait for someone (for the menu badge). */
-export function waitingEscalations(events: Ev[]): number {
+/** Escalations nobody has taken yet: Tier-1 to Tier-2 and Tier-2 to Tier-3 (not your approvals). */
+export function waitingForTeam(events: Ev[]): number {
   let n = 0;
   for (const st of escalationStates(events).values()) if (st.rounds && !st.acked && !st.bounced && !st.resolved) n++;
-  n += containmentRequests(events).filter(c => c.status === "pending").length;
+  for (const e of events) {
+    if (e.type !== "elevation.requested") continue;
+    const eid = asStr((e.payload as { event_id?: unknown }).event_id);
+    if (!events.some(x => x.type === "elevation.acknowledged" && x.seq > e.seq && asStr((x.payload as { event_id?: unknown }).event_id) === eid)) n++;
+  }
   return n;
+}
+/** Containment requests waiting for the SOC Manager's approval. */
+export function pendingApprovals(events: Ev[]): number {
+  return containmentRequests(events).filter(c => c.status === "pending").length;
+}
+/** Everything in the Escalations view that is waiting (the menu badge and the panel use this one count). */
+export function waitingEscalations(events: Ev[]): number {
+  return waitingForTeam(events) + pendingApprovals(events);
 }

@@ -60,10 +60,10 @@ import { HuntConsole } from "./_components/HuntConsole";
 import { DEConsole } from "./_components/DEConsole";
 import { TIConsole } from "./_components/TIConsole";
 import { MgrConsole } from "./_components/MgrConsole";
-import { CommandDesk } from "./_components/CommandDesk";
-import { EscalationsPanel, waitingEscalations } from "./_components/EscalationsPanel";
+import { CommandDesk, openDecisionCards } from "./_components/CommandDesk";
+import { EscalationsPanel, waitingEscalations, pendingApprovals } from "./_components/EscalationsPanel";
 import { StakeholderWindow, openStakeholderQuestions } from "./_components/StakeholderWindow";
-import { StakeholderReportModal, type ReportSeed } from "./_components/StakeholderReportModal";
+import { StakeholderReportModal, ReportsSent, type ReportSeed, type ReportDraft } from "./_components/StakeholderReportModal";
 import { ContainmentAdvice } from "./_components/ContainmentAdvice";
 import { TeamReport } from "./_components/TeamReport";
 import { FeedFilterBar } from "./_components/FeedFilterBar";
@@ -153,6 +153,12 @@ export default function TeamRoomPage() {
   // escalation, the stakeholder report and the stakeholder window.
   const [mgrView, setMgrView] = useState<"board" | "logs" | "escalations" | "stakeholders" | "reporting">("board");
   const [reportSeed, setReportSeed] = useState<ReportSeed | null>(null);
+  // The report form keeps its draft between openings (closing it never throws work away).
+  const [reportDraft, setReportDraft] = useState<ReportDraft | null>(null);
+  // "Needs you": a short notice when a decision card, a stakeholder question or a containment
+  // request arrives, so the manager notices it from any view (also announced to screen readers).
+  const [mgrNotice, setMgrNotice] = useState<{ text: string; go: "desk" | "stakeholders" | "escalations" } | null>(null);
+  const lastNoticeSeq = useRef<number | null>(null);
   const [queueWithMedium, setQueueWithMedium] = useState(false);
   const [pulledNote, setPulledNote] = useState<string | null>(null);
   useEffect(() => { if (!pulledNote) return; const t = setTimeout(() => setPulledNote(null), 4000); return () => clearTimeout(t); }, [pulledNote]);
@@ -242,6 +248,25 @@ export default function TeamRoomPage() {
     })();
     return () => { cancelled = true; };
   }, [id]);
+
+  const isCoordSeat = me?.role === "mgr" || me?.role === "lead";
+  useEffect(() => {
+    if (!isCoordSeat || phase !== "running") return;
+    const arrivals = events.filter(e => (e.type === "staff.inject" && (e.payload as { kind?: unknown }).kind === "decision") || e.type === "stakeholder.asked" || e.type === "containment.requested");
+    const maxSeq = arrivals.reduce((m, e) => Math.max(m, e.seq), 0);
+    if (lastNoticeSeq.current == null) { lastNoticeSeq.current = maxSeq; return; }   // history is not news
+    const fresh = arrivals.filter(e => e.seq > (lastNoticeSeq.current ?? 0));
+    lastNoticeSeq.current = Math.max(lastNoticeSeq.current, maxSeq);
+    const last = fresh[fresh.length - 1];
+    if (!last) return;
+    const from = (last.payload as { from?: { name?: string; role?: string } }).from;
+    const notice = last.type === "stakeholder.asked" ? { text: `${from?.name ?? "A stakeholder"} (${from?.role ?? "stakeholder"}) is asking you a question.`, go: "stakeholders" as const }
+      : last.type === "containment.requested" ? { text: `${nameOf(last.actor_id)} asks you to approve a containment.`, go: "escalations" as const }
+        : { text: `New decision for you: ${from?.name ?? "your team"}.`, go: "desk" as const };
+    setMgrNotice(notice);
+    const t = setTimeout(() => setMgrNotice(n => (n === notice ? null : n)), 9000);
+    return () => clearTimeout(t);
+  }, [events, isCoordSeat, phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // First-use role guide: pop it once per role when the exercise goes live.
   useEffect(() => {
@@ -669,6 +694,15 @@ export default function TeamRoomPage() {
   // answer key, and a nudge timed to one log would point at it). v1 legacy sessions
   // still carry the key in their payloads, so they keep the old client-side rule.
   const nowTick = useServerNow(15_000);
+  // Page title counts what waits for the SOC Manager, so it shows in a background tab too.
+  const baseTitle = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isCoordSeat) return;
+    if (baseTitle.current == null) baseTitle.current = document.title.replace(/^\(\d+\)\s*/, "");
+    const n = phase === "running" ? openDecisionCards(events, nowTick) + openStakeholderQuestions(events, nowTick) + pendingApprovals(events) : 0;
+    document.title = n > 0 ? `(${n}) ${baseTitle.current}` : baseTitle.current;
+    return () => { if (baseTitle.current) document.title = baseTitle.current; };
+  }, [events, nowTick, isCoordSeat, phase]);
   const guidingNudge = useMemo((): string | null => {
     if (events.some(e => e.type === "escalation.requested")) return null;
     if (v2) {
@@ -959,6 +993,14 @@ export default function TeamRoomPage() {
             </div>
           </div>
         )}
+        {mgrNotice && (me?.role === "mgr" || me?.role === "lead") && (
+          <div role="status" className="fixed right-4 top-4 z-50 flex max-w-sm items-center gap-2 rounded-lg border border-neon-purple/60 bg-bg-elevated px-3 py-2.5 text-sm text-slate-100 shadow-2xl">
+            <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-neon-purple motion-reduce:animate-none" aria-hidden />
+            <span className="min-w-0 flex-1"><bdi>{mgrNotice.text}</bdi></span>
+            <Button variant="outline" size="sm" onClick={() => { if (mgrNotice.go === "desk") document.querySelector("[data-command-desk]")?.scrollIntoView({ behavior: "smooth", block: "start" }); else setMgrView(mgrNotice.go); setMgrNotice(null); }}>Open</Button>
+            <button onClick={() => setMgrNotice(null)} aria-label="Dismiss" className="rounded text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50"><X className="h-3.5 w-3.5" /></button>
+          </div>
+        )}
         {edrNote && <div role="alert" className="fixed bottom-4 right-4 z-50 flex max-w-md items-center gap-2 rounded-lg border border-neon-amber/50 bg-bg-elevated px-4 py-3 text-sm text-neon-amber shadow-2xl"><AlertTriangle className="h-4 w-4 shrink-0" />{edrNote}<button onClick={() => setEdrNote(null)} aria-label="Dismiss" className="ml-auto rounded text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50"><X className="h-3.5 w-3.5" /></button></div>}
 
         {/* 3-2-1 countdown: one assertive announcement per number. The region stays
@@ -1173,7 +1215,7 @@ export default function TeamRoomPage() {
             </div>
 
             {/* Always-visible "what do I do now" directive for the player's role */}
-            <div data-tour="role-banner" className="flex items-start gap-2 rounded-lg border border-cyber-500/30 bg-cyber-500/[0.06] px-3 py-2 text-sm">
+            <div data-tour="role-banner" className={`flex items-start gap-2 rounded-lg border border-cyber-500/30 bg-cyber-500/[0.06] px-3 py-2 text-sm ${me.role === "mgr" || me.role === "lead" ? "hidden" : ""}`}>
               <span className="shrink-0 rounded border border-cyber-500/40 bg-cyber-500/10 px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase text-cyber-300">{ROLE_LABEL[me.role ?? ""] ?? "observer"}</span>
               <span className="text-slate-200">{roleDirective(me.role)}</span>
               <button onClick={() => setShowGuide(true)} className="ml-auto shrink-0 rounded text-[11px] text-cyber-300 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50">how my role works →</button>
@@ -1193,29 +1235,55 @@ export default function TeamRoomPage() {
             {(me.role === "lead" || me.role === "mgr") && (() => {
               const waitingEsc = waitingEscalations(events);
               const openQs = openStakeholderQuestions(events, nowTick);
+              const openCards = openDecisionCards(events, nowTick);
+              const approvals = pendingApprovals(events);
               const declaredNow = events.some(e => e.type === "incident.declared");
               const lastUpdate = [...events].reverse().find(e => e.type === "sitrep.sent" || e.type === "stakeholder.report_sent");
               const declEv = events.find(e => e.type === "incident.declared");
               const sinceUpdateMin = declEv ? Math.floor((nowTick - Date.parse((lastUpdate ?? declEv).occurred_at ?? new Date(nowTick).toISOString())) / 60000) : 0;
               const updateDue = !!declEv && sinceUpdateMin >= 10;
-              const tab = (v: typeof mgrView, label: string, badge?: number | string, tone: "amber" | "purple" = "amber") => (
-                <button key={v} type="button" role="tab" aria-selected={mgrView === v} onClick={() => setMgrView(v)}
-                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition ${mgrView === v ? "border border-neon-purple/50 bg-neon-purple/15 text-white" : "border border-transparent text-slate-400 hover:text-slate-200"}`}>
-                  {label}{badge ? <span className={`rounded-full px-1.5 font-mono text-[10px] ${tone === "purple" ? "bg-neon-purple/25 text-neon-purple" : "bg-neon-amber/20 text-neon-amber"}`}>{badge}</span> : null}
+              const VIEWS: { v: typeof mgrView; label: string; badge?: number | string; sr?: string; tone?: "amber" | "purple" }[] = [
+                { v: "board", label: "Situation board" },
+                { v: "logs", label: "Logs" },
+                { v: "escalations", label: "Escalations", badge: waitingEsc || undefined, sr: `${waitingEsc} waiting` },
+                { v: "stakeholders", label: "Stakeholders", badge: openQs || undefined, sr: `${openQs} questions waiting`, tone: "purple" },
+                { v: "reporting", label: "Reporting", badge: updateDue ? `${sinceUpdateMin}m` : undefined, sr: `${sinceUpdateMin} minutes since your last update` },
+              ];
+              const onTabKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+                const i = VIEWS.findIndex(x => x.v === mgrView);
+                const to = e.key === "ArrowRight" ? (i + 1) % VIEWS.length : e.key === "ArrowLeft" ? (i - 1 + VIEWS.length) % VIEWS.length : e.key === "Home" ? 0 : e.key === "End" ? VIEWS.length - 1 : -1;
+                if (to < 0) return;
+                e.preventDefault();
+                setMgrView(VIEWS[to].v);
+                requestAnimationFrame(() => document.getElementById(`mgr-tab-${VIEWS[to].v}`)?.focus());
+              };
+              const chip = (n: number, label: string, onClick: () => void, tone: string) => n > 0 && (
+                <button type="button" onClick={onClick} className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold transition hover:brightness-125 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-400 ${tone}`}>
+                  <span className="font-mono">{n}</span> {label}
                 </button>
               );
               return (
-                <nav data-tour="mgr-menu" aria-label="SOC Manager menu" className="flex flex-wrap items-center gap-1 rounded-lg border border-border bg-bg-elevated/50 p-1">
-                  <div role="tablist" aria-label="Manager views" className="flex flex-wrap gap-1">
-                    {tab("board", "Situation board")}
-                    {tab("logs", "Logs")}
-                    {tab("escalations", "Escalations", waitingEsc)}
-                    {tab("stakeholders", "Stakeholders", openQs, "purple")}
-                    {tab("reporting", "Reporting", updateDue ? `${sinceUpdateMin}m` : undefined)}
+                <nav data-tour="mgr-menu" aria-label="SOC Manager menu" className="sticky top-2 z-20 flex flex-wrap items-center gap-1 rounded-lg border border-border bg-bg-elevated/95 p-1 backdrop-blur">
+                  <div role="tablist" aria-label="Manager views" className="flex flex-wrap gap-1" onKeyDown={onTabKey}>
+                    {VIEWS.map(t => (
+                      <button key={t.v} id={`mgr-tab-${t.v}`} type="button" role="tab" aria-selected={mgrView === t.v} aria-controls="mgr-panel" tabIndex={mgrView === t.v ? 0 : -1} onClick={() => setMgrView(t.v)}
+                        className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-400 ${mgrView === t.v ? "border border-neon-purple/50 bg-neon-purple/15 text-white" : "border border-transparent text-slate-400 hover:text-slate-200"}`}>
+                        {t.label}
+                        {t.badge ? <span className={`rounded-full px-1.5 font-mono text-[10px] ${t.tone === "purple" ? "bg-neon-purple/30 text-white" : "bg-neon-amber/20 text-neon-amber"}`} aria-hidden>{t.badge}</span> : null}
+                        {t.badge ? <span className="sr-only">, {t.sr}</span> : null}
+                      </button>
+                    ))}
                   </div>
-                  <div className="ml-auto flex flex-wrap gap-1">
-                    <button data-tour="report-button" type="button" disabled={!declaredNow} title={declaredNow ? "Write the incident report for stakeholders" : "Declare the incident first"} onClick={() => setReportSeed({ hosts: [], lines: [] })}
-                      className="rounded-md border border-neon-purple/40 px-3 py-1.5 text-xs font-semibold text-neon-purple transition hover:bg-neon-purple/10 disabled:cursor-not-allowed disabled:opacity-50">Report to stakeholders</button>
+                  <div className="ml-auto flex flex-wrap items-center gap-1.5">
+                    {(openCards + openQs + approvals > 0 || updateDue) && <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Needs you</span>}
+                    {chip(openCards, openCards === 1 ? "decision" : "decisions", () => document.querySelector("[data-command-desk]")?.scrollIntoView({ behavior: "smooth", block: "start" }), "border-neon-purple/50 bg-neon-purple/15 text-white")}
+                    {chip(openQs, openQs === 1 ? "question" : "questions", () => setMgrView("stakeholders"), "border-neon-purple/50 bg-neon-purple/15 text-white")}
+                    {chip(approvals, approvals === 1 ? "approval" : "approvals", () => setMgrView("escalations"), "border-neon-amber/50 bg-neon-amber/10 text-neon-amber")}
+                    {updateDue && chip(sinceUpdateMin, "min since your last update", () => setMgrView("reporting"), "border-neon-amber/50 bg-neon-amber/10 text-neon-amber")}
+                    <button data-tour="report-button" type="button" disabled={!declaredNow} onClick={() => setReportSeed({ hosts: [], lines: [] })}
+                      className="rounded-md border border-neon-purple/40 px-3 py-1.5 text-xs font-semibold text-neon-purple transition hover:bg-neon-purple/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-400 disabled:cursor-not-allowed disabled:opacity-60">
+                      {declaredNow ? "Report to stakeholders" : "Report to stakeholders (declare first)"}
+                    </button>
                   </div>
                 </nav>
               );
@@ -1233,10 +1301,11 @@ export default function TeamRoomPage() {
                   instructor seat (role "instructor") keeps the raw feed for oversight. */}
               {/* overflow-x-hidden: overflow-y:auto alone silently turns X into a scroll
                   container too, which is how the feed ended up clipped + sideways-scrolled. */}
-              <div data-tour={me.role === "lead" || me.role === "mgr" ? "mgr-view" : undefined} className="min-w-0 space-y-3 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto lg:overflow-x-hidden lg:pr-1">
+              <div data-tour={me.role === "lead" || me.role === "mgr" ? "mgr-view" : undefined}
+                {...(me.role === "lead" || me.role === "mgr" ? { id: "mgr-panel", role: "tabpanel", "aria-labelledby": `mgr-tab-${mgrView}` } : {})} className="min-w-0 space-y-3 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto lg:overflow-x-hidden lg:pr-1">
                 {(me.role === "lead" || me.role === "mgr") && mgrView === "board" ? (
                   <>
-                    <SituationBoard liveFeed={liveFeed} events={events} feed={feed} nameOf={nameOf} roster={roster} online={online} act={act} />
+                    <SituationBoard liveFeed={liveFeed} events={events} feed={feed} nameOf={nameOf} roster={roster} online={online} act={act} onOpenEscalations={() => setMgrView("escalations")} />
                     <TeamIntel events={events} nameOf={nameOf} />
                     <InjectFeed sessionId={id} events={events} me={me} nameOf={nameOf} act={act} hasManager={hasManager}
                       onWriteSitrep={() => { setMgrView("reporting"); setTimeout(() => document.querySelector<HTMLInputElement>("#team-sitrep input")?.focus(), 150); }} />
@@ -1246,13 +1315,13 @@ export default function TeamRoomPage() {
                   <>
                     <LeadConsole events={events} nameOf={nameOf} act={act} parts={["approvals"]} />
                     <EscalationsPanel events={events} nameOf={nameOf} onAddToReport={(host, line) => setReportSeed({ hosts: host ? [host] : [], lines: [line] })} />
-                    <LeadConsole events={events} nameOf={nameOf} act={act} parts={["queue"]} />
                   </>
                 ) : (me.role === "lead" || me.role === "mgr") && mgrView === "stakeholders" ? (
-                  <StakeholderWindow sessionId={id} events={events} act={act} declared={events.some(e => e.type === "incident.declared")} onReport={() => setReportSeed({ hosts: [], lines: [] })} />
+                  <StakeholderWindow sessionId={id} events={events} act={act} declared={events.some(e => e.type === "incident.declared")} />
                 ) : (me.role === "lead" || me.role === "mgr") && mgrView === "reporting" ? (
                   <>
                     <LeadConsole events={events} nameOf={nameOf} act={act} parts={["sitrep", "log"]} />
+                    <ReportsSent events={events} />
                     {me.role === "mgr" && <MgrConsole roster={roster} events={events} act={act} />}
                   </>
                 ) : (
@@ -1332,7 +1401,7 @@ export default function TeamRoomPage() {
                 )}
               </div>
               {/* YOUR ROLE — the dominant role panel(s), then secondary panels tabbed (G-03) */}
-              <div className="min-w-0 space-y-4">
+              <div className={`min-w-0 space-y-4 ${me.role === "lead" || me.role === "mgr" ? "order-first lg:order-none lg:sticky lg:top-16 lg:max-h-[calc(100vh-5rem)] lg:self-start lg:overflow-y-auto lg:pr-1" : ""}`}>
                 {me.role === "t1" && <div data-tour="t1-console"><T1Console sessionId={id} feed={feed} dispositions={dispositions} events={events} meId={me.id} iocDraft={iocDraft} setIocDraft={setIocDraft} nameOf={nameOf} act={act} actR={actR} sel={t1Sel} setSel={setT1Sel} reportOpen={t1ReportOpen} setReportOpen={setT1ReportOpen} /></div>}
                 {/* B12: Tier-3's dominant surface is HUNTING — render it above the (secondary) inbox. */}
                 {me.role === "t3" && <div data-tour="hunt-console"><HuntConsole canEdr={canEdr} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} elevations={elevations} elevAcked={elevAcked} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={onFeedPivot} /></div>}
@@ -1341,7 +1410,7 @@ export default function TeamRoomPage() {
                     decision log, SITREP) as well as shift management. 'lead'/'de' branches
                     stay for backward-compatibility with older sessions; 'ti' is a live seat. */}
                 {/* Command desk first: declaration, severity and the decision cards the director raises from what is really happening. */}
-                {(me.role === "lead" || me.role === "mgr") && <div data-tour="command-desk"><CommandDesk sessionId={id} events={events} act={act} running={phase === "running"} /></div>}
+                {(me.role === "lead" || me.role === "mgr") && <div data-tour="command-desk"><CommandDesk sessionId={id} events={events} act={act} running={phase === "running"} onOpenEscalations={() => setMgrView("escalations")} /></div>}
                 {(me.role === "t2" || me.role === "t3") && <div data-tour="containment-advice" className="empty:hidden"><ContainmentAdvice events={events} meId={me.id} nameOf={nameOf} act={act} /></div>}
                 {/* The manager's consoles live behind the menu (one view at a time, no visual overload). */}
                 {me.role === "de" && <DEConsole liveFeed={liveFeed} events={events} act={act} />}
@@ -1373,6 +1442,8 @@ export default function TeamRoomPage() {
     </div>
       {reportSeed && (me?.role === "mgr" || me?.role === "lead") && (
         <StakeholderReportModal events={events} seed={reportSeed} onClose={() => setReportSeed(null)} act={act}
+          draft={reportDraft} onDraft={setReportDraft}
+          onSent={msg => { setReportDraft(null); setMgrNotice({ text: msg, go: "stakeholders" }); }}
           severity={(() => { const e = [...events].reverse().find(x => x.type === "incident.declared" || x.type === "incident.severity_changed"); return e ? Number((e.payload as { severity?: unknown }).severity) : null; })()} />
       )}
       {caseLog && (me?.role === "t2" || me?.role === "t3") && (

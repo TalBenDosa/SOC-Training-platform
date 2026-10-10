@@ -154,7 +154,8 @@ describe("pacing", () => {
   it("the CEO's office follows up only when the CISO's call expired unanswered", () => {
     const events = [feed("e1", 1), escalate("e1", 2), firedCard("ciso_status", 4, 60)];
     expect(eligible(events, 4.5).has("ciso_bypass")).toBe(false);
-    expect(eligible(events, 5.5).has("ciso_bypass")).toBe(true);
+    expect(eligible(events, 5.5).has("ciso_bypass")).toBe(false);   // late window (2 min) still open
+    expect(eligible(events, 7.1).has("ciso_bypass")).toBe(true);
   });
 });
 

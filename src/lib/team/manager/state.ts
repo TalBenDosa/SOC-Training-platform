@@ -10,6 +10,7 @@
 import type { Ev } from "@/lib/team/types";
 import { asStr, hostKey } from "@/lib/team/format";
 import { containmentRequests, escalationStates, isOpenEscalation, latestScope, openLoadByUser, isolationState } from "@/lib/team/projections";
+import { LATE_GRACE_S } from "./timing";
 
 export type Difficulty = "easy" | "medium" | "hard";
 export interface Member { user_id: string; role: string; status: string; name: string }
@@ -158,7 +159,8 @@ export function buildMgrState(input: DirectorInput): MgrState {
     return {
       card: String(p.card ?? ""), injectId, seq: e.seq, atMs, deadlineS,
       answered: a ? { option: String(ap?.option ?? ""), confidence: String(ap?.confidence ?? ""), atMs: ms(a) } : null,
-      expired: !a && nowMs > atMs + deadlineS * 1000,
+      // Closed = past the deadline AND the late window (a late card is still on the desk).
+      expired: !a && nowMs > atMs + (deadlineS + LATE_GRACE_S) * 1000,
     };
   });
 
@@ -212,7 +214,7 @@ export function buildMgrState(input: DirectorInput): MgrState {
     const injectId = String(p.inject_id ?? "");
     const r = replies.get(injectId);
     const atMs = ms(e); const deadlineS = Number(p.deadline_s) || 240;
-    return { qid: String(p.qid ?? ""), injectId, seq: e.seq, atMs, deadlineS, replied: r ? { text: asStr((r.payload as { text?: unknown }).text), atMs: ms(r) } : null, expired: !r && nowMs > atMs + deadlineS * 1000 };
+    return { qid: String(p.qid ?? ""), injectId, seq: e.seq, atMs, deadlineS, replied: r ? { text: asStr((r.payload as { text?: unknown }).text), atMs: ms(r) } : null, expired: !r && nowMs > atMs + (deadlineS + LATE_GRACE_S) * 1000 };
   });
   const severityChanges = events.filter(e => e.type === "incident.severity_changed").map(e => ({ severity: Number((e.payload as { severity?: unknown }).severity), reason: asStr((e.payload as { reason?: unknown }).reason), atMs: ms(e) }));
   const reports = events.filter(e => e.type === "stakeholder.report_sent").map(e => ({ atMs: ms(e), dataImpact: asStr((e.payload as { data_impact?: unknown }).data_impact), status: asStr((e.payload as { status?: unknown }).status) }));

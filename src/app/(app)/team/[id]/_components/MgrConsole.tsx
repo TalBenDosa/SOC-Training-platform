@@ -44,9 +44,15 @@ export function MgrConsole({ roster, events, act }: { roster: RosterMember[]; ev
       </div>
       <div className="mt-3 space-y-1.5 border-t border-border/50 pt-2">
         <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Shift passdown</p>
-        <textarea aria-label="Open cases" value={ho.open_cases} onChange={e => setHo(s => ({ ...s, open_cases: e.target.value }))} placeholder="Open cases (id · sev · status · last action)" rows={2} className="w-full resize-y rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
-        <input aria-label="Blockers (optional)" value={ho.blockers} onChange={e => setHo(s => ({ ...s, blockers: e.target.value }))} placeholder="Blockers (optional)" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
-        <input aria-label="Next actions and deadline" value={ho.next} onChange={e => setHo(s => ({ ...s, next: e.target.value }))} placeholder="Next actions + deadline" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+        <label className="block text-[11px] font-semibold text-slate-300">Open cases
+          <textarea value={ho.open_cases} onChange={e => setHo(s => ({ ...s, open_cases: e.target.value }))} placeholder="Open cases (id · sev · status · last action)" rows={2} className="mt-1 w-full resize-y rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/60" />
+        </label>
+        <label className="block text-[11px] font-semibold text-slate-300">Blockers (optional)
+          <input value={ho.blockers} onChange={e => setHo(s => ({ ...s, blockers: e.target.value }))} placeholder="Blockers (optional)" className="mt-1 w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/60" />
+        </label>
+        <label className="block text-[11px] font-semibold text-slate-300">Next actions and deadline
+          <input value={ho.next} onChange={e => setHo(s => ({ ...s, next: e.target.value }))} placeholder="Next actions + deadline" className="mt-1 w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/60" />
+        </label>
         <Button variant="primary" size="sm" disabled={busy || !canPost} onClick={post}>Sign passdown</Button>
       </div>
     </Card>

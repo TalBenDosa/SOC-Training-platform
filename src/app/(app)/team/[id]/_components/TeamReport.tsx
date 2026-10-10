@@ -456,6 +456,8 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
 
   return (
     <div className="space-y-5">
+      {/* The manager reads their own Command Review first. */}
+      {managerReview && !managerReview.redacted && me.id === managerReview.managerId && <CommandReview review={managerReview} xp={xp[managerReview.managerId]} />}
       <Card className={incTone === "good" ? "border-neon-green/30" : "border-neon-amber/30"}>
         <div className="flex items-center justify-between">
           <h2 className="text-base font-bold text-white">Shift review</h2>
@@ -588,7 +590,7 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
       )}
 
       {/* SOC Manager: Command Review (decision quality, stakeholders, reporting) */}
-      {managerReview && <CommandReview review={managerReview} xp={managerReview.redacted ? undefined : xp[managerReview.managerId]} />}
+      {managerReview && !(!managerReview.redacted && me.id === managerReview.managerId) && <CommandReview review={managerReview} xp={managerReview.redacted ? undefined : xp[managerReview.managerId]} />}
 
       {/* Guided hot-wash FIRST — the debrief conversation, reconstructed from the log (U2) */}
       <HotWash events={revealed} nameOf={nameOf} />

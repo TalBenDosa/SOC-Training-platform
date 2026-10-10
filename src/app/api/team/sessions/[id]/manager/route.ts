@@ -5,6 +5,7 @@ import { activeSeat } from "@/lib/team/membership";
 import { indicatorsAfter, cardScore } from "@/lib/team/manager/director";
 import { loadSession, loadTeamEvents, loadDecisionInjects, loadQuestionInjects } from "@/lib/team/manager/server";
 import { checkReply } from "@/lib/team/manager/questions";
+import { LATE_GRACE_S } from "@/lib/team/manager/timing";
 
 /**
  * GET /api/team/sessions/[id]/manager - the SOC Manager's view of his own decisions.
@@ -41,7 +42,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       const a = answers.get(inj.id);
       const at = inj.fired_seq != null ? firedAt.get(inj.fired_seq) ?? now : now;
       const deadline = Number((inj.body as { deadline_s?: unknown }).deadline_s) || 240;
-      const expired = !a && now > at + deadline * 1000;
+      // Feedback only once decided, or once the late window closed (a late answer must not copy the key).
+      const expired = !a && now > at + (deadline + LATE_GRACE_S) * 1000;
       if (!a && !expired) return { inject_id: inj.id, card: key.card, state: "open" as const };
       const option = a ? String((a.payload as { option?: unknown }).option) : null;
       const confidence = a ? String((a.payload as { confidence?: unknown }).confidence) : null;
@@ -61,7 +63,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       const r = replies.get(inj.id);
       const at = inj.fired_seq != null ? askedAt.get(inj.fired_seq) ?? now : now;
       const deadline = Number((inj.body as { deadline_s?: unknown }).deadline_s) || 240;
-      if (!r && now <= at + deadline * 1000) return { inject_id: inj.id, qid: key.qid, state: "open" as const };
+      if (!r && now <= at + (deadline + LATE_GRACE_S) * 1000) return { inject_id: inj.id, qid: key.qid, state: "open" as const };
       const text = r ? String((r.payload as { text?: unknown }).text ?? "") : "";
       const rt = r?.occurred_at ? Date.parse(r.occurred_at) : null;
       const graded = r ? checkReply(text, key) : { checks: [], score: 0 };

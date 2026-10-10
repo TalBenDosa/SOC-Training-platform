@@ -6,6 +6,7 @@ import { MessagesSquare, Clock, Check, X } from "lucide-react";
 import type { Ev } from "@/lib/team/types";
 import { asStr } from "@/lib/team/format";
 import { useServerNow } from "@/lib/team/clock";
+import { requestPhase, LATE_GRACE_S } from "@/lib/team/manager/timing";
 
 /**
  * The stakeholder window (SOC Manager): from the moment the incident is declared, the CISO, the
@@ -17,7 +18,7 @@ import { useServerNow } from "@/lib/team/clock";
 
 interface QFeedback { inject_id: string; state: "open" | "answered" | "expired"; late?: boolean; checks?: { id: string; label: string; ok: boolean }[]; score?: number; model?: string }
 
-export function StakeholderWindow({ sessionId, events, act, declared, onReport }: { sessionId: string; events: Ev[]; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; declared: boolean; onReport?: () => void }) {
+export function StakeholderWindow({ sessionId, events, act, declared }: { sessionId: string; events: Ev[]; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; declared: boolean }) {
   const now = useServerNow(1_000);
   const asked = useMemo(() => events.filter(e => e.type === "stakeholder.asked"), [events]);
   const replies = useMemo(() => new Map(events.filter(e => e.type === "stakeholder.replied").map(e => [asStr((e.payload as { inject_id?: unknown }).inject_id), e])), [events]);
@@ -25,7 +26,8 @@ export function StakeholderWindow({ sessionId, events, act, declared, onReport }
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const deadlineOf = (e: Ev) => (e.occurred_at ? Date.parse(e.occurred_at) : now) + (Number((e.payload as { deadline_s?: unknown }).deadline_s) || 240) * 1000;
-  const expiredCount = asked.filter(e => !replies.has(asStr((e.payload as { inject_id?: unknown }).inject_id)) && now > deadlineOf(e)).length;
+  const phaseOf = (e: Ev) => requestPhase(e.occurred_at ? Date.parse(e.occurred_at) : now, Number((e.payload as { deadline_s?: unknown }).deadline_s) || 240, now);
+  const expiredCount = asked.filter(e => !replies.has(asStr((e.payload as { inject_id?: unknown }).inject_id)) && phaseOf(e) === "closed").length;
 
   const load = useCallback(async () => {
     try {
@@ -42,7 +44,7 @@ export function StakeholderWindow({ sessionId, events, act, declared, onReport }
     </Card>
   );
 
-  const open = asked.filter(e => !replies.has(asStr((e.payload as { inject_id?: unknown }).inject_id)) && now <= deadlineOf(e)).length;
+  const open = asked.filter(e => !replies.has(asStr((e.payload as { inject_id?: unknown }).inject_id)) && phaseOf(e) !== "closed").length;
   async function send(id: string) {
     const text = (draft[id] ?? "").trim();
     if (!text) return;
@@ -58,7 +60,6 @@ export function StakeholderWindow({ sessionId, events, act, declared, onReport }
         <div className="flex items-center gap-2">
           <h3 className="flex items-center gap-2 text-sm font-bold text-white"><MessagesSquare className="h-4 w-4 text-neon-purple" aria-hidden /> Stakeholders</h3>
           {open > 0 && <span className="rounded-full bg-neon-purple/20 px-2 font-mono text-[10px] text-neon-purple">{open} waiting</span>}
-          {onReport && <Button variant="outline" size="sm" className="ml-auto" onClick={onReport}>Write incident report</Button>}
         </div>
         {asked.length === 0 && <p className="mt-1 text-[11px] text-slate-400">Quiet for now. Questions arrive as the incident develops: answer with what is confirmed, what is not, and when the next update comes.</p>}
         <div className="mt-2 space-y-2">
@@ -66,15 +67,17 @@ export function StakeholderWindow({ sessionId, events, act, declared, onReport }
             const p = e.payload as { inject_id?: string; from?: { name?: string; role?: string }; text?: string };
             const id = asStr(p.inject_id);
             const r = replies.get(id);
-            const left = Math.max(0, Math.round((deadlineOf(e) - now) / 1000));
+            const phase = phaseOf(e);
+            const late = phase === "late";
+            const left = Math.max(0, Math.round(((late ? deadlineOf(e) + LATE_GRACE_S * 1000 : deadlineOf(e)) - now) / 1000));
             const f = fb.find(x => x.inject_id === id);
             return (
               <div key={e.seq} className="space-y-1.5">
                 <div className="rounded-lg rounded-tl-none border border-border bg-bg px-2.5 py-2">
                   <div className="flex items-center gap-2 text-[10px]">
                     <b className="text-slate-200"><bdi>{asStr(p.from?.name)}</bdi></b><span className="text-slate-500">{asStr(p.from?.role)}</span>
-                    {!r && left > 0 && <span className={`ml-auto flex items-center gap-1 font-mono ${left <= 30 ? "text-severity-critical" : "text-neon-amber"}`}><Clock className="h-3 w-3" aria-hidden />{Math.floor(left / 60)}:{String(left % 60).padStart(2, "0")}</span>}
-                    {!r && left === 0 && <span className="ml-auto text-severity-critical">no answer in time</span>}
+                    {!r && phase !== "closed" && <span className={`ml-auto flex items-center gap-1 font-mono ${late || left <= 30 ? "text-severity-critical" : "text-neon-amber"}`}><Clock className="h-3 w-3" aria-hidden />{late && <span className="font-sans font-semibold">Late · </span>}{Math.floor(left / 60)}:{String(left % 60).padStart(2, "0")}</span>}
+                    {!r && phase === "closed" && <span className="ml-auto text-severity-critical">no answer</span>}
                   </div>
                   <p className="mt-0.5 text-xs leading-relaxed text-slate-100"><bdi>{asStr(p.text)}</bdi></p>
                 </div>
@@ -91,15 +94,16 @@ export function StakeholderWindow({ sessionId, events, act, declared, onReport }
                       </div>
                     )}
                   </div>
-                ) : left > 0 ? (
+                ) : phase !== "closed" ? (
                   <div className="ml-6 space-y-1">
+                    {late && <p className="text-[11px] text-neon-amber">Past the deadline: you can still answer for {Math.ceil(LATE_GRACE_S / 60)} more minutes, marked late.</p>}
                     <textarea aria-label={`Answer ${asStr(p.from?.name)}`} value={draft[id] ?? ""} rows={4} maxLength={1200}
                       onChange={ev => setDraft(d => ({ ...d, [id]: ev.target.value }))}
                       placeholder="What is confirmed, what is not yet known, what you are doing, and when the next update comes."
                       className="w-full resize-y rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:border-neon-purple/50 focus:outline-none" />
                     <Button variant="primary" size="sm" disabled={busy === id || !(draft[id] ?? "").trim()} onClick={() => send(id)}>Reply</Button>
                   </div>
-                ) : f?.model ? <p className="ml-6 text-[10px] text-slate-400">A strong answer would have been: {f.model}</p> : null}
+                ) : f?.model ? <p className="ml-6 text-[11px] text-slate-400">A strong answer would have been: {f.model}</p> : null}
               </div>
             );
           })}
@@ -113,5 +117,5 @@ export function StakeholderWindow({ sessionId, events, act, declared, onReport }
 export function openStakeholderQuestions(events: Ev[], now: number): number {
   const replied = new Set(events.filter(e => e.type === "stakeholder.replied").map(e => asStr((e.payload as { inject_id?: unknown }).inject_id)));
   return events.filter(e => e.type === "stakeholder.asked" && !replied.has(asStr((e.payload as { inject_id?: unknown }).inject_id))
-    && (e.occurred_at ? Date.parse(e.occurred_at) : now) + (Number((e.payload as { deadline_s?: unknown }).deadline_s) || 240) * 1000 >= now).length;
+    && requestPhase(e.occurred_at ? Date.parse(e.occurred_at) : now, Number((e.payload as { deadline_s?: unknown }).deadline_s) || 240, now) !== "closed").length;
 }
