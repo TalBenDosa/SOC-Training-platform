@@ -3,6 +3,7 @@
 --   at that moment; the workbench builds its tool views only from what happened before it.
 -- * forensic.finding (t3): a structured finding with cited evidence rows, shared with the team
 --   and the SOC Manager.
+-- * forensic.report (t3): Tier-3's report to the SOC Manager (status, escalation, containment readiness).
 -- * rtr.action (t2/t3): kill / get / memdump from the EDR console's RTR shell, so destroying or
 --   preserving evidence is on the record (a kill before the memory capture loses the process).
 -- * session_action_allowed + team_validate_action recreated from 0094 with the additions.
@@ -40,7 +41,7 @@ create or replace function public.session_action_allowed(p_type text, p_role tex
     when p_type in ('stakeholder.replied','stakeholder.report_sent') then p_role in ('lead','mgr') and p_status = 'running'
     when p_type = 'containment.advised'      then p_role in ('t2','t3')    and p_status = 'running'
     -- 0095: Tier-3 forensics (evidence collection, findings) and RTR actions from the EDR console
-    when p_type in ('forensic.collected','forensic.finding') then p_role = 't3' and p_status = 'running'
+    when p_type in ('forensic.collected','forensic.finding','forensic.report') then p_role = 't3' and p_status = 'running'
     when p_type = 'rtr.action'               then p_role in ('t2','t3')    and p_status = 'running'
     when p_type = 'coordination.nudge'       then p_role in ('lead','mgr') and p_status = 'running'
     when p_type = 'evidence.pinned'          then p_role in ('t1','t2','t3','de','ti','mgr','lead') and p_status = 'running'
@@ -383,6 +384,17 @@ begin
     if jsonb_typeof(coalesce(p_payload->'evidence', '[]'::jsonb)) <> 'array' or jsonb_array_length(coalesce(p_payload->'evidence', '[]'::jsonb)) > 30 then
       raise exception 'invalid_payload: evidence must be a list (up to 30)';
     end if;
+  elsif p_type = 'forensic.report' then
+    -- Tier-3's report to the SOC Manager (status / escalation / containment readiness)
+    if coalesce(p_payload->>'kind', '') not in ('status','scope_grew','data_at_risk','containment_ready','need_decision') then
+      raise exception 'invalid_payload: unknown report kind';
+    end if;
+    v_txt := btrim(coalesce(p_payload->>'summary', ''));
+    if v_txt = '' or length(v_txt) > 1500 then raise exception 'invalid_payload: the report needs a summary (up to 1500 characters)'; end if;
+    if coalesce(p_payload->>'readiness', '') not in ('ready','not_ready','unknown') then
+      raise exception 'invalid_payload: readiness must be ready, not_ready or unknown';
+    end if;
+    if length(p_payload::text) > 12000 then raise exception 'invalid_payload: the report is too long'; end if;
   elsif p_type = 'rtr.action' then
     if btrim(coalesce(p_payload->>'host', '')) = '' then raise exception 'invalid_payload: host is required'; end if;
     if coalesce(p_payload->>'action', '') not in ('kill','get','memdump') then

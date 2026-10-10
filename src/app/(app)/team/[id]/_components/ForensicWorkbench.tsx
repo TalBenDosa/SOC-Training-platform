@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { HardDrive, Cpu, Pin, PinOff, FileSearch, ShieldQuestion, Lock, Microscope } from "lucide-react";
@@ -10,6 +10,7 @@ import { withRebasedTime } from "@/lib/sim/rebaseTime";
 import { useServerNow } from "@/lib/team/clock";
 import { buildEvidenceView, COLLECT_DELAY_S, EVIDENCE_PREFIX, type EvidenceKind, type FeedRow, type HostState } from "@/lib/forensics/workbench";
 import { ChoiceGroup } from "./ChoiceGroup";
+import { useForensicPins } from "./forensicPins";
 
 /**
  * Tier-3 Forensic Workbench (MVP). Pick a host the team is working, collect evidence (a memory
@@ -25,7 +26,6 @@ const FINDING_KINDS = [
   { v: "exfiltration", label: "Data staged or exfiltrated" }, { v: "note", label: "Other finding" },
 ] as const;
 const KIND_LABEL: Record<string, string> = Object.fromEntries(FINDING_KINDS.map(k => [k.v, k.label]));
-interface PinRow { ref: string; host: string; evidence: string; plugin: string; text: string; atMs: number | null }
 
 const hhmm = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
@@ -87,11 +87,7 @@ export function ForensicWorkbench({ sessionId, feed, events, meId, nameOf, act, 
   const table = view?.tables.find(t => t.plugin === plugin) ?? view?.tables[0] ?? null;
 
   // Pins: my working timeline (kept in this browser), cited by findings.
-  const pinKey = `fw-pins-${sessionId}-${meId}`;
-  const [pins, setPins] = useState<PinRow[]>([]);
-  useEffect(() => { try { setPins(JSON.parse(localStorage.getItem(pinKey) ?? "[]")); } catch { /* storage blocked */ } }, [pinKey]);
-  const savePins = (next: PinRow[]) => { setPins(next); try { localStorage.setItem(pinKey, JSON.stringify(next)); } catch { /* storage blocked */ } };
-  const togglePin = (r: PinRow) => savePins(pins.some(p => p.ref === r.ref) ? pins.filter(p => p.ref !== r.ref) : [...pins, r]);
+  const { pins, toggle: togglePin } = useForensicPins(sessionId, meId);
 
   const [busy, setBusy] = useState<EvidenceKind | null>(null);
   async function collect(kind: EvidenceKind) {

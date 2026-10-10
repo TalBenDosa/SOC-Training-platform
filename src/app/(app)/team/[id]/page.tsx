@@ -65,7 +65,8 @@ import { EscalationsPanel, waitingEscalations, pendingApprovals } from "./_compo
 import { StakeholderWindow, openStakeholderQuestions } from "./_components/StakeholderWindow";
 import { StakeholderReportModal, ReportsSent, type ReportSeed, type ReportDraft } from "./_components/StakeholderReportModal";
 import { ContainmentAdvice } from "./_components/ContainmentAdvice";
-import { ForensicWorkbench, FindingsBoard } from "./_components/ForensicWorkbench";
+import { ForensicWorkbench, FindingsBoard, forensicHosts } from "./_components/ForensicWorkbench";
+import { TimelineExplorer, IntelLookup, AttackLookup, ForensicReportModal, ForensicReportsCard } from "./_components/T3Toolkit";
 import { TeamReport } from "./_components/TeamReport";
 import { FeedFilterBar } from "./_components/FeedFilterBar";
 import { SituationBoard } from "./_components/SituationBoard";
@@ -151,7 +152,11 @@ export default function TeamRoomPage() {
   // Tier-1 queue = a VIEW of the SIEM table ("Needs triage"), not a separate card.
   const [feedView, setFeedView] = useState<"all" | "triage">("all");
   // Tier-3: most of the work is forensics, so the workbench is the default; the live feed is one tab away.
-  const [t3View, setT3View] = useState<"workbench" | "feed">("workbench");
+  const [t3View, setT3View] = useState<"workbench" | "feed" | "timeline" | "intel" | "attack">("workbench");
+  const [t3ReportOpen, setT3ReportOpen] = useState(false);
+  const [t3Sent, setT3Sent] = useState<string | null>(null);
+  useEffect(() => { if (!t3Sent) return; const t = setTimeout(() => setT3Sent(null), 7000); return () => clearTimeout(t); }, [t3Sent]);
+  const [t3EdrHost, setT3EdrHost] = useState("");
   // SOC Manager menu: the situation board, the raw logs (to back up the analysts), every
   // escalation, the stakeholder report and the stakeholder window.
   const [mgrView, setMgrView] = useState<"board" | "logs" | "escalations" | "stakeholders" | "reporting">("board");
@@ -160,7 +165,7 @@ export default function TeamRoomPage() {
   const [reportDraft, setReportDraft] = useState<ReportDraft | null>(null);
   // "Needs you": a short notice when a decision card, a stakeholder question or a containment
   // request arrives, so the manager notices it from any view (also announced to screen readers).
-  const [mgrNotice, setMgrNotice] = useState<{ text: string; go: "desk" | "stakeholders" | "escalations" } | null>(null);
+  const [mgrNotice, setMgrNotice] = useState<{ text: string; go: "desk" | "stakeholders" | "escalations" | "board" } | null>(null);
   const lastNoticeSeq = useRef<number | null>(null);
   const [queueWithMedium, setQueueWithMedium] = useState(false);
   const [pulledNote, setPulledNote] = useState<string | null>(null);
@@ -255,7 +260,7 @@ export default function TeamRoomPage() {
   const isCoordSeat = me?.role === "mgr" || me?.role === "lead";
   useEffect(() => {
     if (!isCoordSeat || phase !== "running") return;
-    const arrivals = events.filter(e => (e.type === "staff.inject" && (e.payload as { kind?: unknown }).kind === "decision") || e.type === "stakeholder.asked" || e.type === "containment.requested");
+    const arrivals = events.filter(e => (e.type === "staff.inject" && (e.payload as { kind?: unknown }).kind === "decision") || e.type === "stakeholder.asked" || e.type === "containment.requested" || e.type === "forensic.report");
     const maxSeq = arrivals.reduce((m, e) => Math.max(m, e.seq), 0);
     if (lastNoticeSeq.current == null) { lastNoticeSeq.current = maxSeq; return; }   // history is not news
     const fresh = arrivals.filter(e => e.seq > (lastNoticeSeq.current ?? 0));
@@ -265,6 +270,7 @@ export default function TeamRoomPage() {
     const from = (last.payload as { from?: { name?: string; role?: string } }).from;
     const notice = last.type === "stakeholder.asked" ? { text: `${from?.name ?? "A stakeholder"} (${from?.role ?? "stakeholder"}) is asking you a question.`, go: "stakeholders" as const }
       : last.type === "containment.requested" ? { text: `${nameOf(last.actor_id)} asks you to approve a containment.`, go: "escalations" as const }
+      : last.type === "forensic.report" ? { text: `${nameOf(last.actor_id)} (Tier-3) sent you a forensic report.`, go: "board" as const }
         : { text: `New decision for you: ${from?.name ?? "your team"}.`, go: "desk" as const };
     setMgrNotice(notice);
     const t = setTimeout(() => setMgrNotice(n => (n === notice ? null : n)), 9000);
@@ -1004,6 +1010,7 @@ export default function TeamRoomPage() {
             <button onClick={() => setMgrNotice(null)} aria-label="Dismiss" className="rounded text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50"><X className="h-3.5 w-3.5" /></button>
           </div>
         )}
+        {t3Sent && <div role="status" className="fixed bottom-4 right-4 z-50 flex max-w-md items-center gap-2 rounded-lg border border-neon-green/50 bg-bg-elevated px-4 py-3 text-sm text-neon-green shadow-2xl"><CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden />{t3Sent}<button onClick={() => setT3Sent(null)} aria-label="Dismiss" className="ml-auto rounded text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50"><X className="h-3.5 w-3.5" /></button></div>}
         {edrNote && <div role="alert" className="fixed bottom-4 right-4 z-50 flex max-w-md items-center gap-2 rounded-lg border border-neon-amber/50 bg-bg-elevated px-4 py-3 text-sm text-neon-amber shadow-2xl"><AlertTriangle className="h-4 w-4 shrink-0" />{edrNote}<button onClick={() => setEdrNote(null)} aria-label="Dismiss" className="ml-auto rounded text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50"><X className="h-3.5 w-3.5" /></button></div>}
 
         {/* 3-2-1 countdown: one assertive announcement per number. The region stays
@@ -1296,7 +1303,7 @@ export default function TeamRoomPage() {
                 logs and writing reports in the role column — get an even split instead
                 of a narrow side rail. The left column is sticky so the feed and the team
                 chat stay in view while the role column scrolls (no empty half-page). */}
-            <div className={`grid gap-4 ${me.role === "t3" && t3View === "workbench" ? "lg:grid-cols-[minmax(0,1.7fr)_minmax(340px,1fr)]" : me.role === "t2" || me.role === "t3" ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" : "lg:grid-cols-[minmax(0,1fr)_minmax(360px,32%)]"}`}>
+            <div className={`grid gap-4 ${me.role === "t3" && t3View !== "feed" ? "lg:grid-cols-[minmax(0,1.7fr)_minmax(340px,1fr)]" : me.role === "t2" || me.role === "t3" ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" : "lg:grid-cols-[minmax(0,1fr)_minmax(360px,32%)]"}`}>
               {/* Left column: raw feed for analysts; a summaries-only Situation Board
                   for the coordinator SEAT (Lead/Mgr) — §3.7 keeps coordinators OUT of
                   raw (G-08). Decided by the seat, not org rights (U9): a Manager who
@@ -1309,6 +1316,7 @@ export default function TeamRoomPage() {
                 {(me.role === "lead" || me.role === "mgr") && mgrView === "board" ? (
                   <>
                     <SituationBoard liveFeed={liveFeed} events={events} feed={feed} nameOf={nameOf} roster={roster} online={online} act={act} onOpenEscalations={() => setMgrView("escalations")} />
+                    <ForensicReportsCard events={events} nameOf={nameOf} />
                     {events.some(e => e.type === "forensic.finding") && <FindingsBoard events={events} nameOf={nameOf} compact />}
                     <TeamIntel events={events} nameOf={nameOf} />
                     <InjectFeed sessionId={id} events={events} me={me} nameOf={nameOf} act={act} hasManager={hasManager}
@@ -1330,16 +1338,46 @@ export default function TeamRoomPage() {
                   </>
                 ) : (
                   <>
-                    {me.role === "t3" && (
-                      <div role="tablist" aria-label="Tier-3 views" data-tour="t3-views" className="flex gap-1 rounded-lg border border-border bg-bg-elevated/50 p-1">
-                        {([["workbench", "Forensic workbench"], ["feed", "Live feed"]] as const).map(([v, label]) => (
-                          <button key={v} type="button" role="tab" aria-selected={t3View === v} onClick={() => setT3View(v)}
-                            className={`rounded-md px-3 py-1.5 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-400 ${t3View === v ? "border border-cyber-500/50 bg-cyber-500/15 text-white" : "border border-transparent text-slate-400 hover:text-slate-200"}`}>{label}</button>
-                        ))}
-                      </div>
-                    )}
+                    {me.role === "t3" && (() => {
+                      const T3_VIEWS = [["workbench", "Forensic workbench"], ["feed", "Live feed"], ["timeline", "Timeline"], ["intel", "Intel lookup"], ["attack", "ATT&CK"]] as const;
+                      const inPlay = forensicHosts(events, feed);
+                      const edrChoices = inPlay.filter(h => edrHosts.has(hostKey(h)));
+                      const edrPick = edrChoices.includes(t3EdrHost) ? t3EdrHost : edrChoices[0] ?? "";
+                      const onKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+                        const i = T3_VIEWS.findIndex(([v]) => v === t3View);
+                        const to = e.key === "ArrowRight" ? (i + 1) % T3_VIEWS.length : e.key === "ArrowLeft" ? (i - 1 + T3_VIEWS.length) % T3_VIEWS.length : -1;
+                        if (to < 0) return; e.preventDefault(); setT3View(T3_VIEWS[to][0]); requestAnimationFrame(() => document.getElementById(`t3-tab-${T3_VIEWS[to][0]}`)?.focus());
+                      };
+                      return (
+                        <nav data-tour="t3-views" aria-label="Tier-3 navigation" className="sticky top-2 z-20 flex flex-wrap items-center gap-1 rounded-lg border border-border bg-bg-elevated/95 p-1 backdrop-blur">
+                          <div role="tablist" aria-label="Tier-3 tools" className="flex flex-wrap gap-1" onKeyDown={onKey}>
+                            {T3_VIEWS.map(([v, label]) => (
+                              <button key={v} id={`t3-tab-${v}`} type="button" role="tab" aria-selected={t3View === v} tabIndex={t3View === v ? 0 : -1} onClick={() => setT3View(v)}
+                                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-400 ${t3View === v ? "border border-cyber-500/50 bg-cyber-500/15 text-white" : "border border-transparent text-slate-400 hover:text-slate-200"}`}>{label}</button>
+                            ))}
+                          </div>
+                          <div className="ml-auto flex flex-wrap items-center gap-1.5">
+                            <div className="flex items-center gap-1 rounded-md border border-border px-1.5 py-1" data-tour="t3-edr">
+                              <Cpu className="h-3.5 w-3.5 text-cyber-300" aria-hidden />
+                              <label className="sr-only" htmlFor="t3-edr-host">Host to open in EDR</label>
+                              <select id="t3-edr-host" value={edrPick} onChange={e => setT3EdrHost(e.target.value)} disabled={!edrChoices.length} className="max-w-[10rem] bg-transparent font-mono text-[11px] text-slate-200 focus:outline-none">
+                                {edrChoices.length ? edrChoices.map(h => <option key={h} value={h} className="bg-bg">{h}</option>) : <option>no EDR host yet</option>}
+                              </select>
+                              <button type="button" disabled={!edrPick} onClick={() => openEdr(undefined, edrPick)} className="rounded px-2 py-0.5 text-xs font-semibold text-cyber-200 hover:bg-cyber-500/10 disabled:opacity-50">Open EDR</button>
+                            </div>
+                            <button type="button" data-tour="t3-report" onClick={() => setT3ReportOpen(true)} className="rounded-md border border-neon-purple/50 bg-neon-purple/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-neon-purple/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-400">Report to SOC Manager</button>
+                          </div>
+                        </nav>
+                      );
+                    })()}
                     {me.role === "t3" && t3View === "workbench" ? (
                       <div data-tour="workbench"><ForensicWorkbench sessionId={id} feed={feed} events={events} meId={me.id} nameOf={nameOf} act={act} onEdr={h => openEdr(undefined, h)} /></div>
+                    ) : me.role === "t3" && t3View === "timeline" ? (
+                      <TimelineExplorer sessionId={id} meId={me.id} feed={feed} events={events} />
+                    ) : me.role === "t3" && t3View === "intel" ? (
+                      <IntelLookup feed={feed} events={events} truth={iocTruth} onSeen={eid => onFeedRowOpened(eid, 0)} />
+                    ) : me.role === "t3" && t3View === "attack" ? (
+                      <AttackLookup />
                     ) : (<>
                     {(me.role === "lead" || me.role === "mgr") && (
                       <p className="rounded-lg border border-border bg-bg-elevated/40 px-3 py-2 text-[11px] text-slate-400">The raw logs, read-only, so you can back up your analysts and check what they report. Triage and escalation stay with the analysts.</p>
@@ -1456,6 +1494,9 @@ export default function TeamRoomPage() {
         )}
       </div>
     </div>
+      {t3ReportOpen && me?.role === "t3" && (
+        <ForensicReportModal events={events} act={act} onClose={() => setT3ReportOpen(false)} onSent={msg => setT3Sent(msg)} />
+      )}
       {reportSeed && (me?.role === "mgr" || me?.role === "lead") && (
         <StakeholderReportModal events={events} seed={reportSeed} onClose={() => setReportSeed(null)} act={act}
           draft={reportDraft} onDraft={setReportDraft}
