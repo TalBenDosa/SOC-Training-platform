@@ -54,6 +54,7 @@ const minutes = (msv: number) => Math.max(0, Math.floor(msv / 60000));
 const clip = (t: string, n: number) => (t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t);
 const seat = (s: MgrState, role: string): Member | undefined => s.seated[role]?.[0];
 const fired = (s: MgrState, id: string) => s.cards.find(c => c.card === id);
+const roleLabel = (r: string | null | undefined) => (r === "t1" ? "Tier-1" : r === "t2" ? "Tier-2" : r === "t3" ? "Tier-3" : r === "mgr" ? "SOC Manager" : "analyst");
 
 /** What a critical system is in the middle of, from its name, for the business owner's words. */
 function businessProcessOf(target: string): string {
@@ -202,7 +203,7 @@ export const CARDS: CardDef[] = [
       return { summary: clip(waiting.summary, 90), host: waiting.host, mins: String(minutes(s.nowMs - waiting.atMs)), t2: firstName(t2, "Tier-2"), helper: helper ? firstName(helper, "Tier-3") : "" };
     },
     build: ctx => ({
-      from: { name: ctx.t2, role: "Tier-2" }, channel: "chat", deadlineS: 180, objective: "Delegation: a named owner and a time, never 'can someone'",
+      from: { name: "Shift board", role: "Escalation queue" }, channel: "in person", deadlineS: 180, objective: "Delegation: a named owner and a time, never 'can someone'",
       text: `An escalation from Tier-1 (${ctx.summary}${ctx.host ? ` on ${ctx.host}` : ""}) has waited ${ctx.mins} minutes for Tier-2. ${ctx.t2} is busy with another case.`,
       timeoutDelta: { capacity: -1 },
       options: [
@@ -223,8 +224,8 @@ export const CARDS: CardDef[] = [
       return null;
     },
     build: ctx => ({
-      from: { name: ctx.name, role: "Tier-1" }, channel: "chat", deadlineS: 180, objective: "Prioritise by risk, not arrival order, and add capacity where the queue is",
-      text: `${ctx.name} (Tier-1): "I have ${ctx.load} alerts on me and more coming in. I can't get to the high-severity ones. What should I do?"`,
+      from: { name: "Shift board", role: "Team load" }, channel: "in person", deadlineS: 180, objective: "Prioritise by risk, not arrival order, and add capacity where the queue is",
+      text: `${ctx.name} (Tier-1) is holding ${ctx.load} open alerts and new ones keep arriving.`,
       timeoutDelta: { capacity: -1 },
       options: [
         { key: "best", rank: "great", label: "Work the queue by severity, hand the low-severity bulk to whoever is free, and move one analyst to help for the next 15 minutes.", note: "Risk first, and capacity where the pressure is.", delta: { capacity: 1 } },
@@ -235,22 +236,70 @@ export const CARDS: CardDef[] = [
     }),
   },
   {
-    id: "isolate_or_wait", audience: "internal", pillar: "team", minDifficulty: "medium", priority: 80,
+    id: "isolate_or_wait", audience: "internal", pillar: "team", minDifficulty: "easy", priority: 85,
+    // Fires only when a teammate REALLY objected to a pending request (Support/Object on the
+    // request, or their own words in the chat naming the target). Both sides are quoted as written.
     when: s => {
-      const t2 = seat(s, "t2"), t3 = seat(s, "t3");
-      if (!t2 || !t3 || s.scopeConfirmed) return null;
-      const r = s.containments.find(c => c.status === "pending" && c.requesterRole === "t2" && !c.critical && c.target);
-      return r ? { target: r.target, t2: firstName(t2, "Tier-2"), t3: firstName(t3, "Tier-3") } : null;
+      for (const c of s.containments) {
+        if (c.status !== "pending" || !c.target) continue;
+        const obj = c.advice.find(a => a.stance === "object" && a.by && a.by !== c.requester);
+        if (!obj) continue;
+        const name = (u: string | null) => s.seated.t2?.concat(s.seated.t3 ?? []).find(m => m.user_id === u)?.name || "a teammate";
+        return {
+          target: c.target, requester: name(c.requester), requesterRole: roleLabel(c.requesterRole), objector: name(obj.by), objectorRole: roleLabel(obj.role),
+          why: clip(c.reason || "contain it before it spreads", 140), objection: clip(obj.reason || "wait", 140),
+        };
+      }
+      return null;
     },
     build: ctx => ({
-      from: { name: ctx.t2, role: "Tier-2" }, channel: "in person", deadlineS: 180, objective: "Coordinated containment: limit damage now, isolate when the scope is known",
-      text: `${ctx.t2} (Tier-2) wants to isolate ${ctx.target} now. ${ctx.t3} (Tier-3) has not finished the initial response on it and the scope is not confirmed. Isolating one host now may tip the attacker off before the other footholds are known. Your call.`,
+      from: { name: "Your team", role: `${ctx.requesterRole} and ${ctx.objectorRole}` }, channel: "in person", deadlineS: 180, objective: "Coordinated containment: limit damage now, isolate when the scope is known",
+      text: `${ctx.requester} (${ctx.requesterRole}) asked to isolate ${ctx.target}: "${ctx.why}". ${ctx.objector} (${ctx.objectorRole}) objects: "${ctx.objection}". The request is waiting on you.`,
       timeoutDelta: { capacity: -1 },
       options: [
-        { key: "best", rank: "great", label: `Block the host's outbound traffic now, give ${ctx.t3} a fixed 10 minutes to confirm the scope, then isolate every confirmed host together.`, note: "Limits the damage now and avoids piecemeal containment that tips the attacker off (CISA, Microsoft IR guidance).", delta: { regulatory: 1 } },
-        { key: "good", rank: "good", label: `Isolate ${ctx.target} now.`, note: "Stops this host fast; the risk is that other footholds stay unknown and the attacker changes tactics." },
-        { key: "okay", rank: "okay", label: "Tell them to agree between themselves.", note: "Your decision, left to the team while the clock runs.", delta: { capacity: -1 } },
-        { key: "weak", rank: "weak", label: "Isolate the whole network segment immediately.", note: "Maximum business impact for one host that is not even confirmed yet.", delta: { continuity: -2 } },
+        { key: "best", rank: "great", label: `Block ${ctx.target}'s outbound traffic now, give ${ctx.objector} a fixed 10 minutes to confirm the scope, then isolate every confirmed host together.`, note: "Limits the damage now, respects the objection with a time box, and avoids piecemeal containment that tips the attacker off (CISA, Microsoft IR guidance).", delta: { regulatory: 1 } },
+        { key: "good", rank: "good", label: `Approve the isolation of ${ctx.target} now and ask ${ctx.objector} to keep scoping.`, note: "Stops this host fast; the risk is that other footholds stay unknown and the attacker changes tactics." },
+        { key: "okay", rank: "okay", label: "Tell them to agree between themselves.", note: "The disagreement is exactly why it reached you; the clock keeps running.", delta: { capacity: -1 } },
+        { key: "weak", rank: "weak", label: "Isolate the whole network segment immediately.", note: "Maximum business impact to settle a disagreement about one host.", delta: { continuity: -2 } },
+      ],
+    }),
+  },
+  {
+    id: "contested_verdict", audience: "internal", pillar: "team", minDifficulty: "easy", priority: 75,
+    // Two analysts are on record with opposite calls on the same log.
+    when: s => {
+      const c = s.verdictConflicts[0];
+      if (!c) return null;
+      return { label: clip(c.label, 90), host: c.host, a: c.attack.by, aRole: roleLabel(c.attack.role), aHow: c.attack.how, b: c.benign.by, bRole: roleLabel(c.benign.role), bHow: c.benign.how };
+    },
+    build: ctx => ({
+      from: { name: "Shift board", role: "Case record" }, channel: "in person", deadlineS: 180, objective: "One shared picture: settle contradictory calls on the evidence, not on rank",
+      text: `The case record disagrees with itself on "${ctx.label}"${ctx.host ? ` (${ctx.host})` : ""}: ${ctx.a} (${ctx.aRole}) ${ctx.aHow}, and ${ctx.b} (${ctx.bRole}) ${ctx.bHow}.`,
+      timeoutDelta: { capacity: -1 },
+      options: [
+        { key: "best", rank: "great", label: "Get both to put their evidence in the case for two minutes, have the case owner make the call on the evidence, and correct the record.", note: "Settles it on evidence and leaves one verdict the whole team works from.", delta: { capacity: 1 } },
+        { key: "good", rank: "good", label: "Send the log to Tier-3 for a deciding look.", note: "A fair tie-breaker, but it adds load on Tier-3 for something the two analysts may settle themselves." },
+        { key: "okay", rank: "okay", label: "Go with the more senior analyst's call.", note: "Fast, but rank is not evidence: the junior analyst may have seen something real.", delta: { trust: -1 } },
+        { key: "weak", rank: "weak", label: "Go with the benign call so the queue moves.", note: "If the attack call was right, the incident just lost a piece of its scope.", delta: { regulatory: -1 } },
+      ],
+    }),
+  },
+  {
+    id: "bounce_dispute", audience: "internal", pillar: "team", minDifficulty: "medium", priority: 70,
+    // Tier-2 bounced an escalation and Tier-1 escalated the same log again.
+    when: s => {
+      const d = s.bounceDisputes[0];
+      return d ? { host: d.host, summary: clip(d.summary, 90), t2: d.bouncedBy, t1: d.reEscalatedBy, why: clip(d.bounceReason || "not enough to act on", 120) } : null;
+    },
+    build: ctx => ({
+      from: { name: "Shift board", role: "Escalation queue" }, channel: "in person", deadlineS: 180, objective: "Close the handoff loop: one decision on a disputed escalation, with the reason fed back",
+      text: `${ctx.t2} bounced the escalation "${ctx.summary}"${ctx.host ? ` on ${ctx.host}` : ""} back to Tier-1 ("${ctx.why}"). ${ctx.t1} escalated it again.`,
+      timeoutDelta: { capacity: -1 },
+      options: [
+        { key: "best", rank: "great", label: `Look at the evidence with ${ctx.t1} and ${ctx.t2} for two minutes and decide; if it is still unclear, give it to Tier-3 with a time box.`, note: "Ends the ping-pong with a decision and teaches both sides what 'enough evidence' means.", delta: { capacity: 1 } },
+        { key: "good", rank: "good", label: `Ask ${ctx.t2} to take it and investigate properly.`, note: "Errs on the side of caution, but without a word to Tier-1 the same dispute comes back." },
+        { key: "okay", rank: "okay", label: `Tell ${ctx.t1} to stop re-escalating.`, note: "Discourages escalation, the opposite of what a SOC wants from Tier-1.", delta: { trust: -1 } },
+        { key: "weak", rank: "weak", label: "Close the alert to end the argument.", note: "Nobody looked at the evidence, and it may be part of the attack.", delta: { regulatory: -1 } },
       ],
     }),
   },
@@ -286,7 +335,7 @@ export const CARDS: CardDef[] = [
       return null;
     },
     build: ctx => ({
-      from: { name: ctx.name, role: ctx.role }, channel: "in person", deadlineS: 180, objective: "Team awareness: notice a stalled analyst and help, without blame",
+      from: { name: "Shift board", role: "Team activity" }, channel: "in person", deadlineS: 180, objective: "Team awareness: notice a stalled analyst and help, without blame",
       text: `${ctx.name} (${ctx.role}) has not updated anything in ${ctx.mins} minutes, and ${ctx.open} escalated case${ctx.open === "1" ? " is" : "s are"} open.`,
       timeoutDelta: { capacity: -1 },
       options: [
@@ -294,24 +343,6 @@ export const CARDS: CardDef[] = [
         { key: "good", rank: "good", label: "Reassign their open work without asking.", note: "Gets the work moving, but may duplicate what they were doing quietly." },
         { key: "okay", rank: "okay", label: "Wait, they are probably busy.", note: "If they are stuck, nobody will find out.", delta: { capacity: -1 } },
         { key: "weak", rank: "weak", label: "Post in the team chat that someone is not pulling their weight.", note: "Public blame, no help, worse teamwork.", delta: { capacity: -1, trust: -1 } },
-      ],
-    }),
-  },
-  {
-    id: "exec_dm_analyst", audience: "internal", pillar: "team", minDifficulty: "hard", priority: 35,
-    when: s => {
-      const t1 = seat(s, "t1");
-      return t1 && s.declared && s.declared.severity <= 2 ? { t1: firstName(t1, "Tier-1") } : null;
-    },
-    build: ctx => ({
-      from: { name: ctx.t1, role: "Tier-1" }, channel: "chat", deadlineS: 180, objective: "Shield the investigators from executive noise",
-      text: `A senior VP sent ${ctx.t1} (Tier-1) a direct message: "Send me a list of every affected user, now." ${ctx.t1} asks you what to do.`,
-      timeoutDelta: { capacity: -1 },
-      options: [
-        { key: "best", rank: "great", label: `Tell ${ctx.t1} to keep working and route the VP to you: offer the next SITREP time, or ask whether they want to take over command.`, note: "Protects the front line and gives the executive one channel (the PagerDuty playbook for an executive swoop).", delta: { capacity: 1 } },
-        { key: "good", rank: "good", label: `Tell ${ctx.t1} to ignore it.`, note: "Protects the analyst but leaves the VP without an answer.", delta: { trust: -1 } },
-        { key: "okay", rank: "okay", label: `Ask ${ctx.t1} to put the list together quickly.`, note: "Pulls your front line off the queue in the middle of an incident.", delta: { capacity: -1 } },
-        { key: "weak", rank: "weak", label: `Tell ${ctx.t1} to send the raw alert export.`, note: "Unverified data, possibly personal data, sent outside the response.", delta: { regulatory: -1, capacity: -1 } },
       ],
     }),
   },

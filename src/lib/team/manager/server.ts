@@ -5,6 +5,7 @@ import { pageAll } from "@/lib/team/report/serverReport";
 import { COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
 import type { Member, Difficulty } from "./state";
 import type { CardAnswerKey } from "./director";
+import type { QuestionKey } from "./questions";
 
 export interface ManagerSession {
   id: string; org_id: string; status: string; schema_version: number | null;
@@ -34,7 +35,22 @@ export async function loadTeamEvents(admin: SupabaseClient, sessionId: string): 
     .order("seq").range(from, to));
 }
 
+/** The feed logs the team acted on (so a card can name the log and its host), without the whole feed. */
+export async function loadReferencedFeed(admin: SupabaseClient, sessionId: string, teamEvents: Ev[]): Promise<Ev[]> {
+  const ids = [...new Set(teamEvents.map(e => (e.payload as { event_id?: unknown } | null)?.event_id).filter((x): x is string => typeof x === "string" && !!x))].slice(0, 200);
+  if (!ids.length) return [];
+  const { data } = await admin.from("session_events").select("seq, type, actor_id, role, payload, occurred_at")
+    .eq("session_id", sessionId).eq("type", "feed.event").in("payload->>id", ids);
+  return (data as Ev[] | null) ?? [];
+}
+
 export interface DecisionInject { id: string; fired_seq: number | null; body: Record<string, unknown>; expected_action: CardAnswerKey }
+export interface QuestionInject { id: string; fired_seq: number | null; body: Record<string, unknown>; expected_action: QuestionKey }
+export async function loadQuestionInjects(admin: SupabaseClient, sessionId: string): Promise<QuestionInject[]> {
+  const { data } = await admin.from("session_injects").select("id, fired_seq, body, expected_action")
+    .eq("session_id", sessionId).eq("channel", "inject").eq("status", "fired").eq("body->>kind", "question").order("fired_seq");
+  return (data as QuestionInject[] | null) ?? [];
+}
 export async function loadDecisionInjects(admin: SupabaseClient, sessionId: string): Promise<DecisionInject[]> {
   const { data } = await admin.from("session_injects").select("id, fired_seq, body, expected_action")
     .eq("session_id", sessionId).eq("channel", "inject").eq("status", "fired").eq("body->>kind", "decision").order("fired_seq");

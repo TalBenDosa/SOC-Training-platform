@@ -29,6 +29,8 @@ const INJECT_ANSWER_KEYS = ["kind", "expected_response", "linked_objective", "or
 // A SOC-Manager decision card's grading (ranks, notes, indicator deltas, critical options) — the
 // Command Review needs all of it, and it is only served after the session ended.
 const CARD_ANSWER_KEYS = ["card", "ranks", "notes", "deltas", "best", "timeout_delta", "objective", "critical"] as const;
+// A stakeholder question's checks and model answer (graded in the Command Review after the session).
+const QUESTION_ANSWER_KEYS = ["qid", "checks", "model", "objective", "facts"] as const;
 
 function pick(src: Record<string, unknown>, keys: readonly string[]): Record<string, unknown> {
   const out: Record<string, unknown> = {};
@@ -42,7 +44,7 @@ export function publicAnswers(rows: { id: string; channel: string | null; expect
   for (const r of rows) {
     const a = (r.expected_action ?? null) as Record<string, unknown> | null;
     if (!a) continue;
-    out[r.id] = pick(a, r.channel === "inject" ? (typeof a.card === "string" ? CARD_ANSWER_KEYS : INJECT_ANSWER_KEYS) : FEED_ANSWER_KEYS);
+    out[r.id] = pick(a, r.channel === "inject" ? (typeof a.card === "string" ? CARD_ANSWER_KEYS : typeof a.qid === "string" ? QUESTION_ANSWER_KEYS : INJECT_ANSWER_KEYS) : FEED_ANSWER_KEYS);
   }
   return out;
 }
@@ -55,6 +57,7 @@ export function mergeAnswers(events: Ev[], answers: AnswerMap): Ev[] {
     if (!a) return e;
     if (e.type === "feed.event") return { ...e, payload: { ...e.payload, ...pick(a, FEED_ANSWER_KEYS) } };
     if (e.type === "staff.inject" && typeof a.card === "string") return { ...e, payload: { ...e.payload, key: pick(a, CARD_ANSWER_KEYS) } };
+    if (e.type === "stakeholder.asked" && typeof a.qid === "string") return { ...e, payload: { ...e.payload, key: pick(a, QUESTION_ANSWER_KEYS) } };
     if (e.type === "staff.inject") return { ...e, payload: { ...e.payload, ...pick(a, INJECT_ANSWER_KEYS) } };
     return e;
   });

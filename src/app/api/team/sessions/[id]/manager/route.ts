@@ -3,7 +3,8 @@ import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { activeSeat } from "@/lib/team/membership";
 import { indicatorsAfter, cardScore } from "@/lib/team/manager/director";
-import { loadSession, loadTeamEvents, loadDecisionInjects } from "@/lib/team/manager/server";
+import { loadSession, loadTeamEvents, loadDecisionInjects, loadQuestionInjects } from "@/lib/team/manager/server";
+import { checkReply } from "@/lib/team/manager/questions";
 
 /**
  * GET /api/team/sessions/[id]/manager - the SOC Manager's view of his own decisions.
@@ -30,7 +31,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   }
 
   try {
-    const [events, injects] = await Promise.all([loadTeamEvents(admin, id), loadDecisionInjects(admin, id)]);
+    const [events, injects, qInjects] = await Promise.all([loadTeamEvents(admin, id), loadDecisionInjects(admin, id), loadQuestionInjects(admin, id)]);
     const answers = new Map(events.filter(e => e.type === "decision.answered").map(e => [String((e.payload as { inject_id?: unknown }).inject_id), e]));
     const firedAt = new Map(events.filter(e => e.type === "staff.inject").map(e => [e.seq, e.occurred_at ? Date.parse(e.occurred_at) : Date.now()]));
     const now = Date.now();
@@ -52,7 +53,21 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         notes: key.notes, delta: option ? key.deltas[option] ?? {} : key.timeout_delta, objective: key.objective,
       };
     });
-    return NextResponse.json({ cards, indicators: indicatorsAfter(decided) }, { headers: { "Cache-Control": "private, no-store" } });
+    // Stakeholder questions: the checks on a reply (and the model answer) once it is answered or expired.
+    const replies = new Map(events.filter(e => e.type === "stakeholder.replied").map(e => [String((e.payload as { inject_id?: unknown }).inject_id), e]));
+    const askedAt = new Map(events.filter(e => e.type === "stakeholder.asked").map(e => [e.seq, e.occurred_at ? Date.parse(e.occurred_at) : now]));
+    const questions = qInjects.map(inj => {
+      const key = inj.expected_action;
+      const r = replies.get(inj.id);
+      const at = inj.fired_seq != null ? askedAt.get(inj.fired_seq) ?? now : now;
+      const deadline = Number((inj.body as { deadline_s?: unknown }).deadline_s) || 240;
+      if (!r && now <= at + deadline * 1000) return { inject_id: inj.id, qid: key.qid, state: "open" as const };
+      const text = r ? String((r.payload as { text?: unknown }).text ?? "") : "";
+      const rt = r?.occurred_at ? Date.parse(r.occurred_at) : null;
+      const graded = r ? checkReply(text, key) : { checks: [], score: 0 };
+      return { inject_id: inj.id, qid: key.qid, state: r ? ("answered" as const) : ("expired" as const), late: rt != null && rt > at + deadline * 1000, ...graded, model: key.model, objective: key.objective };
+    });
+    return NextResponse.json({ cards, questions, indicators: indicatorsAfter(decided) }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (e) {
     console.error("[team/manager] failed:", (e as Error).message);
     return NextResponse.json({ error: "Couldn't load the manager view." }, { status: 500 });

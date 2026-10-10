@@ -109,6 +109,16 @@ exports[`computeReport — characterization (real ended session) > produces the 
             "note": undefined,
             "score": null,
           },
+          {
+            "label": "Stakeholder questions answered in time",
+            "note": undefined,
+            "score": null,
+          },
+          {
+            "label": "Quality of stakeholder answers",
+            "note": undefined,
+            "score": null,
+          },
         ],
         "key": "stakeholders",
         "label": "Stakeholders",
@@ -139,6 +149,15 @@ exports[`computeReport — characterization (real ended session) > produces the 
           },
           {
             "label": "Accuracy to management",
+            "score": null,
+          },
+          {
+            "label": "Stakeholder report",
+            "score": null,
+          },
+          {
+            "label": "Promised updates kept",
+            "note": undefined,
             "score": null,
           },
         ],
@@ -174,6 +193,8 @@ exports[`computeReport — characterization (real ended session) > produces the 
       },
     ],
     "profile": [],
+    "questions": [],
+    "reports": [],
     "score": null,
     "timeline": [
       {

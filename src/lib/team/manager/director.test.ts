@@ -38,24 +38,57 @@ describe("cards fire only on what really happened in the session", () => {
     expect(pickCard(state(events, 30))).toBeNull();
   });
 
-  it("isolate-or-wait needs a real Tier-2 containment request, Tier-2 AND Tier-3 seated, and an unconfirmed scope", () => {
+  it("isolate-or-wait fires only on a REAL objection: a request alone, or a teammate's support, is not a disagreement", () => {
     const base = [feed("e1", 1), escalate("e1", 2), ack("e1", 3)];
     expect(eligible(base, 6).has("isolate_or_wait")).toBe(false);                      // no request
     const withReq = [...base, contain("e1", 5, "WS-FIN-2901")];
-    expect(eligible(withReq, 6).has("isolate_or_wait")).toBe(true);
-    expect(eligible(withReq, 6, ROSTER.filter(m => m.role !== "t3")).has("isolate_or_wait")).toBe(false);   // no Tier-3 seated
-    const confirmed = [...withReq, ev("scope.confirmed", 5.5, { hosts: ["WS-FIN-2901"] }, "u-t3", "t3")];
-    expect(eligible(confirmed, 6).has("isolate_or_wait")).toBe(false);                 // scope already confirmed
+    const reqSeq = withReq[withReq.length - 1].seq;
+    expect(eligible(withReq, 6).has("isolate_or_wait")).toBe(false);                   // nobody objected
+    const supported = [...withReq, ev("containment.advised", 5.5, { request_seq: reqSeq, stance: "support", reason: "agree" }, "u-t3", "t3")];
+    expect(eligible(supported, 6).has("isolate_or_wait")).toBe(false);                 // agreement is not a dispute
+    const objected = [...withReq, ev("containment.advised", 5.5, { request_seq: reqSeq, stance: "object", reason: "scope not confirmed, two more hosts beaconing" }, "u-t3", "t3")];
+    expect(eligible(objected, 6).has("isolate_or_wait")).toBe(true);
   });
 
-  it("the card names the real target and the real analysts", () => {
-    const events = [feed("e1", 1), escalate("e1", 2), ack("e1", 3), contain("e1", 5, "WS-ACC-4477")];
+  it("the card quotes the real request and the real objection, by name", () => {
+    const events = [feed("e1", 1), escalate("e1", 2), ack("e1", 3), contain("e1", 5, "WS-ACC-4477", { reason: "C2 beacon every 60s" })];
+    const reqSeq = events[events.length - 1].seq;
+    events.push(ev("containment.advised", 5.5, { request_seq: reqSeq, stance: "object", reason: "wait for memory capture" }, "u-t3", "t3"));
     const s = state(events, 6);
     const def = CARDS.find(c => c.id === "isolate_or_wait")!;
     const text = def.build(def.when(s)!, s).text;
-    expect(text).toContain("WS-ACC-4477");
+    for (const t of ["WS-ACC-4477", "Dana", "Lior", "C2 beacon every 60s", "wait for memory capture"]) expect(text).toContain(t);
+  });
+
+  it("a teammate's own words in the chat naming the target count as an objection", () => {
+    const events = [feed("e1", 1), escalate("e1", 2), ack("e1", 3), contain("e1", 5, "WS-ACC-4477")];
+    expect(eligible([...events, ev("message.sent", 5.5, { text: "isolating WS-ACC-4477 is fine" }, "u-t3", "t3")], 6).has("isolate_or_wait")).toBe(false);
+    expect(eligible([...events, ev("message.sent", 5.5, { text: "don't isolate WS-ACC-4477 yet, still scoping" }, "u-t3", "t3")], 6).has("isolate_or_wait")).toBe(true);
+    expect(eligible([...events, ev("message.sent", 5.5, { text: "don't isolate it yet" }, "u-t3", "t3")], 6).has("isolate_or_wait")).toBe(false);   // names no target
+  });
+
+  it("contested verdict: only when two analysts are really on record with opposite calls on one log", () => {
+    const base = [feed("e1", 1), ev("disposition.set", 2, { event_id: "e1", verdict: "false_positive" }, "u-t1", "t1")];
+    expect(eligible(base, 3).has("contested_verdict")).toBe(false);
+    const s = state([...base, escalate("e1", 2.5), ev("report.submitted", 3, { event_id: "e1", verdict: "true_positive", summary: "real" }, "u-t2", "t2")], 4);
+    // the same Tier-1 escalated after closing: the latest call per person counts, so the conflict is Tier-1 (benign→attack) vs nobody
+    expect(s.verdictConflicts.length).toBe(0);
+    const s2 = state([...base, ev("report.submitted", 3, { event_id: "e1", verdict: "true_positive", summary: "real" }, "u-t2", "t2")], 4);
+    expect(s2.verdictConflicts).toHaveLength(1);
+    const def = CARDS.find(c => c.id === "contested_verdict")!;
+    const text = def.build(def.when(s2)!, s2).text;
+    expect(text).toContain("Avi");
     expect(text).toContain("Dana");
-    expect(text).toContain("Lior");
+  });
+
+  it("bounce dispute: only after a real bounce AND a real re-escalation of the same log", () => {
+    const base = [feed("e1", 1), escalate("e1", 2), ev("escalation.bounced", 3, { event_id: "e1", reason: "normal admin activity" }, "u-t2", "t2")];
+    expect(eligible(base, 4).has("bounce_dispute")).toBe(false);
+    expect(eligible([...base, escalate("e1", 3.5)], 4).has("bounce_dispute")).toBe(true);
+  });
+
+  it("no invented internal cards: the 'executive messaged your analyst' card is gone", () => {
+    expect(CARDS.some(c => c.id === "exec_dm_analyst")).toBe(false);
   });
 
   it("the business-owner veto needs a pending request on a critical asset", () => {
@@ -131,7 +164,8 @@ describe("cards: content and answer key", () => {
       ev("edr.host_isolated", 4, { host: "WS-ACC-4477" }, "u-t2", "t2")];
     const s = state(events, 30);
     for (const def of CARDS) {
-      const b = def.build(def.when(s) ?? { host: "H", summary: "S", target: "T", owner: "O", process: "P", t2: "A", t3: "B", t1: "C", name: "N", load: "3", mins: "9", open: "1", sev: "1", role: "Tier-2", helper: "" }, s);
+      const b = def.build(def.when(s) ?? { host: "H", summary: "S", target: "T", owner: "O", process: "P", t2: "A", t3: "B", t1: "C", name: "N", load: "3", mins: "9", open: "1", sev: "1", role: "Tier-2", helper: "",
+        requester: "A", requesterRole: "Tier-2", objector: "B", objectorRole: "Tier-3", why: "W", objection: "X", label: "L", a: "A", aRole: "Tier-1", aHow: "escalated it", b: "B", bRole: "Tier-2", bHow: "closed it", why2: "" }, s);
       expect(b.options, def.id).toHaveLength(4);
       expect(b.options.filter(o => o.rank === "great"), def.id).toHaveLength(1);
       for (const o of b.options) expect(o.note.length, `${def.id}.${o.key}`).toBeGreaterThan(10);
@@ -141,8 +175,13 @@ describe("cards: content and answer key", () => {
     }
   });
 
-  it("the public body carries no ranks, notes or deltas; option ids differ between sessions", () => {
+  const objectedEvents = () => {
     const events = [feed("e1", 1), escalate("e1", 2), ack("e1", 3), contain("e1", 5, "WS-FIN-2901")];
+    events.push(ev("containment.advised", 5.2, { request_seq: events[events.length - 1].seq, stance: "object", reason: "scope first" }, "u-t3", "t3"));
+    return events;
+  };
+  it("the public body carries no ranks, notes or deltas; option ids differ between sessions", () => {
+    const events = objectedEvents();
     const s = state(events, 6);
     const def = CARDS.find(c => c.id === "isolate_or_wait")!;
     const a = materialize(def, def.when(s)!, s, "session-a");
@@ -161,7 +200,7 @@ describe("cards: content and answer key", () => {
   });
 
   it("indicators move with decisions and stay within 0-5", () => {
-    const events = [feed("e1", 1), escalate("e1", 2), ack("e1", 3), contain("e1", 5, "WS-FIN-2901")];
+    const events = objectedEvents();
     const s = state(events, 6);
     const def = CARDS.find(c => c.id === "isolate_or_wait")!;
     const { answer } = materialize(def, def.when(s)!, s, "x");

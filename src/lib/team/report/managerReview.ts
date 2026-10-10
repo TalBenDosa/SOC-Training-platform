@@ -17,6 +17,7 @@ import { asStr } from "@/lib/team/format";
 import { cardScore, indicatorsAfter, type CardAnswerKey } from "@/lib/team/manager/director";
 import { CRITICAL_NAME } from "@/lib/team/manager/state";
 import type { Delta, Indicators, Rank } from "@/lib/team/manager/cards";
+import { checkReply, NO_DATA_CLAIM as REPLY_NO_DATA, type QuestionKey } from "@/lib/team/manager/questions";
 
 export const MANAGER_SCORE_CAP = 69;
 export const PILLAR_WEIGHTS = { team: 0.35, stakeholders: 0.25, reporting: 0.25 } as const;
@@ -36,6 +37,12 @@ export interface DecisionRow {
   rationale: string | null; score: number; best: string; bestLabel: string;
   options: DecisionOption[]; delta: Delta; critical: string | null; indicatorsAfter: Indicators;
 }
+export interface QuestionRow {
+  injectId: string; qid: string; from: { name: string; role: string }; text: string;
+  askedS: number | null; deadlineS: number; repliedInS: number | null; state: "answered" | "late" | "expired";
+  reply: string | null; score: number; checks: { id: string; label: string; ok: boolean }[]; model: string;
+}
+export interface ReportRow { atS: number | null; audience: string; status: string; dataImpact: string; title: string; completeness: number; nextUpdateMin: number; promiseKept: boolean | null }
 export interface TimelineMark { t: number; lane: "attacker" | "manager" | "pressure"; label: string; tone: "good" | "bad" | "neutral" }
 export interface CriticalError { label: string; detail: string; atS: number | null }
 export interface ProfileTrait { style: string; evidence: string }
@@ -46,6 +53,8 @@ export interface ManagerReview {
   criticalErrors: CriticalError[];
   pillars: CommandPillar[];
   decisions: DecisionRow[];
+  questions: QuestionRow[];
+  reports: ReportRow[];
   calibration: { grid: Record<Rank, Record<Confidence, number>>; highTotal: number; highGreat: number; calibrated: boolean | null };
   indicators: Indicators;
   indicatorTrail: { t: number | null; card: string; ind: Indicators }[];
@@ -109,6 +118,10 @@ const KEEP_LINE: Record<string, string> = {
   "Status requests answered": "Status requests got a SITREP within minutes.",
   "Decision log": "Your decisions carry a written reason.",
   "Accuracy to management": "Nothing you told management contradicted the facts.",
+  "Stakeholder questions answered in time": "Stakeholders got answers before their deadlines.",
+  "Quality of stakeholder answers": "Your answers to stakeholders were clear and honest about what was not known yet.",
+  "Stakeholder report": "Your incident report reached stakeholders early and complete.",
+  "Promised updates kept": "You kept the update times you promised.",
 };
 const IMPROVE_LINE: Record<string, string> = {
   "Incident declared on time": "Declare as soon as the first real escalation lands: a declaration can be downgraded later, a late one cannot be undone.",
@@ -125,6 +138,10 @@ const IMPROVE_LINE: Record<string, string> = {
   "Status requests answered": "When the CISO or executives ask for status, a short SITREP within five minutes beats a perfect one later.",
   "Decision log": "Write down the reason for every decision; the review and the regulator will ask.",
   "Accuracy to management": "Say 'no evidence so far' instead of 'not affected': never state what has not been verified.",
+  "Stakeholder questions answered in time": "Answer every stakeholder before the deadline, even if the answer is 'not known yet, next update at 14:30'.",
+  "Quality of stakeholder answers": "Answer the question asked: status, what is confirmed and what is not, and a time for the next update.",
+  "Stakeholder report": "Send the first stakeholder report within 10 minutes of declaring, then update it as the picture changes.",
+  "Promised updates kept": "When you promise the next update in 30 minutes, send it in 30 minutes.",
 };
 
 export function computeManagerReview(ctx: ReviewCtx): ManagerReview | null {
@@ -204,6 +221,37 @@ export function computeManagerReview(ctx: ReviewCtx): ManagerReview | null {
   const avgCards = (rows: DecisionRow[]) => (rows.length ? Math.round(rows.reduce((s, r) => s + r.score, 0) / rows.length) : null);
   const internal = decisions.filter(d => d.audience === "internal"), external = decisions.filter(d => d.audience === "external");
 
+  // ── Stakeholder questions (asked by the server from the live session) ────────
+  const repliesBy = new Map(events.filter(e => e.type === "stakeholder.replied" && isMgr(e)).map(e => [String((e.payload as { inject_id?: unknown }).inject_id), e]));
+  const questions: QuestionRow[] = [];
+  for (const qe of events.filter(e => e.type === "stakeholder.asked")) {
+    const p = qe.payload as { inject_id?: string; qid?: string; from?: { name?: string; role?: string }; text?: string; deadline_s?: number; key?: QuestionKey };
+    if (!p.inject_id || !p.key) continue;
+    const askedTs = tsOf(qe); const deadlineS = Number(p.deadline_s) || 240;
+    const r = repliesBy.get(p.inject_id); const rTs = r ? tsOf(r) : null;
+    const repliedInS = r && askedTs != null && rTs != null ? Math.max(0, Math.round(runMs(askedTs, rTs) / 1000)) : null;
+    const reply = r ? asStr((r.payload as { text?: unknown }).text) : null;
+    const graded = reply ? checkReply(reply, p.key) : { checks: [], score: 0 };
+    questions.push({
+      injectId: p.inject_id, qid: asStr(p.qid), from: { name: asStr(p.from?.name), role: asStr(p.from?.role) }, text: asStr(p.text),
+      askedS: relS(askedTs), deadlineS, repliedInS, state: !r ? "expired" : repliedInS != null && repliedInS > deadlineS ? "late" : "answered",
+      reply, score: graded.score, checks: graded.checks, model: asStr(p.key.model),
+    });
+  }
+
+  // ── Incident reports to stakeholders ────────────────────────────────────────
+  const reportEvents = mine.filter(e => e.type === "stakeholder.report_sent");
+  const updates = [...mine.filter(e => e.type === "sitrep.sent" || e.type === "stakeholder.report_sent").map(tsOf)].filter((x): x is number => x != null).sort((a, b) => a - b);
+  const reports: ReportRow[] = reportEvents.map(e => {
+    const p = e.payload as Record<string, unknown>;
+    const t = tsOf(e);
+    const fields = [words(asStr(p.what_happened)) >= 8, words(asStr(p.business_impact)) >= 4, words(asStr(p.actions_taken)) >= 3, !!asStr(p.unknown).trim(), !!asStr(p.known).trim(), Array.isArray(p.affected) && p.affected.length > 0];
+    const nextMin = Number(p.next_update_min) || 0;
+    const due = t != null && nextMin ? t + nextMin * 60000 : null;
+    const kept = due == null ? null : due > ctx.endMs ? null : updates.some(u => t != null && u > t && u <= due + 60000);
+    return { atS: relS(t), audience: asStr(p.audience), status: asStr(p.status), dataImpact: asStr(p.data_impact), title: asStr(p.title), completeness: Math.round((100 * fields.filter(Boolean).length) / fields.length), nextUpdateMin: nextMin, promiseKept: kept };
+  });
+
   // ── Pillar A: team & incident ───────────────────────────────────────────────
   const declCell: CommandCell = firstAttackEscTs == null ? { label: "Incident declared on time", score: null, note: "no real attack was escalated, nothing to declare" }
     : declTs == null ? { label: "Incident declared on time", score: 0, note: "the incident was never declared" }
@@ -244,6 +292,16 @@ export function computeManagerReview(ctx: ReviewCtx): ManagerReview | null {
   const pillarStake: CommandCell[] = [
     { label: "External decision cards", score: avgCards(external), note: external.length ? `${external.length} request${external.length > 1 ? "s" : ""} from CISO / Legal / business, confidence-calibrated` : undefined },
     { label: "Answered before the deadline", score: decisions.length ? (missed === 0 ? 12 : missed === 1 ? 8 : missed === 2 ? 4 : 0) : null, note: decisions.length ? `${decisions.length - missed} of ${decisions.length} decided in time` : undefined },
+    (() => {
+      const onTime = questions.filter(q => q.state === "answered").length;
+      const p = pct(onTime, questions.length);
+      return { label: "Stakeholder questions answered in time", score: p == null ? null : bandHigh(p, 100, 75, 50), note: p == null ? undefined : `${onTime} of ${questions.length} answered before the deadline` };
+    })(),
+    (() => {
+      const ans = questions.filter(q => q.reply);
+      const avg = ans.length ? Math.round(ans.reduce((s, q) => s + q.score, 0) / ans.length) : null;
+      return { label: "Quality of stakeholder answers", score: avg, note: avg == null ? undefined : "status, honest unknowns, a time for the next update, no claims beyond the facts" };
+    })(),
   ];
 
   // ── Pillar C: reporting to management ───────────────────────────────────────
@@ -274,7 +332,8 @@ export function computeManagerReview(ctx: ReviewCtx): ManagerReview | null {
   const statusPct = pct(statusAnswered, statusCards.length);
   const logged = mine.filter(e => e.type === "decision.logged");
   const reasoned = [...logged.map(e => asStr((e.payload as { rationale?: unknown }).rationale)), ...decisions.filter(d => d.state !== "expired").map(d => d.rationale ?? "")];
-  const reasonPct = reasoned.length ? pct(reasoned.filter(r => words(r) >= 3).length, reasoned.length) : null;
+  // The log needs some substance to judge: a decision logged, or at least two decided cards.
+  const reasonPct = reasoned.length && (logged.length > 0 || reasoned.length >= 2) ? pct(reasoned.filter(r => words(r) >= 3).length, reasoned.length) : null;
   // Accuracy: a SITREP that rules out data loss after exfiltration showed up, or calls it contained while a compromised host is still online.
   const criticalErrors: CriticalError[] = [];
   let falseClaims = 0, softClaims = 0;
@@ -289,14 +348,48 @@ export function computeManagerReview(ctx: ReviewCtx): ManagerReview | null {
       if (openHosts.size) softClaims++;
     }
   }
-  const accCell: CommandCell = !sitreps.length ? { label: "Accuracy to management", score: null }
-    : { label: "Accuracy to management", score: falseClaims ? 0 : softClaims ? 4 : 12, note: falseClaims ? "a SITREP ruled out data loss that had already happened" : softClaims ? "a SITREP called it contained while a compromised host was still online" : "nothing reported contradicted the facts" };
+  for (const q of questions) {
+    if (!q.reply || exfilTs == null || q.askedS == null) continue;
+    const at = ctx.startedMs + q.askedS * 1000;
+    if (exfilTs <= at + (q.repliedInS ?? 0) * 1000 && REPLY_NO_DATA.test(q.reply)) {
+      falseClaims++;
+      criticalErrors.push({ label: "False statement to a stakeholder", detail: `You told ${q.from.name || "a stakeholder"} that data was not affected, but data exfiltration was already in the feed at ${fmtMin(relS(exfilTs))}.`, atS: q.askedS + (q.repliedInS ?? 0) });
+    }
+  }
+  for (const e of reportEvents) {
+    const st = tsOf(e); if (st == null) continue;
+    const p = e.payload as Record<string, unknown>;
+    const text = ["what_happened", "business_impact", "known", "actions_taken"].map(k => asStr(p[k])).join(" ");
+    if (exfilTs != null && exfilTs <= st && (NO_DATA_CLAIM.test(text) || REPLY_NO_DATA.test(text))) {
+      falseClaims++;
+      criticalErrors.push({ label: "False statement in the stakeholder report", detail: `The report at ${fmtMin(relS(st))} ruled out data loss after exfiltration reached the feed at ${fmtMin(relS(exfilTs))}.`, atS: relS(st) });
+    } else if (asStr(p.status) === "contained") {
+      const openHosts = attackLogs.filter(x => x.t.ts != null && x.t.ts <= st && x.t.host).map(x => ctx.hostKey(x.t.host)).filter(k => { const iso = ctx.isolatedAt.get(k); return iso == null || iso > st; });
+      if (openHosts.length) softClaims++;
+    }
+  }
+  const accCell: CommandCell = !sitreps.length && !reportEvents.length && !questions.some(q => q.reply) ? { label: "Accuracy to management", score: null }
+    : { label: "Accuracy to management", score: falseClaims ? 0 : softClaims ? 4 : 12, note: falseClaims ? "an update ruled out data loss that had already happened" : softClaims ? "an update called it contained while a compromised host was still online" : "nothing reported contradicted the facts" };
   const pillarReport: CommandCell[] = [
     cadenceCell,
     { label: "SITREP completeness", score: compPct == null ? null : bandHigh(compPct, 90, 70, 40), note: compPct == null ? undefined : `${sitreps.length} SITREP${sitreps.length > 1 ? "s" : ""}, ${compPct}% complete` },
     { label: "Status requests answered", score: statusPct == null ? null : bandHigh(statusPct, 100, 50, 1), note: statusPct == null ? undefined : `${statusAnswered} of ${statusCards.length} status requests got a SITREP within 5 min` },
     { label: "Decision log", score: reasonPct == null ? null : bandHigh(reasonPct, 90, 60, 30), note: reasonPct == null ? undefined : `${reasonPct}% of your decisions carry a reason` },
     accCell,
+    (() => {
+      if (declTs == null) return { label: "Stakeholder report", score: null };
+      const first = reportEvents.map(tsOf).filter((x): x is number => x != null)[0];
+      if (first == null) return { label: "Stakeholder report", score: 0, note: "no incident report was sent to stakeholders" };
+      const m = Math.max(0, runMs(declTs, first) / 60000);
+      const comp = reports[0]?.completeness ?? 0;
+      return { label: "Stakeholder report", score: Math.round((bandLow(m, 10, 15, 25) + bandHigh(comp, 90, 70, 40)) / 2), note: `first report ${Math.round(m)} min after the declaration, ${comp}% complete` };
+    })(),
+    (() => {
+      const judged = reports.filter(r => r.promiseKept != null);
+      const kept = judged.filter(r => r.promiseKept).length;
+      const p = pct(kept, judged.length);
+      return { label: "Promised updates kept", score: p == null ? null : bandHigh(p, 100, 66, 33), note: p == null ? undefined : `${kept} of ${judged.length} next-update times kept` };
+    })(),
   ];
 
   // ── Team outcome (15%) ──────────────────────────────────────────────────────
@@ -312,9 +405,9 @@ export function computeManagerReview(ctx: ReviewCtx): ManagerReview | null {
     return { key, label, weight, cells, measured: m.length, score: m.length >= minCells ? Math.round((m.reduce((s, c) => s + (c.score ?? 0), 0) / m.length / 12) * 100) : null };
   };
   const pillars = [
-    mkPillar("team", "Team & incident", PILLAR_WEIGHTS.team, pillarTeam, 2),
+    mkPillar("team", "Team & incident", PILLAR_WEIGHTS.team, pillarTeam, 1),
     mkPillar("stakeholders", "Stakeholders", PILLAR_WEIGHTS.stakeholders, pillarStake, 1),
-    mkPillar("reporting", "Reporting to management", PILLAR_WEIGHTS.reporting, pillarReport, 2),
+    mkPillar("reporting", "Reporting to management", PILLAR_WEIGHTS.reporting, pillarReport, 1),
     mkPillar("outcome", "Team outcome", OUTCOME_WEIGHT, pillarOutcome, 1),
   ];
   const proc = pillars.filter(p => p.key !== "outcome" && p.score != null);
@@ -356,6 +449,11 @@ export function computeManagerReview(ctx: ReviewCtx): ManagerReview | null {
     if (d.firedS != null) timeline.push({ t: d.firedS, lane: "pressure", label: `${d.from.name || d.card}${d.state === "expired" ? " (expired)" : ""}`, tone: d.state === "expired" ? "bad" : "neutral" });
     if (d.state !== "expired" && d.firedS != null && d.decidedInS != null) timeline.push({ t: d.firedS + d.decidedInS, lane: "manager", label: `answered ${d.from.name || d.card}`, tone: d.rank === "great" || d.rank === "good" ? "good" : "bad" });
   }
+  for (const q of questions) {
+    if (q.askedS != null) timeline.push({ t: q.askedS, lane: "pressure", label: `${q.from.name || "stakeholder"} asked${q.state === "expired" ? " (no answer)" : ""}`, tone: q.state === "expired" ? "bad" : "neutral" });
+    if (q.askedS != null && q.repliedInS != null) timeline.push({ t: q.askedS + q.repliedInS, lane: "manager", label: `answered ${q.from.name || "a stakeholder"}`, tone: q.score >= 8 ? "good" : "bad" });
+  }
+  for (const r of reports) if (r.atS != null) timeline.push({ t: r.atS, lane: "manager", label: `stakeholder report (${r.audience})`, tone: "neutral" });
   timeline.sort((a, b) => a.t - b.t);
 
   // ── Leadership profile (patterns, not a score) ──────────────────────────────
@@ -385,12 +483,14 @@ export function computeManagerReview(ctx: ReviewCtx): ManagerReview | null {
   if (declTs == null && firstAttackEscTs != null) debrief.push("When did you first know this was an incident, and what held back the declaration?");
   if (decisions.some(d => d.state === "expired")) debrief.push("Which request ran out of time, and what stopped you answering it?");
   if (gaps.some(g => g.includes("SITREP"))) debrief.push(`There was a long stretch without a SITREP (${gaps.find(g => g.includes("SITREP"))}). What was happening, and who could have sent one?`);
-  if (fired.has("legal_reportable")) debrief.push("What did you know about personal data when Legal asked, and how did you say it?");
+  if (fired.has("legal_reportable") || questions.some(q => q.qid === "q_data")) debrief.push("What did you know about personal data when Legal asked, and how did you say it?");
+  if (questions.some(q => q.state === "expired")) debrief.push("A stakeholder question went unanswered. Who else could have answered it, and what did that silence cost?");
+  if (fired.has("contested_verdict")) debrief.push("Two analysts made opposite calls on the same log. What evidence settled it, and how do we avoid a split picture next time?");
   debrief.push("Which decision would you make differently with what you know now?", "What did the team need from you that it did not get?");
 
   return {
     managerId: lead.user_id, managerName: lead.name,
-    score, uncappedScore, level, levelLabel, criticalErrors, pillars, decisions,
+    score, uncappedScore, level, levelLabel, criticalErrors, pillars, decisions, questions, reports,
     calibration: { grid, highTotal, highGreat, calibrated },
     indicators, indicatorTrail, timeline, endS, gaps,
     declared, finalSeverity, truthSeverity,
@@ -405,6 +505,8 @@ export function redactManagerReview(r: ManagerReview): ManagerReview {
     pillars: [], profile: [], keep: [], improve: [],
     calibration: { grid: { great: { low: 0, medium: 0, high: 0 }, good: { low: 0, medium: 0, high: 0 }, okay: { low: 0, medium: 0, high: 0 }, weak: { low: 0, medium: 0, high: 0 } }, highTotal: 0, highGreat: 0, calibrated: null },
     decisions: r.decisions.map(d => ({ ...d, score: 0, rank: null, confidence: null, critical: null, options: d.options.map(o => ({ ...o, rank: null })) })),
+    questions: r.questions.map(q => ({ ...q, score: 0, checks: [] })),
+    reports: r.reports.map(x => ({ ...x, completeness: 0, promiseKept: null })),
     timeline: r.timeline.map(m => ({ ...m, tone: "neutral" as const })),
     redacted: true,
   };

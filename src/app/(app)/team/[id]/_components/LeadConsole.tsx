@@ -70,6 +70,10 @@ export function LeadConsole({ events, nameOf, act }: { events: Ev[]; nameOf: (u:
                 <div key={e.seq} className="rounded-lg border border-border bg-bg px-3 py-2">
                   <p className="text-sm text-slate-200">{containmentVerb(asStr(p.containment_type))} <b className="text-white">{asStr(p.target) || "—"}</b>{asStr(p.incident) && <span className="ml-1.5 rounded border border-cyber-500/40 bg-cyber-500/10 px-1 py-0.5 font-mono text-[9px] text-cyber-300">{asStr(p.incident)}</span>}</p>
                   <p className="mt-0.5 text-[11px] text-slate-400">{asStr(p.reason)} · requested by <bdi>{nameOf(e.actor_id)}</bdi></p>
+                  {events.filter(x => x.type === "containment.advised" && Number((x.payload as { request_seq?: unknown }).request_seq) === e.seq).map(x => {
+                    const ap = x.payload as { stance?: unknown; reason?: unknown };
+                    return <p key={x.seq} className={`mt-0.5 text-[11px] ${ap.stance === "object" ? "text-neon-amber" : "text-neon-green"}`}><bdi>{nameOf(x.actor_id)}</bdi> {ap.stance === "object" ? "objects" : "supports"}{asStr(ap.reason) ? <>: &quot;{asStr(ap.reason)}&quot;</> : null}</p>;
+                  })}
                   {prior.length > 0 && <p className="mt-0.5 text-[10px] text-slate-500">request #{prior.length + 1} on this case — before: {prior.map(x => `${asStr((x.request.payload as { target?: string }).target) || "?"} (${x.status}${x.decisionReason ? `: ${x.decisionReason}` : ""})`).join(" · ")}</p>}
                   {/* B10: business-impact so approve/deny is a real risk trade-off */}
                   {(crit || asStr(p.blast_radius) || asStr(p.business_owner)) && (

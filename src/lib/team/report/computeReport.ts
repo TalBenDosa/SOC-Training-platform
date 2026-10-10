@@ -172,7 +172,7 @@ export interface InjectResult {
   evaluable: boolean; note?: string;
 }
 
-const ROLE_ACTION_TYPES = new Set(["hunt.logged", "rule.published", "rule.tuned", "intel.published", "handover.noted", "decision.logged", "evidence.pinned", "case.status_set", "case.assigned", "note.added", "containment.executed", "scope.set", "scope.confirmed", "sitrep.sent", "ticket.answered", "escalation.resolved", "elevation.requested", "report.submitted", "decision.answered", "incident.declared", "incident.severity_changed"]);
+const ROLE_ACTION_TYPES = new Set(["hunt.logged", "rule.published", "rule.tuned", "intel.published", "handover.noted", "decision.logged", "evidence.pinned", "case.status_set", "case.assigned", "note.added", "containment.executed", "scope.set", "scope.confirmed", "sitrep.sent", "ticket.answered", "escalation.resolved", "elevation.requested", "report.submitted", "decision.answered", "incident.declared", "incident.severity_changed", "stakeholder.replied", "stakeholder.report_sent", "containment.advised"]);
 
 // ── small helpers ──────────────────────────────────────────────────────────────
 const eidOf = (e: Ev) => { const v = (e.payload as { event_id?: unknown } | null)?.event_id; return v == null ? "" : String(v); };

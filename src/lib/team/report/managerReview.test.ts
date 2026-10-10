@@ -130,6 +130,38 @@ describe("Command Review", () => {
     expect(r.levelLabel).toBe("Not enough evidence");
   });
 
+  it("stakeholder questions: on-time answers are graded; ruling out data after exfiltration is a critical error", () => {
+    const { events, add } = shift();
+    const answers: { id: string; channel: string; expected_action: unknown }[] = [];
+    add("incident.declared", "mgr", 120, { severity: 1 }, "mgr");
+    const q = (id: string, qid: string, sec: number, checks: string[]) => {
+      add("stakeholder.asked", null, sec, { kind: "question", qid, inject_id: id, from: { name: "Noa Ben-Ami", role: "Legal counsel" }, channel: "chat", text: "Is data affected?", deadline_s: 240 });
+      answers.push({ id, channel: "inject", expected_action: { qid, checks, model: "m", objective: "o", facts: { contained: false, suspectsData: true, severity: 1, target: "" } } });
+    };
+    q("77777777-7777-4777-8777-777777777777", "q_status", 200, ["substance", "status", "no_overclaim", "next_update"]);
+    add("stakeholder.replied", "mgr", 260, { inject_id: "77777777-7777-4777-8777-777777777777", text: "We are still scoping two finance hosts, not contained yet. Next update in 15 minutes." }, "mgr");
+    q("88888888-8888-4888-8888-888888888888", "q_data", 400, ["substance", "honest_data", "no_false_data", "next_update"]);
+    add("stakeholder.replied", "mgr", 430, { inject_id: "88888888-8888-4888-8888-888888888888", text: "No personal data was affected, nothing left the network." }, "mgr");
+    add("session.ended", "instr", 900);
+    const r = review(events, answers);
+    expect(r.questions.map(x => [x.qid, x.state])).toEqual([["q_status", "answered"], ["q_data", "answered"]]);
+    expect(r.questions[0].score).toBe(12);
+    expect(r.criticalErrors.map(c => c.label)).toContain("False statement to a stakeholder");
+  });
+
+  it("stakeholder report: early and complete scores; a kept next-update promise is credited", () => {
+    const { events, add } = shift();
+    add("incident.declared", "mgr", 120, { severity: 1 }, "mgr");
+    add("stakeholder.report_sent", "mgr", 300, { audience: "ciso", status: "investigating", title: "Intrusion on finance", what_happened: "A finance workstation ran a malicious PowerShell download and contacted an external server", business_impact: "One finance laptop offline, the team works on spares", affected: ["WS-FIN-2847"], data_impact: "suspected", actions_taken: "host isolated, outbound blocked", known: "one host", unknown: "whether data left", next_update_min: 10 }, "mgr");
+    add("sitrep.sent", "mgr", 800, { situation: "Scope confirmed on one finance host with suspected exfiltration", actions: "isolated and blocked", status: "investigating data impact", next: "legal briefing then update" }, "mgr");
+    add("session.ended", "instr", 1500);
+    const r = review(events, []);
+    expect(r.reports).toHaveLength(1);
+    expect(r.reports[0].completeness).toBe(100);
+    expect(r.reports[0].promiseKept).toBe(true);
+    expect(r.pillars.find(p => p.key === "reporting")!.cells.find(c => c.label === "Stakeholder report")!.score).toBe(12);
+  });
+
   it("no SOC Manager seated: no Command Review", () => {
     const { events } = shift();
     expect(computeReport(events, roster.filter(m => m.role !== "mgr")).managerReview).toBeNull();

@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Gavel, AlertOctagon } from "lucide-react";
-import type { ManagerReview, CommandPillar, DecisionRow, TimelineMark } from "@/lib/team/report/managerReview";
+import type { ManagerReview, CommandPillar, DecisionRow, TimelineMark, QuestionRow, ReportRow } from "@/lib/team/report/managerReview";
 
 /**
  * Command Review: the SOC Manager's end-of-shift report (PLAN §10א). The manager and staff
@@ -46,6 +46,8 @@ export function CommandReview({ review, xp }: { review: ManagerReview; xp?: numb
       )}
       <Timeline marks={r.timeline} endS={r.endS} gaps={r.gaps} />
       {r.decisions.length > 0 && <Decisions rows={r.decisions} redacted={!!r.redacted} />}
+      {(r.questions?.length ?? 0) > 0 && <Questions rows={r.questions} redacted={!!r.redacted} />}
+      {(r.reports?.length ?? 0) > 0 && <Reports rows={r.reports} redacted={!!r.redacted} />}
       {!r.redacted && <Calibration r={r} />}
       {!r.redacted && (r.profile.length > 0 || r.keep.length > 0 || r.improve.length > 0) && (
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -228,6 +230,53 @@ function List({ title, items, tone }: { title: string; items: string[]; tone: st
     <div>
       <p className={`text-[11px] font-semibold uppercase tracking-wider ${tone}`}>{title}</p>
       <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs text-slate-300">{items.map((x, i) => <li key={i}>{x}</li>)}</ul>
+    </div>
+  );
+}
+
+function Questions({ rows, redacted }: { rows: QuestionRow[]; redacted: boolean }) {
+  return (
+    <div className="mt-4">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Stakeholder questions ({rows.length})</p>
+      <div className="mt-1.5 space-y-1.5">
+        {rows.map(q => (
+          <details key={q.injectId} className="rounded-lg border border-border bg-bg px-2.5 py-1.5 text-xs">
+            <summary className="flex cursor-pointer flex-wrap items-center gap-2">
+              <span className="font-mono text-[10px] text-slate-500">{fmt(q.askedS)}</span>
+              <span className="font-semibold text-slate-200"><bdi>{q.from.name}</bdi> <span className="font-normal text-slate-500">{q.from.role}</span></span>
+              <span className="min-w-0 flex-1 truncate text-slate-400"><bdi>{q.text}</bdi></span>
+              {q.state === "expired" ? <span className="rounded border border-severity-critical/40 px-1.5 text-[10px] text-severity-critical">no answer</span>
+                : !redacted ? <span className={`rounded border px-1.5 text-[10px] ${q.score >= 8 ? RANK_STYLE.great : q.score >= 4 ? RANK_STYLE.okay : RANK_STYLE.weak}`}>{q.score}/12</span> : null}
+              {q.state === "late" && <span className="text-[10px] text-neon-amber">late</span>}
+            </summary>
+            <div className="mt-1.5 space-y-1 border-t border-border/60 pt-1.5">
+              <p className="text-slate-300"><bdi>{q.text}</bdi></p>
+              {q.reply ? <p className="text-slate-100">Answer{q.repliedInS != null ? ` (after ${fmt(q.repliedInS)})` : ""}: <bdi>{q.reply}</bdi></p> : <p className="text-severity-critical">Nobody answered before the deadline.</p>}
+              {!redacted && q.checks.map(c => <p key={c.id} className={`text-[11px] ${c.ok ? "text-neon-green" : "text-neon-amber"}`}>{c.ok ? "✓" : "✗"} {c.label}</p>)}
+              {q.model && <p className="text-[10px] text-slate-500">A strong answer: {q.model}</p>}
+            </div>
+          </details>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const AUD: Record<string, string> = { ciso: "CISO", executives: "Executives", legal: "Legal", business_owner: "Business owner", all: "All stakeholders" };
+function Reports({ rows, redacted }: { rows: ReportRow[]; redacted: boolean }) {
+  return (
+    <div className="mt-4">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Reports to stakeholders ({rows.length})</p>
+      <ul className="mt-1.5 space-y-1 text-xs">
+        {rows.map((x, i) => (
+          <li key={i} className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-bg px-2.5 py-1.5">
+            <span className="font-mono text-[10px] text-slate-500">{fmt(x.atS)}</span>
+            <span className="text-slate-200"><bdi>{x.title || "Incident report"}</bdi></span>
+            <span className="text-slate-500">to {AUD[x.audience] ?? x.audience} · {x.status} · data: {x.dataImpact.replace("_", " ")}</span>
+            {!redacted && <span className="ml-auto text-[10px] text-slate-400">{x.completeness}% complete{x.promiseKept === true ? " · next update kept" : x.promiseKept === false ? " · next update missed" : ""}</span>}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

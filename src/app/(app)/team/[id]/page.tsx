@@ -59,6 +59,10 @@ import { DEConsole } from "./_components/DEConsole";
 import { TIConsole } from "./_components/TIConsole";
 import { MgrConsole } from "./_components/MgrConsole";
 import { CommandDesk } from "./_components/CommandDesk";
+import { EscalationsPanel, waitingEscalations } from "./_components/EscalationsPanel";
+import { StakeholderWindow, openStakeholderQuestions } from "./_components/StakeholderWindow";
+import { StakeholderReportModal, type ReportSeed } from "./_components/StakeholderReportModal";
+import { ContainmentAdvice } from "./_components/ContainmentAdvice";
 import { TeamReport } from "./_components/TeamReport";
 import { FeedFilterBar } from "./_components/FeedFilterBar";
 import { SituationBoard } from "./_components/SituationBoard";
@@ -141,6 +145,10 @@ export default function TeamRoomPage() {
   const [t1Sel, setT1Sel] = useState<string>("");
   // Tier-1 queue = a VIEW of the SIEM table ("Needs triage"), not a separate card.
   const [feedView, setFeedView] = useState<"all" | "triage">("all");
+  // SOC Manager menu: the situation board, the raw logs (to back up the analysts), every
+  // escalation, the stakeholder report and the stakeholder window.
+  const [mgrView, setMgrView] = useState<"board" | "logs" | "escalations">("board");
+  const [reportSeed, setReportSeed] = useState<ReportSeed | null>(null);
   const [queueWithMedium, setQueueWithMedium] = useState(false);
   const [pulledNote, setPulledNote] = useState<string | null>(null);
   useEffect(() => { if (!pulledNote) return; const t = setTimeout(() => setPulledNote(null), 4000); return () => clearTimeout(t); }, [pulledNote]);
@@ -1176,6 +1184,35 @@ export default function TeamRoomPage() {
             {/* Shared case — the team's single shared truth; collapsible summary bar (G-02) */}
             <SharedCase events={events} feed={feed} roster={roster} me={me} act={act} nameOf={nameOf} />
 
+            {(me.role === "lead" || me.role === "mgr") && (() => {
+              const waitingEsc = waitingEscalations(events);
+              const openQs = openStakeholderQuestions(events, nowTick);
+              const declaredNow = events.some(e => e.type === "incident.declared");
+              const tab = (v: typeof mgrView, label: string, badge?: number) => (
+                <button key={v} type="button" role="tab" aria-selected={mgrView === v} onClick={() => setMgrView(v)}
+                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition ${mgrView === v ? "border border-neon-purple/50 bg-neon-purple/15 text-white" : "border border-transparent text-slate-400 hover:text-slate-200"}`}>
+                  {label}{badge ? <span className="rounded-full bg-neon-amber/20 px-1.5 font-mono text-[10px] text-neon-amber">{badge}</span> : null}
+                </button>
+              );
+              return (
+                <nav aria-label="SOC Manager menu" className="flex flex-wrap items-center gap-1 rounded-lg border border-border bg-bg-elevated/50 p-1">
+                  <div role="tablist" aria-label="Manager views" className="flex flex-wrap gap-1">
+                    {tab("board", "Situation board")}
+                    {tab("logs", "Logs")}
+                    {tab("escalations", "Escalations", waitingEsc)}
+                  </div>
+                  <div className="ml-auto flex flex-wrap gap-1">
+                    <button type="button" disabled={!declaredNow} title={declaredNow ? "Write the incident report for stakeholders" : "Declare the incident first"} onClick={() => setReportSeed({ hosts: [], lines: [] })}
+                      className="rounded-md border border-neon-purple/40 px-3 py-1.5 text-xs font-semibold text-neon-purple transition hover:bg-neon-purple/10 disabled:cursor-not-allowed disabled:opacity-50">Report to stakeholders</button>
+                    <button type="button" onClick={() => document.getElementById("team-stakeholders")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                      className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:text-white">
+                      Stakeholders{openQs ? <span className="rounded-full bg-neon-purple/25 px-1.5 font-mono text-[10px] text-neon-purple">{openQs}</span> : null}
+                    </button>
+                  </div>
+                </nav>
+              );
+            })()}
+
             {/* Running layout: wide page, and Tier-2/3 — whose work is reading escalated
                 logs and writing reports in the role column — get an even split instead
                 of a narrow side rail. The left column is sticky so the feed and the team
@@ -1189,10 +1226,15 @@ export default function TeamRoomPage() {
               {/* overflow-x-hidden: overflow-y:auto alone silently turns X into a scroll
                   container too, which is how the feed ended up clipped + sideways-scrolled. */}
               <div className="min-w-0 space-y-3 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto lg:overflow-x-hidden lg:pr-1">
-                {(me.role === "lead" || me.role === "mgr") ? (
+                {(me.role === "lead" || me.role === "mgr") && mgrView === "board" ? (
                   <SituationBoard liveFeed={liveFeed} events={events} feed={feed} nameOf={nameOf} roster={roster} online={online} act={act} />
+                ) : (me.role === "lead" || me.role === "mgr") && mgrView === "escalations" ? (
+                  <EscalationsPanel events={events} nameOf={nameOf} onAddToReport={(host, line) => setReportSeed({ hosts: host ? [host] : [], lines: [line] })} />
                 ) : (
                   <>
+                    {(me.role === "lead" || me.role === "mgr") && (
+                      <p className="rounded-lg border border-border bg-bg-elevated/40 px-3 py-2 text-[11px] text-slate-400">The raw logs, read-only, so you can back up your analysts and check what they report. Triage and escalation stay with the analysts.</p>
+                    )}
                     {/* Scenario review fix 6: a help-desk ticket is Tier-1's to answer — say so where Tier-1 looks. */}
                     {me.role === "t1" && openTickets > 0 && (
                       <button type="button" onClick={() => document.getElementById("team-injects")?.scrollIntoView({ behavior: "smooth", block: "start" })}
@@ -1275,6 +1317,8 @@ export default function TeamRoomPage() {
                     stay for backward-compatibility with older sessions; 'ti' is a live seat. */}
                 {/* Command desk first: declaration, severity and the decision cards the director raises from what is really happening. */}
                 {(me.role === "lead" || me.role === "mgr") && <CommandDesk sessionId={id} events={events} act={act} running={phase === "running"} />}
+                {(me.role === "lead" || me.role === "mgr") && <StakeholderWindow sessionId={id} events={events} act={act} declared={events.some(e => e.type === "incident.declared")} />}
+                {(me.role === "t2" || me.role === "t3") && <ContainmentAdvice events={events} meId={me.id} nameOf={nameOf} act={act} />}
                 {(me.role === "lead" || me.role === "mgr") && <LeadConsole events={events} nameOf={nameOf} act={act} />}
                 {me.role === "de" && <DEConsole liveFeed={liveFeed} events={events} act={act} />}
                 {me.role === "ti" && <TIConsole events={events} feed={feed} nameOf={nameOf} act={act} />}
@@ -1304,6 +1348,10 @@ export default function TeamRoomPage() {
         )}
       </div>
     </div>
+      {reportSeed && (me?.role === "mgr" || me?.role === "lead") && (
+        <StakeholderReportModal events={events} seed={reportSeed} onClose={() => setReportSeed(null)} act={act}
+          severity={(() => { const e = [...events].reverse().find(x => x.type === "incident.declared" || x.type === "incident.severity_changed"); return e ? Number((e.payload as { severity?: unknown }).severity) : null; })()} />
+      )}
       {caseLog && (me?.role === "t2" || me?.role === "t3") && (
         <OpenCaseModal log={caseLog} role={me.role} onClose={() => setCaseLog(null)} act={act} actR={actR} />
       )}

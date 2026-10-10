@@ -4,7 +4,8 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { activeSeat } from "@/lib/team/membership";
 import { buildMgrState } from "@/lib/team/manager/state";
 import { pickCard, materialize } from "@/lib/team/manager/director";
-import { loadSession, loadRoster, loadTeamEvents, criticalHostsOf } from "@/lib/team/manager/server";
+import { pickQuestion, materializeQuestion } from "@/lib/team/manager/questions";
+import { loadSession, loadRoster, loadTeamEvents, loadReferencedFeed, criticalHostsOf } from "@/lib/team/manager/server";
 
 /**
  * POST /api/team/sessions/[id]/director - the SOC-Manager incident director.
@@ -32,14 +33,27 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   if (sess.status !== "running" || (sess.schema_version ?? 1) < 2) return NextResponse.json({ fired: null });
 
   try {
-    const [roster, events] = await Promise.all([loadRoster(admin, id), loadTeamEvents(admin, id)]);
+    const [roster, teamEvents] = await Promise.all([loadRoster(admin, id), loadTeamEvents(admin, id)]);
+    const events = [...(await loadReferencedFeed(admin, id, teamEvents)), ...teamEvents].sort((a, b) => a.seq - b.seq);
     const s = buildMgrState({ events, roster, nowMs: Date.now(), difficulty: sess.difficulty, criticalHosts: criticalHostsOf(sess.company_id) });
+    let fired: string | null = null, asked: string | null = null;
     const pick = pickCard(s);
-    if (!pick) return NextResponse.json({ fired: null });
-    const { body, answer } = materialize(pick.def, pick.ctx, s, id);
-    const { data: seq, error } = await admin.rpc("team_fire_card", { p_session: id, p_card: pick.def.id, p_body: body, p_answer: answer });
-    if (error) throw new Error(error.message);
-    return NextResponse.json({ fired: seq ? pick.def.id : null }, { headers: { "Cache-Control": "private, no-store" } });
+    if (pick) {
+      const { body, answer } = materialize(pick.def, pick.ctx, s, id);
+      const { data: seq, error } = await admin.rpc("team_fire_card", { p_session: id, p_card: pick.def.id, p_body: body, p_answer: answer });
+      if (error) throw new Error(error.message);
+      if (seq) fired = pick.def.id;
+    }
+    // Stakeholder questions run on their own track (from the declaration on), same rule:
+    // only what the session made true.
+    const q = pickQuestion(s);
+    if (q) {
+      const { body, answer } = materializeQuestion(q.def, q.ctx, s);
+      const { data: seq, error } = await admin.rpc("team_fire_question", { p_session: id, p_qid: q.def.id, p_body: body, p_answer: answer });
+      if (error) throw new Error(error.message);
+      if (seq) asked = q.def.id;
+    }
+    return NextResponse.json({ fired, asked }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (e) {
     console.error("[team/director] failed:", (e as Error).message);
     return NextResponse.json({ error: "Director unavailable." }, { status: 500 });
