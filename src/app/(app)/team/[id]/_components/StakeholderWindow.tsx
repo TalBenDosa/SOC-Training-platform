@@ -93,7 +93,7 @@ export function StakeholderWindow({ sessionId, events, act, declared, onReport }
                   </div>
                 ) : left > 0 ? (
                   <div className="ml-6 space-y-1">
-                    <textarea aria-label={`Answer ${asStr(p.from?.name)}`} value={draft[id] ?? ""} rows={2} maxLength={1200}
+                    <textarea aria-label={`Answer ${asStr(p.from?.name)}`} value={draft[id] ?? ""} rows={4} maxLength={1200}
                       onChange={ev => setDraft(d => ({ ...d, [id]: ev.target.value }))}
                       placeholder="What is confirmed, what is not yet known, what you are doing, and when the next update comes."
                       className="w-full resize-y rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:border-neon-purple/50 focus:outline-none" />
