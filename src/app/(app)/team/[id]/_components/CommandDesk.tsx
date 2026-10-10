@@ -84,8 +84,8 @@ export function CommandDesk({ sessionId, events, act, running }: { sessionId: st
     <div data-command-desk className="scroll-mt-24">
     <Card className="border-neon-purple/40">
       <h3 className="flex items-center gap-2 text-sm font-bold text-white"><Gavel className="h-4 w-4 text-neon-purple" aria-hidden /> Command desk</h3>
-      <IncidentControl declared={!!declared} severity={severity} act={act} />
-      {fb && cards.length > 0 && <IndicatorStrip ind={fb.indicators} />}
+      <div data-tour="desk-incident"><IncidentControl declared={!!declared} severity={severity} act={act} /></div>
+      {fb && cards.length > 0 && <div data-tour="desk-impact"><IndicatorStrip ind={fb.indicators} /></div>}
       <div className="mt-3 space-y-2">
         {open.length === 0 && past.length === 0 && (
           <p className="text-[11px] leading-relaxed text-slate-400">No decisions waiting. Requests from the CISO, Legal, the business and your own analysts land here when the incident calls for them. Each one has a deadline: deciding late is also a decision.</p>

@@ -47,7 +47,7 @@ export function roleDirective(role: string | null | undefined): string {
     default: return "Watch the shared feed.";
   }
 }
-export function RoleGuideModal({ role, onClose }: { role: string | null; onClose: () => void }) {
+export function RoleGuideModal({ role, onClose, onStartTour }: { role: string | null; onClose: () => void; onStartTour?: () => void }) {
   const g = ROLE_GUIDE[role ?? ""] ?? ROLE_GUIDE.instructor;
   const dialogRef = useRef<HTMLDivElement>(null);
   useFocusTrap(true, dialogRef, { onEscape: onClose });
@@ -75,7 +75,13 @@ export function RoleGuideModal({ role, onClose }: { role: string | null; onClose
           <p className="text-[11px] font-semibold uppercase tracking-wider text-cyber-300">How the team works together</p>
           <p className="mt-0.5 text-xs text-slate-300">{OVERALL_FLOW}</p>
         </div>
-        <Button variant="primary" size="sm" className="mt-4 w-full" onClick={onClose}>Got it</Button>
+        {onStartTour ? (
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <Button variant="primary" size="sm" className="flex-1" onClick={onStartTour}>Start the guided tour (2 min)</Button>
+            <Button variant="outline" size="sm" onClick={onClose}>Not now</Button>
+          </div>
+        ) : <Button variant="primary" size="sm" className="mt-4 w-full" onClick={onClose}>Got it</Button>}
+        {onStartTour && <p className="mt-2 text-center text-[11px] text-slate-500">The tour points at each part of your screen and shows where to click. Reopen it any time from ? Guide.</p>}
       </div>
     </div>
   );

@@ -22,7 +22,7 @@ function injectLabel(kind: string, isStaff: boolean): string {
 }
 
 // ── G-14: injects/announcements banner (everyone) + help-desk tickets (Tier-1) ─
-export function InjectFeed({ sessionId, events, me, nameOf, act, hasManager = true }: { sessionId: string; events: Ev[]; me: Me; nameOf: (u: string | null) => string; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; hasManager?: boolean }) {
+export function InjectFeed({ sessionId, events, me, nameOf, act, hasManager = true, onWriteSitrep }: { sessionId: string; events: Ev[]; me: Me; nameOf: (u: string | null) => string; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; hasManager?: boolean; onWriteSitrep?: () => void }) {
   const [busy, setBusy] = useState<string | null>(null);
   // T1 playtest: a ticket answer was two canned strings — the analyst can now record
   // what they actually did (caller, verification, whether a code was shared).
@@ -63,7 +63,7 @@ export function InjectFeed({ sessionId, events, me, nameOf, act, hasManager = tr
   return (
     <>
     <LiveRegion message={announcement} />
-    <div id="team-injects" className="scroll-mt-24">
+    <div id="team-injects" data-tour="injects" className="scroll-mt-24">
     <Card className="border-cyber-500/30">
       <h3 className="flex items-center gap-2 text-sm font-bold text-white"><Siren className="h-4 w-4 text-cyber-300" aria-hidden="true" /> Injects & help-desk</h3>
       {/* Scenario review fix 6: who acts on what was never said. */}
@@ -113,7 +113,7 @@ export function InjectFeed({ sessionId, events, me, nameOf, act, hasManager = tr
               {isMgmt && !reply && isMgr && (
                 <div className="mt-1.5 flex flex-wrap items-center gap-2">
                   <span className="text-[10px] text-neon-purple">Yours to answer — send a SITREP within ~15 min.</span>
-                  <Button variant="outline" size="sm" onClick={() => document.getElementById("team-sitrep")?.scrollIntoView({ behavior: "smooth", block: "center" })}>Write SITREP</Button>
+                  <Button variant="outline" size="sm" onClick={() => (onWriteSitrep ? onWriteSitrep() : document.getElementById("team-sitrep")?.scrollIntoView({ behavior: "smooth", block: "center" }))}>Write SITREP</Button>
                 </div>
               )}
               {isMgmt && !reply && !isMgr && (

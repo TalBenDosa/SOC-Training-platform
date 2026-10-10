@@ -46,6 +46,8 @@ import { INDUSTRY_CHOICES, PLATFORM_CHOICES } from "@/lib/team/environment";
 import { advanceWatermark } from "@/lib/team/eventLog";
 import { ROLE_LABEL } from "./_components/shared";
 import { roleDirective, RoleGuideModal } from "./_components/RoleGuideModal";
+import { GuidedTour } from "./_components/GuidedTour";
+import { tourFor } from "./_components/teamTours";
 import { SharedCase } from "./_components/SharedCase";
 import { T1Console } from "./_components/T1Console";
 import { T2Console } from "./_components/T2Console";
@@ -110,6 +112,8 @@ export default function TeamRoomPage() {
   const [events, setEvents] = useState<Ev[]>([]);
   const [dismissedNudgeSeq, setDismissedNudgeSeq] = useState(0); // latest rebalance-nudge the viewer closed
   const [showGuide, setShowGuide] = useState(false);
+  // First-use guided tour of the role's screen (spotlight + "where to click"), started from the guide.
+  const [tourOn, setTourOn] = useState(false);
   // Session-lifecycle UX: who just left (transient popups), whether staff has
   // temporarily dismissed the "training halted" overlay to reassign/end, and why
   // the session closed (for the ended screen).
@@ -966,7 +970,9 @@ export default function TeamRoomPage() {
           </div>
         )}
 
-        {showGuide && me && <RoleGuideModal role={me.role} onClose={() => setShowGuide(false)} />}
+        {showGuide && me && <RoleGuideModal role={me.role} onClose={() => setShowGuide(false)}
+          onStartTour={phase === "running" && tourFor(me.role, setMgrView) ? () => { setShowGuide(false); setTourOn(true); } : undefined} />}
+        {tourOn && me && (() => { const t = tourFor(me.role, setMgrView); return t ? <GuidedTour title={t.title} steps={t.steps} onClose={() => { setTourOn(false); try { localStorage.setItem(`team-tour-seen-${me.role}`, "1"); } catch { /* storage blocked */ } }} /> : null; })()}
 
         {/* Who-just-left popups — every member sees them when a teammate drops. */}
         {leftNotices.length > 0 && (
@@ -1146,7 +1152,7 @@ export default function TeamRoomPage() {
         {/* ── RUNNING ── */}
         {phase === "running" && me && (
           <>
-            <div className="flex items-center gap-2 text-sm">
+            <div data-tour="status" className="flex items-center gap-2 text-sm">
               {/* C6: real connection state, not a permanent "Live" */}
               {socketLive && pullHealthy
                 ? <span className="inline-flex items-center gap-1.5 text-neon-green"><Radio className="h-4 w-4 animate-pulse" /> Live — same feed for the whole team</span>
@@ -1159,7 +1165,7 @@ export default function TeamRoomPage() {
                 </span>
               )}
               <span className="ml-auto font-mono text-xs text-slate-500">{online.size} online · {feed.length} logs · you: {ROLE_LABEL[me.role ?? ""] ?? "observer"}</span>
-              <Button variant="outline" size="sm" onClick={() => setShowGuide(true)}>? Guide</Button>
+              <span data-tour="guide-button"><Button variant="outline" size="sm" onClick={() => setShowGuide(true)}>? Guide</Button></span>
               {canRunSession && (paused
                 ? <Button variant="outline" size="sm" disabled={busy} onClick={() => pauseSession(false)}>Resume</Button>
                 : <Button variant="outline" size="sm" disabled={busy} onClick={() => pauseSession(true)}><PauseCircle className="mr-1 h-3.5 w-3.5" /> Pause</Button>)}
@@ -1167,7 +1173,7 @@ export default function TeamRoomPage() {
             </div>
 
             {/* Always-visible "what do I do now" directive for the player's role */}
-            <div className="flex items-start gap-2 rounded-lg border border-cyber-500/30 bg-cyber-500/[0.06] px-3 py-2 text-sm">
+            <div data-tour="role-banner" className="flex items-start gap-2 rounded-lg border border-cyber-500/30 bg-cyber-500/[0.06] px-3 py-2 text-sm">
               <span className="shrink-0 rounded border border-cyber-500/40 bg-cyber-500/10 px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase text-cyber-300">{ROLE_LABEL[me.role ?? ""] ?? "observer"}</span>
               <span className="text-slate-200">{roleDirective(me.role)}</span>
               <button onClick={() => setShowGuide(true)} className="ml-auto shrink-0 rounded text-[11px] text-cyber-300 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/50">how my role works →</button>
@@ -1182,7 +1188,7 @@ export default function TeamRoomPage() {
             )}
 
             {/* Shared case — the team's single shared truth; collapsible summary bar (G-02) */}
-            <SharedCase events={events} feed={feed} roster={roster} me={me} act={act} nameOf={nameOf} />
+            <div data-tour="shared-case"><SharedCase events={events} feed={feed} roster={roster} me={me} act={act} nameOf={nameOf} /></div>
 
             {(me.role === "lead" || me.role === "mgr") && (() => {
               const waitingEsc = waitingEscalations(events);
@@ -1199,7 +1205,7 @@ export default function TeamRoomPage() {
                 </button>
               );
               return (
-                <nav aria-label="SOC Manager menu" className="flex flex-wrap items-center gap-1 rounded-lg border border-border bg-bg-elevated/50 p-1">
+                <nav data-tour="mgr-menu" aria-label="SOC Manager menu" className="flex flex-wrap items-center gap-1 rounded-lg border border-border bg-bg-elevated/50 p-1">
                   <div role="tablist" aria-label="Manager views" className="flex flex-wrap gap-1">
                     {tab("board", "Situation board")}
                     {tab("logs", "Logs")}
@@ -1208,7 +1214,7 @@ export default function TeamRoomPage() {
                     {tab("reporting", "Reporting", updateDue ? `${sinceUpdateMin}m` : undefined)}
                   </div>
                   <div className="ml-auto flex flex-wrap gap-1">
-                    <button type="button" disabled={!declaredNow} title={declaredNow ? "Write the incident report for stakeholders" : "Declare the incident first"} onClick={() => setReportSeed({ hosts: [], lines: [] })}
+                    <button data-tour="report-button" type="button" disabled={!declaredNow} title={declaredNow ? "Write the incident report for stakeholders" : "Declare the incident first"} onClick={() => setReportSeed({ hosts: [], lines: [] })}
                       className="rounded-md border border-neon-purple/40 px-3 py-1.5 text-xs font-semibold text-neon-purple transition hover:bg-neon-purple/10 disabled:cursor-not-allowed disabled:opacity-50">Report to stakeholders</button>
                   </div>
                 </nav>
@@ -1227,12 +1233,13 @@ export default function TeamRoomPage() {
                   instructor seat (role "instructor") keeps the raw feed for oversight. */}
               {/* overflow-x-hidden: overflow-y:auto alone silently turns X into a scroll
                   container too, which is how the feed ended up clipped + sideways-scrolled. */}
-              <div className="min-w-0 space-y-3 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto lg:overflow-x-hidden lg:pr-1">
+              <div data-tour={me.role === "lead" || me.role === "mgr" ? "mgr-view" : undefined} className="min-w-0 space-y-3 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto lg:overflow-x-hidden lg:pr-1">
                 {(me.role === "lead" || me.role === "mgr") && mgrView === "board" ? (
                   <>
                     <SituationBoard liveFeed={liveFeed} events={events} feed={feed} nameOf={nameOf} roster={roster} online={online} act={act} />
                     <TeamIntel events={events} nameOf={nameOf} />
-                    <InjectFeed sessionId={id} events={events} me={me} nameOf={nameOf} act={act} hasManager={hasManager} />
+                    <InjectFeed sessionId={id} events={events} me={me} nameOf={nameOf} act={act} hasManager={hasManager}
+                      onWriteSitrep={() => { setMgrView("reporting"); setTimeout(() => document.querySelector<HTMLInputElement>("#team-sitrep input")?.focus(), 150); }} />
                     <SecondaryPanels activity={activity} nameOf={nameOf} />
                   </>
                 ) : (me.role === "lead" || me.role === "mgr") && mgrView === "escalations" ? (
@@ -1264,7 +1271,7 @@ export default function TeamRoomPage() {
                     )}
                     {/* Tier-1: the alert queue is a view of this SIEM, not a separate panel */}
                     {me.role === "t1" && (
-                      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-bg-elevated/40 px-2 py-1.5">
+                      <div data-tour="siem-view" className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-bg-elevated/40 px-2 py-1.5">
                         <div role="tablist" aria-label="SIEM view" className="flex gap-1">
                           <button role="tab" aria-selected={feedView === "all"} onClick={() => setFeedView("all")}
                             className={`rounded px-2.5 py-1 text-[11px] font-semibold transition ${feedView === "all" ? "border border-cyber-500/40 bg-cyber-500/15 text-cyber-300" : "border border-transparent text-slate-400 hover:text-slate-200"}`}>
@@ -1287,7 +1294,7 @@ export default function TeamRoomPage() {
                     {(me.role === "t1" || me.role === "t2" || me.role === "t3") && (() => {
                       const last = edrAlerts[edrAlerts.length - 1];
                       return (
-                        <div className="flex items-center gap-2">
+                        <div data-tour="edr-button" className="flex items-center gap-2">
                           <button type="button" disabled={!last} onClick={() => last && openEdr(last.title, last.host)}
                             title={last ? `Latest EDR alert: ${last.title} (${last.host})` : "No endpoint alerts yet: this lights up when an EDR alert reaches the feed"}
                             className={`relative flex items-center gap-1.5 rounded border px-2.5 py-1.5 text-xs font-semibold transition ${last ? "border-cyber-500/50 bg-cyber-500/10 text-cyber-200 hover:bg-cyber-500/20" : "cursor-not-allowed border-border bg-bg text-slate-500"}`}>
@@ -1303,13 +1310,13 @@ export default function TeamRoomPage() {
                       );
                     })()}
                     {/* G-04: surfaced feed filters + active click-to-pivot chips */}
-                    <FeedFilterBar
+                    <div data-tour="filters"><FeedFilterBar
                       severity={fSeverity} setSeverity={setFSeverity}
                       source={fSource} setSource={setFSource} sources={feedSources}
                       search={fSearch} setSearch={setFSearch}
                       pivots={[["user", fUser, setFUser], ["host", fHost, setFHost], ["ip", fIp, setFIp]]}
-                    />
-                    <EventFeed
+                    /></div>
+                    <div data-tour="feed"><EventFeed
                       events={me.role === "t1" && feedView === "triage" ? triageFeed : liveFeed}
                       emptyMessage={me.role === "t1" && feedView === "triage" ? `Nothing needs triage — every ${queueWithMedium ? "medium+" : "high/critical"} alert has a disposition. Keep watching All events.` : "Waiting for the first logs…"}
                       severityFilter={fSeverity} sourceFilter={fSource} search={fSearch}
@@ -1320,31 +1327,31 @@ export default function TeamRoomPage() {
                       onAddIoc={me.role === "t1" ? onFeedAddIoc : undefined}
                       rowStatus={rowStatus}
                       onEscalate={me.role === "t1" ? onFeedEscalate : me.role === "t2" || me.role === "t3" ? onFeedOpenCase : undefined}
-                    />
+                    /></div>
                   </>
                 )}
               </div>
               {/* YOUR ROLE — the dominant role panel(s), then secondary panels tabbed (G-03) */}
               <div className="min-w-0 space-y-4">
-                {me.role === "t1" && <T1Console sessionId={id} feed={feed} dispositions={dispositions} events={events} meId={me.id} iocDraft={iocDraft} setIocDraft={setIocDraft} nameOf={nameOf} act={act} actR={actR} sel={t1Sel} setSel={setT1Sel} reportOpen={t1ReportOpen} setReportOpen={setT1ReportOpen} />}
+                {me.role === "t1" && <div data-tour="t1-console"><T1Console sessionId={id} feed={feed} dispositions={dispositions} events={events} meId={me.id} iocDraft={iocDraft} setIocDraft={setIocDraft} nameOf={nameOf} act={act} actR={actR} sel={t1Sel} setSel={setT1Sel} reportOpen={t1ReportOpen} setReportOpen={setT1ReportOpen} /></div>}
                 {/* B12: Tier-3's dominant surface is HUNTING — render it above the (secondary) inbox. */}
-                {me.role === "t3" && <HuntConsole canEdr={canEdr} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} elevations={elevations} elevAcked={elevAcked} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={onFeedPivot} />}
-                {(me.role === "t2" || me.role === "t3") && <T2Console canEdr={canEdr} sessionId={id} role={me.role} meId={me.id} escalations={escalations} escState={escStates} reportedIds={reportedIds} reportByEid={reportByEid} elevatedIds={elevatedIds} containments={containments} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} nameOf={nameOf} act={act} actR={actR} onEdr={openEdr} onPivot={onFeedPivot} pauses={pauseSpans} />}
+                {me.role === "t3" && <div data-tour="hunt-console"><HuntConsole canEdr={canEdr} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} elevations={elevations} elevAcked={elevAcked} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={onFeedPivot} /></div>}
+                {(me.role === "t2" || me.role === "t3") && <div data-tour="t2-console"><T2Console canEdr={canEdr} sessionId={id} role={me.role} meId={me.id} escalations={escalations} escState={escStates} reportedIds={reportedIds} reportByEid={reportByEid} elevatedIds={elevatedIds} containments={containments} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} nameOf={nameOf} act={act} actR={actR} onEdr={openEdr} onPivot={onFeedPivot} pauses={pauseSpans} /></div>}
                 {/* SOC Manager now holds the coordinator authority (approve containment,
                     decision log, SITREP) as well as shift management. 'lead'/'de' branches
                     stay for backward-compatibility with older sessions; 'ti' is a live seat. */}
                 {/* Command desk first: declaration, severity and the decision cards the director raises from what is really happening. */}
-                {(me.role === "lead" || me.role === "mgr") && <CommandDesk sessionId={id} events={events} act={act} running={phase === "running"} />}
-                {(me.role === "t2" || me.role === "t3") && <ContainmentAdvice events={events} meId={me.id} nameOf={nameOf} act={act} />}
+                {(me.role === "lead" || me.role === "mgr") && <div data-tour="command-desk"><CommandDesk sessionId={id} events={events} act={act} running={phase === "running"} /></div>}
+                {(me.role === "t2" || me.role === "t3") && <div data-tour="containment-advice" className="empty:hidden"><ContainmentAdvice events={events} meId={me.id} nameOf={nameOf} act={act} /></div>}
                 {/* The manager's consoles live behind the menu (one view at a time, no visual overload). */}
                 {me.role === "de" && <DEConsole liveFeed={liveFeed} events={events} act={act} />}
                 {me.role === "ti" && <TIConsole events={events} feed={feed} nameOf={nameOf} act={act} />}
                 {/* QA L4: another instructor of the org (staff, no seat in this session) gets the panel too — every
                     staff tool except the inject composer, which posts as the session's instructor seat. */}
-                {(me.role === "instructor" || (me.is_staff && !me.role)) && <InstructorPanel sessionId={id} roster={roster} online={online} events={events} act={act} isStaff={!!me.is_staff} nameOf={nameOf} canInject={me.role === "instructor"} onError={showError} />}
+                {(me.role === "instructor" || (me.is_staff && !me.role)) && <div data-tour="instructor-panel"><InstructorPanel sessionId={id} roster={roster} online={online} events={events} act={act} isStaff={!!me.is_staff} nameOf={nameOf} canInject={me.role === "instructor"} onError={showError} /></div>}
                 {/* The team chat sits with the role panels, never under the feed: a chat under the
                     log list covered the log being read (Tal, 2026-10-08). It folds to one line. */}
-                <WarRoom sessionId={id} events={events} me={me} nameOf={nameOf} act={act} />
+                <div data-tour="chat"><WarRoom sessionId={id} events={events} me={me} nameOf={nameOf} act={act} /></div>
                 {/* Team intel — its own visible card (was buried in a folded tab) */}
                 {!(me.role === "lead" || me.role === "mgr") && <TeamIntel events={events} nameOf={nameOf} />}
                 {/* G-14: injects / announcements / help-desk tickets — visible to everyone */}                {!(me.role === "lead" || me.role === "mgr") && <InjectFeed sessionId={id} events={events} me={me} nameOf={nameOf} act={act} hasManager={hasManager} />}
