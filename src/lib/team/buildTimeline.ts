@@ -8,10 +8,11 @@ import "server-only";
  *
  * Generated ONCE at /start and stored in session_injects, so every member replays
  * the identical incident and the AAR reconstructs it exactly from the log. The
- * interleaving/cadence/MSEL telemetry is seeded (mulberry32), but the attack-story
- * CHOICE is random (pickStoryForCompany), so two builds with the same seed may
- * pick different stories — unless staff chose a storyline (scenario_id), which
- * then always leads as the primary incident.
+ * whole build is a pure function of its inputs: interleaving, cadence, MSEL telemetry
+ * AND the attack-story choice (and each story's victim) are drawn from mulberry32
+ * streams of the seed, so a seed always replays the same incidents while different
+ * sessions still vary. A storyline staff chose (scenario_id) always leads as the
+ * primary incident.
  *
  * Answer key (contract 1, 2026-09-27 live-playtest fix round): every feed entry's
  * `answer` carries an explicit expected_verdict (tp | escalate | benign | fp —
@@ -23,7 +24,7 @@ import { approvalRefOf, itVerifyApplies } from "@/lib/sim/itVerify";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { BENIGN_EVENTS } from "@/app/(app)/dashboard/benignEvents";
 import { COMPANY_EVENTS } from "@/lib/sim/companyProfiles";
-import { pickStoryForCompany, instantiateStory, storiesForCompany, storiesForTier, rehomeEvents, type AttackStory } from "@/app/(app)/dashboard/attackStories";
+import { instantiateStory, storiesForCompany, storiesForTier, rehomeEvents, type AttackStory } from "@/app/(app)/dashboard/attackStories";
 import { DEFAULT_ENV, envAllowsStory, envHasPlatforms, platformsOfEvent, type TeamEnv } from "./environment";
 import { legacyLoad, type TeamLoad } from "./load";
 import { COMPANY_PROFILES, COMPANY_ASSETS } from "@/lib/sim/companyProfilesMeta";
@@ -47,6 +48,11 @@ import { PRODUCT_LABEL, type Stack } from "@/lib/logs/native/stack";
 export interface TimelineEntry { due_offset_ms: number; channel: "feed" | "inject" | "bonus"; body: Record<string, unknown>; answer?: Record<string, unknown> }
 /** The offset a held bonus row is parked at (far beyond any shift); its real offset is added on release. */
 export const BONUS_HOLD_MS = 1_000_000_000_000_000;
+
+/** Share of the visible feed that is ordinary traffic before the first attack row. */
+const WARMUP_MIN = 0.10;
+/** Logs behind the MSEL injects, added after placement: the twist's DNS/firewall/EDR rows + the false lead's ticket and two uploads. */
+const MSEL_SUPPORT_ROWS = 6;
 
 export type TeamVerdict = "tp" | "escalate" | "benign" | "fp";
 /** Where a feed log came from — lets the report / instructor tell story steps from noise. */
@@ -463,12 +469,14 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   const forcedAt = (i: number) => resolveTeamStory(companyId, difficulty, slotIds[i] ?? null, env, stack);
   const pinnedIdsAll = slotIds.filter((x): x is string => !!x);
   const storyFits = teamStoryFilter(companyId, stack, env);
-  const envPool = env ? teamStoryPool(companyId, difficulty, env, stack) : null;
+  // Story picks and their victims draw from their own seeded stream: the same seed always
+  // replays the same incidents (Math.random here made the warm-up test flaky), and the
+  // main `rnd` stream below keeps the draws it had.
+  const pickRnd = mulberry32(hashSeed(`${companyId}:${difficulty}:${seed}:story-pick`));
+  const storyPool = teamStoryPool(companyId, difficulty, env, stack);
   const pickStory = (accept: (s: AttackStory) => boolean): AttackStory => {
-    if (!envPool) return pickStoryForCompany(companyId, difficulty, accept);
-    const fit = envPool.filter(accept);
-    const cands = fit.length ? fit : envPool;
-    return cands[Math.floor(Math.random() * cands.length)];
+    const fit = storyPool.filter(accept);
+    return pick(fit.length ? fit : storyPool, pickRnd);
   };
   // Concurrent incidents hit different people (a team never works two attacks on one victim).
   const victimOf = (evs: TelemetryEvent[]) => evs.find(e => e.user_email && isMalicious(classifyStoryEvent(e)))?.user_email;
@@ -485,7 +493,7 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
         // builder / create / start routes use for a pinned storyline (teamStoryFilter).
         const story = forced ?? pickStory(s => !avoid.includes(s.id) && storyFits(s));
         if (!forced && avoid.includes(story.id)) continue;   // server-side there is no anti-repeat memory
-        const events0 = instantiateStory(story, companyPool, edr, companyId).events ?? [];
+        const events0 = instantiateStory(story, companyPool, edr, companyId, pickRnd).events ?? [];
         if (events0.length === 0) return null;
         if ((stacked || env) && !forced && !sessionFit(companyId, stack, env)(events0)) continue;
         const victim = victimOf(events0);
@@ -592,20 +600,26 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   // reads as an unfolding attack. The attacks start at staggered, seed-varied points (Tal,
   // 2026-10-03: not all at once, different timing every session) and in a seeded order — the
   // primary incident is not always the first to surface.
+  // The warm-up holds on the feed the team SEES: ITSM approvals and the MSEL's supporting logs
+  // join after placement and lengthen it, so the floor under every attack row counts them too
+  // (placing at 10% of the pre-insert rows let some story mixes open inside the first tenth).
+  const itsmRows = [...noise, ...attack1, ...attack2, ...attack3, ...poolAttacks.flat()].filter(p => itsmRecordFor(p.ev, companyId)).length;
+  const lateRows = itsmRows + (difficulty !== "easy" ? MSEL_SUPPORT_ROWS : 0);
+  const leadMin = Math.min(total - 1, Math.ceil(WARMUP_MIN * (total + lateRows)));
   const posToAttack = new Map<number, Placed>();
   const place = (evs: Placed[], startFrac: number, endFrac: number) => {
     if (evs.length === 0) return;
-    const start = Math.floor(total * startFrac);
-    const end = Math.min(total - 1, Math.floor(total * endFrac));
+    const start = Math.max(leadMin, Math.floor(total * startFrac));
+    const end = Math.max(start, Math.min(total - 1, Math.floor(total * endFrac)));
     const denom = Math.max(1, evs.length - 1);
     for (let i = 0; i < evs.length; i++) {
       let pos = Math.min(end, start + Math.round((i * (end - start)) / denom));
       while (posToAttack.has(pos) && pos < total - 1) pos++;
-      while (posToAttack.has(pos) && pos > 0) pos--;
+      while (posToAttack.has(pos) && pos > leadMin) pos--;
       posToAttack.set(pos, evs[i]);
     }
   };
-  const warmup = 0.10 + rnd() * 0.08;
+  const warmup = WARMUP_MIN + rnd() * 0.08;
   const bands = [attack1, attack2, attack3].filter(a => a.length > 0);
   for (let i = bands.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [bands[i], bands[j]] = [bands[j], bands[i]]; }
   const lastStart = bands.length > 1 ? 0.58 : warmup + 0.22;
