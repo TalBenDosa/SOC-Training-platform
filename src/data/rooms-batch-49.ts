@@ -560,7 +560,7 @@ export const roomsBatch49 = [
       {
         "type": "flag" as const,
         "id": "hsl-f1",
-        "event": null,
+        "logTask": "hsl-la1",
         "prompt": "In this room’s regsvr32 log-analysis case on host LT-THN-4471, the command line fetched a COM scriptlet from a remote server. Enter the exact filename of that scriptlet as it appears in the URL.",
         "answer": "invoice_svc.sct",
         "hint": "Look back at the regsvr32 command line in that case: the scriptlet is the .sct file at the end of the http:// URL. Enter only the filename, not the full URL.",

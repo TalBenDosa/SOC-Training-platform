@@ -184,6 +184,8 @@ export interface FlagTask {
   // reference in the prompt pins the Nth log_analysis event, else the nearest
   // preceding log. `null` → show NO log (a pure recall/knowledge flag).
   event?: TelemetryEvent | null;
+  /** The id of the log task this flag asks about (when the prompt does not name it by heading). */
+  logTask?: string;
 }
 
 export interface AnalystChoiceTask {

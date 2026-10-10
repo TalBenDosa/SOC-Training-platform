@@ -318,7 +318,7 @@ const k8sSecurityRoom = {
     // -------------------------------------------------------------------------
     {
       type: "flag" as const,
-      id: "k8s-f1",
+      id: "k8s-f1", logTask: "k8s-la1",
       prompt:
         "To block the attacker's image source at the egress firewall, you need the registry endpoint behind the privileged pod in kube-system. Enter only the registry host and port (host:port), not the image name or tag.",
       answer: "185.220.101.47:5000",

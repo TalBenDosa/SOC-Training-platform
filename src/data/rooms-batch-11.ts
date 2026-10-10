@@ -476,7 +476,7 @@ const rooms = [
       // ── Flag ───────────────────────────────────────────────────
       {
         type: "flag",
-        id: "priv-flag1",
+        id: "priv-flag1", logTask: "priv-la1",
         prompt:
           "In the svc-backup special-logon event on DC01, you now want the matching 4624 logon event to see which machine this session came from. Enter the exact value you would search for in DC01's logon events to tie them to this 4672.",
         answer: "0x7F4A21C",
@@ -831,7 +831,7 @@ const rooms = [
       // ── Flag ───────────────────────────────────────────────────
       {
         type: "flag",
-        id: "cloud-flag1",
+        id: "cloud-flag1", logTask: "cloud-la1",
         prompt:
           "Containment Step 5 says to disable or delete any backdoor identity the attacker created. In the CloudTrail CreateUser event, find the name of the IAM user that will need to be removed (the one that received AdministratorAccess 47 seconds later) and enter it exactly.",
         answer: "svc-cloudmonitor-prod",

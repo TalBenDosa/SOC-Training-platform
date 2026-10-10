@@ -461,7 +461,7 @@ const otIcsSecurityRoom = {
     },
     {
       "type": "flag" as const,
-      "id": "ot-f1",
+      "id": "ot-f1", "logTask": "ot-la1",
       "prompt": "This room's log_analysis task investigates a Modbus WRITE_MULTIPLE_REGISTERS session sent to plc-dose-03 from a source with no engineering history. What MITRE ATT&CK for ICS technique ID names sending a command message that instructs a control-system device to act outside its intended function, or without the operational authorization to do so -- exactly what that session represents?",
       "answer": "T0855",
       "hint": "The technique is about the command message itself, not the change it causes in the process.",

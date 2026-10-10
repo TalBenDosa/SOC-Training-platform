@@ -530,7 +530,7 @@ const discoveryEnumerationRoom = {
     // ── Flag ──────────────────────────────────────────────────────────────
     {
       type: "flag" as const,
-      id: "disc-f1",
+      id: "disc-f1", logTask: "disc-la2",
       prompt:
         "In the overnight API burst you investigated, the role's temporary credentials were used from somewhere its scheduled Lambda never runs. Enter the source IP address you would block and pivot on across CloudTrail to find everything else those credentials touched.",
       answer: "45.148.10.62",

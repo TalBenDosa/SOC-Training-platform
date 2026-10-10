@@ -18,6 +18,8 @@ import { ROOM_PASS_THRESHOLD } from "@/lib/rooms/xp";
 import { mergeRoomEntry, mergeTaskXpMax, roomScoreXp } from "@/lib/rooms/progressMerge";
 import { recommendNextRoom } from "@/lib/rooms/recommend";
 import { ReportIssue } from "@/components/feedback/ReportIssue";
+import { resolveFlagLog } from "@/lib/rooms/flagLog";
+import type { TelemetryEvent } from "@/lib/sim/types";
 
 // A room must score at least this fraction of its gradeable XP to count as
 // passed. Below this, the student must retry the room from the start — a
@@ -452,45 +454,9 @@ export function RoomClient({ room }: RoomClientProps) {
   // Flag prompts routinely ask the student to read a field from a log, and the flag is
   // often not the task immediately after its log_analysis (a reading/question/matching
   // step can sit between) — walking back finds the log the flag actually refers to.
-  let prevLogEvent;
-  if (currentTask.type === "flag") {
-    if (currentTask.event !== undefined) {
-      // Explicitly pinned by the author: an event to show, or `null` for no log
-      // (a pure recall/knowledge flag whose answer isn't in any log).
-      prevLogEvent = currentTask.event ?? undefined;
-    } else {
-      // A "Log Analysis N" reference pins the Nth log_analysis event — the flag is
-      // often not right after its log, and an intervening analyst_choice log would
-      // otherwise be shown instead (the mismatch students reported).
-      const m = currentTask.prompt?.match(/log analysis\s+(\d+)/i);
-      if (m) {
-        let n = 0;
-        for (const t of room.tasks) {
-          if (t.type === "log_analysis") { n++; if (n === Number(m[1])) { prevLogEvent = t.event; break; } }
-        }
-      }
-      // Fallback: the nearest preceding log. Normally that's whichever of
-      // log_analysis / analyst_choice comes last, but a flag whose prompt names a
-      // "log analysis" finding wants a log_analysis event specifically — an
-      // intervening "Verdict" analyst_choice must not shadow it (the decoy-log bug:
-      // the flag asks about an la event while the ac verdict event, often carrying a
-      // look-alike value, is shown instead). So when the prompt says "log analysis",
-      // prefer the nearest preceding log_analysis, falling back to the nearest log of
-      // either kind only if there is no log_analysis at all.
-      if (!prevLogEvent) {
-        const wantsLogAnalysis = /log[-\s]?analysis/i.test(currentTask.prompt ?? "");
-        let nearestLog, nearestLogAnalysis;
-        for (let i = currentTaskIndex - 1; i >= 0; i--) {
-          const t = room.tasks[i];
-          if (t.type === "log_analysis" || t.type === "analyst_choice") {
-            if (!nearestLog) nearestLog = t;
-            if (t.type === "log_analysis") { nearestLogAnalysis = t; break; }
-          }
-        }
-        prevLogEvent = (wantsLogAnalysis && nearestLogAnalysis ? nearestLogAnalysis : nearestLog)?.event;
-      }
-    }
-  }
+  // Which log the flag shows: see resolveFlagLog (pinned event, logTask id, a quoted heading,
+  // "Log Analysis N", then the nearest preceding log).
+  const prevLogEvent = currentTask.type === "flag" ? resolveFlagLog<TelemetryEvent>(room.tasks as unknown as Parameters<typeof resolveFlagLog>[0], currentTaskIndex) : undefined;
 
   if (!mounted) return null;
 

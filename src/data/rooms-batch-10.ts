@@ -254,7 +254,7 @@ const rooms = [
       // ── Flag ──
       {
         type: "flag",
-        id: "phishing-flag1",
+        id: "phishing-flag1", logTask: "phishing-la1",
         prompt:
           "Go back to the 'Analysing a Suspicious Email Gateway Alert' log (the Urgent_Wire_Request_Q2.xlsm event, not the later verdict scenario). If alice.chen clicks Reply and answers the 'CFO', which domain would her answer actually be delivered to? Enter the domain only, without the user part before the @.",
         answer: "gmail-secure-mail.com",
@@ -519,7 +519,7 @@ const rooms = [
       // ── Flag ──
       {
         type: "flag",
-        id: "vpn-flag1",
+        id: "vpn-flag1", logTask: "vpn-la1",
         prompt:
           "Back in the 'Investigating a Suspicious VPN Login Sequence' log (david.miller@contoso.com, not the later j.petrov scenario): to learn which internal systems the attacker reached during the suspect session, you will search internal logs for that session's address inside the network. What is that address?",
         answer: "10.200.45.88",
@@ -785,7 +785,7 @@ const rooms = [
       // ── Flag ──
       {
         type: "flag",
-        id: "fw-flag1",
+        id: "fw-flag1", logTask: "fw-la1",
         prompt:
           "Go back to the 'Analysing a Blocked Outbound C2 Connection' log (the FortiGate event with data.action = deny, not the later verdict scenario). You have decided to isolate the machine that tried to reach the C2 server. What is that machine's hostname?",
         answer: "WKSTN-ACCT-087",
