@@ -18,7 +18,7 @@ const cardLog = (i: number): NativeLog => {
 describe("cisco_asa: wire format", () => {
   it("our writer reproduces the ASA card raw lines from their JSON", () => {
     const md = readFileSync(join(process.cwd(), "docs", "log-schemas", "fw-cisco.md"), "utf8");
-    const raws = [...md.matchAll(/```text\s*\n([\s\S]*?)```/g)].flatMap(m => m[1].trim().split("\n")).filter(l => l.includes("%ASA-"));
+    const raws = [...md.matchAll(/```text\s*\n([\s\S]*?)```/g)].flatMap(m => m[1].trim().split(/\r?\n/)).filter(l => l.includes("%ASA-"));
     const jsons = (cardSamples("fw-cisco.md") as Record<string, unknown>[]).filter(j => kindOf(j));
     expect(raws.length).toBe(3);
     raws.forEach((line, i) => expect(toRawLine(jsons[i])).toBe(line));
