@@ -260,12 +260,22 @@ export function Sidebar() {
   // Desktop rail collapse — remembered per device so the choice sticks across
   // pages and reloads. Read in an effect to avoid an SSR/first-paint mismatch.
   useEffect(() => { try { setCollapsed(localStorage.getItem("soc_sidebar_collapsed") === "1"); } catch { /* storage blocked */ } }, []);
-  const toggleCollapsed = (v: boolean) => { setCollapsed(v); try { localStorage.setItem("soc_sidebar_collapsed", v ? "1" : "0"); } catch { /* storage blocked */ } };
+  // Team exercise room (/team/<id>): focus mode for every role, the rail starts collapsed so
+  // the exercise gets the whole screen. Opening it there is for this visit only and does not
+  // change the remembered preference for the rest of the app.
+  const focusRoute = /^\/team\/[^/]+/.test(pathname ?? "");
+  const [focusOpen, setFocusOpen] = useState(false);
+  useEffect(() => { setFocusOpen(false); }, [pathname]);
+  const railCollapsed = focusRoute ? !focusOpen : collapsed;
+  const toggleCollapsed = (v: boolean) => {
+    if (focusRoute) { setFocusOpen(!v); return; }
+    setCollapsed(v); try { localStorage.setItem("soc_sidebar_collapsed", v ? "1" : "0"); } catch { /* storage blocked */ }
+  };
 
   return (
     <>
       {/* ── Desktop rail (collapsible) ───────────────────────────────── */}
-      <aside className={cn("hidden md:flex md:w-60 flex-col border-r border-border bg-[#0d1520] sticky top-0 h-screen", collapsed && "md:hidden")}>
+      <aside className={cn("hidden md:flex md:w-60 flex-col border-r border-border bg-[#0d1520] sticky top-0 h-screen", railCollapsed && "md:hidden")}>
         <div className="flex items-center justify-between px-5 py-5">
           <Link href={homeHref} className="block">
             <Logo />
@@ -284,14 +294,16 @@ export function Sidebar() {
 
       {/* Desktop: floating button to reopen the rail once it's collapsed, so the
           dashboard (and every page) can use the full screen width. */}
-      {collapsed && (
+      {railCollapsed && (
         <button
           onClick={() => toggleCollapsed(false)}
           aria-label="Expand sidebar"
           title="Expand sidebar"
-          className="hidden md:flex fixed top-3 left-3 z-40 h-10 w-10 items-center justify-center rounded-lg border border-border bg-[#0d1520]/95 text-slate-200 shadow-lg backdrop-blur hover:text-white"
+          className={cn("hidden md:flex fixed z-40 items-center justify-center border border-border bg-[#0d1520]/95 text-slate-200 shadow-lg backdrop-blur hover:text-white",
+            // In the exercise room: a slim tab on the left edge that sits in the page gutter, over nothing.
+            focusRoute ? "left-0 top-1/2 h-16 w-3.5 -translate-y-1/2 rounded-r-md border-l-0 hover:w-6" : "top-3 left-3 h-10 w-10 rounded-lg")}
         >
-          <PanelLeft className="h-5 w-5" />
+          <PanelLeft className={focusRoute ? "h-3 w-3" : "h-5 w-5"} />
         </button>
       )}
 

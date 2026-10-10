@@ -147,7 +147,7 @@ export default function TeamRoomPage() {
   const [feedView, setFeedView] = useState<"all" | "triage">("all");
   // SOC Manager menu: the situation board, the raw logs (to back up the analysts), every
   // escalation, the stakeholder report and the stakeholder window.
-  const [mgrView, setMgrView] = useState<"board" | "logs" | "escalations">("board");
+  const [mgrView, setMgrView] = useState<"board" | "logs" | "escalations" | "stakeholders" | "reporting">("board");
   const [reportSeed, setReportSeed] = useState<ReportSeed | null>(null);
   const [queueWithMedium, setQueueWithMedium] = useState(false);
   const [pulledNote, setPulledNote] = useState<string | null>(null);
@@ -1188,10 +1188,14 @@ export default function TeamRoomPage() {
               const waitingEsc = waitingEscalations(events);
               const openQs = openStakeholderQuestions(events, nowTick);
               const declaredNow = events.some(e => e.type === "incident.declared");
-              const tab = (v: typeof mgrView, label: string, badge?: number) => (
+              const lastUpdate = [...events].reverse().find(e => e.type === "sitrep.sent" || e.type === "stakeholder.report_sent");
+              const declEv = events.find(e => e.type === "incident.declared");
+              const sinceUpdateMin = declEv ? Math.floor((nowTick - Date.parse((lastUpdate ?? declEv).occurred_at ?? new Date(nowTick).toISOString())) / 60000) : 0;
+              const updateDue = !!declEv && sinceUpdateMin >= 10;
+              const tab = (v: typeof mgrView, label: string, badge?: number | string, tone: "amber" | "purple" = "amber") => (
                 <button key={v} type="button" role="tab" aria-selected={mgrView === v} onClick={() => setMgrView(v)}
                   className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition ${mgrView === v ? "border border-neon-purple/50 bg-neon-purple/15 text-white" : "border border-transparent text-slate-400 hover:text-slate-200"}`}>
-                  {label}{badge ? <span className="rounded-full bg-neon-amber/20 px-1.5 font-mono text-[10px] text-neon-amber">{badge}</span> : null}
+                  {label}{badge ? <span className={`rounded-full px-1.5 font-mono text-[10px] ${tone === "purple" ? "bg-neon-purple/25 text-neon-purple" : "bg-neon-amber/20 text-neon-amber"}`}>{badge}</span> : null}
                 </button>
               );
               return (
@@ -1200,14 +1204,12 @@ export default function TeamRoomPage() {
                     {tab("board", "Situation board")}
                     {tab("logs", "Logs")}
                     {tab("escalations", "Escalations", waitingEsc)}
+                    {tab("stakeholders", "Stakeholders", openQs, "purple")}
+                    {tab("reporting", "Reporting", updateDue ? `${sinceUpdateMin}m` : undefined)}
                   </div>
                   <div className="ml-auto flex flex-wrap gap-1">
                     <button type="button" disabled={!declaredNow} title={declaredNow ? "Write the incident report for stakeholders" : "Declare the incident first"} onClick={() => setReportSeed({ hosts: [], lines: [] })}
                       className="rounded-md border border-neon-purple/40 px-3 py-1.5 text-xs font-semibold text-neon-purple transition hover:bg-neon-purple/10 disabled:cursor-not-allowed disabled:opacity-50">Report to stakeholders</button>
-                    <button type="button" onClick={() => document.getElementById("team-stakeholders")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                      className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:text-white">
-                      Stakeholders{openQs ? <span className="rounded-full bg-neon-purple/25 px-1.5 font-mono text-[10px] text-neon-purple">{openQs}</span> : null}
-                    </button>
                   </div>
                 </nav>
               );
@@ -1227,9 +1229,25 @@ export default function TeamRoomPage() {
                   container too, which is how the feed ended up clipped + sideways-scrolled. */}
               <div className="min-w-0 space-y-3 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto lg:overflow-x-hidden lg:pr-1">
                 {(me.role === "lead" || me.role === "mgr") && mgrView === "board" ? (
-                  <SituationBoard liveFeed={liveFeed} events={events} feed={feed} nameOf={nameOf} roster={roster} online={online} act={act} />
+                  <>
+                    <SituationBoard liveFeed={liveFeed} events={events} feed={feed} nameOf={nameOf} roster={roster} online={online} act={act} />
+                    <TeamIntel events={events} nameOf={nameOf} />
+                    <InjectFeed sessionId={id} events={events} me={me} nameOf={nameOf} act={act} hasManager={hasManager} />
+                    <SecondaryPanels activity={activity} nameOf={nameOf} />
+                  </>
                 ) : (me.role === "lead" || me.role === "mgr") && mgrView === "escalations" ? (
-                  <EscalationsPanel events={events} nameOf={nameOf} onAddToReport={(host, line) => setReportSeed({ hosts: host ? [host] : [], lines: [line] })} />
+                  <>
+                    <LeadConsole events={events} nameOf={nameOf} act={act} parts={["approvals"]} />
+                    <EscalationsPanel events={events} nameOf={nameOf} onAddToReport={(host, line) => setReportSeed({ hosts: host ? [host] : [], lines: [line] })} />
+                    <LeadConsole events={events} nameOf={nameOf} act={act} parts={["queue"]} />
+                  </>
+                ) : (me.role === "lead" || me.role === "mgr") && mgrView === "stakeholders" ? (
+                  <StakeholderWindow sessionId={id} events={events} act={act} declared={events.some(e => e.type === "incident.declared")} onReport={() => setReportSeed({ hosts: [], lines: [] })} />
+                ) : (me.role === "lead" || me.role === "mgr") && mgrView === "reporting" ? (
+                  <>
+                    <LeadConsole events={events} nameOf={nameOf} act={act} parts={["sitrep", "log"]} />
+                    {me.role === "mgr" && <MgrConsole roster={roster} events={events} act={act} />}
+                  </>
                 ) : (
                   <>
                     {(me.role === "lead" || me.role === "mgr") && (
@@ -1317,12 +1335,10 @@ export default function TeamRoomPage() {
                     stay for backward-compatibility with older sessions; 'ti' is a live seat. */}
                 {/* Command desk first: declaration, severity and the decision cards the director raises from what is really happening. */}
                 {(me.role === "lead" || me.role === "mgr") && <CommandDesk sessionId={id} events={events} act={act} running={phase === "running"} />}
-                {(me.role === "lead" || me.role === "mgr") && <StakeholderWindow sessionId={id} events={events} act={act} declared={events.some(e => e.type === "incident.declared")} />}
                 {(me.role === "t2" || me.role === "t3") && <ContainmentAdvice events={events} meId={me.id} nameOf={nameOf} act={act} />}
-                {(me.role === "lead" || me.role === "mgr") && <LeadConsole events={events} nameOf={nameOf} act={act} />}
+                {/* The manager's consoles live behind the menu (one view at a time, no visual overload). */}
                 {me.role === "de" && <DEConsole liveFeed={liveFeed} events={events} act={act} />}
                 {me.role === "ti" && <TIConsole events={events} feed={feed} nameOf={nameOf} act={act} />}
-                {me.role === "mgr" && <MgrConsole roster={roster} events={events} act={act} />}
                 {/* QA L4: another instructor of the org (staff, no seat in this session) gets the panel too — every
                     staff tool except the inject composer, which posts as the session's instructor seat. */}
                 {(me.role === "instructor" || (me.is_staff && !me.role)) && <InstructorPanel sessionId={id} roster={roster} online={online} events={events} act={act} isStaff={!!me.is_staff} nameOf={nameOf} canInject={me.role === "instructor"} onError={showError} />}
@@ -1330,11 +1346,11 @@ export default function TeamRoomPage() {
                     log list covered the log being read (Tal, 2026-10-08). It folds to one line. */}
                 <WarRoom sessionId={id} events={events} me={me} nameOf={nameOf} act={act} />
                 {/* Team intel — its own visible card (was buried in a folded tab) */}
-                <TeamIntel events={events} nameOf={nameOf} />
-                {/* G-14: injects / announcements / help-desk tickets — visible to everyone */}
-                <InjectFeed sessionId={id} events={events} me={me} nameOf={nameOf} act={act} hasManager={hasManager} />
+                {!(me.role === "lead" || me.role === "mgr") && <TeamIntel events={events} nameOf={nameOf} />}
+                {/* G-14: injects / announcements / help-desk tickets — visible to everyone */}                {!(me.role === "lead" || me.role === "mgr") && <InjectFeed sessionId={id} events={events} me={me} nameOf={nameOf} act={act} hasManager={hasManager} />}
                 {/* The team's action log, folded so the role panel stays dominant (chat moved out, left column) */}
-                <SecondaryPanels activity={activity} nameOf={nameOf} />
+
+                {!(me.role === "lead" || me.role === "mgr") && <SecondaryPanels activity={activity} nameOf={nameOf} />}
               </div>
             </div>
           </>

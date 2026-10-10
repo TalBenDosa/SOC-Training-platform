@@ -12,7 +12,9 @@ import { containmentRequests, escalationStates, isOpenEscalation, scopeByInciden
 import { containmentVerb } from "./T2Console";
 
 // ── Lead console: containment requests → approve / deny ──────────────────────
-export function LeadConsole({ events, nameOf, act }: { events: Ev[]; nameOf: (u: string | null) => string; act: (t: string, p: Record<string, unknown>) => Promise<boolean> }) {
+export type LeadPart = "queue" | "approvals" | "log" | "sitrep";
+export function LeadConsole({ events, nameOf, act, parts = ["queue", "approvals", "log", "sitrep"] }: { events: Ev[]; nameOf: (u: string | null) => string; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; parts?: LeadPart[] }) {
+  const show = (p: LeadPart) => parts.includes(p);
   const [busy, setBusy] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({}); // per-request decision rationale (keyed by request seq)
   // P0-4: every pending REQUEST, keyed by its seq — a new request after a denial is
@@ -35,7 +37,7 @@ export function LeadConsole({ events, nameOf, act }: { events: Ev[]; nameOf: (u:
   return (
     <div className="space-y-4">
       {/* Manager oversight — the queue state at a glance (no raw feed) */}
-      <Card>
+      {show("queue") && <Card>
         <h3 className="flex items-center gap-2 text-sm font-bold text-white"><Siren className="h-4 w-4 text-cyber-300" /> Queue oversight</h3>
         {waiting.length === 0 ? (
           <p className="mt-2 text-xs text-slate-400">No escalations waiting to be picked up. Tier-2 is on top of the queue.</p>
@@ -53,8 +55,8 @@ export function LeadConsole({ events, nameOf, act }: { events: Ev[]; nameOf: (u:
             </div>
           </>
         )}
-      </Card>
-      <Card className="border-neon-amber/30">
+      </Card>}
+      {show("approvals") && <Card className="border-neon-amber/30">
         <h3 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldCheck className="h-4 w-4 text-neon-amber" /> Containment approvals ({pending.length})</h3>
         {pending.length === 0 ? <p className="mt-2 text-xs text-slate-400">No requests waiting. Tier-2 asks you to approve containment here.</p> : (
           <div className="mt-2 space-y-2">
@@ -103,11 +105,11 @@ export function LeadConsole({ events, nameOf, act }: { events: Ev[]; nameOf: (u:
             })}
           </div>
         )}
-      </Card>
+      </Card>}
       {/* G-15: Decision Log — the Lead records key decisions with rationale (feeds the AAR + rubric) */}
-      <DecisionLog events={events} nameOf={nameOf} act={act} />
+      {show("log") && <DecisionLog events={events} nameOf={nameOf} act={act} />}
       {/* G-15 tail: SITREP — the 4-question situation report to the team/management */}
-      <SitrepConsole events={events} nameOf={nameOf} act={act} />
+      {show("sitrep") && <SitrepConsole events={events} nameOf={nameOf} act={act} />}
     </div>
   );
 }

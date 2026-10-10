@@ -17,7 +17,7 @@ import { useServerNow } from "@/lib/team/clock";
 
 interface QFeedback { inject_id: string; state: "open" | "answered" | "expired"; late?: boolean; checks?: { id: string; label: string; ok: boolean }[]; score?: number; model?: string }
 
-export function StakeholderWindow({ sessionId, events, act, declared }: { sessionId: string; events: Ev[]; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; declared: boolean }) {
+export function StakeholderWindow({ sessionId, events, act, declared, onReport }: { sessionId: string; events: Ev[]; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; declared: boolean; onReport?: () => void }) {
   const now = useServerNow(1_000);
   const asked = useMemo(() => events.filter(e => e.type === "stakeholder.asked"), [events]);
   const replies = useMemo(() => new Map(events.filter(e => e.type === "stakeholder.replied").map(e => [asStr((e.payload as { inject_id?: unknown }).inject_id), e])), [events]);
@@ -58,9 +58,10 @@ export function StakeholderWindow({ sessionId, events, act, declared }: { sessio
         <div className="flex items-center gap-2">
           <h3 className="flex items-center gap-2 text-sm font-bold text-white"><MessagesSquare className="h-4 w-4 text-neon-purple" aria-hidden /> Stakeholders</h3>
           {open > 0 && <span className="rounded-full bg-neon-purple/20 px-2 font-mono text-[10px] text-neon-purple">{open} waiting</span>}
+          {onReport && <Button variant="outline" size="sm" className="ml-auto" onClick={onReport}>Write incident report</Button>}
         </div>
         {asked.length === 0 && <p className="mt-1 text-[11px] text-slate-400">Quiet for now. Questions arrive as the incident develops: answer with what is confirmed, what is not, and when the next update comes.</p>}
-        <div className="mt-2 max-h-[28rem] space-y-2 overflow-y-auto pr-1">
+        <div className="mt-2 space-y-2">
           {asked.map(e => {
             const p = e.payload as { inject_id?: string; from?: { name?: string; role?: string }; text?: string };
             const id = asStr(p.inject_id);
