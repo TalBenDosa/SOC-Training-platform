@@ -13,12 +13,13 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { Topbar } from "@/components/nav/Topbar";
-import { Card } from "@/components/ui/Card";
 import { LibraryCard } from "@/components/ui/LibraryCard";
 import { cn } from "@/lib/utils";
-import { FileText, Presentation, Video, Loader2, Library, Eye, X, Download, AlertTriangle } from "lucide-react";
+import { FileText, Presentation, Video, Loader2, Library, Eye, X, Download, AlertTriangle, Search, ArrowRight } from "lucide-react";
 import { fetchOrgResources, type OrgResource } from "@/lib/content/publicContent";
 import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
+import { LESSON_DECKS, type LessonDeck } from "@/data/lessonDecks";
+import { SlideDeckViewer } from "@/components/lessons/SlideDeckViewer";
 
 const KIND_META: Record<OrgResource["kind"], { label: string; icon: typeof FileText; cls: string }> = {
   pdf:   { label: "PDF",          icon: FileText,     cls: "text-severity-high border-severity-high/40 bg-severity-high/10" },
@@ -48,6 +49,9 @@ export default function ResourcesPage() {
   const [viewer, setViewer] = useState<ViewerState | null>(null);
   // Track the live blob URL so it can be revoked on close/unmount (no leaks).
   const blobRef = useRef<string | null>(null);
+  // The global Learning Path presentations library (view-only, below the org's own materials).
+  const [deck, setDeck] = useState<LessonDeck | null>(null);
+  const [deckQuery, setDeckQuery] = useState("");
 
   useEffect(() => {
     fetchOrgResources().then(setItems).catch(() => {
@@ -118,49 +122,112 @@ export default function ResourcesPage() {
 
   return (
     <div>
-      <Topbar title="College Materials" subtitle="Presentations, videos and documents from your college" />
-      <div className="container mx-auto max-w-[1000px] px-6 py-6 space-y-4">
+      <Topbar title="College Materials" subtitle="Lesson presentations, plus videos and documents from your college" />
+      <div className="container mx-auto max-w-[1000px] px-6 py-6 space-y-10">
         {error && (
           <div role="alert" className="rounded-lg border border-severity-high/40 bg-severity-high/10 px-4 py-3 text-sm text-severity-high">{error}</div>
         )}
 
+        {/* ── Your college's own uploads (per-org, RLS-scoped) ───────────── */}
         {items === null ? (
           <div className="flex items-center gap-2 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
-        ) : items.length === 0 && error ? null : items.length === 0 ? (
-          <Card className="flex flex-col items-center gap-2 py-12 text-center">
-            <Library className="h-8 w-8 text-slate-500" />
-            <p className="text-sm font-semibold text-white">No materials yet</p>
-            <p className="max-w-sm text-xs text-slate-400">Your college hasn&apos;t published any presentations or videos yet. They&apos;ll appear here when they do.</p>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {items.map((r, i) => {
-              const m = KIND_META[r.kind];
-              return (
-                <LibraryCard
-                  key={r.id}
-                  onClick={() => open(r)}
-                  disabled={opening === r.id}
-                  seed={r.id}
-                  index={i}
-                  icon={m.icon}
-                  typeLabel={m.label}
-                  title={r.title}
-                  meta={<>{m.label} · {fmtSize(r.size_bytes)}</>}
-                  cta={opening === r.id
-                    ? <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-400" />
-                    : <span className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-cyber-500/50 bg-cyber-500/15 px-3 py-1.5 text-xs font-semibold text-cyber-300 transition group-hover:bg-cyber-500/25"><Eye className="h-3.5 w-3.5" /> Open</span>}
-                />
-              );
-            })}
-          </div>
-        )}
+        ) : items.length > 0 ? (
+          <section aria-labelledby="org-materials-h">
+            <div className="mb-4 flex items-center gap-2">
+              <Library className="h-4 w-4 text-neon-amber" />
+              <h2 id="org-materials-h" className="text-sm font-bold uppercase tracking-widest text-slate-300">From your college</h2>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {items.map((r, i) => {
+                const m = KIND_META[r.kind];
+                return (
+                  <LibraryCard
+                    key={r.id}
+                    onClick={() => open(r)}
+                    disabled={opening === r.id}
+                    seed={r.id}
+                    index={i}
+                    icon={m.icon}
+                    typeLabel={m.label}
+                    title={r.title}
+                    meta={<>{m.label} · {fmtSize(r.size_bytes)}</>}
+                    cta={opening === r.id
+                      ? <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-400" />
+                      : <span className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-cyber-500/50 bg-cyber-500/15 px-3 py-1.5 text-xs font-semibold text-cyber-300 transition group-hover:bg-cyber-500/25"><Eye className="h-3.5 w-3.5" /> Open</span>}
+                  />
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
+
+        {/* ── Learning Path presentations (global, view-only) ────────────── */}
+        <LessonPresentations query={deckQuery} onQuery={setDeckQuery} onOpen={setDeck} />
       </div>
 
       {viewer && (
         <ResourceViewer state={viewer} onClose={close} />
       )}
+      {deck && (
+        <SlideDeckViewer deck={{ src: deck.src, title: deck.title, pages: deck.pages }} onClose={() => setDeck(null)} />
+      )}
     </div>
+  );
+}
+
+/** The full Learning Path slide-deck catalogue, shown to every learner, view-only. */
+function LessonPresentations({ query, onQuery, onOpen }: {
+  query: string;
+  onQuery: (q: string) => void;
+  onOpen: (d: LessonDeck) => void;
+}) {
+  const q = query.trim().toLowerCase();
+  const decks = q
+    ? LESSON_DECKS.filter(d => d.title.toLowerCase().includes(q) || d.topic.toLowerCase().includes(q))
+    : LESSON_DECKS;
+  return (
+    <section aria-labelledby="lesson-decks-h">
+      <div className="mb-1 flex items-center gap-2">
+        <Presentation className="h-4 w-4 text-cyber-400" />
+        <h2 id="lesson-decks-h" className="text-sm font-bold uppercase tracking-widest text-slate-300">Lesson Presentations</h2>
+        <span className="text-[11px] text-slate-500">— every Learning Path lesson as a slide deck</span>
+      </div>
+      <p className="mb-4 text-[12px] text-slate-500">{LESSON_DECKS.length} presentations · view in the browser, full screen available</p>
+
+      <div className="mb-5 max-w-md">
+        <label className="relative block">
+          <span className="sr-only">Search presentations</span>
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            type="search"
+            value={query}
+            onChange={e => onQuery(e.target.value)}
+            placeholder="Search presentations by title or topic"
+            className="w-full rounded-xl border border-[#2a3555] bg-[#0d1322] py-2.5 pl-10 pr-4 text-sm text-slate-200 placeholder-slate-500 focus:border-cyber-500/60 focus:outline-none"
+          />
+        </label>
+      </div>
+
+      {decks.length === 0 ? (
+        <p className="py-8 text-sm text-slate-500">No presentation matches that search.</p>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {decks.map((d, i) => (
+            <LibraryCard
+              key={d.slug}
+              onClick={() => onOpen(d)}
+              seed={d.slug}
+              index={i}
+              icon={Presentation}
+              typeLabel={`Lesson ${String(d.n).padStart(2, "0")}`}
+              title={d.title}
+              meta={<>{d.topic} · {d.pages} slides</>}
+              cta={<span className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-cyber-500/50 bg-cyber-500/15 px-3 py-1.5 text-xs font-semibold text-cyber-300 transition group-hover:bg-cyber-500/25"><Eye className="h-3.5 w-3.5" /> View</span>}
+            />
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
