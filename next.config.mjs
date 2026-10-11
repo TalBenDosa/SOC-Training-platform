@@ -11,7 +11,12 @@
 
 
 const securityHeaders = [
-  { key: "X-Frame-Options", value: "DENY" },
+  // SAMEORIGIN, not DENY, so the app can frame its own same-origin static
+  // documents (the /lesson-decks/*.html slide decks shown view-only in the
+  // in-app SlideDeckViewer). Real pages are still unframeable by anyone: the
+  // middleware's per-request CSP sets `frame-ancestors 'none'`, which is the
+  // authoritative, stricter anti-clickjacking control and overrides this.
+  { key: "X-Frame-Options", value: "SAMEORIGIN" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), interest-cohort=()" },

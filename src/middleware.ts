@@ -260,5 +260,5 @@ export async function middleware(req: NextRequest) {
 // request 307-redirects and seeking breaks); lesson assets are public by design,
 // the gating is at the page level.
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|mp4|webm|m4v|vtt)$).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|mp4|webm|m4v|vtt|html)$).*)"],
 };

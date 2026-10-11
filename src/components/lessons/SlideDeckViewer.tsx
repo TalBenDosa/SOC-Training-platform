@@ -2,18 +2,18 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Expand, Loader2, X, AlertTriangle, Presentation } from "lucide-react";
+import { Expand, Loader2, X, Presentation } from "lucide-react";
 import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 
 /**
- * View-only, in-app viewer for a Learning Path slide deck (a branded PDF).
+ * View-only, in-app viewer for a Learning Path slide deck.
  *
- * Mirrors the College Materials ResourceViewer: the PDF is pulled over
- * connect-src and shown as a same-origin blob: <iframe>, so the storage URL
- * never lands in the DOM and the page CSP (frame-src 'self' blob:) needs no new
- * origin. There is deliberately NO download control — presentations are
- * view-only. Phones/tablets whose browser cannot render a PDF inline see a
- * clear notice instead of an empty frame (we never hand out the raw URL).
+ * The deck is a self-contained HTML slideshow served same-origin from
+ * /public/lesson-decks (so the page CSP's frame-src 'self' covers it). It is
+ * shown directly in an <iframe> — navigation is page-by-page (arrow keys, click,
+ * on-slide controls), not scrolling, and it paints instantly (no multi-MB
+ * download). There is deliberately no download control: presentations are
+ * view-only. `allow="fullscreen"` lets the deck's own full-screen work too.
  */
 export interface SlideDeckRef {
   src: string;
@@ -22,33 +22,10 @@ export interface SlideDeckRef {
 }
 
 export function SlideDeckViewer({ deck, onClose }: { deck: SlideDeckRef; onClose: () => void }) {
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [canInline] = useState(() => {
-    const nav = typeof navigator !== "undefined" ? (navigator as Navigator & { pdfViewerEnabled?: boolean }) : undefined;
-    return nav?.pdfViewerEnabled !== false;
-  });
+  const [loaded, setLoaded] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
-  const blobRef = useRef<string | null>(null);
+  const frameRef = useRef<HTMLIFrameElement>(null);
   useFocusTrap(true, panelRef);
-
-  useEffect(() => {
-    if (!canInline) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(deck.src);
-        if (!res.ok) throw new Error(String(res.status));
-        const url = URL.createObjectURL(new Blob([await res.arrayBuffer()], { type: "application/pdf" }));
-        if (cancelled) { URL.revokeObjectURL(url); return; }
-        blobRef.current = url;
-        setBlobUrl(url);
-      } catch {
-        if (!cancelled) setError("These slides couldn't be loaded. Close and open them again.");
-      }
-    })();
-    return () => { cancelled = true; if (blobRef.current) { URL.revokeObjectURL(blobRef.current); blobRef.current = null; } };
-  }, [deck.src, canInline]);
 
   // Escape to close + lock the page scroll while the viewer is open.
   useEffect(() => {
@@ -59,10 +36,13 @@ export function SlideDeckViewer({ deck, onClose }: { deck: SlideDeckRef; onClose
     return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = prev; };
   }, [onClose]);
 
+  // The deck navigates with arrow keys — move focus into the frame so they land
+  // there as soon as it is ready, without the viewer stealing them.
+  useEffect(() => { if (loaded) frameRef.current?.focus(); }, [loaded]);
+
   function fullScreen() {
-    const el = panelRef.current;
     if (document.fullscreenElement) { document.exitFullscreen().catch(() => {}); return; }
-    el?.requestFullscreen?.().catch(() => {});
+    panelRef.current?.requestFullscreen?.().catch(() => {});
   }
 
   const node = (
@@ -76,7 +56,7 @@ export function SlideDeckViewer({ deck, onClose }: { deck: SlideDeckRef; onClose
       <div
         ref={panelRef}
         tabIndex={-1}
-        className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-cyber-500/30 bg-[#0b0f1e] shadow-2xl"
+        className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-cyber-500/30 bg-[#030a18] shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex shrink-0 items-center gap-3 border-b border-[#1e2d4a] bg-[#0d1322] px-4 py-3">
@@ -85,17 +65,15 @@ export function SlideDeckViewer({ deck, onClose }: { deck: SlideDeckRef; onClose
           </span>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-white">{deck.title}</p>
-            <p className="text-[11px] text-slate-500">Lesson slides · {deck.pages} pages</p>
+            <p className="text-[11px] text-slate-500">Lesson slides · {deck.pages} slides · arrow keys or click to move</p>
           </div>
-          {canInline && blobUrl && (
-            <button
-              type="button"
-              onClick={fullScreen}
-              className="flex items-center gap-1.5 rounded-lg border border-[#2a3555] px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:border-cyber-500/50 hover:text-cyber-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-400"
-            >
-              <Expand className="h-3.5 w-3.5" /> Full screen
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={fullScreen}
+            className="flex items-center gap-1.5 rounded-lg border border-[#2a3555] px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:border-cyber-500/50 hover:text-cyber-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-400"
+          >
+            <Expand className="h-3.5 w-3.5" /> Full screen
+          </button>
           <button
             onClick={onClose}
             aria-label="Close"
@@ -105,18 +83,20 @@ export function SlideDeckViewer({ deck, onClose }: { deck: SlideDeckRef; onClose
           </button>
         </div>
 
-        <div className="relative flex-1 bg-[#020a18]">
-          {!canInline ? (
-            <ViewerNotice title="Open on a larger screen" body="Your browser can't display these slides inline. Open this lesson on a desktop browser to view the full presentation." />
-          ) : error ? (
-            <ViewerNotice title={error} icon />
-          ) : blobUrl ? (
-            <iframe src={`${blobUrl}#toolbar=0&navpanes=0`} title={`${deck.title}: slides`} className="absolute inset-0 h-full w-full border-0" />
-          ) : (
-            <div className="flex h-full items-center justify-center gap-2 text-sm text-slate-400" role="status">
+        <div className="relative flex-1 bg-[#030a18]">
+          {!loaded && (
+            <div className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-slate-400" role="status">
               <Loader2 className="h-4 w-4 animate-spin" /> Loading slides…
             </div>
           )}
+          <iframe
+            ref={frameRef}
+            src={deck.src}
+            title={`${deck.title}: slides`}
+            onLoad={() => setLoaded(true)}
+            allow="fullscreen"
+            className="absolute inset-0 h-full w-full border-0"
+          />
         </div>
       </div>
     </div>
@@ -124,14 +104,4 @@ export function SlideDeckViewer({ deck, onClose }: { deck: SlideDeckRef; onClose
 
   if (typeof document === "undefined") return null;
   return createPortal(node, document.body);
-}
-
-function ViewerNotice({ title, body, icon }: { title: string; body?: string; icon?: boolean }) {
-  return (
-    <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-      {icon && <AlertTriangle className="h-8 w-8 text-severity-high" />}
-      <p className="text-sm font-semibold text-white">{title}</p>
-      {body && <p className="max-w-sm text-xs text-slate-400">{body}</p>}
-    </div>
-  );
 }
