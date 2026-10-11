@@ -8,7 +8,7 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 import { asStr, hostKey } from "@/lib/team/format";
 import { withRebasedTime } from "@/lib/sim/rebaseTime";
 import { useServerNow } from "@/lib/team/clock";
-import { buildEvidenceView, COLLECT_DELAY_S, EVIDENCE_PREFIX, type EvidenceKind, type FeedRow, type HostState } from "@/lib/forensics/workbench";
+import { buildEvidenceView, COLLECT_DELAY_S, EVIDENCE_PREFIX, evidenceItems, forensicHosts, hostStateOf, type EvidenceKind, type FeedRow, type HostState } from "@/lib/forensics/workbench";
 import { ChoiceGroup } from "./ChoiceGroup";
 import { useForensicPins } from "./forensicPins";
 
@@ -29,21 +29,8 @@ const KIND_LABEL: Record<string, string> = Object.fromEntries(FINDING_KINDS.map(
 
 const hhmm = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
-/** Hosts the team has put in play: escalations, elevations, scope, containment, isolation. */
-export function forensicHosts(events: Ev[], feed: Ev[]): string[] {
-  const hostOfEid = new Map(feed.map(f => [asStr((f.payload as { id?: unknown }).id), asStr((f.payload as { hostname?: unknown }).hostname)]));
-  const out = new Map<string, string>();
-  const add = (h: string) => { const k = hostKey(h); if (k && !out.has(k)) out.set(k, h); };
-  for (const e of events) {
-    const p = e.payload as Record<string, unknown>;
-    if (e.type === "escalation.requested") add(asStr(p.hostname) || asStr((p.snapshot as { hostname?: unknown } | undefined)?.hostname) || hostOfEid.get(asStr(p.event_id)) || "");
-    else if (e.type === "elevation.requested") add(hostOfEid.get(asStr(p.event_id)) || "");
-    else if (e.type === "containment.requested") add(asStr(p.target));
-    else if (e.type === "edr.host_isolated" || e.type === "forensic.collected" || e.type === "forensic.finding") add(asStr(p.host));
-    else if (e.type === "scope.set" || e.type === "scope.confirmed") for (const h of (Array.isArray(p.hosts) ? p.hosts : [])) add(asStr(h));
-  }
-  return [...out.values()].filter(h => !h.includes("@") && !/^\d+\.\d+\.\d+\.\d+$/.test(h));
-}
+// The hosts in play come from the shared helper (the forensic review reads the same list).
+export { forensicHosts };
 
 export function ForensicWorkbench({ sessionId, feed, events, meId, nameOf, act, onEdr }: {
   sessionId: string; feed: Ev[]; events: Ev[]; meId: string; nameOf: (u: string | null) => string;
@@ -61,23 +48,8 @@ export function ForensicWorkbench({ sessionId, feed, events, meId, nameOf, act, 
   }), [feed]);
 
   // Evidence items (everyone's), with readiness after the simulated collection time.
-  const evidence = useMemo(() => events.filter(e => e.type === "forensic.collected").map(e => {
-    const p = e.payload as { host?: string; kind?: EvidenceKind; evidence_id?: string };
-    const at = e.occurred_at ? Date.parse(e.occurred_at) : Date.now();
-    const kind = (p.kind === "triage" ? "triage" : "memory") as EvidenceKind;
-    return { id: asStr(p.evidence_id), host: asStr(p.host), kind, at, readyAt: at + COLLECT_DELAY_S[kind] * 1000, by: e.actor_id };
-  }), [events]);
-  const stateOf = (h: string): HostState => {
-    const k = hostKey(h);
-    let isolatedAtMs: number | null = null;
-    for (const e of events) {
-      if ((e.type === "edr.host_isolated" || e.type === "edr.host_released") && hostKey(asStr((e.payload as { host?: unknown }).host)) === k)
-        isolatedAtMs = e.type === "edr.host_isolated" ? (e.occurred_at ? Date.parse(e.occurred_at) : null) : null;
-    }
-    const kills = events.filter(e => e.type === "rtr.action" && (e.payload as { action?: unknown }).action === "kill" && hostKey(asStr((e.payload as { host?: unknown }).host)) === k)
-      .map(e => ({ pid: Number((e.payload as { pid?: unknown }).pid) || undefined, name: asStr((e.payload as { name?: unknown }).name) || undefined, atMs: e.occurred_at ? Date.parse(e.occurred_at) : 0 }));
-    return { isolatedAtMs, kills };
-  };
+  const evidence = useMemo(() => evidenceItems(events), [events]);
+  const stateOf = (h: string): HostState => hostStateOf(events, h);
   const hostEvidence = cur ? evidence.filter(x => hostKey(x.host) === hostKey(cur)) : [];
   const [selEv, setSelEv] = useState<string | null>(null);
   const shownEv = hostEvidence.find(x => x.id === selEv && now >= x.readyAt) ?? [...hostEvidence].reverse().find(x => now >= x.readyAt) ?? null;
@@ -292,7 +264,7 @@ export function ForensicWorkbench({ sessionId, feed, events, meId, nameOf, act, 
               <ChoiceGroup legend="Confidence" hideLegend={false} size="xs" tone="cyan" value={conf} onChange={setConf}
                 options={[{ value: "low", label: "Low" }, { value: "moderate", label: "Moderate" }, { value: "high", label: "High" }]} />
               <Button variant="primary" size="sm" disabled={!summary.trim() || !conf || (fk === "host_status" && !status)} onClick={publish}>Publish finding</Button>
-              <p className="text-[10px] text-slate-400">Shared with the team and shown to the SOC Manager.</p>
+              <p className="text-[10px] text-slate-400">Shared with the team and shown to the SOC Manager. After the shift every finding is checked against what really happened: it counts fully only when a row you cite shows it. For a C2 finding, name the IP or domain.</p>
             </div>
           </Card>
         </div>

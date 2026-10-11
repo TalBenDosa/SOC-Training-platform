@@ -10,6 +10,7 @@ import type { computeReport, ReportedItem, MissItem, IsolationItem, MissedHost }
 import { mergeAnswers, type AnswerMap } from "@/lib/team/report/serverReport";
 import { ROLE_LABEL, Metric } from "./shared";
 import { CommandReview } from "./CommandReview";
+import { ForensicTeamCard, ForensicUserSection } from "./ForensicReviewPanel";
 import type { ManagerReview } from "@/lib/team/report/managerReview";
 
 // ── Guided hot-wash (§6.6) — a dual-track replay reconstructed from the event log:
@@ -589,6 +590,9 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
         </Card>
       )}
 
+      {/* Tier-3: forensic work judged against what really happened */}
+      {team.forensic && <ForensicTeamCard forensic={team.forensic} nameOf={nameOf} />}
+
       {/* SOC Manager: Command Review (decision quality, stakeholders, reporting) */}
       {managerReview && !(!managerReview.redacted && me.id === managerReview.managerId) && <CommandReview review={managerReview} xp={managerReview.redacted ? undefined : xp[managerReview.managerId]} />}
 
@@ -715,6 +719,7 @@ export function TeamReport({ sessionId, events, roster, me }: { sessionId: strin
                 <IsolationList items={u.isolations} />
               </div>
             )}
+            {u.forensic && <ForensicUserSection f={u.forensic} />}
             {((u.falseNegatives?.length ?? 0) + (u.walkedPast?.length ?? 0) + (u.falseAlarms?.length ?? 0)) > 0 ? (
               <div className="mt-3 space-y-2 border-t border-border/40 pt-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Missed &amp; misjudged</p>

@@ -138,5 +138,5 @@ export async function buildServerReport(admin: SupabaseClient, sessionId: string
   const answers = publicAnswers(injects);
   const maxSeq = events.reduce((m, e) => Math.max(m, e.seq), 0);
   const revealed = [...mergeAnswers(events, answers), ...clicksAsEvents(clicks, maxSeq)];
-  return { ...computeReport(revealed, roster), answers };
+  return { ...computeReport(revealed, roster, { sessionId, publicEvents: events }), answers };
 }

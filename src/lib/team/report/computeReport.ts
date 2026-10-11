@@ -3,6 +3,7 @@ import { CLAIM_TTL_MS } from "@/lib/team/projections";
 import { asStr, hostKey } from "@/lib/team/format";
 import { pausedSpans, activeMs, addActive } from "@/lib/team/pauses";
 import { computeManagerReview } from "./managerReview";
+import { computeForensicReview, type UserForensics } from "./forensicReview";
 
 // ── After-action report — derived entirely from the event log (isomorphic: no React,
 // no server-only imports, so the server computes it once and the client can re-run it).
@@ -154,6 +155,8 @@ export interface UserReport {
   /** Hosts this analyst isolated in EDR (first isolation per host), each judged. */
   isolations: IsolationItem[];
   isoCorrect: number; isoPct: number | null;
+  /** Tier-3 forensic work graded against the truth (null when the player did none). */
+  forensic: UserForensics | null;
 }
 export interface IncidentReport {
   id: string; label: string; attackEvents: number;
@@ -331,6 +334,18 @@ interface RubricCtx {
   helpdeskPct: number | null; helpdeskDupOnly: boolean; sitrepCount: number; reportQuality: number | null;
   huntToConfirmMin: number | null; caseOwnedMin: number | null; mgmtRespondedRate: number | null;
   backupCount: number; loadBalanceRate: number | null; correctionsCount: number;
+  forensic: UserForensics | null;
+}
+/** Tier-3 forensic cells: added only when the analyst did forensic work (a hunt-only Tier-3 is not penalised). */
+function forensicCells(f: UserForensics | null): RubricCell[] {
+  if (!f) return [];
+  return [
+    { label: "Forensic findings", score: f.graded ? bandHigh(f.accPct ?? 0, 85, 60, 35) : null, note: "each finding checked against what really happened: right + a cited row that shows it counts fully, a right call without evidence counts half" },
+    { label: "Findings backed by evidence", score: f.confirmed + f.guess ? bandHigh(f.supportedPct ?? 0, 90, 60, 30) : null, note: "right findings whose cited rows (from evidence taken before the finding) actually show it" },
+    { label: "Evidence preserved", score: f.destructiveKills ? bandHigh(f.preservationPct ?? 0, 100, 50, 1) : null, note: "attacker processes you killed through RTR: was memory captured first?" },
+    { label: "Confidence calibration", score: f.highTotal ? bandHigh(f.calibrationPct ?? 0, 100, 75, 50) : null, note: "your high-confidence findings that were right" },
+    { label: "Reporting to the SOC Manager", score: f.reportPoints, note: "a report sent; READY only once every attacked host in play had a confirmed status; the promised next update delivered" },
+  ];
 }
 function roleRubric(c: RubricCtx): RubricCell[] {
   switch (c.role) {
@@ -367,6 +382,7 @@ function roleRubric(c: RubricCtx): RubricCell[] {
       { label: "Elevations answered", score: c.elevAnsweredPct == null ? null : bandHigh(c.elevAnsweredPct, 100, 66, 33), note: "a hunt linked to the elevation (event_id) answers it" },
       { label: "Guidance to T2", score: c.noteCount ? bandHigh(c.noteCount, 3, 2, 1) : null },
       { label: "Host isolation", score: c.isoPct == null ? null : bandHigh(c.isoPct, 100, 75, 50), note: "each host you isolated in EDR, judged: a host with real attack activity was right to isolate; a clean host is a needless business outage" },
+      ...forensicCells(c.forensic),
     ];
     case "lead": return [
       { label: "Team organised", score: c.caseOwnedMin == null ? null : bandLow(c.caseOwnedMin, 3, 8, 15) },
@@ -402,7 +418,7 @@ function roleRubric(c: RubricCtx): RubricCell[] {
   }
 }
 
-export function computeReport(rawEvents: Ev[], roster: RosterMember[]) {
+export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { sessionId?: string; publicEvents?: Ev[] | null } = {}) {
   // A JSON-null payload on any single event must not crash the whole report — one bad row
   // would otherwise make GET /report a permanent 500 and block XP (Phase 9 P9-04).
   const events: Ev[] = rawEvents.map(e => (e.payload == null ? { ...e, payload: {} } : e));
@@ -801,6 +817,8 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[]) {
 
   const detectedIncidents = new Set(incidentList.filter(i => i.detected).map(i => i.id));
   const t1Count = players.filter(p => p.role === "t1" && p.status !== "left").length || players.filter(p => p.role === "t1").length;
+  // Tier-3 forensic work, graded against the truth (views rebuilt from what the players saw).
+  const forensic = computeForensicReview({ events, publicEvents: opts.publicEvents ?? null, sessionId: opts.sessionId ?? "", attackIds, roster: players, endMs: endTs, relS });
   const perUser: UserReport[] = players.map(m => {
     const mine = events.filter(e => e.actor_id === m.user_id);
     // event.opened carries { event_id, dwell_ms }; count DISTINCT ids opened, max dwell per id.
@@ -1033,6 +1051,7 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[]) {
       helpdeskPct, helpdeskDupOnly, sitrepCount, reportQuality,
       huntToConfirmMin, caseOwnedMin, mgmtRespondedRate,
       backupCount: backupByUser.get(m.user_id) ?? 0, loadBalanceRate, correctionsCount,
+      forensic: forensic?.perUser[m.user_id] ?? null,
     });
     const measuredCells = rubric.filter(c => c.score != null).length;
     return {
@@ -1047,6 +1066,7 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[]) {
       walkedPast: walkedPast.slice(0, MISS_CAP),
       falseAlarms: falseAlarms.slice(0, MISS_CAP),
       isolations: myIso.slice(0, MISS_CAP), isoCorrect, isoPct,
+      forensic: forensic?.perUser[m.user_id] ?? null,
     };
   });
 
@@ -1248,6 +1268,8 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[]) {
     isoCorrect: [...isoFirstByHost.values()].filter(x => x.correct).length,
     isoPct: pct([...isoFirstByHost.values()].filter(x => x.correct).length, isoFirstByHost.size),
     compromisedHosts: attackHosts.size,
+    // ── Tier-3 forensics: hosts examined, every finding judged, reports to the manager ──
+    forensic: forensic ? { hosts: forensic.hosts.slice(0, 16), findings: forensic.findings.slice(0, 40), reports: forensic.reports.slice(0, 20) } : null,
     mttiS: mttiS != null ? Math.round(mttiS) : null,
     hostsLeftOnline: [...attackHosts].filter(([k]) => !isoFirstByHost.has(k))
       .sort((a, b) => (a[1].first ?? 0) - (b[1].first ?? 0))

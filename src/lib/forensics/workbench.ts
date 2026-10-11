@@ -38,6 +38,8 @@ export interface ToolTable {
   refs: string[];
   /** Session time of each row when known (for the timeline). */
   times: (number | null)[];
+  /** What each row stands for (pid:/ip:/listen:/auto:/exe:/ev:), so a cited row can be checked after the shift. */
+  keys: string[];
   notes: string[];
 }
 export interface EvidenceView { evidenceId: string; kind: EvidenceKind; host: string; snapshotMs: number; tables: ToolTable[]; empty?: string }
@@ -97,7 +99,7 @@ function memoryTables(inv: EdrInvestigation, id: string, snapshotMs: number, sta
     plugin: "windows.pslist", label: "pslist", command: `vol -f ${id}.raw windows.pslist`,
     columns: ["PID", "PPID", "ImageFileName", "Offset(V)", "Threads", "Handles", "SessionId", "Wow64", "CreateTime", "ExitTime"],
     rows: procs.map(p => [p.pid, p.ppid, p.name, offset(`${id}:${p.pid}`), 2 + (hash(`t${p.pid}`) % 30), 40 + (hash(`h${p.pid}`) % 900), SYSTEM_NAMES.has(p.name.toLowerCase()) ? 0 : 1, "False", created(p), "N/A"]),
-    refs: procs.map((_, i) => ref("pslist", i)), times: procs.map(procTime), notes: killNote,
+    refs: procs.map((_, i) => ref("pslist", i)), times: procs.map(procTime), keys: procs.map(p => `pid:${p.pid}`), notes: killNote,
   };
 
   // pstree: depth-first by parent
@@ -111,14 +113,14 @@ function memoryTables(inv: EdrInvestigation, id: string, snapshotMs: number, sta
     plugin: "windows.pstree", label: "pstree", command: `vol -f ${id}.raw windows.pstree`,
     columns: ["PID", "PPID", "ImageFileName", "CreateTime"],
     rows: tree.map(({ p, depth }) => [p.pid, p.ppid, `${"*".repeat(depth + 1)} ${p.name}`, created(p)]),
-    refs: tree.map((_, i) => ref("pstree", i)), times: tree.map(({ p }) => procTime(p)), notes: killNote,
+    refs: tree.map((_, i) => ref("pstree", i)), times: tree.map(({ p }) => procTime(p)), keys: tree.map(({ p }) => `pid:${p.pid}`), notes: killNote,
   };
 
   const cmdline: ToolTable = {
     plugin: "windows.cmdline", label: "cmdline", command: `vol -f ${id}.raw windows.cmdline`,
     columns: ["PID", "Process", "Args"],
     rows: procs.map(p => [p.pid, p.name, p.cmdline || "Required memory at 0x... is not valid (process exited?)"]),
-    refs: procs.map((_, i) => ref("cmdline", i)), times: procs.map(procTime), notes: [],
+    refs: procs.map((_, i) => ref("cmdline", i)), times: procs.map(procTime), keys: procs.map(p => `pid:${p.pid}`), notes: [],
   };
 
   // A connection time is either a full timestamp or HH:MM:SS (UTC) on the snapshot's day.
@@ -128,7 +130,7 @@ function memoryTables(inv: EdrInvestigation, id: string, snapshotMs: number, sta
     const m = ts.match(/^(\d{2}):(\d{2}):(\d{2})/); if (!m) return null;
     const d = new Date(snapshotMs); d.setUTCHours(+m[1], +m[2], +m[3], 0); return d.getTime();
   };
-  const conns: (string | number)[][] = []; const cRefs: string[] = []; const cTimes: (number | null)[] = [];
+  const conns: (string | number)[][] = []; const cRefs: string[] = []; const cTimes: (number | null)[] = []; const cKeys: string[] = [];
   const localIp = inv.host.ip || "10.0.0.10";
   let i = 0;
   for (const p of procs) for (const n of p.network ?? []) {
@@ -136,19 +138,19 @@ function memoryTables(inv: EdrInvestigation, id: string, snapshotMs: number, sta
     const external = !isInternal(n.remote_ip);
     const st = !tcp ? "" : isolated && external ? "CLOSED" : n.direction === "inbound" ? "ESTABLISHED" : "ESTABLISHED";
     conns.push([offset(`${id}:n${i}`), tcp ? "TCPv4" : "UDPv4", localIp, 49152 + (hash(`${p.pid}:${n.remote_ip}:${n.remote_port}`) % 16000), n.remote_ip, n.remote_port, st, p.pid, p.name, connTime(n.ts) != null ? hhmmss(connTime(n.ts)!) : "N/A"]);
-    cRefs.push(ref("netscan", i)); cTimes.push(connTime(n.ts)); i++;
+    cRefs.push(ref("netscan", i)); cTimes.push(connTime(n.ts)); cKeys.push(`ip:${n.remote_ip}|pid:${p.pid}`); i++;
   }
   const sys = procs.find(p => p.name.toLowerCase() === "system");
   const rpc = procs.find(p => /-k RPCSS/i.test(p.cmdline));
   for (const [port, owner] of [[445, sys], [135, rpc]] as const) {
     if (!owner) continue;
     conns.push([offset(`${id}:l${port}`), "TCPv4", "0.0.0.0", port, "0.0.0.0", 0, "LISTENING", owner.pid, owner.name, "N/A"]);
-    cRefs.push(ref("netscan", i)); cTimes.push(null); i++;
+    cRefs.push(ref("netscan", i)); cTimes.push(null); cKeys.push(`listen:${port}`); i++;
   }
   const netscan: ToolTable = {
     plugin: "windows.netscan", label: "netscan", command: `vol -f ${id}.raw windows.netscan`,
     columns: ["Offset", "Proto", "LocalAddr", "LocalPort", "ForeignAddr", "ForeignPort", "State", "PID", "Owner", "Created"],
-    rows: conns, refs: cRefs, times: cTimes,
+    rows: conns, refs: cRefs, times: cTimes, keys: cKeys,
     notes: isolated ? [`The host was network-isolated at ${hhmmss(state.isolatedAtMs!)} (before this capture): outbound sessions show as CLOSED.`] : [],
   };
   return [pslist, pstree, cmdline, netscan];
@@ -186,10 +188,10 @@ function triageTables(inv: EdrInvestigation | null, hostRows: FeedRow[], host: s
       ...a.wmi.map(w => ["WMI subscription", w.filter, w.consumer, w.command]),
     ];
     out.push({ plugin: "autoruns", label: "Autoruns", command: `velociraptor artifacts collect Windows.Sys.StartupItems,Windows.System.TaskScheduler,Windows.System.Services,Windows.Persistence.PermanentWMIEvents -- host ${host}`,
-      columns: ["Category", "Entry", "Location", "Image / Command"], rows, refs: rows.map((_, i) => ref("autoruns", i)), times: rows.map(() => null), notes: [] });
+      columns: ["Category", "Entry", "Location", "Image / Command"], rows, refs: rows.map((_, i) => ref("autoruns", i)), times: rows.map(() => null), keys: rows.map(r => `auto:${r[1]}|${r[3]}`), notes: [] });
 
     if (isServer(host)) {
-      out.push({ plugin: "prefetch", label: "Prefetch", command: `velociraptor artifacts collect Windows.Forensics.Prefetch -- host ${host}`, columns: ["Executable", "PrefetchFile", "RunCount", "LastRunTime"], rows: [], refs: [], times: [],
+      out.push({ plugin: "prefetch", label: "Prefetch", command: `velociraptor artifacts collect Windows.Forensics.Prefetch -- host ${host}`, columns: ["Executable", "PrefetchFile", "RunCount", "LastRunTime"], rows: [], refs: [], times: [], keys: [],
         notes: ["No Prefetch files: Prefetch is turned off by default on Windows Server. Use the event logs and memory instead."] });
     } else {
       const seen = new Map<string, { n: number; last: string; t: number | null }>();
@@ -202,15 +204,60 @@ function triageTables(inv: EdrInvestigation | null, hostRows: FeedRow[], host: s
         seen.set(name, cur);
       }
       const rows = [...seen.entries()].map(([name, v]) => [name, `${name}-${hex(hash(name), 8).toUpperCase()}.pf`, v.n, v.last]);
-      out.push({ plugin: "prefetch", label: "Prefetch", command: `velociraptor artifacts collect Windows.Forensics.Prefetch -- host ${host}`, columns: ["Executable", "PrefetchFile", "RunCount", "LastRunTime"], rows, refs: rows.map((_, i) => ref("prefetch", i)), times: rows.map(() => null), notes: [] });
+      out.push({ plugin: "prefetch", label: "Prefetch", command: `velociraptor artifacts collect Windows.Forensics.Prefetch -- host ${host}`, columns: ["Executable", "PrefetchFile", "RunCount", "LastRunTime"], rows, refs: rows.map((_, i) => ref("prefetch", i)), times: rows.map(() => null), keys: rows.map(r => `exe:${r[0]}`), notes: [] });
     }
   }
   // Event logs = what the host's EVTX holds: Windows logs and Sysmon. EDR telemetry lives in the EDR console, not here.
   const logRows = hostRows.filter(r => ["windows", "sysmon"].includes(String(r.ev.source))).sort((a, b) => a.atMs - b.atMs);
   const rows = logRows.map(r => { const eid = eventIdOf(r.ev); return [hhmmss(r.atMs), host, channelOf(r.ev, eid), eid, String(r.ev.severity ?? "info"), String(r.ev.description ?? r.ev.event_type ?? "event").slice(0, 160)]; });
   out.push({ plugin: "evtx", label: "Event logs", command: `hayabusa csv-timeline -d ./${id}/evtx -o ${id}-timeline.csv`, columns: ["Timestamp", "Computer", "Channel", "EventID", "Level", "Details"],
-    rows, refs: rows.map((_, i) => ref("evtx", i)), times: logRows.map(r => r.atMs),
+    rows, refs: rows.map((_, i) => ref("evtx", i)), times: logRows.map(r => r.atMs), keys: logRows.map(r => `ev:${r.ev.id ?? ""}`),
     notes: logRows.length ? [] : ["No Windows event logs from this host in the collection window."] });
-  if (!inv && !logRows.length) out[0] ??= { plugin: "none", label: "Nothing", command: "", columns: [], rows: [], refs: [], times: [], notes: [`Nothing collected from ${host} before ${hhmmss(snapshotMs)}.`] };
+  if (!inv && !logRows.length) out[0] ??= { plugin: "none", label: "Nothing", command: "", columns: [], rows: [], refs: [], times: [], keys: [], notes: [`Nothing collected from ${host} before ${hhmmss(snapshotMs)}.`] };
   return out;
+}
+
+// ── session helpers shared by the workbench (client) and the forensic review (server) ──
+type SessionEv = { seq: number; type: string; actor_id: string | null; payload: unknown; occurred_at?: string | null };
+const str = (v: unknown) => (typeof v === "string" ? v : typeof v === "number" ? String(v) : "");
+const msOf = (e: SessionEv) => (e.occurred_at ? Date.parse(e.occurred_at) : NaN);
+
+/** Hosts the team has put in play: escalated, elevated, scoped, isolated, asked to contain, or examined. */
+export function forensicHosts(events: SessionEv[], feed: SessionEv[]): string[] {
+  const hostOfEid = new Map(feed.map(f => [str((f.payload as { id?: unknown }).id), str((f.payload as { hostname?: unknown }).hostname)]));
+  const out = new Map<string, string>();
+  const add = (h: string) => { const k = hostKey(h); if (k && !out.has(k)) out.set(k, h); };
+  for (const e of events) {
+    const p = (e.payload ?? {}) as Record<string, unknown>;
+    if (e.type === "escalation.requested") add(str(p.hostname) || str((p.snapshot as { hostname?: unknown } | undefined)?.hostname) || hostOfEid.get(str(p.event_id)) || "");
+    else if (e.type === "elevation.requested") add(hostOfEid.get(str(p.event_id)) || "");
+    else if (e.type === "containment.requested") add(str(p.target));
+    else if (e.type === "edr.host_isolated" || e.type === "forensic.collected" || e.type === "forensic.finding") add(str(p.host));
+    else if (e.type === "scope.set" || e.type === "scope.confirmed") for (const h of (Array.isArray(p.hosts) ? p.hosts : [])) add(str(h));
+  }
+  return [...out.values()].filter(h => !h.includes("@") && !/^\d+\.\d+\.\d+\.\d+$/.test(h));
+}
+
+export interface EvidenceItem { id: string; host: string; kind: EvidenceKind; at: number; readyAt: number; by: string | null }
+/** Every evidence item collected in the session (anyone's), in order. */
+export function evidenceItems(events: SessionEv[]): EvidenceItem[] {
+  return events.filter(e => e.type === "forensic.collected").map(e => {
+    const p = (e.payload ?? {}) as { host?: unknown; kind?: unknown; evidence_id?: unknown };
+    const at = Number.isFinite(msOf(e)) ? msOf(e) : Date.now();
+    const kind: EvidenceKind = p.kind === "triage" ? "triage" : "memory";
+    return { id: str(p.evidence_id), host: str(p.host), kind, at, readyAt: at + COLLECT_DELAY_S[kind] * 1000, by: e.actor_id };
+  });
+}
+
+/** A host's isolation and RTR kills as recorded in the session. */
+export function hostStateOf(events: SessionEv[], host: string): HostState {
+  const k = hostKey(host);
+  let isolatedAtMs: number | null = null;
+  for (const e of events) {
+    if ((e.type === "edr.host_isolated" || e.type === "edr.host_released") && hostKey(str((e.payload as { host?: unknown }).host)) === k)
+      isolatedAtMs = e.type === "edr.host_isolated" ? (Number.isFinite(msOf(e)) ? msOf(e) : null) : null;
+  }
+  const kills = events.filter(e => e.type === "rtr.action" && (e.payload as { action?: unknown }).action === "kill" && hostKey(str((e.payload as { host?: unknown }).host)) === k)
+    .map(e => ({ pid: Number((e.payload as { pid?: unknown }).pid) || undefined, name: str((e.payload as { name?: unknown }).name) || undefined, atMs: Number.isFinite(msOf(e)) ? msOf(e) : 0 }));
+  return { isolatedAtMs, kills };
 }
