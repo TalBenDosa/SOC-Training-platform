@@ -29,11 +29,13 @@
     "_source.rule.pci_dss",
     "_source.timestamp",
     "_version",
+    "action_result",
     "agent.id",
     "agent.name",
     "decoder.name",
     "event.created",
     "event.dataset",
+    "event.kind",
     "event.module",
     "event.original",
     "event.provider",
@@ -151,6 +153,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "tls.cipher",
         "tls.client.subject",
@@ -177,7 +180,12 @@
         "waf.rule.id",
         "waf.rule.name"
       ],
-      "prefixes": []
+      "prefixes": [
+        "akamai.",
+        "http.request.",
+        "http.response.",
+        "waf."
+      ]
     },
     "aruba-clearpass": {
       "label": "Aruba ClearPass",
@@ -296,7 +304,10 @@
         "wireless.bssid",
         "wireless.ssid"
       ],
-      "prefixes": []
+      "prefixes": [
+        "aruba.",
+        "clearpass."
+      ]
     },
     "aws-cloudtrail": {
       "label": "AWS CloudTrail",
@@ -404,6 +415,8 @@
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -443,6 +456,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "url.domain",
         "url.full",
@@ -458,6 +472,52 @@
         "user.sid",
         "user.target.name",
         "user.type"
+      ],
+      "prefixes": [
+        "aws.cloudtrail.",
+        "aws.guardduty."
+      ]
+    },
+    "aws-cloudwatch": {
+      "label": "AWS CloudWatch",
+      "aliases": [],
+      "exactFields": [
+        "action_result",
+        "aws.cloudtrail.eventName",
+        "aws.cloudtrail.eventSource",
+        "cloudwatch.alarm.actual_value",
+        "cloudwatch.alarm.metric",
+        "cloudwatch.alarm.name",
+        "cloudwatch.alarm.state",
+        "cloudwatch.alarm.threshold"
+      ],
+      "prefixes": []
+    },
+    "aws-cost-anomaly-detection": {
+      "label": "AWS Cost Anomaly Detection",
+      "aliases": [],
+      "exactFields": [
+        "action_result",
+        "aws.cost_anomaly.anomalous_spend",
+        "aws.cost_anomaly.anomaly_id",
+        "aws.cost_anomaly.baseline_spend",
+        "aws.cost_anomaly.detection_method",
+        "aws.cost_anomaly.expected_spend",
+        "aws.cost_anomaly.monitor_arn",
+        "aws.cost_anomaly.monitor_name",
+        "aws.cost_anomaly.notification_email",
+        "aws.cost_anomaly.root_cause.instance_type",
+        "aws.cost_anomaly.root_cause.region",
+        "aws.cost_anomaly.root_cause.service",
+        "aws.cost_anomaly.root_cause.usage_type",
+        "aws.cost_anomaly.sns_topic",
+        "aws.cost_anomaly.time_period.end",
+        "aws.cost_anomaly.time_period.start",
+        "aws.cost_anomaly.total_impact",
+        "cloud.account.id",
+        "cloud.provider",
+        "event.action",
+        "event.outcome"
       ],
       "prefixes": []
     },
@@ -599,6 +659,8 @@
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -652,6 +714,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "url.domain",
         "url.full",
@@ -669,7 +732,10 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "aws.cloudtrail.",
+        "aws.iam."
+      ]
     },
     "aws-rds-audit": {
       "label": "AWS RDS Audit",
@@ -787,18 +853,25 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name"
       ],
-      "prefixes": []
+      "prefixes": [
+        "aws.rds.",
+        "db.",
+        "rds."
+      ]
     },
     "aws-waf": {
       "label": "AWS WAF",
+      "sourceNote": "action/formatVersion/webaclId/terminatingRuleId/terminatingRuleType/httpSourceName/httpSourceId/rateBasedRuleList/nonTerminatingMatchingRules/requestHeadersInserted/responseCodeSent/terminatingRuleMatchDetails/ruleGroupList[]/httpRequest.*/labels[]/oversizeFields[] are the genuine native AWS WAF logging schema field names exactly as AWS documents them for the WAF logging destination (S3 / CloudWatch Logs / Kinesis Data Firehose JSON log) — the un-normalized raw log AWS itself emits. This is distinct from the ECS-normalized waf.*/http.request.* fields already in this entry, which represent a SIEM-ingested view of the same product; both are legitimate. Added 2026-08-25.",
       "aliases": [
         "AWS WAF",
         "AWS Web Application Firewall",
         "Amazon WAF"
       ],
       "exactFields": [
+        "action",
         "action_result",
         "alert.description",
         "alert.id",
@@ -840,6 +913,7 @@
         "file.name",
         "file.size",
         "file.type",
+        "formatVersion",
         "geo.city_name",
         "geo.country_name",
         "host.hostname",
@@ -852,21 +926,31 @@
         "http.response.body.bytes",
         "http.response.status_code",
         "http.user_agent",
+        "httpSourceId",
+        "httpSourceName",
         "network.bytes",
         "network.direction",
         "network.packets",
         "network.protocol",
         "network.transport",
+        "nonTerminatingMatchingRules",
         "quarantine.status",
+        "rateBasedRuleList",
+        "requestHeadersInserted",
+        "responseCodeSent",
         "rule.category",
         "rule.name",
         "rule.severity",
+        "ruleGroupList",
         "session.id",
         "source.as.organization.name",
         "source.geo.city_name",
         "source.geo.country_name",
         "source.ip",
         "source.port",
+        "terminatingRuleId",
+        "terminatingRuleMatchDetails",
+        "terminatingRuleType",
         "threat.category",
         "threat.cve",
         "threat.framework",
@@ -878,6 +962,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "tls.cipher",
         "tls.client.subject",
@@ -902,9 +987,20 @@
         "waf.policy.id",
         "waf.policy.name",
         "waf.rule.id",
-        "waf.rule.name"
+        "waf.rule.name",
+        "webaclId"
       ],
-      "prefixes": []
+      "prefixes": [
+        "aws.waf.",
+        "http.request.",
+        "http.response.",
+        "httpRequest.",
+        "labels[",
+        "oversizeFields[",
+        "ruleGroupList[",
+        "terminatingRuleMatchDetails[",
+        "waf."
+      ]
     },
     "azure-ad": {
       "label": "Microsoft Entra ID (Azure AD)",
@@ -1403,6 +1499,80 @@
         "source.ip",
         "source.port"
       ],
+      "prefixes": [
+        "azure.",
+        "azure.auditlogs.",
+        "azure.signinlogs.",
+        "data.office365."
+      ]
+    },
+    "azure-ai-content-safety": {
+      "label": "Azure AI Content Safety",
+      "note": "Microsoft Prompt Shields (Azure AI Content Safety) jailbreak/prompt-injection detections plus the surrounding LLM-gateway request log. LLM-gateway telemetry has no single standardised SIEM schema yet; the gateway.* namespace is this platform's coherent representation of a gateway inference-request record (session/user/prompt/response/tool). promptshields.* carries the real Prompt Shields attack categories (UserPromptAttack/DocumentAttack) and subcategories.",
+      "aliases": [
+        "Azure AI Content Safety",
+        "Prompt Shields",
+        "Microsoft Prompt Shields",
+        "Azure AI Content Safety Prompt Shields"
+      ],
+      "exactFields": [],
+      "prefixes": [
+        "promptshields.",
+        "gateway."
+      ]
+    },
+    "azure-storage": {
+      "label": "Azure Storage",
+      "note": "Azure Storage blob service diagnostic logs (Azure Monitor StorageBlobLogs table / resource logs, category StorageWrite/StorageRead). Column names verified against learn.microsoft.com/azure/azure-monitor/reference/tables/storagebloblogs. source.ip / cloud.* are the platform's shared cross-source fields.",
+      "aliases": [
+        "Azure Blob Storage",
+        "Azure Storage",
+        "Azure Storage Blob",
+        "Azure Storage Analytics",
+        "Azure Storage Blob Logs"
+      ],
+      "exactFields": [
+        "TimeGenerated",
+        "AccountName",
+        "Category",
+        "OperationName",
+        "OperationVersion",
+        "StatusCode",
+        "StatusText",
+        "DurationMs",
+        "ServerLatencyMs",
+        "CallerIpAddress",
+        "AuthenticationType",
+        "AuthenticationHash",
+        "AuthorizationDetails",
+        "RequesterObjectId",
+        "RequesterTenantId",
+        "RequesterAppId",
+        "RequesterUpn",
+        "Uri",
+        "ObjectKey",
+        "UserAgentHeader",
+        "ReferrerHeader",
+        "ClientRequestId",
+        "RequestBodySize",
+        "ResponseBodySize",
+        "RequestHeaderSize",
+        "ResponseHeaderSize",
+        "ContentLengthHeader",
+        "ServiceType",
+        "Protocol",
+        "TlsVersion",
+        "CorrelationId",
+        "Etag",
+        "LastModifiedTime",
+        "Location",
+        "SchemaVersion",
+        "Type",
+        "_ResourceId",
+        "source.ip",
+        "cloud.provider",
+        "cloud.region"
+      ],
       "prefixes": []
     },
     "azure-app-gateway-waf": {
@@ -1497,6 +1667,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "tls.cipher",
         "tls.client.subject",
@@ -1523,7 +1694,13 @@
         "waf.rule.id",
         "waf.rule.name"
       ],
-      "prefixes": []
+      "prefixes": [
+        "appgw.",
+        "azure.appgw.",
+        "http.request.",
+        "http.response.",
+        "waf."
+      ]
     },
     "azure-monitor": {
       "label": "Azure Monitor / Azure Activity Log",
@@ -1533,6 +1710,7 @@
         "Azure Activity Logs",
         "Azure Defender for Cloud",
         "Azure Monitor",
+        "Azure OpenAI",
         "Microsoft Azure",
         "Microsoft Defender for Cloud"
       ],
@@ -1554,6 +1732,7 @@
         "azure.result_type",
         "azure.subscription.id",
         "azure.tenant.id",
+        "category",
         "cloud.account.id",
         "cloud.account.name",
         "cloud.application",
@@ -1589,7 +1768,9 @@
         "event.action",
         "event.category",
         "event.code",
+        "event.duration",
         "event.id",
+        "event.kind",
         "event.outcome",
         "event.reason",
         "event.risk_score",
@@ -1613,6 +1794,7 @@
         "host.serial_number",
         "host.type",
         "host.uptime",
+        "http.response.status_code",
         "iam.action",
         "iam.permission",
         "iam.permission.action",
@@ -1625,9 +1807,12 @@
         "kubernetes.node.name",
         "kubernetes.pod.name",
         "network.protocol",
+        "operationName",
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -1649,9 +1834,39 @@
         "process.thread.id",
         "process.token.elevation",
         "process.working_directory",
+        "properties.cacheStatus",
+        "properties.clientCountry",
+        "properties.clientIp",
+        "properties.clientPort",
+        "properties.endpoint",
+        "properties.errorInfo",
+        "properties.hostName",
+        "properties.httpMethod",
+        "properties.httpStatusCode",
+        "properties.httpStatusDetails",
+        "properties.httpVersion",
+        "properties.originName",
+        "properties.pop",
+        "properties.requestBytes",
+        "properties.requestProtocol",
+        "properties.requestUri",
+        "properties.responseBytes",
+        "properties.routingRuleName",
+        "properties.securityProtocol",
+        "properties.socketIp",
+        "properties.timeTaken",
+        "properties.trackingReference",
+        "properties.userAgent",
+        "resourceId",
         "session.duration",
         "session.id",
         "session.state",
+        "source.as.organization.name",
+        "source.geo.city_name",
+        "source.geo.country_iso_code",
+        "source.geo.country_name",
+        "source.geo.location.lat",
+        "source.geo.location.lon",
         "source.ip",
         "source.port",
         "storage.bucket.name",
@@ -1667,7 +1882,9 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
+        "time",
         "url.domain",
         "url.full",
         "user.agent",
@@ -1683,7 +1900,11 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "azure.",
+        "azure.activitylogs.",
+        "azure.monitor."
+      ]
     },
     "azure-sql-audit": {
       "label": "Azure SQL Auditing",
@@ -1799,9 +2020,14 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name"
       ],
-      "prefixes": []
+      "prefixes": [
+        "azure.sql.",
+        "db.",
+        "sqlaudit."
+      ]
     },
     "beyondtrust": {
       "label": "BeyondTrust PAM",
@@ -1924,6 +2150,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "user.domain",
         "user.effective.name",
@@ -1937,7 +2164,10 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "beyondtrust.",
+        "bt."
+      ]
     },
     "bitdefender-gravityzone": {
       "label": "Bitdefender GravityZone",
@@ -1991,9 +2221,10 @@
         "file.pe.imphash",
         "file.pe.original_file_name",
         "file.sensitivity_label",
-        "file.signature.status",
-        "file.signature.subject_name",
-        "file.signature.trusted",
+        "file.code_signature.exists",
+        "file.code_signature.trusted",
+        "file.code_signature.subject_name",
+        "file.code_signature.status",
         "file.size",
         "file.type",
         "host.architecture",
@@ -2031,6 +2262,8 @@
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -2084,6 +2317,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "threat.type",
         "url.domain",
@@ -2099,7 +2333,10 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "bitdefender.",
+        "gz."
+      ]
     },
     "carbon-black": {
       "label": "VMware Carbon Black",
@@ -2180,9 +2417,10 @@
         "file.pe.imphash",
         "file.pe.original_file_name",
         "file.sensitivity_label",
-        "file.signature.status",
-        "file.signature.subject_name",
-        "file.signature.trusted",
+        "file.code_signature.exists",
+        "file.code_signature.trusted",
+        "file.code_signature.subject_name",
+        "file.code_signature.status",
         "file.size",
         "file.type",
         "host.architecture",
@@ -2233,6 +2471,8 @@
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -2293,6 +2533,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "threat.type",
         "url.domain",
@@ -2314,7 +2555,10 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "carbonblack.",
+        "cb."
+      ]
     },
     "check-point-ngfw": {
       "label": "Check Point NGFW",
@@ -2452,6 +2696,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "threat.url",
         "tls.cipher",
@@ -2506,6 +2751,20 @@
         "authentication.status",
         "authentication.substatus",
         "cisco.acl",
+        "cisco.asa.assigned_ip",
+        "cisco.asa.bytes_rcv",
+        "cisco.asa.bytes_xmt",
+        "cisco.asa.client_os",
+        "cisco.asa.client_version",
+        "cisco.asa.duration",
+        "cisco.asa.group_policy",
+        "cisco.asa.message_id",
+        "cisco.asa.public_ip",
+        "cisco.asa.reason",
+        "cisco.asa.session_id",
+        "cisco.asa.session_type",
+        "cisco.asa.tunnel_group",
+        "cisco.asa.username",
         "cisco.connection_id",
         "cisco.icmp_type",
         "cisco.interface",
@@ -2553,6 +2812,9 @@
         "network.packets",
         "network.protocol",
         "network.transport",
+        "observer.egress.interface.name",
+        "observer.ip",
+        "observer.name",
         "session.bytes",
         "session.duration",
         "session.end",
@@ -2562,6 +2824,7 @@
         "session.state",
         "source.as.organization.name",
         "source.geo.city_name",
+        "source.geo.country_iso_code",
         "source.geo.country_name",
         "source.hostname",
         "source.ip",
@@ -2589,7 +2852,10 @@
         "vpn.tunnel.type",
         "vpn.user"
       ],
-      "prefixes": []
+      "prefixes": [
+        "anyconnect.",
+        "cisco.anyconnect."
+      ]
     },
     "cisco-firepower": {
       "label": "Cisco Firepower",
@@ -2700,6 +2966,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "threat.url",
         "tls.cipher",
@@ -2730,7 +2997,10 @@
         "vpn.tunnel.type",
         "vpn.user"
       ],
-      "prefixes": []
+      "prefixes": [
+        "cisco.ftd.",
+        "ftd."
+      ]
     },
     "cisco-ise": {
       "label": "Cisco ISE",
@@ -2849,7 +3119,10 @@
         "wireless.bssid",
         "wireless.ssid"
       ],
-      "prefixes": []
+      "prefixes": [
+        "cise.",
+        "ise."
+      ]
     },
     "cloudflare-waf": {
       "label": "Cloudflare WAF",
@@ -2937,6 +3210,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "tls.cipher",
         "tls.client.subject",
@@ -2963,7 +3237,13 @@
         "waf.rule.id",
         "waf.rule.name"
       ],
-      "prefixes": []
+      "prefixes": [
+        "cf.",
+        "cloudflare.",
+        "http.request.",
+        "http.response.",
+        "waf."
+      ]
     },
     "corelight-zeek": {
       "label": "Corelight (Zeek)",
@@ -3047,6 +3327,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "threat.url",
         "tls.cipher",
@@ -3064,10 +3345,14 @@
         "url.query",
         "url.scheme"
       ],
-      "prefixes": []
+      "prefixes": [
+        "corelight.",
+        "zeek."
+      ]
     },
     "crowdstrike-falcon": {
       "label": "CrowdStrike Falcon",
+      "sourceNote": "CommandLine/ComputerName/ContextProcessName/ParentProcessName/FileName/FilePath/UserName/OperationType/aid and the *_decimal PID fields are genuine CrowdStrike Falcon Detection Summary / FDR (Falcon Data Replicator) raw sensor-event field names; FDR stores both a hex PID and a matching '<Field>_decimal' companion (ContextProcessId_decimal, TargetProcessId_decimal). Added 2026-07-25 replacing an invented 'cs.*' namespace with this codebase's established 'crowdstrike.*' prefix (already used pervasively elsewhere in the corpus, e.g. crowdstrike.HostName, crowdstrike.CommandLine in src/data/rooms-batch-06/07/09.ts).",
       "aliases": [
         "CrowdStrike",
         "CrowdStrike EDR",
@@ -3099,14 +3384,25 @@
         "authentication.status",
         "authentication.substatus",
         "autorun.key",
+        "av.verdict",
+        "crowdstrike.CommandLine",
+        "crowdstrike.ComputerName",
         "crowdstrike.DetectName",
-        "crowdstrike.IncidentType",
+        "crowdstrike.DetectDescription",
+        "crowdstrike.DetectId",
+        "crowdstrike.FalconHostLink",
+        "crowdstrike.FileName",
+        "crowdstrike.FilePath",
         "crowdstrike.Objective",
         "crowdstrike.PatternDispositionDescription",
+        "crowdstrike.PatternDispositionValue",
+        "crowdstrike.PatternId",
         "crowdstrike.SensorId",
         "crowdstrike.SeverityName",
         "crowdstrike.Tactic",
         "crowdstrike.Technique",
+        "crowdstrike.UserName",
+        "crowdstrike.aid",
         "destination.domain",
         "destination.hostname",
         "destination.ip",
@@ -3155,9 +3451,10 @@
         "file.pe.imphash",
         "file.pe.original_file_name",
         "file.sensitivity_label",
-        "file.signature.status",
-        "file.signature.subject_name",
-        "file.signature.trusted",
+        "file.code_signature.exists",
+        "file.code_signature.trusted",
+        "file.code_signature.subject_name",
+        "file.code_signature.status",
         "file.size",
         "file.type",
         "host.architecture",
@@ -3208,6 +3505,8 @@
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -3268,6 +3567,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "threat.type",
         "url.domain",
@@ -3287,10 +3587,15 @@
         "user.name",
         "user.sid",
         "user.target.name",
-        "user.type"
+        "user.type",
+        "crowdstrike.ParentImageFileName",
+        "crowdstrike.GrandparentImageFileName"
       ],
       "prefixes": [
-        "crowdstrike."
+        "crowdstrike.",
+        "file.",
+        "pe.",
+        "process."
       ]
     },
     "cyberark": {
@@ -3415,6 +3720,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "user.domain",
         "user.effective.name",
@@ -3428,7 +3734,10 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "cyberark.",
+        "pas."
+      ]
     },
     "digital-guardian": {
       "label": "Digital Guardian",
@@ -3497,9 +3806,10 @@
         "file.pe.imphash",
         "file.pe.original_file_name",
         "file.sensitivity_label",
-        "file.signature.status",
-        "file.signature.subject_name",
-        "file.signature.trusted",
+        "file.code_signature.exists",
+        "file.code_signature.trusted",
+        "file.code_signature.subject_name",
+        "file.code_signature.status",
         "file.size",
         "file.type",
         "geo.city_name",
@@ -3559,7 +3869,10 @@
         "user.title",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "dg.",
+        "digitalguardian."
+      ]
     },
     "elastic-siem": {
       "label": "Elastic SIEM",
@@ -3694,6 +4007,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "url.domain",
         "url.full",
@@ -3710,6 +4024,29 @@
         "user.target.name",
         "user.title",
         "user.type"
+      ],
+      "prefixes": [
+        "elastic."
+      ]
+    },
+    "epiq-emr-audit-log": {
+      "label": "Epic EMR Audit Log",
+      "aliases": [
+        "Epiq EMR Audit Log"
+      ],
+      "exactFields": [
+        "action_result",
+        "emr.access_reason",
+        "emr.action",
+        "emr.authorised_by",
+        "emr.changed_fields",
+        "emr.patient_id",
+        "emr.patient_ward",
+        "emr.patients_accessed",
+        "emr.record_type",
+        "emr.session_id",
+        "emr.system",
+        "user.name"
       ],
       "prefixes": []
     },
@@ -3845,6 +4182,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "url.domain",
         "url.full",
@@ -3862,7 +4200,9 @@
         "user.title",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "exabeam."
+      ]
     },
     "f5-advanced-waf": {
       "label": "F5 Advanced WAF",
@@ -3952,6 +4292,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "tls.cipher",
         "tls.client.subject",
@@ -3978,7 +4319,13 @@
         "waf.rule.id",
         "waf.rule.name"
       ],
-      "prefixes": []
+      "prefixes": [
+        "asm.",
+        "f5.",
+        "http.request.",
+        "http.response.",
+        "waf."
+      ]
     },
     "forcepoint-dlp": {
       "label": "Forcepoint DLP",
@@ -4047,9 +4394,10 @@
         "file.pe.imphash",
         "file.pe.original_file_name",
         "file.sensitivity_label",
-        "file.signature.status",
-        "file.signature.subject_name",
-        "file.signature.trusted",
+        "file.code_signature.exists",
+        "file.code_signature.trusted",
+        "file.code_signature.subject_name",
+        "file.code_signature.status",
         "file.size",
         "file.type",
         "geo.city_name",
@@ -4109,7 +4457,10 @@
         "user.title",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "forcepoint.",
+        "fp.dlp."
+      ]
     },
     "forescout": {
       "label": "Forescout",
@@ -4227,7 +4578,10 @@
         "wireless.bssid",
         "wireless.ssid"
       ],
-      "prefixes": []
+      "prefixes": [
+        "counteract.",
+        "forescout."
+      ]
     },
     "fortigate": {
       "label": "Fortinet FortiGate",
@@ -4242,21 +4596,72 @@
       ],
       "exactFields": [
         "_source.data.action",
+        "_source.data.agent",
+        "_source.data.app",
+        "_source.data.appcat",
+        "_source.data.apprisk",
+        "_source.data.cat",
+        "_source.data.catdesc",
+        "_source.data.countweb",
+        "_source.data.devid",
+        "_source.data.devname",
+        "_source.data.direction",
+        "_source.data.dstcountry",
+        "_source.data.dstintf",
+        "_source.data.dstintfrole",
+        "_source.data.dstip",
+        "_source.data.dstname",
+        "_source.data.dstport",
         "_source.data.dstuser",
         "_source.data.duration",
         "_source.data.eventtime",
+        "_source.data.eventtype",
+        "_source.data.filename",
+        "_source.data.filetype",
+        "_source.data.group",
+        "_source.data.hostname",
         "_source.data.ip",
         "_source.data.level",
         "_source.data.logdesc",
         "_source.data.logid",
+        "_source.data.method",
         "_source.data.msg",
+        "_source.data.policyid",
+        "_source.data.policyname",
+        "_source.data.policytype",
+        "_source.data.poluuid",
+        "_source.data.profile",
+        "_source.data.proto",
         "_source.data.rcvdbyte",
+        "_source.data.rcvdpkt",
         "_source.data.reason",
+        "_source.data.referralurl",
+        "_source.data.remip",
+        "_source.data.remport",
+        "_source.data.reqtype",
         "_source.data.sentbyte",
+        "_source.data.sentpkt",
+        "_source.data.service",
+        "_source.data.sessionid",
+        "_source.data.severity",
         "_source.data.srccountry",
+        "_source.data.srcintf",
+        "_source.data.srcintfrole",
+        "_source.data.srcip",
+        "_source.data.srcname",
+        "_source.data.srcport",
         "_source.data.subtype",
         "_source.data.time",
+        "_source.data.trandisp",
+        "_source.data.tranip",
+        "_source.data.tranport",
+        "_source.data.tunnelip",
+        "_source.data.tunneltype",
         "_source.data.type",
+        "_source.data.url",
+        "_source.data.urlfilteridx",
+        "_source.data.user",
+        "_source.data.utmaction",
         "_source.data.vd",
         "action",
         "action_result",
@@ -4265,21 +4670,72 @@
         "certificate.valid_from",
         "certificate.valid_to",
         "data.action",
+        "data.agent",
+        "data.app",
+        "data.appcat",
+        "data.apprisk",
+        "data.cat",
+        "data.catdesc",
+        "data.countweb",
+        "data.devid",
+        "data.devname",
+        "data.direction",
+        "data.dstcountry",
+        "data.dstintf",
+        "data.dstintfrole",
+        "data.dstip",
+        "data.dstname",
+        "data.dstport",
         "data.dstuser",
         "data.duration",
         "data.eventtime",
+        "data.eventtype",
+        "data.filename",
+        "data.filetype",
+        "data.group",
+        "data.hostname",
         "data.ip",
         "data.level",
         "data.logdesc",
         "data.logid",
+        "data.method",
         "data.msg",
+        "data.policyid",
+        "data.policyname",
+        "data.policytype",
+        "data.poluuid",
+        "data.profile",
+        "data.proto",
         "data.rcvdbyte",
+        "data.rcvdpkt",
         "data.reason",
+        "data.referralurl",
+        "data.remip",
+        "data.remport",
+        "data.reqtype",
         "data.sentbyte",
+        "data.sentpkt",
+        "data.service",
+        "data.sessionid",
+        "data.severity",
         "data.srccountry",
+        "data.srcintf",
+        "data.srcintfrole",
+        "data.srcip",
+        "data.srcname",
+        "data.srcport",
         "data.subtype",
         "data.time",
+        "data.trandisp",
+        "data.tranip",
+        "data.tranport",
+        "data.tunnelip",
+        "data.tunneltype",
         "data.type",
+        "data.url",
+        "data.urlfilteridx",
+        "data.user",
+        "data.utmaction",
         "data.vd",
         "destination.bytes",
         "destination.domain",
@@ -4378,6 +4834,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "threat.url",
         "tls.cipher",
@@ -4408,7 +4865,8 @@
         "vpn.tunnel.type",
         "vpn.user"
       ],
-      "prefixes": []
+      "prefixes": [],
+      "sourceNote": "FortiOS Log Message Reference — traffic (type=traffic), UTM web-filter (type=utm, subtype=webfilter) and SSL-VPN event (type=event, subtype=vpn) log fields, as ingested under data.* by the SIEM. Extended 2026-08 to cover the standard traffic/webfilter columns and again to add the SSL-VPN tunnel fields (remip, remport, tunnelip, tunneltype) used by ssl-login/tunnel-up events; the original generated set only held the subset already in use."
     },
     "fortinet-fortinac": {
       "label": "Fortinet FortiNAC",
@@ -4526,7 +4984,9 @@
         "wireless.bssid",
         "wireless.ssid"
       ],
-      "prefixes": []
+      "prefixes": [
+        "fortinac."
+      ]
     },
     "gcp-audit-logs": {
       "label": "GCP Cloud Audit Logs",
@@ -4629,6 +5089,8 @@
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -4668,6 +5130,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "url.domain",
         "url.full",
@@ -4684,7 +5147,10 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "gcp.",
+        "gcp.audit."
+      ]
     },
     "github-audit-log": {
       "label": "GitHub Audit Log",
@@ -4695,9 +5161,13 @@
         "GitHub Enterprise Audit Log"
       ],
       "exactFields": [
+        "_document_id",
         "access.request.approver",
         "access.request.id",
         "access.request.status",
+        "action",
+        "actor",
+        "actor_id",
         "alert.description",
         "alert.id",
         "alert.name",
@@ -4739,6 +5209,7 @@
         "container.image.tag",
         "container.name",
         "container.runtime",
+        "created_at",
         "destination.hostname",
         "destination.ip",
         "destination.port",
@@ -4805,6 +5276,8 @@
         "logon.process",
         "logon.type",
         "network.protocol",
+        "org",
+        "org_id",
         "pam.account.name",
         "pam.checkout.status",
         "pam.password.rotation",
@@ -4818,6 +5291,8 @@
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -4839,6 +5314,9 @@
         "process.thread.id",
         "process.token.elevation",
         "process.working_directory",
+        "repo",
+        "repo_id",
+        "repository_public",
         "role.id",
         "role.name",
         "role.type",
@@ -4871,7 +5349,10 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
+        "transport_protocol",
+        "transport_protocol_name",
         "url.domain",
         "url.full",
         "user.agent",
@@ -4886,9 +5367,13 @@
         "user.sid",
         "user.status",
         "user.target.name",
-        "user.type"
+        "user.type",
+        "user_agent"
       ],
-      "prefixes": []
+      "prefixes": [
+        "data.github.",
+        "github."
+      ]
     },
     "google-workspace": {
       "label": "Google Workspace Audit",
@@ -4968,6 +5453,7 @@
         "event.category",
         "event.code",
         "event.id",
+        "event.kind",
         "event.outcome",
         "event.reason",
         "event.risk_score",
@@ -5023,6 +5509,8 @@
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -5076,6 +5564,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "url.domain",
         "url.full",
@@ -5093,7 +5582,11 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "data.gsuite.",
+        "google.",
+        "gws."
+      ]
     },
     "hashicorp-vault": {
       "label": "HashiCorp Vault",
@@ -5216,6 +5709,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "user.domain",
         "user.effective.name",
@@ -5229,7 +5723,9 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "vault."
+      ]
     },
     "ibm-guardium": {
       "label": "IBM Guardium",
@@ -5339,9 +5835,13 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name"
       ],
-      "prefixes": []
+      "prefixes": [
+        "db.",
+        "guardium."
+      ]
     },
     "imperva-dam": {
       "label": "Imperva DAM",
@@ -5451,9 +5951,14 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name"
       ],
-      "prefixes": []
+      "prefixes": [
+        "dam.",
+        "db.",
+        "imperva."
+      ]
     },
     "imperva-waf": {
       "label": "Imperva WAF",
@@ -5542,6 +6047,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "tls.cipher",
         "tls.client.subject",
@@ -5567,6 +6073,42 @@
         "waf.policy.name",
         "waf.rule.id",
         "waf.rule.name"
+      ],
+      "prefixes": [
+        "http.request.",
+        "http.response.",
+        "imperva.",
+        "waf."
+      ]
+    },
+    "infoblox-dns": {
+      "label": "Infoblox DNS",
+      "aliases": [],
+      "exactFields": [
+        "dns.answers.data",
+        "dns.answers.ttl",
+        "dns.question.class",
+        "dns.question.name",
+        "dns.question.type",
+        "dns.resolved_ip",
+        "dns.response_code",
+        "event.action",
+        "event.outcome",
+        "infoblox.answer",
+        "infoblox.client_ip",
+        "infoblox.member",
+        "infoblox.query_name",
+        "infoblox.query_type",
+        "infoblox.rcode",
+        "infoblox.response_code",
+        "infoblox.rpz_policy",
+        "infoblox.transport",
+        "infoblox.ttl",
+        "infoblox.view",
+        "infoblox.zone",
+        "infoblox.zone_type",
+        "network.protocol",
+        "source.ip"
       ],
       "prefixes": []
     },
@@ -5668,6 +6210,8 @@
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -5707,6 +6251,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "url.domain",
         "url.full",
@@ -5722,6 +6267,181 @@
         "user.sid",
         "user.target.name",
         "user.type"
+      ],
+      "prefixes": [
+        "k8s.",
+        "k8s.audit.",
+        "kubernetes.",
+        "kubernetes.audit."
+      ]
+    },
+    "linux-auditd": {
+      "label": "Linux auditd",
+      "aliases": [],
+      "exactFields": [
+        "action_result",
+        "audit.a0",
+        "audit.a1",
+        "audit.a2",
+        "audit.a3",
+        "audit.a4",
+        "audit.auid",
+        "audit.cmd",
+        "audit.comm",
+        "audit.cwd",
+        "audit.egid",
+        "audit.euid",
+        "audit.exe",
+        "audit.gid",
+        "audit.key",
+        "audit.msg",
+        "audit.pid",
+        "audit.ppid",
+        "audit.proctitle",
+        "audit.success",
+        "audit.syscall",
+        "audit.terminal",
+        "audit.tty",
+        "audit.type",
+        "audit.uid",
+        "auditd.control.description",
+        "auditd.control.enabled",
+        "auditd.log.arch",
+        "auditd.log.auid",
+        "auditd.log.comm",
+        "auditd.log.egid",
+        "auditd.log.euid",
+        "auditd.log.exe",
+        "auditd.log.exit",
+        "auditd.log.gid",
+        "auditd.log.key",
+        "auditd.log.pid",
+        "auditd.log.record_type",
+        "auditd.log.res",
+        "auditd.log.success",
+        "auditd.log.syscall",
+        "auditd.log.syscall_nr",
+        "auditd.log.type",
+        "auditd.log.uid",
+        "container.id",
+        "container.image",
+        "container.runtime",
+        "cron.command",
+        "cron.schedule",
+        "cron.user",
+        "data.audit.acct",
+        "data.audit.addr",
+        "data.audit.arch",
+        "data.audit.auid",
+        "data.audit.cmd",
+        "data.audit.comm",
+        "data.audit.cwd",
+        "data.audit.egid",
+        "data.audit.euid",
+        "data.audit.exe",
+        "data.audit.execve.a0",
+        "data.audit.exit",
+        "data.audit.file.mode",
+        "data.audit.file.name",
+        "data.audit.file.nametype",
+        "data.audit.file.ogid",
+        "data.audit.file.ouid",
+        "data.audit.fsgid",
+        "data.audit.fsuid",
+        "data.audit.gid",
+        "data.audit.grantors",
+        "data.audit.key",
+        "data.audit.op",
+        "data.audit.pid",
+        "data.audit.ppid",
+        "data.audit.res",
+        "data.audit.ses",
+        "data.audit.sgid",
+        "data.audit.success",
+        "data.audit.suid",
+        "data.audit.syscall",
+        "data.audit.terminal",
+        "data.audit.tty",
+        "data.audit.type",
+        "data.audit.uid",
+        "data.dstport",
+        "data.dstuser",
+        "data.program_name",
+        "data.srcip",
+        "data.srcport",
+        "data.srcuser",
+        "dpkg.action",
+        "dpkg.package",
+        "dpkg.version",
+        "event.action",
+        "event.outcome",
+        "event.type",
+        "fail2ban.action",
+        "fail2ban.ban_ip",
+        "fail2ban.ban_time",
+        "fail2ban.filter",
+        "fail2ban.found",
+        "fail2ban.jail",
+        "file.mode",
+        "file.name",
+        "file.operation",
+        "file.path",
+        "file.size",
+        "host.hostname",
+        "host.os.name",
+        "host.os.type",
+        "host.os.version",
+        "log.file.path",
+        "log.source",
+        "network.destination.domain",
+        "network.destination.ip",
+        "network.destination.port",
+        "package.manager",
+        "package.name",
+        "package.version",
+        "process.args",
+        "process.executable",
+        "process.name",
+        "process.pid",
+        "process.ppid",
+        "process.user",
+        "source.geo.city_name",
+        "source.geo.country_iso_code",
+        "source.geo.country_name",
+        "source.ip",
+        "source.port",
+        "sshd.auth_method",
+        "sshd.client_ip",
+        "sshd.client_port",
+        "sshd.error",
+        "sshd.event",
+        "sshd.fingerprint",
+        "sshd.key_fingerprint",
+        "sshd.method",
+        "sshd.port",
+        "sshd.session.bytes_in",
+        "sshd.session.bytes_out",
+        "sshd.session.duration_seconds",
+        "sshd.user",
+        "sudo.command",
+        "sudo.runas",
+        "sudo.runuser",
+        "sudo.tty",
+        "sudo.user",
+        "syslog.facility",
+        "syslog.hostname",
+        "syslog.pid",
+        "syslog.program",
+        "syslog.severity",
+        "system.auth.ssh.event",
+        "system.auth.ssh.method",
+        "systemd.action",
+        "systemd.exec_main_pid",
+        "systemd.result",
+        "systemd.state",
+        "systemd.unit",
+        "user.id",
+        "user.name"
       ],
       "prefixes": []
     },
@@ -5905,8 +6625,11 @@
         "_source.data.office365.Version",
         "_source.data.office365.WebId",
         "_source.data.office365.Workload",
+        "application.id",
         "asn.number",
         "asn.organization.name",
+        "authentication.method",
+        "cloud.resource.name",
         "data.office365.AccessRights",
         "data.office365.AccountDisplayName",
         "data.office365.Action",
@@ -6065,6 +6788,11 @@
         "data.office365.Workload",
         "destination.ip",
         "destination.port",
+        "file.count",
+        "file.name",
+        "file.size",
+        "mail.folder",
+        "network.bytes_out",
         "network.protocol",
         "office365.AccessRights",
         "office365.AccountDisplayName",
@@ -6223,9 +6951,15 @@
         "office365.WebId",
         "office365.Workload",
         "source.ip",
-        "source.port"
+        "source.port",
+        "storage.classification"
       ],
-      "prefixes": []
+      "prefixes": [
+        "data.office365.",
+        "email.",
+        "email.headers.",
+        "exchange."
+      ]
     },
     "microsoft-active-directory": {
       "label": "Microsoft Active Directory / Windows Security",
@@ -6343,6 +7077,8 @@
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -6402,10 +7138,14 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "winlog.",
+        "winlog.event_data."
+      ]
     },
     "microsoft-defender-endpoint": {
       "label": "Microsoft Defender for Endpoint",
+      "sourceNote": "Timestamp/DeviceId/DeviceName/ActionType/FileName/FolderPath/SHA256/FileSize/InitiatingProcess*/ReportId/ProcessCommandLine/ProcessId/ProcessIntegrityLevel/ProcessTokenElevation/AccountDomain/AccountName/AccountSid/LocalIP/LocalPort/RemoteIP/RemotePort/RemoteUrl/Protocol are the genuine native Microsoft Defender for Endpoint Advanced Hunting / Streaming API schema column names (DeviceFileEvents, DeviceProcessEvents, DeviceNetworkEvents tables) — the raw export format as Microsoft itself documents it. This is distinct from the ECS-normalized mde.*/file.*/process.* convention already in this entry, which represents a SIEM-ingested view of the same product; both are legitimate. Added 2026-08-25.",
       "aliases": [
         "Defender for Endpoint",
         "MDE",
@@ -6417,6 +7157,54 @@
         "Windows Defender"
       ],
       "exactFields": [
+        "AccountDomain",
+        "AccountName",
+        "AccountSid",
+        "ActionType",
+        "AlertName",
+        "AlertSeverity",
+        "CompromisedEntity",
+        "DeviceId",
+        "DeviceName",
+        "EndTime",
+        "Entities",
+        "ExtendedProperties",
+        "FileName",
+        "FileOriginReferrerUrl",
+        "FileSize",
+        "FolderPath",
+        "InitiatingProcessAccountDomain",
+        "InitiatingProcessAccountName",
+        "InitiatingProcessCommandLine",
+        "InitiatingProcessFileName",
+        "InitiatingProcessFolderPath",
+        "InitiatingProcessId",
+        "InitiatingProcessIntegrityLevel",
+        "InitiatingProcessParentFileName",
+        "InitiatingProcessParentId",
+        "InitiatingProcessSHA256",
+        "InitiatingProcessTokenElevation",
+        "LocalIP",
+        "LocalPort",
+        "ProcessCommandLine",
+        "ProcessId",
+        "ProcessIntegrityLevel",
+        "ProcessTokenElevation",
+        "ProductName",
+        "Protocol",
+        "RemoteIP",
+        "RemotePort",
+        "RemoteUrl",
+        "ReportId",
+        "SHA256",
+        "StartTime",
+        "Status",
+        "SystemAlertId",
+        "Tactics",
+        "Techniques",
+        "TimeGenerated",
+        "Timestamp",
+        "VendorName",
         "action",
         "action_result",
         "alert.category",
@@ -6486,9 +7274,10 @@
         "file.pe.imphash",
         "file.pe.original_file_name",
         "file.sensitivity_label",
-        "file.signature.status",
-        "file.signature.subject_name",
-        "file.signature.trusted",
+        "file.code_signature.exists",
+        "file.code_signature.trusted",
+        "file.code_signature.subject_name",
+        "file.code_signature.status",
         "file.size",
         "file.type",
         "host.architecture",
@@ -6551,6 +7340,8 @@
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -6611,6 +7402,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "threat.type",
         "url.domain",
@@ -6632,7 +7424,13 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "data.ms365.",
+        "mde.",
+        "windefend.",
+        "winlog.",
+        "winlog.event_data."
+      ]
     },
     "microsoft-defender-office365": {
       "label": "Microsoft Defender for Office 365",
@@ -6644,11 +7442,17 @@
         "Office 365 ATP"
       ],
       "exactFields": [
+        "Action",
+        "ActionResult",
+        "ActionTrigger",
+        "DeliveryLocation",
         "GeoLocation.city_name",
         "GeoLocation.country_name",
         "GeoLocation.latitude",
         "GeoLocation.longitude",
         "GeoLocation.region_name",
+        "InternetMessageId",
+        "ThreatTypes",
         "_source.GeoLocation.country_name",
         "_source.GeoLocation.location.lat",
         "_source.GeoLocation.location.lon",
@@ -6821,6 +7625,7 @@
         "alert.url",
         "asn.number",
         "asn.organization.name",
+        "category",
         "data.office365.AccessRights",
         "data.office365.AccountDisplayName",
         "data.office365.Action",
@@ -6977,6 +7782,7 @@
         "data.office365.Version",
         "data.office365.WebId",
         "data.office365.Workload",
+        "delivery.override",
         "destination.ip",
         "destination.port",
         "network.protocol",
@@ -7154,10 +7960,16 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "threat.url"
       ],
-      "prefixes": []
+      "prefixes": [
+        "data.office365.",
+        "email.",
+        "email.headers.",
+        "o365."
+      ]
     },
     "microsoft-graph-security": {
       "label": "Microsoft Graph Security API",
@@ -7208,8 +8020,62 @@
       ],
       "prefixes": [
         "_source.data.ms-graph.",
-        "data.ms-graph."
+        "data.ms-graph.",
+        "ms-graph."
       ]
+    },
+    "microsoft-intune": {
+      "label": "Microsoft Intune",
+      "aliases": [],
+      "exactFields": [
+        "assignment.groupDisplayName",
+        "assignment.groupId",
+        "assignment.installTimeSettings.deadlineDateTime",
+        "assignment.installTimeSettings.useLocalTime",
+        "assignment.intent",
+        "assignment.restartSettings.gracePeriodInMinutes",
+        "assignment.targetedDeviceCount",
+        "intune.activityDateTime",
+        "intune.activityOperationType",
+        "intune.activityResult",
+        "intune.activityType",
+        "intune.actor.applicationDisplayName",
+        "intune.actor.ipAddress",
+        "intune.actor.userPrincipalName",
+        "intune.appDisplayName",
+        "intune.appId",
+        "intune.appVersion",
+        "intune.assignedGroupDisplayName",
+        "intune.assignedGroupId",
+        "intune.category",
+        "intune.complianceState",
+        "intune.deploymentId",
+        "intune.deviceId",
+        "intune.deviceName",
+        "intune.errorCode",
+        "intune.installIntent",
+        "intune.installState",
+        "intune.installStateDetail",
+        "intune.lastSyncDateTime",
+        "intune.osVersion",
+        "intune.platform",
+        "intune.report",
+        "intune.resources.type",
+        "intune.targetDisplayName",
+        "intune.targetObjectId",
+        "intune.userPrincipalName",
+        "mobileApp.detectionRules.fileOrFolderName",
+        "mobileApp.detectionRules.path",
+        "mobileApp.displayName",
+        "mobileApp.displayVersion",
+        "mobileApp.id",
+        "mobileApp.installCommandLine",
+        "mobileApp.installExperience.runAsAccount",
+        "mobileApp.publisher",
+        "mobileApp.setupFilePath",
+        "mobileApp.uninstallCommandLine"
+      ],
+      "prefixes": []
     },
     "microsoft-purview-dlp": {
       "label": "Microsoft Purview DLP",
@@ -7689,9 +8555,10 @@
         "file.pe.imphash",
         "file.pe.original_file_name",
         "file.sensitivity_label",
-        "file.signature.status",
-        "file.signature.subject_name",
-        "file.signature.trusted",
+        "file.code_signature.exists",
+        "file.code_signature.trusted",
+        "file.code_signature.subject_name",
+        "file.code_signature.status",
         "file.size",
         "file.type",
         "geo.city_name",
@@ -7958,10 +8825,15 @@
         "user.title",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "data.office365.",
+        "dlp.",
+        "purview."
+      ]
     },
     "microsoft-sentinel": {
       "label": "Microsoft Sentinel",
+      "sourceNote": "AlertName/AlertSeverity are genuine top-level columns of the Microsoft Sentinel/Log Analytics 'SecurityAlert' table. ExtendedProperties is that same table's real column for rule-specific data — Microsoft's own docs describe it as a dynamic/free-form JSON bag ('additional properties that are relevant to the alert'), and built-in analytics rules populate it with rule-author-chosen keys (e.g. 'Query', 'Search Query Results Overall Count'). Because the sub-keys are inherently rule-defined, any 'ExtendedProperties.<Name>' key is a legitimate representation of a Sentinel analytics-rule alert — this is not a fabricated fixed schema. Added 2026-07-25 replacing an invented 'siem.*' namespace that did not correspond to any real Sentinel field. TimeGenerated/Computer/sSiteName/sComputerName/sIP/sPort/csMethod/csUriStem/csUriQuery/csUserName/cIP/csHost/csUserAgent/csReferer/scStatus/scSubStatus/scWin32Status/scBytes/csBytes/TimeTaken/csVersion/Type are the genuine column names of the Microsoft Sentinel / Log Analytics W3CIISLog table — how the Azure Monitor Agent normalizes W3C extended IIS access-log fields (cs-uri-stem -> csUriStem, sc-status -> scStatus, etc.) when it ingests a web server's own access log into Sentinel. Added 2026-08-25.",
       "aliases": [
         "Azure Sentinel",
         "Microsoft Sentinel",
@@ -7973,28 +8845,65 @@
         "AbnormalDataTransfer",
         "ActionUncommonlyPerformedByUser",
         "ActionUncommonlyPerformedInTenant",
+        "AlertLink",
+        "AlertName",
+        "AlertSeverity",
+        "AlertType",
         "AnonymousIPAccess",
         "AtypicalTravel",
+        "CompromisedEntity",
+        "Computer",
         "CountryUncommonlyConnectedFrom",
+        "Description",
+        "DetectionProductName",
+        "DetectorId",
         "DeviceUncommonlyUsedInTenant",
+        "DisplayName",
+        "EndTime",
+        "Entities",
+        "Entities.Account.Name",
+        "Entities.Account.UPNSuffix",
+        "Entities.IP.Address",
         "FirstTimeUserPerformedAction",
         "ImpossibleTravelActivity",
+        "LastUpdated",
         "LeakedCredentials",
         "MFAFatigueDetected",
         "MaliciousIPConnection",
         "MassDownloadActivity",
         "NewGeoLocation",
         "PasswordSprayDetected",
+        "ProcessedBySentinel",
+        "ProcessingEndTime",
+        "ProductComponentName",
+        "ProductName",
+        "ProviderName",
         "RareApplicationAccess",
         "RarePrivilegeElevation",
+        "RemediationSteps",
         "RiskySignIn",
         "RiskyUser",
+        "SourceSystem",
+        "StartTime",
+        "Status",
         "SuspiciousInboxRule",
         "SuspiciousOAuthConsent",
+        "SystemAlertId",
+        "Tactics",
+        "Techniques",
+        "TenantId",
+        "ThreatFamilyName",
+        "ThreatName",
+        "TimeGenerated",
+        "TimeTaken",
+        "Type",
         "UnfamiliarSignInProperties",
         "UnusualAdminActivity",
         "UnusualExternalSharing",
         "UnusualProcessExecution",
+        "VendorName",
+        "VendorOriginalId",
+        "WindowsDefenderAvIsIncident",
         "alert.category",
         "alert.confidence",
         "alert.description",
@@ -8025,9 +8934,20 @@
         "behavior.deviation",
         "behavior.name",
         "behavior.score",
+        "cIP",
         "cloud.account.id",
         "cloud.provider",
         "cloud.resource.name",
+        "csBytes",
+        "csHost",
+        "csMethod",
+        "csReferer",
+        "csUriQuery",
+        "csUriStem",
+        "csUserAgent",
+        "csUserName",
+        "csVersion",
+        "destination.domain",
         "destination.hostname",
         "destination.ip",
         "destination.port",
@@ -8080,6 +9000,14 @@
         "risk.score",
         "risk.state",
         "role.name",
+        "sComputerName",
+        "sIP",
+        "sPort",
+        "sSiteName",
+        "scBytes",
+        "scStatus",
+        "scSubStatus",
+        "scWin32Status",
         "session.bytes",
         "session.duration",
         "session.end",
@@ -8102,6 +9030,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "url.domain",
         "url.full",
@@ -8119,10 +9048,19 @@
         "user.title",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "ExtendedProperties.",
+        "MicrosoftDefenderAtp.",
+        "azure.",
+        "incident.",
+        "sentinel.",
+        "ticket.",
+        "ueba."
+      ]
     },
     "microsoft-sql-audit": {
       "label": "Microsoft SQL Server Audit",
+      "sourceNote": "event_time/sequence_number/action_id/succeeded/class_type/session_id/server_principal_name/database_principal_name/server_instance_name/database_name/schema_name/object_name/statement/client_ip/application_name/host_name/duration_milliseconds/response_rows/affected_rows/audit_file_offset/file_name are the genuine column names returned by SQL Server's own sys.fn_get_audit_file() table-valued function — the raw format an analyst reads directly off a .sqlaudit file, as documented by Microsoft. Added 2026-08-25.",
       "aliases": [
         "MSSQL Audit",
         "Microsoft SQL Audit",
@@ -8130,6 +9068,27 @@
         "SQL Server Audit"
       ],
       "exactFields": [
+        "action_id",
+        "affected_rows",
+        "application_name",
+        "audit_file_offset",
+        "class_type",
+        "client_ip",
+        "database_name",
+        "database_principal_name",
+        "duration_milliseconds",
+        "event_time",
+        "file_name",
+        "host_name",
+        "object_name",
+        "response_rows",
+        "schema_name",
+        "sequence_number",
+        "server_instance_name",
+        "server_principal_name",
+        "session_id",
+        "statement",
+        "succeeded",
         "alert.description",
         "alert.id",
         "alert.name",
@@ -8231,9 +9190,14 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name"
       ],
-      "prefixes": []
+      "prefixes": [
+        "db.",
+        "mssql.",
+        "sqlaudit."
+      ]
     },
     "mysql-enterprise-audit": {
       "label": "MySQL Enterprise Audit",
@@ -8344,9 +9308,13 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name"
       ],
-      "prefixes": []
+      "prefixes": [
+        "db.",
+        "mysql."
+      ]
     },
     "okta": {
       "label": "Okta Identity Cloud",
@@ -8470,6 +9438,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "user.domain",
         "user.effective.name",
@@ -8483,7 +9452,10 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "data.okta.",
+        "okta."
+      ]
     },
     "oracle-audit-vault": {
       "label": "Oracle Audit Vault",
@@ -8594,9 +9566,14 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name"
       ],
-      "prefixes": []
+      "prefixes": [
+        "db.",
+        "oav.",
+        "oracle."
+      ]
     },
     "palo-alto-ngfw": {
       "label": "Palo Alto Networks NGFW",
@@ -8712,6 +9689,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "threat.url",
         "tls.cipher",
@@ -8742,7 +9720,10 @@
         "vpn.tunnel.type",
         "vpn.user"
       ],
-      "prefixes": []
+      "prefixes": [
+        "gp.",
+        "pan."
+      ]
     },
     "portnox": {
       "label": "Portnox",
@@ -8860,7 +9841,9 @@
         "wireless.bssid",
         "wireless.ssid"
       ],
-      "prefixes": []
+      "prefixes": [
+        "portnox."
+      ]
     },
     "postgresql-pgaudit": {
       "label": "PostgreSQL pgAudit",
@@ -8971,9 +9954,14 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name"
       ],
-      "prefixes": []
+      "prefixes": [
+        "db.",
+        "pgaudit.",
+        "postgres."
+      ]
     },
     "prisma-cloud-waf": {
       "label": "Palo Alto Prisma Cloud WAF",
@@ -9072,6 +10060,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "tls.cipher",
         "tls.client.subject",
@@ -9097,6 +10086,55 @@
         "waf.policy.name",
         "waf.rule.id",
         "waf.rule.name"
+      ],
+      "prefixes": [
+        "http.request.",
+        "http.response.",
+        "prisma.",
+        "waf."
+      ]
+    },
+    "proofpoint": {
+      "label": "Proofpoint",
+      "aliases": [],
+      "exactFields": [
+        "connecting_ip",
+        "connecting_ip_reverse_dns",
+        "envelope.mail_from",
+        "envelope.rcpt_to",
+        "header.arc_authentication_results",
+        "header.authentication_results",
+        "header.from",
+        "header.message_id",
+        "header.received_chain",
+        "header.reply_to",
+        "header.return_path",
+        "header.subject",
+        "list_id",
+        "pps.QID",
+        "pps.action",
+        "pps.classification",
+        "pps.clickIP",
+        "pps.clickStatus",
+        "pps.clickTime",
+        "pps.dkim",
+        "pps.dmarc",
+        "pps.headerFrom",
+        "pps.messageID",
+        "pps.messageParts[0].filename",
+        "pps.phishScore",
+        "pps.policyRoutes",
+        "pps.quarantineFolder",
+        "pps.recipient",
+        "pps.sender",
+        "pps.senderIP",
+        "pps.spamScore",
+        "pps.spf",
+        "pps.subject",
+        "pps.url",
+        "pps.urls[0]",
+        "pps.urls[0].rewritten",
+        "pps.userAgent"
       ],
       "prefixes": []
     },
@@ -9216,6 +10254,30 @@
         "wireless.ap.name",
         "wireless.bssid",
         "wireless.ssid"
+      ],
+      "prefixes": [
+        "pulse."
+      ]
+    },
+    "recorded-future": {
+      "label": "Recorded Future",
+      "aliases": [],
+      "exactFields": [
+        "asset.business_unit",
+        "asset.hostname",
+        "asset.internet_facing",
+        "asset.role",
+        "cve.cvss_v3_score",
+        "cve.cvss_v3_severity",
+        "cve.description",
+        "cve.id",
+        "patch.available",
+        "patch.scheduled_maintenance_window",
+        "threat_intel.active_exploitation_confirmed",
+        "threat_intel.associated_actor",
+        "threat_intel.cisa_kev_listed",
+        "threat_intel.first_observed_itw",
+        "vendor.product"
       ],
       "prefixes": []
     },
@@ -9340,6 +10402,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "user.domain",
         "user.effective.name",
@@ -9353,7 +10416,10 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "iiq.",
+        "sailpoint."
+      ]
     },
     "securonix": {
       "label": "Securonix",
@@ -9487,6 +10553,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "url.domain",
         "url.full",
@@ -9504,7 +10571,9 @@
         "user.title",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "securonix."
+      ]
     },
     "sentinelone": {
       "label": "SentinelOne",
@@ -9584,9 +10653,10 @@
         "file.pe.imphash",
         "file.pe.original_file_name",
         "file.sensitivity_label",
-        "file.signature.status",
-        "file.signature.subject_name",
-        "file.signature.trusted",
+        "file.code_signature.exists",
+        "file.code_signature.trusted",
+        "file.code_signature.subject_name",
+        "file.code_signature.status",
         "file.size",
         "file.type",
         "host.architecture",
@@ -9637,6 +10707,8 @@
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -9697,6 +10769,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "threat.type",
         "url.domain",
@@ -9717,6 +10790,72 @@
         "user.sid",
         "user.target.name",
         "user.type"
+      ],
+      "prefixes": [
+        "s1.",
+        "sentinelone."
+      ]
+    },
+    "servicenow-itsm": {
+      "label": "ServiceNow ITSM",
+      "aliases": [],
+      "exactFields": [
+        "client.name",
+        "client.tier",
+        "edr.action",
+        "edr.attacker_dwell_minutes",
+        "edr.encryption_confirmed",
+        "edr.threat_name",
+        "incident.classification",
+        "incident.confirmed_at",
+        "incident.current_time",
+        "incident.minutes_since_confirmation",
+        "incident.type",
+        "servicenow.approval",
+        "servicenow.approved_by",
+        "servicenow.assigned_to",
+        "servicenow.assignment_group",
+        "servicenow.caller_id",
+        "servicenow.catalog_item",
+        "servicenow.category",
+        "servicenow.close_code",
+        "servicenow.close_notes",
+        "servicenow.cmdb_ci",
+        "servicenow.contact_type",
+        "servicenow.description",
+        "servicenow.end_date",
+        "servicenow.impact",
+        "servicenow.number",
+        "servicenow.opened_at",
+        "servicenow.opened_by",
+        "servicenow.planned_end_date",
+        "servicenow.planned_start_date",
+        "servicenow.priority",
+        "servicenow.requested_by",
+        "servicenow.requested_for",
+        "servicenow.resolved_at",
+        "servicenow.resolved_by",
+        "servicenow.risk",
+        "servicenow.short_description",
+        "servicenow.start_date",
+        "servicenow.state",
+        "servicenow.std_change_producer_version",
+        "servicenow.subcategory",
+        "servicenow.sys_created_on",
+        "servicenow.sys_updated_on",
+        "servicenow.table",
+        "servicenow.type",
+        "servicenow.u_identity_verification",
+        "servicenow.u_package_name",
+        "servicenow.u_package_version",
+        "servicenow.u_target_group",
+        "servicenow.u_verification_result",
+        "servicenow.urgency",
+        "servicenow.work_notes",
+        "sla.clock_started",
+        "sla.notification_required_minutes",
+        "sla.notification_sent",
+        "sla.time_remaining_minutes"
       ],
       "prefixes": []
     },
@@ -9799,9 +10938,10 @@
         "file.pe.imphash",
         "file.pe.original_file_name",
         "file.sensitivity_label",
-        "file.signature.status",
-        "file.signature.subject_name",
-        "file.signature.trusted",
+        "file.code_signature.exists",
+        "file.code_signature.trusted",
+        "file.code_signature.subject_name",
+        "file.code_signature.status",
         "file.size",
         "file.type",
         "host.architecture",
@@ -9852,6 +10992,8 @@
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -9916,6 +11058,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "threat.type",
         "url.domain",
@@ -9937,7 +11080,9 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "sophos."
+      ]
     },
     "splunk-uba": {
       "label": "Splunk UBA",
@@ -10072,6 +11217,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "url.domain",
         "url.full",
@@ -10088,6 +11234,56 @@
         "user.target.name",
         "user.title",
         "user.type"
+      ],
+      "prefixes": [
+        "splunk.uba.",
+        "uba."
+      ]
+    },
+    "squid-proxy": {
+      "label": "Squid Proxy",
+      "aliases": [],
+      "exactFields": [
+        "action_result",
+        "data.http.content_type",
+        "data.http.method",
+        "data.http.response.bytes",
+        "data.http.response.code",
+        "data.http.url",
+        "data.tls.issuer",
+        "data.tls.subject",
+        "data.tls.version",
+        "destination.domain",
+        "destination.ip",
+        "destination.port",
+        "event.action",
+        "event.outcome",
+        "http.request.headers.Authorization",
+        "http.request.method",
+        "http.response.status_code",
+        "network.bytes_in",
+        "network.bytes_out",
+        "proxy.user",
+        "source.ip",
+        "url.full",
+        "user_agent"
+      ],
+      "prefixes": []
+    },
+    "suricata": {
+      "label": "Suricata",
+      "aliases": [],
+      "exactFields": [
+        "alert",
+        "dest_ip",
+        "dest_port",
+        "event_type",
+        "flow_id",
+        "host",
+        "http",
+        "proto",
+        "src_ip",
+        "src_port"
       ],
       "prefixes": []
     },
@@ -10159,9 +11355,10 @@
         "file.pe.imphash",
         "file.pe.original_file_name",
         "file.sensitivity_label",
-        "file.signature.status",
-        "file.signature.subject_name",
-        "file.signature.trusted",
+        "file.code_signature.exists",
+        "file.code_signature.trusted",
+        "file.code_signature.subject_name",
+        "file.code_signature.status",
         "file.size",
         "file.type",
         "geo.city_name",
@@ -10226,7 +11423,10 @@
         "user.title",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "dlp.",
+        "symantec."
+      ]
     },
     "sysmon": {
       "label": "Microsoft Sysmon",
@@ -10279,9 +11479,10 @@
         "file.pe.imphash",
         "file.pe.original_file_name",
         "file.sensitivity_label",
-        "file.signature.status",
-        "file.signature.subject_name",
-        "file.signature.trusted",
+        "file.code_signature.exists",
+        "file.code_signature.trusted",
+        "file.code_signature.subject_name",
+        "file.code_signature.status",
         "file.size",
         "file.type",
         "host.architecture",
@@ -10308,6 +11509,8 @@
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -10359,6 +11562,43 @@
         "user.sid",
         "user.target.name",
         "user.type"
+      ],
+      "prefixes": [
+        "sysmon.",
+        "winlog.",
+        "winlog.event_data."
+      ]
+    },
+    "tenable-io": {
+      "label": "Tenable.io",
+      "aliases": [],
+      "exactFields": [
+        "tenable.asset_criticality",
+        "tenable.asset_exposure",
+        "tenable.asset_hostname",
+        "tenable.asset_ipv4",
+        "tenable.asset_os",
+        "tenable.cisa_kev_due_date",
+        "tenable.cisa_known_exploited",
+        "tenable.cve",
+        "tenable.cvss3_base_score",
+        "tenable.cvss3_vector",
+        "tenable.cwe",
+        "tenable.epss_percentile",
+        "tenable.epss_score",
+        "tenable.exploit_available",
+        "tenable.exploit_code_maturity",
+        "tenable.first_found",
+        "tenable.last_found",
+        "tenable.patch_publication_date",
+        "tenable.plugin_family",
+        "tenable.plugin_id",
+        "tenable.plugin_name",
+        "tenable.plugin_output",
+        "tenable.port",
+        "tenable.protocol",
+        "tenable.scan_type",
+        "tenable.vpr_score"
       ],
       "prefixes": []
     },
@@ -10430,9 +11670,10 @@
         "file.pe.imphash",
         "file.pe.original_file_name",
         "file.sensitivity_label",
-        "file.signature.status",
-        "file.signature.subject_name",
-        "file.signature.trusted",
+        "file.code_signature.exists",
+        "file.code_signature.trusted",
+        "file.code_signature.subject_name",
+        "file.code_signature.status",
         "file.size",
         "file.type",
         "geo.city_name",
@@ -10492,7 +11733,9 @@
         "user.title",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "trellix."
+      ]
     },
     "trend-micro-apex-one": {
       "label": "Trend Micro Apex One",
@@ -10544,9 +11787,10 @@
         "file.pe.imphash",
         "file.pe.original_file_name",
         "file.sensitivity_label",
-        "file.signature.status",
-        "file.signature.subject_name",
-        "file.signature.trusted",
+        "file.code_signature.exists",
+        "file.code_signature.trusted",
+        "file.code_signature.subject_name",
+        "file.code_signature.status",
         "file.size",
         "file.type",
         "host.architecture",
@@ -10584,6 +11828,8 @@
         "process.args",
         "process.args_count",
         "process.code_signature.status",
+        "process.code_signature.exists",
+        "process.code_signature.trusted",
         "process.code_signature.subject_name",
         "process.command_line",
         "process.end",
@@ -10637,6 +11883,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "threat.type",
         "url.domain",
@@ -10652,7 +11899,10 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "apex.",
+        "trendmicro."
+      ]
     },
     "varonis": {
       "label": "Varonis",
@@ -10779,9 +12029,10 @@
         "file.pe.imphash",
         "file.pe.original_file_name",
         "file.sensitivity_label",
-        "file.signature.status",
-        "file.signature.subject_name",
-        "file.signature.trusted",
+        "file.code_signature.exists",
+        "file.code_signature.trusted",
+        "file.code_signature.subject_name",
+        "file.code_signature.status",
         "file.size",
         "file.type",
         "geo.city_name",
@@ -10850,6 +12101,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "upload.destination",
         "upload.file_count",
@@ -10874,6 +12126,241 @@
         "user.target.name",
         "user.title",
         "user.type"
+      ],
+      "prefixes": [
+        "varonis."
+      ]
+    },
+    "velociraptor": {
+      "label": "Velociraptor",
+      "aliases": [],
+      "exactFields": [
+        "mft.entry_number",
+        "mft.file_size",
+        "mft.filename",
+        "mft.fn_accessed",
+        "mft.fn_created",
+        "mft.fn_mft_modified",
+        "mft.fn_modified",
+        "mft.full_path",
+        "mft.si_accessed",
+        "mft.si_created",
+        "mft.si_mft_modified",
+        "mft.si_modified",
+        "mft.usnjrnl_first_reason",
+        "mft.usnjrnl_first_timestamp",
+        "mft.usnjrnl_last_reason",
+        "mft.usnjrnl_last_timestamp",
+        "velociraptor.artifact"
+      ],
+      "prefixes": []
+    },
+    "vmware-esxi": {
+      "label": "VMware ESXi",
+      "aliases": [],
+      "exactFields": [
+        "destination.ip",
+        "destination.port",
+        "esxi.account.id",
+        "esxi.account.initiator",
+        "esxi.account.name",
+        "esxi.firewall.allowedAll",
+        "esxi.firewall.allowedIp",
+        "esxi.firewall.enabled",
+        "esxi.firewall.operation",
+        "esxi.firewall.ruleset",
+        "esxi.service.key",
+        "esxi.service.label",
+        "esxi.service.policy",
+        "esxi.service.running",
+        "log.file.path",
+        "process.working_directory",
+        "source.ip",
+        "source.port",
+        "syslog.hostname",
+        "syslog.message",
+        "syslog.pid",
+        "syslog.priority",
+        "syslog.program",
+        "user.name",
+        "vsphere.event.computeResource.name",
+        "vsphere.event.createdTime",
+        "vsphere.event.datacenter.name",
+        "vsphere.event.eventTypeId",
+        "vsphere.event.fullFormattedMessage",
+        "vsphere.event.host.moref",
+        "vsphere.event.host.name",
+        "vsphere.event.severity",
+        "vsphere.event.userName"
+      ],
+      "prefixes": []
+    },
+    "vmware-vcenter-server": {
+      "label": "VMware vCenter Server",
+      "aliases": [],
+      "exactFields": [
+        "log.file.path",
+        "syslog.hostname",
+        "syslog.pid",
+        "syslog.program",
+        "vsphere.event.chainId",
+        "vsphere.event.computeResource.name",
+        "vsphere.event.createdTime",
+        "vsphere.event.datacenter.name",
+        "vsphere.event.entity.moref",
+        "vsphere.event.entity.name",
+        "vsphere.event.entity.type",
+        "vsphere.event.eventTypeId",
+        "vsphere.event.fullFormattedMessage",
+        "vsphere.event.host.name",
+        "vsphere.event.ipAddress",
+        "vsphere.event.key",
+        "vsphere.event.locale",
+        "vsphere.event.permission.group",
+        "vsphere.event.permission.principal",
+        "vsphere.event.permission.propagate",
+        "vsphere.event.permission.roleId",
+        "vsphere.event.permission.roleName",
+        "vsphere.event.sessionId",
+        "vsphere.event.severity",
+        "vsphere.event.userAgent",
+        "vsphere.event.userName",
+        "vsphere.event.vm.moref",
+        "vsphere.event.vm.name"
+      ],
+      "prefixes": []
+    },
+    "wazuh": {
+      "label": "Wazuh",
+      "aliases": [],
+      "exactFields": [
+        "asset.department",
+        "asset.hostname",
+        "asset.owner",
+        "data.action",
+        "data.country",
+        "data.dstcountry",
+        "data.dstintf",
+        "data.dstip",
+        "data.dstport",
+        "data.duration",
+        "data.eventtime",
+        "data.failed_count",
+        "data.hostname",
+        "data.isp",
+        "data.level",
+        "data.logdesc",
+        "data.logid",
+        "data.msg",
+        "data.policyid",
+        "data.policyname",
+        "data.proto",
+        "data.rcvdbyte",
+        "data.rule_name",
+        "data.rule_uid",
+        "data.sentbyte",
+        "data.srccountry",
+        "data.srcintf",
+        "data.srcip",
+        "data.srcmac",
+        "data.srcport",
+        "data.subtype",
+        "data.target_accounts",
+        "data.timewindow",
+        "data.type",
+        "data.vd",
+        "rule.mitre.technique",
+        "rule.name",
+        "threat_intel.category",
+        "threat_intel.confidence",
+        "threat_intel.indicator",
+        "threat_intel.ip",
+        "threat_intel.last_reported",
+        "threat_intel.report_count",
+        "threat_intel.source",
+        "threat_intel.sources",
+        "threat_intel.tags"
+      ],
+      "prefixes": []
+    },
+    "windows-dhcp-server": {
+      "label": "Windows DHCP Server",
+      "aliases": [],
+      "exactFields": [
+        "dhcp.client_hostname",
+        "dhcp.client_ip",
+        "dhcp.event_type",
+        "dhcp.lease_duration_hours",
+        "dhcp.mac",
+        "event.code"
+      ],
+      "prefixes": []
+    },
+    "windows-dns-server": {
+      "label": "Windows DNS Server",
+      "aliases": [],
+      "exactFields": [
+        "dns.query_types",
+        "dns.question.name",
+        "dns.question.type",
+        "dns.resolved_ip",
+        "dns.response_code",
+        "dns.top_domains",
+        "event.action",
+        "event.outcome",
+        "source.ip"
+      ],
+      "prefixes": []
+    },
+    "windows-terminalservices": {
+      "label": "Windows TerminalServices",
+      "aliases": [],
+      "exactFields": [
+        "event.action",
+        "event.code",
+        "event.outcome",
+        "source.ip",
+        "winlog.channel",
+        "winlog.event_data.Address",
+        "winlog.event_data.Domain",
+        "winlog.event_data.Param3",
+        "winlog.event_data.SessionID",
+        "winlog.event_data.User",
+        "winlog.provider_name"
+      ],
+      "prefixes": []
+    },
+    "workday": {
+      "label": "Workday",
+      "aliases": [],
+      "exactFields": [
+        "event.action",
+        "event.outcome",
+        "workday.access_revocation_scheduled",
+        "workday.event_type",
+        "workday.initiated_by",
+        "workday.notice_period_active",
+        "workday.termination_date",
+        "workday.termination_reason_category",
+        "workday.worker_email",
+        "workday.worker_id"
+      ],
+      "prefixes": []
+    },
+    "zabbix": {
+      "label": "Zabbix",
+      "aliases": [],
+      "exactFields": [
+        "data.cpu_count",
+        "data.load_15m",
+        "data.load_1m",
+        "data.load_5m",
+        "zabbix.host.ip",
+        "zabbix.host.name",
+        "zabbix.item.key",
+        "zabbix.item.lastvalue",
+        "zabbix.trigger.name",
+        "zabbix.trigger.severity"
       ],
       "prefixes": []
     },
@@ -10979,6 +12466,7 @@
         "threat.tactic.id",
         "threat.tactic.name",
         "threat.technique.id",
+        "threat.technique.subtechnique.id",
         "threat.technique.name",
         "threat.url",
         "tls.cipher",
@@ -11008,7 +12496,404 @@
         "user.target.name",
         "user.type"
       ],
-      "prefixes": []
+      "prefixes": [
+        "http.request.",
+        "http.response.",
+        "url.",
+        "zscaler."
+      ]
+    },
+    "anthropic-claude-enterprise": {
+      "label": "Anthropic Claude Enterprise",
+      "aliases": [
+        "Anthropic Claude Enterprise",
+        "Claude Enterprise",
+        "Anthropic Compliance API"
+      ],
+      "exactFields": [
+        "@timestamp",
+        "actor.admin_api_key_id",
+        "actor.api_key_id",
+        "actor.directory_id",
+        "actor.email_address",
+        "actor.idp_connection_type",
+        "actor.ip_address",
+        "actor.service",
+        "actor.type",
+        "actor.unauthenticated_email_address",
+        "actor.user_agent",
+        "actor.user_id",
+        "actor.workos_event_id",
+        "claude_artifact_id",
+        "claude_chat_id",
+        "claude_file_id",
+        "claude_project_id",
+        "created_at",
+        "event.action",
+        "event.category",
+        "event.created",
+        "event.dataset",
+        "event.id",
+        "event.kind",
+        "event.module",
+        "event.outcome",
+        "event.provider",
+        "event.type",
+        "filename",
+        "id",
+        "organization_id",
+        "organization_uuid",
+        "related.ip",
+        "related.user",
+        "source.as.organization.name",
+        "source.geo.city_name",
+        "source.geo.country_iso_code",
+        "source.geo.country_name",
+        "source.geo.location.lat",
+        "source.geo.location.lon",
+        "source.ip",
+        "tags",
+        "type",
+        "user.domain",
+        "user.email",
+        "user.id",
+        "user.name",
+        "user_agent.device.name",
+        "user_agent.name",
+        "user_agent.original",
+        "user_agent.os.name",
+        "user_agent.os.version",
+        "user_agent.version"
+      ],
+      "prefixes": [],
+      "sourceNote": "Anthropic Compliance API activity record (fields per Anthropic's Compliance API reference) plus the training SIEM's generic ECS normalization/enrichment (event.*, user.*, source.ip/geo/as, user_agent.*, related.*, tags). No collector envelope; no prompt/response text."
     }
-  }
+  },
+  "deniedFields": [
+    {
+      "field": "crowdstrike.detection.",
+      "reason": "No `detection.*` namespace in any CrowdStrike stream. Use the FDR/Event-Streams names: crowdstrike.DetectName / DetectDescription / SeverityName / Tactic / Technique / Objective / PatternDispositionValue / PatternDispositionDescription / PatternId / DetectId / FalconHostLink; MITRE ids as ECS threat.tactic.id / threat.technique.id (+ threat.technique.subtechnique.id).",
+      "source": "Elastic CrowdStrike integration fields.yml (data_stream/fdr, data_stream/falcon) + ECS code_signature/threat; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.Confidence",
+      "reason": "Not a Falcon FDR / Event Streams field (confidence exists only on the Alerts API resource).",
+      "source": "Elastic CrowdStrike integration fields.yml (data_stream/fdr, data_stream/falcon) + ECS code_signature/threat; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.TechniqueId",
+      "reason": "Not a flat Falcon field. Use ECS threat.technique.id / threat.technique.subtechnique.id.",
+      "source": "Elastic CrowdStrike integration fields.yml (data_stream/fdr, data_stream/falcon) + ECS code_signature/threat; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.TacticId",
+      "reason": "Not a flat Falcon field. Use ECS threat.tactic.id.",
+      "source": "Elastic CrowdStrike integration fields.yml (data_stream/fdr, data_stream/falcon) + ECS code_signature/threat; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "process.code_signature.notarized",
+      "reason": "Not an ECS field. ECS signing state is *.code_signature.exists / .trusted (+ .status for a validation error).",
+      "source": "Elastic CrowdStrike integration fields.yml (data_stream/fdr, data_stream/falcon) + ECS code_signature/threat; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "file.signature.",
+      "reason": "Not ECS. Use file.code_signature.exists / .trusted / .subject_name / .status.",
+      "source": "Elastic CrowdStrike integration fields.yml (data_stream/fdr, data_stream/falcon) + ECS code_signature/threat; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "code.signature.",
+      "reason": "Not ECS. Use process.code_signature.* or file.code_signature.*.",
+      "source": "Elastic CrowdStrike integration fields.yml (data_stream/fdr, data_stream/falcon) + ECS code_signature/threat; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.ParentProcessName",
+      "reason": "Not a Falcon field. Use crowdstrike.ParentBaseFileName (parent image name; ParentImageFileName for the full path on detection-info events).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.parent_basefilename",
+      "reason": "Not a Falcon field. Use crowdstrike.ParentBaseFileName.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.ContextProcessName",
+      "reason": "Not a Falcon field. Use crowdstrike.ContextBaseFileName (the acting process of a network / file / DNS event) or crowdstrike.FileName (the process of a detection).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.process_name",
+      "reason": "Not a Falcon field. Use crowdstrike.FileName (process start / detection) or crowdstrike.ContextBaseFileName (acting process of a context event).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.imagefilename",
+      "reason": "Not a Falcon field. Use crowdstrike.ImageFileName.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.integrity_level",
+      "reason": "Not a Falcon field. Use crowdstrike.IntegrityLevel.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.parent_commandline",
+      "reason": "Not a Falcon field. Use crowdstrike.ParentCommandLine.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.target_filename",
+      "reason": "Not a Falcon field. Use crowdstrike.TargetFileName.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.target_imagefilename",
+      "reason": "Not a Falcon field. Use crowdstrike.TargetProcessImageFileName.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.target_process_id",
+      "reason": "Not a Falcon field. Use process.target pid on the event (a handle-op record names only the target image).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.TargetProcessName",
+      "reason": "Not a Falcon field. Use crowdstrike.TargetProcessImageFileName (FalconProcessHandleOpDetectInfo).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.CrossProcessTargetName",
+      "reason": "Not a Falcon field. Use crowdstrike.TargetProcessImageFileName (FalconProcessHandleOpDetectInfo).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.CrossProcessTargetPid",
+      "reason": "Not a Falcon field. Use nothing — the Falcon handle-op record carries no target OS pid.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.GrantedAccess",
+      "reason": "Not a Falcon field. Use crowdstrike.DesiredAccess — the access mask as a decimal string, 0x1FFFFF → \"2097151\" (GrantedAccess is the Sysmon / Windows name).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.HookApi",
+      "reason": "Not a Falcon field. Use nothing — no Falcon field names the hooked API.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.OperationType",
+      "reason": "Not a Falcon field. Use crowdstrike.event_simpleName for the event kind (HandleOperationType / RegOperationType are the real typed fields).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.HostName",
+      "reason": "Not a Falcon field. Use crowdstrike.ComputerName.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.sensor.",
+      "reason": "Not a Falcon field. Use crowdstrike.aid (telemetry) / crowdstrike.SensorId (detection); sensor build → crowdstrike.ConfigBuild.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.customer_id",
+      "reason": "Not a Falcon field. Use crowdstrike.cid.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.network_containment_state",
+      "reason": "Not a Falcon field. Use crowdstrike.NetworkContainmentState.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.remote_address",
+      "reason": "Not a Falcon field. Use crowdstrike.RemoteAddressIP4.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.remote_port",
+      "reason": "Not a Falcon field. Use crowdstrike.RemotePort.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.local_address",
+      "reason": "Not a Falcon field. Use crowdstrike.LocalAddressIP4.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.protocol",
+      "reason": "Not a Falcon field. Use crowdstrike.Protocol (IANA number).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.platform",
+      "reason": "Not a Falcon field. Use crowdstrike.event_platform (Win / Mac / Lin).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.SHA256",
+      "reason": "Not a Falcon field. Use crowdstrike.SHA256HashData (FDR) — SHA256String is the Event Streams spelling.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.TechniqueName",
+      "reason": "Not a Falcon field. Use crowdstrike.Technique (the name) + ECS threat.technique.id.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.DetectionId",
+      "reason": "Not a Falcon field. Use crowdstrike.DetectId.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.IncidentId",
+      "reason": "Not a Falcon field. Use crowdstrike.AggregateId (aggind:<aid>:<tree id>) to group behaviors of one process tree.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.IncidentType",
+      "reason": "Not a Falcon field. Use nothing on an FDR detection (IncidentType is an Event Streams field, crowdstrike.event.IncidentType).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.behaviors",
+      "reason": "Not a Falcon field. Use crowdstrike.DetectDescription — behaviors[] belonged to the decommissioned Detects API.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.tree_id",
+      "reason": "Not a Falcon field. Use crowdstrike.TreeId.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.filesize",
+      "reason": "Not a Falcon field. Use crowdstrike.Size.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.ParentImagePath",
+      "reason": "Not a Falcon field. Use crowdstrike.ParentImageFileName (full path).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.FileSigned",
+      "reason": "Not a Falcon field. Use ECS process.code_signature.exists / .trusted.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.container_id",
+      "reason": "Not a Falcon field. Use crowdstrike.OciContainerId.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.ContainerId",
+      "reason": "Not a Falcon field. Use crowdstrike.OciContainerId.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.container_runtime",
+      "reason": "Not a Falcon field. Use crowdstrike.OciContainerEngineType.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.ContainerImageName",
+      "reason": "Not a Falcon field. Use crowdstrike.OciContainerConfigImage.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.TargetNamespacePid",
+      "reason": "Not a Falcon field. Use nothing — no Falcon field.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.ContextProcessId_decimal",
+      "reason": "Not a Falcon field. Use crowdstrike.ContextProcessId (the _decimal suffix is a Splunk add-on rendering).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.TargetProcessId_decimal",
+      "reason": "Not a Falcon field. Use crowdstrike.TargetProcessId (the _decimal suffix is a Splunk add-on rendering).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.ParentProcessId_decimal",
+      "reason": "Not a Falcon field. Use crowdstrike.ParentProcessId (the _decimal suffix is a Splunk add-on rendering).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.privileges",
+      "reason": "Not a Falcon field. Use nothing on a process event (privileges are PrivilegesBitmask on UserLogon).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.module_load",
+      "reason": "Not a Falcon field. Use a separate module-load event (the module's path is that event's ImageFileName).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.SandboxVerdict",
+      "reason": "Not a Falcon field. Use nothing on ProcessRollup2.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.DeviceSerialNumber",
+      "reason": "Not a Falcon field. Use crowdstrike.DeviceInstanceId (the serial is its last segment).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.DeviceClass",
+      "reason": "Not a Falcon field. Use crowdstrike.DeviceUsbClass (USB class code, \"8\" = mass storage).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.DevicePolicyEnforcement",
+      "reason": "Not a Falcon field. Use crowdstrike.DcPolicyAction / PolicyName.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.TargetDevice",
+      "reason": "Not a Falcon field. Use crowdstrike.TargetFileName (the NT device path, e.g. \\Device\\Harddisk0\\DR0).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.VolumeDevice",
+      "reason": "Not a Falcon field. Use crowdstrike.TargetFileName.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.MachineDomain",
+      "reason": "Not a Falcon field. Use nothing on a telemetry event (MachineDomain is an aidmaster field).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.host.aid",
+      "reason": "Not a Falcon field. Use crowdstrike.host.id (Elastic host data stream).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.host.platform_name",
+      "reason": "Not a Falcon field. Use crowdstrike.host.platform.name (Elastic host data stream).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "crowdstrike.host.os_version",
+      "reason": "Not a Falcon field. Use crowdstrike.host.os.version (Elastic host data stream).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "file.signed",
+      "reason": "Not ECS. Use file.code_signature.exists / .trusted (or process.code_signature.* when the signed thing is the process image).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "process.signed",
+      "reason": "Not ECS. Use process.code_signature.exists / .trusted.",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    },
+    {
+      "field": "file.signer",
+      "reason": "Not ECS. Use file.code_signature.subject_name (or process.code_signature.subject_name).",
+      "source": "Elastic CrowdStrike integration fields.yml + _dev/test/pipeline samples (data_stream/fdr, falcon, host) + ECS; docs/log-schemas/edr-crowdstrike.md"
+    }
+  ]
 }

@@ -13,553 +13,13 @@
  * shell.log. The encryptor is an ELF binary.
  */
 
-import type {
-  ScenarioBundle,
-  TelemetryEvent,
-  IOC,
-  ScenarioQuestion,
-} from "@/lib/sim/types";
-import { makeSha256 } from "@/lib/sim/iocs";
+import type { ScenarioBundle, IOC, ScenarioQuestion } from "@/lib/sim/types";
+import { esxiRansomwareScenarioEvents } from "./esxiRansomware.events";
 
 export function buildEsxiRansomwareScenario(
   scenarioId = "esxi-ransomware-2026",
 ): ScenarioBundle {
-  // Saturday 13 June 2026, 21:40 UTC — deliberately a weekend evening.
-  const B = new Date("2026-06-13T21:40:00Z").getTime();
-  const T = (ms: number) => new Date(B + ms).toISOString();
-  const MIN = 60_000;
-
-  const attackerIp = "45.132.192.77";
-  const tunnelIp = "10.99.8.44";
-  const vcenter = { host: "vcsa-01.cryotech.local", ip: "10.20.5.20" };
-  const esxi = { host: "esx-prod-03.cryotech.local", ip: "10.20.5.33" };
-  const datastore = "DS-PROD-01";
-  const elfHash = makeSha256("akira_esxi_elf_encryptor_v3");
-
-  const events: TelemetryEvent[] = [
-    // ── 1. Initial access — SSL-VPN, valid credential, no second factor ────────
-    {
-      id: "evt_01_vpn_login",
-      ts: T(0),
-      source: "vpn",
-      vendor: "FortiGate",
-      event_type: "vpn_login",
-      hostname: "FG-EDGE-01",
-      user_email: "r.okonkwo@cryotech.com",
-      src_ip: attackerIp,
-      dst_ip: "198.51.100.10",
-      dst_port: 443,
-      protocol: "tcp",
-      geo: { country: "Bulgaria", city: "Sofia" },
-      severity: "medium",
-      mitre_technique: "T1133",
-      mitre_tactic: "Initial Access",
-      description:
-        "Contractor account r.okonkwo established an SSL-VPN tunnel from a Bulgarian address on a Saturday evening and was assigned tunnel IP 10.99.8.44. The VPN-Contractors group authenticates with password only — FortiToken two-factor is applied to VPN-Employees but was never extended to contractors.",
-      raw: {
-        "data.type": "event",
-        "data.subtype": "vpn",
-        "data.logid": "0101039947",
-        "data.level": "notice",
-        "data.vd": "root",
-        "data.eventtime": "1781386800000000000",
-        "data.action": "tunnel-up",
-        "data.tunneltype": "ssl-tunnel",
-        "data.tunnelid": "1876543210",
-        "data.user": "r.okonkwo",
-        "data.group": "VPN-Contractors",
-        "data.authproto": "LDAP(CRYOTECH-DC)",
-        "data.remip": attackerIp,
-        "data.tunnelip": tunnelIp,
-        "data.dst_host": "N/A",
-        "data.reason": "N/A",
-        "data.srccountry": "Bulgaria",
-        "data.duration": "0",
-        "data.sentbyte": "0",
-        "data.rcvdbyte": "0",
-        "data.msg": "SSL tunnel established",
-        "data.logdesc": "SSL VPN tunnel up",
-        "rule.id": "81613",
-        "rule.level": "5",
-        "rule.description": "FortiGate: SSL VPN tunnel established.",
-        "rule.groups": "fortigate,vpn,authentication",
-      },
-    },
-
-    // ── 2. Discovery — management VLAN, vCenter web UI ────────────────────────
-    {
-      id: "evt_02_mgmt_recon",
-      ts: T(6 * MIN),
-      source: "firewall",
-      vendor: "FortiGate",
-      event_type: "net_connection",
-      hostname: "FG-EDGE-01",
-      user_email: "r.okonkwo@cryotech.com",
-      src_ip: tunnelIp,
-      dst_ip: vcenter.ip,
-      dst_port: 443,
-      protocol: "tcp",
-      severity: "medium",
-      mitre_technique: "T1046",
-      mitre_tactic: "Discovery",
-      description:
-        "Between 21:44 and 21:52 the VPN tunnel IP opened sessions to 118 addresses in the 10.20.5.0/24 management VLAN on ports 22, 443 and 902. Only 9 answered. Shown here is the session that reached the vCenter appliance's HTTPS interface. The contractor's normal access pattern is the 10.30.0.0/16 build network only.",
-      raw: {
-        "data.type": "traffic",
-        "data.subtype": "forward",
-        "data.logid": "0000000013",
-        "data.level": "notice",
-        "data.vd": "root",
-        "data.eventtime": "1781387160000000000",
-        "data.action": "accept",
-        "data.srcip": tunnelIp,
-        "data.srcport": "50318",
-        "data.srcintf": "ssl.root",
-        "data.srcintfrole": "undefined",
-        "data.dstip": vcenter.ip,
-        "data.dstport": "443",
-        "data.dstintf": "port3",
-        "data.dstintfrole": "lan",
-        "data.sessionid": "884213771",
-        "data.proto": "6",
-        "data.policyid": "42",
-        "data.policyname": "VPN-Contractors-to-Internal",
-        "data.service": "HTTPS",
-        "data.trandisp": "noop",
-        "data.duration": "31",
-        "data.sentbyte": "8412",
-        "data.rcvdbyte": "44190",
-        "data.appcat": "unscanned",
-        "rule.id": "81603",
-        "rule.level": "3",
-        "rule.description": "FortiGate: Traffic session accepted by policy.",
-        "rule.groups": "fortigate,firewall",
-      },
-    },
-
-    // ── 3. Credential access — SSO password spray against vCenter ─────────────
-    {
-      id: "evt_03_sso_spray",
-      ts: T(14 * MIN),
-      source: "iam",
-      vendor: "VMware vCenter Server",
-      event_type: "auth_failure",
-      hostname: vcenter.host,
-      src_ip: tunnelIp,
-      severity: "high",
-      mitre_technique: "T1110.003",
-      mitre_tactic: "Credential Access",
-      description:
-        "vCenter SSO rejected 61 logins from 10.99.8.44 in nine minutes, spread across 14 principals (vcadmin, vsphere-admin, backup, svc-veeam, administrator …) — four or five attempts each, spaced far enough apart that no account crossed the SSO lockout threshold of five failures in 180 seconds. One representative rejection is shown.",
-      raw: {
-        "vsphere.event.key": "4418902",
-        "vsphere.event.chainId": "4418902",
-        "vsphere.event.createdTime": "2026-06-13T21:54:00.412Z",
-        "vsphere.event.eventTypeId": "BadUsernameSessionEvent",
-        "vsphere.event.severity": "error",
-        "vsphere.event.userName": "",
-        "vsphere.event.ipAddress": tunnelIp,
-        "vsphere.event.userAgent": "VMware vim-java 1.0",
-        "vsphere.event.fullFormattedMessage":
-          "Cannot login vcadmin@10.99.8.44",
-        "log.file.path": "/var/log/vmware/vpxd/vpxd.log",
-        "syslog.hostname": vcenter.host,
-        "syslog.program": "vpxd",
-        "syslog.pid": "10442",
-        "event.original":
-          "2026-06-13T21:54:00.412Z info vpxd[10442] [Originator@6876 sub=[SSO][SsoAdminServiceImpl]] Cannot login vcadmin@10.99.8.44",
-      },
-    },
-
-    // ── 4. Valid accounts — built-in SSO administrator succeeds ───────────────
-    {
-      id: "evt_04_sso_success",
-      ts: T(21 * MIN),
-      source: "iam",
-      vendor: "VMware vCenter Server",
-      event_type: "auth_success",
-      hostname: vcenter.host,
-      user_email: "administrator@vsphere.local",
-      src_ip: tunnelIp,
-      severity: "critical",
-      mitre_technique: "T1078.001",
-      mitre_tactic: "Defense Evasion",
-      description:
-        "The spray landed on administrator@vsphere.local — the built-in vSphere SSO account created at deployment. That account holds the Administrator role on the root inventory folder by definition, so this single successful login hands the attacker full control of every host, cluster and VM the appliance manages. vSphere SSO has no MFA configured.",
-      raw: {
-        "vsphere.event.key": "4418967",
-        "vsphere.event.chainId": "4418967",
-        "vsphere.event.createdTime": "2026-06-13T22:01:00.907Z",
-        "vsphere.event.eventTypeId": "UserLoginSessionEvent",
-        "vsphere.event.severity": "info",
-        "vsphere.event.userName": "VSPHERE.LOCAL\\Administrator",
-        "vsphere.event.ipAddress": tunnelIp,
-        "vsphere.event.userAgent": "VMware vim-java 1.0",
-        "vsphere.event.locale": "en",
-        "vsphere.event.sessionId": "52e1a3f9-7c40-4b18-9d02-6a1f88c3b410",
-        "vsphere.event.fullFormattedMessage":
-          "User VSPHERE.LOCAL\\Administrator@10.99.8.44 logged in as VMware vim-java 1.0",
-        "log.file.path": "/var/log/vmware/vpxd/vpxd.log",
-        "syslog.hostname": vcenter.host,
-        "syslog.program": "vpxd",
-        "syslog.pid": "10442",
-      },
-    },
-
-    // ── 5. Persistence + explicit privilege proof ─────────────────────────────
-    //  Everything after this point (SSH enable, VM power-off) requires a role
-    //  carrying Host.Config.Settings and VirtualMachine.Interact.PowerOff.
-    //  This event is where the attacker's working account acquires them.
-    {
-      id: "evt_05_perm_grant",
-      ts: T(24 * MIN),
-      source: "iam",
-      vendor: "VMware vCenter Server",
-      event_type: "role_assignment",
-      hostname: vcenter.host,
-      user_email: "administrator@vsphere.local",
-      src_ip: tunnelIp,
-      severity: "critical",
-      mitre_technique: "T1098",
-      mitre_tactic: "Persistence",
-      description:
-        "Logged in as the built-in SSO administrator, the attacker granted the Administrator role to a second SSO principal, svc-monitor, on the root Datacenters folder with propagation enabled. Role -1 (Administrator) carries Host.Config.Settings and VirtualMachine.Interact.PowerOff — the two privileges every later action in this timeline depends on. svc-monitor is the account used from here onwards.",
-      raw: {
-        "vsphere.event.key": "4418988",
-        "vsphere.event.chainId": "4418988",
-        "vsphere.event.createdTime": "2026-06-13T22:04:12.155Z",
-        "vsphere.event.eventTypeId": "PermissionAddedEvent",
-        "vsphere.event.severity": "info",
-        "vsphere.event.userName": "VSPHERE.LOCAL\\Administrator",
-        "vsphere.event.ipAddress": tunnelIp,
-        "vsphere.event.entity.name": "Datacenters",
-        "vsphere.event.entity.type": "Folder",
-        "vsphere.event.entity.moref": "group-d1",
-        "vsphere.event.permission.principal": "VSPHERE.LOCAL\\svc-monitor",
-        "vsphere.event.permission.group": "false",
-        "vsphere.event.permission.propagate": "true",
-        "vsphere.event.permission.roleId": "-1",
-        "vsphere.event.permission.roleName": "Administrator",
-        "vsphere.event.fullFormattedMessage":
-          "Permission created for VSPHERE.LOCAL\\svc-monitor on Datacenters, role Administrator, propagating",
-        "log.file.path": "/var/log/vmware/vpxd/vpxd.log",
-        "syslog.hostname": vcenter.host,
-        "syslog.program": "vpxd",
-        "syslog.pid": "10442",
-      },
-    },
-
-    // ── 6. THE SIGNATURE MOVE — SSH turned on across the cluster ──────────────
-    {
-      id: "evt_06_ssh_enabled",
-      ts: T(29 * MIN),
-      source: "linux_audit",
-      vendor: "VMware ESXi",
-      event_type: "policy_modification",
-      hostname: esxi.host,
-      user_email: "svc-monitor@vsphere.local",
-      src_ip: tunnelIp,
-      severity: "critical",
-      mitre_technique: "T1021.004",
-      mitre_tactic: "Lateral Movement",
-      description:
-        "The TSM-SSH service was started on esx-prod-03 through vCenter and its startup policy set to 'on'. The same change was made on esx-prod-04 and esx-prod-05 within 80 seconds. ESXi ships with SSH disabled and CryoTech's baseline keeps it disabled; there is no change record for tonight. Three hosts in the production cluster now accept interactive shell logins.",
-      raw: {
-        "vsphere.event.eventTypeId": "esx.audit.ssh.enabled",
-        "vsphere.event.severity": "info",
-        "vsphere.event.createdTime": "2026-06-13T22:09:03.771Z",
-        "vsphere.event.host.name": esxi.host,
-        "vsphere.event.host.moref": "host-1043",
-        "vsphere.event.computeResource.name": "PROD-CLUSTER-A",
-        "vsphere.event.datacenter.name": "CRYOTECH-DC",
-        "vsphere.event.userName": "VSPHERE.LOCAL\\svc-monitor",
-        "vsphere.event.fullFormattedMessage": "SSH access has been enabled.",
-        "esxi.service.key": "TSM-SSH",
-        "esxi.service.label": "SSH",
-        "esxi.service.running": "true",
-        "esxi.service.policy": "on",
-        "log.file.path": "/var/log/vobd.log",
-        "syslog.hostname": esxi.host,
-        "syslog.program": "vobd",
-        "syslog.pid": "2098431",
-        "event.original":
-          "2026-06-13T22:09:03.771Z esx-prod-03.cryotech.local vobd[2098431]: [GenericCorrelator] [esx.audit.ssh.enabled] SSH access has been enabled.",
-      },
-    },
-
-    // ── 7. Impair defenses — host firewall opened for sshServer ───────────────
-    {
-      id: "evt_07_fw_changed",
-      ts: T(31 * MIN),
-      source: "linux_audit",
-      vendor: "VMware ESXi",
-      event_type: "policy_modification",
-      hostname: esxi.host,
-      user_email: "svc-monitor@vsphere.local",
-      severity: "critical",
-      mitre_technique: "T1562.004",
-      mitre_tactic: "Defense Evasion",
-      description:
-        "The ESXi host firewall's sshServer ruleset was reconfigured to accept connections from any source address. The baseline restricted it to the two jump hosts in 10.20.9.0/29. Nothing on the ESXi host is left that would reject the attacker's VPN tunnel address.",
-      raw: {
-        "vsphere.event.eventTypeId": "esx.audit.net.firewall.config.changed",
-        "vsphere.event.severity": "info",
-        "vsphere.event.createdTime": "2026-06-13T22:11:38.204Z",
-        "vsphere.event.host.name": esxi.host,
-        "vsphere.event.host.moref": "host-1043",
-        "vsphere.event.computeResource.name": "PROD-CLUSTER-A",
-        "vsphere.event.userName": "VSPHERE.LOCAL\\svc-monitor",
-        "vsphere.event.fullFormattedMessage":
-          "Firewall configuration has changed. Operation 'set' for rule set sshServer succeeded.",
-        "esxi.firewall.ruleset": "sshServer",
-        "esxi.firewall.operation": "set",
-        "esxi.firewall.enabled": "true",
-        "esxi.firewall.allowedAll": "true",
-        "esxi.firewall.allowedIp": "",
-        "log.file.path": "/var/log/vobd.log",
-        "syslog.hostname": esxi.host,
-        "syslog.program": "vobd",
-        "syslog.pid": "2098431",
-        "event.original":
-          "2026-06-13T22:11:38.204Z esx-prod-03.cryotech.local vobd[2098431]: [GenericCorrelator] [esx.audit.net.firewall.config.changed] Firewall configuration has changed. Operation 'set' for rule set sshServer succeeded.",
-      },
-    },
-
-    // ── 8. The root password is reset so the shell can actually be entered ────
-    {
-      id: "evt_08_root_pw",
-      ts: T(34 * MIN),
-      source: "linux_audit",
-      vendor: "VMware ESXi",
-      event_type: "account_modify",
-      hostname: esxi.host,
-      user_email: "svc-monitor@vsphere.local",
-      severity: "critical",
-      mitre_technique: "T1098",
-      mitre_tactic: "Persistence",
-      description:
-        "The local root password on esx-prod-03 was changed through vCenter's host account management, which runs as vpxuser. SSH being open is not enough on its own — the attacker still needed a credential for the shell, and an Administrator-role vCenter session can simply set one. The same change followed on esx-prod-04 and esx-prod-05.",
-      raw: {
-        "vsphere.event.eventTypeId": "esx.audit.account.password.updated",
-        "vsphere.event.severity": "info",
-        "vsphere.event.createdTime": "2026-06-13T22:14:07.660Z",
-        "vsphere.event.host.name": esxi.host,
-        "vsphere.event.host.moref": "host-1043",
-        "vsphere.event.userName": "VSPHERE.LOCAL\\svc-monitor",
-        "vsphere.event.fullFormattedMessage":
-          "Password was changed for account root on host esx-prod-03.cryotech.local.",
-        "esxi.account.name": "root",
-        "esxi.account.id": "0",
-        "esxi.account.initiator": "vpxuser",
-        "log.file.path": "/var/log/vobd.log",
-        "syslog.hostname": esxi.host,
-        "syslog.program": "vobd",
-        "syslog.pid": "2098431",
-        "event.original":
-          "2026-06-13T22:14:07.660Z esx-prod-03.cryotech.local vobd[2098431]: [GenericCorrelator] [esx.audit.account.password.updated] Password was changed for account root on host esx-prod-03.cryotech.local.",
-      },
-    },
-
-    // ── 9. Interactive shell on the hypervisor ────────────────────────────────
-    {
-      id: "evt_09_ssh_session",
-      ts: T(37 * MIN),
-      source: "linux_audit",
-      vendor: "VMware ESXi",
-      event_type: "ssh_login",
-      hostname: esxi.host,
-      user_email: "root@esx-prod-03.cryotech.local",
-      src_ip: tunnelIp,
-      dst_ip: esxi.ip,
-      dst_port: 22,
-      protocol: "tcp",
-      severity: "critical",
-      mitre_technique: "T1021.004",
-      mitre_tactic: "Lateral Movement",
-      description:
-        "root logged in over SSH to esx-prod-03 from 10.99.8.44 — the VPN tunnel address assigned to r.okonkwo two hours earlier. From this point the attacker is operating on the hypervisor itself, underneath every guest operating system in the cluster.",
-      raw: {
-        "syslog.hostname": esxi.host,
-        "syslog.program": "sshd",
-        "syslog.pid": "2098700",
-        "syslog.priority": "authpriv.info",
-        "log.file.path": "/var/log/auth.log",
-        "syslog.message":
-          "Accepted keyboard-interactive/pam for root from 10.99.8.44 port 51022 ssh2",
-        "event.original":
-          "2026-06-13T22:17:04Z esx-prod-03.cryotech.local sshd[2098700]: Accepted keyboard-interactive/pam for root from 10.99.8.44 port 51022 ssh2",
-        "vsphere.event.eventTypeId": "esx.audit.ssh.session.opened",
-        "vsphere.event.fullFormattedMessage":
-          "SSH session was opened for 'root@10.99.8.44'.",
-        "source.ip": tunnelIp,
-        "source.port": "51022",
-        "destination.ip": esxi.ip,
-        "destination.port": "22",
-        "user.name": "root",
-      },
-    },
-
-    // ── 10. Service Stop — VMs forced off so the disk files unlock ────────────
-    {
-      id: "evt_10_vim_cmd_poweroff",
-      ts: T(41 * MIN),
-      source: "linux_audit",
-      vendor: "VMware ESXi",
-      event_type: "privileged_operation",
-      hostname: esxi.host,
-      user_email: "root@esx-prod-03.cryotech.local",
-      src_ip: tunnelIp,
-      severity: "critical",
-      mitre_technique: "T1489",
-      mitre_tactic: "Impact",
-      description:
-        "The shell session enumerated every registered VM and then hard-powered them off in a loop. Between 22:21 and 22:26 all 96 VMs on PROD-CLUSTER-A were stopped. A running VM holds an exclusive lock on its -flat.vmdk, so nothing can rewrite those files until the VM is off — this is preparation, not the outage itself.",
-      raw: {
-        "syslog.hostname": esxi.host,
-        "syslog.program": "shell",
-        "syslog.pid": "2098754",
-        "log.file.path": "/var/log/shell.log",
-        "syslog.message":
-          "[root]: for v in $(vim-cmd vmsvc/getallvms | awk 'NR>1{print $1}'); do vim-cmd vmsvc/power.off $v; done",
-        "event.original":
-          "2026-06-13T22:21:11Z esx-prod-03.cryotech.local shell[2098754]: [root]: for v in $(vim-cmd vmsvc/getallvms | awk 'NR>1{print $1}'); do vim-cmd vmsvc/power.off $v; done",
-        "user.name": "root",
-        "process.working_directory": "/tmp",
-      },
-    },
-
-    // ── 11. The same power-offs as vCenter records them ───────────────────────
-    {
-      id: "evt_11_vm_poweroff",
-      ts: T(42 * MIN),
-      source: "linux_audit",
-      vendor: "VMware vCenter Server",
-      event_type: "privileged_operation",
-      hostname: vcenter.host,
-      severity: "critical",
-      mitre_technique: "T1489",
-      mitre_tactic: "Impact",
-      description:
-        "vCenter recorded a VmPoweredOffEvent for each of the 96 guests as the shell loop worked through them; the record for SQL-PROD-02 is shown. Note the empty userName — the power-off was issued from the host shell, not through vCenter, so the appliance can only observe the result and cannot attribute it to a vSphere principal.",
-      raw: {
-        "vsphere.event.key": "4419331",
-        "vsphere.event.chainId": "4419331",
-        "vsphere.event.createdTime": "2026-06-13T22:22:19.883Z",
-        "vsphere.event.eventTypeId": "VmPoweredOffEvent",
-        "vsphere.event.severity": "info",
-        "vsphere.event.userName": "",
-        "vsphere.event.vm.name": "SQL-PROD-02",
-        "vsphere.event.vm.moref": "vm-2041",
-        "vsphere.event.host.name": esxi.host,
-        "vsphere.event.computeResource.name": "PROD-CLUSTER-A",
-        "vsphere.event.datacenter.name": "CRYOTECH-DC",
-        "vsphere.event.fullFormattedMessage":
-          "SQL-PROD-02 on esx-prod-03.cryotech.local in CRYOTECH-DC is powered off",
-        "log.file.path": "/var/log/vmware/vpxd/vpxd.log",
-        "syslog.hostname": vcenter.host,
-        "syslog.program": "vpxd",
-        "syslog.pid": "10442",
-      },
-    },
-
-    // ── 12. THE BLIND SPOT — the only thing endpoint tooling ever noticed ─────
-    {
-      id: "evt_12_edr_silence",
-      ts: T(47 * MIN),
-      source: "edr",
-      vendor: "CrowdStrike Falcon",
-      event_type: "edr_alert",
-      hostname: "SQL-PROD-02",
-      severity: "high",
-      description:
-        "Falcon stopped receiving check-ins from 71 server sensors between 22:22 and 22:27; the record for SQL-PROD-02 is shown. This is the first and only endpoint-side signal in the entire incident, and it is an absence rather than a detection. All 71 hosts are guests on PROD-CLUSTER-A. No Falcon sensor exists for any of CryoTech's six ESXi hosts — ESXi is a closed appliance and does not accept third-party agents — so nothing the attacker did after 22:01 was ever in the EDR's field of view.",
-      raw: {
-        "crowdstrike.event_simplename": "SensorHeartbeatMissing",
-        "crowdstrike.host.hostname": "SQL-PROD-02",
-        "crowdstrike.host.aid": "b41d9c77e2a54f0e8c1a6d3f9b207e55",
-        "crowdstrike.host.platform_name": "Windows",
-        "crowdstrike.host.os_version": "Windows Server 2022",
-        "crowdstrike.host.product_type_desc": "Server",
-        "crowdstrike.host.local_ip": "10.30.12.61",
-        "crowdstrike.host.last_seen": "2026-06-13T22:22:41Z",
-        "crowdstrike.host.status": "offline",
-        "crowdstrike.host.reduced_functionality_mode": "no",
-        "crowdstrike.sensor.version": "7.18.18604.0",
-        "crowdstrike.network_containment_state": "Not Contained",
-        "event.action": "sensor_heartbeat_missing",
-        "host.name": "SQL-PROD-02",
-      },
-    },
-
-    // ── 13. Impact — the ELF encryptor against the datastore ──────────────────
-    {
-      id: "evt_13_encryptor",
-      ts: T(52 * MIN),
-      source: "linux_audit",
-      vendor: "VMware ESXi",
-      event_type: "privileged_operation",
-      hostname: esxi.host,
-      user_email: "root@esx-prod-03.cryotech.local",
-      src_ip: tunnelIp,
-      severity: "critical",
-      mitre_technique: "T1486",
-      mitre_tactic: "Impact",
-      file: {
-        name: "encryptor",
-        path: "/tmp/.x/encryptor",
-        sha256: elfHash,
-        size: 1476592,
-      },
-      description:
-        "A statically linked ELF-64 binary staged in /tmp/.x was made executable and pointed at the VMFS datastore mount with a 20% partial-encryption flag — enough to destroy every virtual disk header while running fast. Partial encryption is why 41 TB of VMDKs can be ruined in minutes. There is no Authenticode, no reputation service and no application allow-listing on ESXi; nothing on the host had any opinion about this file.",
-      raw: {
-        "syslog.hostname": esxi.host,
-        "syslog.program": "shell",
-        "syslog.pid": "2098754",
-        "log.file.path": "/var/log/shell.log",
-        "syslog.message":
-          "[root]: chmod +x /tmp/.x/encryptor; /tmp/.x/encryptor -p /vmfs/volumes/DS-PROD-01 -n 20 -t 32",
-        "event.original":
-          "2026-06-13T22:32:26Z esx-prod-03.cryotech.local shell[2098754]: [root]: chmod +x /tmp/.x/encryptor; /tmp/.x/encryptor -p /vmfs/volumes/DS-PROD-01 -n 20 -t 32",
-        "user.name": "root",
-        "process.working_directory": "/tmp/.x",
-      },
-    },
-
-    // ── 14. Ransom note ───────────────────────────────────────────────────────
-    {
-      id: "evt_14_ransom_note",
-      ts: T(56 * MIN),
-      source: "linux_audit",
-      vendor: "VMware ESXi",
-      event_type: "file_create",
-      hostname: esxi.host,
-      user_email: "root@esx-prod-03.cryotech.local",
-      src_ip: tunnelIp,
-      severity: "critical",
-      mitre_technique: "T1486",
-      mitre_tactic: "Impact",
-      file: {
-        name: "akira_readme.txt",
-        path: "/vmfs/volumes/DS-PROD-01/SQL-PROD-02/akira_readme.txt",
-        size: 2914,
-      },
-      description:
-        "A shell loop copied akira_readme.txt into every VM folder on DS-PROD-01. When responders browsed the datastore minutes later, SQL-PROD-02-flat.vmdk had already become SQL-PROD-02-flat.vmdk.akira. The note names a Tor negotiation portal and claims data was taken before encryption.",
-      raw: {
-        "syslog.hostname": esxi.host,
-        "syslog.program": "shell",
-        "syslog.pid": "2098754",
-        "log.file.path": "/var/log/shell.log",
-        "syslog.message":
-          "[root]: for d in /vmfs/volumes/DS-PROD-01/*/; do cp /tmp/.x/akira_readme.txt \"$d\"; done",
-        "event.original":
-          "2026-06-13T22:36:48Z esx-prod-03.cryotech.local shell[2098754]: [root]: for d in /vmfs/volumes/DS-PROD-01/*/; do cp /tmp/.x/akira_readme.txt \"$d\"; done",
-        "user.name": "root",
-        "process.working_directory": "/tmp/.x",
-      },
-    },
-  ];
+  const { title, events, T, MIN, attackerIp, tunnelIp, vcenter, esxi, elfHash } = esxiRansomwareScenarioEvents();
 
   const iocs: IOC[] = [
     {
@@ -586,7 +46,7 @@ export function buildEsxiRansomwareScenario(
     },
     {
       type: "user",
-      value: "r.okonkwo@cryotech.com",
+      value: "r.okonkwo@nexacorp.com",
       reputation: "suspicious",
       tags: ["contractor", "vpn"],
     },
@@ -605,13 +65,13 @@ export function buildEsxiRansomwareScenario(
     {
       type: "host",
       value: vcenter.host,
-      reputation: "suspicious",
+      reputation: "unknown",
       tags: ["management-plane"],
     },
     {
       type: "host",
       value: esxi.host,
-      reputation: "malicious",
+      reputation: "unknown",
       tags: ["hypervisor", "shell-access"],
     },
   ];
@@ -655,7 +115,7 @@ export function buildEsxiRansomwareScenario(
     },
     {
       ts: T(31 * MIN),
-      phase: "Defense Evasion",
+      phase: "Defense Impairment",
       action:
         "ESXi host firewall sshServer ruleset opened to all source addresses",
     },
@@ -701,7 +161,7 @@ export function buildEsxiRansomwareScenario(
         {
           value: "spray_and_grant",
           label:
-            "The SSO password spray at 21:54, and the Administrator role granted to svc-monitor at 22:04",
+            "The SSO password spray at 21:54, and the Administrator role granted to svc-monitor ten minutes later at 22:04",
         },
         {
           value: "ssh_and_shell",
@@ -770,12 +230,12 @@ export function buildEsxiRansomwareScenario(
         {
           value: "sso_spray",
           label:
-            "The burst of vCenter BadUsernameSessionEvent rejections from a single source at 21:54",
+            "The burst of vCenter SSO BadUsernameSessionEvent rejections, all from one source address, at 21:54",
         },
         {
           value: "heartbeat_loss",
           label:
-            "The loss of 71 Falcon sensor heartbeats inside a five-minute window starting at 22:22",
+            "The loss of 71 Falcon sensor heartbeats inside a five-minute window starting at 22:22, across the guest estate",
         },
       ],
       answer: "ssh_enabled",
@@ -807,7 +267,7 @@ export function buildEsxiRansomwareScenario(
         {
           value: "vpn_group",
           label:
-            "Membership of the VPN-Contractors group, whose policy permits routed access into the management VLAN",
+            "Membership of the VPN-Contractors group, whose tunnel policy permits routed access straight into the management VLAN",
         },
       ],
       answer: "admin_role",
@@ -839,7 +299,7 @@ export function buildEsxiRansomwareScenario(
         {
           value: "t1529",
           label:
-            "T1529 System Shutdown/Reboot — the outage was the objective and encryption was added opportunistically",
+            "T1529 System Shutdown/Reboot — the outage itself was the objective and encryption was added opportunistically",
         },
       ],
       answer: "t1489",
@@ -851,7 +311,7 @@ export function buildEsxiRansomwareScenario(
 
   return {
     scenario_id: scenarioId,
-    title: "Hypervisor Ransomware — ESXi Datastore Encryption",
+    title,
     threat_actor: "Akira ransomware affiliate (ESXi-focused)",
     attack_kind: "ransomware_hypervisor",
     briefing: "The NOC escalated at 22:30: every guest on PROD-CLUSTER-A is unreachable and monitoring shows 71 server sensors offline. The vCenter appliance for that cluster is still responding. Saturday night, with no change window open.",

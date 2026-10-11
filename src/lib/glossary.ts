@@ -53,7 +53,7 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
   },
   rule_level: {
     term: "Rule Level",
-    def: "Severity score 1-10 assigned by the detection rule. 1-3 is routine noise, 4-6 deserves a look, 7-10 is a likely threat that needs action.",
+    def: "Severity score 3-15 assigned by the detection rule (Wazuh-style). 3-6 is routine or low, 7-9 deserves a look, 10-12 is high, 13-15 is critical and needs immediate action — a high level still has to be verified, since false positives fire high rules too.",
   },
   tp: {
     term: "True Positive",

@@ -1,5 +1,38 @@
 import type { TelemetryEvent } from "@/lib/sim/types";
 
+// ── Event 0b (log_analysis): unauthorized service-account KEY minted ──────────
+const createSaKeyEvent: TelemetryEvent = {
+  id: "evt-gcp-createsakey-001",
+  ts: "2026-05-19T02:41:00.000Z",
+  source: "cloud_gcp",
+  vendor: "GCP Cloud Audit Logs",
+  event_type: "cloud_api_call",
+  severity: "critical",
+  user_email: "web-frontend@nexacorp-prod.iam.gserviceaccount.com",
+  src_ip: "185.220.101.47",
+  geo: { country: "Netherlands", city: "Amsterdam" },
+  description: "A new user-managed JSON private key was minted for the svc-data service account from an unfamiliar external IP, minutes before svc-data escalated itself to Owner",
+  mitre_technique: "T1098.001",
+  mitre_tactic: "Persistence",
+  raw: {
+    "gcp.audit.method_name": "google.iam.admin.v1.CreateServiceAccountKey",
+    "gcp.audit.service_name": "iam.googleapis.com",
+    "gcp.audit.resource_name": "projects/nexacorp-prod/serviceAccounts/svc-data@nexacorp.iam.gserviceaccount.com",
+    "gcp.audit.authentication_info.principal_email": "web-frontend@nexacorp-prod.iam.gserviceaccount.com",
+    "gcp.audit.request_metadata.caller_ip": "185.220.101.47",
+    "gcp.audit.request_metadata.caller_supplied_user_agent": "google-api-python-client/2.86.0",
+    "gcp.audit.status.code": 0,
+    "gcp.audit.status.message": "",
+    "gcp.audit.request.private_key_type": "TYPE_GOOGLE_CREDENTIALS_FILE",
+    "gcp.audit.request.key_algorithm": "KEY_ALG_RSA_2048",
+    "gcp.audit.response.name": "projects/nexacorp-prod/serviceAccounts/svc-data@nexacorp.iam.gserviceaccount.com/keys/8f3a1c9d2e4b7f60",
+    "gcp.audit.response.key_id": "8f3a1c9d2e4b7f60",
+    "gcp.audit.response.key_type": "USER_MANAGED",
+    "cloud.account.id": "nexacorp-prod",
+    "action_result": "allowed",
+  },
+};
+
 // ── Event 1 (log_analysis): IAM privilege escalation via SetIamPolicy ─────────
 const setIamPolicyEvent: TelemetryEvent = {
   id: "evt-gcp-setiampolicy-001",
@@ -52,34 +85,33 @@ const publicBucketExfilEvent: TelemetryEvent = {
   id: "evt-gcp-storage-exfil-001",
   ts: "2026-05-19T03:05:44.000Z",
   source: "cloud_gcp",
-  vendor: "GCP Cloud Audit Logs",
+  vendor: "GCP Cloud Storage usage logs",
   event_type: "cloud_storage_access",
   severity: "critical",
-  user_email: "allUsers",
   src_ip: "91.108.56.19",
   geo: { country: "Russia", city: "Moscow" },
-  description: "An anonymous internet caller downloaded customer export files from a Cloud Storage bucket that had been made public, generating Data Access audit log entries rather than an Admin Activity change",
+  description: "An anonymous internet caller downloaded a customer export file from a Cloud Storage bucket that had been made public, as recorded in the bucket's Cloud Storage usage logs",
   mitre_technique: "T1530",
   mitre_tactic: "Collection",
   raw: {
-    "gcp.audit.method_name": "storage.objects.get",
-    "gcp.audit.service_name": "storage.googleapis.com",
-    "gcp.audit.resource_name": "projects/_/buckets/nexacorp-customer-exports/objects/exports/customers_full_2026Q2.csv",
-    "gcp.audit.authentication_info.principal_email": "allUsers",
-    "gcp.audit.request_metadata.caller_ip": "91.108.56.19",
-    "gcp.audit.request_metadata.caller_supplied_user_agent": "python-requests/2.31.0",
-    "gcp.audit.status.code": 0,
-    "gcp.audit.status.message": "",
-    "gcp.audit.log_type": "DATA_ACCESS",
-    "gcp.audit.severity": "INFO",
-    "storage.bucket.name": "nexacorp-customer-exports",
-    "storage.object.name": "exports/customers_full_2026Q2.csv",
-    "storage.object.size": 48302911,
-    "storage.bucket.iam_configuration.public_access_prevention": "inherited",
-    "storage.bucket.iam_binding.role": "roles/storage.objectViewer",
-    "storage.bucket.iam_binding.members": ["allUsers"],
+    "gcp.storage.usage.time_micros": 1779159944000000,
+    "gcp.storage.usage.c_ip": "91.108.56.19",
+    "gcp.storage.usage.c_ip_type": 1,
+    "gcp.storage.usage.c_ip_region": "",
+    "gcp.storage.usage.cs_method": "GET",
+    "gcp.storage.usage.cs_uri": "/nexacorp-customer-exports/exports/customers_full_2026Q2.csv",
+    "gcp.storage.usage.sc_status": 200,
+    "gcp.storage.usage.cs_bytes": 0,
+    "gcp.storage.usage.sc_bytes": 48302911,
+    "gcp.storage.usage.time_taken_micros": 8412000,
+    "gcp.storage.usage.cs_host": "storage.googleapis.com",
+    "gcp.storage.usage.cs_referer": "",
+    "gcp.storage.usage.cs_user_agent": "python-requests/2.31.0",
+    "gcp.storage.usage.s_request_id": "ADPycdtq3Rk9wLzX2mVb7nE4sHf8uJ1oQ6aYcG5iTp0rKe",
+    "gcp.storage.usage.cs_operation": "GET_Object",
+    "gcp.storage.usage.cs_bucket": "nexacorp-customer-exports",
+    "gcp.storage.usage.cs_object": "exports/customers_full_2026Q2.csv",
     "gcp.project.id": "nexacorp-prod",
-    "action_result": "allowed",
   },
 };
 
@@ -94,7 +126,7 @@ const benignServiceAccountEvent: TelemetryEvent = {
   user_email: "svc-cicd@nexacorp.iam.gserviceaccount.com",
   src_ip: "10.128.0.14",
   hostname: "gke-nexacorp-prod-pool-1-a3f9",
-  description: "A CI/CD pipeline service account listed Compute Engine instances from an internal GKE node as part of a routine scheduled deployment job",
+  description: "The svc-cicd service account listed Compute Engine instances in the nexacorp-prod project",
   raw: {
     "gcp.audit.method_name": "compute.instances.list",
     "gcp.audit.service_name": "compute.googleapis.com",
@@ -104,7 +136,7 @@ const benignServiceAccountEvent: TelemetryEvent = {
     "gcp.audit.request_metadata.caller_supplied_user_agent": "google-cloud-sdk gcloud/462.0.1",
     "gcp.audit.status.code": 0,
     "gcp.audit.status.message": "",
-    "gcp.audit.log_type": "ADMIN_ACTIVITY",
+    "gcp.audit.log_type": "DATA_ACCESS",
     "gcp.audit.severity": "INFO",
     "gcp.project.id": "nexacorp-prod",
     "action_result": "allowed",
@@ -112,6 +144,7 @@ const benignServiceAccountEvent: TelemetryEvent = {
 };
 
 // ── Event 4 (flag task): service-account key theft + metadata server abuse ────
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- authored attack-event, not yet wired into a room task
 const metadataKeyTheftEvent: TelemetryEvent = {
   id: "evt-gcp-metadata-theft-001",
   ts: "2026-05-19T02:42:30.000Z",
@@ -151,7 +184,7 @@ const gcpRoom = {
   difficulty: "intermediate" as const,
   category: "Cloud Security",
   estimatedMinutes: 70,
-  xp: 650,
+  xp: 345,
   icon: "🌐",
   prerequisites: ["cloud-security-monitoring"],
   tasks: [
@@ -161,16 +194,16 @@ const gcpRoom = {
       id: "gcp-r1",
       heading: "What Is GCP, and How Does It Map to What You Already Know?",
       content:
-        `**Google Cloud Platform (GCP)** is Google's cloud computing platform — the third major public cloud provider alongside AWS (Amazon Web Services) and Microsoft Azure. Like the others, GCP lets an organization rent computing power, storage, and networking from Google's data centers instead of owning physical servers. If you already understand AWS or Azure security, GCP will feel very familiar in concept, even though almost every name is different.\n\n` +
+        `**Google Cloud Platform (GCP)** is Google's cloud computing platform: the third major public cloud provider alongside AWS (Amazon Web Services) and Microsoft Azure. Like the others, GCP lets an organization rent computing power, storage, and networking from Google's data centers instead of owning physical servers. If you already understand AWS or Azure security, GCP will feel very familiar in concept, even though almost every name is different.\n\n` +
         `**The GCP Resource Hierarchy**\n\n` +
-        `Everything in GCP lives inside a **project** — a container that holds resources (virtual machines, storage buckets, databases, networks) and is the basic unit of billing, permissions, and isolation. A **project** in GCP is the rough equivalent of an **AWS account**: it is the boundary a SOC analyst usually investigates within. Projects can be grouped under **folders**, and folders roll up under a single **organization** (typically tied to a company's domain, like nexacorp.com) — this is conceptually similar to AWS Organizations grouping multiple AWS accounts. A **resource** is any object you create inside a project: a virtual machine, a storage bucket, a database instance, a network. Every resource has a unique **resource name** (for example, projects/nexacorp-prod/zones/us-central1-a/instances/web-01) that pinpoints exactly what it is and which project it belongs to — this full resource name is what you will see again and again inside audit logs.\n\n` +
+        `Everything in GCP lives inside a **project**: a container that holds resources (virtual machines, storage buckets, databases, networks) and is the basic unit of billing, permissions, and isolation. A **project** in GCP is the rough equivalent of an **AWS account**: it is the boundary a SOC analyst usually investigates within. Projects can be grouped under **folders**, and folders roll up under a single **organization** (typically tied to a company's domain, like nexacorp.com). This is conceptually similar to AWS Organizations grouping multiple AWS accounts. A **resource** is any object you create inside a project: a virtual machine, a storage bucket, a database instance, a network. Every resource has a unique **resource name** (for example, projects/nexacorp-prod/zones/us-central1-a/instances/web-01) that pinpoints exactly what it is and which project it belongs to. This full resource name is what you will see again and again inside audit logs.\n\n` +
         `**Why the Terminology Difference Matters for a SOC Analyst**\n\n` +
-        `Many organizations run workloads across more than one cloud provider, and analysts frequently move between AWS, Azure, and GCP tickets in the same shift. Confusing an AWS "IAM role" (a temporary, assumable identity) with a GCP "service account" (a persistent, non-human identity with its own permanent identity and optional keys) is a common and costly mistake early in a GCP investigation — the two behave differently, and that difference is exactly what several of the attacks later in this room depend on.\n\n` +
+        `Many organizations run workloads across more than one cloud provider, and analysts frequently move between AWS, Azure, and GCP tickets in the same shift. Confusing an AWS "IAM role" (a temporary, assumable identity) with a GCP "service account" (a persistent, non-human identity with its own permanent identity and optional keys) is a common and costly mistake early in a GCP investigation: the two behave differently, and that difference is exactly what several of the attacks later in this room depend on.\n\n` +
         `**GCP's Three Core Services Every Analyst Must Know**\n\n` +
-        `- **Compute Engine** — GCP's virtual machine service, the equivalent of AWS EC2. Compute Engine instances ("VMs") run applications exactly like a physical server would.\n\n` +
-        `- **Cloud Storage** — GCP's object storage service, the equivalent of AWS S3. Data is organized into **buckets**, which can be configured private or, dangerously, public to the entire internet.\n\n` +
-        `- **VPC (Virtual Private Cloud)** — GCP also uses the name VPC for its private, isolated network layer, just like AWS. A GCP VPC has subnets and firewall rules that control which traffic is allowed in and out, similar to AWS Security Groups.\n\n` +
-        `Just as with AWS, the SOC analyst's core job in GCP is to read the audit trail of **API calls** — every action taken against a GCP project, from creating a virtual machine to changing a permission to downloading a file — and to recognize what's normal versus what's an attack in progress.`,
+        `- **Compute Engine**: GCP's virtual machine service, the equivalent of AWS EC2. Compute Engine instances ("VMs") run applications exactly like a physical server would.\n\n` +
+        `- **Cloud Storage**: GCP's object storage service, the equivalent of AWS S3. Data is organized into **buckets**, which can be configured private or, dangerously, public to the entire internet.\n\n` +
+        `- **VPC (Virtual Private Cloud)**: GCP also uses the name VPC for its private, isolated network layer, just like AWS. A GCP VPC has subnets and firewall rules that control which traffic is allowed in and out, similar to AWS Security Groups.\n\n` +
+        `Just as with AWS, the SOC analyst's core job in GCP is to read the audit trail of **API calls**. Every action taken against a GCP project, from creating a virtual machine to changing a permission to downloading a file, and to recognize what's normal versus what's an attack in progress.`,
       codeExample:
         "GCP <-> AWS TERMINOLOGY CHEAT SHEET\n" +
         "=======================================================\n" +
@@ -200,6 +233,17 @@ const gcpRoom = {
         "                   |\n" +
         "                   +-- Resources (VMs, buckets, etc.)\n" +
         "=======================================================",
+      checkpoint: {
+        question: "According to the reading's terminology cheat sheet, what is the closest AWS equivalent to a GCP 'project'?",
+        options: [
+          "AWS Account",
+          "AWS Organizations (root)",
+          "IAM Role",
+          "EC2 instance",
+        ],
+        answer: 0,
+        explanation: "The reading's cheat sheet maps a GCP 'Project' to an 'AWS Account'. It is the boundary a SOC analyst usually investigates within, holding resources, billing, and permissions.",
+      },
     },
 
     // ── Reading 2: Cloud IAM & service accounts ─────────────────────────────
@@ -210,11 +254,11 @@ const gcpRoom = {
       content:
         `**Cloud IAM** is GCP's system for controlling who can do what, exactly like AWS IAM. But GCP's permission model is built around three layers that are worth understanding precisely, because attackers exploit the gaps between them.\n\n` +
         `**Members, Roles, and Bindings**\n\n` +
-        `A **member** (also called a principal) is any identity that can be granted access — a human Google account (like j.smith@nexacorp.com), a **service account**, a Google group, or even the special values allUsers (literally everyone on the internet, authenticated or not) and allAuthenticatedUsers (anyone with any Google account). A **role** is a named collection of **permissions** — for example, roles/storage.objectViewer bundles the permission to read objects in a bucket. GCP has three tiers of roles: **basic roles** (Owner, Editor, Viewer — broad, legacy, and dangerous if overused), **predefined roles** (narrower, service-specific, Google-curated, like roles/storage.objectViewer), and **custom roles** (an organization defines its own exact permission set). A **binding** connects a member to a role on a specific resource — this pairing (member + role + resource) is the fundamental unit you will see inside an IAM policy and inside audit logs, most importantly in the method call SetIamPolicy.\n\n` +
+        `A **member** (also called a principal) is any identity that can be granted access: a human Google account (like j.smith@nexacorp.com), a **service account**, a Google group, or even the special values allUsers (literally everyone on the internet, authenticated or not) and allAuthenticatedUsers (anyone with any Google account). A **role** is a named collection of **permissions**, for example, roles/storage.objectViewer bundles the permission to read objects in a bucket. GCP has three tiers of roles: **basic roles** (Owner, Editor, Viewer. Broad, legacy, and dangerous if overused), **predefined roles** (narrower, service-specific, Google-curated, like roles/storage.objectViewer), and **custom roles** (an organization defines its own exact permission set). A **binding** connects a member to a role on a specific resource. This pairing (member + role + resource) is the fundamental unit you will see inside an IAM policy and inside audit logs, most importantly in the method call SetIamPolicy.\n\n` +
         `**Service Accounts: GCP's Non-Human Identity**\n\n` +
-        `A **service account** is a special kind of account intended for applications and virtual machines rather than people — it has its own email-like identity (always ending in .iam.gserviceaccount.com) and its own set of granted permissions. This is GCP's closest analog to an AWS IAM role, but with one critical difference: a service account is a **persistent identity**, not something temporarily "assumed." A service account can authenticate in two ways: (1) by being **attached to a resource** (like a Compute Engine VM), in which case the VM can request short-lived credentials from the metadata server, similar to how an EC2 instance profile works; or (2) via a **service account key** — a long-lived JSON credential file that can be downloaded and used from absolutely anywhere on the internet, with no expiration unless manually revoked. This second option is functionally identical in risk to a leaked AWS IAM user access key: if a service account key JSON file is exposed (committed to a public code repository, left in a container image, emailed insecurely), an attacker can use it indefinitely until someone notices and deletes it.\n\n` +
+        `A **service account** is a special kind of account intended for applications and virtual machines rather than people. It has its own email-like identity (always ending in .iam.gserviceaccount.com) and its own set of granted permissions. This is GCP's closest analog to an AWS IAM role, but with one critical difference: a service account is a **persistent identity**, not something temporarily "assumed." A service account can authenticate in two ways: (1) by being **attached to a resource** (like a Compute Engine VM), in which case the VM can request short-lived credentials from the metadata server, similar to how an EC2 instance profile works; or (2) via a **service account key**, a long-lived JSON credential file that can be downloaded and used from absolutely anywhere on the internet, with no expiration unless manually revoked. This second option is functionally identical in risk to a leaked AWS IAM user access key: if a service account key JSON file is exposed (committed to a public code repository, left in a container image, emailed insecurely), an attacker can use it indefinitely until someone notices and deletes it.\n\n` +
         `**Why Over-Privileged Service Accounts Are GCP's #1 Real-World Risk**\n\n` +
-        `In practice, the single most common GCP misconfiguration security teams find is a service account granted the basic **Editor** or even **Owner** role at the project level — far more access than the application actually needs — simply because it was the fastest way to make something work during development, and nobody ever narrowed it down afterward. Because service accounts don't have the same "this is clearly a human, and humans get MFA-prompted" visibility that user accounts do, over-privileged service accounts often go unnoticed for a very long time, making them an extremely attractive target: compromise one, and you may inherit sweeping project-wide permissions with a single stolen credential.`,
+        `In practice, the single most common GCP misconfiguration security teams find is a service account granted the basic **Editor** or even **Owner** role at the project level (far more access than the application actually needs) simply because it was the fastest way to make something work during development, and nobody ever narrowed it down afterward. Because service accounts don't have the same "this is clearly a human, and humans get MFA-prompted" visibility that user accounts do, over-privileged service accounts often go unnoticed for a very long time, making them an extremely attractive target: compromise one, and you may inherit sweeping project-wide permissions with a single stolen credential.`,
       codeExample:
         "IAM POLICY BINDING ANATOMY (simplified JSON)\n" +
         "=======================================================\n" +
@@ -258,13 +302,13 @@ const gcpRoom = {
       id: "gcp-r3",
       heading: "Cloud Audit Logs and Security Command Center: GCP's Audit Trail and Threat Detector",
       content:
-        `**Cloud Audit Logs** is GCP's audit-logging service — the direct equivalent of AWS CloudTrail. Nearly every action taken in a GCP project, whether through the web Console, the gcloud command-line tool, or an application calling a GCP API directly, generates an entry in Cloud Audit Logs. Just like CloudTrail, each entry answers who did it, what they did, where from, when, and whether it succeeded.\n\n` +
+        `**Cloud Audit Logs** is GCP's audit-logging service: the direct equivalent of AWS CloudTrail. Nearly every action taken in a GCP project, whether through the web Console, the gcloud command-line tool, or an application calling a GCP API directly, generates an entry in Cloud Audit Logs. Just like CloudTrail, each entry answers who did it, what they did, where from, when, and whether it succeeded.\n\n` +
         `**The Four Types of Cloud Audit Logs**\n\n` +
-        `GCP splits audit activity into four log types, and knowing which is which is essential for a SOC analyst: **Admin Activity logs** record configuration and metadata changes — creating a VM, changing an IAM policy, creating a service account key. These are ALWAYS enabled and cannot be turned off, similar to AWS management events. **Data Access logs** record who accessed data — reading an object from a Cloud Storage bucket, querying a BigQuery table. Critically, Data Access logs are NOT enabled by default for most services (except for a few, like BigQuery) because of their high volume — this is the exact same visibility gap as AWS S3 data events not being logged by default, and it means a SOC analyst investigating a suspected data download may find no logs at all unless Data Access logging was explicitly turned on in advance. **System Event logs** record actions GCP itself takes automatically (like automatically restarting a VM after a hardware failure) — these are always enabled and rarely security-relevant. **Policy Denied logs** record when a request was blocked by a security policy (like an Organization Policy or VPC Service Controls) — these are extremely valuable for spotting an attacker's failed attempts to escalate access or exfiltrate data.\n\n` +
+        `GCP splits audit activity into four log types, and knowing which is which is essential for a SOC analyst: **Admin Activity logs** record configuration and metadata changes, creating a VM, changing an IAM policy, creating a service account key. These are ALWAYS enabled and cannot be turned off, similar to AWS management events. **Data Access logs** record who accessed data, reading an object from a Cloud Storage bucket, querying a BigQuery table. Critically, Data Access logs are NOT enabled by default for most services (except for a few, like BigQuery) because of their high volume. This is the exact same visibility gap as AWS S3 data events not being logged by default, and it means a SOC analyst investigating a suspected data download may find no logs at all unless Data Access logging was explicitly turned on in advance. One more blind spot sits on top of that: Cloud Audit Logs never record access to PUBLIC objects (those readable through allUsers or allAuthenticatedUsers), even with Data Access logging on. Anonymous reads are visible only in Cloud Storage usage logs, which must also be enabled per bucket. **System Event logs** record actions GCP itself takes automatically (like automatically restarting a VM after a hardware failure). These are always enabled and rarely security-relevant. **Policy Denied logs** record when a request was blocked by a security policy (like an Organization Policy or VPC Service Controls). These are extremely valuable for spotting an attacker's failed attempts to escalate access or exfiltrate data.\n\n` +
         `**Where Cloud Audit Logs Go**\n\n` +
-        `Cloud Audit Log entries are written into **Cloud Logging** (GCP's centralized logging service) and can be routed via a **log sink** to BigQuery, Cloud Storage, or exported to an external SIEM in near-real time — this is exactly analogous to CloudTrail delivering to an S3 bucket and then a SIEM. Every entry includes a gcp.audit.log_type field telling you which of the four categories it belongs to (ADMIN_ACTIVITY, DATA_ACCESS, SYSTEM_EVENT, or POLICY_DENIED).\n\n` +
+        `Cloud Audit Log entries are written into **Cloud Logging** (GCP's centralized logging service) and can be routed via a **log sink** to BigQuery, Cloud Storage, or exported to an external SIEM in near-real time. This is exactly analogous to CloudTrail delivering to an S3 bucket and then a SIEM. Every entry includes a gcp.audit.log_type field telling you which of the four categories it belongs to (ADMIN_ACTIVITY, DATA_ACCESS, SYSTEM_EVENT, or POLICY_DENIED).\n\n` +
         `**Security Command Center (SCC): GCP's Built-In Threat Detector**\n\n` +
-        `**Security Command Center** is GCP's managed security and risk platform — think of it as GCP's combined answer to AWS GuardDuty (automated threat detection) and AWS Security Hub (centralized findings and posture management). SCC continuously analyzes Cloud Audit Logs, VPC Flow Logs, and other signals, and automatically raises findings for things like publicly-exposed Cloud Storage buckets, anomalous IAM grants, leaked service account credentials being used, and cryptocurrency-mining process behavior on a Compute Engine VM. Like GuardDuty, SCC findings arrive pre-scored with a severity and category, making them an excellent starting point for triage — but exactly as with GuardDuty, the underlying Cloud Audit Log entries are still where the deep investigation actually happens.\n\n` +
+        `**Security Command Center** is GCP's managed security and risk platform. Think of it as GCP's combined answer to AWS GuardDuty (automated threat detection) and AWS Security Hub (centralized findings and posture management). SCC continuously analyzes Cloud Audit Logs, VPC Flow Logs, and other signals, and automatically raises findings for things like publicly-exposed Cloud Storage buckets, anomalous IAM grants, leaked service account credentials being used, and cryptocurrency-mining process behavior on a Compute Engine VM. Like GuardDuty, SCC findings arrive pre-scored with a severity and category, making them an excellent starting point for triage, but exactly as with GuardDuty, the underlying Cloud Audit Log entries are still where the deep investigation actually happens.\n\n` +
         `**VPC Flow Logs in GCP**\n\n` +
         `GCP's **VPC Flow Logs** use the identical name to their AWS counterpart and serve the same purpose: capturing connection metadata (source IP, destination IP, ports, protocol, bytes, and whether traffic was allowed or denied) flowing through a VPC, without capturing payload content. This is your network-layer view whenever the audit log alone doesn't tell the full story.`,
       codeExample:
@@ -294,6 +338,17 @@ const gcpRoom = {
         "  \"gcp.audit.log_type\": \"ADMIN_ACTIVITY\"\n" +
         "}\n" +
         "=======================================================",
+      checkpoint: {
+        question: "An attacker holding stolen credentials tries to copy a dataset out of the project, and VPC Service Controls blocks the request. Which Cloud Audit Log type records that blocked attempt?",
+        options: [
+          "Policy Denied logs",
+          "Admin Activity logs",
+          "Data Access logs",
+          "System Event logs",
+        ],
+        answer: 0,
+        explanation: "Policy Denied logs record requests blocked by a security policy such as an Organization Policy or VPC Service Controls: the reading calls them extremely valuable for spotting an attacker's failed escalation or exfiltration attempts. Admin Activity logs record configuration changes that happened, not a blocked data copy. Data Access logs record reads and writes of data that took place (and are off by default for most services). System Event logs record actions GCP itself takes, such as restarting a VM.",
+      },
     },
 
     // ── Reading 4: Common GCP attacks ───────────────────────────────────────
@@ -302,14 +357,14 @@ const gcpRoom = {
       id: "gcp-r4",
       heading: "The Six Attacks Every GCP-Facing SOC Analyst Must Recognize",
       content:
-        `Real-world GCP incidents tend to cluster around a small set of repeatable patterns. Knowing these six by name — and by their audit-log signature — lets you triage the majority of GCP alerts quickly.\n\n` +
-        `**1. Over-Privileged Service Accounts** — as covered in the IAM reading, a service account holding roles/editor or roles/owner at the project level when it only needs narrow access to one bucket or one API. This isn't an "attack" on its own, but it is the single biggest force-multiplier for every other attack on this list: compromise an over-privileged service account's credentials, and the attacker inherits everything it can do.\n\n` +
-        `**2. Service-Account Key Theft** — an attacker creates a new, unauthorized JSON key for an existing service account (google.iam.admin.v1.CreateServiceAccountKey) or steals an already-existing key file from a leaked code repository, a misconfigured container image, or a compromised developer laptop. Because a service account key never expires on its own, this grants indefinite external access — the GCP equivalent of a leaked AWS IAM user access key.\n\n` +
-        `**3. Public Cloud Storage Buckets** — a bucket's IAM policy grants roles/storage.objectViewer (or broader) to the special member allUsers or allAuthenticatedUsers, making some or all objects readable by anyone on the internet, no credentials required. Exactly like AWS S3 misconfigurations, this is one of the most common and most damaging real-world cloud data breaches, and because it's a permission on the bucket itself, it can generate no meaningful alert unless the org specifically checks for public bindings (SCC has a dedicated finding, Public bucket ACL, for exactly this).\n\n` +
-        `**4. IAM Privilege Escalation via SetIamPolicy** — an identity that has permission to modify a resource's IAM policy (even if it does not itself hold that role) can call SetIamPolicy to grant itself — or any other identity it controls — a far more powerful role, such as roles/owner. This is GCP's direct equivalent of AWS's iam:PutRolePolicy / CreatePolicyVersion privilege-escalation pattern: the attacker never needed "grant myself Owner" permission directly, only the narrower "modify this resource's IAM bindings" permission (resourcemanager.projects.setIamPolicy), which is often overlooked when scoping custom roles.\n\n` +
-        `**5. Metadata-Server Credential Theft** — every Compute Engine VM can reach the same special, non-routable address used by AWS EC2 — 169.254.169.254 — called the **metadata server**. Applications use it to retrieve instance information, including the live, short-lived access token for the VM's attached service account. If an attacker can trigger an unintended outbound request to this address from a vulnerable application (again, most commonly via SSRF — Server-Side Request Forgery), they can steal the service account's active token and use it from anywhere, exactly as with AWS IMDS. GCP's metadata server requires a specific header (Metadata-Flavor: Google) on every request, which raises the bar slightly compared to older AWS IMDSv1, but a vulnerable app that blindly proxies attacker-controlled requests can still be tricked into adding it.\n\n` +
-        `**6. Crypto-Mining on Compute Engine** — following any of the credential-theft patterns above, a very common next step is launching a large number of powerful (often GPU-accelerated) Compute Engine VMs, frequently in a region the victim organization doesn't normally use, to run cryptocurrency-mining software at the victim's expense. This maps to Security Command Center's Malware: Cryptomining Detected finding and, just like on AWS, is often first noticed via an unexpected billing spike rather than a security alert.\n\n` +
-        `Notice the common thread: attacks 2, 4, 5, and 6 very often chain together in a single incident — a stolen key or stolen metadata-server token (2 or 5) is used to escalate privileges (4), and the newly-gained access is then used to spin up mining infrastructure (6) or exfiltrate data from a bucket (3). This exact chain is what you will investigate in the two log-analysis exercises later in this room.`,
+        `Real-world GCP incidents tend to cluster around a small set of repeatable patterns. Knowing these six by name, and by their audit-log signature, lets you triage the majority of GCP alerts quickly.\n\n` +
+        `**1. Over-Privileged Service Accounts**: as covered in the IAM reading, a service account holding roles/editor or roles/owner at the project level when it only needs narrow access to one bucket or one API. This isn't an "attack" on its own, but it is the single biggest force-multiplier for every other attack on this list: compromise an over-privileged service account's credentials, and the attacker inherits everything it can do.\n\n` +
+        `**2. Service-Account Key Theft**: an attacker creates a new, unauthorized JSON key for an existing service account (google.iam.admin.v1.CreateServiceAccountKey) or steals an already-existing key file from a leaked code repository, a misconfigured container image, or a compromised developer laptop. Because a service account key never expires on its own, this grants indefinite external access: the GCP equivalent of a leaked AWS IAM user access key.\n\n` +
+        `**3. Public Cloud Storage Buckets**: a bucket's IAM policy grants roles/storage.objectViewer (or broader) to the special member allUsers or allAuthenticatedUsers, making some or all objects readable by anyone on the internet, no credentials required. Exactly like AWS S3 misconfigurations, this is one of the most common and most damaging real-world cloud data breaches, and because it's a permission on the bucket itself, it can generate no meaningful alert unless the org specifically checks for public bindings (SCC has a dedicated finding, Public bucket ACL, for exactly this).\n\n` +
+        `**4. IAM Privilege Escalation via SetIamPolicy**: an identity that has permission to modify a resource's IAM policy (even if it does not itself hold that role) can call SetIamPolicy to grant itself (or any other identity it controls) a far more powerful role, such as roles/owner. This is GCP's direct equivalent of AWS's iam:PutRolePolicy / CreatePolicyVersion privilege-escalation pattern: the attacker never needed "grant myself Owner" permission directly, only the narrower "modify this resource's IAM bindings" permission (resourcemanager.projects.setIamPolicy), which is often overlooked when scoping custom roles.\n\n` +
+        `**5. Metadata-Server Credential Theft**: every Compute Engine VM can reach the same special, non-routable address used by AWS EC2-169.254.169.254, called the **metadata server**. Applications use it to retrieve instance information, including the live, short-lived access token for the VM's attached service account. If an attacker can trigger an unintended outbound request to this address from a vulnerable application (again, most commonly via SSRF. Server-Side Request Forgery), they can steal the service account's active token and use it from anywhere, exactly as with AWS IMDS. GCP's metadata server requires a specific header (Metadata-Flavor: Google) on every request, which raises the bar slightly compared to older AWS IMDSv1, but a vulnerable app that blindly proxies attacker-controlled requests can still be tricked into adding it.\n\n` +
+        `**6. Crypto-Mining on Compute Engine**: following any of the credential-theft patterns above, a very common next step is launching a large number of powerful (often GPU-accelerated) Compute Engine VMs, frequently in a region the victim organization doesn't normally use, to run cryptocurrency-mining software at the victim's expense. This maps to Security Command Center's Malware: Cryptomining Detected finding and, just like on AWS, is often first noticed via an unexpected billing spike rather than a security alert.\n\n` +
+        `Notice the common thread: attacks 2, 4, 5, and 6 very often chain together in a single incident, a stolen key or stolen metadata-server token (2 or 5) is used to escalate privileges (4), and the newly-gained access is then used to spin up mining infrastructure (6) or exfiltrate data from a bucket (3). This exact chain is what you will investigate in the two log-analysis exercises later in this room.`,
       codeExample:
         "SIX COMMON GCP ATTACKS -- QUICK REFERENCE\n" +
         "=======================================================\n" +
@@ -352,14 +407,14 @@ const gcpRoom = {
       question:
         "A file was downloaded from a Cloud Storage bucket last night, but Data Access audit logging was never explicitly enabled for Cloud Storage in this project. What is the most accurate statement about what the SOC will find?",
       options: [
-        "Cloud Audit Logs will still show the storage.objects.get call because all Cloud Storage activity is logged by default",
-        "The storage.objects.get Data Access event was very likely NOT logged, even though Admin Activity events (like changing the bucket's IAM policy) would still appear, since Data Access logs are not enabled by default for most services",
-        "GCP does not support logging of any Cloud Storage activity under any configuration",
-        "Security Command Center automatically captures the download regardless of Cloud Audit Logs settings",
+        "Cloud Audit Logs record the storage.objects.get call in full, because Cloud Storage reads sit in the same always-on stream as bucket creation and IAM changes",
+        "The storage.objects.get event was very likely not logged, though Admin Activity events like a bucket IAM change still appear, since Data Access logs are off by default",
+        "The download is captured only if VPC Flow Logs were enabled on the subnet, since Cloud Storage reads are recorded as network flows rather than audit events",
+        "Security Command Center records the download independently of the audit configuration, because Event Threat Detection reads the storage API directly",
       ],
       answer: 1,
       explanation:
-        "Data Access logs (which cover read/write operations on the data itself, like storage.objects.get) are NOT enabled by default for most GCP services because of their volume — an administrator must explicitly turn them on. Admin Activity logs (configuration and permission changes, like SetIamPolicy) are ALWAYS enabled and cannot be turned off. This is the exact same visibility gap as AWS S3 data events being off by default, and a SOC analyst should always confirm whether Data Access logging is enabled before assuming the absence of a storage.objects.get event means nobody downloaded anything.",
+        "Data Access logs (which cover read/write operations on the data itself, like storage.objects.get) are NOT enabled by default for most GCP services because of their volume: an administrator must explicitly turn them on. Admin Activity logs (configuration and permission changes, like SetIamPolicy) are ALWAYS enabled and cannot be turned off. This is the exact same visibility gap as AWS S3 data events being off by default, and a SOC analyst should always confirm whether Data Access logging is enabled before assuming the absence of a storage.objects.get event means nobody downloaded anything.",
       xp: 20,
     },
 
@@ -370,10 +425,10 @@ const gcpRoom = {
       question:
         "A Compute Engine VM has a service account attached to it. A SOC analyst notices that service account's credentials being used to call GCP APIs from a source IP address in Russia, while the VM itself is confirmed still running normally inside GCP in us-central1. What does this most likely indicate?",
       options: [
-        "This is normal — service account credentials automatically work from anywhere in the world by design",
-        "The VM's short-lived metadata-server token was likely stolen (for example via an SSRF attack) and is now being used by an attacker from outside GCP",
-        "GCP load-balances API traffic through international points of presence, so varying source IPs are expected",
-        "The service account must be misconfigured to allow global access, which is a normal and harmless setting",
+        "Expected behavior: service account credentials are not bound to a network location, so use from any external IP is by design and needs no follow-up",
+        "The VM's short-lived metadata-server token was likely stolen (e.g. via SSRF) and is being replayed by an attacker from outside GCP",
+        "Cloud NAT or Private Google Access re-sources the VM's API traffic, so a foreign source IP is normal for a workload running in-region",
+        "Workload Identity Federation is mapping an external identity onto the account, a routine configuration that explains the foreign source IP",
       ],
       answer: 1,
       explanation:
@@ -386,16 +441,16 @@ const gcpRoom = {
       type: "question" as const,
       id: "gcp-q3",
       question:
-        "Which Cloud Audit Logs method call, when it grants a broad role like roles/owner to an unexpected member, should ALWAYS be treated as a critical-severity event requiring immediate investigation?",
+        "An attacker controls a low-privilege service account and wants to end up in full control of the whole project. Which Admin Activity method call would record the step that actually gets them there, and so deserves a critical-severity alert when it involves an unexpected member?",
       options: [
-        "compute.instances.list — listing Compute Engine VMs",
-        "SetIamPolicy — replacing or modifying a resource's IAM policy bindings",
-        "storage.buckets.get — reading a bucket's metadata",
-        "cloudresourcemanager.projects.get — reading basic project information",
+        "storage.buckets.create, creating a new Cloud Storage bucket in the project",
+        "SetIamPolicy, replacing or modifying a resource's IAM policy bindings",
+        "storage.objects.create, uploading a new object to an existing bucket",
+        "cloudresourcemanager.projects.update, changing a project's name or labels",
       ],
       answer: 1,
       explanation:
-        "SetIamPolicy changes who can do what on a resource — it is the method call behind both legitimate administration AND IAM privilege escalation attacks. When it grants a broad role (roles/owner or roles/editor) to a service account or member that shouldn't hold it, this should always trigger critical-severity review, exactly like AWS's AttachUserPolicy or PutRolePolicy with an admin policy. The other three calls listed are read-only, extremely common, and normally benign background activity.",
+        "SetIamPolicy changes who can do what on a resource. It is the method behind both legitimate administration AND IAM privilege escalation. When it hands a broad role such as roles/owner or roles/editor to a member that should not hold it, it deserves critical-severity review, exactly like AWS's AttachUserPolicy or PutRolePolicy with an admin policy. The other three are also write calls, but none of them changes anyone's permissions: storage.buckets.create and storage.objects.create add storage resources, and projects.update (the near-miss, because it lives in the same Resource Manager service) only edits project metadata such as the name or labels.",
       xp: 20,
     },
 
@@ -405,49 +460,49 @@ const gcpRoom = {
       id: "gcp-la1",
       heading: "Investigating an IAM Privilege Escalation via SetIamPolicy",
       context:
-        "You are a SOC analyst at NexaCorp. Security Command Center raised a finding overnight for an anomalous IAM change in the nexacorp-prod project. The service account in question, svc-data, is normally used only by an internal ETL (data pipeline) job and should hold nothing beyond roles/bigquery.dataViewer. Five minutes earlier, a suspicious CreateServiceAccountKey event had also fired for the same service account (you will examine that event later in this room). Review the Cloud Audit Log entry below, generated at 02:47 UTC.",
+        "You are a SOC analyst at NexaCorp. Security Command Center raised a finding overnight for an anomalous IAM change in the nexacorp-prod project. The service account in question, svc-data, is normally used only by an internal ETL (data pipeline) job and needs nothing beyond roles/bigquery.dataViewer, though a project-IAM-admin grant (roles/resourcemanager.projectIamAdmin) left over from an old migration was never removed. Six minutes earlier, a suspicious CreateServiceAccountKey event had also fired for the same service account (you will examine that event later in this room). Review the Cloud Audit Log entry below, generated at 02:47 UTC.",
       event: setIamPolicyEvent,
       questions: [
         {
           question:
             "The event shows gcp.audit.method_name 'SetIamPolicy' targeting resource_name 'projects/nexacorp-prod', called by principal_email svc-data@nexacorp.iam.gserviceaccount.com from caller_ip 185.220.101.47 (an external Tor exit node). The response.bindings show the service account now holds BOTH roles/owner AND roles/editor. Why is this combination especially alarming?",
           options: [
-            "SetIamPolicy calls are purely informational and never actually change permissions until manually approved",
-            "The service account, which should only have narrow BigQuery read access, granted itself roles/owner — GCP's most powerful basic role, equivalent to AWS AdministratorAccess — meaning it can now read, modify, or delete anything in the project, including further changing IAM itself",
-            "roles/owner only applies to billing settings and has no bearing on data or compute resources",
-            "This is expected behavior because all service accounts automatically receive roles/owner when first created",
+            "roles/editor is the bigger worry, because Editor can rewrite IAM policy while Owner mainly adds billing control",
+            "svc-data, meant only for BigQuery reads, granted itself roles/owner: full control, including changing IAM itself",
+            "It fits an ETL deploy, since data-pipeline accounts are often given Owner while their jobs are being set up",
+            "The impact stays inside BigQuery, because an account's roles only reach the APIs its job normally calls",
           ],
           answer: 1,
           explanation:
-            "roles/owner is GCP's most powerful basic role — it includes every permission in the project, including the ability to modify IAM policy itself, delete resources, and manage billing. A service account that should only be reading BigQuery data suddenly holding roles/owner is a textbook privilege-escalation outcome: the attacker used SetIamPolicy to grant themselves (via this service account) unrestricted control of the entire nexacorp-prod project.",
+            "roles/owner is GCP's most powerful basic role. Every permission in the project, including modifying IAM policy itself, deleting resources and managing billing. A service account that should only read BigQuery data now holding roles/owner is a textbook privilege-escalation outcome: the attacker used SetIamPolicy to give themselves, via this account, unrestricted control of nexacorp-prod. “Editor is the bigger worry” reverses the two roles. Owner is the one that can change IAM; Editor cannot. “It fits an ETL deploy” rationalises the change; the context says the ETL job needs nothing beyond bigquery.dataViewer (the leftover IAM-admin grant is what made the self-grant possible, not a reason for it), and the call came from a Tor exit node. “The impact stays inside BigQuery” is wrong: a binding on projects/nexacorp-prod applies to every service in the project, whatever the job normally calls.",
           xp: 25,
         },
         {
           question:
             "The caller_ip is 185.220.101.47, a known Tor exit node, and gcp.audit.status.code is 0 with an empty status.message. What does this combination confirm about the outcome of the request?",
           options: [
-            "status.code 0 means the request failed and was rejected by Cloud IAM",
-            "status.code 0 (with no error message) confirms the SetIamPolicy call succeeded — the privilege escalation was NOT blocked, and the attacker now holds Owner-level access to the project from external, anonymized infrastructure",
-            "The Tor exit node IP is irrelevant since GCP automatically blocks all Tor traffic",
-            "status.code fields in GCP audit logs only apply to billing operations",
+            "status.code 0 means IAM never evaluated the request, so the escalation is still unconfirmed",
+            "status.code 0 with no message means the call succeeded: the escalation took effect",
+            "status.code 0 means the request was only queued; success shows up in a later audit entry",
+            "It succeeded for the editor binding only; the owner grant would need a second call to apply",
           ],
           answer: 1,
           explanation:
-            "In Cloud Audit Logs, status.code 0 (matching gRPC's OK status) with no populated status.message means the API call succeeded. Combined with the external Tor exit node source IP, this confirms an external attacker successfully executed the privilege-escalation call — this is now a confirmed, active project-wide compromise, not merely an attempted one.",
+            "In Cloud Audit Logs, status.code 0 (gRPC's OK status) with an empty status.message means the API call succeeded. Combined with the external Tor exit node source IP, this confirms an external attacker executed the privilege-escalation call: a confirmed, active project-wide compromise, not merely an attempt. “IAM never evaluated the request” and “only queued” both invent a non-final meaning for 0; the audit entry records the completed call's result. “Editor binding only” misreads the record: response.bindings (the policy as it stands after the call) lists roles/owner for svc-data alongside roles/editor, so the Owner grant is already in force.",
           xp: 25,
         },
         {
           question:
             "Given this is a confirmed successful privilege escalation to roles/owner from an external Tor IP, what should the analyst's immediate response be?",
           options: [
-            "Wait for the next scheduled access review to catch and correct the over-broad role",
-            "Immediately revoke the malicious IAM binding (remove roles/owner and roles/editor from svc-data), disable or delete any unauthorized service-account keys, audit every action taken by this identity and this source IP since the escalation, and rotate/re-scope the service account to its original narrow role",
-            "Simply delete the svc-data service account entirely with no further investigation, since deleting it will automatically undo every action it performed",
-            "Block the Tor exit node IP at the VPC firewall level and consider the incident resolved",
+            "Block 185.220.101.47 at the VPC firewall and close it, since every malicious call so far came from that one IP",
+            "Remove the owner/editor bindings, disable svc-data's unauthorized keys, then scope everything done since 02:47",
+            "Delete the svc-data service account at once, which also reverses the changes it made while compromised",
+            "Pull svc-data's full audit history first, then remove the bindings once the scope of the attack is clear",
           ],
           answer: 1,
           explanation:
-            "A confirmed, successful privilege escalation to project-wide Owner access requires full containment: remove the malicious IAM bindings immediately (Cloud IAM policy changes take effect right away), find and disable/delete any unauthorized service-account keys created around the same time, and pull the complete Cloud Audit Log history for this identity and IP going forward from the escalation to determine everything the attacker did while holding Owner access (they could have created new IAM bindings, exfiltrated data, or launched resources). Deleting the service account alone does not undo prior actions, and blocking one Tor IP does nothing against an attacker who can trivially switch exit nodes.",
+            "A confirmed escalation to project-wide Owner requires containment first: remove the malicious IAM bindings (IAM changes take effect right away), find and disable any unauthorized service-account keys created around the same time, then pull the full audit history for this identity and IP from the escalation onward to see everything done with Owner access, and re-scope the account to its original narrow role. “Block the IP … and close” fails twice: a VPC firewall does not govern calls to Google's public APIs, and the attacker can switch exit nodes or use the minted key from anywhere. “Delete the svc-data service account” does not undo anything it already did and destroys the identity you need to investigate. “Pull the full history first” is the right work at the wrong time: the attacker keeps Owner for as long as the scoping takes.",
           xp: 30,
         },
       ],
@@ -459,49 +514,49 @@ const gcpRoom = {
       id: "gcp-la2",
       heading: "Investigating Data Exfiltration from a Public Cloud Storage Bucket",
       context:
-        "Continuing the same incident timeline: 18 minutes after the confirmed SetIamPolicy privilege escalation, Cloud Logging recorded a Data Access log entry for a Cloud Storage bucket. This bucket, nexacorp-customer-exports, was supposed to be reachable only by internal analytics service accounts, but its IAM policy had been altered to grant roles/storage.objectViewer to allUsers. Review the event below.",
+        "Continuing the same incident timeline: 18 minutes after the confirmed SetIamPolicy privilege escalation, a request hit the Cloud Storage bucket nexacorp-customer-exports. This bucket was supposed to be reachable only by internal analytics service accounts, but the Admin Activity audit log shows its IAM policy had been altered to grant roles/storage.objectViewer to allUsers. Cloud Audit Logs contain no record of the download itself: the entry below comes from the bucket's Cloud Storage usage logs, which NexaCorp had enabled on this bucket and which are delivered hourly as CSV files to a separate log bucket. Review the event below.",
       event: publicBucketExfilEvent,
       questions: [
         {
           question:
-            "The event shows gcp.audit.authentication_info.principal_email as 'allUsers' and storage.bucket.iam_binding.members includes 'allUsers'. What does the identity value 'allUsers' specifically mean in GCP IAM?",
+            "The usage-log entry carries no caller identity at all (only an IP (c_ip) and a user agent) and the bucket's IAM policy binds roles/storage.objectViewer to 'allUsers'. What does the member 'allUsers' specifically mean in GCP IAM?",
           options: [
-            "'allUsers' refers to every employee inside NexaCorp's Google Workspace domain only",
-            "'allUsers' is a special GCP member representing literally anyone on the internet, authenticated or not — meaning the bucket object was readable by any anonymous caller with the object's URL, with no GCP account or credentials required at all",
-            "'allUsers' is a placeholder value that GCP uses when the true caller identity could not be determined",
-            "'allUsers' only applies to Compute Engine VMs, never to Cloud Storage buckets",
+            "Every user in NexaCorp's own Google Workspace domain, and nobody outside the organisation",
+            "Anyone on the internet, signed in or not. Any anonymous caller with the URL could read it",
+            "Any signed-in Google account anywhere, so the caller had to hold some Google identity",
+            "Every user and service account that holds at least one IAM role in the nexacorp-prod project",
           ],
           answer: 1,
           explanation:
-            "'allUsers' is one of GCP's special IAM members representing every person on the internet — anonymous, unauthenticated, no Google account required. When a bucket's IAM policy binds a role like roles/storage.objectViewer to allUsers, any object in that bucket becomes readable by anyone who has (or can guess) the URL. This is the direct GCP equivalent of an AWS S3 bucket policy granting access to Principal: '*' or the AllUsers group.",
+            "'allUsers' is GCP's special IAM member for everyone on the internet: anonymous, unauthenticated, no Google account required. Binding roles/storage.objectViewer to allUsers makes every object in the bucket readable by anyone who has (or can guess) the URL, the GCP equivalent of an S3 policy granting Principal: '*', and it is why the usage log has no identity to show. “Every user in NexaCorp's Workspace domain” describes a domain: member, not allUsers. “Any signed-in Google account” is the near-miss: that is allAuthenticatedUsers, which still requires a Google identity. “Every member holding a role in the project” describes no special member at all; project role holders are listed individually in the policy.",
           xp: 25,
         },
         {
           question:
-            "This event's gcp.audit.log_type is 'DATA_ACCESS' rather than 'ADMIN_ACTIVITY', and the request came from caller_ip 91.108.56.19 (Russia) using a python-requests user agent. Why is the log_type field itself an important investigative clue here?",
+            "This download (c_ip 91.108.56.19, Russia, python-requests user agent) appears in the bucket's Cloud Storage usage logs, while Cloud Audit Logs have no DATA_ACCESS entry for it. Why does that matter to the investigation?",
           options: [
-            "DATA_ACCESS log entries are less trustworthy than ADMIN_ACTIVITY entries and should be ignored",
-            "Because this is a DATA_ACCESS event, it means Data Access logging happened to be explicitly enabled for this bucket — without that configuration, this exact download might have left NO audit trail at all, even though the bucket's public IAM binding (an ADMIN_ACTIVITY change) would still have been logged",
-            "The log_type field has no bearing on the investigation — only the source IP matters",
-            "DATA_ACCESS entries are only generated for BigQuery, never for Cloud Storage",
+            "Usage logs are easier to forge than audit logs, so a finding that rests on a usage log alone should be set aside",
+            "Audit logs never record public-object reads; only the usage logs, which are off by default, show this download",
+            "The missing DATA_ACCESS entry shows the download never completed, since a successful read is always audited",
+            "Data Access logging was off for this bucket; enabling it would have captured this read and the caller's identity",
           ],
           answer: 1,
           explanation:
-            "This event landing in Data Access logs (rather than being invisible) tells the analyst that Data Access logging was fortunately turned on for this bucket — a configuration that is NOT the default. If it had not been enabled, the analyst would only see that the bucket's IAM policy was changed (an Admin Activity event, always logged) but would have zero visibility into who actually read which objects afterward — a significant blind spot to flag for remediation regardless of this specific incident's outcome.",
+            "Google documents that Cloud Audit Logs do not track access to public objects. Reads granted through allUsers or allAuthenticatedUsers produce no audit entry at all, whatever the Data Access configuration. To see them you need Cloud Storage usage logs, which are off by default. Here NexaCorp happened to have them enabled, so the analyst can see the download. Otherwise the only trace would be the IAM policy change (an Admin Activity event, always logged), with zero visibility into who read which objects afterward. Turning Data Access logging on would not have helped, and the sc_status 200 with sc_bytes equal to the full file size shows the download completed. Usage logs are written by Google's storage service, not by the caller, so there is no basis for treating them as forgeable, setting them aside would discard the only record of the theft.",
           xp: 25,
         },
         {
           question:
-            "Given a 46 MB customer export file was successfully downloaded (status.code 0) by an anonymous internet caller from Russia, what is the correct immediate action?",
+            "Given a 46 MB customer export file was successfully downloaded (sc_status 200, sc_bytes equal to the full object size) by an anonymous internet caller from Russia, what is the correct immediate action?",
           options: [
-            "No action needed since storage.objects.get is a read-only, low-impact operation by definition",
-            "Immediately remove the allUsers binding from the bucket's IAM policy to stop further exposure, treat this as confirmed data exfiltration of customer data (triggering incident response and potential breach-notification obligations), and audit the bucket's full Data Access history to determine how many other callers accessed it while it was public",
-            "Simply rename the bucket so the old public URL no longer resolves, and consider the incident closed",
-            "Wait for Security Command Center to automatically revoke the public binding, since SCC has write access to fix findings by default",
+            "Remove the allUsers binding and close it as remediated, since the public exposure has now been stopped",
+            "Remove the allUsers binding, treat it as confirmed customer-data exfiltration, and review all usage-log history",
+            "Rename the bucket so its public URL stops resolving, then review who else downloaded the export file",
+            "Leave the binding in place until forensics finish, so any further reads can be watched in the usage logs",
           ],
           answer: 1,
           explanation:
-            "A read-only API call can still represent serious data exfiltration when the object contains customer PII, as here. The bucket's public IAM binding must be removed immediately to stop ongoing exposure (renaming the bucket does not un-expose already-downloaded data and is not a substitute for fixing the IAM policy). Because a confirmed download of a customer data file by an anonymous external party occurred, this triggers full incident response and likely breach-notification requirements — and the analyst must review the complete Data Access history for the bucket to determine whether other anonymous or unauthorized callers accessed it during the exposure window. Note also that Security Command Center only raises findings by default; it does not auto-remediate unless a response automation is explicitly configured.",
+            "A read can still be serious data exfiltration when the object holds customer PII, as here. The public binding must come off immediately to stop further exposure; because an anonymous external party completed a download of customer data, this is confirmed exfiltration that triggers incident response and likely breach-notification duties; and the bucket's full usage-log history (audit logs will not show anonymous reads) tells you who else read it while it was public. “Close it as remediated” stops new reads but ignores the data already taken and the other possible readers. “Rename the bucket” is not a fix: the IAM binding, not the name, is what made it public, and the URL change does nothing for the policy. “Leave the binding in place” is right-idea-wrong-time, watching the attacker is not worth exposing more customer data to anyone on the internet.",
           xp: 30,
         },
       ],
@@ -513,13 +568,13 @@ const gcpRoom = {
       id: "gcp-ac1",
       heading: "Verdict: Is This Service Account Activity Suspicious?",
       scenario:
-        "A SIEM correlation rule flagged an API call made by svc-cicd, a service account used by NexaCorp's automated deployment pipeline. The rule fired simply because the call originated from a service account with broad compute permissions. Review the event below: it occurred at 09:00 UTC, well after the earlier incident was contained, IAM bindings rolled back, and unauthorized service-account keys revoked. The source IP (10.128.0.14) is an internal GKE (Google Kubernetes Engine) node IP inside the same project, and the method is compute.instances.list, called via gcloud as part of a routine, scheduled deployment health check. Is this event suspicious?",
+        "A SIEM correlation rule flagged an API call made by svc-cicd, the service account NexaCorp's deployment pipeline runs as. The rule fires on any call from a service account with broad compute permissions. The earlier incident has since been contained (IAM bindings rolled back, unauthorized service-account keys revoked). Pipeline documentation: the deployment health check runs daily at 09:00 UTC from the prod GKE (Google Kubernetes Engine) node pool, whose nodes use the 10.128.0.0/20 range, using gcloud. Establish the WHO, WHERE and WHAT from the event below and decide: is it suspicious?",
       event: benignServiceAccountEvent,
       correct_verdict: "false_positive",
       explanation:
-        "This is a textbook false positive. compute.instances.list is a read-only method that simply enumerates VM instances — it cannot create, modify, or delete anything, and it is one of the most common calls made by deployment tooling, monitoring agents, and CI/CD pipelines to check the current state of infrastructure before or after a deploy. The source IP (10.128.0.14, an internal GKE node private address) and user agent (google-cloud-sdk gcloud/462.0.1) both indicate routine, internal, automated activity, entirely different from the external Tor exit node seen during the actual compromise. gcp.audit.log_type is ADMIN_ACTIVITY (list/describe calls do appear here) but the method itself carries no write capability. A correlation rule that fires purely on 'this service account has broad permissions' — rather than on the specific action taken and its source — will generate significant noise.",
+        "This is a textbook false positive. compute.instances.list is a read-only method that simply enumerates VM instances. It cannot create, modify, or delete anything, and it is one of the most common calls made by deployment tooling, monitoring agents, and CI/CD pipelines to check the current state of infrastructure before or after a deploy. The source IP (10.128.0.14, an internal GKE node private address) and user agent (google-cloud-sdk gcloud/462.0.1) both indicate routine, internal, automated activity, entirely different from the external Tor exit node seen during the actual compromise. gcp.audit.log_type is DATA_ACCESS: read-only configuration calls such as list and get are recorded as Data Access entries (the ADMIN_READ sub-type, enabled in this project), while Admin Activity records only changes. Another sign the method carries no write capability. A correlation rule that fires purely on 'this service account has broad permissions' (rather than on the specific action taken and its source) will generate significant noise.",
       fp_trap:
-        "It's tempting to escalate this because svc-cicd, like svc-data in the earlier incident, is a service account with elevated compute permissions, and 'broad permissions + recent incident in the project' can feel like enough reason to treat any of its activity as risky. But permission scope alone is not evidence of compromise — the specific method (read-only list, not a write/IAM operation), the source (a trusted internal IP, not external infrastructure), and the context (routine scheduled automation, not an unusual one-off action) all point to benign activity. Escalating every action from every broadly-permissioned service account, regardless of what the action actually does, leads to alert fatigue and pulls attention away from genuinely dangerous write/IAM operations.",
+        "It's tempting to escalate this because svc-cicd, like svc-data in the earlier incident, is a service account with elevated compute permissions, and 'broad permissions + recent incident in the project' can feel like enough reason to treat any of its activity as risky. But permission scope alone is not evidence of compromise: the specific method (read-only list, not a write/IAM operation), the source (a trusted internal IP, not external infrastructure), and the context (routine scheduled automation, not an unusual one-off action) all point to benign activity. Escalating every action from every broadly-permissioned service account, regardless of what the action actually does, leads to alert fatigue and pulls attention away from genuinely dangerous write/IAM operations.",
       xp: 30,
     },
 
@@ -539,27 +594,27 @@ const gcpRoom = {
         {
           id: "serviceaccount",
           left: "Service Account",
-          right: "A persistent, non-human identity used by applications and VMs; can authenticate via an attached resource or a long-lived downloadable JSON key — the closest GCP equivalent to an AWS IAM role",
+          right: "A persistent, non-human identity used by applications and VMs; can authenticate via an attached resource or a long-lived downloadable JSON key: the closest GCP equivalent to an AWS IAM role",
         },
         {
           id: "computeengine",
           left: "Compute Engine",
-          right: "GCP's virtual machine service; each VM can reach the metadata server at 169.254.169.254 to retrieve its service account's live access token — the equivalent of AWS EC2 and IMDS",
+          right: "GCP's virtual machine service; each VM can reach the metadata server at 169.254.169.254 to retrieve its service account's live access token: the equivalent of AWS EC2 and IMDS",
         },
         {
           id: "cloudstorage",
           left: "Cloud Storage",
-          right: "Object storage organized into buckets; a bucket bound to the allUsers member becomes readable by anyone on the internet — the equivalent of AWS S3",
+          right: "Object storage organized into buckets; a bucket bound to the allUsers member becomes readable by anyone on the internet: the equivalent of AWS S3",
         },
         {
           id: "cloudauditlogs",
           left: "Cloud Audit Logs",
-          right: "Records every API call made in a project across four log types (Admin Activity, Data Access, System Event, Policy Denied) — the equivalent of AWS CloudTrail",
+          right: "Records every API call made in a project across four log types (Admin Activity, Data Access, System Event, Policy Denied): the equivalent of AWS CloudTrail",
         },
         {
           id: "scc",
           left: "Security Command Center",
-          right: "Managed threat-detection and posture-management platform that analyzes audit logs and flow logs to raise pre-scored findings — the equivalent of AWS GuardDuty plus Security Hub",
+          right: "Managed threat-detection and posture-management platform that analyzes audit logs and flow logs to raise pre-scored findings: the equivalent of AWS GuardDuty plus Security Hub",
         },
       ],
       explanation:
@@ -573,23 +628,24 @@ const gcpRoom = {
       id: "gcp-r5",
       heading: "How to Read and Investigate GCP Audit Log Events in a SIEM",
       content:
-        `Once Cloud Audit Logs are forwarded into a SIEM, they typically appear as structured fields prefixed with something like gcp.audit.* — the same fields you have been reviewing throughout this room. A consistent, repeatable workflow turns a wall of JSON into a fast investigation.\n\n` +
-        `**Step 1 — Establish the WHO**\n\n` +
-        `Start with gcp.audit.authentication_info.principal_email. Is this a human Google account (a person — check whether their normal working pattern matches), a service account ending in .iam.gserviceaccount.com (check whether it's meant to run from a specific VM or pipeline only), or one of the special anonymous members allUsers / allAuthenticatedUsers (an immediate red flag if seen accessing anything other than intentionally public resources)? The identity tells you what kind of credential compromise, if any, you might be dealing with.\n\n` +
-        `**Step 2 — Establish the WHERE**\n\n` +
-        `Check gcp.audit.request_metadata.caller_ip. Is it an internal GCP range (typically the 10.x private ranges used by Compute Engine or GKE nodes within your VPC), a known corporate office IP, or an unfamiliar external address? Cross-reference against threat intelligence — Tor exit nodes, known malicious IP lists, and unusual countries for your organization are all red flags, exactly as with CloudTrail investigations. Also check gcp.audit.request_metadata.caller_supplied_user_agent: legitimate automation has consistent, expected user agents (google-cloud-sdk gcloud/x.x.x, google-api-python-client, Terraform); a mismatched or unusual user agent for a given identity's normal behavior is worth investigating.\n\n` +
-        `**Step 3 — Establish the WHAT and the OUTCOME**\n\n` +
-        `Read gcp.audit.method_name and gcp.audit.service_name together — this tells you the exact action and which API/service it targeted. Then always check gcp.audit.status.code: a value of 0 means the call succeeded; a non-zero value (commonly 7 for PERMISSION_DENIED, 5 for NOT_FOUND) means it was rejected. A flood of PERMISSION_DENIED (status.code 7) calls from one identity is a strong signal of an attacker probing for working permissions — the same pattern you'd flag as repeated AccessDenied in CloudTrail.\n\n` +
-        `**Step 4 — Pivot and Correlate**\n\n` +
-        `Once you have one suspicious event, pivot in your SIEM on the same gcp.audit.request_metadata.caller_ip and the same principal_email across a wider time window (hours to days). Attackers rarely perform just one action — look for the full sequence: initial access (how was the credential obtained — a leaked key, a stolen metadata-server token, a phished human account?), reconnaissance (list/get calls used to map out the project), privilege escalation (SetIamPolicy or CreateServiceAccountKey), and the actual objective (data access from a bucket, or resource creation for crypto-mining). Also check the gcp.project.id — attackers sometimes deliberately target a less-monitored project, or one they've newly gained access to via an over-broad organization-level binding.\n\n` +
-        `**Step 5 — Weigh Severity by Log Type and Action, Not Just Identity**\n\n` +
-        `As you saw in the CI/CD false-positive exercise, the same broadly-permissioned service account can generate both benign and critical events. Always weigh: is this an ADMIN_ACTIVITY or DATA_ACCESS log_type, and within that, is the method_name read-only (list, get) or state-changing (create, delete, SetIamPolicy)? Does it touch IAM, service-account keys, or bucket public bindings (high blast radius) versus routine describe/list calls (low blast radius)? A fast mental checklist — WHO, WHERE, WHAT, OUTCOME, PATTERN — is enough to triage the overwhelming majority of GCP audit-log-based alerts within the first few minutes, and it maps almost one-to-one onto the CloudTrail triage process if you already know AWS.`,
+        `Once Cloud Audit Logs are forwarded into a SIEM, they typically appear as structured fields prefixed with something like gcp.audit.*: the same fields you have been reviewing throughout this room. A consistent, repeatable workflow turns a wall of JSON into a fast investigation.\n\n` +
+        `**Step 1: Establish the WHO**\n\n` +
+        `Start with gcp.audit.authentication_info.principal_email. Is this a human Google account (a person. Check whether their normal working pattern matches), a service account ending in .iam.gserviceaccount.com (check whether it's meant to run from a specific VM or pipeline only), or another identity entirely? Note that the special members allUsers / allAuthenticatedUsers never appear here as a caller: reads of public objects are not audited at all. Spot them instead in IAM bindings (a SetIamPolicy granting a role to allUsers is an immediate red flag) and in Cloud Storage usage logs, where the anonymous caller shows up only as an IP. The identity tells you what kind of credential compromise, if any, you might be dealing with.\n\n` +
+        `**Step 2: Establish the WHERE**\n\n` +
+        `Check gcp.audit.request_metadata.caller_ip. Is it an internal GCP range (typically the 10.x private ranges used by Compute Engine or GKE nodes within your VPC), a known corporate office IP, or an unfamiliar external address? Cross-reference against threat intelligence, Tor exit nodes, known malicious IP lists, and unusual countries for your organization are all red flags, exactly as with CloudTrail investigations. Also check gcp.audit.request_metadata.caller_supplied_user_agent: legitimate automation has consistent, expected user agents (google-cloud-sdk gcloud/x.x.x, google-api-python-client, Terraform); a mismatched or unusual user agent for a given identity's normal behavior is worth investigating.\n\n` +
+        `**Step 3: Establish the WHAT and the OUTCOME**\n\n` +
+        `Read gcp.audit.method_name and gcp.audit.service_name together. This tells you the exact action and which API/service it targeted. Then always check gcp.audit.status.code: a value of 0 means the call succeeded; a non-zero value (commonly 7 for PERMISSION_DENIED, 5 for NOT_FOUND) means it was rejected. A flood of PERMISSION_DENIED (status.code 7) calls from one identity is a strong signal of an attacker probing for working permissions: the same pattern you'd flag as repeated AccessDenied in CloudTrail.\n\n` +
+        `**Step 4: Pivot and Correlate**\n\n` +
+        `Once you have one suspicious event, pivot in your SIEM on the same gcp.audit.request_metadata.caller_ip and the same principal_email across a wider time window (hours to days). Attackers rarely perform just one action. Look for the full sequence: initial access (how was the credential obtained, a leaked key, a stolen metadata-server token, a phished human account?), reconnaissance (list/get calls used to map out the project), privilege escalation (SetIamPolicy or CreateServiceAccountKey), and the actual objective (data access from a bucket, or resource creation for crypto-mining). Also check the gcp.project.id, attackers sometimes deliberately target a less-monitored project, or one they've newly gained access to via an over-broad organization-level binding.\n\n` +
+        `**Step 5: Weigh Severity by Log Type and Action, Not Just Identity**\n\n` +
+        `As you saw in the CI/CD false-positive exercise, the same broadly-permissioned service account can generate both benign and critical events. Always weigh: is this an ADMIN_ACTIVITY or DATA_ACCESS log_type, and within that, is the method_name read-only (list, get) or state-changing (create, delete, SetIamPolicy)? Does it touch IAM, service-account keys, or bucket public bindings (high blast radius) versus routine describe/list calls (low blast radius)? A fast mental checklist (WHO, WHERE, WHAT, OUTCOME, PATTERN) is enough to triage the overwhelming majority of GCP audit-log-based alerts within the first few minutes, and it maps almost one-to-one onto the CloudTrail triage process if you already know AWS.`,
       codeExample:
         "GCP AUDIT LOG TRIAGE CHECKLIST\n" +
         "=======================================================\n" +
         "1. WHO    gcp.audit.authentication_info.principal_email\n" +
         "          -> human account, service account, or the\n" +
-        "             red-flag values allUsers / allAuthenticatedUsers?\n" +
+        "             (allUsers / allAuthenticatedUsers show up in\n" +
+        "             bindings, never as the caller)\n" +
         "\n" +
         "2. WHERE  gcp.audit.request_metadata.caller_ip / UA\n" +
         "          -> internal GCP range, known office IP, or\n" +
@@ -616,6 +672,43 @@ const gcpRoom = {
         "             AND '2026-05-19T12:00:00Z'\n" +
         "ORDER BY ts ASC;\n" +
         "=======================================================",
+      checkpoint: {
+        question: "According to the reading's triage checklist, what does a gcp.audit.status.code value of 7 typically indicate?",
+        options: [
+          "PERMISSION_DENIED",
+          "The call succeeded",
+          "NOT_FOUND",
+          "The call is still pending",
+        ],
+        answer: 0,
+        explanation: "The reading states that status.code 0 means success, while a non-zero value like 7 commonly means PERMISSION_DENIED (5 commonly means NOT_FOUND): a flood of status.code 7 calls signals an attacker probing for working permissions.",
+      },
+    },
+
+    // ── Log Analysis: unauthorized SA key minted — precedes the flag ─────────
+    {
+      type: "log_analysis" as const,
+      id: "gcp-la-sakey",
+      heading: "Persistence: A New Service-Account Key Appears",
+      context:
+        "Six minutes before svc-data granted itself Owner, this IAM event fired from the same external IP. Service-account keys are long-lived credentials that work from anywhere. Read what was just created, and note WHO created it versus WHICH account the key belongs to.",
+      event: createSaKeyEvent,
+      questions: [
+        {
+          question:
+            "The method_name is google.iam.admin.v1.CreateServiceAccountKey, status.code is 0, and the response returns a USER_MANAGED key. Why is minting a user-managed key on a service account a persistence red flag here?",
+          options: [
+            "Likely routine rotation: pipelines mint fresh user-managed keys on a schedule, so one new key means little",
+            "It succeeded, and a USER_MANAGED JSON key is long-lived and works from anywhere: access outliving the session",
+            "User-managed keys only work from inside the project's VPC, so the external caller cannot use this new key",
+            "It grants nothing on its own; a key only becomes usable once a matching SetIamPolicy call activates it",
+          ],
+          answer: 1,
+          explanation:
+            "CreateServiceAccountKey with status.code 0 succeeded, and a USER_MANAGED key is a downloadable JSON credential with no automatic expiry that authenticates from anywhere. Google discourages user-managed keys precisely because they become long-lived, portable secrets: exactly what an attacker wants for persistence (T1098.001). Minting this key minutes before the Owner escalation is the attacker establishing a foothold that outlives the current session; response.key_id identifies the credential to hunt for and revoke. “Routine rotation” does not fit the evidence: a scheduled rotation would come from the expected automation at its usual time and place, not from an unfamiliar external IP at 02:41. “Only work from inside the project's VPC” is false. That portability is the whole risk. “Activated by SetIamPolicy” confuses two things: a key authenticates as its service account immediately, while SetIamPolicy changes what that account is allowed to do. Note also that the caller in principal_email is not the account named in resource_name. Read both fields before the next task.",
+          xp: 25,
+        },
+      ],
     },
 
     // ── Flag: extract value from raw Cloud Audit Log block ──────────────────
@@ -623,9 +716,9 @@ const gcpRoom = {
       type: "flag" as const,
       id: "gcp-f1",
       prompt:
-        "Review the event above where an unauthorized JSON key was created for the svc-data service account minutes before the privilege escalation. What is the exact key_id value shown in gcp.audit.response.key_id for the newly created service account key? Enter it exactly as shown.",
-      answer: "8f3a1c9d2e4b7f60",
-      hint: "Look inside the raw block of the CreateServiceAccountKey event for the response.key_id field — this identifies the specific unauthorized credential the attacker minted.",
+        "The key in the event above belongs to svc-data, but svc-data is not necessarily the identity that asked for it. Which service account actually made the CreateServiceAccountKey call: the credential the attacker already held before the escalation began? Enter its name exactly as it appears before the @ sign.",
+      answer: "web-frontend",
+      hint: "The account a key is created FOR and the account that made the request are recorded in two different fields.",
       xp: 25,
     },
 
@@ -637,13 +730,13 @@ const gcpRoom = {
       content:
         `The event referenced in the flag question above is the missing link that ties the whole incident timeline together: how did the attacker first get a foothold that let them later call SetIamPolicy from an external Tor IP?\n\n` +
         `**Reconstructing the Attack Chain**\n\n` +
-        `Look closely at the CreateServiceAccountKey event: it was called by web-frontend@nexacorp-prod.iam.gserviceaccount.com — NOT by svc-data itself — but its target resource_name is a key belonging to svc-data. This is the signature of a classic **lateral privilege chain**: the attacker first compromised a public-facing web application (likely via an SSRF vulnerability reaching the Compute Engine metadata server, exactly as described in the earlier reading on metadata-server credential theft, stealing the web-frontend service account's live token). That web-frontend service account, in turn, had been over-permissioned with iam.serviceAccountKeys.create rights on OTHER service accounts in the project — a common but dangerous misconfiguration. Using that stolen token, the attacker minted a brand-new, long-lived JSON key (key_id 8f3a1c9d2e4b7f60) for the far more powerful svc-data service account. From that point forward, the attacker no longer needed the original stolen web-frontend token at all — they now held a standalone, indefinitely-valid credential for svc-data, which is exactly what was used minutes later, from an external Tor IP, to call SetIamPolicy and self-grant roles/owner.\n\n` +
+        `Look closely at the CreateServiceAccountKey event: it was called by web-frontend@nexacorp-prod.iam.gserviceaccount.com, NOT by svc-data itself, but its target resource_name is a key belonging to svc-data. This is the signature of a classic **lateral privilege chain**: the attacker first compromised a public-facing web application (likely via an SSRF vulnerability reaching the Compute Engine metadata server, exactly as described in the earlier reading on metadata-server credential theft, stealing the web-frontend service account's live token). That web-frontend service account, in turn, had been over-permissioned with iam.serviceAccountKeys.create rights on OTHER service accounts in the project: a common but dangerous misconfiguration. Using that stolen token, the attacker minted a brand-new, long-lived JSON key (key_id 8f3a1c9d2e4b7f60) for the far more powerful svc-data service account. From that point forward, the attacker no longer needed the original stolen web-frontend token at all. They now held a standalone, indefinitely-valid credential for svc-data, which is exactly what was used minutes later, from an external Tor IP, to call SetIamPolicy and self-grant roles/owner.\n\n` +
         `**Why This Pattern Is So Dangerous**\n\n` +
-        `This chain — compromise a low-value, internet-facing identity via SSRF, then use a narrow-but-overlooked permission (iam.serviceAccountKeys.create) to mint a fresh credential for a higher-value identity — lets an attacker "cash out" a temporary metadata-server foothold into a permanent, portable credential that works from anywhere, indefinitely. This is precisely why iam.serviceAccountKeys.create should be treated as a highly sensitive permission and restricted to only the humans and automation that genuinely need to mint keys — and why any CreateServiceAccountKey event targeting a DIFFERENT service account than the one making the call deserves immediate scrutiny.\n\n` +
+        `This chain: compromise a low-value, internet-facing identity via SSRF, then use a narrow-but-overlooked permission (iam.serviceAccountKeys.create) to mint a fresh credential for a higher-value identity. Lets an attacker "cash out" a temporary metadata-server foothold into a permanent, portable credential that works from anywhere, indefinitely. This is precisely why iam.serviceAccountKeys.create should be treated as a highly sensitive permission and restricted to only the humans and automation that genuinely need to mint keys, and why any CreateServiceAccountKey event targeting a DIFFERENT service account than the one making the call deserves immediate scrutiny.\n\n` +
         `**Defensive Best Practices Every SOC Should Verify**\n\n` +
         `- Disable service-account key creation at the organization level wherever possible (an Organization Policy constraint, iam.disableServiceAccountKeyCreation), forcing workloads to use attached, short-lived credentials instead\n` +
-        `- Alert immediately and unconditionally on CreateServiceAccountKey, SetIamPolicy grants of roles/owner or roles/editor, and any Data Access to a bucket bound to allUsers or allAuthenticatedUsers\n` +
-        `- Enable Data Access audit logging on Cloud Storage and other sensitive services, not just the always-on Admin Activity logs\n` +
+        `- Alert immediately and unconditionally on CreateServiceAccountKey, SetIamPolicy grants of roles/owner or roles/editor, and any SetIamPolicy that binds allUsers or allAuthenticatedUsers to a bucket\n` +
+        `- Enable Data Access audit logging on Cloud Storage and other sensitive services, not just the always-on Admin Activity logs, and enable Cloud Storage usage logs on sensitive buckets, since audit logs never record anonymous reads of public objects\n` +
         `- Enable Security Command Center Premium, including its Public bucket ACL and Anomalous IAM Grant findings\n` +
         `- Regularly review which service accounts hold basic roles (Owner/Editor) and replace them with narrowly-scoped predefined or custom roles`,
       codeExample:
@@ -674,6 +767,71 @@ const gcpRoom = {
         "DIFFERENT service account than the caller = automatic\n" +
         "HIGH/CRITICAL severity, investigate immediately.\n" +
         "=======================================================",
+    },
+
+    // ── Reading 7: Containment actions once compromise is confirmed ─────────
+    {
+      type: "reading" as const,
+      id: "gcp-r7",
+      heading: "Containing a Compromised GCP Identity",
+      content:
+        `Every reading so far in this room has built one skill: reading Cloud Audit Logs closely enough to say, with confidence, "this service account is compromised" or "this user's credentials were stolen." That skill is necessary, but it is not the job. The moment you have confirmed compromise (like the svc-data key theft and self-granted roles/owner from the previous reading) the investigation pauses and containment begins. This reading covers the concrete, hands-on actions a SOC analyst directs (or performs, depending on your organization's IR runbook) the moment a GCP identity is confirmed compromised, using the same real gcloud commands your cloud team would actually run.\n\n` +
+        `**Step 1: Disable the Compromised Key, Never Delete It First**\n\n` +
+        `If the compromise traces back to a service account key (as it does in the svc-data case), the very first action is to disable that specific key: gcloud iam service-accounts keys disable KEY_ID --iam-account=SA_EMAIL. Disabling immediately blocks the key from authenticating anything, which is the goal, but it deliberately stops short of deleting it. This mirrors the exact same discipline you'd apply to a leaked AWS IAM access key: delete is irreversible, and once a key is deleted, GCP no longer retains a record you can directly correlate against, making it far harder to later prove in your incident report exactly which key was used for which malicious API call. A disabled key still exists, still shows up in gcloud iam service-accounts keys list, and can be examined, timestamped, and referenced throughout the rest of the investigation, only after root cause is fully understood and evidence is preserved should the key be deleted for good, usually as part of formal eradication rather than the first containment step.\n\n` +
+        `**Step 2: Freeze the Identity's Permissions by Removing IAM Bindings**\n\n` +
+        `Disabling a key stops that one specific credential, but if the attacker escalated privileges (as in the SetIamPolicy self-grant of roles/owner), the compromised service account itself may still hold dangerous permissions that could be exercised through some other credential you haven't found yet: an attached VM, a second key, an OAuth token. To freeze the identity's actual permissions at the project level, remove its IAM policy binding directly: gcloud projects remove-iam-policy-binding PROJECT_ID --member="serviceAccount:SA_EMAIL" --role="ROLE". Run this for every role the compromised principal holds, starting with the highest-privilege one (roles/owner first). This step is what actually neutralizes the identity's power in GCP, independent of which specific credential the attacker is holding, and it can be done in parallel with, not only after, disabling the key.\n\n` +
+        `**Step 3: Isolate, Don't Delete, a Compromised Compute Engine Instance**\n\n` +
+        `If the compromise chain touched a Compute Engine VM (for example, the SSRF-exploited web-frontend host from the earlier reading) the instinct to shut it down or delete it immediately is understandable, but wrong. Deleting the instance destroys its disk, its memory state, and any chance of understanding how the attacker got in or what else they touched. Instead, isolate it at the network layer: tag the instance (gcloud compute instances add-tags INSTANCE_NAME --tags=quarantined --zone=ZONE), then apply a deny-all VPC firewall rule scoped to that tag (gcloud compute firewall-rules create quarantine-deny-egress --network=VPC_NAME --direction=EGRESS --action=DENY --rules=all --destination-ranges=0.0.0.0/0 --target-tags=quarantined --priority=0, and the same for --direction=INGRESS). Because firewall rules in GCP are evaluated by priority, a priority=0 deny-all rule overrides any looser rule the instance was previously covered by, cutting off both inbound and outbound traffic while leaving the VM itself (and everything on its disk and in its running memory) completely intact for forensics.\n\n` +
+        `**Step 4: Snapshot the Disk Before Anything Destructive Happens**\n\n` +
+        `Isolating an instance stops the bleeding, but it does not preserve evidence on its own: a running VM's disk can still change, and any later remediation step (rebuilding the instance, patching it, restoring from an older image) risks overwriting exactly the data you'd need to reconstruct the attack. Before any such step, take a point-in-time snapshot of the instance's persistent disk: gcloud compute disks snapshot DISK_NAME --snapshot-names=SNAPSHOT_NAME --zone=ZONE. This snapshot becomes the forensic record. It can be mounted read-only on a separate, clean investigation VM for deep analysis without ever touching the (now isolated) original.\n\n` +
+        `**The Pattern This Room Has Been Building Toward**\n\n` +
+        `Notice the order across all four steps: disable/isolate first, preserve evidence, and only THEN move to full eradication (permanent key deletion, instance rebuild, credential rotation for every identity the attacker touched). This is the same isolate-first, understand-fully, then-eradicate sequence taught generally in this platform's Incident Response Methodology room, applied here with GCP-specific tooling, and it is the same disable-don't-delete discipline you'd apply to a leaked AWS access key, just spoken in gcloud instead of the AWS CLI. Reading the audit trail tells you what happened; containment is what you actually do about it, and doing it in the wrong order can cost you the evidence you need to close the incident properly.`,
+      codeExample:
+        "GCP CONTAINMENT COMMANDS -- IN ORDER\n" +
+        "=======================================================\n" +
+        "1. Disable the compromised key (NOT delete)\n" +
+        "   gcloud iam service-accounts keys disable KEY_ID \\\n" +
+        "     --iam-account=SA_EMAIL\n" +
+        "\n" +
+        "2. Freeze permissions -- remove IAM policy binding(s)\n" +
+        "   gcloud projects remove-iam-policy-binding PROJECT_ID \\\n" +
+        "     --member=\"serviceAccount:SA_EMAIL\" \\\n" +
+        "     --role=\"roles/owner\"\n" +
+        "\n" +
+        "3. Isolate a compromised VM -- tag + deny-all firewall\n" +
+        "   gcloud compute instances add-tags INSTANCE_NAME \\\n" +
+        "     --tags=quarantined --zone=ZONE\n" +
+        "\n" +
+        "   gcloud compute firewall-rules create quarantine-deny-egress \\\n" +
+        "     --network=VPC_NAME --direction=EGRESS --action=DENY \\\n" +
+        "     --rules=all --destination-ranges=0.0.0.0/0 \\\n" +
+        "     --target-tags=quarantined --priority=0\n" +
+        "\n" +
+        "4. Preserve evidence -- snapshot the disk BEFORE any\n" +
+        "   destructive remediation step\n" +
+        "   gcloud compute disks snapshot DISK_NAME \\\n" +
+        "     --snapshot-names=SNAPSHOT_NAME --zone=ZONE\n" +
+        "=======================================================\n\n" +
+        "WHY DISABLE, NOT DELETE\n" +
+        "=======================================================\n" +
+        "Disabled key  -> still listable, still referenceable in\n" +
+        "                 the incident report, evidence intact\n" +
+        "Deleted key   -> irreversible, breaks the ability to\n" +
+        "                 prove which key made which API call\n" +
+        "=======================================================",
+      checkpoint: {
+        question:
+          "You've confirmed a GCP service account key was stolen and used to call SetIamPolicy. What is the correct FIRST containment action, and why?",
+        options: [
+          "Delete the service account entirely, so the attacker loses access immediately and permanently",
+          "Disable the specific compromised key with gcloud iam service-accounts keys disable, preserving it for evidence rather than deleting it outright",
+          "Wait until the full attack timeline is reconstructed before taking any action, to avoid tipping off the attacker",
+          "Rotate every service account key in the project at once, without first identifying which one was actually compromised",
+        ],
+        answer: 1,
+        explanation:
+          "Disabling the specific compromised key stops it from authenticating immediately while preserving it for the investigation. You can still list it, timestamp it, and tie it to specific malicious API calls in your incident report. Deleting the key or the whole service account is irreversible and destroys that evidence. Waiting for a full timeline leaves an active, working credential in the attacker's hands during containment, which defeats the purpose of containment. Rotating every key in the project at once is disruptive, breaks unrelated legitimate workloads, and isn't targeted at the actual compromised credential.",
+      },
     },
   ],
 };

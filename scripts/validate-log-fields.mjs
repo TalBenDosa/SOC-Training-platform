@@ -130,7 +130,16 @@ function resolveVendor(declared) {
   return best ? best.key : null;
 }
 
+/**
+ * Fields known NOT to exist, rejected for every vendor even where a broad vendor prefix
+ * (`crowdstrike.`, `process.`, `file.`) would otherwise admit them. An entry ending in "."
+ * is a prefix. Each carries the reason and the real field to use instead.
+ */
+const denied = (registry.deniedFields ?? []).map(d => d.field);
+const isDenied = (field) => denied.some(d => (d.endsWith(".") ? field.startsWith(d) : field === d));
+
 function fieldAllowed(vendorKey, field) {
+  if (isDenied(field)) return false;
   if (commonExact.has(field)) return true;
   if (commonPrefixes.some(p => field.startsWith(p))) return true;
   const v = registry.vendors[vendorKey];

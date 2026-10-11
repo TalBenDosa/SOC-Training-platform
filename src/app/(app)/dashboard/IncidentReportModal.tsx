@@ -1,11 +1,21 @@
 "use client";
-import { useState, useEffect } from "react";
+import { ApiError, messageFromResponse, userMessageFor } from "@/lib/http/apiError";
+import { lsGet, lsSet, lsRemove } from "@/lib/storage/safeStorage";
+import { useState, useEffect, useRef } from "react";
 import { X, FileText, Shield, AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Term } from "@/components/ui/Term";
 import type { IncidentReportResponse } from "@/app/api/dashboard/incident-report/route";
 
 type Phase = "form" | "grading" | "result";
+
+/** Format a millisecond duration as "Xm Ys" for the response-time coaching line. */
+function fmtDuration(ms: number): string {
+  const total = Math.max(0, Math.round(ms / 1000));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}m ${s}s`;
+}
 
 function ScoreRing({ score }: { score: number }) {
   const radius = 36;
@@ -14,7 +24,7 @@ function ScoreRing({ score }: { score: number }) {
   const color  = score >= 80 ? "#22c55e" : score >= 60 ? "#3b82f6" : score >= 40 ? "#f59e0b" : "#ef4444";
 
   return (
-    <svg width="96" height="96" viewBox="0 0 96 96">
+    <svg width="96" height="96" viewBox="0 0 96 96" role="img" aria-label={`Score ${score} out of 100`}>
       <circle cx="48" cy="48" r={radius} fill="none" stroke="#1e293b" strokeWidth="8" />
       <circle
         cx="48" cy="48" r={radius}
@@ -30,7 +40,7 @@ function ScoreRing({ score }: { score: number }) {
       <text x="48" y="44" textAnchor="middle" fill={color} fontSize="20" fontWeight="bold" fontFamily="monospace">
         {score}
       </text>
-      <text x="48" y="60" textAnchor="middle" fill="#64748b" fontSize="10" fontFamily="sans-serif">
+      <text x="48" y="60" textAnchor="middle" fill="#8190a5" fontSize="10" fontFamily="sans-serif">
         / 100
       </text>
     </svg>
@@ -42,19 +52,43 @@ interface Props {
   companyId: string;
   /** Real indicator values from the actual attack — grader ground truth */
   realIndicators: string[];
+  /**
+   * Serialized ground-truth attack events (raw included). The grader treats any
+   * IP/email/hash the student cites that appears in this text as REAL — so a
+   * value visible in a log's raw block (an MD5, a private host IP, a vendor-keyed
+   * field) is never mis-flagged as "fabricated" just because it wasn't in the
+   * discrete realIndicators list. Mirrors the scenario grader's eventsBlob.
+   */
+  evidenceText?: string;
   attackTitle: string | null;
   /** MITRE technique IDs the real attack used — sent to grader as ground truth */
   attackMitreTechniques?: string[];
+  /**
+   * Benign "decoy" events the student saw this session, each with the written
+   * explanation of why it is a false positive. Revealed only in the passed
+   * state as a teaching debrief (never before/on failure — see render).
+   */
+  decoys?: { label: string; source: string; fp_explanation: string }[];
+  /** Response time (ms) for this incident — from the attack's first phase to the
+   *  catch / this report. Surfaced as a coaching point below; it NEVER affects
+   *  pass/fail or the score. null when unmeasured. */
+  responseMs?: number | null;
+  /** Response-time target in seconds — the coaching benchmark (default 15 min). */
+  responseTargetSeconds?: number;
   onClose: () => void;
-  onPassed: () => void;
+  onPassed: (score: number) => void;
 }
 
 export function IncidentReportModal({
   companyName,
   companyId,
   realIndicators,
+  evidenceText,
   attackTitle,
   attackMitreTechniques,
+  decoys = [],
+  responseMs = null,
+  responseTargetSeconds = 900,
   onClose,
   onPassed,
 }: Props) {
@@ -67,13 +101,19 @@ export function IncidentReportModal({
   const loadDraft = (): { guided: boolean; gWhat: string; gIocs: string; gAction: string; gImpact: string; summary: string } | null => {
     if (typeof window === "undefined") return null;
     try {
-      const raw = localStorage.getItem(draftKey);
-      return raw ? JSON.parse(raw) : null;
+      const raw = lsGet(draftKey);
+      const d: unknown = raw ? JSON.parse(raw) : null;
+      // E-22: a hand-edited / older draft must not put non-strings into the form.
+      if (!d || typeof d !== "object") return null;
+      const o = d as Record<string, unknown>;
+      const s = (k: string) => (typeof o[k] === "string" ? (o[k] as string) : "");
+      return { guided: o.guided !== false, gWhat: s("gWhat"), gIocs: s("gIocs"), gAction: s("gAction"), gImpact: s("gImpact"), summary: s("summary") };
     } catch { return null; }
   };
   const draft = loadDraft();
 
   const [phase,   setPhase]   = useState<Phase>("form");
+  const [error,   setError]   = useState<string | null>(null);
   const [summary, setSummary] = useState(draft?.summary ?? "");
   const [result,  setResult]  = useState<IncidentReportResponse | null>(null);
   const [passed,  setPassed]  = useState(false);
@@ -82,7 +122,7 @@ export function IncidentReportModal({
   // into the summary on submit — beginners get structure, the API is unchanged.
   const [guided, setGuided] = useState(() => {
     if (draft) return draft.guided;
-    if (typeof window !== "undefined" && localStorage.getItem("soc_report_mode_v1") === "free") return false;
+    if (typeof window !== "undefined" && lsGet("soc_report_mode_v1") === "free") return false;
     return true;
   });
   const [gWhat,   setGWhat]   = useState(draft?.gWhat ?? "");
@@ -92,13 +132,13 @@ export function IncidentReportModal({
 
   const setMode = (g: boolean) => {
     setGuided(g);
-    if (typeof window !== "undefined") localStorage.setItem("soc_report_mode_v1", g ? "guided" : "free");
+    if (typeof window !== "undefined") lsSet("soc_report_mode_v1", g ? "guided" : "free");
   };
 
   // Persist the draft on every change so closing the modal never loses text.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    localStorage.setItem(draftKey, JSON.stringify({ guided, gWhat, gIocs, gAction, gImpact, summary }));
+    lsSet(draftKey, JSON.stringify({ guided, gWhat, gIocs, gAction, gImpact, summary }));
   }, [draftKey, guided, gWhat, gIocs, gAction, gImpact, summary]);
 
   useEffect(() => {
@@ -106,6 +146,19 @@ export function IncidentReportModal({
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
+
+  // a11y: this is a deliberately NON-modal drawer (the feed beside it must stay
+  // clickable while the analyst writes), so focus is not trapped — but focus
+  // moves into it on open (the first field autoFocuses) and returns to whatever
+  // opened it (normally "Report Incident") when it closes.
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    return () => { if (previous && document.contains(previous)) previous.focus(); };
+  }, []);
+
+  // Move focus to the verdict when grading finishes so it is announced.
+  const resultRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (phase === "result") resultRef.current?.focus(); }, [phase]);
 
   const buildGuidedSummary = () => [
     gWhat.trim()   && `What happened: ${gWhat.trim()}`,
@@ -115,12 +168,18 @@ export function IncidentReportModal({
   ].filter(Boolean).join("\n");
 
   const effectiveSummary = guided ? buildGuidedSummary() : summary;
+  // All four guided fields are required — they mirror the four rubric components
+  // (identification, evidence, action, impact), and the grader docks points for a
+  // missing action or impact, so the form must not let them be skipped. This keeps
+  // the form and the score saying the same thing (L-10).
   const canSubmit = guided
-    ? gWhat.trim().length >= 10 && gIocs.trim().length + gAction.trim().length >= 10 && effectiveSummary.length >= 30
+    ? gWhat.trim().length >= 10 && gIocs.trim().length >= 3 &&
+      gAction.trim().length >= 5 && gImpact.trim().length >= 5
     : summary.trim().length >= 30;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
+    setError(null);
     setPhase("grading");
     const submittedSummary = effectiveSummary;
 
@@ -134,30 +193,24 @@ export function IncidentReportModal({
           attackTitle: attackTitle ?? undefined,
           attackMitreTechniques: attackMitreTechniques ?? [],
           realIndicators,
+          evidenceText,
         }),
       });
 
+      if (!res.ok) throw new ApiError(await messageFromResponse(res), res.status);
       const data: IncidentReportResponse = await res.json();
       setResult(data);
       setPassed(data.passed);
-      if (data.passed) { onPassed(); localStorage.removeItem(draftKey); }
+      if (data.passed) { onPassed(data.score); lsRemove(draftKey); }
       setPhase("result");
-    } catch {
-      // Fallback: simple pass if they wrote something substantial
-      const fallback: IncidentReportResponse = {
-        score: submittedSummary.length > 80 ? 65 : 30,
-        passed: submittedSummary.length > 80,
-        feedback: submittedSummary.length > 80
-          ? "Report submitted. Good effort — keep practicing to improve specificity."
-          : "Report too short. Add more detail about the attack and recommended action.",
-        strengths: submittedSummary.length > 80 ? ["Submitted a report with some content."] : [],
-        gaps: ["Add specific IOC values, attack name, and recommended response."],
-      };
-      setResult(fallback);
-      setPassed(fallback.passed);
-      if (fallback.passed) localStorage.removeItem(draftKey);
-      if (fallback.passed) onPassed();
-      setPhase("result");
+    } catch (e) {
+      // NEVER fail-open. A network/grader failure must not award a pass — that
+      // would let a junk report of sufficient length "secure the company". The
+      // server always returns a deterministic heuristic grade even when the LLM
+      // is down, so reaching here means the request itself failed. Send the
+      // analyst back to the form with a retry prompt; their draft is preserved.
+      setError(`Couldn't grade the report — ${userMessageFor(e)} Your report is saved below.`);   // E-09
+      setPhase("form");
     }
   };
 
@@ -169,7 +222,8 @@ export function IncidentReportModal({
        clickable: rows can still be expanded to re-read raw fields mid-write,
        which is how a real analyst works (SIEM on one side, case ticket on the
        other). Full width on narrow screens where side-by-side isn't possible. */
-    <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-full lg:w-[480px]">
+    <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-full lg:w-[480px]"
+      role="dialog" aria-modal="false" aria-labelledby="incident-report-title">
       <div className="relative flex h-full w-full flex-col border-l border-border bg-bg-elevated shadow-2xl shadow-black/60">
         <div className="h-1 w-full shrink-0 bg-gradient-to-r from-cyber-500 via-neon-purple to-neon-green" />
 
@@ -180,25 +234,33 @@ export function IncidentReportModal({
             <div className="flex items-center gap-3">
               <FileText className="h-5 w-5 text-cyber-300 shrink-0" />
               <div>
-                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500">Tier-1 Analyst Report</p>
-                <h2 className="text-sm font-bold text-white">Incident Report — {companyName}</h2>
+                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">Tier-1 Analyst Report</p>
+                <h2 id="incident-report-title" className="text-sm font-bold text-white">Incident Report — {companyName}</h2>
               </div>
             </div>
-            <button onClick={onClose} className="rounded p-1 text-slate-400 hover:text-white transition">
-              <X className="h-4 w-4" />
+            <button type="button" onClick={onClose} aria-label="Close incident report" className="rounded p-1 text-slate-400 hover:text-white transition">
+              <X aria-hidden="true" className="h-4 w-4" />
             </button>
           </div>
 
           {/* ── FORM phase ── */}
           {phase === "form" && (
             <>
+              {error && (
+                <div className="rounded border border-severity-high/40 bg-severity-high/10 px-3 py-2.5 text-sm text-severity-high" role="alert">
+                  {error}
+                </div>
+              )}
               {/* Instructions */}
               <div className="rounded border border-neon-amber/20 bg-neon-amber/5 px-3 py-2.5">
                 <p className="text-[10px] text-neon-amber font-semibold uppercase tracking-wider mb-1">What to include</p>
                 <p className="text-[10px] text-slate-400 leading-relaxed">
                   Describe: <span className="text-slate-300">what attack occurred</span> · <span className="text-slate-300">which <Term k="ioc">IOCs</Term> from the logs prove it (real IPs, users, hosts — quote them exactly)</span> · <span className="text-slate-300">what action to take</span> · <span className="text-slate-300">business impact</span>
                 </p>
-                <p className="mt-2 text-[10px] text-slate-500">
+                {/* Only true on lg+ where the drawer is 480px and the feed sits
+                    beside it. On mobile the drawer is full-width and covers the
+                    feed, so this promise would be false — hide it there. */}
+                <p className="mt-2 hidden text-[10px] text-slate-400 lg:block">
                   The feed stays live beside you — click any row to re-read its raw fields while you write.
                 </p>
               </div>
@@ -206,23 +268,27 @@ export function IncidentReportModal({
               {/* Mode toggle */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">Incident Summary</p>
+                  <p id="ir-summary-label" className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">Incident Summary</p>
                   {(gWhat || gIocs || gAction || gImpact || summary) && (
-                    <span className="text-[9px] text-slate-600">· draft saved, safe to close and come back</span>
+                    <span className="text-[9px] text-slate-400">· draft saved, safe to close and come back</span>
                   )}
                 </div>
-                <div className="flex rounded border border-border/60 overflow-hidden">
+                <div className="flex rounded border border-border/60 overflow-hidden" role="group" aria-label="Report mode">
                   <button
+                    type="button"
+                    aria-pressed={guided}
                     onClick={() => setMode(true)}
                     className={cn("px-2.5 py-1 text-[10px] font-semibold transition",
-                      guided ? "bg-cyber-500/20 text-cyber-300" : "text-slate-500 hover:text-slate-300")}
+                      guided ? "bg-cyber-500/20 text-cyber-300" : "text-slate-400 hover:text-slate-300")}
                   >
                     Guided
                   </button>
                   <button
+                    type="button"
+                    aria-pressed={!guided}
                     onClick={() => setMode(false)}
                     className={cn("px-2.5 py-1 text-[10px] font-semibold transition",
-                      !guided ? "bg-cyber-500/20 text-cyber-300" : "text-slate-500 hover:text-slate-300")}
+                      !guided ? "bg-cyber-500/20 text-cyber-300" : "text-slate-400 hover:text-slate-300")}
                   >
                     Free text
                   </button>
@@ -237,21 +303,23 @@ export function IncidentReportModal({
                       ph: "Name the specific attack — e.g. \"A password spray attack against multiple accounts, followed by an account takeover of r.patel.\"" },
                     { label: "Evidence — which IOCs prove it?", req: true, value: gIocs, set: setGIocs, rows: 2,
                       ph: "Quote the values you collected — e.g. \"Source IP 91.108.4.154 (40+ failed logins), compromised user r.patel@nexacorp.com.\"" },
-                    { label: "Recommended action", req: false, value: gAction, set: setGAction, rows: 2,
+                    { label: "Recommended action", req: true, value: gAction, set: setGAction, rows: 2,
                       ph: "e.g. \"Block the IP at the firewall, reset r.patel's password, review all logins from that IP.\"" },
-                    { label: "Business impact", req: false, value: gImpact, set: setGImpact, rows: 2,
+                    { label: "Business impact", req: true, value: gImpact, set: setGImpact, rows: 2,
                       ph: "e.g. \"The attacker had access to customer financial data — potential data-breach and regulatory exposure.\"" },
                   ].map((f, i) => (
                     <div key={f.label}>
-                      <p className="mb-1 text-[10px] font-semibold text-slate-400">
-                        {f.label} {f.req && <span className="text-neon-amber">*</span>}
+                      <p id={`ir-guided-label-${i}`} className="mb-1 text-[10px] font-semibold text-slate-400">
+                        {f.label} {f.req && <span className="text-neon-amber" aria-hidden="true">*</span>}{f.req && <span className="sr-only">(required)</span>}
                       </p>
                       <textarea
+                        aria-labelledby={`ir-guided-label-${i}`}
+                        aria-required={f.req}
                         rows={f.rows}
                         value={f.value}
                         onChange={e => f.set(e.target.value)}
                         autoFocus={i === 0}
-                        className="w-full resize-none rounded border border-border/60 bg-[#060b12] px-3 py-2 text-xs text-slate-200 placeholder-slate-600 focus:border-cyber-500/40 focus:outline-none leading-relaxed"
+                        className="w-full resize-none rounded border border-border/60 bg-[#060b12] px-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:border-cyber-500/40 focus:outline-none leading-relaxed"
                         placeholder={f.ph}
                       />
                     </div>
@@ -261,23 +329,26 @@ export function IncidentReportModal({
                 /* Free-text mode — the classic single textarea */
                 <div>
                   <div className="flex items-center justify-end mb-1.5">
-                    <span className={cn("text-[9px] font-mono", summary.length < 30 ? "text-slate-600" : "text-neon-green")}>
+                    <span id="ir-summary-count" className={cn("text-[9px] font-mono", summary.length < 30 ? "text-slate-400" : "text-neon-green")}>
                       {summary.length} chars {summary.length < 30 ? `(min 30)` : ""}
                     </span>
                   </div>
                   <textarea
+                    aria-labelledby="ir-summary-label"
+                    aria-describedby="ir-summary-count"
+                    aria-required
                     rows={6}
                     value={summary}
                     onChange={e => setSummary(e.target.value)}
                     autoFocus
-                    className="w-full resize-none rounded border border-border/60 bg-[#060b12] px-3 py-2.5 text-xs text-slate-200 placeholder-slate-600 focus:border-cyber-500/40 focus:outline-none leading-relaxed"
+                    className="w-full resize-none rounded border border-border/60 bg-[#060b12] px-3 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:border-cyber-500/40 focus:outline-none leading-relaxed"
                     placeholder="Example: I detected a password spray attack targeting multiple accounts from IP 91.108.4.154. The attacker tried over 40 failed logins before succeeding with r.patel's credentials. I collected the source IP and compromised username as IOCs. Recommended action: block the IP at the firewall, reset r.patel's password, and review all successful logins from that IP."
                   />
                 </div>
               )}
 
               <div className="flex items-center justify-between pt-1">
-                <button onClick={onClose} className="text-xs text-slate-500 hover:text-slate-300 transition">
+                <button type="button" onClick={onClose} className="text-xs text-slate-400 hover:text-slate-300 transition">
                   Cancel
                 </button>
                 <button
@@ -287,7 +358,7 @@ export function IncidentReportModal({
                     "flex items-center gap-2 rounded border px-4 py-2 text-xs font-bold transition",
                     canSubmit
                       ? "border-cyber-500/40 bg-cyber-500/10 text-cyber-300 hover:bg-cyber-500/20"
-                      : "border-border/40 text-slate-600 cursor-not-allowed opacity-50"
+                      : "border-border/40 text-slate-400 cursor-not-allowed opacity-50"
                   )}
                 >
                   <FileText className="h-3.5 w-3.5" /> Submit Report
@@ -298,8 +369,8 @@ export function IncidentReportModal({
 
           {/* ── GRADING phase ── */}
           {phase === "grading" && (
-            <div className="py-8 flex flex-col items-center gap-5">
-              <Loader2 className="h-8 w-8 text-cyber-300 animate-spin" />
+            <div className="py-8 flex flex-col items-center gap-5" role="status">
+              <Loader2 aria-hidden="true" className="h-8 w-8 text-cyber-300 animate-spin" />
               <div className="text-center space-y-1">
                 <p className="text-sm font-semibold text-white">AI Analyst reviewing your report…</p>
                 <p className="text-[11px] text-slate-400">Checking attack identification, IOC coverage, and recommended actions</p>
@@ -310,8 +381,24 @@ export function IncidentReportModal({
           {/* ── RESULT phase ── */}
           {phase === "result" && result && (
             <div className="space-y-4">
+              {/* R-04: when the AI grader was unavailable, present the fallback as a
+                  PRELIMINARY structural check — not an authoritative verdict — so a
+                  keyword-only score never reads as a final judgment of the analysis. */}
+              {result.graded_by === "deterministic" && (
+                <div className="rounded-lg border border-neon-amber/30 bg-neon-amber/5 px-4 py-2.5 flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-neon-amber mt-0.5 shrink-0" />
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    <span className="font-bold text-neon-amber">Preliminary check — full review pending.</span>{" "}
+                    The AI grader wasn&apos;t available, so this is an automated structural check
+                    (real vs. unverified indicators and whether you named a response action). It does
+                    <em> not</em> read your reasoning — so structure, causality and business impact
+                    aren&apos;t scored here. Your XP is awarded; the score may change when the full
+                    review runs.
+                  </p>
+                </div>
+              )}
               {/* Score + pass/fail header */}
-              <div className={cn(
+              <div ref={resultRef} tabIndex={-1} className={cn(
                 "rounded-lg border p-4 flex items-center gap-5",
                 passed
                   ? "border-neon-green/30 bg-neon-green/5"
@@ -360,6 +447,77 @@ export function IncidentReportModal({
                   </div>
                 )}
               </div>
+
+              {/* Response-time coaching — a gentle pace note, NEVER part of the
+                  grade. Within target → a positive note; over target → a soft
+                  "areas to improve" nudge. The live feed is practice, so time is
+                  only ever coaching (see useLiveEvents: no miss, no penalty). */}
+              {responseMs != null && (() => {
+                const targetMs  = responseTargetSeconds * 1000;
+                const within    = responseMs <= targetMs;
+                const targetMin = Math.round(responseTargetSeconds / 60);
+                const overBy    = fmtDuration(responseMs - targetMs);
+                return (
+                  <div className={cn(
+                    "rounded border px-4 py-3 space-y-1.5",
+                    within ? "border-neon-green/25 bg-neon-green/5" : "border-neon-amber/25 bg-neon-amber/5"
+                  )}>
+                    <div className="flex items-center gap-1.5">
+                      {within
+                        ? <CheckCircle2 className="h-3.5 w-3.5 text-neon-green shrink-0" />
+                        : <AlertTriangle className="h-3.5 w-3.5 text-neon-amber shrink-0" />}
+                      <p className={cn(
+                        "text-[10px] font-bold uppercase tracking-wider",
+                        within ? "text-neon-green" : "text-neon-amber"
+                      )}>
+                        {within ? "Response time" : "Areas to improve"}
+                      </p>
+                    </div>
+                    <p className="text-xs font-semibold text-slate-200">
+                      Response time: {fmtDuration(responseMs)}
+                    </p>
+                    <p className={cn("text-[10px] leading-relaxed", within ? "text-neon-green" : "text-neon-amber")}>
+                      {within
+                        ? `Good pace — within the ${targetMin}-minute response target.`
+                        : `Response time exceeded the ${targetMin}-minute target by ${overBy} — work on faster triage next shift.`}
+                    </p>
+                    <p className="text-[9px] text-slate-500">Coaching only — this does not affect your score.</p>
+                  </div>
+                );
+              })()}
+
+              {/* Decoy debrief — only after a PASS. Recognising false positives is
+                  half of SOC work; these benign events looked suspicious this
+                  session, and this is the context that clears each one. Withheld
+                  on a failed report so it can't be used to deduce the real attack
+                  by elimination before a resubmit. */}
+              {passed && decoys.length > 0 && (
+                <div className="rounded border border-cyber-500/25 bg-cyber-500/5 px-4 py-3 space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <Shield className="h-3.5 w-3.5 text-cyber-300 shrink-0" />
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-cyber-300">
+                      False Positives You Saw — Why They Were Benign
+                    </p>
+                  </div>
+                  <p className="text-[10px] text-slate-400 leading-relaxed">
+                    Not every alarming log is an attack. These events looked suspicious but were
+                    legitimate — clearing them correctly is as important as catching the real intrusion.
+                  </p>
+                  <div className="space-y-1.5 pt-0.5">
+                    {decoys.map((d, i) => (
+                      <div key={i} className="rounded border border-border/30 bg-[#060b12] px-2.5 py-2">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className="inline-flex items-center rounded border border-slate-500/30 bg-slate-500/10 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wider text-slate-300">
+                            {d.source.replace(/_/g, " ")}
+                          </span>
+                          <span className="text-[10px] font-medium text-slate-200">{d.label}</span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 leading-relaxed">{d.fp_explanation}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Action buttons */}
               <div className="space-y-2">

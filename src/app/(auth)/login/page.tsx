@@ -1,19 +1,52 @@
 "use client";
 import { useState } from "react";
+import { authErrorMessage } from "@/lib/http/apiError";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { LogIn, AlertTriangle } from "lucide-react";
+import { Suspense } from "react";
+import { usePageTitle } from "@/lib/hooks/usePageTitle";
+import { useRouter, useSearchParams } from "next/navigation";
+import { LogIn, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
+import { Button, buttonClasses } from "@/components/ui/Button";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
-export default function LoginPage() {
+function LoginForm() {
+  usePageTitle("Sign in");
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // refreshSupabaseSession sets ?next= when it redirects an unauthenticated
+  // visitor. Honour it so signing in returns them to what they asked for.
+  // Same-origin paths only — an open redirect here would let a crafted link
+  // bounce a freshly-authenticated user to an attacker-controlled page.
+  // Set by the signup flow so a new account gets an explicit confirmation
+  // here rather than landing on a bare form wondering whether it worked.
+  const justRegistered = searchParams.get("registered") === "1";
+  // E-05: the middleware sends ?reason=auth_unavailable when the sign-in service is down.
+  const authUnavailable = searchParams.get("reason") === "auth_unavailable";
+  const rawNext = searchParams.get("next");
+  // Same-origin relative paths only. Must start with a single "/" and NOT with
+  // "//" (protocol-relative) or "/\" — browsers normalise backslashes to
+  // forward slashes, so "/\evil.com" would otherwise resolve to an external
+  // host. The negative lookahead rejects both.
+  // Control characters / whitespace are rejected too: URL parsing strips TAB, CR
+  // and LF, so "/<TAB>/evil.com" would pass the check above and still resolve to
+  // evil.com once the router builds the URL.
+  const nextPath = rawNext && /^\/(?![/\\])/.test(rawNext) && !/[\s\u0000-\u001f\u007f]/.test(rawNext) ? rawNext : "/welcome";
+  // ?code= — an access code carried over from signup's "this email already has
+  // an account" path. Applied AFTER authentication: the code joins its
+  // environment to the signed-in account (multi-environment), then we land on
+  // the dashboard of the newly joined environment.
+  const rawCode = searchParams.get("code");
+  const joinCode = rawCode && /^[A-Z0-9]{6,12}$/i.test(rawCode.trim()) ? rawCode.trim().toUpperCase() : null;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // SEC-11: a carried code is joined only on an explicit click AFTER sign-in — a
+  // crafted /login?code= link used to attach the victim to a stranger's college
+  // (and switch their active environment) the moment they signed in.
+  const [confirmJoin, setConfirmJoin] = useState<{ orgName: string | null } | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -30,15 +63,46 @@ export default function LoginPage() {
     setSubmitting(false);
 
     if (signInError) {
-      setError(
-        signInError.message === "Invalid login credentials"
-          ? "Incorrect email or password."
-          : signInError.message,
-      );
+      setError(authErrorMessage(signInError));   // E-07: never GoTrue's raw text
       return;
     }
-    router.push("/rooms");
+
+    // Carried access code → ask first (SEC-11): show which college it joins and
+    // let the person decide; nothing is joined by merely signing in.
+    if (joinCode) {
+      const look = await fetch(`/api/access-codes/${encodeURIComponent(joinCode)}`).then(r => (r.ok ? r.json() : null)).catch(() => null);
+      setConfirmJoin({ orgName: look?.valid ? (look.orgName ?? null) : null });
+      return;
+    }
+
+    router.push(nextPath);
     router.refresh();
+  }
+
+  async function joinCarriedCode() {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase || !joinCode) return;
+    setError(null);
+    // On failure we STOP with the reason (seat cap, expired code) rather than
+    // silently landing the user somewhere they didn't join.
+    {
+      setSubmitting(true);
+      const res = await fetch("/api/account/join-environment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: joinCode }),
+      }).catch(() => null);   // P5-07: a network drop left "Signing in…" stuck
+      setSubmitting(false);
+      if (!res) { setError("Signed in, but couldn't reach the server to join with this code — check your connection and try again."); return; }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "Signed in, but couldn't join with this code.");
+        return;
+      }
+      await supabase.auth.refreshSession(); // restamp org claims for the new context
+      window.location.href = "/dashboard";
+      return;
+    }
   }
 
   if (!isSupabaseConfigured) {
@@ -50,8 +114,8 @@ export default function LoginPage() {
           This deployment hasn&apos;t been connected to a database. You can still use the platform —
           your progress is saved on this device.
         </p>
-        <Link href="/rooms" className="mt-6 inline-block">
-          <Button variant="primary">Continue as guest</Button>
+        <Link href="/rooms" className={buttonClasses("primary", "md", "mt-6")}>
+          Continue as guest
         </Link>
       </Card>
     );
@@ -65,34 +129,77 @@ export default function LoginPage() {
         </span>
         <div>
           <h1 className="text-lg font-bold text-white">Sign in</h1>
-          <p className="text-xs text-slate-500">Welcome back to your SOC shift.</p>
+          <p className="text-xs text-slate-400">Welcome back to your SOC shift.</p>
         </div>
       </div>
 
+      {joinCode && (
+        <div className="mb-4 flex items-start gap-2 rounded border border-cyber-500/30 bg-cyber-500/5 px-3 py-2.5">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-cyber-300" />
+          <p className="text-xs text-slate-300">
+            Sign in and the code <span className="font-mono font-bold text-cyber-300">{joinCode}</span>{" "}
+            will add its environment to your account.
+          </p>
+        </div>
+      )}
+      {authUnavailable && (
+        <div role="status" className="mb-4 flex items-start gap-2 rounded border border-neon-amber/40 bg-neon-amber/10 px-3 py-2.5">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-neon-amber" />
+          <p className="text-xs text-slate-300">
+            The sign-in service is having a brief problem — you weren&apos;t signed out on purpose. Wait a moment, then
+            reload the page you were on or sign in again.
+          </p>
+        </div>
+      )}
+      {justRegistered && (
+        <div className="mb-4 flex items-start gap-2 rounded border border-neon-green/30 bg-neon-green/5 px-3 py-2.5">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-neon-green" />
+          <p className="text-xs text-slate-300">
+            Your account is ready. Sign in to start training.
+          </p>
+        </div>
+      )}
+
+      {confirmJoin ? (
+        <div className="space-y-4 text-center">
+          <p className="text-sm text-slate-300">
+            You&apos;re signed in. Add {confirmJoin.orgName ? <span className="font-semibold text-white">{confirmJoin.orgName}</span> : "the environment of code"}{" "}
+            (<span className="font-mono text-cyber-300">{joinCode}</span>) to your account?
+          </p>
+          <p className="text-xs text-slate-500">Only join a college you&apos;re actually studying with — its staff will see your progress.</p>
+          {error && <p role="alert" className="text-sm text-severity-high">{error}</p>}
+          <div className="flex justify-center gap-2">
+            <Button disabled={submitting} onClick={joinCarriedCode}>{submitting ? "Joining…" : `Join ${confirmJoin.orgName ?? "environment"}`}</Button>
+            <Button variant="ghost" disabled={submitting} onClick={() => { router.push(nextPath); router.refresh(); }}>Not now</Button>
+          </div>
+        </div>
+      ) : (
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="mb-1.5 block text-xs font-semibold text-slate-400">Email</label>
+          <label htmlFor="login-email" className="mb-1.5 block text-xs font-semibold text-slate-400">Email</label>
           <input
+            id="login-email"
             type="email" required autoComplete="email" value={email}
             onChange={e => setEmail(e.target.value)}
-            className="h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white placeholder-slate-600 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
+            className="h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white placeholder-slate-500 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
             placeholder="you@company.com"
           />
         </div>
         <div>
           <div className="mb-1.5 flex items-center justify-between">
-            <label className="text-xs font-semibold text-slate-400">Password</label>
-            <Link href="/reset-password" className="text-[11px] text-cyber-300 hover:underline">Forgot password?</Link>
+            <label htmlFor="login-password" className="text-xs font-semibold text-slate-400">Password</label>
+            <Link href="/reset-password" className="text-[11px] text-cyber-300 underline underline-offset-2 hover:text-cyber-200">Forgot password?</Link>
           </div>
           <input
+            id="login-password"
             type="password" required autoComplete="current-password" value={password}
             onChange={e => setPassword(e.target.value)}
-            className="h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white placeholder-slate-600 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
+            className="h-10 w-full rounded-md border border-border bg-bg px-3 text-sm text-white placeholder-slate-500 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
           />
         </div>
 
         {error && (
-          <div className="rounded border border-severity-high/40 bg-severity-high/10 px-3 py-2 text-xs text-severity-high">
+          <div role="alert" className="rounded border border-severity-high/40 bg-severity-high/10 px-3 py-2 text-xs text-severity-high">
             {error}
           </div>
         )}
@@ -101,10 +208,25 @@ export default function LoginPage() {
           {submitting ? "Signing in…" : "Sign in"}
         </Button>
       </form>
+      )}
 
-      <p className="mt-5 text-center text-xs text-slate-500">
-        New here? <Link href="/signup" className="text-cyber-300 hover:underline">Create an account</Link>
+      <p className="mt-5 text-center text-xs text-slate-400">
+        New here? <Link href="/signup" className="text-cyber-300 underline underline-offset-2 hover:text-cyber-200">Create an account</Link>
       </p>
     </Card>
+  );
+}
+
+/**
+ * useSearchParams() puts this page into client-side rendering, and Next
+ * requires a Suspense boundary around that during static export — without one
+ * the build fails on /login. The fallback is deliberately the same card shell
+ * so the boundary is invisible rather than flashing an empty page.
+ */
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<Card className="w-full max-w-md p-6 text-center text-sm text-slate-400">Loading…</Card>}>
+      <LoginForm />
+    </Suspense>
   );
 }

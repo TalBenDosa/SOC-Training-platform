@@ -51,7 +51,7 @@ function AuthBadge({ label, raw }: { label: string; raw: string }) {
   const { cls, Icon, text } = cfg[r];
   return (
     <div className="flex items-center gap-2">
-      <span className="w-12 shrink-0 text-[10px] font-semibold uppercase tracking-wider text-slate-500">{label}</span>
+      <span className="w-12 shrink-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400">{label}</span>
       <span className={cn("inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[10px] font-bold", cls)}>
         <Icon className="h-2.5 w-2.5" />
         {text}
@@ -65,7 +65,7 @@ function AuthBadge({ label, raw }: { label: string; raw: string }) {
 function WarnRow({ label, value, warn, detail }: { label: string; value: string; warn?: boolean; detail?: string }) {
   return (
     <div className="flex items-start gap-2">
-      <span className="w-28 shrink-0 text-[10px] text-slate-500">{label}</span>
+      <span className="w-28 shrink-0 text-[10px] text-slate-400">{label}</span>
       <div className="flex min-w-0 flex-col gap-0.5">
         <span className={cn("break-all font-mono text-[10px]", warn ? "text-neon-amber" : "text-slate-200")}>
           {value || "—"}
@@ -154,11 +154,13 @@ export function EmailHeaderViewer({ event, onXp }: { event: LiveEvent; onXp?: (x
       {/* Header row */}
       <div className="flex w-full items-center justify-between gap-2">
         <button
+          type="button"
+          aria-expanded={open}
           className="flex flex-1 items-center gap-2 min-w-0"
           onClick={() => setOpen(v => !v)}
         >
           <Mail className={cn("h-3.5 w-3.5 shrink-0", hasWarn ? "text-neon-amber" : "text-slate-400")} />
-          <span className={cn("text-[10px] font-semibold uppercase tracking-[0.15em]", hasWarn ? "text-neon-amber" : "text-slate-500")}>
+          <span className={cn("text-[10px] font-semibold uppercase tracking-[0.15em]", hasWarn ? "text-neon-amber" : "text-slate-400")}>
             Email Header Analysis
           </span>
           {hasWarn && (
@@ -169,15 +171,16 @@ export function EmailHeaderViewer({ event, onXp }: { event: LiveEvent; onXp?: (x
         </button>
         <div className="flex shrink-0 items-center gap-1.5">
           <button
+            type="button"
             onClick={() => setShowInvestigation(true)}
             className="inline-flex items-center gap-1 rounded border border-cyber-500/40 bg-cyber-500/10 px-2 py-1 text-[9px] font-semibold text-cyber-400 hover:bg-cyber-500/20 transition-colors"
           >
-            <Search className="h-2.5 w-2.5" />
-            חקור Header זדוני
+            <Search aria-hidden="true" className="h-2.5 w-2.5" />
+            <span lang="he" dir="rtl">חקור Header זדוני</span>
           </button>
           {open
-            ? <ChevronDown className="h-3.5 w-3.5 text-slate-500" />
-            : <ChevronRight className="h-3.5 w-3.5 text-slate-500" />
+            ? <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 text-slate-400" />
+            : <ChevronRight aria-hidden="true" className="h-3.5 w-3.5 text-slate-400" />
           }
         </div>
       </div>
@@ -187,7 +190,7 @@ export function EmailHeaderViewer({ event, onXp }: { event: LiveEvent; onXp?: (x
 
           {/* ── Section 1: Envelope ────────────────────────────────────── */}
           <div className="space-y-1.5">
-            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-600">Envelope &amp; Headers</p>
+            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Envelope &amp; Headers</p>
             {subject   && <WarnRow label="Subject"     value={subject} />}
             {from      && <WarnRow label="From"        value={from} />}
             {to        && <WarnRow label="To"          value={to} />}
@@ -212,13 +215,13 @@ export function EmailHeaderViewer({ event, onXp }: { event: LiveEvent; onXp?: (x
           {/* ── Section 2: Authentication ──────────────────────────────── */}
           {(hasAuth || authResultsFull) && (
             <div className="space-y-1.5 border-t border-border/40 pt-3">
-              <p className="mb-2 text-[9px] font-bold uppercase tracking-widest text-slate-600">Authentication Results</p>
+              <p className="mb-2 text-[9px] font-bold uppercase tracking-widest text-slate-400">Authentication Results</p>
               {spf   && <AuthBadge label="SPF"   raw={spf} />}
               {dkim  && <AuthBadge label="DKIM"  raw={dkim} />}
               {dmarc && <AuthBadge label="DMARC" raw={dmarc} />}
               {compAuth && !spf && !dkim && !dmarc && (
                 <div className="flex items-center gap-2">
-                  <span className="w-20 shrink-0 text-[10px] font-semibold uppercase tracking-wider text-slate-500">CompAuth</span>
+                  <span className="w-20 shrink-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400">CompAuth</span>
                   <span className={cn(
                     "inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[10px] font-bold",
                     compAuth.startsWith("pass") ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400" : "border-severity-high/60 bg-severity-high/10 text-severity-high"
@@ -230,7 +233,7 @@ export function EmailHeaderViewer({ event, onXp }: { event: LiveEvent; onXp?: (x
               )}
               {authResultsFull && (
                 <div className="mt-1.5 rounded bg-[#080d14] px-2.5 py-2">
-                  <p className="mb-1 text-[9px] font-semibold text-slate-600">Authentication-Results raw header</p>
+                  <p className="mb-1 text-[9px] font-semibold text-slate-400">Authentication-Results raw header</p>
                   <p className="break-all font-mono text-[9px] leading-relaxed text-slate-400">{authResultsFull}</p>
                 </div>
               )}
@@ -241,7 +244,9 @@ export function EmailHeaderViewer({ event, onXp }: { event: LiveEvent; onXp?: (x
           {hasChain && (
             <div className="border-t border-border/40 pt-3">
               <button
-                className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-slate-600 hover:text-slate-400 transition-colors"
+                type="button"
+                aria-expanded={showChain}
+                className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-slate-400 hover:text-slate-200 transition-colors"
                 onClick={() => setShowChain(v => !v)}
               >
                 {showChain ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
@@ -251,7 +256,7 @@ export function EmailHeaderViewer({ event, onXp }: { event: LiveEvent; onXp?: (x
                 <div className="mt-2 space-y-1.5 pl-2">
                   {receivedHops.map((hop, i) => (
                     <div key={i} className="flex items-start gap-2">
-                      <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-[8px] font-bold text-slate-500">
+                      <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-[8px] font-bold text-slate-400">
                         {i + 1}
                       </span>
                       <span className="break-all font-mono text-[9px] leading-relaxed text-slate-400">{hop}</span>
@@ -264,7 +269,7 @@ export function EmailHeaderViewer({ event, onXp }: { event: LiveEvent; onXp?: (x
 
           {/* ── Analyst note ───────────────────────────────────────────── */}
           {!hasWarn && !hasAuth && !hasChain && (
-            <p className="text-[10px] text-slate-600 italic">No header anomalies detected in this event's raw data.</p>
+            <p className="text-[10px] text-slate-400 italic">No header anomalies detected in this event's raw data.</p>
           )}
 
         </div>

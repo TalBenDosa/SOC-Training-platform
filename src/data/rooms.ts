@@ -4,9 +4,63 @@
  * 62 progressive rooms taking a student from zero technical knowledge
  * through to advanced SOC analyst skills. Each room contains readings,
  * multiple-choice questions, hands-on log analysis, and CTF flag tasks.
+ *
+ * SERVER-ONLY, BY CONVENTION. Every task's answer/answers/correct_verdict/
+ * correct_order field lives in here — this is the full content, including the
+ * answer key. A build leaked it once (pentest finding, Aug 2026): four
+ * "use client" components value-imported ROOMS directly and shipped every
+ * answer to the browser bundle.
+ *
+ * Client code that needs room data must use the sanitized `ROOMS_META` in
+ * src/data/roomsMeta.ts (list/progress/card/recommender views), or the sanitized
+ * per-room payload from src/lib/rooms/sanitize.ts (the room-detail page passes
+ * this to the player), or call the server-side grading API at
+ * /api/rooms/[id]/tasks/[taskId]/submit (src/lib/rooms/grading.ts). Neither path
+ * ever puts an answer field in a response before the student has genuinely
+ * attempted that task.
+ *
+ * We deliberately do NOT use the `server-only` npm package here: it throws
+ * unconditionally on import (not just in a browser), which breaks every
+ * tsx-run content script that legitimately needs the real ROOMS array
+ * (scripts/validate-content.mjs, scripts/generate-rooms-meta.mjs, the backend
+ * test harnesses). Enforcement instead lives in
+ * scripts/validate-content.mjs's "no client value-imports of @/data/rooms"
+ * check, which greps every "use client" file for a non-type-only import from
+ * this module and fails the content gate if it finds one.
  */
-
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { roomsBatch18 } from "./rooms-batch-18";
+import { roomsBatch19 } from "./rooms-batch-19";
+import { roomsBatch20 } from "./rooms-batch-20";
+import { roomsBatch21 } from "./rooms-batch-21";
+import { roomsBatch22 } from "./rooms-batch-22";
+import { roomsBatch23 } from "./rooms-batch-23";
+import { roomsBatch24 } from "./rooms-batch-24";
+import { roomsBatch25 } from "./rooms-batch-25";
+import { roomsBatch26 } from "./rooms-batch-26";
+import { roomsBatch27 } from "./rooms-batch-27";
+import { roomsBatch28 } from "./rooms-batch-28";
+import { roomsBatch29 } from "./rooms-batch-29";
+import { roomsBatch30 } from "./rooms-batch-30";
+import { roomsBatch31 } from "./rooms-batch-31";
+import { roomsBatch32 } from "./rooms-batch-32";
+import { roomsBatch33 } from "./rooms-batch-33";
+import { roomsBatch34 } from "./rooms-batch-34";
+import { roomsBatch35 } from "./rooms-batch-35";
+import { roomsBatch36 } from "./rooms-batch-36";
+import { roomsBatch37 } from "./rooms-batch-37";
+import { roomsBatch38 } from "./rooms-batch-38";
+import { roomsBatch39 } from "./rooms-batch-39";
+import { roomsBatch40 } from "./rooms-batch-40";
+import { roomsBatch41 } from "./rooms-batch-41";
+import { roomsBatch42 } from "./rooms-batch-42";
+import { roomsBatch43 } from "./rooms-batch-43";
+import { roomsBatch44 } from "./rooms-batch-44";
+import { roomsBatch45 } from "./rooms-batch-45";
+import { roomsBatch46 } from "./rooms-batch-46";
+import { roomsBatch47 } from "./rooms-batch-47";
+import { roomsBatch48 } from "./rooms-batch-48";
+import { roomsBatch49 } from "./rooms-batch-49";
 
 import roomsBatch01 from "@/data/rooms-batch-01";
 import roomsBatch02 from "@/data/rooms-batch-02";
@@ -46,6 +100,52 @@ export interface ReadingTask {
   diagram?: string;
   /** Caption shown on the diagram's header bar. Defaults to "Diagram". */
   diagramCaption?: string;
+  /**
+   * Optional still figure, for the things a Mermaid `diagram` genuinely cannot
+   * express — an annotated console mockup, a packet/header byte layout, a
+   * log-line anatomy call-out. Prefer `diagram` whenever the content is a flow
+   * or a hierarchy: its labels stay exact, diff in git, and cannot 404.
+   *
+   * `src` is a same-origin path under /public (e.g. "/lesson-images/edr/x.svg").
+   * `alt` is mandatory — see LessonFigure for why.
+   */
+  image?: { src: string; alt: string; caption?: string; credit?: string };
+  /**
+   * Optional self-hosted explainer video, shown at the top of the reading as a
+   * supplement to (never a replacement for) the text. Same-origin only — the mp4
+   * and its WebVTT subtitle tracks live under /public (e.g.
+   * "https://wrxhxtdllbctsawvewue.supabase.co/storage/v1/object/public/lesson-videos/ids-vs-ips/ids-vs-ips.mp4"), mirroring the `image` rule. No
+   * external/embedded players (YouTube etc.) — those were deliberately removed.
+   * `tracks` are selectable subtitle languages; mark one `default`.
+   */
+  video?: {
+    src: string;
+    poster?: string;
+    caption?: string;
+    tracks?: { srclang: string; label: string; src: string; default?: boolean }[];
+  };
+  /**
+   * Optional inline comprehension check shown after the content — a quick,
+   * UNGRADED retrieval prompt that turns passive reading into active recall.
+   * The student must answer it correctly before the reading can be completed,
+   * but it never affects the room's pass score (reading stays non-gradeable —
+   * see taskMaxXp). It is a forcing function to actually read, not a hint: it
+   * asks about a fact stated in the content just above it. Wrong answers simply
+   * prompt a retry with the explanation.
+   */
+  checkpoint?: {
+    question: string;
+    options: string[];
+    answer: number;        // 0-based index
+    explanation?: string;
+  };
+  /**
+   * Symbolic "engagement" XP awarded on completing the reading, to give a
+   * feedback loop in the otherwise 0-XP reading third of each room. It is added
+   * ONLY to the global/rank XP total — never to the room's graded score — so the
+   * 65% mastery gate stays based purely on gradeable tasks. Defaults to 5.
+   */
+  xp?: number;
 }
 
 export interface QuestionTask {
@@ -80,6 +180,12 @@ export interface FlagTask {
   answer: string;        // exact string, case-insensitive match
   hint?: string;
   xp: number;
+  // Which log the flag shows. Omitted → the room resolves it: a "Log Analysis N"
+  // reference in the prompt pins the Nth log_analysis event, else the nearest
+  // preceding log. `null` → show NO log (a pure recall/knowledge flag).
+  event?: TelemetryEvent | null;
+  /** The id of the log task this flag asks about (when the prompt does not name it by heading). */
+  logTask?: string;
 }
 
 export interface AnalystChoiceTask {
@@ -127,7 +233,7 @@ export interface QueryFillTask {
   type: "query_fill";
   id: string;
   heading: string;
-  language: "kql" | "spl";
+  language: "kql" | "spl" | "powershell";
   context: string;          // the investigative question the query answers
   template: string;         // e.g. "SecurityEvent\n| where EventID == {{eventid}}\n| where TargetAccount == {{account}}"
   blanks: { id: string; answers: string[]; placeholder?: string }[];
@@ -135,7 +241,38 @@ export interface QueryFillTask {
   xp: number;
 }
 
-export type RoomTask = ReadingTask | QuestionTask | LogAnalysisTask | FlagTask | AnalystChoiceTask | MatchingTask | OrderingTask | QueryFillTask;
+/**
+ * A free-text written deliverable, graded by a deterministic rubric — the one
+ * place in Rooms a student actually WRITES an incident-report paragraph
+ * instead of only recognising correct structure via reading/ordering/matching.
+ * Mirrors the approach the scenario grader (src/app/api/scenarios/[slug]/
+ * grade/route.ts) uses for its free-text report — depth by word count,
+ * evidence by citing the case's own real indicators, a fabrication penalty
+ * for inventing indicators that appear nowhere in the case — reimplemented
+ * here as a fully synchronous Rooms-native rubric (see gradeTask in
+ * src/lib/rooms/grading.ts) rather than reusing that route, since it is
+ * scenario-shaped (quiz + report) where this is Rooms-shaped (one task).
+ *
+ * `referenceIocs` is the case's real indicator list, used server-side only to
+ * score citation and detect fabrication — never sent to the client (see
+ * sanitize.ts). It is not a new leak: every value in it is already visible to
+ * the student through this room's own embedded log_analysis/analyst_choice
+ * events earlier in the same case, and the flag task publishes one directly.
+ */
+export interface WrittenReportTask {
+  type: "written_report";
+  id: string;
+  heading: string;
+  context: string;        // scenario framing — always visible
+  prompt: string;          // the specific deliverable asked for — always visible
+  rubricHints: string[];   // "a strong answer will..." guidance shown WHILE writing, not the answer itself
+  referenceIocs: string[]; // real indicators from the case, for evidence/fabrication scoring — server-only
+  minWords: number;        // word count the depth tier treats as "substantial"
+  explanation: string;     // standards note shown only after submission — server-only pre-submit
+  xp: number;
+}
+
+export type RoomTask = ReadingTask | QuestionTask | LogAnalysisTask | FlagTask | AnalystChoiceTask | MatchingTask | OrderingTask | QueryFillTask | WrittenReportTask;
 
 // ---------------------------------------------------------------------------
 // Room type
@@ -178,4 +315,36 @@ export const ROOMS: Room[] = [
   ...cast(roomsBatch15), // kubernetes-container-security
   ...cast(roomsBatch16), // azure-security
   ...cast(roomsBatch17), // tcpip-deep-dive, dns-deep-dive, tls-encrypted-traffic, windows-protocols-lateral, email-protocols-forensics, tunneling-c2-channels
+  ...cast(roomsBatch18), // kerberos-authentication, windows-privilege-escalation, persistence-mechanisms
+  ...cast(roomsBatch19), // vulnerability-management, memory-disk-forensics
+  ...cast(roomsBatch20), // encoding-encryption-hashing, timestamps-and-timelines
+  ...cast(roomsBatch21), // log-entry-anatomy, identity-basics
+  ...cast(roomsBatch22), // malware-types, asset-context-prioritisation
+  ...cast(roomsBatch23), // security-products-behaviour
+  ...cast(roomsBatch24), // credential-attacks-practice, lateral-movement-practice, web-attacks-practice
+  ...cast(roomsBatch25), // web-application-security (theory prereq for web-attacks-practice)
+  ...cast(roomsBatch26), // playbook-execution-and-escalation
+  ...cast(roomsBatch27), // remote-email-collection, device-registration-persistence
+  ...cast(roomsBatch28), // edr-detection-investigation
+  ...cast(roomsBatch29), // investigate-alert-workflow, incident-report-writing
+  ...cast(roomsBatch30), // risk-fundamentals
+  ...cast(roomsBatch31), // powershell-for-soc-analyst
+  ...cast(roomsBatch32), // commodity-initial-access
+  ...cast(roomsBatch33), // ransomware-full-lifecycle
+  ...cast(roomsBatch34), // bec-investigation
+  ...cast(roomsBatch35), // sigma-yara-rule-authoring
+  ...cast(roomsBatch36), // macos-security-fundamentals
+  ...cast(roomsBatch37), // okta-identity-fundamentals
+  ...cast(roomsBatch38), // google-workspace-security
+  ...cast(roomsBatch39), // esxi-virtualization-security
+  ...cast(roomsBatch40), // ai-attacks-soc-detection
+  ...cast(roomsBatch41), // mfa-session-token-attacks
+  ...cast(roomsBatch42), // discovery-and-enumeration
+  ...cast(roomsBatch43), // unsecured-credentials-practice
+  ...cast(roomsBatch44), // rmm-abuse-remote-access-tools
+  ...cast(roomsBatch45), // data-staging-exfiltration-channels
+  ...cast(roomsBatch46), // cloud-attacker-defense-evasion
+  ...cast(roomsBatch47), // ot-ics-security
+  ...cast(roomsBatch48), // vishing-helpdesk-social-engineering
+  ...cast(roomsBatch49), // html-smuggling-and-lolbins
 ];

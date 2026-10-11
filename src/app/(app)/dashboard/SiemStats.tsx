@@ -8,6 +8,8 @@ const SOURCE_LABEL: Record<string, string> = {
   edr: "EDR", sysmon: "Sysmon", ad: "AD", o365: "O365", gws: "GWS",
   okta: "Okta", firewall: "FW", dns: "DNS", vpn: "VPN",
   cloudtrail: "Cloud", proxy: "Proxy",
+  windows_security: "WinSec", linux_audit: "auditd", email_gateway: "Email GW",
+  waf: "WAF", db_monitor: "DAM", iam: "IAM", siem: "SIEM", soar: "SOAR",
 };
 
 function mode<T>(arr: T[]): T | undefined {
@@ -34,11 +36,16 @@ function fmtSpeed(ms: number): string {
 
 interface SiemStatsProps {
   events: LiveEvent[];
+  /** Response clock — ELAPSED seconds since the attack's first phase (counts up).
+   *  Purely informational: it never races a deadline. null when no active attack. */
   attackTimerSeconds?: number | null;
   avgCatchMs?: number | null;
+  /** The response clock is paused (the analyst is writing the report / in EDR),
+   *  so it isn't counting against them — shown as a paused state, not a race. */
+  slaPaused?: boolean;
 }
 
-export function SiemStats({ events, attackTimerSeconds = null, avgCatchMs = null }: SiemStatsProps) {
+export function SiemStats({ events, attackTimerSeconds = null, avgCatchMs = null, slaPaused = false }: SiemStatsProps) {
   // Compact by default — beginners see the 4 chips that matter; "+ more" reveals the rest
   const [showAll, setShowAll] = useState(false);
   const fiveMinAgo = Date.now() - 5 * 60 * 1000;
@@ -51,39 +58,30 @@ export function SiemStats({ events, attackTimerSeconds = null, avgCatchMs = null
   const uniqueIps = new Set(events.map(e => e.src_ip).filter((ip): ip is string => !!ip));
   const alertPct  = events.length === 0
     ? 0
-    : (events.filter(e => e.ruleLevel >= 7).length / events.length) * 100;
+    : (events.filter(e => e.ruleLevel >= 10).length / events.length) * 100;
   const alertRate = alertPct.toFixed(0);
-
-  // Timer color (null/undefined = no active attack)
-  const timerColor = attackTimerSeconds == null ? null
-    : attackTimerSeconds < 60  ? "critical"
-    : attackTimerSeconds < 120 ? "medium"
-    : "green";
 
   return (
     <div className="flex flex-wrap items-center gap-2 border-t border-border/60 bg-[#0a0f18] px-5 py-2.5">
 
-      {/* SLA Attack Timer — only visible during active attack */}
-      {attackTimerSeconds != null && timerColor && (
-        <div className={cn(
-          "inline-flex items-center gap-2 rounded-md border px-3 py-1.5",
-          timerColor === "critical" ? "border-severity-critical/60 bg-severity-critical/10 animate-pulse" :
-          timerColor === "medium"   ? "border-severity-medium/50 bg-severity-medium/8" :
-                                      "border-neon-green/40 bg-neon-green/8"
-        )}>
-          <span className="text-[10px] text-slate-500 font-medium"><Term k="sla">SLA</Term></span>
-          <span className={cn(
-            "font-mono text-[11px] font-bold",
-            timerColor === "critical" ? "text-severity-critical" :
-            timerColor === "medium"   ? "text-severity-medium"   : "text-neon-green"
-          )}>⏱ {fmtTimer(attackTimerSeconds ?? 0)}</span>
+      {/* Response clock — a neutral, cyber-colored ELAPSED timer that counts UP
+          while an attack is active. No countdown, no red-alarm pulse: time is a
+          gentle metric here, not a race. Paused (report open / EDR in play) →
+          "paused" label, because that time isn't counting against the analyst. */}
+      {attackTimerSeconds != null && (
+        <div className="inline-flex items-center gap-2 rounded-md border border-cyber-500/40 bg-cyber-500/10 px-3 py-1.5">
+          <span className="text-[10px] text-slate-400 font-medium">Response</span>
+          <span className="font-mono text-[11px] font-bold text-cyber-300">
+            {slaPaused ? "⏸" : "⏱"} {fmtTimer(attackTimerSeconds ?? 0)}
+          </span>
+          {slaPaused && <span className="text-[10px] font-semibold uppercase tracking-wide text-cyber-300">paused</span>}
         </div>
       )}
 
       {/* Events/min */}
       <div className="inline-flex items-center gap-2 rounded-md border border-cyber-500/30 bg-cyber-500/10 px-3 py-1.5">
         <span className="h-1.5 w-1.5 rounded-full bg-cyber-400 animate-pulse" />
-        <span className="text-[10px] text-slate-500 font-medium">Events/min</span>
+        <span className="text-[10px] text-slate-400 font-medium">Events/min</span>
         <span className="font-mono text-[11px] font-bold text-cyber-300">{eventsPerMin}</span>
       </div>
 
@@ -92,7 +90,7 @@ export function SiemStats({ events, attackTimerSeconds = null, avgCatchMs = null
         <>
           {/* Top Source */}
           <div className="inline-flex items-center gap-2 rounded-md border border-neon-amber/30 bg-neon-amber/8 px-3 py-1.5">
-            <span className="text-[10px] text-slate-500 font-medium">Top Source</span>
+            <span className="text-[10px] text-slate-400 font-medium">Top Source</span>
             <span className="font-mono text-[11px] font-bold text-neon-amber">
               {SOURCE_LABEL[topSrc] ?? topSrc.toUpperCase()}
             </span>
@@ -100,13 +98,13 @@ export function SiemStats({ events, attackTimerSeconds = null, avgCatchMs = null
 
           {/* Top Host */}
           <div className="inline-flex items-center gap-2 rounded-md border border-neon-green/30 bg-neon-green/8 px-3 py-1.5">
-            <span className="text-[10px] text-slate-500 font-medium">Top Host</span>
+            <span className="text-[10px] text-slate-400 font-medium">Top Host</span>
             <span className="font-mono text-[11px] font-bold text-neon-green">{topHost}</span>
           </div>
 
           {/* Unique IPs */}
           <div className="inline-flex items-center gap-2 rounded-md border border-neon-purple/30 bg-neon-purple/8 px-3 py-1.5">
-            <span className="text-[10px] text-slate-500 font-medium">Unique IPs</span>
+            <span className="text-[10px] text-slate-400 font-medium">Unique IPs</span>
             <span className="font-mono text-[11px] font-bold text-neon-purple">{uniqueIps.size}</span>
           </div>
         </>
@@ -121,7 +119,7 @@ export function SiemStats({ events, attackTimerSeconds = null, avgCatchMs = null
           ? "border-severity-medium/40 bg-severity-medium/8"
           : "border-border/60 bg-bg/40"
       )}>
-        <span className="text-[10px] text-slate-500 font-medium"><Term k="alert">Alert</Term> Rate</span>
+        <span className="text-[10px] text-slate-400 font-medium"><Term k="alert">Alert</Term> Rate</span>
         <span className={cn(
           "font-mono text-[11px] font-bold",
           alertPct >= 20 ? "text-severity-critical" :
@@ -134,15 +132,17 @@ export function SiemStats({ events, attackTimerSeconds = null, avgCatchMs = null
       {/* Avg Catch Speed — only visible after catching at least one attack */}
       {showAll && avgCatchMs != null && (
         <div className="inline-flex items-center gap-2 rounded-md border border-cyber-500/30 bg-cyber-500/8 px-3 py-1.5">
-          <span className="text-[10px] text-slate-500 font-medium">Avg Speed</span>
+          <span className="text-[10px] text-slate-400 font-medium">Avg Speed</span>
           <span className="font-mono text-[11px] font-bold text-cyber-300">{fmtSpeed(avgCatchMs)}</span>
         </div>
       )}
 
       {/* Compact-mode expander */}
       <button
+        type="button"
+        aria-expanded={showAll}
         onClick={() => setShowAll(v => !v)}
-        className="ml-auto text-[10px] font-semibold text-slate-500 hover:text-slate-300 transition"
+        className="ml-auto text-[10px] font-semibold text-slate-400 hover:text-slate-300 transition"
       >
         {showAll ? "− less" : "+ more stats"}
       </button>

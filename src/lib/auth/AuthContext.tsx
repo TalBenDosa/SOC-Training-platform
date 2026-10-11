@@ -10,6 +10,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { clearReviewStore, setReviewOwner } from "@/components/rooms/reviewStore";
 
 interface AuthState {
   user: User | null;
@@ -38,11 +39,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!supabase) { setLoading(false); return; }
 
     supabase.auth.getSession().then(({ data }) => {
+      setReviewOwner(data.session?.user.id ?? null);
       setSession(data.session);
       setLoading(false);
     });
 
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, next) => {
+    const { data: subscription } = supabase.auth.onAuthStateChange((event, next) => {
+      // Room review records carry answer keys — never leave them for the next user.
+      if (event === "SIGNED_OUT") clearReviewStore();
+      setReviewOwner(next?.user.id ?? null);
       setSession(next);
     });
 

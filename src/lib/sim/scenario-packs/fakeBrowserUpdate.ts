@@ -1,0 +1,183 @@
+/**
+ * Scenario pack: "Fake Browser Update — Drive-by on a Trusted Site"
+ *
+ * BEGINNER tier. One user, one laptop, no lateral movement. A legitimate,
+ * business-categorised website the user visits regularly has been compromised
+ * and serves an overlay telling her Chrome is out of date. She downloads the
+ * "update", which is a JScript file, and runs it.
+ *
+ * The teaching point is where the incident STARTS. The first hostile domain in
+ * the chain is not a typosquat and not in any blocklist — it is a real trade
+ * publication with a clean category, which is why the proxy allowed it and why
+ * an analyst scanning for "suspicious domain" finds nothing. The signal is the
+ * shape of the sequence: a page in one site handing off to a download from a
+ * different, unrelated host, followed by a script interpreter starting from the
+ * Downloads folder.
+ *
+ * Covers T1189 (Drive-by Compromise), an initial-access technique the live feed
+ * exercises but no room previously taught.
+ *
+ * NOTE: `difficulty: "beginner"` is declared on the SCENARIOS registry entry in
+ * scenarios.ts (ScenarioBundle itself carries no difficulty field).
+ */
+
+import type { ScenarioBundle, IOC, ScenarioQuestion } from "@/lib/sim/types";
+import { fakeBrowserUpdateScenarioEvents } from "./fakeBrowserUpdate.events";
+
+export function buildFakeBrowserUpdateScenario(
+  scenarioId = "fake-browser-update-2026",
+): ScenarioBundle {
+  const { title, events, T, MIN, host, compromisedSite, stagingHost, c2, scriptHash } = fakeBrowserUpdateScenarioEvents();
+
+  const iocs: IOC[] = [
+    {
+      type: "domain",
+      value: stagingHost,
+      first_seen: T(1 * MIN + 12_000),
+      last_seen: T(3 * MIN + 40_000),
+      reputation: "malicious",
+      tags: ["payload-staging", "fake-update"],
+    },
+    {
+      type: "domain",
+      value: c2,
+      first_seen: T(5 * MIN + 12_000),
+      last_seen: T(5 * MIN + 12_000),
+      reputation: "malicious",
+      tags: ["c2", "newly-registered"],
+    },
+    {
+      type: "sha256",
+      value: scriptHash,
+      first_seen: T(3 * MIN + 40_000),
+      last_seen: T(5 * MIN + 8_000),
+      reputation: "malicious",
+      tags: ["jscript", "dropper"],
+    },
+    {
+      // The compromised site is a real business resource that many staff use.
+      // It is part of the chain, but blocklisting a legitimate trade
+      // publication is a business decision, not an analyst reflex.
+      type: "domain",
+      value: compromisedSite,
+      first_seen: T(0),
+      last_seen: T(1 * MIN + 12_000),
+      reputation: "suspicious",
+      tags: ["compromised-legitimate-site", "referrer"],
+    },
+    {
+      type: "host",
+      value: host.hostname,
+      first_seen: T(0),
+      last_seen: T(5 * MIN + 30_000),
+      reputation: "unknown",
+      tags: ["user-endpoint", "affected"],
+    },
+  ];
+
+  const questions: ScenarioQuestion[] = [
+    {
+      id: "q1",
+      prompt:
+        "Where does this incident actually begin? Pick the earliest event that is part of the attack rather than ordinary user behaviour.",
+      hint: "Compare the domain and the referer in evt_fbu_02 with the page loaded in evt_fbu_01.",
+      kind: "single",
+      options: [
+        { value: "overlay", label: "Overlay script fetch at 13:43 — the article page pulled a script from an unrelated host" },
+        { value: "site", label: "Site visit at 13:42 — opening logisticsweekly.com was itself the malicious act, since the site is compromised" },
+        { value: "wscript", label: "wscript launch at 13:47 — nothing malicious happened until the user double-clicked the downloaded file" },
+        { value: "c2", label: "Firewall block at 13:47 — the first event where a security control actually classified the traffic as bad" },
+      ],
+      answer: "overlay",
+      xp: 50,
+      explanation:
+        "evt_fbu_01 is a real employee reading a real trade publication — a legitimate action that happens hundreds of times a week. The attack becomes visible one event later, when that same page hands off to cdn-static-assets-92.net, a host with no relationship to the publisher, carrying the article URL as its referer. That hand-off is drive-by compromise (T1189). Choosing evt_fbu_05 (c) is the common mistake: the user's double-click is the loudest event, but by then the attack has already been running for four minutes. Choosing evt_fbu_07 (d) means letting the firewall's categorisation decide where your incident starts — it blocked the third hostile domain and missed the first two.",
+    },
+    {
+      id: "q2",
+      prompt:
+        "The proxy allowed both logisticsweekly.com and cdn-static-assets-92.net. Why did category filtering not stop this?",
+      kind: "single",
+      options: [
+        { value: "categories_clean", label: "Both carried benign categories — a real publisher, and generic internet infrastructure" },
+        { value: "tls", label: "The sessions were encrypted, so without TLS inspection the firewall had no visibility into the URLs at all" },
+        { value: "rule_off", label: "The CORP-WEB-OUTBOUND rule was in monitor-only mode, so it logged the sessions but blocked nothing" },
+        { value: "whitelist", label: "Both domains were on an explicit corporate allowlist that exempts them from category and URL filtering" },
+      ],
+      answer: "categories_clean",
+      xp: 40,
+      explanation:
+        "pan.category is business-and-economy for the publisher and computer-and-internet-info for the staging host. Neither is a category anyone blocks — the first is a genuine business resource, and the second is the bucket most CDNs and API endpoints fall into. Category filtering answers 'what kind of site is this', which is a question a compromised legitimate site passes easily. Option (b) is wrong on the evidence: the firewall logged full URLs, filenames and a file hash, so TLS inspection was clearly on. Option (c) is contradicted by evt_fbu_07, where the same rule set produced a block. This is why the third domain was caught and the first two were not — newly-registered-domain is a behavioural signal, not a content category.",
+    },
+    {
+      id: "q3",
+      prompt:
+        "Which single detail in evt_fbu_05_wscript would make you treat this as malicious even if you knew nothing about the domains?",
+      kind: "single",
+      options: [
+        { value: "downloads_script", label: "A script interpreter running a .js file straight out of the Downloads folder, started by explorer.exe" },
+        { value: "unsigned", label: "wscript.exe was unsigned, which means the Microsoft binary had been replaced on disk by a trojanised copy" },
+        { value: "integrity", label: "The process ran at medium integrity, which is an elevation above a standard user's token for a script host" },
+        { value: "pid", label: "The parent PID is lower than the child PID, which indicates process-tree tampering such as PPID spoofing" },
+      ],
+      answer: "downloads_script",
+      xp: 50,
+      explanation:
+        "wscript.exe is a legitimate signed Microsoft binary, and process.code_signature.trusted is true in the raw event — so (b) is factually contradicted by the log. Its argument is what matters: a .js file in C:\\Users\\d.rosen\\Downloads, launched by explorer.exe, which means a human double-clicked it. Legitimate software installs itself with an installer or a package manager; almost nothing legitimate ships as a loose script the user is asked to run from Downloads. Medium integrity (c) is the ordinary level for a standard user process, not an elevation. And (d) describes normal behaviour — child processes routinely get higher PIDs than their parents.",
+    },
+    {
+      id: "q4",
+      prompt:
+        "You are closing the ticket. Which statement is supported by the evidence in front of you?",
+      kind: "single",
+      options: [
+        { value: "blocked_but_ran", label: "The dropper executed on the host, but the second-stage download was blocked and the process was killed" },
+        { value: "nothing_ran", label: "The firewall blocked the attack at the network edge before anything executed on the endpoint itself" },
+        { value: "full_compromise", label: "The second stage was retrieved before the block, so the host should be treated as fully compromised" },
+        { value: "site_malicious", label: "logisticsweekly.com is attacker-controlled infrastructure and should be permanently blocklisted at the proxy" },
+      ],
+      answer: "blocked_but_ran",
+      xp: 60,
+      explanation:
+        "Both halves are evidenced. Code ran: evt_fbu_05 and evt_fbu_06 are process-creation events on LAP-4471, so the JScript executed and reached the point of spawning PowerShell. And the payload never arrived: evt_fbu_07 shows pan.action block-url on the second-stage URL, and evt_fbu_08 records pattern_disposition_description 'Detection, Process Killed'. Option (b) understates it — saying nothing executed is wrong, and it changes what you do next, because a host that ran attacker script still needs a look for anything the first stage did locally. Option (c) overstates it against a clear block. Option (d) confuses a compromised victim site with attacker infrastructure; the publisher needs to be notified, and blocklisting a resource the logistics team reads daily is a business call, not an analyst reflex.",
+    },
+  ];
+
+  return {
+    scenario_id: scenarioId,
+    title,
+    threat_actor: "Commodity drive-by operator (fake-update lure)",
+    attack_kind: "fake_browser_update",
+    briefing:
+      "CrowdStrike Falcon raised a Critical detection on LAP-4471 at 13:47 for a script interpreter spawning PowerShell. The user was browsing at the time. Work out how the file got onto the machine and how far the attack got.",
+    narrative: `At 13:42 Dana Rosen opened an article on logisticsweekly.com, a trade publication she reads most days. The firewall allowed it under the category business-and-economy, which is exactly right — the site is genuine, and it is also, today, compromised.
+
+Seventy-two seconds later the same browser session fetched /loader/update-check.js from cdn-static-assets-92.net, carrying the article URL as its referer. Nothing about that host is related to the publisher. It served the overlay that told her Chrome was out of date, and at 13:45:40 she downloaded Chrome_Update_127.0.6533.js from it. Falcon recorded the file landing in her Downloads folder four seconds later.
+
+At 13:47:08 she ran it. explorer.exe started wscript.exe with the .js file as its argument — the signature of a human double-clicking a downloaded script. Three seconds after that, wscript spawned PowerShell with a hidden window, an execution-policy bypass and a one-line download-and-run against api-telemetry-sync.com.
+
+That request was refused. The firewall blocked the URL under newly-registered-domain, and Falcon killed the PowerShell process on the same detection. The second stage never arrived.
+
+Two of the three hostile domains in this chain carried clean categories, and the one that was blocked was blocked for its registration age rather than its content. Nothing about the first four minutes of this incident looks like an attack if you are searching for bad domains.`,
+    learning_objectives: [
+      "Identify drive-by compromise (T1189) from a page on one site handing off to a download from an unrelated host",
+      "Use the HTTP referer field to reconstruct which page originated a request",
+      "Recognise that URL category filtering cannot catch a compromised legitimate site",
+      "Read a process tree (explorer → wscript → powershell) and explain what each step proves about user action",
+      "Separate 'the payload was blocked' from 'nothing executed' when writing a verdict",
+    ],
+    alerts: [],
+    events,
+    iocs,
+    killchain: [
+      { ts: T(0), phase: "Initial Access", action: "User loads a genuine article on a compromised trade publication" },
+      { ts: T(1 * MIN + 12_000), phase: "Initial Access", action: `Injected overlay pulls update-check.js from ${stagingHost} (T1189)` },
+      { ts: T(3 * MIN + 40_000), phase: "Initial Access", action: "User downloads Chrome_Update_127.0.6533.js" },
+      { ts: T(5 * MIN + 8_000), phase: "Execution", action: "explorer.exe → wscript.exe runs the downloaded script (T1204.002)" },
+      { ts: T(5 * MIN + 11_000), phase: "Execution", action: "wscript spawns hidden PowerShell with a download-and-run command" },
+      { ts: T(5 * MIN + 12_000), phase: "Command and Control", action: `Second-stage fetch from ${c2} blocked at the perimeter` },
+      { ts: T(5 * MIN + 30_000), phase: "Containment", action: "Falcon kills the PowerShell process and raises a Critical detection" },
+    ],
+    questions,
+  };
+}

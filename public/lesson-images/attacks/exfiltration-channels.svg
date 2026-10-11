@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 560" role="img" aria-label="Table comparing five data exfiltration channels - HTTPS POST, DNS tunneling, personal cloud storage upload, email attachment, and USB - by what telemetry an analyst sees, what structurally cannot be seen, and which control is best positioned to catch it">
+  <title>Exfiltration channels compared: what you see, what you don't, and what might catch it</title>
+  <defs>
+    <style>
+      .bg    { fill: #0b0f1e; }
+      .panel { fill: #0a1020; stroke: #1e2d4a; stroke-width: 1; }
+      .ui    { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .mono  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10.5px; }
+      .val   { fill: #e2e8f0; font-size: 10.5px; }
+      .head  { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+      .col   { fill: #64748b; font-size: 10px; font-weight: 600; letter-spacing: .06em; }
+      .note  { fill: #94a3b8; font-size: 11px; }
+      .cyan  { fill: #22d3ee; font-size: 12px; font-weight: 700; }
+      .crit  { fill: #f87171; font-size: 10.5px; }
+      .good  { fill: #86efac; font-size: 10.5px; }
+      .cap   { fill: #64748b; font-size: 10px; font-style: italic; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="940" height="560"/>
+  <text class="ui head" x="24" y="28">FIVE EXFILTRATION CHANNELS — WHAT YOU SEE, WHAT YOU STRUCTURALLY CANNOT</text>
+
+  <!-- table -->
+  <rect class="panel" x="24" y="44" width="892" height="332" rx="6"/>
+  <text class="ui col" x="40" y="66">CHANNEL</text>
+  <text class="ui col" x="200" y="66">WHAT YOU SEE</text>
+  <text class="ui col" x="450" y="66">WHAT YOU DON'T SEE</text>
+  <text class="ui col" x="700" y="66">CONTROL THAT MIGHT CATCH IT</text>
+  <line x1="40" y1="76" x2="900" y2="76" stroke="#1e2d4a" stroke-width="1"/>
+
+  <!-- Row 1: HTTPS POST -->
+  <text class="cyan" x="40" y="100">HTTPS POST</text>
+  <text class="val" x="200" y="100">Destination IP/domain, TLS</text>
+  <text class="val" x="200" y="114">SNI, JA3, bytes sent, timing</text>
+  <text class="crit" x="450" y="100">Request body content — it's</text>
+  <text class="crit" x="450" y="114">encrypted; exact file identity</text>
+  <text class="good" x="700" y="100">TLS-inspecting proxy / SWG;</text>
+  <text class="good" x="700" y="114">DLP integrated at the proxy</text>
+  <line x1="40" y1="128" x2="900" y2="128" stroke="#1e2d4a" stroke-width=".5"/>
+
+  <!-- Row 2: DNS tunneling -->
+  <text class="cyan" x="40" y="152">DNS TUNNELING</text>
+  <text class="val" x="200" y="152">High query volume, long/</text>
+  <text class="val" x="200" y="166">high-entropy subdomains</text>
+  <text class="crit" x="450" y="152">The decoded content itself;</text>
+  <text class="crit" x="450" y="166">blends into normal resolution</text>
+  <text class="good" x="700" y="152">DNS-aware inspection / NDR;</text>
+  <text class="good" x="700" y="166">correlate the querying process</text>
+  <line x1="40" y1="180" x2="900" y2="180" stroke="#1e2d4a" stroke-width=".5"/>
+
+  <!-- Row 3: Cloud storage upload -->
+  <text class="cyan" x="40" y="204">CLOUD STORAGE UPLOAD</text>
+  <text class="val" x="200" y="204">HTTPS to a consumer cloud</text>
+  <text class="val" x="200" y="218">domain, upload volume/time</text>
+  <text class="crit" x="450" y="204">Which specific file — same</text>
+  <text class="crit" x="450" y="218">domain also carries real work</text>
+  <text class="good" x="700" y="204">CASB / proxy category block;</text>
+  <text class="good" x="700" y="218">cloud-aware DLP on the sync client</text>
+  <line x1="40" y1="232" x2="900" y2="232" stroke="#1e2d4a" stroke-width=".5"/>
+
+  <!-- Row 4: Email attachment -->
+  <text class="cyan" x="40" y="256">EMAIL ATTACHMENT</text>
+  <text class="val" x="200" y="256">Sender, external recipient,</text>
+  <text class="val" x="200" y="270">subject, attachment metadata</text>
+  <text class="crit" x="450" y="256">Attachment content if it's</text>
+  <text class="crit" x="450" y="270">zipped, encrypted, or unscanned</text>
+  <text class="good" x="700" y="256">Email DLP content/pattern</text>
+  <text class="good" x="700" y="270">match; attachment sandboxing</text>
+  <line x1="40" y1="284" x2="900" y2="284" stroke="#1e2d4a" stroke-width=".5"/>
+
+  <!-- Row 5: USB -->
+  <text class="cyan" x="40" y="308">USB</text>
+  <text class="val" x="200" y="308">Device-insertion event, file-</text>
+  <text class="val" x="200" y="322">write to the removable volume</text>
+  <text class="crit" x="450" y="308">Everything on the network —</text>
+  <text class="crit" x="450" y="322">there is no packet capture here</text>
+  <text class="good" x="700" y="308">EDR + device control / USB</text>
+  <text class="good" x="700" y="322">write-blocking; endpoint DLP agent</text>
+  <line x1="40" y1="336" x2="900" y2="336" stroke="#1e2d4a" stroke-width=".5"/>
+
+  <text class="ui cap" x="40" y="360">Every "what you see" column is endpoint or network telemetry — every "what you don't" column is a structural gap, not a tuning problem.</text>
+
+  <!-- bottom callout -->
+  <rect class="panel" x="24" y="392" width="892" height="150" rx="6"/>
+  <text class="ui col" x="40" y="414">WHAT DEFEATS ALL FIVE AT ONCE</text>
+  <text class="ui note" x="40" y="440">A photograph of a screen, taken on a personal phone, never touches a monitored device or network — none of the</text>
+  <text class="ui note" x="40" y="456">five controls above can see it. Paraphrased data — reading a figure and retyping it from memory — defeats content-</text>
+  <text class="ui note" x="40" y="472">based DLP the same way, because there is no matching file or pattern left to catch, only reworded information.</text>
+  <text class="ui note" x="40" y="488">This is exactly why behavioural indicators (unusual access volume, off-hours activity, a departure on the calendar)</text>
+  <text class="ui note" x="40" y="504">have to sit alongside channel monitoring, not replace it — they catch the cases no channel-level control ever will.</text>
+  <text class="ui cap" x="40" y="526">No channel is monitored equally well end-to-end — know which log source actually covers the channel in front of you.</text>
+</svg>

@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 440" role="img" aria-label="David Bianco's Pyramid of Pain, showing that indicators like hashes and IPs are trivial for an attacker to change, while tools and especially TTPs are painful to change, so detecting higher up the pyramid hurts the adversary most.">
+  <title>The Pyramid of Pain — how much it costs the attacker when you detect each indicator type</title>
+  <defs>
+    <style>
+      .bg{fill:#0b0f1e;} .ui{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;} .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
+      .t{fill:#0b0f1e;font-size:14px;font-weight:800;} .lab{fill:#e2e8f0;font-size:12px;} .s{fill:#94a3b8;font-size:11px;}
+      .head{fill:#cbd5e1;font-size:12px;font-weight:700;letter-spacing:.05em;} .axis{fill:#64748b;font-size:11px;font-weight:700;}
+    </style>
+  </defs>
+  <rect class="bg" x="0" y="0" width="960" height="440"/>
+  <text class="ui head" x="30" y="30">THE PYRAMID OF PAIN — DETECT HIGHER = HURT THE ATTACKER MORE</text>
+
+  <!-- pyramid tiers (bottom wide, top narrow) -->
+  <!-- TTPs (top) -->
+  <polygon points="430,58 530,58 560,108 400,108" fill="#22c55e"/>
+  <text class="ui t" x="480" y="90" text-anchor="middle">TTPs</text>
+  <!-- Tools -->
+  <polygon points="400,110 560,110 592,160 368,160" fill="#4ade80"/>
+  <text class="ui t" x="480" y="142" text-anchor="middle">Tools</text>
+  <!-- Network/Host Artifacts -->
+  <polygon points="368,162 592,162 624,212 336,212" fill="#fbbf24"/>
+  <text class="ui t" x="480" y="194" text-anchor="middle">Network / Host Artifacts</text>
+  <!-- Domain Names -->
+  <polygon points="336,214 624,214 656,264 304,264" fill="#fb923c"/>
+  <text class="ui t" x="480" y="246" text-anchor="middle">Domain Names</text>
+  <!-- IP Addresses -->
+  <polygon points="304,266 656,266 688,316 272,316" fill="#f87171"/>
+  <text class="ui t" x="480" y="298" text-anchor="middle">IP Addresses</text>
+  <!-- Hash Values -->
+  <polygon points="272,318 688,318 720,368 240,368" fill="#ef4444"/>
+  <text class="ui t" x="480" y="350" text-anchor="middle">Hash Values</text>
+
+  <!-- pain axis -->
+  <text class="ui axis" x="150" y="90">MORE PAIN</text>
+  <text class="ui axis" x="150" y="108">to the attacker</text>
+  <text class="ui axis" x="150" y="350">TRIVIAL</text>
+  <text class="ui axis" x="150" y="368">to change</text>
+  <line x1="200" y1="80" x2="200" y2="360" stroke="#475569" stroke-width="2" marker-start="url(#up)"/>
+  <defs><marker id="up" markerWidth="10" markerHeight="10" refX="5" refY="8" orient="auto"><path d="M5,0 L10,8 L0,8 Z" fill="#475569"/></marker></defs>
+
+  <!-- annotations right -->
+  <text class="ui s" x="740" y="88" style="fill:#86efac">Change a TTP = re-learn how they operate.</text>
+  <text class="ui s" x="740" y="106" style="fill:#86efac">Nearly impossible — hunt here.</text>
+  <text class="ui s" x="740" y="150" style="fill:#4ade80">New tool = real effort to build/buy.</text>
+  <text class="ui s" x="740" y="196" style="fill:#fcd34d">Artifacts (mutex, path, user-agent):</text>
+  <text class="ui s" x="740" y="214" style="fill:#fcd34d">annoying to change.</text>
+  <text class="ui s" x="740" y="248" style="fill:#fdba74">New domain: cheap, minutes.</text>
+  <text class="ui s" x="740" y="298" style="fill:#fca5a5">New IP: trivial, seconds.</text>
+  <text class="ui s" x="740" y="350" style="fill:#fca5a5">Recompile → new hash: instant.</text>
+
+  <text class="ui s" x="30" y="404">Blocking a hash or IP inconveniences the attacker for seconds — they swap it and continue (this is why IOC blocklists age out fast).</text>
+  <text class="ui s" x="30" y="424" style="fill:#86efac">Detecting a TTP — the WAY they operate (e.g. 'Office spawns PowerShell') — forces them to change their whole tradecraft. That is durable detection.</text>
+</svg>

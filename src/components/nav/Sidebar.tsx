@@ -1,21 +1,31 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 import { Logo } from "../Logo";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { useOrgContext } from "@/lib/auth/useOrgContext";
+import { EnvironmentSwitcher } from "./EnvironmentSwitcher";
+import { MyEnvironmentSwitcher } from "./MyEnvironmentSwitcher";
 import {
-  LayoutDashboard, BookOpen, TrendingUp, Target, ClipboardList, Wrench, DoorOpen, Menu, X, LogOut, LogIn,
+  LayoutDashboard, BookOpen, TrendingUp, Target, ClipboardList, Wrench, DoorOpen, Menu, X, LogOut, LogIn, Award, ShieldCheck, Building2, Flag, Library, Users, ChevronsLeft, PanelLeft,
 } from "lucide-react";
 
 const NAV_ITEMS = [
-  { href: "/rooms",     label: "Learning Rooms", icon: DoorOpen        },
-  { href: "/dashboard", label: "SOC Dashboard",  icon: LayoutDashboard },
-  { href: "/learn",     label: "Learning Path",  icon: BookOpen        },
-  { href: "/progress",  label: "Progress",       icon: TrendingUp      },
-  { href: "/scenarios", label: "Scenarios",      icon: Target          },
-  { href: "/quizzes",   label: "Quizzes",        icon: ClipboardList   },
+  { href: "/rooms",        label: "Learning Rooms", icon: DoorOpen        },
+  { href: "/dashboard",    label: "SOC Dashboard",  icon: LayoutDashboard },
+  // NOTE: /edr is deliberately NOT in the nav. The EDR console is only reachable
+  // from an ACTIVE live-dashboard shift (via "Investigate in EDR"), so an analyst
+  // never opens it cold — it always shows the endpoint side of the attack they're
+  // working. The page itself redirects to /dashboard when no shift is running.
+  { href: "/learn",        label: "Learning Path",  icon: BookOpen        },
+  { href: "/progress",     label: "Progress",       icon: TrendingUp      },
+  { href: "/scenarios",    label: "Scenarios",      icon: Target          },
+  { href: "/quizzes",      label: "Quizzes",        icon: ClipboardList   },
+  { href: "/achievements", label: "Achievements",   icon: Award           },
+  { href: "/resources",    label: "College Materials", icon: Library       },
 ];
 
 // Content-authoring tools (log validator, scenario/quiz generator) — deliberately
@@ -24,14 +34,56 @@ const NAV_ITEMS = [
 // link rather than sitting next to Rooms/Dashboard/Progress with equal weight.
 const DEV_TOOLS_ITEM = { href: "/admin", label: "Content Tools", icon: Wrench };
 
+/**
+ * Link to the student-report inbox, with a count of untriaged reports.
+ *
+ * Renders nothing unless the caller is actually a platform admin — the fetch
+ * returns 403 for everyone else, so a student never sees this even momentarily.
+ */
+function ContentFeedbackLink({ onNavigate }: { onNavigate?: () => void }) {
+  const [count, setCount] = useState<number | null>(null);
+  // P5-22: only a platform admin asks — every student used to fire this on each
+  // page load and get a 403 (a red console error) for nothing.
+  const { isPlatformAdmin } = useOrgContext();
+
+  useEffect(() => {
+    if (!isPlatformAdmin) return;
+    let alive = true;
+    fetch("/api/feedback?status=new")
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (alive && d) setCount((d.items ?? []).length); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [isPlatformAdmin]);
+
+  if (count === null) return null; // not an admin, or not loaded yet
+
+  return (
+    <Link
+      href="/admin/feedback"
+      onClick={onNavigate}
+      className="mt-0.5 flex items-center gap-2.5 rounded-md px-3 py-1.5 text-xs text-slate-400 hover:bg-white/5 hover:text-white transition-colors"
+    >
+      <Flag className="h-3.5 w-3.5 shrink-0" />
+      <span className="flex-1">Content Reports</span>
+      {count > 0 && (
+        <span className="rounded-full bg-neon-amber/20 px-1.5 py-0.5 text-[10px] font-bold text-neon-amber">
+          {count}
+        </span>
+      )}
+    </Link>
+  );
+}
+
 // Shared nav list — rendered in both the desktop rail and the mobile drawer.
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { user, authEnabled, signOut } = useAuth();
+  const { isPlatformAdmin, orgRole } = useOrgContext();
   return (
     <>
       <nav className="flex-1 px-3 py-2">
-        <p className="px-2 mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+        <p className="px-2 mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
           Navigation
         </p>
         <ul className="space-y-0.5">
@@ -42,6 +94,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
                 <Link
                   href={href}
                   onClick={onNavigate}
+                  aria-current={active ? "page" : undefined}
                   className={cn(
                     "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
                     active
@@ -49,7 +102,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
                       : "text-slate-300 hover:bg-white/5 hover:text-white"
                   )}
                 >
-                  <Icon className="h-[18px] w-[18px] shrink-0" />
+                  <Icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
                   <span>{label}</span>
                 </Link>
               </li>
@@ -61,7 +114,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
       {/* User — real auth state. Guest (no account / Supabase not configured)
           keeps working exactly as before: progress just lives on this device. */}
       <div className="border-t border-border px-3 py-4">
-        <p className="px-2 mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+        <p className="px-2 mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
           {user ? "Account" : "Guest"}
         </p>
         {user ? (
@@ -69,13 +122,22 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-cyber-500/40 bg-cyber-500/10 text-[11px] font-bold text-cyber-300">
               {(user.email ?? "?")[0].toUpperCase()}
             </span>
-            <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-100" title={user.email ?? undefined}>
+            {/* The identity block is the conventional place to look for account
+                settings, and /account is where the right-to-deletion controls
+                live — so it has to be reachable from the product, not only
+                from a link in the privacy policy. */}
+            <Link
+              href="/account"
+              onClick={onNavigate}
+              className="min-w-0 flex-1 truncate text-sm font-medium text-slate-100 hover:text-cyber-300 transition-colors"
+              title={user.email ?? undefined}
+            >
               {user.email}
-            </span>
+            </Link>
             <button
               onClick={() => { signOut(); onNavigate?.(); }}
               aria-label="Sign out"
-              className="shrink-0 rounded p-1.5 text-slate-500 hover:bg-white/5 hover:text-slate-200 transition-colors"
+              className="shrink-0 rounded p-1.5 text-slate-400 hover:bg-white/5 hover:text-slate-200 transition-colors"
             >
               <LogOut className="h-3.5 w-3.5" />
             </button>
@@ -103,13 +165,74 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
           the learner nav above so it doesn't read as part of the student's
           own toolkit (see PLATFORM_REVIEW.md P2.2). */}
       <div className="border-t border-border px-3 py-2">
+        {/* Content-authoring tools are staff-only. Students must not see this (client
+            feedback): /admin is gated to profiles.role='admin' in middleware, so showing
+            the link to anyone else just bounces them with a confusing "forbidden". Gate the
+            link to the SAME claim the middleware enforces. */}
+        {isPlatformAdmin && (
+          <Link
+            href={DEV_TOOLS_ITEM.href}
+            onClick={onNavigate}
+            className="flex items-center gap-2.5 rounded-md px-3 py-1.5 text-xs text-slate-400 hover:bg-white/5 hover:text-white transition-colors"
+          >
+            <DEV_TOOLS_ITEM.icon className="h-3.5 w-3.5 shrink-0" />
+            <span>{DEV_TOOLS_ITEM.label}</span>
+          </Link>
+        )}
+        {/* Student-reported content problems. Sits next to the other content
+            tools because that's what it is — a work queue for the person who
+            maintains the material. The count is the point: an unread report is
+            a known defect nobody has looked at. */}
+        <ContentFeedbackLink onNavigate={onNavigate} />
+        {/* Team-SOC training — shared multiplayer exercises. Any org member sees
+            it (they enter sessions they're invited to; staff also build them). */}
+        {(!!orgRole || isPlatformAdmin) && (
+          <Link
+            href="/team"
+            onClick={onNavigate}
+            className="mt-0.5 flex items-center gap-2.5 rounded-md px-3 py-1.5 text-xs text-cyber-300 hover:bg-white/5 hover:text-cyber-200 transition-colors"
+          >
+            <Users className="h-3.5 w-3.5 shrink-0" />
+            <span>Team Training</span>
+          </Link>
+        )}
+        {/* Switch environment — shown only to a regular member who belongs to ≥2
+            environments (e.g. individual + a college joined by access code). */}
+        <MyEnvironmentSwitcher onNavigate={onNavigate} />
+        {/* Org-admin console — a college managing its own class. Claim-gated in
+            the UI; enforced by middleware + the org-scoped API routes. */}
+        {orgRole === "org_admin" && !isPlatformAdmin && (
+          <Link
+            href="/manage"
+            onClick={onNavigate}
+            className="mt-0.5 flex items-center gap-2.5 rounded-md px-3 py-1.5 text-xs text-cyber-300 hover:bg-white/5 hover:text-cyber-200 transition-colors"
+          >
+            <Building2 className="h-3.5 w-3.5 shrink-0" />
+            <span>Manage Class</span>
+          </Link>
+        )}
+        {/* Platform super-admin — cross-org B2B console. Only ever shown to a
+            platform admin (claim-gated); enforced for real by middleware + RLS. */}
+        {isPlatformAdmin && (
+          <Link
+            href="/superadmin"
+            onClick={onNavigate}
+            className="mt-0.5 flex items-center gap-2.5 rounded-md px-3 py-1.5 text-xs text-cyber-300 hover:bg-white/5 hover:text-cyber-200 transition-colors"
+          >
+            <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+            <span>Super Admin</span>
+          </Link>
+        )}
+        {/* Super-admin environment switcher — present in all tenants, switch
+            between them in one click. Self-gates on the platform-admin claim. */}
+        <EnvironmentSwitcher onNavigate={onNavigate} />
+        {/* Accessibility statement — reachable from every in-app page. */}
         <Link
-          href={DEV_TOOLS_ITEM.href}
+          href="/accessibility"
           onClick={onNavigate}
-          className="flex items-center gap-2.5 rounded-md px-3 py-1.5 text-xs text-slate-600 hover:bg-white/5 hover:text-slate-400 transition-colors"
+          className="mt-1 block px-3 py-1 text-xs text-slate-400 underline underline-offset-2 hover:text-slate-200 transition-colors"
         >
-          <DEV_TOOLS_ITEM.icon className="h-3.5 w-3.5 shrink-0" />
-          <span>{DEV_TOOLS_ITEM.label}</span>
+          Accessibility
         </Link>
       </div>
     </>
@@ -119,27 +242,77 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
 export function Sidebar() {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const { user } = useAuth();
+  // In-app logo returns a signed-in user to their app home (/rooms), never the
+  // public marketing landing at "/" — which renders its logged-out view and made
+  // it look as though the session had been lost (it hadn't; the cookie is intact).
+  const homeHref = user ? "/rooms" : "/";
+  const drawerRef = useRef<HTMLElement>(null);
+  const drawerCloseRef = useRef<HTMLButtonElement>(null);
+  // Mobile drawer is a modal dialog: focus moves in, Tab is trapped, Escape
+  // closes, and focus returns to the hamburger on close.
+  useFocusTrap(drawerOpen, drawerRef, { onEscape: () => setDrawerOpen(false), initialFocus: drawerCloseRef });
 
   // Close the mobile drawer whenever the route changes (belt-and-suspenders
   // alongside the per-link onNavigate handler).
   useEffect(() => { setDrawerOpen(false); }, [pathname]);
+  // Desktop rail collapse — remembered per device so the choice sticks across
+  // pages and reloads. Read in an effect to avoid an SSR/first-paint mismatch.
+  useEffect(() => { try { setCollapsed(localStorage.getItem("soc_sidebar_collapsed") === "1"); } catch { /* storage blocked */ } }, []);
+  // Team exercise room (/team/<id>): focus mode for every role, the rail starts collapsed so
+  // the exercise gets the whole screen. Opening it there is for this visit only and does not
+  // change the remembered preference for the rest of the app.
+  const focusRoute = /^\/team\/[^/]+/.test(pathname ?? "");
+  const [focusOpen, setFocusOpen] = useState(false);
+  useEffect(() => { setFocusOpen(false); }, [pathname]);
+  const railCollapsed = focusRoute ? !focusOpen : collapsed;
+  const toggleCollapsed = (v: boolean) => {
+    if (focusRoute) { setFocusOpen(!v); return; }
+    setCollapsed(v); try { localStorage.setItem("soc_sidebar_collapsed", v ? "1" : "0"); } catch { /* storage blocked */ }
+  };
 
   return (
     <>
-      {/* ── Desktop rail (unchanged) ─────────────────────────────────── */}
-      <aside className="hidden md:flex md:w-60 flex-col border-r border-border bg-[#0d1520] sticky top-0 h-screen">
-        <div className="px-5 py-5">
-          <Link href="/" className="block">
+      {/* ── Desktop rail (collapsible) ───────────────────────────────── */}
+      <aside className={cn("hidden md:flex md:w-60 flex-col border-r border-border bg-[#0d1520] sticky top-0 h-screen", railCollapsed && "md:hidden")}>
+        <div className="flex items-center justify-between px-5 py-5">
+          <Link href={homeHref} className="block">
             <Logo />
           </Link>
+          <button
+            onClick={() => toggleCollapsed(true)}
+            aria-label="Collapse sidebar"
+            title="Collapse sidebar"
+            className="shrink-0 rounded p-1.5 text-slate-400 hover:bg-white/5 hover:text-slate-200 transition-colors"
+          >
+            <ChevronsLeft className="h-4 w-4" />
+          </button>
         </div>
         <NavList />
       </aside>
+
+      {/* Desktop: floating button to reopen the rail once it's collapsed, so the
+          dashboard (and every page) can use the full screen width. */}
+      {railCollapsed && (
+        <button
+          onClick={() => toggleCollapsed(false)}
+          aria-label="Expand sidebar"
+          title="Expand sidebar"
+          className={cn("hidden md:flex fixed z-40 items-center justify-center border border-border bg-[#0d1520]/95 text-slate-200 shadow-lg backdrop-blur hover:text-white",
+            // In the exercise room: a slim tab on the left edge that sits in the page gutter, over nothing.
+            focusRoute ? "left-0 top-1/2 h-16 w-5 -translate-y-1/2 rounded-r-md border-l-0 hover:w-7" : "top-3 left-3 h-10 w-10 rounded-lg")}
+        >
+          <PanelLeft className={focusRoute ? "h-3.5 w-3.5" : "h-5 w-5"} />
+        </button>
+      )}
 
       {/* ── Mobile: floating hamburger + slide-in drawer ─────────────── */}
       <button
         onClick={() => setDrawerOpen(true)}
         aria-label="Open navigation menu"
+        aria-expanded={drawerOpen}
+        aria-controls="mobile-nav-drawer"
         className="md:hidden fixed top-3 left-3 z-40 flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-[#0d1520]/95 text-slate-200 shadow-lg backdrop-blur"
       >
         <Menu className="h-5 w-5" />
@@ -154,12 +327,23 @@ export function Sidebar() {
             aria-hidden="true"
           />
           {/* Drawer panel */}
-          <aside className="relative flex w-64 max-w-[80vw] flex-col border-r border-border bg-[#0d1520] h-full">
+          <aside
+            ref={drawerRef}
+            id="mobile-nav-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mobile-nav-drawer-title"
+            tabIndex={-1}
+            className="relative flex w-64 max-w-[80vw] flex-col border-r border-border bg-[#0d1520] h-full outline-none"
+          >
+            <h2 id="mobile-nav-drawer-title" className="sr-only">Navigation menu</h2>
             <div className="flex items-center justify-between px-5 py-5">
-              <Link href="/" className="block" onClick={() => setDrawerOpen(false)}>
+              <Link href={homeHref} className="block" onClick={() => setDrawerOpen(false)}>
                 <Logo />
               </Link>
               <button
+                ref={drawerCloseRef}
+                type="button"
                 onClick={() => setDrawerOpen(false)}
                 aria-label="Close navigation menu"
                 className="rounded p-1 text-slate-400 hover:text-white"

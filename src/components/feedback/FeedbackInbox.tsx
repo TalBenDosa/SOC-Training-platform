@@ -1,0 +1,235 @@
+"use client";
+/**
+ * Feedback / reports triage inbox — the shared body used by BOTH the platform
+ * admin page (/admin/feedback) and the super-admin console (/superadmin/feedback).
+ * Renders the filter bar + report cards + status controls; the page around it
+ * supplies its own Topbar/container. Reads and triages via /api/feedback, which
+ * accepts a platform admin OR the platform super-admin.
+ *
+ * Content defects (from a room/quiz) and technical bug reports (from the global
+ * "Report a problem" button, tagged context.category="technical") both land here.
+ */
+import { useEffect, useState } from "react";
+import { fetchOrError } from "@/lib/http/safeFetch";
+import { Card } from "@/components/ui/Card";
+import { Flag, Loader2, AlertTriangle, Bug, Send, CheckCircle2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+type Status = "new" | "triaged" | "resolved" | "wontfix";
+
+interface Report {
+  id: string;
+  target_kind: string;
+  target_id: string;
+  context: Record<string, string>;
+  message: string;
+  status: Status;
+  created_at: string;
+  admin_response?: string | null;
+  responded_at?: string | null;
+  profiles: { handle?: string; display_name?: string } | null;
+}
+
+const FILTERS: { key: string; label: string }[] = [
+  { key: "new", label: "New" },
+  { key: "triaged", label: "Triaged" },
+  { key: "resolved", label: "Resolved" },
+  { key: "wontfix", label: "Won't fix" },
+  { key: "all", label: "All" },
+];
+
+const STATUS_STYLE: Record<Status, string> = {
+  new:      "border-neon-amber/40 bg-neon-amber/10 text-neon-amber",
+  triaged:  "border-cyber-500/40 bg-cyber-500/10 text-cyber-300",
+  resolved: "border-neon-green/40 bg-neon-green/10 text-neon-green",
+  wontfix:  "border-slate-600 bg-slate-800/60 text-slate-400",
+};
+
+export function FeedbackInbox() {
+  const [items, setItems] = useState<Report[]>([]);
+  const [filter, setFilter] = useState("new");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [sending, setSending] = useState<string | null>(null);
+  const [notes, setNotes] = useState<Record<string, { ok: boolean; text: string }>>({});
+
+  async function load(f = filter) {
+    setLoading(true); setError(null);
+    const res = await fetchOrError(`/api/feedback?status=${encodeURIComponent(f)}`);
+    setLoading(false);
+    if (!res.ok) { setError((await res.json().catch(() => ({})))?.error ?? "Failed to load."); return; }
+    setItems((await res.json()).items ?? []);
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- filter-keyed fetch; load reads current props
+  useEffect(() => { load(filter); }, [filter]);
+
+  async function setStatus(id: string, status: Status) {
+    const before = items.find(r => r.id === id)?.status;
+    setItems(prev => prev.map(r => (r.id === id ? { ...r, status } : r)));
+    const res = await fetchOrError("/api/feedback", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, status }),
+    });
+    if (!res.ok) {
+      // E-23: the server refused — put the old status back and say so.
+      if (before) setItems(prev => prev.map(r => (r.id === id ? { ...r, status: before } : r)));
+      setError((await res.json().catch(() => ({})))?.error ?? "Couldn't update the status — please try again.");
+      return;
+    }
+    if (filter !== "all" && filter !== status) load(filter);
+  }
+
+  async function sendReply(id: string) {
+    const message = (drafts[id] ?? "").trim();
+    if (!message) return;
+    setSending(id);
+    setNotes(n => { const c = { ...n }; delete c[id]; return c; });
+    let res: Response;
+    try {
+      res = await fetchOrError(`/api/feedback/${id}/reply`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+    } catch {
+      setSending(null);
+      setNotes(n => ({ ...n, [id]: { ok: false, text: "Network error — reply not sent." } }));
+      return;
+    }
+    setSending(null);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setNotes(n => ({ ...n, [id]: { ok: false, text: data?.error ?? "Failed to send reply." } }));
+      return;
+    }
+    setItems(prev => prev.map(r => (r.id === id
+      ? { ...r, admin_response: message, responded_at: new Date().toISOString(), status: "resolved" as Status }
+      : r)));
+    setDrafts(d => { const c = { ...d }; delete c[id]; return c; });
+    setNotes(n => ({ ...n, [id]: {
+      ok: true,
+      text: data.emailed
+        ? "Reply emailed to the reporter and marked resolved."
+        : "Reply saved and marked resolved — but email delivery is not configured, so the reporter was NOT emailed.",
+    } }));
+  }
+
+  const isTechnical = (r: Report) => r.context?.category === "technical" || r.target_id === "technical";
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2">
+        {FILTERS.map(f => (
+          <button
+            key={f.key} onClick={() => setFilter(f.key)}
+            className={cn(
+              "rounded-lg border px-3 py-1.5 text-xs font-semibold transition",
+              filter === f.key
+                ? "border-cyber-500/50 bg-cyber-500/10 text-cyber-300"
+                : "border-border text-slate-400 hover:text-white",
+            )}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {error && (
+        <div className="flex items-center gap-2 rounded-lg border border-severity-high/40 bg-severity-high/10 px-4 py-3 text-sm text-severity-high">
+          <AlertTriangle className="h-4 w-4" />{error}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center gap-2 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
+      ) : items.length === 0 ? (
+        <Card>
+          <p className="flex items-center gap-2 text-sm text-slate-400">
+            <Flag className="h-4 w-4" /> Nothing here. Content reports (from a room or scenario) and technical problem reports both land in this inbox.
+          </p>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {items.map(r => (
+            <Card key={r.id}>
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <span className={cn("rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider", STATUS_STYLE[r.status])}>
+                  {r.status}
+                </span>
+                {isTechnical(r) ? (
+                  <span className="inline-flex items-center gap-1 rounded border border-neon-amber/40 bg-neon-amber/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-neon-amber">
+                    <Bug className="h-3 w-3" /> technical
+                  </span>
+                ) : (
+                  <span className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-slate-400">
+                    {r.target_kind}
+                  </span>
+                )}
+                {!isTechnical(r) && <span className="font-mono text-[11px] text-slate-300">{r.target_id}</span>}
+                <span className="ml-auto text-[11px] text-slate-500">
+                  {r.profiles?.display_name || r.profiles?.handle || "unknown"} · {new Date(r.created_at).toLocaleString("en-GB")}
+                </span>
+              </div>
+
+              <p className="whitespace-pre-wrap text-sm text-slate-200">{r.message}</p>
+
+              {r.context && Object.keys(r.context).length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {Object.entries(r.context).map(([k, v]) => (
+                    <span key={k} className="rounded bg-bg px-1.5 py-0.5 font-mono text-[10px] text-slate-400">
+                      {k}: {v}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-3 flex flex-wrap gap-1.5 border-t border-border/50 pt-2">
+                {(["triaged", "resolved", "wontfix", "new"] as Status[])
+                  .filter(s => s !== r.status)
+                  .map(s => (
+                    <button key={s} onClick={() => setStatus(r.id, s)}
+                      className="rounded border border-border px-2 py-1 text-[11px] text-slate-400 transition hover:text-white">
+                      Mark {s}
+                    </button>
+                  ))}
+              </div>
+
+              {r.admin_response ? (
+                <div className="mt-2 rounded-lg border border-neon-green/30 bg-neon-green/5 px-3 py-2">
+                  <p className="flex items-center gap-1.5 text-[11px] font-semibold text-neon-green">
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Replied to reporter
+                    {r.responded_at && <span className="font-normal text-slate-500">· {new Date(r.responded_at).toLocaleString("en-GB")}</span>}
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-slate-300">{r.admin_response}</p>
+                </div>
+              ) : (
+                <div className="mt-2">
+                  <textarea
+                    value={drafts[r.id] ?? ""}
+                    onChange={e => setDrafts(d => ({ ...d, [r.id]: e.target.value }))}
+                    placeholder="Reply to the reporter — emailed to them, and marks the report resolved…"
+                    rows={2}
+                    className="w-full resize-y rounded-lg border border-border bg-bg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none"
+                  />
+                  <button
+                    onClick={() => sendReply(r.id)}
+                    disabled={sending === r.id || !(drafts[r.id] ?? "").trim()}
+                    className="mt-1.5 inline-flex items-center gap-1.5 rounded-lg border border-cyber-500/50 bg-cyber-500/10 px-3 py-1.5 text-[11px] font-semibold text-cyber-300 transition hover:bg-cyber-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {sending === r.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                    Send reply to reporter
+                  </button>
+                </div>
+              )}
+              {notes[r.id] && (
+                <p className={cn("mt-1.5 text-[11px]", notes[r.id].ok ? "text-neon-green" : "text-severity-high")}>
+                  {notes[r.id].text}
+                </p>
+              )}
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

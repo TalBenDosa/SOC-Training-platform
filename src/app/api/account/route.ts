@@ -1,0 +1,288 @@
+import { NextResponse } from "next/server";
+import { asObject } from "@/lib/http/body";
+import { dbFail } from "@/lib/http/dbFail";
+import { getAuthedUser } from "@/lib/auth/apiGuard";
+import { verifyCurrentPassword } from "@/lib/auth/verifyPassword";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { logAudit } from "@/lib/audit/logAudit";
+import { checkRateLimit } from "@/lib/security/rateLimit";
+import { validateFullName, validateHandle } from "@/app/(app)/account/accountValidation";
+
+/**
+ * Right to deletion — the data subject's own endpoint.
+ * See supabase/migrations/0027_account_deletion.sql for why there are two paths
+ * (solo learner deletes now; enrolled student files a request their college
+ * actions) and docs/PPA-COMPLIANCE-ASSESSMENT.md §5.1 for the obligation.
+ *
+ * The delete itself is a single auth.admin.deleteUser() call. Every per-user
+ * table cascades from auth.users / public.profiles, so the database removes the
+ * whole graph atomically; audit_log.actor_id is `on delete set null`, so the
+ * security record survives without the identifier. There is deliberately no
+ * hand-written table list here — see the migration header.
+ */
+
+const INTERNAL_ORG = "d0d0d0d0-0000-4000-8000-000000000000";
+
+/** GET — what this account is, and whether a deletion request is already open. */
+export async function GET() {
+  const user = await getAuthedUser();
+  if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+
+  const admin = getSupabaseAdminClient();
+  if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
+
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("id, handle, display_name, org_id, xp")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const orgId = profile?.org_id ?? INTERNAL_ORG;
+  const enrolled = orgId !== INTERNAL_ORG;
+
+  let orgName: string | null = null;
+  if (enrolled) {
+    const { data: org } = await admin.from("organizations").select("name").eq("id", orgId).maybeSingle();
+    orgName = org?.name ?? null;
+  }
+
+  const { data: openRequest } = await admin
+    .from("account_deletion_requests")
+    .select("id, status, requested_at, decided_at, decision_note")
+    .eq("user_id", user.id)
+    .eq("status", "pending")
+    .maybeSingle();
+
+  return NextResponse.json({
+    handle: profile?.handle ?? null,
+    display_name: profile?.display_name ?? null,
+    xp: profile?.xp ?? 0,
+    enrolled,
+    org_name: orgName,
+    deletion_request: openRequest ?? null,
+  });
+}
+
+/**
+ * PATCH — update the profile fields a learner may change themselves (FB-011):
+ *   - `display_name` — the full name printed on rank certificates.
+ *   - `handle`       — the public nickname (leaderboard, Topbar).
+ *
+ * WHY THE SERVICE ROLE, AND WHY THAT IS SAFE. The write goes through the admin
+ * client, so RLS and the privileged-column guard trigger do not run for it. The
+ * protection is therefore HERE: the update object is built from an explicit
+ * whitelist of exactly these two columns — nothing from the request body is
+ * spread into it — so role / xp / xp_offset / org_id / is_platform_admin can
+ * never be touched by this endpoint, whatever the client sends.
+ *
+ * The login email is not editable (changing it needs a verified re-confirmation
+ * flow); the password has its own re-authenticating route (./password).
+ */
+export async function PATCH(req: Request) {
+  const user = await getAuthedUser();
+  if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+
+  const admin = getSupabaseAdminClient();
+  if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
+
+  let body: Record<string, unknown> = {};
+  try { body = asObject(await req.json()); } catch { /* validated below */ }
+  if (!body || typeof body !== "object" || Array.isArray(body)) body = {};
+
+  const wantsName = "display_name" in body;
+  const wantsHandle = "handle" in body;
+  if (!wantsName && !wantsHandle) {
+    return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
+  }
+
+  const { data: current } = await admin
+    .from("profiles").select("handle, display_name").eq("id", user.id).maybeSingle();
+  if (!current) return NextResponse.json({ error: "Profile not found." }, { status: 404 });
+
+  // Explicit whitelist — see header. Never spread `body` into this.
+  const update: { display_name?: string; handle?: string } = {};
+
+  if (wantsName) {
+    const v = validateFullName(body.display_name);
+    if (!v.ok) return NextResponse.json({ error: v.error, field: "display_name" }, { status: 400 });
+    if (v.value !== current.display_name) update.display_name = v.value;
+  }
+
+  if (wantsHandle) {
+    const v = validateHandle(body.handle);
+    if (!v.ok) return NextResponse.json({ error: v.error, field: "handle" }, { status: 400 });
+
+    if (v.value !== (current.handle ?? "").toLowerCase()) {
+      // Availability: checked GLOBALLY (like handle_available() at signup —
+      // stricter than the per-org unique index, so a handle is unambiguous
+      // platform-wide). LIKE wildcards are escaped: `_` is legal in handles.
+      const pattern = v.value.replace(/[\\%_]/g, (c) => `\\${c}`);
+      const { data: taken, error: lookupErr } = await admin
+        .from("profiles").select("id").ilike("handle", pattern).neq("id", user.id).limit(1);
+      if (lookupErr) return NextResponse.json({ error: "Could not check that handle. Try again." }, { status: 500 });
+      if (taken && taken.length > 0) {
+        return NextResponse.json({ error: `"${v.value}" is already taken. Pick another handle.`, field: "handle" }, { status: 409 });
+      }
+      // Handle churn is the one abuse vector here (leaderboard impersonation /
+      // confusion), so cap actual changes per user
+      // (counted only once the name is known to be free). Generous for honest use.
+      const rl = await checkRateLimit(`handle-change:${user.id}`, 3, 24 * 60 * 60 * 1000);
+      if (!rl.ok) {
+        return NextResponse.json(
+          { error: "You've changed your handle several times today. Please try again tomorrow.", field: "handle" },
+          { status: 429, headers: { "Retry-After": String(rl.retryAfter) } },
+        );
+      }
+
+      update.handle = v.value;
+    }
+  }
+
+  if (Object.keys(update).length === 0) {
+    return NextResponse.json({ display_name: current.display_name, handle: current.handle, unchanged: true });
+  }
+
+  const { data: saved, error } = await admin
+    .from("profiles").update(update).eq("id", user.id)
+    .select("display_name, handle").single();
+  if (error) {
+    // 23505 = the (org_id, lower(handle)) unique index — a concurrent claim won
+    // the race between our availability check and this write.
+    if (error.code === "23505") {
+      return NextResponse.json({ error: "That handle was just taken. Pick another one.", field: "handle" }, { status: 409 });
+    }
+    return NextResponse.json({ error: "Could not save your changes. Please try again." }, { status: 500 });
+  }
+
+  await logAudit({
+    actorId: user.id,
+    action: "account.profile_updated",
+    targetTable: "profiles",
+    targetId: user.id,
+    // Field names only for the name (it's PII); old/new handle are public
+    // nicknames and are exactly what an impersonation investigation needs.
+    metadata: {
+      fields: Object.keys(update),
+      ...(update.handle ? { old_handle: current.handle, new_handle: update.handle } : {}),
+    },
+  });
+
+  return NextResponse.json({ display_name: saved.display_name, handle: saved.handle });
+}
+
+/**
+ * DELETE — erase this account, or file the request that leads to it.
+ *
+ * Returns 200 when the account is gone, 202 when a request was filed and is
+ * awaiting the college's decision. The distinction matters to the caller: one
+ * means "you are signed out and erased", the other means "come back later".
+ */
+export async function DELETE(req: Request) {
+  const user = await getAuthedUser();
+  if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+
+  const admin = getSupabaseAdminClient();
+  if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
+
+  let body: Record<string, unknown> = {};
+  try { body = asObject(await req.json()); } catch { /* body is optional */ }
+
+  // Typed confirmation. Deletion is irreversible and cascades across every
+  // table, so a stray fetch or a mis-click must not be able to trigger it —
+  // the client has to echo a specific word back.
+  const confirm = String(body.confirm ?? "").trim().toUpperCase();
+  if (confirm !== "DELETE") {
+    return NextResponse.json(
+      { error: "Confirmation required: send { confirm: \"DELETE\" }." },
+      { status: 400 },
+    );
+  }
+
+  // SEC-12: deletion is irreversible — a hijacked session alone must not be able to
+  // erase the account. Same proof as a password change: the current password.
+  const pw = await verifyCurrentPassword(user, String(body.current_password ?? ""));
+  if (pw !== "ok") {
+    await logAudit({ actorId: user.id, action: "account.delete_denied", targetTable: "auth.users", targetId: user.id, metadata: { reason: pw } });
+    if (pw === "rate_limited") return NextResponse.json({ error: "Too many attempts. Wait a few minutes and try again." }, { status: 429 });
+    if (pw === "unavailable") return NextResponse.json({ error: "Couldn't verify your password right now — nothing was deleted." }, { status: 503 });
+    return NextResponse.json({ error: "Your current password is incorrect.", field: "current_password" }, { status: 400 });
+  }
+
+  // "Enrolled" is decided by MEMBERSHIP — any active membership outside the
+  // internal root — never by profiles.org_id alone: that is only the active
+  // context, and it is reset to the root when ANOTHER college removes the
+  // student, which used to let a student still enrolled elsewhere erase their
+  // account without that college's decision. A failed read fails closed:
+  // deletion is irreversible, so "couldn't check" must never mean "solo".
+  const [{ data: memberships, error: memErr }, { data: profile, error: profErr }] = await Promise.all([
+    admin.from("org_members").select("org_id").eq("user_id", user.id).eq("status", "active").neq("org_id", INTERNAL_ORG),
+    admin.from("profiles").select("org_id").eq("id", user.id).maybeSingle(),
+  ]);
+  if (memErr || profErr) {
+    return NextResponse.json({ error: "Couldn't check your enrolment — nothing was deleted. Please try again." }, { status: 503 });
+  }
+  const enrolledOrgs = (memberships ?? []).map(m => String(m.org_id));
+  // The request goes to the college the student is working in, when enrolled there.
+  const orgId = enrolledOrgs.length === 0 ? INTERNAL_ORG
+    : enrolledOrgs.includes(String(profile?.org_id)) ? String(profile?.org_id) : enrolledOrgs[0];
+
+  // ── Enrolled student → file a request, do not delete ──────────────────────
+  if (enrolledOrgs.length > 0) {
+    const reason = typeof body.reason === "string" ? body.reason.trim().slice(0, 1000) : null;
+
+    const { data: existing } = await admin
+      .from("account_deletion_requests")
+      .select("id, requested_at")
+      .eq("user_id", user.id).eq("status", "pending")
+      .maybeSingle();
+
+    // Idempotent: clicking again returns the request already on file rather
+    // than erroring on the partial unique index.
+    if (existing) {
+      return NextResponse.json(
+        { status: "pending", request_id: existing.id, requested_at: existing.requested_at, already_open: true },
+        { status: 202 },
+      );
+    }
+
+    const { data: created, error } = await admin
+      .from("account_deletion_requests")
+      .insert({ user_id: user.id, org_id: orgId, reason })
+      .select("id, requested_at")
+      .single();
+    if (error) return dbFail(error, "api/account", 500);
+
+    await logAudit({
+      actorId: user.id,
+      action: "account.deletion_requested",
+      targetTable: "account_deletion_requests",
+      targetId: created.id,
+      metadata: { org_id: orgId },
+    });
+
+    return NextResponse.json(
+      { status: "pending", request_id: created.id, requested_at: created.requested_at },
+      { status: 202 },
+    );
+  }
+
+  // ── Solo learner → erase now ──────────────────────────────────────────────
+  // Audit BEFORE the delete: actor_id is `on delete set null`, so writing the
+  // record first means it survives as an anonymised entry. Writing it after
+  // would race the cascade and could land with no row to point at.
+  await logAudit({
+    actorId: user.id,
+    action: "account.deleted_self",
+    targetTable: "profiles",
+    targetId: user.id,
+    metadata: { org_id: orgId },
+  });
+
+  const { error } = await admin.auth.admin.deleteUser(user.id);
+  if (error) {
+    console.error("[api/account] deleteUser failed:", error.message);
+    return NextResponse.json({ error: "Couldn't delete the account right now — nothing was removed. Please try again." }, { status: 500 });   // E-07
+  }
+
+  return NextResponse.json({ status: "deleted" });
+}

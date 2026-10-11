@@ -34,20 +34,6 @@ function pickActiveOrAnyUser(world: WorldState): CompanyUser {
   return pickActiveUser(world);
 }
 
-// Well-known external IP → geo mapping used across generators
-const WELL_KNOWN_DEST_IPS: Record<string, string> = {
-  "teams.microsoft.com": "52.113.194.132",
-  "outlook.office365.com": "40.97.64.9",
-  "login.microsoftonline.com": "20.190.144.147",
-  "github.com": "140.82.121.4",
-  "api.pagerduty.com": "52.74.183.40",
-  "api.github.com": "140.82.121.5",
-  "registry.npmjs.org": "104.16.17.35",
-  "hub.docker.com": "54.236.7.185",
-  "8.8.8.8": "8.8.8.8",
-  "1.1.1.1": "1.1.1.1",
-};
-
 // ─── Auth generator ───────────────────────────────────────────────────────────
 
 function genAuth(world: WorldState): GeneratedEvent {
@@ -243,7 +229,6 @@ function genProcess(world: WorldState): GeneratedEvent {
   const session = getOrCreateSession(world, user);
   const hostname = user.hostname;
   const isWindows = user.osType === "windows";
-  const isMac = user.osType === "macos";
   const isAdmin = user.isAdmin;
   const domain = world.meta.adDomain;
 
@@ -330,18 +315,18 @@ function genProcess(world: WorldState): GeneratedEvent {
       },
       description: `${user.name} ran ${node.name} — ${choice.cmdLine}`,
       raw: {
-        "crowdstrike.event_simplename": "ProcessRollup2",
-        "cs.ContextProcessName": node.name,
-        "cs.CommandLine": node.cmdLine,
-        "cs.ParentProcessName": node.parentName,
-        "cs.TargetProcessId_decimal": String(node.pid),
-        "cs.UserName": user.id,
-        "cs.ComputerName": hostname,
-        "cs.FilePath": node.path,
-        "cs.SHA256HashData": node.sha256,
+        "crowdstrike.event_simpleName": "ProcessRollup2",
+        "crowdstrike.ContextBaseFileName": node.name,
+        "crowdstrike.CommandLine": node.cmdLine,
+        "crowdstrike.ParentBaseFileName": node.parentName,
+        "crowdstrike.TargetProcessId": String(node.pid),
+        "crowdstrike.UserName": user.id,
+        "crowdstrike.ComputerName": hostname,
+        "crowdstrike.FilePath": node.path,
+        "crowdstrike.SHA256HashData": node.sha256,
         "host.name": hostname,
         "user.name": user.id,
-        "file.signed": "true",
+        "process.code_signature.exists": true, "process.code_signature.trusted": true,
         "action_result": "allowed",
       },
     };
@@ -585,8 +570,8 @@ function genNetwork(world: WorldState): GeneratedEvent {
           "data.outzone": "Internal",
           "data.user": `${world.meta.adDomain}\\${user.id}`,
           "data.src_machine_name": user.hostname,
-          "cp.app_name": "SMB",
-          "cp.bytes": String(world.rng.range(4096, 102400)),
+          "app_name": "SMB",
+          "bytes": String(world.rng.range(4096, 102400)),
           "firewall.action": "allow",
           "action_result": "allowed",
         },
@@ -760,10 +745,9 @@ function genNetwork(world: WorldState): GeneratedEvent {
       "data.outzone": "External",
       "data.user": `${world.meta.adDomain}\\${user.id}`,
       "data.src_machine_name": user.hostname,
-      "cp.bytes": String(bytesOut + bytesIn),
-      "cp.bytes_out": String(bytesOut),
-      "cp.service": "HTTPS",
-      "cp.blade": "Firewall",
+      "bytes": String(bytesOut + bytesIn),
+      "bytes_out": String(bytesOut),
+      "service_id": "HTTPS",
       "firewall.action": "allow",
       "action_result": "allowed",
     },
@@ -1239,13 +1223,15 @@ function genEDR(world: WorldState): GeneratedEvent {
   const hostname = user.hostname;
   const roll = world.rng.next();
 
-  const edrVendor = world.meta.edr === "crowdstrike"
+  const isCrowdStrike = world.meta.edr === "crowdstrike";
+  const edrVendor = isCrowdStrike
     ? "CrowdStrike Falcon"
     : "Microsoft Defender for Endpoint";
-  const source = world.meta.edr === "crowdstrike" ? "edr" : "av";
+  const source = isCrowdStrike ? "edr" : "av";
 
   // Clean scan — 50%
   if (roll < 0.50) {
+    const scanDurationSec = world.rng.range(180, 1800);
     return {
       id: nextId(world, "edr"),
       ts: ts(world),
@@ -1257,17 +1243,31 @@ function genEDR(world: WorldState): GeneratedEvent {
       user_email: user.email,
       user_title: user.title,
       description: `Scheduled AV scan completed on ${hostname} — no threats detected`,
-      raw: {
-        "av.scan_type": "scheduled",
-        "av.result": "clean",
-        "av.threat_name": "",
-        "av.action": "no_action_needed",
-        "av.scanned_files": String(world.rng.range(120000, 450000)),
-        "av.scan_duration_sec": String(world.rng.range(180, 1800)),
-        "host.name": hostname,
-        "user.name": user.id,
-        "action_result": "clean",
-      },
+      raw: isCrowdStrike
+        ? {
+            // CrowdStrike Falcon — sensor heartbeat / on-sensor ML scan summary
+            "crowdstrike.event_simpleName": "AgentOnlineEvent",
+            "crowdstrike.aid": world.rng.hex(32),
+            "crowdstrike.SensorId": world.rng.hex(32),
+            "crowdstrike.ComputerName": hostname,
+            "scan.type": "scheduled",
+            "scan.result": "clean",
+            "scan.duration": String(scanDurationSec),
+            "host.name": hostname,
+            "user.name": user.id,
+            "action_result": "clean",
+          }
+        : {
+            // Microsoft Defender AV — Event ID 1001 (scan completed)
+            "windefend.scan.type": "Full",
+            "windefend.scan.parameters": "Scheduled scan",
+            "windefend.scan.state": "Completed",
+            "windefend.signature.version": "1.411.74.0",
+            "windefend.engine.version": "1.1.24050.5",
+            "host.name": hostname,
+            "user.name": user.id,
+            "action_result": "clean",
+          },
     };
   }
 
@@ -1280,6 +1280,7 @@ function genEDR(world: WorldState): GeneratedEvent {
     ];
     const pua = world.rng.choice(puas);
     const sha = world.rng.sha256();
+    const filePath = `C:\\Users\\${user.id}\\Downloads\\${pua.file}`;
     return {
       id: nextId(world, "edr"),
       ts: ts(world),
@@ -1291,23 +1292,49 @@ function genEDR(world: WorldState): GeneratedEvent {
       user_email: user.email,
       user_title: user.title,
       file: {
-        path: `C:\\Users\\${user.id}\\Downloads\\${pua.file}`,
+        path: filePath,
         sha256: sha,
         size: world.rng.range(524288, 10485760),
         extension: "exe",
       },
       description: `PUA detected and quarantined on ${hostname}: ${pua.name} in Downloads folder`,
-      raw: {
-        "av.threat_name": pua.name,
-        "av.threat_type": "PUA",
-        "av.action": "quarantine",
-        "av.file_path": `C:\\Users\\${user.id}\\Downloads\\${pua.file}`,
-        "av.sha256": sha,
-        "av.detection_source": "realtime",
-        "host.name": hostname,
-        "user.name": user.id,
-        "action_result": "quarantined",
-      },
+      raw: isCrowdStrike
+        ? {
+            // CrowdStrike Falcon — DetectionSummaryEvent
+            "crowdstrike.event_simpleName": "DetectionSummaryEvent",
+            "crowdstrike.DetectName": pua.name,
+            "crowdstrike.DetectDescription": `${pua.name} detected in Downloads folder`,
+            "crowdstrike.PatternDispositionDescription": "Quarantined",
+            "crowdstrike.SeverityName": "Low",
+            "crowdstrike.FileName": pua.file,
+            "crowdstrike.FilePath": filePath,
+            "crowdstrike.SHA256HashData": sha,
+            "crowdstrike.ComputerName": hostname,
+            "crowdstrike.UserName": user.id,
+            "malware.name": pua.name,
+            "malware.category": "PUA",
+            "quarantine.status": "quarantined",
+            "remediation.action": "quarantine",
+            "action_result": "quarantined",
+          }
+        : {
+            // Microsoft Defender AV — Event ID 1117 (action taken)
+            "windefend.threat.name": pua.name,
+            "windefend.threat.id": String(world.rng.range(2000000000, 2199999999)),
+            "windefend.threat.category": "PUA",
+            "windefend.threat.severity": "Low",
+            "windefend.action.name": "Quarantine",
+            "windefend.action.id": "3",
+            "windefend.detection.source": "Real-Time Protection",
+            "windefend.detection.type": "Concrete",
+            "windefend.path": filePath,
+            "windefend.process.name": "MsMpEng.exe",
+            "windefend.signature.version": "1.411.74.0",
+            "windefend.engine.version": "1.1.24050.5",
+            "host.name": hostname,
+            "user.name": user.id,
+            "action_result": "quarantined",
+          },
     };
   }
 
@@ -1331,15 +1358,31 @@ function genEDR(world: WorldState): GeneratedEvent {
       user_title: user.title,
       network: { domain: site.domain },
       description: `Network protection blocked access to ${site.domain} (${site.category}) on ${hostname}`,
-      raw: {
-        "av.network_protection.action": "block",
-        "av.network_protection.url": `https://${site.domain}`,
-        "av.network_protection.category": site.category,
-        "av.network_protection.reason": "policy_violation",
-        "host.name": hostname,
-        "user.name": user.id,
-        "action_result": "blocked",
-      },
+      raw: isCrowdStrike
+        ? {
+            // CrowdStrike Falcon — DetectionSummaryEvent (policy-category network block)
+            "crowdstrike.event_simpleName": "DetectionSummaryEvent",
+            "crowdstrike.DetectName": "Malicious Category — Policy Violation",
+            "crowdstrike.DetectDescription": `Network access to ${site.domain} blocked by policy (${site.category})`,
+            "crowdstrike.PatternDispositionDescription": "Blocked, Prevention",
+            "crowdstrike.SeverityName": "Low",
+            "crowdstrike.ComputerName": hostname,
+            "crowdstrike.UserName": user.id,
+            "malware.category": site.category,
+            "remediation.action": "blocked",
+            "destination.domain": site.domain,
+            "action_result": "blocked",
+          }
+        : {
+            // Microsoft Defender AV — Network Protection (Event ID 1125/1126)
+            "windefend.np.action": "Block",
+            "windefend.np.url": `https://${site.domain}`,
+            "windefend.np.category": site.category,
+            "windefend.np.severity": "Informational",
+            "host.name": hostname,
+            "user.name": user.id,
+            "action_result": "blocked",
+          },
     };
   }
 
@@ -1355,15 +1398,30 @@ function genEDR(world: WorldState): GeneratedEvent {
     user_email: user.email,
     user_title: user.title,
     description: `Tamper protection triggered on ${hostname} — attempt to disable AV service blocked`,
-    raw: {
-      "av.tamper_protection.action": "blocked",
-      "av.tamper_protection.target_service": "WinDefend",
-      "av.tamper_protection.caller_process": "cmd.exe",
-      "av.tamper_protection.reason": "Attempted service stop via sc.exe",
-      "host.name": hostname,
-      "user.name": user.id,
-      "action_result": "blocked",
-    },
+    raw: isCrowdStrike
+      ? {
+          // CrowdStrike Falcon — DetectionSummaryEvent (sensor tampering)
+          "crowdstrike.event_simpleName": "DetectionSummaryEvent",
+          "crowdstrike.DetectName": "Falcon Sensor Tampering",
+          "crowdstrike.DetectDescription": "Attempt to stop the Falcon sensor service via sc.exe was blocked",
+          "crowdstrike.PatternDispositionDescription": "Blocked, Prevention",
+          "crowdstrike.SeverityName": "Low",
+          "crowdstrike.ContextBaseFileName": "cmd.exe",
+          "crowdstrike.ComputerName": hostname,
+          "crowdstrike.UserName": user.id,
+          "remediation.action": "blocked",
+          "action_result": "blocked",
+        }
+      : {
+          // Microsoft Defender AV — Tamper Protection (Event ID 5013)
+          "windefend.tamper.action": "Blocked",
+          "windefend.tamper.target_service": "WinDefend",
+          "windefend.tamper.caller_process": "cmd.exe",
+          "windefend.tamper.reason": "Attempted service stop via sc.exe",
+          "host.name": hostname,
+          "user.name": user.id,
+          "action_result": "blocked",
+        },
   };
 }
 
@@ -1395,13 +1453,13 @@ function genCloud(world: WorldState): GeneratedEvent {
       raw: {
         "aws.cloudtrail.eventName": "GetObject",
         "aws.cloudtrail.eventSource": "s3.amazonaws.com",
-        "aws.cloudtrail.user_identity.type": "IAMUser",
-        "aws.cloudtrail.user_identity.arn": `arn:aws:iam::${accountId}:user/${user.id}`,
-        "aws.cloudtrail.user_identity.account_id": accountId,
-        "aws.cloudtrail.source_ip_address": session.ip,
-        "aws.cloudtrail.user_agent": "aws-cli/2.15.0 Python/3.11.0",
-        "aws.cloudtrail.aws_region": region,
-        "aws.cloudtrail.error_code": "",
+        "aws.cloudtrail.userIdentity.type": "IAMUser",
+        "aws.cloudtrail.userIdentity.arn": `arn:aws:iam::${accountId}:user/${user.id}`,
+        "aws.cloudtrail.userIdentity.accountId": accountId,
+        "aws.cloudtrail.sourceIPAddress": session.ip,
+        "aws.cloudtrail.userAgent": "aws-cli/2.15.0 Python/3.11.0",
+        "aws.cloudtrail.awsRegion": region,
+        "aws.cloudtrail.errorCode": "",
         "aws.cloudtrail.request_parameters": { "bucketName": "rocketstack-assets-prod", "key": `build-${buildNum}/app.tar.gz` },
         "aws.cloudtrail.request_id": world.rng.guid(),
         "cloud.account.id": accountId,
@@ -1428,12 +1486,12 @@ function genCloud(world: WorldState): GeneratedEvent {
       raw: {
         "aws.cloudtrail.eventName": "DescribeInstances",
         "aws.cloudtrail.eventSource": "ec2.amazonaws.com",
-        "aws.cloudtrail.user_identity.type": user.id === "ci.deploy" ? "AssumedRole" : "IAMUser",
-        "aws.cloudtrail.user_identity.arn": `arn:aws:iam::${accountId}:user/${user.id}`,
-        "aws.cloudtrail.source_ip_address": session.ip,
-        "aws.cloudtrail.user_agent": "aws-sdk-python/1.34.0 Python/3.11.0 Boto3/1.34.0",
-        "aws.cloudtrail.aws_region": region,
-        "aws.cloudtrail.error_code": "",
+        "aws.cloudtrail.userIdentity.type": user.id === "ci.deploy" ? "AssumedRole" : "IAMUser",
+        "aws.cloudtrail.userIdentity.arn": `arn:aws:iam::${accountId}:user/${user.id}`,
+        "aws.cloudtrail.sourceIPAddress": session.ip,
+        "aws.cloudtrail.userAgent": "aws-sdk-python/1.34.0 Python/3.11.0 Boto3/1.34.0",
+        "aws.cloudtrail.awsRegion": region,
+        "aws.cloudtrail.errorCode": "",
         "aws.cloudtrail.request_id": world.rng.guid(),
         "cloud.account.id": accountId,
         "cloud.region": region,
@@ -1479,7 +1537,7 @@ function genCloud(world: WorldState): GeneratedEvent {
     return {
       id: nextId(world, "cloud"),
       ts: ts(world),
-      source: "cloudtrail",
+      source: "iam",
       vendor: "HashiCorp Vault",
       event_type: "cloud_api_call",
       severity: "informational",
@@ -1534,14 +1592,14 @@ function genCloud(world: WorldState): GeneratedEvent {
     },
     description: `${user.name} ran terraform apply on ${user.hostname} (prod infrastructure)`,
     raw: {
-      "crowdstrike.event_simplename": "ProcessRollup2",
-      "cs.ContextProcessName": "terraform",
-      "cs.CommandLine": "terraform apply -auto-approve -var-file=prod.tfvars",
-      "cs.ParentProcessName": "bash",
-      "cs.TargetProcessId_decimal": String(tfPid),
-      "cs.UserName": user.id,
-      "cs.ComputerName": user.hostname,
-      "cs.FilePath": "/usr/local/bin/terraform",
+      "crowdstrike.event_simpleName": "ProcessRollup2",
+      "crowdstrike.ContextBaseFileName": "terraform",
+      "crowdstrike.CommandLine": "terraform apply -auto-approve -var-file=prod.tfvars",
+      "crowdstrike.ParentBaseFileName": "bash",
+      "crowdstrike.TargetProcessId": String(tfPid),
+      "crowdstrike.UserName": user.id,
+      "crowdstrike.ComputerName": user.hostname,
+      "crowdstrike.FilePath": "/usr/local/bin/terraform",
       "action_result": "allowed",
     },
   };
@@ -1712,8 +1770,8 @@ function genEMR(world: WorldState): GeneratedEvent {
         "data.ProductName": "VPN-1 & FireWall-1",
         "data.inzone": "Internal",
         "data.outzone": "DMZ",
-        "cp.app_name": "DICOM",
-        "cp.bytes": String(world.rng.range(1048576, 104857600)),
+        "app_name": "DICOM",
+        "bytes": String(world.rng.range(1048576, 104857600)),
         "firewall.action": "allow",
         "action_result": "allowed",
       },

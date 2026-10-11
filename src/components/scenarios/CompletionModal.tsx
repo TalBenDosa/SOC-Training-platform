@@ -1,19 +1,28 @@
 "use client";
-import { useState } from "react";
-import { ShieldCheck, ShieldX, Trophy, RotateCcw, ArrowRight, Download, Loader2 } from "lucide-react";
+import { useRef, useState } from "react";
+import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
+import Link from "next/link";
+import { ShieldCheck, ShieldX, Trophy, RotateCcw, ArrowRight, Download, Loader2, LayoutGrid, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { levelFromXp, xpForLevel } from "@/lib/utils";
+import { useDisplayName } from "@/lib/auth/useDisplayName";
+import { useOrgContext } from "@/lib/auth/useOrgContext";
+import { certificateIssuer, PRODUCTION_HOST } from "@/lib/certificate/issuer";
+import { pdfText } from "@/lib/certificate/pdfText";
+import { describeScenarioXp } from "@/lib/storage/scenarioXp";
 
 export interface GradeResult {
   score: number;
   xpEarned: number;
-  timeBonusXp: number;
+  /** @deprecated Always 0 — speed is no longer rewarded (FB-007). Not read by the UI. */
+  timeBonusXp?: number;
   perQuestion: {
     id: string;
     correct: boolean;
     yourAnswer: string | string[];
-    correctAnswer: string | string[];
-    explanation: string;
+    // null when the learner did not attempt this question (anti-harvest — the
+    // grade endpoint withholds the key for unanswered questions).
+    correctAnswer: string | string[] | null;
+    explanation: string | null;
     prompt: string;
     xp: number;
   }[];
@@ -25,11 +34,12 @@ export interface GradeResult {
    * objectives describe the intrusion in order and name its techniques, which is
    * the work the analyst is doing. Delivered here once the report is submitted.
    */
+  debriefWithheld?: boolean;
   debrief?: {
     narrative: string;
     learningObjectives: string[];
     killchain: { ts: string; phase: string; action: string }[];
-  };
+  } | null;
   report?: {
     score: number;
     rubric: { verdict: number; depth: number; evidence: number; reasoning: number };
@@ -37,7 +47,31 @@ export interface GradeResult {
     iocsCited: number;
     iocsTotal: number;
     verdictCorrect: boolean;
+    verdictWrong?: boolean;
+    fabricated?: number;
+    misattributed?: number;
+    /** Per-criterion explanation of the report score (#16). */
+    breakdown?: {
+      items: { key: string; label: string; points: number; max: number; detail: string }[];
+      cappedByVerdict: boolean;
+      /** Null when withheld (not a genuine attempt — answer-key safety). */
+      missedIndicators: string[] | null;
+      citedIndicators: string[];
+      fabricatedValues: string[];
+      misattributedValues: string[];
+      improvements: string[];
+      summary: string;
+    };
   };
+  // ── Best-attempt XP accounting (#30) — only the best attempt per scenario
+  // counts toward the total. Null/absent when the server couldn't tell.
+  prevBestXp?: number | null;
+  xpDelta?: number | null;
+  bestXp?: number | null;
+  /** profiles.xp after this attempt was recorded (server-authoritative). */
+  totalXp?: number | null;
+  /** The attempt row was written server-side. */
+  persisted?: boolean;
 }
 
 interface Props {
@@ -65,11 +99,27 @@ function ScoreBar({ score }: { score: number }) {
 
 export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onClose }: Props) {
   const [downloading, setDownloading] = useState(false);
-  const totalXp = result.xpEarned + result.timeBonusXp;
+  const [certError, setCertError] = useState<string | null>(null);
+  // a11y: modal dialog — focus trapped inside, Escape closes, focus returns.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(true, dialogRef, { onEscape: onClose });
+  // The certificate must carry the SIGNED-IN learner's name — it was hardcoded
+  // to a single real person's name, so every certificate anyone generated bore
+  // that name. Falls back to the email local part / "analyst" for guests.
+  const analystName = useDisplayName();
+  const { orgId, orgName } = useOrgContext();
+  // #32: a real organisation, else the platform — never the "Individual" placeholder.
+  const issuer = certificateIssuer(orgId, orgName);
+  // FB-007: XP is accuracy + report quality only; time is shown, never scored.
+  // #30: only the best attempt per scenario counts, so the headline is what this
+  // run actually ADDED to the total — not the run's raw XP on every retry.
+  const xp = describeScenarioXp(result);
+  const breakdown = result.report?.breakdown;
   const today = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 
   const handleDownloadCert = async () => {
     setDownloading(true);
+    setCertError(null);
     try {
       const { jsPDF } = await import("jspdf");
 
@@ -131,10 +181,7 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
       pdf.text("This certifies that", W / 2, 72, { align: "center" });
 
       // ── Analyst name ──────────────────────────────────────────────────────────
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(28);
-      pdf.setTextColor(255, 255, 255);
-      pdf.text("Tal Ben Dosa", W / 2, 88, { align: "center" });
+      pdfText(pdf, analystName, W / 2, 88, { size: 28, bold: true, rgb: [255, 255, 255], align: "center" });
 
       // Name underline
       pdf.setDrawColor(100, 116, 139);      // slate-500
@@ -148,17 +195,14 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
       pdf.text("has successfully completed the scenario", W / 2, 101, { align: "center" });
 
       // ── Scenario title ────────────────────────────────────────────────────────
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(20);
-      pdf.setTextColor(34, 211, 238);
       const title = scenarioTitle.length > 48 ? scenarioTitle.slice(0, 45) + "…" : scenarioTitle;
-      pdf.text(title, W / 2, 116, { align: "center" });
+      pdfText(pdf, title, W / 2, 116, { size: 20, bold: true, rgb: [34, 211, 238], align: "center" });
 
       // ── Stats row ─────────────────────────────────────────────────────────────
       const statsY = 140;
       const stats: { label: string; value: string }[] = [
         { label: "Score",    value: `${result.score}%`         },
-        { label: "XP Earned", value: `+${totalXp} XP`         },
+        { label: "Run XP",    value: `${result.xpEarned} XP`   },
         { label: "Time",      value: formatTime(timeTaken)     },
         { label: "Date",      value: today                     },
       ];
@@ -174,9 +218,15 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
         pdf.setLineWidth(0.3);
         pdf.roundedRect(cx - colW / 2 + 2, statsY - 10, colW - 4, 22, 3, 3, "FD");
 
-        // Value
+        // Value — shrink to fit the box so a long value can never run into its
+        // neighbour (the rank certificate had exactly that overlap, #32).
         pdf.setFont("helvetica", "bold");
-        pdf.setFontSize(14);
+        let fontSize = 14;
+        pdf.setFontSize(fontSize);
+        while (fontSize > 8 && pdf.getTextWidth(s.value) > colW - 8) {
+          fontSize -= 0.5;
+          pdf.setFontSize(fontSize);
+        }
         pdf.setTextColor(226, 232, 240);     // slate-200
         pdf.text(s.value, cx, statsY + 1, { align: "center" });
 
@@ -188,16 +238,15 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
       });
 
       // ── Footer ────────────────────────────────────────────────────────────────
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(8);
-      pdf.setTextColor(71, 85, 105);         // slate-600
-      pdf.text("SOC Analyst Training Platform  •  hack-the-soc.vercel.app", W / 2, H - 16, { align: "center" });
+      pdfText(pdf, `Issued by ${issuer}  •  SOC Analyst Training  •  ${PRODUCTION_HOST}`, W / 2, H - 16, { size: 8, rgb: [71, 85, 105], align: "center" });
 
       // ── Save ─────────────────────────────────────────────────────────────────
-      const safeName = scenarioTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      const safeName = scenarioTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "scenario";
       pdf.save(`certificate-${safeName}.pdf`);
     } catch (err) {
       console.error("Certificate generation failed:", err);
+      // E-15: it used to just stop spinning — say so.
+      setCertError("Couldn't create the certificate — please try again. If it keeps failing, reload the page.");
     } finally {
       setDownloading(false);
     }
@@ -205,7 +254,8 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-border bg-[#0d1520] shadow-2xl">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="completion-modal-title" aria-describedby="completion-modal-desc" tabIndex={-1}
+        className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-border bg-[#0d1520] shadow-2xl">
         {/* Header */}
         <div className={cn(
           "rounded-t-xl px-6 py-5 text-center",
@@ -215,10 +265,10 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
             ? <Trophy className="mx-auto h-10 w-10 text-neon-green mb-2" />
             : <ShieldX className="mx-auto h-10 w-10 text-severity-high mb-2" />
           }
-          <h2 className="text-xl font-bold text-white">
+          <h2 id="completion-modal-title" className="text-xl font-bold text-white">
             {result.passed ? "Investigation Complete" : "Investigation Closed"}
           </h2>
-          <p className="mt-1 text-sm text-slate-400">
+          <p id="completion-modal-desc" className="mt-1 text-sm text-slate-400">
             {result.passed ? "Well done — you cleared the case." : "Review the feedback and retry to improve your score."}
           </p>
         </div>
@@ -228,36 +278,37 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
           <div className="grid grid-cols-3 gap-3">
             <div className="rounded border border-border bg-[#080d14] px-3 py-3 text-center">
               <p className="font-mono text-2xl font-bold text-white">{result.score}%</p>
-              <p className="mt-1 text-[10px] uppercase tracking-widest text-slate-500">Score</p>
+              <p className="mt-1 text-[10px] uppercase tracking-widest text-slate-400">Score</p>
             </div>
             <div className="rounded border border-border bg-[#080d14] px-3 py-3 text-center">
-              <p className="font-mono text-2xl font-bold text-cyber-300">+{totalXp}</p>
-              <p className="mt-1 text-[10px] uppercase tracking-widest text-slate-500">XP Earned</p>
+              <p className={cn("font-mono text-2xl font-bold", xp.added > 0 || xp.headlineOnly ? "text-cyber-300" : "text-slate-400")}>
+                +{xp.added}
+              </p>
+              <p className="mt-1 text-[10px] uppercase tracking-widest text-slate-400">{xp.label}</p>
             </div>
             <div className="rounded border border-border bg-[#080d14] px-3 py-3 text-center">
               <p className="font-mono text-2xl font-bold text-slate-200">{formatTime(timeTaken)}</p>
-              <p className="mt-1 text-[10px] uppercase tracking-widest text-slate-500">Time</p>
+              <p className="mt-1 text-[10px] uppercase tracking-widest text-slate-400">Time</p>
             </div>
           </div>
 
+          {/* What this attempt did to the total — truthful about best-attempt XP. */}
+          {xp.note && (
+            <p className="-mt-2 text-center text-[11px] text-slate-400">{xp.note}</p>
+          )}
+
           {/* Progress bar */}
           <div>
-            <div className="mb-1.5 flex justify-between text-[10px] text-slate-500">
+            <div className="mb-1.5 flex justify-between text-[10px] text-slate-400">
               <span>Score Progress</span>
               <span>{result.score >= 70 ? "Passed ✓" : "Need 70% to pass"}</span>
             </div>
             <ScoreBar score={result.score} />
           </div>
 
-          {result.timeBonusXp > 0 && (
-            <div className="rounded border border-neon-green/20 bg-neon-green/5 px-3 py-2 text-xs text-neon-green">
-              Time bonus: +{result.timeBonusXp} XP for completing in {formatTime(timeTaken)}
-            </div>
-          )}
-
           {/* Question breakdown */}
           <div>
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">
               Question Breakdown
             </p>
             <div className="space-y-2">
@@ -273,17 +324,17 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
                     }
                     <div className="min-w-0">
                       <p className="text-xs text-slate-200">
-                        <span className="font-mono text-[10px] text-slate-500 mr-1.5">Q{i + 1}.</span>
+                        <span className="font-mono text-[10px] text-slate-400 mr-1.5">Q{i + 1}.</span>
                         {q.prompt}
                       </p>
-                      {!q.correct && (
+                      {!q.correct && q.correctAnswer != null && (
                         <p className="mt-1 text-[10px] text-slate-400">
                           Correct: <span className="text-neon-green font-mono">
                             {Array.isArray(q.correctAnswer) ? q.correctAnswer.join(", ") : q.correctAnswer}
                           </span>
                         </p>
                       )}
-                      <p className="mt-1 text-[10px] text-slate-500">{q.explanation}</p>
+                      {q.explanation && <p className="mt-1 text-[10px] text-slate-400">{q.explanation}</p>}
                       {q.correct && (
                         <p className="mt-0.5 text-[10px] text-neon-green/70">+{q.xp} XP</p>
                       )}
@@ -294,10 +345,69 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
             </div>
           </div>
 
+          {/* Report rubric breakdown (#16) — where every report point came from,
+              and the specific things that were missed. */}
+          {breakdown && result.report && (
+            <div>
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">
+                Report Breakdown · {result.report.score}/100
+              </p>
+              <div className="rounded border border-border bg-[#080d14] px-3 py-3 space-y-2.5">
+                {breakdown.items.map(item => (
+                  <div key={item.key}>
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="font-semibold text-slate-200">{item.label}</span>
+                      <span className={cn("font-mono font-bold",
+                        item.points >= item.max ? "text-neon-green" : item.points > 0 ? "text-severity-medium" : "text-severity-high")}>
+                        {item.points}/{item.max}
+                      </span>
+                    </div>
+                    <div className="mt-1 h-1 w-full rounded-full bg-slate-700">
+                      <div
+                        className={cn("h-1 rounded-full",
+                          item.points >= item.max ? "bg-neon-green" : item.points > 0 ? "bg-severity-medium" : "bg-severity-high")}
+                        style={{ width: `${item.max > 0 ? Math.round((item.points / item.max) * 100) : 0}%` }}
+                      />
+                    </div>
+                    <p className="mt-1 text-[10px] text-slate-400">{item.detail}</p>
+                  </div>
+                ))}
+                {breakdown.cappedByVerdict && (
+                  <p className="flex items-center gap-1.5 text-[10px] text-severity-high">
+                    <AlertTriangle className="h-3 w-3 shrink-0" /> The wrong verdict capped the report at 49/100.
+                  </p>
+                )}
+              </div>
+
+              {breakdown.improvements.length > 0 && (
+                <div className="mt-3">
+                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">What you missed</p>
+                  <ul className="space-y-1.5">
+                    {breakdown.improvements.map((line, i) => (
+                      <li key={i} className="flex gap-2 rounded border border-severity-medium/20 bg-severity-medium/5 px-3 py-2 text-[11px] leading-relaxed text-slate-300">
+                        <span className="font-mono text-severity-medium">{i + 1}.</span>
+                        <span>{line}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {breakdown.citedIndicators.length > 0 && (
+                <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                  <span className="text-[10px] uppercase tracking-widest text-slate-400">Key indicators you cited:</span>
+                  {breakdown.citedIndicators.map(v => (
+                    <span key={v} className="rounded border border-neon-green/30 bg-neon-green/5 px-1.5 py-0.5 font-mono text-[10px] text-neon-green">{v}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* AI Feedback */}
           {result.aiFeedback && (
             <div>
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">
                 AI Analyst Feedback
               </p>
               <div className="rounded border border-cyber-500/20 bg-cyber-500/5 px-4 py-3">
@@ -308,6 +418,9 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
         </div>
 
         {/* Actions */}
+        {certError && (
+          <p role="alert" className="border-t border-border px-6 pt-3 text-xs text-severity-high">{certError}</p>
+        )}
         <div className="border-t border-border px-6 py-4 flex flex-wrap gap-2 justify-end">
           <button
             onClick={onRetry}
@@ -328,6 +441,13 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
               {downloading ? "Generating…" : "Certificate (PDF)"}
             </button>
           )}
+          {/* Back to the list, where this scenario now shows "✓ Completed" (FB-006). */}
+          <Link
+            href="/scenarios"
+            className="flex items-center gap-1.5 rounded border border-border px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-white/5 transition"
+          >
+            <LayoutGrid className="h-3.5 w-3.5" /> All scenarios
+          </Link>
           <button
             onClick={onClose}
             className="flex items-center gap-1.5 rounded bg-cyber-500/20 border border-cyber-500/30 px-3 py-1.5 text-xs font-medium text-cyber-300 hover:bg-cyber-500/30 transition"

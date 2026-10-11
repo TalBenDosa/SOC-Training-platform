@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 560" role="img" aria-label="Table of SOC analyst tiers with their scope of work and escalation triggers, and the three possible verdicts for any alert">
+  <title>SOC analyst tiers, the alert queue, and the three-way verdict</title>
+  <defs>
+    <style>
+      .bg    { fill: #0b0f1e; }
+      .panel { fill: #0a1020; stroke: #1e2d4a; stroke-width: 1; }
+      .hot   { fill: #0e1b30; stroke: #22d3ee; stroke-width: 1.5; }
+      .ui    { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .mono  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+      .val   { fill: #e2e8f0; }
+      .dim   { fill: #64748b; }
+      .head  { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+      .col   { fill: #64748b; font-size: 10px; font-weight: 600; letter-spacing: .08em; }
+      .note  { fill: #94a3b8; font-size: 11px; }
+      .cyan  { fill: #22d3ee; font-size: 13px; font-weight: 700; }
+      .warn  { fill: #fbbf24; font-size: 12px; font-weight: 700; }
+      .crit  { fill: #f87171; font-size: 12px; font-weight: 700; }
+      .good  { fill: #86efac; font-size: 12px; font-weight: 700; }
+      .cap   { fill: #64748b; font-size: 10px; font-style: italic; }
+      .arrow { stroke: #1e2d4a; stroke-width: 1.5; fill: none; marker-end: url(#arrowhead); }
+    </style>
+    <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#334155"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" width="940" height="560"/>
+  <text class="ui head" x="24" y="30">SOC ANALYST TIERS AND THE ALERT LIFECYCLE</text>
+
+  <!-- Tier table -->
+  <rect class="panel" x="24" y="46" width="892" height="240" rx="6"/>
+  <text class="ui col" x="40" y="68">TIER</text>
+  <text class="ui col" x="150" y="68">WHAT THEY DO</text>
+  <text class="ui col" x="470" y="68">DECISION SCOPE</text>
+  <text class="ui col" x="660" y="68">ESCALATES WHEN</text>
+
+  <line x1="40" y1="78" x2="900" y2="78" stroke="#1e2d4a" stroke-width="1"/>
+
+  <!-- Tier 1 row -->
+  <rect class="hot" x="34" y="88" width="872" height="58" rx="4"/>
+  <text class="cyan" x="46" y="112">TIER 1</text>
+  <text class="ui note" x="46" y="130">Front line</text>
+  <text class="ui val" x="150" y="112" font-size="12">Watches the queue, triages every new alert,</text>
+  <text class="ui val" x="150" y="130" font-size="12">closes routine false positives fast.</text>
+  <text class="ui val" x="470" y="112" font-size="12">Close as benign, or flag as</text>
+  <text class="ui val" x="470" y="130" font-size="12">suspicious for a second look.</text>
+  <text class="ui val" x="660" y="112" font-size="12">Evidence suggests real compromise,</text>
+  <text class="ui val" x="660" y="130" font-size="12">or action needed exceeds permissions.</text>
+
+  <!-- Tier 2 row -->
+  <rect class="panel" x="34" y="154" width="872" height="58" rx="4"/>
+  <text class="cyan" x="46" y="178">TIER 2</text>
+  <text class="ui note" x="46" y="196">Investigator</text>
+  <text class="ui val" x="150" y="178" font-size="12">Digs deeper into what Tier 1 escalates, pulls in</text>
+  <text class="ui val" x="150" y="196" font-size="12">extra data sources, confirms if it is a real incident.</text>
+  <text class="ui val" x="470" y="178" font-size="12">Confirm or rule out an incident,</text>
+  <text class="ui val" x="470" y="196" font-size="12">contain a single host or account.</text>
+  <text class="ui val" x="660" y="178" font-size="12">Scope spans multiple systems, or</text>
+  <text class="ui val" x="660" y="196" font-size="12">response needs formal IR process.</text>
+
+  <!-- Tier 3 row -->
+  <rect class="panel" x="34" y="220" width="872" height="58" rx="4"/>
+  <text class="cyan" x="46" y="244">TIER 3</text>
+  <text class="ui note" x="46" y="262">Responder / hunter</text>
+  <text class="ui val" x="150" y="244" font-size="12">Handles confirmed serious incidents, hunts for</text>
+  <text class="ui val" x="150" y="262" font-size="12">threats no rule caught yet, builds new detections.</text>
+  <text class="ui val" x="470" y="244" font-size="12">Full incident response: containment,</text>
+  <text class="ui val" x="470" y="262" font-size="12">eradication, recovery, and reporting.</text>
+  <text class="ui val" x="660" y="244" font-size="12">Rarely escalates further — briefs</text>
+  <text class="ui val" x="660" y="262" font-size="12">management and legal instead.</text>
+
+  <!-- Queue flow -->
+  <text class="ui head" x="24" y="312">EVERY ALERT FLOWS THROUGH THE SAME QUEUE</text>
+  <rect class="panel" x="24" y="326" width="220" height="40" rx="6"/>
+  <text class="ui val" x="38" y="350" font-size="12">Alert enters queue</text>
+  <path class="arrow" d="M244,346 L280,346"/>
+
+  <rect class="panel" x="284" y="326" width="220" height="40" rx="6"/>
+  <text class="ui val" x="298" y="350" font-size="12">Tier 1 triage (fast read)</text>
+  <path class="arrow" d="M504,346 L540,346"/>
+
+  <rect class="hot" x="544" y="326" width="372" height="40" rx="6"/>
+  <text class="ui val" x="558" y="350" font-size="12">One of three verdicts is reached — see below</text>
+
+  <!-- Three verdicts -->
+  <rect class="panel" x="24" y="392" width="288" height="150" rx="6"/>
+  <text class="good" x="40" y="418">BENIGN</text>
+  <text class="ui note" x="40" y="440">Legitimate activity that happened</text>
+  <text class="ui note" x="40" y="456">to trip a rule (mistyped password,</text>
+  <text class="ui note" x="40" y="472">scheduled scan, known admin task).</text>
+  <text class="ui note" x="40" y="496" font-weight="700" fill="#86efac">Action:</text>
+  <text class="ui note" x="90" y="496">Close as false positive,</text>
+  <text class="ui note" x="40" y="512">note the reason for rule tuning.</text>
+
+  <rect class="hot" x="326" y="392" width="288" height="150" rx="6"/>
+  <text class="warn" x="342" y="418">SUSPICIOUS</text>
+  <text class="ui note" x="342" y="440">Cannot yet prove bad or fine —</text>
+  <text class="ui note" x="342" y="456">unusual time, unfamiliar location,</text>
+  <text class="ui note" x="342" y="472">an unrecognized process.</text>
+  <text class="ui note" x="342" y="496" font-weight="700" fill="#fbbf24">Action:</text>
+  <text class="ui note" x="392" y="496">Dig deeper or hand to</text>
+  <text class="ui note" x="342" y="512">Tier 2 with what would resolve it.</text>
+
+  <rect class="panel" x="628" y="392" width="288" height="150" rx="6"/>
+  <text class="crit" x="644" y="418">MALICIOUS</text>
+  <text class="ui note" x="644" y="440">Evidence shows genuine attacker</text>
+  <text class="ui note" x="644" y="456">activity — confirmed malware, real</text>
+  <text class="ui note" x="644" y="472">intrusion, data leaving the network.</text>
+  <text class="ui note" x="644" y="496" font-weight="700" fill="#f87171">Action:</text>
+  <text class="ui note" x="686" y="496">Becomes an incident —</text>
+  <text class="ui note" x="644" y="512">escalate immediately, document fully.</text>
+
+  <text class="ui cap" x="24" y="554">Suspicious is not indecision — it is the honest middle verdict that triggers the right next step.</text>
+</svg>

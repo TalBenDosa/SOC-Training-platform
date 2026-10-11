@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 430" role="img" aria-label="The 3-2-1 backup rule and why only an offline or immutable copy survives a ransomware attack that reaches connected backups.">
+  <title>Why backups are the real ransomware defence — and why the connected ones die</title>
+  <defs>
+    <style>
+      .bg    { fill: #0b0f1e; }
+      .ui    { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .mono  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .box   { fill: #0e1b30; stroke: #334155; stroke-width: 1.5; }
+      .dead  { fill: #26100f; stroke: #f87171; stroke-width: 1.5; }
+      .live  { fill: #0e2018; stroke: #22c55e; stroke-width: 2; }
+      .t     { fill: #e2e8f0; font-size: 13px; font-weight: 700; }
+      .s     { fill: #94a3b8; font-size: 11px; }
+      .red   { fill: #fca5a5; font-size: 11px; }
+      .green { fill: #86efac; font-size: 11px; }
+      .num   { fill: #22d3ee; font-size: 26px; font-weight: 800; }
+      .head  { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing: .05em; }
+      .flow  { stroke: #f87171; stroke-width: 2; fill: none; marker-end: url(#a); }
+    </style>
+    <marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#f87171"/></marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="960" height="430"/>
+  <text class="ui head" x="30" y="30">THE 3-2-1 RULE — AND WHY RANSOMWARE ONLY SPARES ONE OF THEM</text>
+
+  <!-- 3-2-1 -->
+  <rect class="box" x="24" y="52" width="270" height="150" rx="10"/>
+  <text class="ui num" x="44" y="92">3</text>
+  <text class="ui s" x="80" y="80">copies of your data —</text>
+  <text class="ui s" x="80" y="96">the original + two backups.</text>
+  <text class="ui num" x="44" y="132">2</text>
+  <text class="ui s" x="80" y="120">different media / systems,</text>
+  <text class="ui s" x="80" y="136">so one failure can't take both.</text>
+  <text class="ui num" x="44" y="172">1</text>
+  <text class="ui s" x="80" y="160">copy kept OFF-SITE and</text>
+  <text class="ui s" x="80" y="176">OFFLINE or immutable.</text>
+
+  <text class="ui head" x="330" y="70">THE ATTACKER REACHES EVERYTHING THAT IS CONNECTED</text>
+
+  <!-- connected backups die -->
+  <rect class="dead" x="330" y="86" width="285" height="118" rx="10"/>
+  <text class="ui t" x="346" y="110" style="fill:#fca5a5">Online / connected backups</text>
+  <text class="ui s" x="346" y="132">A network share, a mapped drive, a</text>
+  <text class="ui s" x="346" y="148">backup server on the domain — the</text>
+  <text class="ui red" x="346" y="168">attacker with domain admin encrypts</text>
+  <text class="ui red" x="346" y="184">or deletes these too (vssadmin delete).</text>
+
+  <!-- offline survives -->
+  <rect class="live" x="630" y="86" width="306" height="118" rx="10"/>
+  <text class="ui t" x="646" y="110" style="fill:#86efac">Offline / immutable copy</text>
+  <text class="ui s" x="646" y="132">Air-gapped tape, or immutable cloud</text>
+  <text class="ui s" x="646" y="148">object-lock that cannot be altered.</text>
+  <text class="ui green" x="646" y="168">Unreachable from the network → it</text>
+  <text class="ui green" x="646" y="184">SURVIVES. This is what restores you.</text>
+
+  <line class="flow" x1="500" y1="204" x2="500" y2="232"/>
+  <text class="ui red" x="500" y="224" text-anchor="middle" style="font-size:10px">reachable = encrypted</text>
+
+  <!-- bottom truths -->
+  <text class="ui head" x="30" y="262">TWO TRUTHS THAT SEPARATE SURVIVING FROM PAYING</text>
+  <rect class="box" x="24" y="278" width="440" height="120" rx="10"/>
+  <text class="ui t" x="40" y="302">A backup you've never restored isn't a backup</text>
+  <text class="ui s" x="40" y="324">Untested backups fail silently — corrupt, incomplete,</text>
+  <text class="ui s" x="40" y="342">or missing the one system that matters. Recovery is a</text>
+  <text class="ui s" x="40" y="360">rehearsed drill, measured by RTO (how long to be back)</text>
+  <text class="ui s" x="40" y="378">and RPO (how much data you can afford to lose).</text>
+
+  <rect class="box" x="480" y="278" width="456" height="120" rx="10"/>
+  <text class="ui t" x="496" y="302">Backups beat encryption — not double extortion</text>
+  <text class="ui s" x="496" y="324">Good backups let you rebuild without paying for a</text>
+  <text class="ui s" x="496" y="342">decryptor. But if the attacker also STOLE the data first,</text>
+  <text class="ui s" x="496" y="360">restoring does not un-leak it — which is exactly why</text>
+  <text class="ui s" x="496" y="378">modern crews exfiltrate before they encrypt.</text>
+</svg>

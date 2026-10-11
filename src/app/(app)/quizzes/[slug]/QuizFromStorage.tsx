@@ -3,29 +3,30 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { QuizClient } from "./QuizClient";
 import type { Quiz } from "@/lib/quizzes/data";
+import { sanitizeQuiz } from "@/lib/quizzes/sanitize";
+import { fetchPublishedQuizzes } from "@/lib/content/publicContent";
 
 export function QuizFromStorage({ slug }: { slug: string }) {
   const [quiz, setQuiz]     = useState<Quiz | null | undefined>(undefined); // undefined = loading
   const [error, setError]   = useState(false);
 
   useEffect(() => {
-    try {
-      const stored: (Quiz & { id?: string })[] = JSON.parse(
-        localStorage.getItem("generated_quizzes") ?? "[]"
-      );
-      // match by id OR slug (both are stored in generated quiz objects)
-      const found = stored.find(q => q.id === slug || q.slug === slug) ?? null;
-      setQuiz(found);
-    } catch {
-      setError(true);
-    }
+    // Admin-published quizzes now live in the durable content_quizzes table
+    // (migration 0019), not per-browser localStorage.
+    fetchPublishedQuizzes<Quiz & { id?: string }>()
+      .then(stored => {
+        // match by id OR slug (both are stored in generated quiz objects)
+        const found = stored.find(q => q.id === slug || q.slug === slug) ?? null;
+        setQuiz(found);
+      })
+      .catch(() => setError(true));
   }, [slug]);
 
   if (error || quiz === null) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg">
         <div className="text-center">
-          <p className="text-4xl font-bold text-slate-600 mb-4">404</p>
+          <p className="text-4xl font-bold text-slate-400 mb-4">404</p>
           <p className="text-sm text-slate-400 mb-6">Quiz not found.</p>
           <Link
             href="/quizzes"
@@ -46,5 +47,7 @@ export function QuizFromStorage({ slug }: { slug: string }) {
     );
   }
 
-  return <QuizClient quiz={quiz} />;
+  // Grade server-side against canonical data; hand QuizClient only the
+  // answer-stripped projection (M-01, uniform with the built-in path).
+  return <QuizClient quiz={sanitizeQuiz(quiz)} slug={slug} />;
 }

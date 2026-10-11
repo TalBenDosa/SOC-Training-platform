@@ -1,6 +1,9 @@
 "use client";
+import { useRef } from "react";
 import { cn } from "@/lib/utils";
-import { COMPANY_PROFILES } from "@/lib/sim/companyProfiles";
+import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
+import { COMPANY_PROFILES } from "@/lib/sim/companyProfilesMeta";
+import type { CompanyProfile } from "@/lib/sim/companyProfilesMeta";
 import { CheckCircle2, Cloud, Lock, Shield, Building2, Server, Users } from "lucide-react";
 
 const INDUSTRY_ICON: Record<string, string> = {
@@ -20,15 +23,23 @@ interface Props {
   onClose?: () => void;
   unlockedIds?: string[];
   clearedIds?: string[];
+  /** Per-org authored companies (migration 0044), appended after the built-ins. */
+  extraCompanies?: CompanyProfile[];
 }
 
-export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, clearedIds }: Props) {
+export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, clearedIds, extraCompanies }: Props) {
+  const companies    = [...COMPANY_PROFILES, ...(extraCompanies ?? [])];
   const clearedCount = clearedIds?.length ?? 0;
-  const totalCount   = COMPANY_PROFILES.length;
+  const totalCount   = companies.length;
+  // a11y: modal dialog. Escape closes only when closing is allowed (first visit
+  // is a mandatory choice — no onClose — so focus is trapped without Escape).
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(true, dialogRef, { onEscape: onClose });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
-      <div className="w-full max-w-5xl rounded-2xl border border-border bg-bg-elevated shadow-2xl overflow-hidden">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="company-selector-title" tabIndex={-1}
+        className="w-full max-w-5xl rounded-2xl border border-border bg-bg-elevated shadow-2xl overflow-hidden">
 
         {/* Top gradient bar */}
         <div className="h-1 w-full bg-gradient-to-r from-cyber-500 via-neon-purple to-severity-critical" />
@@ -40,14 +51,14 @@ export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, cle
               <Shield className="h-5 w-5 text-cyber-300" />
               <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyber-300">SOC OPERATOR CONSOLE</span>
             </div>
-            <h2 className="text-xl font-bold text-white">Select Organisation to Monitor</h2>
+            <h2 id="company-selector-title" className="text-xl font-bold text-white">Select Organisation to Monitor</h2>
             <p className="mt-1 text-sm text-slate-400">
               Each organisation runs a distinct security stack.
             </p>
           </div>
           <div className="flex flex-col items-end gap-2">
             {onClose && (
-              <button onClick={onClose} className="text-slate-500 hover:text-slate-300 transition text-xs border border-border rounded px-2 py-1">
+              <button type="button" onClick={onClose} aria-label="Close (Escape)" className="text-slate-400 hover:text-slate-300 transition text-xs border border-border rounded px-2 py-1">
                 ESC
               </button>
             )}
@@ -56,8 +67,8 @@ export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, cle
                 <p className="text-[10px] font-bold uppercase tracking-widest text-neon-green">
                   {clearedCount}/{totalCount} Secured
                 </p>
-                <div className="mt-1 flex gap-1">
-                  {COMPANY_PROFILES.map(c => (
+                <div className="mt-1 flex gap-1" aria-hidden="true">
+                  {companies.map(c => (
                     <div
                       key={c.id}
                       className={cn(
@@ -76,16 +87,22 @@ export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, cle
 
         {/* Company grid */}
         <div className="grid grid-cols-1 gap-3 p-6 sm:grid-cols-2 lg:grid-cols-3 max-h-[65vh] overflow-y-auto">
-          {COMPANY_PROFILES.map((c) => {
+          {companies.map((c, idx) => {
             const isActive  = c.id === currentId;
             const isLocked  = unlockedIds ? !unlockedIds.includes(c.id) : false;
             const isCleared = clearedIds?.includes(c.id) ?? false;
+            // A company unlocks when its predecessor is cleared, so name it —
+            // a bare lock icon (unlike RoomCard's "Complete X first") left the
+            // learner guessing what to do next.
+            const prevCompany = idx > 0 ? companies[idx - 1] : null;
 
             return (
               <button
                 key={c.id}
+                type="button"
                 onClick={() => !isLocked && onSelect(c.id)}
                 disabled={isLocked}
+                aria-current={isActive ? "true" : undefined}
                 className={cn(
                   "group relative flex flex-col rounded-xl border p-5 text-left transition-all duration-150",
                   isLocked
@@ -97,7 +114,7 @@ export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, cle
               >
                 {/* Status badge */}
                 {isLocked && (
-                  <span className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-slate-800 border border-slate-700 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-500">
+                  <span className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-slate-800 border border-slate-700 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-400">
                     <Lock className="h-2.5 w-2.5" /> Locked
                   </span>
                 )}
@@ -114,23 +131,28 @@ export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, cle
 
                 {/* Lock overlay */}
                 {isLocked && (
-                  <div className="absolute inset-0 flex items-center justify-center rounded-xl">
-                    <Lock className="h-8 w-8 text-slate-600" />
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 rounded-xl px-4 text-center">
+                    <Lock className="h-7 w-7 text-slate-400" />
+                    {prevCompany && (
+                      <p className="text-[10px] font-medium text-slate-300">
+                        Secure <span className="text-white">{prevCompany.name}</span> first
+                      </p>
+                    )}
                   </div>
                 )}
 
                 {/* Industry + name */}
                 <div className="flex items-start gap-3 mb-3">
-                  <span className="text-2xl">{INDUSTRY_ICON[c.industry] ?? "🏢"}</span>
+                  <span className="text-2xl" aria-hidden="true">{INDUSTRY_ICON[c.industry] ?? "🏢"}</span>
                   <div className="min-w-0">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">{c.industry}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{c.industry}</p>
                     <h3 className="text-sm font-bold text-white leading-tight">{c.name}</h3>
                     <p className="text-[10px] text-slate-400">{c.tagline}</p>
                   </div>
                 </div>
 
                 {/* Meta row */}
-                <div className="flex items-center gap-3 mb-3 text-[10px] text-slate-500">
+                <div className="flex items-center gap-3 mb-3 text-[10px] text-slate-400">
                   <span className="flex items-center gap-1">
                     <Building2 className="h-3 w-3" /> {c.hq}
                   </span>
@@ -141,7 +163,7 @@ export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, cle
 
                 {/* Architecture stack */}
                 <div className="mt-auto space-y-1.5 rounded-lg border border-border/40 bg-bg/60 px-3 py-2.5">
-                  <p className="text-[9px] font-bold uppercase tracking-wider text-slate-600 mb-1.5">Security Stack</p>
+                  <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Security Stack</p>
                   <StackRow icon={<Shield className="h-3 w-3" />} label="EDR"      value={c.architecture.edr}      color="text-cyber-300" />
                   <StackRow icon={<Cloud  className="h-3 w-3" />} label="Cloud"    value={c.architecture.cloud}    color="text-neon-blue" />
                   <StackRow icon={<Server className="h-3 w-3" />} label="Identity" value={c.architecture.idp}      color="text-neon-purple" />
@@ -162,7 +184,7 @@ export function CompanySelector({ currentId, onSelect, onClose, unlockedIds, cle
         </div>
 
         {/* Footer */}
-        <div className="border-t border-border/60 bg-bg/40 px-8 py-3 text-[10px] text-slate-500">
+        <div className="border-t border-border/60 bg-bg/40 px-8 py-3 text-[10px] text-slate-400">
           Identify the attack and submit an escalation ticket to secure a company and unlock the next one.
         </div>
       </div>
@@ -175,8 +197,8 @@ function StackRow({
 }: { icon: React.ReactNode; label: string; value: string; color: string }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-slate-600">{icon}</span>
-      <span className="w-14 shrink-0 text-[9px] text-slate-600 uppercase tracking-wider">{label}</span>
+      <span className="text-slate-400">{icon}</span>
+      <span className="w-14 shrink-0 text-[9px] text-slate-400 uppercase tracking-wider">{label}</span>
       <span className={cn("text-[10px] font-medium truncate", color)}>{value}</span>
     </div>
   );

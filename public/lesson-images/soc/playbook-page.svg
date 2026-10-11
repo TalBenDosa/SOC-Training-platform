@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 560" role="img" aria-label="Mockup of one SOC playbook page showing the title, trigger, numbered execution steps, and escalation criteria, with a highlighted sidebar listing the five conditions under which an analyst should deviate from the playbook and document why"><title>Anatomy of a playbook page — and when to stop following it</title>
+  <defs>
+    <style>
+      .bg     { fill: #0b0f1e; }
+      .panel  { fill: #0a1020; stroke: #1e2d4a; stroke-width: 1; }
+      .row    { fill: #0d1526; stroke: #1e2d4a; stroke-width: 1; }
+      .sidebar{ fill: #1a1508; stroke: #fbbf24; stroke-width: 1.4; }
+      .ui     { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .head   { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+      .col    { fill: #64748b; font-size: 9.5px; font-weight: 700; letter-spacing: .08em; }
+      .title  { fill: #22d3ee; font-size: 13px; font-weight: 700; }
+      .sub    { fill: #64748b; font-size: 10px; }
+      .val    { fill: #e2e8f0; font-size: 11px; }
+      .num    { fill: #0b0f1e; font-size: 11px; font-weight: 800; }
+      .numBg  { fill: #22d3ee; }
+      .step   { fill: #e2e8f0; font-size: 11px; }
+      .sideTitle { fill: #fbbf24; font-size: 13px; font-weight: 800; letter-spacing: .04em; }
+      .sideSub   { fill: #94a3b8; font-size: 10px; font-style: italic; }
+      .bullet    { fill: #fbbf24; font-size: 11px; }
+      .bulletTxt { fill: #e2e8f0; font-size: 10.5px; }
+      .ruleBox   { fill: #12100a; stroke: #f87171; stroke-width: 1.2; }
+      .ruleTxt   { fill: #f87171; font-size: 10.5px; font-weight: 700; }
+      .cap    { fill: #64748b; font-size: 10.5px; font-style: italic; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="940" height="560"/>
+  <text class="ui head" x="24" y="30">ONE PLAYBOOK PAGE — WHAT IT TELLS YOU TO DECIDE</text>
+
+  <!-- LEFT: the playbook page -->
+  <rect class="panel" x="24" y="46" width="560" height="500" rx="6"/>
+
+  <!-- header -->
+  <rect class="row" x="32" y="54" width="544" height="42" rx="4"/>
+  <text class="ui title" x="44" y="74">PLAYBOOK: SUSPECTED COMPROMISED USER ACCOUNT</text>
+  <text class="ui sub" x="44" y="90">Version 4.2 &#183; Last reviewed 2026-04-11</text>
+
+  <!-- trigger -->
+  <text class="ui col" x="44" y="112">TRIGGER</text>
+  <rect class="row" x="32" y="118" width="544" height="52" rx="4"/>
+  <text class="ui val" x="44" y="136">Impossible travel; sign-in from anonymous IP; suspicious inbox rule created.</text>
+  <text class="ui sub" x="44" y="154">NOT this playbook: bulk failed sign-ins across many users -&gt; Password Spray.</text>
+
+  <!-- severity / sla -->
+  <text class="ui col" x="44" y="190">SEVERITY &amp; SLA</text>
+  <rect class="row" x="32" y="196" width="544" height="30" rx="4"/>
+  <text class="ui val" x="44" y="216">High &#8212; 15 min first touch / 60 min containment decision.</text>
+
+  <!-- steps -->
+  <text class="ui col" x="44" y="246">EXECUTION STEPS</text>
+
+  <rect class="row" x="32" y="252" width="544" height="38" rx="4"/>
+  <circle class="numBg" cx="52" cy="271" r="10"/>
+  <text class="num" x="52" y="275" text-anchor="middle">1</text>
+  <text class="ui step" x="72" y="276">Collect sign-in logs (7 days): IP, location, device, result type.</text>
+
+  <rect class="row" x="32" y="292" width="544" height="38" rx="4"/>
+  <circle class="numBg" cx="52" cy="311" r="10"/>
+  <text class="num" x="52" y="315" text-anchor="middle">2</text>
+  <text class="ui step" x="72" y="316">Check MFA/password changes and mailbox rules created this session.</text>
+
+  <rect class="row" x="32" y="332" width="544" height="38" rx="4"/>
+  <circle class="numBg" cx="52" cy="351" r="10"/>
+  <text class="num" x="52" y="355" text-anchor="middle">3</text>
+  <text class="ui step" x="72" y="356">Confirm with the user &#8212; was this sign-in actually theirs?</text>
+
+  <rect class="row" x="32" y="372" width="544" height="38" rx="4"/>
+  <circle class="numBg" cx="52" cy="391" r="10"/>
+  <text class="num" x="52" y="395" text-anchor="middle">4</text>
+  <text class="ui step" x="72" y="396">If confirmed: revoke sessions and force a password reset.</text>
+
+  <rect class="row" x="32" y="412" width="544" height="38" rx="4"/>
+  <circle class="numBg" cx="52" cy="431" r="10"/>
+  <text class="num" x="52" y="435" text-anchor="middle">5</text>
+  <text class="ui step" x="72" y="436">Eradicate the rule/consent, notify the user, write the timeline, close.</text>
+
+  <!-- escalation criteria -->
+  <text class="ui col" x="44" y="468">ESCALATION CRITERIA</text>
+  <rect class="row" x="32" y="474" width="544" height="60" rx="4"/>
+  <text class="ui val" x="44" y="494">More than 3 accounts affected, OR any Global Administrator role,</text>
+  <text class="ui val" x="44" y="510">OR evidence of mail exfiltration -&gt; IR manager, immediately.</text>
+  <text class="ui sub" x="44" y="526">Named condition, named role &#8212; not "escalate if it seems bad".</text>
+
+  <!-- RIGHT: when to deviate sidebar -->
+  <rect class="sidebar" x="600" y="46" width="316" height="500" rx="6"/>
+  <text class="ui sideTitle" x="616" y="76">WHEN TO DEVIATE</text>
+  <text class="ui sideSub" x="616" y="94">A playbook is a floor, not a ceiling.</text>
+
+  <text class="ui bullet" x="616" y="126">1.</text>
+  <text class="ui bulletTxt" x="634" y="126">Evidence contradicts the</text>
+  <text class="ui bulletTxt" x="634" y="140">playbook's assumption</text>
+
+  <text class="ui bullet" x="616" y="166">2.</text>
+  <text class="ui bulletTxt" x="634" y="166">Scope is larger than the</text>
+  <text class="ui bulletTxt" x="634" y="180">playbook anticipated</text>
+
+  <text class="ui bullet" x="616" y="206">3.</text>
+  <text class="ui bulletTxt" x="634" y="206">The action's blast radius</text>
+  <text class="ui bulletTxt" x="634" y="220">exceeds your authority</text>
+
+  <text class="ui bullet" x="616" y="246">4.</text>
+  <text class="ui bulletTxt" x="634" y="246">Trigger matched, but this</text>
+  <text class="ui bulletTxt" x="634" y="260">is a different incident</text>
+
+  <text class="ui bullet" x="616" y="286">5.</text>
+  <text class="ui bulletTxt" x="634" y="286">The next step would destroy</text>
+  <text class="ui bulletTxt" x="634" y="300">evidence you still need</text>
+
+  <rect class="ruleBox" x="616" y="326" width="284" height="90" rx="6"/>
+  <text class="ruleTxt" x="628" y="348">IF YOU DEVIATE:</text>
+  <text class="ui bulletTxt" fill="#e2e8f0" x="628" y="366">Document what you did instead,</text>
+  <text class="ui bulletTxt" fill="#e2e8f0" x="628" y="380">document why, and tell someone</text>
+  <text class="ui bulletTxt" fill="#e2e8f0" x="628" y="394">senior now &#8212; not at the end.</text>
+
+  <text class="ui bulletTxt" x="616" y="440">Silent deviation is a failure even</text>
+  <text class="ui bulletTxt" x="616" y="454">when the judgement call was right &#8212;</text>
+  <text class="ui bulletTxt" x="616" y="468">the SOC cannot learn from what it</text>
+  <text class="ui bulletTxt" x="616" y="482">never finds out happened.</text>
+
+  <text class="ui cap" x="24" y="558">Steps and escalation criteria remove guessing under pressure. The sidebar is what stops a step-follower from following it off a cliff.</text>
+</svg>

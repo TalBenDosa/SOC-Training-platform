@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 520" role="img" aria-label="Layout of a TCP/IP packet showing the Ethernet, IP and TCP headers wrapped around the payload, with which security tool can see each layer">
+  <title>TCP/IP packet layout — headers, payload, and which tool sees what</title>
+  <defs>
+    <style>
+      .bg    { fill: #0b0f1e; }
+      .panel { fill: #0a1020; stroke: #1e2d4a; stroke-width: 1; }
+      .eth   { fill: #10233a; stroke: #38bdf8; stroke-width: 1; }
+      .ip    { fill: #122a3d; stroke: #22d3ee; stroke-width: 1; }
+      .tcp   { fill: #14313b; stroke: #34d399; stroke-width: 1; }
+      .pay   { fill: #2a1b2e; stroke: #c084fc; stroke-width: 1; }
+      .ui    { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .mono  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
+      .head  { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+      .col   { fill: #64748b; font-size: 10px; font-weight: 600; letter-spacing: .08em; }
+      .lyr   { fill: #e2e8f0; font-size: 12px; font-weight: 700; }
+      .fld   { fill: #cbd5e1; font-size: 11px; }
+      .note  { fill: #94a3b8; font-size: 11px; }
+      .cap   { fill: #64748b; font-size: 10px; font-style: italic; }
+      .warn  { fill: #fbbf24; font-size: 11px; font-weight: 600; }
+      .lock  { fill: #f87171; font-size: 11px; font-weight: 600; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="940" height="520"/>
+  <text class="ui head" x="24" y="28">ONE PACKET, FOUR NESTED WRAPPERS — AND WHAT EACH FIELD ANSWERS</text>
+
+  <!-- nested boxes -->
+  <rect class="eth" x="24"  y="44" width="892" height="200" rx="6"/>
+  <text class="ui lyr" x="38" y="66">ETHERNET / LINK</text>
+  <text class="ui mono" x="38" y="86" fill="#7dd3fc">src MAC &#183; dst MAC &#183; EtherType</text>
+  <text class="ui cap"  x="330" y="86">Only meaningful on the local segment — rewritten at every router hop.</text>
+
+  <rect class="ip" x="44" y="98" width="852" height="132" rx="5"/>
+  <text class="ui lyr" x="58" y="120">IP HEADER</text>
+  <text class="ui mono" x="58" y="140" fill="#67e8f9">src IP &#183; dst IP &#183; TTL &#183; protocol &#183; total length</text>
+  <text class="ui cap"  x="430" y="140">WHO is talking to whom. Survives end to end.</text>
+
+  <rect class="tcp" x="64" y="152" width="812" height="66" rx="5"/>
+  <text class="ui lyr" x="78" y="174">TCP HEADER</text>
+  <text class="ui mono" x="78" y="194" fill="#6ee7b7">src port &#183; dst port &#183; seq &#183; ack &#183; flags SYN/ACK/FIN/RST &#183; window</text>
+  <text class="ui cap"  x="600" y="174">WHICH service, and the state of the conversation.</text>
+
+  <rect class="pay" x="84" y="200" width="772" height="0" rx="4"/>
+
+  <!-- payload as its own band -->
+  <rect class="pay" x="24" y="256" width="892" height="72" rx="6"/>
+  <text class="ui lyr" x="38" y="278">PAYLOAD — THE ACTUAL CONTENT</text>
+  <text class="ui mono" x="38" y="298" fill="#d8b4fe">HTTP request &#183; DNS query &#183; TLS record &#183; SMB command &#183; file bytes</text>
+  <text class="ui lock" x="600" y="298">Encrypted under TLS — this is the part you usually cannot read.</text>
+  <text class="ui cap"  x="38" y="318">Everything above is metadata. This is the message. Most modern traffic hides exactly this layer.</text>
+
+  <!-- who sees what -->
+  <rect class="panel" x="24" y="344" width="892" height="152" rx="6"/>
+  <text class="ui col" x="38" y="364">WHICH TOOL SEES WHICH LAYER — WHY "NOTHING IN THE LOGS" IS USUALLY WRONG</text>
+
+  <text class="ui col" x="38"  y="392">TOOL</text>
+  <text class="ui col" x="220" y="392">SEES</text>
+  <text class="ui col" x="620" y="392">CANNOT SEE</text>
+
+  <text class="ui fld"  x="38"  y="416">Firewall / NetFlow</text>
+  <text class="ui note" x="220" y="416">IP header, TCP ports, byte counts</text>
+  <text class="ui note" x="620" y="416">payload contents</text>
+
+  <text class="ui fld"  x="38"  y="440">IDS / IPS</text>
+  <text class="ui note" x="220" y="440">the above, plus payload if unencrypted</text>
+  <text class="ui note" x="620" y="440">TLS payload without interception</text>
+
+  <text class="ui fld"  x="38"  y="464">Full packet capture</text>
+  <text class="ui note" x="220" y="464">every byte on the wire</text>
+  <text class="ui note" x="620" y="464">plaintext inside TLS</text>
+
+  <text class="ui fld"  x="38"  y="488">EDR on the endpoint</text>
+  <text class="ui warn" x="220" y="488">the data BEFORE it is encrypted</text>
+  <text class="ui note" x="620" y="488">traffic from unmanaged devices</text>
+</svg>

@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 470" role="img" aria-label="The four possible outcomes of a detection, as a two-by-two matrix of what the alert did versus what was really happening.">
+  <title>True/False Positive and Negative — the four outcomes of any detection</title>
+  <defs>
+    <style>
+      .bg    { fill: #0b0f1e; }
+      .ui    { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .axis  { fill: #94a3b8; font-size: 13px; font-weight: 700; letter-spacing: .04em; }
+      .head  { fill: #cbd5e1; font-size: 13px; font-weight: 700; }
+      .cell  { font-size: 15px; font-weight: 700; }
+      .sub   { font-size: 11px; }
+      .good  { fill: #0e2018; stroke: #22c55e; stroke-width: 1.5; }
+      .goodt { fill: #86efac; }
+      .bad   { fill: #26100f; stroke: #f87171; stroke-width: 2; }
+      .badt  { fill: #fca5a5; }
+      .warn  { fill: #241a06; stroke: #fbbf24; stroke-width: 1.5; }
+      .warnt { fill: #fcd34d; }
+      .dim   { fill: #0f1830; stroke: #334155; stroke-width: 1.5; }
+      .dimt  { fill: #94a3b8; }
+      .note  { fill: #64748b; font-size: 11px; }
+    </style>
+  </defs>
+  <rect class="bg" x="0" y="0" width="940" height="470"/>
+
+  <text class="ui axis" x="470" y="34" text-anchor="middle">What the alert did</text>
+  <text class="ui head" x="440" y="70" text-anchor="middle">Alert FIRED</text>
+  <text class="ui head" x="720" y="70" text-anchor="middle">No alert</text>
+
+  <text class="ui axis" x="34" y="270" text-anchor="middle" transform="rotate(-90 34 270)">What was really happening</text>
+  <text class="ui head" x="150" y="175" text-anchor="middle">Actually</text>
+  <text class="ui head" x="150" y="192" text-anchor="middle">MALICIOUS</text>
+  <text class="ui head" x="150" y="345" text-anchor="middle">Actually</text>
+  <text class="ui head" x="150" y="362" text-anchor="middle">benign</text>
+
+  <rect class="good" x="300" y="90" width="280" height="150" rx="10"/>
+  <text class="ui cell goodt" x="440" y="150" text-anchor="middle">True Positive</text>
+  <text class="ui sub goodt" x="440" y="176" text-anchor="middle">real attack, and you caught it</text>
+  <text class="ui sub goodt" x="440" y="194" text-anchor="middle">→ investigate &amp; respond</text>
+
+  <rect class="bad" x="600" y="90" width="280" height="150" rx="10"/>
+  <text class="ui cell badt" x="740" y="150" text-anchor="middle">False Negative</text>
+  <text class="ui sub badt" x="740" y="176" text-anchor="middle">real attack, no alarm — the miss</text>
+  <text class="ui sub badt" x="740" y="194" text-anchor="middle">→ the one that ends careers</text>
+
+  <rect class="warn" x="300" y="260" width="280" height="150" rx="10"/>
+  <text class="ui cell warnt" x="440" y="320" text-anchor="middle">False Positive</text>
+  <text class="ui sub warnt" x="440" y="346" text-anchor="middle">nothing wrong, alarm anyway</text>
+  <text class="ui sub warnt" x="440" y="364" text-anchor="middle">→ the daily grind, alert fatigue</text>
+
+  <rect class="dim" x="600" y="260" width="280" height="150" rx="10"/>
+  <text class="ui cell dimt" x="740" y="320" text-anchor="middle">True Negative</text>
+  <text class="ui sub dimt" x="740" y="346" text-anchor="middle">nothing wrong, correctly quiet</text>
+  <text class="ui sub dimt" x="740" y="364" text-anchor="middle">→ invisible, and that's fine</text>
+
+  <text class="ui note" x="300" y="440">Tuning trades one error for the other: kill false positives too aggressively and you create false negatives. The false negative is the dangerous one.</text>
+</svg>

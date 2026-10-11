@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 420" role="img" aria-label="How an attacker pivots through a single compromised foothold to reach internal segmented systems that were never reachable from the internet, and what it looks like to a defender.">
+  <title>Pivoting: one foothold turns into a gateway past network segmentation</title>
+  <defs>
+    <style>
+      .bg   { fill: #0b0f1e; }
+      .ui   { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .att  { fill: #26100f; stroke: #f87171; stroke-width: 1.5; }
+      .foot { fill: #241a06; stroke: #fbbf24; stroke-width: 2; }
+      .seg  { fill: #0e1b30; stroke: #22d3ee; stroke-width: 1.5; }
+      .zone { fill: none; stroke: #334155; stroke-width: 1.5; stroke-dasharray: 5 4; }
+      .t    { fill: #e2e8f0; font-size: 12.5px; font-weight: 700; }
+      .s    { fill: #94a3b8; font-size: 10.5px; }
+      .red  { fill: #fca5a5; font-size: 10.5px; }
+      .gold { fill: #fcd34d; font-size: 12px; font-weight: 700; }
+      .cyan { fill: #67e8f9; font-size: 11px; font-weight: 700; }
+      .zlab { fill: #64748b; font-size: 10px; font-weight: 700; letter-spacing:.08em; }
+      .head { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing:.05em; }
+      .flow { stroke: #f87171; stroke-width: 2.5; fill: none; marker-end: url(#a); }
+      .tun  { stroke: #fbbf24; stroke-width: 2.5; fill: none; stroke-dasharray: 3 3; marker-end: url(#b); }
+    </style>
+    <marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#f87171"/></marker>
+    <marker id="b" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#fbbf24"/></marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="960" height="420"/>
+  <text class="ui head" x="30" y="30">ONE FOOTHOLD BECOMES A GATEWAY PAST SEGMENTATION</text>
+
+  <!-- attacker -->
+  <rect class="att" x="24" y="150" width="150" height="90" rx="10"/>
+  <text class="ui t" x="40" y="184" style="fill:#fca5a5">Attacker</text>
+  <text class="ui s" x="40" y="206">on the internet</text>
+  <text class="ui s" x="40" y="222">can only reach the</text>
+  <text class="ui s" x="40" y="238">exposed DMZ box.</text>
+
+  <!-- DMZ zone -->
+  <rect class="zone" x="210" y="70" width="230" height="290" rx="12"/>
+  <text class="ui zlab" x="226" y="92">DMZ / EXPOSED ZONE</text>
+  <rect class="foot" x="250" y="150" width="150" height="90" rx="10"/>
+  <text class="ui gold" x="266" y="180">Foothold</text>
+  <text class="ui s" x="266" y="200">a web server the</text>
+  <text class="ui s" x="266" y="216">attacker compromised.</text>
+  <text class="ui red" x="266" y="234">now a relay →</text>
+
+  <!-- internal zone -->
+  <rect class="zone" x="480" y="46" width="456" height="330" rx="12"/>
+  <text class="ui zlab" x="496" y="68">INTERNAL ZONE — no route from the internet</text>
+  <rect class="seg" x="510" y="90" width="180" height="70" rx="8"/>
+  <text class="ui t" x="526" y="120">File server</text>
+  <text class="ui s" x="526" y="140">10.20.0.14</text>
+  <rect class="seg" x="510" y="180" width="180" height="70" rx="8"/>
+  <text class="ui t" x="526" y="210">Domain controller</text>
+  <text class="ui s" x="526" y="230">10.20.0.2</text>
+  <rect class="seg" x="510" y="270" width="180" height="70" rx="8"/>
+  <text class="ui t" x="526" y="300">Database</text>
+  <text class="ui s" x="526" y="320">10.20.0.30</text>
+
+  <!-- flows -->
+  <line class="flow" x1="174" y1="195" x2="248" y2="195"/>
+  <text class="ui red" x="176" y="186" style="font-size:9px">1 · breach</text>
+  <path class="tun" d="M400 175 C 460 130, 470 125, 508 125"/>
+  <path class="tun" d="M400 195 C 460 200, 470 215, 508 215"/>
+  <path class="tun" d="M400 220 C 460 285, 470 300, 508 305"/>
+  <text class="ui gold" x="705" y="175">2 · a SOCKS proxy / port-forward</text>
+  <text class="ui s" x="705" y="193">(ssh -D, chisel, ligolo) turns the</text>
+  <text class="ui s" x="705" y="209">foothold into a tunnel. The attacker's</text>
+  <text class="ui s" x="705" y="225">tools now reach 10.20.0.x AS IF they</text>
+  <text class="ui s" x="705" y="241">were sitting inside the internal zone.</text>
+
+  <!-- detection -->
+  <rect class="seg" x="705" y="266" width="215" height="90" rx="8" style="stroke:#22c55e"/>
+  <text class="ui cyan" x="721" y="290" style="fill:#86efac">What the defender sees</text>
+  <text class="ui s" x="721" y="310">A DMZ web server suddenly opening</text>
+  <text class="ui s" x="721" y="326">MANY internal connections it never</text>
+  <text class="ui s" x="721" y="342">made before = a host acting as a relay.</text>
+</svg>

@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 480" role="img" aria-label="Comparison table of traditional antivirus versus EDR across what each detects, what each records, whether retroactive investigation is possible, and what happens against malware with no known signature">
+  <title>Antivirus versus EDR — a comparison table</title>
+  <defs>
+    <style>
+      .bg    { fill: #0b0f1e; }
+      .panel { fill: #0a1020; stroke: #1e2d4a; stroke-width: 1; }
+      .row   { fill: #0d1526; stroke: #1e2d4a; stroke-width: 1; }
+      .ui    { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .mono  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
+      .head  { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+      .col   { fill: #64748b; font-size: 10px; font-weight: 600; letter-spacing: .08em; }
+      .colav { fill: #f87171; font-size: 11px; font-weight: 700; letter-spacing: .08em; }
+      .coledr{ fill: #86efac; font-size: 11px; font-weight: 700; letter-spacing: .08em; }
+      .dim   { fill: #64748b; font-size: 10.5px; font-weight: 700; letter-spacing: .06em; }
+      .cell  { fill: #cbd5e1; font-size: 11px; }
+      .cellv { fill: #e2e8f0; font-size: 11px; }
+      .warn  { fill: #f87171; font-size: 11px; }
+      .good  { fill: #86efac; font-size: 11px; }
+      .cap   { fill: #64748b; font-size: 10px; font-style: italic; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="940" height="480"/>
+  <text class="ui head" x="24" y="28">ANTIVIRUS VS EDR — WHAT ACTUALLY CHANGED</text>
+
+  <text class="ui dim"   x="34"  y="52">DIMENSION</text>
+  <text class="ui colav" x="330" y="52">TRADITIONAL ANTIVIRUS</text>
+  <text class="ui coledr" x="640" y="52">EDR</text>
+
+  <!-- Row 1: What it detects -->
+  <rect class="row" x="24" y="62" width="892" height="66" rx="6"/>
+  <text class="ui dim" x="34" y="86">WHAT IT</text>
+  <text class="ui dim" x="34" y="102">DETECTS ON</text>
+  <text class="ui warn" x="330" y="86">Known-bad signatures —</text>
+  <text class="ui cellv" x="330" y="104">hashes, byte patterns, YARA rules.</text>
+  <text class="ui good" x="640" y="86">Behavior — parent-child chains,</text>
+  <text class="ui cellv" x="640" y="104">command lines, suspicious sequences.</text>
+
+  <!-- Row 2: What it records -->
+  <rect class="row" x="24" y="136" width="892" height="66" rx="6"/>
+  <text class="ui dim" x="34" y="160">WHAT IT SAVES</text>
+  <text class="ui warn" x="330" y="160">Little to nothing — a scan verdict</text>
+  <text class="ui cellv" x="330" y="178">at the moment of the check.</text>
+  <text class="ui good" x="640" y="160">Continuous telemetry — process,</text>
+  <text class="ui cellv" x="640" y="178">file, network, and registry events, always-on.</text>
+
+  <!-- Row 3: Retroactive investigation -->
+  <rect class="row" x="24" y="210" width="892" height="66" rx="6"/>
+  <text class="ui dim" x="34" y="234">RETROACTIVE</text>
+  <text class="ui dim" x="34" y="250">INVESTIGATION</text>
+  <text class="ui warn" x="330" y="234">Not possible — if the file was not</text>
+  <text class="ui cellv" x="330" y="252">on disk at scan time, there is nothing to check.</text>
+  <text class="ui good" x="640" y="234">Yes — a new indicator tomorrow can</text>
+  <text class="ui cellv" x="640" y="252">be searched against today's recorded history.</text>
+
+  <!-- Row 4: New/unknown malware -->
+  <rect class="row" x="24" y="284" width="892" height="66" rx="6"/>
+  <text class="ui dim" x="34" y="308">AGAINST MALWARE</text>
+  <text class="ui dim" x="34" y="324">WITH NO SIGNATURE</text>
+  <text class="ui warn" x="330" y="308">Invisible — one changed byte defeats</text>
+  <text class="ui cellv" x="330" y="326">the hash; fileless code has no file to scan.</text>
+  <text class="ui good" x="640" y="308">Still visible — the behavior (an Office</text>
+  <text class="ui cellv" x="640" y="326">app spawning encoded PowerShell) is the tell,</text>
+  <text class="ui cellv" x="640" y="342">regardless of what file, if any, is involved.</text>
+
+  <!-- Row 5: Response -->
+  <rect class="row" x="24" y="358" width="892" height="66" rx="6"/>
+  <text class="ui dim" x="34" y="382">RESPONSE ACTION</text>
+  <text class="ui warn" x="330" y="382">Quarantine or delete the file —</text>
+  <text class="ui cellv" x="330" y="400">the scope of the response is one file.</text>
+  <text class="ui good" x="640" y="382">Isolate the host, kill a live process</text>
+  <text class="ui cellv" x="640" y="400">tree, or run live response commands remotely.</text>
+
+  <text class="ui cap" x="24" y="446">Most modern platforms bundle both: a next-gen AV engine for prevention, and the EDR recording layer for the visibility a scanner alone never had.</text>
+  <text class="ui cap" x="24" y="462">A "quarantined" verdict from either layer still deserves a process-tree read — quarantine addresses the artifact, not necessarily the incident.</text>
+</svg>

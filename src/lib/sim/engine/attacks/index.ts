@@ -30,11 +30,6 @@ function eid(prefix: string): string {
   return `${prefix}_${Date.now()}_${++_eventSeq}`;
 }
 
-/** Return the victim's current (or newly created) session IP. */
-function victimIp(world: WorldState, victim: CompanyUser): string {
-  return getOrCreateSession(world, victim).ip;
-}
-
 /** Attach the attack correlation id to every raw block. */
 function withCorr(raw: Record<string, unknown>, world: WorldState): Record<string, unknown> {
   return { ...raw, "attack.correlationId": world.attack?.correlationId ?? "" };
@@ -126,7 +121,7 @@ const playbookPhishingBEC: AttackPlaybook = {
         const ev: GeneratedEvent = {
           id: eid("phish_email"),
           source: "email_gateway",
-          vendor: "Microsoft Defender for Endpoint",
+          vendor: "Microsoft Defender for Office 365",
           event_type: "email_received",
           severity: "medium",
           mitre_technique: "T1566.001",
@@ -256,7 +251,7 @@ const playbookPhishingBEC: AttackPlaybook = {
               "winlog.event_data.IntegrityLevel": "Medium",
               "winlog.event_data.Hashes": `SHA256=${psHash}`,
               "winlog.event_data.LogonId": session.logonId,
-              "file.signed": "false",
+              "process.code_signature.exists": false, "process.code_signature.trusted": false,
             },
             world
           ),
@@ -473,21 +468,56 @@ const playbookPhishingBEC: AttackPlaybook = {
             user: `${adDomain}\\${victim.id}`,
           },
           raw: withCorr(
-            {
-              "event.code": "10",
-              "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
-              "winlog.provider_name": "Microsoft-Windows-Sysmon",
-              "winlog.computer_name": victim.hostname,
-              "winlog.event_data.SourceImage":
-                "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
-              "winlog.event_data.TargetImage": "C:\\Windows\\System32\\lsass.exe",
-              "winlog.event_data.GrantedAccess": "0x1FFFFF",
-              "winlog.event_data.CallTrace":
-                "C:\\Windows\\SYSTEM32\\ntdll.dll+9a2ab|C:\\Windows\\System32\\KERNELBASE.dll+2b09e|C:\\Windows\\System32\\comsvcs.dll+15a37",
-              "winlog.event_data.SourceProcessId": String(psPid),
-              "winlog.event_data.TargetProcessId": "700",
-              "winlog.event_data.User": `${adDomain}\\${victim.id}`,
-            },
+            world.meta.edr === "crowdstrike"
+              ? {
+                  // CrowdStrike Falcon — process-access sensor event (crowdstrike.* namespace)
+                  "crowdstrike.event_simpleName": "ProcessRollup2",
+                  "crowdstrike.ContextBaseFileName": "powershell.exe",
+                  "crowdstrike.ContextProcessId": String(psPid),
+                  "crowdstrike.TargetProcessImageFileName": "lsass.exe",
+                  "crowdstrike.ImageFileName":
+                    "\\Device\\HarddiskVolume3\\Windows\\System32\\lsass.exe",
+                  "crowdstrike.TargetProcessId": "700",
+                  "crowdstrike.DesiredAccess": "2097151",
+                  "crowdstrike.UserName": `${adDomain}\\${victim.id}`,
+                  "crowdstrike.ComputerName": victim.hostname,
+                }
+              : world.meta.edr === "MDE"
+              ? {
+                  // Microsoft Defender for Endpoint — DeviceEvents (mde.* namespace)
+                  "mde.ActionType": "LsassProcessMemoryDumped",
+                  "mde.DeviceName": victim.hostname,
+                  "mde.DeviceId": world.rng.hex(32),
+                  "mde.ReportId": String(world.rng.range(100000, 999999)),
+                  "mde.InitiatingProcessFileName": "powershell.exe",
+                  "mde.InitiatingProcessCommandLine":
+                    "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+                  "mde.AccountName": victim.id,
+                  "process.name": "powershell.exe",
+                  "process.pid": String(psPid),
+                  "process.executable":
+                    "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+                  "file.name": "lsass.exe",
+                  "file.path": "C:\\Windows\\System32\\lsass.exe",
+                  "user.name": `${adDomain}\\${victim.id}`,
+                  "host.name": victim.hostname,
+                }
+              : {
+                  // Sysmon fallback (Event ID 10 — ProcessAccess)
+                  "event.code": "10",
+                  "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
+                  "winlog.provider_name": "Microsoft-Windows-Sysmon",
+                  "winlog.computer_name": victim.hostname,
+                  "winlog.event_data.SourceImage":
+                    "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+                  "winlog.event_data.TargetImage": "C:\\Windows\\System32\\lsass.exe",
+                  "winlog.event_data.GrantedAccess": "0x1FFFFF",
+                  "winlog.event_data.CallTrace":
+                    "C:\\Windows\\SYSTEM32\\ntdll.dll+9a2ab|C:\\Windows\\System32\\KERNELBASE.dll+2b09e|C:\\Windows\\System32\\comsvcs.dll+15a37",
+                  "winlog.event_data.SourceProcessId": String(psPid),
+                  "winlog.event_data.TargetProcessId": "700",
+                  "winlog.event_data.User": `${adDomain}\\${victim.id}`,
+                },
             world
           ),
         };
@@ -610,7 +640,6 @@ const playbookPasswordSpray: AttackPlaybook = {
       name: "Password Spray — Auth Failures",
       mitre: "T1110.003",
       generate(world: WorldState): AttackPhaseResult {
-        const victim = world.attack!.victim;
         const attackerIp = externalAttackerIp(world);
         const adDomain = world.meta.adDomain || "CORP";
 
@@ -880,23 +909,59 @@ const playbookRansomware: AttackPlaybook = {
             hash: { sha256: dropperHash },
           },
           raw: withCorr(
-            {
-              "event.code": "1",
-              "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
-              "winlog.provider_name": "Microsoft-Windows-Sysmon",
-              "winlog.computer_name": victim.hostname,
-              "winlog.event_data.Image": "C:\\Windows\\System32\\cmd.exe",
-              "winlog.event_data.CommandLine": `cmd.exe /c "C:\\Users\\${victim.id}\\AppData\\Local\\Temp\\svchost32.exe" /quiet`,
-              "winlog.event_data.ParentImage": "C:\\Windows\\explorer.exe",
-              "winlog.event_data.ParentProcessId": "2400",
-              "winlog.event_data.ProcessId": String(dropperPid),
-              "winlog.event_data.User": `${adDomain}\\${victim.id}`,
-              "winlog.event_data.IntegrityLevel": "Medium",
-              "winlog.event_data.Hashes": `SHA256=${dropperHash}`,
-              "winlog.event_data.LogonId": session.logonId,
-              "file.path": `C:\\Users\\${victim.id}\\AppData\\Local\\Temp\\svchost32.exe`,
-              "file.signed": "false",
-            },
+            world.meta.edr === "crowdstrike"
+              ? {
+                  // CrowdStrike Falcon — ProcessRollup2 sensor event (crowdstrike.* namespace)
+                  "crowdstrike.event_simpleName": "ProcessRollup2",
+                  "crowdstrike.ContextBaseFileName": "cmd.exe",
+                  "crowdstrike.CommandLine": `cmd.exe /c "C:\\Users\\${victim.id}\\AppData\\Local\\Temp\\svchost32.exe" /quiet`,
+                  "crowdstrike.ParentBaseFileName": "explorer.exe",
+                  "crowdstrike.TargetProcessId": String(dropperPid),
+                  "crowdstrike.UserName": `${adDomain}\\${victim.id}`,
+                  "crowdstrike.ComputerName": victim.hostname,
+                  "crowdstrike.FilePath": "C:\\Windows\\System32\\cmd.exe",
+                  "crowdstrike.SHA256HashData": dropperHash,
+                }
+              : world.meta.edr === "MDE"
+              ? {
+                  // Microsoft Defender for Endpoint — DeviceProcessEvents (mde.* namespace)
+                  "mde.ActionType": "ProcessCreated",
+                  "mde.DeviceName": victim.hostname,
+                  "mde.DeviceId": world.rng.hex(32),
+                  "mde.ReportId": String(world.rng.range(100000, 999999)),
+                  "mde.AccountName": victim.id,
+                  "mde.InitiatingProcessFileName": "explorer.exe",
+                  "process.name": "cmd.exe",
+                  "process.pid": String(dropperPid),
+                  "process.executable": "C:\\Windows\\System32\\cmd.exe",
+                  "process.command_line": `cmd.exe /c "C:\\Users\\${victim.id}\\AppData\\Local\\Temp\\svchost32.exe" /quiet`,
+                  "process.parent.name": "explorer.exe",
+                  "process.parent.pid": "2400",
+                  "process.hash.sha256": dropperHash,
+                  "user.name": `${adDomain}\\${victim.id}`,
+                  "host.name": victim.hostname,
+                  "file.path": `C:\\Users\\${victim.id}\\AppData\\Local\\Temp\\svchost32.exe`,
+                  "file.code_signature.exists": false,
+                  "file.code_signature.trusted": false,
+                }
+              : {
+                  // Sysmon fallback (Event ID 1 — ProcessCreate)
+                  "event.code": "1",
+                  "winlog.channel": "Microsoft-Windows-Sysmon/Operational",
+                  "winlog.provider_name": "Microsoft-Windows-Sysmon",
+                  "winlog.computer_name": victim.hostname,
+                  "winlog.event_data.Image": "C:\\Windows\\System32\\cmd.exe",
+                  "winlog.event_data.CommandLine": `cmd.exe /c "C:\\Users\\${victim.id}\\AppData\\Local\\Temp\\svchost32.exe" /quiet`,
+                  "winlog.event_data.ParentImage": "C:\\Windows\\explorer.exe",
+                  "winlog.event_data.ParentProcessId": "2400",
+                  "winlog.event_data.ProcessId": String(dropperPid),
+                  "winlog.event_data.User": `${adDomain}\\${victim.id}`,
+                  "winlog.event_data.IntegrityLevel": "Medium",
+                  "winlog.event_data.Hashes": `SHA256=${dropperHash}`,
+                  "winlog.event_data.LogonId": session.logonId,
+                  "file.path": `C:\\Users\\${victim.id}\\AppData\\Local\\Temp\\svchost32.exe`,
+                  "process.code_signature.exists": false, "process.code_signature.trusted": false,
+                },
             world
           ),
         };
@@ -1076,17 +1141,36 @@ const playbookRansomware: AttackPlaybook = {
             path: `C:\\Users\\${victim.id}\\Documents\\`,
           },
           raw: withCorr(
-            {
-              "cs.FileName": "DECRYPT_FILES.txt",
-              "cs.FilePath": `C:\\Users\\${victim.id}\\Documents\\`,
-              "cs.ContextProcessName": "svchost32.exe",
-              "cs.OperationType": "WRITE",
-              "cs.ContextProcessId_decimal": String(dropperPid),
-              "data.files_encrypted": filesEncrypted,
-              "data.file_extension_changed_to": ".locked",
-              "data.ransom_note_dropped": "true",
-              "data.ransom_note_path": `C:\\Users\\${victim.id}\\Desktop\\DECRYPT_FILES.txt`,
-            },
+            (() => {
+              const commonEncryptionFields = {
+                "data.files_encrypted": filesEncrypted,
+                "data.file_extension_changed_to": ".locked",
+                "data.ransom_note_dropped": "true",
+                "data.ransom_note_path": `C:\\Users\\${victim.id}\\Desktop\\DECRYPT_FILES.txt`,
+              };
+              if (world.meta.edr === "crowdstrike") {
+                // CrowdStrike Falcon — file-write sensor event (crowdstrike.* namespace)
+                return {
+                  "crowdstrike.FileName": "DECRYPT_FILES.txt",
+                  "crowdstrike.FilePath": `C:\\Users\\${victim.id}\\Documents\\`,
+                  "crowdstrike.ContextBaseFileName": "svchost32.exe",
+                  "crowdstrike.ContextProcessId": String(dropperPid),
+                  ...commonEncryptionFields,
+                };
+              }
+              // Microsoft Defender for Endpoint (and default) — DeviceFileEvents (mde.* namespace)
+              return {
+                "mde.ActionType": "FileModified",
+                "mde.DeviceName": victim.hostname,
+                "mde.DeviceId": world.rng.hex(32),
+                "mde.ReportId": String(world.rng.range(100000, 999999)),
+                "mde.InitiatingProcessFileName": "svchost32.exe",
+                "file.name": "DECRYPT_FILES.txt",
+                "file.path": `C:\\Users\\${victim.id}\\Documents\\`,
+                "file.extension": "txt",
+                ...commonEncryptionFields,
+              };
+            })(),
             world
           ),
         };
@@ -1164,7 +1248,7 @@ const playbookITMaintenance: AttackPlaybook = {
               "winlog.event_data.IntegrityLevel": "High",
               "winlog.event_data.Hashes": `SHA256=${world.rng.sha256()}`,
               "winlog.event_data.LogonId": session.logonId,
-              "file.signed": "true",
+              "process.code_signature.exists": true, "process.code_signature.trusted": true,
             },
             world
           ),
@@ -1492,20 +1576,37 @@ const playbookPentestNoise: AttackPlaybook = {
           },
           raw: withCorr(
             {
-              "waf.action": "Allow",
-              "waf.rule_id": "AWSManagedRulesCommonRuleSet",
-              "waf.rule_name": "SQLi_BODY",
-              "waf.terminating_rule_type": "REGULAR",
-              "waf.request.uri": "/admin/login",
-              "waf.request.method": "GET",
-              "waf.request.headers.host": targetServer.hostname,
-              "waf.request.headers.user-agent": "Nessus/10.6.1 (compatible; scanner)",
-              "waf.client_ip": scannerIp,
-              "waf.web_acl_id": "arn:aws:wafv2:us-east-1:123456789012:regional/webacl/prod-waf/abc123",
+              // Native AWS WAF logging schema (the rule matched in COUNT mode, so the request was allowed).
+              formatVersion: 1,
+              timestamp: Date.now(),
+              webaclId: "arn:aws:wafv2:us-east-1:123456789012:regional/webacl/prod-waf/6e1c9b34-2f58-4a07-9d1e-7b3a5c80f4d2",
+              terminatingRuleId: "Default_Action",
+              terminatingRuleType: "REGULAR",
+              action: "ALLOW",
+              httpSourceName: "ALB",
+              httpSourceId: "123456789012-app/prod-alb/50dc6c495c0c9188",
+              "ruleGroupList[0].ruleGroupId": "AWS#AWSManagedRulesSQLiRuleSet",
+              "ruleGroupList[0].terminatingRule": null,
+              "ruleGroupList[0].nonTerminatingMatchingRules[0].ruleId": "SQLi_BODY",
+              "ruleGroupList[0].nonTerminatingMatchingRules[0].action": "COUNT",
+              "ruleGroupList[0].excludedRules": null,
+              rateBasedRuleList: [],
+              nonTerminatingMatchingRules: [],
+              requestHeadersInserted: null,
+              responseCodeSent: null,
+              "httpRequest.clientIp": scannerIp,
+              "httpRequest.httpMethod": "GET",
+              "httpRequest.uri": "/admin/login",
+              "httpRequest.args": "",
+              "httpRequest.httpVersion": "HTTP/1.1",
+              "httpRequest.requestId": `1-${Math.floor(Date.now() / 1000).toString(16)}-${Date.now().toString(16).slice(-10)}b7d2e4a90c15f3`,
+              "httpRequest.headers[0].name": "Host",
+              "httpRequest.headers[0].value": targetServer.hostname,
+              "httpRequest.headers[1].name": "User-Agent",
+              "httpRequest.headers[1].value": "Nessus/10.6.1 (compatible; scanner)",
+              "labels[0].name": "awswaf:managed:aws:sql-database:SQLi_Body",
+              action_result: "allowed",
               "http.response.status_code": "200",
-              "http.request.referrer": "",
-              "waf.labels": ["scanner", "internal", "pentest"],
-              "waf.country": "Reserved",
             },
             world
           ),

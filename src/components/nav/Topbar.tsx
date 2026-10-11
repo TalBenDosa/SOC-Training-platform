@@ -1,29 +1,145 @@
 "use client";
 
-// Note: this Topbar intentionally has no search box, notification bell, or
-// "threat level" icon. All three used to render here but did nothing when
-// clicked/typed into (a decorative control that never responds trains users
-// to distrust the rest of the UI's feedback) — see PLATFORM_REVIEW.md P2.2.
-// Any page that genuinely needs search has its own working search field
-// (e.g. the Dashboard's live event feed).
+// Note: this Topbar intentionally has no search box or "threat level" icon.
+// Both used to render here but did nothing when clicked/typed into (a
+// decorative control that never responds trains users to distrust the rest of
+// the UI's feedback) — see PLATFORM_REVIEW.md P2.2. Any page that genuinely
+// needs search has its own working search field (e.g. the Dashboard's live
+// event feed).
+//
+// The notification bell was removed for the same reason, and is BACK only
+// because it is now real (NotificationBell, migration 0076): it shows the
+// learner's actual unread count, lists their notifications (a learning plan
+// assigned or updated, personal priorities changed), marks them read and
+// navigates on click, and polls every 60 s + on focus. It hides itself for
+// guests and users without an organisation rather than render an empty control.
+//
+// The identity chip used to be hardcoded: every learner, including one who had
+// registered thirty seconds earlier, was shown "Analyst / tier-2". A rank
+// nobody earned is decoration, and decoration shaped like feedback is worse
+// than none — it told a student they were a Tier 2 analyst before they had
+// triaged a single alert. It now reflects real XP against the ladder in
+// lib/progression/ranks.ts, and updates the moment XP is awarded.
+import Link from "next/link";
+import { Flame } from "lucide-react";
+import { useAuth } from "@/lib/auth/AuthContext";
+import { useDisplayName } from "@/lib/auth/useDisplayName";
+import { useBranding } from "@/lib/auth/useBranding";
+import { useRank } from "@/lib/progression/useRank";
+import { useStreak } from "@/lib/progression/useStreak";
+import { initialFor } from "@/lib/progression/ranks";
+import { cn } from "@/lib/utils";
+import { NotificationBell } from "@/components/nav/NotificationBell";
+
 export function Topbar({ title, subtitle, actions }: { title?: string; subtitle?: string; actions?: React.ReactNode }) {
+  const { user } = useAuth();
+  const { rank, next, progress, ready } = useRank();
+  const { streak, atRisk, ready: streakReady } = useStreak();
+  const branding = useBranding();
+
+  const displayName = useDisplayName();
+  // Initial follows the displayed name, so the bubble and the label agree.
+  const initial = user ? initialFor(displayName) : "A";
+
+  // `ready` is false during SSR and the first paint, when XP is not yet
+  // readable. Showing the lowest rank then would flash "Student" at a Tier 3
+  // learner on every navigation, so the tier line stays blank until the real
+  // value lands.
+  const tierLine = ready ? rank.tier : "";
+
+  const tooltip = ready
+    ? next && progress
+      ? `${rank.label} — ${rank.blurb}\n\n${progress.earned.toLocaleString()} / ${progress.needed.toLocaleString()} XP toward ${next.label} (${next.tier})`
+      : `${rank.label} — ${rank.blurb}\n\nTop rank reached.`
+    : undefined;
+
+  // The title tooltip is mouse-only, so the same rank details are also rendered
+  // as sr-only text (WCAG 1.3.1 / 2.1.1) — the visible chip is aria-hidden to
+  // avoid reading the label twice.
+  const rankSrText = ready
+    ? next && progress
+      ? `Rank: ${rank.label} (${rank.tier}). ${rank.blurb} ${progress.earned.toLocaleString()} of ${progress.needed.toLocaleString()} XP toward ${next.label} (${next.tier}).`
+      : `Rank: ${rank.label} (${rank.tier}). ${rank.blurb} Top rank reached.`
+    : displayName;
+
+  // pl-16 on mobile leaves a safe zone for the fixed hamburger (Sidebar, drawer
+  // mode) so it never overlaps the title; lg screens have a persistent sidebar
+  // and no hamburger, so revert to px-6.
   return (
-    <header className="sticky top-0 z-30 flex items-center gap-4 border-b border-border bg-bg/80 px-6 py-3 backdrop-blur">
-      <div className="flex flex-1 items-center gap-4">
+    <header className="sticky top-0 z-30 flex items-center gap-4 border-b border-border bg-bg/80 py-3 pl-16 pr-4 backdrop-blur lg:px-6">
+      <div className="flex flex-1 flex-wrap items-center gap-x-4 gap-y-2">
         {title && (
           <div>
             <h1 className="text-lg font-semibold text-white">{title}</h1>
             {subtitle && <p className="text-xs text-slate-400">{subtitle}</p>}
           </div>
         )}
-        <div className="ml-auto flex items-center gap-2">
-          {actions}
-          <span className="flex items-center gap-2 rounded-md border border-border bg-bg-elevated px-2 py-1.5">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-cyber-500/20 text-cyber-300 text-xs font-bold">A</span>
-            <span className="hidden md:flex flex-col items-start leading-tight">
-              <span className="text-xs font-semibold text-slate-100">Analyst</span>
-              <span className="text-[10px] text-slate-500 font-mono">tier-2</span>
+        {/* flex-wrap so the dashboard's action buttons wrap to a second row on
+            narrow screens instead of overflowing the viewport horizontally. */}
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+          {/* College badge — per-tenant branding. Hidden for the default/guest
+              identity; shows the college's name (and logo, if set). */}
+          {branding.name && (
+            <span className="hidden sm:flex items-center gap-2 rounded-md border border-border bg-bg-elevated px-2.5 py-1.5" title={branding.name}>
+              {branding.logoUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={branding.logoUrl} alt="" className="h-4 w-4 rounded object-contain" />
+              )}
+              <span className="max-w-[160px] truncate text-xs font-semibold text-slate-200">{branding.name}</span>
             </span>
+          )}
+          {actions}
+          {/* Streak flame — the strongest come-back-tomorrow cue, now visible on
+              every screen (previously buried in /progress). Amber + pulse when
+              the streak is alive but has no activity yet today: one tap opens
+              /progress where the freeze offer lives. Hidden at streak 0, where a
+              flame would read as a scold rather than a reward. */}
+          {streakReady && streak > 0 && (
+            <Link
+              href="/progress"
+              aria-label={atRisk
+                ? `Streak: ${streak} ${streak === 1 ? "day" : "days"}, at risk — train today to keep it`
+                : `Streak: ${streak} ${streak === 1 ? "day" : "days"}`}
+              title={atRisk
+                ? `${streak}-day streak — at risk! Train today to keep it alive.`
+                : `${streak}-day streak — keep it going!`}
+              className={cn(
+                "flex items-center gap-1 rounded-md border px-2 py-1.5 transition-colors",
+                atRisk
+                  ? "border-neon-amber/50 bg-neon-amber/10 text-neon-amber animate-pulse"
+                  : "border-border bg-bg-elevated text-orange-400 hover:border-orange-400/40",
+              )}
+            >
+              <Flame className="h-4 w-4" fill={atRisk ? "none" : "currentColor"} aria-hidden="true" />
+              <span className="text-xs font-bold tabular-nums">{streak}</span>
+            </Link>
+          )}
+          {/* Real notifications (plans assigned / updated). Renders nothing for
+              guests and users without an org. */}
+          <NotificationBell />
+          <span
+            className="flex items-center gap-2 rounded-md border border-border bg-bg-elevated px-2 py-1.5"
+            title={tooltip}
+          >
+            <span className="sr-only">{rankSrText}</span>
+            <span aria-hidden="true" className="flex h-6 w-6 items-center justify-center rounded-full bg-cyber-500/20 text-cyber-300 text-xs font-bold">
+              {initial}
+            </span>
+            <span aria-hidden="true" className="hidden md:flex flex-col items-start leading-tight">
+              <span className="text-xs font-semibold text-slate-100">{ready ? rank.label : displayName}</span>
+              <span className="text-[10px] text-slate-400 font-mono">{tierLine}</span>
+            </span>
+            {/* Progress toward the next rank. Omitted at max rank, where a bar
+                pinned at 100% reads as a stalled loader rather than an
+                achievement. */}
+            {ready && progress && (
+              <span className="hidden lg:block h-1 w-16 overflow-hidden rounded-full bg-slate-700/60" aria-hidden>
+                <span
+                  className="block h-full rounded-full bg-cyber-400 transition-[width] duration-500"
+                  style={{ width: `${progress.pct}%` }}
+                />
+              </span>
+            )}
           </span>
         </div>
       </div>

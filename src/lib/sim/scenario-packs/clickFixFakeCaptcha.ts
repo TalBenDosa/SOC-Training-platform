@@ -1,0 +1,218 @@
+/**
+ * Scenario pack: "Verify You Are Human — ClickFix Paste-and-Run"
+ *
+ * BEGINNER tier. One user, one laptop, no lateral movement, no credential
+ * theft across accounts. A fake "I'm not a robot" / human-verification
+ * overlay instructs the user to press Win+R, paste, and press Enter. The
+ * page has already copied a PowerShell one-liner to the clipboard — the
+ * user never sees the command, never downloads a file, and never clicks
+ * anything a browser or a proxy would flag as a download.
+ *
+ * This is "ClickFix" (also reported as "ClearFake"), a social-engineering
+ * initial-access technique that became widespread from 2024 onward and is
+ * still one of the most common commodity-malware delivery methods as of
+ * 2026. It is deliberately not exploiting a browser bug — it is asking the
+ * user to be the payload delivery mechanism, which is precisely why it
+ * evades both web-download inspection and "don't run unknown files"
+ * training.
+ *
+ * The teaching point is that the first PowerShell process in this chain has
+ * no antecedent file-download event at all — it is fileless from the very
+ * first instruction. An analyst trained to look for "what did they
+ * download and run" will search the log for a file that was never written.
+ *
+ * Covers T1204.004 (User Execution: Malicious Copy and Paste),
+ * T1059.001 (Command and Scripting Interpreter: PowerShell), and
+ * T1105 (Ingress Tool Transfer).
+ *
+ * NOTE: `difficulty: "beginner"` is declared on the SCENARIOS registry entry
+ * in scenarios.ts (ScenarioBundle itself carries no difficulty field).
+ */
+
+import type { ScenarioBundle, IOC, ScenarioQuestion } from "@/lib/sim/types";
+import { clickFixFakeCaptchaScenarioEvents } from "./clickFixFakeCaptcha.events";
+
+export function buildClickFixFakeCaptchaScenario(
+  scenarioId = "clickfix-fake-captcha-2026",
+): ScenarioBundle {
+  const { title, events, T, MIN, host, lurePage, widgetHost, stagingHost, c2, stealerHash } = clickFixFakeCaptchaScenarioEvents();
+
+  const iocs: IOC[] = [
+    {
+      type: "domain",
+      value: lurePage,
+      first_seen: T(0),
+      last_seen: T(45_000),
+      reputation: "malicious",
+      tags: ["clickfix-lure-page", "fake-download-site"],
+    },
+    {
+      type: "domain",
+      value: widgetHost,
+      first_seen: T(45_000),
+      last_seen: T(45_000),
+      reputation: "malicious",
+      tags: ["fake-captcha-widget", "clipboard-injection"],
+    },
+    {
+      type: "domain",
+      value: stagingHost,
+      first_seen: T(2 * MIN + 53_000),
+      last_seen: T(3 * MIN + 5_000),
+      reputation: "malicious",
+      tags: ["payload-staging", "newly-registered"],
+    },
+    {
+      type: "domain",
+      value: c2,
+      first_seen: T(3 * MIN + 12_000),
+      last_seen: T(3 * MIN + 12_000),
+      reputation: "malicious",
+      tags: ["c2", "newly-registered"],
+    },
+    {
+      type: "sha256",
+      value: stealerHash,
+      first_seen: T(3 * MIN + 5_000),
+      last_seen: T(3 * MIN + 30_000),
+      reputation: "malicious",
+      tags: ["infostealer", "unsigned", "temp-folder"],
+    },
+    {
+      type: "host",
+      value: host.hostname,
+      first_seen: T(0),
+      last_seen: T(3 * MIN + 30_000),
+      reputation: "unknown",
+      tags: ["user-endpoint", "affected"],
+    },
+  ];
+
+  const questions: ScenarioQuestion[] = [
+    {
+      id: "q1",
+      prompt:
+        "Which event is the moment the user actually executes the attacker's command, and what is unusual about it compared to a normal malicious download?",
+      hint: "Look for a file_create event that comes before evt_cfc_03_paste_run. There isn't one.",
+      kind: "single",
+      options: [
+        { value: "paste_run", label: "The explorer.exe to powershell.exe launch at 14:12:50, with no file downloaded or written beforehand" },
+        { value: "widget", label: "The captcha.js widget load from human-verify-check.net — the widget script itself executes the payload" },
+        { value: "stager_fetch", label: "The GET for /v/init.ps1 from pkg-delivery-cdn.net — first contact with the payload host is the compromise" },
+        { value: "stealer_written", label: "The sysupd32.exe write to Temp — nothing counts as executed until a payload actually lands on disk" },
+      ],
+      answer: "paste_run",
+      xp: 50,
+      explanation:
+        "evt_cfc_03 is a process_create with parent explorer.exe and no antecedent file_create anywhere in the log — that absence is the signature of a pasted command run through the Windows Run dialog, not a double-clicked download. evt_cfc_02 only fetches a script that runs inside the browser sandbox; it cannot start a Windows process on its own. evt_cfc_04 is the firewall's view of the second stage being fetched, three seconds after execution had already begun — by then the user has already acted. evt_cfc_06 is the first point a file appears, five minutes into the chain, which is far too late to be 'when it started.'",
+    },
+    {
+      id: "q2",
+      prompt:
+        "The firewall allowed every request in this chain except the very last one. Why couldn't perimeter controls have stopped this earlier?",
+      kind: "single",
+      options: [
+        { value: "no_download_object", label: "Nothing crossed the wire as a file — the user pasted the command into a local dialog, which no firewall sees" },
+        { value: "tls_blind", label: "TLS inspection was disabled on CORP-WEB-OUTBOUND, so the firewall saw only SNI and never the full URLs" },
+        { value: "rule_misconfigured", label: "CORP-WEB-OUTBOUND was left in alert-only mode and should have been set to block pkg-delivery-cdn.net outright" },
+        { value: "wrong_category", label: "human-verify-check.net was miscategorised as computer-and-internet-info, a category the policy treats as trusted" },
+      ],
+      answer: "no_download_object",
+      xp: 60,
+      explanation:
+        "A firewall or proxy inspects things that cross the network as files or known-bad URLs. The clipboard write happens entirely inside the browser's JavaScript context — nothing is downloaded, so there is nothing for file inspection to scan, and the command the user pastes never touches the network at all. This is exactly why ClickFix is effective against organisations that are good at blocking malicious downloads. Option (b) is contradicted by the log — full URLs and filenames are visible throughout, meaning TLS inspection was active. Option (c) misreads the intent of pan.action 'alert': the rule logged every request as designed, and it did block the one request that matched an explicit newly-registered-domain rule. Option (d) is simply wrong — human-verify-check.net was correctly categorised as computer-and-internet-info, which is not a trust designation.",
+    },
+    {
+      id: "q3",
+      prompt:
+        "There is no SHA256 hash anywhere in the log for init.ps1, the script that ran between evt_cfc_04 and evt_cfc_05. Why not, and what does that tell you?",
+      kind: "single",
+      options: [
+        { value: "fileless", label: "It ran fileless — piped from Invoke-WebRequest straight into Invoke-Expression, so no file existed to hash" },
+        { value: "missed", label: "Falcon failed to capture the script-load event, a sensor telemetry gap that should be raised with the vendor" },
+        { value: "encrypted", label: "The script was delivered encrypted and only decrypted in memory, and encrypted content is excluded from hashing" },
+        { value: "not_needed", label: "Falcon skips hashing PowerShell scripts under 10 KB by design, and init.ps1 was below that size threshold" },
+      ],
+      answer: "fileless",
+      xp: 60,
+      explanation:
+        "The command line in evt_cfc_03 is `iwr -useb ... | iex` — Invoke-WebRequest's output is piped straight into Invoke-Expression, which executes text in the current PowerShell session without ever writing it to disk. A file that never exists cannot be hashed; this is normal, expected behaviour for this exact command pattern, not a sensor failure. It is also a genuinely useful detection idea in the other direction: an analyst who expects every stage of an intrusion to leave a file behind will look for one that was never there and conclude, wrongly, that nothing happened at that step.",
+    },
+    {
+      id: "q4",
+      prompt:
+        "Two PowerShell processes appear in this chain (PID 8840 and PID 8901) before any file exists. What is the relationship between them?",
+      kind: "single",
+      options: [
+        { value: "parent_child_stage", label: "8840 is what the user launched; it fetched and ran a second stage that spawned 8901 as its child, diskless" },
+        { value: "unrelated", label: "They are unrelated — 8901 is a second, independent paste-and-run attempt by the same user a few minutes later" },
+        { value: "reused_pid", label: "PID reuse — 8901 is the same PowerShell process as 8840, restarted by Windows after the first one crashed" },
+        { value: "elevation", label: "8901 is 8840 re-launched at SYSTEM integrity through a UAC bypass, with the encoded command as payload" },
+      ],
+      answer: "parent_child_stage",
+      xp: 50,
+      explanation:
+        "evt_cfc_05's raw fields show process.parent.name 'powershell.exe' and process.parent.pid '8840' — 8901 is a direct child of the first PowerShell process, launched with an EncodedCommand rather than typed input, and both are consistent with legitimate signed Microsoft binaries (process.signed 'true'). The staged design — a small first command that fetches a second, larger encoded command — is common because it lets the attacker change or update the payload after the user has already pasted the first, short command. Nothing in the evidence supports (c) or (d): integrity stays medium throughout, and PIDs are not reused while a process tree is active.",
+    },
+    {
+      id: "q5",
+      prompt:
+        "You are closing the ticket. Which statement matches the evidence?",
+      kind: "single",
+      options: [
+        { value: "ran_but_no_exfil", label: "The stealer executed, but its outbound request was blocked and Falcon killed it — impact is limited to local activity before that" },
+        { value: "nothing_happened", label: "Nothing of consequence occurred, since the firewall blocked the final connection before anything left the host" },
+        { value: "full_compromise", label: "The stealer exfiltrated saved credentials through the earlier allowed connections before Falcon detected it" },
+        { value: "training_only", label: "This is a user-awareness issue rather than a security incident, since nothing was installed and the chain was stopped" },
+      ],
+      answer: "ran_but_no_exfil",
+      xp: 60,
+      explanation:
+        "evt_cfc_06 and evt_cfc_07 are file_create and process_create events on WS-3387 for sysupd32.exe — the stealer did run. evt_cfc_08 shows pan.action 'block-url' on its only outbound attempt, and evt_cfc_09 records pattern_disposition_description 'Detection, Process Killed'. That combination means execution happened but the intended outcome — getting data out — did not, at least not over the connection that was observed. Option (b) understates it: a binary ran with user privileges before it was stopped, which still warrants a local review. Option (c) has no supporting evidence — every observed exfiltration attempt was blocked. Option (d) is the most costly mistake here: sysupd32.exe is a real, unsigned executable that ran on a corporate endpoint; user awareness is part of the remediation, not a substitute for treating this as an incident.",
+    },
+  ];
+
+  return {
+    scenario_id: scenarioId,
+    title,
+    threat_actor: "Commodity infostealer distributor (ClickFix paste-and-run)",
+    attack_kind: "clickfix_paste_and_run",
+    briefing:
+      "CrowdStrike Falcon raised a Critical detection on WS-3387 at 14:13 for explorer.exe directly spawning PowerShell — no download preceded it. The user was browsing at the time. Work out what the user was told to do, and how far the resulting chain got.",
+    narrative: `At 14:10 Tomer Avraham searched for a free invoice template and landed on invoice-templates-pro.com. The firewall allowed it under computer-and-internet-info, an unremarkable category for a page like this.
+
+Forty-five seconds later the page loaded a script from human-verify-check.net — a fake "Verify you are human" overlay. Real CAPTCHAs ask you to click a checkbox; this one told him to press Windows+R, press Ctrl+V, and press Enter. What he never saw is that the page had already copied a command to his clipboard the moment the widget loaded.
+
+At 14:12:50 explorer.exe launched powershell.exe with a hidden window and a one-line command: fetch https://pkg-delivery-cdn.net/v/init.ps1 and pipe it straight into Invoke-Expression. No file was downloaded first — the Run dialog executed exactly the text that had been placed on the clipboard. Three seconds later the firewall logged the GET request for init.ps1 itself, matching the URL in the command line.
+
+Five seconds after that, the same PowerShell process spawned a second PowerShell process with a Base64-encoded command. That one finally wrote something to disk: seven seconds later, sysupd32.exe appeared in C:\\Users\\t.avraham\\AppData\\Local\\Temp, unsigned, 871 KB. It ran four seconds after that.
+
+Its first act was to call home. The connection to sync-metrics-relay.com was denied at the firewall under the newly-registered-domain category, and eighteen seconds later Falcon raised a Critical detection and killed the process.
+
+Nothing in this chain involved a file the user downloaded and clicked. Every action up to the moment sysupd32.exe was written happened because a piece of text sat on his clipboard and he was told, by a fake CAPTCHA, exactly which three keys to press.`,
+    learning_objectives: [
+      "Recognise ClickFix / paste-and-run (T1204.004) from a process launched by explorer.exe with no antecedent file download, corroborated by a RunMRU entry holding the pasted command",
+      "Explain why perimeter file inspection cannot see a command that never crosses the network as a file",
+      "Understand fileless execution via `iwr | iex` and why no hash exists for a script that never touched disk",
+      "Trace a staged PowerShell parent/child relationship using process.parent.pid",
+      "Separate 'the payload executed' from 'the payload succeeded' when the outbound connection was blocked",
+    ],
+    alerts: [],
+    events,
+    iocs,
+    killchain: [
+      { ts: T(0), phase: "Initial Access", action: "User loads a lure page offering free invoice templates" },
+      { ts: T(45_000), phase: "Initial Access", action: `Fake CAPTCHA widget loads from ${widgetHost} and copies a command to the clipboard` },
+      { ts: T(2 * MIN + 44_000), phase: "Execution", action: "Pasted command recorded in HKCU\\...\\Explorer\\RunMRU — Win+R → paste → Enter (T1204.004)" },
+      { ts: T(2 * MIN + 50_000), phase: "Execution", action: "explorer.exe launches powershell.exe with no antecedent download (T1204.004)" },
+      { ts: T(2 * MIN + 53_000), phase: "Command and Control", action: `Fileless stager fetched in-memory from ${stagingHost} (T1105)` },
+      { ts: T(2 * MIN + 58_000), phase: "Execution", action: "Child PowerShell process spawned with an encoded command (T1059.001)" },
+      { ts: T(3 * MIN + 2_000), phase: "Command and Control", action: `sysupd32.exe fetched from ${stagingHost} (T1105)` },
+      { ts: T(3 * MIN + 5_000), phase: "Execution", action: "sysupd32.exe written to AppData\\Local\\Temp by powershell.exe (pid 8901)" },
+      { ts: T(3 * MIN + 9_000), phase: "Execution", action: "sysupd32.exe executed" },
+      { ts: T(3 * MIN + 12_000), phase: "Command and Control", action: `Outbound call to ${c2} blocked at the perimeter (T1071.001)` },
+      { ts: T(3 * MIN + 30_000), phase: "Containment", action: "Falcon kills the process and raises a Critical detection" },
+    ],
+    questions,
+  };
+}

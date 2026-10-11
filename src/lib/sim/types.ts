@@ -19,6 +19,10 @@ export type LogSource =
   | "exchange" | "sharepoint" | "teams" | "email_gateway"
   // Security tooling
   | "dlp" | "ueba" | "threat_intel" | "db_monitor" | "siem" | "soar"
+  // Business systems / infrastructure (non-security sources that still
+  // surface in an investigation — HR lifecycle events, source-control /
+  // CI audit trails, hypervisor management planes, infra monitoring)
+  | "hr" | "vcs" | "virtualization" | "infra_monitor"
   // Legacy
   | "k8s_audit";
 
@@ -73,7 +77,13 @@ export interface TelemetryEvent {
   src_port?: number;
   dst_port?: number;
   protocol?: string;
-  geo?: { country?: string; city?: string; latitude?: number; longitude?: number };
+  geo?: {
+    country?: string; city?: string; latitude?: number; longitude?: number;
+    /** Network owner of the client IP (one value per IP across a story — threadIdentityContext). */
+    asn?: number; as_org?: string; isp?: string;
+    /** The IP is an anonymizer (Tor exit / anonymous VPN / proxy network). */
+    anonymous?: boolean;
+  };
   process?: {
     name: string;
     pid: number;
@@ -84,6 +94,10 @@ export interface TelemetryEvent {
     user?: string;
     integrity?: "low" | "medium" | "high" | "system";
     hash?: { sha256?: string; md5?: string };
+    /** process_access: the process this one opened. A scenario fact (the target's OS pid is not on
+     *  every vendor record — Falcon's handle-op event names only the target image), read by the EDR
+     *  console so `ps` prints the pid the story's own command lines use. */
+    target?: { name: string; pid?: number };
   };
   file?: {
     name?: string;
@@ -134,6 +148,40 @@ export interface TelemetryEvent {
   mitre_technique?: string;
   mitre_tactic?: string;
   severity?: Severity;
+  // ── EDR / SIEM correlation & alert classification (SPEC-edr-scenario-integration) ──
+  /**
+   * Shared correlation id across every event of ONE attack chain — SIEM logs AND
+   * their EDR telemetry alike. Models a SIEM "Incident" (Sentinel) / "notable"
+   * (Splunk): it's the explicit join that lets an EDR detection be tied to the
+   * firewall/AD/O365 logs of the same incident, and lets the EDR console build a
+   * SEPARATE, isolated case per incident_id. Format: `inc:<pack-slug>:<n>`.
+   */
+  incident_id?: string;
+  /**
+   * Marks an EDR event as ALERT-grade (a detection) rather than pivot-only
+   * telemetry. Only 1-3 detections per incident are shown as top-level feed/scenario
+   * rows; the rest of the `source:"edr"` process_create telemetry surfaces ONLY
+   * inside the EDR console's process tree — this is what prevents an "EDR flood".
+   */
+  is_detection?: boolean;
+  /**
+   * Marks a baseline / ambient-context event (a "here is what normal looked like"
+   * record) that is deliberately declared out of the incident's strict causal
+   * order. The scenario-integrity gate (F-03) allows such an event to sit out of
+   * ts order; every other event must be chronological. It does not affect display
+   * (the feed and tables sort by ts regardless).
+   */
+  is_baseline?: boolean;
+  /**
+   * Three-way triage classification, set on the incident's primary detection:
+   *  - "edr":     endpoint-observable only → investigate in the EDR console.
+   *  - "hybrid":  host artifacts AND a control-plane facet → detection surfaces in
+   *               SIEM, pivot into EDR for the correlated host.
+   *  - "non_edr": control-plane only (cloud IdP / SaaS / network / email) → no host
+   *               process to walk; investigated in SIEM/identity, NO "Investigate in
+   *               EDR" affordance. Derived by classifyScope() from the incident's events.
+   */
+  edr_scope?: "edr" | "hybrid" | "non_edr";
   /**
    * Story difficulty tier, stamped when the event is drawn into an attack story.
    * Drives progressive log fidelity: advanced-tier events get realistic benign
@@ -150,6 +198,14 @@ export interface TelemetryEvent {
    */
   it_verify_result?: "confirmed" | "unverified";
   it_verify_message?: string;
+  /**
+   * The IT answer for a story step whose verdict that answer must NOT change: a defender's
+   * own containment action, a genuine HR record inside an insider story. (it_verify_result
+   * "confirmed" makes a step an FP decoy; this does not.) Read by itVerifyAnswer().
+   */
+  it_context?: { result: "confirmed" | "unverified"; message: string };
+  /** Team feed only: the log offers "Verify with IT" (set on the server, the answer stays there). */
+  it_check?: boolean;
   raw: Record<string, unknown>;
 }
 

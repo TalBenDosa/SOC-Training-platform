@@ -1,28 +1,56 @@
 ﻿"use client";
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useId, isValidElement, cloneElement, type ReactElement } from "react";
+import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
+import { displayError } from "@/lib/http/apiError";
 import { Topbar } from "@/components/nav/Topbar";
 import {
   Search, Download, Sparkles, Plus, Eye, Edit2, Trash2,
-  X, ChevronDown, ChevronRight, ChevronLeft, Check, Save, Shield, Users as UsersIcon,
+  X, ChevronDown, ChevronRight, Check, Save, Shield, Users as UsersIcon,
   LayoutDashboard, HelpCircle, Loader2, AlertTriangle,
-  RotateCcw, Target, BookOpen, Activity, Database, Zap, Code2, ExternalLink,
+  RotateCcw, BookOpen, Activity, Code2, ExternalLink,
   ShieldCheck, XCircle, AlertCircle, Info, Play, RefreshCw, CheckCircle2,
 } from "lucide-react";
 import type { ValidationReport, ValidationIssue, IssueSeverity } from "@/lib/sim/logValidator";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { cn } from "@/lib/utils";
-import { SCENARIOS, buildScenarioBySlug } from "@/lib/sim/scenarios";
-import { QUIZZES } from "@/lib/quizzes/data";
+// Answer-bearing content is NOT imported here (it would ship in a public JS
+// chunk): built-in quizzes and scenario details come from admin-only routes.
+import { SCENARIOS_META as SCENARIOS } from "@/lib/sim/scenariosMeta";
+import { useAdminBuiltinQuizzes, useAdminScenarioInfo, useAdminScenarioBundle } from "@/lib/admin/useAdminContent";
 import type { Quiz, QuizQuestion } from "@/lib/quizzes/data";
 import type { GeneratedQuiz } from "@/app/api/quizzes/generate/route";
-import { BUILTIN_LESSONS } from "@/data/builtinLessons";
+// Built-in lessons are listed from the small generated index; the full lesson
+// (quiz included) is fetched from /api/library/[id]?full=1 only to preview or edit.
+import { LIBRARY_INDEX } from "@/data/libraryIndex";
+
+import { safeFetch, NETWORK_ERROR } from "@/lib/http/safeFetch";
+import { ecsTechnique } from "@/lib/logs/ecsFields";
+
+/**
+ * Writes to the admin content API and REPORTS failure (QA P5-06). The handlers
+ * below update the screen first; they used to fire the request with
+ * `.catch(() => {})` and never look at the response, so a failed publish /
+ * delete / status change (expired session, server error) still looked done.
+ * Callers revert their optimistic change when this returns false.
+ */
+async function adminWrite(url: string, init: RequestInit): Promise<boolean> {
+  const res = await safeFetch(url, init);
+  if (res?.ok) return true;
+  const reason = !res ? NETWORK_ERROR : ((await res.json().catch(() => ({}))) as { error?: string })?.error ?? `The server rejected the change (${res.status}).`;
+  window.alert(`Not saved — ${reason}\n\nThe screen was put back as it was. Please try again.`);
+  return false;
+}
+
+/** Initial list load: a failure is said out loud instead of silently showing built-ins only. */
+async function adminRead(url: string, what: string): Promise<Response | null> {
+  const res = await safeFetch(url);
+  if (res?.ok) return res;
+  window.alert(`Couldn't load the ${what} from the server — only the built-in items are shown. Reload to try again.`);
+  return null;
+}
 
 // --------- Pre-compute log counts (pure, module-level) ------------------------------------------------------------------------------------------
-const SCENARIO_LOG_COUNTS: Record<string, number> = {};
-for (const s of SCENARIOS) {
-  try { SCENARIO_LOG_COUNTS[s.slug] = buildScenarioBySlug(s.slug)?.events.length ?? 0; }
-  catch { SCENARIO_LOG_COUNTS[s.slug] = 0; }
-}
+// (log counts now come from GET /api/admin/scenarios — see useAdminScenarioInfo)
 
 // --------- Shared helpers ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -47,9 +75,9 @@ const DIFF_CONFIG: Record<string, { label: string; cls: string }> = {
   Advanced:     { label: "Advanced",     cls: "bg-violet-500/10  text-violet-400  border border-violet-500/25"  },
 };
 
-function DiffBadge({ d }: { d: string }) {
+function DiffBadge({ d, role }: { d: string; role?: string }) {
   const c = DIFF_CONFIG[d] ?? { label: d, cls: "bg-slate-500/10 text-slate-400 border border-slate-500/25" };
-  return <span className={cn("rounded px-2 py-0.5 text-[11px] font-semibold", c.cls)}>{c.label}</span>;
+  return <span role={role} className={cn("rounded px-2 py-0.5 text-[11px] font-semibold", c.cls)}>{c.label}</span>;
 }
 
 const STATUS_CFG: Record<string, { cls: string; dot: string }> = {
@@ -59,7 +87,7 @@ const STATUS_CFG: Record<string, { cls: string; dot: string }> = {
 
 type ItemStatus = "published" | "draft";
 
-function StatusDropdown({ status, onChange }: { status: ItemStatus; onChange: (s: ItemStatus) => void }) {
+function StatusDropdown({ status, onChange, role }: { status: ItemStatus; onChange: (s: ItemStatus) => void; role?: string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -69,23 +97,24 @@ function StatusDropdown({ status, onChange }: { status: ItemStatus; onChange: (s
   }, []);
   const cfg = STATUS_CFG[status];
   return (
-    <div ref={ref} className="relative inline-block">
+    <div ref={ref} role={role} className="relative inline-block" onKeyDown={e => { if (e.key === "Escape" && open) { e.stopPropagation(); setOpen(false); } }}>
       <button
         onClick={e => { e.stopPropagation(); setOpen(v => !v); }}
+        aria-haspopup="true" aria-expanded={open} aria-label={`Status: ${status}. Change status`}
         className={cn("flex items-center gap-1.5 rounded border px-2.5 py-1 text-[11px] font-semibold transition hover:opacity-80", cfg.cls)}
       >
-        <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", cfg.dot)} />
+        <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", cfg.dot)} aria-hidden="true" />
         {status.charAt(0).toUpperCase() + status.slice(1)}
-        <ChevronDown className="h-3 w-3 opacity-60" />
+        <ChevronDown className="h-3 w-3 opacity-60" aria-hidden="true" />
       </button>
       {open && (
         <div className="absolute left-0 top-full z-50 mt-1 w-32 rounded border border-[#2a3555] bg-[#0f1423] shadow-xl py-1">
           {(["published","draft"] as ItemStatus[]).map(s => (
-            <button key={s} onClick={() => { onChange(s); setOpen(false); }}
+            <button key={s} onClick={() => { onChange(s); setOpen(false); }} aria-pressed={s === status}
               className="flex w-full items-center gap-2 px-3 py-1.5 text-[11px] text-slate-200 hover:bg-[#1a2035] transition">
-              <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_CFG[s].dot)} />
+              <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_CFG[s].dot)} aria-hidden="true" />
               {s.charAt(0).toUpperCase() + s.slice(1)}
-              {s === status && <Check className="ml-auto h-3 w-3 text-emerald-400" />}
+              {s === status && <Check className="ml-auto h-3 w-3 text-emerald-400" aria-hidden="true" />}
             </button>
           ))}
         </div>
@@ -94,9 +123,9 @@ function StatusDropdown({ status, onChange }: { status: ItemStatus; onChange: (s
   );
 }
 
-function CategoryBadge({ label }: { label: string }) {
+function CategoryBadge({ label, role }: { label: string; role?: string }) {
   return (
-    <span className="inline-flex items-center rounded border border-[#2a3555] bg-[#161c2b] px-2.5 py-1 text-[11px] text-slate-300">
+    <span role={role} className="inline-flex items-center rounded border border-[#2a3555] bg-[#161c2b] px-2.5 py-1 text-[11px] text-slate-300">
       {label}
     </span>
   );
@@ -107,17 +136,22 @@ function CategoryBadge({ label }: { label: string }) {
 function Drawer({ open, onClose, title, children }: {
   open: boolean; onClose: () => void; title: string; children: React.ReactNode;
 }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  useFocusTrap(open, panelRef, { onEscape: onClose });
   return (
     <>
       {open && <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={onClose} />}
-      <div className={cn(
-        "fixed right-0 top-0 z-50 h-full w-[820px] border-l border-[#2a3555] bg-[#0c1120] shadow-2xl transition-transform duration-300 flex flex-col",
-        open ? "translate-x-0" : "translate-x-full"
+      {/* Closed: `invisible` (applied after the slide-out, via the visibility transition)
+          keeps the off-screen panel out of the tab order and the accessibility tree. */}
+      <div ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className={cn(
+        "fixed right-0 top-0 z-50 h-full w-[820px] border-l border-[#2a3555] bg-[#0c1120] shadow-2xl transition-[transform,visibility] duration-300 flex flex-col",
+        open ? "translate-x-0" : "translate-x-full invisible"
       )}>
         <div className="flex items-center justify-between border-b border-[#2a3555] px-6 py-4 shrink-0">
-          <h2 className="text-base font-semibold text-white">{title}</h2>
-          <button onClick={onClose} className="rounded p-1.5 text-slate-400 hover:bg-[#1a2035] hover:text-white transition">
-            <X className="h-4 w-4" />
+          <h2 id={titleId} className="text-base font-semibold text-white">{title}</h2>
+          <button onClick={onClose} aria-label="Close" className="rounded p-1.5 text-slate-400 hover:bg-[#1a2035] hover:text-white transition">
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">{children}</div>
@@ -128,15 +162,20 @@ function Drawer({ open, onClose, title, children }: {
 
 // --------- Shared field components ------------------------------------------------------------------------------------------------------------------------------------------------------
 
-const fieldCls = "w-full rounded border border-[#2a3555] bg-[#0f1423] px-3 py-2.5 text-sm text-slate-200 placeholder:text-slate-600 focus:border-violet-500/50 focus:outline-none transition";
+const fieldCls = "w-full rounded border border-[#2a3555] bg-[#0f1423] px-3 py-2.5 text-sm text-slate-200 placeholder:text-slate-400 focus:border-violet-500/50 focus:outline-none transition";
 
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+  const autoId = useId();
+  // A single input/textarea/select child gets the label via htmlFor/id (WCAG 1.3.1 / 4.1.2).
+  const control = isValidElement(children) && typeof children.type === "string" && ["input", "textarea", "select"].includes(children.type)
+    ? (children as ReactElement<{ id?: string; "aria-required"?: boolean }>) : null;
+  const id = control ? (control.props.id ?? autoId) : undefined;
   return (
     <div>
-      <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-        {label}{required && <span className="ml-1 text-rose-400">*</span>}
+      <label htmlFor={id} className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+        {label}{required && <span className="ml-1 text-rose-400" aria-hidden="true">*</span>}
       </label>
-      {children}
+      {control ? cloneElement(control, { id, "aria-required": required || undefined }) : children}
     </div>
   );
 }
@@ -151,12 +190,13 @@ function FilterBar({ search, onSearch, filters, onFilter }: {
   return (
     <div className="flex items-center gap-3">
       <div className="relative flex-1">
-        <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
+        <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" aria-hidden="true" />
         <input
+          aria-label="Search"
           value={search}
           onChange={e => onSearch(e.target.value)}
-          placeholder="Search--¦"
-          className="w-full rounded border border-[#2a3555] bg-[#0f1423] py-2 pl-9 pr-3 text-sm text-slate-200 placeholder:text-slate-600 focus:border-violet-500/50 focus:outline-none"
+          placeholder="Search…"
+          className="w-full rounded border border-[#2a3555] bg-[#0f1423] py-2 pl-9 pr-3 text-sm text-slate-200 placeholder:text-slate-400 focus:border-violet-500/50 focus:outline-none"
         />
       </div>
       {[
@@ -164,7 +204,7 @@ function FilterBar({ search, onSearch, filters, onFilter }: {
         { key: "category" as const, label: "All Categories", opts: filters.categories },
         { key: "status" as const, label: "All Status", opts: ["Published", "Draft"] },
       ].map(f => (
-        <select key={f.key} onChange={e => onFilter(f.key, e.target.value)}
+        <select key={f.key} onChange={e => onFilter(f.key, e.target.value)} aria-label={`Filter by ${f.key}`}
           className="rounded border border-[#2a3555] bg-[#0f1423] px-3 py-2 text-sm text-slate-300 focus:outline-none">
           <option value="">{f.label}</option>
           {f.opts.map(o => <option key={o} value={o.toLowerCase()}>{o}</option>)}
@@ -179,6 +219,8 @@ function FilterBar({ search, onSearch, filters, onFilter }: {
 // -------------------------------------------------------------------------------
 
 function OverviewTab() {
+  const QUIZZES = useAdminBuiltinQuizzes();
+  const scenarioInfo = useAdminScenarioInfo();
   const stats = [
     { label: "Total Users",      value: "6",    sub: "2 admins",         icon: UsersIcon,    color: "text-violet-400" },
     { label: "Active Scenarios", value: String(SCENARIOS.length), sub: "5 published", icon: Shield,     color: "text-emerald-400" },
@@ -192,9 +234,9 @@ function OverviewTab() {
           <div key={s.label} className="rounded-lg border border-[#2a3555] bg-[#0f1423] p-5">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-[11px] uppercase tracking-wider text-slate-500">{s.label}</p>
+                <p className="text-[11px] uppercase tracking-wider text-slate-400">{s.label}</p>
                 <p className="mt-2 font-mono text-3xl font-bold text-white">{s.value}</p>
-                <p className="mt-1 text-[11px] text-slate-500">{s.sub}</p>
+                <p className="mt-1 text-[11px] text-slate-400">{s.sub}</p>
               </div>
               <s.icon className={cn("h-5 w-5 mt-0.5", s.color)} />
             </div>
@@ -208,10 +250,10 @@ function OverviewTab() {
             <div key={s.slug} className="flex items-center gap-3 rounded border border-[#1e2841] bg-[#0a0e1a] px-4 py-2.5">
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-slate-200 truncate">{s.title}</p>
-                <p className="text-[11px] text-slate-500 truncate">{s.summary.slice(0,80)}--¦</p>
+                <p className="text-[11px] text-slate-400 truncate">{s.summary.slice(0,80)}…</p>
               </div>
               <DiffBadge d={s.difficulty} />
-              <span className="font-mono text-[11px] text-slate-500">{SCENARIO_LOG_COUNTS[s.slug]} logs</span>
+              <span className="font-mono text-[11px] text-slate-400">{scenarioInfo[s.slug]?.logCount ?? "…"} logs</span>
             </div>
           ))}
         </div>
@@ -270,7 +312,7 @@ function UsersTab() {
       <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2841] shrink-0">
         <div>
           <h2 className="text-base font-semibold text-white flex items-center gap-2"><UsersIcon className="h-4 w-4 text-violet-400"/>User Management</h2>
-          <p className="text-[11px] text-slate-500 mt-0.5">{users.filter(u=>u.status==="active").length} active · {users.filter(u=>u.status==="invited").length} invited · {users.filter(u=>u.status==="suspended").length} suspended</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">{users.filter(u=>u.status==="active").length} active · {users.filter(u=>u.status==="invited").length} invited · {users.filter(u=>u.status==="suspended").length} suspended</p>
         </div>
         <button onClick={()=>{setAdding(v=>!v);cancelEdit();}} className="flex items-center gap-2 rounded bg-teal-600 hover:bg-teal-500 px-4 py-2 text-sm font-semibold text-white transition">
           <Plus className="h-4 w-4"/> Add User
@@ -280,57 +322,61 @@ function UsersTab() {
       {/* Add row */}
       {adding && (
         <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_72px] gap-2 border-b border-emerald-500/20 bg-emerald-500/5 px-6 py-3 items-center shrink-0">
-          <input autoFocus placeholder="email@domain.com" value={newRow.email} onChange={e=>setNewRow(f=>({...f,email:e.target.value}))} className={fieldCls} />
-          <select value={newRow.role} onChange={e=>setNewRow(f=>({...f,role:e.target.value}))} className={fieldCls}>{ROLES.map(r=><option key={r}>{r}</option>)}</select>
-          <select value={newRow.status} onChange={e=>setNewRow(f=>({...f,status:e.target.value as AdminUser["status"]}))} className={fieldCls}><option>active</option><option>invited</option><option>suspended</option></select>
-          <input type="date" value={newRow.startDate} onChange={e=>setNewRow(f=>({...f,startDate:e.target.value}))} className={fieldCls} />
-          <input type="date" value={newRow.endDate}   onChange={e=>setNewRow(f=>({...f,endDate:e.target.value}))}   className={fieldCls} />
+          <input autoFocus aria-label="New user email" placeholder="email@domain.com" value={newRow.email} onChange={e=>setNewRow(f=>({...f,email:e.target.value}))} className={fieldCls} />
+          <select aria-label="New user role" value={newRow.role} onChange={e=>setNewRow(f=>({...f,role:e.target.value}))} className={fieldCls}>{ROLES.map(r=><option key={r}>{r}</option>)}</select>
+          <select aria-label="New user status" value={newRow.status} onChange={e=>setNewRow(f=>({...f,status:e.target.value as AdminUser["status"]}))} className={fieldCls}><option>active</option><option>invited</option><option>suspended</option></select>
+          <input type="date" aria-label="Access from" value={newRow.startDate} onChange={e=>setNewRow(f=>({...f,startDate:e.target.value}))} className={fieldCls} />
+          <input type="date" aria-label="Access until" value={newRow.endDate}   onChange={e=>setNewRow(f=>({...f,endDate:e.target.value}))}   className={fieldCls} />
           <div className="flex gap-1 justify-end">
-            <button onClick={addUser}          className="rounded p-1.5 text-emerald-400 hover:bg-emerald-500/10 transition"><Check className="h-4 w-4"/></button>
-            <button onClick={()=>setAdding(false)} className="rounded p-1.5 text-slate-500 hover:bg-[#1a2035] transition"><X className="h-4 w-4"/></button>
+            <button onClick={addUser} aria-label="Add user" className="rounded p-1.5 text-emerald-400 hover:bg-emerald-500/10 transition"><Check className="h-4 w-4" aria-hidden="true"/></button>
+            <button onClick={()=>setAdding(false)} aria-label="Cancel adding user" className="rounded p-1.5 text-slate-400 hover:bg-[#1a2035] transition"><X className="h-4 w-4" aria-hidden="true"/></button>
           </div>
         </div>
       )}
 
+      {/* Table (div grid exposed with ARIA table roles) */}
+      <div role="table" aria-label="Users" className="flex flex-1 min-h-0 flex-col">
       {/* Table header */}
-      <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_72px] gap-2 border-b border-[#1e2841] bg-[#0a0e1a] px-6 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 shrink-0">
-        <span>Email</span><span>Role</span><span>Status</span><span>Access From</span><span>Access Until</span><span className="text-right">Actions</span>
+      <div role="row" className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_72px] gap-2 border-b border-[#1e2841] bg-[#0a0e1a] px-6 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 shrink-0">
+        <span role="columnheader">Email</span><span role="columnheader">Role</span><span role="columnheader">Status</span><span role="columnheader">Access From</span><span role="columnheader">Access Until</span><span role="columnheader" className="text-right">Actions</span>
       </div>
 
       {/* Rows */}
-      <div className="flex-1 overflow-y-auto">
+      <div role="rowgroup" className="flex-1 overflow-y-auto">
         {users.map(u => {
           const editing = editId===u.id;
           const d = editing ? draft : u;
           const expired = u.endDate && u.endDate < today;
           return (
-            <div key={u.id} className={cn("grid grid-cols-[2fr_1fr_1fr_1fr_1fr_72px] gap-2 border-b border-[#1e2841] px-6 py-3 items-center transition hover:bg-[#0f1728]", editing && "bg-violet-500/5 border-l-2 border-l-violet-500/40")}>
-              {editing
-                ? <input value={d.email??""} onChange={e=>setDraft(f=>({...f,email:e.target.value}))} className={cn(fieldCls,"py-1.5 font-mono text-xs")} />
-                : <div><p className="font-mono text-sm text-slate-200">{u.email}</p></div>}
-              {editing
-                ? <select value={d.role??"analyst"} onChange={e=>setDraft(f=>({...f,role:e.target.value}))} className={cn(fieldCls,"py-1.5")}>{ROLES.map(r=><option key={r}>{r}</option>)}</select>
-                : <span className="inline-block rounded border border-[#2a3555] bg-[#0f1423] px-2 py-0.5 text-[11px] text-slate-300">{u.role}</span>}
-              {editing
-                ? <select value={d.status??"active"} onChange={e=>setDraft(f=>({...f,status:e.target.value as AdminUser["status"]}))} className={cn(fieldCls,"py-1.5")}><option>active</option><option>invited</option><option>suspended</option></select>
-                : <span className={cn("inline-block rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider", USER_STATUS_CFG[u.status])}>{u.status}</span>}
-              {editing
-                ? <input type="date" value={d.startDate??""} onChange={e=>setDraft(f=>({...f,startDate:e.target.value}))} className={cn(fieldCls,"py-1.5")} />
-                : <span className="font-mono text-[12px] text-slate-400">{u.startDate||"--"}</span>}
-              {editing
-                ? <input type="date" value={d.endDate??""} onChange={e=>setDraft(f=>({...f,endDate:e.target.value}))} className={cn(fieldCls,"py-1.5")} />
-                : <span className={cn("font-mono text-[12px]", expired?"text-rose-400":"text-slate-400")}>{u.endDate||"--"}{expired&&"  ✓"}</span>}
-              <div className="flex items-center justify-end gap-1">
+            <div key={u.id} role="row" className={cn("grid grid-cols-[2fr_1fr_1fr_1fr_1fr_72px] gap-2 border-b border-[#1e2841] px-6 py-3 items-center transition hover:bg-[#0f1728]", editing && "bg-violet-500/5 border-l-2 border-l-violet-500/40")}>
+              {/* Cells use `grid` so their single child still stretches to the column like before. */}
+              <div role="cell" className="grid">{editing
+                ? <input aria-label="Email" value={d.email??""} onChange={e=>setDraft(f=>({...f,email:e.target.value}))} className={cn(fieldCls,"py-1.5 font-mono text-xs")} />
+                : <div><p className="font-mono text-sm text-slate-200">{u.email}</p></div>}</div>
+              <div role="cell" className="grid">{editing
+                ? <select aria-label="Role" value={d.role??"analyst"} onChange={e=>setDraft(f=>({...f,role:e.target.value}))} className={cn(fieldCls,"py-1.5")}>{ROLES.map(r=><option key={r}>{r}</option>)}</select>
+                : <span className="inline-block rounded border border-[#2a3555] bg-[#0f1423] px-2 py-0.5 text-[11px] text-slate-300">{u.role}</span>}</div>
+              <div role="cell" className="grid">{editing
+                ? <select aria-label="Status" value={d.status??"active"} onChange={e=>setDraft(f=>({...f,status:e.target.value as AdminUser["status"]}))} className={cn(fieldCls,"py-1.5")}><option>active</option><option>invited</option><option>suspended</option></select>
+                : <span className={cn("inline-block rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider", USER_STATUS_CFG[u.status])}>{u.status}</span>}</div>
+              <div role="cell" className="grid">{editing
+                ? <input type="date" aria-label="Access from" value={d.startDate??""} onChange={e=>setDraft(f=>({...f,startDate:e.target.value}))} className={cn(fieldCls,"py-1.5")} />
+                : <span className="font-mono text-[12px] text-slate-400">{u.startDate||"--"}</span>}</div>
+              <div role="cell" className="grid">{editing
+                ? <input type="date" aria-label="Access until" value={d.endDate??""} onChange={e=>setDraft(f=>({...f,endDate:e.target.value}))} className={cn(fieldCls,"py-1.5")} />
+                : <span className={cn("font-mono text-[12px]", expired?"text-rose-400":"text-slate-400")}>{u.endDate||"--"}{expired&&<><span aria-hidden="true">  ✓</span><span className="sr-only"> (expired)</span></>}</span>}</div>
+              <div role="cell" className="flex items-center justify-end gap-1">
                 {editing
-                  ? <><button onClick={commitEdit} className="rounded p-1.5 text-emerald-400 hover:bg-emerald-500/10 transition"><Check className="h-3.5 w-3.5"/></button>
-                        <button onClick={cancelEdit} className="rounded p-1.5 text-slate-500 hover:bg-[#1a2035] transition"><X className="h-3.5 w-3.5"/></button></>
-                  : <><button onClick={()=>beginEdit(u)} className="rounded p-1.5 text-slate-500 hover:bg-[#1a2035] hover:text-violet-400 transition"><Edit2 className="h-3.5 w-3.5"/></button>
-                        <button onClick={()=>del(u.id)} className="rounded p-1.5 text-slate-600 hover:bg-rose-500/10 hover:text-rose-400 transition"><Trash2 className="h-3.5 w-3.5"/></button></>
+                  ? <><button onClick={commitEdit} aria-label={`Save changes to ${u.email}`} className="rounded p-1.5 text-emerald-400 hover:bg-emerald-500/10 transition"><Check className="h-3.5 w-3.5" aria-hidden="true"/></button>
+                        <button onClick={cancelEdit} aria-label="Cancel editing" className="rounded p-1.5 text-slate-400 hover:bg-[#1a2035] transition"><X className="h-3.5 w-3.5" aria-hidden="true"/></button></>
+                  : <><button onClick={()=>beginEdit(u)} aria-label={`Edit ${u.email}`} className="rounded p-1.5 text-slate-400 hover:bg-[#1a2035] hover:text-violet-400 transition"><Edit2 className="h-3.5 w-3.5" aria-hidden="true"/></button>
+                        <button onClick={()=>del(u.id)} aria-label={`Delete ${u.email}`} className="rounded p-1.5 text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition"><Trash2 className="h-3.5 w-3.5" aria-hidden="true"/></button></>
                 }
               </div>
             </div>
           );
         })}
+      </div>
       </div>
     </div>
   );
@@ -358,6 +404,7 @@ function ScenariosTab() {
   const [hidden,  setHidden]  = useState<string[]>([]);
   const [statusMap, setStatusMap] = useState<Record<string,ItemStatus>>({});
   const [generated, setGenerated] = useState<ScenarioRow[]>([]);
+  const scenarioInfo = useAdminScenarioInfo();
   const [drawer, setDrawer]   = useState<ScenarioRow|null>(null);
 
   // Generator
@@ -369,29 +416,41 @@ function ScenariosTab() {
   const [genPreview, setGenPreview] = useState<ScenarioRow|null>(null);
   const [genEvents, setGenEvents] = useState<TelemetryEvent[]>([]); // full events from API
 
+  // Admin-published scenarios now live in the durable content_scenarios table
+  // (migration 0019) instead of per-browser localStorage — status comes
+  // straight off the DB row, which is why it's no longer read from statusMap
+  // here (statusMap still applies to BUILT-IN scenarios below, unchanged).
   useEffect(() => {
     try {
       setHidden(JSON.parse(localStorage.getItem("admin_hidden_scenarios")??"[]"));
       setStatusMap(JSON.parse(localStorage.getItem("admin_scenario_status")??"{}"));
-      const pub = JSON.parse(localStorage.getItem("published_scenarios")??"[]");
-      setGenerated(pub.map((s: { id: string; title: string; narrative?: string; attack_kind: string; difficulty: string; threat_actor: string; published_at: string; events?: TelemetryEvent[] }) => ({
-        slug: s.id, title: s.title, summary: s.narrative ?? "",
+    } catch {}
+    (async () => {
+      const res = await adminRead("/api/admin/content/scenarios", "generated scenarios");
+      if (!res) return;
+      const { items } = await res.json() as { items: { id: string; status: ItemStatus; content: { title: string; narrative?: string; attack_kind: string; difficulty: string; threat_actor: string; events?: TelemetryEvent[] } }[] };
+      setGenerated(items.map(({ id, status, content: s }) => ({
+        slug: id, title: s.title, summary: s.narrative ?? "",
         category: ATTACK_KIND_LABEL[s.attack_kind]??s.attack_kind,
         difficulty: s.difficulty, logCount: (s.events?.length ?? 0),
-        status: (statusMap[s.id] ?? "published") as ItemStatus, isGenerated: true,
+        status, isGenerated: true,
         threat_actor: s.threat_actor, attack_kind: s.attack_kind,
         events: s.events ?? [],
       })));
-    } catch {}
+    })();
   }, []);
 
-  const builtIn: ScenarioRow[] = SCENARIOS.map(s => ({
-    slug: s.slug, title: s.title, summary: s.summary,
-    category: ATTACK_KIND_LABEL[s.attack_kind] ?? s.attack_kind,
-    difficulty: s.difficulty, logCount: SCENARIO_LOG_COUNTS[s.slug] ?? 0,
-    status: (statusMap[s.slug] ?? "published") as ItemStatus,
-    isGenerated: false, threat_actor: s.threat_actor, attack_kind: s.attack_kind,
-  }));
+  const builtIn: ScenarioRow[] = SCENARIOS.map(s => {
+    const info = scenarioInfo[s.slug];
+    const kind = info?.attack_kind ?? "";
+    return {
+      slug: s.slug, title: s.title, summary: s.summary,
+      category: ATTACK_KIND_LABEL[kind] ?? kind,
+      difficulty: s.difficulty, logCount: info?.logCount ?? 0,
+      status: (statusMap[s.slug] ?? "published") as ItemStatus,
+      isGenerated: false, threat_actor: info?.threat_actor ?? "", attack_kind: kind,
+    };
+  });
 
   const all = [...generated, ...builtIn.filter(s=>!hidden.includes(s.slug))];
 
@@ -404,6 +463,17 @@ function ScenariosTab() {
   });
 
   function setStatus(slug: string, status: ItemStatus) {
+    // Generated scenarios are DB-backed now — status lives on the row itself,
+    // PATCHed via the admin content API. Built-ins have no DB row, so they keep
+    // the original localStorage override (unchanged, out of scope for 0019).
+    if (generated.some(s => s.slug === slug)) {
+      const before = generated;
+      setGenerated(prev => prev.map(s => s.slug === slug ? { ...s, status } : s));
+      void adminWrite(`/api/admin/content/scenarios/${encodeURIComponent(slug)}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }),
+      }).then(ok => { if (!ok) setGenerated(before); });
+      return;
+    }
     const next = { ...statusMap, [slug]: status };
     setStatusMap(next);
     localStorage.setItem("admin_scenario_status", JSON.stringify(next));
@@ -415,9 +485,10 @@ function ScenariosTab() {
   }
 
   function deleteGenerated(slug: string) {
+    const before = generated;
     const next = generated.filter(s => s.slug !== slug); setGenerated(next);
-    const pub = JSON.parse(localStorage.getItem("published_scenarios")??"[]").filter((s: { id: string }) => s.id !== slug);
-    localStorage.setItem("published_scenarios", JSON.stringify(pub));
+    void adminWrite(`/api/admin/content/scenarios/${encodeURIComponent(slug)}`, { method: "DELETE" })
+      .then(ok => { if (!ok) setGenerated(before); });
   }
 
   async function generateScenario() {
@@ -436,15 +507,19 @@ function ScenariosTab() {
         threat_actor: data.threat_actor, attack_kind: data.attack_kind, narrative: data.narrative,
         events: evts,
       });
-    } catch(e) { setGenError(e instanceof Error?e.message:"Error"); }
+    } catch(e) { setGenError(displayError(e, "Error")); }
     finally { setLoading(false); }
   }
 
-  function publishScenario() {
+  async function publishScenario() {
     if (!genPreview) return;
     const entry = { ...genPreview, id: genPreview.slug, events: genEvents, published_at: new Date().toISOString() };
-    const existing = JSON.parse(localStorage.getItem("published_scenarios")??"[]");
-    localStorage.setItem("published_scenarios", JSON.stringify([entry, ...existing]));
+    // Only show "published" once the server actually stored it.
+    const ok = await adminWrite("/api/admin/content/scenarios", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: entry.id, status: "published", content: entry }),
+    });
+    if (!ok) return;
     setGenerated(prev => [{ ...genPreview, events: genEvents }, ...prev]);
     setGenPublished(true);
     setTimeout(() => { setShowGen(false); setGenPreview(null); setGenEvents([]); setGenPublished(false); }, 1500);
@@ -461,7 +536,7 @@ function ScenariosTab() {
           <h2 className="text-base font-semibold text-white flex items-center gap-2">
             <Shield className="h-4 w-4 text-emerald-400"/>Scenario Management
           </h2>
-          <p className="text-[11px] text-slate-500 mt-0.5">{filtered.length} scenarios · {filtered.filter(s=>s.status==="published").length} published</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">{filtered.length} scenarios · {filtered.filter(s=>s.status==="published").length} published</p>
         </div>
         <div className="flex items-center gap-2">
           <button className="flex items-center gap-2 rounded border border-[#2a3555] bg-transparent px-4 py-2 text-sm text-slate-300 hover:border-slate-400 transition">
@@ -482,9 +557,9 @@ function ScenariosTab() {
           {/* Controls row */}
           <div className="flex items-end gap-3">
             <div className="flex-1">
-              <label className="block text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">Attack Category</label>
-              <select value={genAttack} onChange={e=>setGenAttack(e.target.value)} className={cn(fieldCls,"text-sm")}>
-                <option value="random"> Random --" surprise me</option>
+              <label htmlFor="admin-gen-attack" className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1.5">Attack Category</label>
+              <select id="admin-gen-attack" value={genAttack} onChange={e=>setGenAttack(e.target.value)} className={cn(fieldCls,"text-sm")}>
+                <option value="random"> Random — surprise me</option>
                 <optgroup label="--------- Initial Access / Social Engineering ---------">
                   <option value="phishing">Phishing + Lateral Movement</option>
                   <option value="spearphish_apt">Spearphish - APT Implant (nation-state)</option>
@@ -503,7 +578,6 @@ function ScenariosTab() {
                   <option value="ransomware">Ransomware Deployment</option>
                   <option value="infostealer">Infostealer + Credential Market</option>
                   <option value="rootkit">Rootkit / Bootkit Persistence</option>
-                  <option value="cryptomining">Cryptomining / Resource Hijack</option>
                 </optgroup>
                 <optgroup label="--------- Exploitation & Privilege ---------">
                   <option value="webapp">Web App Attack / RCE</option>
@@ -527,14 +601,14 @@ function ScenariosTab() {
               </select>
             </div>
             <button onClick={generateScenario} disabled={loading} className="flex items-center gap-2 rounded bg-violet-600 hover:bg-violet-500 disabled:opacity-50 px-5 py-2.5 text-sm font-semibold text-white transition whitespace-nowrap">
-              {loading?<><Loader2 className="h-3.5 w-3.5 animate-spin"/>Generating--¦</>:<><Sparkles className="h-3.5 w-3.5"/>Generate Scenario</>}
+              {loading?<><Loader2 className="h-3.5 w-3.5 animate-spin"/>Generating…</>:<><Sparkles className="h-3.5 w-3.5"/>Generate Scenario</>}
             </button>
-            <button onClick={()=>{setShowGen(false);setGenPreview(null);setGenEvents([]);}} className="rounded p-2.5 text-slate-500 hover:bg-[#1a2035] transition"><X className="h-4 w-4"/></button>
+            <button onClick={()=>{setShowGen(false);setGenPreview(null);setGenEvents([]);}} aria-label="Close scenario generator" className="rounded p-2.5 text-slate-400 hover:bg-[#1a2035] transition"><X className="h-4 w-4" aria-hidden="true"/></button>
           </div>
 
           {genError && <p className="flex items-center gap-1.5 text-xs text-rose-400"><AlertTriangle className="h-3.5 w-3.5"/>{genError}</p>}
 
-          {/* Generated preview --" full scenario + events */}
+          {/* Generated preview — full scenario + events */}
           {genPreview && (
             <div className="rounded border border-violet-500/20 bg-violet-500/5 space-y-4 p-4">
               {/* Scenario header */}
@@ -555,17 +629,17 @@ function ScenariosTab() {
               {/* Narrative */}
               {genPreview.narrative && (
                 <div className="rounded border border-[#2a3555] bg-[#080c15] px-3 py-2.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Scenario Narrative</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Scenario Narrative</p>
                   <p className="text-[11px] leading-relaxed text-slate-300 whitespace-pre-line">{genPreview.narrative}</p>
                 </div>
               )}
 
-              {/* Generated log events --" expandable */}
+              {/* Generated log events — expandable */}
               {genEvents.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
                     Generated Log Events ({genEvents.length})
-                    <span className="ml-2 normal-case font-normal text-slate-600">Review before publishing · click any row for full fields</span>
+                    <span className="ml-2 normal-case font-normal text-slate-400">Review before publishing · click any row for full fields</span>
                   </p>
                   <div className="rounded border border-[#2a3555] bg-[#080c15] p-1.5 space-y-0.5">
                     {genEvents.map((ev, i) => (
@@ -585,33 +659,39 @@ function ScenariosTab() {
           onFilter={(k,v)=>{ if(k==="level") setLevelF(v); else if(k==="category") setCatF(v); else setStatusF(v); }} />
       </div>
 
+      <div role="table" aria-label="Scenarios" className="flex flex-1 min-h-0 flex-col">
       {/* Table header */}
-      <div className="grid grid-cols-[2.5fr_1.5fr_1fr_60px_140px_80px_80px] gap-2 border-b border-[#1e2841] bg-[#0a0e1a] px-6 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 shrink-0">
-        <span>Title</span><span>Category</span><span>Difficulty</span><span>Logs</span><span>Status</span><span>Source</span><span className="text-right">Actions</span>
+      <div role="row" className="grid grid-cols-[2.5fr_1.5fr_1fr_60px_140px_80px_80px] gap-2 border-b border-[#1e2841] bg-[#0a0e1a] px-6 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 shrink-0">
+        <span role="columnheader">Title</span><span role="columnheader">Category</span><span role="columnheader">Difficulty</span><span role="columnheader">Logs</span><span role="columnheader">Status</span><span role="columnheader">Source</span><span role="columnheader" className="text-right">Actions</span>
       </div>
 
       {/* Rows */}
-      <div className="flex-1 overflow-y-auto">
+      <div role="rowgroup" className="flex-1 overflow-y-auto">
         {filtered.map(s => (
-          <div key={s.slug} className="grid grid-cols-[2.5fr_1.5fr_1fr_60px_140px_80px_80px] gap-2 border-b border-[#1e2841] px-6 py-3.5 items-center hover:bg-[#0f1728] transition">
-            <div className="min-w-0 cursor-pointer" onClick={()=>setDrawer(s)}>
+          <div key={s.slug} role="row" className="grid grid-cols-[2.5fr_1.5fr_1fr_60px_140px_80px_80px] gap-2 border-b border-[#1e2841] px-6 py-3.5 items-center hover:bg-[#0f1728] transition">
+            <div role="cell" className="min-w-0">
+            <div role="button" tabIndex={0} className="min-w-0 cursor-pointer rounded focus:outline-none focus:ring-2 focus:ring-violet-500/40"
+                 onClick={()=>setDrawer(s)}
+                 onKeyDown={e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); setDrawer(s); } }}>
               <p className="text-sm font-semibold text-white truncate hover:text-violet-300 transition">{s.title}</p>
-              <p className="text-[11px] text-slate-500 truncate mt-0.5">{s.summary.slice(0,60)}{s.summary.length>60?"--¦":""}</p>
+              <p className="text-[11px] text-slate-400 truncate mt-0.5">{s.summary.slice(0,60)}{s.summary.length>60?"…":""}</p>
             </div>
-            <CategoryBadge label={s.category} />
-            <DiffBadge d={s.difficulty} />
-            <span className="font-mono text-sm text-slate-300">{s.logCount}</span>
-            <StatusDropdown status={s.status} onChange={v=>setStatus(s.slug,v)} />
-            <span className={cn("text-[11px] font-semibold", s.isGenerated?"text-violet-400":"text-slate-500")}>
+            </div>
+            <CategoryBadge role="cell" label={s.category} />
+            <DiffBadge role="cell" d={s.difficulty} />
+            <span role="cell" className="font-mono text-sm text-slate-300">{s.logCount}</span>
+            <StatusDropdown role="cell" status={s.status} onChange={v=>setStatus(s.slug,v)} />
+            <span role="cell" className={cn("text-[11px] font-semibold", s.isGenerated?"text-violet-400":"text-slate-400")}>
               {s.isGenerated?"Generated":"Built-in"}
             </span>
-            <div className="flex items-center justify-end gap-1">
-              <button onClick={()=>setDrawer(s)} className="rounded p-1.5 text-slate-500 hover:bg-[#1a2035] hover:text-violet-400 transition"><Edit2 className="h-3.5 w-3.5"/></button>
-              <button onClick={()=>s.isGenerated?deleteGenerated(s.slug):hideScenario(s.slug)} className="rounded p-1.5 text-slate-600 hover:bg-rose-500/10 hover:text-rose-400 transition"><Trash2 className="h-3.5 w-3.5"/></button>
+            <div role="cell" className="flex items-center justify-end gap-1">
+              <button onClick={()=>setDrawer(s)} aria-label={`Edit ${s.title}`} className="rounded p-1.5 text-slate-400 hover:bg-[#1a2035] hover:text-violet-400 transition"><Edit2 className="h-3.5 w-3.5" aria-hidden="true"/></button>
+              <button onClick={()=>s.isGenerated?deleteGenerated(s.slug):hideScenario(s.slug)} aria-label={s.isGenerated ? `Delete ${s.title}` : `Hide ${s.title}`} className="rounded p-1.5 text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition"><Trash2 className="h-3.5 w-3.5" aria-hidden="true"/></button>
             </div>
           </div>
         ))}
-        <p className="px-6 py-3 text-[11px] text-slate-600">Showing {filtered.length} of {all.length} scenarios</p>
+        <p role="row" className="px-6 py-3 text-[11px] text-slate-400"><span role="cell">Showing {filtered.length} of {all.length} scenarios</span></p>
+      </div>
       </div>
 
       {/* Scenario edit drawer */}
@@ -637,7 +717,7 @@ const SEV_CLS: Record<string, string> = {
   critical: "text-rose-400",
   high:     "text-orange-400",
   medium:   "text-amber-400",
-  low:      "text-slate-500",
+  low:      "text-slate-400",
 };
 
 function AdminEventRow({ ev, idx }: { ev: TelemetryEvent; idx: number }) {
@@ -651,7 +731,7 @@ function AdminEventRow({ ev, idx }: { ev: TelemetryEvent; idx: number }) {
     ["event.provider", ev.vendor ?? ev.source.toUpperCase()],
     ["event.severity", (ev.severity ?? "informational").toUpperCase()],
     ["@timestamp",     new Date(ev.ts).toISOString()],
-    ...(ev.mitre_technique ? [["threat.technique.id", ev.mitre_technique]] as [string,string][] : []),
+    ...(Object.entries(ecsTechnique(ev.mitre_technique)) as [string, string][]),
     ...(ev.user_email  ? [["user.email",           ev.user_email]]   as [string,string][] : []),
     ...(ev.hostname    ? [["host.name",             ev.hostname]]     as [string,string][] : []),
     ...(ev.src_ip      ? [["source.ip",             ev.src_ip]]       as [string,string][] : []),
@@ -688,10 +768,11 @@ function AdminEventRow({ ev, idx }: { ev: TelemetryEvent; idx: number }) {
       {/* Summary row */}
       <button
         onClick={() => setOpen(v => !v)}
+        aria-expanded={open}
         className="flex w-full items-start gap-2.5 px-2.5 py-2 text-left"
       >
-        <ChevronRight className={cn("mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500 transition-transform", open && "rotate-90")} />
-        <span className="font-mono text-[10px] text-slate-600 shrink-0 w-5 mt-0.5">{idx + 1}</span>
+        <ChevronRight aria-hidden="true" className={cn("mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform", open && "rotate-90")} />
+        <span className="font-mono text-[10px] text-slate-400 shrink-0 w-5 mt-0.5">{idx + 1}</span>
         <span className={cn("shrink-0 rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase mt-0.5", srcCls)}>
           {ev.source}
         </span>
@@ -702,7 +783,7 @@ function AdminEventRow({ ev, idx }: { ev: TelemetryEvent; idx: number }) {
           )}
         </div>
         {ev.severity && ev.severity !== "informational" && (
-          <span className={cn("shrink-0 text-[9px] font-bold uppercase mt-0.5", SEV_CLS[ev.severity] ?? "text-slate-500")}>
+          <span className={cn("shrink-0 text-[9px] font-bold uppercase mt-0.5", SEV_CLS[ev.severity] ?? "text-slate-400")}>
             {ev.severity}
           </span>
         )}
@@ -713,14 +794,15 @@ function AdminEventRow({ ev, idx }: { ev: TelemetryEvent; idx: number }) {
         <div className="border-t border-[#1e2841] px-3 pb-3 pt-2.5 space-y-2.5">
           {/* JSON toggle */}
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Log Fields</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Log Fields</span>
             <button
               onClick={() => setShowJson(v => !v)}
+              aria-pressed={showJson}
               className={cn(
                 "flex items-center gap-1.5 rounded border px-2 py-0.5 text-[10px] font-semibold transition",
                 showJson
                   ? "border-violet-500/40 bg-violet-500/10 text-violet-400"
-                  : "border-[#2a3555] text-slate-500 hover:text-slate-300"
+                  : "border-[#2a3555] text-slate-400 hover:text-slate-300"
               )}
             >
               <Code2 className="h-3 w-3" /> Raw JSON
@@ -735,7 +817,7 @@ function AdminEventRow({ ev, idx }: { ev: TelemetryEvent; idx: number }) {
             <div className="space-y-1">
               {fields.map(([k, v]) => (
                 <div key={k} className="flex gap-3 items-start">
-                  <span className="w-52 shrink-0 font-mono text-[10px] text-slate-500">{k}</span>
+                  <span className="w-52 shrink-0 font-mono text-[10px] text-slate-400">{k}</span>
                   <span className="font-mono text-[10px] text-slate-200 break-all">{v}</span>
                 </div>
               ))}
@@ -756,13 +838,10 @@ function ScenarioDrawerContent({ scenario, onClose }: { scenario: ScenarioRow; o
   const [status, setStatus]   = useState<ItemStatus>(scenario.status);
   const [saved, setSaved]     = useState(false);
 
-  // Load live events --" built-in: from builder; generated: from stored events
-  const bundle = useMemo(() => {
-    if (scenario.isGenerated) return null;
-    try { return buildScenarioBySlug(scenario.slug); } catch { return null; }
-  }, [scenario.slug, scenario.isGenerated]);
+  // Load live events — built-in: from builder; generated: from stored events
+  const bundle = useAdminScenarioBundle(scenario.isGenerated ? null : scenario.slug);
 
-  // Events to display --" prefer bundle for built-in, stored events for generated
+  // Events to display — prefer bundle for built-in, stored events for generated
   const displayEvents: TelemetryEvent[] = useMemo(() => {
     if (bundle) return bundle.events;
     return scenario.events ?? [];
@@ -799,25 +878,25 @@ function ScenarioDrawerContent({ scenario, onClose }: { scenario: ScenarioRow; o
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded border border-[#2a3555] bg-[#0a0e1a] px-3 py-2.5 text-center">
           <p className="font-mono text-xl font-bold text-white">{displayEvents.length}</p>
-          <p className="text-[10px] text-slate-500 mt-0.5">Log Events</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">Log Events</p>
         </div>
         <div className="rounded border border-[#2a3555] bg-[#0a0e1a] px-3 py-2.5 text-center">
-          <p className="font-mono text-xl font-bold text-white">{bundle?.questions.length ?? "--"}</p>
-          <p className="text-[10px] text-slate-500 mt-0.5">Questions</p>
+          <p className="font-mono text-xl font-bold text-white">{bundle?.questionCount ?? "--"}</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">Questions</p>
         </div>
         <div className="rounded border border-[#2a3555] bg-[#0a0e1a] px-3 py-2.5 text-center">
           <p className="font-mono text-xl font-bold text-white">{bundle?.iocs.length ?? "--"}</p>
-          <p className="text-[10px] text-slate-500 mt-0.5">IOCs</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">IOCs</p>
         </div>
       </div>
 
-      {/* Log Events --" expandable field view */}
+      {/* Log Events — expandable field view */}
       {displayEvents.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
               Log Events ({displayEvents.length})
-              <span className="ml-2 text-[10px] normal-case text-slate-600 font-normal">click any row to see all fields</span>
+              <span className="ml-2 text-[10px] normal-case text-slate-400 font-normal">click any row to see all fields</span>
             </label>
             {!scenario.isGenerated && (
               <a
@@ -838,8 +917,8 @@ function ScenarioDrawerContent({ scenario, onClose }: { scenario: ScenarioRow; o
         </div>
       )}
       {displayEvents.length === 0 && scenario.isGenerated && (
-        <div className="rounded border border-dashed border-[#2a3555] py-6 text-center text-[11px] text-slate-600">
-          Log events not available --" this scenario was published before event storage was added.
+        <div className="rounded border border-dashed border-[#2a3555] py-6 text-center text-[11px] text-slate-400">
+          Log events not available — this scenario was published before event storage was added.
         </div>
       )}
 
@@ -864,7 +943,7 @@ function ScenarioDrawerContent({ scenario, onClose }: { scenario: ScenarioRow; o
                   <span className={cn("shrink-0 text-[9px] font-bold uppercase",
                     ioc.reputation==="malicious"?"text-rose-400":
                     ioc.reputation==="suspicious"?"text-amber-400":
-                    ioc.reputation==="clean"?"text-emerald-400":"text-slate-500"
+                    ioc.reputation==="clean"?"text-emerald-400":"text-slate-400"
                   )}>{ioc.reputation}</span>
                 )}
               </div>
@@ -897,6 +976,7 @@ function QuizzesTab() {
   const [hidden,  setHidden]  = useState<string[]>([]);
   const [statusMap, setStatusMap] = useState<Record<string,ItemStatus>>({});
   const [genQuizzes, setGenQuizzes] = useState<GeneratedQuiz[]>([]);
+  const QUIZZES = useAdminBuiltinQuizzes();
   const [drawer, setDrawer]   = useState<AnyQuiz|null>(null);
   const [showGen, setShowGen] = useState(false);
   const [form, setForm] = useState<{title:string;topic:string;difficulty:"Beginner"|"Intermediate"|"Advanced";count:number;focus:string}>({title:"",topic:"Incident Response",difficulty:"Intermediate",count:8,focus:""});
@@ -905,12 +985,24 @@ function QuizzesTab() {
   const [preview, setPreview]   = useState<GeneratedQuiz|null>(null);
   const [pubIds, setPubIds]     = useState<Set<string>>(new Set());
 
+  // Admin-published quizzes now live in the durable content_quizzes table
+  // (migration 0019) instead of per-browser localStorage. Server-side status
+  // is merged into the SAME statusMap built-ins already use — the rest of this
+  // component's filtering/rendering needs no other change.
   useEffect(() => {
+    let localStatus: Record<string, ItemStatus> = {};
     try {
       setHidden(JSON.parse(localStorage.getItem("admin_hidden_quizzes")??"[]"));
-      setStatusMap(JSON.parse(localStorage.getItem("admin_quiz_status")??"{}"));
-      setGenQuizzes(JSON.parse(localStorage.getItem("generated_quizzes")??"[]"));
+      localStatus = JSON.parse(localStorage.getItem("admin_quiz_status")??"{}");
+      setStatusMap(localStatus);
     } catch {}
+    (async () => {
+      const res = await adminRead("/api/admin/content/quizzes", "generated quizzes");
+      if (!res) return;
+      const { items } = await res.json() as { items: { id: string; status: ItemStatus; content: GeneratedQuiz }[] };
+      setGenQuizzes(items.map(({ content }) => content));
+      setStatusMap(prev => ({ ...prev, ...Object.fromEntries(items.map(i => [i.id, i.status])) }));
+    })();
   }, []);
 
   const builtIn: AnyQuiz[] = QUIZZES.filter(q=>!hidden.includes(q.slug));
@@ -926,7 +1018,15 @@ function QuizzesTab() {
   });
 
   function setStatus(id: string, s: ItemStatus) {
-    const next={...statusMap,[id]:s}; setStatusMap(next);
+    const beforeStatus = statusMap[id];
+    setStatusMap(prev => ({ ...prev, [id]: s }));
+    if (genQuizzes.some(q => q.id === id)) {
+      void adminWrite(`/api/admin/content/quizzes/${encodeURIComponent(id)}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: s }),
+      }).then(ok => { if (!ok) setStatusMap(prev => ({ ...prev, [id]: beforeStatus })); });
+      return;
+    }
+    const next = { ...statusMap, [id]: s };
     localStorage.setItem("admin_quiz_status",JSON.stringify(next));
   }
 
@@ -936,8 +1036,10 @@ function QuizzesTab() {
   }
 
   function deleteGenerated(id: string) {
+    const before = genQuizzes;
     const next=genQuizzes.filter(q=>q.id!==id); setGenQuizzes(next);
-    localStorage.setItem("generated_quizzes",JSON.stringify(next));
+    void adminWrite(`/api/admin/content/quizzes/${encodeURIComponent(id)}`, { method: "DELETE" })
+      .then(ok => { if (!ok) setGenQuizzes(before); });
   }
 
   function randomizeTopic() {
@@ -947,19 +1049,24 @@ function QuizzesTab() {
 
   async function generate() {
     setLoading(true);setGenError(null);setPreview(null);
-    const payload = { ...form, title: form.title.trim() || `${form.topic} --" ${form.difficulty}` };
+    const payload = { ...form, title: form.title.trim() || `${form.topic} — ${form.difficulty}` };
     try {
       const res=await fetch("/api/quizzes/generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
       const data=await res.json();
       if(!res.ok||data.error) throw new Error(data.error??"Failed");
       setPreview(data);
-    } catch(e){setGenError(e instanceof Error?e.message:"Error");}
+    } catch(e){setGenError(displayError(e, "Error"));}
     finally{setLoading(false);}
   }
 
-  function publish(q: GeneratedQuiz) {
-    const next=[q,...genQuizzes]; setGenQuizzes(next);
-    localStorage.setItem("generated_quizzes",JSON.stringify(next));
+  async function publish(q: GeneratedQuiz) {
+    // Only list it as published once the server actually stored it.
+    const ok = await adminWrite("/api/admin/content/quizzes", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: q.id, status: "published", content: q }),
+    });
+    if (!ok) return;
+    setGenQuizzes(prev => [q, ...prev]);
     setPubIds(p=>new Set([...p,q.id]));
     setPreview(null); setShowGen(false);
   }
@@ -975,7 +1082,7 @@ function QuizzesTab() {
           <h2 className="text-base font-semibold text-white flex items-center gap-2">
             <HelpCircle className="h-4 w-4 text-amber-400"/>Quiz Management
           </h2>
-          <p className="text-[11px] text-slate-500 mt-0.5">{filtered.length} quizzes · {filtered.filter(q=>( statusMap[(q as GeneratedQuiz).id??(q as Quiz).slug]??"published")==="published").length} published</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">{filtered.length} quizzes · {filtered.filter(q=>( statusMap[(q as GeneratedQuiz).id??(q as Quiz).slug]??"published")==="published").length} published</p>
         </div>
         <div className="flex items-center gap-2">
           <button className="flex items-center gap-2 rounded border border-[#2a3555] bg-transparent px-4 py-2 text-sm text-slate-300 hover:border-slate-400 transition">
@@ -997,34 +1104,34 @@ function QuizzesTab() {
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2 flex gap-2">
               <div className="flex-1">
-                <label className="block text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">Quiz Title <span className="normal-case text-slate-600">(optional --" auto-generated if blank)</span></label>
-                <input value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="e.g. Advanced Threat Hunting" className={fieldCls} />
+                <label htmlFor="admin-quiz-title" className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1.5">Quiz Title <span className="normal-case text-slate-400">(optional — auto-generated if blank)</span></label>
+                <input id="admin-quiz-title" value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="e.g. Advanced Threat Hunting" className={fieldCls} />
               </div>
             </div>
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[10px] uppercase tracking-wider text-slate-500">Topic</label>
+                <label htmlFor="admin-quiz-topic" className="text-[10px] uppercase tracking-wider text-slate-400">Topic</label>
                 <button onClick={randomizeTopic} className="flex items-center gap-1 text-[10px] text-violet-400 hover:text-violet-300 transition">
-                  <RotateCcw className="h-3 w-3"/>Random
+                  <RotateCcw className="h-3 w-3" aria-hidden="true"/>Random
                 </button>
               </div>
-              <select value={form.topic} onChange={e=>setForm(f=>({...f,topic:e.target.value}))} className={fieldCls}>
+              <select id="admin-quiz-topic" value={form.topic} onChange={e=>setForm(f=>({...f,topic:e.target.value}))} className={fieldCls}>
                 {TOPICS.map(t=><option key={t}>{t}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">Difficulty</label>
-              <select value={form.difficulty} onChange={e=>setForm(f=>({...f,difficulty:e.target.value as typeof form.difficulty}))} className={fieldCls}>
+              <label htmlFor="admin-quiz-difficulty" className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1.5">Difficulty</label>
+              <select id="admin-quiz-difficulty" value={form.difficulty} onChange={e=>setForm(f=>({...f,difficulty:e.target.value as typeof form.difficulty}))} className={fieldCls}>
                 <option>Beginner</option><option>Intermediate</option><option>Advanced</option>
               </select>
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">Focus Areas <span className="normal-case text-slate-600">(optional)</span></label>
-              <input value={form.focus} onChange={e=>setForm(f=>({...f,focus:e.target.value}))} placeholder="e.g. Kerberoasting, DCSync, Pass-the-Hash" className={fieldCls} />
+              <label htmlFor="admin-quiz-focus" className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1.5">Focus Areas <span className="normal-case text-slate-400">(optional)</span></label>
+              <input id="admin-quiz-focus" value={form.focus} onChange={e=>setForm(f=>({...f,focus:e.target.value}))} placeholder="e.g. Kerberoasting, DCSync, Pass-the-Hash" className={fieldCls} />
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">Number of Questions</label>
-              <select value={form.count} onChange={e=>setForm(f=>({...f,count:Number(e.target.value)}))} className={fieldCls}>
+              <label htmlFor="admin-quiz-count" className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1.5">Number of Questions</label>
+              <select id="admin-quiz-count" value={form.count} onChange={e=>setForm(f=>({...f,count:Number(e.target.value)}))} className={fieldCls}>
                 {[5,6,7,8,10,12,15].map(n=><option key={n}>{n}</option>)}
               </select>
             </div>
@@ -1032,14 +1139,14 @@ function QuizzesTab() {
 
           <div className="flex items-center gap-2">
             <button onClick={generate} disabled={loading} className="flex items-center gap-2 rounded bg-violet-600 hover:bg-violet-500 disabled:opacity-50 px-5 py-2.5 text-sm font-semibold text-white transition">
-              {loading?<><Loader2 className="h-3.5 w-3.5 animate-spin"/>Generating--¦</>:<><Sparkles className="h-3.5 w-3.5"/>Generate Quiz</>}
+              {loading?<><Loader2 className="h-3.5 w-3.5 animate-spin"/>Generating…</>:<><Sparkles className="h-3.5 w-3.5"/>Generate Quiz</>}
             </button>
-            <button onClick={()=>{setShowGen(false);setPreview(null);}} className="rounded p-2.5 text-slate-500 hover:bg-[#1a2035] transition"><X className="h-4 w-4"/></button>
+            <button onClick={()=>{setShowGen(false);setPreview(null);}} aria-label="Close quiz generator" className="rounded p-2.5 text-slate-400 hover:bg-[#1a2035] transition"><X className="h-4 w-4" aria-hidden="true"/></button>
           </div>
 
           {genError && <p className="text-xs text-rose-400 flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5"/>{genError}</p>}
 
-          {/* Preview --" show full question list */}
+          {/* Preview — show full question list */}
           {preview && (
             <div className="rounded border border-violet-500/20 bg-violet-500/5 space-y-4 p-4">
               <div className="flex items-start justify-between gap-4">
@@ -1058,21 +1165,21 @@ function QuizzesTab() {
 
               {/* Question list preview */}
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                  Questions ({preview.questions.length}) --" review before publishing
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                  Questions ({preview.questions.length}) — review before publishing
                 </p>
                 <div className="space-y-2">
                   {preview.questions.map((q, i) => (
                     <div key={q.id} className="rounded border border-[#2a3555] bg-[#080c15] px-3 py-2.5">
                       <div className="flex items-start gap-2">
-                        <span className="font-mono text-[10px] text-slate-600 shrink-0 mt-0.5">{i+1}.</span>
+                        <span className="font-mono text-[10px] text-slate-400 shrink-0 mt-0.5">{i+1}.</span>
                         <div className="min-w-0 flex-1">
                           <p className="text-[11px] text-slate-200 leading-snug">{q.question}</p>
                           <p className="mt-1 text-[10px] text-emerald-400">
-                            ג" {typeof q.answer === "number" ? q.options[q.answer] : (Array.isArray(q.answer) ? (q.answer as string[]).join(", ") : String(q.answer))}
+                            <span aria-hidden="true">✓</span><span className="sr-only">Correct answer:</span> {typeof q.answer === "number" ? q.options[q.answer] : (Array.isArray(q.answer) ? (q.answer as string[]).join(", ") : String(q.answer))}
                           </p>
                           {q.explanation && (
-                            <p className="mt-0.5 text-[10px] text-slate-500 italic">{q.explanation}</p>
+                            <p className="mt-0.5 text-[10px] text-slate-400 italic">{q.explanation}</p>
                           )}
                         </div>
                         <span className="shrink-0 rounded border border-violet-500/20 bg-violet-500/5 px-1.5 py-0.5 font-mono text-[10px] text-violet-400">+{q.xp} XP</span>
@@ -1092,42 +1199,48 @@ function QuizzesTab() {
           onFilter={(k,v)=>{if(k==="level")setLevelF(v);else if(k==="category")setCatF(v);else setStatusF(v);}} />
       </div>
 
+      <div role="table" aria-label="Quizzes" className="flex flex-1 min-h-0 flex-col">
       {/* Table header */}
-      <div className="grid grid-cols-[2.5fr_1.5fr_1fr_80px_140px_80px] gap-2 border-b border-[#1e2841] bg-[#0a0e1a] px-6 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 shrink-0">
-        <span>Title</span><span>Category</span><span>Difficulty</span><span>Questions</span><span>Status</span><span className="text-right">Actions</span>
+      <div role="row" className="grid grid-cols-[2.5fr_1.5fr_1fr_80px_140px_80px] gap-2 border-b border-[#1e2841] bg-[#0a0e1a] px-6 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 shrink-0">
+        <span role="columnheader">Title</span><span role="columnheader">Category</span><span role="columnheader">Difficulty</span><span role="columnheader">Questions</span><span role="columnheader">Status</span><span role="columnheader" className="text-right">Actions</span>
       </div>
 
       {/* Rows */}
-      <div className="flex-1 overflow-y-auto">
+      <div role="rowgroup" className="flex-1 overflow-y-auto">
         {filtered.map(quiz => {
           const qId = (quiz as GeneratedQuiz).id ?? (quiz as Quiz).slug;
           const isGen = !!((quiz as GeneratedQuiz).id);
           const qStatus = statusMap[qId] ?? "published";
           return (
-            <div key={qId} className="grid grid-cols-[2.5fr_1.5fr_1fr_80px_140px_80px] gap-2 border-b border-[#1e2841] px-6 py-3.5 items-center hover:bg-[#0f1728] transition">
-              <div className="min-w-0 cursor-pointer" onClick={()=>setDrawer(quiz)}>
+            <div key={qId} role="row" className="grid grid-cols-[2.5fr_1.5fr_1fr_80px_140px_80px] gap-2 border-b border-[#1e2841] px-6 py-3.5 items-center hover:bg-[#0f1728] transition">
+              <div role="cell" className="min-w-0">
+              <div role="button" tabIndex={0} className="min-w-0 cursor-pointer rounded focus:outline-none focus:ring-2 focus:ring-violet-500/40"
+                   onClick={()=>setDrawer(quiz)}
+                   onKeyDown={e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); setDrawer(quiz); } }}>
                 <div className="flex items-center gap-2">
-                  <span className="text-lg leading-none">{quiz.icon}</span>
+                  <span className="text-lg leading-none" aria-hidden="true">{quiz.icon}</span>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-white truncate hover:text-violet-300 transition">{quiz.title}</p>
-                    <p className="text-[11px] text-slate-500 truncate mt-0.5">{quiz.description?.slice(0,55)}{(quiz.description?.length??0)>55?"--¦":""}</p>
+                    <p className="text-[11px] text-slate-400 truncate mt-0.5">{quiz.description?.slice(0,55)}{(quiz.description?.length??0)>55?"…":""}</p>
                   </div>
                 </div>
                 {isGen && <span className="ml-8 inline-block mt-1 rounded border border-violet-500/25 bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase text-violet-400">AI Generated</span>}
               </div>
-              <CategoryBadge label={quiz.category} />
-              <DiffBadge d={quiz.difficulty} />
-              <span className="font-mono text-sm text-slate-300">{quiz.questions.length}</span>
-              <StatusDropdown status={qStatus as ItemStatus} onChange={v=>setStatus(qId,v)} />
-              <div className="flex items-center justify-end gap-1">
-                <button onClick={()=>setDrawer(quiz)} className="rounded p-1.5 text-slate-500 hover:bg-[#1a2035] hover:text-violet-400 transition"><Eye className="h-3.5 w-3.5"/></button>
-                <button onClick={()=>setDrawer(quiz)} className="rounded p-1.5 text-slate-500 hover:bg-[#1a2035] hover:text-violet-400 transition"><Edit2 className="h-3.5 w-3.5"/></button>
-                <button onClick={()=>isGen?deleteGenerated((quiz as GeneratedQuiz).id):hideQuiz((quiz as Quiz).slug)} className="rounded p-1.5 text-slate-600 hover:bg-rose-500/10 hover:text-rose-400 transition"><Trash2 className="h-3.5 w-3.5"/></button>
+              </div>
+              <CategoryBadge role="cell" label={quiz.category} />
+              <DiffBadge role="cell" d={quiz.difficulty} />
+              <span role="cell" className="font-mono text-sm text-slate-300">{quiz.questions.length}</span>
+              <StatusDropdown role="cell" status={qStatus as ItemStatus} onChange={v=>setStatus(qId,v)} />
+              <div role="cell" className="flex items-center justify-end gap-1">
+                <button onClick={()=>setDrawer(quiz)} aria-label={`View ${quiz.title}`} className="rounded p-1.5 text-slate-400 hover:bg-[#1a2035] hover:text-violet-400 transition"><Eye className="h-3.5 w-3.5" aria-hidden="true"/></button>
+                <button onClick={()=>setDrawer(quiz)} aria-label={`Edit ${quiz.title}`} className="rounded p-1.5 text-slate-400 hover:bg-[#1a2035] hover:text-violet-400 transition"><Edit2 className="h-3.5 w-3.5" aria-hidden="true"/></button>
+                <button onClick={()=>isGen?deleteGenerated((quiz as GeneratedQuiz).id):hideQuiz((quiz as Quiz).slug)} aria-label={isGen ? `Delete ${quiz.title}` : `Hide ${quiz.title}`} className="rounded p-1.5 text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition"><Trash2 className="h-3.5 w-3.5" aria-hidden="true"/></button>
               </div>
             </div>
           );
         })}
-        <p className="px-6 py-3 text-[11px] text-slate-600">Showing {filtered.length} of {all.length} quizzes · Published: {all.filter(q=>(statusMap[(q as GeneratedQuiz).id??(q as Quiz).slug]??"published")==="published").length} · Draft: {all.filter(q=>(statusMap[(q as GeneratedQuiz).id??(q as Quiz).slug]??"published")==="draft").length}</p>
+        <p role="row" className="px-6 py-3 text-[11px] text-slate-400"><span role="cell">Showing {filtered.length} of {all.length} quizzes · Published: {all.filter(q=>(statusMap[(q as GeneratedQuiz).id??(q as Quiz).slug]??"published")==="published").length} · Draft: {all.filter(q=>(statusMap[(q as GeneratedQuiz).id??(q as Quiz).slug]??"published")==="draft").length}</span></p>
+      </div>
       </div>
 
       {/* Quiz edit drawer */}
@@ -1153,11 +1266,20 @@ function QuizDrawerContent({ quiz, genQuizzes, setGenQuizzes, onClose }: {
   const [editingQid, setEditingQid] = useState<string|null>(null);
   const [qDraft, setQDraft] = useState<QuizQuestion|null>(null);
   const [saved, setSaved] = useState(false);
+  const qUid = useId();
 
   function saveAll() {
     if (isGen) {
-      const next = genQuizzes.map(gq => gq.id===(quiz as GeneratedQuiz).id ? {...gq,title,description:desc,questions} : gq);
-      setGenQuizzes(next); localStorage.setItem("generated_quizzes",JSON.stringify(next));
+      const genId = (quiz as GeneratedQuiz).id;
+      const next = genQuizzes.map(gq => gq.id===genId ? {...gq,title,description:desc,questions} : gq);
+      setGenQuizzes(next);
+      const updated = next.find(gq => gq.id === genId);
+      if (updated) {
+        // The edits stay on screen if the save fails, so they can be saved again.
+        void adminWrite(`/api/admin/content/quizzes/${encodeURIComponent(genId)}`, {
+          method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: updated }),
+        }).then(ok => { if (!ok) setSaved(false); });
+      }
     } else {
       const edits = JSON.parse(localStorage.getItem("admin_quiz_edits")??"{}");
       edits[(quiz as Quiz).slug] = { title, description: desc, questions };
@@ -1184,34 +1306,34 @@ function QuizDrawerContent({ quiz, genQuizzes, setGenQuizzes, onClose }: {
               {editingQid===q.id && qDraft ? (
                 <div className="p-4 space-y-3">
                   <div>
-                    <label className="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Q{qi+1}</label>
-                    <textarea value={qDraft.question} onChange={e=>setQDraft(f=>f?{...f,question:e.target.value}:f)} rows={2} className={cn(fieldCls,"resize-none")} />
+                    <label htmlFor={`${qUid}-question`} className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1">Q{qi+1}</label>
+                    <textarea id={`${qUid}-question`} value={qDraft.question} onChange={e=>setQDraft(f=>f?{...f,question:e.target.value}:f)} rows={2} className={cn(fieldCls,"resize-none")} />
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     {qDraft.options.map((opt,oi)=>(
                       <div key={oi}>
-                        <label className={cn("block text-[10px] uppercase tracking-wider mb-1", oi===qDraft.answer?"text-emerald-400":"text-slate-500")}>
+                        <label htmlFor={`${qUid}-opt-${oi}`} className={cn("block text-[10px] uppercase tracking-wider mb-1", oi===qDraft.answer?"text-emerald-400":"text-slate-400")}>
                           Option {String.fromCharCode(65+oi)}{oi===qDraft.answer?" ✓ correct":""}
                         </label>
-                        <input value={opt} onChange={e=>{const o=[...qDraft.options];o[oi]=e.target.value;setQDraft(f=>f?{...f,options:o}:f);}} className={fieldCls} />
+                        <input id={`${qUid}-opt-${oi}`} value={opt} onChange={e=>{const o=[...qDraft.options];o[oi]=e.target.value;setQDraft(f=>f?{...f,options:o}:f);}} className={fieldCls} />
                       </div>
                     ))}
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Correct Answer</label>
-                      <select value={qDraft.answer} onChange={e=>setQDraft(f=>f?{...f,answer:Number(e.target.value)}:f)} className={fieldCls}>
+                      <label htmlFor={`${qUid}-answer`} className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1">Correct Answer</label>
+                      <select id={`${qUid}-answer`} value={qDraft.answer} onChange={e=>setQDraft(f=>f?{...f,answer:Number(e.target.value)}:f)} className={fieldCls}>
                         {qDraft.options.map((_,oi)=><option key={oi} value={oi}>Option {String.fromCharCode(65+oi)}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">XP</label>
-                      <input type="number" value={qDraft.xp} onChange={e=>setQDraft(f=>f?{...f,xp:Number(e.target.value)}:f)} className={fieldCls} />
+                      <label htmlFor={`${qUid}-xp`} className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1">XP</label>
+                      <input id={`${qUid}-xp`} type="number" value={qDraft.xp} onChange={e=>setQDraft(f=>f?{...f,xp:Number(e.target.value)}:f)} className={fieldCls} />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] uppercase tracking-wider text-slate-500 mb-1">Explanation</label>
-                    <textarea value={qDraft.explanation} onChange={e=>setQDraft(f=>f?{...f,explanation:e.target.value}:f)} rows={2} className={cn(fieldCls,"resize-none")} />
+                    <label htmlFor={`${qUid}-explanation`} className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1">Explanation</label>
+                    <textarea id={`${qUid}-explanation`} value={qDraft.explanation} onChange={e=>setQDraft(f=>f?{...f,explanation:e.target.value}:f)} rows={2} className={cn(fieldCls,"resize-none")} />
                   </div>
                   <div className="flex gap-2">
                     <button onClick={saveQ} className="flex items-center gap-1.5 rounded bg-teal-600 hover:bg-teal-500 px-3 py-1.5 text-xs text-white transition"><Save className="h-3.5 w-3.5"/>Save</button>
@@ -1220,14 +1342,14 @@ function QuizDrawerContent({ quiz, genQuizzes, setGenQuizzes, onClose }: {
                 </div>
               ) : (
                 <div className="flex items-start gap-3 px-4 py-2.5">
-                  <span className="font-mono text-[10px] text-slate-500 shrink-0 w-5 mt-0.5">Q{qi+1}</span>
+                  <span className="font-mono text-[10px] text-slate-400 shrink-0 w-5 mt-0.5">Q{qi+1}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-[12px] text-slate-200 leading-snug">{q.question}</p>
-                    <p className="text-[11px] text-emerald-400/80 mt-0.5">ג" {q.options[q.answer]}</p>
+                    <p className="text-[11px] text-emerald-400/80 mt-0.5"><span aria-hidden="true">✓</span><span className="sr-only">Correct answer:</span> {q.options[q.answer]}</p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0 mt-0.5">
-                    <button onClick={()=>{setEditingQid(q.id);setQDraft({...q,options:[...q.options]});}} className="rounded p-1 text-slate-500 hover:bg-[#1a2035] hover:text-violet-400 transition"><Edit2 className="h-3 w-3"/></button>
-                    <button onClick={()=>setQuestions(prev=>prev.filter(pq=>pq.id!==q.id))} className="rounded p-1 text-slate-600 hover:bg-rose-500/10 hover:text-rose-400 transition"><Trash2 className="h-3 w-3"/></button>
+                    <button onClick={()=>{setEditingQid(q.id);setQDraft({...q,options:[...q.options]});}} aria-label={`Edit question ${qi+1}`} className="rounded p-1 text-slate-400 hover:bg-[#1a2035] hover:text-violet-400 transition"><Edit2 className="h-3 w-3" aria-hidden="true"/></button>
+                    <button onClick={()=>setQuestions(prev=>prev.filter(pq=>pq.id!==q.id))} aria-label={`Delete question ${qi+1}`} className="rounded p-1 text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition"><Trash2 className="h-3 w-3" aria-hidden="true"/></button>
                   </div>
                 </div>
               )}
@@ -1271,6 +1393,20 @@ interface SyllabusLesson {
   // legacy fields kept for backwards compat
   pathSlug?:        string;
   moduleSlug?:      string;
+  // A built-in listed from LIBRARY_INDEX: sections/quiz not loaded yet.
+  stub?:            boolean;
+  sectionCount?:    number;
+}
+
+/** A built-in lesson's index record as a not-yet-loaded syllabus entry. */
+function builtinStub(e: (typeof LIBRARY_INDEX)[number]): SyllabusLesson {
+  return {
+    id: e.id, slug: e.slug, title: e.title, topic: e.topic, difficulty: e.difficulty,
+    kind: "lesson", intro: e.blurb, sections: [], keyTakeaways: [],
+    xp: e.xp ?? 0, estimatedMinutes: e.estimatedMinutes ?? 0,
+    published_at: e.published_at ?? "", researchUsed: e.researchUsed,
+    stub: true, sectionCount: e.sectionCount,
+  };
 }
 
 // --------- Generator phases ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1348,36 +1484,87 @@ function LessonsTab() {
   // Editor modal
   const [editLesson, setEditLesson] = useState<SyllabusLesson|null>(null);
 
+  // Dialog focus management (WCAG 2.1.2 / 2.4.3). Only the TOP-most overlay traps:
+  // the preview modal can open on top of the syllabus modal.
+  const bulkRef = useRef<HTMLDivElement>(null);
+  const bulkSyllabusRef = useRef<HTMLTextAreaElement>(null);
+  useFocusTrap(showBulk && !preview && !editLesson, bulkRef, { onEscape: () => { if (!bulkRunning) setShowBulk(false); }, initialFocus: bulkSyllabusRef });
+  const genPanelRef = useRef<HTMLDivElement>(null);
+  const genTopicRef = useRef<HTMLInputElement>(null);
+  useFocusTrap(showGen && !showBulk && !preview && !editLesson, genPanelRef, { onEscape: () => { if (!genLoading) setShowGen(false); }, initialFocus: genTopicRef });
+
+  // Admin-published lessons now live in the durable content_lessons table
+  // (migration 0019) instead of per-browser localStorage. deleted_lesson_ids
+  // (hiding a BUILT-IN lesson) stays local — a lower-stakes, reversible
+  // moderation toggle, not authored content that can be lost.
   useEffect(() => {
-    try {
-      const saved: SyllabusLesson[] = JSON.parse(localStorage.getItem("generated_lessons")  ?? "[]");
-      const deleted: string[]       = JSON.parse(localStorage.getItem("deleted_lesson_ids") ?? "[]");
-      const deletedSet = new Set(deleted);
-      const savedIds   = new Set(saved.map(l => l.id));
-      const builtins   = (BUILTIN_LESSONS as unknown as SyllabusLesson[])
-        .filter(l => !savedIds.has(l.id) && !deletedSet.has(l.id));
+    (async () => {
+      let deletedSet = new Set<string>();
+      try {
+        const deleted: string[] = JSON.parse(localStorage.getItem("deleted_lesson_ids") ?? "[]");
+        deletedSet = new Set(deleted);
+      } catch {}
+      const res = await adminRead("/api/admin/content/lessons", "saved lessons");
+      const saved: SyllabusLesson[] = res
+        ? ((await res.json() as { items: { content: SyllabusLesson }[] }).items.map(i => i.content))
+        : [];
+      const savedIds = new Set(saved.map(l => l.id));
+      const builtins = LIBRARY_INDEX
+        .filter(l => !savedIds.has(l.id) && !deletedSet.has(l.id))
+        .map(builtinStub);
       setLessons([...saved, ...builtins]);
-    } catch {
-      setLessons(BUILTIN_LESSONS as unknown as SyllabusLesson[]);
-    }
+    })();
   }, []);
 
-  function persist(next: SyllabusLesson[]) {
-    const builtinIds = new Set(BUILTIN_LESSONS.map(l => l.id));
-    // Save only user-generated lessons (never persist builtins)
-    const userLessons = next.filter(l => !builtinIds.has(l.id as typeof BUILTIN_LESSONS[number]["id"]));
-    localStorage.setItem("generated_lessons", JSON.stringify(userLessons));
+  const builtinIds = new Set(LIBRARY_INDEX.map(l => l.id));
+
+  // Preview / edit need the full lesson; a built-in stub is loaded first.
+  const [loadingFull, setLoadingFull] = useState<string | null>(null);
+  async function withFull(lesson: SyllabusLesson, then: (full: SyllabusLesson) => void) {
+    if (!lesson.stub) { then(lesson); return; }
+    setLoadingFull(lesson.id);
+    try {
+      const res = await fetch(`/api/library/${encodeURIComponent(lesson.id)}?full=1`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const full = (await res.json()) as SyllabusLesson;
+      setLessons(ls => ls.map(l => (l.id === full.id ? full : l)));
+      then(full);
+    } catch {
+      alert(`Couldn't load "${lesson.title}". Try again.`);
+    } finally {
+      setLoadingFull(null);
+    }
+  }
+
+  /**
+   * `next` is always the FULL desired list (unchanged calling convention from
+   * before 0019) so every existing call site keeps working; `changed` is the
+   * one lesson this particular call actually created/edited, upserted to the
+   * durable store. Editing a BUILT-IN lesson still isn't durably saved — that
+   * matches the pre-0019 behaviour (it filtered builtins out of what it wrote)
+   * exactly, not a new limitation introduced here.
+   */
+  function persist(next: SyllabusLesson[], changed?: SyllabusLesson) {
+    const before = lessons;
     setLessons(next);
+    if (!changed || builtinIds.has(changed.id)) return;
+    void adminWrite("/api/admin/content/lessons", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: changed.id, status: "published", content: changed }),
+    }).then(ok => { if (!ok) setLessons(before); });
   }
 
   function deleteLesson(id: string) {
-    const builtinIds = new Set(BUILTIN_LESSONS.map(l => l.id));
     // If deleting a builtin, record its ID so learn page can hide it too
-    if (builtinIds.has(id as typeof BUILTIN_LESSONS[number]["id"])) {
+    if (builtinIds.has(id)) {
       const deleted: string[] = JSON.parse(localStorage.getItem("deleted_lesson_ids") ?? "[]");
       if (!deleted.includes(id)) {
         localStorage.setItem("deleted_lesson_ids", JSON.stringify([...deleted, id]));
       }
+    } else {
+      const before = lessons;
+      void adminWrite(`/api/admin/content/lessons/${encodeURIComponent(id)}`, { method: "DELETE" })
+        .then(ok => { if (!ok) setLessons(before); });
     }
     persist(lessons.filter(l => l.id !== id));
   }
@@ -1479,7 +1666,7 @@ function LessonsTab() {
 
       if (!finalLesson) throw new Error("Generation failed — please try again");
       const next = [finalLesson, ...lessons];
-      persist(next);
+      persist(next, finalLesson);
       setShowGen(false);
       setGenTopic("");
       setGenCtx("");
@@ -1488,7 +1675,7 @@ function LessonsTab() {
       setGenOutlineTitle("");
       setPreview(finalLesson);
     } catch (e) {
-      setGenError(e instanceof Error ? e.message : "Error generating lesson");
+      setGenError(displayError(e, "Error generating lesson"));
     } finally {
       setGenLoading(false);
     }
@@ -1596,7 +1783,7 @@ function LessonsTab() {
 
         // Persist immediately so the grid updates
         runningLessons = [lesson, ...runningLessons];
-        persist(runningLessons);
+        persist(runningLessons, lesson);
 
         // Mark validating
         queue[i] = { ...queue[i], status: "validating", lesson };
@@ -1622,7 +1809,7 @@ function LessonsTab() {
         queue[i] = {
           ...queue[i],
           status: "error",
-          error: e instanceof Error ? e.message : "Failed",
+          error: displayError(e, "Failed"),
         };
         setBulkQueue([...queue]);
       }
@@ -1655,7 +1842,7 @@ function LessonsTab() {
       const updated = existing
         ? lessons.map(l => l.id === item.lesson?.id ? lesson : l)
         : [lesson, ...lessons];
-      persist(updated);
+      persist(updated, lesson);
 
       queue[idx] = { ...queue[idx], status: "validating", lesson };
       setBulkQueue([...queue]);
@@ -1672,7 +1859,7 @@ function LessonsTab() {
       queue[idx] = { ...queue[idx], status: "done", validation };
       setBulkQueue([...queue]);
     } catch (e) {
-      queue[idx] = { ...queue[idx], status: "error", error: e instanceof Error ? e.message : "Failed" };
+      queue[idx] = { ...queue[idx], status: "error", error: displayError(e, "Failed") };
       setBulkQueue([...queue]);
     } finally {
       bulkRunningRef.current = false;
@@ -1710,14 +1897,14 @@ function LessonsTab() {
       {/* ------ Search + Filter bar ------------------------------------------------------------------- */}
       <div className="px-6 py-3 border-b border-[#1e2841] shrink-0 flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
-            <input value={search} onChange={e => setSearch(e.target.value)}
+            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+            <input value={search} onChange={e => setSearch(e.target.value)} aria-label="Search lessons by title or topic"
               placeholder="Search by title or topic..."
-              className="w-full rounded border border-[#2a3555] bg-[#0f1423] py-2 pl-9 pr-3 text-sm text-slate-200 placeholder:text-slate-600 focus:border-cyan-500/50 focus:outline-none" />
+              className="w-full rounded border border-[#2a3555] bg-[#0f1423] py-2 pl-9 pr-3 text-sm text-slate-200 placeholder:text-slate-400 focus:border-cyan-500/50 focus:outline-none" />
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1" role="group" aria-label="Filter by difficulty">
             {(["all", ...DIFF_OPTIONS] as const).map(d => (
-              <button key={d} onClick={() => setDiffFilter(d)}
+              <button key={d} onClick={() => setDiffFilter(d)} aria-pressed={diffFilter === d}
                 className={cn("rounded px-3 py-1.5 text-[11px] font-semibold capitalize transition",
                   diffFilter === d
                     ? "bg-cyan-600 text-white"
@@ -1740,7 +1927,7 @@ function LessonsTab() {
                     <Sparkles className="h-7 w-7 text-cyan-400" />
                   </div>
                   <p className="text-sm font-semibold text-white mb-1">No lessons yet</p>
-                  <p className="text-[11px] text-slate-500 mb-5">Click &quot;Generate with AI&quot; to create your first research-backed lesson</p>
+                  <p className="text-[11px] text-slate-400 mb-5">Click &quot;Generate with AI&quot; to create your first research-backed lesson</p>
                   <button onClick={() => setShowGen(true)}
                     className="flex items-center gap-2 rounded bg-cyan-600 hover:bg-cyan-500 px-4 py-2 text-sm font-semibold text-white transition">
                     <Sparkles className="h-3.5 w-3.5" />Generate First Lesson
@@ -1748,8 +1935,8 @@ function LessonsTab() {
                 </>
               ) : (
                 <>
-                  <Search className="h-8 w-8 text-slate-700 mb-3" />
-                  <p className="text-sm text-slate-500">No lessons match your filters.</p>
+                  <Search className="h-8 w-8 text-slate-500 mb-3" />
+                  <p className="text-sm text-slate-400">No lessons match your filters.</p>
                   <button onClick={() => { setSearch(""); setDiffFilter("all"); }}
                     className="mt-3 text-[11px] text-cyan-400 hover:text-cyan-300 underline">Clear filters</button>
                 </>
@@ -1758,9 +1945,9 @@ function LessonsTab() {
           ) : (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filtered.map(lesson => (
-                <LessonCard key={lesson.id} lesson={lesson}
-                  onPreview={() => setPreview(lesson)}
-                  onEdit={() => setEditLesson(JSON.parse(JSON.stringify(lesson)))}
+                <LessonCard key={lesson.id} lesson={lesson} loading={loadingFull === lesson.id}
+                  onPreview={() => withFull(lesson, full => setPreview(full))}
+                  onEdit={() => withFull(lesson, full => setEditLesson(JSON.parse(JSON.stringify(full))))}
                   onDelete={() => deleteLesson(lesson.id)} />
               ))}
             </div>
@@ -1773,7 +1960,7 @@ function LessonsTab() {
       {showBulk && (
         <>
           <div className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm" onClick={() => !bulkRunning && setShowBulk(false)} />
-          <div className="fixed inset-4 md:inset-x-[15%] md:inset-y-[5%] z-50 flex flex-col rounded-xl border border-[#2a3555] bg-[#0b0f1e] shadow-2xl overflow-hidden">
+          <div ref={bulkRef} role="dialog" aria-modal="true" aria-labelledby="admin-bulk-title" tabIndex={-1} className="fixed inset-4 md:inset-x-[15%] md:inset-y-[5%] z-50 flex flex-col rounded-xl border border-[#2a3555] bg-[#0b0f1e] shadow-2xl overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-[#2a3555] px-6 py-4 shrink-0">
               <div className="flex items-center gap-3">
@@ -1781,13 +1968,13 @@ function LessonsTab() {
                   <BookOpen className="h-4 w-4 text-violet-400" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white">Generate from Syllabus</h3>
-                  <p className="text-[10px] text-slate-500">Paste a syllabus — lessons generate one by one with AI validation</p>
+                  <h3 id="admin-bulk-title" className="text-sm font-bold text-white">Generate from Syllabus</h3>
+                  <p className="text-[10px] text-slate-400">Paste a syllabus — lessons generate one by one with AI validation</p>
                 </div>
               </div>
-              <button onClick={() => !bulkRunning && setShowBulk(false)}
-                className="rounded-lg p-1.5 text-slate-500 hover:bg-[#1a2035] hover:text-white transition">
-                <X className="h-4 w-4" />
+              <button onClick={() => !bulkRunning && setShowBulk(false)} aria-label="Close"
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-[#1a2035] hover:text-white transition">
+                <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
 
@@ -1798,28 +1985,30 @@ function LessonsTab() {
               {bulkQueue.length === 0 && (
                 <div className="space-y-5">
                   <div>
-                    <label className="block text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-2">
+                    <label htmlFor="admin-bulk-syllabus" className="block text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-2">
                       Syllabus — one topic per line
                     </label>
                     <textarea
+                      id="admin-bulk-syllabus"
+                      ref={bulkSyllabusRef}
                       autoFocus
                       value={bulkSyllabus}
                       onChange={e => setBulkSyllabus(e.target.value)}
                       rows={10}
                       disabled={bulkRunning}
                       placeholder={"Introduction to SOC Operations\nNetwork Protocol Analysis | intermediate\nDNS Tunneling Detection | advanced\nPhishing Email Investigation | beginner\nWindows Event Log Analysis\nSIEM and SPL Queries | intermediate"}
-                      className="w-full rounded-xl border border-[#2a3555] bg-[#0d1322] px-4 py-3 text-sm text-slate-200 placeholder:text-slate-600 font-mono leading-relaxed focus:border-violet-500/60 focus:outline-none resize-none transition"
+                      className="w-full rounded-xl border border-[#2a3555] bg-[#0d1322] px-4 py-3 text-sm text-slate-200 placeholder:text-slate-400 font-mono leading-relaxed focus:border-violet-500/60 focus:outline-none resize-none transition"
                     />
-                    <p className="mt-1.5 text-[10px] text-slate-600">
-                      Tip: add <code className="text-slate-500">| difficulty</code> after any topic to override the default. Max 20 lessons.
+                    <p className="mt-1.5 text-[10px] text-slate-400">
+                      Tip: add <code className="text-slate-400">| difficulty</code> after any topic to override the default. Max 20 lessons.
                     </p>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Default difficulty</label>
-                    <div className="grid grid-cols-4 gap-1.5">
+                    <p id="admin-bulk-diff" className="block text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Default difficulty</p>
+                    <div className="grid grid-cols-4 gap-1.5" role="group" aria-labelledby="admin-bulk-diff">
                       {DIFF_OPTIONS.map(d => (
-                        <button key={d} onClick={() => setBulkDiff(d)}
+                        <button key={d} onClick={() => setBulkDiff(d)} aria-pressed={bulkDiff === d}
                           className={cn(
                             "rounded-lg py-2 text-[11px] font-semibold capitalize transition",
                             bulkDiff === d
@@ -1841,7 +2030,7 @@ function LessonsTab() {
                         {items.length > 10 && <span className="text-violet-400/60 ml-2">· only first 20 will run</span>}
                       </div>
                     ) : bulkSyllabus.trim() ? (
-                      <div className="rounded-xl border border-slate-700/30 bg-slate-800/10 px-4 py-3 text-[12px] text-slate-500">
+                      <div className="rounded-xl border border-slate-700/30 bg-slate-800/10 px-4 py-3 text-[12px] text-slate-400">
                         No valid topics found yet
                       </div>
                     ) : null;
@@ -1862,7 +2051,7 @@ function LessonsTab() {
                       {bulkDone && <span className="text-violet-400"> · complete</span>}
                     </span>
                     {bulkDone && (
-                      <span className="text-[11px] text-slate-500">
+                      <span className="text-[11px] text-slate-400">
                         {bulkQueue.filter(i => i.validation?.recommendation === "publish").length} ready to publish
                         {" · "}
                         {bulkQueue.filter(i => i.validation?.recommendation === "review").length} need review
@@ -1906,7 +2095,7 @@ function LessonsTab() {
                               <p className="text-[13px] font-semibold text-white truncate">
                                 {item.outlineTitle ?? item.topic}
                               </p>
-                              <p className="text-[10px] text-slate-500 mt-0.5">
+                              <p className="text-[10px] text-slate-400 mt-0.5">
                                 {item.status === "pending"    && "Waiting..."}
                                 {item.status === "generating" && `Writing section ${item.sections ?? 0}/${TOTAL_SECTIONS}...`}
                                 {item.status === "validating" && "Validating content..."}
@@ -1931,15 +2120,16 @@ function LessonsTab() {
                             <div className="shrink-0 flex items-center gap-1">
                               {(item.status === "error" || (item.status === "done" && rec === "regenerate")) && !bulkRunning && (
                                 <button onClick={() => rerunBulkItem(idx)}
-                                  className="rounded p-1.5 text-slate-500 hover:bg-[#1a2035] hover:text-cyan-400 transition"
-                                  title="Regenerate this lesson">
-                                  <RefreshCw className="h-3.5 w-3.5" />
+                                  className="rounded p-1.5 text-slate-400 hover:bg-[#1a2035] hover:text-cyan-400 transition"
+                                  title="Regenerate this lesson" aria-label={`Regenerate ${item.outlineTitle ?? item.topic}`}>
+                                  <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
                                 </button>
                               )}
                               {item.status === "done" && (
                                 <button onClick={() => setBulkExpanded(isExpanded ? null : idx)}
-                                  className="rounded p-1.5 text-slate-500 hover:bg-[#1a2035] hover:text-slate-200 transition">
-                                  {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                                  aria-expanded={isExpanded} aria-label={`Validation details for ${item.outlineTitle ?? item.topic}`}
+                                  className="rounded p-1.5 text-slate-400 hover:bg-[#1a2035] hover:text-slate-200 transition">
+                                  {isExpanded ? <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" /> : <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />}
                                 </button>
                               )}
                             </div>
@@ -2031,7 +2221,7 @@ function LessonsTab() {
                       Generating lessons — do not close this window
                     </div>
                   ) : (
-                    <div className="text-[12px] text-slate-500">
+                    <div className="text-[12px] text-slate-400">
                       {bulkDone ? "All lessons generated and saved." : "Queue paused."}
                     </div>
                   )}
@@ -2048,9 +2238,10 @@ function LessonsTab() {
 
       {/* ------ Generator Panel --------------------------------------------------------------------------------------------------------------------------------- */}
       {showGen && <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={() => !genLoading && setShowGen(false)} />}
-      <div className={cn(
-        "fixed right-0 top-0 z-50 h-full w-[460px] border-l border-[#2a3555] bg-[#090d1a] shadow-2xl flex flex-col transition-transform duration-300",
-        showGen ? "translate-x-0" : "translate-x-full"
+      {/* Closed: `invisible` (after the slide-out) keeps the off-screen panel out of the tab order. */}
+      <div ref={genPanelRef} role="dialog" aria-modal="true" aria-labelledby="admin-gen-title" tabIndex={-1} className={cn(
+        "fixed right-0 top-0 z-50 h-full w-[460px] border-l border-[#2a3555] bg-[#090d1a] shadow-2xl flex flex-col transition-[transform,visibility] duration-300",
+        showGen ? "translate-x-0" : "translate-x-full invisible"
       )}>
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#1e2841] px-6 py-4 shrink-0">
@@ -2059,13 +2250,13 @@ function LessonsTab() {
               <Sparkles className="h-4 w-4 text-cyan-400" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white">Generate SOC Lesson</h3>
-              <p className="text-[10px] text-slate-500">Agent searches the web and builds a full lesson</p>
+              <h3 id="admin-gen-title" className="text-sm font-bold text-white">Generate SOC Lesson</h3>
+              <p className="text-[10px] text-slate-400">Agent searches the web and builds a full lesson</p>
             </div>
           </div>
-          <button onClick={() => !genLoading && setShowGen(false)}
-            className="rounded-lg p-1.5 text-slate-500 hover:bg-[#1a2035] hover:text-white transition">
-            <X className="h-4 w-4" />
+          <button onClick={() => !genLoading && setShowGen(false)} aria-label="Close"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-[#1a2035] hover:text-white transition">
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
 
@@ -2074,27 +2265,29 @@ function LessonsTab() {
 
           {/* ── Topic ── */}
           <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-2">
+            <label htmlFor="admin-gen-topic" className="block text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-2">
               Topic
             </label>
             <input
+              id="admin-gen-topic"
+              ref={genTopicRef}
               autoFocus
               value={genTopic}
               onChange={e => setGenTopic(e.target.value)}
               onKeyDown={e => e.key === "Enter" && !genLoading && genTopic.trim() && handleGenerate()}
               placeholder="e.g. Kerberoasting, Pass-the-Hash, Log4Shell..."
               disabled={genLoading}
-              className="w-full rounded-xl border border-[#2a3555] bg-[#0d1322] px-4 py-3 text-sm text-slate-200 placeholder:text-slate-600 focus:border-cyan-500/60 focus:outline-none focus:ring-1 focus:ring-cyan-500/20 disabled:opacity-40 transition"
+              className="w-full rounded-xl border border-[#2a3555] bg-[#0d1322] px-4 py-3 text-sm text-slate-200 placeholder:text-slate-400 focus:border-cyan-500/60 focus:outline-none focus:ring-1 focus:ring-cyan-500/20 disabled:opacity-40 transition"
             />
-            <p className="mt-1 text-[10px] text-slate-600">Press Enter to generate instantly</p>
+            <p className="mt-1 text-[10px] text-slate-400">Press Enter to generate instantly</p>
           </div>
 
           {/* ── Level ── */}
           <div>
-            <label className="block text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Level</label>
-            <div className="grid grid-cols-4 gap-1.5">
+            <p id="admin-gen-level" className="block text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-2">Level</p>
+            <div className="grid grid-cols-4 gap-1.5" role="group" aria-labelledby="admin-gen-level">
               {DIFF_OPTIONS.map(d => (
-                <button key={d} onClick={() => setGenDiff(d)} disabled={genLoading}
+                <button key={d} onClick={() => setGenDiff(d)} disabled={genLoading} aria-pressed={genDiff === d}
                   className={cn(
                     "rounded-lg py-2 text-[11px] font-semibold capitalize transition",
                     genDiff === d
@@ -2110,7 +2303,7 @@ function LessonsTab() {
           {/* ── What the agent does ── */}
           {!genLoading && !genPartialSections.length && (
             <div className="rounded-xl border border-[#1e2841] bg-[#0d1322] p-4 space-y-2.5">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">What happens when you generate</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">What happens when you generate</p>
               {[
                 { icon: "🔍", text: "Agent searches 5+ web sources on the topic" },
                 { icon: "🧠", text: "Maps MITRE ATT&CK techniques and threat actors" },
@@ -2118,7 +2311,7 @@ function LessonsTab() {
                 { icon: "📝", text: "Creates 4 scenario-based quiz questions" },
               ].map((item, i) => (
                 <div key={i} className="flex items-center gap-2.5 text-[12px] text-slate-400">
-                  <span className="text-base">{item.icon}</span>
+                  <span className="text-base" aria-hidden="true">{item.icon}</span>
                   <span>{item.text}</span>
                 </div>
               ))}
@@ -2129,8 +2322,8 @@ function LessonsTab() {
           {genLoading && (
             <div className="space-y-3">
               {/* Status */}
-              <div className="flex items-center gap-2.5 text-[12px] text-cyan-300">
-                <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+              <div role="status" className="flex items-center gap-2.5 text-[12px] text-cyan-300">
+                <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" aria-hidden="true" />
                 <span className="truncate">{genStatus || "Starting..."}</span>
               </div>
 
@@ -2142,7 +2335,7 @@ function LessonsTab() {
                     style={{ width: `${Math.min(100, (genPartialSections.length / TOTAL_SECTIONS) * 100)}%` }}
                   />
                 </div>
-                <div className="mt-1 flex justify-between text-[10px] text-slate-600">
+                <div className="mt-1 flex justify-between text-[10px] text-slate-400">
                   <span>{genOutlineTitle ? genOutlineTitle.slice(0, 35) + (genOutlineTitle.length > 35 ? "..." : "") : "Building outline..."}</span>
                   <span>{genPartialSections.length}/{TOTAL_SECTIONS}</span>
                 </div>
@@ -2156,7 +2349,7 @@ function LessonsTab() {
                       <Check className="h-3 w-3 text-emerald-400 shrink-0" />
                       <span className="text-[11px] font-semibold text-emerald-300 truncate">{s.heading}</span>
                     </div>
-                    <p className="mt-0.5 text-[10px] text-slate-500 line-clamp-1 pl-4">
+                    <p className="mt-0.5 text-[10px] text-slate-400 line-clamp-1 pl-4">
                       {s.content.slice(0, 90)}...
                     </p>
                   </div>
@@ -2174,7 +2367,7 @@ function LessonsTab() {
 
           {/* Error */}
           {genError && (
-            <div className="flex items-start gap-2 rounded-xl border border-rose-500/25 bg-rose-500/8 px-4 py-3 text-[12px] text-rose-300">
+            <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-500/25 bg-rose-500/8 px-4 py-3 text-[12px] text-rose-300">
               <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
               <span>{genError}</span>
             </div>
@@ -2194,7 +2387,7 @@ function LessonsTab() {
             }
           </button>
           {!genLoading && (
-            <p className="mt-2 text-center text-[10px] text-slate-600">
+            <p className="mt-2 text-center text-[10px] text-slate-400">
               8 sections with code examples + quiz questions
             </p>
           )}
@@ -2215,7 +2408,7 @@ function LessonsTab() {
           onClose={() => setEditLesson(null)}
           onSave={(updated) => {
             const next = lessons.map(l => l.id === updated.id ? updated : l);
-            persist(next);
+            persist(next, updated);
             setEditLesson(null);
           }}
         />
@@ -2226,8 +2419,9 @@ function LessonsTab() {
 
 // --------- Lesson card ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-function LessonCard({ lesson, onPreview, onEdit, onDelete }: {
+function LessonCard({ lesson, loading, onPreview, onEdit, onDelete }: {
   lesson: SyllabusLesson;
+  loading?: boolean;
   onPreview: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -2241,17 +2435,18 @@ function LessonCard({ lesson, onPreview, onEdit, onDelete }: {
         <div className="flex items-center gap-1.5 mb-2.5 flex-wrap">
           <span className={cn("rounded px-2 py-0.5 text-[10px] font-semibold", dc.cls)}>{dc.label}</span>
           {lesson.researchUsed && (
-            <span className="rounded border border-emerald-500/25 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase text-emerald-400">✦ Researched</span>
+            <span className="rounded border border-emerald-500/25 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase text-emerald-400"><span aria-hidden="true">✦</span> Researched</span>
           )}
         </div>
         <p className="text-sm font-bold text-white group-hover:text-cyan-300 transition line-clamp-2 leading-snug mb-2">{lesson.title}</p>
-        <p className="text-[10px] text-slate-500 line-clamp-2 leading-relaxed">{lesson.topic}</p>
+        <p className="text-[10px] text-slate-400 line-clamp-2 leading-relaxed">{lesson.topic}</p>
       </div>
       <div className="px-4 py-3 border-t border-[#1e2841] flex items-center justify-between">
-        <div className="flex items-center gap-3 text-[10px] text-slate-500">
+        <div className="flex items-center gap-3 text-[10px] text-slate-400">
           <span>~{lesson.estimatedMinutes}m</span>
           <span className="text-amber-400 font-mono">+{lesson.xp} XP</span>
-          <span>{lesson.sections.length} sec</span>
+          <span>{lesson.stub ? lesson.sectionCount ?? 0 : lesson.sections.length} sec</span>
+          {loading && <span className="text-cyan-400">Loading…</span>}
         </div>
         <div className="flex items-center gap-1">
           <button onClick={onEdit}
@@ -2262,8 +2457,8 @@ function LessonCard({ lesson, onPreview, onEdit, onDelete }: {
             className="flex items-center gap-1 rounded border border-[#2a3555] px-2.5 py-1 text-[10px] font-semibold text-slate-400 hover:border-cyan-500/30 hover:text-cyan-400 transition">
             <Eye className="h-3 w-3" />Preview
           </button>
-          <button onClick={onDelete} className="rounded p-1.5 text-slate-600 hover:bg-rose-500/10 hover:text-rose-400 transition">
-            <Trash2 className="h-3.5 w-3.5" />
+          <button onClick={onDelete} aria-label={`Delete ${lesson.title}`} className="rounded p-1.5 text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition">
+            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -2280,52 +2475,55 @@ function LessonPreviewModal({ lesson, onClose, onDelete }: {
 
 }) {
   const [openSection, setOpenSection] = useState<number|null>(0);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  useFocusTrap(true, dialogRef, { onEscape: onClose });
 
   return (
     <>
       <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="fixed inset-4 md:inset-x-[10%] md:inset-y-[5%] z-50 flex flex-col rounded-xl border border-[#2a3555] bg-[#0b0f1e] shadow-2xl overflow-hidden">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className="fixed inset-4 md:inset-x-[10%] md:inset-y-[5%] z-50 flex flex-col rounded-xl border border-[#2a3555] bg-[#0b0f1e] shadow-2xl overflow-hidden">
         <div className="flex items-start justify-between border-b border-[#2a3555] px-6 py-5 shrink-0">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2 flex-wrap">
               <DiffBadge d={lesson.difficulty} />
               {lesson.researchUsed && (
-                <span className="rounded border border-emerald-500/25 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase text-emerald-400">נ"¬ Web Researched</span>
+                <span className="rounded border border-emerald-500/25 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase text-emerald-400"><span aria-hidden="true">🔬</span> Web Researched</span>
               )}
-              <span className="text-[10px] text-slate-500">~{lesson.estimatedMinutes}m · +{lesson.xp} XP · {lesson.sections.length} sections</span>
+              <span className="text-[10px] text-slate-400">~{lesson.estimatedMinutes}m · +{lesson.xp} XP · {lesson.sections.length} sections</span>
             </div>
-            <h2 className="text-lg font-bold text-white truncate">{lesson.title}</h2>
-            <p className="text-[11px] text-slate-500 mt-0.5">{lesson.topic}</p>
+            <h2 id={titleId} className="text-lg font-bold text-white truncate">{lesson.title}</h2>
+            <p className="text-[11px] text-slate-400 mt-0.5">{lesson.topic}</p>
           </div>
           <div className="flex items-center gap-2 ml-4 shrink-0">
             <button onClick={onDelete}
               className="flex items-center gap-1.5 rounded border border-rose-500/25 px-3 py-1.5 text-[11px] text-rose-400 hover:bg-rose-500/10 transition">
               <Trash2 className="h-3.5 w-3.5" />Delete
             </button>
-            <button onClick={onClose} className="rounded p-1.5 text-slate-400 hover:bg-[#1a2035] hover:text-white transition">
-              <X className="h-5 w-5" />
+            <button onClick={onClose} aria-label="Close" className="rounded p-1.5 text-slate-400 hover:bg-[#1a2035] hover:text-white transition">
+              <X className="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto">
           <div className="px-6 py-5 border-b border-[#1e2841]">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-3">Introduction</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-3">Introduction</p>
             <p className="text-[13px] text-slate-300 leading-relaxed whitespace-pre-wrap">{lesson.intro}</p>
           </div>
 
           <div className="border-b border-[#1e2841]">
             <div className="px-6 py-3 border-b border-[#1e2841]">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Sections ({lesson.sections.length})</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Sections ({lesson.sections.length})</p>
             </div>
             {lesson.sections.map((sec, i) => (
               <div key={i} className={cn("border-b border-[#1e2841] last:border-0 transition", openSection === i && "bg-[#080c15]")}>
-                <button onClick={() => setOpenSection(openSection === i ? null : i)}
+                <button onClick={() => setOpenSection(openSection === i ? null : i)} aria-expanded={openSection === i}
                   className="flex w-full items-center gap-3 px-6 py-3.5 text-left hover:bg-[#0f1728] transition">
-                  <ChevronRight className={cn("h-3.5 w-3.5 text-slate-500 transition-transform shrink-0", openSection === i && "rotate-90")} />
-                  <span className="font-mono text-[10px] text-slate-600 w-4 shrink-0">{i + 1}</span>
+                  <ChevronRight aria-hidden="true" className={cn("h-3.5 w-3.5 text-slate-400 transition-transform shrink-0", openSection === i && "rotate-90")} />
+                  <span className="font-mono text-[10px] text-slate-400 w-4 shrink-0">{i + 1}</span>
                   <span className="text-[13px] font-semibold text-slate-200 flex-1">{sec.heading}</span>
-                  <span className="text-[10px] text-slate-600">{sec.content.split(" ").length}w</span>
+                  <span className="text-[10px] text-slate-400">{sec.content.split(" ").length}w</span>
                 </button>
                 {openSection === i && (
                   <div className="border-t border-[#1e2841] px-6 pb-5 pt-4 space-y-3">
@@ -2383,6 +2581,7 @@ function LessonEditorModal({ lesson, onClose, onSave }: {
     setOpenSec(Math.max(0, i - 1));
   }
 
+  /* eslint-disable @typescript-eslint/no-unused-vars -- Lesson takeaways/quiz EDITOR helpers: implemented but the UI is not yet wired (TABS below has only overview/sections). Kept intact for the pending feature rather than deleted. */
   // Takeaway helpers
   function updateTakeaway(i: number, val: string) {
     setDraft(d => { const t = [...d.keyTakeaways]; t[i] = val; return { ...d, keyTakeaways: t }; });
@@ -2423,26 +2622,31 @@ function LessonEditorModal({ lesson, onClose, onSave }: {
     }));
   }
   function removeQuizQ(i: number) { setDraft(d => ({ ...d, quiz: (d.quiz ?? []).filter((_, idx) => idx !== i) })); }
+  /* eslint-enable @typescript-eslint/no-unused-vars */
 
-  const inputCls = "w-full rounded-lg border border-[#2a3555] bg-[#070b14] px-3 py-2 text-[13px] text-white placeholder-slate-600 focus:border-cyan-500/60 focus:outline-none resize-none";
+  const inputCls = "w-full rounded-lg border border-[#2a3555] bg-[#070b14] px-3 py-2 text-[13px] text-white placeholder-slate-500 focus:border-cyan-500/60 focus:outline-none resize-none";
   const TABS: { id: "overview"|"sections"; label: string }[] = [
     { id: "overview",   label: "Overview" },
     { id: "sections",   label: `Sections (${draft.sections.length})` },
   ];
 
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const uid = useId();
+  useFocusTrap(true, dialogRef, { onEscape: onClose });
+
   return (
     <>
       <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm" onClick={onClose} />
-      <div className="fixed inset-4 md:inset-x-[6%] md:inset-y-[3%] z-50 flex flex-col rounded-xl border border-[#2a3555] bg-[#0b0f1e] shadow-2xl overflow-hidden">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={`${uid}-title`} tabIndex={-1} className="fixed inset-4 md:inset-x-[6%] md:inset-y-[3%] z-50 flex flex-col rounded-xl border border-[#2a3555] bg-[#0b0f1e] shadow-2xl overflow-hidden">
 
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#2a3555] px-6 py-4 shrink-0">
           <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/15 text-violet-400">
-              <Edit2 className="h-4 w-4" />
+              <Edit2 className="h-4 w-4" aria-hidden="true" />
             </div>
-            <div>
-              <p className="text-[11px] text-slate-500 uppercase tracking-widest font-semibold">Editing Lesson</p>
+            <div id={`${uid}-title`}>
+              <p className="text-[11px] text-slate-400 uppercase tracking-widest font-semibold">Editing Lesson</p>
               <p className="text-sm font-bold text-white truncate max-w-[500px]">{draft.title}</p>
             </div>
           </div>
@@ -2459,11 +2663,11 @@ function LessonEditorModal({ lesson, onClose, onSave }: {
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-[#2a3555] shrink-0 px-6">
+        <div role="tablist" aria-label="Lesson editor sections" className="flex border-b border-[#2a3555] shrink-0 px-6">
           {TABS.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
+            <button key={t.id} onClick={() => setTab(t.id)} role="tab" aria-selected={tab === t.id}
               className={cn("px-4 py-3 text-[12px] font-semibold border-b-2 -mb-px transition",
-                tab === t.id ? "border-cyan-500 text-cyan-400" : "border-transparent text-slate-500 hover:text-slate-300")}>
+                tab === t.id ? "border-cyan-500 text-cyan-400" : "border-transparent text-slate-400 hover:text-slate-300")}>
               {t.label}
             </button>
           ))}
@@ -2476,21 +2680,21 @@ function LessonEditorModal({ lesson, onClose, onSave }: {
           {tab === "overview" && (
             <div className="space-y-4 max-w-2xl">
               <div>
-                <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Title</label>
-                <input className={inputCls} value={draft.title} onChange={e => setField("title", e.target.value)} />
+                <label htmlFor={`${uid}-ed-title`} className="block text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Title</label>
+                <input id={`${uid}-ed-title`} className={inputCls} value={draft.title} onChange={e => setField("title", e.target.value)} />
               </div>
               <div>
-                <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Topic</label>
-                <input className={inputCls} value={draft.topic} onChange={e => setField("topic", e.target.value)} />
+                <label htmlFor={`${uid}-ed-topic`} className="block text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Topic</label>
+                <input id={`${uid}-ed-topic`} className={inputCls} value={draft.topic} onChange={e => setField("topic", e.target.value)} />
               </div>
               <div className="flex gap-4">
                 <div className="flex-1">
-                  <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Difficulty</label>
-                  <div className="flex gap-2 flex-wrap">
+                  <p id={`${uid}-ed-diff`} className="block text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Difficulty</p>
+                  <div className="flex gap-2 flex-wrap" role="group" aria-labelledby={`${uid}-ed-diff`}>
                     {(["beginner","intermediate","advanced","expert"] as const).map(d => (
-                      <button key={d} onClick={() => setField("difficulty", d)}
+                      <button key={d} onClick={() => setField("difficulty", d)} aria-pressed={draft.difficulty === d}
                         className={cn("rounded-lg border px-3 py-1.5 text-[11px] font-semibold capitalize transition",
-                          draft.difficulty === d ? "border-cyan-500 bg-cyan-500/15 text-cyan-300" : "border-[#2a3555] text-slate-500 hover:border-slate-500")}>
+                          draft.difficulty === d ? "border-cyan-500 bg-cyan-500/15 text-cyan-300" : "border-[#2a3555] text-slate-400 hover:border-slate-500")}>
                         {d}
                       </button>
                     ))}
@@ -2498,21 +2702,21 @@ function LessonEditorModal({ lesson, onClose, onSave }: {
                 </div>
               </div>
               <div>
-                <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">
-                  Introduction <span className="text-slate-600 font-normal normal-case">({draft.intro.length} chars)</span>
+                <label htmlFor={`${uid}-ed-intro`} className="block text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">
+                  Introduction <span className="text-slate-400 font-normal normal-case">({draft.intro.length} chars)</span>
                 </label>
-                <textarea className={cn(inputCls, "min-h-[200px]")} value={draft.intro}
+                <textarea id={`${uid}-ed-intro`} className={cn(inputCls, "min-h-[200px]")} value={draft.intro}
                   onChange={e => setField("intro", e.target.value)} />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">Est. Minutes</label>
-                  <input type="number" className={inputCls} value={draft.estimatedMinutes}
+                  <label htmlFor={`${uid}-ed-min`} className="block text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Est. Minutes</label>
+                  <input id={`${uid}-ed-min`} type="number" className={inputCls} value={draft.estimatedMinutes}
                     onChange={e => setField("estimatedMinutes", Number(e.target.value))} />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">XP</label>
-                  <input type="number" className={inputCls} value={draft.xp}
+                  <label htmlFor={`${uid}-ed-xp`} className="block text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">XP</label>
+                  <input id={`${uid}-ed-xp`} type="number" className={inputCls} value={draft.xp}
                     onChange={e => setField("xp", Number(e.target.value))} />
                 </div>
               </div>
@@ -2525,35 +2729,38 @@ function LessonEditorModal({ lesson, onClose, onSave }: {
               {draft.sections.map((sec, i) => (
                 <div key={i} className="rounded-xl border border-[#2a3555] bg-[#070b14] overflow-hidden">
                   {/* Section header */}
-                  <button onClick={() => setOpenSec(openSec === i ? -1 : i)}
-                    className="flex w-full items-center gap-3 px-4 py-3 hover:bg-[#0d1525] transition">
-                    <ChevronRight className={cn("h-3.5 w-3.5 text-slate-500 transition-transform shrink-0", openSec === i && "rotate-90")} />
-                    <span className="font-mono text-[10px] text-slate-600 w-5 shrink-0">{i + 1}</span>
-                    <span className="text-[13px] font-semibold text-slate-200 flex-1 text-left truncate">{sec.heading || "Untitled"}</span>
-                    <span className="text-[10px] text-slate-600 shrink-0">{sec.content.split(" ").length}w</span>
-                    <button onClick={e => { e.stopPropagation(); removeSection(i); }}
-                      className="rounded p-1 text-slate-600 hover:text-rose-400 hover:bg-rose-500/10 transition ml-1">
-                      <Trash2 className="h-3.5 w-3.5" />
+                  {/* Expand toggle and delete are siblings (a button inside a button is invalid). */}
+                  <div className="flex w-full items-center gap-3 px-4 py-3 hover:bg-[#0d1525] transition">
+                    <button onClick={() => setOpenSec(openSec === i ? -1 : i)} aria-expanded={openSec === i}
+                      className="flex min-w-0 flex-1 items-center gap-3">
+                      <ChevronRight aria-hidden="true" className={cn("h-3.5 w-3.5 text-slate-400 transition-transform shrink-0", openSec === i && "rotate-90")} />
+                      <span className="font-mono text-[10px] text-slate-400 w-5 shrink-0">{i + 1}</span>
+                      <span className="text-[13px] font-semibold text-slate-200 flex-1 text-left truncate">{sec.heading || "Untitled"}</span>
+                      <span className="text-[10px] text-slate-400 shrink-0">{sec.content.split(" ").length}w</span>
                     </button>
-                  </button>
+                    <button onClick={e => { e.stopPropagation(); removeSection(i); }} aria-label={`Delete section ${i + 1}`}
+                      className="rounded p-1 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition ml-1">
+                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
+                  </div>
                   {/* Section body */}
                   {openSec === i && (
                     <div className="border-t border-[#2a3555] px-4 pb-4 pt-4 space-y-3">
                       <div>
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Heading</label>
-                        <input className={inputCls} value={sec.heading}
+                        <label htmlFor={`${uid}-sec${i}-heading`} className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Heading</label>
+                        <input id={`${uid}-sec${i}-heading`} className={inputCls} value={sec.heading}
                           onChange={e => updateSection(i, "heading", e.target.value)} />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">
-                          Content <span className="text-slate-600 font-normal normal-case">({sec.content.split(" ").length} words)</span>
+                        <label htmlFor={`${uid}-sec${i}-content`} className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">
+                          Content <span className="text-slate-400 font-normal normal-case">({sec.content.split(" ").length} words)</span>
                         </label>
-                        <textarea className={cn(inputCls, "min-h-[220px] font-mono text-[12px]")} value={sec.content}
+                        <textarea id={`${uid}-sec${i}-content`} className={cn(inputCls, "min-h-[220px] font-mono text-[12px]")} value={sec.content}
                           onChange={e => updateSection(i, "content", e.target.value)} />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Code Example</label>
-                        <textarea className={cn(inputCls, "min-h-[100px] font-mono text-[12px] text-emerald-300")}
+                        <label htmlFor={`${uid}-sec${i}-code`} className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1">Code Example</label>
+                        <textarea id={`${uid}-sec${i}-code`} className={cn(inputCls, "min-h-[100px] font-mono text-[12px] text-emerald-300")}
                           value={sec.codeExample ?? ""} onChange={e => updateSection(i, "codeExample", e.target.value)} />
                       </div>
                     </div>
@@ -2561,7 +2768,7 @@ function LessonEditorModal({ lesson, onClose, onSave }: {
                 </div>
               ))}
               <button onClick={addSection}
-                className="flex items-center gap-2 rounded-xl border border-dashed border-[#2a3555] px-4 py-3 text-[12px] text-slate-500 hover:border-cyan-500/40 hover:text-cyan-400 w-full transition">
+                className="flex items-center gap-2 rounded-xl border border-dashed border-[#2a3555] px-4 py-3 text-[12px] text-slate-400 hover:border-cyan-500/40 hover:text-cyan-400 w-full transition">
                 <Plus className="h-4 w-4" />Add Section
               </button>
             </div>
@@ -2610,16 +2817,22 @@ function IssueRow({ issue }: { issue: ValidationIssue }) {
       className="border-b border-[#1e2841] last:border-0 hover:bg-[#0d1326] transition-colors cursor-pointer"
       onClick={() => setExpanded(v => !v)}
     >
-      <div className="grid grid-cols-[90px_140px_100px_80px_1fr_28px] gap-2 items-center px-4 py-2.5 text-[11px]">
-        <SevBadge sev={issue.severity} />
-        <span className="font-mono text-[10px] text-slate-300 truncate">{issue.event_id}</span>
-        <span className="text-slate-400 truncate">{issue.vendor.slice(0, 22)}</span>
-        <span className="rounded border border-[#2a3555] bg-[#0c1120] px-1.5 py-px text-[9px] text-slate-400 font-mono truncate">{issue.source}</span>
-        <span className="text-slate-300">{issue.message}</span>
-        <ChevronRight className={cn("h-3.5 w-3.5 text-slate-500 shrink-0 transition-transform", expanded && "rotate-90")} />
+      <div role="row" className="grid grid-cols-[90px_140px_100px_80px_1fr_28px] gap-2 items-center px-4 py-2.5 text-[11px]">
+        {/* Keyboard toggle: its click bubbles to the row's onClick (one toggle, not two).
+            `grid` keeps the badge stretched to the column as before. */}
+        <div role="cell" className="grid">
+          <button type="button" aria-expanded={expanded} aria-label={`${SEV_CFG[issue.severity].label}: details for ${issue.event_id}`} className="grid rounded text-left">
+            <SevBadge sev={issue.severity} />
+          </button>
+        </div>
+        <span role="cell" className="font-mono text-[10px] text-slate-300 truncate">{issue.event_id}</span>
+        <span role="cell" className="text-slate-400 truncate">{issue.vendor.slice(0, 22)}</span>
+        <span role="cell" className="rounded border border-[#2a3555] bg-[#0c1120] px-1.5 py-px text-[9px] text-slate-400 font-mono truncate">{issue.source}</span>
+        <span role="cell" className="text-slate-300">{issue.message}</span>
+        <span role="cell" className="flex"><ChevronRight aria-hidden="true" className={cn("h-3.5 w-3.5 text-slate-400 shrink-0 transition-transform", expanded && "rotate-90")} /></span>
       </div>
       {expanded && (
-        <div className="px-4 pb-3 pt-1 bg-[#0a0e1c]">
+        <div role="row"><div role="cell" aria-colspan={6} className="px-4 pb-3 pt-1 bg-[#0a0e1c]">
           <div className="flex flex-wrap gap-2 mb-2">
             <CodeBadge code={issue.code} />
             {issue.field && (
@@ -2627,7 +2840,7 @@ function IssueRow({ issue }: { issue: ValidationIssue }) {
                 field: {issue.field}
               </span>
             )}
-            <span className="text-[10px] text-slate-500">event_type: {issue.event_type}</span>
+            <span className="text-[10px] text-slate-400">event_type: {issue.event_type}</span>
           </div>
           {issue.suggestion && (
             <p className="text-[11px] text-emerald-300/80 mt-1 flex items-start gap-1.5">
@@ -2635,7 +2848,7 @@ function IssueRow({ issue }: { issue: ValidationIssue }) {
               {issue.suggestion}
             </p>
           )}
-        </div>
+        </div></div>
       )}
     </div>
   );
@@ -2653,11 +2866,11 @@ function LogValidatorTab() {
     setError(null);
     try {
       const res = await fetch("/api/admin/validate-logs");
-      if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+      if (!res.ok) throw new Error(`The request failed (HTTP ${res.status}) — please try again.`);
       const data: ValidationReport = await res.json();
       setReport(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(displayError(e, "Something went wrong — please try again."));
     } finally {
       setLoading(false);
     }
@@ -2696,14 +2909,14 @@ function LogValidatorTab() {
           disabled={loading}
           className="flex items-center gap-2 rounded-lg border border-violet-500/40 bg-violet-500/10 px-4 py-2 text-[12px] font-semibold text-violet-300 transition hover:bg-violet-500/20 disabled:opacity-50"
         >
-          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-          {loading ? "Validating--¦" : "Run Validation"}
+          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Play className="h-3.5 w-3.5" aria-hidden="true" />}
+          {loading ? "Validating…" : "Run Validation"}
         </button>
       </div>
 
       {/* Error state */}
       {error && (
-        <div className="mx-6 mt-4 rounded border border-rose-500/25 bg-rose-500/10 p-3 text-[12px] text-rose-300 shrink-0">
+        <div role="alert" className="mx-6 mt-4 rounded border border-rose-500/25 bg-rose-500/10 p-3 text-[12px] text-rose-300 shrink-0">
           <span className="font-semibold">Error:</span> {error}
         </div>
       )}
@@ -2711,11 +2924,11 @@ function LogValidatorTab() {
       {/* Empty / call-to-action state */}
       {!report && !loading && !error && (
         <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center px-8">
-          <ShieldCheck className="h-12 w-12 text-slate-600" />
+          <ShieldCheck className="h-12 w-12 text-slate-400" />
           <div>
             <p className="text-sm font-medium text-slate-300">Validate all platform logs</p>
-            <p className="text-[12px] text-slate-500 mt-1 max-w-sm">
-              Checks field naming conventions for 18 vendor schemas --" CrowdStrike, MDE, Okta, AWS CloudTrail, FortiGate, Palo Alto, and more.
+            <p className="text-[12px] text-slate-400 mt-1 max-w-sm">
+              Checks field naming conventions for 18 vendor schemas — CrowdStrike, MDE, Okta, AWS CloudTrail, FortiGate, Palo Alto, and more.
             </p>
           </div>
           <button
@@ -2734,34 +2947,40 @@ function LogValidatorTab() {
           {/* Summary cards */}
           <div className="grid grid-cols-4 gap-3 px-6 py-4 shrink-0 border-b border-[#1e2841]">
             <div className="rounded-lg border border-[#1e2841] bg-[#0a0e1c] p-3">
-              <div className="text-[10px] text-slate-500 mb-1">Total Events</div>
+              <div className="text-[10px] text-slate-400 mb-1">Total Events</div>
               <div className="text-2xl font-bold text-white">{report.total_events}</div>
               <div className="text-[10px] text-emerald-400 mt-0.5">{report.clean_events} clean</div>
             </div>
             <div className="rounded-lg border border-rose-500/20 bg-rose-500/5 p-3 cursor-pointer hover:bg-rose-500/10 transition"
+              role="button" tabIndex={0} aria-pressed={sevFilter === "error"} aria-label={`Show only errors (${report.summary.errors})`}
+              onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSevFilter(sevFilter === "error" ? "all" : "error"); } }}
               onClick={() => setSevFilter(sevFilter === "error" ? "all" : "error")}>
               <div className="text-[10px] text-rose-400/70 mb-1">Errors</div>
               <div className="text-2xl font-bold text-rose-400">{report.summary.errors}</div>
-              <div className="text-[10px] text-slate-500 mt-0.5">wrong field names</div>
+              <div className="text-[10px] text-slate-400 mt-0.5">wrong field names</div>
             </div>
             <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 cursor-pointer hover:bg-amber-500/10 transition"
+              role="button" tabIndex={0} aria-pressed={sevFilter === "warning"} aria-label={`Show only warnings (${report.summary.warnings})`}
+              onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSevFilter(sevFilter === "warning" ? "all" : "warning"); } }}
               onClick={() => setSevFilter(sevFilter === "warning" ? "all" : "warning")}>
               <div className="text-[10px] text-amber-400/70 mb-1">Warnings</div>
               <div className="text-2xl font-bold text-amber-400">{report.summary.warnings}</div>
-              <div className="text-[10px] text-slate-500 mt-0.5">missing required fields</div>
+              <div className="text-[10px] text-slate-400 mt-0.5">missing required fields</div>
             </div>
             <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 p-3 cursor-pointer hover:bg-sky-500/10 transition"
+              role="button" tabIndex={0} aria-pressed={sevFilter === "info"} aria-label={`Show only info hints (${report.summary.infos})`}
+              onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSevFilter(sevFilter === "info" ? "all" : "info"); } }}
               onClick={() => setSevFilter(sevFilter === "info" ? "all" : "info")}>
               <div className="text-[10px] text-sky-400/70 mb-1">Info</div>
               <div className="text-2xl font-bold text-sky-400">{report.summary.infos}</div>
-              <div className="text-[10px] text-slate-500 mt-0.5">coverage hints</div>
+              <div className="text-[10px] text-slate-400 mt-0.5">coverage hints</div>
             </div>
           </div>
 
           {/* Vendor breakdown */}
           <div className="px-6 py-3 border-b border-[#1e2841] shrink-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">By Vendor:</span>
+              <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">By Vendor:</span>
               {Object.entries(report.by_vendor)
                 .filter(([, v]) => v.issues > 0)
                 .sort((a, b) => b[1].error_count - a[1].error_count)
@@ -2782,19 +3001,21 @@ function LogValidatorTab() {
           {/* Filters */}
           <div className="flex items-center gap-3 px-6 py-2.5 border-b border-[#1e2841] shrink-0">
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
               <input
+                aria-label="Search issues by event, vendor or code"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Search event, vendor, code--¦"
-                className="h-8 w-64 rounded border border-[#2a3555] bg-[#0a0e1c] pl-8 pr-3 text-[11px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-violet-500/50"
+                placeholder="Search event, vendor, code…"
+                className="h-8 w-64 rounded border border-[#2a3555] bg-[#0a0e1c] pl-8 pr-3 text-[11px] text-slate-200 placeholder:text-slate-400 focus:outline-none focus:border-violet-500/50"
               />
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1" role="group" aria-label="Filter by severity">
               {(["all", "error", "warning", "info"] as const).map(s => (
                 <button
                   key={s}
                   onClick={() => setSevFilter(s)}
+                  aria-pressed={sevFilter === s}
                   className={cn(
                     "rounded px-3 py-1 text-[11px] font-medium transition",
                     sevFilter === s
@@ -2807,7 +3028,7 @@ function LogValidatorTab() {
               ))}
             </div>
             <div className="ml-auto flex items-center gap-2">
-              <span className="text-[11px] text-slate-500">{filteredIssues.length} issue{filteredIssues.length !== 1 ? "s" : ""}</span>
+              <span className="text-[11px] text-slate-400">{filteredIssues.length} issue{filteredIssues.length !== 1 ? "s" : ""}</span>
               <button
                 onClick={runValidation}
                 className="flex items-center gap-1 rounded border border-[#2a3555] bg-[#0a0e1c] px-2.5 py-1 text-[10px] text-slate-400 hover:text-slate-200 transition"
@@ -2815,26 +3036,26 @@ function LogValidatorTab() {
                 <RefreshCw className="h-3 w-3" />
                 Re-run
               </button>
-              <span className="text-[10px] text-slate-600">
+              <span className="text-[10px] text-slate-400">
                 Generated {new Date(report.generated_at).toLocaleTimeString()}
               </span>
             </div>
           </div>
 
           {/* Issue list */}
-          <div className="flex-1 min-h-0 overflow-y-auto">
+          <div role="table" aria-label="Validation issues" className="flex-1 min-h-0 overflow-y-auto">
             {/* Table header */}
-            <div className="grid grid-cols-[90px_140px_100px_80px_1fr_28px] gap-2 px-4 py-2 border-b border-[#1e2841] bg-[#080c14] sticky top-0 z-10">
+            <div role="row" className="grid grid-cols-[90px_140px_100px_80px_1fr_28px] gap-2 px-4 py-2 border-b border-[#1e2841] bg-[#080c14] sticky top-0 z-10">
               {["Severity", "Event ID", "Vendor", "Source", "Message", ""].map(h => (
-                <span key={h} className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{h}</span>
+                <span key={h} role="columnheader" className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{h || <span className="sr-only">Details</span>}</span>
               ))}
             </div>
             {filteredIssues.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <ShieldCheck className="h-8 w-8 text-emerald-400 mb-3" />
+              <div role="row"><div role="cell" className="flex flex-col items-center justify-center py-16 text-center">
+                <ShieldCheck className="h-8 w-8 text-emerald-400 mb-3" aria-hidden="true" />
                 <p className="text-sm font-medium text-emerald-300">No issues found</p>
-                <p className="text-[11px] text-slate-500 mt-1">All events match their vendor schemas</p>
-              </div>
+                <p className="text-[11px] text-slate-400 mt-1">All events match their vendor schemas</p>
+              </div></div>
             ) : (
               filteredIssues.map(issue => <IssueRow key={`${issue.event_id}-${issue.code}`} issue={issue} />)
             )}
@@ -2870,10 +3091,14 @@ export default function AdminPage() {
       <div className="flex flex-col flex-1 min-h-0 px-6 py-4 gap-4 max-w-[1600px] mx-auto w-full">
 
         {/* Tab bar */}
-        <div className="flex items-center gap-1 rounded-lg border border-[#1e2841] bg-[#0c1120] p-1 shrink-0 self-start">
+        <div role="tablist" aria-label="Admin sections" className="flex items-center gap-1 rounded-lg border border-[#1e2841] bg-[#0c1120] p-1 shrink-0 self-start">
           {TABS.map(t => (
             <button
               key={t.id}
+              id={`admin-tab-${t.id}`}
+              role="tab"
+              aria-selected={tab===t.id}
+              aria-controls="admin-tabpanel"
               onClick={()=>setTab(t.id)}
               className={cn(
                 "flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-all",
@@ -2882,14 +3107,14 @@ export default function AdminPage() {
                   : "text-slate-400 hover:text-slate-200 hover:bg-[#0f1423]"
               )}
             >
-              <t.icon className={cn("h-4 w-4", tab===t.id?"text-violet-400":"text-slate-500")} />
+              <t.icon aria-hidden="true" className={cn("h-4 w-4", tab===t.id?"text-violet-400":"text-slate-400")} />
               {t.label}
             </button>
           ))}
         </div>
 
         {/* Tab content */}
-        <div className="flex-1 min-h-0 overflow-hidden rounded-lg border border-[#1e2841] bg-[#0c1120]">
+        <div id="admin-tabpanel" role="tabpanel" aria-labelledby={`admin-tab-${tab}`} className="flex-1 min-h-0 overflow-hidden rounded-lg border border-[#1e2841] bg-[#0c1120]">
           {tab==="overview"      && <OverviewTab />}
           {tab==="users"         && <UsersTab />}
           {tab==="scenarios"     && <ScenariosTab />}

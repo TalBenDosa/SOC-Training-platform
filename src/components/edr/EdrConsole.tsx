@@ -1,0 +1,632 @@
+"use client";
+/**
+ * Standalone EDR console — investigate a host the way an analyst does on
+ * CrowdStrike Falcon / Defender for Endpoint: walk the process ANCESTRY tree,
+ * read command lines, look up hashes, then decide (isolate the payload, or
+ * resolve as benign). Data is self-contained (src/lib/edr/investigations.ts);
+ * "Look up hash" resolves through the same threat-intel logic as the TI drawer
+ * (src/lib/edr/iocIntel.ts — real hashDatabase samples first, then the scenario's
+ * IOC truth table), so the two surfaces never disagree on one hash. The RTR shell
+ * is src/lib/edr/rtr.ts over the host's normal background (hostBaseline.ts).
+ */
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Topbar } from "@/components/nav/Topbar";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import {
+  Cpu, ShieldAlert, ShieldCheck, ChevronRight, ChevronDown, FileSearch, Ban, CheckCircle2,
+  XCircle, Clock, Network, FileWarning, Fingerprint, MonitorX, Terminal, AlertTriangle,
+} from "lucide-react";
+import { buildProcessTree, incidentScore, type EdrInvestigation, type EdrProcess } from "@/lib/edr/investigations";
+import { hashIntel, hashVerdictLabel } from "@/lib/edr/iocIntel";
+import { runRtrCommand } from "@/lib/edr/rtr";
+import { isContained, setContained } from "@/lib/edr/containment";
+import type { TeamIsolation } from "@/lib/team/useTeamIsolation";
+
+const SEV_STYLE: Record<string, string> = {
+  critical: "border-severity-critical/40 bg-severity-critical/10 text-severity-critical",
+  high: "border-severity-high/40 bg-severity-high/10 text-severity-high",
+  medium: "border-neon-amber/40 bg-neon-amber/10 text-neon-amber",
+  low: "border-cyber-500/40 bg-cyber-500/10 text-cyber-300",
+};
+
+/**
+ * The EDR console for the whole set of open incidents. With more than one, it
+ * opens on an Incidents management page (pick which to investigate); with one it
+ * goes straight into that case. `initialCaseId` opens a specific incident directly
+ * (the scenario "Investigate in EDR" pivot). `embedded` drops the page chrome
+ * (Topbar + page container) so it sits inside a panel/drawer.
+ */
+export function EdrConsole({ investigations, initialCaseId, embedded = false, teamIsolation = null }: {
+  investigations: EdrInvestigation[];
+  initialCaseId?: string;
+  embedded?: boolean;
+  /** Team-SOC session: isolation is the TEAM's state, recorded in the session log and scored. */
+  teamIsolation?: TeamIsolation | null;
+}) {
+  const [caseId, setCaseId] = useState<string | null>(
+    initialCaseId ?? (investigations.length === 1 ? investigations[0].id : null),
+  );
+  if (investigations.length === 0) return null;
+  // More than one incident and none opened yet → the Incidents management page.
+  if (caseId === null) {
+    return <IncidentsList investigations={investigations} onOpen={setCaseId} embedded={embedded} />;
+  }
+  const inv = investigations.find(i => i.id === caseId) ?? investigations[0];
+  return (
+    <CaseConsole
+      key={inv.id}
+      inv={inv}
+      embedded={embedded}
+      teamIsolation={teamIsolation}
+      onBack={investigations.length > 1 ? () => setCaseId(null) : undefined}
+    />
+  );
+}
+
+/**
+ * The Incidents management page — one row per open incident, each isolated as its
+ * own case (SPEC-edr-scenario-integration §6.1). Score/band/techniques/detection
+ * count are derived from the incident's own detections. Clicking one opens its
+ * full investigation.
+ */
+function IncidentsList({ investigations, onOpen, embedded }: {
+  investigations: EdrInvestigation[];
+  onOpen: (id: string) => void;
+  embedded?: boolean;
+}) {
+  return (
+    <div>
+      {!embedded && <Topbar title="EDR Console" subtitle="Incidents — pick one to investigate" />}
+      <div className={embedded ? "space-y-3" : "container mx-auto max-w-[1000px] px-6 py-6 space-y-3"}>
+        <div className="flex items-center gap-2">
+          <ShieldAlert className="h-4 w-4 text-cyber-300" />
+          <h2 className="text-sm font-bold text-white">Incidents</h2>
+          <span className="rounded-full border border-border bg-bg-elevated px-2 py-0.5 text-[10px] text-slate-400">{investigations.length} open</span>
+        </div>
+        {investigations.map(inv => {
+          const { score, band, techniques } = incidentScore(inv.detections);
+          const bandStyle = band === "Critical" ? "text-severity-critical" : band === "High" ? "text-severity-high" : band === "Medium" ? "text-neon-amber" : "text-neon-green";
+          return (
+            <button key={inv.id} onClick={() => onOpen(inv.id)}
+              className="flex w-full items-center gap-4 rounded-xl border border-border bg-bg-elevated px-4 py-3 text-left transition hover:border-cyber-500/40">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-bg"><Cpu className="h-5 w-5 text-cyber-300" /></span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-white">{inv.host.name} <span className="ml-1 font-mono text-[11px] font-normal text-slate-400">{inv.host.ip}</span></p>
+                <p className="truncate text-[11px] text-slate-400">{inv.summary}</p>
+                {techniques.length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {techniques.slice(0, 5).map(t => (
+                      <span key={t} className="rounded border border-neon-purple/30 bg-neon-purple/10 px-1.5 py-0.5 font-mono text-[9px] font-bold text-neon-purple">{t}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="shrink-0 text-center">
+                <p className={`font-mono text-xl font-bold leading-none ${bandStyle}`}>{score}</p>
+                <p className="text-[9px] uppercase tracking-wider text-slate-500">{band}</p>
+              </div>
+              <div className="shrink-0 text-center">
+                <p className="text-sm font-bold text-white">{inv.detections.length}</p>
+                <p className="text-[9px] uppercase tracking-wider text-slate-500">detections</p>
+              </div>
+              <ChevronRight className="h-4 w-4 shrink-0 text-slate-500" />
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null }: { inv: EdrInvestigation; onBack?: () => void; embedded?: boolean; teamIsolation?: TeamIsolation | null }) {
+  const { roots, childrenOf } = useMemo(() => buildProcessTree(inv.processes), [inv]);
+  const detByPid = useMemo(() => {
+    const m = new Map<number, typeof inv.detections>();
+    for (const d of inv.detections) { const l = m.get(d.pid) ?? []; l.push(d); m.set(d.pid, l); }
+    return m;
+  }, [inv]);
+
+  const [selPid, setSelPid] = useState<number | null>(inv.detections[0]?.pid ?? roots[0]?.pid ?? null);
+  const [expanded, setExpanded] = useState<Set<number>>(() => new Set(inv.processes.map(p => p.pid))); // all open
+  // Isolation is shared with the SOC Dashboard: containing here marks the host
+  // "Contained" there too. Seed from the store so a host isolated on either
+  // surface stays isolated on both.
+  // In a Team-SOC session the isolation is the TEAM's (0082): it is read from and
+  // written to the session log, so teammates see it and the after-action report
+  // judges whether isolating this host was right.
+  const [localIsolated, setLocalIsolated] = useState(() => !teamIsolation && isContained(inv.host.name));
+  const isolated = teamIsolation ? !!teamIsolation.state.get(inv.host.name.toLowerCase())?.isolated : localIsolated;
+  const [isoBusy, setIsoBusy] = useState(false);
+  const [isoErr, setIsoErr] = useState<string | null>(null);
+  const canContain = !teamIsolation || teamIsolation.canContain;
+  const isolate = (next: boolean) => {
+    if (teamIsolation) {
+      if (!canContain) { setIsoErr("Isolation is Tier-2 / Tier-3's call. Escalate this host from the feed with what you found here."); return; }
+      if (isoBusy) return;
+      setIsoBusy(true); setIsoErr(null);
+      void teamIsolation.set(inv.host.name, next, inv.title).then(err => { setIsoBusy(false); setIsoErr(err); });
+      return;
+    }
+    setLocalIsolated(next); setContained(inv.host.name, next);
+  };
+  const [hashResult, setHashResult] = useState<Record<number, { label: string; bad: boolean }>>({});
+  const [decided, setDecided] = useState<null | { correct: boolean }>(null);
+  // a11y: the decision buttons unmount when the verdict shows, so move focus to
+  // the result heading (otherwise focus drops to <body> and nothing is announced).
+  const resultRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { if (decided) resultRef.current?.focus(); }, [decided]);
+  const [tab, setTab] = useState<"overview" | "network" | "files">("overview");
+  const [rtr, setRtr] = useState<{ cmd: string; out: string }[]>([]);
+  const [rtrIn, setRtrIn] = useState("");
+  // E-06: RTR takes real (simulated) action against host state. A process the EDR
+  // already killed/quarantined in this case is gone from the host from the start;
+  // `kill` removes a live one; `contain` cuts the network. `ps`/`netstat` are derived
+  // from this state so the shell can never contradict a timeline that says the payload
+  // was already quarantined. Seed from the case's prevention detections.
+  const seedKilled = (i: EdrInvestigation) => {
+    const s = new Set<number>();
+    for (const d of i.detections)
+      if (/kill|quarantine|prevention/i.test(d.technique) || /quarantin|killed|terminated|prevention/i.test(d.name)) s.add(d.pid);
+    return s;
+  };
+  const [killed, setKilled] = useState<Set<number>>(() => seedKilled(inv));
+  // Reset the shell + killed state when the analyst switches to another case.
+  useEffect(() => { setRtr([]); setKilled(seedKilled(inv)); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [inv.id]);
+  // Browsers often refuse window.close() on a tab they didn't script-open (this
+  // one is opened via a normal <a target="_blank">), and the refusal is SILENT.
+  // Track it so we can escalate the "switch back manually" instruction instead of
+  // leaving the student clicking a dead button.
+  const [closeBlocked, setCloseBlocked] = useState(false);
+
+  const sel = inv.processes.find(p => p.pid === selPid) ?? null;
+  const toggle = (pid: number) => setExpanded(s => { const n = new Set(s); n.has(pid) ? n.delete(pid) : n.add(pid); return n; });
+
+  // Incident Workbench roll-up — the "full picture" a Falcon incident gives:
+  // one score, the ATT&CK techniques seen on this host, and the affected
+  // entities, all derived from the detections already on the investigation.
+  // #23: derived from THIS investigation's detections (shared with the Incidents list)
+  // — the band is never lower than the worst detection, so a case whose detections are
+  // Critical and mapped to T1059.001 / T1003.001 reads that way, not "40 · High · none".
+  const workbench = useMemo(() => incidentScore(inv.detections), [inv]);
+  const bandStyle = workbench.band === "Critical" ? "text-severity-critical" : workbench.band === "High" ? "text-severity-high" : workbench.band === "Medium" ? "text-neon-amber" : "text-neon-green";
+
+  // RTR-lite: a simulated Real Time Response shell (src/lib/edr/rtr.ts) answering from
+  // the case's data over the host's normal background, with live kill/contain state.
+  function runRtr(raw: string) {
+    const res = runRtrCommand(raw, { inv, killed, isolated });
+    if (!res) return;
+    if (res.clear) { setRtr([]); return; }
+    if (res.kill != null) {
+      setKilled(s => { const n = new Set(s); n.add(res.kill!); return n; });
+      const proc = inv.processes.find(p => p.pid === res.kill);
+      void teamIsolation?.recordRtr?.({ host: inv.host.name, action: "kill", pid: res.kill, name: proc?.name });
+    } else if (/^\s*get\s+\S/i.test(raw)) {
+      void teamIsolation?.recordRtr?.({ host: inv.host.name, action: "get", path: raw.trim().replace(/^get\s+/i, "").slice(0, 260) });
+    }
+    if (res.contain) isolate(true);
+    setRtr(r => [...r, { cmd: raw.trim(), out: res.out }]);
+  }
+
+  function decide(choice: number /* pid, or -1 for benign */) {
+    // A student who flags ANY process the console itself confirms malicious — its
+    // hash resolves malicious under "Look up hash" (the same hashIntel call) — has correctly
+    // identified a malicious process, so accept it, even when a *different*
+    // process is the designated "impact" the debrief highlights (e.g. flagging the
+    // Cobalt Strike beacon instead of the LockBit encryptor in the ransomware
+    // case). Penalizing a flag the tooling itself calls malicious teaches students
+    // to distrust the hash lookup — the exact negative-learning we're removing.
+    // Benign resolution (-1) stays correct only when the case truly has no payload;
+    // in a benign case, flagging any process is still wrong.
+    const correct = (() => {
+      if (choice === -1) return inv.answer.pid === -1;
+      if (inv.answer.pid < 0) return false;
+      if (choice === inv.answer.pid) return true;
+      const p = inv.processes.find(x => x.pid === choice);
+      if (!p?.sha256) return false;
+      const flagged = p.verdict === "malicious" || p.verdict === "suspicious" || !!detByPid.get(p.pid)?.length;
+      return hashIntel(p.sha256, { truth: inv.iocTruth, process: { signed: p.signed, flagged } }).verdict === "malicious";
+    })();
+    setDecided({ correct });
+    // Flag that the student investigated on the endpoint, so the Dashboard can
+    // remind them to actually FILE the incident report — investigating without
+    // writing it up is the classic half-finished ticket. localStorage so the
+    // write fires a `storage` event in the Dashboard tab.
+    try {
+      localStorage.setItem("soc_edr_investigated", "1");
+      window.dispatchEvent(new CustomEvent("soc:edr-investigated"));
+    } catch { /* ignore */ }
+  }
+
+  return (
+    <div>
+      {!embedded && <Topbar title="EDR Console" subtitle="Investigate the endpoint — walk the tree, decide" />}
+      <div className={embedded ? "space-y-4" : "container mx-auto max-w-[1200px] px-6 py-6 space-y-4"}>
+        {/* back-to-incidents (when more than one) + host header */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {onBack && (
+              <button onClick={onBack}
+                className="inline-flex items-center gap-1 rounded-lg border border-border bg-bg-elevated px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:text-white">
+                <ChevronRight className="h-3.5 w-3.5 rotate-180" /> Incidents
+              </button>
+            )}
+            <span className="rounded-lg border border-cyber-500/40 bg-cyber-500/10 px-3 py-1.5 text-xs font-medium text-cyber-200">
+              {inv.host.name}
+            </span>
+          </div>
+          <div className="flex flex-col items-end gap-1">
+            <Button variant={isolated ? "outline" : "primary"} size="sm" disabled={isoBusy || !canContain} onClick={() => isolate(!isolated)}
+              title={canContain ? undefined : "Tier-1 investigates; Tier-2 / Tier-3 decide on isolation"}>
+              <MonitorX className="mr-1.5 h-4 w-4" /> {isoBusy ? "Saving…" : isolated ? "Host isolated ✓ — release" : "Isolate host"}
+            </Button>
+            {teamIsolation && !isoErr && <span className="text-[10px] text-slate-500">{canContain ? "Recorded for the team — reviewed in the after-action report." : "Tier-1: investigate here, then escalate. Tier-2 / Tier-3 decide on isolation."}</span>}
+            {isoErr && <span role="alert" className="max-w-xs text-right text-[11px] text-neon-amber">{isoErr}</span>}
+          </div>
+        </div>
+
+        <Card className="border-cyber-500/20">
+          {/* Incident title — the description of the event under investigation, so the
+              analyst always sees WHAT they're investigating at the top of the console. */}
+          {inv.title && <p className="mb-3 flex items-start gap-2 border-b border-border/50 pb-3 text-sm font-semibold text-cyber-200"><FileSearch className="mt-0.5 h-4 w-4 shrink-0 text-cyber-400" />{inv.title}</p>}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-bg"><Cpu className="h-5 w-5 text-cyber-300" /></span>
+              <div>
+                <p className="text-sm font-bold text-white">{inv.host.name} <span className="ml-1 font-mono text-[11px] font-normal text-slate-400">{inv.host.ip}</span></p>
+                <p className="text-[11px] text-slate-400">{inv.host.os} · signed-in: <span className="font-mono">{inv.host.user}</span></p>
+              </div>
+            </div>
+            <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${isolated ? "border-neon-amber/40 bg-neon-amber/10 text-neon-amber" : "border-neon-green/30 bg-neon-green/10 text-neon-green"}`}>
+              {isolated ? "Contained — network isolated" : "Online"}
+            </span>
+          </div>
+          <p className="mt-3 text-[13px] text-slate-300">{inv.summary}</p>
+        </Card>
+
+        {/* Incident Workbench — one incident, scored, with the ATT&CK picture */}
+        <Card className="border-border">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+            <div className="flex items-center gap-3">
+              <div className="text-center">
+                <p className={`font-mono text-2xl font-bold leading-none ${bandStyle}`}>{workbench.score}</p>
+                <p className="text-[9px] uppercase tracking-wider text-slate-500">score</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Incident severity</p>
+                <p className={`text-sm font-bold ${bandStyle}`}>{workbench.band}</p>
+              </div>
+            </div>
+            <div className="h-8 w-px bg-border" />
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Detections</p>
+              <p className="text-sm font-bold text-white">{inv.detections.length}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Affected</p>
+              <p className="text-sm font-mono text-slate-200">{inv.host.name} · {inv.host.user}</p>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">ATT&amp;CK techniques</p>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {workbench.techniques.length ? workbench.techniques.map(t => (
+                  <span key={t} className="rounded border border-neon-purple/30 bg-neon-purple/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-neon-purple">{t}</span>
+                )) : <span className="text-[11px] text-slate-500">none</span>}
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.15fr_1fr]">
+          {/* process tree */}
+          <Card className="p-0">
+            <h2 id="edr-process-tree-heading" className="border-b border-border px-4 py-3 text-sm font-bold text-white">Process tree</h2>
+            <ul aria-labelledby="edr-process-tree-heading" className="max-h-[460px] overflow-auto p-2 font-mono text-[12px]">
+              {roots.map(r => (
+                <TreeNode key={r.pid} p={r} depth={0} childrenOf={childrenOf} expanded={expanded} toggle={toggle}
+                  selPid={selPid} setSel={setSelPid} detByPid={detByPid} reveal={decided !== null} />
+              ))}
+            </ul>
+          </Card>
+
+          {/* detail + timeline */}
+          <div className="space-y-4">
+            {sel && (
+              <Card className="p-0">
+                <div className="flex items-center justify-between border-b border-border px-4 py-3">
+                  <h2 className="flex items-center gap-2 text-sm font-bold text-white"><Terminal className="h-4 w-4 text-cyber-300" /> {sel.name} <span className="font-mono text-[11px] font-normal text-slate-400">pid {sel.pid}</span></h2>
+                  {!sel.signed && <span className="rounded border border-severity-high/40 bg-severity-high/10 px-2 py-0.5 text-[10px] font-bold text-severity-high">UNSIGNED</span>}
+                </div>
+                {/* tabs: Overview / Network / Files (Falcon execution-details style) */}
+                <div role="tablist" aria-label="Process details" className="flex gap-1 border-b border-border px-3 pt-2 text-[11px]"
+                  onKeyDown={e => {
+                    // WAI-ARIA tabs: Left/Right (and Home/End) move between tabs.
+                    const order = ["overview", "network", "files"] as const;
+                    const i = order.indexOf(tab);
+                    let next: number | null = null;
+                    if (e.key === "ArrowRight") next = (i + 1) % order.length;
+                    else if (e.key === "ArrowLeft") next = (i - 1 + order.length) % order.length;
+                    else if (e.key === "Home") next = 0;
+                    else if (e.key === "End") next = order.length - 1;
+                    if (next === null) return;
+                    e.preventDefault();
+                    setTab(order[next]);
+                    document.getElementById(`edr-tab-${order[next]}`)?.focus();
+                  }}>
+                  {(["overview", "network", "files"] as const).map(t => (
+                    <button key={t} type="button" role="tab" id={`edr-tab-${t}`} aria-selected={tab === t} aria-controls="edr-tabpanel"
+                      tabIndex={tab === t ? 0 : -1} onClick={() => setTab(t)}
+                      className={`rounded-t px-2.5 py-1.5 font-medium capitalize transition ${tab === t ? "bg-bg text-cyber-300" : "text-slate-400 hover:text-white"}`}>
+                      {t}{t === "network" && sel.network?.length ? ` (${sel.network.length})` : ""}{t === "files" && sel.files?.length ? ` (${sel.files.length})` : ""}
+                    </button>
+                  ))}
+                </div>
+
+                <div role="tabpanel" id="edr-tabpanel" aria-labelledby={`edr-tab-${tab}`} tabIndex={0}>
+                {tab === "overview" && (
+                  <div className="space-y-2 px-4 py-3 text-[12px]">
+                    <Field label="Command line"><code className="break-all text-slate-200">{sel.cmdline}</code></Field>
+                    <Field label="Image path"><code className="break-all text-slate-400">{sel.path}</code></Field>
+                    {sel.originalFileName && (
+                      <Field label="Original name"><code className="break-all text-slate-300">{sel.originalFileName}</code> <span className="text-[10px] text-slate-500">(PE OriginalFileName)</span></Field>
+                    )}
+                    <Field label="User"><span className="font-mono text-slate-300">{sel.user}</span></Field>
+                    <Field label="Started"><span className="font-mono text-slate-300">{sel.startedAt}</span></Field>
+                    <Field label="Signed"><span className={sel.signed ? "text-neon-green" : "text-severity-high"}>{sel.signed ? "Yes" : "No — not signed"}</span></Field>
+                    {sel.sha256 && (
+                      <div className="pt-1">
+                        <div className="flex items-center gap-2">
+                          <Fingerprint className="h-3.5 w-3.5 text-slate-500" />
+                          <code className="break-all text-[11px] text-slate-400">{sel.sha256}</code>
+                        </div>
+                        <div className="mt-2 flex items-center gap-2">
+                          <Button variant="outline" size="sm" onClick={() => {
+                            // The same resolver as the threat-intel drawer: a real sample
+                            // in hashDatabase first, then the scenario's IOC truth table,
+                            // then the process's own signals (unsigned + flagged by this
+                            // incident => malicious — E-05, never a reassuring "unknown"
+                            // for a binary the console itself flagged). One hash, one
+                            // verdict, on every surface.
+                            const flagged = sel.verdict === "malicious" || sel.verdict === "suspicious" || !!detByPid.get(sel.pid)?.length;
+                            const intel = hashIntel(sel.sha256!, { truth: inv.iocTruth, process: { signed: sel.signed, flagged } });
+                            setHashResult(r => ({ ...r, [sel.pid]: { label: hashVerdictLabel(intel), bad: intel.verdict === "malicious" || intel.verdict === "suspicious" } }));
+                          }}><FileSearch className="mr-1.5 h-3.5 w-3.5" /> Look up hash</Button>
+                          <span role="status">
+                            {hashResult[sel.pid] && (
+                              <span className={`text-[12px] font-bold ${hashResult[sel.pid].bad ? "text-severity-critical" : "text-slate-400"}`}>
+                                {hashResult[sel.pid].label}
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    {(() => { const ioa = detByPid.get(sel.pid)?.[0] as { ioa?: string } | undefined; return ioa?.ioa ? (
+                      <p className="mt-2 rounded-lg border border-severity-high/25 bg-severity-high/5 px-3 py-2 text-[12px] text-slate-300"><span className="font-bold text-severity-high">IOA</span> · {ioa.ioa}</p>
+                    ) : null; })()}
+                    {decided && sel.note && (
+                      <p className="mt-1 rounded-lg border border-border bg-bg px-3 py-2 text-[12px] text-slate-300"><span className="text-slate-500">why:</span> {sel.note}</p>
+                    )}
+                  </div>
+                )}
+
+                {tab === "network" && (
+                  <div className="px-4 py-3 text-[12px]">
+                    {sel.network?.length ? (
+                      <table className="w-full text-left"><tbody className="divide-y divide-border/50">
+                        {/* Time-ordered so a browser's requests read as a chain —
+                            the entry site, its 3xx redirect hops (amber), and the
+                            final fetch that pulled the payload. */}
+                        {[...sel.network].sort((a, b) => a.ts.localeCompare(b.ts)).map((c, i) => (
+                          <tr key={i}>
+                            <td className="py-1.5 pr-2 font-mono text-slate-500">{c.ts}</td>
+                            <td className="py-1.5 pr-2 font-mono">
+                              <span className={c.direction === "inbound" ? "text-neon-amber" : "text-slate-500"} title={c.direction}>{c.direction === "inbound" ? "◄ in" : "out ►"}</span>
+                            </td>
+                            <td className="py-1.5 pr-2 font-mono">
+                              <span className="text-slate-400">{(c.proto ?? "tcp").toUpperCase()}</span>
+                              {c.application && <span className="text-cyber-300">/{c.application}</span>}
+                              {c.method && <span className="text-slate-400"> {c.method}</span>}
+                              {c.status != null && (
+                                <span className={c.status >= 300 && c.status < 400 ? "text-neon-amber" : "text-slate-500"}> {c.status}</span>
+                              )}
+                            </td>
+                            <td className="py-1.5 pr-2 font-mono text-slate-200">{c.remote_ip}:{c.remote_port}</td>
+                            <td className="py-1.5 font-mono text-cyber-300 break-all">{c.domain ?? c.url ?? ""}</td>
+                          </tr>
+                        ))}
+                      </tbody></table>
+                    ) : <p className="text-slate-500">No network activity recorded for this process.</p>}
+                  </div>
+                )}
+
+                {tab === "files" && (
+                  <div className="px-4 py-3 text-[12px]">
+                    {sel.files?.length ? (
+                      <div className="space-y-1.5">
+                        {sel.files.map((f, i) => (
+                          <div key={i} className="flex items-start gap-2">
+                            <span className="font-mono text-slate-500">{f.ts}</span>
+                            <span className={`rounded px-1 text-[10px] font-bold uppercase ${f.action === "write" ? "bg-neon-amber/15 text-neon-amber" : "bg-slate-700 text-slate-300"}`}>{f.action}</span>
+                            <code className="break-all text-slate-300">{f.path}</code>
+                          </div>
+                        ))}
+                      </div>
+                    ) : <p className="text-slate-500">No file activity recorded for this process.</p>}
+                  </div>
+                )}
+                </div>
+              </Card>
+            )}
+
+            <Card className="p-0">
+              <h2 className="border-b border-border px-4 py-3 text-sm font-bold text-white">Timeline</h2>
+              <div className="max-h-[220px] space-y-1.5 overflow-auto px-4 py-3">
+                {inv.timeline.map((t, i) => (
+                  <div key={i} className="flex items-start gap-2 text-[12px]">
+                    <span className="font-mono text-[11px] text-slate-500">{t.at}</span>
+                    <TimelineIcon kind={t.kind} />
+                    <span className="text-slate-300">{t.text}</span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+        </div>
+
+        {/* RTR-lite — simulated Real Time Response shell */}
+        <Card className="p-0">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+            <h2 className="flex items-center gap-2 text-sm font-bold text-white"><Terminal className="h-4 w-4 text-neon-green" /> Real Time Response — {inv.host.name}</h2>
+            <div className="flex flex-wrap gap-1">
+              {["ps", "netstat", "reg query Run", "schtasks /query", "sc query", "wmi", "help"].map(c => (
+                <button key={c} onClick={() => runRtr(c)} className="rounded border border-border bg-bg px-2 py-0.5 font-mono text-[10px] text-slate-400 transition hover:text-white">{c}</button>
+              ))}
+            </div>
+          </div>
+          <div role="log" aria-live="polite" aria-label={`Real Time Response output — ${inv.host.name}`} tabIndex={0}
+            className="max-h-[240px] overflow-auto bg-black/40 px-4 py-3 font-mono text-[11.5px] leading-relaxed">
+            {rtr.length === 0 && <p className="text-slate-500">Connected to {inv.host.name}. Type <span className="text-slate-300">help</span>, or use the quick commands above. RTR runs on the endpoint — <span className="text-neon-amber">kill</span>, <span className="text-neon-amber">get</span> and <span className="text-neon-amber">contain</span> take real action.</p>}
+            {rtr.map((l, i) => (
+              <div key={i} className="mb-2">
+                <p className="text-neon-green">{inv.host.name}&gt; <span className="text-slate-200">{l.cmd}</span></p>
+                <pre className="whitespace-pre-wrap text-slate-400">{l.out}</pre>
+              </div>
+            ))}
+          </div>
+          <form onSubmit={e => { e.preventDefault(); runRtr(rtrIn); setRtrIn(""); }} className="flex items-center gap-2 border-t border-border px-4 py-2.5">
+            <span aria-hidden="true" className="font-mono text-[12px] text-neon-green">&gt;</span>
+            <input value={rtrIn} onChange={e => setRtrIn(e.target.value)} placeholder="ps · netstat · kill <pid> · get <path> · reg query Run · schtasks /query · sc query · wmi"
+              className="flex-1 bg-transparent font-mono text-[12px] text-white placeholder-slate-500 focus:outline-none" aria-label={`RTR command for ${inv.host.name}`} />
+            <Button type="submit" variant="outline" size="sm">Run</Button>
+          </form>
+        </Card>
+
+        {/* decision */}
+        <Card className={decided ? (decided.correct ? "border-neon-green/40" : "border-severity-high/40") : "border-cyber-500/30"}>
+          {!decided ? (
+            <>
+              <h2 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldAlert className="h-4 w-4 text-cyber-300" /> Your call</h2>
+              <p className="mt-1 text-[13px] text-slate-400">Select the process that is the malicious <strong>payload</strong> and flag it — or, if this is benign activity, resolve it as a false positive.</p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <Button variant="primary" size="sm" disabled={selPid === null} onClick={() => decide(selPid!)}>
+                  <Ban className="mr-1.5 h-4 w-4" /> Flag {sel ? `${sel.name} (pid ${sel.pid})` : "selected"} as payload
+                </Button>
+                <span className="text-[11px] text-slate-500">or</span>
+                <Button variant="outline" size="sm" onClick={() => decide(-1)}>
+                  <ShieldCheck className="mr-1.5 h-4 w-4" /> Resolve as benign / false positive
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <h2 ref={resultRef} tabIndex={-1} className={`flex items-center gap-2 text-sm font-bold ${decided.correct ? "text-neon-green" : "text-severity-high"}`}>
+                {decided.correct ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+                {decided.correct ? "Correct" : "Not quite"}
+              </h2>
+              <p className="mt-2 text-[13px] text-slate-200">{inv.answer.explanation}</p>
+              <p className="mt-2 text-[11px] text-slate-500">The process tree is now colour-coded by verdict, and each node&apos;s reasoning is shown in its detail panel.</p>
+              {/* The investigation isn't done until it's written up. This runs in
+                  its own tab, so send them BACK to the Dashboard tab to file the
+                  report — the one place they're actually graded. */}
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => { try { window.close(); } catch { /* ignore */ } setTimeout(() => setCloseBlocked(true), 250); }}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-neon-purple px-3.5 py-2 text-xs font-bold text-white shadow transition hover:brightness-110"
+                >
+                  <FileWarning className="h-4 w-4" /> Done — return to the Dashboard and file your report
+                </button>
+                <Button variant="outline" size="sm" onClick={() => { setDecided(null); }}>Investigate again</Button>
+              </div>
+              <p className={`mt-2 text-[11px] ${closeBlocked ? "font-semibold text-neon-amber" : "text-neon-amber"}`}>
+                {closeBlocked
+                  ? "This tab couldn't close automatically — switch back to your SOC Dashboard tab (or press Ctrl/Cmd+W) to write the incident report. Your findings only count once it's submitted."
+                  : "Switch back to your SOC Dashboard tab to write the incident report — your findings only count once it's submitted."}
+              </p>
+            </>
+          )}
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function TreeNode({ p, depth, childrenOf, expanded, toggle, selPid, setSel, detByPid, reveal }: {
+  p: EdrProcess; depth: number; childrenOf: Map<number, EdrProcess[]>; expanded: Set<number>;
+  toggle: (pid: number) => void; selPid: number | null; setSel: (pid: number) => void;
+  detByPid: Map<number, { technique: string; name: string; severity: string }[]>; reveal: boolean;
+}) {
+  const kids = childrenOf.get(p.pid) ?? [];
+  const open = expanded.has(p.pid);
+  const dets = detByPid.get(p.pid) ?? [];
+  const verdictColor = reveal
+    ? p.verdict === "malicious" ? "text-severity-critical"
+      : p.verdict === "abused" ? "text-cyber-300"        // signed binary being abused — distinct from malware-red
+      : p.verdict === "suspicious" ? "text-neon-amber"
+      : "text-slate-300"
+    : "text-slate-200";
+  const selected = selPid === p.pid;
+  const groupId = `edr-proc-children-${p.pid}`;
+  // a11y: the row is a plain container; selecting is a real <button aria-pressed>
+  // (keyboard-operable, named by its text) and the expand chevron is a sibling
+  // button — never nested — so both are reachable with Tab and Enter/Space.
+  return (
+    <li>
+      <div
+        onClick={() => setSel(p.pid)}
+        style={{ paddingLeft: depth * 16 + 4 }}
+        className={`flex cursor-pointer items-center gap-1.5 rounded px-1.5 py-1 transition ${selected ? "bg-cyber-500/15" : "hover:bg-white/[0.03]"}`}
+      >
+        {kids.length > 0 ? (
+          <button type="button" onClick={e => { e.stopPropagation(); toggle(p.pid); }} className="shrink-0 text-slate-500"
+            aria-expanded={open} aria-controls={open ? groupId : undefined}
+            aria-label={`${open ? "Collapse" : "Expand"} ${p.name} (pid ${p.pid})`}>
+            {open ? <ChevronDown aria-hidden="true" className="h-3.5 w-3.5" /> : <ChevronRight aria-hidden="true" className="h-3.5 w-3.5" />}
+          </button>
+        ) : <span className="w-3.5 shrink-0" />}
+        <button type="button" aria-pressed={selected}
+          onClick={e => { e.stopPropagation(); setSel(p.pid); }}
+          className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
+          <span className={`truncate font-medium ${verdictColor}`}>{p.name}</span>
+          <span className="shrink-0 text-[10px] text-slate-500"><span className="sr-only">pid </span>{p.pid}</span>
+          {!p.signed && <span className="shrink-0 rounded bg-severity-high/15 px-1 text-[9px] font-bold text-severity-high">unsigned</span>}
+          {/* After the decision the tree is colour-coded by verdict; the text badges
+              carry the same meaning for anyone who can't rely on colour (1.4.1). */}
+          {reveal && p.verdict === "malicious" && <span className="shrink-0 rounded bg-severity-critical/15 px-1 text-[9px] font-bold text-severity-critical">malicious</span>}
+          {reveal && p.verdict === "suspicious" && <span className="shrink-0 rounded bg-neon-amber/15 px-1 text-[9px] font-bold text-neon-amber">suspicious</span>}
+          {reveal && p.verdict === "abused" && <span className="shrink-0 rounded bg-cyber-500/15 px-1 text-[9px] font-bold text-cyber-300">abused</span>}
+          {dets.length > 0 && (
+            <span className={`shrink-0 rounded border px-1 text-[9px] font-bold ${SEV_STYLE[dets[0].severity]}`}>
+              <span aria-hidden="true">⚠ </span><span className="sr-only">detection: </span>{dets[0].technique}
+            </span>
+          )}
+        </button>
+      </div>
+      {open && kids.length > 0 && (
+        <ul id={groupId}>
+          {kids.map(k => (
+            <TreeNode key={k.pid} p={k} depth={depth + 1} childrenOf={childrenOf} expanded={expanded} toggle={toggle}
+              selPid={selPid} setSel={setSel} detByPid={detByPid} reveal={reveal} />
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-baseline gap-2">
+      <span className="w-24 shrink-0 text-[10px] uppercase tracking-wider text-slate-500">{label}</span>
+      <span className="min-w-0 flex-1">{children}</span>
+    </div>
+  );
+}
+
+function TimelineIcon({ kind }: { kind: string }) {
+  const cls = "h-3.5 w-3.5 shrink-0 mt-0.5";
+  if (kind === "network") return <Network className={`${cls} text-cyber-300`} />;
+  if (kind === "file") return <FileWarning className={`${cls} text-neon-amber`} />;
+  if (kind === "detection") return <AlertTriangle className={`${cls} text-severity-high`} />;
+  return <Clock className={`${cls} text-slate-500`} />;
+}

@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { asObject } from "@/lib/http/body";
 import { requireAdmin } from "@/lib/auth/apiGuard";
 import type { GeneratedLesson } from "../generate/route";
 import type { ExtractedSlide } from "@/lib/lessons/importPptx";
@@ -109,21 +110,23 @@ Rules:
 // ─── Route ────────────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
-  const gate = await requireAdmin();
+  const gate = await requireAdmin("lesson.import_pptx");
   if ("error" in gate) return gate.error;
 
   if (!process.env.OPENAI_API_KEY) {
-    return Response.json({ error: "OPENAI_API_KEY not configured" }, { status: 400 });
+    return Response.json({ error: "AI import isn't enabled on this deployment." }, { status: 400 });
   }
 
-  const body = await req.json().catch(() => ({})) as Partial<ImportPptxRequest>;
+  const body = asObject(await req.json().catch(() => ({}))) as Partial<ImportPptxRequest>;
   const { topic = "Imported Lesson", slides = [] } = body;
 
   if (!slides.length) {
     return Response.json({ error: "No slides provided" }, { status: 400 });
   }
 
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  // E-18: the SDK default (10 min × 3) outlived maxDuration 60 s, so the
+  // fallback lesson below was never reached — the request was just killed.
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 25_000, maxRetries: 1 });
 
   try {
     const response = await client.chat.completions.create({

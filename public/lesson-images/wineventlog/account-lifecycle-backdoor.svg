@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 400" role="img" aria-label="How a sequence of Windows account and group-management events reveals an attacker creating a hidden admin backdoor, each step marked with its Event ID.">
+  <title>Account and group events as a backdoor chain — reading persistence in the Security log</title>
+  <defs>
+    <style>
+      .bg{fill:#0b0f1e;} .ui{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;} .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
+      .step{fill:#26100f;stroke:#f87171;stroke-width:1.5;} .ok{fill:#0e2018;stroke:#22c55e;stroke-width:1.5;}
+      .t{fill:#e2e8f0;font-size:12px;font-weight:700;} .s{fill:#94a3b8;font-size:10.5px;} .id{fill:#fca5a5;font-size:13px;font-weight:800;}
+      .head{fill:#cbd5e1;font-size:12px;font-weight:700;letter-spacing:.05em;} .green{fill:#86efac;font-size:11px;}
+      .flow{stroke:#f87171;stroke-width:2.5;fill:none;marker-end:url(#a);}
+    </style>
+    <marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#f87171"/></marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="960" height="400"/>
+  <text class="ui head" x="30" y="30">A BACKDOOR ADMIN, WRITTEN IN FOUR SECURITY EVENTS</text>
+
+  <rect class="step" x="24" y="52" width="205" height="110" rx="10"/>
+  <text class="ui id" x="40" y="80">4720</text>
+  <text class="ui t" x="40" y="102">User account CREATED</text>
+  <text class="ui s" x="40" y="124">A new local or domain account</text>
+  <text class="ui s" x="40" y="140">appears — "svc-backup" or similar</text>
+  <text class="ui s" x="40" y="156">innocuous-sounding name.</text>
+
+  <rect class="step" x="256" y="52" width="205" height="110" rx="10"/>
+  <text class="ui id" x="272" y="80">4732 / 4728</text>
+  <text class="ui t" x="272" y="102">Added to a PRIVILEGED group</text>
+  <text class="ui s" x="272" y="124">4732 = added to a local group</text>
+  <text class="ui s" x="272" y="140">(Administrators); 4728 = added</text>
+  <text class="ui s" x="272" y="156">to a global group (Domain Admins).</text>
+
+  <rect class="step" x="488" y="52" width="205" height="110" rx="10"/>
+  <text class="ui id" x="504" y="80">4672</text>
+  <text class="ui t" x="504" y="102">Special privileges at logon</text>
+  <text class="ui s" x="504" y="124">The new account logs on and is</text>
+  <text class="ui s" x="504" y="140">granted admin-equivalent rights —</text>
+  <text class="ui s" x="504" y="156">confirming it now has real power.</text>
+
+  <rect class="ok" x="720" y="52" width="216" height="110" rx="10"/>
+  <text class="ui t green" x="736" y="80">The story, read as one</text>
+  <text class="ui s" x="736" y="102">Alone, each event is routine IT.</text>
+  <text class="ui s" x="736" y="120">In SEQUENCE, minutes apart, from</text>
+  <text class="ui s" x="736" y="138">one actor: a fresh admin backdoor</text>
+  <text class="ui s" x="736" y="156">for persistence + privilege.</text>
+
+  <line class="flow" x1="229" y1="107" x2="254" y2="107"/>
+  <line class="flow" x1="461" y1="107" x2="486" y2="107"/>
+  <line class="flow" x1="693" y1="107" x2="718" y2="107"/>
+
+  <rect class="step" x="24" y="196" width="912" height="82" rx="10" style="stroke:#334155;fill:#0e1b30"/>
+  <text class="ui head" x="40" y="222">WHY THE SEQUENCE MATTERS MORE THAN ANY SINGLE EVENT</text>
+  <text class="ui s" x="40" y="246">Account creation (4720) and group changes (4728/4732) happen legitimately every day, so no ONE of them is an alert.</text>
+  <text class="ui s" x="40" y="266">The signal is the CORRELATION: create → elevate → use, by the same actor, in a tight window, especially outside change-control hours.</text>
+
+  <rect class="step" x="24" y="292" width="912" height="82" rx="10" style="stroke:#334155;fill:#0e1b30"/>
+  <text class="ui head" x="40" y="318">THE HIGH-VALUE ACCOUNT EVENTS TO KNOW</text>
+  <text class="ui mono s" x="40" y="342" style="fill:#e2e8f0">4720 created · 4722 enabled · 4725 disabled · 4726 deleted · 4738 changed · 4728/4732/4756 added to (global/local/universal) group · 4672 special privileges</text>
+  <text class="ui green" x="40" y="364">Watch especially for additions to Administrators, Domain Admins, and Enterprise Admins — the groups that grant the keys to the kingdom.</text>
+</svg>

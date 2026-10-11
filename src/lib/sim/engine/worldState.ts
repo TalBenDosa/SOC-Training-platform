@@ -545,7 +545,7 @@ export function spawnProcess(
 
   // Find parent in forest if parentPid not specified
   let parentPid = opts.parentPid ?? 2400; // default to explorer.exe pid
-  let parentName = opts.parentName ?? "explorer.exe";
+  const parentName = opts.parentName ?? "explorer.exe";
   let parentPath = opts.parentPath ?? "C:\\Windows\\explorer.exe";
 
   const hostProcs = world.forest.get(hostname) ?? [];

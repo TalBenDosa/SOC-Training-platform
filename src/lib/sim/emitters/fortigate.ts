@@ -1,0 +1,424 @@
+/**
+ * Fortinet FortiGate log EMITTERS.
+ *
+ * The perimeter firewall for the FortiGate shops — allowed/denied sessions, IPS
+ * and AV blocks, web filtering, and SSL-VPN logins. The registry pins FortiGate
+ * to an EXACT field set (no prefixes), so these emitters render the FortiGate
+ * native `data.*` fields alongside the shared ECS fields — every key checked to
+ * be one the registry allows. Client host/IP/user come from the company fabric;
+ * remote geography is deterministic from the peer IP (@/lib/geo/resolveGeo).
+ *
+ * FortiGate is source:"firewall" (or "vpn" for tunnel logins) and carries no process.
+ */
+import type { TelemetryEvent, Severity } from "../types";
+import { resolve, type Ctx } from "./_core";
+import { ecsTechnique } from "@/lib/logs/ecsFields";
+import { knownGeoForIp } from "@/lib/geo/resolveGeo";
+
+const VENDOR = "FortiGate";
+
+function geoCountry(ip?: string): string | undefined { return knownGeoForIp(ip)?.country; }
+
+// ── Traffic / session (forward) ───────────────────────────────────────────────────────
+export interface FgTrafficOpts extends Ctx {
+  remoteIp: string;
+  remotePort: number;
+  domain?: string;
+  service?: string;                // FortiGate service name, e.g. "HTTPS"
+  transport?: "tcp" | "udp";
+  action?: "accept" | "deny" | "close";
+  direction?: "outbound" | "inbound";
+  bytesSent?: number;
+  bytesReceived?: number;
+  durationSec?: number;
+  policyId?: number;
+  policyName?: string;
+  mitre?: string;
+  tactic?: string;
+  severity?: Severity;
+  description?: string;
+}
+export function fgTraffic(o: FgTrafficOpts): TelemetryEvent {
+  const r = resolve(o);
+  const transport = o.transport ?? "tcp";
+  const action = o.action ?? "accept";
+  const blocked = action === "deny";
+  const inbound = o.direction === "inbound";
+  const src = inbound ? o.remoteIp : r.srcIp;
+  const dst = inbound ? r.srcIp : o.remoteIp;
+  return {
+    id: o.id, ts: o.ts, source: "firewall", vendor: VENDOR,
+    event_type: blocked ? "net_blocked" : "net_connection",
+    severity: o.severity ?? (blocked ? "medium" : "low"), hostname: r.host,
+    src_ip: src, dst_ip: dst, dst_port: o.remotePort, protocol: transport, user_email: r.email,
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
+    network: { domain: o.domain, bytes_out: o.bytesSent, bytes_in: o.bytesReceived },
+    description: o.description ?? `FortiGate ${action} ${transport.toUpperCase()} ${src} → ${o.domain ?? dst}:${o.remotePort}`,
+    raw: {
+      "data.type": "traffic",
+      "data.subtype": "forward",
+      "data.action": action,
+      "data.srcip": src,
+      "data.srcport": String(inbound ? o.remotePort : 49152 + (o.remotePort % 1000)),
+      "data.dstip": dst,
+      "data.dstport": String(o.remotePort),
+      "data.proto": transport === "tcp" ? "6" : "17",
+      ...(o.service ? { "data.service": o.service } : {}),
+      ...(o.domain ? { "data.hostname": o.domain } : {}),
+      ...(geoCountry(o.remoteIp) ? { [inbound ? "data.srccountry" : "data.dstcountry"]: geoCountry(o.remoteIp)! } : {}),
+      ...(o.bytesSent !== undefined ? { "data.sentbyte": String(o.bytesSent) } : {}),
+      ...(o.bytesReceived !== undefined ? { "data.rcvdbyte": String(o.bytesReceived) } : {}),
+      ...(o.durationSec !== undefined ? { "data.duration": String(o.durationSec) } : {}),
+      ...(o.policyId !== undefined ? { "data.policyid": String(o.policyId) } : {}),
+      "data.policyname": o.policyName ?? (blocked ? "Block-Threat" : "Corp-Outbound"),
+      "data.level": blocked ? "warning" : "notice",
+      "data.trandisp": "snat",
+      // shared ECS
+      "action": action,
+      "action_result": blocked ? "blocked" : "allowed",
+      "event.action": blocked ? "deny" : "accept",
+      "event.category": "network",
+      "event.outcome": blocked ? "failure" : "success",
+      "source.ip": src,
+      "destination.ip": dst,
+      "destination.port": String(o.remotePort),
+      "network.transport": transport,
+      ...(o.domain ? { "destination.domain": o.domain } : {}),
+      ...(geoCountry(o.remoteIp) ? { "destination.geo.country_name": geoCountry(o.remoteIp)! } : {}),
+    },
+  };
+}
+
+// ── UTM threat (IPS / AV / webfilter block) ───────────────────────────────────────────
+export interface FgThreatOpts extends Ctx {
+  remoteIp: string;
+  remotePort?: number;
+  subtype?: "ips" | "virus" | "webfilter";
+  threatName: string;
+  url?: string;
+  domain?: string;
+  category?: string;               // url.category / threat category
+  action?: "blocked" | "detected" | "dropped";
+  mitre?: string;
+  tactic?: string;
+  technique?: string;
+  severity?: Severity;
+  description?: string;
+}
+export function fgThreat(o: FgThreatOpts): TelemetryEvent {
+  const r = resolve(o);
+  const subtype = o.subtype ?? "ips";
+  const action = o.action ?? "blocked";
+  const blocked = action !== "detected";
+  return {
+    id: o.id, ts: o.ts, source: "ids", vendor: VENDOR,
+    event_type: subtype === "webfilter" ? (blocked ? "http_blocked" : "http_request") : (blocked ? "ids_blocked" : "ids_signature"),
+    severity: o.severity ?? "high", hostname: r.host, src_ip: r.srcIp, dst_ip: o.remoteIp,
+    dst_port: o.remotePort, user_email: r.email, mitre_technique: o.mitre, mitre_tactic: o.tactic,
+    is_detection: true, incident_id: o.incidentId, network: { domain: o.domain, url: o.url },
+    description: o.description ?? `FortiGate ${subtype} ${action} ${o.threatName} from ${r.host} → ${o.domain ?? o.remoteIp}`,
+    raw: {
+      "data.type": "utm",
+      "data.subtype": subtype,
+      "data.action": action,
+      "data.srcip": r.srcIp,
+      "data.dstip": o.remoteIp,
+      ...(o.remotePort ? { "data.dstport": String(o.remotePort) } : {}),
+      "data.msg": o.threatName,
+      ...(o.url ? { "data.url": o.url } : {}),
+      ...(o.domain ? { "data.hostname": o.domain } : {}),
+      ...(o.category ? { "data.cat": o.category } : {}),
+      "data.utmaction": blocked ? "block" : "detect",
+      "data.level": "warning",
+      ...(geoCountry(o.remoteIp) ? { "data.dstcountry": geoCountry(o.remoteIp)! } : {}),
+      // shared ECS
+      "action": action,
+      "action_result": blocked ? "blocked" : "detected",
+      "event.action": subtype,
+      "event.category": subtype === "webfilter" ? "network" : "intrusion_detection",
+      "event.outcome": blocked ? "success" : "failure",
+      "source.ip": r.srcIp,
+      "destination.ip": o.remoteIp,
+      "threat.name": o.threatName,
+      ...ecsTechnique(o.mitre),
+      ...(o.technique ? { "threat.technique.name": o.technique } : {}),
+      ...(o.category ? { "threat.category": o.category } : {}),
+      ...(o.url ? { "url.full": o.url } : {}),
+      ...(o.domain ? { "url.domain": o.domain } : {}),
+      ...(geoCountry(o.remoteIp) ? { "destination.geo.country_name": geoCountry(o.remoteIp)! } : {}),
+    },
+  };
+}
+
+// ── Web request (UTM webfilter / filefilter — allowed or logged, not a block) ─────────
+// The allowed-but-logged half of FortiGate's UTM: a file-filter record for a download
+// that isn't on the block list, or a web-filter passthrough for an uncategorised URL.
+// Distinct from fgThreat (a block/detection, is_detection true): this is transport
+// evidence an analyst correlates against the endpoint tree, carrying the URL, the
+// downloaded filename, and the web-filter category verdict.
+export interface FgWebOpts extends Ctx {
+  remoteIp: string;
+  remotePort?: number;
+  url: string;
+  domain: string;
+  subtype?: "webfilter" | "filefilter";
+  eventtype?: string;              // data.eventtype — "ftgd_allow" | "filefilter" …
+  action?: "passthrough" | "log-only" | "blocked";
+  msg?: string;
+  logid?: string;
+  level?: string;                  // data.level — "notice" | "warning" …
+  category?: string;               // data.catdesc (human) — e.g. "Uncategorized"
+  categoryId?: string;             // data.cat (numeric) — e.g. "26"
+  method?: "GET" | "POST";
+  status?: number;
+  bytesIn?: number;
+  bytesOut?: number;
+  file?: { name: string; sha256?: string; size?: number; type?: string };
+  policyId?: number;
+  userTitle?: string;
+  mitre?: string;
+  tactic?: string;
+  severity?: Severity;
+  description?: string;
+}
+export function fgWeb(o: FgWebOpts): TelemetryEvent {
+  const r = resolve(o);
+  const subtype = o.subtype ?? "webfilter";
+  const action = o.action ?? "passthrough";
+  const blocked = action === "blocked";
+  const method = o.method ?? "GET";
+  const port = o.remotePort ?? 443;
+  const country = geoCountry(o.remoteIp);
+  return {
+    id: o.id, ts: o.ts, source: "firewall", vendor: VENDOR,
+    event_type: blocked ? "http_blocked" : "http_request",
+    severity: o.severity ?? (blocked ? "high" : "low"), hostname: r.host,
+    src_ip: r.srcIp, dst_ip: o.remoteIp, dst_port: port, protocol: "tcp",
+    user_email: r.email, user_title: o.userTitle,
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
+    network: { url: o.url, domain: o.domain, method, status: o.status ?? 200, bytes_in: o.bytesIn, bytes_out: o.bytesOut },
+    ...(o.file ? { file: { name: o.file.name, path: `/${o.file.name}`, ...(o.file.sha256 ? { sha256: o.file.sha256 } : {}), ...(o.file.size ? { size: o.file.size } : {}), extension: o.file.name.split(".").pop() } } : {}),
+    description: o.description ?? `FortiGate ${subtype} ${action} — ${r.host} ${method === "POST" ? "POSTed to" : "requested"} ${o.domain}`,
+    raw: {
+      "data.type": "utm",
+      "data.subtype": subtype,
+      "data.eventtype": o.eventtype ?? (subtype === "filefilter" ? "filefilter" : "ftgd_allow"),
+      ...(o.logid ? { "data.logid": o.logid } : {}),
+      "data.level": o.level ?? (blocked ? "warning" : "notice"),
+      "data.action": action,
+      ...(o.msg ? { "data.msg": o.msg } : {}),
+      ...(subtype === "filefilter" ? { "data.logdesc": "File filter" } : {}),
+      ...(o.file ? { "data.filename": o.file.name, "data.filetype": o.file.type ?? o.file.name.split(".").pop() ?? "unknown" } : {}),
+      ...(o.categoryId ? { "data.cat": o.categoryId } : {}),
+      ...(o.category ? { "data.catdesc": o.category } : {}),
+      "data.url": o.url.replace(/^https?:\/\//, ""),
+      "data.hostname": o.domain,
+      "data.srcip": r.srcIp,
+      "data.dstip": o.remoteIp,
+      "data.dstport": String(port),
+      "data.proto": "6",
+      "data.service": port === 443 ? "HTTPS" : "HTTP",
+      ...(o.policyId !== undefined ? { "data.policyid": String(o.policyId) } : {}),
+      "data.devname": "FGT-CORE-01",
+      "data.devid": "FGT60F1234567890",
+      "data.vd": "root",
+      "data.srccountry": "Reserved",
+      ...(country ? { "data.dstcountry": country } : {}),
+      // shared ECS
+      "action": action,
+      "action_result": blocked ? "blocked" : "allowed",
+      "event.action": subtype,
+      "event.category": "network",
+      "event.outcome": blocked ? "success" : "success",
+      "source.ip": r.srcIp,
+      "destination.ip": o.remoteIp,
+      "destination.port": String(port),
+      "url.domain": o.domain,
+      "url.full": o.url,
+      "http.request.method": method,
+      "http.response.status_code": String(o.status ?? 200),
+      ...(o.file?.sha256 ? { "threat.file.hash.sha256": o.file.sha256 } : {}),
+      ...(country ? { "destination.geo.country_name": country } : {}),
+    },
+  };
+}
+
+// ── WAF / admin-API request TO the appliance (inbound, edge-exploitation) ─────────────
+// FortiGate's own WAF log for a request hitting the appliance's management/API surface
+// from an external client. Unlike fgWeb (a company host reaching OUT), here the source is
+// an external address and the "host" is the appliance itself; a blank `requester` on a
+// 200 to an admin path is the pre-auth-bypass tell. Optionally carries a written file
+// (a portal web-shell) → event_type file_create.
+export interface FgWafOpts extends Ctx {
+  attackerIp: string;              // data.srcip — the external source
+  applianceIp: string;             // data.dstip — the appliance WAN IP
+  portal?: string;                 // data.hostname — the portal fqdn
+  url: string;                     // data.url — the API/admin path
+  method?: "GET" | "POST" | "PUT" | "DELETE";
+  status?: number;                 // http.response.status_code
+  action?: "pass" | "block" | "detected";
+  requester?: string;              // data.user — blank ("") on a pre-auth bypass
+  userAgent?: string;              // data.agent
+  country?: string;                // data.srccountry
+  bytesSent?: number;              // data.sentbyte (a write/PUT)
+  bytesReceived?: number;          // data.rcvdbyte (a config read)
+  logid?: string;
+  msg?: string;
+  wafSeverity?: string;            // data.severity ("medium" …)
+  file?: { name: string; path?: string; sha256?: string; size?: number }; // a written portal shell
+  mitre?: string;
+  tactic?: string;
+  severity?: Severity;
+  description?: string;
+}
+export function fgWaf(o: FgWafOpts): TelemetryEvent {
+  const r = resolve({ ...o, host: o.host, user: null }); // appliance host; no company user
+  const method = o.method ?? "GET";
+  const action = o.action ?? "pass";
+  const blocked = action === "block";
+  const status = o.status ?? 200;
+  return {
+    id: o.id, ts: o.ts, source: "firewall", vendor: VENDOR,
+    event_type: o.file ? "file_create" : (blocked ? "http_blocked" : "http_request"),
+    severity: o.severity ?? (blocked ? "high" : "medium"), hostname: r.host,
+    src_ip: o.attackerIp, dst_ip: o.applianceIp, dst_port: 443, protocol: "tcp",
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
+    network: { url: `https://${o.portal ?? o.applianceIp}${o.url}`, domain: o.portal, method, status },
+    ...(o.file ? { file: { name: o.file.name, path: o.file.path ?? `/${o.file.name}`, ...(o.file.sha256 ? { sha256: o.file.sha256 } : {}), ...(o.file.size ? { size: o.file.size } : {}), extension: o.file.name.split(".").pop() } } : {}),
+    description: o.description ?? `FortiGate WAF: ${method} ${o.url} on ${r.host} from ${o.attackerIp} → ${status}`,
+    raw: {
+      "data.type": "utm",
+      "data.subtype": "waf",
+      ...(o.logid ? { "data.logid": o.logid } : {}),
+      "data.level": "warning",
+      "data.action": action,
+      "data.url": o.url,
+      "data.method": method,
+      ...(o.userAgent ? { "data.agent": o.userAgent } : {}),
+      "data.user": o.requester ?? "",
+      "data.srcip": o.attackerIp,
+      ...(o.country ? { "data.srccountry": o.country } : {}),
+      "data.dstip": o.applianceIp,
+      "data.dstport": "443",
+      ...(o.portal ? { "data.hostname": o.portal } : {}),
+      ...(o.msg ? { "data.msg": o.msg } : {}),
+      ...(o.wafSeverity ? { "data.severity": o.wafSeverity } : {}),
+      ...(o.bytesSent !== undefined ? { "data.sentbyte": String(o.bytesSent) } : {}),
+      ...(o.bytesReceived !== undefined ? { "data.rcvdbyte": String(o.bytesReceived) } : {}),
+      ...(o.file?.sha256 ? { "file.hash.sha256": o.file.sha256 } : {}),
+      "http.response.status_code": String(status),
+      "source.ip": o.attackerIp,
+      "event.action": blocked ? "blocked" : "allowed",
+      "action_result": blocked ? "blocked" : "allow",
+    },
+  };
+}
+
+// ── Admin / management-plane login (event/system) ─────────────────────────────────────
+// The FortiOS event log a login to the appliance's own management interface or API writes
+// (logid 0100032001 success / 0100032002 fail), rendered by the fortigate native module's
+// systemEvent path. `data.user` is the administrator the appliance attributes the session
+// to — the field that carries the published CVE-2022-40684 indicator `Local_Process_Access`
+// (the pseudo-identity FortiOS records when the management API is driven without an
+// authenticated session). Source is the external client; no company user is attached.
+export interface FgAdminLoginOpts extends Ctx {
+  adminUser: string;               // data.user — the admin account the appliance logs (e.g. "Local_Process_Access")
+  attackerIp: string;              // data.srcip — the external source
+  applianceIp: string;             // data.dstip — the appliance management IP
+  ui?: string;                     // data.ui — the management channel ("Node.js", "Report Runner", "https(ip)")
+  outcome?: "success" | "failure";
+  country?: string;                // data.srccountry
+  logid?: string;
+  mitre?: string;
+  tactic?: string;
+  severity?: Severity;
+  description?: string;
+}
+export function fgAdminLogin(o: FgAdminLoginOpts): TelemetryEvent {
+  const r = resolve({ ...o, host: o.host, user: null }); // appliance host; no company user
+  const ok = (o.outcome ?? "success") === "success";
+  return {
+    id: o.id, ts: o.ts, source: "firewall", vendor: VENDOR,
+    event_type: ok ? "auth_success" : "auth_failure",
+    severity: o.severity ?? "high", hostname: r.host, src_ip: o.attackerIp, dst_ip: o.applianceIp,
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
+    authentication: { method: "https", result: ok ? "success" : "failure" },
+    description: o.description ?? `FortiOS admin ${ok ? "login" : "login failed"} for ${o.adminUser} on ${r.host} from ${o.attackerIp}`,
+    raw: {
+      "data.type": "event",
+      "data.subtype": "system",
+      "data.logid": o.logid ?? (ok ? "0100032001" : "0100032002"),
+      "data.level": ok ? "information" : "alert",
+      "data.logdesc": ok ? "Admin login successful" : "Admin login failed",
+      "data.user": o.adminUser,
+      "data.ui": o.ui ?? `https(${o.attackerIp})`,
+      "data.method": "https",
+      "data.srcip": o.attackerIp,
+      ...(o.country ? { "data.srccountry": o.country } : {}),
+      "data.dstip": o.applianceIp,
+      "data.action": "login",
+      "data.status": ok ? "success" : "failed",
+      "data.msg": ok
+        ? `Administrator ${o.adminUser} logged in successfully from ${o.ui ?? `https(${o.attackerIp})`}`
+        : `Administrator ${o.adminUser} login failed from ${o.ui ?? `https(${o.attackerIp})`}`,
+      // shared ECS
+      "event.category": "authentication",
+      "event.action": "admin-login",
+      "event.outcome": ok ? "success" : "failure",
+      "source.ip": o.attackerIp,
+      "source.user.name": o.adminUser,
+    },
+  };
+}
+
+// ── SSL-VPN login ─────────────────────────────────────────────────────────────────────
+export interface FgVpnOpts extends Ctx {
+  remoteIp: string;                // the client's public IP
+  assignedIp?: string;             // tunnel IP handed to the client
+  outcome?: "success" | "failure";
+  tunnelName?: string;
+  mitre?: string;
+  tactic?: string;
+  severity?: Severity;
+  description?: string;
+}
+// The SSL-VPN service is logged as its own product line, so it maps to source "vpn"
+// distinctly from the firewall/UTM logs (vendor "FortiGate" → source "firewall"/"ids").
+const VPN_VENDOR = "FortiGate SSL-VPN";
+export function fgVpn(o: FgVpnOpts): TelemetryEvent {
+  const r = resolve(o);
+  const ok = (o.outcome ?? "success") === "success";
+  return {
+    id: o.id, ts: o.ts, source: "vpn", vendor: VPN_VENDOR,
+    event_type: ok ? "vpn_login" : "vpn_failed",
+    severity: o.severity ?? (ok ? "medium" : "low"), hostname: r.host, src_ip: o.remoteIp,
+    user_email: r.email, mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
+    geo: knownGeoForIp(o.remoteIp) ? { country: knownGeoForIp(o.remoteIp)!.country, city: knownGeoForIp(o.remoteIp)!.city } : undefined,
+    authentication: { method: "SSL-VPN", result: ok ? "success" : "failure" },
+    description: o.description ?? `FortiGate SSL-VPN ${ok ? "login" : "login FAILED"} for ${r.email ?? r.bareUser} from ${o.remoteIp}`,
+    raw: {
+      "data.type": "event",
+      "data.subtype": "vpn",
+      "data.action": ok ? "tunnel-up" : "ssl-login-fail",
+      "data.user": r.bareUser,
+      "data.remip": o.remoteIp,
+      ...(o.assignedIp ? { "data.tunnelip": o.assignedIp } : {}),
+      "data.tunneltype": "ssl-web",
+      "data.msg": ok ? "SSL tunnel established" : "SSL user failed to authenticate",
+      "data.level": ok ? "information" : "warning",
+      ...(geoCountry(o.remoteIp) ? { "data.srccountry": geoCountry(o.remoteIp)! } : {}),
+      // shared ECS
+      "action": ok ? "tunnel-up" : "login-fail",
+      "action_result": ok ? "allowed" : "blocked",
+      "event.action": "vpn-login",
+      "event.category": "authentication",
+      "event.outcome": ok ? "success" : "failure",
+      "source.ip": o.remoteIp,
+      "source.user.name": r.bareUser,
+      ...(o.assignedIp ? { "vpn.assigned.ip": o.assignedIp } : {}),
+      "vpn.user": r.bareUser,
+      "vpn.status": ok ? "up" : "failed",
+      ...(geoCountry(o.remoteIp) ? { "source.geo.country_name": geoCountry(o.remoteIp)! } : {}),
+    },
+  };
+}

@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 480" role="img" aria-label="Table of five containment actions — kill process, isolate host, disable account, block IP, power off — each with what it stops, what evidence it destroys, its business impact, and whether it tips off the adversary, with power off highlighted as the one action that destroys memory with no undo"><title>Containment action trade-offs — what each one stops, and what it costs</title>
+  <defs>
+    <style>
+      .bg    { fill: #0b0f1e; }
+      .panel { fill: #0a1020; stroke: #1e2d4a; stroke-width: 1; }
+      .row   { fill: #0d1526; stroke: #1e2d4a; stroke-width: 1; }
+      .warnRow { fill: #1a1220; stroke: #f87171; stroke-width: 1.4; }
+      .ui    { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .head  { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+      .col   { fill: #64748b; font-size: 9.5px; font-weight: 700; letter-spacing: .06em; }
+      .actionTitle { fill: #22d3ee; font-size: 12px; font-weight: 700; }
+      .actionSub   { fill: #64748b; font-size: 9px; }
+      .cell  { fill: #cbd5e1; font-size: 10px; }
+      .destroy { fill: #f87171; font-size: 10px; }
+      .warnTitle { fill: #f87171; font-size: 13px; font-weight: 800; }
+      .note  { fill: #94a3b8; font-size: 11px; }
+      .cap   { fill: #64748b; font-size: 10.5px; font-style: italic; }
+      .flag  { fill: #fbbf24; font-size: 11px; font-weight: 700; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="940" height="480"/>
+  <text class="ui head" x="24" y="30">CONTAINMENT ACTIONS — WHAT EACH ONE STOPS, AND WHAT IT COSTS</text>
+
+  <rect class="panel" x="24" y="46" width="892" height="384" rx="6"/>
+
+  <text class="ui col" x="40"  y="66">ACTION</text>
+  <text class="ui col" x="176" y="66">STOPS</text>
+  <text class="ui col" x="372" y="66">DESTROYS EVIDENCE</text>
+  <text class="ui col" x="568" y="66">BUSINESS IMPACT</text>
+  <text class="ui col" x="758" y="66">TIPS OFF ADVERSARY?</text>
+  <line x1="40" y1="74" x2="900" y2="74" stroke="#1e2d4a" stroke-width="1"/>
+
+  <!-- Row 1: Kill process -->
+  <rect class="row" x="32" y="82" width="876" height="62" rx="4"/>
+  <text class="ui actionTitle" x="40" y="106">KILL PROCESS</text>
+  <text class="ui actionSub"   x="40" y="120">EDR process termination</text>
+  <text class="ui cell" x="176" y="106">The specific malicious</text>
+  <text class="ui cell" x="176" y="120">process, immediately</text>
+  <text class="ui cell" x="372" y="106">In-memory state of that</text>
+  <text class="ui cell" x="372" y="120">process — injected code, keys</text>
+  <text class="ui cell" x="568" y="106">Minimal — surgical,</text>
+  <text class="ui cell" x="568" y="120">targeted action</text>
+  <text class="ui cell" x="758" y="106">Maybe — process dies,</text>
+  <text class="ui cell" x="758" y="120">attacker may notice</text>
+
+  <!-- Row 2: Isolate host -->
+  <rect class="row" x="32" y="148" width="876" height="62" rx="4"/>
+  <text class="ui actionTitle" x="40" y="172">ISOLATE HOST</text>
+  <text class="ui actionSub"   x="40" y="186">EDR network containment</text>
+  <text class="ui cell" x="176" y="172">All network I/O —</text>
+  <text class="ui cell" x="176" y="186">C2 and lateral movement</text>
+  <text class="ui cell" x="372" y="172">Little, if isolated not</text>
+  <text class="ui cell" x="372" y="186">rebooted — host stays live</text>
+  <text class="ui cell" x="568" y="172">User fully locked out</text>
+  <text class="ui cell" x="568" y="186">of that machine</text>
+  <text class="ui cell" x="758" y="172">Yes — host visibly</text>
+  <text class="ui cell" x="758" y="186">goes dark to attacker</text>
+
+  <!-- Row 3: Disable account -->
+  <rect class="row" x="32" y="214" width="876" height="62" rx="4"/>
+  <text class="ui actionTitle" x="40" y="238">DISABLE ACCOUNT</text>
+  <text class="ui actionSub"   x="40" y="252">identity provider action</text>
+  <text class="ui cell" x="176" y="238">New authentications</text>
+  <text class="ui cell" x="176" y="252">with that identity</text>
+  <text class="ui cell" x="372" y="238">Nothing directly — but</text>
+  <text class="ui cell" x="372" y="252">live sessions can persist</text>
+  <text class="ui cell" x="568" y="238">Locks out a real person</text>
+  <text class="ui cell" x="568" y="252">if the call was wrong</text>
+  <text class="ui cell" x="758" y="238">Not immediately — fails</text>
+  <text class="ui cell" x="758" y="252">on the next logon attempt</text>
+
+  <!-- Row 4: Block IP -->
+  <rect class="row" x="32" y="280" width="876" height="62" rx="4"/>
+  <text class="ui actionTitle" x="40" y="304">BLOCK IP</text>
+  <text class="ui actionSub"   x="40" y="318">firewall / proxy deny rule</text>
+  <text class="ui cell" x="176" y="304">Traffic to that one</text>
+  <text class="ui cell" x="176" y="318">address, both directions</text>
+  <text class="ui cell" x="372" y="304">Nothing directly — but the</text>
+  <text class="ui cell" x="372" y="318">connection visibly drops</text>
+  <text class="ui cell" x="568" y="304">Can break shared infra —</text>
+  <text class="ui cell" x="568" y="318">CDN, NAT gateway, hosting</text>
+  <text class="ui cell" x="758" y="304">Yes, fast — beacon fails</text>
+  <text class="ui cell" x="758" y="318">and adversary notices</text>
+
+  <!-- Row 5: Power off (highlighted) -->
+  <rect class="warnRow" x="32" y="346" width="876" height="72" rx="4"/>
+  <text class="ui warnTitle" x="40" y="374">POWER OFF</text>
+  <text class="ui actionSub" x="40" y="388">pull the plug / hard shutdown</text>
+  <text class="ui cell" x="176" y="374">Everything, instantly —</text>
+  <text class="ui cell" x="176" y="388">the ultimate kill switch</text>
+  <text class="ui destroy" x="372" y="374" font-weight="700">RAM — keys, injected</text>
+  <text class="ui destroy" x="372" y="388" font-weight="700">payloads, ALL GONE, forever</text>
+  <text class="ui cell" x="568" y="374">Full outage, no graceful</text>
+  <text class="ui cell" x="568" y="388">shutdown of the system</text>
+  <text class="ui cell" x="758" y="374">Obvious and immediate —</text>
+  <text class="ui cell" x="758" y="388">session simply dies</text>
+
+  <text class="ui flag" x="40" y="418">RULE: capture memory before you pull power — there is no undo for what power off destroys.</text>
+
+  <text class="ui cap" x="24" y="452">Every action here is correct in some situation. None of them is free — the question is always: free of what cost?</text>
+</svg>

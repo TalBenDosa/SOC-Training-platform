@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 470" role="img" aria-label="Illustrative diagram of how many raw endpoint events collapse into a single Storyline identifier in SentinelOne">
+  <title>Storyline — many raw events, one narrative (generic mockup)</title>
+  <defs>
+    <style>
+      .bg    { fill: #0b0f1e; }
+      .panel { fill: #0a1020; stroke: #1e2d4a; stroke-width: 1; }
+      .ev    { fill: #0d1526; stroke: #2a3b57; stroke-width: 1; }
+      .story { fill: #0e1b30; stroke: #22d3ee; stroke-width: 1.5; }
+      .ui    { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .mono  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
+      .head  { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+      .col   { fill: #64748b; font-size: 10px; font-weight: 600; letter-spacing: .08em; }
+      .evT   { fill: #cbd5e1; font-size: 11px; }
+      .dim   { fill: #64748b; font-size: 10px; }
+      .cyan  { fill: #22d3ee; font-size: 12px; font-weight: 700; }
+      .note  { fill: #94a3b8; font-size: 11px; }
+      .cap   { fill: #64748b; font-size: 10px; font-style: italic; }
+      .arrow { stroke: #334867; stroke-width: 1.2; fill: none; }
+      .flow  { stroke: #22d3ee; stroke-width: 1.4; fill: none; opacity: .8; }
+    </style>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#22d3ee"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" width="940" height="470"/>
+  <text class="ui head" x="24" y="28">STORYLINE — WHY YOU ARE NOT CORRELATING THIS BY HAND</text>
+
+  <!-- left: raw events -->
+  <rect class="panel" x="24" y="44" width="380" height="352" rx="6"/>
+  <text class="ui col" x="38" y="64">RAW ENDPOINT EVENTS — WHAT THE AGENT SEES</text>
+
+  <rect class="ev" x="34" y="76"  width="360" height="30" rx="4"/>
+  <text class="ui evT" x="44" y="96">winword.exe opened Q3_Invoice.docm</text>
+  <rect class="ev" x="34" y="112" width="360" height="30" rx="4"/>
+  <text class="ui evT" x="44" y="132">winword.exe spawned powershell.exe</text>
+  <rect class="ev" x="34" y="148" width="360" height="30" rx="4"/>
+  <text class="ui evT" x="44" y="168">powershell.exe wrote C:\Users\Public\u.dat</text>
+  <rect class="ev" x="34" y="184" width="360" height="30" rx="4"/>
+  <text class="ui evT" x="44" y="204">powershell.exe resolved cdn-sync.example</text>
+  <rect class="ev" x="34" y="220" width="360" height="30" rx="4"/>
+  <text class="ui evT" x="44" y="240">outbound TCP 443 to 203.0.113.44</text>
+  <rect class="ev" x="34" y="256" width="360" height="30" rx="4"/>
+  <text class="ui evT" x="44" y="276">registry Run key value created</text>
+  <rect class="ev" x="34" y="292" width="360" height="30" rx="4"/>
+  <text class="ui evT" x="44" y="312">scheduled task SyncHelper registered</text>
+  <rect class="ev" x="34" y="328" width="360" height="30" rx="4"/>
+  <text class="ui evT" x="44" y="348">rundll32.exe loaded u.dat</text>
+
+  <text class="ui cap" x="38" y="382">Eight separate rows. In a raw log tool, eight things to notice and join yourself.</text>
+
+  <!-- arrows into storyline -->
+  <path class="flow" marker-end="url(#a)" d="M404 91  C 450 91, 470 200, 512 208"/>
+  <path class="flow" marker-end="url(#a)" d="M404 127 C 450 127, 470 205, 512 212"/>
+  <path class="flow" marker-end="url(#a)" d="M404 199 C 450 199, 480 208, 512 216"/>
+  <path class="flow" marker-end="url(#a)" d="M404 271 C 450 271, 480 235, 512 222"/>
+  <path class="flow" marker-end="url(#a)" d="M404 343 C 450 343, 480 250, 512 228"/>
+
+  <!-- right: storyline -->
+  <rect class="story" x="516" y="44" width="400" height="352" rx="6"/>
+  <text class="ui col" x="530" y="64">ONE STORYLINE</text>
+  <text class="mono cyan" x="530" y="88">StorylineID: A1B2-C3D4-E5F6</text>
+
+  <text class="ui note" x="530" y="118">Every event above shares one process lineage, so the</text>
+  <text class="ui note" x="530" y="136">agent links them at collection time — not afterwards</text>
+  <text class="ui note" x="530" y="154">by an analyst writing join queries.</text>
+
+  <rect class="panel" x="530" y="172" width="372" height="96" rx="5"/>
+  <text class="ui col" x="542" y="192">WHAT YOU GET FOR FREE</text>
+  <text class="ui evT" x="542" y="214">Full process tree, already assembled</text>
+  <text class="ui evT" x="542" y="234">Every file, network and registry action attributed</text>
+  <text class="ui evT" x="542" y="254">One ID to pivot on across the whole fleet</text>
+
+  <rect class="panel" x="530" y="280" width="372" height="100" rx="5"/>
+  <text class="ui col" x="542" y="300">WHAT IT STILL DOES NOT DECIDE</text>
+  <text class="ui evT" x="542" y="322">Whether any of it is actually malicious</text>
+  <text class="ui evT" x="542" y="342">Whether the document was expected on this host</text>
+  <text class="ui evT" x="542" y="362">Whether the domain is genuinely a CDN</text>
+
+  <text class="ui note" x="24" y="424">Correlation is the machine's job. Judgement is still yours — a Storyline groups activity, it does not grade it.</text>
+  <text class="ui cap"  x="24" y="450">Illustrative mockup of the concept. Not a screenshot of any vendor product.</text>
+</svg>

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Fragment } from "react";
 import {
   RadarChart, PolarGrid, PolarAngleAxis, Radar,
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis,
@@ -9,12 +9,18 @@ import { Topbar } from "@/components/nav/Topbar";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
-import { levelFromXp, xpForLevel, rankFromXp } from "@/lib/utils";
-import { Award, CheckCircle2, Flame, Star, Target, TrendingUp, Zap, Timer, Eye, Scale, Snowflake } from "lucide-react";
+import { RANKS, rankForXp, nextRank, rankProgress } from "@/lib/progression/ranks";
+import { computeStreak, collectActivityDates } from "@/lib/progression/streak";
+import { Award, CheckCircle2, Flame, Star, Target, TrendingUp, Zap, Timer, Eye, Scale, Snowflake, ChevronDown, ChevronRight, FileText, Users, AlertTriangle, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { ROOMS } from "@/data/rooms";
-import type { RoomTask } from "@/data/rooms";
-import { getTotalXp } from "@/lib/storage/progress";
+import { ROOMS_META } from "@/data/roomsMeta";
+import {
+  getTotalXp, getScenarioHistory, getRoomProgress, getDashboardSessions,
+  getClearedCompanies, broadcastXpChanged, getQuizActivityDates, getLessonActivityDates,
+  getStreakFreezeDates as facadeGetStreakFreezes,
+  saveStreakFreezeDates as facadeSaveStreakFreezes,
+} from "@/lib/storage/progress";
+import { useProgressSnapshot } from "@/lib/storage/useProgressSnapshot";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -25,13 +31,20 @@ interface ScenarioRecord {
   xpEarned: number;
   timeTaken: number;   // seconds
   date: string;
+  report?: {
+    verdict?: string | null;
+    verdictReason?: string;
+    notes?: string;
+    findings?: string;
+    reportScore?: number;
+    rubric?: { verdict: number; depth: number; evidence: number; reasoning: number };
+    passed?: boolean;
+  };
 }
 
 // ─── Static data (non-persisted) ─────────────────────────────────────────────
 
 const BASE_USER = {
-  displayName: "Tal Ben Dosa",
-  handle: "tal.bendosa",
   streak: 0,
   badgesEarned: 1,
 };
@@ -73,53 +86,26 @@ interface RoomTaskTelemetry {
   decisionLatencyMs: number;
 }
 
-/** Consecutive-day streak ending today (or yesterday) from activity dates */
-function computeStreak(dates: string[]): number {
-  if (dates.length === 0) return 0;
-  const daySet = new Set(dates.map(d => new Date(d).toDateString()));
-  let streak = 0;
-  const cursor = new Date();
-  // Allow the streak to be "alive" if the last activity was yesterday
-  if (!daySet.has(cursor.toDateString())) cursor.setDate(cursor.getDate() - 1);
-  while (daySet.has(cursor.toDateString())) {
-    streak += 1;
-    cursor.setDate(cursor.getDate() - 1);
-  }
-  return streak;
-}
+// computeStreak / collectActivityDates: shared with the Topbar (useStreak) via
+// src/lib/progression/streak.ts, so both always show the same number.
 
 // ─── Streak freeze ────────────────────────────────────────────────────────────
 // Duolingo-style grace: a missed day doesn't have to silently kill a streak the
 // learner has been building. Up to STREAK_FREEZES_PER_MONTH freezes can retro-
 // actively cover yesterday, so a lapse becomes a same-day save, not a loss the
 // learner only discovers next time they open this page.
-const STREAK_FREEZE_KEY = "soc_streak_freeze_dates";
 const STREAK_FREEZES_PER_MONTH = 2;
 
-/** Freeze dates used within the last 30 days (older ones don't count against the cap). */
+/** Freeze dates used within the last 30 days (older ones don't count against the cap).
+ *  Reads through the storage facade (DB-backed for signed-in users) — previously a
+ *  local shadow that wrote raw localStorage and never reached user_progress. */
 function loadStreakFreezeDates(): string[] {
-  try {
-    const raw = JSON.parse(localStorage.getItem(STREAK_FREEZE_KEY) ?? "[]") as string[];
-    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
-    return raw.filter(d => new Date(d).getTime() >= cutoff);
-  } catch { return []; }
-}
-
-function saveStreakFreezeDates(dates: string[]) {
-  try { localStorage.setItem(STREAK_FREEZE_KEY, JSON.stringify(dates)); } catch { /* ignore */ }
+  const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  return facadeGetStreakFreezes().filter(d => new Date(d).getTime() >= cutoff);
 }
 
 function avg(arr: number[]): number {
   return arr.length === 0 ? 0 : Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
-}
-
-/** Max XP a single Room task can award (0 for reading tasks) — mirrors taskMaxXp in RoomClient.tsx */
-function roomTaskMaxXp(task: RoomTask): number {
-  switch (task.type) {
-    case "reading":      return 0;
-    case "log_analysis": return task.questions.reduce((s, q) => s + q.xp, 0);
-    default:              return task.xp;
-  }
 }
 
 /** % score across every completed Room log_analysis task — the real substitute for
@@ -127,10 +113,10 @@ function roomTaskMaxXp(task: RoomTask): number {
  * UI that no longer exists. */
 function computeLogAnalysisSkill(perTaskXp: Record<string, number>): number {
   const rates: number[] = [];
-  for (const room of ROOMS) {
+  for (const room of ROOMS_META) {
     for (const task of room.tasks) {
       if (task.type !== "log_analysis") continue;
-      const max = roomTaskMaxXp(task);
+      const max = task.xp;
       const earned = perTaskXp[task.id];
       if (max <= 0 || earned === undefined) continue;
       rates.push(Math.round((earned / max) * 100));
@@ -144,11 +130,10 @@ function computeLogAnalysisSkill(perTaskXp: Record<string, number>): number {
  * per-event technique hit-rate. */
 function computeMitreKnowledgeSkill(perTaskXp: Record<string, number>): number {
   const rates: number[] = [];
-  for (const room of ROOMS) {
+  for (const room of ROOMS_META) {
     for (const task of room.tasks) {
-      const event = task.type === "log_analysis" || task.type === "analyst_choice" ? task.event : undefined;
-      if (!event?.mitre_technique) continue;
-      const max = roomTaskMaxXp(task);
+      if (!task.mitreTechnique) continue;
+      const max = task.xp;
       const earned = perTaskXp[task.id];
       if (max <= 0 || earned === undefined) continue;
       rates.push(Math.round((earned / max) * 100));
@@ -214,59 +199,65 @@ function computeBadges(
     badges.push({ name: "Portfolio Defender", tier: "gold", desc: "Secured 3 or more companies" });
   if (sessions.some(s => s.detectRate >= 80))
     badges.push({ name: "Sharp Eye", tier: "silver", desc: "Finished a session catching 80%+ of the attacks presented" });
-  if (levelFromXp(totalXp) >= 5)
-    badges.push({ name: "Level 5 Analyst", tier: "gold", desc: "Reached level 5" });
+  if (rankForXp(totalXp).minXp >= 5000)
+    badges.push({ name: "Made Analyst", tier: "gold", desc: "Reached the Analyst rank (Tier 1)" });
   return badges;
 }
 
-// Honest rank-progression ladder tied to the real thresholds in
-// rankFromXp() (lib/utils). These are skill milestones to climb toward, not
-// fabricated rival users — the previous fake leaderboard pinned a hardcoded
-// name at a fake XP regardless of the learner's real progress.
-const RANK_LADDER: { name: string; xp: number }[] = [
-  { name: "Recruit",        xp: 0 },
-  { name: "Tier 1 Analyst", xp: 1000 },
-  { name: "Tier 2 Analyst", xp: 3000 },
-  { name: "Tier 3 Analyst", xp: 7000 },
-  { name: "Threat Hunter",  xp: 15000 },
-  { name: "IR Lead",        xp: 30000 },
-  { name: "SOC Architect",  xp: 60000 },
-];
+// Rank ladder comes from lib/progression/ranks.ts — the same list the Topbar
+// and /home render. This file previously declared its own with different names
+// AND different thresholds, so the two screens disagreed about what rank the
+// learner held.
+const RANK_LADDER = RANKS.map(r => ({ name: `${r.label} (${r.tier})`, xp: r.minXp }));
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
+// Uses the CANONICAL rank ladder (lib/progression/ranks.ts) — the same one the
+// Topbar, the EarnMoment toast and the Rank Progression ladder below all use, so
+// this header can never disagree with them. (It previously used a separate
+// xp/1000 "level" system from lib/utils.ts.)
 function XpLevel({ xp }: { xp: number }) {
-  const level      = levelFromXp(xp);
-  const thisLvlXp  = xpForLevel(level - 1);
-  const nextLvlXp  = xpForLevel(level);
-  const progress   = ((xp - thisLvlXp) / (nextLvlXp - thisLvlXp)) * 100;
-  const rank       = rankFromXp(xp);
+  const rank = rankForXp(xp);
+  const next = nextRank(xp);
+  const prog = rankProgress(xp);            // null at top rank
+  const rankName = rank.tier.startsWith("tier-")
+    ? `${rank.label} · ${rank.tier.replace("tier-", "Tier ")}`
+    : rank.label;
 
   return (
     <Card className="border-cyber-500/30 bg-gradient-to-br from-cyber-500/5 to-neon-purple/5">
       <div className="flex items-center gap-5">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-cyber-500/40 bg-cyber-500/10 font-mono text-2xl font-bold text-cyber-300">
-          {level}
+        <div className={cn("flex h-16 w-16 items-center justify-center rounded-full border-2 bg-cyber-500/10 text-3xl font-bold", rank.accent.ring, rank.accent.text)}>
+          {rank.glyph}
         </div>
         <div className="flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-cyber-300">Level {level} — {rank}</p>
+          <p className={cn("text-[10px] font-semibold uppercase tracking-widest", rank.accent.text)}>{rankName}</p>
           <div className="mt-2 flex items-center gap-3">
             <Star className="h-5 w-5 text-severity-medium" />
             <span className="font-mono text-3xl font-bold text-white">{xp.toLocaleString()} XP</span>
           </div>
-          <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
-            <span>{thisLvlXp.toLocaleString()} XP</span>
-            <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-bg">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-cyber-500 to-neon-green transition-all"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <span>{nextLvlXp.toLocaleString()} XP</span>
-          </div>
-          <p className="mt-0.5 text-[10px] text-slate-500">
-            {nextLvlXp - xp} XP to Level {level + 1}
-          </p>
+          {prog && next ? (
+            <>
+              <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
+                <span>{rank.minXp.toLocaleString()}</span>
+                <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-bg">
+                  <div
+                    className={cn("h-full rounded-full transition-all", rank.accent.bar)}
+                    style={{ width: `${prog.pct}%` }}
+                  />
+                </div>
+                <span>{next.minXp.toLocaleString()}</span>
+              </div>
+              <p className="mt-0.5 text-[10px] text-slate-400">
+                {(next.minXp - xp).toLocaleString()} XP to {next.label}
+                {next.tier.startsWith("tier-") ? ` · ${next.tier.replace("tier-", "Tier ")}` : ""}
+              </p>
+            </>
+          ) : (
+            <p className="mt-2 text-[10px] font-semibold uppercase tracking-widest text-neon-amber">
+              Top rank reached — Senior Analyst
+            </p>
+          )}
         </div>
       </div>
     </Card>
@@ -296,7 +287,7 @@ function StatsStrip({ user }: { user: UserData }) {
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">{label}</p>
                 <p className="mt-2 font-mono text-3xl font-semibold text-white">{value}</p>
-                <p className="mt-0.5 text-xs text-slate-500">{sub}</p>
+                <p className="mt-0.5 text-xs text-slate-400">{sub}</p>
               </div>
               <div className={cn("rounded-lg border border-border p-2", accentMap[accent])}>{icon}</div>
             </div>
@@ -307,14 +298,110 @@ function StatsStrip({ user }: { user: UserData }) {
   );
 }
 
+/**
+ * Shown until the learner's progress source is authoritative. For a signed-in
+ * learner the numbers would otherwise be this browser's empty guest data for a
+ * moment (or for good — the #1 bug), which reads as "your progress is gone".
+ */
+function ProgressLoading({ slow }: { slow: boolean }) {
+  return (
+    <div className="container mx-auto max-w-[1600px] px-6 py-6 space-y-6" aria-busy="true">
+      <Card className="flex items-center gap-3">
+        <Loader2 className="h-5 w-5 animate-spin text-cyber-300" />
+        <div className="flex-1">
+          <p className="text-sm font-semibold text-white">Loading your progress…</p>
+          <p className="text-xs text-slate-400">
+            {slow ? "This is taking longer than usual." : "Fetching your saved results from your account."}
+          </p>
+        </div>
+        {slow && (
+          <button
+            onClick={() => window.location.reload()}
+            className="shrink-0 rounded-md border border-cyber-500/50 bg-cyber-500/15 px-3 py-1.5 text-xs font-bold text-cyber-300 hover:bg-cyber-500/25 transition-colors"
+          >
+            Reload
+          </button>
+        )}
+      </Card>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {[0, 1, 2, 3].map(i => (
+          <div key={i} className="h-[104px] animate-pulse rounded-lg border border-border bg-bg-elevated" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Class leaderboard — org-scoped, opt-in-by-enrolment. Fetches /api/leaderboard,
+ * which runs the security-scoped org_leaderboard() RPC as the caller (see
+ * migration 0018). Renders nothing for solo users or anyone without a real
+ * cohort (available:false), so it only appears for enrolled college students —
+ * no empty leaderboard clutter for individual learners.
+ */
+type LeaderRow = { rank: number; displayName: string; xp: number; level: number; isMe: boolean };
+function LeaderboardCard() {
+  const [rows, setRows]     = useState<LeaderRow[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/leaderboard")
+      .then(r => (r.ok ? r.json() : { rows: [], available: false }))
+      .then(d => { if (alive) { setRows(d.available ? d.rows : []); setLoaded(true); } })
+      .catch(() => { if (alive) setLoaded(true); });
+    return () => { alive = false; };
+  }, []);
+
+  if (!loaded || rows.length === 0) return null; // hidden for solo users / no cohort
+
+  return (
+    <Card padded={false}>
+      <div className="flex items-center gap-2 border-b border-border px-5 py-3">
+        <Users className="h-4 w-4 text-cyber-300" />
+        <h3 className="text-sm font-semibold text-white">Class Leaderboard</h3>
+        <span className="ml-auto text-[10px] uppercase tracking-wider text-slate-400">Your cohort</span>
+      </div>
+      <ul>
+        {rows.map(r => (
+          <li
+            key={`${r.rank}-${r.displayName}`}
+            className={cn(
+              "flex items-center gap-3 border-b border-border/60 px-5 py-2.5 last:border-b-0",
+              r.isMe && "bg-cyber-500/5 border-l-2 border-l-cyber-500",
+            )}
+          >
+            <span className={cn(
+              "flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-mono text-[10px] font-bold",
+              r.rank === 1 ? "bg-severity-medium/20 text-severity-medium" :
+              r.rank === 2 ? "bg-slate-400/20 text-slate-200" :
+              r.rank === 3 ? "bg-amber-700/25 text-amber-500" :
+                             "border border-border bg-bg text-slate-400",
+            )}>
+              {r.rank}
+            </span>
+            <span className={cn("flex-1 min-w-0 truncate text-xs font-semibold", r.isMe ? "text-cyber-300" : "text-slate-200")}>
+              <span className="sr-only">Rank {r.rank}: </span><bdi>{r.displayName}</bdi>{r.isMe && <span className="ml-1 text-[10px] text-cyber-500">(you)</span>}
+            </span>
+            <span className="shrink-0 text-[10px] text-slate-400">Lv {r.level}</span>
+            <span className="shrink-0 font-mono text-xs font-bold text-cyber-300">{r.xp.toLocaleString()}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="px-5 py-2 text-[10px] text-slate-400">Ranked by XP within your organisation.</p>
+    </Card>
+  );
+}
 
 export default function ProgressPage() {
   const [totalXp,          setTotalXp]          = useState(0);
   const [streakFreezeDates, setStreakFreezeDates] = useState<string[]>([]);
   const [scenarioHistory,  setScenarioHistory]  = useState<ScenarioRecord[]>([]);
+  const [openReport,       setOpenReport]       = useState<number | null>(null);
   const [dashSessions,     setDashSessions]     = useState<DashboardSession[]>([]);
   const [roomDates,        setRoomDates]        = useState<string[]>([]);
+  const [quizLessonDates,  setQuizLessonDates]  = useState<string[]>([]);
   const [roomTelemetry,    setRoomTelemetry]    = useState<RoomTaskTelemetry[]>([]);
   const [clearedCount,     setClearedCount]     = useState(0);
   const [skillsData,       setSkillsData]       = useState(ZERO_SKILLS);
@@ -323,10 +410,26 @@ export default function ProgressPage() {
     { day: "Thu", xp: 0 }, { day: "Fri", xp: 0 }, { day: "Sat", xp: 0 }, { day: "Sun", xp: 0 },
   ]);
 
+  // ONE source, read together (#1 / #6). The page used to read the storage
+  // facade once on mount — before ProgressProvider had installed the signed-in
+  // learner's hydrated remote backend — so every stat except the XP header
+  // (which alone listened for the post-hydrate XP event) showed this browser's
+  // empty guest data: "0 attempted, 0%, 0m" next to a real XP total, and a
+  // streak of 0 while the Topbar flame said 1. Now nothing is read until the
+  // source is authoritative (`ready`), and EVERYTHING re-derives from it on
+  // every change signal (`version`), so no two numbers can come from different
+  // moments or different backends.
+  const { ready, version, slow, failed } = useProgressSnapshot();
+
   useEffect(() => {
-    // Read total XP (via the storage facade — Phase-1 seam)
+    if (!ready) return;
+    // Total XP: profiles.xp (server-authoritative) for signed-in users — the same
+    // value the leaderboard shows and the rank is derived from.
     setTotalXp(getTotalXp());
     setStreakFreezeDates(loadStreakFreezeDates());
+    // Quiz + lesson completions count toward the streak too (recorded
+    // server-side since 0070 / 0074) — same sources as the Topbar flame.
+    try { setQuizLessonDates([...getQuizActivityDates(), ...getLessonActivityDates()]); } catch { setQuizLessonDates([]); }
 
     // Room completions count toward the streak too — a learner who does rooms
     // daily should not show a streak of 0 just because they haven't run a
@@ -339,69 +442,58 @@ export default function ProgressPage() {
     // the only honest signal left for per-source / per-technique accuracy.
     const roomPerTaskXp: Record<string, number> = {};
     try {
-      const rp = JSON.parse(localStorage.getItem("room_progress") ?? "{}") as Record<string, { completedAt?: string; telemetry?: RoomTaskTelemetry[]; perTaskXp?: Record<string, number> }>;
+      const rp = getRoomProgress() as Record<string, { completedAt?: string; telemetry?: RoomTaskTelemetry[]; perTaskXp?: Record<string, number> }>;
       setRoomDates(Object.values(rp).map(r => r.completedAt).filter((d): d is string => !!d));
       setRoomTelemetry(Object.values(rp).flatMap(r => r.telemetry ?? []));
       for (const entry of Object.values(rp)) Object.assign(roomPerTaskXp, entry.perTaskXp ?? {});
     } catch { /* ignore corrupt data */ }
 
+    // Last-7-days XP chart — rebuilt from scratch on every read (this effect
+    // re-runs, so accumulating into the previous state would double-count).
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const days: Record<string, number> = {};
+    const addDay = (iso: string, xp: number) => {
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime()) || d.getTime() < weekAgo) return;
+      const label = dayNames[d.getDay()];
+      days[label] = (days[label] ?? 0) + (xp ?? 0);
+    };
+
     let scenarioAvg = 0;
-    // Read scenario history
+    // Scenario history through the storage facade: DB-backed `scenario_history`
+    // for signed-in users, localStorage for guests — same key.
     try {
-      const raw = localStorage.getItem("soc_scenario_history");
-      if (raw) {
-        const history: ScenarioRecord[] = JSON.parse(raw);
-        const sorted = history.slice().reverse().slice(0, 20);
-        setScenarioHistory(sorted);
-        scenarioAvg = history.length
-          ? Math.round(history.reduce((s, r) => s + r.score, 0) / history.length)
-          : 0;
+      const history = getScenarioHistory();
+      setScenarioHistory(history.slice().reverse().slice(0, 20));
+      scenarioAvg = history.length ? Math.round(history.reduce((s, r) => s + r.score, 0) / history.length) : 0;
+      history.forEach(r => addDay(r.date, r.xpEarned));
+    } catch { setScenarioHistory([]); }
 
-        // Build last-7-days activity chart from scenario completions
-        const days: Record<string, number> = {};
-        const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-        history.forEach(r => {
-          const d = new Date(r.date);
-          const dayLabel = dayNames[d.getDay()];
-          days[dayLabel] = (days[dayLabel] ?? 0) + r.xpEarned;
-        });
-        setActivityData(prev => prev.map(d => ({ ...d, xp: days[d.day] ?? 0 })));
-      }
-    } catch { /* ignore corrupt data */ }
-
-    // Read dashboard sessions and compute real skills
+    let sessions: DashboardSession[] = [];
     try {
-      const raw = localStorage.getItem("soc_dashboard_sessions");
-      const sessions: DashboardSession[] = raw ? JSON.parse(raw) : [];
-      setDashSessions(sessions);
-      // Merge XP from dashboard sessions into activity chart
-      const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-      const days: Record<string, number> = {};
-      sessions.forEach(s => {
-        const d = new Date(s.date);
-        const dayLabel = dayNames[d.getDay()];
-        days[dayLabel] = (days[dayLabel] ?? 0) + s.xpEarned;
-      });
-      setActivityData(prev => prev.map(d => ({ ...d, xp: (d.xp ?? 0) + (days[d.day] ?? 0) })));
-      setSkillsData(computeSkills(sessions, scenarioAvg, roomPerTaskXp));
+      sessions = getDashboardSessions() as unknown as DashboardSession[];
+      sessions.forEach(s => addDay(s.date, s.xpEarned));
     } catch { /* ignore corrupt data */ }
+    setDashSessions(sessions);
+    setSkillsData(computeSkills(sessions, scenarioAvg, roomPerTaskXp));
+    setActivityData(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(day => ({ day, xp: days[day] ?? 0 })));
 
-    // Companies secured — drives completion rate + badges
-    try {
-      const cleared = JSON.parse(localStorage.getItem("soc_company_cleared_v1") ?? "[]") as string[];
-      setClearedCount(cleared.length);
-    } catch { /* ignore corrupt data */ }
-  }, []);
+    // Companies secured — drives completion rate + badges. Via the facade so a
+    // signed-in user's DB-backed cleared_companies count is consistent everywhere.
+    try { setClearedCount(getClearedCompanies().length); } catch { /* ignore corrupt data */ }
+  }, [ready, version]);
 
   // Streak freezes are merged straight into the activity list — a frozen day
   // counts exactly like a real one, both for the streak number and for whether
   // the chain-bridging conditions below see it as "covered."
-  const activityDates = [
-    ...scenarioHistory.map(s => s.date),
-    ...dashSessions.map(s => s.date),
-    ...roomDates,
-    ...streakFreezeDates,
-  ];
+  const activityDates = collectActivityDates({
+    scenarioDates: scenarioHistory.map(s => s.date),
+    dashboardDates: dashSessions.map(s => s.date),
+    roomDates,
+    quizDates: quizLessonDates,
+    freezeDates: streakFreezeDates,
+  });
   const streak = computeStreak(activityDates);
 
   const activityDaySet = new Set(activityDates.map(d => new Date(d).toDateString()));
@@ -422,7 +514,10 @@ export default function ProgressPage() {
   function handleUseStreakFreeze() {
     const updated = [...streakFreezeDates, yesterdayD.toISOString()];
     setStreakFreezeDates(updated);
-    saveStreakFreezeDates(updated);
+    facadeSaveStreakFreezes(updated);
+    // The Topbar flame (useStreak) recomputes on this signal — keeps it equal
+    // to the Current Streak card instead of lagging until the next XP change.
+    broadcastXpChanged();
   }
   const dashboardMinutes = Math.round(
     dashSessions.reduce((sum, s) => sum + (s.durationMs ?? 0), 0) / 60_000
@@ -444,8 +539,12 @@ export default function ProgressPage() {
   // Phase-1 behavioral telemetry (see ANALYST_TELEMETRY_PLAN.md) — a couple of
   // the most legible trends, not a dump of every raw metric. Speed is always
   // shown alongside accuracy, never in place of it.
+  // FB-018: clamp each sample so idle/away time (a task left open) can't inflate the
+  // average above total time spent. New telemetry is already capped at record time;
+  // this also cleans up data stored before the cap existed.
+  const MAX_DECISION_MS = 5 * 60 * 1000;
   const avgDecisionLatencyMs = roomTelemetry.length
-    ? Math.round(roomTelemetry.reduce((s, t) => s + t.decisionLatencyMs, 0) / roomTelemetry.length)
+    ? Math.round(roomTelemetry.reduce((s, t) => s + Math.min(t.decisionLatencyMs, MAX_DECISION_MS), 0) / roomTelemetry.length)
     : null;
   const totalFn = dashSessions.reduce((s, d) => s + (d.fnCount ?? 0), 0);
   // Real catch rate — caught/presented across all sessions, driven by markCaught()
@@ -464,7 +563,27 @@ export default function ProgressPage() {
         title="Progress Dashboard"
         subtitle="Track your SOC training progress and achievements"
       />
+      {!ready ? (
+        <ProgressLoading slow={slow} />
+      ) : (
       <div className="container mx-auto max-w-[1600px] px-6 py-6 space-y-6">
+
+        {/* A server read failed even after a retry — say so instead of letting
+            the empty lists read as "you have no progress". */}
+        {failed.length > 0 && (
+          <div className="flex items-center gap-3 rounded-lg border border-severity-high/40 bg-severity-high/5 px-5 py-3">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-severity-high" />
+            <p className="flex-1 text-sm text-slate-200">
+              Part of your progress couldn&apos;t be loaded from the server, so some numbers below may be incomplete. Your saved progress is not lost.
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="shrink-0 rounded-md border border-severity-high/50 bg-severity-high/15 px-3 py-1.5 text-xs font-bold text-severity-high hover:bg-severity-high/25 transition-colors"
+            >
+              Reload
+            </button>
+          </div>
+        )}
 
         {/* XP / Level hero */}
         <XpLevel xp={totalXp} />
@@ -520,14 +639,14 @@ export default function ProgressPage() {
                       : `${Math.round(avgDecisionLatencyMs / 1000)}s`
                     : "—"}
                 </p>
-                <p className="mt-0.5 text-[10px] text-slate-500">Per room task — paired with accuracy, not a replacement for it</p>
+                <p className="mt-0.5 text-[10px] text-slate-400">Per room task — paired with accuracy, not a replacement for it</p>
               </div>
               <div className="rounded-lg border border-border bg-bg-elevated p-3">
                 <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
                   <Eye className="h-3.5 w-3.5 text-neon-purple" /> Events Opened / Session
                 </div>
                 <p className="mt-1.5 font-mono text-xl font-bold text-white">{avgEventsOpened ?? "—"}</p>
-                <p className="mt-0.5 text-[10px] text-slate-500">Investigation thoroughness on the Dashboard</p>
+                <p className="mt-0.5 text-[10px] text-slate-400">Investigation thoroughness on the Dashboard</p>
               </div>
               <div className="rounded-lg border border-border bg-bg-elevated p-3">
                 {/* Neutral framing, not a red "failure" tile — a miss is a
@@ -536,8 +655,8 @@ export default function ProgressPage() {
                 <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
                   <Scale className="h-3.5 w-3.5 text-neon-amber" /> Catch Rate / Missed Attacks
                 </div>
-                <p className="mt-1.5 font-mono text-xl font-bold text-white">{catchRate ?? "—"}{catchRate !== null && "%"} <span className="text-slate-600">/</span> {totalFn}</p>
-                <p className="mt-0.5 text-[10px] text-slate-500">Attacks caught before the SLA expired vs. ones that slipped past</p>
+                <p className="mt-1.5 font-mono text-xl font-bold text-white">{catchRate ?? "—"}{catchRate !== null && "%"} <span className="text-slate-400">/</span> {totalFn}</p>
+                <p className="mt-0.5 text-[10px] text-slate-400">Attacks caught before the SLA expired vs. ones that slipped past</p>
               </div>
             </div>
           </Card>
@@ -553,9 +672,14 @@ export default function ProgressPage() {
                 <TrendingUp className="h-4 w-4 text-cyber-300" />
                 Activity Progress (Last 7 Days)
               </h3>
-              <span className="text-xs text-slate-500">XP earned per day</span>
+              <span className="text-xs text-slate-400">XP earned per day</span>
             </div>
-            <div className="mt-4 h-48">
+            {/* Text alternative for the chart (WCAG 1.1.1): the SVG is presentational. */}
+            <div
+              className="mt-4 h-48"
+              role="img"
+              aria-label={`XP earned per day, last 7 days: ${activityData.map(d => `${d.day} ${d.xp} XP`).join(", ")}. Total ${activityData.reduce((sum, d) => sum + d.xp, 0)} XP.`}
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={activityData}>
                   <defs>
@@ -565,8 +689,8 @@ export default function ProgressPage() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1e2a38" />
-                  <XAxis dataKey="day" tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="day" tick={{ fill: "#8190a5", fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: "#8190a5", fontSize: 11 }} axisLine={false} tickLine={false} />
                   <Tooltip
                     contentStyle={{ background: "#0d1520", border: "1px solid #1e2a38", borderRadius: 6 }}
                     labelStyle={{ color: "#94a3b8" }}
@@ -586,15 +710,16 @@ export default function ProgressPage() {
                 <Zap className="h-4 w-4 text-neon-purple" />
                 Skills Breakdown
               </h3>
-              <span className="text-xs text-slate-500">Based on your activity</span>
+              <span className="text-xs text-slate-400">Based on your activity</span>
             </div>
-            <div className="mt-2 h-56">
+            {/* Decorative duplicate of the per-skill list below, which carries the values as text. */}
+            <div className="mt-2 h-56" aria-hidden="true">
               <ResponsiveContainer width="100%" height="100%">
                 <RadarChart data={skillsData} outerRadius="75%">
                   <PolarGrid stroke="#1e2a38" />
                   <PolarAngleAxis
                     dataKey="skill"
-                    tick={{ fill: "#64748b", fontSize: 9 }}
+                    tick={{ fill: "#8190a5", fontSize: 9 }}
                   />
                   <Radar
                     name="Skills"
@@ -621,7 +746,7 @@ export default function ProgressPage() {
                 </div>
               ))}
             </div>
-            <p className="mt-2 text-[10px] text-slate-600">
+            <p className="mt-2 text-[10px] text-slate-400">
               Computed from your SOC Dashboard sessions and completed scenarios.
             </p>
           </Card>
@@ -640,9 +765,9 @@ export default function ProgressPage() {
             </div>
             {scenarioHistory.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Target className="h-8 w-8 text-slate-600" />
+                <Target className="h-8 w-8 text-slate-400" />
                 <p className="mt-2 text-sm text-slate-400">No scenarios completed yet</p>
-                <p className="mt-1 text-xs text-slate-600">Complete a scenario to see your results here</p>
+                <p className="mt-1 text-xs text-slate-400">Complete a scenario to see your results here</p>
                 <Link href="/scenarios" className="mt-4">
                   <span className="rounded border border-cyber-500/40 bg-cyber-500/10 px-3 py-1.5 text-xs font-semibold text-cyber-300 hover:bg-cyber-500/20">
                     Start a Scenario
@@ -651,27 +776,96 @@ export default function ProgressPage() {
               </div>
             ) : (
               <table className="w-full text-xs">
-                <thead className="text-left text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+                <thead className="text-left text-[10px] font-semibold uppercase tracking-widest text-slate-400">
                   <tr>
                     <th className="px-5 py-2">Scenario</th>
                     <th className="py-2">Date</th>
                     <th className="py-2">Score</th>
                     <th className="py-2">Time</th>
-                    <th className="py-2 pr-5">XP</th>
+                    <th className="py-2 pr-5" title="XP this attempt scored. Only your best attempt per scenario counts toward your total.">Run XP</th>
                   </tr>
                 </thead>
                 <tbody>
                   {scenarioHistory.map((s, i) => {
                     const mins = Math.floor(s.timeTaken / 60);
                     const secs = s.timeTaken % 60;
+                    const hasReport = !!s.report && (
+                      !!s.report.verdict || !!s.report.notes?.trim() || !!s.report.findings?.trim() || !!s.report.verdictReason?.trim()
+                    );
+                    const isOpen = openReport === i;
                     return (
-                      <tr key={i} className="border-t border-border/60 hover:bg-bg-hover">
-                        <td className="px-5 py-2.5 text-slate-200">{s.title ?? s.slug}</td>
-                        <td className="py-2.5 text-slate-400">{new Date(s.date).toLocaleDateString("en-GB")}</td>
-                        <td className="py-2.5"><span className={cn("font-mono font-bold", s.score >= 80 ? "text-neon-green" : s.score >= 60 ? "text-severity-medium" : "text-severity-critical")}>{s.score}%</span></td>
-                        <td className="py-2.5 font-mono text-slate-400">{mins}:{String(secs).padStart(2,"0")}</td>
-                        <td className="py-2.5 pr-5 font-mono font-bold text-cyber-300">+{s.xpEarned}</td>
-                      </tr>
+                      <Fragment key={i}>
+                        <tr
+                          className={cn("border-t border-border/60 hover:bg-bg-hover", hasReport && "cursor-pointer")}
+                          onClick={() => hasReport && setOpenReport(isOpen ? null : i)}
+                        >
+                          <td className="px-5 py-2.5 text-slate-200">
+                            {/* Keyboard-operable disclosure; the whole row stays clickable too. */}
+                            {hasReport ? (
+                              <button
+                                type="button"
+                                aria-expanded={isOpen}
+                                aria-controls={`scenario-report-${i}`}
+                                onClick={e => { e.stopPropagation(); setOpenReport(isOpen ? null : i); }}
+                                className="flex items-center gap-1.5 text-left"
+                              >
+                                {isOpen ? <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 text-cyber-300" /> : <ChevronRight aria-hidden="true" className="h-3.5 w-3.5 text-slate-400" />}
+                                {s.title ?? s.slug}
+                                <span className="sr-only">{isOpen ? " — hide report" : " — show report"}</span>
+                              </button>
+                            ) : (
+                              <span className="flex items-center gap-1.5">
+                                <span className="w-3.5" />
+                                {s.title ?? s.slug}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2.5 text-slate-400">{new Date(s.date).toLocaleDateString("en-GB")}</td>
+                          <td className="py-2.5"><span className={cn("font-mono font-bold", s.score >= 80 ? "text-neon-green" : s.score >= 60 ? "text-severity-medium" : "text-severity-critical")}>{s.score}%</span></td>
+                          <td className="py-2.5 font-mono text-slate-400">{mins}:{String(secs).padStart(2,"0")}</td>
+                          <td className="py-2.5 pr-5 font-mono font-bold text-cyber-300">{s.xpEarned}</td>
+                        </tr>
+                        {isOpen && s.report && (
+                          <tr id={`scenario-report-${i}`} className="border-t border-border/40 bg-bg">
+                            <td colSpan={5} className="px-5 py-4">
+                              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-cyber-300">
+                                <FileText className="h-3.5 w-3.5" /> Your Investigation Report
+                              </div>
+                              <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
+                                {s.report.verdict && (
+                                  <span className={cn("rounded border px-2 py-0.5 font-bold uppercase",
+                                    s.report.verdict === "tp" ? "border-severity-critical/40 bg-severity-critical/10 text-severity-critical"
+                                                              : "border-neon-green/40 bg-neon-green/10 text-neon-green")}>
+                                    Verdict: {s.report.verdict === "tp" ? "Malicious" : s.report.verdict === "fp" ? "Benign" : s.report.verdict}
+                                  </span>
+                                )}
+                                {typeof s.report.reportScore === "number" && (
+                                  <span className="rounded border border-border bg-bg-elevated px-2 py-0.5 text-slate-300">Report {s.report.reportScore}/100</span>
+                                )}
+                                {s.report.rubric && (
+                                  <span className="text-slate-400">
+                                    verdict {s.report.rubric.verdict} · depth {s.report.rubric.depth} · evidence {s.report.rubric.evidence} · reasoning {s.report.rubric.reasoning}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                                {[
+                                  { h: "Verdict reasoning", v: s.report.verdictReason },
+                                  { h: "Analyst notes", v: s.report.notes },
+                                  // "Key findings" was removed from the report (folded into IOCs);
+                                  // still shown for older records that captured it.
+                                  ...(s.report.findings !== undefined ? [{ h: "Key findings", v: s.report.findings }] : []),
+                                ].map(({ h, v }) => (
+                                  <div key={h} className="rounded border border-border bg-bg-elevated p-3">
+                                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-400">{h}</p>
+                                    <p className="whitespace-pre-wrap text-[12px] leading-relaxed text-slate-300">{v?.trim() || <span className="text-slate-500 italic">— left blank —</span>}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
                     );
                   })}
                 </tbody>
@@ -686,7 +880,7 @@ export default function ProgressPage() {
             <Card padded={false}>
               <div className="flex items-center justify-between border-b border-border px-5 py-3">
                 <h3 className="text-sm font-semibold text-white">Rank Progression</h3>
-                <span className="text-[10px] uppercase tracking-wider text-slate-500">Your XP: {totalXp.toLocaleString()}</span>
+                <span className="text-[10px] uppercase tracking-wider text-slate-400">Your XP: {totalXp.toLocaleString()}</span>
               </div>
               <ul>
                 {RANK_LADDER.map((tier, i) => {
@@ -705,20 +899,20 @@ export default function ProgressPage() {
                         "flex h-7 w-7 items-center justify-center rounded-full border font-mono text-[10px] font-bold",
                         current   ? "border-cyber-500/50 bg-cyber-500/15 text-cyber-300" :
                         achieved  ? "border-neon-green/40 bg-neon-green/10 text-neon-green" :
-                                    "border-border bg-bg text-slate-600"
+                                    "border-border bg-bg text-slate-400"
                       )}>
                         {achieved ? "✓" : i + 1}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className={cn(
                           "text-xs font-semibold truncate",
-                          current ? "text-cyber-300" : achieved ? "text-slate-200" : "text-slate-500"
+                          current ? "text-cyber-300" : achieved ? "text-slate-200" : "text-slate-400"
                         )}>
                           {tier.name}
                           {current && <span className="ml-1 text-[10px] text-cyber-500">(you)</span>}
                         </p>
                       </div>
-                      <span className={cn("font-mono text-xs font-bold", achieved ? "text-cyber-300" : "text-slate-600")}>
+                      <span className={cn("font-mono text-xs font-bold", achieved ? "text-cyber-300" : "text-slate-400")}>
                         {tier.xp.toLocaleString()} XP
                       </span>
                     </li>
@@ -743,23 +937,27 @@ export default function ProgressPage() {
                     )} />
                     <div className="min-w-0">
                       <p className="text-xs font-semibold text-slate-100">{b.name}</p>
-                      <p className="text-[10px] text-slate-500">{b.desc}</p>
+                      <p className="text-[10px] text-slate-400">{b.desc}</p>
                     </div>
                     <Badge variant="outline" className="shrink-0">{b.tier}</Badge>
                   </li>
                 ))}
                 {badges.length < 5 && (
-                  <li className="rounded border border-dashed border-border px-3 py-2 text-center text-[10px] text-slate-600">
+                  <li className="rounded border border-dashed border-border px-3 py-2 text-center text-[10px] text-slate-400">
                     Catch attacks, secure companies and complete scenarios to unlock more badges
                   </li>
                 )}
               </ul>
             </Card>
 
+            {/* Class leaderboard — appears only for enrolled cohorts (B2B) */}
+            <LeaderboardCard />
+
           </div>
         </div>
 
       </div>
+      )}
     </div>
   );
 }

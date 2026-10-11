@@ -1,0 +1,59 @@
+import { NextResponse, after } from "next/server";
+import { getAuthedUser } from "@/lib/auth/apiGuard";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { teamTransition } from "@/lib/team/transition";
+import { logAudit } from "@/lib/audit/logAudit";
+import { activeSeat } from "@/lib/team/membership";
+import { awardTeamXpOnce } from "@/lib/team/awardTeamXp";
+
+/**
+ * End a team exercise. Staff of the session's org (platform admin / org_admin /
+ * instructor) or the session's SOC Manager only — ending is irreversible, so it is
+ * never driven by an automatic client signal (an instructor who drops out PAUSES
+ * the session instead; see the 0071 lifecycle tick).
+ *
+ * `team_transition` flips the status, stamps ended_at, marks pending injects
+ * 'skipped' and appends session.ended in ONE transaction (audit I3/I2), and the
+ * broadcast trigger switches every screen to the after-action report.
+ *
+ * QA M5: the report build + XP award run AFTER the response (`after()`), so ending
+ * returns at once; that same build warms the report cache the whole class is about
+ * to open (the report route single-flights on it).
+ */
+export const maxDuration = 60;
+
+export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const user = await getAuthedUser();
+  if (!user) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  const admin = getSupabaseAdminClient();
+  if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
+
+  const { data: sess } = await admin.from("team_sessions").select("org_id, status").eq("id", id).maybeSingle();
+  if (!sess) return NextResponse.json({ error: "Session not found." }, { status: 404 });
+
+  const isStaff = user.isPlatformAdmin ||
+    ((user.orgRole === "org_admin" || user.orgRole === "instructor") && user.orgId === sess.org_id);
+  let isManager = false;
+  if (!isStaff) {
+    const seat = await activeSeat(admin, id, sess.org_id, user.id);   // lapsed affiliation ⇒ no seat
+    isManager = seat?.role === "mgr";
+  }
+  if (!isStaff && !isManager) return NextResponse.json({ error: "Only the instructor or the SOC Manager can end the session." }, { status: 403 });
+
+  if (["ended", "debriefed"].includes(sess.status)) return NextResponse.json({ ok: true, already: true });
+
+  const t = await teamTransition(id, "ended", "manual", user.id);
+  if ("error" in t) return NextResponse.json({ error: t.error }, { status: 500 });
+
+  await logAudit({ actorId: user.id, action: "team.session.end", targetTable: "team_sessions", targetId: id,
+    metadata: { as: isStaff ? "staff" : "mgr", noop: !!t.result.noop } });
+
+  // Team training XP for every player (0087). Best effort, off the request path — the
+  // report route and the daily sweep award it later if this fails; ending never depends on it.
+  after(async () => {
+    try { await awardTeamXpOnce(admin, id); }
+    catch (e) { console.error("[team end] XP award failed (will retry from the report / sweep):", e instanceof Error ? e.message : String(e)); }
+  });
+  return NextResponse.json({ ok: true, already: !!t.result.noop });
+}

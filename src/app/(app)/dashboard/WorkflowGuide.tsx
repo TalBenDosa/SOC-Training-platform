@@ -25,7 +25,7 @@ export function WorkflowGuide({ reportPassed }: Props) {
       reportPassed ? "border-neon-green/40 bg-neon-green/5" : "border-cyber-500/25 bg-cyber-500/[0.04]"
     )}>
       <div className="flex flex-wrap items-center gap-3">
-        <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500">
+        <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">
           Analyst Workflow
         </span>
 
@@ -33,9 +33,11 @@ export function WorkflowGuide({ reportPassed }: Props) {
           Investigate the feed — read the logs, no hints, decide for yourself.
         </span>
 
-        <span className="text-slate-700">→</span>
+        <span className="text-slate-500">→</span>
 
         <button
+          type="button"
+          aria-expanded={open}
           onClick={() => setOpen(v => !v)}
           className={cn(
             "flex items-center gap-1.5 rounded px-2 py-1 text-[11px] font-semibold transition",
@@ -47,13 +49,13 @@ export function WorkflowGuide({ reportPassed }: Props) {
             : <Circle className="h-3.5 w-3.5 shrink-0 animate-pulse text-cyber-400" />
           }
           <span className={cn(reportPassed && "line-through decoration-neon-green/50")}>
-            Report the incident
+            Report the incident{reportPassed && <span className="sr-only"> (done)</span>}
           </span>
         </button>
 
         {reportPassed && (
           <span className="ml-auto text-[11px] font-bold text-neon-green">
-            Objective complete — end the session to secure the company 🏆
+            Report accepted — catch 2 attacks within 30 minutes and the company is secured automatically 🏆
           </span>
         )}
       </div>

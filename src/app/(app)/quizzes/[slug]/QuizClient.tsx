@@ -1,10 +1,23 @@
 "use client";
-import { useState, useEffect } from "react";
+import { ApiError, messageFromResponse, userMessageFor } from "@/lib/http/apiError";
+import { useState, useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2, XCircle, ChevronRight, Trophy, RotateCcw, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Topbar } from "@/components/nav/Topbar";
 import type { Quiz } from "@/lib/quizzes/data";
+import { type ClientQuiz, sanitizeQuizQuestion } from "@/lib/quizzes/sanitize";
+import { addTotalXp, setTotalXp, recordQuizActivity } from "@/lib/storage/progress";
+import { newShuffleSeed, optionDisplayOrder, remapOptionLetters } from "@/lib/rooms/shuffle";
+
+// Guests (no account) keep their best-per-quiz locally so retries don't farm XP.
+const GUEST_QUIZ_BEST_KEY = "soc_quiz_best_local";
+
+// Result of crediting the finished quiz to the overall score.
+type SaveState =
+  | { status: "idle" | "saving" }
+  | { status: "saved"; delta: number; bestXp: number; runXp?: number }
+  | { status: "error" };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -13,6 +26,15 @@ type QuizPhase = "idle" | "answering" | "complete";
 interface AnswerState {
   selected: number | null;  // index into options[]
   revealed: boolean;
+}
+
+// Per-question grade returned by POST /api/quizzes/[slug]/grade. The client no
+// longer knows any answer/explanation until it has submitted that question
+// (M-01) — `answer`/`explanation` are non-null only for an answered question.
+interface QuizResult {
+  correct: boolean;
+  answer: number | null;
+  explanation: string | null;
 }
 
 // ─── Score ring ───────────────────────────────────────────────────────────────
@@ -47,28 +69,71 @@ function ScoreRing({ score }: { score: number }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
-  // Allow admin edits stored in localStorage to override the built-in quiz data
-  const [quiz, setQuiz] = useState<Quiz>(initialQuiz);
+/** WAI-ARIA radio pattern: arrow / Home / End move focus and the selection. */
+function onRadioGroupKeyDown(e: ReactKeyboardEvent<HTMLElement>) {
+  const step = e.key === "ArrowDown" || e.key === "ArrowRight" ? 1 : e.key === "ArrowUp" || e.key === "ArrowLeft" ? -1 : 0;
+  if (!step && e.key !== "Home" && e.key !== "End") return;
+  const radios = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]:not(:disabled)'));
+  const idx = radios.indexOf(document.activeElement as HTMLButtonElement);
+  if (idx === -1 || radios.length === 0) return;
+  e.preventDefault();
+  const next = e.key === "Home" ? 0 : e.key === "End" ? radios.length - 1 : (idx + step + radios.length) % radios.length;
+  radios[next].focus();
+  radios[next].click();
+}
+
+export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug: string }) {
+  // Allow admin edits stored in localStorage to override the built-in quiz data.
+  // Answers are stripped from any overridden questions — grading is server-side
+  // (M-01), so admin-preview edits only affect the displayed prompt/options.
+  const [quiz, setQuiz] = useState<ClientQuiz>(initialQuiz);
   useEffect(() => {
     try {
       const edits: Record<string, Partial<Quiz>> = JSON.parse(
         localStorage.getItem("admin_quiz_edits") ?? "{}"
       );
-      if (edits[initialQuiz.slug]) {
-        setQuiz(q => ({ ...q, ...edits[initialQuiz.slug] }));
+      const e = edits[initialQuiz.slug];
+      if (e) {
+        setQuiz(q => ({
+          ...q,
+          ...e,
+          questions: e.questions ? e.questions.map(sanitizeQuizQuestion) : q.questions,
+        }));
       }
     } catch { /* storage blocked or malformed */ }
   }, [initialQuiz.slug]);
 
   const [phase, setPhase]     = useState<QuizPhase>("idle");
+  // Display-time option shuffle (same mechanism as rooms/lessons, FB-002): authors
+  // cluster the correct answer in one slot, so the order on screen is shuffled per
+  // attempt. Selection, grading and the server reveal stay in ORIGINAL indices;
+  // only the order and the A-D letters shown move. Options render only after
+  // Start, so the per-mount random seed never reaches SSR output.
+  const [shuffleSeed, setShuffleSeed] = useState<string>(() => newShuffleSeed());
+  const orderOf = (q: { id: string; options: string[] }) => optionDisplayOrder(q.options, `${shuffleSeed}:${q.id}`);
   const [current, setCurrent] = useState(0);
   const [stateMap, setStateMap] = useState<Record<string, AnswerState>>({});
+  // Server-graded results, keyed by question id (populated on confirm).
+  const [results, setResults] = useState<Record<string, QuizResult>>({});
+  const [grading, setGrading] = useState(false);
+  const [gradeError, setGradeError] = useState<string | null>(null);
   const [startTime, setStartTime] = useState<number>(0);
   const [elapsed, setElapsed]     = useState(0);
+  const [save, setSave] = useState<SaveState>({ status: "idle" });
+  // a11y: after a server grade, move focus to the explanation panel so the result
+  // is announced (the Confirm button is disabled while grading, which drops focus).
+  const resultRef = useRef<HTMLDivElement>(null);
+  const [focusResult, setFocusResult] = useState(false);
+  useEffect(() => {
+    if (!focusResult) return;
+    resultRef.current?.focus();
+    setFocusResult(false);
+  }, [focusResult]);
+  const savingRef = useRef(false);
 
   const question   = quiz.questions[current];
   const qState     = stateMap[question?.id] ?? { selected: null, revealed: false };
+  const qResult    = results[question?.id];
   const totalQ     = quiz.questions.length;
   const answeredQ  = Object.values(stateMap).filter(s => s.revealed).length;
   const isLast     = current === totalQ - 1;
@@ -76,6 +141,8 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
   // ── start ─────────────────────────────────────────────────────
   const handleStart = () => {
     setStateMap({});
+    setResults({});
+    setGradeError(null);
     setCurrent(0);
     const now = Date.now();
     setStartTime(now);
@@ -91,13 +158,79 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
     }));
   };
 
-  // ── confirm answer ────────────────────────────────────────────
-  const handleConfirm = () => {
-    if (qState.selected === null || qState.revealed) return;
-    setStateMap(prev => ({
-      ...prev,
-      [question.id]: { ...prev[question.id], revealed: true },
-    }));
+  // ── confirm answer (server-graded) ────────────────────────────
+  const handleConfirm = async () => {
+    if (qState.selected === null || qState.revealed || grading) return;
+    setGrading(true);
+    setGradeError(null);
+    try {
+      const res = await fetch(`/api/quizzes/${encodeURIComponent(slug)}/grade`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answers: { [question.id]: qState.selected } }),
+      });
+      if (!res.ok) throw new ApiError(await messageFromResponse(res), res.status);
+      const data: { results: (QuizResult & { id: string })[] } = await res.json();
+      const graded = data.results.find(r => r.id === question.id);
+      if (!graded) throw new Error("no result for question");
+      setResults(prev => ({ ...prev, [question.id]: { correct: graded.correct, answer: graded.answer, explanation: graded.explanation } }));
+      setStateMap(prev => ({
+        ...prev,
+        [question.id]: { ...prev[question.id], revealed: true },
+      }));
+      setFocusResult(true);
+    } catch (e) {
+      setGradeError(`Couldn't check your answer — ${userMessageFor(e)}`);   // E-09
+    } finally {
+      setGrading(false);
+    }
+  };
+
+  // ── credit the finished quiz to the overall score ─────────────
+  // Signed-in: the server re-grades the confirmed answers and records the BEST
+  // attempt (profiles.xp is server-authoritative), returning the new total.
+  // Guest / no-Supabase: keep a local best and add only the improvement.
+  const creditQuiz = async () => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSave({ status: "saving" });
+    const answers: Record<string, number> = {};
+    for (const q of quiz.questions) {
+      const s = stateMap[q.id];
+      if (s?.revealed && s.selected !== null) answers[q.id] = s.selected;
+    }
+    try {
+      const res = await fetch(`/api/quizzes/${encodeURIComponent(slug)}/finish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answers }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        recordQuizActivity(); // streak signal (quiz_progress.last_completed_at on the server)
+        if (typeof data.totalXp === "number") setTotalXp(data.totalXp);
+        else if (data.delta > 0) addTotalXp(data.delta);
+        setSave({ status: "saved", delta: data.delta ?? 0, bestXp: data.bestXp ?? 0, runXp: typeof data.xpEarned === "number" ? data.xpEarned : undefined });
+      } else if (data?.guest) {
+        recordQuizActivity();
+        let best: Record<string, number> = {};
+        try { best = JSON.parse(localStorage.getItem(GUEST_QUIZ_BEST_KEY) ?? "{}"); } catch { /* blocked/malformed */ }
+        const prev = best[slug] ?? 0;
+        const delta = Math.max(0, xpEarned - prev);
+        if (delta > 0) {
+          best[slug] = xpEarned;
+          try { localStorage.setItem(GUEST_QUIZ_BEST_KEY, JSON.stringify(best)); } catch { /* blocked */ }
+          addTotalXp(delta);
+        }
+        setSave({ status: "saved", delta, bestXp: Math.max(prev, xpEarned) });
+      } else {
+        setSave({ status: "error" });
+      }
+    } catch {
+      setSave({ status: "error" });
+    } finally {
+      savingRef.current = false;
+    }
   };
 
   // ── next / finish ─────────────────────────────────────────────
@@ -105,6 +238,7 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
     if (isLast) {
       setElapsed(Math.round((Date.now() - startTime) / 1000));
       setPhase("complete");
+      void creditQuiz();
     } else {
       setCurrent(c => c + 1);
     }
@@ -112,21 +246,24 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
 
   // ── retry ─────────────────────────────────────────────────────
   const handleRetry = () => {
+    setShuffleSeed(newShuffleSeed());
     setStateMap({});
+    setResults({});
+    setGradeError(null);
     setCurrent(0);
+    setSave({ status: "idle" });
     setPhase("idle");
   };
 
   // ── score ─────────────────────────────────────────────────────
-  const correctCount = quiz.questions.filter(q => {
-    const s = stateMap[q.id];
-    return s?.revealed && s.selected === q.answer;
-  }).length;
+  const correctCount = quiz.questions.filter(q => results[q.id]?.correct).length;
 
   const xpEarned = quiz.questions.reduce((sum, q) => {
-    const s = stateMap[q.id];
-    return sum + (s?.revealed && s.selected === q.answer ? q.xp : 0);
+    return sum + (results[q.id]?.correct ? q.xp : 0);
   }, 0);
+  // The server's figure once saved (a question first answered wrong earns half
+  // on a retake — first-answer rule, 0078); the local estimate until then.
+  const shownXp = save.status === "saved" && typeof save.runXp === "number" ? save.runXp : xpEarned;
 
   const scorePercent = Math.round((correctCount / totalQ) * 100);
 
@@ -165,7 +302,7 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
               ].map(s => (
                 <div key={s.label} className="px-6 py-4 text-center">
                   <p className="font-mono text-xl font-bold text-cyber-300">{s.value}</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">{s.label}</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">{s.label}</p>
                 </div>
               ))}
             </div>
@@ -183,12 +320,13 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
 
             {/* Rules */}
             <div className="px-8 py-5 space-y-2 border-b border-border/60">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500 mb-3">How It Works</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 mb-3">How It Works</p>
               {[
                 "Each question has one correct answer",
                 "Confirm your answer to reveal the explanation",
                 "You cannot change an answer after confirming",
                 "XP is awarded only for correct answers",
+                "Your best attempt counts toward your overall score",
               ].map((rule, i) => (
                 <div key={i} className="flex items-start gap-2 text-xs text-slate-400">
                   <span className="mt-0.5 font-mono text-cyber-300/60 shrink-0">{i + 1}.</span>
@@ -233,7 +371,21 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
                 {scorePercent >= 80 ? "Excellent work!" : scorePercent >= 60 ? "Good effort!" : "Keep practising!"}
               </h2>
               <p className="text-sm text-slate-400">
-                {correctCount}/{totalQ} correct · {formatTime(elapsed)} · +{xpEarned} XP earned
+                {correctCount}/{totalQ} correct · {formatTime(elapsed)} · +{shownXp} XP earned
+              </p>
+              {/* Whether (and how much of) this attempt reached the overall score */}
+              <p aria-live="polite" className={cn("mt-1.5 text-xs",
+                save.status === "error" ? "text-severity-high" : save.status === "saved" && save.delta > 0 ? "text-neon-green" : "text-slate-400")}>
+                {save.status === "saving" && "Saving to your overall score…"}
+                {save.status === "saved" && save.delta > 0 && `✓ +${save.delta} XP added to your overall score`}
+                {save.status === "saved" && save.delta === 0 && (shownXp > 0
+                  ? `Your best on this quiz (${save.bestXp} XP) already counts — beat it to earn more.`
+                  : "No XP this time — correct answers earn XP.")}
+                {save.status === "error" && (
+                  <>Couldn&apos;t save to your overall score.{" "}
+                    <button onClick={() => void creditQuiz()} className="underline hover:text-white">Try again</button>
+                  </>
+                )}
               </p>
               {passed ? (
                 <div className="mt-3 inline-flex items-center gap-1.5 rounded border border-neon-green/30 bg-neon-green/10 px-3 py-1 text-xs font-semibold text-neon-green">
@@ -251,11 +403,11 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
               {[
                 { label: "Score",    value: `${scorePercent}%` },
                 { label: "Time",     value: formatTime(elapsed), icon: Clock },
-                { label: "XP",       value: `+${xpEarned}` },
+                { label: "XP",       value: `+${shownXp}` },
               ].map(s => (
                 <div key={s.label} className="px-4 py-3 text-center">
                   <p className="font-mono text-lg font-bold text-cyber-300">{s.value}</p>
-                  <p className="text-[10px] text-slate-500">{s.label}</p>
+                  <p className="text-[10px] text-slate-400">{s.label}</p>
                 </div>
               ))}
             </div>
@@ -278,12 +430,14 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
           </div>
 
           {/* Per-question breakdown */}
-          <h3 className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-500 mb-3">Question Breakdown</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-400 mb-3">Question Breakdown</h3>
           <div className="space-y-3">
             {quiz.questions.map((q, idx) => {
               const s = stateMap[q.id];
-              const correct = s?.revealed && s.selected === q.answer;
-              const wrong   = s?.revealed && s.selected !== q.answer;
+              const r = results[q.id];
+              const correct = !!r?.correct;
+              const wrong   = !!s?.revealed && !correct;
+              const correctIdx = r?.answer ?? null;
 
               return (
                 <div key={q.id} className={cn(
@@ -300,15 +454,19 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
                         <span className="font-mono text-cyber-300 mr-1">Q{idx + 1}.</span>
                         {q.question}
                       </p>
-                      {wrong && s?.selected !== null && (
+                      {wrong && s?.selected !== null && s?.selected !== undefined && (
                         <p className="text-[11px] text-severity-high mb-1">
                           Your answer: {q.options[s.selected]}
                         </p>
                       )}
-                      <p className={cn("text-[11px] mb-1.5", correct ? "text-neon-green" : "text-slate-400")}>
-                        {correct ? "✓" : "Correct:"} {q.options[q.answer]}
-                      </p>
-                      <p className="text-[11px] text-slate-500 leading-relaxed">{q.explanation}</p>
+                      {correctIdx !== null && (
+                        <p className={cn("text-[11px] mb-1.5", correct ? "text-neon-green" : "text-slate-400")}>
+                          {correct ? "✓" : "Correct:"} {q.options[correctIdx]}
+                        </p>
+                      )}
+                      {r?.explanation && (
+                        <p className="text-[11px] text-slate-400 leading-relaxed">{remapOptionLetters(r.explanation, orderOf(q))}</p>
+                      )}
                     </div>
                     {correct && (
                       <span className="shrink-0 rounded bg-neon-green/10 px-1.5 py-0.5 font-mono text-[10px] text-neon-green">
@@ -328,8 +486,13 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
   // ═══════════════════════════════════════════════════════════════
   // ANSWERING STATE
   // ═══════════════════════════════════════════════════════════════
-  const isCorrect = qState.revealed && qState.selected === question.answer;
-  const isWrong   = qState.revealed && qState.selected !== question.answer;
+  const isCorrect = qState.revealed && !!qResult?.correct;
+  const correctOptionText = (() => {
+    const ci = qResult?.answer;
+    if (typeof ci !== "number" || !question.options[ci]) return null;
+    const di = orderOf(question).indexOf(ci);
+    return `${di >= 0 ? String.fromCharCode(65 + di) + ". " : ""}${question.options[ci]}`;
+  })();
 
   return (
     <div className="min-h-screen bg-bg">
@@ -340,12 +503,9 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
         {/* Progress bar */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px] text-slate-500">{answeredQ}/{totalQ} answered</span>
-            <span className="text-[11px] text-slate-500">
-              +{Object.values(stateMap).reduce((s, st, idx) => {
-                const q = quiz.questions[idx];
-                return s + (st?.revealed && st.selected === q?.answer ? (q?.xp ?? 0) : 0);
-              }, 0)} XP so far
+            <span className="text-[11px] text-slate-400">{answeredQ}/{totalQ} answered</span>
+            <span className="text-[11px] text-slate-400">
+              +{xpEarned} XP so far
             </span>
           </div>
           <div className="h-1.5 w-full rounded-full bg-slate-700/60">
@@ -359,11 +519,14 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
             {quiz.questions.map((q, i) => {
               const s = stateMap[q.id];
               const done = s?.revealed;
-              const ok   = done && s.selected === q.answer;
+              const ok   = done && results[q.id]?.correct;
               return (
                 <button
                   key={q.id}
+                  type="button"
                   onClick={() => { if (done) setCurrent(i); }}
+                  aria-label={`Question ${i + 1}${done ? (ok ? " — correct" : " — incorrect") : ""}${done ? "" : " (not answered yet)"}`}
+                  aria-current={i === current ? "step" : undefined}
                   className={cn(
                     "h-2 rounded-full transition-all",
                     i === current ? "w-6 bg-cyber-400" :
@@ -389,21 +552,27 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
                 +{question.xp} XP
               </span>
             </div>
-            <p className="text-base font-semibold text-white leading-relaxed">
+            <p id={`quiz-q-${question.id}`} className="text-base font-semibold text-white leading-relaxed">
               {question.question}
             </p>
           </div>
 
           {/* Options */}
-          <div className="px-6 pb-4 space-y-2">
-            {question.options.map((opt, idx) => {
+          <div className="px-6 pb-4 space-y-2" role="radiogroup" aria-labelledby={`quiz-q-${question.id}`} onKeyDown={onRadioGroupKeyDown}>
+            {orderOf(question).map((idx, displayIdx) => {
+              const opt       = question.options[idx];
               const selected  = qState.selected === idx;
-              const revCorr   = qState.revealed && idx === question.answer;
-              const revWrong  = qState.revealed && selected && idx !== question.answer;
+              const correctIdx = qResult?.answer ?? null;
+              const revCorr   = qState.revealed && correctIdx !== null && idx === correctIdx;
+              const revWrong  = qState.revealed && selected && idx !== correctIdx;
 
               return (
                 <button
                   key={idx}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  tabIndex={(qState.selected === null ? displayIdx === 0 : selected) ? 0 : -1}
                   disabled={qState.revealed}
                   onClick={() => handleSelect(idx)}
                   className={cn(
@@ -412,22 +581,24 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
                     !qState.revealed && selected  && "border-cyber-500/50 bg-cyber-500/10 text-white",
                     revCorr   && "border-neon-green/50 bg-neon-green/10 text-neon-green",
                     revWrong  && "border-severity-high/50 bg-severity-high/10 text-severity-high",
-                    qState.revealed && !selected && idx !== question.answer && "border-border/40 bg-bg/50 text-slate-500",
+                    qState.revealed && !selected && idx !== correctIdx && "border-border/40 bg-bg/50 text-slate-400",
                   )}
                 >
                   <span className={cn(
                     "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[11px] font-bold",
-                    !qState.revealed && !selected && "border-slate-500/40 text-slate-500",
+                    !qState.revealed && !selected && "border-slate-500/40 text-slate-400",
                     !qState.revealed && selected  && "border-cyber-400 text-cyber-300",
                     revCorr   && "border-neon-green text-neon-green",
                     revWrong  && "border-severity-high text-severity-high",
-                    qState.revealed && !selected && idx !== question.answer && "border-slate-700 text-slate-700",
+                    qState.revealed && !selected && idx !== correctIdx && "border-slate-700 text-slate-500",
                   )}>
-                    {String.fromCharCode(65 + idx)}
+                    {String.fromCharCode(65 + displayIdx)}
                   </span>
                   <span>{opt}</span>
-                  {revCorr  && <CheckCircle2 className="ml-auto h-4 w-4 shrink-0 text-neon-green" />}
-                  {revWrong && <XCircle       className="ml-auto h-4 w-4 shrink-0 text-severity-high" />}
+                  {revCorr  && <CheckCircle2 aria-hidden="true" className="ml-auto h-4 w-4 shrink-0 text-neon-green" />}
+                  {revWrong && <XCircle       aria-hidden="true" className="ml-auto h-4 w-4 shrink-0 text-severity-high" />}
+                  {revCorr  && <span className="sr-only">{selected ? "(your answer — correct)" : "(correct answer)"}</span>}
+                  {revWrong && <span className="sr-only">(your answer — incorrect)</span>}
                 </button>
               );
             })}
@@ -435,7 +606,7 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
 
           {/* Explanation (after reveal) */}
           {qState.revealed && (
-            <div className={cn(
+            <div ref={resultRef} tabIndex={-1} role="status" className={cn(
               "mx-6 mb-4 rounded border px-4 py-3",
               isCorrect ? "border-neon-green/20 bg-neon-green/5" : "border-severity-medium/20 bg-severity-medium/5"
             )}>
@@ -444,8 +615,19 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
               )}>
                 {isCorrect ? "Correct!" : "Explanation"}
               </p>
-              <p className="text-xs text-slate-300 leading-relaxed">{question.explanation}</p>
+              {/* Options are disabled once revealed — state the result + answer in text. */}
+              {!isCorrect && (
+                <p className="sr-only">
+                  Incorrect.{correctOptionText !== null ? ` Correct answer: ${correctOptionText}` : ""}
+                </p>
+              )}
+              <p className="text-xs text-slate-300 leading-relaxed">{remapOptionLetters(qResult?.explanation ?? "", orderOf(question))}</p>
             </div>
+          )}
+
+          {/* Grade error */}
+          {gradeError && !qState.revealed && (
+            <p role="alert" className="mx-6 mb-4 text-xs text-severity-high">{gradeError}</p>
           )}
 
           {/* Action buttons */}
@@ -453,10 +635,10 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
             {!qState.revealed ? (
               <button
                 onClick={handleConfirm}
-                disabled={qState.selected === null}
+                disabled={qState.selected === null || grading}
                 className="flex-1 rounded border border-cyber-500/30 bg-cyber-500/10 py-2.5 text-sm font-semibold text-cyber-300 hover:bg-cyber-500/20 transition disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                Confirm Answer
+                {grading ? "Checking…" : "Confirm Answer"}
               </button>
             ) : (
               <button
@@ -474,7 +656,7 @@ export function QuizClient({ quiz: initialQuiz }: { quiz: Quiz }) {
         {current > 0 && !qState.revealed && (
           <button
             onClick={() => setCurrent(c => c - 1)}
-            className="mt-4 flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 transition"
+            className="mt-4 flex items-center gap-1 text-xs text-slate-400 hover:text-slate-300 transition"
           >
             <ArrowLeft className="h-3.5 w-3.5" /> Previous question
           </button>

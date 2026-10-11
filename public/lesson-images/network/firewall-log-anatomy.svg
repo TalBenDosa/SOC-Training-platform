@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 430" role="img" aria-label="Anatomy of a firewall log line with each field labelled">
+  <title>Anatomy of a firewall log line</title>
+  <defs>
+    <style>
+      .bg    { fill: #0b0f1e; }
+      .panel { fill: #0a1020; stroke: #1e2d4a; stroke-width: 1; }
+      .mono  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 15px; }
+      .ui    { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .val   { fill: #e2e8f0; }
+      .dim   { fill: #64748b; }
+      .lbl   { fill: #22d3ee; font-size: 11px; font-weight: 600; letter-spacing: .04em; }
+      .note  { fill: #94a3b8; font-size: 12px; }
+      .head  { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+      .deny  { fill: #f87171; }
+      .lead  { stroke: #22d3ee; stroke-width: 1; opacity: .55; }
+      .flag  { fill: #fbbf24; font-size: 11px; font-weight: 600; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="940" height="430"/>
+  <text class="ui head" x="24" y="30">READING ONE FIREWALL LOG LINE</text>
+
+  <!-- the log line itself -->
+  <rect class="panel" x="24" y="46" width="892" height="46" rx="6"/>
+  <text class="mono" x="38" y="75">
+    <tspan class="dim">2026-08-12T02:14:07Z </tspan><tspan class="val">10.14.6.31</tspan><tspan class="dim">:</tspan><tspan class="val">51344</tspan><tspan class="dim"> -&gt; </tspan><tspan class="val">203.0.113.44</tspan><tspan class="dim">:</tspan><tspan class="val">443</tspan><tspan class="dim">  proto=</tspan><tspan class="val">tcp</tspan><tspan class="dim">  action=</tspan><tspan class="deny">deny</tspan><tspan class="dim">  sent=</tspan><tspan class="val">1204</tspan><tspan class="dim"> rcvd=</tspan><tspan class="val">0</tspan>
+  </text>
+
+  <!-- leader lines from fields down to labels -->
+  <line class="lead" x1="92"  y1="92" x2="92"  y2="120"/>
+  <line class="lead" x1="196" y1="92" x2="196" y2="150"/>
+  <line class="lead" x1="345" y1="92" x2="345" y2="180"/>
+  <line class="lead" x1="470" y1="92" x2="470" y2="210"/>
+  <line class="lead" x1="596" y1="92" x2="596" y2="240"/>
+  <line class="lead" x1="700" y1="92" x2="700" y2="270"/>
+  <line class="lead" x1="820" y1="92" x2="820" y2="300"/>
+
+  <text class="ui lbl" x="100" y="124">TIMESTAMP</text>
+  <text class="ui note" x="205" y="124">Normalise to UTC before you build any timeline.</text>
+
+  <text class="ui lbl" x="204" y="154">SOURCE IP : PORT</text>
+  <text class="ui note" x="330" y="154">Behind NAT this can be the gateway, not the real host.</text>
+
+  <text class="ui lbl" x="353" y="184">DESTINATION IP</text>
+  <text class="ui note" x="465" y="184">The pivot: who is this, and has anyone else talked to it?</text>
+
+  <text class="ui lbl" x="478" y="214">DESTINATION PORT</text>
+  <text class="ui note" x="608" y="214">443 is only a hint — the port does not prove the protocol.</text>
+
+  <text class="ui lbl" x="604" y="244">PROTOCOL</text>
+  <text class="ui note" x="676" y="244">tcp / udp / icmp.</text>
+
+  <text class="ui lbl" x="708" y="274">ACTION</text>
+  <text class="ui note" x="762" y="274">deny = blocked by a rule. drop = discarded silently.</text>
+
+  <text class="ui lbl" x="828" y="304">BYTES SENT / RCVD</text>
+  <text class="ui note" x="24" y="330">The byte counts are the field analysts skip and should not — their shape is the signal:</text>
+
+  <!-- byte-shape call-outs -->
+  <rect class="panel" x="24" y="344" width="288" height="66" rx="6"/>
+  <text class="ui flag" x="38" y="366">LONG SESSION, FEW BYTES</text>
+  <text class="ui note" x="38" y="386">Regular small check-ins over hours</text>
+  <text class="ui note" x="38" y="402">— the shape of C2 beaconing.</text>
+
+  <rect class="panel" x="326" y="344" width="288" height="66" rx="6"/>
+  <text class="ui flag" x="340" y="366">SHORT SESSION, HUGE SENT</text>
+  <text class="ui note" x="340" y="386">Large outbound volume, little back</text>
+  <text class="ui note" x="340" y="402">— the shape of data exfiltration.</text>
+
+  <rect class="panel" x="628" y="344" width="288" height="66" rx="6"/>
+  <text class="ui flag" x="642" y="366">SENT &gt; 0, RCVD = 0</text>
+  <text class="ui note" x="642" y="386">It was blocked before a reply — the</text>
+  <text class="ui note" x="642" y="402">attempt still tells you intent.</text>
+</svg>

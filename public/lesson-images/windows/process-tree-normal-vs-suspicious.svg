@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 480" role="img" aria-label="Two process trees side by side: a normal chain of explorer.exe launching chrome.exe, versus a suspicious chain of winword.exe launching an encoded PowerShell command that launches rundll32.exe">
+  <title>Process trees: a normal parent-child chain versus a suspicious one</title>
+  <defs>
+    <style>
+      .bg    { fill: #0b0f1e; }
+      .panel { fill: #0a1020; stroke: #1e2d4a; stroke-width: 1; }
+      .hot   { fill: #0e1b30; stroke: #22d3ee; stroke-width: 1.5; }
+      .bad   { fill: #2a1220; stroke: #f87171; stroke-width: 1.5; }
+      .ui    { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .mono  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+      .val   { fill: #e2e8f0; }
+      .dim   { fill: #64748b; }
+      .head  { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+      .col   { fill: #64748b; font-size: 10px; font-weight: 600; letter-spacing: .08em; }
+      .note  { fill: #94a3b8; font-size: 11px; }
+      .good  { fill: #86efac; font-size: 12px; font-weight: 700; }
+      .crit  { fill: #f87171; font-size: 12px; font-weight: 700; }
+      .cap   { fill: #64748b; font-size: 10px; font-style: italic; }
+      .link  { stroke: #334155; stroke-width: 1.5; fill: none; }
+      .linkbad { stroke: #f87171; stroke-width: 1.5; fill: none; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="940" height="480"/>
+  <text class="ui head" x="24" y="30">PROCESS TREES — SAME SHAPE, OPPOSITE STORY</text>
+
+  <!-- NORMAL side -->
+  <rect class="panel" x="24" y="46" width="440" height="380" rx="6"/>
+  <text class="good" x="40" y="70">NORMAL CHAIN</text>
+
+  <rect class="panel" x="44" y="86" width="200" height="46" rx="4"/>
+  <text class="mono val" x="54" y="106">explorer.exe</text>
+  <text class="ui note" x="54" y="122">PID 2244 — user shell</text>
+
+  <line class="link" x1="144" y1="132" x2="144" y2="166"/>
+  <rect class="panel" x="44" y="166" width="200" height="46" rx="4"/>
+  <text class="mono val" x="54" y="186">chrome.exe</text>
+  <text class="ui note" x="54" y="202">PID 5810 — parent 2244</text>
+
+  <line class="link" x1="144" y1="212" x2="144" y2="246"/>
+  <rect class="panel" x="44" y="246" width="200" height="46" rx="4"/>
+  <text class="mono val" x="54" y="266">chrome.exe (renderer)</text>
+  <text class="ui note" x="54" y="282">PID 5901 — parent 5810</text>
+
+  <text class="ui note" x="44" y="322">User double-clicked Chrome from the</text>
+  <text class="ui note" x="44" y="338">taskbar. Explorer (the shell) launched</text>
+  <text class="ui note" x="44" y="354">it, and Chrome spawned its own</text>
+  <text class="ui note" x="44" y="370">renderer sub-process — exactly what</text>
+  <text class="ui note" x="44" y="386">a browser does under normal use.</text>
+  <text class="good" x="44" y="410">Every link in the chain makes sense.</text>
+
+  <!-- SUSPICIOUS side -->
+  <rect class="panel" x="476" y="46" width="440" height="380" rx="6"/>
+  <text class="crit" x="492" y="70">SUSPICIOUS CHAIN</text>
+
+  <rect class="panel" x="496" y="86" width="220" height="46" rx="4"/>
+  <text class="mono val" x="506" y="106">WINWORD.EXE</text>
+  <text class="ui note" x="506" y="122">PID 5104 — document editor</text>
+
+  <line class="linkbad" x1="606" y1="132" x2="606" y2="166"/>
+  <rect class="bad" x="496" y="166" width="220" height="60" rx="4"/>
+  <text class="mono" x="506" y="186" fill="#f87171" font-weight="700">powershell.exe</text>
+  <text class="ui note" x="506" y="202">PID 7328 — parent 5104</text>
+  <text class="mono" x="506" y="218" font-size="10" fill="#fbbf24">-nop -w hidden -enc SQBFAFgA...</text>
+
+  <line class="linkbad" x1="606" y1="226" x2="606" y2="260"/>
+  <rect class="bad" x="496" y="260" width="220" height="46" rx="4"/>
+  <text class="mono val" x="506" y="280">rundll32.exe</text>
+  <text class="ui note" x="506" y="296">PID 8112 — parent 7328</text>
+
+  <text class="ui note" x="492" y="330">A Word document has no legitimate</text>
+  <text class="ui note" x="492" y="346">reason to launch a scripting engine.</text>
+  <text class="ui note" x="492" y="362">PowerShell runs hidden and encoded,</text>
+  <text class="ui note" x="492" y="378">then hands off to rundll32 — a classic</text>
+  <text class="ui note" x="492" y="394">maldoc-to-payload chain.</text>
+  <text class="crit" x="492" y="418">The parent, not either program alone, is the finding.</text>
+
+  <text class="ui cap" x="24" y="464">Individually every process name here is ordinary. It is the relationship — who launched whom — that separates routine from an attack.</text>
+</svg>

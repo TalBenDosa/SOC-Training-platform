@@ -235,7 +235,7 @@ function buildTakeawaysSlide(pptx: any, lesson: LessonForExport, slideNum: numbe
 // ─── Route ────────────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
-  const gate = await requireAdmin();
+  const gate = await requireAdmin("lesson.export_pptx");
   if ("error" in gate) return gate.error;
 
   const lesson = await req.json().catch(() => null) as LessonForExport | null;

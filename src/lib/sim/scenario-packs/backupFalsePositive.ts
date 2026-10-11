@@ -12,6 +12,11 @@
  */
 
 import type { ScenarioBundle, TelemetryEvent, IOC, ScenarioQuestion } from "@/lib/sim/types";
+import { serviceNowRecord } from "@/lib/sim/emitters/servicenow";
+import { winLogon, winSpecialPrivileges, winObjectAccess } from "@/lib/sim/emitters/windowsSecurity";
+import { mdeProcess, mdeFile, mdeAlert } from "@/lib/sim/emitters/mde";
+import { panConnection } from "@/lib/sim/emitters/paloalto";
+import { sentinelAlert } from "@/lib/sim/emitters/sentinel";
 import { makeSha256 } from "@/lib/sim/iocs";
 
 export function buildBackupFalsePositiveScenario(
@@ -40,416 +45,137 @@ export function buildBackupFalsePositiveScenario(
   const jobGuid = "{7F2A9C41-3E8B-4D16-9A05-C2B77E4D8813}";
   const changeTicket = "CHG0041887";
 
+  // EDR↔scenario integration (Phase 4): one incident, endpoint-primary →
+  // edr_scope "edr". This is a FALSE POSITIVE — the EDR ransomware-behaviour
+  // alert is the single detection, investigated in the EDR console and resolved
+  // benign. Everything else is corroborating telemetry in the process tree.
+  const INCIDENT = "inc:bkpfp:1";
+
+  const cx = "nexacorp" as const;
+  const fsFqdn = "FS-PROD-04.nexacorp.com";
+
   const events: TelemetryEvent[] = [
-    // ---------------------------------------------------------------------
     // 1. The change that explains the new schedule (the day before).
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_bkpfp_01_change",
-      ts: T(0),
-      source: "soar",
-      vendor: "ServiceNow ITSM",
-      event_type: "policy_modification",
-      severity: "informational",
-      description:
-        "Change CHG0041887 was approved by the Infrastructure CAB: the FS-PROD-04 backup job moves from a nightly incremental at 23:00 to a weekly FULL backup starting at 02:00, writing to the BKP-REPO-01 repository. The first full run under the new policy is scheduled for the next maintenance window.",
-      raw: {
-        "servicenow.table": "change_request",
-        "servicenow.number": changeTicket,
-        "servicenow.short_description": "Backup policy change — FS-PROD-04 weekly full at 02:00",
-        "servicenow.state": "Scheduled",
-        "servicenow.approval": "Approved",
-        "servicenow.type": "Normal",
-        "servicenow.risk": "Moderate",
-        "servicenow.assignment_group": "Infrastructure Operations",
-        "servicenow.requested_by": "r.mizrahi@nexacorp.com",
-        "servicenow.approved_by": "CAB — Infrastructure",
-        "servicenow.cmdb_ci": "FS-PROD-04",
-        "servicenow.start_date": "2026-03-17 02:00:00",
-        "servicenow.end_date": "2026-03-17 05:00:00",
-        "servicenow.sys_updated_on": "2026-03-16 14:20:00",
+    serviceNowRecord({
+      companyId: cx, id: "evt_bkpfp_01_change", ts: T(0), table: "change_request", number: changeTicket, state: "Scheduled",
+      shortDescription: "Backup policy change — FS-PROD-04 weekly full at 02:00", severity: "informational",
+      extra: {
+        "servicenow.approval": "Approved", "servicenow.type": "Normal", "servicenow.risk": "Moderate",
+        "servicenow.assignment_group": "Infrastructure Operations", "servicenow.requested_by": "r.mizrahi@nexacorp.com",
+        "servicenow.approved_by": "CAB — Infrastructure", "servicenow.cmdb_ci": "FS-PROD-04",
+        "servicenow.start_date": "2026-03-17 02:00:00", "servicenow.end_date": "2026-03-17 05:00:00", "servicenow.sys_updated_on": "2026-03-16 14:20:00",
       },
-    },
+      description: "Change CHG0041887 records the FS-PROD-04 backup job moving from a nightly incremental at 23:00 to a weekly full backup at 02:00, writing to BKP-REPO-01.",
+    }),
 
-    // ---------------------------------------------------------------------
-    // 2. Service logon for the backup account — LogonType 5 (service).
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_bkpfp_02_svc_logon",
-      ts: T(W),
-      source: "windows_security",
-      vendor: "Windows Security",
-      event_type: "auth_success",
-      hostname: fileServer.hostname,
-      user_email: svcAccount.email,
-      severity: "informational",
-      description:
-        "NEXACORP\\svc_bkp_agent logged on to FS-PROD-04 as LogonType 5 — a service logon issued by the Service Control Manager, not an interactive or network logon by a person.",
-      authentication: { method: "Negotiate", result: "success", logon_type: 5 },
-      raw: {
-        // Windows Security Event 4624 — Successful Logon
-        "winlog.event_id": "4624",
-        "winlog.channel": "Security",
-        "winlog.computer_name": "FS-PROD-04.nexacorp.com",
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.record_id": "9174432",
-        "winlog.event_data.SubjectUserSid": "S-1-5-18",
-        "winlog.event_data.SubjectUserName": "FS-PROD-04$",
-        "winlog.event_data.SubjectDomainName": "NEXACORP",
-        "winlog.event_data.SubjectLogonId": "0x3E7",
-        "winlog.event_data.TargetUserSid": svcSid,
-        "winlog.event_data.TargetUserName": svcAccount.name,
-        "winlog.event_data.TargetDomainName": "NEXACORP",
-        "winlog.event_data.TargetLogonId": "0x1C4A9E3",
-        "winlog.event_data.LogonType": "5",
-        "winlog.event_data.LogonProcessName": "Advapi",
-        "winlog.event_data.AuthenticationPackageName": "Negotiate",
-        "winlog.event_data.WorkstationName": "-",
-        "winlog.event_data.IpAddress": "-",
-        "winlog.event_data.IpPort": "-",
-        "winlog.event_data.ProcessId": "0x1F4",
-        "winlog.event_data.ProcessName": "C:\\Windows\\System32\\services.exe",
-        "winlog.event_data.ElevatedToken": "%%1842",
-      },
-    },
+    // 2. Service logon for the backup account — LogonType 5.
+    winLogon({
+      companyId: cx, id: "evt_bkpfp_02_svc_logon", ts: T(W), host: fileServer.hostname, fqdn: fsFqdn, userEmail: svcAccount.email,
+      targetUser: svcAccount.name, targetSid: svcSid, subjectUser: "FS-PROD-04$", subjectSid: "S-1-5-18", logonId: "0x1C4A9E3",
+      logonType: 5, authPackage: "Negotiate", logonProcess: "Advapi", workstation: "-", processName: "C:\\Windows\\System32\\services.exe",
+      recordId: "9174432", severity: "informational",
+      description: "NEXACORP\\svc_bkp_agent logged on to FS-PROD-04 with LogonType 5, issued by services.exe under the local system account (Event 4624).",
+    }),
 
-    // ---------------------------------------------------------------------
-    // 3. AMBIGUOUS #1 — the account holds very heavy file-system privileges.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_bkpfp_03_privileges",
-      ts: T(W + 2_000),
-      source: "windows_security",
-      vendor: "Windows Security",
-      event_type: "privileged_operation",
-      hostname: fileServer.hostname,
-      user_email: svcAccount.email,
-      severity: "medium",
-      description:
-        "The svc_bkp_agent logon session on FS-PROD-04 was assigned SeBackupPrivilege, SeRestorePrivilege and SeSecurityPrivilege. SeBackupPrivilege lets the holder read any file on the volume regardless of the file's ACL.",
-      raw: {
-        // Windows Security Event 4672 — Special Privileges Assigned to New Logon
-        "winlog.event_id": "4672",
-        "winlog.channel": "Security",
-        "winlog.computer_name": "FS-PROD-04.nexacorp.com",
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.record_id": "9174433",
-        "winlog.event_data.SubjectUserSid": svcSid,
-        "winlog.event_data.SubjectUserName": svcAccount.name,
-        "winlog.event_data.SubjectDomainName": "NEXACORP",
-        "winlog.event_data.SubjectLogonId": "0x1C4A9E3",
-        "winlog.event_data.PrivilegeList":
-          "SeBackupPrivilege\n\t\t\tSeRestorePrivilege\n\t\t\tSeSecurityPrivilege\n\t\t\tSeTakeOwnershipPrivilege\n\t\t\tSeChangeNotifyPrivilege",
-      },
-    },
+    // 3. AMBIGUOUS #1 — heavy file-system privileges (4672).
+    winSpecialPrivileges({
+      companyId: cx, id: "evt_bkpfp_03_privileges", ts: T(W + 2_000), host: fileServer.hostname, fqdn: fsFqdn, userEmail: svcAccount.email,
+      targetUser: svcAccount.name, targetSid: svcSid, logonId: "0x1C4A9E3",
+      privilegeList: "SeBackupPrivilege\n\t\t\tSeRestorePrivilege\n\t\t\tSeSecurityPrivilege\n\t\t\tSeTakeOwnershipPrivilege\n\t\t\tSeChangeNotifyPrivilege",
+      recordId: "9174433", severity: "medium",
+      description: "The svc_bkp_agent logon session on FS-PROD-04 was assigned SeBackupPrivilege, SeRestorePrivilege, SeSecurityPrivilege and SeTakeOwnershipPrivilege (Event 4672).",
+    }),
 
-    // ---------------------------------------------------------------------
-    // 4. The agent process itself — signed, real install path, SCM parent.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_bkpfp_04_agent_start",
-      ts: T(W + 5_000),
-      source: "edr",
-      vendor: "Microsoft Defender for Endpoint",
-      event_type: "process_create",
-      hostname: fileServer.hostname,
-      user_email: svcAccount.email,
-      src_ip: fileServer.ip,
-      severity: "low",
-      description:
-        "VeeamAgent.exe started on FS-PROD-04 under svc_bkp_agent. Its parent is services.exe (the Service Control Manager), and the command line carries a backup job GUID rather than any interactive argument.",
-      process: {
-        name: "VeeamAgent.exe",
-        pid: 5284,
-        path: "C:\\Program Files\\Veeam\\Backup and Replication\\Backup\\VeeamAgent.exe",
-        parent_name: "services.exe",
-        parent_pid: 500,
-        cmdline: `"C:\\Program Files\\Veeam\\Backup and Replication\\Backup\\VeeamAgent.exe" /job:${jobGuid} /mode:full /target:\\\\BKP-REPO-01\\repo01`,
-        user: "NEXACORP\\svc_bkp_agent",
-        integrity: "system",
-        hash: { sha256: agentHash },
+    // 4. The agent process — signed vendor binary, SCM parent.
+    mdeProcess({
+      companyId: cx, id: "evt_bkpfp_04_agent_start", ts: T(W + 5_000), host: fileServer.hostname, srcIp: fileServer.ip,
+      processName: "VeeamAgent.exe", processPath: "C:\\Program Files\\Veeam\\Backup and Replication\\Backup\\VeeamAgent.exe",
+      cmdline: `"C:\\Program Files\\Veeam\\Backup and Replication\\Backup\\VeeamAgent.exe" /job:${jobGuid} /mode:full /target:\\\\BKP-REPO-01\\repo01`,
+      parentName: "services.exe", parentPid: 500, pid: 5284, sha256: agentHash, integrity: "System", signed: true,
+      runAsUser: "NEXACORP\\svc_bkp_agent", accountName: svcAccount.name, accountDomain: "nexacorp", severity: "low",
+      extra: {
+        "Timestamp": T(W + 5_000), "ProcessTokenElevation": "TokenElevationTypeDefault",
+        "InitiatingProcessId": "500", "InitiatingProcessFolderPath": "C:\\Windows\\System32\\services.exe", "InitiatingProcessAccountName": "system",
+        "process.code_signature.subject_name": "Veeam Software Group GmbH", "mde.Signer": "Veeam Software Group GmbH", "mde.SignatureStatus": "Valid", "ReportId": "4417102",
       },
-      raw: {
-        Timestamp: T(W + 5_000),
-        ActionType: "ProcessCreated",
-        DeviceName: fileServer.hostname,
-        FileName: "VeeamAgent.exe",
-        FolderPath: "C:\\Program Files\\Veeam\\Backup and Replication\\Backup\\VeeamAgent.exe",
-        SHA256: agentHash,
-        ProcessId: "5284",
-        ProcessCommandLine: `"C:\\Program Files\\Veeam\\Backup and Replication\\Backup\\VeeamAgent.exe" /job:${jobGuid} /mode:full /target:\\\\BKP-REPO-01\\repo01`,
-        ProcessIntegrityLevel: "System",
-        ProcessTokenElevation: "TokenElevationTypeDefault",
-        AccountDomain: "nexacorp",
-        AccountName: svcAccount.name,
-        LogonId: "0x1C4A9E3",
-        InitiatingProcessFileName: "services.exe",
-        InitiatingProcessId: "500",
-        InitiatingProcessFolderPath: "C:\\Windows\\System32\\services.exe",
-        InitiatingProcessAccountName: "system",
-        // DeviceFileCertificateInfo for the image
-        IsSigned: true,
-        IsTrusted: true,
-        SignatureStatus: "Valid",
-        Signer: "Veeam Software Group GmbH",
-        Issuer: "DigiCert Trusted G4 Code Signing RSA4096 SHA384 2021 CA1",
-        CertificateCreationTime: "2025-08-04T00:00:00Z",
-        CertificateExpirationTime: "2027-08-06T23:59:59Z",
-        ReportId: "4417102",
-      },
-    },
+      description: "VeeamAgent.exe started on FS-PROD-04 as svc_bkp_agent with services.exe as its parent, carrying a backup job GUID and /mode:full on the command line.",
+    }),
 
-    // ---------------------------------------------------------------------
-    // 5. VSS — a snapshot is CREATED (the inverse of ransomware behaviour).
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_bkpfp_05_vss",
-      ts: T(W + 25_000),
-      source: "edr",
-      vendor: "Microsoft Defender for Endpoint",
-      event_type: "process_create",
-      hostname: fileServer.hostname,
-      user_email: svcAccount.email,
-      severity: "medium",
-      description:
-        "VeeamAgent.exe spawned vssadmin.exe on FS-PROD-04. Read the verb in the command line carefully — the exact sub-command matters far more than the fact that vssadmin ran at all.",
-      process: {
-        name: "vssadmin.exe",
-        pid: 5311,
-        path: "C:\\Windows\\System32\\vssadmin.exe",
-        parent_name: "VeeamAgent.exe",
-        parent_pid: 5284,
-        cmdline: "vssadmin.exe create shadow /for=D:",
-        user: "NEXACORP\\svc_bkp_agent",
-        integrity: "system",
-        hash: { sha256: vssadminHash },
+    // 5. VSS — a snapshot is CREATED (inverse of ransomware behaviour).
+    mdeProcess({
+      companyId: cx, id: "evt_bkpfp_05_vss", ts: T(W + 25_000), host: fileServer.hostname,
+      processName: "vssadmin.exe", processPath: "C:\\Windows\\System32\\vssadmin.exe", cmdline: "vssadmin.exe create shadow /for=D:",
+      parentName: "VeeamAgent.exe", parentPid: 5284, pid: 5311, sha256: vssadminHash, integrity: "System", signed: true,
+      runAsUser: "NEXACORP\\svc_bkp_agent", accountName: svcAccount.name, accountDomain: "nexacorp", severity: "medium",
+      extra: {
+        "Timestamp": T(W + 25_000), "InitiatingProcessId": "5284", "InitiatingProcessFolderPath": "C:\\Program Files\\Veeam\\Backup and Replication\\Backup\\VeeamAgent.exe", "InitiatingProcessAccountName": svcAccount.name,
+        "mde.Signer": "Microsoft Windows", "mde.SignatureStatus": "Valid", "ReportId": "4417118",
       },
-      raw: {
-        Timestamp: T(W + 25_000),
-        ActionType: "ProcessCreated",
-        DeviceName: fileServer.hostname,
-        FileName: "vssadmin.exe",
-        FolderPath: "C:\\Windows\\System32\\vssadmin.exe",
-        SHA256: vssadminHash,
-        ProcessId: "5311",
-        ProcessCommandLine: "vssadmin.exe create shadow /for=D:",
-        ProcessIntegrityLevel: "System",
-        AccountDomain: "nexacorp",
-        AccountName: svcAccount.name,
-        InitiatingProcessFileName: "VeeamAgent.exe",
-        InitiatingProcessId: "5284",
-        InitiatingProcessFolderPath:
-          "C:\\Program Files\\Veeam\\Backup and Replication\\Backup\\VeeamAgent.exe",
-        InitiatingProcessAccountName: svcAccount.name,
-        IsSigned: true,
-        SignatureStatus: "Valid",
-        Signer: "Microsoft Windows",
-        ReportId: "4417118",
-      },
-    },
+      description: "VeeamAgent.exe spawned vssadmin.exe on FS-PROD-04, running as svc_bkp_agent at System integrity twenty seconds after the agent started.",
+    }),
 
-    // ---------------------------------------------------------------------
-    // 6. A representative file-read record (4663, ReadData only).
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_bkpfp_06_file_read",
-      ts: T(W + MIN),
-      source: "windows_security",
-      vendor: "Windows Security",
-      event_type: "file_access",
-      hostname: fileServer.hostname,
-      user_email: svcAccount.email,
-      severity: "low",
-      description:
-        "Representative object-access record from the D:\\Finance share on FS-PROD-04. Thousands of records like this one were written during the window; the AccessList on each of them is what tells you what was actually done to the file.",
-      file: {
-        path: "D:\\Finance\\FY2026\\Q1\\AR_aging_2026-02.xlsx",
-        name: "AR_aging_2026-02.xlsx",
-        extension: "xlsx",
-        size: 1_184_768,
-      },
-      raw: {
-        // Windows Security Event 4663 — An attempt was made to access an object
-        "winlog.event_id": "4663",
-        "winlog.channel": "Security",
-        "winlog.computer_name": "FS-PROD-04.nexacorp.com",
-        "winlog.provider_name": "Microsoft-Windows-Security-Auditing",
-        "winlog.record_id": "9174902",
-        "winlog.event_data.SubjectUserSid": svcSid,
-        "winlog.event_data.SubjectUserName": svcAccount.name,
-        "winlog.event_data.SubjectDomainName": "NEXACORP",
-        "winlog.event_data.SubjectLogonId": "0x1C4A9E3",
-        "winlog.event_data.ObjectServer": "Security",
-        "winlog.event_data.ObjectType": "File",
-        "winlog.event_data.ObjectName": "D:\\Finance\\FY2026\\Q1\\AR_aging_2026-02.xlsx",
-        "winlog.event_data.HandleId": "0x9d4c",
-        "winlog.event_data.AccessMask": "0x1",
-        "winlog.event_data.AccessList": "%%4416",
-        "winlog.event_data.ProcessId": "0x14A4",
-        "winlog.event_data.ProcessName":
-          "C:\\Program Files\\Veeam\\Backup and Replication\\Backup\\VeeamAgent.exe",
-      },
-    },
+    // 6. A representative 4663 file-read record (ReadData only).
+    winObjectAccess({
+      companyId: cx, id: "evt_bkpfp_06_file_read", ts: T(W + MIN), host: fileServer.hostname, fqdn: fsFqdn, userEmail: svcAccount.email,
+      targetUser: svcAccount.name, targetSid: svcSid, subjectLogonId: "0x1C4A9E3", accessMask: "0x1",
+      objectName: "D:\\Finance\\FY2026\\Q1\\AR_aging_2026-02.xlsx", fileName: "AR_aging_2026-02.xlsx",
+      processName: "C:\\Program Files\\Veeam\\Backup and Replication\\Backup\\VeeamAgent.exe", recordId: "9174902", severity: "low",
+      description: "Representative 4663 object-access record from FS-PROD-04: VeeamAgent.exe accessed D:\\Finance\\FY2026\\Q1\\AR_aging_2026-02.xlsx under the svc_bkp_agent session.",
+    }),
 
-    // ---------------------------------------------------------------------
-    // 7. Large file with an unfamiliar extension — on a dedicated target.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_bkpfp_07_vbk_write",
-      ts: T(W + 4 * MIN),
-      source: "edr",
-      vendor: "Microsoft Defender for Endpoint",
-      event_type: "file_create",
-      hostname: fileServer.hostname,
-      user_email: svcAccount.email,
-      severity: "high",
-      description:
-        "A 26 GB file with the extension .vbk was created by VeeamAgent.exe. Note where it landed: the UNC path of the BKP-REPO-01 repository share, not alongside the source files on D:\\.",
-      file: {
-        path: "\\\\BKP-REPO-01\\repo01\\FS-PROD-04\\FS-PROD-04_2026-03-17T020000_FULL.vbk",
-        name: "FS-PROD-04_2026-03-17T020000_FULL.vbk",
-        extension: "vbk",
-        size: 26_548_912_128,
+    // 7. Large file with an unfamiliar extension — on a dedicated backup target.
+    mdeFile({
+      companyId: cx, id: "evt_bkpfp_07_vbk_write", ts: T(W + 4 * MIN), host: fileServer.hostname,
+      path: "\\\\BKP-REPO-01\\repo01\\FS-PROD-04\\FS-PROD-04_2026-03-17T020000_FULL.vbk", sha256: null, size: 26_548_912_128,
+      action: "file_create", initiatingProcess: "VeeamAgent.exe", severity: "high",
+      extra: {
+        "Timestamp": T(W + 4 * MIN), "mde.ShareName": "repo01", "mde.RequestAccountName": svcAccount.name, "mde.RequestAccountDomain": "nexacorp",
+        "InitiatingProcessId": "5284", "InitiatingProcessFolderPath": "C:\\Program Files\\Veeam\\Backup and Replication\\Backup\\VeeamAgent.exe", "InitiatingProcessAccountName": svcAccount.name, "ReportId": "4418044",
       },
-      raw: {
-        Timestamp: T(W + 4 * MIN),
-        ActionType: "FileCreated",
-        DeviceName: fileServer.hostname,
-        FileName: "FS-PROD-04_2026-03-17T020000_FULL.vbk",
-        FolderPath: "\\\\BKP-REPO-01\\repo01\\FS-PROD-04\\",
-        FileSize: 26_548_912_128,
-        ShareName: "repo01",
-        RequestAccountName: svcAccount.name,
-        RequestAccountDomain: "nexacorp",
-        InitiatingProcessFileName: "VeeamAgent.exe",
-        InitiatingProcessId: "5284",
-        InitiatingProcessFolderPath:
-          "C:\\Program Files\\Veeam\\Backup and Replication\\Backup\\VeeamAgent.exe",
-        InitiatingProcessAccountName: svcAccount.name,
-        ReportId: "4418044",
-      },
-    },
+      description: "A 26 GB file named FS-PROD-04_2026-03-17T020000_FULL.vbk was created by VeeamAgent.exe on the share \\\\BKP-REPO-01\\repo01.",
+    }),
 
-    // ---------------------------------------------------------------------
     // 8. AMBIGUOUS #2 — outbound TLS to an unattributed external address.
-    // ---------------------------------------------------------------------
+    panConnection({
+      companyId: cx, id: "evt_bkpfp_08_egress", ts: T(W + 6 * MIN), host: fileServer.hostname, srcIp: fileServer.ip, user: null,
+      dstIp: vendorEndpointIp, remotePort: 443, app: "ssl", action: "allow", end: true, category: "computer-and-internet-info",
+      bytesOut: 4812, bytesIn: 2190, elapsedSec: 3, severity: "medium",
+      description: "FS-PROD-04 opened a 3-second outbound TLS session to 104.18.27.94:443 during the backup window — 4,812 bytes sent, 2,190 received, allowed by rule Servers-to-Internet-Restricted.",
+    }),
+
+    // 9. THE ALARM — EDR ransomware-behaviour heuristic (the false-positive detection).
     {
-      id: "evt_bkpfp_08_egress",
-      ts: T(W + 6 * MIN),
-      source: "firewall",
-      vendor: "Palo Alto Networks PAN-OS",
-      event_type: "net_connection",
-      hostname: fileServer.hostname,
-      src_ip: fileServer.ip,
-      dst_ip: vendorEndpointIp,
-      dst_port: 443,
-      protocol: "tcp",
-      severity: "medium",
-      description:
-        "FS-PROD-04 opened a short outbound TLS session to an external address during the backup window. A production file server reaching the internet mid-job is worth an explanation — the destination has not been attributed here.",
-      network: { bytes_out: 4812, bytes_in: 2190 },
-      raw: {
-        "pan.type": "TRAFFIC",
-        "pan.subtype": "end",
-        "pan.action": "allow",
-        "pan.rule": "Servers-to-Internet-Restricted",
-        "pan.src": fileServer.ip,
-        "pan.dst": vendorEndpointIp,
-        "pan.sport": "51884",
-        "pan.dport": "443",
-        "pan.proto": "tcp",
-        "pan.app": "ssl",
-        "pan.from_zone": "SERVERS",
-        "pan.to_zone": "UNTRUST",
-        "pan.session_id": "184402",
-        "pan.bytes_sent": "4812",
-        "pan.bytes_received": "2190",
-        "pan.packets": "26",
-        "pan.elapsed_time": "3",
-        "pan.category": "computer-and-internet-info",
-        "pan.dstloc": "US",
-      },
+      ...mdeAlert({
+        companyId: cx, id: "evt_bkpfp_09_edr_alert", ts: T(W + 7 * MIN), host: fileServer.hostname, user: svcAccount.email,
+        alertTitle: "Ransomware behavior detected", category: "Impact", mitre: "T1486", techniqueName: "Data Encrypted for Impact",
+        remediation: "None", detectionSource: "EDR", sha256: agentHash, alertSeverity: "High", severity: "critical",
+        extra: {
+          "mde.DetectorId": "BehaviorMonitoring/RansomwareFileActivity", "mde.EntityType": "Process", "mde.AlertStatus": "New",
+          "mde.ServiceSource": "Microsoft Defender for Endpoint", "FileName": "VeeamAgent.exe", "ReportId": "4418311",
+        },
+        description: "Defender for Endpoint raised a CRITICAL \"Ransomware behavior detected\" alert on FS-PROD-04 naming VeeamAgent.exe. RemediationAction is None.",
+      }),
+      edr_scope: "edr",
     },
 
-    // ---------------------------------------------------------------------
-    // 9. THE ALARM — EDR ransomware-behaviour heuristic, CRITICAL.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_bkpfp_09_edr_alert",
-      ts: T(W + 7 * MIN),
-      source: "edr",
-      vendor: "Microsoft Defender for Endpoint",
-      event_type: "edr_alert",
-      hostname: fileServer.hostname,
-      user_email: svcAccount.email,
-      severity: "critical",
-      mitre_technique: "T1486",
-      mitre_tactic: "TA0040",
-      description:
-        "Microsoft Defender for Endpoint raised a CRITICAL behavioural alert on FS-PROD-04: mass file access by a single process combined with volume shadow copy activity and rapid creation of large files with an unrecognised extension. No file was blocked and no process was terminated.",
-      raw: {
-        Timestamp: T(W + 7 * MIN),
-        AlertId: "da637-9021-4471-b3ae-2f8c19d5e004",
-        Title: "Ransomware behavior detected",
-        Category: "Impact",
-        Severity: "High",
-        DetectionSource: "EDR",
-        ServiceSource: "Microsoft Defender for Endpoint",
-        DetectorId: "BehaviorMonitoring/RansomwareFileActivity",
-        DeviceName: fileServer.hostname,
-        AccountName: svcAccount.name,
-        AccountDomain: "nexacorp",
-        AttackTechniques: ["T1486"],
-        EntityType: "Process",
-        FileName: "VeeamAgent.exe",
-        SHA256: agentHash,
-        RemediationAction: "None",
-        AlertStatus: "New",
-        ReportId: "4418311",
+    // 10. SIEM correlation — the aggregates that make the FP legible.
+    sentinelAlert({
+      companyId: cx, id: "evt_bkpfp_10_correlation", ts: T(W + 8 * MIN), host: fileServer.hostname, user: svcAccount.email,
+      eventType: "ueba_anomaly", alertName: "HighVolumeFileAccess_SingleAccount", ruleId: "SEN-FILE-0231", severity: "high",
+      extendedProperties: {
+        "Window Start": T(W + MIN), "Window End": T(W + 7 * MIN), "Time window (s)": 360,
+        "Event 4663 ReadData Count": 41208, "Event 4663 WriteData Count": 0, "Event 4663 Delete Count": 0,
+        "File Renamed Count": 0, "File Deleted Count": 0, "Distinct Extensions Written": [".vbk"],
+        "Distinct Write Targets": ["\\\\BKP-REPO-01\\repo01"], "Bytes Read": 44198412288,
+        "New Autoruns Count": 0, "New Services Count": 0, "New Scheduled Tasks Count": 0,
+        "Remote Logons Initiated Count": 0, "Threat Intel Matches": 0, "Linked Change Request": changeTicket,
       },
-    },
-
-    // ---------------------------------------------------------------------
-    // 10. SIEM correlation — the aggregates live here, not in device logs.
-    // ---------------------------------------------------------------------
-    {
-      id: "evt_bkpfp_10_correlation",
-      ts: T(W + 8 * MIN),
-      source: "siem",
-      vendor: "Microsoft Sentinel",
-      event_type: "ueba_anomaly",
-      hostname: fileServer.hostname,
-      user_email: svcAccount.email,
-      severity: "high",
-      description:
-        "Sentinel summarised the whole window for the analyst: how many objects svc_bkp_agent touched, with which access rights, how many files changed name or were deleted, and what else the account did on the network during those minutes.",
-      raw: {
-        "siem.rule_name": "HighVolumeFileAccess_SingleAccount",
-        "siem.rule_id": "SEN-FILE-0231",
-        "siem.window_start": T(W + MIN),
-        "siem.window_end": T(W + 7 * MIN),
-        "siem.window_seconds": 360,
-        "siem.account": "NEXACORP\\svc_bkp_agent",
-        "siem.host": fileServer.hostname,
-        "siem.event_4663_readdata_count": 41208,
-        "siem.event_4663_writedata_count": 0,
-        "siem.event_4663_delete_count": 0,
-        "siem.file_renamed_count": 0,
-        "siem.file_deleted_count": 0,
-        "siem.distinct_extensions_written": [".vbk"],
-        "siem.distinct_write_targets": ["\\\\BKP-REPO-01\\repo01"],
-        "siem.bytes_read": 44198412288,
-        "siem.new_autoruns_count": 0,
-        "siem.new_services_count": 0,
-        "siem.new_scheduled_tasks_count": 0,
-        "siem.remote_logons_initiated_count": 0,
-        "siem.threat_intel_matches": 0,
-        "siem.linked_change_request": changeTicket,
-        "event.action": "correlation-alert",
-        "event.outcome": "alerted",
-      },
-    },
+      description: "Sentinel rule HighVolumeFileAccess_SingleAccount summarised svc_bkp_agent's activity on FS-PROD-04 across a 360-second window.",
+    }),
   ];
+
+  // Every event belongs to the one incident.
+  for (const e of events) e.incident_id = INCIDENT;
 
   const iocs: IOC[] = [
     {
@@ -502,10 +228,10 @@ export function buildBackupFalsePositiveScenario(
       hint: "One event has to come from outside the host telemetry.",
       kind: "single",
       options: [
-        { value: "change_start", label: "evt_bkpfp_01_change + evt_bkpfp_04_agent_start — approved schedule, then an SCM-launched process at that time" },
-        { value: "logon_priv", label: "evt_bkpfp_02_svc_logon + evt_bkpfp_03_privileges — a service logon followed by heavy backup privileges" },
-        { value: "vss_write", label: "evt_bkpfp_05_vss + evt_bkpfp_07_vbk_write — a shadow copy taken, then a large container written out" },
-        { value: "alert_corr", label: "evt_bkpfp_09_edr_alert + evt_bkpfp_10_correlation — the critical alert and its correlation summary" },
+        { value: "change_start", label: "Change CHG0041887 plus the VeeamAgent.exe start — an approved 02:00 window, then a process launched by services.exe" },
+        { value: "logon_priv", label: "The svc_bkp_agent LogonType 5 logon plus its Event 4672 grant — only a sanctioned job is handed SeBackupPrivilege" },
+        { value: "vss_write", label: "The vssadmin snapshot plus the 26 GB .vbk write — a shadow copy, then a repository container, the textbook backup shape" },
+        { value: "alert_corr", label: "The Defender alert plus the Sentinel summary — no remediation and zero writes, so nobody at the console intervened" },
       ],
       answer: "change_start",
       xp: 40,
@@ -519,9 +245,9 @@ export function buildBackupFalsePositiveScenario(
       kind: "single",
       options: [
         { value: "sig_path", label: "Vendor Authenticode signature, plus execution from its real install path" },
-        { value: "integrity", label: "High process integrity and a command line carrying the backup job GUID" },
-        { value: "first_seen", label: "First seen in the environment nine hours before the alert triggered" },
-        { value: "name_match", label: "File name matches the product name listed on the vendor's website" },
+        { value: "integrity", label: "High process integrity plus a command line that carries the Veeam backup job GUID" },
+        { value: "first_seen", label: "Its hash was first seen in the environment nine hours before the alert triggered" },
+        { value: "name_match", label: "The file name and version string match the product listed on the vendor's website" },
       ],
       answer: "sig_path",
       xp: 50,
@@ -551,9 +277,9 @@ export function buildBackupFalsePositiveScenario(
       kind: "single",
       options: [
         { value: "read_only", label: "Files were opened ReadData only; the new data went to a separate repository share" },
-        { value: "one_share", label: "Every file that was touched sits under a single finance share on that server" },
-        { value: "volume", label: "The number of files touched was lower than in previous backup windows" },
-        { value: "svc_acct", label: "The account doing the reading is a service account rather than a person" },
+        { value: "one_share", label: "Every file touched sits under one finance share, so the blast radius stayed contained" },
+        { value: "volume", label: "Fewer files were touched in this window than in the previous nightly incremental runs" },
+        { value: "svc_acct", label: "The account doing the reading is a service account, not an interactive human user" },
       ],
       answer: "read_only",
       xp: 60,
@@ -568,9 +294,9 @@ export function buildBackupFalsePositiveScenario(
       kind: "single",
       options: [
         { value: "delete_rewrite", label: "Shadow copies deleted and source files rewritten in place with a new extension" },
-        { value: "time_shift", label: "The job starting at 02:00 rather than in the previous 23:00 nightly window" },
-        { value: "priv_held", label: "A service account holding SeBackupPrivilege on a production file server" },
-        { value: "read_rate", label: "The agent reading far more files in six minutes than a user reads in a week" },
+        { value: "time_shift", label: "The job starting at 02:00 rather than inside the previous 23:00 nightly incremental window" },
+        { value: "priv_held", label: "A service account holding SeBackupPrivilege and SeRestorePrivilege on a production file server" },
+        { value: "read_rate", label: "The agent reading far more files in six minutes than a person could open in a week" },
       ],
       answer: "delete_rewrite",
       xp: 70,

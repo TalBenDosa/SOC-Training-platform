@@ -1,5 +1,6 @@
 "use client";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
+import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 import { cn } from "@/lib/utils";
 import { X, Check, ChevronRight } from "lucide-react";
 import type { LiveEvent } from "./useLiveEvents";
@@ -86,6 +87,13 @@ export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoar
   const [hoverPhase, setHoverPhase] = useState<KillChainPhase | null>(null);
   const [submitted, setSubmitted]   = useState(false);
   const [score, setScore]           = useState<{ correct: number; total: number; xp: number } | null>(null);
+  // Keyboard-friendly click-to-assign path (alongside native drag-drop):
+  // click an event to select it, then click a slot to drop it there.
+  const [selected, setSelected]     = useState<LiveEvent | null>(null);
+
+  // Escape closes the modal; focus is trapped inside and returns on close.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(true, dialogRef, { onEscape: onClose });
 
   const placed = new Set(Object.values(slots).map(e => e?.id));
   const unplaced = events.filter(e => !placed.has(e.id));
@@ -96,6 +104,13 @@ export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoar
     setDragging(null);
     setHoverPhase(null);
   }, [dragging]);
+
+  // Click-to-assign: assign the currently-selected event into a phase slot.
+  const handleSlotClick = useCallback((phase: KillChainPhase) => {
+    if (submitted || !selected) return;
+    setSlots(prev => ({ ...prev, [phase]: selected }));
+    setSelected(null);
+  }, [submitted, selected]);
 
   const handleRemove = (phase: KillChainPhase) => {
     setSlots(prev => {
@@ -120,20 +135,24 @@ export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoar
     onXpAward?.(xp);
   };
 
-  const canSubmit = Object.keys(slots).length >= Math.min(PHASES.length, events.filter(e => e.ruleLevel >= 7).length);
+  const canSubmit = Object.keys(slots).length >= Math.min(PHASES.length, events.filter(e => e.ruleLevel >= 10).length);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div
+      ref={dialogRef} tabIndex={-1}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+      role="dialog" aria-modal="true" aria-labelledby="attack-chain-title"
+    >
       <div className="relative w-full max-w-3xl rounded-xl border border-border bg-bg-elevated shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
         <div className="h-1 w-full bg-gradient-to-r from-severity-high via-neon-purple to-severity-critical" />
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border/50">
           <div>
-            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500">LO-3 — Attack Chain Reconstruction</p>
-            <h2 className="text-sm font-bold text-white">Build the Kill Chain</h2>
+            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">LO-3 — Attack Chain Reconstruction</p>
+            <h2 id="attack-chain-title" className="text-sm font-bold text-white">Build the Kill Chain</h2>
           </div>
-          <button onClick={onClose} className="rounded p-1 text-slate-400 hover:text-white transition">
+          <button onClick={onClose} aria-label="Close kill chain board" className="rounded p-1 text-slate-400 hover:text-white transition">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -141,7 +160,7 @@ export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoar
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
           {/* Instructions */}
           <p className="text-[10px] text-slate-400 leading-relaxed">
-            Drag each event below into its correct Kill-Chain phase. Benign events should be left unassigned.
+            Drag each event below into its correct Kill-Chain phase — or click an event to select it, then click a phase slot to drop it there. Benign events should be left unassigned.
             <span className="text-neon-purple"> +5 XP per correct slot, +50 XP bonus for a perfect chain.</span>
           </p>
 
@@ -157,19 +176,31 @@ export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoar
               return (
                 <div key={phase} className="flex items-center gap-1 flex-1 min-w-0">
                   <div
+                    role="button"
+                    tabIndex={!submitted && selected ? 0 : -1}
+                    aria-label={`Assign selected event to ${phase}`}
                     className={cn(
-                      "flex-1 min-w-0 rounded-lg border-2 border-dashed transition p-2 min-h-[90px] flex flex-col",
+                      "flex-1 min-w-0 rounded-lg border-2 border-dashed transition p-2 min-h-[90px] flex flex-col focus:outline-none focus-visible:ring-1 focus-visible:ring-cyber-500/60",
                       isHovering && !submitted
                         ? `${c.border} ${c.bg}`
                         : submitted
                           ? isCorrect ? "border-neon-green/50 bg-neon-green/5"
                             : isWrong ? "border-severity-critical/50 bg-severity-critical/5"
                             : "border-border/40 bg-[#060b12]"
-                        : "border-border/40 bg-[#060b12] hover:border-border"
+                        : selected
+                          ? "border-neon-purple/40 bg-[#060b12] hover:border-neon-purple cursor-pointer"
+                          : "border-border/40 bg-[#060b12] hover:border-border"
                     )}
                     onDragOver={e => { e.preventDefault(); if (!submitted) setHoverPhase(phase); }}
                     onDragLeave={() => setHoverPhase(null)}
                     onDrop={() => { if (!submitted) handleDrop(phase); }}
+                    onClick={() => handleSlotClick(phase)}
+                    onKeyDown={e => {
+                      if ((e.key === "Enter" || e.key === " ") && selected) {
+                        e.preventDefault();
+                        handleSlotClick(phase);
+                      }
+                    }}
                   >
                     <div className="flex items-center gap-1 mb-1.5">
                       <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", c.dot)} />
@@ -193,7 +224,8 @@ export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoar
                             {!submitted && (
                               <button
                                 onClick={() => handleRemove(phase)}
-                                className="shrink-0 text-slate-500 hover:text-white"
+                                aria-label="Remove event from this phase"
+                                className="shrink-0 text-slate-400 hover:text-white"
                               >
                                 <X className="h-2.5 w-2.5" />
                               </button>
@@ -213,13 +245,13 @@ export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoar
                       </div>
                     ) : (
                       <div className="flex-1 flex items-center justify-center">
-                        <p className="text-[9px] text-slate-600">Drop event here</p>
+                        <p className="text-[9px] text-slate-400">Drop event here</p>
                       </div>
                     )}
                   </div>
 
                   {i < PHASES.length - 1 && (
-                    <ChevronRight className="h-3 w-3 text-slate-600 shrink-0" />
+                    <ChevronRight className="h-3 w-3 text-slate-400 shrink-0" />
                   )}
                 </div>
               );
@@ -228,20 +260,27 @@ export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoar
 
           {/* Event pool */}
           <div>
-            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 mb-2">Events to Assign</p>
+            <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-2">Events to Assign</p>
             {unplaced.length === 0 ? (
-              <p className="text-[10px] text-slate-500 italic">All events have been placed.</p>
+              <p className="text-[10px] text-slate-400 italic">All events have been placed.</p>
             ) : (
               <div className="flex flex-wrap gap-2">
-                {unplaced.map(event => (
-                  <div
+                {unplaced.map(event => {
+                  const isSelected = selected?.id === event.id;
+                  return (
+                  <button
+                    type="button"
                     key={event.id}
                     draggable={!submitted}
+                    disabled={submitted}
+                    aria-pressed={isSelected}
                     onDragStart={() => setDragging(event)}
                     onDragEnd={() => setDragging(null)}
+                    // Click selects (keyboard path); click a slot next to drop it there.
+                    onClick={() => { if (!submitted) setSelected(s => s?.id === event.id ? null : event); }}
                     className={cn(
-                      "rounded border px-2.5 py-1.5 text-[10px] cursor-grab select-none transition max-w-[220px]",
-                      dragging?.id === event.id
+                      "text-left rounded border px-2.5 py-1.5 text-[10px] cursor-grab select-none transition max-w-[220px] focus:outline-none focus-visible:ring-1 focus-visible:ring-cyber-500/60",
+                      isSelected || dragging?.id === event.id
                         ? "border-neon-purple/60 bg-neon-purple/15 opacity-70 scale-95"
                         : "border-border/60 bg-[#060b12] hover:border-border text-slate-300",
                       submitted && "opacity-40 cursor-default"
@@ -252,8 +291,9 @@ export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoar
                     {event.mitre_technique && (
                       <p className="font-mono text-[8px] text-neon-purple/70 mt-0.5">{event.mitre_technique}</p>
                     )}
-                  </div>
-                ))}
+                  </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -288,7 +328,7 @@ export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoar
 
         {/* Footer */}
         <div className="border-t border-border/50 px-6 py-3 flex items-center justify-between bg-[#060b12]">
-          <button onClick={onClose} className="text-xs text-slate-500 hover:text-slate-300 transition">
+          <button onClick={onClose} className="text-xs text-slate-400 hover:text-slate-300 transition">
             {submitted ? "Close" : "Skip for now"}
           </button>
           {!submitted && (
@@ -299,7 +339,7 @@ export function AttackChainBoard({ events, onClose, onXpAward }: AttackChainBoar
                 "flex items-center gap-2 rounded border px-4 py-2 text-xs font-bold transition",
                 canSubmit
                   ? "border-neon-green/40 bg-neon-green/10 text-neon-green hover:bg-neon-green/20"
-                  : "border-border/40 text-slate-600 cursor-not-allowed opacity-50"
+                  : "border-border/40 text-slate-400 cursor-not-allowed opacity-50"
               )}
             >
               <Check className="h-3.5 w-3.5" /> Submit Chain

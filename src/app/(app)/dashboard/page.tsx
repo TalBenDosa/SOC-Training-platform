@@ -1,57 +1,61 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { pickStoryForCompany, instantiateStory } from "./attackStories";
+import { lsGet, lsSet, lsRemove, ssGet, ssSet, ssRemove } from "@/lib/storage/safeStorage";
 import type { AttackStory } from "./attackStories";
 import { Topbar } from "@/components/nav/Topbar";
-import { Card, StatCard } from "@/components/ui/Card";
+import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
+import { loadSimData, type SimData, type Difficulty } from "./simData";
 import { useLiveEvents } from "./useLiveEvents";
-import type { LiveEvent } from "./useLiveEvents";
 import { EventFeed } from "./EventFeed";
-import { addTotalXp } from "@/lib/storage/progress";
+import { getClearedCompanies, addClearedCompany, setLastSession, getRoomProgress } from "@/lib/storage/progress";
+import Link from "next/link";
 import { WorkflowGuide } from "./WorkflowGuide";
-import { BENIGN_EVENTS } from "./benignEvents";
+import { HintPanel } from "./HintPanel";
+import { SavedSearches, type FilterSnapshot } from "./SavedSearches";
 import { SiemStats } from "./SiemStats";
 import { CompanySelector } from "./CompanySelector";
-import { SessionSummaryModal } from "./SessionSummaryModal";
-import type { DashboardSessionRecord } from "./useLiveEvents";
 import { IncidentReportModal } from "./IncidentReportModal";
+import { useProgressSnapshot } from "@/lib/storage/useProgressSnapshot";
 import { AttackChainBoard } from "./AttackChainBoard";
 import { CompanyClearedModal } from "./CompanyClearedModal";
 import { startDashboardTour } from "./OnboardingTour";
-import { COMPANY_PROFILES, COMPANY_EVENTS, NEXACORP_PROFILE } from "@/lib/sim/companyProfiles";
+import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
+import { COMPANY_PROFILES, NEXACORP_PROFILE } from "@/lib/sim/companyProfilesMeta";
+import type { CompanyProfile } from "@/lib/sim/companyProfilesMeta";
+import type { TelemetryEvent } from "@/lib/sim/types";
+import { fetchOrgCompanies, type OrgCompanyContent } from "@/lib/content/publicContent";
+import { containedHosts, EDR_CONTAINMENT_EVENT } from "@/lib/edr/containment";
+import { setTrainingActive } from "@/lib/sim/trainingSession";
+import { MyLearningPlan } from "@/components/plans/MyLearningPlan";
+import { isSha256Field, isIpCheckField, isDomainCheckField } from "@/components/threat-intel/ThreatIntelDrawer";
+import { NativeLogProvider, type NativeRenderer } from "@/lib/logs/native/NativeLogContext";
+import { IocTruthContext } from "@/components/threat-intel/iocTruthContext";
+import { storyIocTruth } from "@/lib/sim/storyTruth";
+import { normalizeHostIps } from "@/lib/sim/hostIdentity";
+import { StackPicker, savedStack, saveStack, stackDelta } from "@/components/training/StackPicker";
+import { PRODUCT_LABEL, type Stack } from "@/lib/logs/native/stack";
 import {
-  AlertTriangle, BookOpen, Building2, FileText, Filter, LogOut, Pause, Play,
-  RefreshCw, Search, Siren, Star, Target, X, Zap,
+  BookOpen, Building2, Clock, Cpu, FileText, Filter, GraduationCap, Pause, Play,
+  RefreshCw, Search, ShieldCheck, Siren, Star, Target, X, Zap,
 } from "lucide-react";
 
-const COMPANY_KEY       = "soc_selected_company_v1";
-const UNLOCKED_KEY      = "soc_company_progress_v1";
-const CLEARED_KEY       = "soc_company_cleared_v1";
+const COMPANY_KEY       = "soc_selected_company_v1";  // device-local UI preference (which company is open)
 const COMPANY_ORDER     = ["nexacorp", "rocketstack", "medcore", "globallogis", "quantumbank"];
 
-type SessionRecord = import("./useLiveEvents").DashboardSessionRecord;
+// Auto-advance rule: catch this many attacks within this rolling window and the
+// company is secured AUTOMATICALLY and the next one unlocks — this replaces the
+// manual "End Session → Secure This Company" gate.
+const ADVANCE_CATCHES   = 2;
+const ADVANCE_WINDOW_MS = 30 * 60_000; // 30 minutes
+const MISSION_BONUS_XP  = 250;         // session-XP reward for completing the mission
+
 
 // The analyst's ONE deliverable per company: a passing incident report. It
 // already grades attack identification + evidence + action + impact holistically
 // (see /api/dashboard/incident-report), so there's no separate "classify N
 // events" gate — that would just be a second, redundant scoring mechanism.
-interface ObjDef { label: string; met: (r: SessionRecord, reportPassed: boolean) => boolean }
-const REPORT_OBJECTIVE: ObjDef[] = [
-  { label: "Submit a passing incident report (score ≥ 60)", met: (_, rp) => rp },
-];
-const COMPANY_OBJECTIVES: Record<string, ObjDef[]> = {
-  nexacorp: REPORT_OBJECTIVE, rocketstack: REPORT_OBJECTIVE, medcore: REPORT_OBJECTIVE,
-  globallogis: REPORT_OBJECTIVE, quantumbank: REPORT_OBJECTIVE,
-};
-
-// ─── Event pools (computed once at module level) ──────────────────────────────
-
-// Background noise — NexaCorp default (other companies use COMPANY_EVENTS)
-// DNS events are excluded from the live feed — too noisy, not actionable in a SIEM dashboard
-const ALL_EVENTS = BENIGN_EVENTS.filter(e => e.source !== "dns");
-
 /**
  * Pull the real indicator values (IPs, users, hosts, domains, hashes) out of a
  * set of attack events. These are the ground truth the report grader checks the
@@ -69,8 +73,24 @@ function extractIndicators(events: import("@/lib/sim/types").TelemetryEvent[]): 
     if (dom) out.add(dom);
     const sha = (e.file as { sha256?: string } | undefined)?.sha256;
     if (sha) out.add(sha);
-    const proc = (e.process as { name?: string } | undefined)?.name;
-    if (proc) out.add(proc);
+    const procObj = e.process as { name?: string; hash?: { sha256?: string } } | undefined;
+    if (procObj?.name) out.add(procObj.name);
+    if (procObj?.hash?.sha256) out.add(procObj.hash.sha256);
+    // Also harvest indicators that live ONLY in the vendor-native `raw` block —
+    // the exact same fields the Threat-Intel drawer lets the analyst "Check
+    // Hash / Check IP / Check Domain" on. A SHA-256 the student pulled from
+    // cs.SHA256HashData (or Sysmon Hashes, Defender SHA256, …) is a real,
+    // observable artifact; if it isn't harvested here the report grader has no
+    // record of it and wrongly brands the student's citation "fabricated". Use
+    // the SAME recognisers the drawer uses so ground truth == what's checkable.
+    const raw = (e.raw ?? {}) as Record<string, unknown>;
+    for (const [k, v] of Object.entries(raw)) {
+      if (typeof v !== "string" || !v.trim()) continue;
+      const val = v.trim();
+      if (isSha256Field(k, val) || isIpCheckField(k, val) || isDomainCheckField(k, val)) {
+        out.add(val);
+      }
+    }
   }
   return Array.from(out);
 }
@@ -81,12 +101,14 @@ const SOURCES = [
   { value: "all",        label: "All Sources" },
   { value: "edr",        label: "EDR" },
   { value: "ad",         label: "Active Directory" },
+  { value: "windows_security", label: "Windows Security" },
   { value: "o365",       label: "Office 365" },
   { value: "gws",        label: "Google Workspace" },
   { value: "okta",       label: "Okta" },
   { value: "firewall",   label: "Firewall" },
   { value: "dns",        label: "DNS" },
   { value: "cloudtrail", label: "Cloud Trail" },
+  { value: "cloud_azure", label: "Azure Activity Log" },
   { value: "vpn",        label: "VPN" },
   { value: "sysmon",     label: "Sysmon" },
   { value: "proxy",      label: "Proxy" },
@@ -103,11 +125,16 @@ const WELCOME_KEY = "soc_welcome_seen_v1";
  * could touch anything), which is what made onboarding feel cluttered.
  */
 function SOCWelcomeModal({ onStart, onTakeTour }: { onStart: () => void; onTakeTour: () => void }) {
+  // a11y: modal dialog — focus trapped inside, Escape = "Start my shift" (dismiss).
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(true, dialogRef, { onEscape: onStart });
   return (
     // Overlay is fixed and scrollable so the card never pushes the page (no jump).
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 p-4 py-[7vh] backdrop-blur-sm">
+    // data-blocks-announcements: the plan-announcement popup waits until this closes.
+    <div data-blocks-announcements className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 p-4 py-[7vh] backdrop-blur-sm">
       {/* Card is capped at viewport height and scrolls internally if needed. */}
-      <div className="relative w-full max-w-[30rem] max-h-[86vh] overflow-y-auto rounded-2xl border border-border bg-bg-elevated shadow-2xl shadow-black/60">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="soc-welcome-title" tabIndex={-1}
+        className="relative w-full max-w-[30rem] max-h-[86vh] overflow-y-auto rounded-2xl border border-border bg-bg-elevated shadow-2xl shadow-black/60">
 
         {/* Top accent bar */}
         <div className="sticky top-0 z-10 h-[3px] w-full bg-gradient-to-r from-cyber-500 via-neon-purple to-severity-critical" />
@@ -120,7 +147,7 @@ function SOCWelcomeModal({ onStart, onTakeTour }: { onStart: () => void; onTakeT
             </span>
             <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cyber-500">Shift briefing</p>
-              <h2 className="text-[17px] font-bold leading-tight text-white">You&apos;re the SOC analyst on shift</h2>
+              <h2 id="soc-welcome-title" className="text-[17px] font-bold leading-tight text-white">You&apos;re the SOC analyst on shift</h2>
             </div>
           </div>
 
@@ -151,11 +178,11 @@ function SOCWelcomeModal({ onStart, onTakeTour }: { onStart: () => void; onTakeT
 
           {/* Severity legend — the one visual cue worth learning up front */}
           <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-border/50 bg-bg/50 px-4 py-3">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Severity</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Severity</span>
             {[
-              { v: "1", label: "1–3 routine",    cls: "border-slate-500/50 bg-slate-600/50 text-slate-300" },
-              { v: "5", label: "4–6 look closer", cls: "border-severity-medium/80 bg-severity-medium/70 text-white" },
-              { v: "9", label: "7–10 act now",    cls: "border-severity-critical bg-severity-critical text-white" },
+              { v: "4", label: "3–6 routine",    cls: "border-slate-500/50 bg-slate-600/50 text-slate-300" },
+              { v: "8", label: "7–9 look closer", cls: "border-severity-medium/80 bg-severity-medium/70 text-white" },
+              { v: "12", label: "10–15 act now",  cls: "border-severity-critical bg-severity-critical text-white" },
             ].map(({ v, label, cls }) => (
               <span key={v} className="flex items-center gap-1.5 text-[12px] text-slate-300">
                 <span className={cn("inline-flex h-5 w-5 items-center justify-center rounded border font-mono text-[10px] font-bold", cls)}>{v}</span>
@@ -188,7 +215,10 @@ function SOCWelcomeModal({ onStart, onTakeTour }: { onStart: () => void; onTakeT
 
 // ─── Start Training modal ─────────────────────────────────────────────────────
 
-export type Difficulty = "easy" | "medium" | "hard";
+// Difficulty is defined in ./simData (a leaf module) to avoid an import cycle;
+// re-exported here so existing `import { Difficulty } from ".../dashboard/page"`
+// consumers keep working.
+export type { Difficulty };
 
 // Difficulty describes only the CHALLENGE — never which attack is coming.
 // The attack type is chosen at random and kept hidden; the analyst must find it.
@@ -199,23 +229,31 @@ const DIFFICULTIES: { id: Difficulty; label: string; blurb: string; accent: stri
 ];
 
 function StartTrainingModal({
+  companyId,
   onStart,
   onClose,
 }: {
-  onStart: (difficulty: Difficulty) => void;
+  companyId: string;
+  onStart: (difficulty: Difficulty, stack: Stack) => void;
   onClose: () => void;
 }) {
   // Default new analysts to Easy — foundation-tier single-host attacks are the
   // right first practical. Students can step up to Medium/Hard themselves.
   const [selected, setSelected] = useState<Difficulty>("easy");
+  // Security products this session runs on (spec §3) — remembered per company.
+  const [stack, setStack] = useState<Stack>(() => savedStack(companyId));
+  // a11y: modal dialog — focus trapped inside, Escape closes, focus returns to the trigger.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(true, dialogRef, { onEscape: onClose });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-xl border border-border bg-bg-elevated p-6 shadow-2xl">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="start-training-title" tabIndex={-1}
+        className="w-full max-w-lg rounded-xl border border-border bg-bg-elevated p-6 shadow-2xl">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-white">Start Training Session</h2>
-          <button onClick={onClose} className="rounded p-1 text-slate-400 hover:text-white">
-            <X className="h-5 w-5" />
+          <h2 id="start-training-title" className="text-lg font-bold text-white">Start Training Session</h2>
+          <button type="button" onClick={onClose} aria-label="Close" className="rounded p-1 text-slate-400 hover:text-white">
+            <X aria-hidden="true" className="h-5 w-5" />
           </button>
         </div>
 
@@ -224,10 +262,12 @@ function StartTrainingModal({
           You won&apos;t be told what it is: watch the feed, spot it, and report it.
         </p>
 
-        <div className="mt-5 space-y-3">
+        <div className="mt-5 space-y-3" role="group" aria-label="Difficulty">
           {DIFFICULTIES.map((d) => (
             <button
               key={d.id}
+              type="button"
+              aria-pressed={selected === d.id}
               onClick={() => setSelected(d.id)}
               className={cn(
                 "w-full rounded-lg border p-4 text-left transition",
@@ -242,9 +282,13 @@ function StartTrainingModal({
           ))}
         </div>
 
+        <div className="mt-4">
+          <StackPicker companyId={companyId} value={stack} onChange={setStack} idPrefix="dash-stack" />
+        </div>
+
         <div className="mt-6 flex justify-end gap-3">
           <Button variant="secondary" size="sm" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" size="sm" onClick={() => { onStart(selected); onClose(); }}>
+          <Button variant="primary" size="sm" onClick={() => { const d = stackDelta(companyId, stack); saveStack(companyId, d); onStart(selected, d); onClose(); }}>
             <Zap className="h-4 w-4" /> Start Session
           </Button>
         </div>
@@ -255,11 +299,33 @@ function StartTrainingModal({
 
 // ─── Dashboard page ───────────────────────────────────────────────────────────
 
-// Helper: get event pool for a given company id — DNS always excluded from live feed
-function getCompanyEvents(id: string) {
-  if (id === "nexacorp") return BENIGN_EVENTS.filter(e => e.source !== "dns");
-  const pool = COMPANY_EVENTS[id] ?? BENIGN_EVENTS;
-  return pool.filter(e => e.source !== "dns");
+// Helper: get event pool for a given company id — DNS always excluded from live
+// feed. Takes the lazily-loaded sim data (benign + per-company pools) — see
+// simData.ts; the dashboard has it in hand before any pool is ever needed
+// (loaded at "Start Training").
+// One host, one IP across the noise (normalizeHostIps) — computed once per sim + company.
+const companyEventsCache = new WeakMap<SimData, Map<string, TelemetryEvent[]>>();
+function getCompanyEvents(sim: SimData, id: string) {
+  const cached = companyEventsCache.get(sim)?.get(id);
+  if (cached) return cached;
+  const out = normalizeHostIps(companyEventsRaw(sim, id));
+  (companyEventsCache.get(sim) ?? companyEventsCache.set(sim, new Map()).get(sim)!).set(id, out);
+  return out;
+}
+function companyEventsRaw(sim: SimData, id: string) {
+  const base = id === "nexacorp" ? sim.BENIGN_EVENTS : (sim.COMPANY_EVENTS[id] ?? sim.BENIGN_EVENTS);
+  // L-03 / L-09: emit ONLY the sources this company's architecture actually runs.
+  // The pool used to leak 12+ sources — a second competing EDR, AWS WAF/RDS on an
+  // Azure estate, DLP/Linux/email that the company never declared — regardless of
+  // the stack, which contradicts the Security-Products and Asset-Context rooms and
+  // left the source filter menu (correctly limited to the declared sources) unable
+  // to select half of what was on screen. Aligning the feed to architecture.sources
+  // makes "Switch Company" a real change of telemetry and makes the filter complete.
+  const active = new Set(getCompanyProfile(id).architecture?.sources ?? []);
+  // E-12: DNS is the most common log source in any SOC (and the platform teaches a
+  // whole room on it), so it must appear in the background noise. It is gated by the
+  // company's declared sources like every other source — no blanket exclusion.
+  return base.filter(e => active.size === 0 || active.has(e.source));
 }
 
 function getCompanyProfile(id: string) {
@@ -278,8 +344,113 @@ function getSourcesForCompany(id: string): { value: string; label: string }[] {
   ];
 }
 
+// ─── a11y helpers ─────────────────────────────────────────────────────────────
+
+/** Modal overlay with dialog semantics + focus trap (Escape → onEscape). */
+function TrappedDialog({ className, labelledBy, onEscape, children }: {
+  className: string; labelledBy: string; onEscape?: () => void; children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useFocusTrap(true, ref, { onEscape });
+  return (
+    <div ref={ref} className={className} role="dialog" aria-modal="true" aria-labelledby={labelledBy} tabIndex={-1}>
+      {children}
+    </div>
+  );
+}
+
+const ANNOUNCE_GAP_MS = 10_000;
+
+/**
+ * ONE visually hidden, polite live region for the whole dashboard (WCAG 4.1.3).
+ * New feed events are summarised in batches ("3 new events, 1 high severity"),
+ * at most once every ~10 s and only while the feed is streaming; changes to the
+ * EDR alert badge and the Session XP chip ride along in the same throttled
+ * message. Never announces every event.
+ */
+function LiveAnnouncer({ events, isStreaming, edrAlertCount, sessionXp }: {
+  events: { id: string; ruleLevel: number }[];
+  isStreaming: boolean;
+  edrAlertCount: number;
+  sessionXp: number;
+}) {
+  const [message, setMessage] = useState("");
+  const seenRef = useRef<Set<string> | null>(null);
+  const pendingRef = useRef({ count: 0, high: 0 });
+  const lastEdrRef = useRef(edrAlertCount);
+  const lastXpRef = useRef(sessionXp);
+  const lastFlushRef = useRef(0);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const streamingRef = useRef(isStreaming);
+  streamingRef.current = isStreaming;
+  const latestRef = useRef({ edrAlertCount, sessionXp });
+  latestRef.current = { edrAlertCount, sessionXp };
+
+  const flush = () => {
+    timerRef.current = null;
+    const parts: string[] = [];
+    const { count, high } = pendingRef.current;
+    pendingRef.current = { count: 0, high: 0 };
+    if (count > 0 && streamingRef.current) {
+      parts.push(`${count} new event${count > 1 ? "s" : ""}${high > 0 ? `, ${high} high severity` : ""}`);
+    }
+    const { edrAlertCount: edr, sessionXp: xp } = latestRef.current;
+    if (edr !== lastEdrRef.current) {
+      if (edr > 0) parts.push(`${edr} EDR alert${edr > 1 ? "s" : ""} on the endpoint — Investigate in EDR is available`);
+      lastEdrRef.current = edr;
+    }
+    if (xp !== lastXpRef.current) {
+      if (xp > lastXpRef.current) parts.push(`Session XP ${xp} (+${xp - lastXpRef.current})`);
+      lastXpRef.current = xp;
+    }
+    if (parts.length === 0) return;
+    lastFlushRef.current = Date.now();
+    const next = parts.join(". ") + ".";
+    // identical text twice in a row is not re-announced — nudge it
+    setMessage(m => (m === next ? next + "\u00a0" : next));
+  };
+  const schedule = () => {
+    if (timerRef.current) return;
+    const wait = Math.max(0, lastFlushRef.current + ANNOUNCE_GAP_MS - Date.now());
+    timerRef.current = setTimeout(flush, wait);
+  };
+
+  useEffect(() => {
+    const seen = seenRef.current;
+    if (seen === null) { seenRef.current = new Set(events.map(e => e.id)); return; } // initial fill: silent
+    let count = 0, high = 0;
+    for (const e of events) {
+      if (seen.has(e.id)) continue;
+      seen.add(e.id);
+      count++;
+      if (e.ruleLevel >= 10) high++;
+    }
+    if (seen.size > 5000) seenRef.current = new Set(events.map(e => e.id)); // bound memory over a long shift
+    if (count === 0 || !isStreaming) return;
+    pendingRef.current = { count: pendingRef.current.count + count, high: pendingRef.current.high + high };
+    schedule();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events]);
+
+  useEffect(() => {
+    if (edrAlertCount !== lastEdrRef.current || sessionXp !== lastXpRef.current) schedule();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [edrAlertCount, sessionXp]);
+
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+
+  return <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">{message}</div>;
+}
+
 export default function DashboardPage() {
   // ── All state up-front ────────────────────────────────────────────────────
+  // Readiness signal (PM audit F6): the dashboard is self-paced and stays open,
+  // but a learner who has cleared 0 rooms is about to read real production logs
+  // with no scaffolding. We show a soft, dismissible "start with the basics"
+  // banner — not a lock (the freedom to explore early is intentional). `ready`
+  // defaults to true so the banner never flashes before we've read progress.
+  const [roomReady,           setRoomReady]           = useState(true);
+  const [readinessDismissed,  setReadinessDismissed]  = useState(true);
   const [showTrainingModal,   setShowTrainingModal]   = useState(false);
   const [showWelcome,         setShowWelcome]         = useState(false);
   const [showCompanySelector, setShowCompanySelector] = useState(false);
@@ -288,7 +459,12 @@ export default function DashboardPage() {
   // anti-repeat memory is unavailable during SSR). All stories injected this
   // session are tracked so the incident-report grader gets true ground truth.
   const [sessionStory,     setSessionStory]     = useState<AttackStory | null>(null);
+
   const [injectedStories,  setInjectedStories]  = useState<AttackStory[]>([]);
+  // The IOC truth table of every story this shift has run: a hash / IP / domain lookup
+  // answers from the whole story (the dropper reads malicious on its execution row too),
+  // and an IOC looked up after the next story started still reads as it did.
+  const iocTruth = useMemo(() => storyIocTruth(injectedStories.flatMap(s => s.events)), [injectedStories]);
   const [scenarioObjective,   setScenarioObjective]   = useState<string | null>(null);
   // Session clock — set when a training session starts, cleared when it ends.
   // Drives the "session active" indicator so the analyst always knows whether
@@ -298,23 +474,94 @@ export default function DashboardPage() {
   const [sessionElapsed,      setSessionElapsed]      = useState(0);
   const [showReportModal,     setShowReportModal]     = useState(false);
   const [showChainBoard,      setShowChainBoard]      = useState(false);
+  // Writing the incident report auto-pauses the live feed (a real analyst stops
+  // watching to write up the ticket). pausedForReport marks that WE paused it,
+  // so on close we offer to resume; showResumePrompt is that "continue?" dialog.
+  const [pausedForReport,     setPausedForReport]     = useState(false);
+  const [showResumePrompt,    setShowResumePrompt]    = useState(false);
 
   // ─── Company progression ──────────────────────────────────────────────────
-  const [unlockedCompanies, setUnlockedCompanies] = useState<string[]>(() => {
-    if (typeof window === "undefined") return ["nexacorp"];
-    try { return JSON.parse(localStorage.getItem(UNLOCKED_KEY) ?? '["nexacorp"]'); } catch { return ["nexacorp"]; }
-  });
-  const [clearedCompanies, setClearedCompanies] = useState<string[]>(() => {
-    if (typeof window === "undefined") return [];
-    try { return JSON.parse(localStorage.getItem(CLEARED_KEY) ?? "[]"); } catch { return []; }
-  });
+  // Cleared companies persist through the storage facade → DB (user_progress.
+  // cleared_companies) for signed-in users, localStorage for guests. Previously
+  // this read/wrote raw localStorage, which for a signed-in user NEVER reached
+  // the DB (silent progress loss across devices) — QA finding, same class as the
+  // scenario/room/dashboard persistence migration.
+  const [clearedCompanies, setClearedCompanies] = useState<string[]>(() => getClearedCompanies());
+  // Unlocked is DERIVED, not separately stored: a company is open iff it is the
+  // first one or its predecessor in COMPANY_ORDER has been cleared. (The old
+  // UNLOCKED_KEY was never in the facade/DB at all.)
+  const unlockedCompanies = useMemo(
+    () => COMPANY_ORDER.filter((_, i) => i === 0 || clearedCompanies.includes(COMPANY_ORDER[i - 1])),
+    [clearedCompanies],
+  );
   const [showClearedModal, setShowClearedModal] = useState(false);
 
   // ─── Session summary modal ────────────────────────────────────────────────
-  const [sessionSummary, setSessionSummary] = useState<DashboardSessionRecord | null>(null);
+
+  // ─── Hosts contained in the EDR console ───────────────────────────────────
+  // Shared state with /edr: isolating a host there marks it "Contained" here,
+  // so the two surfaces read as one product (SIEM + EDR). Reactive to the EDR's
+  // own event and to cross-tab storage writes.
+  const [edrContained, setEdrContained] = useState<string[]>([]);
+  useEffect(() => {
+    const sync = () => setEdrContained(containedHosts());
+    sync();
+    window.addEventListener(EDR_CONTAINMENT_EVENT, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(EDR_CONTAINMENT_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+
+  // Did the student investigate in the EDR this shift? If so, nudge them to
+  // actually file the incident report (set on the /edr decision; cleared on a
+  // fresh shift and once the report passes). Reactive so returning from /edr
+  // shows the reminder immediately.
+  const [edrInvestigated, setEdrInvestigated] = useState(false);
+  // True while the analyst is investigating the live case in the EDR console —
+  // set when they open it, cleared when they finish there (the EDR decision
+  // flips soc_edr_investigated), on a new incident, or by a safety cap so an
+  // abandoned EDR tab can't freeze the response clock forever. Reactive (state,
+  // not a ref) so both the SLA pause AND the "paused" badge update live.
+  const [investigatingInEdr, setInvestigatingInEdr] = useState(false);
+  const edrPauseCapRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    // The EDR runs in a separate tab, so the "student investigated" signal
+    // arrives via the localStorage `storage` event (fires in OTHER tabs). Also
+    // re-check on focus, for when they alt-tab back to the Dashboard.
+    const sync = () => {
+      try {
+        const done = lsGet("soc_edr_investigated") === "1";
+        setEdrInvestigated(done);
+        // Finished in EDR → resume the clock; they now write the report (which
+        // pauses it again). Keeps a walked-away EDR tab from freezing it.
+        if (done) { setInvestigatingInEdr(false); if (edrPauseCapRef.current) { clearTimeout(edrPauseCapRef.current); edrPauseCapRef.current = null; } }
+      } catch { /* ignore */ }
+    };
+    sync();
+    window.addEventListener("storage", sync);
+    window.addEventListener("soc:edr-investigated", sync);
+    window.addEventListener("focus", sync);
+    return () => {
+      window.removeEventListener("storage", sync);
+      window.removeEventListener("soc:edr-investigated", sync);
+      window.removeEventListener("focus", sync);
+    };
+  }, []);
 
   // ─── Progress counters (session-scoped, reset on company switch) ─────────
   const [reportPassed,    setReportPassed]    = useState(false);
+  // Timestamps of attacks caught this run — drives the "2 attacks in 30 minutes →
+  // auto-advance" rule. caughtInWindow mirrors the count within the window for UI.
+  const caughtTimesRef = useRef<number[]>([]);
+  // Incidents already counted toward the auto-advance rule — dedup so a
+  // re-submitted passing report can't double-count, double-award XP, or re-arm.
+  const countedIncidentIdsRef = useRef<Set<string>>(new Set());
+  const [caughtInWindow, setCaughtInWindow] = useState(0);
+  // Time left (ms) to catch the next attack before the oldest catch rolls out of
+  // the 30-min window — null when there are no catches in the window yet.
+  const [windowRemainingMs, setWindowRemainingMs] = useState<number | null>(null);
 
   // Filters
   const [severityFilter, setSeverityFilter] = useState<"all" | "low" | "medium" | "high">("all");
@@ -335,65 +582,255 @@ export default function DashboardPage() {
   // (EDR, O365, Firewall, Sysmon, etc.) not just AD.
   // liveRef lets onStoryComplete (called from inside the hook) reach live.startStory.
   const liveRef = useRef<import("./useLiveEvents").LiveEventsApi | null>(null);
-  // Halting the shift after too many misses. haltedRef mirrors the state so the
-  // callback below (invoked from inside the hook, over a stale closure) sees the
-  // current value and cannot arm another campaign after the shift has stopped.
-  const [sessionHalted, setSessionHalted] = useState(false);
-  const haltedRef = useRef(false);
-  const handleStoryComplete = () => {
-    if (haltedRef.current) return;
-    const nextStory = instantiateStory(
-      pickStoryForCompany(selectedCompanyId),
-      getCompanyEvents(selectedCompanyId)
-    );
-    setSessionStory(nextStory);
-    setInjectedStories(prev => [...prev, nextStory]);
-    liveRef.current?.startStory(nextStory);
-  };
+  // Have we already armed the NEXT attack for the current incident? Reset when a
+  // new incident opens (see the effect below). This enforces ONE incident at a
+  // time: the next attack is armed only when the student files a passing report
+  // (handleReportPassed), never automatically when a story finishes injecting.
+  const armedNextRef = useRef(false);
+  // Story completion no longer auto-arms the next attack — that let a second
+  // incident pile on while the student was still working the first. An uncaught
+  // story simply ends (no popup, no halt — the feed keeps streaming); a caught
+  // one arms its successor from the report handler instead.
+  const handleStoryComplete = () => { /* intentionally does nothing — see handleReportPassed */ };
   // Memoize the pool/profile lookups: getCompanyEvents filters ~8000 benign
   // events, and without memoization it ran on EVERY render and handed a fresh
   // array identity to useLiveEvents each pass — which re-triggered the hook's
   // effects and was the root cause of the "setState during render" warning.
-  const eventPool       = useMemo(() => getCompanyEvents(selectedCompanyId), [selectedCompanyId]);
-  const selectedCompany = useMemo(() => getCompanyProfile(selectedCompanyId), [selectedCompanyId]);
+  // Per-org authored live-feed environments (migration 0044). RLS returns only
+  // this org's published companies; they merge into the selector, benign pool,
+  // source filter and story picker below via the org-aware resolvers.
+  const [orgCompanies, setOrgCompanies] = useState<OrgCompanyContent[]>([]);
+  // Keep the in-flight fetch so "Start Training" can await org content before
+  // resolving the pool — a returning org-user who clicks fast (before this
+  // resolves) would otherwise silently get the generic built-in pool instead of
+  // their org's authored environment.
+  const orgLoadRef = useRef<Promise<OrgCompanyContent[]> | null>(null);
+  useEffect(() => {
+    const p = fetchOrgCompanies();
+    orgLoadRef.current = p;
+    p.then(setOrgCompanies).catch(() => {});
+  }, []);
+  const orgCompanyMap = useMemo(() => new Map(orgCompanies.map(c => [c.profile.id, c])), [orgCompanies]);
+  const orgCompanyProfiles = useMemo(
+    () => orgCompanies.map(c => ({ ...(c.profile as unknown as CompanyProfile), events: c.benignEvents as TelemetryEvent[] })),
+    [orgCompanies],
+  );
+
+  // Org-aware lookups: an authored company id resolves from the DB content,
+  // everything else falls through to the static built-ins unchanged.
+  // The heavy simulation data (benign + attack event pools, story registry) is
+  // loaded lazily — it's not in the dashboard's first-load bundle. `sim` is null
+  // until the analyst starts a shift (or signals intent to); every event/story
+  // resolver takes it explicitly so the type system enforces "loaded before use".
+  const [sim, setSim] = useState<SimData | null>(null);
+  // True when the lazy sim-data chunk failed to load (offline / chunk-hash swap
+  // after a redeploy). Drives a visible retry banner instead of a silent
+  // dead-end — see loadSimData() in simData.ts, which resets so a retry works.
+  const [simLoadFailed, setSimLoadFailed] = useState(false);
+  const ensureSim = async (): Promise<SimData> => {
+    if (sim) return sim;
+    try {
+      const s = await loadSimData();
+      setSim(s);
+      setSimLoadFailed(false);
+      return s;
+    } catch (e) {
+      setSimLoadFailed(true);
+      throw e;
+    }
+  };
+
+  const resolveEvents = (s: SimData, orgMap: Map<string, OrgCompanyContent>, id: string): TelemetryEvent[] => {
+    const o = orgMap.get(id);
+    if (o) return (o.benignEvents as TelemetryEvent[]);   // E-12: DNS noise is kept
+    return getCompanyEvents(s, id);
+  };
+  // Profiles are light (companyProfilesMeta) and stay in the initial bundle — no
+  // sim needed, so the Topbar/selector/source-filter render immediately.
+  const resolveProfile = (id: string): CompanyProfile => {
+    const o = orgCompanyMap.get(id);
+    if (o) return { ...(o.profile as unknown as CompanyProfile), events: o.benignEvents as TelemetryEvent[] };
+    return getCompanyProfile(id) as CompanyProfile;
+  };
+  const resolveSources = (id: string): { value: string; label: string }[] => {
+    const o = orgCompanyMap.get(id);
+    if (!o) return getSourcesForCompany(id);
+    const active = o.profile.architecture?.sources ?? [];
+    return [{ value: "all", label: "All Sources" }, ...SOURCES.filter(s => s.value !== "all" && active.includes(s.value))];
+  };
+  const resolveStory = (s: SimData, orgMap: Map<string, OrgCompanyContent>, id: string, difficulty?: Difficulty, edrOverride?: string, accept?: (st: AttackStory) => boolean): AttackStory => {
+    const o = orgMap.get(id);
+    // L-03: pass the company's declared EDR so the attack arrives on the product it
+    // actually runs (SentinelOne for MedCore, Sophos for GlobalLogis, …) instead of
+    // always CrowdStrike.
+    // QA phase 7 (info): a malformed college-authored story threw here and took
+    // the whole dashboard down — fall back to a built-in story for the company.
+    if (o) {
+      try { return s.instantiateStory(o.story as unknown as AttackStory, resolveEvents(s, orgMap, id), (o.profile.architecture as { edr?: string } | undefined)?.edr, id); }
+      catch (e) { console.error(`[dashboard] org story for ${id} failed to build — using a built-in one:`, e); }
+    }
+    const edr = edrOverride ?? getCompanyProfile(id).architecture?.edr;
+    return s.instantiateStory(s.pickStoryForCompany(id, difficulty, accept && (st => accept(s.instantiateStory(st, getCompanyEvents(s, id), edr, id)))), getCompanyEvents(s, id), edr, id);
+  };
+
+  // Empty until sim loads; the real pool is handed to the feed via live.reset()
+  // at Start Training, so the feed (idle until then) never needs this early.
+  // Native-format logs (docs/log-schemas): the 32 source modules load lazily once
+  // the simulation has, and render each event as the session's chosen products emit it.
+  const [nativeMod, setNativeMod] = useState<typeof import("@/lib/logs/native") | null>(null);
+  const [sessionStack, setSessionStack] = useState<Stack>({});
+  const stackRef = useRef<Stack>({});
+  const ensureNative = async () => {
+    if (nativeMod) return nativeMod;
+    const m = await import("@/lib/logs/native");
+    setNativeMod(m);
+    return m;
+  };
+  /** The company pool as the chosen products would log it (records they can't produce are dropped). */
+  const stackedPool = (events: TelemetryEvent[], company: string, stack: Stack, nm: typeof nativeMod) =>
+    nm ? events.filter(e => nm.fitsStack(e, company, stack)).map(e => nm.applyStack(e, company, stack)) : events;
+  /** A story every event of which the chosen products can really show (drawn only from those), relabelled for them. */
+  const stackedStory = (s: SimData, orgMap: Map<string, OrgCompanyContent>, company: string, difficulty: Difficulty | undefined, stack: Stack, nm: typeof nativeMod): AttackStory => {
+    const edr = stack.edr ? PRODUCT_LABEL[stack.edr] : undefined;
+    if (!nm) return resolveStory(s, orgMap, company, difficulty, edr);
+    // With the company's own products only the lock rule applies: a story written about
+    // another vendor's artifacts (PRODUCT_LOCKS) is not drawn where it'd be shown as a different product.
+    const chosen = Object.keys(stack).length > 0;
+    const st = resolveStory(s, orgMap, company, difficulty, edr, x => (chosen ? nm.storyFitsStack(x.events, company, stack) : nm.storyHonoursLocks(x.events, company)));
+    return { ...st, events: st.events.map(e => nm.applyStack(e, company, stack)) };
+  };
+  const eventPool       = useMemo(() => (sim ? stackedPool(resolveEvents(sim, orgCompanyMap, selectedCompanyId), selectedCompanyId, sessionStack, nativeMod) : []), [sim, selectedCompanyId, orgCompanyMap, sessionStack, nativeMod]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!sim || nativeMod) return;
+    let alive = true;
+    import("@/lib/logs/native").then(m => { if (alive) setNativeMod(m); }).catch(() => { /* legacy rendering stays */ });
+    return () => { alive = false; };
+  }, [sim, nativeMod]);
+  const nativeRender = useMemo<NativeRenderer | null>(
+    () => (nativeMod ? ev => nativeMod.nativeView(ev, selectedCompanyId, sessionStack) : null),
+    [nativeMod, selectedCompanyId, sessionStack],
+  );
+  const selectedCompany = useMemo(() => resolveProfile(selectedCompanyId), [selectedCompanyId, orgCompanyMap]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Endpoint view of THE attack currently in the feed — built from the live
+  // story's real process telemetry. Null for pure identity/cloud attacks (no
+  // process tree), in which case "Investigate in EDR" opens the static console.
+  const liveEdrInvestigation = useMemo(
+    () => {
+      if (!sim || !sessionStory) return null;
+      try { return sim.buildInvestigationFromStory(sessionStory); }
+      catch (e) { console.error("[dashboard] EDR view build failed — static console instead:", e); return null; }
+    },
+    [sim, sessionStory],
+  );
 
   const live = useLiveEvents({
     eventPool,
     intervalMs: 90_000,   // 90s between ticks — readable pace for training
     story:      sessionStory,
     onStoryComplete: handleStoryComplete,
+    // Pause the response clock while the analyst is genuinely working the case:
+    // the report modal is open, OR the EDR console is in play. That time is not
+    // held against them (there is no fail — only the coaching metric).
+    isInvestigating: () => showReportModal || investigatingInEdr,
+    autoStart:  false,    // nothing streams until the student presses Start Training
   });
   liveRef.current = live;
 
-  // ── Persist session XP to localStorage (cumulative across sessions) ───────
+  // Number of EDR alerts for the attack currently live in the feed. Non-zero
+  // only while a shift is running AND an endpoint attack is active — an
+  // identity/cloud attack produces no endpoint telemetry, so no EDR alerts.
+  // Drives the badge that pops next to the "Investigate in EDR" button.
+  const edrAlertCount = (live.activeIncident && liveEdrInvestigation)
+    ? liveEdrInvestigation.detections.length : 0;
+
+  // E-09: the "contained in EDR" banner must reflect only THIS shift's hosts. A host
+  // contained in a past standalone /edr practice case (FIN-WS-07, RES-SRV-02, …) is
+  // stored in shared containment state and otherwise lingered on the Dashboard before
+  // a shift even started, showing a host that matches no company's naming with 0 XP.
+  // Surface a containment only when its host appears in the current live telemetry.
+  const sessionContained = useMemo(() => {
+    if (edrContained.length === 0) return [];
+    const hosts = new Set<string>();
+    for (const e of live.events) if (e.hostname) hosts.add(e.hostname);
+    for (const e of sessionStory?.events ?? []) if (e.hostname) hosts.add(e.hostname);
+    return edrContained.filter(h => hosts.has(h));
+  }, [edrContained, live.events, sessionStory]);
+
+  // When a FRESH incident opens, reset the per-incident state so the student
+  // works it cleanly: report button ready again, EDR reminder cleared, and the
+  // next-attack arming re-enabled. This is what makes each incident a discrete
+  // "handle it, report it, next" unit instead of a running pile.
+  const prevIncidentIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const id = live.activeIncident?.id ?? null;
+    if (id && id !== prevIncidentIdRef.current) {
+      prevIncidentIdRef.current = id;
+      setReportPassed(false);
+      armedNextRef.current = false;
+      setInvestigatingInEdr(false); // new incident → the EDR pause resets
+      if (edrPauseCapRef.current) { clearTimeout(edrPauseCapRef.current); edrPauseCapRef.current = null; }
+      try { lsRemove("soc_edr_investigated"); } catch { /* ignore */ }
+      setEdrInvestigated(false);
+    }
+  }, [live.activeIncident]);
+
+  // ── Mark dashboard activity (for streak + last-session), but do NOT feed the
+  //    rank pool ─────────────────────────────────────────────────────────────
+  // PM audit F3: the dashboard is the one ungated surface, so its practice XP
+  // must not move Rank/level (which the B2B leaderboard reads). The session is
+  // still recorded — appendDashboardSession() in useLiveEvents persists it for
+  // history, stats, and the streak; migration 0035 keeps that XP out of
+  // profiles.xp server-side. We only stamp last-session here so the optimistic
+  // local rank stays in agreement with the server-authoritative total.
   const prevSessionXpRef = useRef(0);
   useEffect(() => {
     const delta = live.sessionXp - prevSessionXpRef.current;
     if (delta > 0 && typeof window !== "undefined") {
-      addTotalXp(delta);
-      localStorage.setItem("soc_last_session", new Date().toISOString());
+      setLastSession(new Date().toISOString());
     }
     prevSessionXpRef.current = live.sessionXp;
   }, [live.sessionXp]);
 
-  // ── On mount: restore saved company, arm the session story, pick modal ────
+  // ── Readiness (F6): has this learner cleared any room yet? ─────────────────
+  // Re-read when the account's progress finishes loading (P5-14): a single read
+  // at mount saw the pre-hydration (empty) store, so an experienced student was
+  // greeted with "New here? Start with the fundamentals".
+  const progressSnap = useProgressSnapshot();
+  useEffect(() => {
+    try {
+      const rp = getRoomProgress() as Record<string, { completedAt?: string }>;
+      const anyDone = Object.values(rp).some(r => !!r.completedAt);
+      setRoomReady(anyDone);
+    } catch { setRoomReady(true); /* fail open — never nag on corrupt data */ }
+    if (typeof window !== "undefined") {
+      setReadinessDismissed(lsGet("soc:dashboard-readiness-dismissed") === "1");
+    }
+  }, [progressSnap.version, progressSnap.ready]);
+  const dismissReadiness = () => {
+    setReadinessDismissed(true);
+    try { lsSet("soc:dashboard-readiness-dismissed", "1"); } catch { /* ignore */ }
+  };
+
+  // ── On mount: restore saved company + pick the opening modal ──────────────
+  // The feed stays IDLE — no story is armed and nothing streams until the
+  // student presses Start Training. That's the whole gate: no logs, and no
+  // telemetry to the EDR, before the shift begins.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const saved    = localStorage.getItem(COMPANY_KEY);
-    const seenWelcome = localStorage.getItem(WELCOME_KEY);
+    const saved       = lsGet(COMPANY_KEY);
+    const seenWelcome  = lsGet(WELCOME_KEY);
 
-    // Pick this session's attack story for the active company (client-side only —
-    // the anti-repeat memory lives in localStorage) and arm the scheduler.
-    const companyId = saved ?? "nexacorp";
-    const story = instantiateStory(pickStoryForCompany(companyId), getCompanyEvents(companyId));
-    setSessionStory(story);
-    setInjectedStories([story]);
-    if (saved && saved !== "nexacorp") {
-      setSelectedCompanyId(saved);
-      live.reset(getCompanyEvents(saved), story);
-    } else {
-      live.reset(undefined, story);
-    }
+    if (saved && saved !== "nexacorp") setSelectedCompanyId(saved);
+
+    // Clean slate: a fresh Dashboard load has no live shift, so lock the EDR
+    // and drop any stale cross-tab handoff from a previous session. This is what
+    // keeps a lingering localStorage flag from leaving /edr reachable.
+    setTrainingActive(false);
+    try {
+      lsRemove("edr_live_investigation");
+      lsRemove("soc_edr_investigated");
+    } catch { /* ignore */ }
 
     if (!seenWelcome) {
       setShowWelcome(true);
@@ -405,28 +842,37 @@ export default function DashboardPage() {
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   const handleCloseWelcome = () => {
-    localStorage.setItem(WELCOME_KEY, "1");
+    lsSet(WELCOME_KEY, "1");
     setShowWelcome(false);
-    if (!localStorage.getItem(COMPANY_KEY)) setShowCompanySelector(true);
+    if (!lsGet(COMPANY_KEY)) setShowCompanySelector(true);
   };
 
   /** Briefing → guided tour. Dismiss the modal FIRST so the two never overlap. */
   const handleTakeTour = () => {
-    localStorage.setItem(WELCOME_KEY, "1");
+    lsSet(WELCOME_KEY, "1");
     setShowWelcome(false);
     startDashboardTour();
   };
 
   const handleSelectCompany = (id: string) => {
     setSelectedCompanyId(id);
-    localStorage.setItem(COMPANY_KEY, id);
+    lsSet(COMPANY_KEY, id);
     setShowCompanySelector(false);
     setSourceFilter("all");
     setReportPassed(false);
-    const newStory = instantiateStory(pickStoryForCompany(id), getCompanyEvents(id));
-    setSessionStory(newStory);
-    setInjectedStories([newStory]);
-    live.reset(getCompanyEvents(id), newStory);
+    caughtTimesRef.current = [];
+    countedIncidentIdsRef.current.clear();
+    setCaughtInWindow(0);
+    setWindowRemainingMs(null);
+    // Picking a company does NOT start the feed — it waits for Start Training.
+    // If a shift was running, end it so nothing streams for the new company
+    // until the student explicitly starts again.
+    setSessionStory(null);
+    setInjectedStories([]);
+    setSessionStartedAt(null);
+    setSessionDifficulty(null);
+    setTrainingActive(false);
+    live.pause();
   };
 
   const hasActiveFilters =
@@ -441,11 +887,30 @@ export default function DashboardPage() {
     setSearch("");
   };
 
+  // Snapshot of the live filter state — what a saved-search preset captures.
+  const filterSnapshot: FilterSnapshot = {
+    search, severityFilter, sourceFilter, userFilter, hostFilter, ipFilter, mitreFilter,
+  };
+  // Apply a saved preset back onto the filter state (and reveal row 2 if it
+  // carries any advanced filter, so the applied state is actually visible).
+  const applyFilterSnapshot = (s: FilterSnapshot) => {
+    setSearch(s.search);
+    setSeverityFilter(s.severityFilter);
+    setSourceFilter(s.sourceFilter);
+    setUserFilter(s.userFilter);
+    setHostFilter(s.hostFilter);
+    setIpFilter(s.ipFilter);
+    setMitreFilter(s.mitreFilter);
+    if (s.userFilter !== "all" || s.hostFilter !== "all" || s.ipFilter !== "all" || s.mitreFilter !== "all") {
+      setShowAdvancedFilters(true);
+    }
+  };
+
   // ── Dynamic KPIs ─────────────────────────────────────────────────────────────
   const threatLevel = useMemo(() => {
     const recent = live.events.slice(0, 20);
-    const highCount = recent.filter(e => e.ruleLevel >= 7).length;
-    const medCount  = recent.filter(e => e.ruleLevel >= 4 && e.ruleLevel < 7).length;
+    const highCount = recent.filter(e => e.ruleLevel >= 10).length;
+    const medCount  = recent.filter(e => e.ruleLevel >= 7 && e.ruleLevel < 10).length;
     if (highCount / recent.length > 0.4) return "High";
     if ((highCount + medCount) / recent.length > 0.3) return "Medium";
     return "Low";
@@ -470,15 +935,10 @@ export default function DashboardPage() {
   const nextCompany   = nextCompanyId ? COMPANY_PROFILES.find(c => c.id === nextCompanyId) ?? null : null;
 
   const handleClearCompany = () => {
-    const newCleared = [...new Set([...clearedCompanies, selectedCompanyId])];
-    setClearedCompanies(newCleared);
-    localStorage.setItem(CLEARED_KEY, JSON.stringify(newCleared));
-    if (nextCompanyId) {
-      const newUnlocked = [...new Set([...unlockedCompanies, nextCompanyId])];
-      setUnlockedCompanies(newUnlocked);
-      localStorage.setItem(UNLOCKED_KEY, JSON.stringify(newUnlocked));
-    }
-    setSessionSummary(null);
+    // Persist through the facade → DB; unlocked is derived, so clearing the
+    // company automatically opens the next one via the useMemo above.
+    addClearedCompany(selectedCompanyId);
+    setClearedCompanies(getClearedCompanies());
     setShowClearedModal(true);
   };
 
@@ -487,76 +947,224 @@ export default function DashboardPage() {
     if (nextCompanyId) handleSelectCompany(nextCompanyId);
   };
 
+  /** The student caught ADVANCE_CATCHES attacks within ADVANCE_WINDOW_MS — end the
+   *  shift and secure the company AUTOMATICALLY. This is the sole progression path
+   *  now that "End Session" is gone: performance advances you, not a button. */
+  const autoAdvanceCompany = () => {
+    live.addXp(MISSION_BONUS_XP);  // reward the completed mission (session XP)
+    live.endSession();          // record the run (history / streak / stats)
+    live.pause();               // freeze the feed
+    setSessionStartedAt(null);
+    setSessionDifficulty(null);
+    setTrainingActive(false);   // lock the EDR console again
+    caughtTimesRef.current = [];
+    countedIncidentIdsRef.current.clear();
+    setCaughtInWindow(0);
+    setWindowRemainingMs(null);
+    try { ssRemove("soc_dash_session"); } catch { /* ignore */ }
+    handleClearCompany();       // secure → Company-Secured modal → unlock next
+  };
+
   // ── Start training ─────────────────────────────────────────────────────────────
-  const handleStartTraining = (difficulty: Difficulty) => {
+  const handleStartTraining = async (difficulty: Difficulty, companyOverride?: string, stackOverride?: Stack) => {
+    // `companyOverride` is set only by the on-refresh resume (see the mount effect
+    // below); normal starts use the currently-selected company.
+    const company = companyOverride ?? selectedCompanyId;
+    if (companyOverride && companyOverride !== selectedCompanyId) setSelectedCompanyId(companyOverride);
     // Fresh session for the current company at the chosen difficulty. A new
     // attack story is picked at RANDOM within the difficulty's complexity
     // tier and kept hidden — the objective text never reveals the attack
     // type, so the analyst must find it themselves. Easy is restricted to
     // single-host "foundation" stories (see attackStories.ts) so a student's
     // first attacks are never a full lateral-movement/credential-theft chain.
-    const story = instantiateStory(pickStoryForCompany(selectedCompanyId, difficulty), getCompanyEvents(selectedCompanyId));
+    // Await the lazy sim data (usually already preloaded when the modal opened).
+    // If it can't load (offline / stale chunk), bail — simLoadFailed drives a
+    // visible retry banner; loadSimData() resets so pressing Start again retries.
+    let s: SimData;
+    try {
+      s = await ensureSim();
+    } catch {
+      return;
+    }
+    // Ensure org content finished loading so an org company resolves to its own
+    // authored environment, not the generic built-in pool (fast-click race).
+    const orgs = orgLoadRef.current ? await orgLoadRef.current.catch(() => orgCompanies) : orgCompanies;
+    const orgMap = new Map(orgs.map(c => [c.profile.id, c]));
+    const stack = stackOverride ?? savedStack(company);
+    stackRef.current = stack;
+    setSessionStack(stack);
+    const nm = await ensureNative().catch(() => null);
+    const story = stackedStory(s, orgMap, company, difficulty, stack, nm);
     setSessionStory(story);
     setInjectedStories([story]);
     const label = difficulty[0].toUpperCase() + difficulty.slice(1);
-    setScenarioObjective(`${label} session — watch the feed, identify the attack hidden in it, and report it. You will not be told what it is.`);
+    setScenarioObjective(`${label} session — watch the feed and report the attacks hidden in it. Catch ${ADVANCE_CATCHES} within a rolling 30-minute window to secure the company and advance — there's no time pressure, the window simply resets if it lapses. You won't be told what they are.`);
     setSessionStartedAt(Date.now());
     setSessionDifficulty(difficulty);
     setSessionElapsed(0);
-    live.reset(getCompanyEvents(selectedCompanyId), story);
+    // Open the shift: this is the ONLY thing that starts the feed and unlocks
+    // the EDR console. Clear any EDR-report reminder from a previous shift.
+    setTrainingActive(true);
+    armedNextRef.current = false;   // fresh session — next attack arms only after the first report
+    caughtTimesRef.current = [];    // fresh catch window for the auto-advance rule
+    countedIncidentIdsRef.current.clear();
+    setCaughtInWindow(0);
+    setWindowRemainingMs(null);
+    try {
+      lsRemove("soc_edr_investigated");
+      lsRemove("edr_live_investigation");
+    } catch { /* ignore */ }
+    setEdrInvestigated(false);
+    live.reset(stackedPool(resolveEvents(s, orgMap, company), company, stack, nm), story);
+    // L-09: remember the active shift so a page refresh resumes it instead of
+    // dropping the feed back to an idle 0-event dashboard. Session-scoped: it
+    // lives only for this tab and is cleared when the shift is secured.
+    try { ssSet("soc_dash_session", JSON.stringify({ c: company, d: difficulty, st: stack })); } catch { /* ignore */ }
   };
 
-  /** Ends the session and stops the clock. */
-  const handleEndSession = () => {
-    setSessionSummary(live.endSession());
-    setSessionStartedAt(null);
-    setSessionDifficulty(null);
-  };
+  // L-09: on a page refresh mid-shift, resume the session instead of dropping the
+  // analyst back to an idle 0-event feed. Runs once on mount; the marker is written
+  // by handleStartTraining and cleared when a shift is secured.
+  const resumedRef = useRef(false);
+  useEffect(() => {
+    if (resumedRef.current) return;
+    resumedRef.current = true;
+    let saved: { c?: string; d?: Difficulty; st?: Stack } | null = null;
+    try {
+      const raw = ssGet("soc_dash_session");
+      if (raw) saved = JSON.parse(raw);
+    } catch { saved = null; }
+    if (saved?.c && (saved.d === "easy" || saved.d === "medium" || saved.d === "hard")) {
+      void handleStartTraining(saved.d, saved.c, saved.st);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /**
-   * Stop the shift once too many attacks have gone unreported. Letting campaigns
-   * keep stacking up after the analyst has clearly lost the thread just buries
-   * them further; halting turns it into a clean restart point instead.
+   * Dismiss the positive "Learning Moment" debrief and CONTINUE the shift. This
+   * is never a fail: no XP is clawed back and the session is not halted. We
+   * clear the debrief, resume streaming, and arm the next attack (after a short
+   * breather) so the analyst keeps practising with the pattern fresh in mind.
    */
-  const MAX_MISSED_ATTACKS = 3;
-  useEffect(() => {
-    if (live.fnCount >= MAX_MISSED_ATTACKS && !haltedRef.current) {
-      haltedRef.current = true;
-      setSessionHalted(true);
-      live.pause();
-      setSessionStartedAt(null);
-      setSessionDifficulty(null);
-    }
-  }, [live.fnCount, live]);
-
-  /** Wipe the board and start a fresh shift after a halt. */
-  const handleRestartShift = () => {
-    haltedRef.current = false;
-    setSessionHalted(false);
+  const handleContinueFromDebrief = async () => {
     live.clearMissedAttack();
-    const story = instantiateStory(
-      pickStoryForCompany(selectedCompanyId),
-      getCompanyEvents(selectedCompanyId)
-    );
-    setSessionStory(story);
-    setInjectedStories([story]);
-    setScenarioObjective(null);
-    live.reset(getCompanyEvents(selectedCompanyId), story);   // also zeroes fnCount
-    setSessionStartedAt(Date.now());
-    setSessionDifficulty(null);
-    setSessionElapsed(0);
+    live.dismissIncident();
+    if (!armedNextRef.current) {
+      armedNextRef.current = true;
+      const s = await ensureSim();
+      const nextStory = stackedStory(s, orgCompanyMap, selectedCompanyId, sessionDifficulty ?? undefined, stackRef.current, await ensureNative().catch(() => null));
+      setSessionStory(nextStory);
+      setInjectedStories(prev => [...prev, nextStory]);
+      live.startStory(nextStory, 120_000 + Math.floor(Math.random() * 60_000)); // 2-3 min breather
+    }
+    live.resume(); // the debrief paused the feed; pick the shift back up
   };
 
-  // Tick the session clock once a second while a session is running.
+  // ── Report ⇄ feed pause/resume ────────────────────────────────────────────
+  /** Open the incident report — auto-pause the live feed while they write. */
+  const openReport = () => {
+    if (live.isStreaming) { live.pause(); setPausedForReport(true); }
+    setShowReportModal(true);
+  };
+  /** Close the report — if we paused the feed for it, ask before resuming. */
+  const closeReport = () => {
+    setShowReportModal(false);
+    if (pausedForReport) setShowResumePrompt(true);
+  };
+  const resumeShift = () => { live.resume(); setPausedForReport(false); setShowResumePrompt(false); };
+  const stayPaused  = () => { setPausedForReport(false); setShowResumePrompt(false); };
+
+  // Tick the session clock once a second while a session is running. The same
+  // tick maintains the auto-advance window: it rolls off catches older than
+  // ADVANCE_WINDOW_MS (so the count can drop on its own) and computes the time
+  // left to reach the next catch before the oldest one expires.
   useEffect(() => {
     if (sessionStartedAt === null) return;
     const id = setInterval(() => {
-      setSessionElapsed(Math.floor((Date.now() - sessionStartedAt) / 1000));
+      const now = Date.now();
+      setSessionElapsed(Math.floor((now - sessionStartedAt) / 1000));
+      const kept = caughtTimesRef.current.filter(t => now - t <= ADVANCE_WINDOW_MS);
+      if (kept.length !== caughtTimesRef.current.length) {
+        caughtTimesRef.current = kept;
+        setCaughtInWindow(kept.length);
+      }
+      setWindowRemainingMs(kept.length > 0 ? Math.max(0, kept[0] + ADVANCE_WINDOW_MS - now) : null);
     }, 1000);
     return () => clearInterval(id);
   }, [sessionStartedAt]);
 
+  // P5-24: the report's grading evidence — including serializing the WHOLE feed —
+  // is computed only while the report is open and only when the feed changes. It
+  // used to run inline in render, i.e. on every 1-second session-clock tick.
+  const reportEvidence = useMemo(() => {
+    if (!showReportModal) return null;
+    // Ground truth = every GENUINE attack the student actually saw this
+    // session — the injected story PLUS any other real attack event that
+    // surfaced in the feed. Grading only off the picked story used to punish
+    // correct analysis: a student who spotted a different (but equally real)
+    // attack chain in the noise, and quoted its true IOCs, had those IOCs
+    // scored as "fabricated" because they weren't in the one picked story.
+    // FP decoys (it_verify_result / fp_explanation / expected_verdict:"fp")
+    // are excluded so they never become gradeable "attacks".
+    // A gradeable "attack" is any high/critical event that isn't a decoy — NOT
+    // just EDR detections. Requiring mitre_technique used to silently exclude
+    // AV/EDR *block* events (which carry none) and any non-EDR signal (a failed
+    // password spray, a firewall block) that a Tier-1 analyst is expected to
+    // report — so their real IOCs were scored as "fabricated". Severity + the
+    // decoy exclusions are the correct gate; technique is optional.
+    const feedAttackEvents = live.events.filter(e =>
+      (e.severity === "high" || e.severity === "critical") &&
+      !e.it_verify_result && !e.fp_explanation && e.expected_verdict !== "fp"
+    );
+    const groundTruthEvents = [...injectedStories.flatMap(s => s.events), ...feedAttackEvents];
+    const storyMitre = Array.from(new Set([
+      ...injectedStories.flatMap(s => s.mitre),
+      ...feedAttackEvents.map(e => e.mitre_technique).filter((m): m is string => !!m),
+    ]));
+    const storyTitle = injectedStories.map(s => s.title).join(" + ") || null;
+    // Indicators the grader uses to verify the student cited real evidence
+    // and to catch genuinely fabricated data (a hostname that never appears).
+    const realIndicators = extractIndicators(groundTruthEvents);
+    // Full serialized evidence (raw blocks included) so the grader's
+    // fabrication check treats ANY IP/email/hash the student cites that is
+    // visible in a log — including MD5/SHA1, private host IPs, and vendor-keyed
+    // raw fields the discrete extractIndicators list doesn't enumerate — as
+    // real, never "fabricated". Mirrors the scenario grader's eventsBlob.
+    // R-02: serialize the ENTIRE feed the student actually saw on screen, not
+    // just the ground-truth attack subset. The grader's fabrication check treats
+    // any value present in evidenceText as real — so a hash/IP/user quoted from
+    // ANY visible event (a blocked-malware detection, a failed-auth line, a
+    // firewall block — every source, not only EDR) counts as genuine evidence
+    // and is never wrongly flagged "fabricated". Only truly invented values,
+    // absent from the whole feed, are caught.
+    const evidenceText = JSON.stringify(live.events);
+    // Decoys the student saw this session — benign events carrying a written
+    // fp_explanation that, until now, was authored but never surfaced anywhere
+    // in the UI. Shown only AFTER a passing report (see the modal) as a
+    // "why these were false positives" debrief. Deduped by explanation text
+    // (the same decoy type recurs in the feed) and capped so the modal stays
+    // readable.
+    const decoysSeen = (() => {
+      const seen = new Set<string>();
+      const out: { label: string; source: string; fp_explanation: string }[] = [];
+      for (const e of live.events) {
+        if (!e.fp_explanation || seen.has(e.fp_explanation)) continue;
+        seen.add(e.fp_explanation);
+        const label = (e.description?.split(/[.—]/)[0]?.trim().slice(0, 90))
+          || e.event_type || e.source;
+        out.push({ label, source: e.source, fp_explanation: e.fp_explanation });
+      }
+      return out.slice(0, 6);
+    })();
+    return { realIndicators, evidenceText, storyTitle, storyMitre, decoysSeen };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showReportModal, live.events, injectedStories]);
+
   const sessionClock = `${String(Math.floor(sessionElapsed / 60)).padStart(2, "0")}:${String(sessionElapsed % 60).padStart(2, "0")}`;
+  // Countdown to the oldest catch expiring — the deadline to reach the next catch.
+  const windowClock = windowRemainingMs != null
+    ? `${String(Math.floor(windowRemainingMs / 60000)).padStart(2, "0")}:${String(Math.floor((windowRemainingMs % 60000) / 1000)).padStart(2, "0")}`
+    : null;
 
   // Is the viewport wide enough to show the console and the report drawer
   // side by side? Tracked in state (not a Tailwind breakpoint class) because
@@ -586,21 +1194,25 @@ export default function DashboardPage() {
       className="transition-[padding] duration-300 ease-out"
       style={{ paddingRight: showReportModal && isWideViewport ? 480 : 0 }}
     >
+      <LiveAnnouncer events={live.events} isStreaming={live.isStreaming} edrAlertCount={edrAlertCount} sessionXp={live.sessionXp} />
+
       {showWelcome && <SOCWelcomeModal onStart={handleCloseWelcome} onTakeTour={handleTakeTour} />}
 
       {showCompanySelector && (
         <CompanySelector
           currentId={selectedCompanyId}
           onSelect={handleSelectCompany}
-          onClose={localStorage.getItem(COMPANY_KEY) ? () => setShowCompanySelector(false) : undefined}
-          unlockedIds={unlockedCompanies}
+          onClose={lsGet(COMPANY_KEY) ? () => setShowCompanySelector(false) : undefined}
+          unlockedIds={[...unlockedCompanies, ...orgCompanyProfiles.map(c => c.id)]}
           clearedIds={clearedCompanies}
+          extraCompanies={orgCompanyProfiles}
         />
       )}
 
       {showTrainingModal && (
         <StartTrainingModal
-          onStart={handleStartTraining}
+          companyId={selectedCompanyId}
+          onStart={(d, st) => handleStartTraining(d, undefined, st)}
           onClose={() => setShowTrainingModal(false)}
         />
       )}
@@ -627,12 +1239,54 @@ export default function DashboardPage() {
               <Building2 className="h-3.5 w-3.5 text-slate-400" />
               Switch Company
             </button>
+            {/* Pivot from the SIEM feed into the EDR console — the Falcon motion
+                of alert → endpoint execution details. Present for the whole shift
+                so it's always findable; it stays MUTED/disabled until the attack
+                actually raises endpoint alerts, then lights up cyan with a
+                pulsing count badge. Opens the EDR in a new tab (SIEM + EDR side by
+                side). Only rendered while a shift is running. */}
+            {sessionStartedAt !== null && (
+              <a
+                href={edrAlertCount > 0 ? "/edr?case=live" : undefined}
+                target="_blank"
+                rel="noopener"
+                onClick={() => {
+                  if (edrAlertCount > 0 && liveEdrInvestigation && typeof window !== "undefined") {
+                    lsSet("edr_live_investigation", JSON.stringify(liveEdrInvestigation));
+                    // Pause the response clock (and defer any "missed" verdict)
+                    // while they investigate in EDR. Safety cap resumes it after
+                    // 20 min so an abandoned EDR tab can't freeze it forever.
+                    setInvestigatingInEdr(true);
+                    if (edrPauseCapRef.current) clearTimeout(edrPauseCapRef.current);
+                    edrPauseCapRef.current = setTimeout(() => setInvestigatingInEdr(false), 1_200_000);
+                  }
+                }}
+                className={cn(
+                  "relative flex items-center gap-1.5 rounded border px-2.5 py-1.5 text-xs font-semibold transition",
+                  edrAlertCount > 0
+                    ? "border-cyber-500/50 bg-cyber-500/10 text-cyber-200 hover:bg-cyber-500/20"
+                    : "cursor-not-allowed border-border bg-bg text-slate-500",
+                )}
+                aria-disabled={edrAlertCount === 0}
+                title={edrAlertCount > 0
+                  ? `${edrAlertCount} EDR alert${edrAlertCount > 1 ? "s" : ""} on the endpoint — investigate this attack (opens the EDR console)`
+                  : "No endpoint alerts yet — this lights up when the attack reaches an endpoint"}
+              >
+                <Cpu className="h-3.5 w-3.5" />
+                Investigate in EDR
+                {edrAlertCount > 0 && (
+                  <span className="absolute -top-2 -right-2 flex h-5 min-w-[1.25rem] animate-pulse items-center justify-center rounded-full bg-severity-critical px-1 text-[10px] font-bold text-white shadow ring-2 ring-bg-elevated">
+                    <span className="sr-only">, </span>{edrAlertCount}<span className="sr-only"> endpoint alert{edrAlertCount > 1 ? "s" : ""}</span>
+                  </span>
+                )}
+              </a>
+            )}
             {/* Report Incident — the key action, and the only place the analyst
                 is graded. Solid CTA throughout; no pulse/hint tied to whether
                 they've "caught" anything — that would leak the answer. */}
             <button
               id="report-incident-btn"
-              onClick={() => setShowReportModal(true)}
+              onClick={openReport}
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-3.5 py-2 text-xs font-bold shadow transition",
                 reportPassed
@@ -643,14 +1297,7 @@ export default function DashboardPage() {
               <FileText className="h-4 w-4" />
               {reportPassed ? "Report Submitted ✓" : "Report Incident"}
             </button>
-            <button
-              onClick={handleEndSession}
-              className="flex items-center gap-1.5 rounded border border-neon-amber/40 bg-neon-amber/8 px-2.5 py-1.5 text-xs font-semibold text-neon-amber hover:bg-neon-amber/15 transition"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-              End Session
-            </button>
-            <Button variant="primary" size="sm" onClick={() => setShowTrainingModal(true)}>
+            <Button variant="primary" size="sm" onClick={() => { loadSimData().catch(() => {}); setShowTrainingModal(true); }}>
               <Target className="h-4 w-4" /> Start Training
             </Button>
           </div>
@@ -658,6 +1305,33 @@ export default function DashboardPage() {
       />
 
       <div className="container mx-auto max-w-[1600px] px-6 py-6 space-y-6">
+
+        {/* Readiness signal (F6) — soft, dismissible, non-blocking. Shown only to
+            a learner who has cleared 0 rooms: the live feed is real production
+            telemetry with no scaffolding, so we point them at the graded path
+            first without locking them out. */}
+        {progressSnap.ready && !roomReady && !readinessDismissed && (
+          <div className="flex items-start gap-3 rounded-lg border border-cyber-500/30 bg-cyber-500/5 px-4 py-3">
+            <GraduationCap className="mt-0.5 h-5 w-5 shrink-0 text-cyber-300" />
+            <div className="flex-1 text-sm">
+              <p className="font-semibold text-white">New here? Start with the fundamentals.</p>
+              <p className="mt-0.5 text-slate-400">
+                This is a live feed of realistic, simulated production logs — no hints. You&apos;ll get far more out of it
+                after a few graded rooms build the basics. You can still explore now.
+              </p>
+              <Link href="/rooms" className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-cyber-300 hover:text-cyber-200">
+                <BookOpen className="h-3.5 w-3.5" /> Go to Learning Rooms
+              </Link>
+            </div>
+            <button type="button" onClick={dismissReadiness} aria-label="Dismiss" className="shrink-0 rounded p-1 text-slate-500 hover:text-slate-300">
+              <X aria-hidden="true" className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
+        {/* The learner's plan from their organisation, compact: the next few
+            open items with a toggle for the full plan. Nothing for solo learners. */}
+        <MyLearningPlan compact />
 
         {/* Session status bar — one compact row instead of the old KPI grid + XP banner */}
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-border bg-bg-elevated px-5 py-3">
@@ -671,10 +1345,21 @@ export default function DashboardPage() {
             <span className={cn("font-mono text-sm font-bold", threatLevelColor)}>{threatLevel}</span>
           </span>
           <span className="flex items-center gap-2 text-xs text-slate-400">
-            <BookOpen className="h-3.5 w-3.5 text-slate-500" />
+            <BookOpen className="h-3.5 w-3.5 text-slate-400" />
             <span className="font-semibold text-white">Companies</span>
             <span className="font-mono text-sm font-bold text-neon-purple">{clearedCompanies.length}/{COMPANY_ORDER.length}</span>
           </span>
+          {/* Reflected from the EDR console: a host contained there shows as
+              contained here too — one shared response state across both surfaces. */}
+          {sessionContained.length > 0 && (
+            <span
+              className="flex items-center gap-1.5 rounded-full border border-neon-amber/40 bg-neon-amber/10 px-2.5 py-1 text-[11px] font-semibold text-neon-amber"
+              title={`Contained in EDR: ${sessionContained.join(", ")}`}
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+              {sessionContained.length === 1 ? `${sessionContained[0]} contained in EDR` : `${sessionContained.length} hosts contained in EDR`}
+            </span>
+          )}
           {/* Session state — the analyst should never have to guess whether a
               graded session is running. Live pulse + elapsed clock when active,
               an explicit idle hint when not. */}
@@ -691,9 +1376,29 @@ export default function DashboardPage() {
                 </span>
               )}
               <span className="font-mono text-xs font-bold text-white">{sessionClock}</span>
+              {/* Progress toward the auto-advance rule: catch 2 attacks in a
+                  rolling 30-min window. Framed as positive progress, not time
+                  pressure — if the window lapses the count just resets, no penalty
+                  (consistent with the no-fail debrief philosophy elsewhere). */}
+              <span
+                className="rounded border border-cyber-500/40 bg-cyber-500/10 px-1.5 py-px text-[10px] font-bold uppercase tracking-wider text-cyber-300"
+                title={`Catch ${ADVANCE_CATCHES} attacks within a rolling 30-minute window to secure the company and advance — no rush, the window just resets if it lapses`}
+              >
+                Caught {Math.min(caughtInWindow, ADVANCE_CATCHES)}/{ADVANCE_CATCHES}
+              </span>
+              {/* Explicit, calm status: how many more and how long left in the
+                  current rolling window. Neutral cyber tone (not alarming amber). */}
+              {caughtInWindow > 0 && caughtInWindow < ADVANCE_CATCHES && windowClock && (
+                <span
+                  className="flex items-center gap-1 rounded border border-cyber-500/30 bg-cyber-500/5 px-1.5 py-px font-mono text-[10px] font-semibold text-cyber-300/90"
+                  title="One more catch within this window secures the company. If it lapses the count just resets — no penalty."
+                >
+                  <Clock className="h-3 w-3" /> {ADVANCE_CATCHES - Math.min(caughtInWindow, ADVANCE_CATCHES)} more · {windowClock} left
+                </span>
+              )}
             </span>
           ) : (
-            <span className="ml-auto flex items-center gap-2 text-xs text-slate-500">
+            <span className="ml-auto flex items-center gap-2 text-xs text-slate-400">
               <span className="h-2 w-2 rounded-full bg-slate-600" />
               No active session — press
               <span className="font-semibold text-slate-400">Start Training</span>
@@ -701,32 +1406,20 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Shift halted — too many attacks went unreported */}
-        {sessionHalted && (
-          <div className="rounded-lg border border-severity-critical/40 bg-severity-critical/5 px-5 py-4">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-severity-critical" />
-              <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-bold text-white">
-                  Shift stopped — {MAX_MISSED_ATTACKS} attacks went unreported
-                </h3>
-                <p className="mt-1 text-xs leading-relaxed text-slate-400">
-                  The feed is paused. Nothing is lost — read the debriefs above to see what each
-                  attack looked like, then start a clean shift when you are ready.
-                </p>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <Button variant="primary" size="sm" onClick={handleRestartShift}>
-                    <RefreshCw className="h-4 w-4" /> Start a fresh shift
-                  </Button>
-                  <button
-                    onClick={() => setSessionSummary(live.endSession())}
-                    className="rounded border border-border-strong px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:text-white"
-                  >
-                    See session summary
-                  </button>
-                </div>
-              </div>
-            </div>
+        {/* Sim-data load failure — visible retry instead of a silent dead-end.
+            loadSimData() resets its cache on failure, so Retry genuinely re-attempts. */}
+        {simLoadFailed && (
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-severity-critical/50 bg-severity-critical/10 px-5 py-3">
+            <Siren className="h-4 w-4 shrink-0 text-severity-critical" />
+            <p className="text-sm text-slate-200">
+              Couldn&apos;t load the training data — check your connection and try again.
+            </p>
+            <button
+              onClick={() => { setSimLoadFailed(false); loadSimData().then(setSim).catch(() => setSimLoadFailed(true)); }}
+              className="ml-auto rounded-md bg-neon-purple px-3 py-1.5 text-xs font-bold text-white transition hover:brightness-110"
+            >
+              Retry
+            </button>
           </div>
         )}
 
@@ -735,62 +1428,134 @@ export default function DashboardPage() {
           <div className="flex items-center gap-3 rounded-lg border border-neon-purple/30 bg-neon-purple/5 px-5 py-3">
             <Target className="h-4 w-4 shrink-0 text-neon-purple" />
             <p className="text-sm text-slate-200">{scenarioObjective}</p>
-            <button onClick={() => setScenarioObjective(null)} className="ml-auto text-slate-500 hover:text-slate-300">
-              <X className="h-4 w-4" />
+            <button type="button" onClick={() => setScenarioObjective(null)} aria-label="Dismiss objective" className="ml-auto text-slate-400 hover:text-slate-300">
+              <X aria-hidden="true" className="h-4 w-4" />
             </button>
           </div>
         )}
 
-        {/* Missed-attack debrief — a coaching moment, never a silent penalty */}
-        {live.missedAttack && (() => {
+        {/* Don't-forget-the-report reminder — shows once the student has
+            investigated on the endpoint but not yet filed a passing report. */}
+        {edrInvestigated && !reportPassed && (
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-neon-amber/40 bg-neon-amber/10 px-5 py-3">
+            <FileText className="h-4 w-4 shrink-0 text-neon-amber" />
+            <p className="text-sm text-slate-200">
+              You investigated this attack on the endpoint — <span className="font-semibold text-white">now file your incident report</span> to close the ticket.
+            </p>
+            <button
+              onClick={openReport}
+              className="ml-auto rounded-md bg-neon-purple px-3 py-1.5 text-xs font-bold text-white transition hover:brightness-110"
+            >
+              Report Incident
+            </button>
+          </div>
+        )}
+
+        {/* Learning-Moment debrief — a POSITIVE teaching pause, never a penalty.
+            When an attack completes uncaught (after a generous grace, and never
+            mid-investigation), the feed pauses behind this modal so the analyst
+            reads the pattern; dismissing it resumes the shift and arms the next
+            attack. No "failed", no "training stopped", no red alarm — instructive
+            blue/cyber tone, one clear "Continue the shift" action. */}
+        {live.missedAttack && live.missedIncident && (() => {
+          const debrief = live.missedIncident;
           const ids = new Set(live.activeIncident?.eventIds ?? []);
-          // live.events is newest-first (new batches are prepended), so filtering
-          // and slicing it directly showed the kill chain BACKWARDS and — worse —
-          // kept the LAST six events while dropping the first. The opening moves
-          // are exactly what a student needs to learn to catch, so sort
-          // chronologically and keep the EARLIEST six.
-          const missedEvents = live.events
+          // live.events is newest-first; sort chronologically and keep the
+          // EARLIEST six so the opening moves (the ones worth learning to catch)
+          // read top-to-bottom.
+          const teachingEvents = live.events
             .filter(e => ids.has(e.id))
             .sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime())
             .slice(0, 6);
           return (
-            <div className="rounded-lg border border-neon-amber/40 bg-neon-amber/5 px-5 py-4">
-              <div className="flex items-start gap-3">
-                <Siren className="mt-0.5 h-5 w-5 shrink-0 text-neon-amber" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-white">An attack slipped past — let&apos;s debrief</p>
-                  <p className="mt-0.5 text-xs text-slate-300 leading-relaxed">
-                    <span className="font-semibold text-neon-amber">{live.activeIncident?.title ?? "A multi-stage attack"}</span>{" "}
-                    ran its course before it was reported. No points lost — spotting the ones you miss is exactly how you build the eye for it. Here&apos;s what it looked like:
+            <TrappedDialog
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
+              labelledBy="learning-moment-title" onEscape={handleContinueFromDebrief}
+            >
+              <div className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-cyber-500/40 bg-bg-elevated shadow-2xl shadow-cyber-500/10">
+                <div className="h-1 w-full bg-gradient-to-r from-cyber-500 via-neon-purple to-neon-green" />
+
+                <div className="border-b border-border px-7 py-7 text-center">
+                  <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-cyber-500/10 ring-2 ring-cyber-500/40">
+                    <GraduationCap className="h-8 w-8 text-cyber-300" />
+                  </span>
+                  <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-cyber-300">Learning Moment</p>
+                  <h2 id="learning-moment-title" className="mt-2 text-2xl font-bold text-white">
+                    One slipped past
+                  </h2>
+                  <p className="mx-auto mt-3 max-w-lg text-sm leading-relaxed text-slate-300">
+                    This attack unfolded without a report. Here&apos;s the pattern so you catch it next
+                    time — that&apos;s how analysts sharpen.
                   </p>
-                  {missedEvents.length > 0 && (
-                    <ul className="mt-2 space-y-1">
-                      {missedEvents.map(e => (
-                        <li key={e.id} className="flex gap-2 text-[11px] text-slate-400">
-                          <span className="shrink-0 font-mono text-slate-600">{new Date(e.ts).toLocaleTimeString("en-GB")}</span>
-                          <span className="truncate">{e.description ?? e.displayDescription}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  <p className="mt-2 text-[11px] text-slate-500">
-                    Next time: when a process looks off, widen the timeline around it and check what it spawned and what it connected out to.
+                  <p className="mt-4 inline-block rounded-full bg-neon-green/10 px-3 py-1 text-xs font-medium text-neon-green">
+                    No points lost — the shift keeps going
                   </p>
                 </div>
-                <button
-                  onClick={() => { live.clearMissedAttack(); live.dismissIncident(); }}
-                  className="shrink-0 text-slate-500 hover:text-slate-300"
-                  aria-label="Dismiss debrief"
-                >
-                  <X className="h-4 w-4" />
-                </button>
+
+                <div className="space-y-4 px-7 py-6">
+                  {/* What it was */}
+                  <div className="rounded-lg border border-cyber-500/20 bg-cyber-500/5 px-4 py-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-cyber-300">What it was</p>
+                    <p className="mt-1 text-sm font-semibold text-white">{debrief.title}</p>
+                    {debrief.techniques.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {debrief.techniques.map(t => (
+                          <span key={t} className="inline-flex items-center rounded border border-neon-purple/30 bg-neon-purple/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-neon-purple">
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* The tell */}
+                  <div className="rounded-lg border border-neon-amber/20 bg-neon-amber/5 px-4 py-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-neon-amber">The tell to watch for next time</p>
+                    <p className="mt-1 text-sm leading-relaxed text-slate-200">{debrief.tell}</p>
+                  </div>
+
+                  {/* How it unfolded */}
+                  {teachingEvents.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">How it unfolded</p>
+                      <ol className="mt-3 space-y-3">
+                        {teachingEvents.map((e, i) => (
+                          <li key={e.id} className="flex gap-3">
+                            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyber-500/15 font-mono text-[10px] text-cyber-300">
+                              {i + 1}
+                            </span>
+                            <div className="min-w-0">
+                              <span className="font-mono text-[11px] text-slate-400">{new Date(e.ts).toLocaleTimeString("en-GB")}</span>
+                              <p className="text-xs leading-relaxed text-slate-300">{e.description ?? e.displayDescription}</p>
+                            </div>
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+                </div>
+
+                <div className="border-t border-border px-7 py-5">
+                  <Button variant="primary" size="lg" className="w-full" onClick={handleContinueFromDebrief}>
+                    <Play className="mr-2 h-4 w-4" /> Continue the shift
+                  </Button>
+                </div>
               </div>
-            </div>
+            </TrappedDialog>
           );
         })()}
 
         {/* Analyst workflow — persistent "what do I do now?" strip */}
         <WorkflowGuide reportPassed={reportPassed} />
+
+        {/* Tiered, opt-in nudges for a stuck analyst — only while a shift runs.
+            Methodology only; never reveals the IOC/verdict/technique (HintPanel). */}
+        {sessionStartedAt !== null && (
+          <HintPanel
+            story={sessionStory}
+            resetKey={live.activeIncident?.id ?? sessionStory?.id ?? null}
+          />
+        )}
 
         {/* Live Event Feed */}
         <div className="flex gap-4 items-start">
@@ -799,13 +1564,21 @@ export default function DashboardPage() {
           {/* Feed header */}
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3">
             <div className="flex items-center gap-3">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-neon-green opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-neon-green" />
+              {/* Pulsing green only while the feed is actually streaming; a
+                  static amber dot (no ping) when paused, so the indicator never
+                  claims "live" while stopped. */}
+              <span className="relative flex h-2 w-2" title={live.isStreaming ? "Live — streaming" : "Paused"} aria-hidden="true">
+                {live.isStreaming && (
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-neon-green opacity-75" />
+                )}
+                <span className={cn(
+                  "relative inline-flex h-2 w-2 rounded-full",
+                  live.isStreaming ? "bg-neon-green" : "bg-neon-amber"
+                )} />
               </span>
               <div>
-                <h3 className="text-sm font-semibold text-white">Live Event Feed</h3>
-                <p className="text-[10px] text-slate-500">Click a row to expand and read the full log</p>
+                <h3 className="text-sm font-semibold text-white">Live Event Feed<span className="sr-only">{live.isStreaming ? " (streaming)" : " (paused)"}</span></h3>
+                <p className="text-[10px] text-slate-400">Click a row to expand and read the full log</p>
               </div>
             </div>
 
@@ -813,8 +1586,10 @@ export default function DashboardPage() {
             <div className="flex items-center gap-2">
               {/* Search */}
               <div className="relative">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
                 <input
+                  type="search"
+                  aria-label="Search events"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search events…"
@@ -822,36 +1597,46 @@ export default function DashboardPage() {
                 />
               </div>
 
-              {/* Pause / resume */}
+              {/* Start / pause / resume. Before a shift exists there is nothing to resume: the
+                  button reads "Start" and opens the same Start Training dialog the empty feed
+                  points to (a user report: "Press Start Training" next to a "Resume" button). */}
               <button
-                onClick={live.isStreaming ? live.pause : live.resume}
+                onClick={sessionStartedAt === null
+                  ? () => { loadSimData().catch(() => {}); setShowTrainingModal(true); }
+                  : live.isStreaming ? live.pause : live.resume}
                 className="flex items-center gap-1.5 rounded border border-border bg-bg px-2.5 py-1.5 text-xs text-slate-300 hover:bg-bg-hover"
               >
-                {live.isStreaming
-                  ? <><Pause className="h-3.5 w-3.5" /> Pause</>
-                  : <><Play  className="h-3.5 w-3.5 text-neon-green" /> Resume</>}
+                {sessionStartedAt === null
+                  ? <><Play className="h-3.5 w-3.5 text-neon-green" /> Start</>
+                  : live.isStreaming
+                    ? <><Pause className="h-3.5 w-3.5" /> Pause</>
+                    : <><Play  className="h-3.5 w-3.5 text-neon-green" /> Resume</>}
               </button>
 
               {/* Reset */}
               <button
+                type="button"
                 onClick={() => live.reset()}
                 className="flex items-center gap-1.5 rounded border border-border bg-bg px-2.5 py-1.5 text-xs text-slate-300 hover:bg-bg-hover"
                 title="Clear and restart"
+                aria-label="Clear and restart the feed"
               >
-                <RefreshCw className="h-3.5 w-3.5" />
+                <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />
               </button>
             </div>
           </div>
 
           {/* Filter bar — row 1: level + source */}
           <div className="flex flex-wrap items-center gap-3 border-b border-border/60 bg-bg/60 px-5 py-2.5">
-            <Filter className="h-3.5 w-3.5 shrink-0 text-slate-500" />
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">Level:</span>
+            <Filter className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+            <span id="dash-level-label" className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Level:</span>
 
-            <div className="flex gap-1">
+            <div className="flex gap-1" role="group" aria-labelledby="dash-level-label">
               {(["all", "low", "medium", "high"] as const).map((lv) => (
                 <button
                   key={lv}
+                  type="button"
+                  aria-pressed={severityFilter === lv}
                   onClick={() => setSeverityFilter(lv)}
                   className={cn(
                     "rounded border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider transition",
@@ -860,33 +1645,36 @@ export default function DashboardPage() {
                         lv === "medium" ? "border-severity-medium/60 bg-severity-medium/15 text-severity-medium" :
                         lv === "low"    ? "border-slate-500/60 bg-slate-500/15 text-slate-300" :
                                           "border-cyber-500/60 bg-cyber-500/15 text-cyber-300"
-                      : "border-border text-slate-500 hover:border-border-strong hover:text-slate-300"
+                      : "border-border text-slate-400 hover:border-border-strong hover:text-slate-300"
                   )}
                 >
-                  {lv === "all" ? "All" : lv === "low" ? "1-3 Low" : lv === "medium" ? "4-6 Med" : "7-10 High"}
+                  {lv === "all" ? "All" : lv === "low" ? "3-6 Low" : lv === "medium" ? "7-9 Med" : "10-15 High"}
                 </button>
               ))}
             </div>
 
-            <span className="text-[10px] text-slate-600">|</span>
+            <span aria-hidden="true" className="text-[10px] text-slate-400">|</span>
 
             <select
+              aria-label="Filter events by source"
               value={sourceFilter}
               onChange={(e) => setSourceFilter(e.target.value)}
               className="h-6 rounded border border-border bg-bg px-2 text-[10px] text-slate-300 focus:border-cyber-500/50 focus:outline-none"
             >
-              {getSourcesForCompany(selectedCompanyId).map(s => (
+              {resolveSources(selectedCompanyId).map(s => (
                 <option key={s.value} value={s.value}>{s.label}</option>
               ))}
             </select>
 
             <button
+              type="button"
+              aria-expanded={showAdvancedFilters}
               onClick={() => setShowAdvancedFilters(v => !v)}
               className={cn(
                 "ml-auto rounded border px-2 py-0.5 text-[10px] font-semibold transition",
                 advancedFilterCount > 0
                   ? "border-cyber-500/50 bg-cyber-500/10 text-cyber-300"
-                  : "border-border text-slate-500 hover:text-slate-300 hover:border-border-strong"
+                  : "border-border text-slate-400 hover:text-slate-300 hover:border-border-strong"
               )}
             >
               {showAdvancedFilters ? "− Fewer filters" : `+ More filters${advancedFilterCount > 0 ? ` (${advancedFilterCount})` : ""}`}
@@ -912,8 +1700,9 @@ export default function DashboardPage() {
                 ? "border-neon-blue/60 bg-neon-blue/10"
                 : "border-border/60 bg-bg hover:border-border-strong"
             )}>
-              <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">User</span>
+              <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">User</span>
               <select
+                aria-label="Filter events by user"
                 value={userFilter}
                 onChange={(e) => setUserFilter(e.target.value)}
                 className={cn(
@@ -935,8 +1724,9 @@ export default function DashboardPage() {
                 ? "border-neon-green/60 bg-neon-green/10"
                 : "border-border/60 bg-bg hover:border-border-strong"
             )}>
-              <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">Host</span>
+              <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Host</span>
               <select
+                aria-label="Filter events by host"
                 value={hostFilter}
                 onChange={(e) => setHostFilter(e.target.value)}
                 className={cn(
@@ -958,8 +1748,9 @@ export default function DashboardPage() {
                 ? "border-neon-amber/60 bg-neon-amber/10"
                 : "border-border/60 bg-bg hover:border-border-strong"
             )}>
-              <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">IP</span>
+              <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">IP</span>
               <select
+                aria-label="Filter events by source IP"
                 value={ipFilter}
                 onChange={(e) => setIpFilter(e.target.value)}
                 className={cn(
@@ -981,8 +1772,9 @@ export default function DashboardPage() {
                 ? "border-neon-purple/60 bg-neon-purple/10"
                 : "border-border/60 bg-bg hover:border-border-strong"
             )}>
-              <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-500">MITRE</span>
+              <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">MITRE</span>
               <select
+                aria-label="Filter events by MITRE technique"
                 value={mitreFilter}
                 onChange={(e) => setMitreFilter(e.target.value)}
                 className={cn(
@@ -997,23 +1789,28 @@ export default function DashboardPage() {
               </select>
             </div>
 
-            <span className="ml-auto text-[10px] text-slate-600 font-mono">
+            <span className="ml-auto text-[10px] text-slate-400 font-mono">
               {filterOptions.users.length}u · {filterOptions.hosts.length}h · {filterOptions.ips.length} IPs
             </span>
           </div>
           )}
 
+          {/* Saved searches — named presets over the query + dropdown filters */}
+          <SavedSearches current={filterSnapshot} onApply={applyFilterSnapshot} />
 
           <SiemStats
             events={live.events}
             attackTimerSeconds={live.attackTimerSeconds}
             avgCatchMs={live.avgCatchMs}
+            slaPaused={(showReportModal || investigatingInEdr) && live.attackTimerSeconds != null}
           />
 
           {/* The actual feed — pure investigation surface. No alert queue, no
               per-row grading — the analyst reads the logs, forms their own
               conclusion, and states it once in the Incident Report, where it's
               actually graded. */}
+          <IocTruthContext.Provider value={iocTruth}>
+          <NativeLogProvider value={nativeRender}>
           <EventFeed
             events={live.events}
             newIds={live.newIds}
@@ -1027,6 +1824,8 @@ export default function DashboardPage() {
             onXp={live.addXp}
             onRowOpened={live.recordEventOpened}
           />
+          </NativeLogProvider>
+          </IocTruthContext.Provider>
         </Card>
           </div>
         </div>
@@ -1035,25 +1834,41 @@ export default function DashboardPage() {
 
 
       {/* ── Incident Report Modal ───────────────────────────────────── */}
-      {showReportModal && (() => {
-        // Ground truth = what was actually injected this session (all stories),
-        // not what the student happened to classify.
-        const storyMitre = Array.from(new Set(injectedStories.flatMap(s => s.mitre)));
-        const storyTitle = injectedStories.map(s => s.title).join(" + ") || null;
-        // Ground-truth indicators pulled from the ACTUAL injected attack events —
-        // the grader uses these to verify the student cited real evidence and to
-        // catch fabricated data (e.g. a hostname that never appears in the logs).
-        const realIndicators = extractIndicators(injectedStories.flatMap(s => s.events));
+      {showReportModal && reportEvidence && (() => {
+        const { realIndicators, evidenceText, storyTitle, storyMitre, decoysSeen } = reportEvidence;
         return (
           <IncidentReportModal
             companyName={selectedCompany.name}
             companyId={selectedCompanyId}
             realIndicators={realIndicators}
+            evidenceText={evidenceText}
             attackTitle={storyTitle}
             attackMitreTechniques={storyMitre}
-            onClose={() => setShowReportModal(false)}
-            onPassed={() => {
+            decoys={decoysSeen}
+            // Response-time coaching data. Prefer the recorded response time; if
+            // the report is filed before an explicit catch, fall back to the
+            // current elapsed clock (seconds → ms). Coaching only — not graded.
+            responseMs={live.lastResponseMs ?? (live.attackTimerSeconds != null ? live.attackTimerSeconds * 1000 : null)}
+            responseTargetSeconds={live.responseTargetSeconds}
+            onClose={closeReport}
+            onPassed={async (score: number) => {
               setReportPassed(true);
+              // Report filed — clear the EDR "don't forget" reminder.
+              try { lsRemove("soc_edr_investigated"); } catch { /* ignore */ }
+              setEdrInvestigated(false);
+
+              // Dedup: count each incident exactly once. The modal's submit stays
+              // interactive after a pass, so a re-submitted passing report must not
+              // double-count toward auto-advance, re-award XP, or re-arm an attack.
+              const incidentId = live.activeIncident?.id ?? null;
+              // No active incident to attribute the catch to (e.g. the report modal
+              // was left open until this incident rolled out and none is live) —
+              // nothing to reward, count, or re-arm. Guards a stale re-submit from
+              // re-awarding XP when the dedup key (incident.id) is absent.
+              if (!incidentId) return;
+              if (countedIncidentIdsRef.current.has(incidentId)) return;
+              countedIncidentIdsRef.current.add(incidentId);
+
               // A passing report IS the catch — register it for real. Without
               // this, markCaught() was never called from anywhere: the SLA
               // never cleared on a correct report, avgCatchMs/attacksCaughtCount
@@ -1061,6 +1876,38 @@ export default function DashboardPage() {
               // later and count a genuinely-caught attack as missed.
               const caughtIds = live.activeIncident?.eventIds ?? [];
               if (caughtIds.length > 0) live.markCaught(caughtIds[0]);
+
+              // Reward the catch with SESSION XP proportional to the report score
+              // so the XP chip moves on every good report (was: 0 until the mission
+              // bonus at advance). Session-scoped via live.addXp — per PM audit F3 /
+              // migration 0035 the dashboard's XP never touches rank/profiles.xp.
+              live.addXp(Math.max(25, Math.round(score * 1.5)));
+
+              // Auto-advance rule: only a real incident counts. Record this catch's
+              // time, keep only those inside the rolling window, and if the student
+              // has now caught ADVANCE_CATCHES within ADVANCE_WINDOW_MS, secure the
+              // company automatically and stop.
+              if (incidentId) {
+                const now = Date.now();
+                caughtTimesRef.current = [...caughtTimesRef.current, now].filter(t => now - t <= ADVANCE_WINDOW_MS);
+                setCaughtInWindow(caughtTimesRef.current.length);
+                setWindowRemainingMs(caughtTimesRef.current.length > 0 ? Math.max(0, caughtTimesRef.current[0] + ADVANCE_WINDOW_MS - now) : null);
+                if (caughtTimesRef.current.length >= ADVANCE_CATCHES && !clearedCompanies.includes(selectedCompanyId)) {
+                  autoAdvanceCompany();
+                  return; // advancing — don't arm another attack for this (now secured) company
+                }
+              }
+              // ONE incident at a time: only now — with the current one reported —
+              // do we arm the NEXT attack, and only once per incident. It lands
+              // after a short breather so the student is never juggling two.
+              if (!armedNextRef.current) {
+                armedNextRef.current = true;
+                const s = await ensureSim();
+                const nextStory = stackedStory(s, orgCompanyMap, selectedCompanyId, sessionDifficulty ?? undefined, stackRef.current, await ensureNative().catch(() => null));
+                setSessionStory(nextStory);
+                setInjectedStories(prev => [...prev, nextStory]);
+                live.startStory(nextStory, 120_000 + Math.floor(Math.random() * 60_000)); // 2-3 min
+              }
             }}
           />
         );
@@ -1075,31 +1922,42 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* ── Session Summary Modal ──────────────────────────────────────── */}
-      {sessionSummary && (() => {
-        const objDefs = COMPANY_OBJECTIVES[selectedCompanyId] ?? [];
-        const objWithMet = objDefs.map(o => ({ label: o.label, met: o.met(sessionSummary, reportPassed) }));
-        const allMet = objWithMet.length > 0 && objWithMet.every(o => o.met);
-        return (
-          <SessionSummaryModal
-            record={sessionSummary}
-            reportPassed={reportPassed}
-            onClose={() => setSessionSummary(null)}
-            objectives={objWithMet}
-            canClearCompany={allMet && !clearedCompanies.includes(selectedCompanyId)}
-            nextCompanyName={nextCompany?.name}
-            onClearCompany={handleClearCompany}
-          />
-        );
-      })()}
-
       {/* ── Company Cleared Modal ──────────────────────────────────────── */}
       {showClearedModal && (
         <CompanyClearedModal
           clearedCompanyName={selectedCompany.name}
           nextCompanyName={nextCompany?.name ?? null}
+          xpAwarded={MISSION_BONUS_XP}
+          attacksCaught={ADVANCE_CATCHES}
           onContinue={handleClearedContinue}
         />
+      )}
+
+      {/* ── Resume-shift prompt — after closing the report, the feed is still
+          paused; ask before resuming so the analyst isn't dropped back into a
+          moving feed unexpectedly. ─────────────────────────────────────────── */}
+      {showResumePrompt && (
+        <TrappedDialog className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" labelledBy="resume-shift-title" onEscape={stayPaused}>
+          <div className="w-full max-w-sm rounded-2xl border border-border bg-bg-elevated p-6 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-neon-green/30 bg-neon-green/10">
+                <Play className="h-5 w-5 text-neon-green" />
+              </span>
+              <div>
+                <h2 id="resume-shift-title" className="text-base font-bold text-white">Resume the shift?</h2>
+                <p className="mt-0.5 text-xs text-slate-400">The live feed is paused while you wrote the report.</p>
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={stayPaused} className="rounded-md border border-border px-3 py-2 text-xs font-semibold text-slate-300 transition hover:bg-white/5">
+                Stay paused
+              </button>
+              <button onClick={resumeShift} className="flex items-center gap-1.5 rounded-md bg-neon-green px-4 py-2 text-xs font-bold text-bg transition hover:bg-neon-green/90">
+                <Play className="h-3.5 w-3.5" /> Continue
+              </button>
+            </div>
+          </div>
+        </TrappedDialog>
       )}
 
     </div>

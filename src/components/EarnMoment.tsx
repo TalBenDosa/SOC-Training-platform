@@ -2,63 +2,92 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trophy, Zap, Star } from "lucide-react";
-import { levelFromXp, rankFromXp } from "@/lib/utils";
+import { Trophy, Star } from "lucide-react";
+import { rankForXp, type Rank } from "@/lib/progression/ranks";
 import { getTotalXp } from "@/lib/storage/progress";
+import { useRank } from "@/lib/progression/useRank";
+import { useFullName } from "@/lib/auth/useFullName";
+import { useAuth } from "@/lib/auth/AuthContext";
+import { useProgressSnapshot } from "@/lib/storage/useProgressSnapshot";
+import { RankCertificateModal } from "@/components/certificate/RankCertificateModal";
 
 /**
- * The "earn moment" (UX_FINDINGS.md, fix #4). XP/level/rank are all computed
- * from soc_total_xp but nothing ever celebrated crossing a threshold — the
+ * The "earn moment": nothing ever celebrated crossing a rank threshold — the
  * single cheapest motivation win. This global component watches soc_total_xp
- * and fires a celebration toast on a level-up or rank promotion, wherever the
- * XP was earned (rooms, dashboard, scenarios).
+ * and fires a celebration toast on a rank promotion, wherever the XP was earned
+ * (rooms, dashboard, scenarios).
  *
- * It polls localStorage because XP is written with plain setItem from several
- * places and same-tab writes don't emit a `storage` event. Polling one integer
- * every ~1.5s is negligible and catches every source without touching them.
+ * Uses the CANONICAL rank ladder (lib/progression/ranks.ts) — the same one the
+ * Topbar and the /progress ladder use — so a "Rank Up!" toast can never announce
+ * a different rank than the rest of the UI shows. (It previously used an old,
+ * separate xp/1000 level system in lib/utils.ts, which contradicted the Topbar.)
+ *
+ * It polls the total XP via the storage facade (getTotalXp) because XP is
+ * written from several places and same-tab writes don't emit a `storage` event.
+ * Polling one integer every ~1.5s is negligible and catches every source
+ * (guest localStorage or signed-in DB) without touching them.
  */
-type Celebration = { kind: "rank" | "level"; title: string; sub: string };
+type Celebration = { title: string; sub: string };
 
-const readXp = getTotalXp;
+/** localStorage key PREFIX holding the minXp of the highest rank already
+ *  celebrated, so a promotion pops exactly once — never again on reload/login.
+ *  Namespaced per account (P5-11): one key per device used to be shared by every
+ *  student on a college lab PC, hiding their rank-ups behind someone else's. */
+const ACK_KEY = "soc_ack_rank_minxp";
+
+/** "Analyst · Tier 1", "Senior Analyst · Tier 3", "SOC Trainee", "Student". */
+function rankLabel(r: Rank): string {
+  return r.tier.startsWith("tier-") ? `${r.label} · ${r.tier.replace("tier-", "Tier ")}` : r.label;
+}
 
 export function EarnMoment() {
   const [mounted, setMounted] = useState(false);
   const [celebration, setCelebration] = useState<Celebration | null>(null);
-  const lastLevel = useRef<number | null>(null);
-  const lastRank = useRef<string | null>(null);
+  // The promotion that should raise a certificate. Held separately from the
+  // toast so the two lifetimes are independent: the toast auto-hides, the
+  // certificate modal stays until dismissed.
+  const [certRank, setCertRank] = useState<{ rank: Rank; xp: number } | null>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const name = useFullName();
+  // Reactive, DB-or-localStorage backed; `ready` is false until the REAL xp has
+  // loaded — which is what stops the old bug where the 0→real jump on every page
+  // load looked like a promotion and re-popped the certificate.
+  const { xp, rank, ready: rankReady } = useRank();
+  // …and the account's progress has actually loaded (P5-11): useRank's first read
+  // can come from the device's guest store before a signed-in user's XP arrives,
+  // which fired false "Rank Up!" certificates.
+  const { ready: progressReady } = useProgressSnapshot();
+  const { user } = useAuth();
+  const ready = rankReady && progressReady;
+  const ackKey = `${ACK_KEY}:${user?.id ?? "guest"}`;
+
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
-    setMounted(true);
-    // Baseline from current XP so we never fire on first load.
-    const xp = readXp();
-    lastLevel.current = levelFromXp(xp);
-    lastRank.current = rankFromXp(xp);
+    if (!ready) return;
+    let acked: number | null = null;
+    try { const v = localStorage.getItem(ackKey); if (v !== null) { const n = parseInt(v, 10); acked = Number.isNaN(n) ? null : n; } } catch { /* ignore */ }
 
-    const id = setInterval(() => {
-      const xp = readXp();
-      const level = levelFromXp(xp);
-      const rank = rankFromXp(xp);
-      const prevLevel = lastLevel.current ?? level;
-      const prevRank = lastRank.current ?? rank;
+    // First time for this account on this device: baseline the REAL loaded rank
+    // (progress is hydrated by now). No certificate — this is not a promotion.
+    if (acked === null) {
+      try { localStorage.setItem(ackKey, String(rankForXp(getTotalXp()).minXp)); } catch { /* ignore */ }
+      return;
+    }
 
-      // Rank promotion is the bigger deal — prefer it when both happen.
-      if (rank !== prevRank && level >= prevLevel && prevRank !== null) {
-        show({ kind: "rank", title: "Rank Up!", sub: rank });
-      } else if (level > prevLevel) {
-        show({ kind: "level", title: "Level Up!", sub: `Level ${level}` });
-      }
-
-      lastLevel.current = level;
-      lastRank.current = rank;
-    }, 1500);
-
-    return () => {
-      clearInterval(id);
-      if (hideTimer.current) clearTimeout(hideTimer.current);
-    };
+    // acked is MONOTONIC — only ever raised, never lowered. So the transient
+    // 0-XP load (rank.minXp < acked) is ignored, and a reload (rank.minXp ===
+    // acked) shows nothing. A certificate fires only on a genuine NEW high,
+    // once, then acked catches up so it can't fire again.
+    if (rank.minXp > acked) {
+      show({ title: "Rank Up!", sub: rankLabel(rank) });
+      if (rank.id !== "student") setCertRank({ rank, xp });
+      try { localStorage.setItem(ackKey, String(rank.minXp)); } catch { /* ignore */ }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [ready, ackKey, rank.id, rank.minXp, xp]);
+
+  useEffect(() => () => { if (hideTimer.current) clearTimeout(hideTimer.current); }, []);
 
   function show(c: Celebration) {
     setCelebration(c);
@@ -68,7 +97,17 @@ export function EarnMoment() {
 
   if (!mounted) return null;
 
-  return createPortal(
+  return (
+    <>
+      {certRank && (
+        <RankCertificateModal
+          rank={certRank.rank}
+          xp={certRank.xp}
+          name={name}
+          onClose={() => setCertRank(null)}
+        />
+      )}
+      {createPortal(
     <AnimatePresence>
       {celebration && (
         <motion.div
@@ -84,9 +123,7 @@ export function EarnMoment() {
         >
           <div className="flex items-center gap-3 rounded-2xl border border-neon-amber/50 bg-[#0d1520] px-5 py-3 shadow-[0_0_40px_0_rgba(255,193,7,0.25)]">
             <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-neon-amber/60 bg-neon-amber/15">
-              {celebration.kind === "rank"
-                ? <Trophy className="h-5 w-5 text-neon-amber" />
-                : <Zap className="h-5 w-5 text-neon-amber" />}
+              <Trophy className="h-5 w-5 text-neon-amber" />
             </div>
             <div>
               <p className="flex items-center gap-1.5 text-sm font-black uppercase tracking-wider text-neon-amber">
@@ -99,5 +136,7 @@ export function EarnMoment() {
       )}
     </AnimatePresence>,
     document.body
+      )}
+    </>
   );
 }

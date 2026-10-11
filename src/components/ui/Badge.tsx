@@ -22,7 +22,9 @@ export function SeverityBadge({ severity }: { severity: string }) {
     high:          "text-severity-high bg-severity-high/10 border-severity-high/40",
     medium:        "text-severity-medium bg-severity-medium/10 border-severity-medium/40",
     low:           "text-severity-low bg-severity-low/10 border-severity-low/40",
-    informational: "text-severity-info bg-severity-info/10 border-severity-info/40",
+    // Text lifted from severity-info (#64748b, 3.59:1 on bg-elevated) to slate-400 (#94a3b8):
+    // 6.65:1 on bg-elevated, >=5.18:1 on surfaces up to #1e293b (WCAG 1.4.3).
+    informational: "text-slate-400 bg-severity-info/10 border-severity-info/40",
   };
   return (
     <span className={cn(

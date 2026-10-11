@@ -32,6 +32,26 @@ jobs:
       - name: Typecheck
         run: npm run type-check
 
+      # Unit tests (vitest). Covers logic that fails SILENTLY in production if it
+      # regresses — starting with the storage layer's failed-write retry, where
+      # the wrong behaviour is invisible until a student reports lost XP.
+      - name: Unit tests
+        run: npm test
+
+      # Business-correctness gate. Runs the REAL migrations (0001-latest) against
+      # an in-memory Postgres (PGlite — no Docker/Supabase needed) and proves, at
+      # the database, the things lint/types/build cannot: RLS actually isolates
+      # tenants, seat caps and license expiry are enforced, XP recompute and the
+      # enrollment trigger behave correctly. Previously these 90 checks (65 + 25)
+      # only ran when a human remembered to run them by hand — which is exactly
+      # how the C1 cross-tenant leak shipped and was only caught by a manual
+      # audit pass, not by CI.
+      - name: Backend E2E (schema, RLS, functions, triggers, XP, licensing)
+        run: npm run test:e2e
+
+      - name: Multi-tenancy isolation (two-college RLS proof)
+        run: npm run test:tenancy
+
       # Content gate. Every `raw: {...}` block claims "this is what <vendor>
       # actually emits" — expert review found invented fields (crowdstrike.Confidence,
       # s1.extensionAdded, RequestorName on 4769) that graded answers depended on.
@@ -52,15 +72,67 @@ jobs:
       - name: Validate scenario content
         run: npm run validate:scenarios
 
+      # Scenario DATA-INTEGRITY gate (Sept-2026 realism audit F-03/F-04/F-06/F-10):
+      # events must be chronological (or is_baseline), source must be a valid
+      # LogSource with a vendor mapped to exactly one source, raw blocks must carry
+      # no invented fields or leaked evt_* ids, and every scenario must recommend a
+      # real learning room. One check that catches four whole findings' worth of
+      # data bugs before they ship.
+      - name: Validate scenario integrity
+        run: npm run validate:scenarios:integrity
+
+      # L-03: a shared attack chain adapted to the active company must not leak the
+      # company it was authored for — no foreign EDR vendor/schema, no other
+      # company's hostname / email domain / NetBIOS, no foreign EDR product name in
+      # prose. Runs the live resolve path across every company × difficulty × many
+      # RNG draws and fails on any cross-company tell (regresses the instant a new
+      # story is added with hard-coded CrowdStrike/nexacorp entities).
+      - name: Validate live-feed company adaptation (no cross-company leaks)
+        run: npm run validate:feed:adaptation
+
+      # Data-integrity of the live feed (Sept-2026 "JSON contradictions" audit): one
+      # IP → one country, no RFC 5737 documentation IPs presented as routable, one
+      # SHA-256 → one file, and uniform millisecond timestamps (so sorting by string
+      # can't separate attacks from noise). Catches the whole class of hand-edited,
+      # drifting per-event data before it ships.
+      - name: Validate live-feed data integrity
+        run: npm run validate:feed:integrity
+
+      # Malware-hash registries back the "Check Hash · VirusTotal" pivot — the
+      # exact skill taught. Fails on any fabricated/synthetic SHA256 so a made-up
+      # hash (which resolves to nothing on VT) can't regress in.
+      - name: Validate malware hashes are real
+        run: npm run validate:hashes
+
+      # Authored lesson figures. A malformed SVG is SILENT — it renders as
+      # nothing, fails no build, and validate:content only checks the file
+      # exists, not that its contents parse. Same class of invisible failure
+      # validate:diagrams exists to catch for Mermaid.
+      - name: Validate lesson figures parse and are self-contained
+        run: npm run validate:svg
+
       - name: Build
         run: npm run build
         env:
           # Build must succeed WITHOUT real secrets (routes fall back to stubs).
           NODE_ENV: production
 
-      # Security gate. Currently fails only on CRITICAL (the codebase's remaining
-      # highs are dev-only esbuild/glob + advisories fixed only by the planned
-      # Next 16 upgrade — see PRODUCTION_READINESS_PLAN.md Phase 0.5).
-      # TODO(after Next 16 upgrade): tighten to `--audit-level=high`.
-      - name: Dependency audit (prod deps, fail on critical)
-        run: npm audit --omit=dev --audit-level=critical
+      # Answer-key exposure gate. Everything in .next/static is public, signed in
+      # or not. The live feed once imported the scenario builders and shipped every
+      # question explanation in a lazily-loaded chunk. This scans the built chunks
+      # for text that exists only in a scenario's answer key (explanations,
+      # killchain, narrative) and fails if any of it reached the browser.
+      - name: No scenario answer key in client chunks
+        run: npm run check:client-answers
+
+      # Security gate. Fails on ANY production-dependency vulnerability at any
+      # severity, except those explicitly allowlisted in the script WITH a
+      # written reason the code cannot execute here.
+      #
+      # This replaced `npm audit --omit=dev --audit-level=critical`, which
+      # passed while five HIGH advisories were live: raising the threshold to
+      # hide unfixable noise also hid everything below it. The allowlist keeps
+      # the signal instead — noise is named individually, so a genuinely new
+      # finding fails the build on the day it appears.
+      - name: Dependency audit (prod deps, allowlist-gated)
+        run: npm run audit:deps

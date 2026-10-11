@@ -293,7 +293,7 @@ export const MITRE_RULE_DESCRIPTIONS: Record<string, string> = {
   "T1490":     "vssadmin or wmic invoked to delete volume shadow copies",
   "T1027":     "Encoded or obfuscated payload written to disk",
   "T1218.011": "Rundll32.exe loading unsigned or unusual DLL path",
-  "T1562.001": "Security tool or service stopped, disabled, or configuration modified",
+  "T1685": "Security tool or service stopped, disabled, or configuration modified",
   "T1087.002": "High-volume LDAP queries against domain account objects",
   "T1018":     "Sequential connection attempts to multiple hosts across subnet",
   "T1021.001": "RDP logon session established between internal hosts",
@@ -309,7 +309,7 @@ export const MITRE_RULE_DESCRIPTIONS: Record<string, string> = {
   "T1552.001": "Plaintext password string pattern matched in file content",
   "T1048.003": "Outbound email with large attachment sent to external domain",
   "T1052.001": "Data copied to removable media",
-  "T1070.001": "Security event logs cleared",
+  "T1685.005": "Security event logs cleared",
   "T1569.002": "PsExec or similar remote execution tool used",
 };
 

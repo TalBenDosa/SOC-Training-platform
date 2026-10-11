@@ -1,0 +1,101 @@
+import { NextResponse } from "next/server";
+import { asObject } from "@/lib/http/body";
+import { dbFail } from "@/lib/http/dbFail";
+import { emailOrigin } from "@/lib/http/siteOrigin";
+import crypto from "node:crypto";
+import { requireSuperAdmin } from "@/lib/auth/apiGuard";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { sendEmail } from "@/lib/email/sendEmail";
+import { orgWelcomeEmail } from "@/lib/email/templates";
+import { generateCode, getActiveCode } from "@/lib/org/classCode";
+import { logAudit } from "@/lib/audit/logAudit";
+
+/**
+ * Invite a NEW org admin to an EXISTING org by email.
+ *
+ * The member-add route next door only ATTACHES an account that already exists.
+ * This one is for the common case Tal described: designate someone as the
+ * college's admin who does not have an account yet. It mints an email-bound
+ * org_admin invitation and emails them the join link, which lands on their
+ * org's registration form (email locked to the invite, role org_admin), after
+ * which they get the /manage dashboard — same flow org creation already runs,
+ * now available after the org exists.
+ *
+ * The admin LINK is always returned, whether or not the email actually went
+ * out (Resend may be unconfigured). So the super-admin can copy and send it by
+ * hand in the meantime — the invite works regardless of email delivery.
+ */
+type Ctx = { params: Promise<{ id: string }> };
+const INTERNAL_ORG = "d0d0d0d0-0000-4000-8000-000000000000";
+
+export async function POST(req: Request, { params }: Ctx) {
+  const gate = await requireSuperAdmin("superadmin.invite_admin");
+  if ("error" in gate) return gate.error;
+  const admin = getSupabaseAdminClient();
+  if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
+  const { id: orgId } = await params;
+  if (orgId === INTERNAL_ORG) {
+    return NextResponse.json({ error: "The internal org can't take invited admins." }, { status: 400 });
+  }
+
+  let body: Record<string, unknown>;
+  try { body = asObject(await req.json()); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
+  const email = String(body.email ?? "").trim().toLowerCase();
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    return NextResponse.json({ error: "A valid email is required." }, { status: 400 });
+  }
+
+  const { data: org } = await admin.from("organizations").select("id, name").eq("id", orgId).maybeSingle();
+  if (!org) return NextResponse.json({ error: "No such organisation." }, { status: 404 });
+
+  // Email-bound org_admin invitation (14-day window), so only this recipient
+  // can redeem it — the 0026 binding enforces the email match at signup.
+  const token = crypto.randomUUID();
+  const expiresAt = new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString();
+  const { error: insErr } = await admin.from("invitations").insert({
+    org_id: orgId, email, role: "org_admin", token, expires_at: expiresAt,
+  });
+  if (insErr) return dbFail(insErr, "api/superadmin/orgs/[id]/invite-admin", 500);
+
+  const origin = emailOrigin(req);
+  const adminLink = `${origin}/join?token=${token}`;
+
+  // Mint a starter class code so the admin can distribute it to students right
+  // away — included in the welcome email. Best-effort: if generation fails,
+  // the invite still goes out, the admin just makes a code from Manage Class.
+  // Reuse the live code when there is one: generating would silently revoke the
+  // code the class is already using (and restart the admin's 24h cooldown).
+  let classCode: string | null = null;
+  try {
+    classCode = (await getActiveCode(admin, orgId))?.code ?? (await generateCode(admin, orgId, gate.user.id)).code;
+  } catch { /* non-fatal — the invite is the point, the code is a convenience */ }
+
+  const mail = orgWelcomeEmail({ orgName: org.name, adminLink, classCode });
+  const r = await sendEmail({ to: email, subject: mail.subject, html: mail.html, text: mail.text });
+
+  // Distinguish the two failure modes — they were being reported identically
+  // as "delivery is off", which is only true for the first:
+  //   skipped         → RESEND_API_KEY unset (no delivery configured).
+  //   ok:false + error → Resend REJECTED this recipient. With the default
+  //     onboarding@resend.dev sender, Resend only allows the account owner's
+  //     own address; any other recipient 403s until a domain is verified and
+  //     EMAIL_FROM points at it. That is a config gap, not "delivery off".
+  const emailStatus = r.ok
+    ? "sent"
+    : r.skipped
+      ? "not_configured"
+      : "rejected";
+
+  await logAudit({
+    actorId: gate.user.id, action: "superadmin.admin_invited",
+    targetTable: "invitations", targetId: orgId,
+    metadata: { email, email_status: emailStatus, resend_error: r.error ?? null, code_included: Boolean(classCode) },
+  });
+
+  return NextResponse.json({
+    ok: true, adminLink, classCode,
+    emailed: r.ok,
+    email_status: emailStatus,
+    email_error: r.error ?? null,
+  });
+}

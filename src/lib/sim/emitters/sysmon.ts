@@ -1,0 +1,435 @@
+/**
+ * Microsoft Sysmon log EMITTERS.
+ *
+ * The free host-telemetry sensor that sits alongside (or instead of) an EDR — the
+ * process/network/file/DNS/registry evidence an analyst walks when the shop runs
+ * Sysmon into the SIEM. Same contract as the endpoint emitters: a typed call
+ * renders a complete TelemetryEvent whose raw block uses only registry-valid
+ * Sysmon fields (the winlog. / winlog.event_data. / sysmon. prefixes + the shared
+ * ECS process./file./dns./destination.* fields), with host, IP and user drawn
+ * from the company asset fabric so the console shows the same identity the feed did.
+ *
+ * Sysmon is source:"sysmon". Process/network/file events carry a process node so
+ * the EDR console can still reconstruct the tree.
+ */
+import type { TelemetryEvent, Severity, EventType } from "../types";
+import { makeSha256 } from "../iocs";
+import { resolve, pidFrom, type Ctx } from "./_core";
+import { ecsCodeSignature } from "@/lib/logs/ecsFields";
+
+const VENDOR = "Microsoft Sysmon";
+const CHANNEL = "Microsoft-Windows-Sysmon/Operational";
+const PROVIDER = "Microsoft-Windows-Sysmon";
+
+function base(o: Ctx & { severity?: Severity }, r: ReturnType<typeof resolve>) {
+  return {
+    "winlog.channel": CHANNEL,
+    "winlog.provider_name": PROVIDER,
+    "winlog.computer_name": r.host,
+  } as Record<string, string>;
+}
+
+// ── Event 1 — Process creation ────────────────────────────────────────────────────────
+export interface SysmonProcessOpts extends Ctx {
+  processName: string;
+  processPath?: string;
+  cmdline: string;
+  parentName?: string;
+  parentPath?: string;
+  parentCmdline?: string;
+  pid?: number;
+  parentPid?: number;
+  sha256?: string;
+  signed?: boolean;
+  integrity?: "Low" | "Medium" | "High" | "System";
+  originalFileName?: string;
+  processGuid?: string;            // Sysmon ProcessGuid — the SIEM join key
+  parentGuid?: string;             // ParentProcessGuid
+  eventType?: EventType;           // override (e.g. "scheduled_task" for a schtasks.exe run)
+  runAsUser?: string;              // token owner override (e.g. "NT AUTHORITY\\SYSTEM"); else the fabric user
+  md5?: string;                    // add MD5 to the Hashes field + process.hash.md5
+  imphash?: string;                // add IMPHASH to the Hashes field
+  ruleName?: string;               // winlog.event_data.RuleName (Sysmon config rule)
+  mitre?: string;
+  tactic?: string;
+  severity?: Severity;
+  isDetection?: boolean;
+  description?: string;
+}
+export function sysmonProcess(o: SysmonProcessOpts): TelemetryEvent {
+  const r = resolve(o);
+  const pid = o.pid ?? pidFrom(o.id);
+  const ppid = o.parentPid ?? pidFrom(`${o.id}:parent`);
+  const path = o.processPath ?? `C:\\Windows\\System32\\${o.processName}`;
+  const parentPath = o.parentPath ?? (o.parentName ? `C:\\Windows\\explorer.exe` : undefined);
+  const sha256 = o.sha256 ?? makeSha256(`sysmon:${o.processName}:${o.cmdline}`);
+  const usr = o.runAsUser ?? r.domainUser;
+  const usrName = o.runAsUser ? (o.runAsUser.split("\\").pop() ?? o.runAsUser) : r.bareUser;
+  return {
+    id: o.id, ts: o.ts, source: "sysmon", vendor: VENDOR, event_type: o.eventType ?? "process_create",
+    severity: o.severity ?? "low", hostname: r.host, src_ip: r.srcIp, user_email: r.email,
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false, incident_id: o.incidentId,
+    process: { pid, name: o.processName, path, cmdline: o.cmdline, parent_name: o.parentName, parent_pid: ppid, user: usr, hash: { sha256 } },
+    description: o.description ?? `${o.processName} created on ${r.host} (Sysmon 1)`,
+    raw: {
+      ...base(o, r),
+      "winlog.event_id": "1",
+      ...(o.ruleName ? { "winlog.event_data.RuleName": o.ruleName } : {}),
+      "winlog.event_data.UtcTime": o.ts,
+      "winlog.event_data.Image": path,
+      "winlog.event_data.CommandLine": o.cmdline,
+      "winlog.event_data.ProcessId": String(pid),
+      ...(o.processGuid ? { "winlog.event_data.ProcessGuid": o.processGuid } : {}),
+      ...(o.parentName ? { "winlog.event_data.ParentImage": parentPath ?? o.parentName } : {}),
+      ...(o.parentCmdline ? { "winlog.event_data.ParentCommandLine": o.parentCmdline } : {}),
+      "winlog.event_data.ParentProcessId": String(ppid),
+      ...(o.parentGuid ? { "winlog.event_data.ParentProcessGuid": o.parentGuid } : {}),
+      "winlog.event_data.User": usr,
+      "winlog.event_data.Hashes": `SHA256=${sha256}${o.md5 ? `,MD5=${o.md5}` : ""}${o.imphash ? `,IMPHASH=${o.imphash}` : ""}`,
+      ...(o.md5 ? { "process.hash.md5": o.md5 } : {}),
+      "winlog.event_data.IntegrityLevel": o.integrity ?? "Medium",
+      ...(o.originalFileName ? { "winlog.event_data.OriginalFileName": o.originalFileName } : {}),
+      "event.code": "1",
+      "event.category": "process",
+      "event.type": "start",
+      "event.action": "process-created",
+      "process.executable": path,
+      "process.name": o.processName,
+      "process.pid": String(pid),
+      "process.command_line": o.cmdline,
+      ...(o.parentName ? { "process.parent.name": o.parentName } : {}),
+      "process.parent.pid": String(ppid),
+      "process.hash.sha256": sha256,
+      ...ecsCodeSignature("process", o.signed === undefined ? undefined : o.signed ? "trusted" : "unsigned"),
+      ...(o.signed !== undefined ? { "winlog.event_data.Signed": String(o.signed) } : {}),
+      "user.name": usrName,
+      "host.name": r.host,
+    },
+  };
+}
+
+// ── Event 3 — Network connection ──────────────────────────────────────────────────────
+export interface SysmonNetworkOpts extends Ctx {
+  processName: string;
+  processPath?: string;
+  pid?: number;
+  remoteIp: string;
+  remotePort: number;
+  remoteHost?: string;
+  transport?: "tcp" | "udp";
+  mitre?: string;
+  tactic?: string;
+  severity?: Severity;
+  isDetection?: boolean;
+  description?: string;
+}
+export function sysmonNetwork(o: SysmonNetworkOpts): TelemetryEvent {
+  const r = resolve(o);
+  const pid = o.pid ?? pidFrom(o.id);
+  const path = o.processPath ?? `C:\\Windows\\System32\\${o.processName}`;
+  const transport = o.transport ?? "tcp";
+  return {
+    id: o.id, ts: o.ts, source: "sysmon", vendor: VENDOR, event_type: "net_connection",
+    severity: o.severity ?? "medium", hostname: r.host, src_ip: r.srcIp, dst_ip: o.remoteIp,
+    dst_port: o.remotePort, protocol: transport, user_email: r.email,
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false, incident_id: o.incidentId,
+    network: { domain: o.remoteHost },
+    description: o.description ?? `${o.processName} connected to ${o.remoteHost ?? o.remoteIp}:${o.remotePort} (Sysmon 3)`,
+    raw: {
+      ...base(o, r),
+      "winlog.event_id": "3",
+      "winlog.event_data.Image": path,
+      "winlog.event_data.ProcessId": String(pid),
+      "winlog.event_data.User": r.domainUser,
+      "winlog.event_data.Protocol": transport,
+      "winlog.event_data.SourceIp": r.srcIp,
+      "winlog.event_data.DestinationIp": o.remoteIp,
+      "winlog.event_data.DestinationPort": String(o.remotePort),
+      ...(o.remoteHost ? { "winlog.event_data.DestinationHostname": o.remoteHost } : {}),
+      "winlog.event_data.Initiated": "true",
+      "event.code": "3",
+      "event.category": "network",
+      "event.type": "connection",
+      "event.action": "network-connection",
+      "process.executable": path,
+      "process.name": o.processName,
+      "process.pid": String(pid),
+      "source.ip": r.srcIp,
+      "destination.ip": o.remoteIp,
+      "destination.port": String(o.remotePort),
+      ...(o.remoteHost ? { "destination.domain": o.remoteHost } : {}),
+      "network.transport": transport,
+      "host.name": r.host,
+    },
+  };
+}
+
+// ── Event 11 — File create ────────────────────────────────────────────────────────────
+export interface SysmonFileOpts extends Ctx {
+  processName: string;
+  processPath?: string;
+  pid?: number;
+  processGuid?: string;
+  path: string;                    // TargetFilename
+  sha256?: string | null;          // null = omit a hash; string pins it
+  fileSize?: number;
+  mitre?: string;
+  tactic?: string;
+  severity?: Severity;
+  isDetection?: boolean;
+  description?: string;
+}
+export function sysmonFile(o: SysmonFileOpts): TelemetryEvent {
+  const r = resolve(o);
+  const pid = o.pid ?? pidFrom(o.id);
+  const image = o.processPath ?? `C:\\Windows\\System32\\${o.processName}`;
+  const name = o.path.split(/[\\/]/).pop() ?? o.path;
+  const sha256 = o.sha256 === null ? undefined : (o.sha256 ?? makeSha256(`sysmonfile:${o.path}`));
+  return {
+    id: o.id, ts: o.ts, source: "sysmon", vendor: VENDOR, event_type: "file_create",
+    severity: o.severity ?? "low", hostname: r.host, src_ip: r.srcIp, user_email: r.email,
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false, incident_id: o.incidentId,
+    file: { name, path: o.path, ...(sha256 ? { sha256 } : {}), ...(o.fileSize ? { size: o.fileSize } : {}), extension: name.split(".").pop() },
+    description: o.description ?? `${name} written by ${o.processName} on ${r.host} (Sysmon 11)`,
+    raw: {
+      ...base(o, r),
+      "winlog.event_id": "11",
+      "winlog.event_data.Image": image,
+      "winlog.event_data.TargetFilename": o.path,
+      "winlog.event_data.ProcessId": String(pid),
+      ...(o.processGuid ? { "winlog.event_data.ProcessGuid": o.processGuid } : {}),
+      "winlog.event_data.CreationUtcTime": o.ts,
+      ...(sha256 ? { "winlog.event_data.Hashes": `SHA256=${sha256}`, "file.hash.sha256": sha256 } : {}),
+      "event.code": "11",
+      "event.category": "file",
+      "event.type": "creation",
+      "event.action": "file-created",
+      "process.executable": image,
+      "process.name": o.processName,
+      "process.pid": String(pid),
+      "file.path": o.path,
+      "file.name": name,
+      "host.name": r.host,
+    },
+  };
+}
+
+// ── Event 22 — DNS query ──────────────────────────────────────────────────────────────
+export interface SysmonDnsOpts extends Ctx {
+  processName: string;
+  processPath?: string;
+  pid?: number;
+  processGuid?: string;
+  domain: string;
+  resolvedIp?: string;
+  mitre?: string;
+  tactic?: string;
+  severity?: Severity;
+  isDetection?: boolean;
+  description?: string;
+}
+export function sysmonDns(o: SysmonDnsOpts): TelemetryEvent {
+  const r = resolve(o);
+  const pid = o.pid ?? pidFrom(o.id);
+  const image = o.processPath ?? `C:\\Windows\\System32\\${o.processName}`;
+  return {
+    id: o.id, ts: o.ts, source: "sysmon", vendor: VENDOR, event_type: "dns_query",
+    severity: o.severity ?? "medium", hostname: r.host, src_ip: r.srcIp, user_email: r.email,
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false, incident_id: o.incidentId,
+    dns: { query: o.domain, query_type: "A", response: o.resolvedIp }, network: { domain: o.domain },
+    description: o.description ?? `${o.processName} resolved ${o.domain} on ${r.host} (Sysmon 22)`,
+    raw: {
+      ...base(o, r),
+      "winlog.event_id": "22",
+      "winlog.event_data.Image": image,
+      "winlog.event_data.ProcessId": String(pid),
+      ...(o.processGuid ? { "winlog.event_data.ProcessGuid": o.processGuid } : {}),
+      "winlog.event_data.QueryName": o.domain,
+      ...(o.resolvedIp ? { "winlog.event_data.QueryResults": `type:  1 ${o.resolvedIp};` } : {}),
+      "winlog.event_data.QueryStatus": "0",
+      "event.code": "22",
+      "event.category": "network",
+      "event.type": "info",
+      "event.action": "dns-query",
+      "process.executable": image,
+      "process.name": o.processName,
+      "process.pid": String(pid),
+      "dns.question.name": o.domain,
+      "dns.question.type": "A",
+      ...(o.resolvedIp ? { "dns.resolved_ip": o.resolvedIp } : {}),
+      "host.name": r.host,
+    },
+  };
+}
+
+// ── Event 13 — Registry value set ─────────────────────────────────────────────────────
+export interface SysmonRegistryOpts extends Ctx {
+  processName: string;
+  processPath?: string;
+  pid?: number;
+  targetObject: string;            // full registry path\value
+  details: string;                 // the value written
+  mitre?: string;
+  tactic?: string;
+  severity?: Severity;
+  isDetection?: boolean;
+  description?: string;
+}
+export function sysmonRegistry(o: SysmonRegistryOpts): TelemetryEvent {
+  const r = resolve(o);
+  const pid = o.pid ?? pidFrom(o.id);
+  const image = o.processPath ?? `C:\\Windows\\System32\\${o.processName}`;
+  const key = o.targetObject.substring(0, o.targetObject.lastIndexOf("\\"));
+  const valueName = o.targetObject.substring(o.targetObject.lastIndexOf("\\") + 1);
+  return {
+    id: o.id, ts: o.ts, source: "sysmon", vendor: VENDOR, event_type: "registry_set",
+    severity: o.severity ?? "high", hostname: r.host, src_ip: r.srcIp, user_email: r.email,
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false, incident_id: o.incidentId,
+    registry: { path: key, key: valueName, value: o.details },
+    description: o.description ?? `${o.processName} set ${o.targetObject} on ${r.host} (Sysmon 13)`,
+    raw: {
+      ...base(o, r),
+      "winlog.event_id": "13",
+      "winlog.event_data.Image": image,
+      "winlog.event_data.ProcessId": String(pid),
+      "winlog.event_data.EventType": "SetValue",
+      "winlog.event_data.TargetObject": o.targetObject,
+      "winlog.event_data.Details": o.details,
+      "event.code": "13",
+      "event.category": "registry",
+      "event.type": "change",
+      "event.action": "registry-value-set",
+      "process.executable": image,
+      "process.name": o.processName,
+      "process.pid": String(pid),
+      "host.name": r.host,
+    },
+  };
+}
+
+// ── Event 10 — Process access (LSASS read / credential dumping) ───────────────────────
+export interface SysmonProcessAccessOpts extends Ctx {
+  sourceImage: string;             // the ACCESSING process (e.g. C:\Windows\Temp\svchost.exe)
+  sourcePid?: number;
+  targetImage?: string;            // default lsass.exe
+  targetPid?: number;
+  grantedAccess: string;           // e.g. "0x1410"
+  callTrace?: string;
+  mitre?: string;
+  tactic?: string;
+  severity?: Severity;
+  isDetection?: boolean;
+  description?: string;
+}
+export function sysmonProcessAccess(o: SysmonProcessAccessOpts): TelemetryEvent {
+  const r = resolve(o);
+  const pid = o.sourcePid ?? pidFrom(o.id);
+  const name = o.sourceImage.split(/[\/]/).pop() ?? o.sourceImage;
+  const target = o.targetImage ?? "C:\Windows\System32\lsass.exe";
+  return {
+    id: o.id, ts: o.ts, source: "sysmon", vendor: VENDOR, event_type: "process_access",
+    severity: o.severity ?? "high", hostname: r.host, src_ip: r.srcIp, user_email: r.email,
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false, incident_id: o.incidentId,
+    process: { pid, name, path: o.sourceImage, cmdline: o.sourceImage, user: r.domainUser },
+    description: o.description ?? `${name} opened ${target.split(/[\/]/).pop()} on ${r.host} (Sysmon 10, GrantedAccess ${o.grantedAccess})`,
+    raw: {
+      ...base(o, r),
+      "winlog.event_id": "10",
+      "winlog.event_data.SourceImage": o.sourceImage,
+      "winlog.event_data.SourceProcessId": String(pid),
+      "winlog.event_data.TargetImage": target,
+      ...(o.targetPid ? { "winlog.event_data.TargetProcessId": String(o.targetPid) } : {}),
+      "winlog.event_data.GrantedAccess": o.grantedAccess,
+      ...(o.callTrace ? { "winlog.event_data.CallTrace": o.callTrace } : {}),
+      "winlog.event_data.User": r.domainUser,
+      "event.code": "10",
+      "event.category": "process",
+      "event.action": "process-access",
+      "process.executable": o.sourceImage,
+      "process.name": name,
+      "process.pid": String(pid),
+      "host.name": r.host,
+    },
+  };
+}
+
+// ── Event 18 — Pipe connected (named-pipe coercion, e.g. PrintSpoofer \spoolss) ───────
+export interface SysmonPipeOpts extends Ctx {
+  image: string;                   // the process on the pipe (e.g. spoolsv.exe path)
+  pid?: number;
+  pipeName: string;                // e.g. "\spoolss"
+  pipeEventType?: string;          // default "ConnectPipe"
+  runAsUser?: string;              // the process token owner (default NT AUTHORITY\SYSTEM)
+  mitre?: string;
+  tactic?: string;
+  severity?: Severity;
+  isDetection?: boolean;
+  description?: string;
+}
+export function sysmonPipe(o: SysmonPipeOpts): TelemetryEvent {
+  const r = resolve(o);
+  const pid = o.pid ?? pidFrom(o.id);
+  const name = o.image.split(/[\/]/).pop() ?? o.image;
+  return {
+    id: o.id, ts: o.ts, source: "sysmon", vendor: VENDOR, event_type: "process_access",
+    severity: o.severity ?? "high", hostname: r.host, src_ip: r.srcIp, user_email: r.email,
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false, incident_id: o.incidentId,
+    description: o.description ?? `${name} connected to pipe ${o.pipeName} on ${r.host} (Sysmon 18)`,
+    raw: {
+      ...base(o, r),
+      "winlog.event_id": "18",
+      "winlog.event_data.EventType": o.pipeEventType ?? "ConnectPipe",
+      "winlog.event_data.ProcessId": String(pid),
+      "winlog.event_data.PipeName": o.pipeName,
+      "winlog.event_data.Image": o.image,
+      "winlog.event_data.User": o.runAsUser ?? "NT AUTHORITY\SYSTEM",
+      "event.code": "18",
+      "event.category": "process",
+      "event.action": "pipe-connected",
+      "host.name": r.host,
+    },
+  };
+}
+
+// ── Event 6 — Driver loaded (BYOVD / kernel driver load) ──────────────────────────────
+// A kernel driver is loaded — the tell for Bring-Your-Own-Vulnerable-Driver and for a
+// signed third-party driver abused to reach the raw disk from kernel mode.
+export interface SysmonDriverOpts extends Ctx {
+  image: string;                   // ImageLoaded — the .sys path
+  sha256?: string;
+  signed?: boolean;
+  signature?: string;              // signer subject (e.g. the vendor)
+  signatureStatus?: string;        // "Valid" | "Expired" | …
+  eventType?: EventType;           // default "service_install"
+  mitre?: string;
+  tactic?: string;
+  severity?: Severity;
+  isDetection?: boolean;
+  description?: string;
+}
+export function sysmonDriver(o: SysmonDriverOpts): TelemetryEvent {
+  const r = resolve(o);
+  const name = o.image.split(/[\/]/).pop() ?? o.image;
+  const sha256 = o.sha256 ?? makeSha256(`sysmondriver:${o.image}`);
+  return {
+    id: o.id, ts: o.ts, source: "sysmon", vendor: VENDOR, event_type: o.eventType ?? "service_install",
+    severity: o.severity ?? "high", hostname: r.host, src_ip: r.srcIp, user_email: r.email,
+    mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false, incident_id: o.incidentId,
+    file: { name, path: o.image, sha256 },
+    description: o.description ?? `Kernel driver ${name} loaded on ${r.host} (Sysmon 6)`,
+    raw: {
+      ...base(o, r),
+      "winlog.event_id": "6",
+      "winlog.event_data.ImageLoaded": o.image,
+      "winlog.event_data.Hashes": `SHA256=${sha256}`,
+      ...(o.signed !== undefined ? { "winlog.event_data.Signed": String(o.signed) } : {}),
+      ...(o.signature ? { "winlog.event_data.Signature": o.signature } : {}),
+      ...(o.signatureStatus ? { "winlog.event_data.SignatureStatus": o.signatureStatus } : {}),
+      "file.hash.sha256": sha256,
+      "event.code": "6",
+      "event.category": "driver",
+      "event.action": "driver-loaded",
+      "host.name": r.host,
+    },
+  };
+}

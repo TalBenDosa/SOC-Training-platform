@@ -26,20 +26,93 @@ export interface ScenarioRecord {
   xpEarned: number;
   timeTaken: number;
   date: string;
+  // The analyst's written deliverable, kept so a learner can review past reports
+  // and (in the B2B org-admin console) an instructor can see actual work — not
+  // just a score. Optional: older records and guests without it still render.
+  report?: {
+    verdict?: string | null;
+    verdictReason?: string;
+    notes?: string;
+    findings?: string;
+    reportScore?: number;
+    rubric?: { verdict: number; depth: number; evidence: number; reasoning: number };
+    passed?: boolean;
+  };
 }
 
 // ─── XP ──────────────────────────────────────────────────────────────────────
 export function getTotalXp(): number {
   return parseInt(backend.get(LEARNER_KEYS.totalXp) ?? "0", 10) || 0;
 }
+/**
+ * Broadcast an XP change so anything showing a rank or total can update without
+ * a reload. Before this, XP was written to storage and nothing was notified, so
+ * the rank badge only refreshed on navigation — which meant a learner never saw
+ * the moment they were promoted, which is the moment that matters.
+ *
+ * Guarded for SSR: these functions are imported by client components that Next
+ * also renders on the server, where `window` does not exist.
+ */
+export const XP_CHANGED_EVENT = "soc:xp-changed";
+function announceXp(total: number): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(XP_CHANGED_EVENT, { detail: { total } }));
+}
+
 export function setTotalXp(xp: number): void {
-  backend.set(LEARNER_KEYS.totalXp, String(Math.max(0, Math.round(xp))));
+  const next = Math.max(0, Math.round(xp));
+  backend.set(LEARNER_KEYS.totalXp, String(next));
+  announceXp(next);
+}
+/**
+ * Re-broadcast the current total without changing it. Needed because a remote
+ * hydrate() writes the XP cache DIRECTLY (it can't go through setTotalXp — the
+ * xp column is server-authoritative and client-revoked, so it only mirrors the
+ * server value locally). Nothing was notified, so anything that read XP once on
+ * mount — the /progress header, the rank badge — stayed on the pre-hydrate value
+ * (typically 0 on a fresh device) while the leaderboard showed the real server
+ * total. Calling this right after hydrate makes those displays converge on the
+ * same server-authoritative number the leaderboard uses.
+ */
+export function broadcastXpChanged(): void {
+  announceXp(getTotalXp());
 }
 /** Add (or subtract, floored at 0) XP to the running total. Returns the new total. */
 export function addTotalXp(delta: number): number {
   const next = Math.max(0, getTotalXp() + delta);
   backend.set(LEARNER_KEYS.totalXp, String(next));
+  announceXp(next);
   return next;
+}
+
+/**
+ * Fired once a signed-in learner's REMOTE backend is installed (after the async
+ * hydrate). Components that read progress once on mount (RoomClient) re-read on
+ * this, because on a hard reload they mount while the backend is still the
+ * empty guest/localStorage one — reading "no progress" and then saving over the
+ * real server row was the room half of "my points don't go up" (audit 2026-09).
+ */
+export const PROGRESS_HYDRATED_EVENT = "soc:progress-hydrated";
+let hydrated = false;
+let loadFailed: string[] = [];
+/**
+ * `failed` — tables whose server read failed even after a retry. The remote
+ * backend is still installed (writes must keep working), but pages must not
+ * present the resulting empty lists as "you have no progress".
+ */
+export function broadcastProgressHydrated(failed: string[] = []): void {
+  hydrated = true;
+  loadFailed = [...failed];
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(PROGRESS_HYDRATED_EVENT, { detail: { failed: loadFailed } }));
+}
+/** True once the remote backend has been installed in this page's lifetime. */
+export function isProgressHydrated(): boolean {
+  return hydrated;
+}
+/** Tables the signed-in hydrate could not read (empty = full load). */
+export function getProgressLoadFailures(): string[] {
+  return loadFailed;
 }
 
 // ─── Room progress ─────────────────────────────────────────────────────────────
@@ -63,8 +136,54 @@ export function appendDashboardSession(record: DashboardSessionRecord, cap = 50)
 export function getScenarioHistory(): ScenarioRecord[] {
   return readJson<ScenarioRecord[]>(LEARNER_KEYS.scenarioHistory, []);
 }
+/**
+ * Append a finished attempt to the history. Signed-in: CACHE-ONLY — the grade
+ * route already wrote the scenario_history row server-side (the remote backend
+ * no longer inserts it; see remoteBackend.ts). Guests: localStorage as before.
+ */
 export function appendScenarioRecord(record: ScenarioRecord): void {
   writeJson(LEARNER_KEYS.scenarioHistory, [...getScenarioHistory(), record]);
+}
+
+/** Highest xpEarned among this device's/account's recorded attempts at `slug`. */
+export function bestScenarioXp(history: ScenarioRecord[], slug: string): number {
+  return history.filter(r => r.slug === slug).reduce((m, r) => Math.max(m, r.xpEarned ?? 0), 0);
+}
+
+/**
+ * The XP a finished attempt actually adds to the total when only the BEST
+ * attempt per scenario counts (#30): prefer the server's delta; otherwise
+ * derive it from the local history (read BEFORE appending this attempt).
+ */
+export function scenarioXpDelta(
+  result: { xpEarned: number; xpDelta?: number | null },
+  priorHistory: ScenarioRecord[],
+  slug: string,
+): number {
+  if (typeof result.xpDelta === "number") return Math.max(0, result.xpDelta);
+  return Math.max(0, (result.xpEarned ?? 0) - bestScenarioXp(priorHistory, slug));
+}
+
+/**
+ * One call for the completion path: record the attempt and move the displayed
+ * total truthfully. Uses the server's authoritative `totalXp` when the grade
+ * response carries it; otherwise adds only the improvement over the best
+ * attempt — never the full run XP on a retry that didn't beat it.
+ */
+export function recordScenarioCompletion(
+  record: ScenarioRecord,
+  result: { xpEarned: number; xpDelta?: number | null; totalXp?: number | null; persisted?: boolean },
+): void {
+  // The server didn't record this attempt (incomplete, or the write failed) —
+  // don't show a history entry or XP the account doesn't have.
+  if (result.persisted === false) return;
+  const prior = getScenarioHistory();
+  appendScenarioRecord(record);
+  if (typeof result.totalXp === "number") setTotalXp(result.totalXp);
+  else {
+    const delta = scenarioXpDelta(result, prior, record.slug);
+    if (delta > 0) addTotalXp(delta);
+  }
 }
 
 // ─── Cleared companies ───────────────────────────────────────────────────────────
@@ -83,4 +202,44 @@ export function getStreakFreezeDates(): string[] {
 }
 export function saveStreakFreezeDates(dates: string[]): void {
   writeJson(LEARNER_KEYS.streakFreezes, dates);
+}
+
+// ─── Last session timestamp ──────────────────────────────────────────────────────
+// remoteBackend already maps LEARNER_KEYS.lastSession → user_progress.last_session;
+// this is the facade write path so it actually reaches the DB (was a raw
+// localStorage.setItem that never did).
+export function getLastSession(): string | null {
+  return backend.get(LEARNER_KEYS.lastSession);
+}
+export function setLastSession(iso: string): void {
+  backend.set(LEARNER_KEYS.lastSession, iso);
+}
+
+// ─── Quiz / lesson activity (streak signal) ─────────────────────────────────────
+// Quizzes and lessons are credited SERVER-side (quiz_progress / lesson_progress),
+// so their XP never goes through this facade — but the streak needs to know a
+// learner did one today. Signed-in: hydrated from those tables by remoteBackend
+// and appended here on a successful finish/complete (cache-only, never written
+// back). Guests: kept in localStorage like everything else.
+const ACTIVITY_CAP = 120;
+function appendActivity(key: string, iso: string): void {
+  const list = readJson<string[]>(key, []);
+  if (list.includes(iso)) return;
+  writeJson(key, [...list, iso].slice(-ACTIVITY_CAP));
+}
+export function getQuizActivityDates(): string[] {
+  return readJson<string[]>(LEARNER_KEYS.quizActivity, []);
+}
+/** Per-quiz completion {slug: {score}} from quiz_progress — for the list's "Completed" badge. */
+export function getQuizProgress(): Record<string, { score: number }> {
+  return readJson<Record<string, { score: number }>>(LEARNER_KEYS.quizCompleted, {});
+}
+export function recordQuizActivity(iso: string = new Date().toISOString()): void {
+  appendActivity(LEARNER_KEYS.quizActivity, iso);
+}
+export function getLessonActivityDates(): string[] {
+  return readJson<string[]>(LEARNER_KEYS.lessonActivity, []);
+}
+export function recordLessonActivity(iso: string = new Date().toISOString()): void {
+  appendActivity(LEARNER_KEYS.lessonActivity, iso);
 }

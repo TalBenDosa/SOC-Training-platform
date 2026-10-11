@@ -1,0 +1,59 @@
+import "server-only";
+import { ContentUnavailableError } from "@/lib/content/unavailable";
+import type { Room } from "@/data/rooms";
+import { ROOMS } from "@/data/rooms";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { recombineRoom } from "@/lib/rooms/authored";
+
+/**
+ * Resolve a room id to a full, gradable Room — the single entry point used by
+ * BOTH the play page and the task-submit route, so org-authored rooms grade
+ * through the same server-side path as the static ones.
+ *
+ *  1. Static built-ins first (ROOMS array — in-memory).
+ *  2. Otherwise an org-authored DB room: load its client-safe projection
+ *     (content_rooms) + answer key (content_room_keys, service-role only) and
+ *     recombine them in server memory, re-asserting the org boundary (the
+ *     service role bypasses RLS: resolvable only if global or the caller's org).
+ *
+ * The recombined Room carries the answer key; the play page runs sanitizeRoom
+ * over it before it crosses to the client, and the submit route grades against
+ * it in full.
+ */
+export async function getEffectiveRoom(roomId: string, orgId: string | null, includeDrafts = false): Promise<Room | null> {
+  const staticRoom = ROOMS.find(r => r.id === roomId);
+  if (staticRoom) return staticRoom;
+
+  if (!roomId.startsWith("org-")) return null;
+
+  const admin = getSupabaseAdminClient();
+  if (!admin) return null;
+
+  const { data: row, error: rowErr } = await admin
+    .from("content_rooms")
+    .select("id, org_id, status, content")
+    .eq("id", roomId)
+    .maybeSingle();
+  if (rowErr) { console.error(`[rooms/resolve] ${roomId}: ${rowErr.message}`); throw new ContentUnavailableError(roomId); }
+  if (!row) return null;
+  if (row.org_id !== null && row.org_id !== orgId) return null;
+  // Drafts / unpublished rooms: staff preview only (mirrors the quiz resolver,
+  // which requires 'published') — unpublishing must actually revoke access.
+  if (row.status !== "published" && !includeDrafts) return null;
+
+  const content = (row.content ?? {}) as Record<string, unknown>;
+  if (content.kind !== "authored") return null;
+
+  const { data: keyRow, error: keyErr } = await admin
+    .from("content_room_keys")
+    .select("answer_key")
+    .eq("id", roomId)
+    .maybeSingle();
+  // Fail closed (P4-04): grading against an empty key marks right answers wrong
+  // and RECORDS that (attempt counts, first answers). A read failure throws (the
+  // request errors and can be retried); a room with no key is unavailable.
+  if (keyErr) { console.error(`[rooms/resolve] key ${roomId}: ${keyErr.message}`); throw new ContentUnavailableError(roomId); }
+  if (!keyRow) return null;
+
+  return recombineRoom(content, (keyRow.answer_key ?? {}) as Record<string, unknown>);
+}

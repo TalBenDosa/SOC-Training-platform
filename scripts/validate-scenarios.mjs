@@ -14,6 +14,7 @@
 
 import { pathToFileURL } from "node:url";
 import path from "node:path";
+import { isRevokedId, staleAttackIds, REVOKED } from "./attack-deprecated.mjs";
 
 const ROOT = process.cwd();
 const { SCENARIOS } = await import(
@@ -41,7 +42,6 @@ const CONCLUSION_KEYS = [
 const CONCLUSION_TEXT =
   /\b(indicates?|consistent with|suspicious|crackable|lateral movement|forged|attacker using|possible credential|unusual time|bypasses|evades)\b/i;
 
-const DEPRECATED_ATTACK = ["T1076", "T1086", "T1064", "T1035", "T1117", "T1055.999"];
 
 for (const def of SCENARIOS) {
   let b;
@@ -126,8 +126,10 @@ for (const def of SCENARIOS) {
     }
 
     // ── 5. Deprecated ATT&CK IDs ───────────────────────────────────────────
-    if (e.mitre_technique && DEPRECATED_ATTACK.includes(e.mitre_technique)) {
-      add("ERROR", slug, at, `${e.mitre_technique} is deprecated in ATT&CK`);
+    // Retired and revoked IDs, incl. the v19 revocations (T1562.*, T1070.001, T1656 ...).
+    // A structured field gets no "formerly" allowance.
+    if (e.mitre_technique && isRevokedId(e.mitre_technique)) {
+      add("ERROR", slug, at, `${e.mitre_technique} is deprecated in ATT&CK${REVOKED[e.mitre_technique] ? ` (now ${REVOKED[e.mitre_technique]})` : ""}`);
     }
   }
 
@@ -212,8 +214,7 @@ for (const def of SCENARIOS) {
         `correct option is ${Math.round(longestRight / longestWrong * 100)}% the length of the longest distractor — answerable without reading`);
     }
     for (const o of opts) {
-      const id = (o.label.match(/\bT1\d{3}(?:\.\d{3})?\b/) ?? [])[0];
-      if (id && DEPRECATED_ATTACK.includes(id)) {
+      for (const id of staleAttackIds(o.label)) {
         add("ERROR", slug, q.id, `option cites deprecated ATT&CK ID ${id}`);
       }
     }

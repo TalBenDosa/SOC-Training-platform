@@ -1,16 +1,35 @@
 "use client";
-import { useState, useEffect, useMemo, memo } from "react";
+import { useState, useMemo, memo, useRef, useContext } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronRight, Info, AlertTriangle, Clock, ExternalLink, Shield, X, PhoneCall, CheckCircle2, Copy, BookOpen } from "lucide-react";
+import { ChevronRight, Info, AlertTriangle, Clock, ExternalLink, Shield, X, PhoneCall, CheckCircle2, Copy, BookOpen, Cpu } from "lucide-react";
+import { ecsTechnique } from "@/lib/logs/ecsFields";
 
 export type TimeFilter = "15m" | "1h" | "4h" | "all";
 import { cn } from "@/lib/utils";
 import type { LiveEvent } from "./useLiveEvents";
 import { LOG_SOURCE_GUIDE } from "./logSourceGuide";
+import { eventMatchesSearch } from "./eventSearch";
 import { toRawLog } from "./rawLogFormat";
+import { isPublicIp } from "@/lib/edr/iocIntel";
+import { useNativeLog, nativeRows, type NativeView } from "@/lib/logs/native/NativeLogContext";
+import { hashString } from "@/lib/sim/rng";
 import { techniqueById, tacticById } from "@/lib/mitre/attack";
+import { mitreVisible } from "@/lib/sim/mitreVisible";
+import { itVerifyAnswer, itVerifyApplies, remoteToolOf, type ItVerifyAnswer } from "@/lib/sim/itVerify";
+import { ItVerifyContext } from "./itVerifyContext";
+import { EscalateCopyContext } from "./escalateCopyContext";
+import { EdrPivotContext } from "./edrPivotContext";
+
+// L-01: the internal event id (b_… baseline, atk_evt_…<phase> attack) named the
+// answer — and it was shown verbatim in the Analysis detail panel's event.id row,
+// so a student could tell attack from noise, and read the kill-chain phase, without
+// reading a single log. Display an OPAQUE, deterministic id derived from the real
+// one; the semantic id stays on the engine object for catch/correlation/grading.
+const opaqueEventId = (id: string) =>
+  "EVT-" + hashString(id).toString(16).toUpperCase().padStart(8, "0");
 import { DashboardTour, LogReadingTour } from "./OnboardingTour";
-import { EmailHeaderViewer } from "./EmailHeaderViewer";
+import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 import {
   ThreatIntelDrawer, isSha256Field, isIpCheckField, isDomainCheckField,
   type ThreatQuery,
@@ -30,6 +49,15 @@ const SOURCE_COLORS: Record<string, string> = {
   vpn:        "bg-slate-400/20 text-slate-300 border-slate-400/30",
   cloudtrail: "bg-severity-medium/20 text-severity-medium border-severity-medium/30",
   proxy:      "bg-slate-400/20 text-slate-300 border-slate-400/30",
+  // Scenario-pack source channels
+  windows_security: "bg-neon-blue/20 text-neon-blue border-neon-blue/30",
+  linux_audit:      "bg-cyber-500/20 text-cyber-300 border-cyber-500/30",
+  email_gateway:    "bg-neon-purple/20 text-neon-purple border-neon-purple/30",
+  waf:              "bg-neon-amber/20 text-neon-amber border-neon-amber/30",
+  db_monitor:       "bg-neon-green/20 text-neon-green border-neon-green/30",
+  iam:              "bg-neon-amber/20 text-neon-amber border-neon-amber/30",
+  siem:             "bg-slate-400/20 text-slate-300 border-slate-400/30",
+  soar:             "bg-slate-400/20 text-slate-300 border-slate-400/30",
 };
 
 const SOURCE_LABEL: Record<string, string> = {
@@ -44,6 +72,14 @@ const SOURCE_LABEL: Record<string, string> = {
   vpn:        "VPN",
   cloudtrail: "Cloud",   // overridden per-event below: AWS vs Azure
   proxy:      "Proxy",
+  windows_security: "Windows Security",
+  linux_audit:      "Linux auditd",
+  email_gateway:    "Email Gateway",
+  waf:              "WAF",
+  db_monitor:       "Database (DAM)",
+  iam:              "IAM",
+  siem:             "SIEM",
+  soar:             "SOAR",
 };
 
 /** Derive the cloudtrail badge label from vendor field (AWS vs Azure vs generic). */
@@ -74,16 +110,20 @@ function LogSourceCard({ source, vendor }: { source: string; vendor?: string }) 
 
   return (
     <div className="relative inline-block">
-      {/* Hover works with a mouse; onClick is the touch/keyboard fallback (mirrors
-          Term.tsx) — without it this info card was unreachable on touch devices. */}
-      <span
-        className={cn("inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider cursor-help", sourceColor)}
+      {/* A real <button> so keyboard users can reveal the card (focus/Enter),
+          not just mouse hover. onClick is the touch/keyboard toggle. */}
+      <button
+        type="button"
+        aria-expanded={visible}
+        className={cn("inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider cursor-help focus:outline-none focus-visible:ring-1 focus-visible:ring-cyber-500/60", sourceColor)}
         onMouseEnter={() => setVisible(true)}
         onMouseLeave={() => setVisible(false)}
+        onFocus={() => setVisible(true)}
+        onBlur={() => setVisible(false)}
         onClick={(e) => { e.stopPropagation(); setVisible(v => !v); }}
       >
         {sourceLabel}
-      </span>
+      </button>
       {visible && (
         <div
           className="absolute left-0 top-full mt-1.5 z-50 w-72 rounded-lg border border-border/80 bg-[#080d14] p-3 shadow-2xl"
@@ -91,17 +131,17 @@ function LogSourceCard({ source, vendor }: { source: string; vendor?: string }) 
           onMouseLeave={() => setVisible(false)}
         >
           <p className="text-[10px] font-bold text-white mb-2">{guide.label}</p>
-          <p className="text-[9px] text-slate-500 mb-2">{guide.vendors}</p>
+          <p className="text-[9px] text-slate-400 mb-2">{guide.vendors}</p>
           <div className="mb-2">
-            <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-500 mb-1">What it monitors</p>
+            <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 mb-1">What it monitors</p>
             <ul className="space-y-0.5">
               {guide.whatMonitors.map((item, i) => (
-                <li key={i} className="text-[10px] text-slate-300 flex gap-1.5"><span className="text-slate-600 shrink-0">•</span>{item}</li>
+                <li key={i} className="text-[10px] text-slate-300 flex gap-1.5"><span className="text-slate-400 shrink-0">•</span>{item}</li>
               ))}
             </ul>
           </div>
           <div className="mb-2">
-            <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Key fields</p>
+            <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Key fields</p>
             <div className="flex flex-wrap gap-1">
               {guide.keyFields.map(f => (
                 <code key={f} className="rounded bg-slate-800/80 px-1 py-0.5 font-mono text-[9px] text-cyber-300">{f}</code>
@@ -123,80 +163,27 @@ function LogSourceCard({ source, vendor }: { source: string; vendor?: string }) 
 function HeaderTip({ label, tip }: { label: string; tip: string }) {
   const [visible, setVisible] = useState(false);
   return (
-    <div className="relative inline-block"
-      onMouseEnter={() => setVisible(true)}
-      onMouseLeave={() => setVisible(false)}
-      onClick={(e) => { e.stopPropagation(); setVisible(v => !v); }}
-    >
-      <span className="cursor-help border-b border-dashed border-slate-600/60 hover:border-slate-400/60 transition-colors">
+    <div className="relative inline-block">
+      {/* A real <button> so keyboard users can reveal the tip (focus/Enter),
+          not just mouse hover. */}
+      <button
+        type="button"
+        aria-expanded={visible}
+        className="cursor-help border-b border-dashed border-slate-600/60 hover:border-slate-400/60 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-cyber-500/60"
+        onMouseEnter={() => setVisible(true)}
+        onMouseLeave={() => setVisible(false)}
+        onFocus={() => setVisible(true)}
+        onBlur={() => setVisible(false)}
+        onClick={(e) => { e.stopPropagation(); setVisible(v => !v); }}
+      >
         {label}
-      </span>
+      </button>
       {visible && (
         <div className="absolute left-0 top-full mt-1.5 z-50 w-64 rounded-lg border border-border/80 bg-[#080d14] px-3 py-2 shadow-2xl">
           <p className="text-[10px] leading-relaxed text-slate-300">{tip}</p>
         </div>
       )}
     </div>
-  );
-}
-
-// ─── Action result badge (ALLOWED / BLOCKED / QUARANTINED …) ─────────────────
-
-type ActionStatus = "allowed" | "blocked" | "quarantined" | "killed" | "detected" | "denied";
-
-interface ActionInfo { label: string; status: ActionStatus }
-
-function extractAction(event: LiveEvent): ActionInfo | null {
-  const raw = event.raw ?? {};
-  // Try all key conventions used across event files (priority order)
-  const v: string = (
-    (raw["action_result"]       as string | undefined) ??
-    (raw["event.action_result"] as string | undefined) ??
-    (raw["firewall.action"]     as string | undefined) ??
-    (raw["pan.action"]          as string | undefined) ??
-    (raw["fortinet.action"]     as string | undefined) ??
-    (raw["cp.action"]           as string | undefined) ??
-    (raw["event.action"]        as string | undefined) ??
-    ""
-  );
-  if (!v) return null;
-  const lv = v.toLowerCase();
-  if (lv === "allow" || lv === "allowed" || lv === "accept" || lv === "pass")
-    return { label: "ALLOWED",     status: "allowed"     };
-  if (lv === "block" || lv === "blocked" || lv === "deny" || lv === "denied" ||
-      lv === "drop"  || lv === "reset-both" || lv === "reset-client")
-    return { label: "BLOCKED",     status: "blocked"     };
-  if (lv === "quarantined")
-    return { label: "QUARANTINED", status: "quarantined" };
-  if (lv === "process_killed")
-    return { label: "KILLED",       status: "killed"      };
-  if (lv === "detected_not_blocked" || lv === "detect_only" || lv === "audit")
-    return { label: "DETECTED",     status: "detected"    };
-  if (lv.includes("allow") || lv.includes("accept"))  return { label: "ALLOWED",  status: "allowed"   };
-  if (lv.includes("block") || lv.includes("drop") || lv.includes("deny"))
-    return { label: "BLOCKED",  status: "blocked"   };
-  return null;
-}
-
-const ACTION_STYLE: Record<ActionStatus, string> = {
-  allowed:     "bg-neon-green/10   text-neon-green   border-neon-green/25",
-  blocked:     "bg-severity-high/15 text-severity-high border-severity-high/30",
-  quarantined: "bg-neon-amber/10   text-neon-amber   border-neon-amber/25",
-  killed:      "bg-severity-critical/15 text-severity-critical border-severity-critical/30",
-  detected:    "bg-severity-medium/15 text-severity-medium border-severity-medium/30",
-  denied:      "bg-severity-high/15 text-severity-high border-severity-high/30",
-};
-
-function ActionBadge({ event }: { event: LiveEvent }) {
-  const info = extractAction(event);
-  if (!info) return null;
-  return (
-    <span className={cn(
-      "shrink-0 inline-flex items-center rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest",
-      ACTION_STYLE[info.status]
-    )}>
-      {info.label}
-    </span>
   );
 }
 
@@ -207,8 +194,8 @@ function RuleLevelBadge({ level }: { level: number }) {
   // colour must NOT flag "this is the attack" for the student. A subtle tonal
   // step keeps it readable without turning high levels into a red giveaway.
   const tone =
-    level >= 7 ? "bg-slate-500/25 text-slate-100 border-slate-400/40" :
-    level >= 4 ? "bg-slate-600/25 text-slate-200 border-slate-500/40" :
+    level >= 10 ? "bg-slate-500/25 text-slate-100 border-slate-400/40" :
+    level >= 7  ? "bg-slate-600/25 text-slate-200 border-slate-500/40" :
                  "bg-slate-700/30 text-slate-400 border-slate-600/40";
   return (
     <span className={cn("inline-flex h-6 w-6 items-center justify-center rounded border font-mono text-xs font-bold", tone)}>
@@ -282,6 +269,105 @@ function extractActionOutcome(event: LiveEvent): ActionOutcome {
 }
 
 
+// ─── Raw-log view (highlighted + copy) ────────────────────────────────────────
+
+/**
+ * Lightweight, dependency-free field emphasis for the raw log. A real syntax
+ * highlighter would need an external lib (blocked by CSP), so this keys off the
+ * `lang` discriminator rawLogFormat already computes and colours field
+ * names/keys brighter and string values softer with a couple of small regexes.
+ */
+function highlightRawLog(text: string, lang: "xml" | "syslog" | "json"): React.ReactNode[] {
+  const KEY = "text-slate-100 font-semibold"; // field names / keys / tags — brighter
+  const STR = "text-slate-400";               // string values — softer
+  const NUM = "text-cyber-300";               // numbers / literals
+
+  let re: RegExp;
+  if (lang === "json") {
+    // key string (followed by ':') | standalone string value | number | literal
+    re = /("(?:[^"\\]|\\.)*")(\s*:)|("(?:[^"\\]|\\.)*")|(-?\d+(?:\.\d+)?)|\b(true|false|null)\b/g;
+  } else if (lang === "syslog") {
+    // key= (field name before '=') | quoted value
+    re = /([\w.\-]+)(=)|("(?:[^"\\]|\\.)*")/g;
+  } else {
+    // <tag or </tag | attr= | quoted value
+    re = /(<\/?)([A-Za-z][\w.\-:]*)|([\w.\-:]+)(=)|("(?:[^"\\]|\\.)*")/g;
+  }
+
+  const nodes: React.ReactNode[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  let i = 0;
+  const push = (cls: string, s: string) => nodes.push(<span key={i++} className={cls}>{s}</span>);
+
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) nodes.push(<span key={i++}>{text.slice(last, m.index)}</span>);
+    if (lang === "json") {
+      if (m[1] !== undefined)      { push(KEY, m[1]); nodes.push(<span key={i++}>{m[2]}</span>); }
+      else if (m[3] !== undefined) push(STR, m[3]);
+      else if (m[4] !== undefined) push(NUM, m[4]);
+      else if (m[5] !== undefined) push(NUM, m[5]);
+    } else if (lang === "syslog") {
+      if (m[1] !== undefined)      { push(KEY, m[1]); nodes.push(<span key={i++}>{m[2]}</span>); }
+      else if (m[3] !== undefined) push(STR, m[3]);
+    } else {
+      if (m[2] !== undefined)      { nodes.push(<span key={i++}>{m[1]}</span>); push(KEY, m[2]); }
+      else if (m[3] !== undefined) { push(KEY, m[3]); nodes.push(<span key={i++}>{m[4]}</span>); }
+      else if (m[5] !== undefined) push(STR, m[5]);
+    }
+    last = re.lastIndex;
+  }
+  if (last < text.length) nodes.push(<span key={i++}>{text.slice(last)}</span>);
+  return nodes;
+}
+
+function RawLogView({ event, native }: { event: LiveEvent; native?: NativeView | null }) {
+  const [copied, setCopied] = useState(false);
+  // Native format (docs/log-schemas): the record exactly as the product emits it —
+  // the wire line for text-native sources, the JSON object for JSON-native ones.
+  const rawLog = native
+    ? native.log.rawLine
+      ? { format: `${native.product} — native ${native.log.format.toUpperCase()}`, text: native.log.rawLine, lang: (native.log.format === "xml" ? "xml" : "syslog") as "xml" | "syslog" }
+      : { format: `${native.product} — native JSON`, text: JSON.stringify(native.log.record, null, 2), lang: "json" as const }
+    : toRawLog(event);
+
+  function handleCopy() {
+    navigator.clipboard?.writeText(rawLog.text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="inline-flex items-center gap-1.5 rounded border border-border/60 bg-[#0d1520] px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+          <BookOpen className="h-3 w-3 text-slate-400" />
+          {rawLog.format}
+        </span>
+        <button
+          onClick={handleCopy}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded border px-2 py-1 text-[10px] font-semibold transition-colors",
+            copied
+              ? "border-neon-green/50 text-neon-green"
+              : "border-border/60 text-slate-400 hover:text-slate-200 hover:border-slate-500"
+          )}
+        >
+          {copied
+            ? <><CheckCircle2 className="h-3 w-3" /> Copied ✓</>
+            : <><Copy className="h-3 w-3" /> Copy</>}
+        </button>
+      </div>
+      <pre className="max-h-72 overflow-auto rounded border border-border bg-[#0a0f18] p-3 font-mono text-[11px] leading-relaxed text-slate-300 whitespace-pre">
+        {highlightRawLog(rawLog.text, rawLog.lang)}
+      </pre>
+      <p className="text-[10px] leading-relaxed text-slate-400">
+        This is how <span className="text-slate-400">{rawLog.format.split(",")[0]}</span> arrives in the SIEM before parsing — the same bytes a real analyst pivots on. The Analysis tab parses these fields into a readable view.
+      </p>
+    </div>
+  );
+}
+
 // ─── Detail panel ─────────────────────────────────────────────────────────────
 
 const SEVERITY_COLORS: Record<string, string> = {
@@ -292,35 +378,56 @@ const SEVERITY_COLORS: Record<string, string> = {
   informational: "text-slate-400",
 };
 
-const ADMIN_EVENT_TYPES = new Set([
-  "group_modify", "account_modify", "account_create", "account_delete",
-  "privilege_escalation", "role_assignment", "account_lockout",
-]);
-
-function DetailPanel({
-  event,
-  onThreatQuery,
-  onXp,
-}: {
+type DetailPanelProps = {
   event: LiveEvent;
   onThreatQuery: (q: ThreatQuery) => void;
   onXp?: (xp: number) => void;
-}) {
-  const [showRawJson, setShowRawJson] = useState(false);
-  const [itVerifyState, setItVerifyState] = useState<"idle" | "verifying" | "done">("idle");
+  onPivot?: (field: "user" | "host" | "ip", value: string) => void;
+  onAddIoc?: (value: string, type: string) => void;
+  onEscalate?: (event: LiveEvent) => void;
+};
 
-  const hasItVerify = event.it_verify_result !== undefined || ADMIN_EVENT_TYPES.has(event.event_type);
+/** Panel body WITHOUT a table-cell wrapper — place this inside a <div> for any
+ *  standalone use (e.g. Tier-2/Tier-3 "open the flagged log"). Inside the feed
+ *  table, use <DetailPanel> (the <td> wrapper below) instead. */
+export function DetailPanelBody({
+  event,
+  onThreatQuery,
+  onPivot,
+  onAddIoc,
+  onEscalate,
+}: DetailPanelProps) {
+  const [showRawJson, setShowRawJson] = useState(false);
+  const [itVerifyState, setItVerifyState] = useState<"idle" | "verifying" | "done" | "failed">("idle");
+  // Native-format view of this log (null → legacy SIEM-style fields below).
+  const nativeView = useNativeLog(event);
+
+  // "Verify with IT" (src/lib/sim/itVerify): every privileged / account change and every
+  // remote-access tool gets the call. The answer follows the log's ground truth: on the
+  // dashboard it is computed from the full event; in a team exercise the log carries no answer
+  // key, so the team page provides a verifier that asks the server.
+  const teamVerify = useContext(ItVerifyContext);
+  const escalateCopy = useContext(EscalateCopyContext);
+  const edrPivot = useContext(EdrPivotContext);
+  const canEdrPivot = !!edrPivot && (event.source === "edr" || event.source === "sysmon") && edrPivot.canOpen(event);
+  const hasItVerify = teamVerify ? !!event.it_check : itVerifyApplies(event);
+  const tool = hasItVerify ? remoteToolOf(event) : null;
+  const [itAnswer, setItAnswer] = useState<ItVerifyAnswer | null>(null);
+  const verifyResult = itAnswer?.result;
 
   function handleItVerify(e: React.MouseEvent) {
     e.stopPropagation();
-    if (!event.it_verify_result) return; // no predetermined result — shouldn't happen
     setItVerifyState("verifying");
-    setTimeout(() => setItVerifyState("done"), 1400 + Math.random() * 600);
+    const ring = new Promise(r => setTimeout(r, 1400 + Math.random() * 600));
+    const ask: Promise<ItVerifyAnswer | null> = teamVerify
+      ? teamVerify(event.id).catch(() => null)
+      : Promise.resolve(itVerifyAnswer(event));
+    void Promise.all([ask, ring]).then(([a]) => {
+      setItAnswer(a);
+      setItVerifyState(a ? "done" : "failed");
+    });
   }
 
-  const sourceLabel = event.source === "cloudtrail"
-    ? cloudLabel(event.vendor)
-    : (SOURCE_LABEL[event.source] ?? event.source.toUpperCase());
   const severityColor = SEVERITY_COLORS[event.severity ?? ""] ?? "text-slate-300";
   const actionOutcome = extractActionOutcome(event);
 
@@ -336,7 +443,10 @@ function DetailPanel({
     : "text-neon-green"
     : undefined;
 
-  const fullDescription = event.description ?? event.displayDescription;
+  // The factual line (describeEvent): on an attack event the authored description states
+  // the conclusion the analyst is meant to reach (L-05) — the row already hides it, and
+  // the expanded panel must not hand it over either. Non-attack events show it as before.
+  const fullDescription = event.displayDescription ?? event.description;
   const sha256 = event.file?.sha256 ?? (event.raw?.["file.hash.sha256"] as string | undefined);
 
   const basicInfo: [string, string, string?][] = [
@@ -349,10 +459,10 @@ function DetailPanel({
   ];
 
   const ecsCore: [string, string][] = [
-    ["event.id",       event.id],
+    ["event.id",       opaqueEventId(event.id)],
     ["event.provider", event.vendor ?? event.source.toUpperCase()],
     ["event.type",     event.event_type.replace(/_/g, " ")],
-    ...(event.mitre_technique ? [["threat.technique.id", event.mitre_technique] as [string, string]] : []),
+    ...(Object.entries(ecsTechnique(event.mitre_technique)) as [string, string][]),
     ...(event.user_email ? [["user.email",  event.user_email]           as [string, string]] : []),
     ...(event.hostname   ? [["host.name",   event.hostname]             as [string, string]] : []),
     ...(event.src_ip   ? [["source.ip",         event.src_ip]           as [string, string]] : []),
@@ -387,13 +497,49 @@ function DetailPanel({
     .filter(([k, v]) => !ecsCoreKeys.has(k) && typeof v === "boolean")
     .map(([k, v]) => [k, v ? "true" : "false"]);
 
-  const detailedFields: [string, string][] = [...ecsCore, ...rawFields, ...rawBool];
+  // No schema mixing: with a native view the table shows ONLY the product's own
+  // fields (no ECS helper rows), exactly as its record carries them.
+  const detailedFields: [string, string][] = nativeView ? nativeRows(nativeView.log.record) : [...ecsCore, ...rawFields, ...rawBool];
+  const NATIVE_DOMAIN_KEY = /(domain|hostname|host|query_?name|qname|url|fqdn|server_?name|appdomain)$/i;
 
   return (
-    <td colSpan={7} className="bg-[#080d14] p-0">
+    <div className="bg-[#080d14]">
       {/* Log reading tour — fires once on first-ever event expansion */}
       <LogReadingTour />
       <div className="border-t border-border/50 px-5 py-4 space-y-3">
+        {/* Team exercise: an endpoint log whose host has EDR telemetry opens straight in the EDR console. */}
+        {canEdrPivot && (
+          <button
+            type="button"
+            onClick={e => { e.stopPropagation(); edrPivot!.open(event); }}
+            className="flex w-full items-center justify-between gap-3 rounded-lg border border-cyber-500/50 bg-cyber-500/10 px-4 py-2.5 text-left transition-colors hover:bg-cyber-500/20"
+          >
+            <span className="flex flex-col">
+              <span className="text-sm font-semibold text-cyber-200">Investigate this host in EDR</span>
+              <span className="text-[11px] text-cyber-300/70">Process tree, network and file activity on {event.hostname}</span>
+            </span>
+            <Cpu className="h-4 w-4 shrink-0 text-cyber-300" aria-hidden />
+          </button>
+        )}
+        {/* Escalate-this-log CTA — Tier-1 only (parent passes onEscalate). Opens the
+            structured escalation report pre-loaded with THIS log + its indicators. */}
+        {onEscalate && (
+          <button
+            onClick={e => { e.stopPropagation(); onEscalate(event); }}
+            className="flex w-full items-center justify-between gap-3 rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-2.5 text-left transition-colors hover:bg-amber-500/20"
+          >
+            <span className="flex items-center gap-2.5">
+              <span className="text-lg leading-none">🚩</span>
+              <span className="flex flex-col">
+                <span className="text-sm font-semibold text-amber-200">{escalateCopy?.title ?? "Escalate this log to Tier-2"}</span>
+                <span className="text-[11px] text-amber-300/70">{escalateCopy?.hint ?? "Flag it and write a short report — case info + indicators"}</span>
+              </span>
+            </span>
+            <span className="shrink-0 rounded-md border border-amber-400/60 bg-amber-400/20 px-3 py-1 text-xs font-semibold text-amber-100">
+              Open report →
+            </span>
+          </button>
+        )}
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -401,14 +547,18 @@ function DetailPanel({
             <span className="text-sm font-semibold text-white">Log Analysis</span>
           </div>
           {/* Analysis ↔ Raw log segmented control — Raw shows the authentic vendor wire format */}
-          <div className="inline-flex items-center rounded-md border border-border/70 bg-[#0a0f18] p-0.5 text-[11px] font-semibold">
+          <div className="inline-flex items-center rounded-md border border-border/70 bg-[#0a0f18] p-0.5 text-[11px] font-semibold" role="group" aria-label="Log view">
             <button
+              type="button"
+              aria-pressed={!showRawJson}
               onClick={() => setShowRawJson(false)}
               className={cn("rounded px-2.5 py-1 transition-colors", !showRawJson ? "bg-cyber-500/20 text-cyber-200" : "text-slate-400 hover:text-slate-200")}
             >
               Analysis
             </button>
             <button
+              type="button"
+              aria-pressed={showRawJson}
               onClick={() => setShowRawJson(true)}
               className={cn("rounded px-2.5 py-1 transition-colors", showRawJson ? "bg-cyber-500/20 text-cyber-200" : "text-slate-400 hover:text-slate-200")}
             >
@@ -418,13 +568,15 @@ function DetailPanel({
         </div>
 
         {/* IT Verification Widget — shown for admin/privileged action events */}
-        {!showRawJson && hasItVerify && event.it_verify_result && (
+        {!showRawJson && hasItVerify && (
           <div className="rounded border border-border/60 bg-[#0d1520] px-4 py-3 space-y-2.5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">IT Verification</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">IT Verification</p>
             {itVerifyState === "idle" && (
               <>
                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                  This event involves a privileged administrative action. Verify with the IT Help Desk whether a change ticket was raised for this activity.
+                  {tool
+                    ? `This log shows ${tool}, a remote-access tool. Ask the IT Help Desk whether it is approved here and whether anyone requested it.`
+                    : "This event involves a privileged administrative action. Verify with the IT Help Desk whether a change ticket was raised for this activity."}
                 </p>
                 <button
                   onClick={handleItVerify}
@@ -441,28 +593,30 @@ function DetailPanel({
                 Contacting IT Help Desk&hellip;
               </div>
             )}
-            {itVerifyState === "done" && event.it_verify_result === "confirmed" && (
+            {itVerifyState === "failed" && (
+              <div className="flex flex-wrap items-center gap-2 py-1 text-[11px] text-slate-400">
+                Couldn&apos;t reach the IT Help Desk.
+                <button type="button" onClick={handleItVerify} className="rounded border border-border px-2 py-0.5 text-[11px] text-slate-300 hover:bg-white/5">Call again</button>
+              </div>
+            )}
+            {itVerifyState === "done" && verifyResult === "confirmed" && (
               <div className="rounded border border-neon-green/40 bg-neon-green/5 px-3 py-2.5">
                 <div className="flex items-start gap-2.5">
                   <CheckCircle2 className="h-4 w-4 text-neon-green mt-0.5 shrink-0" />
                   <div>
-                    <p className="text-xs font-semibold text-neon-green mb-1">Authorised Change Confirmed</p>
-                    <p className="text-[11px] leading-relaxed text-slate-300">
-                      {event.it_verify_message ?? "IT confirmed a valid change ticket exists for this action. This is expected activity — classify as benign."}
-                    </p>
+                    <p className="text-xs font-semibold text-neon-green mb-1">{tool ? "IT: approved" : "IT: authorised"}</p>
+                    <p className="text-[11px] leading-relaxed text-slate-300">{itAnswer?.message}</p>
                   </div>
                 </div>
               </div>
             )}
-            {itVerifyState === "done" && event.it_verify_result === "unverified" && (
+            {itVerifyState === "done" && verifyResult === "unverified" && (
               <div className="rounded border border-severity-critical/40 bg-severity-critical/5 px-3 py-2.5">
                 <div className="flex items-start gap-2.5">
                   <AlertTriangle className="h-4 w-4 text-severity-critical mt-0.5 shrink-0" />
                   <div>
-                    <p className="text-xs font-semibold text-severity-critical mb-1">Unverified — No Ticket Found</p>
-                    <p className="text-[11px] leading-relaxed text-slate-300">
-                      {event.it_verify_message ?? "IT has no record of a change request for this action. Treat as suspicious and escalate for further investigation."}
-                    </p>
+                    <p className="text-xs font-semibold text-severity-critical mb-1">{tool ? "IT: not an approved tool" : "IT: no authorisation on file"}</p>
+                    <p className="text-[11px] leading-relaxed text-slate-300">{itAnswer?.message}</p>
                   </div>
                 </div>
               </div>
@@ -471,48 +625,23 @@ function DetailPanel({
         )}
 
         {showRawJson ? (
-          (() => {
-            const rawLog = toRawLog(event);
-            return (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="inline-flex items-center gap-1.5 rounded border border-border/60 bg-[#0d1520] px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                    <BookOpen className="h-3 w-3 text-slate-500" />
-                    {rawLog.format}
-                  </span>
-                  <button
-                    onClick={() => navigator.clipboard?.writeText(rawLog.text)}
-                    className="inline-flex items-center gap-1.5 rounded border border-border/60 px-2 py-1 text-[10px] font-semibold text-slate-400 hover:text-slate-200 hover:border-slate-500 transition-colors"
-                  >
-                    <Copy className="h-3 w-3" />
-                    Copy
-                  </button>
-                </div>
-                <pre className="max-h-72 overflow-auto rounded border border-border bg-[#0a0f18] p-3 font-mono text-[10px] leading-relaxed text-slate-300 whitespace-pre">
-                  {rawLog.text}
-                </pre>
-                <p className="text-[10px] leading-relaxed text-slate-500">
-                  This is how <span className="text-slate-400">{rawLog.format.split(",")[0]}</span> arrives in the SIEM before parsing — the same bytes a real analyst pivots on. The Analysis tab parses these fields into a readable view.
-                </p>
-              </div>
-            );
-          })()
+          <RawLogView event={event} native={nativeView} />
         ) : (
           <>
             {/* Basic Info */}
             <div id="ef-detail-basic-info" className="rounded border border-border/60 bg-[#0d1520] px-4 py-3">
-              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">Basic Information</p>
+              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">Basic Information</p>
               <div className="space-y-2">
                 {fullDescription && (
-                  <div className="flex gap-3 pb-2 mb-1 border-b border-border/40">
-                    <span className="w-36 shrink-0 text-[11px] text-slate-500">Description</span>
-                    <span className="text-[11px] leading-relaxed text-slate-200 break-words">{fullDescription}</span>
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 pb-2 mb-1 border-b border-border/40">
+                    <span className="w-36 shrink-0 text-[11px] text-slate-400">Description</span>
+                    <span className="min-w-[12rem] flex-1 text-[11px] leading-relaxed text-slate-200 break-words">{fullDescription}</span>
                   </div>
                 )}
                 {/* SHA256 — opens internal panel */}
                 {sha256 && /^[a-f0-9]{64}$/i.test(sha256) && (
                   <div className="flex gap-3 pb-2 mb-1 border-b border-border/40 items-start">
-                    <span className="w-36 shrink-0 text-[11px] text-slate-500">File Hash</span>
+                    <span className="w-36 shrink-0 text-[11px] text-slate-400">File Hash</span>
                     <div className="flex flex-col gap-1.5 min-w-0">
                       <span className="font-mono text-[10px] text-neon-amber break-all">{sha256}</span>
                       <button
@@ -525,35 +654,82 @@ function DetailPanel({
                     </div>
                   </div>
                 )}
-                {basicInfo.map(([label, value, colorClass]) => (
-                  <div key={label} className="flex gap-3">
-                    <span className="w-36 shrink-0 text-[11px] text-slate-500">{label}</span>
-                    <span className={cn("font-mono text-[11px] text-slate-200 break-all", colorClass)}>{value}</span>
+                {basicInfo.map(([label, value, colorClass]) => {
+                  // G-04 click-to-pivot: for the identity rows, offer a chip that
+                  // filters the whole feed to this host/user/IP (team feed only —
+                  // single-player omits onPivot, so no chip renders).
+                  const pivotField: "user" | "host" | "ip" | null =
+                    label === "Username" ? "user" : label === "Hostname" ? "host" : label === "IP Address" ? "ip" : null;
+                  const canPivot = !!onPivot && !!pivotField && !!value && value !== "—";
+                  // T1-5: add this identity value to the Tier-1 escalation report as an IOC.
+                  const iocType = label === "Username" ? "user" : label === "Hostname" ? "host" : label === "IP Address" ? "ip" : null;
+                  const canIoc = !!onAddIoc && !!iocType && !!value && value !== "—";
+                  return (
+                    // Wraps instead of squeezing: in a narrow panel (the team T2 inbox) the
+                    // value drops below its label at full width rather than breaking into
+                    // two-character lines.
+                    <div key={label} className="flex flex-wrap gap-x-3 gap-y-0.5 items-center">
+                      <span className="w-36 shrink-0 text-[11px] text-slate-400">{label}</span>
+                      <span className={cn("min-w-[12rem] flex-1 font-mono text-[11px] text-slate-200 [overflow-wrap:anywhere]", colorClass)}>{value}</span>
+                      <span className="ml-auto shrink-0 flex gap-1.5">
+                        {canIoc && (
+                          <button
+                            onClick={e => { e.stopPropagation(); onAddIoc!(value, iocType!); }}
+                            title={`Add ${value} to the escalation as an IOC`}
+                            className="rounded border border-neon-green/40 bg-neon-green/10 px-1.5 py-0.5 text-[10px] font-semibold text-neon-green hover:bg-neon-green/20"
+                          >＋ IOC</button>
+                        )}
+                        {canPivot && (
+                          <button
+                            type="button"
+                            onClick={e => { e.stopPropagation(); onPivot!(pivotField!, value); }}
+                            title={`Filter the feed to ${value}`}
+                            aria-label={`Pivot: filter the feed to ${value}`}
+                            className="rounded border border-cyber-500/40 bg-cyber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-cyber-300 hover:bg-cyber-500/20"
+                          >⤢ pivot</button>
+                        )}
+                      </span>
+                    </div>
+                  );
+                })}
+                {/* MITRE ATT&CK mapping lives here in the expanded panel — the
+                    student must open the row to see the technique (it is
+                    deliberately absent from the always-visible row). */}
+                {event.mitre_technique && mitreVisible(event) && (
+                  <div className="flex gap-3 items-center pt-1">
+                    <span className="w-36 shrink-0 text-[11px] text-slate-400">MITRE ATT&CK</span>
+                    <MitreBadge technique={event.mitre_technique} />
                   </div>
-                ))}
+                )}
               </div>
             </div>
 
-            {/* ── Email Header Investigator ─────────────────────────── */}
-            <EmailHeaderViewer event={event} onXp={onXp} />
+            {/* Email header investigation was intentionally removed — that
+                exercise was not well enough characterised to grade fairly, so
+                analysts no longer investigate raw mail headers here. */}
 
             {/* Detailed Log Data */}
             <div id="ef-detail-log-data" className="rounded border border-border/60 bg-[#0d1520] px-4 py-3">
-              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">Detailed Log Data</p>
+              <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400">
+                Detailed Log Data{nativeView ? <span className="ml-2 normal-case tracking-normal text-slate-500">— {nativeView.product}, native fields</span> : null}
+              </p>
               <div className="space-y-1.5">
                 {(() => {
                   return detailedFields.map(([k, v]) => {
-                  const showHash   = isSha256Field(k, v);
-                  const showIp     = isIpCheckField(k, v);
-                  const showDomain = isDomainCheckField(k, v);
+                  const leaf       = k.split(".").pop() ?? k;
+                  const showHash   = isSha256Field(nativeView ? leaf.replace(/\[\d+\]$/, "") : k, v) || (!!nativeView && /^[a-f0-9]{64}$/i.test(v) && /sha|hash|digest/i.test(k));
+                  const showIp     = nativeView ? isPublicIp(v) : isIpCheckField(k, v);
+                  const showDomain = nativeView
+                    ? NATIVE_DOMAIN_KEY.test(leaf.replace(/\[\d+\]$/, "")) && /^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(v.replace(/^https?:\/\//, "").split("/")[0]) && !isPublicIp(v)
+                    : isDomainCheckField(k, v);
                   const hasBtn     = showHash || showIp || showDomain;
 
                   return (
-                    <div key={k} className={cn("flex gap-3", hasBtn ? "items-start py-0.5" : "items-baseline")}>
-                      <span className="w-64 shrink-0 font-mono text-[10px] text-slate-500">{k}</span>
-                      <div className="flex flex-col gap-1.5 min-w-0">
+                    <div key={k} className={cn("flex flex-wrap gap-x-3 gap-y-0.5", hasBtn ? "items-start py-0.5" : "items-baseline")}>
+                      <span className="w-64 max-w-full shrink-0 font-mono text-[10px] text-slate-400 [overflow-wrap:anywhere]">{k}</span>
+                      <div className="flex min-w-[12rem] flex-1 flex-col gap-1.5">
                         <span className={cn(
-                          "font-mono text-[10px] break-all",
+                          "font-mono text-[10px] [overflow-wrap:anywhere]",
                           showHash ? "text-neon-amber" : showIp ? "text-neon-blue" : "text-slate-300"
                         )}>{v}</span>
 
@@ -588,6 +764,17 @@ function DetailPanel({
                             <Shield className="h-2.5 w-2.5" /> Check Domain · Threat Intel
                           </button>
                         )}
+
+                        {/* ＋IOC — add this hash/IP/domain straight to the Tier-1 escalation
+                            report (team feed only), so it isn't hand-retyped. */}
+                        {onAddIoc && hasBtn && (
+                          <button
+                            type="button"
+                            aria-label={`Add ${v} as an IOC`}
+                            onClick={e => { e.stopPropagation(); onAddIoc!(v, showHash ? "sha256" : showIp ? "ip" : "domain"); }}
+                            className="inline-flex w-fit items-center gap-1 rounded border border-cyber-500/50 bg-cyber-500/10 px-2 py-0.5 text-[9px] font-bold text-cyber-300 hover:bg-cyber-500/20 transition"
+                          >＋ IOC</button>
+                        )}
                       </div>
                     </div>
                   );
@@ -600,66 +787,87 @@ function DetailPanel({
 
 
       </div>
-    </td>
+    </div>
   );
+}
+
+/** Table-cell wrapper — the feed renders the expanded row as a <tr><td colSpan>. */
+export function DetailPanel(props: DetailPanelProps) {
+  return <td colSpan={7} className="bg-[#080d14] p-0"><DetailPanelBody {...props} /></td>;
 }
 
 
 // ─── MITRE Technique Badge + Slideout ─────────────────────────────────────────
 
 function MitreSlideout({ techniqueId, onClose }: { techniqueId: string; onClose: () => void }) {
-  const technique = techniqueById(techniqueId);
+  // The built-in library is a curated subset: a sub-technique missing from it falls back to its
+  // parent (T1055.001 → T1055), and an ID missing altogether still opens, with the official link.
+  // (A badge whose technique wasn't in the library used to do nothing at all.)
+  const exact = techniqueById(techniqueId);
+  const parentId = techniqueId.split(".")[0];
+  const parent = !exact && parentId !== techniqueId ? techniqueById(parentId) : undefined;
+  const technique = exact ?? parent;
   const tactic = technique ? tacticById(technique.tactic) : undefined;
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [onClose]);
+  // a11y: modal slide-out — focus trapped inside, Escape closes, focus returns.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(true, dialogRef, { onEscape: onClose });
 
-  if (!technique) return null;
+  if (typeof document === "undefined") return null;
 
-  return (
+  // Portalled to <body>: rendered in place, the drawer lived inside the team page's sticky
+  // feed column — its own stacking context — so the role column painted OVER it and the
+  // panel showed half-hidden behind the cards (Tal, 2026-10-08).
+  return createPortal(
     <>
       <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/50 z-40"
+        className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-[1px]"
         onClick={onClose}
       />
       <motion.div
+        ref={dialogRef}
+        role="dialog" aria-modal="true" aria-labelledby="mitre-slideout-title" tabIndex={-1}
         initial={{ x: 440 }} animate={{ x: 0 }} exit={{ x: 440 }}
         transition={{ type: "spring", damping: 28, stiffness: 260 }}
-        className="fixed right-0 top-0 h-screen w-[420px] bg-[#080d14] border-l border-border/80 z-50 shadow-2xl overflow-y-auto"
+        className="fixed right-0 top-0 z-[71] h-screen w-full overflow-y-auto overscroll-contain border-l border-border/80 bg-[#080d14] shadow-2xl sm:w-[440px]"
       >
-        <div className="px-5 py-4 border-b border-border/60 flex items-start justify-between gap-3">
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-border/60 bg-[#080d14]/95 px-5 py-4 backdrop-blur">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className="rounded border border-neon-purple/50 bg-neon-purple/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-neon-purple">{technique.id}</span>
-              {tactic && <span className="text-[10px] text-slate-500">{tactic.name}</span>}
+              <span className="rounded border border-neon-purple/50 bg-neon-purple/10 px-1.5 py-0.5 font-mono text-[11px] font-bold text-neon-purple">{techniqueId}</span>
+              {tactic && <span className="text-[10px] text-slate-400">{tactic.name}</span>}
             </div>
-            <h3 className="text-sm font-semibold text-white">{technique.name}</h3>
+            <h3 id="mitre-slideout-title" className="text-base font-semibold text-white">{exact?.name ?? (parent ? `${parent.name}: sub-technique` : "MITRE ATT&CK technique")}</h3>
+            {parent && <p className="mt-1 text-[11px] text-slate-400">Sub-technique of {parent.id} {parent.name}. The guidance below is for the parent technique.</p>}
           </div>
-          <button onClick={onClose} className="mt-0.5 shrink-0 rounded p-1 text-slate-400 hover:bg-slate-700/50 hover:text-white">
+          <button type="button" onClick={onClose} aria-label="Close MITRE details" className="mt-0.5 shrink-0 rounded p-1 text-slate-400 hover:bg-slate-700/50 hover:text-white">
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="px-5 py-4 space-y-4">
+        <div className="px-5 py-4 space-y-5">
+          {!technique && (
+            <p className="text-xs leading-relaxed text-slate-300">
+              This technique isn&apos;t in the platform&apos;s built-in ATT&amp;CK library yet. Open it on MITRE ATT&amp;CK for the full description, detection guidance and mitigations.
+            </p>
+          )}
+          {technique && <>
           {/* What attacker does */}
           {technique.whatAttackerDoes && (
             <div>
-              <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-slate-500 mb-2">What the attacker does</p>
-              <p className="text-[11px] leading-relaxed text-slate-200">{technique.whatAttackerDoes}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 mb-2">What the attacker does</p>
+              <p className="text-xs leading-relaxed text-slate-200">{technique.whatAttackerDoes}</p>
             </div>
           )}
 
           {/* Log indicators */}
           {technique.logIndicators && technique.logIndicators.length > 0 && (
             <div>
-              <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-slate-500 mb-2">What to look for in logs</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 mb-2">What to look for in logs</p>
               <ul className="space-y-1.5">
                 {technique.logIndicators.map((ind, i) => (
-                  <li key={i} className="flex items-start gap-2 text-[11px] text-slate-300">
+                  <li key={i} className="flex items-start gap-2 text-xs text-slate-300">
                     <span className="mt-0.5 shrink-0 text-neon-green">•</span>
                     <span>{ind}</span>
                   </li>
@@ -672,31 +880,33 @@ function MitreSlideout({ techniqueId, onClose }: { techniqueId: string; onClose:
           {technique.detection_hint && (
             <div className="rounded border border-neon-amber/30 bg-neon-amber/5 px-3 py-2.5">
               <p className="text-[9px] font-semibold text-neon-amber mb-1">Detection tip</p>
-              <p className="text-[10px] leading-relaxed text-slate-300">{technique.detection_hint}</p>
+              <p className="text-[11px] leading-relaxed text-slate-300">{technique.detection_hint}</p>
             </div>
           )}
 
           {/* Data sources */}
           <div>
-            <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-slate-500 mb-1.5">Data sources</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-400 mb-1.5">Data sources</p>
             <div className="flex flex-wrap gap-1">
-              {technique.data_sources.map(ds => (
+              {technique.data_sources.map((ds: string) => (
                 <span key={ds} className="rounded border border-slate-600/50 bg-slate-800/50 px-2 py-0.5 text-[9px] text-slate-400">{ds}</span>
               ))}
             </div>
           </div>
 
+          </>}
           {/* External link */}
           <a
             href={`https://attack.mitre.org/techniques/${techniqueId.replace(".", "/")}/`}
             target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-[10px] text-cyber-400 hover:text-cyber-300 transition"
+            className="inline-flex items-center gap-1.5 rounded border border-cyber-500/40 bg-cyber-500/10 px-2.5 py-1.5 text-xs text-cyber-300 transition hover:bg-cyber-500/20"
           >
             View on MITRE ATT&CK <ExternalLink className="h-3 w-3" />
           </a>
         </div>
       </motion.div>
-    </>
+    </>,
+    document.body,
   );
 }
 
@@ -727,13 +937,15 @@ function SocMethodologyBanner() {
     { num: "1", label: "Source", detail: "Which tool logged this? What does that tool monitor? (Hover the SOURCE badge)" },
     { num: "2", label: "Actors", detail: "Who is the user? What machine? What process? What started it?" },
     { num: "3", label: "Behavior", detail: "Is this normal for this context? Would a legitimate user do exactly this?" },
-    { num: "4", label: "Pattern", detail: "Does this match a known attack? Check the MITRE badge if present." },
+    { num: "4", label: "Pattern", detail: "Does this match a known attack? Expand the row to see its MITRE ATT&CK mapping." },
     { num: "5", label: "Classify", detail: "Benign = expected normal activity. Suspicious = unusual but inconclusive. Malicious = clear attack indicator." },
   ];
 
   return (
     <div className="border-b border-border/40 bg-[#06101a]">
       <button
+        type="button"
+        aria-expanded={expanded}
         onClick={() => setExpanded(v => !v)}
         className="w-full flex items-center gap-3 px-4 py-2 hover:bg-white/[0.02] transition text-left"
       >
@@ -741,13 +953,13 @@ function SocMethodologyBanner() {
         <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-cyber-500">SOC Analysis Guide</span>
         <div className="flex items-center gap-2 ml-2 flex-1">
           {!expanded && steps.map(s => (
-            <span key={s.num} className="hidden sm:flex items-center gap-1 text-[9px] text-slate-600">
-              <span className="font-bold text-slate-500">{s.num}.</span> {s.label}
-              {s.num !== "5" && <span className="text-slate-700 ml-1">→</span>}
+            <span key={s.num} className="hidden sm:flex items-center gap-1 text-[9px] text-slate-400">
+              <span className="font-bold text-slate-400">{s.num}.</span> {s.label}
+              {s.num !== "5" && <span className="text-slate-500 ml-1">→</span>}
             </span>
           ))}
         </div>
-        <span className="text-[9px] text-slate-600 ml-auto shrink-0">{expanded ? "▲ hide" : "▼ show steps"}</span>
+        <span className="text-[9px] text-slate-400 ml-auto shrink-0">{expanded ? "▲ hide" : "▼ show steps"}</span>
       </button>
 
       {expanded && (
@@ -758,7 +970,7 @@ function SocMethodologyBanner() {
                 <span className="flex h-4 w-4 items-center justify-center rounded-full bg-cyber-500/15 text-[9px] font-bold text-cyber-400">{s.num}</span>
                 <span className="text-[10px] font-bold text-white">{s.label}</span>
               </div>
-              <p className="text-[9px] leading-relaxed text-slate-500">{s.detail}</p>
+              <p className="text-[9px] leading-relaxed text-slate-400">{s.detail}</p>
             </div>
           ))}
         </div>
@@ -770,23 +982,45 @@ function SocMethodologyBanner() {
 // ─── Event row ────────────────────────────────────────────────────────────────
 
 const EventRow = memo(function EventRow({
-  event, isNew, onThreatQuery, onXp, onRowOpened,
+  event, isNew, onThreatQuery, onXp, onRowOpened, onPivot, onAddIoc, onEscalate, rowStatus,
 }: {
   event: LiveEvent;
   isNew: boolean;
   onThreatQuery: (q: ThreatQuery) => void;
   onXp?: (xp: number) => void;
-  onRowOpened?: () => void;
+  onRowOpened?: (eventId?: string, dwellMs?: number) => void;
+  onPivot?: (field: "user" | "host" | "ip", value: string) => void;
+  onAddIoc?: (value: string, type: string) => void;
+  onEscalate?: (event: LiveEvent) => void;
+  rowStatus?: (id?: string) => RowStatus | null;
 }) {
   const [expanded, setExpanded] = useState(false);
+  // Timestamp of the current open, so dwell can be measured expand→collapse.
+  const openedAtRef = useRef<number | null>(null);
+
+  function toggleExpanded() {
+    // Side effect lives in the handler, not inside setExpanded's updater —
+    // React (Strict Mode) may invoke an updater function twice to check for
+    // impurities, which would double-count this if it lived there.
+    if (!expanded) {
+      // Transition INTO "opened": record the open (dwell not yet known → 0) so
+      // MTTA / "events opened" can be counted even if the row is never closed.
+      openedAtRef.current = Date.now();
+      onRowOpened?.(event.id, 0);
+    } else {
+      // Transition INTO "closed": report the dwell for this event so the report
+      // can measure investigation depth. Same event id → caller dedups/maxes.
+      const dwellMs = openedAtRef.current != null ? Date.now() - openedAtRef.current : 0;
+      openedAtRef.current = null;
+      onRowOpened?.(event.id, dwellMs);
+    }
+    setExpanded(v => !v);
+  }
 
   const timeStr = event.ts
     ? new Date(event.ts).toLocaleTimeString("en-GB", { hour12: false })
     : "—";
-  const sourceLabel = event.source === "cloudtrail"
-    ? cloudLabel(event.vendor)
-    : (SOURCE_LABEL[event.source] ?? event.source.toUpperCase());
-  const sourceColor = SOURCE_COLORS[event.source] ?? SOURCE_COLORS.proxy;
+  const detailId = `ef-detail-${event.id}`;
 
   return (
     <>
@@ -795,27 +1029,32 @@ const EventRow = memo(function EventRow({
         initial={isNew ? { opacity: 0, y: -8 } : false}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.25 }}
-        onClick={() => {
-          // Side effect lives in the handler, not inside setExpanded's updater —
-          // React (Strict Mode) may invoke an updater function twice to check
-          // for impurities, which would double-count this if it lived there.
-          if (!expanded) onRowOpened?.(); // only count transitions into "opened", not collapses
-          setExpanded(v => !v);
-        }}
+        // Mouse users click anywhere on the row; keyboard / AT users get the real
+        // <button> in the first cell (the <tr> keeps its row semantics).
+        onClick={toggleExpanded}
         className={cn(
           "group cursor-pointer border-t border-border/60 transition-colors",
           expanded ? "bg-bg-hover" : "hover:bg-bg-hover/60",
         )}
       >
         <td className="w-6 pl-3">
-          <ChevronRight className={cn("h-3 w-3 text-slate-500 transition-transform", expanded && "rotate-90")} />
+          <button
+            type="button"
+            aria-expanded={expanded}
+            aria-controls={expanded ? detailId : undefined}
+            aria-label={`Log details: ${timeStr}${event.hostname ? `, ${event.hostname}` : ""}`}
+            onClick={(e) => { e.stopPropagation(); toggleExpanded(); }}
+            className="flex items-center rounded"
+          >
+            <ChevronRight aria-hidden="true" className={cn("h-3 w-3 text-slate-400 transition-transform", expanded && "rotate-90")} />
+          </button>
         </td>
-        <td className="py-2.5 pr-3 font-mono text-[11px] text-slate-400">{timeStr}</td>
-        <td className="py-2.5 pr-3 font-mono text-xs text-slate-200">{event.hostname ?? "—"}</td>
-        <td className="py-2.5 pr-3">
+        <td className="py-2.5 pr-3 font-mono text-[11px] text-slate-400 truncate">{timeStr}</td>
+        <td className="py-2.5 pr-3 font-mono text-xs text-slate-200 truncate" title={event.hostname ?? undefined}>{event.hostname ?? "—"}</td>
+        <td className="py-2.5 pr-3 overflow-hidden">
           <LogSourceCard source={event.source} vendor={event.vendor} />
         </td>
-        <td className="py-2 pr-3 text-xs text-slate-300 max-w-[400px]">
+        <td className="py-2 pr-3 text-xs text-slate-300 overflow-hidden">
           <div className="flex items-start gap-1.5">
             {/* Fired-times counter badge */}
             {(() => {
@@ -868,6 +1107,30 @@ const EventRow = memo(function EventRow({
               {!event.user_email && (
                 <span className="line-clamp-2 leading-relaxed">{event.displayDescription}</span>
               )}
+
+              {/* Triage state (team feed only) — neutral, reflects the player's OWN
+                  actions (no ground-truth leak): claimed / triaged / escalated. */}
+              {(() => {
+                const st = rowStatus?.(event.id);
+                if (!st) return null;
+                return (
+                  <div className="mt-1 flex flex-wrap items-center gap-1">
+                    {st.claim === "other" && <span className="rounded border border-neon-amber/40 bg-neon-amber/10 px-1 py-px text-[9px] font-semibold text-neon-amber">🔒 claimed</span>}
+                    {st.claim === "me" && <span className="rounded border border-cyber-500/40 bg-cyber-500/10 px-1 py-px text-[9px] font-semibold text-cyber-300">🔒 you</span>}
+                    {st.disposed && <span className="rounded border border-slate-600/60 bg-slate-800/70 px-1 py-px text-[9px] font-semibold text-slate-300">✓ {st.disposed.replace("_", " ")}</span>}
+                    {st.escalated && <span className="rounded border border-neon-green/40 bg-neon-green/10 px-1 py-px text-[9px] font-semibold text-neon-green">↗ escalated</span>}
+                    {st.triage && (
+                      <span title={st.triage.orphan ? "Past its triage SLA and nobody has claimed it" : st.triage.breached ? "Past its triage SLA" : "Waiting for a Tier-1 disposition"}
+                        className={cn("rounded border px-1 py-px font-mono text-[9px] font-semibold",
+                          st.triage.orphan ? "border-severity-high/60 bg-severity-high/15 text-severity-high"
+                          : st.triage.breached ? "border-severity-high/40 bg-severity-high/10 text-severity-high"
+                          : "border-border text-slate-400")}>
+                        ⏱ needs triage · {st.triage.mins}m{st.triage.orphan ? " · unclaimed" : st.triage.breached ? " · SLA" : ""}
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </td>
@@ -880,8 +1143,11 @@ const EventRow = memo(function EventRow({
               forms their own conclusion, and the Incident Report is the single
               place they state and are graded on their findings. */}
           <div className="flex items-center gap-1.5">
-            <span className="font-mono text-[10px] text-slate-500">{event.ruleId}</span>
-            {event.mitre_technique && <MitreBadge technique={event.mitre_technique} />}
+            {/* Rule ID only — the MITRE badge deliberately does NOT live here.
+                Showing it in the always-visible row would flag which rows are the
+                attack without expanding. The technique is revealed inside the
+                expanded DetailPanel instead. */}
+            <span className="min-w-0 truncate font-mono text-[10px] text-slate-400" title={event.ruleId ? String(event.ruleId) : undefined}>{event.ruleId}</span>
           </div>
         </td>
       </motion.tr>
@@ -890,10 +1156,11 @@ const EventRow = memo(function EventRow({
         {expanded && (
           <motion.tr
             key={`${event.id}-detail`}
+            id={detailId}
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
           >
-            <DetailPanel event={event} onThreatQuery={onThreatQuery} onXp={onXp} />
+            <DetailPanel event={event} onThreatQuery={onThreatQuery} onXp={onXp} onPivot={onPivot} onAddIoc={onAddIoc} onEscalate={onEscalate} />
           </motion.tr>
         )}
       </AnimatePresence>
@@ -910,6 +1177,15 @@ const TIME_OPTIONS: { label: string; value: TimeFilter; ms: number | null }[] = 
   { label: "All",    value: "all", ms: null },
 ];
 
+/** Team feed only: the player's own triage state for a row + the SLA age of an
+ *  alert that still needs triage (the Tier-1 queue lives in the SIEM rows). */
+export interface RowStatus {
+  disposed?: string;
+  claim?: "me" | "other";
+  escalated?: boolean;
+  triage?: { mins: number; breached: boolean; orphan: boolean };
+}
+
 export interface EventFeedProps {
   events: LiveEvent[];
   newIds?: Set<string>;
@@ -921,16 +1197,36 @@ export interface EventFeedProps {
   ipFilter?: string;
   mitreFilter?: string;
   onXp?: (xp: number) => void;
-  /** Phase-1 telemetry (ANALYST_TELEMETRY_PLAN.md) — fired once per row the
-   * first time it's expanded, so the caller can count investigation thoroughness. */
-  onRowOpened?: () => void;
+  /** Phase-1 telemetry (ANALYST_TELEMETRY_PLAN.md) — fired on every open/close
+   * transition of a row: on open with dwellMs=0 (records the open for MTTA /
+   * "events opened"), on close with the measured expand→collapse dwell. The
+   * event id lets the caller dedup opens and attribute dwell per event. Both
+   * args are optional so single-arg `() => void` callers stay source-compatible. */
+  onRowOpened?: (eventId?: string, dwellMs?: number) => void;
+  /** G-04 click-to-pivot: when provided, DetailPanel shows a "pivot" chip on the
+   * host/user/IP rows that filters the whole feed to that value. Omitted by the
+   * single-player dashboard, so no chip renders there. */
+  onPivot?: (field: "user" | "host" | "ip", value: string) => void;
+  /** T1-5: when provided, DetailPanel shows a "＋IOC" button on the host/user/IP
+   * rows that adds the value to the Tier-1 escalation report. Team feed only. */
+  onAddIoc?: (value: string, type: string) => void;
+  /** Log-anchored escalation: when provided, DetailPanel shows a "🚩 Escalate this
+   * log" CTA at the top of the log panel. Clicking it opens the structured
+   * escalation report pre-loaded with this event. Tier-1 team feed only. */
+  onEscalate?: (event: LiveEvent) => void;
+  /** Team feed only: returns the player's own triage state for a row (claimed /
+   * dispositioned / escalated) so the shared feed shows what's already handled.
+   * Reflects the player's actions, not ground truth — no answer leakage. */
+  rowStatus?: (id?: string) => RowStatus | null;
+  /** Shown instead of the default when `events` is empty (e.g. an empty team triage view). */
+  emptyMessage?: string;
 }
 
 export function EventFeed({
   events, newIds = new Set(),
   severityFilter, sourceFilter, search,
   userFilter = "all", hostFilter = "all", ipFilter = "all", mitreFilter = "all",
-  onXp, onRowOpened,
+  onXp, onRowOpened, onPivot, onAddIoc, onEscalate, rowStatus, emptyMessage,
 }: EventFeedProps) {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [threatQuery, setThreatQuery] = useState<ThreatQuery | null>(null);
@@ -945,26 +1241,19 @@ export function EventFeed({
       if (cutoff !== null && ev.ts && new Date(ev.ts).getTime() < cutoff) return false;
       if (severityFilter !== "all") {
         const lvl = ev.ruleLevel;
-        if (severityFilter === "low"    && lvl > 3)            return false;
-        if (severityFilter === "medium" && (lvl < 4 || lvl > 6)) return false;
-        if (severityFilter === "high"   && lvl < 7)            return false;
+        // 3-15 scale (liveEventEnrich LEVEL_BANDS): low = 3-6, medium = 7-9, high = 10-15
+        if (severityFilter === "low"    && lvl > 6)              return false;
+        if (severityFilter === "medium" && (lvl < 7 || lvl > 9)) return false;
+        if (severityFilter === "high"   && lvl < 10)             return false;
       }
       if (sourceFilter !== "all" && ev.source         !== sourceFilter)   return false;
       if (userFilter  !== "all"  && ev.user_email     !== userFilter)     return false;
       if (hostFilter  !== "all"  && ev.hostname       !== hostFilter)     return false;
       if (ipFilter    !== "all"  && ev.src_ip         !== ipFilter)       return false;
       if (mitreFilter !== "all"  && ev.mitre_technique !== mitreFilter)   return false;
-      if (search) {
-        const q = search.toLowerCase();
-        if (
-          !ev.displayDescription.toLowerCase().includes(q) &&
-          !ev.hostname?.toLowerCase().includes(q) &&
-          !ev.user_email?.toLowerCase().includes(q) &&
-          !ev.ruleId.toLowerCase().includes(q) &&
-          !ev.src_ip?.toLowerCase().includes(q) &&
-          !(ev.mitre_technique ?? "").toLowerCase().includes(q)
-        ) return false;
-      }
+      // Free-text search: substring across a flattened event (incl. stringified
+      // `raw`) plus optional `field:value` tokens — see eventSearch.ts.
+      if (search && !eventMatchesSearch(ev, search)) return false;
       return true;
     });
   }, [events, timeFilter, severityFilter, sourceFilter, userFilter, hostFilter, ipFilter, mitreFilter, search]);
@@ -973,38 +1262,51 @@ export function EventFeed({
     <div className="flex flex-col">
       {/* Time-range filter */}
       <div id="ef-filter-row" className="flex items-center gap-2 border-b border-border/40 bg-bg-elevated/60 px-4 py-2">
-        <Clock className="h-3 w-3 shrink-0 text-slate-500" />
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mr-1">Time range</span>
-        <div className="flex items-center gap-1">
+        <Clock className="h-3 w-3 shrink-0 text-slate-400" />
+        <span id="ef-time-range-label" className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mr-1">Time range</span>
+        <div className="flex items-center gap-1" role="group" aria-labelledby="ef-time-range-label">
           {TIME_OPTIONS.map(opt => (
-            <button key={opt.value} onClick={() => setTimeFilter(opt.value)}
+            <button key={opt.value} type="button" aria-pressed={timeFilter === opt.value} onClick={() => setTimeFilter(opt.value)}
               className={cn(
                 "rounded px-2.5 py-0.5 text-[10px] font-semibold transition",
                 timeFilter === opt.value
                   ? "bg-cyber-500/20 text-cyber-300 border border-cyber-500/40"
-                  : "text-slate-500 hover:text-slate-300 border border-transparent hover:border-border/60"
+                  : "text-slate-400 hover:text-slate-300 border border-transparent hover:border-border/60"
               )}
             >
               {opt.label}
             </button>
           ))}
         </div>
-        <span className="ml-auto font-mono text-[10px] text-slate-600">{filtered.length} events</span>
+        <span className="ml-auto font-mono text-[10px] text-slate-400">{filtered.length} events</span>
       </div>
 
       <SocMethodologyBanner />
 
       <div id="ef-event-table" className="max-h-[530px] overflow-y-auto overflow-x-auto">
-        <table className="w-full min-w-[720px] text-xs">
+        {/* Fixed column widths so the table FITS its container (the team exercise puts it
+            in a ~650px column): Description takes whatever is left and the narrow cells
+            truncate, instead of the table forcing a sideways scroll. min-w only kicks in
+            on phone widths, where horizontal scroll is the lesser evil. */}
+        <table className="w-full min-w-[560px] table-fixed text-xs">
+          <colgroup>
+            <col className="w-6" />
+            <col className="w-[76px]" />
+            <col className="w-[118px]" />
+            <col className="w-[116px]" />
+            <col />
+            <col className="w-[56px]" />
+            <col className="w-[84px]" />
+          </colgroup>
           <thead className="sticky top-0 bg-bg-elevated/95 backdrop-blur">
-            <tr className="text-left text-[10px] font-semibold uppercase tracking-widest text-slate-500">
-              <th className="w-6 pl-3 py-2" />
+            <tr className="text-left text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+              <th className="w-6 pl-3 py-2"><span className="sr-only">Expand</span></th>
               <th id="ef-th-time"    className="py-2 pr-3"><HeaderTip label="Time"       tip="When the event occurred. Unusual hours (3 AM logins, weekend data transfers) are red flags worth investigating." /></th>
               <th id="ef-th-agent"   className="py-2 pr-3"><HeaderTip label="Agent Name" tip="The hostname of the computer or device where this event was recorded." /></th>
               <th id="ef-th-source"  className="py-2 pr-3"><HeaderTip label="Source"     tip="Which security tool detected this event. Each tool sees different activity — EDR sees processes, Firewall sees network traffic, AD sees logins. Hover over the badge for details." /></th>
               <th id="ef-th-desc"    className="py-2 pr-3"><HeaderTip label="Description" tip="A plain-language summary of what happened, generated from the raw log fields. Click the row to see all raw fields and a guided analysis." /></th>
-              <th id="ef-th-level"   className="py-2 pr-3"><HeaderTip label="Level"      tip="Severity score 1-10. Levels 1-3: routine activity. Levels 4-6: investigate further. Levels 7-10: likely threat — take action." /></th>
-              <th id="ef-th-ruleid"  className="py-2 pr-4"><HeaderTip label="Rule ID"    tip="The detection rule that fired on this event. When a known attack technique is detected, the rule maps to MITRE ATT&CK. Click the purple badge to learn about the technique." /></th>
+              <th id="ef-th-level"   className="py-2 pr-3"><HeaderTip label="Level"      tip="Rule level 3-15 (Wazuh-style). 3-6: routine or low. 7-9: investigate further. 10-12: high. 13-15: critical — act now. High levels still need verifying: false positives fire high rules too." /></th>
+              <th id="ef-th-ruleid"  className="py-2 pr-4"><HeaderTip label="Rule ID"    tip="The detection rule that fired on this event. When a known attack technique is detected, the rule maps to MITRE ATT&CK. Expand the row to see its MITRE ATT&CK mapping." /></th>
             </tr>
           </thead>
           <tbody>
@@ -1017,13 +1319,19 @@ export function EventFeed({
                   onThreatQuery={setThreatQuery}
                   onXp={onXp}
                   onRowOpened={onRowOpened}
+                  onPivot={onPivot}
+                  onAddIoc={onAddIoc}
+                  onEscalate={onEscalate}
+                  rowStatus={rowStatus}
                 />
               ))}
             </AnimatePresence>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-xs text-slate-500">
-                  No events match the current filter.
+                <td colSpan={7} className="py-8 text-center text-xs text-slate-400">
+                  {events.length === 0
+                    ? (emptyMessage ?? "Press Start Training to begin your shift.")
+                    : "No events match the current filter."}
                 </td>
               </tr>
             )}

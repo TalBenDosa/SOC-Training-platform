@@ -1,5 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { asObject } from "@/lib/http/body";
 import { requireAdmin } from "@/lib/auth/apiGuard";
+import { checkAiBudget, recordAiUsage } from "@/lib/ai/usage";
 import {
   buildPhishingToExfil,
   buildBecScenario,
@@ -33,7 +35,6 @@ const LOCAL_BUILDERS: Record<string, () => ScenarioBundle> = {
   devops_ci:      buildOAuthScenario,
   infostealer:    buildPhishingToExfil,
   rootkit:        buildRansomwareScenario,
-  cryptomining:   buildRansomwareScenario,
   zeroday:        buildPhishingToExfil,
   ad_kerberos:    buildRansomwareScenario,
   container_k8s:  buildOAuthScenario,
@@ -53,7 +54,7 @@ const LOCAL_DIFFICULTY: Record<string, string> = {
   spearphish_apt: "expert",   supply_chain: "advanced",  watering_hole: "intermediate",
   smishing_vishing: "beginner", aitm: "advanced",       saml_golden: "expert",
   devops_ci: "advanced",      infostealer: "intermediate", rootkit: "expert",
-  cryptomining: "intermediate", zeroday: "expert",     ad_kerberos: "advanced",
+  zeroday: "expert",     ad_kerberos: "advanced",
   container_k8s: "advanced",  data_exfil: "intermediate", destructive: "advanced",
   ddos_extortion: "intermediate", ot_scada: "expert",  mobile_mdm: "intermediate",
   dns_hijack: "advanced",     llm_aisec: "advanced",
@@ -118,7 +119,6 @@ function getHashContextForAttackType(attackType: string): string {
     devops_ci:        ["c2_implant", "dropper"],
     infostealer:      ["infostealer", "credential_dumper"],
     rootkit:          ["c2_implant"],
-    cryptomining:     ["c2_implant"],
     zeroday:          ["c2_implant", "dropper"],
     ad_kerberos:      ["credential_dumper"],
     container_k8s:    ["c2_implant"],
@@ -219,7 +219,7 @@ const ATTACK_DESCRIPTIONS: Record<string, string> = {
     A) Stolen developer PAT → GitHub Actions pipeline injection → AWS S3 exfil → CloudTrail disable attempt
     B) Phished Azure creds → rogue OAuth app consent → persistent EWS/Graph access → SharePoint bulk download → DLP alert
     C) SSRF in web app → AWS metadata service → IAM role escalation → S3 bucket enumeration → customer PII exfil
-    D) Terraform state file exposed in public repo → cloud creds extracted → lateral movement across accounts → cryptomining`,
+    D) Terraform state file exposed in public repo → cloud creds extracted → lateral movement across accounts → bulk S3 data theft`,
 
   insider: `Pick ONE of these specific insider threat scenarios:
     A) Resigning senior engineer → bulk git clone of proprietary repos → personal email upload blocked by DLP → USB attempt
@@ -300,11 +300,6 @@ const ATTACK_DESCRIPTIONS: Record<string, string> = {
     C) LoJax UEFI rootkit → firmware reflash → persists through disk wipe → SPI flash modification → C2 beaconing via HTTP → active 6 months undetected
     D) User-mode rootkit via COM hijacking → hides malicious files from dir listing → AV evasion → process injection into svchost → keylogger + C2`,
 
-  cryptomining: `Cryptomining / unauthorized resource usage. Pick ONE:
-    A) Exposed Kubernetes dashboard → cryptominer deployed as DaemonSet → all nodes mining Monero → CPU spike → cloud bill alerts → eviction of pods
-    B) AWS Lambda cryptomining → compromised IAM key → thousands of Lambda invocations → XMRig in Lambda layer → $47K cloud bill spike in 3 days
-    C) Log4Shell on internal server → XMRig deployment → persistence via cron → network IOCs to mining pool → detected by firewall anomaly
-    D) Compromised WordPress hosting → PHP webshell → server-side miner → fan spin alerts on physical server → process hidden via rootkit`,
 
   zeroday: `Zero-day or N-day exploitation. Pick ONE:
     A) ProxyLogon (CVE-2021-26855) on Exchange Server → webshell upload → credential dump → lateral movement → ransomware pre-positioning
@@ -321,7 +316,7 @@ const ATTACK_DESCRIPTIONS: Record<string, string> = {
   container_k8s: `Container / Kubernetes attack. Pick ONE:
     A) Docker socket exposed in container → container escape → host filesystem access → SSH key theft → lateral to production nodes → data exfil
     B) Misconfigured RBAC (ClusterAdmin to default ServiceAccount) → in-pod kubectl → create privileged pod → host mount → root access → cloud metadata exfil
-    C) Supply chain: malicious base image on Docker Hub → cryptominer in alpine:latest clone → deployed to prod via Helm chart → detected by runtime security
+    C) Supply chain: malicious base image on Docker Hub → reverse-shell implant in an alpine:latest clone → deployed to prod via Helm chart → detected by runtime security
     D) Kubernetes etcd exposed without auth → all secrets read → service account tokens extracted → full cluster compromise → all namespaces accessible`,
 
   data_exfil: `Data exfiltration with DLP bypass. Pick ONE:
@@ -370,22 +365,30 @@ const ATTACK_DESCRIPTIONS: Record<string, string> = {
 // ─── Main route ───────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
-  const gate = await requireAdmin();
+  const gate = await requireAdmin("scenario.generate");
   if ("error" in gate) return gate.error;
 
-  const body = await req.json().catch(() => ({}));
+  const body = asObject(await req.json().catch(() => ({})));
   const { attackType = "random" } = body as { attackType?: string };
 
-  // Fallback: use pre-built scenario if no API key
-  if (!process.env.ANTHROPIC_API_KEY) {
+  // Fallback: use pre-built scenario if no API key, or if we're over the spend
+  // ceiling (migration 0024). This route streams up to 8000 output tokens, so a
+  // bulk-generation loop here is the single most expensive thing in the product
+  // — it's exactly the case the cap exists for. Degrades to a real pre-built
+  // scenario rather than an error.
+  const overBudget = !(await checkAiBudget(gate.user.orgId)).allowed;
+  if (!process.env.ANTHROPIC_API_KEY || overBudget) {
     try {
       return Response.json(buildLocalScenario(attackType));
     } catch (err) {
-      return Response.json({ error: `Generation failed: ${err instanceof Error ? err.message : "Unknown"}` }, { status: 500 });
+      console.error("[scenarios/generate] local build failed:", err instanceof Error ? err.message : String(err));
+      return Response.json({ error: "Couldn't build a scenario for that attack type — please try another." }, { status: 500 });
     }
   }
 
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  // E-18: SDK default 10 min × 3 on a 120 s function. One 100 s attempt; any
+  // failure falls back to the pre-built scenario, like the no-key path.
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 100_000, maxRetries: 0 });
   const attackDesc = ATTACK_DESCRIPTIONS[attackType] ?? ATTACK_DESCRIPTIONS.random;
   const hashContext = getHashContextForAttackType(attackType);
 
@@ -474,27 +477,28 @@ STRICT RULES:
 
         // Collect the full text as it streams
         const message = await anthropicStream.finalMessage();
+        await recordAiUsage({
+          route: "/api/scenarios/generate",
+          userId: gate.user.id,
+          orgId: gate.user.orgId,
+          model: message.model,
+          usage: message.usage,
+        });
         const text = message.content[0]?.type === "text" ? message.content[0].text : "";
 
         const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-          controller.enqueue(encoder.encode(JSON.stringify({ error: "Model did not return valid JSON" })));
-          controller.close();
-          return;
-        }
-
+        if (!jsonMatch) throw new Error("model did not return JSON");
         const scenario = JSON.parse(jsonMatch[0]);
-        if (!scenario.events || !Array.isArray(scenario.events)) {
-          controller.enqueue(encoder.encode(JSON.stringify({ error: "Invalid scenario structure" })));
-          controller.close();
-          return;
-        }
+        if (!scenario.events || !Array.isArray(scenario.events)) throw new Error("invalid scenario structure");
 
         controller.enqueue(encoder.encode(JSON.stringify(scenario)));
         controller.close();
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Unknown error";
-        controller.enqueue(encoder.encode(JSON.stringify({ error: message })));
+        console.error("[scenarios/generate] AI failed, using a pre-built scenario:", err instanceof Error ? err.message : String(err));
+        let fallback: string;
+        try { fallback = JSON.stringify(buildLocalScenario(attackType)); }
+        catch { fallback = JSON.stringify({ error: "Scenario generation failed — please try again." }); }
+        controller.enqueue(encoder.encode(fallback));
         controller.close();
       }
     },

@@ -1,0 +1,214 @@
+import { NextResponse } from "next/server";
+import { requireOrgAdmin } from "@/lib/auth/apiGuard";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { ROOMS_META } from "@/data/roomsMeta";
+import { fetchAll } from "@/lib/plans/server";
+
+// Room ids are stored in the DB; titles live in the content corpus. Resolved
+// HERE rather than in the client so /manage doesn't have to bundle the entire
+// room corpus (megabytes of task content) just to render five labels.
+const ROOM_TITLE: Record<string, string> = Object.fromEntries(ROOMS_META.map(r => [r.id, r.title]));
+
+/**
+ * Cohort analytics for an org-admin / instructor.
+ *
+ * Before this, /api/org/members returned a roster with ONE number per student
+ * (total XP) and four org-wide counters — an instructor running a semester
+ * could not see who was behind, what anyone scored, or which material the class
+ * struggles with. This aggregates the learner tables into per-student rows plus
+ * class-level signals.
+ *
+ * Always scoped to the CALLER'S OWN org: `orgId` comes from their JWT via
+ * requireOrgAdmin(), never from a request parameter, so one college can never
+ * read another's cohort. Uses the service-role client for the reads (same
+ * pattern as /api/org/members) with every query pinned to that org_id.
+ *
+ * Aggregation happens in JS rather than SQL: a cohort is tens of students with
+ * hundreds of progress rows, so the round-trip saving of a bespoke SQL view
+ * isn't worth another migration to maintain.
+ */
+
+const DAY = 24 * 60 * 60 * 1000;
+
+export interface StudentRow {
+  user_id: string;
+  handle: string | null;
+  display_name: string | null;
+  email: string | null;
+  status: string;
+  role: string;
+  joined_at: string | null;
+  /** When the student's 100-day affiliation lapses (0028); null for staff. */
+  affiliation_expires_at: string | null;
+  xp: number;
+  level: number;
+  rooms_completed: number;
+  rooms_started: number;
+  /** Completed room ids — lets the client map coverage without a second call. */
+  completed_room_ids: string[];
+  scenarios_completed: number;
+  scenario_avg_score: number | null;
+  /** Overall score across ALL graded room tasks: % correct (task_attempts, 0031). */
+  task_accuracy: number | null;
+  tasks_graded: number;
+  sessions: number;
+  avg_detect_rate: number | null;
+  last_active_at: string | null;
+}
+
+export async function GET() {
+  const gate = await requireOrgAdmin("org.analytics");
+  if ("error" in gate) return gate.error;
+  const orgId = gate.user.orgId;
+  if (!orgId) return NextResponse.json({ error: "No organisation in session." }, { status: 400 });
+  const admin = getSupabaseAdminClient();
+  if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
+
+  // Every read is PAGED: PostgREST returns at most 1000 rows per request, and
+  // task_attempts alone passes that within days for one class — unpaged, the
+  // per-student figures were computed from an arbitrary subset. A failed read
+  // is an error, never "empty data".
+  type Row = Record<string, unknown>;
+  const paged = (label: string, build: () => { order: (c: string, o: { ascending: boolean }) => unknown }, order: string[]) =>
+    fetchAll<Row>((from, to) => {
+      let q = build() as unknown as { order: (c: string, o: { ascending: boolean }) => typeof q; range: (a: number, b: number) => PromiseLike<{ data: Row[] | null; error: { message: string; code?: string } | null }> };
+      for (const col of order) q = q.order(col, { ascending: true });
+      return q.range(from, to);
+    }, `analytics:${label}`);
+
+  let membersData: Row[], roomsData: Row[], scenariosData: Row[], sessionsData: Row[], attemptsData: Row[], emailsData: Row[];
+  try {
+    [membersData, roomsData, scenariosData, sessionsData, attemptsData, emailsData] = await Promise.all([
+      paged("members", () => admin.from("org_members")
+        .select("user_id, role, status, joined_at, affiliation_expires_at, profiles(handle, display_name, xp, level, is_platform_admin)")
+        .eq("org_id", orgId), ["user_id"]),
+      paged("rooms", () => admin.from("room_progress").select("user_id, room_id, completed_at, updated_at").eq("org_id", orgId), ["user_id", "room_id"]),
+      paged("scenarios", () => admin.from("scenario_history").select("id, user_id, score, completed_at").eq("org_id", orgId), ["id"]),
+      paged("sessions", () => admin.from("dashboard_sessions").select("id, user_id, detect_rate, played_at").eq("org_id", orgId), ["id"]),
+      // graded task submissions (0031) → overall task accuracy per student
+      paged("attempts", () => admin.from("task_attempts").select("id, user_id, correct").eq("org_id", orgId), ["id"]),
+      // member emails (0032) — service-role-only definer function
+      paged("emails", () => admin.rpc("org_member_emails", { p_org: orgId }), ["user_id"]),
+    ]);
+  } catch (e) {
+    console.error("[org analytics] load failed:", e instanceof Error ? e.message : e);
+    return NextResponse.json({ error: "Could not load analytics right now. Please try again." }, { status: 500 });
+  }
+
+  type MemberRow = { user_id: string; role: string; status: string; joined_at: string | null; affiliation_expires_at: string | null; profiles: unknown };
+  type RoomRow = { user_id: string; room_id: string; completed_at: string | null; updated_at: string | null };
+  type ScenarioRow = { user_id: string; score: number | null; completed_at: string | null };
+  type SessionRow = { user_id: string; detect_rate: number | null; played_at: string | null };
+  type AttemptRow = { user_id: string; correct: boolean };
+
+  const roomRows     = roomsData as unknown as RoomRow[];
+  const scenarioRows = scenariosData as unknown as ScenarioRow[];
+  const sessionRows  = sessionsData as unknown as SessionRow[];
+  const attemptRows  = attemptsData as unknown as AttemptRow[];
+  const emailBy = new Map<string, string>((emailsData as unknown as Array<{ user_id: string; email: string }>).map(e => [e.user_id, e.email]));
+
+  const byUser = <T extends { user_id: string }>(rows: T[]) => {
+    const m = new Map<string, T[]>();
+    for (const r of rows) {
+      const list = m.get(r.user_id);
+      if (list) list.push(r); else m.set(r.user_id, [r]);
+    }
+    return m;
+  };
+  const roomsBy     = byUser(roomRows);
+  const scenariosBy = byUser(scenarioRows);
+  const sessionsBy  = byUser(sessionRows);
+  const attemptsBy  = byUser(attemptRows);
+
+  const latest = (dates: (string | null | undefined)[]): string | null => {
+    let best: number | null = null;
+    for (const d of dates) {
+      if (!d) continue;
+      const t = Date.parse(d);
+      if (!Number.isNaN(t) && (best === null || t > best)) best = t;
+    }
+    return best === null ? null : new Date(best).toISOString();
+  };
+  const avg = (nums: number[]): number | null =>
+    nums.length === 0 ? null : Math.round(nums.reduce((s, n) => s + n, 0) / nums.length);
+
+  const students: StudentRow[] = (membersData as unknown as MemberRow[])
+    // Platform super-admins doing oversight never count as students of the cohort.
+    .filter(m => !(m.profiles as unknown as { is_platform_admin?: boolean } | null)?.is_platform_admin)
+    .map(m => {
+    const p = m.profiles as unknown as { handle?: string; display_name?: string; xp?: number; level?: number } | null;
+    const rp = roomsBy.get(m.user_id) ?? [];
+    const sc = scenariosBy.get(m.user_id) ?? [];
+    const ds = sessionsBy.get(m.user_id) ?? [];
+    const at = attemptsBy.get(m.user_id) ?? [];
+    const completed = rp.filter(r => r.completed_at);
+    const correctCount = at.filter(a => a.correct).length;
+
+    return {
+      user_id: m.user_id,
+      handle: p?.handle ?? null,
+      display_name: p?.display_name ?? null,
+      email: emailBy.get(m.user_id) ?? null,
+      status: m.status,
+      role: m.role,
+      joined_at: m.joined_at,
+      affiliation_expires_at: m.affiliation_expires_at ?? null,
+      xp: p?.xp ?? 0,
+      level: p?.level ?? 1,
+      rooms_completed: completed.length,
+      rooms_started: rp.length,
+      completed_room_ids: completed.map(r => r.room_id),
+      scenarios_completed: sc.length,
+      scenario_avg_score: avg(sc.map(s => s.score ?? 0)),
+      task_accuracy: at.length ? Math.round((correctCount / at.length) * 100) : null,
+      tasks_graded: at.length,
+      sessions: ds.length,
+      avg_detect_rate: avg(ds.map(s => s.detect_rate ?? 0)),
+      last_active_at: latest([
+        ...rp.map(r => r.updated_at), ...rp.map(r => r.completed_at),
+        ...sc.map(s => s.completed_at), ...ds.map(s => s.played_at),
+      ]),
+    };
+  });
+
+  // ── Class-level signals ────────────────────────────────────────────────────
+  // "Hardest" = highest drop-off: started by several students but completed by
+  // the fewest of them. A room only one person opened isn't evidence of
+  // difficulty, so require at least 3 starters before ranking it.
+  const roomStats = new Map<string, { started: number; completed: number }>();
+  for (const r of roomRows) {
+    const s = roomStats.get(r.room_id) ?? { started: 0, completed: 0 };
+    s.started++;
+    if (r.completed_at) s.completed++;
+    roomStats.set(r.room_id, s);
+  }
+  const hardest_rooms = [...roomStats.entries()]
+    .filter(([, s]) => s.started >= 3)
+    .map(([room_id, s]) => ({
+      room_id, title: ROOM_TITLE[room_id] ?? room_id,
+      started: s.started, completed: s.completed,
+      completion_rate: Math.round((s.completed / s.started) * 100),
+    }))
+    .sort((a, b) => a.completion_rate - b.completion_rate)
+    .slice(0, 5);
+
+  const now = Date.now();
+  const activeStudents = students.filter(s => s.status === "active");
+  const allScenarioScores = scenarioRows.map(s => s.score ?? 0);
+
+  return NextResponse.json({
+    students,
+    class: {
+      size: activeStudents.length,
+      avg_scenario_score: avg(allScenarioScores),
+      avg_rooms_completed: avg(activeStudents.map(s => s.rooms_completed)),
+      total_rooms_completed: students.reduce((n, s) => n + s.rooms_completed, 0),
+      active_7d: activeStudents.filter(s => s.last_active_at && now - Date.parse(s.last_active_at) < 7 * DAY).length,
+      never_started: activeStudents.filter(s => !s.last_active_at).length,
+      // Enrolled, did something once, but nothing for two weeks — the group an
+      // instructor most needs surfaced while there's still time to intervene.
+      dormant_14d: activeStudents.filter(s => s.last_active_at && now - Date.parse(s.last_active_at) >= 14 * DAY).length,
+      hardest_rooms,
+    },
+  });
+}

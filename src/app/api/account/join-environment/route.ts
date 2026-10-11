@@ -1,0 +1,113 @@
+import { NextResponse } from "next/server";
+import { asObject } from "@/lib/http/body";
+import { getAuthedUser } from "@/lib/auth/apiGuard";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { logAudit } from "@/lib/audit/logAudit";
+import { AFFILIATION_DAYS } from "@/lib/org/classCode";
+
+/**
+ * An EXISTING account redeems an access code → joins that environment and
+ * switches into it. This is the multi-environment door for regular users:
+ * before it existed, a registered student entering a second college's code
+ * dead-ended at "User already registered" — the signup path can only create
+ * accounts, and nothing else knew how to redeem a code.
+ *
+ * Memberships ACCUMULATE (joining B keeps A); the newly joined environment
+ * becomes the active context. Unlike the super-admin's /superadmin/enter-org,
+ * this path keeps every gate a real member passes through:
+ *   - a live access code is required (same validation as signup);
+ *   - the seat cap holds — attach_member_if_seat_available raises
+ *     seat_limit_reached atomically, and also flips profiles.org_id, so the
+ *     context switch rides the same serialised operation;
+ *   - students get the 100-day affiliation clock in the NEW environment.
+ *
+ * One asymmetry is deliberate: if the caller is already org_admin/instructor
+ * of the code's org, we only switch context — running attach with 'student'
+ * would silently DEMOTE them for redeeming their own class's code.
+ */
+export async function POST(req: Request) {
+  const user = await getAuthedUser();
+  if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+
+  const admin = getSupabaseAdminClient();
+  if (!admin) return NextResponse.json({ error: "Server not configured." }, { status: 503 });
+
+  // Org admins are single-org by design — they belong to exactly one
+  // organisation and only ever access that one. The multi-environment door is
+  // for students; the super-admin has their own /superadmin/enter-org (no seat
+  // cap, no clock). So a non-super-admin who already administers ANY org is
+  // refused here — this is what enforces "an org admin is registered once".
+  if (!user.isPlatformAdmin) {
+    const { data: adminElsewhere, error: adminErr } = await admin
+      .from("org_members").select("org_id")
+      .eq("user_id", user.id).eq("role", "org_admin").eq("status", "active")
+      .limit(1);
+    if (adminErr) return NextResponse.json({ error: "Couldn't check that right now — nothing was changed. Please try again." }, { status: 503 });   // E-03: fail closed
+    if (adminElsewhere && adminElsewhere.length > 0) {
+      return NextResponse.json({
+        error: "Org admins belong to a single organisation and can't join another. Ask the platform owner if you need access elsewhere.",
+      }, { status: 403 });
+    }
+  }
+
+  let body: Record<string, unknown>;
+  try { body = asObject(await req.json()); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
+  const code = String(body.code ?? "").trim().toUpperCase();
+  if (!code) return NextResponse.json({ error: "code is required." }, { status: 400 });
+
+  // Same liveness rules the signup trigger applies.
+  const { data: codeRow } = await admin
+    .from("org_codes").select("org_id")
+    .eq("code", code).gt("expires_at", new Date().toISOString())
+    .maybeSingle();
+  if (!codeRow) {
+    return NextResponse.json({ error: "That access code isn't valid or has expired. Ask for today's code." }, { status: 400 });
+  }
+  const { data: org } = await admin
+    .from("organizations").select("id, name, status")
+    .eq("id", codeRow.org_id).maybeSingle();
+  if (!org || !["active", "trial"].includes(org.status)) {
+    return NextResponse.json({ error: "That access code isn't valid or has expired. Ask for today's code." }, { status: 400 });
+  }
+
+  const { data: existing, error: existingErr } = await admin
+    .from("org_members").select("role, status")
+    .eq("org_id", org.id).eq("user_id", user.id).maybeSingle();
+  // Fail closed: an unreadable membership must not be treated as "never removed"
+  // (the attach below would reactivate a student the college removed).
+  if (existingErr) return NextResponse.json({ error: "Couldn't check your membership — please try again." }, { status: 503 });
+
+  // An org admin deactivated this membership (org/members PATCH → "removed").
+  // The class code is shown to the whole class, so it must not undo that
+  // decision — only the institution can reactivate a removed member.
+  if (existing?.status === "removed") {
+    return NextResponse.json({ error: "Your access to this institution was removed by its administrators. Please contact your instructor." }, { status: 403 });
+  }
+
+  if (existing?.status === "active" && ["org_admin", "instructor"].includes(existing.role)) {
+    // Staff of this org — context switch only, never a demotion.
+    const { error } = await admin.from("profiles").update({ org_id: org.id }).eq("id", user.id);
+    if (error) { console.error("[join environment]", error.message); return NextResponse.json({ error: "Something went wrong on our side — please try again." }, { status: 500 }); }
+  } else {
+    // Join (or reactivate) as a student, seat-capped and atomic. The function
+    // also sets profiles.org_id and the 100-day affiliation expiry in the same
+    // transaction (0080), so neither can detach from the join.
+    const { error } = await admin.rpc("attach_member_if_seat_available", {
+      p_org: org.id, p_user: user.id, p_role: "student",
+      p_affiliation_expires: new Date(Date.now() + AFFILIATION_DAYS * 86_400_000).toISOString(),
+    });
+    if (error) {
+      if ((error.message ?? "").includes("seat_limit_reached")) {
+        return NextResponse.json({ error: `${org.name} has no seats left. Ask your instructor to free one up.` }, { status: 409 });
+      }
+      { console.error("[join environment]", error.message); return NextResponse.json({ error: "Something went wrong on our side — please try again." }, { status: 500 }); }
+    }
+  }
+
+  await logAudit({
+    actorId: user.id, action: "account.joined_environment",
+    targetTable: "organizations", targetId: org.id, metadata: { via: "access_code" },
+  });
+
+  return NextResponse.json({ ok: true, org_name: org.name });
+}

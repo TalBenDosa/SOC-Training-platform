@@ -2,11 +2,13 @@
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/Badge";
 import { Lock, CheckCircle2, Clock, Zap, RotateCcw } from "lucide-react";
-import type { Room } from "@/data/rooms";
-import { ROOMS } from "@/data/rooms";
+import type { RoomMeta } from "@/data/roomsMeta";
+import { ROOMS_META } from "@/data/roomsMeta";
+import { AssignedChip } from "@/components/plans/AssignedChip";
+import type { AssignedInfo } from "@/lib/plans/assigned";
 
 interface RoomCardProps {
-  room: Room;
+  room: RoomMeta;
   progress: {
     completedTaskIds: string[];
     xpEarned: number;
@@ -14,9 +16,11 @@ interface RoomCardProps {
   } | null;
   locked: boolean;
   onClick: () => void;
+  /** Set when the room is in one of the learner's plans ("Assigned" chip). */
+  assigned?: AssignedInfo | null;
 }
 
-function difficultyBorder(d: Room["difficulty"]): string {
+function difficultyBorder(d: RoomMeta["difficulty"]): string {
   switch (d) {
     case "beginner":     return "border-neon-green/40";
     case "intermediate": return "border-severity-medium/40";
@@ -24,7 +28,7 @@ function difficultyBorder(d: Room["difficulty"]): string {
   }
 }
 
-function difficultyBadgeClass(d: Room["difficulty"]): string {
+function difficultyBadgeClass(d: RoomMeta["difficulty"]): string {
   switch (d) {
     case "beginner":
       return "border-neon-green/40 bg-neon-green/10 text-neon-green";
@@ -35,7 +39,7 @@ function difficultyBadgeClass(d: Room["difficulty"]): string {
   }
 }
 
-function iconBg(d: Room["difficulty"]): string {
+function iconBg(d: RoomMeta["difficulty"]): string {
   switch (d) {
     case "beginner":     return "bg-neon-green/10 border-neon-green/30";
     case "intermediate": return "bg-severity-medium/10 border-severity-medium/30";
@@ -43,7 +47,7 @@ function iconBg(d: Room["difficulty"]): string {
   }
 }
 
-export function RoomCard({ room, progress, locked, onClick }: RoomCardProps) {
+export function RoomCard({ room, progress, locked, onClick, assigned }: RoomCardProps) {
   const totalTasks      = room.tasks.length;
   const completedCount  = progress ? progress.completedTaskIds.length : 0;
   const isCompleted     = !!progress?.completedAt;
@@ -75,12 +79,12 @@ export function RoomCard({ room, progress, locked, onClick }: RoomCardProps) {
       {/* Lock overlay */}
       {locked && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-lg bg-bg/60 backdrop-blur-[2px]">
-          <Lock className="h-8 w-8 text-slate-500" />
-          <p className="text-center text-xs text-slate-500 px-4">
+          <Lock className="h-8 w-8 text-slate-400" />
+          <p className="text-center text-xs text-slate-400 px-4">
             Complete{" "}
             <span className="font-semibold text-slate-400">
               {room.prerequisites
-                .map((id: string) => ROOMS.find(r => r.id === id)?.title ?? id)
+                .map((id: string) => ROOMS_META.find(r => r.id === id)?.title ?? id)
                 .join(", ")}
             </span>{" "}
             first
@@ -97,6 +101,7 @@ export function RoomCard({ room, progress, locked, onClick }: RoomCardProps) {
           {room.icon}
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
+          <AssignedChip info={assigned} className="px-2 text-[10px]" />
           {isCompleted && (
             <span className="inline-flex items-center gap-1 rounded border border-neon-green/40 bg-neon-green/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-neon-green">
               <CheckCircle2 className="h-3 w-3" />
@@ -127,11 +132,11 @@ export function RoomCard({ room, progress, locked, onClick }: RoomCardProps) {
       {/* Tags row */}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Badge>{room.category}</Badge>
-        <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
+        <span className="inline-flex items-center gap-1 text-[11px] text-slate-400">
           <Clock className="h-3 w-3" />
           {room.estimatedMinutes} min
         </span>
-        <span className="inline-flex items-center gap-1 text-[11px] text-slate-500">
+        <span className="inline-flex items-center gap-1 text-[11px] text-slate-400">
           <Zap className="h-3 w-3 text-neon-amber" />
           {room.xp} XP
         </span>
@@ -140,7 +145,7 @@ export function RoomCard({ room, progress, locked, onClick }: RoomCardProps) {
       {/* Progress bar (only when started but not complete) */}
       {isStarted && (
         <div className="mt-4">
-          <div className="flex justify-between text-[10px] text-slate-500 mb-1">
+          <div className="flex justify-between text-[10px] text-slate-400 mb-1">
             <span>{completedCount}/{totalTasks} tasks</span>
             <span>{Math.round((completedCount / totalTasks) * 100)}%</span>
           </div>
@@ -156,7 +161,7 @@ export function RoomCard({ room, progress, locked, onClick }: RoomCardProps) {
       {/* Completed full bar */}
       {isCompleted && (
         <div className="mt-4">
-          <div className="flex justify-between text-[10px] text-slate-500 mb-1">
+          <div className="flex justify-between text-[10px] text-slate-400 mb-1">
             <span>{totalTasks}/{totalTasks} tasks</span>
             <span className="text-neon-green">100%</span>
           </div>
@@ -168,7 +173,7 @@ export function RoomCard({ room, progress, locked, onClick }: RoomCardProps) {
 
       {/* Task count for not-started rooms */}
       {!isStarted && !isCompleted && (
-        <div className="mt-4 text-[11px] text-slate-600">
+        <div className="mt-4 text-[11px] text-slate-400">
           {totalTasks} task{totalTasks !== 1 ? "s" : ""}
         </div>
       )}

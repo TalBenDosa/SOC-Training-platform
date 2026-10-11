@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 400" role="img" aria-label="How the same event recorded by three systems in different time zones looks out of order until all timestamps are converted to UTC, which reveals the true sequence.">
+  <title>Timestamps and time zones — why you convert everything to UTC before you correlate</title>
+  <defs>
+    <style>
+      .bg{fill:#0b0f1e;} .ui{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;} .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
+      .card{fill:#0e1b30;stroke:#334155;stroke-width:1.5;} .bad{fill:#26100f;stroke:#f87171;stroke-width:1.5;} .ok{fill:#0e2018;stroke:#22c55e;stroke-width:1.5;}
+      .t{fill:#e2e8f0;font-size:12px;font-weight:700;} .s{fill:#94a3b8;font-size:11px;} .mono2{font-size:11px;}
+      .red{fill:#fca5a5;} .green{fill:#86efac;} .cy{fill:#67e8f9;}
+      .head{fill:#cbd5e1;font-size:12px;font-weight:700;letter-spacing:.05em;} .lab{fill:#64748b;font-size:10px;}
+    </style>
+  </defs>
+  <rect class="bg" x="0" y="0" width="960" height="400"/>
+  <text class="ui head" x="30" y="30">THE SAME EVENT, THREE SYSTEMS — THE CLOCK LIES UNTIL YOU NORMALISE TO UTC</text>
+
+  <!-- as recorded (out of order) -->
+  <rect class="bad" x="24" y="48" width="440" height="180" rx="10"/>
+  <text class="ui t" x="40" y="72" style="fill:#fca5a5">As recorded — looks out of order</text>
+  <text class="ui mono s cy" x="40" y="100">Firewall (UTC)      14:03:11  block outbound</text>
+  <text class="ui mono s cy" x="40" y="124">Workstation (EST)   09:03:09  process start</text>
+  <text class="ui mono s cy" x="40" y="148">Cloud app (UTC)     14:03:14  data export</text>
+  <text class="ui s red" x="40" y="178">If you sort by the raw times, the workstation event</text>
+  <text class="ui s red" x="40" y="196">looks like it happened FIVE HOURS earlier — so you'd</text>
+  <text class="ui s red" x="40" y="214">wrongly conclude it wasn't part of this incident.</text>
+
+  <!-- converted to UTC (true order) -->
+  <rect class="ok" x="496" y="48" width="440" height="180" rx="10"/>
+  <text class="ui t" x="512" y="72" style="fill:#86efac">Converted to UTC — the truth</text>
+  <text class="ui mono s green" x="512" y="100">14:03:09  Workstation  process start   (EST+5)</text>
+  <text class="ui mono s green" x="512" y="124">14:03:11  Firewall     block outbound</text>
+  <text class="ui mono s green" x="512" y="148">14:03:14  Cloud app    data export</text>
+  <text class="ui s green" x="512" y="178">Now the sequence is clear: the process started, tried</text>
+  <text class="ui s green" x="512" y="196">to call out (blocked), then data left via the cloud —</text>
+  <text class="ui s green" x="512" y="214">a 5-second chain, one incident.</text>
+
+  <text class="ui lab" x="480" y="138" text-anchor="middle">→ +5h →</text>
+
+  <rect class="card" x="24" y="248" width="912" height="130" rx="10"/>
+  <text class="ui head" x="40" y="274">THE RULES THAT KEEP TIME HONEST</text>
+  <text class="ui s" x="40" y="300">• <tspan class="cy" style="font-weight:700">Always convert to UTC before correlating.</tspan> Different sources log in different zones; a raw sort mixes them and breaks the timeline.</text>
+  <text class="ui s" x="40" y="322">• <tspan class="cy" style="font-weight:700">Watch for clock skew.</tspan> A host with a wrong clock can misplace events by minutes or hours. NTP keeps clocks synced; drift is itself a data-quality problem.</text>
+  <text class="ui s" x="40" y="344">• <tspan class="cy" style="font-weight:700">Know which time you're reading.</tspan> Event time (when it happened) vs ingest time (when the SIEM received it) can differ — a delayed log isn't a late attack.</text>
+  <text class="ui s" x="40" y="366">• <tspan class="cy" style="font-weight:700">Record the zone.</tspan> A timestamp with no zone is ambiguous; "09:03" means nothing until you know 09:03 where.</text>
+</svg>

@@ -1,16 +1,131 @@
 /**
- * Session-refresh helper for src/middleware.ts (edge runtime). Supabase auth
- * tokens are short-lived; this refreshes them on every navigation so a signed-in
- * user doesn't get silently logged out. No-op (passes the request through
- * unchanged) when Supabase isn't configured — guest/localStorage mode.
+ * Session refresh + page-route access control for src/middleware.ts (edge runtime).
+ *
+ * Two jobs:
+ *
+ * 1. Refresh. Supabase auth tokens are short-lived; touching the session on
+ *    every navigation refreshes the token so a signed-in user isn't silently
+ *    logged out.
+ *
+ * 2. Gate. Before this, middleware ONLY refreshed — no page route was ever
+ *    protected. A live check against production confirmed that /, /admin,
+ *    /dashboard, /scenarios, /progress and /learn all returned 200 to an
+ *    anonymous caller, so the whole platform including the content-authoring
+ *    panel was public. The API layer was already enforcing (every generate/
+ *    admin route returns 401 to a stranger), so this was UI and content
+ *    exposure rather than a data breach — but /admin has no business rendering
+ *    for someone who is not the owner.
+ *
+ * Middleware is the right layer for this: it runs server-side before the page
+ * renders or its RSC payload is serialised, so unlike a client-side redirect
+ * there is no window in which protected markup reaches the browser.
  */
+import { isAuthOutage } from "@/lib/auth/authOutage";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { supabaseUrl, supabaseAnonKey, isSupabaseConfigured } from "./config";
+import { decodeOrgClaim } from "@/lib/auth/orgClaim";
+
+/**
+ * Reachable without signing in: the landing page and the auth flow itself.
+ *
+ * Every entry here is a step someone with NO session must be able to complete,
+ * so the list is exactly the sign-in funnel and nothing else.
+ *
+ * `/reset-password` was missing from the first version of this gate, which
+ * deadlocked the one flow that only ever runs while logged out: the "Forgot
+ * password?" link on /login pointed at a page the gate bounced straight back
+ * to /login. A user who forgot their password had no way to recover it.
+ * /update-password (the second half of the flow, reached from the emailed
+ * link) was already listed — only the request page was missed.
+ */
+const PUBLIC_PREFIXES = [
+  "/login",
+  "/signup",
+  "/reset-password",   // request a reset email — runs while logged out
+  "/update-password",  // set the new password, reached from the emailed link
+  "/auth",             // callback / email-confirmation routes
+  "/join",             // accept an invitation — runs before the account exists
+  "/privacy",          // public transparency notice — must be readable by anyone
+  "/accessibility",    // public accessibility statement — legal requirement, open to all
+];
+
+/** Admin-only. Content authoring — the panel the platform owner edits with. */
+const ADMIN_PREFIXES = ["/admin"];
+
+/** Platform super-admin only — the cross-org B2B provisioning console. */
+const SUPERADMIN_PREFIXES = ["/superadmin"];
+
+/** Org-admin only — a college's own roster/progress console. */
+const MANAGE_PREFIXES = ["/manage"];
+
+function isPublicPath(pathname: string): boolean {
+  if (pathname === "/") return true;
+  return PUBLIC_PREFIXES.some(p => pathname === p || pathname.startsWith(p + "/"));
+}
+
+function isAdminPath(pathname: string): boolean {
+  return ADMIN_PREFIXES.some(p => pathname === p || pathname.startsWith(p + "/"));
+}
+
+function isSuperadminPath(pathname: string): boolean {
+  return SUPERADMIN_PREFIXES.some(p => pathname === p || pathname.startsWith(p + "/"));
+}
+
+function isManagePath(pathname: string): boolean {
+  return MANAGE_PREFIXES.some(p => pathname === p || pathname.startsWith(p + "/"));
+}
+
+/**
+ * Bound a Supabase-auth network call so a slow/unreachable auth provider can
+ * never hang the Edge middleware into a MIDDLEWARE_INVOCATION_TIMEOUT (504).
+ * getUser()/getSession() hit the Supabase auth server on every navigation with
+ * no timeout of their own; a single latency spike there otherwise takes the
+ * whole page down. On timeout we return the AUTH_TIMEOUT sentinel and degrade
+ * gracefully (see call sites): public pages proceed, protected pages bounce to
+ * /login rather than 504. 4s is well under Vercel's middleware budget.
+ */
+const AUTH_TIMEOUT = Symbol("auth-timeout");
+const AUTH_TIMEOUT_MS = 4000;
+function withAuthTimeout<T>(p: Promise<T>): Promise<T | typeof AUTH_TIMEOUT> {
+  return Promise.race([
+    p,
+    new Promise<typeof AUTH_TIMEOUT>(resolve => setTimeout(() => resolve(AUTH_TIMEOUT), AUTH_TIMEOUT_MS)),
+  ]);
+}
+/** Redirect to /login, remembering where the caller was headed. */
+function toLogin(req: NextRequest, reason: string): NextResponse {
+  const to = new URL("/login", req.url);
+  to.searchParams.set("next", req.nextUrl.pathname + req.nextUrl.search);
+  to.searchParams.set("reason", reason);
+  return NextResponse.redirect(to);
+}
 
 export async function refreshSupabaseSession(req: NextRequest, res: NextResponse): Promise<NextResponse> {
-  if (!isSupabaseConfigured) return res;
+  const { pathname } = req.nextUrl;
+
+  // Without Supabase the app runs in local/guest mode (localStorage only, no
+  // accounts, no shared data). Gating everything would lock an operator out of
+  // their own local instance, so pass through — but NEVER for /admin, which
+  // must not become reachable merely because auth happens to be unconfigured.
+  // Failing closed on the one privileged surface is the safe default.
+  if (!isSupabaseConfigured) {
+    if (isAdminPath(pathname)) {
+      return NextResponse.redirect(new URL("/login?reason=admin_requires_auth", req.url));
+    }
+    return res;
+  }
+
+  // Public paths (the landing page + the entire sign-in funnel) need no gate, so
+  // skip the getUser() auth round-trip entirely for them. This was previously
+  // done AFTER getUser (below), which meant every /login, /signup, /join and /
+  // navigation paid a full round-trip to the Supabase auth server whose result
+  // was then discarded — a wasted round-trip on exactly the screens a
+  // logged-OUT user hits while entering the app. The only thing skipped is a
+  // token refresh on public pages, which is a no-op for the logged-out funnel
+  // and harmless elsewhere (any protected navigation refreshes the token).
+  if (isPublicPath(pathname)) return res;
 
   const supabase = createServerClient(supabaseUrl!, supabaseAnonKey!, {
     cookies: {
@@ -25,8 +140,64 @@ export async function refreshSupabaseSession(req: NextRequest, res: NextResponse
     },
   });
 
-  // Touches the session, which refreshes the token if needed and (re)writes
-  // the auth cookie via setAll above.
-  await supabase.auth.getUser();
+  // getUser() (not getSession()) — it validates the JWT against the auth server
+  // instead of trusting the cookie, so a forged or expired cookie cannot get
+  // past this gate. Same reasoning as src/lib/auth/apiGuard.ts. Bounded so a
+  // slow auth provider degrades instead of 504-ing the page.
+  const userResult = await withAuthTimeout(supabase.auth.getUser());
+  if (userResult === AUTH_TIMEOUT) {
+    // Auth provider is slow. This point is only reached for a PROTECTED path
+    // (public paths returned above before getUser), so never hang into a 504 —
+    // bounce to /login (itself public, and it re-resolves the session there)
+    // rather than taking the whole request down.
+    return toLogin(req, "auth_unavailable");
+  }
+  const user = userResult.data.user;
+  // E-05: Supabase Auth itself failed — explain it on /login instead of a silent bounce.
+  if (!user && isAuthOutage(userResult.error)) return toLogin(req, "auth_unavailable");
+
+  // ── Not signed in → login, remembering where they were headed ──────────────
+  if (!user) {
+    const to = new URL("/login", req.url);
+    to.searchParams.set("next", pathname + req.nextUrl.search);
+    return NextResponse.redirect(to);
+  }
+
+  // ── Signed in, but /admin additionally requires role='admin' ───────────────
+  if (isAdminPath(pathname)) {
+    const profileResult = await withAuthTimeout(
+      Promise.resolve(supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()),
+    );
+    // Fail closed: a missing profile row, a read error, OR an auth-provider
+    // timeout is NOT admin.
+    if (profileResult === AUTH_TIMEOUT || profileResult.data?.role !== "admin") {
+      return NextResponse.redirect(new URL("/rooms?reason=forbidden", req.url));
+    }
+  }
+
+  // ── Tenancy gates (multi-tenant B2B). The org context is a signed JWT claim
+  // stamped by the access-token hook; both fields are absent pre-migration, so
+  // these gates are inert until the multi-tenancy rollout is live. ────────────
+  const sessionResult = await withAuthTimeout(supabase.auth.getSession());
+  if (sessionResult === AUTH_TIMEOUT) return toLogin(req, "auth_unavailable");
+  const claim = decodeOrgClaim(sessionResult.data.session?.access_token);
+
+  // The super-admin console is platform-admin only.
+  if (isSuperadminPath(pathname) && !claim.isPlatformAdmin) {
+    return NextResponse.redirect(new URL("/rooms?reason=forbidden", req.url));
+  }
+
+  // The org-admin console is for org_admins (and the platform admin).
+  if (isManagePath(pathname) && !claim.isPlatformAdmin && claim.orgRole !== "org_admin") {
+    return NextResponse.redirect(new URL("/rooms?reason=forbidden", req.url));
+  }
+
+  // A college whose license expired or was suspended is locked to the notice
+  // page (only `false` locks — null = no claim = not enforced). The platform
+  // admin is exempt so they can still manage things.
+  if (claim.orgActive === false && !claim.isPlatformAdmin && pathname !== "/license") {
+    return NextResponse.redirect(new URL("/license", req.url));
+  }
+
   return res;
 }

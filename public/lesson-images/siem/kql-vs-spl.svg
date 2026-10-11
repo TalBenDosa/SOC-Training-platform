@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 560" role="img" aria-label="The same triage query written side by side in KQL and SPL, line by line for the same intent: filter time range, filter field, aggregate, and project columns, followed by an operator translation table">
+  <title>The same query in KQL and SPL, side by side</title>
+  <defs>
+    <style>
+      .bg    { fill: #0b0f1e; }
+      .panel { fill: #0a1020; stroke: #1e2d4a; stroke-width: 1; }
+      .row   { fill: #0d1526; stroke: #1e2d4a; stroke-width: 1; }
+      .ui    { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .mono  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+      .head  { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+      .col   { fill: #64748b; font-size: 10px; font-weight: 600; letter-spacing: .08em; }
+      .tbl   { fill: #7dd3fc; }
+      .op    { fill: #c084fc; }
+      .str   { fill: #86efac; }
+      .fld   { fill: #e2e8f0; }
+      .cmt   { fill: #64748b; font-style: italic; font-size: 11px; }
+      .note  { fill: #94a3b8; font-size: 11px; }
+      .cell  { fill: #cbd5e1; font-size: 11px; }
+      .cellv { fill: #e2e8f0; font-size: 11px; }
+      .cap   { fill: #64748b; font-size: 10px; font-style: italic; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="940" height="560"/>
+  <text class="ui head" x="24" y="28">SAME TRIAGE QUERY, TWO DIALECTS — ACCOUNT AUTH HISTORY OVER 24 HOURS</text>
+
+  <!-- column headers -->
+  <text class="ui col" x="34"  y="52">KQL — MICROSOFT SENTINEL</text>
+  <text class="ui col" x="490" y="52">SPL — SPLUNK</text>
+
+  <rect class="panel" x="24"  y="60" width="440" height="196" rx="6"/>
+  <rect class="panel" x="480" y="60" width="436" height="196" rx="6"/>
+
+  <text class="mono" x="34" y="82"><tspan class="tbl">SigninLogs</tspan></text>
+  <text class="mono" x="34" y="102"><tspan class="op">| where</tspan><tspan class="fld"> TimeGenerated </tspan><tspan class="op">&gt;</tspan><tspan class="fld"> ago(</tspan><tspan class="str">24h</tspan><tspan class="fld">)</tspan></text>
+  <text class="mono" x="34" y="122"><tspan class="op">| where</tspan><tspan class="fld"> UserPrincipalName </tspan><tspan class="op">==</tspan><tspan class="str"> "j.rivera@contoso.com"</tspan></text>
+  <text class="mono" x="34" y="142"><tspan class="op">| summarize</tspan></text>
+  <text class="mono" x="48" y="160"><tspan class="fld">total</tspan><tspan class="op">=</tspan><tspan class="fld">count(), failures</tspan><tspan class="op">=</tspan><tspan class="fld">countif(ResultType!=</tspan><tspan class="str">0</tspan><tspan class="fld">)</tspan></text>
+  <text class="mono" x="34" y="178"><tspan class="op">    by</tspan><tspan class="fld"> IPAddress</tspan></text>
+  <text class="mono" x="34" y="198"><tspan class="op">| project</tspan><tspan class="fld"> TimeGenerated, IPAddress, total, failures</tspan></text>
+  <text class="cmt" x="34" y="236">Pipe-forward: each stage narrows the previous one, left to right.</text>
+
+  <text class="mono" x="490" y="82"><tspan class="tbl">index=azuread sourcetype=azure:aad:signin</tspan></text>
+  <text class="mono" x="490" y="102"><tspan class="fld">earliest=</tspan><tspan class="str">-24h</tspan></text>
+  <text class="mono" x="490" y="122"><tspan class="fld">UserPrincipalName=</tspan><tspan class="str">"j.rivera@contoso.com"</tspan></text>
+  <text class="mono" x="490" y="142"><tspan class="op">| stats</tspan></text>
+  <text class="mono" x="504" y="160"><tspan class="fld">count</tspan><tspan class="op"> as </tspan><tspan class="fld">total, count(eval(ResultType!=</tspan><tspan class="str">0</tspan><tspan class="fld">))</tspan><tspan class="op"> as </tspan><tspan class="fld">failures</tspan></text>
+  <text class="mono" x="490" y="178"><tspan class="op">    by</tspan><tspan class="fld"> IPAddress</tspan></text>
+  <text class="mono" x="490" y="198"><tspan class="op">| table</tspan><tspan class="fld"> _time, IPAddress, total, failures</tspan></text>
+  <text class="cmt" x="490" y="236">Search terms filter inline, before the first explicit pipe.</text>
+
+  <text class="ui note" x="24" y="278">Both queries answer the exact same question — narrow to entity and time, aggregate to see the shape, then choose the columns that answer it.</text>
+
+  <!-- operator translation table -->
+  <text class="ui col" x="24" y="308">OPERATOR TRANSLATION</text>
+  <text class="ui col" x="90"  y="330">INTENT</text>
+  <text class="ui col" x="330" y="330">KQL</text>
+  <text class="ui col" x="560" y="330">SPL</text>
+
+  <rect class="row" x="24" y="340" width="892" height="32" rx="4"/>
+  <text class="cell" x="34" y="360">Filter rows by time range</text>
+  <text class="cellv mono" x="330" y="360">ago(24h)</text>
+  <text class="cellv mono" x="560" y="360">earliest=-24h</text>
+
+  <rect class="row" x="24" y="376" width="892" height="32" rx="4"/>
+  <text class="cell" x="34" y="396">Filter rows by a field condition</text>
+  <text class="cellv mono" x="330" y="396">where</text>
+  <text class="cellv mono" x="560" y="396">search / where</text>
+
+  <rect class="row" x="24" y="412" width="892" height="32" rx="4"/>
+  <text class="cell" x="34" y="432">Group and aggregate</text>
+  <text class="cellv mono" x="330" y="432">summarize ... by</text>
+  <text class="cellv mono" x="560" y="432">stats ... by</text>
+
+  <rect class="row" x="24" y="448" width="892" height="32" rx="4"/>
+  <text class="cell" x="34" y="468">Choose and order columns</text>
+  <text class="cellv mono" x="330" y="468">project</text>
+  <text class="cellv mono" x="560" y="468">table</text>
+
+  <rect class="row" x="24" y="484" width="892" height="32" rx="4"/>
+  <text class="cell" x="34" y="504">Count distinct values</text>
+  <text class="cellv mono" x="330" y="504">dcount()</text>
+  <text class="cellv mono" x="560" y="504">dc()</text>
+
+  <text class="ui cap" x="24" y="532">The verbs differ; the rhythm — filter, aggregate, shape — is identical across every SIEM you will ever open.</text>
+</svg>

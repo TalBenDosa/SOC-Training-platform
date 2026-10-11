@@ -83,7 +83,7 @@ const VENDOR_SCHEMAS = {
     correctPrefixes: ["okta."],
     legacyPrefixes: [],
     requiredAny: [
-      "okta.event_type",
+      "okta.eventType",
       "okta.actor.login",
       "okta.outcome.result",
       "okta.target.user",
@@ -108,25 +108,33 @@ const VENDOR_SCHEMAS = {
       "crowdstrike.SeverityName",
       "crowdstrike.DetectName",
       "crowdstrike.SensorId",
-      "crowdstrike.event_type",
+      "crowdstrike.event_simpleName",
     ],
   },
 
   // ── EDR — Microsoft Defender for Endpoint ────────────────────────────────
 
   mde: {
+    // Real Advanced Hunting fields are unprefixed KQL table columns
+    // (DeviceName, ActionType, FileName, ReportId, Category, DetectionSource,
+    // Status, Classification, Severity …). Some older content still carries a
+    // legacy "mde." namespace — tolerated but flagged for cleanup.
     label: "Microsoft Defender for Endpoint",
-    correctPrefixes: ["mde."],
+    correctPrefixes: ["mde.", "DeviceName", "ActionType", "ReportId", "DetectionSource", "Category"],
     legacyPrefixes: [],
     requiredAny: [
+      "DeviceName",
+      "ActionType",
+      "ReportId",
+      "Category",
+      "DetectionSource",
+      "Status",
+      "Classification",
+      "Severity",
       "mde.AlertTitle",
       "mde.DetectionSource",
       "mde.DeviceName",
       "mde.ReportId",
-      "mde.alert_category",
-      "mde.detectionSource",
-      "mde.alertId",
-      "mde.machine_risk_score",
     ],
   },
 
@@ -144,9 +152,9 @@ const VENDOR_SCHEMAS = {
       "sentinelone.site_name",
       "sentinelone.threat.name",
       "sentinelone.agent.id",
-      "s1.event_type",
-      "s1.threat_level",
-      "s1.indicator_name",
+      "s1.eventType",
+      "s1.threat.threatName",
+      "s1.indicator.name",
     ],
   },
 
@@ -160,7 +168,7 @@ const VENDOR_SCHEMAS = {
       "azure.sign_in_event_types",
       "azure.operation.name",
       "azure.tenant.id",
-      "azure.app_display_name",
+      "azure.appDisplayName",
       "azure.resource.type",
       "azure.activity.operationName",
       "azure.activityLogs.operationName",
@@ -176,17 +184,17 @@ const VENDOR_SCHEMAS = {
     legacyPrefixes: [
       {
         prefix: "aws.eventSource",
-        replaceWith: "aws.cloudtrail.event_source",
+        replaceWith: "aws.cloudtrail.eventSource",
       },
       {
         prefix: "aws.eventName",
-        replaceWith: "aws.cloudtrail.event_name",
+        replaceWith: "aws.cloudtrail.eventName",
       },
     ],
     requiredAny: [
-      "aws.cloudtrail.event_name",
-      "aws.cloudtrail.event_source",
-      "aws.cloudtrail.user_identity.type",
+      "aws.cloudtrail.eventName",
+      "aws.cloudtrail.eventSource",
+      "aws.cloudtrail.userIdentity.type",
       "aws.guardduty.finding_type",
     ],
   },
@@ -232,16 +240,30 @@ const VENDOR_SCHEMAS = {
   // ── Firewall — Check Point ────────────────────────────────────────────────
 
   checkpoint: {
+    // Real Check Point SmartLog fields are unprefixed (no "checkpoint." or "cp."
+    // namespace — see checkpoint-log-fields reference). "layer_name" is the
+    // most reliable anchor field present on every Check Point event.
     label: "Check Point NGFW",
-    correctPrefixes: ["checkpoint.", "cp."],
-    legacyPrefixes: [],
+    correctPrefixes: ["layer_name", "rule_name", "inzone", "outzone", "ProductName"],
+    legacyPrefixes: [
+      {
+        prefix: "cp.",
+        replaceWith:
+          "unprefixed real Check Point fields (e.g. layer_name, rule_name, inzone, outzone, svc, service_id, ProductName)",
+      },
+      {
+        prefix: "checkpoint.",
+        replaceWith:
+          "unprefixed real Check Point fields (e.g. layer_name, rule_name, inzone, outzone, svc, service_id, ProductName)",
+      },
+    ],
     requiredAny: [
-      "checkpoint.rule",
-      "checkpoint.blade",
-      "checkpoint.action",
-      "checkpoint.policy",
-      "cp.blade",
-      "cp.action",
+      "layer_name",
+      "rule_name",
+      "inzone",
+      "outzone",
+      "ProductName",
+      "src_machine_name",
     ],
   },
 
@@ -391,7 +413,7 @@ type VendorSchemaKey = keyof typeof VENDOR_SCHEMAS;
  */
 function detectVendorSchema(
   vendor: string | undefined,
-  source: string
+  _source: string
 ): VendorSchemaKey | null {
   if (!vendor) return null;
 

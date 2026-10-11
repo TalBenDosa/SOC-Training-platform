@@ -1,6 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { asObject } from "@/lib/http/body";
 import { requireAdmin } from "@/lib/auth/apiGuard";
+import { checkAiBudget, recordAiUsage } from "@/lib/ai/usage";
 import type { Quiz, QuizQuestion } from "@/lib/quizzes/data";
+
+export const maxDuration = 120;
 
 // ─── Extended type for generated quizzes ─────────────────────────────────────
 
@@ -161,10 +165,10 @@ function buildLocalQuiz(
 // ─── Route ────────────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
-  const gate = await requireAdmin();
+  const gate = await requireAdmin("quiz.generate");
   if ("error" in gate) return gate.error;
 
-  const body = await req.json().catch(() => ({}));
+  const body = asObject(await req.json().catch(() => ({})));
   const {
     title = "Generated Quiz",
     topic = "Incident Response",
@@ -175,11 +179,13 @@ export async function POST(req: Request) {
 
   const clampedCount = Math.max(3, Math.min(12, count));
 
-  if (!process.env.ANTHROPIC_API_KEY) {
+  // Over the spend ceiling (migration 0024) → the local template quiz, same as
+  // a deployment with no API key. Real content, just not model-written.
+  if (!process.env.ANTHROPIC_API_KEY || !(await checkAiBudget(gate.user.orgId)).allowed) {
     return Response.json(buildLocalQuiz(title, topic, difficulty, clampedCount));
   }
 
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 55_000, maxRetries: 1 }); // E-18: 2 × 55 s < maxDuration 120 s
 
   const prompt = `You are an expert SOC training instructor creating a multiple-choice quiz for security analysts.
 
@@ -219,6 +225,14 @@ Rules:
       messages: [{ role: "user", content: prompt }],
     });
 
+    await recordAiUsage({
+      route: "/api/quizzes/generate",
+      userId: gate.user.id,
+      orgId: gate.user.orgId,
+      model: response.model,
+      usage: response.usage,
+    });
+
     const text = response.content[0].type === "text" ? response.content[0].text : "";
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("Model did not return valid JSON");
@@ -249,7 +263,9 @@ Rules:
 
     return Response.json(quiz);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return Response.json({ error: message }, { status: 500 });
+    // E-18: a provider failure degrades to the local template quiz (the same
+    // thing a deployment without a key gets) instead of a raw 500.
+    console.error("[quizzes/generate] AI failed:", err instanceof Error ? err.message : String(err));
+    return Response.json(buildLocalQuiz(title, topic, difficulty, clampedCount));
   }
 }

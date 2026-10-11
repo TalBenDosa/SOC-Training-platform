@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 520" role="img" aria-label="Severity matrix with asset criticality as rows — crown-jewel data, domain controller, server, workstation — and scope of impact as columns — single host, several hosts, organization-wide — showing the derived severity in each cell, with a note that vendor severity is a starting hypothesis, not a conclusion"><title>Severity matrix — asset criticality x scope of impact</title>
+  <defs>
+    <style>
+      .bg    { fill: #0b0f1e; }
+      .panel { fill: #0a1020; stroke: #1e2d4a; stroke-width: 1; }
+      .ui    { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .head  { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+      .axis  { fill: #64748b; font-size: 10px; font-weight: 700; letter-spacing: .1em; }
+      .colHdr{ fill: #cbd5e1; font-size: 11px; font-weight: 700; }
+      .rowHdr{ fill: #cbd5e1; font-size: 11.5px; font-weight: 700; }
+      .rowSub{ fill: #64748b; font-size: 9.5px; }
+      .cellLbl{ font-size: 14px; font-weight: 800; letter-spacing: .04em; }
+      .cellSub{ fill: #94a3b8; font-size: 9px; }
+      .low   { fill: #10241c; stroke: #86efac; stroke-width: 1.2; }
+      .med   { fill: #2a2210; stroke: #fbbf24; stroke-width: 1.2; }
+      .high  { fill: #2a150f; stroke: #fb923c; stroke-width: 1.2; }
+      .crit  { fill: #2a1013; stroke: #f87171; stroke-width: 1.6; }
+      .note  { fill: #94a3b8; font-size: 11.5px; }
+      .cap   { fill: #64748b; font-size: 10.5px; font-style: italic; }
+      .flag  { fill: #fbbf24; font-size: 11px; font-weight: 700; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="940" height="520"/>
+  <text class="ui head" x="24" y="30">SEVERITY = ASSET CRITICALITY &#215; SCOPE OF IMPACT</text>
+  <text class="ui axis" x="570" y="60" text-anchor="middle">SCOPE OF IMPACT</text>
+
+  <!-- column headers -->
+  <rect class="panel" x="224" y="84" width="231" height="34" rx="4"/>
+  <text class="ui colHdr" x="339" y="105" text-anchor="middle">SINGLE HOST</text>
+  <rect class="panel" x="455" y="84" width="231" height="34" rx="4"/>
+  <text class="ui colHdr" x="570" y="105" text-anchor="middle">SEVERAL HOSTS</text>
+  <rect class="panel" x="686" y="84" width="230" height="34" rx="4"/>
+  <text class="ui colHdr" x="801" y="105" text-anchor="middle">ORG-WIDE</text>
+
+  <!-- row: crown-jewel data -->
+  <rect class="panel" x="24" y="118" width="200" height="70" rx="4"/>
+  <text class="ui rowHdr" x="38" y="148">Crown-Jewel Data</text>
+  <text class="ui rowSub" x="38" y="164">Regulated PII, IP, financials</text>
+
+  <rect class="crit" x="224" y="118" width="231" height="70" rx="4"/>
+  <text class="cellLbl" fill="#f87171" x="339" y="150" text-anchor="middle">CRITICAL</text>
+  <text class="cellSub" x="339" y="166" text-anchor="middle">any touch to this data matters</text>
+
+  <rect class="crit" x="455" y="118" width="231" height="70" rx="4"/>
+  <text class="cellLbl" fill="#f87171" x="570" y="150" text-anchor="middle">CRITICAL</text>
+  <text class="cellSub" x="570" y="166" text-anchor="middle">confirm exposure boundary</text>
+
+  <rect class="crit" x="686" y="118" width="230" height="70" rx="4"/>
+  <text class="cellLbl" fill="#f87171" x="801" y="150" text-anchor="middle">CRITICAL</text>
+  <text class="cellSub" x="801" y="166" text-anchor="middle">breach-notification territory</text>
+
+  <!-- row: domain controller -->
+  <rect class="panel" x="24" y="188" width="200" height="70" rx="4"/>
+  <text class="ui rowHdr" x="38" y="218">Domain Controller</text>
+  <text class="ui rowSub" x="38" y="234">Identity infrastructure</text>
+
+  <rect class="high" x="224" y="188" width="231" height="70" rx="4"/>
+  <text class="cellLbl" fill="#fb923c" x="339" y="220" text-anchor="middle">HIGH</text>
+  <text class="cellSub" x="339" y="236" text-anchor="middle">scope it before you contain</text>
+
+  <rect class="crit" x="455" y="188" width="231" height="70" rx="4"/>
+  <text class="cellLbl" fill="#f87171" x="570" y="220" text-anchor="middle">CRITICAL</text>
+  <text class="cellSub" x="570" y="236" text-anchor="middle">possible domain compromise</text>
+
+  <rect class="crit" x="686" y="188" width="230" height="70" rx="4"/>
+  <text class="cellLbl" fill="#f87171" x="801" y="220" text-anchor="middle">CRITICAL</text>
+  <text class="cellSub" x="801" y="236" text-anchor="middle">assume forest-wide impact</text>
+
+  <!-- row: server -->
+  <rect class="panel" x="24" y="258" width="200" height="70" rx="4"/>
+  <text class="ui rowHdr" x="38" y="288">Server</text>
+  <text class="ui rowSub" x="38" y="304">File share, app, DB host</text>
+
+  <rect class="med" x="224" y="258" width="231" height="70" rx="4"/>
+  <text class="cellLbl" fill="#fbbf24" x="339" y="290" text-anchor="middle">MEDIUM</text>
+  <text class="cellSub" x="339" y="306" text-anchor="middle">check what it holds and serves</text>
+
+  <rect class="high" x="455" y="258" width="231" height="70" rx="4"/>
+  <text class="cellLbl" fill="#fb923c" x="570" y="290" text-anchor="middle">HIGH</text>
+  <text class="cellSub" x="570" y="306" text-anchor="middle">likely lateral movement</text>
+
+  <rect class="crit" x="686" y="258" width="230" height="70" rx="4"/>
+  <text class="cellLbl" fill="#f87171" x="801" y="290" text-anchor="middle">CRITICAL</text>
+  <text class="cellSub" x="801" y="306" text-anchor="middle">multi-server foothold</text>
+
+  <!-- row: workstation -->
+  <rect class="panel" x="24" y="328" width="200" height="70" rx="4"/>
+  <text class="ui rowHdr" x="38" y="358">Workstation</text>
+  <text class="ui rowSub" x="38" y="374">One user's endpoint</text>
+
+  <rect class="low" x="224" y="328" width="231" height="70" rx="4"/>
+  <text class="cellLbl" fill="#86efac" x="339" y="360" text-anchor="middle">LOW</text>
+  <text class="cellSub" x="339" y="376" text-anchor="middle">contained, routine handling</text>
+
+  <rect class="med" x="455" y="328" width="231" height="70" rx="4"/>
+  <text class="cellLbl" fill="#fbbf24" x="570" y="360" text-anchor="middle">MEDIUM</text>
+  <text class="cellSub" x="570" y="376" text-anchor="middle">spread already underway</text>
+
+  <rect class="high" x="686" y="328" width="230" height="70" rx="4"/>
+  <text class="cellLbl" fill="#fb923c" x="801" y="360" text-anchor="middle">HIGH</text>
+  <text class="cellSub" x="801" y="376" text-anchor="middle">worm-like or shared payload</text>
+
+  <!-- note -->
+  <rect class="panel" x="24" y="414" width="892" height="72" rx="6"/>
+  <text class="ui flag" x="40" y="436">A CELL IS A STARTING POINT, NOT A VERDICT</text>
+  <text class="ui note" x="40" y="456">The vendor's default severity label does not know which row and column your alert actually sits in. Re-plot it</text>
+  <text class="ui note" x="40" y="472">yourself with real asset criticality and real scope — the same "Medium" alert can be a LOW or a CRITICAL here.</text>
+
+  <text class="ui cap" x="24" y="508">Certainty of detection and data sensitivity still refine the call within a cell — the grid sets the floor, not the final number.</text>
+</svg>

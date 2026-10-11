@@ -1,0 +1,228 @@
+import { NextResponse } from "next/server";
+import { asObject } from "@/lib/http/body";
+import { dbFail } from "@/lib/http/dbFail";
+import { revokeUserSessions } from "@/lib/auth/revokeSessions";
+import { requireOrgAdmin } from "@/lib/auth/apiGuard";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import type { OrgMember, OrgUsage } from "@/lib/org/types";
+import { ROOT_ORG_ID } from "@/lib/org/rootEnvironment";
+
+/**
+ * Org-admin roster management — always scoped to the CALLER'S OWN org (from
+ * their JWT claim). A college admin can never touch another org: the org id
+ * comes from getAuthedUser(), never from a request parameter. Uses the
+ * service-role client for the writes, but every operation is pinned to
+ * `user.orgId`.
+ */
+
+async function callerOrg() {
+  const gate = await requireOrgAdmin("org.members");
+  if ("error" in gate) return { error: gate.error };
+  const orgId = gate.user.orgId;
+  if (!orgId) return { error: NextResponse.json({ error: "No organisation in session." }, { status: 400 }) };
+  const admin = getSupabaseAdminClient();
+  if (!admin) return { error: NextResponse.json({ error: "Server not configured." }, { status: 503 }) };
+  return { orgId, admin, userId: gate.user.id };
+}
+
+// ── GET — roster + usage for the admin's own org ────────────────────────────
+type Admin = NonNullable<ReturnType<typeof getSupabaseAdminClient>>;
+
+/**
+ * Members an org admin may NOT change: fellow org admins and the platform
+ * super-admin (who must stay a member of every org). Granting org_admin is
+ * already forbidden here, so demoting, deactivating or removing one must be too
+ * — otherwise one admin could lock the college's other admins out. Returns the
+ * refusal response, or null when the target may be acted on.
+ */
+async function protectedTargetError(admin: Admin, orgId: string, target: string): Promise<NextResponse | null> {
+  const [{ data: prof, error: profErr }, { data: mem, error: memErr }] = await Promise.all([
+    admin.from("profiles").select("is_platform_admin").eq("id", target).maybeSingle(),
+    admin.from("org_members").select("role").eq("org_id", orgId).eq("user_id", target).maybeSingle(),
+  ]);
+  // E-03: a failed read must never mean "not protected" — on a DB blip an org
+  // admin could otherwise deactivate / remove a fellow admin or the platform admin.
+  if (profErr || memErr) return NextResponse.json({ error: "Couldn't check that right now — nothing was changed. Please try again." }, { status: 503 });
+  if (prof?.is_platform_admin || mem?.role === "org_admin") {
+    return NextResponse.json({ error: "Organisation admins can only be changed by the platform team." }, { status: 403 });
+  }
+  return null;
+}
+
+export async function GET() {
+  const c = await callerOrg();
+  if ("error" in c) return c.error;
+  const { orgId, admin } = c;
+
+  const { data: org } = await admin.from("organizations").select("id, name, slug, seat_limit, status, expires_at").eq("id", orgId).maybeSingle();
+  const { data: memberRows } = await admin
+    .from("org_members")
+    .select("org_id, user_id, role, status, joined_at, profiles(handle, display_name, xp, is_platform_admin)")
+    .eq("org_id", orgId)
+    .order("joined_at", { ascending: true });
+
+  // A platform super-admin doing oversight is invisible to per-org views: they
+  // can traverse any environment without appearing in its roster, counts, or XP.
+  const members: (OrgMember & { xp?: number })[] = (memberRows ?? [])
+    .filter(m => !(m.profiles as unknown as { is_platform_admin?: boolean } | null)?.is_platform_admin)
+    .map(m => {
+      const p = m.profiles as unknown as { handle?: string; display_name?: string; xp?: number } | null;
+      return {
+        org_id: m.org_id, user_id: m.user_id, role: m.role, status: m.status, joined_at: m.joined_at,
+        handle: p?.handle ?? null, display_name: p?.display_name ?? null, xp: p?.xp ?? 0,
+      };
+    });
+
+  const [sessions, scenarios, rooms] = await Promise.all([
+    admin.from("dashboard_sessions").select("id", { count: "exact", head: true }).eq("org_id", orgId),
+    admin.from("scenario_history").select("id", { count: "exact", head: true }).eq("org_id", orgId),
+    admin.from("room_progress").select("user_id", { count: "exact", head: true }).eq("org_id", orgId).not("completed_at", "is", null),
+  ]);
+  const usage: OrgUsage = {
+    members: members.filter(m => m.status === "active").length,
+    total_xp: members.reduce((s, m) => s + (m.xp ?? 0), 0),
+    sessions: sessions.count ?? 0,
+    scenarios_completed: scenarios.count ?? 0,
+    rooms_completed: rooms.count ?? 0,
+  };
+
+  return NextResponse.json({ org, members, usage });
+}
+
+// ── POST — attach an existing account by email to the admin's org ───────────
+export async function POST(req: Request) {
+  const c = await callerOrg();
+  if ("error" in c) return c.error;
+  const { orgId, admin } = c;
+
+  let body: Record<string, unknown>;
+  try { body = asObject(await req.json()); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
+  const email = String(body.email ?? "").trim();
+  if (!email) return NextResponse.json({ error: "Email is required." }, { status: 400 });
+  // SEC-02: sign-up doesn't verify the email address, so an existing account
+  // proves nothing about who owns it — someone may have pre-registered a future
+  // staff member's address. Staff roles are granted only through an emailed
+  // invitation, accepted from that mailbox (/api/invitations/[token]/accept).
+  if (body.role != null && String(body.role) !== "student") {
+    return NextResponse.json({ error: "Instructors are added by emailed invitation only — send one from Invitations. An existing account doesn't prove who owns the address." }, { status: 400 });
+  }
+  const role = "student";
+
+  const { data: userId, error: lookupErr } = await admin.rpc("find_user_id_by_email", { p_email: email });
+  if (lookupErr) return dbFail(lookupErr, "api/org/members", 500);
+  if (!userId) return NextResponse.json({ error: `No account exists for ${email}. Send them your class invite link instead.` }, { status: 404 });
+
+  const guard = await protectedTargetError(admin, orgId, userId);
+  if (guard) return guard;
+  // Attaching also switches the person's active organisation, so it must never
+  // pull in someone who belongs to ANOTHER institution — that would move them
+  // out of their own college without their consent. They can join with this
+  // org's class code instead (their choice).
+  const { data: elsewhere, error: elsewhereErr } = await admin.from("org_members").select("org_id")
+    .eq("user_id", userId).eq("status", "active").neq("org_id", orgId).neq("org_id", ROOT_ORG_ID).limit(1);
+  if (elsewhereErr) return NextResponse.json({ error: "Couldn't check that right now — nothing was changed. Please try again." }, { status: 503 });   // E-03: fail closed
+  if (elsewhere && elsewhere.length > 0) {
+    return NextResponse.json({ error: "This person already belongs to another institution. Ask them to join with your class code instead." }, { status: 409 });
+  }
+
+  // A student gets the same 100-day affiliation window as joining with the class
+  // code, written by the RPC in the same transaction as the membership (0080).
+  const { error } = await admin.rpc("attach_member_if_seat_available", {
+    p_org: orgId, p_user: userId, p_role: role,
+    p_affiliation_expires: role === "student" ? new Date(Date.now() + 100 * 86_400_000).toISOString() : null,
+  });
+  if (error) {
+    if (error.message.includes("seat_limit_reached")) return NextResponse.json({ error: "Your organisation has reached its seat limit." }, { status: 409 });
+    return dbFail(error, "api/org/members", 500);
+  }
+  return NextResponse.json({ ok: true });
+}
+
+// ── PATCH — activate / deactivate a member (without deleting) ───────────────
+// Deactivating keeps the row (and the student's history) but drops their active
+// membership, so their next token carries no org → they lose access until
+// reactivated. Reactivating re-checks the seat cap.
+export async function PATCH(req: Request) {
+  const c = await callerOrg();
+  if ("error" in c) return c.error;
+  const { orgId, admin, userId: adminId } = c;
+
+  let body: Record<string, unknown>;
+  try { body = asObject(await req.json()); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
+  const target = String(body.user_id ?? "").trim();
+  const active = body.active === true;
+  if (!target) return NextResponse.json({ error: "user_id is required." }, { status: 400 });
+  if (target === adminId) return NextResponse.json({ error: "You can't change your own status." }, { status: 400 });
+  const guard = await protectedTargetError(admin, orgId, target);
+  if (guard) return guard;
+
+  if (active) {
+    // Reactivating consumes a seat — checked and applied under the org-row lock
+    // (reactivate_member, 0080), so two concurrent reactivations can't both take
+    // the last seat.
+    const { data: outcome, error: rErr } = await admin.rpc("reactivate_member", { p_org: orgId, p_user: target });
+    if (rErr) {
+      if ((rErr.message ?? "").includes("seat_limit_reached")) {
+        return NextResponse.json({ error: "Your organisation has reached its seat limit — free a seat first." }, { status: 409 });
+      }
+      return NextResponse.json({ error: "Couldn't reactivate the member — please try again." }, { status: 500 });
+    }
+    if (outcome === "not_member") {
+      return NextResponse.json({ error: "That user is not a member of your organisation." }, { status: 404 });
+    }
+    return NextResponse.json({ ok: true, status: "active" });
+  }
+
+  // Both .eq()s already scope this to the caller's own org, so a `target` from
+  // another org matches nothing and updates 0 rows — but confirm that
+  // explicitly (rather than reporting {ok:true} regardless) so a rogue caller
+  // probing with a stranger's user_id gets an honest 404, not a misleading
+  // success that implies the mutation happened.
+  const { data: updated, error } = await admin.from("org_members")
+    .update({ status: active ? "active" : "removed" })
+    .eq("org_id", orgId).eq("user_id", target)
+    .select("user_id");
+  if (error) return dbFail(error, "api/org/members", 500);
+  if (!updated || updated.length === 0) {
+    return NextResponse.json({ error: "That user is not a member of your organisation." }, { status: 404 });
+  }
+  // E-19: say whether their open sessions were actually ended (SEC-05).
+  const sessionsRevoked = active ? undefined : await revokeUserSessions(admin, target);
+  return NextResponse.json({ ok: true, status: active ? "active" : "removed", sessions_revoked: sessionsRevoked });
+}
+
+// ── DELETE — remove a member from the admin's org ───────────────────────────
+export async function DELETE(req: Request) {
+  const c = await callerOrg();
+  if ("error" in c) return c.error;
+  const { orgId, admin, userId: adminId } = c;
+
+  let body: Record<string, unknown>;
+  try { body = asObject(await req.json()); } catch { return NextResponse.json({ error: "Invalid JSON." }, { status: 400 }); }
+  const target = String(body.user_id ?? "").trim();
+  if (!target) return NextResponse.json({ error: "user_id is required." }, { status: 400 });
+  if (target === adminId) return NextResponse.json({ error: "You can't remove yourself." }, { status: 400 });
+  const guard = await protectedTargetError(admin, orgId, target);
+  if (guard) return guard;
+
+  // .select() here isn't cosmetic: it's how we learn whether the delete matched
+  // a real row. Both .eq()s already scope the delete to (caller's org, target),
+  // so a `target` who is NOT actually a member of this org matches nothing and
+  // `deleted` comes back empty — but the profiles.org_id reset below must NOT
+  // run in that case. Without this check, a rogue org-admin could pass ANY
+  // user_id (its own org membership check trivially fails and no-ops) and still
+  // reach the unconditional profile update, silently kicking an arbitrary
+  // stranger out of an org they actually belong to — a cross-tenant IDOR.
+  const { data: deleted, error } = await admin.from("org_members")
+    .delete().eq("org_id", orgId).eq("user_id", target)
+    .select("user_id");
+  if (error) return dbFail(error, "api/org/members", 500);
+  if (!deleted || deleted.length === 0) {
+    return NextResponse.json({ error: "That user is not a member of your organisation." }, { status: 404 });
+  }
+  // Only move their active context if it pointed at THIS org — a member who is
+  // currently working in another institution must stay there.
+  await admin.from("profiles").update({ org_id: ROOT_ORG_ID }).eq("id", target).eq("org_id", orgId);
+  const sessionsRevoked = await revokeUserSessions(admin, target);   // SEC-05: end their sessions now
+  return NextResponse.json({ ok: true, sessions_revoked: sessionsRevoked });
+}

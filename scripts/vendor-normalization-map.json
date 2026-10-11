@@ -96,6 +96,7 @@
     "AWS Cost Anomaly Detection": "AWS Cost Anomaly Detection",
     "Azure Activity Log": "Azure Activity Log",
     "Azure Monitor": "Azure Monitor",
+    "Azure OpenAI": "Azure OpenAI",
     "Azure NSG Flow Logs": "Azure NSG Flow Logs",
     "GCP Cloud Audit Logs": "GCP Cloud Audit Logs",
     "Google Workspace Audit": "Google Workspace Audit",
@@ -134,6 +135,21 @@
     "Windows DNS Server": "Windows DNS Server",
     "Windows TerminalServices": "Windows TerminalServices",
     "VMware ESXi": "VMware ESXi",
-    "VMware vCenter Server": "VMware vCenter Server"
+    "VMware vCenter Server": "VMware vCenter Server",
+    "Tenable.io": "Tenable.io",
+    "Velociraptor": "Velociraptor",
+    "Fortinet FortiGate IPS": "FortiGate",
+    "Okta Verify": "Okta",
+    "Zeek Network Security Monitor": "Corelight (Zeek)",
+    "Suricata (IDS mode)": "Suricata",
+    "Suricata": "Suricata",
+    "Cisco Secure Firewall": "Cisco ASA",
+    "Cisco ASA": "Cisco ASA",
+    "Infoblox NIOS": "Infoblox DNS",
+    "Microsoft Intune": "Microsoft Intune",
+    "Workday": "Workday",
+    "Anthropic Claude Enterprise": "Anthropic Claude Enterprise",
+    "Claude Enterprise": "Anthropic Claude Enterprise",
+    "Anthropic Compliance API": "Anthropic Claude Enterprise"
   }
 }

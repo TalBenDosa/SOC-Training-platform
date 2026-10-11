@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 import {
   AlertTriangle, ChevronDown, ChevronRight, Eye, EyeOff,
   Mail, RefreshCw, Shield, ShieldAlert, ShieldCheck, ShieldX, X,
@@ -33,7 +34,7 @@ function AuthBadge({ label, raw }: { label: string; raw: string }) {
   const { cls, Icon, text } = cfg[r];
   return (
     <div className="flex items-center gap-2">
-      <span className="w-14 shrink-0 text-[10px] font-semibold uppercase tracking-wider text-slate-500">{label}</span>
+      <span className="w-14 shrink-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400">{label}</span>
       <span className={cn("inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[10px] font-bold", cls)}>
         <Icon className="h-2.5 w-2.5" />{text}
       </span>
@@ -46,7 +47,7 @@ function AuthBadge({ label, raw }: { label: string; raw: string }) {
 function FieldRow({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
   return (
     <div className="flex items-start gap-2 text-[10px]">
-      <span className="w-28 shrink-0 text-slate-500">{label}</span>
+      <span className="w-28 shrink-0 text-slate-400">{label}</span>
       <span className={cn("break-all font-mono", warn ? "text-neon-amber" : "text-slate-200")}>{value || "—"}</span>
       {warn && <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-neon-amber" />}
     </div>
@@ -74,6 +75,9 @@ export function EmailHeaderInvestigation({ onClose, onXp }: Props) {
   const [showRaw, setShowRaw]   = useState(false);
   const [showChain, setShowChain] = useState(false);
   const [xpAwarded, setXpAwarded] = useState(false);
+  // a11y: modal dialog — focus trapped inside, Escape closes, focus returns.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(true, dialogRef, { onEscape: onClose });
 
   const refresh = () => {
     setScenario(pickRandomHeaderScenario());
@@ -113,7 +117,8 @@ export function EmailHeaderInvestigation({ onClose, onXp }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="relative flex w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-border bg-[#0b1320] shadow-2xl" style={{ maxHeight: "92vh" }}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="email-investigation-title" tabIndex={-1}
+        className="relative flex w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-border bg-[#0b1320] shadow-2xl" style={{ maxHeight: "92vh" }}>
 
         {/* ── Top accent bar ───────────────────────────────────────────────── */}
         <div className="h-0.5 w-full bg-gradient-to-r from-cyber-500 via-neon-amber to-severity-high" />
@@ -125,7 +130,7 @@ export function EmailHeaderInvestigation({ onClose, onXp }: Props) {
               <Mail className="h-4 w-4 text-neon-amber" />
             </span>
             <div>
-              <h2 className="text-sm font-bold text-white">Email Header Investigation</h2>
+              <h2 id="email-investigation-title" className="text-sm font-bold text-white">Email Header Investigation</h2>
               <p className="text-[10px] text-slate-400 uppercase tracking-widest">
                 Analyst Training — Identify the IOCs before revealing the answer
               </p>
@@ -138,7 +143,7 @@ export function EmailHeaderInvestigation({ onClose, onXp }: Props) {
             >
               <RefreshCw className="h-3 w-3" /> New Scenario
             </button>
-            <button onClick={onClose} className="rounded p-1 text-slate-500 hover:text-white transition-colors">
+            <button onClick={onClose} aria-label="Close email header investigation" className="rounded p-1 text-slate-400 hover:text-white transition-colors">
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -163,7 +168,7 @@ export function EmailHeaderInvestigation({ onClose, onXp }: Props) {
 
           {/* ── Parsed fields ──────────────────────────────────────────────── */}
           <div className="rounded-lg border border-border/50 bg-[#0d1520] px-4 py-3 space-y-4">
-            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-600">Envelope &amp; Headers</p>
+            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Envelope &amp; Headers</p>
 
             <div className="space-y-1.5">
               <FieldRow label="From"     value={scenario.from} />
@@ -192,7 +197,7 @@ export function EmailHeaderInvestigation({ onClose, onXp }: Props) {
 
             {/* Auth */}
             <div className="border-t border-border/40 pt-3 space-y-1.5">
-              <p className="mb-2 text-[9px] font-bold uppercase tracking-widest text-slate-600">Authentication Results</p>
+              <p className="mb-2 text-[9px] font-bold uppercase tracking-widest text-slate-400">Authentication Results</p>
               <AuthBadge label="SPF"   raw={scenario.spf} />
               <AuthBadge label="DKIM"  raw={scenario.dkim} />
               <AuthBadge label="DMARC" raw={scenario.dmarc} />
@@ -202,7 +207,7 @@ export function EmailHeaderInvestigation({ onClose, onXp }: Props) {
                 </div>
               )}
               <div className="mt-2 rounded bg-[#080d14] px-2.5 py-2">
-                <p className="mb-1 text-[9px] font-semibold text-slate-600">Authentication-Results raw</p>
+                <p className="mb-1 text-[9px] font-semibold text-slate-400">Authentication-Results raw</p>
                 <p className="break-all font-mono text-[9px] leading-relaxed text-slate-400">{scenario.authResultsRaw}</p>
               </div>
             </div>
@@ -210,7 +215,9 @@ export function EmailHeaderInvestigation({ onClose, onXp }: Props) {
             {/* Received chain */}
             <div className="border-t border-border/40 pt-3">
               <button
-                className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-slate-600 hover:text-slate-400 transition-colors"
+                type="button"
+                aria-expanded={showChain}
+                className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-slate-400 hover:text-slate-200 transition-colors"
                 onClick={() => setShowChain(v => !v)}
               >
                 {showChain ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
@@ -220,7 +227,7 @@ export function EmailHeaderInvestigation({ onClose, onXp }: Props) {
                 <div className="mt-2 space-y-2 pl-2">
                   {scenario.receivedChain.map((hop, i) => (
                     <div key={i} className="flex items-start gap-2">
-                      <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-[8px] font-bold text-slate-500">
+                      <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-[8px] font-bold text-slate-400">
                         {i + 1}
                       </span>
                       <span className="break-all font-mono text-[9px] leading-relaxed text-slate-400">{hop}</span>
@@ -234,14 +241,16 @@ export function EmailHeaderInvestigation({ onClose, onXp }: Props) {
           {/* ── Raw header toggle ─────────────────────────────────────────── */}
           <div className="rounded-lg border border-border/50 bg-[#0d1520]">
             <button
+              type="button"
+              aria-expanded={showRaw}
               className="flex w-full items-center justify-between px-4 py-2.5"
               onClick={() => setShowRaw(v => !v)}
             >
-              <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+              <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                 {showRaw ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                 Raw Email Header (View Source)
               </div>
-              {showRaw ? <ChevronDown className="h-3.5 w-3.5 text-slate-500" /> : <ChevronRight className="h-3.5 w-3.5 text-slate-500" />}
+              {showRaw ? <ChevronDown className="h-3.5 w-3.5 text-slate-400" /> : <ChevronRight className="h-3.5 w-3.5 text-slate-400" />}
             </button>
             {showRaw && (
               <div className="border-t border-border/40 px-4 py-3">
@@ -275,7 +284,7 @@ export function EmailHeaderInvestigation({ onClose, onXp }: Props) {
           {revealed && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">
+                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
                   IOC Analysis — {scenario.iocs.length} Indicators Found
                 </p>
                 {xpAwarded && (

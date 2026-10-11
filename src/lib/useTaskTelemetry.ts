@@ -8,6 +8,12 @@ import { useCallback, useEffect, useRef } from "react";
  * This is a secondary signal alongside correctness — never a substitute for
  * it (a fast wrong answer must never look better than a slow correct one).
  */
+/** Decision latency is wall-clock time a task was on screen before submit, so it
+ *  captures idle/away time when a learner opens a task and steps away. Cap it at a
+ *  generous active-decision ceiling so "Avg. Decision Time" reflects thinking, not
+ *  a tab left open — otherwise it can exceed total time spent (feedback FB-018). */
+export const MAX_DECISION_LATENCY_MS = 5 * 60 * 1000; // 5 min
+
 export interface TaskTelemetryEntry {
   taskId: string;
   shownAt: number;
@@ -45,7 +51,7 @@ export function useTaskTelemetry(taskId: string) {
       shownAt: shownAtRef.current,
       firstInteractionAt: firstInteractionRef.current,
       submittedAt,
-      decisionLatencyMs: submittedAt - shownAtRef.current,
+      decisionLatencyMs: Math.min(submittedAt - shownAtRef.current, MAX_DECISION_LATENCY_MS),
       interactionCount: interactionCountRef.current,
     };
   }, [taskId]);

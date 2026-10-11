@@ -1,5 +1,8 @@
 import OpenAI from "openai";
+import { asObject } from "@/lib/http/body";
 import { requireAdmin } from "@/lib/auth/apiGuard";
+
+export const maxDuration = 300;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -219,10 +222,10 @@ function buildLocalLesson(
 // ─── Route (Gemini-powered) ───────────────────────────────────────────────────
 
 export async function POST(req: Request) {
-  const gate = await requireAdmin();
+  const gate = await requireAdmin("lesson.generate");
   if ("error" in gate) return gate.error;
 
-  const body = await req.json().catch(() => ({}));
+  const body = asObject(await req.json().catch(() => ({})));
   const {
     title,
     topic = "SOC Operations",
@@ -246,7 +249,7 @@ export async function POST(req: Request) {
     return Response.json(buildLocalLesson(lessonTopic, difficulty, kind, sectionCount));
   }
 
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 140_000, maxRetries: 1 }); // E-18: 2 × 140 s < maxDuration 300 s
 
   try {
     const response = await client.chat.completions.create({

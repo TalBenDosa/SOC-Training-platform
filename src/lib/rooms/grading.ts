@@ -1,0 +1,292 @@
+import "server-only";
+/**
+ * Server-side grading for Room tasks. This is the ONLY place that ever reads
+ * an answer/answers/correct_verdict field out of ROOMS (src/data/rooms.ts) in
+ * response to a request — the comparison happens here, in a server module, and
+ * only the verdict + (once genuinely attempted) the reveal data crosses back
+ * to the client. See src/app/api/rooms/[id]/tasks/[taskId]/submit/route.ts.
+ *
+ * Mirrors the comparison logic that used to live client-side in
+ * src/components/rooms/TaskPlayer.tsx (kept faithful on purpose — the pass/fail
+ * rules a student experiences must not change, only where they're evaluated).
+ *
+ * Scope: ALL eight task types. `matching` and `ordering` were the last two
+ * holdouts — their answer is structurally encoded in data the board needs to
+ * render, so they were graded client-side long after the rest moved here. Both
+ * are now server-graded, using the shapes src/lib/rooms/sanitize.ts delivers:
+ *
+ *  - matching: the client never receives an id linking a left item to a right
+ *    one. It submits `{ leftId: rightText }` and the server checks that text
+ *    against `pairs[].right`. Safe because no matching task in the curriculum
+ *    has two identical right-hand texts (verified across all 40).
+ *  - ordering: the client submits the item ids in the order it placed them and
+ *    the server compares against `correct_order`, which it alone holds.
+ */
+import { ROOMS, type Room, type RoomTask } from "@/data/rooms";
+
+export function findRoom(roomId: string): Room | undefined {
+  return ROOMS.find(r => r.id === roomId);
+}
+
+export function findTask(room: Room, taskId: string): RoomTask | undefined {
+  return room.tasks.find(t => t.id === taskId);
+}
+
+export type GradeResult =
+  | { ok: true; correct: boolean; xpEarned: number; reveal: Record<string, unknown> }
+  | { ok: false; error: string; status: number };
+
+/**
+ * Extra accepted answers for specific flag tasks, keyed "roomId:taskId" (flag
+ * ids are only unique within a room). Used when a flag has more than one
+ * professionally correct spelling — e.g. a DNS NXDOMAIN response is also RCODE 3.
+ * Kept here, server-side, rather than as a field on the task: sanitize.ts strips
+ * only `answer` from flag tasks, so an extra field would ship to the browser.
+ */
+const FLAG_ALIASES: Record<string, string[]> = {
+  "networking-protocols:net-prot-f1": ["RCODE 3", "RCODE=3", "RCODE3", "3", "Non-Existent Domain", "NX DOMAIN"],
+  "endpoint-security-fundamentals:ep-sec-f1": ["-EncodedCommand"],
+  // The task teaches "exception list" and its hint names "allow list" / "whitelist" as
+  // synonyms, so every standard spelling of those must grade as correct.
+  "detection-rules-tuning:det-rules-flag1": ["exceptions list", "exception", "exceptions", "allow list", "allowlist", "allow-list", "whitelist", "white list", "white-list"],
+};
+
+function fail(error: string, status = 400): GradeResult {
+  return { ok: false, error, status };
+}
+
+/**
+ * `submission` is the untyped, client-supplied POST body — validated per task
+ * type below. `attemptNumber` (1 or 2) mirrors the two-try/half-credit model
+ * QuestionPlayer and AnalystChoicePlayer already used client-side: first wrong
+ * attempt gets no reveal so the student can genuinely retry; a second attempt
+ * (right or wrong) reveals and, if correct, awards half XP. The server trusts
+ * the client's claimed attempt number for XP *amount* only — it can never
+ * change whether an answer is judged correct, so at worst a student games the
+ * XP split between full/half credit, not the underlying score.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- submission shape is task-type-dependent (selectedIndex / answer / order / selectedIds / ...) and is narrowed per-case by the switch below; a single static type here would fight every branch
+export function gradeTask(task: RoomTask, submission: any, room?: Room): GradeResult {
+  switch (task.type) {
+    case "question": {
+      const selected = submission?.selectedIndex;
+      if (typeof selected !== "number") return fail("selectedIndex (number) is required.");
+      const attemptNumber = submission?.attemptNumber === 2 ? 2 : 1;
+      const correct = selected === task.answer;
+      if (!correct && attemptNumber === 1) {
+        // First miss: no reveal, matches the client's reset-and-retry UX.
+        return { ok: true, correct: false, xpEarned: 0, reveal: {} };
+      }
+      const xpEarned = correct ? (attemptNumber === 1 ? task.xp : Math.ceil(task.xp / 2)) : 0;
+      return {
+        ok: true,
+        correct,
+        xpEarned,
+        reveal: { answer: task.answer, explanation: task.explanation },
+      };
+    }
+
+    case "log_analysis": {
+      const qIndex = submission?.questionIndex;
+      const selected = submission?.selectedIndex;
+      if (typeof qIndex !== "number" || typeof selected !== "number") {
+        return fail("questionIndex and selectedIndex (numbers) are required.");
+      }
+      const q = task.questions[qIndex];
+      if (!q) return fail("Unknown question index.", 404);
+      const correct = selected === q.answer;
+      return {
+        ok: true,
+        correct,
+        xpEarned: correct ? q.xp : 0,
+        // Single-try, immediate reveal — matches LogAnalysisPlayer's existing UX.
+        reveal: { answer: q.answer, explanation: q.explanation },
+      };
+    }
+
+    case "flag": {
+      const value = submission?.value;
+      if (typeof value !== "string") return fail("value (string) is required.");
+      const given = value.trim().toLowerCase();
+      const aliases = room ? FLAG_ALIASES[`${room.id}:${task.id}`] ?? [] : [];
+      const correct = [task.answer, ...aliases].some(a => a.trim().toLowerCase() === given);
+      return {
+        ok: true,
+        correct,
+        xpEarned: correct ? task.xp : 0,
+        // Never reveal the flag on a wrong guess — unlimited retries are the point.
+        reveal: {},
+      };
+    }
+
+    case "analyst_choice": {
+      const verdict = submission?.verdict;
+      if (typeof verdict !== "string") return fail("verdict (string) is required.");
+      const attemptNumber = submission?.attemptNumber === 2 ? 2 : 1;
+      const correct = verdict === task.correct_verdict;
+      if (!correct && attemptNumber === 1) {
+        return { ok: true, correct: false, xpEarned: 0, reveal: {} };
+      }
+      const xpEarned = correct ? (attemptNumber === 1 ? task.xp : Math.ceil(task.xp / 2)) : 0;
+      return {
+        ok: true,
+        correct,
+        xpEarned,
+        reveal: { correct_verdict: task.correct_verdict, explanation: task.explanation, fp_trap: task.fp_trap },
+      };
+    }
+
+    case "query_fill": {
+      const values = submission?.values;
+      if (!values || typeof values !== "object") return fail("values (object) is required.");
+      const normalize = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+      const perBlank = task.blanks.map(b => {
+        const given = typeof values[b.id] === "string" ? values[b.id] : "";
+        const correct = b.answers.some(a => normalize(a) === normalize(given));
+        return { id: b.id, correct, answers: b.answers };
+      });
+      const correctCount = perBlank.filter(b => b.correct).length;
+      const allCorrect = correctCount === task.blanks.length;
+      const xpEarned = Math.floor((task.xp * correctCount) / task.blanks.length);
+      return {
+        ok: true,
+        correct: allCorrect,
+        xpEarned,
+        reveal: { blanks: perBlank, explanation: task.explanation },
+      };
+    }
+
+    case "reading": {
+      const checkpoint = task.checkpoint;
+      if (!checkpoint) return fail("This reading has no checkpoint to grade.", 404);
+      const selected = submission?.selectedIndex;
+      if (typeof selected !== "number") return fail("selectedIndex (number) is required.");
+      const correct = selected === checkpoint.answer;
+      // Checkpoints are ungraded by design (see ReadingTask.checkpoint doc) — 0 XP here.
+      return {
+        ok: true,
+        correct,
+        xpEarned: 0,
+        reveal: { answer: checkpoint.answer, explanation: checkpoint.explanation },
+      };
+    }
+
+    case "matching": {
+      const connections = submission?.connections;
+      if (!connections || typeof connections !== "object") return fail("connections (object) is required.");
+      // { leftPairId: rightText }. Graded by TEXT because the client is never
+      // told which right item belongs to which left one — see the file doc.
+      const perPair = task.pairs.map(p => ({
+        id: p.id,
+        correct: typeof connections[p.id] === "string" && connections[p.id] === p.right,
+      }));
+      const correctCount = perPair.filter(p => p.correct).length;
+      const allCorrect = correctCount === task.pairs.length;
+      const xpEarned = allCorrect ? task.xp : Math.floor((task.xp * correctCount) / task.pairs.length);
+      return {
+        ok: true,
+        correct: allCorrect,
+        xpEarned,
+        reveal: {
+          perPair,
+          correctCount,
+          total: task.pairs.length,
+          // The solution, released only now that an attempt is in.
+          solution: task.pairs.map(p => ({ id: p.id, left: p.left, right: p.right })),
+          explanation: task.explanation,
+        },
+      };
+    }
+
+    case "written_report": {
+      const text = submission?.text;
+      if (typeof text !== "string") return fail("text (string) is required.");
+      const trimmed = text.trim();
+      const words = trimmed.split(/\s+/).filter(Boolean).length;
+      const lower = trimmed.toLowerCase();
+
+      // Evidence: did they cite the case's own real indicators, or nothing at
+      // all? Checked as substring, same as the scenario grader — a hash,
+      // hostname, task name or account cited anywhere in the prose counts.
+      const iocsTotal = task.referenceIocs.length;
+      const iocsCited = task.referenceIocs.filter(v => lower.includes(v.toLowerCase())).length;
+
+      // Fabrication: IP/hash/email-shaped strings the student typed that are
+      // NOT among this case's real indicators and don't appear anywhere in
+      // the prompt/context either — inventing evidence is worse than citing
+      // none, mirroring the scenario grader's fabrication penalty.
+      //
+      // CRITICAL: a value is only "fabricated" if it appears NOWHERE the student
+      // could have seen it. referenceIocs is just the hand-authored KEY set; the
+      // real evidence a strong student legitimately cites — a benign sign-in's IP
+      // they correctly scoped OUT, a second hash shown in a sibling event — lives
+      // in the room's reading/events, not in referenceIocs. Scanning only
+      // referenceIocs branded that correct citation "fabricated" and failed good
+      // students. So we substring-scan the whole serialized room (reading text +
+      // every event raw block + log_analysis content), exactly as the scenario
+      // grader scans its eventsBlob. Ground truth == everything visible in the room.
+      const roomBlob = room ? JSON.stringify(room).toLowerCase() : "";
+      const realValues = new Set(task.referenceIocs.map(v => v.toLowerCase()));
+      const isRealValue = (v: string) => realValues.has(v) || (!!roomBlob && roomBlob.includes(v));
+      const claimed = new Set<string>();
+      for (const m of trimmed.matchAll(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g)) claimed.add(m[0].toLowerCase());
+      for (const m of trimmed.matchAll(/\b[\w.+-]+@[\w.-]+\.\w{2,}\b/g)) claimed.add(m[0].toLowerCase());
+      for (const m of trimmed.matchAll(/\b[0-9a-f]{32,64}\b/gi)) claimed.add(m[0].toLowerCase());
+      const fabricated = [...claimed].filter(v => !isRealValue(v));
+
+      // Depth: substance relative to this task's own minWords, not a fixed
+      // constant — a short capstone and a full report shouldn't share a bar.
+      const depthPct = words >= task.minWords * 1.5 ? 1
+        : words >= task.minWords ? 0.8
+        : words >= task.minWords * 0.5 ? 0.4
+        : words > 0 ? 0.1 : 0;
+
+      // Evidence: proportion of real indicators cited, capped hard by any
+      // fabrication — a fabricated indicator caps this near zero regardless
+      // of how many real ones were also cited, same rule the scenario grader
+      // uses.
+      const evidencePct = fabricated.length > 0
+        ? (iocsCited > 0 ? 0.15 : 0)
+        : iocsTotal > 0 ? iocsCited / iocsTotal : 1;
+
+      // Depth is worth 40 of the 100 rubric points, evidence 60 — citing the
+      // case's actual findings matters more here than raw word count, since
+      // this task grades a report ABOUT a specific investigation, not an essay.
+      const score = Math.round(depthPct * 40 + evidencePct * 60);
+      const correct = score >= 60; // matches this platform's incident-report pass bar
+      const xpEarned = Math.round((task.xp * score) / 100);
+
+      return {
+        ok: true,
+        correct,
+        xpEarned,
+        reveal: {
+          score, words, iocsCited, iocsTotal,
+          fabricatedCount: fabricated.length,
+          explanation: task.explanation,
+        },
+      };
+    }
+
+    case "ordering": {
+      const placed = submission?.placed;
+      if (!Array.isArray(placed)) return fail("placed (array of item ids) is required.");
+      const perSlot = task.correct_order.map((id, i) => ({ slot: i, correct: placed[i] === id }));
+      const correctCount = perSlot.filter(s => s.correct).length;
+      const allCorrect = correctCount === task.correct_order.length;
+      const xpEarned = allCorrect ? task.xp : Math.floor((task.xp * correctCount) / task.correct_order.length);
+      return {
+        ok: true,
+        correct: allCorrect,
+        xpEarned,
+        reveal: {
+          perSlot,
+          correctCount,
+          total: task.correct_order.length,
+          correctOrder: task.correct_order,
+          explanation: task.explanation,
+        },
+      };
+    }
+  }
+}

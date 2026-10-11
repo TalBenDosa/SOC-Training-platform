@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 560" role="img" aria-label="Card listing the six questions an analyst asks about every alert - who, what, when, where, how, and so-what - each with where to go find the answer, in SIEM, EDR, the system owner, or a change ticket">
+  <title>The six questions every analyst asks — and where to find each answer</title>
+  <defs>
+    <style>
+      .bg    { fill: #0b0f1e; }
+      .panel { fill: #0a1020; stroke: #1e2d4a; stroke-width: 1; }
+      .hot   { fill: #0e1b30; stroke: #22d3ee; stroke-width: 1.5; }
+      .ui    { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }
+      .mono  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
+      .val   { fill: #e2e8f0; font-size: 11.5px; }
+      .dim   { fill: #64748b; font-size: 10px; }
+      .head  { fill: #cbd5e1; font-size: 12px; font-weight: 700; letter-spacing: .12em; }
+      .col   { fill: #64748b; font-size: 10px; font-weight: 600; letter-spacing: .06em; }
+      .note  { fill: #94a3b8; font-size: 11px; }
+      .cyan  { fill: #22d3ee; font-size: 13px; font-weight: 700; }
+      .warn  { fill: #fbbf24; font-size: 11px; font-weight: 600; }
+      .crit  { fill: #f87171; font-size: 11px; font-weight: 700; }
+      .cap   { fill: #64748b; font-size: 10px; font-style: italic; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="940" height="560"/>
+  <text class="ui head" x="24" y="28">THE SIX QUESTIONS — ASKED OF EVERY ALERT, NO EXCEPTIONS</text>
+
+  <!-- 3x2 grid of question cards -->
+  <!-- WHO -->
+  <rect class="panel" x="24" y="44" width="288" height="140" rx="6"/>
+  <text class="cyan" x="40" y="70">1. WHO</text>
+  <text class="val" x="40" y="92">Which identities and assets</text>
+  <text class="val" x="40" y="108">are involved — user, host,</text>
+  <text class="val" x="40" y="124">process, parent process?</text>
+  <rect class="hot" x="40" y="140" width="256" height="30" rx="4"/>
+  <text class="mono note" x="50" y="159">Look in: EDR + SIEM identity fields</text>
+
+  <!-- WHAT -->
+  <rect class="panel" x="326" y="44" width="288" height="140" rx="6"/>
+  <text class="cyan" x="342" y="70">2. WHAT</text>
+  <text class="val" x="342" y="92">The observed action on an</text>
+  <text class="val" x="342" y="108">object, stated plainly —</text>
+  <text class="val" x="342" y="124">before you interpret it.</text>
+  <rect class="hot" x="342" y="140" width="256" height="30" rx="4"/>
+  <text class="mono note" x="352" y="159">Look in: SIEM raw event, EDR timeline</text>
+
+  <!-- WHEN -->
+  <rect class="panel" x="628" y="44" width="288" height="140" rx="6"/>
+  <text class="cyan" x="644" y="70">3. WHEN</text>
+  <text class="val" x="644" y="92">Ordered timeline of events —</text>
+  <text class="val" x="644" y="108">causality lives in sequence.</text>
+  <text class="val" x="644" y="124">Working hours, or 3 a.m.?</text>
+  <rect class="hot" x="644" y="140" width="256" height="30" rx="4"/>
+  <text class="mono note" x="654" y="159">Look in: SIEM timestamps, correlate logs</text>
+
+  <!-- WHERE -->
+  <rect class="panel" x="24" y="200" width="288" height="140" rx="6"/>
+  <text class="cyan" x="40" y="226">4. WHERE</text>
+  <text class="val" x="40" y="248">Segment, host, geography,</text>
+  <text class="val" x="40" y="264">tenant — tells you blast</text>
+  <text class="val" x="40" y="280">radius and if location itself</text>
+  <text class="val" x="40" y="296" fill="#e2e8f0">is anomalous.</text>
+  <rect class="hot" x="40" y="304" width="256" height="20" rx="4"/>
+  <text class="mono note" x="50" y="318">Look in: CMDB, EDR host inventory</text>
+
+  <!-- HOW -->
+  <rect class="panel" x="326" y="200" width="288" height="140" rx="6"/>
+  <text class="cyan" x="342" y="226">5. HOW</text>
+  <text class="val" x="342" y="248">The mechanism, technique,</text>
+  <text class="val" x="342" y="264">tooling — maps to a named</text>
+  <text class="val" x="342" y="280">MITRE ATT&amp;CK technique ID.</text>
+  <rect class="hot" x="342" y="304" width="256" height="20" rx="4"/>
+  <text class="mono note" x="352" y="318">Look in: EDR process tree, ATT&amp;CK page</text>
+
+  <!-- SO-WHAT -->
+  <rect class="panel" x="628" y="200" width="288" height="140" rx="6"/>
+  <text class="cyan" x="644" y="226">6. SO-WHAT</text>
+  <text class="val" x="644" y="248">If real, what's the impact and</text>
+  <text class="val" x="644" y="264">does it matter — asset owner,</text>
+  <text class="val" x="644" y="280">business risk, blast radius.</text>
+  <rect class="hot" x="644" y="304" width="256" height="20" rx="4"/>
+  <text class="mono note" x="654" y="318">Ask: system owner, change ticket</text>
+
+  <!-- bottom callout -->
+  <rect class="panel" x="24" y="358" width="892" height="112" rx="6"/>
+  <text class="ui warn" x="40" y="382">THE ONE MOST ANALYSTS SKIP</text>
+  <text class="ui note" x="40" y="404">An alert with no answer to "so what" is a description of an event, not an investigation. Build the impact chain</text>
+  <text class="ui note" x="40" y="420">by repeatedly asking "and then what could they do?" — a macro (so what?) enables C2 (so what?) enables</text>
+  <text class="ui note" x="40" y="436">credential theft (so what?) enables lateral movement to a domain controller. That chain is what you escalate on.</text>
+  <text class="ui note" x="40" y="456">"Where" and "so-what" both frequently require asking a human — the asset owner or a recent change ticket —</text>
+
+  <text class="ui cap" x="24" y="500">Six lines filled in turns an alert into an investigation; a gap in any one line is a gap in the story you can defend.</text>
+</svg>

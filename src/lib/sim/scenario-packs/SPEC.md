@@ -34,6 +34,26 @@ network?{url,domain,bytes_in,bytes_out}, raw{}`.
 `event_type` must be one of the `EventType` union in `types.ts` — check before using.
 `IOC.type`: `ip | domain | url | sha256 | md5 | email | user | host`.
 
+### Packs used by the live feed: events and answers live in separate files
+
+The dashboard's live feed (`src/app/(app)/dashboard/attackStories.ts`) runs in the
+browser, and everything it imports is published in a public `/_next/static` chunk.
+So a pack wired into the feed is split in two:
+
+- `<pack>.events.ts` exports `<pack>ScenarioEvents()`, which returns
+  `{ title, events, ...locals }`: the telemetry and whatever locals the answer
+  key reuses (`T`, hosts, hashes). **Nothing answer-bearing goes here**: no
+  questions, explanations, IOCs, killchain, narrative or briefing.
+- `<pack>.ts` keeps `build<Pack>Scenario()`. It calls the events function and
+  adds the answer key, so the bundle it returns is unchanged.
+
+`attackStories.ts` imports only the `.events` module. Inline builders in
+`scenarios.ts` follow the same pattern, with their events in `scenarioEvents.ts`.
+To add a pack to the live feed, split it the same way first.
+`src/lib/sim/clientAnswerKeyGuard.test.ts` fails if any client module reaches a
+builder, and `npm run check:client-answers` greps the production build for
+answer-key text.
+
 ## Hard rules
 
 ### 1. The privilege chain must be provable
