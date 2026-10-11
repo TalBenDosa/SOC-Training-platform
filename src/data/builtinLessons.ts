@@ -985,6 +985,7 @@ import { ATTACK_TYPE_LESSONS } from "./attackTypeLessons";
 import { PLAYBOOK_LESSONS } from "./playbookLessons";
 import { NEW_TOPIC_LESSONS } from "./newTopicLessons";
 import { LESSON_VIDEOS } from "./lessonVideos";
+import { LESSON_SLIDES } from "./lessonSlides";
 
 export const BUILTIN_LESSONS = [
   pathA[0], pathA[1],   // 1-2  What a SOC is · How computers & networks work
@@ -1075,4 +1076,11 @@ for (const lesson of BUILTIN_LESSONS as Array<{ slug?: string; sections?: Array<
   if (vid && first && !first.video) {
     first.video = vid;
   }
+}
+
+// Attach each lesson's slide deck (a branded PDF in Supabase Storage) from the
+// central slug -> slides map, the same way the explainer videos are attached.
+for (const lesson of BUILTIN_LESSONS as Array<{ slug?: string; slides?: unknown }>) {
+  const deck = lesson.slug ? LESSON_SLIDES[lesson.slug] : undefined;
+  if (deck && !lesson.slides) lesson.slides = deck;
 }

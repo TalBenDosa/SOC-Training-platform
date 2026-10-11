@@ -18,6 +18,7 @@ import type { AssignedInfo } from "@/lib/plans/assigned";
 import { isMermaidSource } from "@/lib/lessons/mermaid";
 import { LessonFigure, type LessonImage } from "@/components/lessons/LessonFigure";
 import { LessonVideo, type LessonVideoData } from "@/components/lessons/LessonVideo";
+import { LessonSlides, type LessonSlidesData } from "@/components/lessons/LessonSlides";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -31,6 +32,8 @@ interface Lesson {
   intro: string;
   sections: { heading: string; content: string; codeExample?: string; imageQuery?: string; image?: LessonImage; video?: LessonVideoData }[];
   keyTakeaways: string[];
+  /** The lesson's branded slide deck (PDF), shown on the intro page. */
+  slides?: LessonSlidesData;
   // Not shown by this reader, and stripped by /api/library/[id] (it carries the answer key).
   quiz?: { question: string; options: { label: string; value: string }[]; answer: string; explanation: string }[];
   references: string[];
@@ -522,6 +525,9 @@ function LessonModal({ lesson, onClose }: { lesson: Lesson; onClose: () => void 
                   </div>
 
                   {renderContent(lesson.intro)}
+
+                  {/* The lesson as a slide deck covers the whole lesson, so it sits on the intro page. */}
+                  {lesson.slides && <LessonSlides slides={lesson.slides} title={lesson.title} />}
 
                   {/* ── "In this lesson" agenda ──────────────────────────────────
                       The intro is a single framing paragraph, so on a full-height
