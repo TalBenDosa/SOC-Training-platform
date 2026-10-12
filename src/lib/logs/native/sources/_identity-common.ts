@@ -254,7 +254,8 @@ export type IdAction =
   | "role_grant" | "group_add" | "app_assign" | "consent" | "app_register"
   | "token_create" | "token_revoke" | "token_grant" | "sso" | "session_end"
   | "password_reset" | "password_change" | "ca_policy_update" | "guest_invite" | "risk_change"
-  | "rate_limit" | "directory_read";
+  | "rate_limit" | "directory_read"
+  | "sp_signin" | "sp_credential_add";
 
 export type FailReason = "bad_password" | "mfa_denied" | "mfa_required" | "mfa_registration" | "ca_block" | "locked" | "disabled" | "no_user" | "expired" | "malicious_ip" | "other";
 export type MfaMethod = "push" | "totp" | "sms" | "voice" | "fido" | "token";
@@ -447,6 +448,12 @@ export function identityFacts(ev: TelemetryEvent): IdFacts | null {
   // 2) Entra / M365-authored audits
   const lop = op.toLowerCase();
   const ok = !/fail/i.test(rawStr(ev, "data.office365.ResultStatus", "azure.auditlogs.properties.result", "event.outcome") ?? "success");
+  // A service principal authenticating with its own credential: Entra's app-only sign-in
+  // (signInEventTypes servicePrincipal) has no user, no MFA and no device, so it is not a user sign-in.
+  if (rawStr(ev, "azure.signinlogs.category") === "ServicePrincipalSignInLogs" || rawStr(ev, "azure.signinlogs.service_principal_id")) {
+    return base("sp_signin", (rawStr(ev, "azure.signinlogs.resultType") ?? "0") === "0", { nativeName: "Sign-in activity", interactive: false });
+  }
+  if (lop.replace(/\.$/, "") === "add service principal credentials") return base("sp_credential_add", ok, { nativeName: "Add service principal credentials" });
   if (lop === "microsoft.graph/users/read") return base("directory_read", true);
   if (lop === "add application") return base("app_register", ok, { nativeName: "Add application", appName: rawStr(ev, "application.name", "oauth.app.name", "azure.auditlogs.target_resources.display_name") ?? extProp(ev, "AppDisplayName") ?? /named ([\w .-]+?) (?:was|app)/.exec(desc)?.[1] });
   if (lop === "consent to application") {

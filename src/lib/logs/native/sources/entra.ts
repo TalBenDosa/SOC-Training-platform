@@ -314,6 +314,81 @@ function renderSignIn(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts, upn: strin
   return { sourceId: "entra", kind: "signIn", format: "json", record, timeMs: Date.parse(ev.ts) };
 }
 
+/**
+ * A service-principal (app-only) sign-in: the beta signIn shape with signInEventTypes
+ * ["servicePrincipal"] (card §3, servicePrincipalId / servicePrincipalName / clientCredentialType).
+ * No user, no MFA step and no device: the user and device fields are present but empty.
+ * servicePrincipalCredentialKeyId names the secret that authenticated, the pivot back to the
+ * "Add service principal credentials" audit that created it.
+ */
+function renderSpSignIn(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts): NativeLog {
+  const ip = f.ip ?? "";
+  const geo = geoOf(ev, ctx, ip);
+  const asn = asnOf(ev, geo, ip);
+  const code = Number(rawStr(ev, "azure.signinlogs.resultType") ?? "0") || 0;
+  const [failureReason, defaultDetails] = STATUS[code] ?? [rawStr(ev, "azure.signinlogs.result_description") ?? "Other.", null];
+  const spId = rawStr(ev, "azure.signinlogs.service_principal_id") ?? graphId(ctx, `${ev.id}:sp`);
+  const spName = rawStr(ev, "azure.signinlogs.service_principal_name") ?? "Unknown service principal";
+  const resName = rawStr(ev, "azure.signinlogs.resource_display_name") ?? "Microsoft Graph";
+  const resId = rawStr(ev, "azure.signinlogs.resource_identity") ?? resourceOf(ctx, resName, resName).resourceId;
+  const rawCa = rawStr(ev, "azure.signinlogs.conditional_access_status");
+  const keyId = rawStr(ev, "azure.signinlogs.service_principal_credential_key_id");
+  const id = rawStr(ev, "azure.signinlogs.properties.id") ?? graphId(ctx, `${ev.id}:signin`);
+  const record: Record<string, unknown> = {
+    id,
+    createdDateTime: isoFrac(ev.ts, 0),
+    userDisplayName: "",
+    userPrincipalName: "",
+    userId: "",
+    appId: rawStr(ev, "azure.signinlogs.app_id") ?? ctx.uuid(`${ctx.companyId}:entra-app:${spName}`),
+    appDisplayName: spName,
+    ipAddress: ip,
+    ...(asn.asn !== null ? { autonomousSystemNumber: asn.asn } : {}),
+    clientAppUsed: "",
+    correlationId: rawStr(ev, "azure.signinlogs.correlation_id") ?? ctx.uuid(`${ev.id}:corr`),
+    originalRequestId: id,
+    conditionalAccessStatus: rawCa && ["success", "failure", "notApplied"].includes(rawCa) ? rawCa : "notApplied",
+    isInteractive: false,
+    signInEventTypes: ["servicePrincipal"],
+    authenticationProtocol: "none",
+    incomingTokenType: "none",
+    authenticationRequirement: "singleFactorAuthentication",
+    authenticationMethodsUsed: [],
+    tokenIssuerName: "",
+    tokenIssuerType: rawStr(ev, "azure.signinlogs.token_issuer_type") ?? "AzureAD",
+    processingTimeInMilliseconds: ctx.int(`${ev.id}:pt`, 40, 180),
+    riskDetail: "none",
+    riskLevelAggregated: "none",
+    riskLevelDuringSignIn: "none",
+    riskState: "none",
+    riskEventTypes_v2: [],
+    resourceDisplayName: resName,
+    resourceId: resId,
+    resourceTenantId: ctx.tenant.azureTenantId,
+    homeTenantId: ctx.tenant.azureTenantId,
+    homeTenantName: "",
+    signInIdentifier: "",
+    signInIdentifierType: "",
+    servicePrincipalId: spId,
+    servicePrincipalName: spName,
+    ...(keyId ? { servicePrincipalCredentialKeyId: keyId } : {}),
+    clientCredentialType: rawStr(ev, "azure.signinlogs.credential_type")?.replace(/^ClientSecret$/i, "clientSecret") ?? "clientSecret",
+    sessionId: "",
+    uniqueTokenIdentifier: `${b62(ctx, `${ev.id}:uti`, 20)}AA`,
+    crossTenantAccessType: "none",
+    flaggedForReview: false,
+    isTenantRestricted: false,
+    status: { errorCode: code, failureReason, additionalDetails: defaultDetails },
+    deviceDetail: { deviceId: "", displayName: "", operatingSystem: "", browser: "", isCompliant: false, isManaged: false, trustType: "" },
+    location: { city: geo.city, state: geo.state, countryOrRegion: geo.iso, geoCoordinates: { altitude: null, latitude: geo.lat, longitude: geo.lon } },
+    appliedConditionalAccessPolicies: [],
+    authenticationProcessingDetails: [],
+    networkLocationDetails: [],
+    authenticationDetails: [],
+  };
+  return { sourceId: "entra", kind: "signIn", format: "json", record, timeMs: Date.parse(ev.ts) };
+}
+
 // ── directoryAudit ───────────────────────────────────────────────────────────
 
 interface AuditSpec {
@@ -462,6 +537,37 @@ function auditFor(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts): NativeLog | n
   }
 }
 
+/**
+ * "Add service principal credentials" (card §4.10): a client secret appended to a service
+ * principal. The initiator is a user (an engineer rotating a secret) or an app (a workload
+ * identity, initiatedBy.app). KeyDescription carries the new secret's KeyIdentifier, the value a
+ * later service-principal sign-in reports as servicePrincipalCredentialKeyId.
+ */
+function spCredentialAudit(ev: TelemetryEvent, ctx: NativeCtx, f: IdFacts): NativeLog | null {
+  const targetName = rawStr(ev, "azure.auditlogs.target_resources.display_name");
+  const targetId = rawStr(ev, "azure.auditlogs.target_resources.id", "data.office365.Target.ID");
+  if (!targetName || !targetId) return null;
+  const appInitiator = rawStr(ev, "azure.auditlogs.properties.initiatedBy.app.displayName");
+  const ip = rawStr(ev, "azure.auditlogs.properties.initiatedBy.user.ipAddress", "data.office365.ActorIpAddress") ?? f.ip;
+  const upn = f.email ? (f.email.includes("@") ? f.email : `${f.email}@${ctx.domain}`) : undefined;
+  const initiator = appInitiator ? { app: appInitiator } : upn ? { upn, ip } : null;
+  if (!initiator) return null;
+  const desc = rawStr(ev, "data.office365.ModifiedProperties") ?? "";
+  const keyId = /KeyIdentifier=([0-9a-f-]{36})/i.exec(desc)?.[1] ?? ctx.uuid(`${ev.id}:keyid`);
+  const keyName = /DisplayName=([^\];,"]+)/.exec(desc)?.[1] ?? "secret";
+  const appId = rawStr(ev, "data.office365.ObjectId") ?? ctx.uuid(`${ctx.companyId}:entra-app:${targetName}`);
+  return renderAudit(ev, ctx, f, {
+    activity: "Add service principal credentials", category: "ApplicationManagement", service: "Core Directory", operationType: "Update",
+    initiator,
+    targets: [{ id: targetId, displayName: targetName, type: "ServicePrincipal", userPrincipalName: null, groupType: null, modifiedProperties: [
+      mod("KeyDescription", JSON.stringify([`[KeyIdentifier=${keyId},KeyType=Password,KeyUsage=Verify,DisplayName=${keyName}]`]), "[]"),
+      mod("Included Updated Properties", jsonStr("KeyDescription")),
+      mod("TargetId.ServicePrincipalNames", jsonStr(appId)),
+    ] }],
+    additional: uaDetail(ev),
+  });
+}
+
 // ── conversion ───────────────────────────────────────────────────────────────
 
 function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
@@ -492,6 +598,8 @@ function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
       const upn = upnOf(ev, ctx, f);
       return f.decision === "DENY" && upn ? renderSignIn(ev, ctx, { ...f, riskReasons: ["maliciousIPAddress"], risk: "high" }, upn, { code: 50053 }) : null;
     }
+    case "sp_signin": return renderSpSignIn(ev, ctx, f);
+    case "sp_credential_add": return spCredentialAudit(ev, ctx, f);
     case "token_grant": case "sso": {
       const upn = upnOf(ev, ctx, f);
       return upn ? renderSignIn(ev, ctx, { ...f, mfaUsed: true, mfaMethod: "token" }, upn, { code: 0, interactive: f.action === "sso", appName: f.appName }) : null;

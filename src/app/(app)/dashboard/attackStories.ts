@@ -103,6 +103,7 @@ import { lateralMovementPthScenarioEvents }        from "@/lib/sim/scenario-pack
 import { goldenSamlScenarioEvents }                from "@/lib/sim/scenario-packs/goldenSaml.events";
 import { windowsPrivescTokenScenarioEvents }       from "@/lib/sim/scenario-packs/windowsPrivescToken.events";
 import { linuxPrivescSuidScenarioEvents }          from "@/lib/sim/scenario-packs/linuxPrivescSuid.events";
+import { azureManagedIdentityAbuseScenarioEvents } from "@/lib/sim/scenario-packs/azureManagedIdentityAbuse.events";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { ecsTechnique } from "@/lib/logs/ecsFields";
 
@@ -186,6 +187,7 @@ const _lateralMovementPth       = lateralMovementPthScenarioEvents();
 const _goldenSaml               = goldenSamlScenarioEvents();
 const _windowsPrivescToken      = windowsPrivescTokenScenarioEvents();
 const _linuxPrivescSuid         = linuxPrivescSuidScenarioEvents();
+const _azureManagedIdentityAbuse = azureManagedIdentityAbuseScenarioEvents();
 
 const deriveMitre = (events: TelemetryEvent[]): string[] =>
   Array.from(new Set(events.map(e => e.mitre_technique).filter(Boolean))) as string[];
@@ -323,6 +325,10 @@ const GENERIC_STORIES: AttackStory[] = [
   // advanced — Golden SAML: federated sign-ins for admins with no matching AD FS
   // token issuance (Event 1200), after the signing key was read on the AD FS server.
   story("golden-saml", _goldenSaml, "advanced", ["nexacorp", "medcore", "globallogis"]),
+  // advanced — a client secret quietly added to an existing app registration, then
+  // used from outside: service-principal sign-ins whose credential key id matches the
+  // added secret, a self-granted role, Key Vault and Storage key reads. The two Azure estates.
+  story("azure-managed-identity-abuse", _azureManagedIdentityAbuse, "advanced", ["nexacorp", "medcore"]),
 ];
 
 // ── Company-specific chains ────────────────────────────────────────────────────

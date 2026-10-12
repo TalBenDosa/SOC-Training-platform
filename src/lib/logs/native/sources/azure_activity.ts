@@ -53,19 +53,30 @@ const UPN = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/upn";
 function buildActivityLog(ev: TelemetryEvent, ctx: NativeCtx): NativeLog {
   const raw = ev.raw ?? {};
   const op = rs(raw, "azure.activitylogs.operationName")!;
-  const resourceId = rs(raw, "azure.resource.id") ?? `/SUBSCRIPTIONS/${ctx.tenant.azureSubscriptionId.toUpperCase()}/RESOURCEGROUPS/${(rs(raw, "azure.resource.group") ?? "rg-prod").toUpperCase()}/PROVIDERS/${(rs(raw, "azure.resource.provider") ?? "MICROSOFT.RESOURCES").toUpperCase()}/${(rs(raw, "azure.resource.name") ?? "resource").toUpperCase()}`;
-  const upn = rs(raw, "azure.activitylogs.identity.claims_initiated_by_user.name", "azure.activitylogs.identity.claims.upn") ?? ev.user?.email ?? ev.user_email;
+  const sub = ctx.tenant.azureSubscriptionId.toUpperCase();
+  // A subscription-level operation (no resource group) is scoped to the subscription itself.
+  const subScoped = !rs(raw, "azure.resource.group") && !rs(raw, "azure.resource.provider") && /^microsoft\.resources\/subscriptions\//i.test(op);
+  const resourceId = rs(raw, "azure.resource.id") ?? (subScoped ? `/SUBSCRIPTIONS/${sub}` : `/SUBSCRIPTIONS/${sub}/RESOURCEGROUPS/${(rs(raw, "azure.resource.group") ?? "rg-prod").toUpperCase()}/PROVIDERS/${(rs(raw, "azure.resource.provider") ?? "MICROSOFT.RESOURCES").toUpperCase()}/${(rs(raw, "azure.resource.name") ?? "resource").toUpperCase()}`);
+  // A service principal caller (card: claims carry appid + objectidentifier) has no UPN claim.
+  const appIdClaim = rs(raw, "azure.activitylogs.identity.claims.appid");
+  const spObjectId = rs(raw, "azure.activitylogs.identity.claims.objectidentifier");
+  const upn = appIdClaim && spObjectId ? undefined : rs(raw, "azure.activitylogs.identity.claims_initiated_by_user.name", "azure.activitylogs.identity.claims.upn") ?? ev.user?.email ?? ev.user_email;
   const ip = ev.src_ip ?? rs(raw, "azure.activitylogs.callerIpAddress", "source.ip");
   const result = rs(raw, "azure.activitylogs.resultType") ?? "Success";
 
+  const evRole = rs(raw, "azure.activitylogs.identity.authorization.evidence.role");
+  const evType = rs(raw, "azure.activitylogs.identity.authorization.evidence.principalType");
   const identity: Record<string, unknown> = {
     authorization: {
       action: op.toLowerCase().includes("/action") || op.toLowerCase().includes("/write") || op.toLowerCase().includes("/read") ? op : `${op}`,
       scope: resourceId.toLowerCase(),
-      ...(rs(raw, "azure.activitylogs.identity.authorization.evidence.role") ? { evidence: { role: rs(raw, "azure.activitylogs.identity.authorization.evidence.role") } } : {}),
+      ...(evRole ? { evidence: { role: evRole, ...(evType ? { principalType: evType } : {}), ...(spObjectId && evType ? { principalId: spObjectId } : {}) } } : {}),
     },
     claims: {
       ...(upn ? { [UPN]: upn, name: upn } : {}),
+      ...(appIdClaim ? { appid: appIdClaim } : {}),
+      ...(spObjectId ? { "http://schemas.microsoft.com/identity/claims/objectidentifier": spObjectId } : {}),
+      ...(appIdClaim ? { "http://schemas.microsoft.com/identity/claims/tenantid": ctx.tenant.azureTenantId } : {}),
       ...(ip ? { ipaddr: ip } : {}),
     },
   };
@@ -87,6 +98,9 @@ function buildActivityLog(ev: TelemetryEvent, ctx: NativeCtx): NativeLog {
       entity: resourceId.toLowerCase(),
       message: op,
       hierarchy: `${ctx.tenant.azureTenantId}/${ctx.tenant.azureSubscriptionId}`,
+      // A role assignment's request body names the principal and the role definition granted (card AZ2).
+      // "{subscriptionId}" in an authored body is the rendering company's subscription, so the scope matches resourceId.
+      ...(rs(raw, "azure.activitylogs.properties.requestbody") ? { requestbody: rs(raw, "azure.activitylogs.properties.requestbody")!.replace(/\{subscriptionId\}/g, ctx.tenant.azureSubscriptionId) } : {}),
     },
   };
   if (ip) record.callerIpAddress = ip;

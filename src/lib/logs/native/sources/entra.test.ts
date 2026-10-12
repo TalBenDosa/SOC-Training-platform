@@ -25,7 +25,8 @@ describe("entra — native Graph signIn / directoryAudit", () => {
   });
   it("evidence survives and output is deterministic", () => {
     // "oauth_07_admin_consent_fail": the authored IP is Microsoft's own service address on a failed admin consent; the directoryAudit records the initiating app, not that IP.
-    expect(rep.evidenceMissing.filter(m => m.id !== "oauth_07_admin_consent_fail")).toEqual([]);
+    // "amia_01_add_sp_credential": an app-initiated audit (initiatedBy.app) carries no initiator address; the attacker IP is on the service-principal sign-ins that follow.
+    expect(rep.evidenceMissing.filter(m => m.id !== "oauth_07_admin_consent_fail" && m.id !== "amia_01_add_sp_credential")).toEqual([]);
     expect(rep.nondeterministic).toEqual([]);
   });
   it("use cases: non-threshold rules fire on attacks; high/critical stay under 2% of noise", () => {
