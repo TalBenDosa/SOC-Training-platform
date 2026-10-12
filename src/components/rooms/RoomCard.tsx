@@ -6,6 +6,16 @@ import type { RoomMeta } from "@/data/roomsMeta";
 import { ROOMS_META } from "@/data/roomsMeta";
 import { AssignedChip } from "@/components/plans/AssignedChip";
 import type { AssignedInfo } from "@/lib/plans/assigned";
+import { socCover } from "@/lib/ui/socCover";
+
+/** Room category → the cover topic whose scene fits it (title keywords still win inside socCover). */
+const COVER_TOPIC: Record<string, string> = {
+  "Threat Detection": "Threat Detection", "Network Security": "Networking", "Endpoint Security": "Windows & Endpoint",
+  "Cloud Security": "Cloud Security", "SIEM": "SIEM", "Identity": "Identity & Access", "SOC Operations": "SOC Fundamentals",
+  "Threat Intelligence": "Threat Intelligence", "Incident Response": "Incident Response", "Log Analysis": "Log Analysis",
+  "Foundations": "SOC Fundamentals", "Forensics": "Digital Forensics", "Application Security": "Web Security",
+  "Vulnerability Management": "Threat Detection", "OT/ICS Security": "OT/ICS Security", "Data Security": "Insider Threat",
+};
 
 interface RoomCardProps {
   room: RoomMeta;
@@ -91,6 +101,13 @@ export function RoomCard({ room, progress, locked, onClick, assigned }: RoomCard
           </p>
         </div>
       )}
+
+      {/* Cover: a small scene of what the room practises (same art as the lesson decks) */}
+      <div
+        aria-hidden
+        className="-mx-5 -mt-5 mb-4 aspect-[16/6] bg-cover bg-center"
+        style={{ backgroundImage: socCover(`room:${room.id}`, COVER_TOPIC[room.category] ?? "", room.title, room.description) }}
+      />
 
       {/* Header row */}
       <div className="flex items-start justify-between gap-3">
