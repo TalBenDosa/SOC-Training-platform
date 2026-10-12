@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Topbar } from "@/components/nav/Topbar";
 import { Card } from "@/components/ui/Card";
 import { LibraryCard } from "@/components/ui/LibraryCard";
+import { socCover } from "@/lib/ui/socCover";
 // Client-safe list only. "@/lib/sim/scenarios" bundles every scenario pack —
 // questions, answers, IOCs — so importing it here published the answer keys.
 import { SCENARIOS_META as SCENARIOS } from "@/lib/sim/scenariosMeta";
@@ -225,6 +226,7 @@ export default function ScenariosPage() {
                 href={`/scenarios/${s.slug}`}
                 seed={s.slug}
                 index={i}
+                art={socCover(s.slug, "", s.title, s.summary)}
                 icon={Icon}
                 typeLabel="Simulation"
                 title={s.title}
@@ -266,6 +268,7 @@ export default function ScenariosPage() {
               href={`/scenarios/${encodeURIComponent(s.scenario_id!)}`}
               seed={s.scenario_id!}
               index={i}
+              art={socCover(s.scenario_id!, "", s.title, s.briefing ?? "")}
               icon={Target}
               typeLabel="Custom Simulation"
               title={s.title}
@@ -294,6 +297,7 @@ export default function ScenariosPage() {
                 onClick={() => launchGenerated(s)}
                 seed={s.id}
                 index={i}
+                art={socCover(s.id, "", s.title, s.narrative ?? "")}
                 icon={Icon}
                 typeLabel="AI Scenario"
                 title={s.title}

