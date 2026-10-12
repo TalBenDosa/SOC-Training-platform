@@ -19,6 +19,7 @@ import { shuffleSeeded } from "@/lib/lessons/shuffle";
 import type { ClientLesson, LessonPage, ClientLessonQuizQuestion } from "@/app/api/lessons/[slug]/route";
 import { addTotalXp, setTotalXp, recordLessonActivity } from "@/lib/storage/progress";
 import { ListenButton } from "@/components/media/ListenButton";
+import { usePublishReportLocation } from "@/lib/feedback/reportLocation";
 
 // Guests (no account) keep completed lessons locally so a lesson's XP is added
 // to their device total once, never on every "Mark Complete".
@@ -476,6 +477,15 @@ export default function LessonReader() {
   };
 
   const currentPage = content?.pages[pageIdx];
+
+  // Tells the global "Report a problem" button which lesson page the learner is on.
+  usePublishReportLocation(meta && content && !content.preparing ? {
+    kind: "lesson",
+    targetId: lessonKey,
+    where: `${meta.path.title} › ${meta.module.title} › ${meta.lesson.title}`,
+    step: isQuizPage ? "Lesson quiz" : `Page ${pageIdx + 1} of ${content.pages.length}`,
+    shown: isQuizPage ? undefined : currentPage?.title,
+  } : null);
 
   return (
     <div className="min-h-screen bg-bg">

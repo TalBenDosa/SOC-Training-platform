@@ -1,4 +1,5 @@
 "use client";
+import { usePublishReportLocation } from "@/lib/feedback/reportLocation";
 import { ApiError, messageFromResponse, userMessageFor } from "@/lib/http/apiError";
 import { NativeLogProvider, useNativeLog, nativeRows, type NativeRenderer } from "@/lib/logs/native/NativeLogContext";
 import { useState, useEffect, useCallback, useMemo, useRef, memo, type MutableRefObject, type TextareaHTMLAttributes } from "react";
@@ -1568,6 +1569,13 @@ export function ScenarioClient({ bundle, slug, iocTruth = null }: {
   iocTruth?: IocTruth | null;
 }) {
   const [phase, setPhase]               = useState<Phase>("idle");
+  // Tells the global "Report a problem" button which scenario (and which stage) the learner is in.
+  usePublishReportLocation({
+    kind: "scenario",
+    targetId: slug,
+    where: `Scenario › ${bundle.title}`,
+    step: phase === "idle" ? "Briefing" : phase === "investigating" ? "Investigation" : phase === "submitted" ? "Report submitted" : "Results",
+  });
   // Native-format logs (docs/log-schemas), each in its authored vendor's format.
   // The 32 source modules load lazily.
   const [nativeMod, setNativeMod] = useState<typeof import("@/lib/logs/native") | null>(null);

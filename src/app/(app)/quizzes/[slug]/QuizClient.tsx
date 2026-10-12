@@ -9,6 +9,7 @@ import type { Quiz } from "@/lib/quizzes/data";
 import { type ClientQuiz, sanitizeQuizQuestion } from "@/lib/quizzes/sanitize";
 import { addTotalXp, setTotalXp, recordQuizActivity } from "@/lib/storage/progress";
 import { newShuffleSeed, optionDisplayOrder, remapOptionLetters } from "@/lib/rooms/shuffle";
+import { usePublishReportLocation } from "@/lib/feedback/reportLocation";
 
 // Guests (no account) keep their best-per-quiz locally so retries don't farm XP.
 const GUEST_QUIZ_BEST_KEY = "soc_quiz_best_local";
@@ -137,6 +138,15 @@ export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug
   const totalQ     = quiz.questions.length;
   const answeredQ  = Object.values(stateMap).filter(s => s.revealed).length;
   const isLast     = current === totalQ - 1;
+
+  // Tells the global "Report a problem" button which quiz question the learner is on.
+  usePublishReportLocation({
+    kind: "quiz",
+    targetId: phase === "answering" && question ? `${slug}:${question.id}` : slug,
+    where: `Quiz › ${quiz.title}`,
+    step: phase === "answering" ? `Question ${current + 1} of ${totalQ}` : phase === "complete" ? "Results" : "Start screen",
+    shown: phase === "answering" ? question?.question : undefined,
+  });
 
   // ── start ─────────────────────────────────────────────────────
   const handleStart = () => {

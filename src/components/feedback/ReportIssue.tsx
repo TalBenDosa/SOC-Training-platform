@@ -84,7 +84,7 @@ export function ReportIssue({ targetKind, targetId, context, className }: Props)
                   What&apos;s wrong? A wrong answer, a confusing question, a broken task — anything.
                 </label>
                 <textarea
-                  id="ri-msg" rows={4} value={message} onChange={e => setMessage(e.target.value)} autoFocus
+                  id="ri-msg" rows={4} value={message} onChange={e => setMessage(e.target.value)} autoFocus dir="auto"
                   className="w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-cyber-500/50 focus:outline-none focus:ring-2 focus:ring-cyber-500/30"
                   placeholder="The marked answer looks wrong — 4625 is a failed logon, not a successful one."
                 />

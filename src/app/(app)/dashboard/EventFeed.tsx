@@ -30,6 +30,7 @@ const opaqueEventId = (id: string) =>
   "EVT-" + hashString(id).toString(16).toUpperCase().padStart(8, "0");
 import { DashboardTour, LogReadingTour } from "./OnboardingTour";
 import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
+import { usePublishReportLocation } from "@/lib/feedback/reportLocation";
 import {
   ThreatIntelDrawer, isSha256Field, isIpCheckField, isDomainCheckField,
   type ThreatQuery,
@@ -397,6 +398,14 @@ export function DetailPanelBody({
   onAddIoc,
   onEscalate,
 }: DetailPanelProps) {
+  // Tells the global "Report a problem" button which log the learner has open.
+  usePublishReportLocation({
+    kind: "dashboard",
+    targetId: String(event.id),
+    where: `Live SOC feed › ${event.vendor ?? event.source} log`,
+    step: `${event.hostname ? `${event.hostname} · ` : ""}${new Date(event.ts).toISOString().slice(11, 19)} UTC`,
+    shown: event.description,
+  });
   const [showRawJson, setShowRawJson] = useState(false);
   const [itVerifyState, setItVerifyState] = useState<"idle" | "verifying" | "done" | "failed">("idle");
   // Native-format view of this log (null → legacy SIEM-style fields below).

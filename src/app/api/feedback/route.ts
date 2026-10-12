@@ -3,6 +3,7 @@ import { asObject } from "@/lib/http/body";
 import { dbFail } from "@/lib/http/dbFail";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { resolveLocation } from "@/lib/feedback/resolveLocation";
 
 /**
  * Content feedback — "something's wrong with this question/task" (migration 0022).
@@ -15,7 +16,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
  * GET is platform-admin only and returns the triage inbox.
  */
 
-const KINDS = new Set(["room_task", "scenario", "quiz", "dashboard", "other"]);
+const KINDS = new Set(["room_task", "lesson", "scenario", "quiz", "dashboard", "other"]);
 
 export async function POST(req: Request) {
   const user = await getAuthedUser();
@@ -63,7 +64,7 @@ export async function GET(req: Request) {
   const status = new URL(req.url).searchParams.get("status");
   let q = admin
     .from("content_feedback")
-    .select("id, target_kind, target_id, context, message, status, created_at, admin_response, responded_at, profiles:user_id(handle, display_name)")
+    .select("id, target_kind, target_id, context, message, status, created_at, admin_response, responded_at, profiles:user_id(handle, display_name), org:organizations(name)")
     .order("created_at", { ascending: false })
     .limit(200);
   if (status && status !== "all") q = q.eq("status", status);
@@ -71,7 +72,9 @@ export async function GET(req: Request) {
   const { data, error } = await q;
   if (error) return dbFail(error, "api/feedback", 500);
 
-  return NextResponse.json({ items: data ?? [] });
+  // Each report gets a readable location (kind, breadcrumb, step, what the learner saw, a link).
+  const items = (data ?? []).map(r => ({ ...r, location: resolveLocation(r.target_kind, r.target_id, (r.context ?? {}) as Record<string, string>) }));
+  return NextResponse.json({ items });
 }
 
 // ── PATCH — triage a report (platform admin only) ───────────────────────────

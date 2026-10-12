@@ -87,7 +87,7 @@ describe("timing and the bonus attack", () => {
       const first = feed.findIndex(t => ["story", "pool_attack"].includes(String(ans(t).origin)));
       expect(first, s.id).toBeGreaterThanOrEqual(Math.ceil(feed.length * 0.1));
     }
-  }, 60_000);
+  }, 120_000); // walks every storyline in the pool (~16 s alone); headroom for a loaded CI/dev machine
   it("one seed always replays the same incidents; other seeds pick other ones", () => {
     const incidents = (seed: string) => [...new Set(build(seed, true).map(t => ans(t)).filter(a => a.origin === "story").map(a => a.incident_id))];
     expect(build("r1", true)).toEqual(build("r1", true));

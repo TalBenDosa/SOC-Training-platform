@@ -20,6 +20,8 @@ import { recommendNextRoom } from "@/lib/rooms/recommend";
 import { ReportIssue } from "@/components/feedback/ReportIssue";
 import { resolveFlagLog } from "@/lib/rooms/flagLog";
 import type { TelemetryEvent } from "@/lib/sim/types";
+import { usePublishReportLocation } from "@/lib/feedback/reportLocation";
+import { TASK_TYPE_LABEL, taskShown } from "@/lib/feedback/labels";
 
 // A room must score at least this fraction of its gradeable XP to count as
 // passed. Below this, the student must retry the room from the start — a
@@ -431,6 +433,15 @@ export function RoomClient({ room }: RoomClientProps) {
   const totalTasks     = room.tasks.length;
   const currentTask    = room.tasks[currentTaskIndex];
 
+  // Tells the global "Report a problem" button which room task the learner is on.
+  usePublishReportLocation(currentTask ? {
+    kind: "room_task",
+    targetId: `${room.id}:${currentTask.id}`,
+    where: `Learning room › ${room.title}`,
+    step: `Task ${currentTaskIndex + 1} of ${totalTasks} · ${TASK_TYPE_LABEL[currentTask.type] ?? currentTask.type}`,
+    shown: taskShown(currentTask as unknown as Record<string, unknown>),
+  } : null);
+
   // A room with no tasks (e.g. a mis-authored / half-published org room) would
   // otherwise crash on `currentTask.type` just below. Render a friendly empty
   // state instead of a white-screen runtime error — the page must degrade, not
@@ -783,9 +794,10 @@ export function RoomClient({ room }: RoomClientProps) {
               targetKind="room_task"
               targetId={`${room.id}:${currentTask.id}`}
               context={{
-                room: room.title,
-                task_index: currentTaskIndex + 1,
-                task_type: currentTask.type,
+                category: "content",
+                where: `Learning room › ${room.title}`,
+                step: `Task ${currentTaskIndex + 1} of ${totalTasks} · ${TASK_TYPE_LABEL[currentTask.type] ?? currentTask.type}`,
+                shown: taskShown(currentTask as unknown as Record<string, unknown>),
               }}
             />
           </div>
