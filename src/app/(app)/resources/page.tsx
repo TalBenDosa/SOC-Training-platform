@@ -20,6 +20,7 @@ import { fetchOrgResources, type OrgResource } from "@/lib/content/publicContent
 import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 import { LESSON_DECKS, type LessonDeck } from "@/data/lessonDecks";
 import { SlideDeckViewer } from "@/components/lessons/SlideDeckViewer";
+import { socCover } from "@/lib/ui/socCover";
 
 const KIND_META: Record<OrgResource["kind"], { label: string; icon: typeof FileText; cls: string }> = {
   pdf:   { label: "PDF",          icon: FileText,     cls: "text-severity-high border-severity-high/40 bg-severity-high/10" },
@@ -218,6 +219,7 @@ function LessonPresentations({ query, onQuery, onOpen }: {
               onClick={() => onOpen(d)}
               seed={d.slug}
               index={i}
+              art={socCover(d.slug, d.topic, d.title)}
               icon={Presentation}
               typeLabel={`Lesson ${String(d.n).padStart(2, "0")}`}
               title={d.title}

@@ -24,6 +24,8 @@ export type LibraryCardProps = {
   typeLabel?: string;
   /** Optional real hero image (overrides generated art when present). */
   image?: string | null;
+  /** Optional ready-made cover (a CSS `url(...)`, e.g. socCover()) used instead of the generic art. */
+  art?: string;
   /** Top-right corner badge, e.g. a difficulty pill. */
   cornerBadge?: React.ReactNode;
   /** Bottom-left metadata (e.g. "+250 XP · ~45 min"). */
@@ -39,8 +41,8 @@ export type LibraryCardProps = {
   className?: string;
 };
 
-function Hero({ seed, index, icon: Icon, typeLabel, image }: Pick<LibraryCardProps, "seed" | "index" | "icon" | "typeLabel" | "image">) {
-  const art = coverArt(seed, index ?? 0);
+function Hero({ seed, index, icon: Icon, typeLabel, image, art: custom }: Pick<LibraryCardProps, "seed" | "index" | "icon" | "typeLabel" | "image" | "art">) {
+  const art = custom ? { dataUri: custom } : coverArt(seed, index ?? 0);
   return (
     <div className="relative aspect-[16/9] w-full overflow-hidden">
       {image ? (
@@ -63,7 +65,7 @@ function Hero({ seed, index, icon: Icon, typeLabel, image }: Pick<LibraryCardPro
 }
 
 export function LibraryCard(props: LibraryCardProps) {
-  const { seed, index, title, subtitle, icon, typeLabel, image, cornerBadge, meta, cta, children, href, onClick, disabled, className } = props;
+  const { seed, index, title, subtitle, icon, typeLabel, image, art, cornerBadge, meta, cta, children, href, onClick, disabled, className } = props;
 
   const shell = cn(
     "group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-bg-elevated text-left",
@@ -75,7 +77,7 @@ export function LibraryCard(props: LibraryCardProps) {
   const inner = (
     <>
       <div className="relative">
-        <Hero seed={seed} index={index} icon={icon} typeLabel={typeLabel} image={image} />
+        <Hero seed={seed} index={index} icon={icon} typeLabel={typeLabel} image={image} art={art} />
         {cornerBadge && <div className="absolute right-3 top-3">{cornerBadge}</div>}
       </div>
       <div className="flex flex-1 flex-col p-4">
