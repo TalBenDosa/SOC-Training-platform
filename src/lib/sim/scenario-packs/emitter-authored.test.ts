@@ -288,7 +288,7 @@ describe("emitter-authored scenario packs", () => {
 
   it("lateralMovementPth builds a coherent PtH intrusion from emitters only (WinSec + Sysmon + CS + Sentinel)", () => {
     const s = buildLateralMovementPthScenario();
-    expect(s.events.length).toBe(12);
+    expect(s.events.length).toBe(13); // 12 + the payload download row (evt_lm_07b) the live feed's investigability gate requires
     expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
       "Windows Security", "Microsoft Sysmon", "CrowdStrike Falcon", "Microsoft Sentinel",
     ]));

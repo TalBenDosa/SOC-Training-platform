@@ -99,6 +99,10 @@ import { AI_WAVE3_B_STORIES } from "./ai-stories/wave3-b";
 import { AI_WAVE3_C_STORIES } from "./ai-stories/wave3-c";
 import { AI_WAVE3_D_STORIES } from "./ai-stories/wave3-d";
 import { aiLlmJackingScenarioEvents } from "@/lib/sim/scenario-packs/aiLlmJacking.events";
+import { lateralMovementPthScenarioEvents }        from "@/lib/sim/scenario-packs/lateralMovementPth.events";
+import { goldenSamlScenarioEvents }                from "@/lib/sim/scenario-packs/goldenSaml.events";
+import { windowsPrivescTokenScenarioEvents }       from "@/lib/sim/scenario-packs/windowsPrivescToken.events";
+import { linuxPrivescSuidScenarioEvents }          from "@/lib/sim/scenario-packs/linuxPrivescSuid.events";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { ecsTechnique } from "@/lib/logs/ecsFields";
 
@@ -178,6 +182,10 @@ const _infostealerSessionTheft = infostealerSessionTheftScenarioEvents();
 const _edgeVpnCveExploit        = edgeVpnCveExploitScenarioEvents();
 const _exfilFirstExtortion      = exfilFirstExtortionScenarioEvents();
 const _helpdeskMfaReset         = helpdeskMfaResetScenarioEvents();
+const _lateralMovementPth       = lateralMovementPthScenarioEvents();
+const _goldenSaml               = goldenSamlScenarioEvents();
+const _windowsPrivescToken      = windowsPrivescTokenScenarioEvents();
+const _linuxPrivescSuid         = linuxPrivescSuidScenarioEvents();
 
 const deriveMitre = (events: TelemetryEvent[]): string[] =>
   Array.from(new Set(events.map(e => e.mitre_technique).filter(Boolean))) as string[];
@@ -299,6 +307,22 @@ const GENERIC_STORIES: AttackStory[] = [
   // archive → cloud egress with T1486 deliberately absent. Needs a DLP surface
   // (Purview), so it is offered to the three M365 estates.
   story("exfil-first-extortion", _exfilFirstExtortion, "advanced", ["nexacorp", "medcore", "globallogis"]),
+
+  // ── Classic, well-documented techniques promoted from the /scenarios packs ──
+  // Each leaves a textbook log trail a student can learn to read.
+
+  // core — single-host privilege escalation: SeImpersonatePrivilege + named-pipe
+  // token impersonation on an IIS host (Windows Security, Sysmon, MDE).
+  story("windows-privesc-token", _windowsPrivescToken, "core", ["nexacorp", "medcore", "globallogis"]),
+  // core — the Linux twin: a misconfigured SUID binary turns a foothold into root
+  // (auditd execve with euid=0, CrowdStrike). Linux estates only.
+  story("linux-privesc-suid", _linuxPrivescSuid, "core", ["globallogis", "rocketstack"]),
+  // advanced — Pass-the-Hash: NTLM network logons (4624 type 3) with no matching
+  // interactive logon, a service install on the file server, then a second hop to the DC.
+  story("lateral-movement-pth", _lateralMovementPth, "advanced", ["nexacorp", "medcore", "globallogis"]),
+  // advanced — Golden SAML: federated sign-ins for admins with no matching AD FS
+  // token issuance (Event 1200), after the signing key was read on the AD FS server.
+  story("golden-saml", _goldenSaml, "advanced", ["nexacorp", "medcore", "globallogis"]),
 ];
 
 // ── Company-specific chains ────────────────────────────────────────────────────

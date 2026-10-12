@@ -28,7 +28,7 @@ const BY_ID: Record<string, StoryCategory> = {
 
   "usb-malware": "endpoint", "browser-extension": "endpoint", "tech-support-scam": "endpoint",
   "cracked-software": "endpoint", "fake-browser-update": "endpoint", "trojanized-keylogger": "endpoint",
-  "seo-poisoned-installer": "endpoint", "clickfix-fake-captcha": "endpoint",
+  "seo-poisoned-installer": "endpoint", "clickfix-fake-captcha": "endpoint", "windows-privesc-token": "endpoint",
   "scheduled-task-persistence": "endpoint", "lolbins": "endpoint", "dns-tunneling": "endpoint",
   "globallogis-chain-b": "endpoint",
 
@@ -43,6 +43,7 @@ const BY_ID: Record<string, StoryCategory> = {
   "nexacorp-chain-b": "bec",
 
   "dcsync": "ad", "kerberoasting": "ad", "asrep-roasting": "ad", "ntlm-relay": "ad", "nexacorp-chain-d": "ad",
+  "lateral-movement-pth": "ad", "golden-saml": "ad",
 
   "ransomware": "ransomware", "esxi-ransomware": "ransomware", "exfil-first-extortion": "ransomware",
   "medcore-chain-a": "ransomware",
@@ -54,7 +55,7 @@ const BY_ID: Record<string, StoryCategory> = {
   "rs-cicd-pipeline-poisoning": "cloud", "rs-terraform-iac-backdoor": "cloud", "rocketstack-chain-b": "cloud",
 
   "webshell-rce": "exploit", "edge-vpn-cve-exploit": "exploit", "linux-ssh-persistence": "exploit",
-  "globallogis-chain-d": "exploit",
+  "globallogis-chain-d": "exploit", "linux-privesc-suid": "exploit",
 
   "qb-swift-wire-fraud": "fraud", "qb-fraud-monitoring-tampering": "fraud", "qb-cyberark-mule-payout": "fraud",
 };
