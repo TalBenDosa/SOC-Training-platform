@@ -82,16 +82,16 @@ export const COMPANY_PROFILES: Omit<CompanyProfile, "events">[] = [
     industry:    "Technology / SaaS",
     size:        185,
     hq:          "Tel Aviv, Israel",
-    description: "Fast-growing SaaS startup. Cloud-native on AWS. Mostly macOS endpoints. Okta for zero-trust identity. CrowdStrike Falcon protecting a mixed Mac/Linux fleet.",
+    description: "Fast-growing SaaS startup. Cloud-native on AWS, with its data platform (Cloud Storage datalake, Secret Manager) on Google Cloud. Mostly macOS endpoints. Okta for zero-trust identity. CrowdStrike Falcon protecting a mixed Mac/Linux fleet.",
     gradient:    "from-orange-500 to-pink-500",
     architecture: {
       edr:      "CrowdStrike Falcon",
-      cloud:    "AWS",
+      cloud:    "AWS + Google Cloud",
       idp:      "Okta",
       email:    "Google Workspace",
       firewall: "Fortinet FortiGate 100F",
       vpn:      "Cloudflare Access (Zero Trust)",
-      sources:  ["edr", "okta", "cloudtrail", "firewall", "dns", "gws"]
+      sources:  ["edr", "okta", "cloudtrail", "cloud_gcp", "firewall", "dns", "gws"]
     }
   },
   {

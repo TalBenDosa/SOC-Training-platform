@@ -8,7 +8,6 @@
  * answer-bearing out of this file: every visitor can read it.
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
-import { makeSha256 } from "@/lib/sim/iocs";
 
 /** Telemetry half of the gcpSaKeyTheft scenario: the events and the story title, no answer key. */
 export function gcpSaKeyTheftScenarioEvents() {
@@ -22,10 +21,10 @@ export function gcpSaKeyTheftScenarioEvents() {
   const INCIDENT = "inc:gcpkey:1";
 
   // The project and the resources that hold regulated data.
-  const projectId = "acme-data-prod";
+  const projectId = "rocketstack-data-prod";
   const projectNum = "849302175566";
   const region = "us-central1";
-  const bucket = "acme-prod-datalake";
+  const bucket = "rocketstack-prod-datalake";
   const secretName = "prod-warehouse-dsn";
 
   // The over-permissioned target: a data-pipeline service account carrying
@@ -39,7 +38,7 @@ export function gcpSaKeyTheftScenarioEvents() {
 
   // The compromised foothold identity — a developer whose gcloud credentials
   // were phished. The enumeration and the key-mint carry this principalEmail.
-  const devUser = "dnash@acme-data.io";
+  const devUser = "t.levy@rocketstack.io";
   // The attacker's external address — outside GCP, the whole tell.
   const attackerIp = "185.129.62.66";
   const attackerUa = "google-api-python-client/2.132.0 (gzip)";
@@ -51,9 +50,11 @@ export function gcpSaKeyTheftScenarioEvents() {
   const ciBuildIp = "34.72.140.19"; // Google Cloud Build egress range
   const ciUa = "google-cloud-sdk terraform-provider-google/5.38.0";
 
-  // Content hash of the export bundle Event Threat Detection reconstructed from
-  // the Data Access reads — evidence enrichment on the exfiltration finding.
-  const exfilBundleSha = makeSha256("gcp_sa_key_theft_datalake_export_bundle_2026");
+  // Security Command Center: the organization, the Event Threat Detection source and the
+  // target service account's numeric unique id (what a Finding's resourceName carries).
+  const orgId = "684201937415";
+  const etdSourceId = "1460987327201345829";
+  const targetSaUniqueId = "104738295610384756291";
 
   const events: TelemetryEvent[] = [
     // ─────────────────────────────────────────────────────────────────────
@@ -121,10 +122,10 @@ export function gcpSaKeyTheftScenarioEvents() {
       mitre_tactic: "Discovery",
       incident_id: INCIDENT,
       description:
-        "ListServiceAccounts on project acme-data-prod by dnash@acme-data.io from 185.129.62.66 — the developer identity enumerating every service account in the project from an address it has not used before.",
+        "ListServiceAccounts on project rocketstack-data-prod by t.levy@rocketstack.io from 185.129.62.66 — the developer identity enumerating every service account in the project from an address it has not used before.",
       raw: {
         "gcp.audit.type": "type.googleapis.com/google.cloud.audit.AuditLog",
-        "gcp.audit.log_name": `projects/${projectId}/logs/cloudaudit.googleapis.com%2Factivity`,
+        "gcp.audit.log_name": `projects/${projectId}/logs/cloudaudit.googleapis.com%2Fdata_access`,
         "gcp.audit.service_name": "iam.googleapis.com",
         "gcp.audit.method_name": "google.iam.admin.v1.ListServiceAccounts",
         "gcp.audit.resource_name": `projects/${projectId}`,
@@ -167,7 +168,7 @@ export function gcpSaKeyTheftScenarioEvents() {
       mitre_tactic: "Discovery",
       incident_id: INCIDENT,
       description:
-        "storage.buckets.list on project acme-data-prod by dnash@acme-data.io from 185.129.62.66 — enumerating the project's buckets, including the acme-prod-datalake store, from the same external address.",
+        "storage.buckets.list on project rocketstack-data-prod by t.levy@rocketstack.io from 185.129.62.66 — enumerating the project's buckets, including the rocketstack-prod-datalake store, from the same external address.",
       raw: {
         "gcp.audit.type": "type.googleapis.com/google.cloud.audit.AuditLog",
         "gcp.audit.log_name": `projects/${projectId}/logs/cloudaudit.googleapis.com%2Fdata_access`,
@@ -213,7 +214,7 @@ export function gcpSaKeyTheftScenarioEvents() {
       mitre_tactic: "Persistence",
       incident_id: INCIDENT,
       description:
-        "CreateServiceAccountKey on data-pipeline-sa by dnash@acme-data.io from 185.129.62.66 minted a new user-managed key (USER_MANAGED, TYPE_GOOGLE_CREDENTIALS_FILE) — a long-lived JSON credential for a service account the developer does not own.",
+        "CreateServiceAccountKey on data-pipeline-sa by t.levy@rocketstack.io from 185.129.62.66 minted a new user-managed key (USER_MANAGED, TYPE_GOOGLE_CREDENTIALS_FILE) — a long-lived JSON credential for a service account the developer does not own.",
       raw: {
         "gcp.audit.type": "type.googleapis.com/google.cloud.audit.AuditLog",
         "gcp.audit.log_name": `projects/${projectId}/logs/cloudaudit.googleapis.com%2Factivity`,
@@ -263,7 +264,7 @@ export function gcpSaKeyTheftScenarioEvents() {
       mitre_tactic: "Privilege Escalation",
       incident_id: INCIDENT,
       description:
-        "GenerateAccessToken on data-pipeline-sa by dnash@acme-data.io from 185.129.62.66 — the developer identity minting a short-lived token to act as the service account and inherit its storage and secret roles.",
+        "GenerateAccessToken on data-pipeline-sa by t.levy@rocketstack.io from 185.129.62.66 — the developer identity minting a short-lived token to act as the service account and inherit its storage and secret roles.",
       raw: {
         "gcp.audit.type": "type.googleapis.com/google.cloud.audit.AuditLog",
         "gcp.audit.log_name": `projects/${projectId}/logs/cloudaudit.googleapis.com%2Fdata_access`,
@@ -313,7 +314,7 @@ export function gcpSaKeyTheftScenarioEvents() {
       mitre_tactic: "Discovery",
       incident_id: INCIDENT,
       description:
-        "storage.objects.list on acme-prod-datalake with principalEmail data-pipeline-sa from 185.129.62.66 — the service account now driving the calls, indexing the exports/ prefix ahead of a read.",
+        "storage.objects.list on rocketstack-prod-datalake with principalEmail data-pipeline-sa from 185.129.62.66 — the service account now driving the calls, indexing the exports/ prefix ahead of a read.",
       raw: {
         "gcp.audit.type": "type.googleapis.com/google.cloud.audit.AuditLog",
         "gcp.audit.log_name": `projects/${projectId}/logs/cloudaudit.googleapis.com%2Fdata_access`,
@@ -322,6 +323,7 @@ export function gcpSaKeyTheftScenarioEvents() {
         "gcp.audit.resource_name": `projects/_/buckets/${bucket}`,
         "gcp.audit.resource_type": "gcs_bucket",
         "gcp.audit.authentication_info.principal_email": targetSa,
+        "gcp.audit.authentication_info.service_account_key_name": `//iam.googleapis.com/${mintedKeyResource}`,
         "gcp.audit.request_metadata.caller_ip": attackerIp,
         "gcp.audit.request_metadata.caller_supplied_user_agent": attackerUa,
         "gcp.audit.authorization_info.permission": "storage.objects.list",
@@ -360,7 +362,7 @@ export function gcpSaKeyTheftScenarioEvents() {
       mitre_tactic: "Collection",
       incident_id: INCIDENT,
       description:
-        "storage.objects.get repeated across the exports/ prefix on acme-prod-datalake with principalEmail data-pipeline-sa from 185.129.62.66 — a bulk read of the datalake objects, 62 GB returned over eleven minutes.",
+        "storage.objects.get repeated across the exports/ prefix on rocketstack-prod-datalake with principalEmail data-pipeline-sa from 185.129.62.66 — a bulk read of the datalake, one Data Access entry per object pulled.",
       raw: {
         "gcp.audit.type": "type.googleapis.com/google.cloud.audit.AuditLog",
         "gcp.audit.log_name": `projects/${projectId}/logs/cloudaudit.googleapis.com%2Fdata_access`,
@@ -369,12 +371,11 @@ export function gcpSaKeyTheftScenarioEvents() {
         "gcp.audit.resource_name": `projects/_/buckets/${bucket}/objects/exports/2026-08-30/warehouse-000001.parquet`,
         "gcp.audit.resource_type": "gcs_bucket",
         "gcp.audit.authentication_info.principal_email": targetSa,
+        "gcp.audit.authentication_info.service_account_key_name": `//iam.googleapis.com/${mintedKeyResource}`,
         "gcp.audit.request_metadata.caller_ip": attackerIp,
         "gcp.audit.request_metadata.caller_supplied_user_agent": attackerUa,
         "gcp.audit.authorization_info.permission": "storage.objects.get",
         "gcp.audit.authorization_info.granted": "true",
-        "gcp.audit.metadata.objects_returned": "18420",
-        "gcp.audit.metadata.bytes_returned": "66573557760",
         "gcp.audit.severity": "INFO",
         "gcp.project.id": projectId,
         "storage.bucket.name": bucket,
@@ -418,6 +419,7 @@ export function gcpSaKeyTheftScenarioEvents() {
         "gcp.audit.resource_name": `projects/${projectNum}/secrets/${secretName}/versions/4`,
         "gcp.audit.resource_type": "secretmanager.googleapis.com/SecretVersion",
         "gcp.audit.authentication_info.principal_email": targetSa,
+        "gcp.audit.authentication_info.service_account_key_name": `//iam.googleapis.com/${mintedKeyResource}`,
         "gcp.audit.request_metadata.caller_ip": attackerIp,
         "gcp.audit.request_metadata.caller_supplied_user_agent": attackerUa,
         "gcp.audit.authorization_info.permission": "secretmanager.versions.access",
@@ -445,44 +447,36 @@ export function gcpSaKeyTheftScenarioEvents() {
       id: "gcpkey_08_etd_key_finding",
       ts: T(15 * MIN),
       source: "cloud_gcp",
-      vendor: "GCP Cloud Audit Logs",
-      event_type: "cloud_api_call",
+      vendor: "Google Security Command Center",
+      event_type: "cloud_api_call", // cloud detections are typed as the API activity they flag (as GuardDuty findings are)
       src_ip: attackerIp,
-      severity: "high",
+      severity: "medium",
       mitre_technique: "T1098.001",
       mitre_tactic: "Persistence",
       incident_id: INCIDENT,
-      is_detection: true,   // ETD flags the anomalous key creation
-      edr_scope: "non_edr", // cloud control-plane only — no host to walk; investigated in SIEM / cloud
+      is_detection: true,
+      edr_scope: "non_edr", // cloud control-plane only — no host process to walk
       description:
-        "Event Threat Detection raised Persistence: New Service Account Key (severity HIGH) on data-pipeline-sa: a user-managed key was created by dnash@acme-data.io from 185.129.62.66, a caller location outside the account's established pattern.",
+        "Event Threat Detection raised Persistence: Service Account Key Created (severity LOW) on data-pipeline-sa: a user-managed key was created by t.levy@rocketstack.io from 185.129.62.66.",
       raw: {
-        "gcp.audit.type": "type.googleapis.com/google.cloud.audit.AuditLog",
-        "gcp.audit.service_name": "securitycenter.googleapis.com",
-        "gcp.audit.method_name": "google.cloud.securitycenter.v1.Finding",
-        "gcp.audit.finding.category": "Persistence: New Service Account Key",
-        "gcp.audit.finding.source": "Event Threat Detection",
-        "gcp.audit.finding.severity": "HIGH",
-        "gcp.audit.finding.resource_name": targetSaResource,
-        "gcp.audit.finding.principal_email": devUser,
-        "gcp.audit.finding.caller_ip": attackerIp,
-        "gcp.audit.finding.method_name": "google.iam.admin.v1.CreateServiceAccountKey",
-        "gcp.audit.severity": "WARNING",
-        "gcp.project.id": projectId,
-        "gcp.resource.name": targetSaResource,
-        "cloud.provider": "gcp",
-        "cloud.project.id": projectId,
-        "cloud.region": region,
-        "threat.framework": "MITRE ATT&CK",
-        "threat.technique.id": "T1098",
-        "threat.technique.subtechnique.id": "T1098.001",
-        "threat.technique.name": "Account Manipulation: Additional Cloud Credentials",
-        "threat.tactic.name": "Persistence",
-        "source.ip": attackerIp,
-        "user.email": devUser,
-        "event.action": "finding",
-        "event.category": "iam",
-        "event.outcome": "success",
+        // Security Command Center Pub/Sub notification: an Event Threat Detection Finding.
+        "notificationConfigName": `organizations/${orgId}/notificationConfigs/scc-to-siem`,
+        "finding.name": `organizations/${orgId}/sources/${etdSourceId}/findings/08${projectNum}`,
+        "finding.parent": `organizations/${orgId}/sources/${etdSourceId}`,
+        "finding.resourceName": `//iam.googleapis.com/projects/${projectId}/serviceAccounts/${targetSaUniqueId}`,
+        "finding.state": "ACTIVE",
+        "finding.category": "Persistence: Service Account Key Created",
+        "finding.severity": "LOW",
+        "finding.findingClass": "THREAT",
+        "finding.eventTime": T(15 * MIN),
+        "finding.createTime": T(15 * MIN),
+        "finding.access.principalEmail": devUser,
+        "finding.access.callerIp": attackerIp,
+        "finding.access.callerIpGeo.regionCode": "NL",
+        "finding.access.serviceName": "iam.googleapis.com",
+        "finding.access.methodName": "google.iam.admin.v1.CreateServiceAccountKey",
+        "finding.mitreAttack.primaryTactic": "PERSISTENCE",
+        "finding.mitreAttack.primaryTechniques": ["ACCOUNT_MANIPULATION"],
       },
     },
 
@@ -492,52 +486,42 @@ export function gcpSaKeyTheftScenarioEvents() {
     //    exfiltration finding, with an evidence bundle hash (T1567).
     // ─────────────────────────────────────────────────────────────────────
     {
-      id: "gcpkey_09_etd_exfil_finding",
+      id: "gcpkey_09_etd_new_geography",
       ts: T(24 * MIN),
       source: "cloud_gcp",
-      vendor: "GCP Cloud Audit Logs",
-      event_type: "cloud_api_call",
+      vendor: "Google Security Command Center",
+      event_type: "cloud_api_call", // cloud detections are typed as the API activity they flag (as GuardDuty findings are)
       src_ip: attackerIp,
-      severity: "critical",
-      mitre_technique: "T1567",
-      mitre_tactic: "Exfiltration",
+      severity: "medium",
+      mitre_technique: "T1078.004",
+      mitre_tactic: "Persistence",
       incident_id: INCIDENT,
-      is_detection: true,   // ETD flags the object drain from a remote caller
+      is_detection: true,
       edr_scope: "non_edr", // cloud control-plane only — no host process to walk
       description:
-        "Event Threat Detection raised Exfiltration: Cloud Storage Object Read (severity CRITICAL) on acme-prod-datalake: the data-pipeline-sa identity read objects in bulk from 185.129.62.66, a remote caller outside its usual location.",
+        "Event Threat Detection raised Persistence: New Geography (severity LOW) on data-pipeline-sa: the service account made calls from 185.129.62.66 in the Netherlands, a location it has never operated from.",
       raw: {
-        "gcp.audit.type": "type.googleapis.com/google.cloud.audit.AuditLog",
-        "gcp.audit.service_name": "securitycenter.googleapis.com",
-        "gcp.audit.method_name": "google.cloud.securitycenter.v1.Finding",
-        "gcp.audit.finding.category": "Exfiltration: Cloud Storage Object Read",
-        "gcp.audit.finding.source": "Event Threat Detection",
-        "gcp.audit.finding.severity": "CRITICAL",
-        "gcp.audit.finding.resource_name": `projects/_/buckets/${bucket}`,
-        "gcp.audit.finding.principal_email": targetSa,
-        "gcp.audit.finding.caller_ip": attackerIp,
-        "gcp.audit.finding.method_name": "storage.objects.get",
-        "gcp.audit.finding.evidence.object_count": "18420",
-        "gcp.audit.finding.evidence.bundle_sha256": exfilBundleSha,
-        "gcp.audit.finding.caller_geo.country": "NL",
-        "gcp.audit.severity": "ERROR",
-        "gcp.project.id": projectId,
-        "storage.bucket.name": bucket,
-        "cloud.provider": "gcp",
-        "cloud.project.id": projectId,
-        "cloud.region": region,
-        "threat.framework": "MITRE ATT&CK",
-        "threat.technique.id": "T1567",
-        "threat.technique.name": "Exfiltration Over Web Service",
-        "threat.tactic.name": "Exfiltration",
-        "source.ip": attackerIp,
-        "user.email": targetSa,
-        "event.action": "finding",
-        "event.category": "iam",
-        "event.outcome": "success",
+        // Security Command Center Pub/Sub notification: an Event Threat Detection Finding.
+        "notificationConfigName": `organizations/${orgId}/notificationConfigs/scc-to-siem`,
+        "finding.name": `organizations/${orgId}/sources/${etdSourceId}/findings/09${projectNum}`,
+        "finding.parent": `organizations/${orgId}/sources/${etdSourceId}`,
+        "finding.resourceName": `//iam.googleapis.com/projects/${projectId}/serviceAccounts/${targetSaUniqueId}`,
+        "finding.state": "ACTIVE",
+        "finding.category": "Persistence: New Geography",
+        "finding.severity": "LOW",
+        "finding.findingClass": "THREAT",
+        "finding.eventTime": T(24 * MIN),
+        "finding.createTime": T(24 * MIN),
+        "finding.access.principalEmail": targetSa,
+        "finding.access.callerIp": attackerIp,
+        "finding.access.callerIpGeo.regionCode": "NL",
+        "finding.access.serviceName": "storage.googleapis.com",
+        "finding.access.methodName": "storage.objects.get",
+        "finding.mitreAttack.primaryTactic": "PERSISTENCE",
+        "finding.mitreAttack.primaryTechniques": ["VALID_ACCOUNTS"],
       },
     },
   ];
 
-  return { title, events, B, T, MIN, SEC, INCIDENT, projectId, projectNum, region, bucket, secretName, targetSa, targetSaResource, mintedKeyId, mintedKeyResource, devUser, attackerIp, attackerUa, ciSa, ciSaResource, ciBuildIp, ciUa, exfilBundleSha };
+  return { title, events, B, T, MIN, SEC, INCIDENT, projectId, projectNum, region, bucket, secretName, targetSa, targetSaResource, mintedKeyId, mintedKeyResource, devUser, attackerIp, attackerUa, ciSa, ciSaResource, ciBuildIp, ciUa, orgId, etdSourceId, targetSaUniqueId };
 }

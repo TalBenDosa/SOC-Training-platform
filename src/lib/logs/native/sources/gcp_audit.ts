@@ -107,12 +107,113 @@ function microTs(ts: string, ctx: NativeCtx, seed: string, fracDigits: number, a
   return `${base}${extra}Z`;
 }
 
+/** IAM enum values as the audit log's request/response carry them (card GC2: private_key_type 2). */
+const ENUMS: Record<string, number> = {
+  TYPE_PKCS12_FILE: 1, TYPE_GOOGLE_CREDENTIALS_FILE: 2,
+  KEY_ALG_RSA_1024: 1, KEY_ALG_RSA_2048: 2,
+  USER_MANAGED: 1, SYSTEM_MANAGED: 2,
+};
+const enumOf = (v: string | undefined) => (v === undefined ? undefined : ENUMS[v] ?? v);
+
+/** The request @type for the IAM methods whose request body the audit log records. */
+const REQUEST_TYPES: Record<string, string> = {
+  "google.iam.admin.v1.CreateServiceAccountKey": "type.googleapis.com/google.iam.admin.v1.CreateServiceAccountKeyRequest",
+  "google.iam.admin.v1.ListServiceAccounts": "type.googleapis.com/google.iam.admin.v1.ListServiceAccountsRequest",
+  GenerateAccessToken: "type.googleapis.com/google.iam.credentials.v1.GenerateAccessTokenRequest",
+};
+
+/**
+ * A GCP-authored audit entry (raw gcp.audit.* inputs) rendered as the full Cloud Logging
+ * LogEntry (card §2-4). The authored project id is replaced by the rendering company's
+ * project, so every resource name, principal and label agrees with the tenant.
+ */
+function buildNative(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
+  const raw = ev.raw ?? {};
+  const method = rs(raw, "gcp.audit.method_name")!;
+  const service = rs(raw, "gcp.audit.service_name") ?? "";
+  if (/securitycenter/i.test(service)) return null; // SCC findings are not audit-log entries
+  const proj = ctx.tenant.gcpProjectId;
+  const authored = rs(raw, "gcp.project.id");
+  const sw = (v: string | undefined) => (v === undefined || !authored ? v : v.split(authored).join(proj));
+  const principal = sw(rs(raw, "gcp.audit.authentication_info.principal_email") ?? ev.user_email ?? ev.user?.email) ?? `unknown@${proj}.iam.gserviceaccount.com`;
+  const resourceName = sw(rs(raw, "gcp.audit.resource_name")) ?? `projects/${proj}`;
+  const logName = sw(rs(raw, "gcp.audit.log_name")) ?? `projects/${proj}/logs/cloudaudit.googleapis.com%2Factivity`;
+  const dataAccess = logName.endsWith("%2Fdata_access");
+  const granted = (rs(raw, "gcp.audit.authorization_info.granted") ?? "true") !== "false";
+  const permission = rs(raw, "gcp.audit.authorization_info.permission") ?? method;
+  const dataPlane = /^(storage\.objects\.|google\.cloud\.secretmanager\.|google\.cloud\.bigquery\.)/.test(method) || /secretmanager\.versions\.access|storage\.objects/.test(permission);
+  const writes = /\.(create|insert|delete|update|patch|rewrite|compose)$/.test(method);
+  const permissionType = !dataAccess ? "ADMIN_WRITE" : dataPlane ? (writes ? "DATA_WRITE" : "DATA_READ") : "ADMIN_READ";
+  const ip = ev.src_ip ?? rs(raw, "gcp.audit.request_metadata.caller_ip");
+
+  const authenticationInfo: Record<string, unknown> = { principalEmail: principal };
+  const keyName = sw(rs(raw, "gcp.audit.authentication_info.service_account_key_name"));
+  if (keyName) authenticationInfo.serviceAccountKeyName = keyName;
+  const delegate = sw(rs(raw, "gcp.audit.authentication_info.service_account_delegation"));
+  if (delegate) authenticationInfo.serviceAccountDelegationInfo = [{ firstPartyPrincipal: { principalEmail: delegate } }];
+
+  const saEmail = /serviceAccounts\/([^/]+@[^/]+)/.exec(resourceName)?.[1];
+  const bucket = /buckets\/([^/]+)/.exec(resourceName)?.[1];
+  const resourceType = rs(raw, "gcp.audit.resource_type") ?? (saEmail ? "service_account" : bucket ? "gcs_bucket" : "project");
+  const labels: Record<string, unknown> = { project_id: proj };
+  if (resourceType === "service_account" && saEmail) { labels.email_id = saEmail; labels.unique_id = String(ctx.int(`${ctx.companyId}:gcp-sa:${saEmail}`, 100000000, 999999999)) + String(ctx.int(`${ctx.companyId}:gcp-sa2:${saEmail}`, 100000000000, 999999999999)); }
+  if (resourceType === "gcs_bucket" && bucket) { labels.bucket_name = bucket; labels.location = rs(raw, "cloud.region") ?? "us-central1"; }
+  if (resourceType === "audited_resource") { labels.service = service; labels.method = method; }
+
+  const protoPayload: Record<string, unknown> = {
+    "@type": "type.googleapis.com/google.cloud.audit.AuditLog",
+    authenticationInfo,
+    authorizationInfo: [{ granted, permission, ...(dataAccess && dataPlane ? { resource: resourceName } : {}), permissionType, resourceAttributes: {} }],
+    methodName: method,
+    requestMetadata: {
+      callerIp: ip ?? "private",
+      callerSuppliedUserAgent: rs(raw, "gcp.audit.request_metadata.caller_supplied_user_agent") ?? "google-cloud-sdk gcloud/501.0.0,gzip(gfe)",
+      requestAttributes: { time: microTs(ev.ts, ctx, ev.id + ":rt", 9), auth: {} },
+      destinationAttributes: {},
+    },
+    resourceName,
+    serviceName: service,
+    status: granted ? {} : { code: 7, message: `Permission '${permission}' denied on resource (or it may not exist).` },
+  };
+  if (bucket) protoPayload.resourceLocation = { currentLocations: [rs(raw, "cloud.region") ?? "us-central1"] };
+  const items = rs(raw, "gcp.audit.num_response_items");
+  if (items) protoPayload.numResponseItems = items;
+  if (REQUEST_TYPES[method]) {
+    const request: Record<string, unknown> = { "@type": REQUEST_TYPES[method], name: method.endsWith("ListServiceAccounts") ? `projects/${proj}` : `projects/-/serviceAccounts/${saEmail ?? principal}` };
+    const pkt = enumOf(rs(raw, "gcp.audit.request.private_key_type"));
+    if (pkt !== undefined) request.private_key_type = pkt;
+    const scope = rs(raw, "gcp.audit.request.scope");
+    if (scope) request.scope = scope.split(/[ ,]+/);
+    protoPayload.request = request;
+  }
+  const respName = sw(rs(raw, "gcp.audit.response.name"));
+  if (respName) {
+    protoPayload.response = {
+      "@type": "type.googleapis.com/google.iam.admin.v1.ServiceAccountKey",
+      name: respName,
+      ...(rs(raw, "gcp.audit.response.key_algorithm") ? { key_algorithm: enumOf(rs(raw, "gcp.audit.response.key_algorithm")) } : {}),
+      ...(rs(raw, "gcp.audit.response.key_type") ? { key_type: enumOf(rs(raw, "gcp.audit.response.key_type")) } : {}),
+      valid_after_time: { seconds: Math.floor(Date.parse(ev.ts) / 1000) },
+    };
+  }
+  if (method === "GenerateAccessToken" && saEmail) protoPayload.metadata = { identityDelegationChain: [`projects/-/serviceAccounts/${saEmail}`] };
+
+  const record: Record<string, unknown> = {
+    insertId: ctx.hex(ev.id + ":insert", 12),
+    logName,
+    protoPayload,
+    receiveTimestamp: microTs(ev.ts, ctx, ev.id + ":recv", 9, 500),
+    resource: { type: resourceType, labels },
+    severity: rs(raw, "gcp.audit.severity") ?? (!granted ? "ERROR" : dataAccess ? "INFO" : "NOTICE"),
+    timestamp: microTs(ev.ts, ctx, ev.id + ":ts", 9),
+  };
+  return { sourceId: "gcp_audit", kind: "AuditLog", format: "json", record, timeMs: Date.parse(ev.ts) };
+}
+
 function fromTelemetry(ev: TelemetryEvent, ctx: NativeCtx): NativeLog | null {
   const raw = ev.raw ?? {};
-  // Native GCP event (none in the corpus today) — pass through its own fields.
-  if (rv(raw, "gcp.audit.methodName", "protoPayload.methodName")) {
-    // Not exercised by current data; fall through to cross-cloud path is not applicable.
-  }
+  // A GCP-authored audit entry renders natively; everything below is the cross-cloud path.
+  if (rs(raw, "gcp.audit.method_name")) return buildNative(ev, ctx);
   // Cross-cloud: render an AWS CloudTrail event as its GCP equivalent, where one exists.
   const en = rs(raw, "aws.cloudtrail.eventName", "event.action") ?? ev.cloud?.api_call;
   if (!en) return null;

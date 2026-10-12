@@ -104,6 +104,7 @@ import { goldenSamlScenarioEvents }                from "@/lib/sim/scenario-pack
 import { windowsPrivescTokenScenarioEvents }       from "@/lib/sim/scenario-packs/windowsPrivescToken.events";
 import { linuxPrivescSuidScenarioEvents }          from "@/lib/sim/scenario-packs/linuxPrivescSuid.events";
 import { azureManagedIdentityAbuseScenarioEvents } from "@/lib/sim/scenario-packs/azureManagedIdentityAbuse.events";
+import { gcpSaKeyTheftScenarioEvents }             from "@/lib/sim/scenario-packs/gcpSaKeyTheft.events";
 import type { TelemetryEvent } from "@/lib/sim/types";
 import { ecsTechnique } from "@/lib/logs/ecsFields";
 
@@ -188,6 +189,7 @@ const _goldenSaml               = goldenSamlScenarioEvents();
 const _windowsPrivescToken      = windowsPrivescTokenScenarioEvents();
 const _linuxPrivescSuid         = linuxPrivescSuidScenarioEvents();
 const _azureManagedIdentityAbuse = azureManagedIdentityAbuseScenarioEvents();
+const _gcpSaKeyTheft            = gcpSaKeyTheftScenarioEvents();
 
 const deriveMitre = (events: TelemetryEvent[]): string[] =>
   Array.from(new Set(events.map(e => e.mitre_technique).filter(Boolean))) as string[];
@@ -329,6 +331,11 @@ const GENERIC_STORIES: AttackStory[] = [
   // used from outside: service-principal sign-ins whose credential key id matches the
   // added secret, a self-granted role, Key Vault and Storage key reads. The two Azure estates.
   story("azure-managed-identity-abuse", _azureManagedIdentityAbuse, "advanced", ["nexacorp", "medcore"]),
+  // advanced — a phished developer login mints a user-managed key on an over-permissioned
+  // service account, then drives it from outside: CreateServiceAccountKey in the Admin
+  // Activity log, then Data Access reads whose serviceAccountKeyName is that key. Two real
+  // (Low) Event Threat Detection findings. RocketStack runs its data platform on GCP.
+  story("gcp-sa-key-theft", _gcpSaKeyTheft, "advanced", ["rocketstack"]),
 ];
 
 // ── Company-specific chains ────────────────────────────────────────────────────

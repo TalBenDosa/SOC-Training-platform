@@ -10,13 +10,14 @@
  */
 import type { TelemetryEvent } from "@/lib/sim/types";
 
-export type Platform = "azure" | "aws" | "k8s" | "linux" | "vmware" | "github" | "cyberark" | "ndr";
+export type Platform = "azure" | "aws" | "gcp" | "k8s" | "linux" | "vmware" | "github" | "cyberark" | "ndr";
 export type Industry = "general" | "healthcare" | "finance" | "logistics";
 export interface TeamEnv { platforms: Platform[]; industry: Industry }
 
 export const PLATFORM_CHOICES: { id: Platform; label: string; hint: string }[] = [
   { id: "azure", label: "Azure subscriptions", hint: "Azure Activity Log — Key Vault, Azure OpenAI, resource changes" },
   { id: "aws", label: "AWS", hint: "CloudTrail and GuardDuty — IAM, S3, EC2, Bedrock" },
+  { id: "gcp", label: "Google Cloud", hint: "Cloud Audit Logs and Security Command Center — IAM, Cloud Storage, Secret Manager" },
   { id: "k8s", label: "Kubernetes", hint: "Kubernetes audit log — pods, RBAC, secrets" },
   { id: "linux", label: "Linux servers", hint: "auditd — SSH, cron, sudo, processes" },
   { id: "vmware", label: "VMware vSphere", hint: "vCenter and ESXi events" },
@@ -77,6 +78,7 @@ export function platformsOfEvent(ev: TelemetryEvent): Platform[] {
   switch (ev.source as string) {
     case "cloud_azure": return /entra|azure active directory|azure ad/.test(v(ev)) ? [] : ["azure"];
     case "cloudtrail": return /github/.test(v(ev)) ? ["github"] : ["aws"];
+    case "cloud_gcp": return ["gcp"];
     case "k8s_audit": return ["k8s"];
     case "linux_audit": case "infra_monitor": return ["linux"];
     case "virtualization": return ["vmware"];

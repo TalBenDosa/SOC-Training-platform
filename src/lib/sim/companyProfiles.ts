@@ -116,6 +116,58 @@ const ROCKETSTACK_EVENTS: TelemetryEvent[] = [
     description: "The ci-pipeline-role service account read a log file from the rocketstack-prod-logs S3 bucket",
     raw: { "aws.cloudtrail.eventSource": "s3.amazonaws.com", "aws.cloudtrail.eventName": "GetObject", "aws.cloudtrail.userIdentity.type": "AssumedRole", "aws.cloudtrail.user_identity.session_issuer.user_name": "ci-pipeline-role", "action_result": "allowed" }
   },
+  // ── Google Cloud audit logs (the data platform) ─────────────────────────────
+  // The pipeline's own reads come from inside Google Cloud (gce-internal-ip); people
+  // work from the office egress; the Terraform identity from Cloud Build.
+  {
+    id: "rs_gcp_001", ts: "2026-05-10T02:05:00.000Z",
+    source: "cloud_gcp", event_type: "cloud_api_call", severity: "informational",
+    vendor: "GCP Cloud Audit Logs", user_email: undefined, src_ip: undefined,
+    description: "The data-pipeline-sa service account read a daily export object from the rocketstack-prod-datalake bucket from inside Google Cloud (a Dataflow worker)",
+    raw: { "gcp.project.id": "rocketstack-data-prod", "gcp.audit.log_name": "projects/rocketstack-data-prod/logs/cloudaudit.googleapis.com%2Fdata_access", "gcp.audit.service_name": "storage.googleapis.com", "gcp.audit.method_name": "storage.objects.get", "gcp.audit.resource_name": "projects/_/buckets/rocketstack-prod-datalake/objects/exports/daily/2026-05-09/part-00000.parquet", "gcp.audit.resource_type": "gcs_bucket", "gcp.audit.authentication_info.principal_email": "data-pipeline-sa@rocketstack-data-prod.iam.gserviceaccount.com", "gcp.audit.request_metadata.caller_ip": "gce-internal-ip", "gcp.audit.request_metadata.caller_supplied_user_agent": "Apache_Beam_SDK_for_Java/2.56.0 (gzip),gzip(gfe)", "gcp.audit.authorization_info.permission": "storage.objects.get", "gcp.audit.authorization_info.granted": "true", "gcp.audit.severity": "INFO", "action_result": "allowed" }
+  },
+  {
+    id: "rs_gcp_002", ts: "2026-05-10T02:19:00.000Z",
+    source: "cloud_gcp", event_type: "cloud_api_call", severity: "informational",
+    vendor: "GCP Cloud Audit Logs", user_email: undefined, src_ip: undefined,
+    description: "The data-pipeline-sa service account wrote the nightly aggregate to the rocketstack-prod-datalake bucket from inside Google Cloud",
+    raw: { "gcp.project.id": "rocketstack-data-prod", "gcp.audit.log_name": "projects/rocketstack-data-prod/logs/cloudaudit.googleapis.com%2Fdata_access", "gcp.audit.service_name": "storage.googleapis.com", "gcp.audit.method_name": "storage.objects.create", "gcp.audit.resource_name": "projects/_/buckets/rocketstack-prod-datalake/objects/aggregates/2026-05-09/summary.parquet", "gcp.audit.resource_type": "gcs_bucket", "gcp.audit.authentication_info.principal_email": "data-pipeline-sa@rocketstack-data-prod.iam.gserviceaccount.com", "gcp.audit.request_metadata.caller_ip": "gce-internal-ip", "gcp.audit.request_metadata.caller_supplied_user_agent": "Apache_Beam_SDK_for_Java/2.56.0 (gzip),gzip(gfe)", "gcp.audit.authorization_info.permission": "storage.objects.create", "gcp.audit.authorization_info.granted": "true", "gcp.audit.severity": "INFO", "action_result": "allowed" }
+  },
+  {
+    id: "rs_gcp_003", ts: "2026-05-10T02:01:00.000Z",
+    source: "cloud_gcp", event_type: "cloud_api_call", severity: "informational",
+    vendor: "GCP Cloud Audit Logs", user_email: undefined, src_ip: undefined,
+    description: "The data-pipeline-sa service account read the prod-warehouse-dsn secret at the start of its nightly run, from inside Google Cloud",
+    raw: { "gcp.project.id": "rocketstack-data-prod", "gcp.audit.log_name": "projects/rocketstack-data-prod/logs/cloudaudit.googleapis.com%2Fdata_access", "gcp.audit.service_name": "secretmanager.googleapis.com", "gcp.audit.method_name": "google.cloud.secretmanager.v1.SecretManagerService.AccessSecretVersion", "gcp.audit.resource_name": "projects/rocketstack-data-prod/secrets/prod-warehouse-dsn/versions/latest", "gcp.audit.resource_type": "audited_resource", "gcp.audit.authentication_info.principal_email": "data-pipeline-sa@rocketstack-data-prod.iam.gserviceaccount.com", "gcp.audit.request_metadata.caller_ip": "gce-internal-ip", "gcp.audit.request_metadata.caller_supplied_user_agent": "grpc-java-netty/1.64.0,gzip(gfe)", "gcp.audit.authorization_info.permission": "secretmanager.versions.access", "gcp.audit.authorization_info.granted": "true", "gcp.audit.severity": "INFO", "action_result": "allowed" }
+  },
+  {
+    id: "rs_gcp_004", ts: "2026-05-10T10:12:00.000Z",
+    source: "cloud_gcp", event_type: "cloud_api_call", severity: "informational",
+    vendor: "GCP Cloud Audit Logs", user_email: "t.levy@rocketstack.io", src_ip: "94.188.12.44",
+    description: "t.levy listed the Cloud Storage buckets in the rocketstack-data-prod project with gcloud from the office network",
+    raw: { "gcp.project.id": "rocketstack-data-prod", "gcp.audit.log_name": "projects/rocketstack-data-prod/logs/cloudaudit.googleapis.com%2Fdata_access", "gcp.audit.service_name": "storage.googleapis.com", "gcp.audit.method_name": "storage.buckets.list", "gcp.audit.resource_name": "projects/rocketstack-data-prod", "gcp.audit.resource_type": "project", "gcp.audit.authentication_info.principal_email": "t.levy@rocketstack.io", "gcp.audit.request_metadata.caller_ip": "94.188.12.44", "gcp.audit.request_metadata.caller_supplied_user_agent": "google-cloud-sdk gcloud/501.0.0 command/gcloud.storage.buckets.list,gzip(gfe)", "gcp.audit.authorization_info.permission": "storage.buckets.list", "gcp.audit.authorization_info.granted": "true", "gcp.audit.severity": "INFO", "action_result": "allowed" }
+  },
+  {
+    id: "rs_gcp_005", ts: "2026-05-10T13:40:00.000Z",
+    source: "cloud_gcp", event_type: "cloud_api_call", severity: "informational",
+    vendor: "GCP Cloud Audit Logs", user_email: "j.lee@rocketstack.io", src_ip: "94.188.12.71",
+    description: "j.lee listed the service accounts in the rocketstack-data-prod project from the office network during an access review",
+    raw: { "gcp.project.id": "rocketstack-data-prod", "gcp.audit.log_name": "projects/rocketstack-data-prod/logs/cloudaudit.googleapis.com%2Fdata_access", "gcp.audit.service_name": "iam.googleapis.com", "gcp.audit.method_name": "google.iam.admin.v1.ListServiceAccounts", "gcp.audit.resource_name": "projects/rocketstack-data-prod", "gcp.audit.resource_type": "project", "gcp.audit.authentication_info.principal_email": "j.lee@rocketstack.io", "gcp.audit.request_metadata.caller_ip": "94.188.12.71", "gcp.audit.request_metadata.caller_supplied_user_agent": "google-cloud-sdk gcloud/501.0.0 command/gcloud.iam.service-accounts.list,gzip(gfe)", "gcp.audit.authorization_info.permission": "iam.serviceAccounts.list", "gcp.audit.authorization_info.granted": "true", "gcp.audit.severity": "INFO", "gcp.audit.num_response_items": "14", "action_result": "allowed" }
+  },
+  {
+    id: "rs_gcp_006", ts: "2026-05-10T15:22:00.000Z",
+    source: "cloud_gcp", event_type: "cloud_api_call", severity: "informational",
+    vendor: "GCP Cloud Audit Logs", user_email: undefined, src_ip: "34.72.140.19",
+    description: "The terraform-ci-sa pipeline identity updated the lifecycle rule on the rocketstack-prod-datalake bucket from Cloud Build during a Terraform apply",
+    raw: { "gcp.project.id": "rocketstack-data-prod", "gcp.audit.log_name": "projects/rocketstack-data-prod/logs/cloudaudit.googleapis.com%2Factivity", "gcp.audit.service_name": "storage.googleapis.com", "gcp.audit.method_name": "storage.buckets.update", "gcp.audit.resource_name": "projects/_/buckets/rocketstack-prod-datalake", "gcp.audit.resource_type": "gcs_bucket", "gcp.audit.authentication_info.principal_email": "terraform-ci-sa@rocketstack-data-prod.iam.gserviceaccount.com", "gcp.audit.request_metadata.caller_ip": "34.72.140.19", "gcp.audit.request_metadata.caller_supplied_user_agent": "google-cloud-sdk terraform-provider-google/5.38.0", "gcp.audit.authorization_info.permission": "storage.buckets.update", "gcp.audit.authorization_info.granted": "true", "gcp.audit.severity": "NOTICE", "action_result": "allowed" }
+  },
+  {
+    id: "rs_gcp_007", ts: "2026-05-10T15:24:00.000Z",
+    source: "cloud_gcp", event_type: "cloud_api_call", severity: "informational",
+    vendor: "GCP Cloud Audit Logs", user_email: undefined, src_ip: "34.72.140.19",
+    description: "The terraform-ci-sa pipeline identity deleted its previous service-account key from Cloud Build, completing a scheduled key rotation",
+    raw: { "gcp.project.id": "rocketstack-data-prod", "gcp.audit.log_name": "projects/rocketstack-data-prod/logs/cloudaudit.googleapis.com%2Factivity", "gcp.audit.service_name": "iam.googleapis.com", "gcp.audit.method_name": "google.iam.admin.v1.DeleteServiceAccountKey", "gcp.audit.resource_name": "projects/rocketstack-data-prod/serviceAccounts/terraform-ci-sa@rocketstack-data-prod.iam.gserviceaccount.com/keys/16b2e571c95372bcefeb18dcd4d1643f74807f42", "gcp.audit.resource_type": "service_account", "gcp.audit.authentication_info.principal_email": "terraform-ci-sa@rocketstack-data-prod.iam.gserviceaccount.com", "gcp.audit.request_metadata.caller_ip": "34.72.140.19", "gcp.audit.request_metadata.caller_supplied_user_agent": "google-cloud-sdk terraform-provider-google/5.38.0", "gcp.audit.authorization_info.permission": "iam.serviceAccountKeys.delete", "gcp.audit.authorization_info.granted": "true", "gcp.audit.severity": "NOTICE", "action_result": "allowed" }
+  },
   // ── FortiGate Firewall ────────────────────────────────────────────────────
   {
     id: "rs_fw_001", ts: "2026-05-10T08:10:00.000Z",

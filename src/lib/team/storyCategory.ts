@@ -53,7 +53,7 @@ const BY_ID: Record<string, StoryCategory> = {
 
   "aws-key-leak-s3-exfil": "cloud", "k8s-pod-escape": "cloud", "supply-chain": "cloud",
   "rs-cicd-pipeline-poisoning": "cloud", "rs-terraform-iac-backdoor": "cloud", "rocketstack-chain-b": "cloud",
-  "azure-managed-identity-abuse": "cloud",
+  "azure-managed-identity-abuse": "cloud", "gcp-sa-key-theft": "cloud",
 
   "webshell-rce": "exploit", "edge-vpn-cve-exploit": "exploit", "linux-ssh-persistence": "exploit",
   "globallogis-chain-d": "exploit", "linux-privesc-suid": "exploit",

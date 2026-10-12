@@ -363,6 +363,7 @@ function orgRunsSource(e: TelemetryEvent, env: TeamEnv, stack: Stack): boolean {
     case "okta": case "mfa": return stack.idp === "okta";
     case "iam": return env.platforms.includes("cyberark");
     case "cloudtrail": return env.platforms.includes("aws");
+    case "cloud_gcp": return env.platforms.includes("gcp");
     case "k8s_audit": return env.platforms.includes("k8s");
     case "linux_audit": return env.platforms.includes("linux");
     case "vcs": return env.platforms.includes("github");

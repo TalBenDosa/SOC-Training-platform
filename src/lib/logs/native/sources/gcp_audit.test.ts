@@ -30,10 +30,39 @@ describe("gcp_audit — card samples", () => {
 });
 
 describe("gcp_audit — corpus + cross-cloud render", () => {
-  it("cloud_gcp corpus is empty today (documented) — no native GCP events to convert", () => {
+  it("GCP-authored audit entries (RocketStack noise + the key-theft story) render as clean native LogEntries", () => {
     const native = corpusFor(source.schema.telemetrySources, source.schema.vendorMatch);
-    console.log(`[gcp_audit] native cloud_gcp events: ${native.length} (empty today, as documented)`);
-    expect(native.length).toBe(0);
+    let rendered = 0;
+    for (const c of native) {
+      const log = source.fromTelemetry(c.ev, makeCtx(c.companyId));
+      if (!log) continue;
+      rendered++;
+      expect(validateNative(log, source.schema), `${c.ev.id}`).toEqual([]);
+      // the rendering company's project, never the authored one
+      expect(JSON.stringify(log.record), `${c.ev.id} project`).not.toContain("rocketstack-data-prod");
+      expect(String(log.record.logName)).toMatch(/cloudaudit\.googleapis\.com%2F(activity|data_access)$/);
+    }
+    console.log(`[gcp_audit] native cloud_gcp events: ${rendered}/${native.length} rendered`);
+    expect(native.length).toBeGreaterThanOrEqual(14);
+    expect(rendered / native.length).toBeGreaterThanOrEqual(0.95);
+  });
+
+  it("the minted key ties the service account's later reads back to the CreateServiceAccountKey", () => {
+    const evs = corpusFor(source.schema.telemetrySources).filter(c => c.storyId === "gcp-sa-key-theft");
+    const mint = evs.find(c => c.ev.id === "gcpkey_03_create_sa_key")!;
+    const mintLog = source.fromTelemetry(mint.ev, makeCtx(mint.companyId))!;
+    const keyName = String((mintLog.record.protoPayload as any).response.name);
+    for (const id of ["gcpkey_05_list_objects", "gcpkey_06_get_objects", "gcpkey_07_access_secret"]) {
+      const c = evs.find(x => x.ev.id === id)!;
+      const pp = source.fromTelemetry(c.ev, makeCtx(c.companyId))!.record.protoPayload as any;
+      expect(pp.authenticationInfo.serviceAccountKeyName, id).toBe(`//iam.googleapis.com/${keyName}`);
+    }
+  });
+
+  it("Security Command Center findings are not audit-log entries: declined, never faked", () => {
+    const scc = corpusFor(["cloud_gcp"]).filter(c => /security command center/i.test(c.ev.vendor ?? ""));
+    expect(scc.length).toBeGreaterThanOrEqual(2);
+    for (const c of scc) expect(source.fromTelemetry(c.ev, makeCtx(c.companyId)), c.ev.id).toBeNull();
   });
 
   it("renders AWS CloudTrail events as GCP equivalents where one exists; declines the rest", () => {

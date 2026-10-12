@@ -97,7 +97,9 @@ export function makeCtx(companyId: string, overrides: Partial<Pick<NativeCtx, "d
       awsAccountId: digits(`${companyId}:aws`, 12),
       azureTenantId: seededUuid(`${companyId}:aad`),
       azureSubscriptionId: seededUuid(`${companyId}:sub`),
-      gcpProjectId: `${companyId}-prod-${seededHex(`${companyId}:gcp`, 6)}`,
+      // A GCP project id is human-readable, so a named organization (domain override) gets its own
+      // name in it, never the demo company's it is templated on.
+      gcpProjectId: `${(overrides.domain ? domain.split(".")[0] : companyId).toLowerCase().replace(/[^a-z0-9-]/g, "-")}-prod-${seededHex(`${overrides.domain ?? companyId}:gcp`, 6)}`,
       googleCustomerId: `C0${seededHex(`${companyId}:gws`, 7)}`,
       oktaOrg: `${companyId}.okta.com`,
       crowdstrikeCid: seededHex(`${companyId}:cid`, 32),
