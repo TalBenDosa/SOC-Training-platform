@@ -324,14 +324,14 @@ export interface SysmonProcessAccessOpts extends Ctx {
 export function sysmonProcessAccess(o: SysmonProcessAccessOpts): TelemetryEvent {
   const r = resolve(o);
   const pid = o.sourcePid ?? pidFrom(o.id);
-  const name = o.sourceImage.split(/[\/]/).pop() ?? o.sourceImage;
-  const target = o.targetImage ?? "C:\Windows\System32\lsass.exe";
+  const name = o.sourceImage.split(/[\\/]/).pop() ?? o.sourceImage;
+  const target = o.targetImage ?? "C:\\Windows\\System32\\lsass.exe";
   return {
     id: o.id, ts: o.ts, source: "sysmon", vendor: VENDOR, event_type: "process_access",
     severity: o.severity ?? "high", hostname: r.host, src_ip: r.srcIp, user_email: r.email,
     mitre_technique: o.mitre, mitre_tactic: o.tactic, is_detection: o.isDetection ?? false, incident_id: o.incidentId,
     process: { pid, name, path: o.sourceImage, cmdline: o.sourceImage, user: r.domainUser },
-    description: o.description ?? `${name} opened ${target.split(/[\/]/).pop()} on ${r.host} (Sysmon 10, GrantedAccess ${o.grantedAccess})`,
+    description: o.description ?? `${name} opened ${target.split(/[\\/]/).pop()} on ${r.host} (Sysmon 10, GrantedAccess ${o.grantedAccess})`,
     raw: {
       ...base(o, r),
       "winlog.event_id": "10",
@@ -369,7 +369,7 @@ export interface SysmonPipeOpts extends Ctx {
 export function sysmonPipe(o: SysmonPipeOpts): TelemetryEvent {
   const r = resolve(o);
   const pid = o.pid ?? pidFrom(o.id);
-  const name = o.image.split(/[\/]/).pop() ?? o.image;
+  const name = o.image.split(/[\\/]/).pop() ?? o.image;
   return {
     id: o.id, ts: o.ts, source: "sysmon", vendor: VENDOR, event_type: "process_access",
     severity: o.severity ?? "high", hostname: r.host, src_ip: r.srcIp, user_email: r.email,
@@ -409,7 +409,7 @@ export interface SysmonDriverOpts extends Ctx {
 }
 export function sysmonDriver(o: SysmonDriverOpts): TelemetryEvent {
   const r = resolve(o);
-  const name = o.image.split(/[\/]/).pop() ?? o.image;
+  const name = o.image.split(/[\\/]/).pop() ?? o.image;
   const sha256 = o.sha256 ?? makeSha256(`sysmondriver:${o.image}`);
   return {
     id: o.id, ts: o.ts, source: "sysmon", vendor: VENDOR, event_type: o.eventType ?? "service_install",

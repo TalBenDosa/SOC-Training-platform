@@ -489,7 +489,7 @@ export function winProcessCreate(o: WinProcessCreateOpts): TelemetryEvent {
     id: o.id, ts: o.ts, source: "ad", vendor: VENDOR, event_type: o.eventType ?? "process_create",
     severity: o.severity ?? "high", hostname: o.host, src_ip: o.srcIp, user_email: emailOf(o),
     mitre_technique: o.mitre, mitre_tactic: o.tactic, incident_id: o.incidentId,
-    process: { pid, name: o.processName, path: o.processPath, cmdline: o.cmdline, parent_name: o.parentPath.split(/[\/]/).pop(), user: runAs },
+    process: { pid, name: o.processName, path: o.processPath, cmdline: o.cmdline, parent_name: o.parentPath.split(/[\\/]/).pop(), user: runAs },
     description: o.description ?? `4688 — ${o.processName} created on ${o.host}`,
     raw: {
       "winlog.event_id": "4688",
