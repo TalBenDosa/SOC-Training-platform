@@ -71,7 +71,7 @@ const encodedScheduledTaskEvent: TelemetryEvent = {
     parent_name: "svchost.exe",
     parent_pid: 1108,
     cmdline:
-      "powershell.exe -NoProfile -WindowStyle Hidden -EncodedCommand SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABTAHkAcwB0AGUAbQAuAEQAaQBhAGcAbgBvAHMAdABpAGMAcwAuAFAAcgBvAGMAZQBzAHMAKQA=",
+      "powershell.exe -NoProfile -WindowStyle Hidden -EncodedCommand RwBlAHQALQBDAGgAaQBsAGQASQB0AGUAbQAgACIAJABlAG4AdgA6AFMAeQBzAHQAZQBtAFIAbwBvAHQAXABUAGUAbQBwACIAIAAtAFIAZQBjAHUAcgBzAGUAIAAtAEYAbwByAGMAZQAgAC0ARQByAHIAbwByAEEAYwB0AGkAbwBuACAAUwBpAGwAZQBuAHQAbAB5AEMAbwBuAHQAaQBuAHUAZQAgAHwAIABXAGgAZQByAGUALQBPAGIAagBlAGMAdAAgAHsAIAAkAF8ALgBMAGEAcwB0AFcAcgBpAHQAZQBUAGkAbQBlACAALQBsAHQAIAAoAEcAZQB0AC0ARABhAHQAZQApAC4AQQBkAGQARABhAHkAcwAoAC0AMwAwACkAIAB9ACAAfAAgAFIAZQBtAG8AdgBlAC0ASQB0AGUAbQAgAC0AUgBlAGMAdQByAHMAZQAgAC0ARgBvAHIAYwBlACAALQBFAHIAcgBvAHIAQQBjAHQAaQBvAG4AIABTAGkAbABlAG4AdABsAHkAQwBvAG4AdABpAG4AdQBlADsAIABjAGwAZQBhAG4AbQBnAHIALgBlAHgAZQAgAC8AcwBhAGcAZQByAHUAbgA6ADEA",
     user: "MERIDIAN\\svc_maint",
     integrity: "medium",
   },
@@ -85,7 +85,7 @@ const encodedScheduledTaskEvent: TelemetryEvent = {
     "winlog.provider_name": "Microsoft-Windows-Sysmon",
     "winlog.event_data.Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
     "winlog.event_data.CommandLine":
-      "powershell.exe -NoProfile -WindowStyle Hidden -EncodedCommand SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABTAHkAcwB0AGUAbQAuAEQAaQBhAGcAbgBvAHMAdABpAGMAcwAuAFAAcgBvAGMAZQBzAHMAKQA=",
+      "powershell.exe -NoProfile -WindowStyle Hidden -EncodedCommand RwBlAHQALQBDAGgAaQBsAGQASQB0AGUAbQAgACIAJABlAG4AdgA6AFMAeQBzAHQAZQBtAFIAbwBvAHQAXABUAGUAbQBwACIAIAAtAFIAZQBjAHUAcgBzAGUAIAAtAEYAbwByAGMAZQAgAC0ARQByAHIAbwByAEEAYwB0AGkAbwBuACAAUwBpAGwAZQBuAHQAbAB5AEMAbwBuAHQAaQBuAHUAZQAgAHwAIABXAGgAZQByAGUALQBPAGIAagBlAGMAdAAgAHsAIAAkAF8ALgBMAGEAcwB0AFcAcgBpAHQAZQBUAGkAbQBlACAALQBsAHQAIAAoAEcAZQB0AC0ARABhAHQAZQApAC4AQQBkAGQARABhAHkAcwAoAC0AMwAwACkAIAB9ACAAfAAgAFIAZQBtAG8AdgBlAC0ASQB0AGUAbQAgAC0AUgBlAGMAdQByAHMAZQAgAC0ARgBvAHIAYwBlACAALQBFAHIAcgBvAHIAQQBjAHQAaQBvAG4AIABTAGkAbABlAG4AdABsAHkAQwBvAG4AdABpAG4AdQBlADsAIABjAGwAZQBhAG4AbQBnAHIALgBlAHgAZQAgAC8AcwBhAGcAZQByAHUAbgA6ADEA",
     "winlog.event_data.ParentImage": "C:\\Windows\\System32\\svchost.exe",
     "winlog.event_data.ParentCommandLine": "svchost.exe -k netsvcs -p -s Schedule",
     "winlog.event_data.IntegrityLevel": "Medium",
@@ -218,13 +218,13 @@ const encodingRoom: Room = {
       id: "enc-ac1",
       heading: "Verdict: A Scheduled Task Running Encoded PowerShell at 2 AM",
       scenario:
-        "A detection rule that flags any powershell.exe invocation using -EncodedCommand or -enc fired for this scheduled task run on WKS-IT03. Reading 2 taught that Base64-encoded PowerShell is a favorite technique for defeating naive string-matching detection, so the rule treats every match as worth a look by default. Review the process event and the attached change ticket before deciding what this is.",
+        "A detection rule that flags any powershell.exe invocation using -EncodedCommand or -enc fired for this scheduled task run on WKS-IT03. Reading 2 taught that Base64-encoded PowerShell is a favorite technique for defeating naive string-matching detection, so the rule treats every match as worth a look by default. Review the process event and the attached change ticket, and decode the payload, before deciding what this is.",
       event: encodedScheduledTaskEvent,
       correct_verdict: "false_positive",
       explanation:
-        "Encoding a script is also simply how legitimate deployment tooling safely passes a multi-line, quote-heavy script through a single command-line argument. SCCM packages, scheduled maintenance jobs, and DSC configurations do this routinely, exactly as Reading 2 described. Here the parent process (svchost.exe running the Task Scheduler service), the account (a maintenance service account), the fixed 2 AM schedule, and a confirmed change ticket (CHG-51820) all line up with a documented monthly cleanup job, not an attacker. The encoding itself is not the finding: it never is, on its own.",
+        "Decode it first. The Base64 decodes (as UTF-16LE, the way PowerShell encodes -EncodedCommand) to a Get-ChildItem over the Windows Temp folder, a filter for files older than 30 days, Remove-Item, and then cleanmgr.exe /sagerun:1: a temp-file purge plus Disk Cleanup, exactly the monthly job change ticket CHG-51820 describes. Encoding a script is also simply how legitimate deployment tooling safely passes a multi-line, quote-heavy script through a single command-line argument. SCCM packages, scheduled maintenance jobs, and DSC configurations do this routinely, exactly as Reading 2 described. Here the parent process (svchost.exe running the Task Scheduler service), the account (a maintenance service account), the fixed 2 AM schedule, and a confirmed change ticket (CHG-51820) all line up with a documented monthly cleanup job, not an attacker. The encoding itself is not the finding: it never is, on its own. What closes the case is that the decoded content matches the ticket. Had the same blob decoded to IEX, a download cradle, or anything the ticket does not describe, the ticket would no longer cover it, and the right call would be to escalate.",
       fp_trap:
-        "It's tempting to treat any -EncodedCommand invocation as automatically malicious, because Reading 2 taught it as a common evasion technique. But encoding a script is also just how you safely pass a multi-line or quote-heavy script through a command line. Plenty of legitimate deployment tooling does this constantly. The signal that actually matters is context: is this parent process, this account, and this timing expected on this host, and does a change ticket account for it? Escalating on the mere presence of the flag, without checking any of that, burns analyst time on findings that belong in a 'known, expected, tune the rule' bucket instead.",
+        "It's tempting to treat any -EncodedCommand invocation as automatically malicious, because Reading 2 taught it as a common evasion technique. But encoding a script is also just how you safely pass a multi-line or quote-heavy script through a command line. Plenty of legitimate deployment tooling does this constantly. The signal that actually matters is context: is this parent process, this account, and this timing expected on this host, and does a change ticket account for it? Escalating on the mere presence of the flag, without checking any of that, burns analyst time on findings that belong in a 'known, expected, tune the rule' bucket instead. The opposite trap is just as real: never accept a change ticket for an encoded command without decoding it. The ticket vouches for a cleanup script, not for whatever bytes happen to be on the command line.",
       xp: 30,
     },
     {
