@@ -780,9 +780,10 @@ export default function TeamRoomPage() {
 
   // The SOC queue at a glance (QueueBoard): waiting / investigating / past SLA / escalated / closed.
   const queueStats = useMemo<QueueStats>(() => {
-    const inv = alertQueue.filter(q => claimByEid.has(q.eid));
+    // Every alert someone took counts, whatever its severity (the queue itself is high+).
+    const inv = [...claimByEid.values()];
     const who = new Map<string, number>();
-    for (const q of inv) { const n = nameOf(claimByEid.get(q.eid)!.by); who.set(n, (who.get(n) ?? 0) + 1); }
+    for (const c of inv) { const n = c.by === me?.id ? "you" : nameOf(c.by); who.set(n, (who.get(n) ?? 0) + 1); }
     const resolved = new Set(events.filter(e => e.type === "escalation.resolved").map(e => String((e.payload as { event_id?: string }).event_id)));
     const waiting = alertQueue.filter(q => !claimByEid.has(q.eid));
     return {
@@ -798,7 +799,7 @@ export default function TeamRoomPage() {
       verdictNotEscalated: [...dispositions.entries()].filter(([eid, v]) => (v === "true_positive" || v === "suspicious") && !escalatedIds.has(eid)).length,
       withMedium: queueWithMedium,
     };
-  }, [alertQueue, claimByEid, events, escalatedIds, dispositions, queueWithMedium, nameOf]);
+  }, [alertQueue, claimByEid, events, escalatedIds, dispositions, queueWithMedium, nameOf, me?.id]);
   const activity = useMemo(() => events.filter(e => ["escalation.requested", "escalation.acknowledged", "escalation.bounced", "escalation.resolved", "elevation.requested", "containment.requested", "containment.approved", "containment.denied", "containment.executed", "edr.host_isolated", "edr.host_released", "disposition.set", "hunt.logged", "rule.published", "intel.published", "handover.noted", "decision.logged", "sitrep.sent", "report.submitted", "evidence.pinned", "case.status_set", "case.assigned", "scope.set", "scope.confirmed", "staff.inject", "ticket.answered"].includes(e.type)), [events]);
   // The team feed rendered with the REAL dashboard EventFeed — enrich each shared
   // event into a LiveEvent so it looks and behaves exactly like the single-player
@@ -1361,6 +1362,7 @@ export default function TeamRoomPage() {
                 {...(me.role === "lead" || me.role === "mgr" ? { id: "mgr-panel", role: "tabpanel", "aria-labelledby": `mgr-tab-${mgrView}` } : {})} className="min-w-0 space-y-3 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto lg:overflow-x-hidden lg:pr-1">
                 {(me.role === "lead" || me.role === "mgr") && mgrView === "board" ? (
                   <>
+                    <QueueBoard q={queueStats} />
                     <SituationBoard liveFeed={liveFeed} events={events} feed={feed} nameOf={nameOf} roster={roster} online={online} act={act} onOpenEscalations={() => setMgrView("escalations")} />
                     <ForensicReportsCard events={events} nameOf={nameOf} />
                     {events.some(e => e.type === "forensic.finding") && <FindingsBoard events={events} nameOf={nameOf} compact />}

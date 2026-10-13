@@ -74,10 +74,24 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
   const claimerOf = (eid: string): { by: string; at: number } | null => claims.get(eid) ?? null;
   const options = feed.map(e => {
     const p = e.payload as { id?: string; description?: unknown; event_type?: unknown }; const id = String(p.id ?? e.seq);
-    const c = claimerOf(id); const lock = c && c.by !== meId ? "🔒 " : "";
+    const c = claimerOf(id); const lock = c ? (c.by === meId ? "🔎 you · " : `🔎 ${nameOf(c.by)} · `) : "";
     return { id, label: `${lock}#${e.seq} ${asStr(p.description) || asStr(p.event_type) || "event"}` };
   });
   const selClaim = sel ? claimerOf(sel) : null;
+  // An alert I took is "my alert": pick it up here when nothing is selected (taken
+  // from the feed, or after a reload), so the console never sits empty mid-investigation.
+  const myClaim = [...claims.entries()].find(([, c]) => c.by === meId)?.[0] ?? null;
+  useEffect(() => { if (!sel && myClaim) setSel(myClaim); }, [myClaim]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The claim is a 5-minute soft lock. While I still have the alert open here, renew it
+  // so the team keeps seeing "Investigating · <me>" through a long investigation.
+  const selMine = !!selClaim && selClaim.by === meId;
+  const selAt = selClaim?.at ?? 0;
+  useEffect(() => {
+    if (!selMine || !sel) return;
+    const t = setTimeout(() => { void actR("alert.claimed", { event_id: sel }, { handled: ["claim_held"] }); },
+      Math.max(5_000, selAt + 4 * 60_000 - nowMs));
+    return () => clearTimeout(t);
+  }, [selMine, sel, selAt]); // eslint-disable-line react-hooks/exhaustive-deps
   // P0-3: the server rejects a claim on an alert a teammate holds (`claim_held`).
   // `heldFor` covers the race where our view hasn't received their claim yet; a
   // take-over is an explicit, confirmed action that resends with `takeover: true`.
