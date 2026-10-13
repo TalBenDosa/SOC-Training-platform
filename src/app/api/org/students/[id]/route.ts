@@ -2,8 +2,12 @@ import { NextResponse } from "next/server";
 import { requireOrgAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { ROOMS_META } from "@/data/roomsMeta";
+import { fetchAll } from "@/lib/plans/server";
+import { groupItems, summarize, type FirstTrySummary } from "@/lib/org/firstTry";
+import { buildMistakeGroups, type MistakeGroup, type StoredAttempt } from "@/lib/org/mistakeView";
 
 const ROOM_TITLE: Record<string, string> = Object.fromEntries(ROOMS_META.map(r => [r.id, r.title]));
+const ROOM_CATEGORY: Record<string, string> = Object.fromEntries(ROOMS_META.map(r => [r.id, r.category]));
 
 /**
  * Per-student drill-down for an org-admin / instructor. Surfaces the timeline
@@ -16,9 +20,10 @@ const ROOM_TITLE: Record<string, string> = Object.fromEntries(ROOMS_META.map(r =
  * and the target student is verified to be a member of THAT org before any of
  * their data is read — so one college can never open another's student.
  *
- * NOTE: "where the student erred" (wrong answers / attempts) is deliberately
- * NOT here — the room submit route is stateless and never records mistakes.
- * Capturing that is the separate P2 task (task_attempts table + stateful submit).
+ * Where the student erred: every room submission (task_attempts, 0031) is read, each
+ * question becomes one item, and the items NOT right on the first try are returned as
+ * readable mistakes (question, first answer, right answer, explanation, tries), grouped by
+ * room. first_try is the mastery measure; topics breaks it down by room category.
  */
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -45,22 +50,22 @@ export interface StudentDetail {
     /** Median decision latency across every task the student answered (ms). */
     median_decision_latency_ms: number | null;
     tasks_answered: number;
-    /** From task_attempts (0031): graded submissions + how many were wrong. */
-    graded_submissions: number;
-    wrong_submissions: number;
+    /** Questions answered right on the first try (readings excluded). */
+    first_try: FirstTrySummary;
   };
-  /** Where the student erred — recent wrong submissions (task_attempts, 0031). */
-  mistakes: Array<{
-    room_id: string; room_title: string; task_id: string; task_type: string | null;
-    submitted: unknown; attempt_no: number; latency_ms: number | null; created_at: string | null;
-  }>;
+  /** Room topics (room category), weakest first: first-try accuracy per topic. */
+  topics: Array<{ topic: string; items: number; first_try_correct: number; accuracy: number }>;
+  /** Where the student erred — questions not right on the first try, grouped by room. */
+  mistake_groups: MistakeGroup[];
   rooms: Array<{
     room_id: string; title: string; completed: boolean;
     tasks_done: number; xp_earned: number;
     avg_decision_latency_ms: number | null;
     updated_at: string | null; completed_at: string | null;
   }>;
-  scenarios: Array<{ slug: string; title: string; score: number | null; time_taken: number | null; completed_at: string | null }>;
+  scenarios: Array<{ slug: string; title: string; score: number | null; time_taken: number | null; completed_at: string | null;
+    /** The report the student submitted (attemptRecord.ts): verdict, reasoning, rubric score, pass. */
+    report: { verdict?: string; verdictReason?: string; reportScore?: number; passed?: boolean } | null }>;
   sessions: Array<{ detect_rate: number | null; played_at: string | null; duration_ms: number | null }>;
 }
 
@@ -96,33 +101,59 @@ export async function GET(_req: Request, { params }: Ctx) {
   const isPlatform = (member?.profiles as unknown as { is_platform_admin?: boolean } | null)?.is_platform_admin;
   if (!member || isPlatform) return NextResponse.json({ error: "No such student in your organisation." }, { status: 404 });
 
-  const [roomsRes, scenariosRes, sessionsRes, attemptsRes, gradedCount, wrongCount] = await Promise.all([
+  // Every submission, paged (PostgREST caps a read at 1000 rows), so the first try of an
+  // old question is never cut off by a recent burst of retries.
+  // question_index arrived in 0078; on a database that predates it, read without it and take
+  // the question number from the submission itself (log_analysis sends questionIndex).
+  const COLS = "room_id, task_id, task_type, question_index, attempt_no, correct, submitted, latency_ms, created_at";
+  const readAttempts = (cols: string) => fetchAll<StoredAttempt>((from, to) => admin.from("task_attempts")
+    .select(cols)
+    .eq("org_id", orgId).eq("user_id", id)
+    .order("created_at", { ascending: true }).order("id", { ascending: true })
+    .range(from, to) as unknown as PromiseLike<{ data: StoredAttempt[] | null; error: { message: string } | null }>, "student:attempts", 20_000);
+  let attemptRows: StoredAttempt[];
+  try {
+    attemptRows = await readAttempts(COLS).catch(e => {
+      if (!/question_index/.test(e instanceof Error ? e.message : String(e))) throw e;
+      return readAttempts(COLS.replace(", question_index", "")).then(rows => rows.map(r => {
+        const qi = (r.submitted as { questionIndex?: unknown } | null)?.questionIndex;
+        return { ...r, question_index: typeof qi === "number" ? qi : null };
+      }));
+    });
+  } catch (e) {
+    console.error("[student detail] attempts load failed:", e instanceof Error ? e.message : e);
+    return NextResponse.json({ error: "Could not load this student's answers right now. Please try again." }, { status: 500 });
+  }
+
+  const [roomsRes, scenariosRes, sessionsRes] = await Promise.all([
     admin.from("room_progress")
       .select("room_id, completed_task_ids, per_task_xp, xp_earned, telemetry, completed_at, updated_at")
       .eq("org_id", orgId).eq("user_id", id),
     admin.from("scenario_history")
-      .select("slug, title, score, time_taken, completed_at")
+      .select("slug, title, score, time_taken, completed_at, report")
       .eq("org_id", orgId).eq("user_id", id).order("completed_at", { ascending: false }),
     admin.from("dashboard_sessions")
       .select("detect_rate, played_at, duration_ms")
       .eq("org_id", orgId).eq("user_id", id).order("played_at", { ascending: false }),
-    // task_attempts (0031) — where the student erred. Pinned to org + user.
-    admin.from("task_attempts")
-      .select("room_id, task_id, task_type, correct, submitted, attempt_no, latency_ms, created_at")
-      .eq("org_id", orgId).eq("user_id", id).order("created_at", { ascending: false }).limit(300),
-    // True totals (P4-23): the list above is the latest 300, so counting it
-    // under-reported a long history and disagreed with the analytics page.
-    admin.from("task_attempts").select("id", { count: "exact", head: true }).eq("org_id", orgId).eq("user_id", id),
-    admin.from("task_attempts").select("id", { count: "exact", head: true }).eq("org_id", orgId).eq("user_id", id).eq("correct", false),
   ]);
 
   type RoomRow = { room_id: string; completed_task_ids: string[] | null; per_task_xp: Record<string, number> | null; xp_earned: number | null; telemetry: TelemetryEntry[] | null; completed_at: string | null; updated_at: string | null };
   const roomRows = (roomsRes.data ?? []) as RoomRow[];
-  const scenarioRows = (scenariosRes.data ?? []) as Array<{ slug: string; title: string | null; score: number | null; time_taken: number | null; completed_at: string | null }>;
+  const scenarioRows = (scenariosRes.data ?? []) as Array<{ slug: string; title: string | null; score: number | null; time_taken: number | null; completed_at: string | null; report: Record<string, unknown> | null }>;
   const sessionRows = (sessionsRes.data ?? []) as Array<{ detect_rate: number | null; played_at: string | null; duration_ms: number | null }>;
-  type AttemptRow = { room_id: string; task_id: string; task_type: string | null; correct: boolean; submitted: unknown; attempt_no: number | null; latency_ms: number | null; created_at: string | null };
-  const attemptRows = (attemptsRes.data ?? []) as AttemptRow[];
-  const wrongRows = attemptRows.filter(a => !a.correct);
+  const items = groupItems(attemptRows);
+  const firstTry = summarize(items);
+  const topicStats = new Map<string, { items: number; ok: number }>();
+  for (const it of items) {
+    const topic = ROOM_CATEGORY[it.room_id] ?? "College rooms";
+    const t = topicStats.get(topic) ?? { items: 0, ok: 0 };
+    t.items++; if (it.firstTryCorrect) t.ok++;
+    topicStats.set(topic, t);
+  }
+  const topics = [...topicStats.entries()]
+    .map(([topic, t]) => ({ topic, items: t.items, first_try_correct: t.ok, accuracy: Math.round((t.ok / t.items) * 100) }))
+    .sort((a, b) => a.accuracy - b.accuracy || b.items - a.items);
+  const mistakeGroups = await buildMistakeGroups(items, orgId, roomId => ROOM_CATEGORY[roomId] ?? null);
 
   const allLatencies: number[] = [];
   const rooms = roomRows.map(r => {
@@ -167,23 +198,17 @@ export async function GET(_req: Request, { params }: Ctx) {
       avg_detect_rate: avg(sessionRows.map(s => s.detect_rate ?? 0)),
       median_decision_latency_ms: median(allLatencies),
       tasks_answered: allLatencies.length,
-      graded_submissions: gradedCount.count ?? attemptRows.length,
-      wrong_submissions: wrongCount.count ?? wrongRows.length,
+      first_try: firstTry,
     },
+    topics,
+    mistake_groups: mistakeGroups,
     rooms,
-    scenarios: scenarioRows.map(s => ({ slug: s.slug, title: s.title ?? s.slug, score: s.score, time_taken: s.time_taken, completed_at: s.completed_at })),
+    scenarios: scenarioRows.map(s => {
+      const r = s.report as { verdict?: string; verdictReason?: string; reportScore?: number; passed?: boolean } | null;
+      return { slug: s.slug, title: s.title ?? s.slug, score: s.score, time_taken: s.time_taken, completed_at: s.completed_at,
+        report: r ? { verdict: r.verdict, verdictReason: typeof r.verdictReason === "string" ? r.verdictReason.slice(0, 1500) : undefined, reportScore: r.reportScore, passed: r.passed } : null };
+    }),
     sessions: sessionRows.map(s => ({ detect_rate: s.detect_rate, played_at: s.played_at, duration_ms: s.duration_ms })),
-    // Most-recent wrong submissions — capped so a long history stays readable.
-    mistakes: wrongRows.slice(0, 40).map(a => ({
-      room_id: a.room_id,
-      room_title: ROOM_TITLE[a.room_id] ?? a.room_id,
-      task_id: a.task_id,
-      task_type: a.task_type,
-      submitted: a.submitted,
-      attempt_no: a.attempt_no ?? 1,
-      latency_ms: a.latency_ms,
-      created_at: a.created_at,
-    })),
   };
 
   return NextResponse.json(detail);

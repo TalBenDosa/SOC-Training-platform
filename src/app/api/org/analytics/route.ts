@@ -3,6 +3,7 @@ import { requireOrgAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { ROOMS_META } from "@/data/roomsMeta";
 import { fetchAll } from "@/lib/plans/server";
+import { groupItems, summarize } from "@/lib/org/firstTry";
 
 // Room ids are stored in the DB; titles live in the content corpus. Resolved
 // HERE rather than in the client so /manage doesn't have to bundle the entire
@@ -48,9 +49,13 @@ export interface StudentRow {
   completed_room_ids: string[];
   scenarios_completed: number;
   scenario_avg_score: number | null;
-  /** Overall score across ALL graded room tasks: % correct (task_attempts, 0031). */
+  /** Right on the first try: % of gradable room questions whose FIRST answer was correct
+   *  (task_attempts, 0031; readings and retries excluded, see lib/org/firstTry). */
   task_accuracy: number | null;
+  /** Gradable room questions answered (one per question, not per submission). */
   tasks_graded: number;
+  /** Questions never answered correctly. */
+  tasks_unsolved: number;
   sessions: number;
   avg_detect_rate: number | null;
   last_active_at: string | null;
@@ -76,6 +81,15 @@ export async function GET() {
       return q.range(from, to);
     }, `analytics:${label}`);
 
+  // task_attempts.question_index arrived in 0078; a database that predates it still loads
+  // (one item per task) instead of failing the whole page.
+  const ATTEMPT_COLS = "id, user_id, room_id, task_id, task_type, question_index, attempt_no, correct, created_at";
+  const attempts = () => paged("attempts", () => admin.from("task_attempts").select(ATTEMPT_COLS).eq("org_id", orgId), ["id"])
+    .catch(e => {
+      if (!/question_index/.test(e instanceof Error ? e.message : String(e))) throw e;
+      return paged("attempts", () => admin.from("task_attempts").select(ATTEMPT_COLS.replace(", question_index", "")).eq("org_id", orgId), ["id"]);
+    });
+
   let membersData: Row[], roomsData: Row[], scenariosData: Row[], sessionsData: Row[], attemptsData: Row[], emailsData: Row[];
   try {
     [membersData, roomsData, scenariosData, sessionsData, attemptsData, emailsData] = await Promise.all([
@@ -85,8 +99,8 @@ export async function GET() {
       paged("rooms", () => admin.from("room_progress").select("user_id, room_id, completed_at, updated_at").eq("org_id", orgId), ["user_id", "room_id"]),
       paged("scenarios", () => admin.from("scenario_history").select("id, user_id, score, completed_at").eq("org_id", orgId), ["id"]),
       paged("sessions", () => admin.from("dashboard_sessions").select("id, user_id, detect_rate, played_at").eq("org_id", orgId), ["id"]),
-      // graded task submissions (0031) → overall task accuracy per student
-      paged("attempts", () => admin.from("task_attempts").select("id, user_id, correct").eq("org_id", orgId), ["id"]),
+      // room submissions (0031) → first-try accuracy per student
+      attempts(),
       // member emails (0032) — service-role-only definer function
       paged("emails", () => admin.rpc("org_member_emails", { p_org: orgId }), ["user_id"]),
     ]);
@@ -99,7 +113,7 @@ export async function GET() {
   type RoomRow = { user_id: string; room_id: string; completed_at: string | null; updated_at: string | null };
   type ScenarioRow = { user_id: string; score: number | null; completed_at: string | null };
   type SessionRow = { user_id: string; detect_rate: number | null; played_at: string | null };
-  type AttemptRow = { user_id: string; correct: boolean };
+  type AttemptRow = { user_id: string; room_id: string; task_id: string; task_type: string | null; question_index: number | null; attempt_no: number | null; correct: boolean; created_at: string | null };
 
   const roomRows     = roomsData as unknown as RoomRow[];
   const scenarioRows = scenariosData as unknown as ScenarioRow[];
@@ -142,7 +156,7 @@ export async function GET() {
     const ds = sessionsBy.get(m.user_id) ?? [];
     const at = attemptsBy.get(m.user_id) ?? [];
     const completed = rp.filter(r => r.completed_at);
-    const correctCount = at.filter(a => a.correct).length;
+    const firstTry = summarize(groupItems(at));
 
     return {
       user_id: m.user_id,
@@ -160,8 +174,9 @@ export async function GET() {
       completed_room_ids: completed.map(r => r.room_id),
       scenarios_completed: sc.length,
       scenario_avg_score: avg(sc.map(s => s.score ?? 0)),
-      task_accuracy: at.length ? Math.round((correctCount / at.length) * 100) : null,
-      tasks_graded: at.length,
+      task_accuracy: firstTry.accuracy,
+      tasks_graded: firstTry.items,
+      tasks_unsolved: firstTry.unsolved,
       sessions: ds.length,
       avg_detect_rate: avg(ds.map(s => s.detect_rate ?? 0)),
       last_active_at: latest([
