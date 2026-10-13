@@ -173,10 +173,13 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reportOpen, sel]);
 
+  const [closeNote, setCloseNote] = useState("");
+  useEffect(() => { setCloseNote(""); }, [sel]);
   async function disp(v: string) {
     if (!sel) return;
     setBusy(true);
-    const r = await actR("disposition.set", { event_id: sel, verdict: v }, { handled: ["claim_held"] });
+    const note = (v === "false_positive" || v === "benign") ? closeNote.trim().slice(0, 500) : "";
+    const r = await actR("disposition.set", note ? { event_id: sel, verdict: v, note } : { event_id: sel, verdict: v }, { handled: ["claim_held"] });
     if (!r.ok) { setBusy(false); if (r.code === "claim_held") setHeldFor(sel); return; }
     // FP/Benign close at T1 and release any soft claim so a teammate can reuse the row.
     if (v === "false_positive" || v === "benign") await act("alert.released", { event_id: sel });
@@ -231,9 +234,13 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
   useFocusTrap(reportOpen && !!sel, reportRef, { onEscape: () => setReportOpen(false) });
   return (
     <>
-    <Card>
-      <h3 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldAlert className="h-4 w-4 text-cyber-300" /> Tier-1 triage</h3>
-      <p className="mt-1 text-[11px] text-slate-400">Work the SIEM&apos;s <span className="font-semibold text-cyber-300">Needs triage</span> view (or the full feed), open a log and hit <span className="font-semibold text-amber-300">🚩 Escalate this log</span> — or pick one below.</p>
+    <Card className="border-neon-amber/30 bg-neon-amber/[0.04]">
+      <h3 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldAlert className="h-4 w-4 text-neon-amber" /> Tier-1 triage and escalation</h3>
+      <ol className="mt-2 grid gap-1 text-[11px] text-slate-300">
+        <li><span className="mr-1 rounded bg-cyber-500/20 px-1.5 font-bold text-cyber-300">1</span><b>Take</b> an alert: <span className="text-slate-400">&quot;Take next alert&quot; above the feed, or pick one below. It shows as &quot;Investigating · your name&quot; to the team.</span></li>
+        <li><span className="mr-1 rounded bg-cyber-500/20 px-1.5 font-bold text-cyber-300">2</span><b>Investigate</b>: <span className="text-slate-400">open the log, pivot on the host / user, check the IOC, open EDR.</span></li>
+        <li><span className="mr-1 rounded bg-cyber-500/20 px-1.5 font-bold text-cyber-300">3</span><b>Close</b> it (not an attack) <b>or escalate</b> it to Tier-2 (attack, or not sure).</li>
+      </ol>
 
       {/* T1-7: my escalations + status tracking (sent/ack/bounced/resolved) */}
       {myEsc.length > 0 && (
@@ -249,7 +256,7 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
       )}
 
       <label className="mt-3 block text-xs">
-        <span className="mb-1 block uppercase tracking-wider text-slate-400">Pick a log</span>
+        <span className="mb-1 block uppercase tracking-wider text-slate-400">Your alert</span>
         <select value={sel} onChange={e => setSel(e.target.value)} className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-sm text-slate-200 focus:border-cyber-500/50 focus:outline-none">
           <option value="">— select an event —</option>
           {options.map(o => <option key={o.id} value={o.id}>{o.label}{dispositions.get(o.id) ? ` · ${dispositions.get(o.id)}` : ""}</option>)}
@@ -257,20 +264,37 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
       </label>
       {/* T1-3: soft-claim so two Tier-1 analysts don't work the same alert (server-enforced, P0-3) */}
       {claimBanner(false)}
-      {/* T1-2: four dispositions incl. Suspicious */}
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        {[["true_positive", "true positive"], ["false_positive", "false positive"], ["benign", "benign"], ["suspicious", "suspicious"]].map(([v, label]) => (
-          <Button key={v} variant={selDisp === v ? "primary" : "outline"} size="sm" aria-pressed={selDisp === v} disabled={!sel || busy} onClick={() => disp(v)}>{label}</Button>
-        ))}
-      </div>
-
-      {/* Open the escalation report for the selected log (same modal the 🚩 button opens) */}
-      <div className="mt-3 border-t border-border/50 pt-3">
-        <Button variant="primary" size="sm" className="w-full" disabled={!sel} onClick={() => setReportOpen(true)}>
-          <ArrowUpRight className="mr-1.5 h-4 w-4" /> Write escalation report{sel ? ` — #${selRaw?.seq}` : ""}
-        </Button>
-        {!sel && <p className="mt-1 text-[10px] text-slate-500">Select a log first (feed 🚩 or the dropdown above).</p>}
-      </div>
+      {/* T1-2: the decision, as two plain paths: close it, or escalate it. */}
+      {sel && (selDisp === "false_positive" || selDisp === "benign") ? (
+        <p className="mt-3 rounded-lg border border-neon-green/30 bg-neon-green/5 px-3 py-2 text-xs text-neon-green">
+          ✓ Closed as {selDisp === "benign" ? "benign" : "false positive"}. It left the triage queue. Pick the next alert.
+        </p>
+      ) : (
+        <div className="mt-3 grid gap-2">
+          <div className="rounded-lg border border-slate-600/60 bg-slate-800/30 p-2.5">
+            <p className="text-xs font-semibold text-slate-100">Not an attack? Close the alert</p>
+            <input id="t1-close-note" value={closeNote} onChange={e => setCloseNote(e.target.value)} dir="auto" maxLength={500} disabled={!sel}
+              placeholder="Closing note (optional): why it's safe"
+              className="mt-1.5 w-full rounded border border-border bg-bg px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none disabled:opacity-50" />
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              <Button variant="outline" size="sm" disabled={!sel || busy} onClick={() => disp("false_positive")} title="The rule fired, but it is not malicious">Close as false positive</Button>
+              <Button variant="outline" size="sm" disabled={!sel || busy} onClick={() => disp("benign")} title="Expected, normal activity">Close as benign</Button>
+            </div>
+          </div>
+          <div className="rounded-lg border border-amber-500/40 bg-amber-500/[0.06] p-2.5">
+            <p className="text-xs font-semibold text-amber-200">Attack, or not sure? Escalate to Tier-2</p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {[["true_positive", "It's an attack (true positive)"], ["suspicious", "Suspicious, needs a deeper look"]].map(([v, label]) => (
+                <Button key={v} variant={selDisp === v ? "primary" : "outline"} size="sm" aria-pressed={selDisp === v} disabled={!sel || busy} onClick={() => disp(v)}>{label}</Button>
+              ))}
+            </div>
+            <Button variant="primary" size="sm" className="mt-2 w-full" disabled={!sel} onClick={() => setReportOpen(true)}>
+              <ArrowUpRight className="mr-1.5 h-4 w-4" /> Write escalation report{sel ? ` · #${selRaw?.seq}` : ""}
+            </Button>
+          </div>
+          {!sel && <p className="text-[10px] text-slate-500">Take an alert first (&quot;Take next alert&quot;, the feed, or the list above).</p>}
+        </div>
+      )}
     </Card>
 
     {/* ── Escalation report modal — opens ON the log (🚩) or via "Write escalation report" ── */}

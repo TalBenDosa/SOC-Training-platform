@@ -386,7 +386,56 @@ type DetailPanelProps = {
   onPivot?: (field: "user" | "host" | "ip", value: string) => void;
   onAddIoc?: (value: string, type: string) => void;
   onEscalate?: (event: LiveEvent) => void;
+  /** Team Tier-1: close the alert from the open log (false positive / benign + an optional
+   *  note). Resolves to an error message, or null when it was closed. */
+  onCloseAlert?: (event: LiveEvent, verdict: "false_positive" | "benign", note: string) => Promise<string | null>;
+  /** Team feed: this row's triage state, shown at the top of the open log. */
+  rowStatus?: (id?: string) => RowStatus | null;
 };
+
+/** The "close this alert" block of a Tier-1 open log: two plain choices and an optional note. */
+function CloseAlertBar({ event, onCloseAlert, status }: { event: LiveEvent; onCloseAlert: NonNullable<DetailPanelProps["onCloseAlert"]>; status: RowStatus | null }) {
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const closed = status?.disposed === "false_positive" || status?.disposed === "benign";
+  if (status?.escalated) return null;
+  if (closed) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-neon-green/30 bg-neon-green/5 px-4 py-2.5 text-sm text-neon-green">
+        <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden /> Closed as {status!.disposed === "benign" ? "benign" : "false positive"}. It left the triage queue.
+      </div>
+    );
+  }
+  async function close(v: "false_positive" | "benign") {
+    setBusy(true); setErr(null);
+    const e = await onCloseAlert(event, v, note.trim());
+    setBusy(false);
+    if (e) setErr(e);
+  }
+  return (
+    <div className="rounded-lg border border-slate-600/60 bg-slate-800/30 px-4 py-3" onClick={e => e.stopPropagation()}>
+      <p className="text-sm font-semibold text-slate-100">Not an attack? Close this alert</p>
+      <p className="mt-0.5 text-[11px] text-slate-400">Closing records your verdict and removes it from the triage queue. If it IS an attack, escalate it instead.</p>
+      <input id={`close-note-${event.id}`} value={note} onChange={e => setNote(e.target.value)} dir="auto" maxLength={500}
+        placeholder="Closing note (optional): why it's safe, e.g. approved change CHG-1234"
+        className="mt-2 w-full rounded-md border border-border bg-bg px-2.5 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
+      <div className="mt-2 flex flex-wrap gap-2">
+        <button type="button" disabled={busy} onClick={() => close("false_positive")}
+          className="rounded-md border border-slate-500/60 bg-slate-700/40 px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:bg-slate-700/70 disabled:opacity-50"
+          title="The rule fired but this is not malicious (e.g. a known tool, a test, an approved change)">
+          Close as false positive
+        </button>
+        <button type="button" disabled={busy} onClick={() => close("benign")}
+          className="rounded-md border border-slate-500/60 bg-slate-700/40 px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:bg-slate-700/70 disabled:opacity-50"
+          title="Expected, normal activity: nothing to act on">
+          Close as benign
+        </button>
+      </div>
+      {err && <p role="alert" className="mt-1.5 text-[11px] text-neon-amber">{err}</p>}
+    </div>
+  );
+}
 
 /** Panel body WITHOUT a table-cell wrapper — place this inside a <div> for any
  *  standalone use (e.g. Tier-2/Tier-3 "open the flagged log"). Inside the feed
@@ -397,6 +446,8 @@ export function DetailPanelBody({
   onPivot,
   onAddIoc,
   onEscalate,
+  onCloseAlert,
+  rowStatus,
 }: DetailPanelProps) {
   // Tells the global "Report a problem" button which log the learner has open.
   usePublishReportLocation({
@@ -530,6 +581,17 @@ export function DetailPanelBody({
             <Cpu className="h-4 w-4 shrink-0 text-cyber-300" aria-hidden />
           </button>
         )}
+        {/* Team feed: where this alert stands (new / investigating · who / closed / escalated). */}
+        {(() => {
+          const st = rowStatus?.(event.id);
+          if (!st) return null;
+          const line = st.escalated ? "Escalated to Tier-2"
+            : st.disposed === "false_positive" ? "Closed: false positive" : st.disposed === "benign" ? "Closed: benign"
+            : st.disposed ? `Verdict: ${st.disposed.replace("_", " ")} (not escalated yet)`
+            : st.claim === "me" ? "Investigating: you" : st.claim === "other" ? `Investigating: ${st.claimBy ?? "a teammate"}`
+            : st.triage ? `New: waiting ${st.triage.mins} min${st.triage.breached ? " (past its SLA)" : ""}, nobody has taken it` : null;
+          return line ? <p className="rounded-md border border-border bg-bg px-3 py-1.5 text-xs text-slate-300"><span className="font-semibold text-slate-400">Status · </span>{line}</p> : null;
+        })()}
         {/* Escalate-this-log CTA — Tier-1 only (parent passes onEscalate). Opens the
             structured escalation report pre-loaded with THIS log + its indicators. */}
         {onEscalate && (
@@ -549,6 +611,7 @@ export function DetailPanelBody({
             </span>
           </button>
         )}
+        {onCloseAlert && <CloseAlertBar event={event} onCloseAlert={onCloseAlert} status={rowStatus?.(event.id) ?? null} />}
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -991,7 +1054,7 @@ function SocMethodologyBanner() {
 // ─── Event row ────────────────────────────────────────────────────────────────
 
 const EventRow = memo(function EventRow({
-  event, isNew, onThreatQuery, onXp, onRowOpened, onPivot, onAddIoc, onEscalate, rowStatus,
+  event, isNew, onThreatQuery, onXp, onRowOpened, onPivot, onAddIoc, onEscalate, onCloseAlert, rowStatus,
 }: {
   event: LiveEvent;
   isNew: boolean;
@@ -1001,6 +1064,7 @@ const EventRow = memo(function EventRow({
   onPivot?: (field: "user" | "host" | "ip", value: string) => void;
   onAddIoc?: (value: string, type: string) => void;
   onEscalate?: (event: LiveEvent) => void;
+  onCloseAlert?: DetailPanelProps["onCloseAlert"];
   rowStatus?: (id?: string) => RowStatus | null;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -1124,17 +1188,18 @@ const EventRow = memo(function EventRow({
                 if (!st) return null;
                 return (
                   <div className="mt-1 flex flex-wrap items-center gap-1">
-                    {st.claim === "other" && <span className="rounded border border-neon-amber/40 bg-neon-amber/10 px-1 py-px text-[9px] font-semibold text-neon-amber">🔒 claimed</span>}
-                    {st.claim === "me" && <span className="rounded border border-cyber-500/40 bg-cyber-500/10 px-1 py-px text-[9px] font-semibold text-cyber-300">🔒 you</span>}
-                    {st.disposed && <span className="rounded border border-slate-600/60 bg-slate-800/70 px-1 py-px text-[9px] font-semibold text-slate-300">✓ {st.disposed.replace("_", " ")}</span>}
-                    {st.escalated && <span className="rounded border border-neon-green/40 bg-neon-green/10 px-1 py-px text-[9px] font-semibold text-neon-green">↗ escalated</span>}
+                    {st.claim === "other" && !st.disposed && !st.escalated && <span title="A teammate took this alert and is investigating it" className="rounded border border-neon-amber/40 bg-neon-amber/10 px-1 py-px text-[9px] font-semibold text-neon-amber">🔎 Investigating · <bdi>{st.claimBy ?? "teammate"}</bdi></span>}
+                    {st.claim === "me" && !st.disposed && !st.escalated && <span title="You took this alert" className="rounded border border-cyber-500/40 bg-cyber-500/10 px-1 py-px text-[9px] font-semibold text-cyber-300">🔎 Investigating · you</span>}
+                    {(st.disposed === "false_positive" || st.disposed === "benign") && <span className="rounded border border-slate-600/60 bg-slate-800/70 px-1 py-px text-[9px] font-semibold text-slate-300">✓ Closed · {st.disposed === "benign" ? "benign" : "false positive"}</span>}
+                    {(st.disposed === "true_positive" || st.disposed === "suspicious") && !st.escalated && <span className="rounded border border-neon-amber/40 bg-neon-amber/10 px-1 py-px text-[9px] font-semibold text-neon-amber">{st.disposed === "suspicious" ? "Suspicious" : "True positive"} · not escalated yet</span>}
+                    {st.escalated && <span className="rounded border border-neon-green/40 bg-neon-green/10 px-1 py-px text-[9px] font-semibold text-neon-green">↗ Escalated to Tier-2</span>}
                     {st.triage && (
-                      <span title={st.triage.orphan ? "Past its triage SLA and nobody has claimed it" : st.triage.breached ? "Past its triage SLA" : "Waiting for a Tier-1 disposition"}
+                      <span title={st.triage.orphan ? "Past its triage SLA and nobody has taken it" : st.triage.breached ? "Past its triage SLA" : st.claim ? "Open for this long: taken, no verdict yet" : "In the triage queue: waiting for a Tier-1 analyst to take it"}
                         className={cn("rounded border px-1 py-px font-mono text-[9px] font-semibold",
                           st.triage.orphan ? "border-severity-high/60 bg-severity-high/15 text-severity-high"
                           : st.triage.breached ? "border-severity-high/40 bg-severity-high/10 text-severity-high"
                           : "border-border text-slate-400")}>
-                        ⏱ needs triage · {st.triage.mins}m{st.triage.orphan ? " · unclaimed" : st.triage.breached ? " · SLA" : ""}
+                        ⏱ {st.claim ? "Open" : "New · waiting"} {st.triage.mins}m{st.triage.orphan ? " · past SLA, nobody took it" : st.triage.breached ? " · past SLA" : ""}
                       </span>
                     )}
                   </div>
@@ -1169,7 +1234,7 @@ const EventRow = memo(function EventRow({
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
           >
-            <DetailPanel event={event} onThreatQuery={onThreatQuery} onXp={onXp} onPivot={onPivot} onAddIoc={onAddIoc} onEscalate={onEscalate} />
+            <DetailPanel event={event} onThreatQuery={onThreatQuery} onXp={onXp} onPivot={onPivot} onAddIoc={onAddIoc} onEscalate={onEscalate} onCloseAlert={onCloseAlert} rowStatus={rowStatus} />
           </motion.tr>
         )}
       </AnimatePresence>
@@ -1191,6 +1256,8 @@ const TIME_OPTIONS: { label: string; value: TimeFilter; ms: number | null }[] = 
 export interface RowStatus {
   disposed?: string;
   claim?: "me" | "other";
+  /** Display name of the teammate investigating it (claim === "other"). */
+  claimBy?: string;
   escalated?: boolean;
   triage?: { mins: number; breached: boolean; orphan: boolean };
 }
@@ -1227,6 +1294,8 @@ export interface EventFeedProps {
    * dispositioned / escalated) so the shared feed shows what's already handled.
    * Reflects the player's actions, not ground truth — no answer leakage. */
   rowStatus?: (id?: string) => RowStatus | null;
+  /** Team Tier-1: close an alert from its open log (see DetailPanelProps.onCloseAlert). */
+  onCloseAlert?: DetailPanelProps["onCloseAlert"];
   /** Shown instead of the default when `events` is empty (e.g. an empty team triage view). */
   emptyMessage?: string;
 }
@@ -1235,7 +1304,7 @@ export function EventFeed({
   events, newIds = new Set(),
   severityFilter, sourceFilter, search,
   userFilter = "all", hostFilter = "all", ipFilter = "all", mitreFilter = "all",
-  onXp, onRowOpened, onPivot, onAddIoc, onEscalate, rowStatus, emptyMessage,
+  onXp, onRowOpened, onPivot, onAddIoc, onEscalate, onCloseAlert, rowStatus, emptyMessage,
 }: EventFeedProps) {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [threatQuery, setThreatQuery] = useState<ThreatQuery | null>(null);
@@ -1331,6 +1400,7 @@ export function EventFeed({
                   onPivot={onPivot}
                   onAddIoc={onAddIoc}
                   onEscalate={onEscalate}
+                  onCloseAlert={onCloseAlert}
                   rowStatus={rowStatus}
                 />
               ))}

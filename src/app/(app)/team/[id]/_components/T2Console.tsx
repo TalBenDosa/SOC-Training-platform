@@ -123,7 +123,7 @@ export function T2Console({ canEdr, sessionId, role, meId, escalations, escState
   return (
     <div className="space-y-4">
       {incidentList}
-      <Card>
+      <Card className="border-neon-amber/30 bg-neon-amber/[0.04]">
         <div className="flex items-center justify-between gap-2">
           <h3 className="flex items-center gap-2 text-sm font-bold text-white">
             {role === "t3" && <button onClick={() => setInboxOpen(o => !o)} aria-expanded={inboxOpen} aria-label={inboxOpen ? "Collapse escalations" : "Expand escalations"} className="text-slate-400 hover:text-white"><ChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform ${inboxOpen ? "" : "-rotate-90"}`} /></button>}

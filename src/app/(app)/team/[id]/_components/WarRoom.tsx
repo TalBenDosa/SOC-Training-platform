@@ -73,7 +73,7 @@ export function WarRoom({ sessionId, events, me, nameOf, act }: { sessionId: str
   }
 
   return (
-    <Card className={`border-cyber-500/40 transition-shadow ${unread > 0 ? "shadow-[0_0_0_1px_rgba(34,211,238,0.35),0_0_24px_-6px_rgba(34,211,238,0.45)]" : ""}`}>
+    <Card className={`border-cyber-500/40 bg-[#14273b] transition-shadow ${unread > 0 ? "shadow-[0_0_0_1px_rgba(34,211,238,0.35),0_0_24px_-6px_rgba(34,211,238,0.45)]" : ""}`}>
       <div onClick={() => open && setSeen(fromOthers)} {...(canWrite && open ? att.dropProps : {})}>
         <button type="button" onClick={e => { e.stopPropagation(); toggle(); }} aria-expanded={open} aria-controls="team-chat-body"
           className={`flex w-full items-center gap-2 rounded-md text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyber-400 ${open ? "mb-2" : ""}`}>

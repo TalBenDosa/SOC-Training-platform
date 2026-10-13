@@ -72,6 +72,7 @@ import { FeedFilterBar } from "./_components/FeedFilterBar";
 import { SituationBoard } from "./_components/SituationBoard";
 import { SecondaryPanels } from "./_components/SecondaryPanels";
 import { WarRoom } from "./_components/WarRoom";
+import { QueueBoard, type QueueStats } from "./_components/QueueBoard";
 import { TeamIntel } from "./_components/TeamIntel";
 import { NativeLogProvider, type NativeRenderer } from "@/lib/logs/native/NativeLogContext";
 
@@ -769,12 +770,35 @@ export default function TeamRoomPage() {
     const disposed = dispositions.get(key);
     const c = claimByEid.get(key);
     const claim: "me" | "other" | undefined = c ? (c.by === me?.id ? "me" : "other") : undefined;
+    const claimBy = c && claim === "other" ? nameOf(c.by) : undefined;
     const escalated = escalatedIds.has(key);
     const q = queueByEid.get(key);
     const triage = q ? { mins: q.mins, breached: q.breached, orphan: q.orphan } : undefined;
     if (!disposed && !claim && !escalated && !triage) return null;
-    return { disposed, claim, escalated, triage };
-  }, [dispositions, claimByEid, escalatedIds, queueByEid, me?.id]);
+    return { disposed, claim, claimBy, escalated, triage };
+  }, [dispositions, claimByEid, escalatedIds, queueByEid, me?.id, nameOf]);
+
+  // The SOC queue at a glance (QueueBoard): waiting / investigating / past SLA / escalated / closed.
+  const queueStats = useMemo<QueueStats>(() => {
+    const inv = alertQueue.filter(q => claimByEid.has(q.eid));
+    const who = new Map<string, number>();
+    for (const q of inv) { const n = nameOf(claimByEid.get(q.eid)!.by); who.set(n, (who.get(n) ?? 0) + 1); }
+    const resolved = new Set(events.filter(e => e.type === "escalation.resolved").map(e => String((e.payload as { event_id?: string }).event_id)));
+    const waiting = alertQueue.filter(q => !claimByEid.has(q.eid));
+    return {
+      inQueue: waiting.length,
+      oldestMins: waiting.length ? Math.max(...waiting.map(q => q.mins)) : null,
+      investigating: inv.length,
+      byWho: [...who.entries()].map(([name, n]) => ({ name, n })).sort((a, b) => b.n - a.n),
+      breached: alertQueue.filter(q => q.breached).length,
+      orphans: alertQueue.filter(q => q.orphan).length,
+      escalatedOpen: [...escalatedIds].filter(eid => !resolved.has(eid)).length,
+      escalatedTotal: escalatedIds.size,
+      closed: [...dispositions.values()].filter(v => v === "false_positive" || v === "benign").length,
+      verdictNotEscalated: [...dispositions.entries()].filter(([eid, v]) => (v === "true_positive" || v === "suspicious") && !escalatedIds.has(eid)).length,
+      withMedium: queueWithMedium,
+    };
+  }, [alertQueue, claimByEid, events, escalatedIds, dispositions, queueWithMedium, nameOf]);
   const activity = useMemo(() => events.filter(e => ["escalation.requested", "escalation.acknowledged", "escalation.bounced", "escalation.resolved", "elevation.requested", "containment.requested", "containment.approved", "containment.denied", "containment.executed", "edr.host_isolated", "edr.host_released", "disposition.set", "hunt.logged", "rule.published", "intel.published", "handover.noted", "decision.logged", "sitrep.sent", "report.submitted", "evidence.pinned", "case.status_set", "case.assigned", "scope.set", "scope.confirmed", "staff.inject", "ticket.answered"].includes(e.type)), [events]);
   // The team feed rendered with the REAL dashboard EventFeed — enrich each shared
   // event into a LiveEvent so it looks and behaves exactly like the single-player
@@ -844,6 +868,22 @@ export default function TeamRoomPage() {
     // fields, or free text) so choosing the evidence is part of the exercise.
     setT1ReportOpen(true);
   }, []);
+  // Tier-1 closes an alert from its open log (false positive / benign + an optional note),
+  // releasing the claim so the row leaves the queue. Same events as the Tier-1 console.
+  const onFeedCloseAlert = useCallback(async (ev: LiveEvent, verdict: "false_positive" | "benign", note: string): Promise<string | null> => {
+    const raw = feedRef.current.find(f => {
+      const p = f.payload as { id?: string };
+      return (typeof p.id === "string" ? p.id : `ev_${f.seq}`) === ev.id;
+    });
+    if (!raw) return "Couldn't find this alert in the feed.";
+    const eid = String((raw.payload as { id?: string }).id ?? raw.seq);
+    const r = await actR("disposition.set", note ? { event_id: eid, verdict, note } : { event_id: eid, verdict }, { handled: ["claim_held"] });
+    if (!r.ok) return r.code === "claim_held"
+      ? "A teammate is investigating this alert. Agree it in the team chat, or take it over from your Tier-1 console."
+      : (r.message ?? "Couldn't close the alert. Try again.");
+    await act("alert.released", { event_id: eid });
+    return null;
+  }, [actR, act]);
   // Tier-2 / Tier-3 open a case on a log they found themselves (0092).
   const [caseLog, setCaseLog] = useState<Ev | null>(null);
   const onFeedOpenCase = useCallback((ev: LiveEvent) => {
@@ -870,9 +910,15 @@ export default function TeamRoomPage() {
   // Hosts with endpoint (EDR / Sysmon) telemetry in the feed: "Investigate in EDR" is offered
   // only for those. A case on a host the scenario has no EDR for (a DC seen only through its
   // Security log) used to show the button and answer with an error (Tal, 2026-10-08).
-  const edrHosts = useMemo(() => new Set(feed
-    .filter(e => { const s = (e.payload as { source?: unknown }).source; return s === "edr" || s === "sysmon"; })
-    .map(e => hostKey(asStr((e.payload as { hostname?: unknown }).hostname))).filter(Boolean)), [feed]);
+  const endpointEvs = useMemo(() => feed.filter(e => { const s = (e.payload as { source?: unknown }).source; return s === "edr" || s === "sysmon" || s === "windows_security" || s === "linux_audit"; }), [feed]);
+  const edrHosts = useMemo(() => {
+    const evs = endpointEvs.map(e => e.payload as unknown as TelemetryEvent);
+    const candidates = [...new Set(endpointEvs
+      .filter(e => { const s = (e.payload as { source?: unknown }).source; return s === "edr" || s === "sysmon"; })
+      .map(e => asStr((e.payload as { hostname?: unknown }).hostname)).filter(Boolean))];
+    // Same builder the click uses: a host whose endpoint rows name no process opens nothing.
+    return new Set(candidates.filter(h => buildTeamEdrCases(evs, { sessionId: id, hosts: [h] }).length > 0).map(hostKey));
+  }, [endpointEvs, id]);
   const canEdr = useCallback((host?: string) => {
     if (host) return edrHosts.has(hostKey(host));
     const escHosts = escalations.map(e => asStr((e.payload as { snapshot?: { hostname?: unknown } }).snapshot?.hostname)).filter(Boolean);
@@ -1379,6 +1425,7 @@ export default function TeamRoomPage() {
                     ) : me.role === "t3" && t3View === "attack" ? (
                       <AttackLookup />
                     ) : (<>
+                    <QueueBoard q={queueStats} />
                     {(me.role === "lead" || me.role === "mgr") && (
                       <p className="rounded-lg border border-border bg-bg-elevated/40 px-3 py-2 text-[11px] text-slate-400">The raw logs, read-only, so you can back up your analysts and check what they report. Triage and escalation stay with the analysts.</p>
                     )}
@@ -1448,6 +1495,7 @@ export default function TeamRoomPage() {
                       onPivot={onFeedPivot}
                       onAddIoc={me.role === "t1" ? onFeedAddIoc : undefined}
                       rowStatus={rowStatus}
+                      onCloseAlert={me.role === "t1" ? onFeedCloseAlert : undefined}
                       onEscalate={me.role === "t1" ? onFeedEscalate : me.role === "t2" || me.role === "t3" ? onFeedOpenCase : undefined}
                     /></div>
                     </>)}
