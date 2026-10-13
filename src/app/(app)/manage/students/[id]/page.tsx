@@ -12,7 +12,7 @@
  * verified to be in the caller's org server-side; answers are resolved there, never here).
  */
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Topbar } from "@/components/nav/Topbar";
 import { Card } from "@/components/ui/Card";
@@ -56,7 +56,9 @@ export default function StudentDetailPage() {
   const [data, setData] = useState<StudentDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<Tab>("summary");
+  // ?tab=mistakes opens straight on a tab (the class heatmap links here).
+  const initialTab = useSearchParams()?.get("tab");
+  const [tab, setTab] = useState<Tab>(initialTab === "mistakes" || initialTab === "activity" || initialTab === "plan" ? initialTab : "summary");
   const [onlyUnsolved, setOnlyUnsolved] = useState(false);
 
   useEffect(() => {
@@ -71,9 +73,10 @@ export default function StudentDetailPage() {
   const name = data?.display_name || data?.handle || (data ? data.user_id.slice(0, 8) : "Student");
   const affDays = data?.affiliation_expires_at ? Math.ceil((Date.parse(data.affiliation_expires_at) - Date.now()) / 86_400_000) : null;
   const mistakeCount = useMemo(() => (data?.mistake_groups ?? []).reduce((n, g) => n + g.mistakes.length, 0), [data]);
-  const judged = (data?.topics ?? []).filter(t => t.items >= MIN_ITEMS);
-  const strong = judged.filter(t => t.accuracy >= 80).sort((a, b) => b.accuracy - a.accuracy);
-  const weak = judged.filter(t => t.accuracy < 60);
+  const judged = (data?.skills ?? []).filter(t => t.items >= MIN_ITEMS);
+  const strong = judged.filter(t => (t.accuracy ?? 0) >= 80).sort((a, b) => (b.accuracy ?? 0) - (a.accuracy ?? 0));
+  const weak = judged.filter(t => (t.accuracy ?? 100) < 60).sort((a, b) => (a.accuracy ?? 0) - (b.accuracy ?? 0));
+  const answeredAreas = (data?.skills ?? []).filter(t => t.items > 0);
 
   return (
     <div>
@@ -148,18 +151,32 @@ export default function StudentDetailPage() {
 
                 <Card>
                   <h2 className="mb-3 text-sm font-bold text-white">Strengths and weak spots</h2>
-                  {data.topics.length === 0 ? (
-                    <p className="text-sm text-slate-400">No graded room questions yet. Topics appear here once the student answers questions in rooms.</p>
+                  {answeredAreas.length === 0 ? (
+                    <p className="text-sm text-slate-400">No graded answers yet. Skill areas appear here once the student answers questions in rooms, quizzes, lessons or scenarios.</p>
                   ) : (
                     <div className="grid gap-5 md:grid-cols-[1fr_1.1fr]">
                       <div className="space-y-2 text-sm leading-relaxed">
                         <p><span className="font-semibold text-neon-green">Strong in: </span>
-                          <span className="text-slate-300">{strong.length ? strong.slice(0, 3).map(t => `${t.topic} (${t.accuracy}%)`).join(", ") : "nothing yet at 80% or more."}</span></p>
+                          <span className="text-slate-300">{strong.length ? strong.slice(0, 3).map(t => `${t.label} (${t.accuracy}%)`).join(", ") : "nothing yet at 80% or more."}</span></p>
                         <p><span className="font-semibold text-severity-high">Weak in: </span>
-                          <span className="text-slate-300">{weak.length ? weak.map(t => `${t.topic} (${t.accuracy}%, ${t.items} questions)`).join(", ") : "no topic below 60%."}</span></p>
+                          <span className="text-slate-300">{weak.length ? weak.map(t => `${t.label} (${t.accuracy}%, ${t.items} questions)`).join(", ") : "no area below 60%."}</span></p>
                         {data.summary.first_try.unsolved > 0 && (
                           <p><span className="font-semibold text-neon-amber">Still unsolved: </span>
                             <span className="text-slate-300">{data.summary.first_try.unsolved} question{data.summary.first_try.unsolved === 1 ? "" : "s"} never answered correctly.</span></p>
+                        )}
+                        {data.recommendations.length > 0 && (
+                          <div className="pt-1">
+                            <p className="mb-1 text-[11px] uppercase tracking-wider text-slate-500">Recommended next · {data.recommendations[0].area_label}</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {data.recommendations.map(r => (
+                                <a key={r.room_id} href={`/rooms/${r.room_id}`} target="_blank" rel="noopener noreferrer"
+                                  className="rounded-lg border border-cyber-500/30 bg-cyber-500/5 px-2 py-1 text-xs text-cyber-300 hover:bg-cyber-500/10">
+                                  {r.title} <span className="text-[10px] text-slate-500">· {r.difficulty}</span>
+                                </a>
+                              ))}
+                            </div>
+                            <p className="mt-1 text-[10px] text-slate-500">Rooms in the weakest area not completed yet. Add them in the Plan tab.</p>
+                          </div>
                         )}
                         {data.mistake_groups.length > 0 && (
                           <div className="pt-1">
@@ -177,18 +194,20 @@ export default function StudentDetailPage() {
                         )}
                       </div>
                       <div className="space-y-2">
-                        <p className="text-[11px] uppercase tracking-wider text-slate-500">Right first try, by topic</p>
-                        {data.topics.map(t => {
+                        <p className="text-[11px] uppercase tracking-wider text-slate-500">Right first try, by skill area</p>
+                        {data.skills.map(t => {
                           const lv = level(t.accuracy, t.items);
+                          const src = Object.entries(t.sources).filter(([, n]) => n > 0).map(([k, n]) => `${n} ${k}`).join(", ");
                           return (
-                            <div key={t.topic} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_auto] items-center gap-2 text-xs" title={lv.label}>
-                              <span className="truncate text-slate-300">{t.topic}</span>
-                              <div className="h-2 rounded bg-bg"><div className={cn("h-2 rounded", lv.bar)} style={{ width: `${t.accuracy}%` }} /></div>
-                              <span className={cn("w-16 text-right font-mono", lv.text)}>{t.items < MIN_ITEMS ? `n=${t.items}` : `${t.accuracy}%`}</span>
+                            <div key={t.area} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_auto] items-center gap-2 text-xs"
+                              title={t.items ? `${lv.label}: ${t.firstTryCorrect} of ${t.items} right first try (${src})` : "No answers in this area yet"}>
+                              <span className={cn("truncate", t.items ? "text-slate-300" : "text-slate-600")}>{t.label}</span>
+                              <div className="h-2 rounded bg-bg"><div className={cn("h-2 rounded", lv.bar)} style={{ width: `${t.accuracy ?? 0}%` }} /></div>
+                              <span className={cn("w-16 text-right font-mono", t.items ? lv.text : "text-slate-600")}>{t.items === 0 ? "none" : t.items < MIN_ITEMS ? `n=${t.items}` : `${t.accuracy}%`}</span>
                             </div>
                           );
                         })}
-                        <p className="pt-1 text-[10px] text-slate-500">Green 80%+ · amber 60-79% · red under 60% · grey: fewer than {MIN_ITEMS} questions answered, not enough to judge.</p>
+                        <p className="pt-1 text-[10px] text-slate-500">Rooms, quizzes, lesson checks and scenario questions, first answer only. Green 80%+ · amber 60-79% · red under 60% · grey: fewer than {MIN_ITEMS} questions answered, not enough to judge.</p>
                       </div>
                     </div>
                   )}

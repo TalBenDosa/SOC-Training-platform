@@ -13,7 +13,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import {
   Users, Activity, DoorOpen, Copy, AlertTriangle, Loader2, KeyRound,
-  Power, PowerOff, Trash2, Download, TrendingDown, Building2, ChevronRight, Route, Search,
+  Power, PowerOff, Trash2, Download, TrendingDown, Building2, ChevronRight, Route, Search, Gauge, XCircle,
 } from "lucide-react";
 import type { OrgMember, OrgUsage } from "@/lib/org/types";
 import type { StudentRow } from "@/app/api/org/analytics/route";
@@ -22,8 +22,9 @@ import { LearningPlansPanel } from "@/components/manage/LearningPlansPanel";
 import { GroupsPanel } from "@/components/manage/GroupsPanel";
 import { MediaPanel } from "@/components/manage/MediaPanel";
 import { ContentAuthoringPanel } from "@/components/manage/ContentAuthoringPanel";
+import { SkillsPanel } from "@/components/manage/SkillsPanel";
 
-type ManageTab = "students" | "overview" | "plans" | "content";
+type ManageTab = "students" | "overview" | "skills" | "mistakes" | "plans" | "content";
 type SortKey = "xp" | "name" | "first_try" | "path" | "active";
 
 interface OrgLite { id: string; name: string; slug: string; seat_limit: number; status: string; expires_at: string | null }
@@ -374,6 +375,8 @@ export default function ManagePage() {
               {([
                 ["students", "Students", Users, active.length],
                 ["overview", "Class overview", Activity, atRisk.length],
+                ["skills", "Skills", Gauge, null],
+                ["mistakes", "Common mistakes", XCircle, null],
                 ["plans", "Plans and groups", Route, null],
                 ["content", "Content", DoorOpen, null],
               ] as const).map(([key, label, Icon, count]) => (
@@ -557,6 +560,10 @@ export default function ManagePage() {
                 </div>
               </div>
             )}
+
+            {/* ── Skills / common mistakes ─────────────────────────────── */}
+            {tab === "skills" && <SkillsPanel mode="skills" />}
+            {tab === "mistakes" && <SkillsPanel mode="mistakes" />}
 
             {/* ── Plans and groups ─────────────────────────────────────── */}
             {tab === "plans" && (

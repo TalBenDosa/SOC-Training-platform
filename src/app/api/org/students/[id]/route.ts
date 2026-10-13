@@ -5,6 +5,8 @@ import { ROOMS_META } from "@/data/roomsMeta";
 import { fetchAll } from "@/lib/plans/server";
 import { groupItems, summarize, type FirstTrySummary } from "@/lib/org/firstTry";
 import { buildMistakeGroups, type MistakeGroup, type StoredAttempt } from "@/lib/org/mistakeView";
+import { skillStats, judged, type AreaStat, type FirstAnswerRow } from "@/lib/org/skillStats";
+import { roomsInArea } from "@/lib/skills/contentArea";
 
 const ROOM_TITLE: Record<string, string> = Object.fromEntries(ROOMS_META.map(r => [r.id, r.title]));
 const ROOM_CATEGORY: Record<string, string> = Object.fromEntries(ROOMS_META.map(r => [r.id, r.category]));
@@ -53,8 +55,10 @@ export interface StudentDetail {
     /** Questions answered right on the first try (readings excluded). */
     first_try: FirstTrySummary;
   };
-  /** Room topics (room category), weakest first: first-try accuracy per topic. */
-  topics: Array<{ topic: string; items: number; first_try_correct: number; accuracy: number }>;
+  /** Right first try per skill area (lib/skills/taxonomy), all 12 areas, from rooms + quizzes + lesson checks + scenarios. */
+  skills: AreaStat[];
+  /** Rooms not completed yet in the weakest judged area (up to 3). */
+  recommendations: Array<{ room_id: string; title: string; difficulty: string; area_label: string }>;
   /** Where the student erred — questions not right on the first try, grouped by room. */
   mistake_groups: MistakeGroup[];
   rooms: Array<{
@@ -125,6 +129,15 @@ export async function GET(_req: Request, { params }: Ctx) {
     return NextResponse.json({ error: "Could not load this student's answers right now. Please try again." }, { status: 500 });
   }
 
+  // First answers to quizzes, lesson checks and scenario questions (0078). The table has no
+  // org_id, so it is read for this student only and only from when they joined this org.
+  const firstsRes = await admin.from("graded_first_answers")
+    .select("kind, content_id, question_id, correct, created_at")
+    .eq("user_id", id)
+    .gte("created_at", member.joined_at ?? "1970-01-01T00:00:00Z")
+    .limit(5000);
+  const firsts = (firstsRes.data ?? []) as FirstAnswerRow[];
+
   const [roomsRes, scenariosRes, sessionsRes] = await Promise.all([
     admin.from("room_progress")
       .select("room_id, completed_task_ids, per_task_xp, xp_earned, telemetry, completed_at, updated_at")
@@ -143,16 +156,7 @@ export async function GET(_req: Request, { params }: Ctx) {
   const sessionRows = (sessionsRes.data ?? []) as Array<{ detect_rate: number | null; played_at: string | null; duration_ms: number | null }>;
   const items = groupItems(attemptRows);
   const firstTry = summarize(items);
-  const topicStats = new Map<string, { items: number; ok: number }>();
-  for (const it of items) {
-    const topic = ROOM_CATEGORY[it.room_id] ?? "College rooms";
-    const t = topicStats.get(topic) ?? { items: 0, ok: 0 };
-    t.items++; if (it.firstTryCorrect) t.ok++;
-    topicStats.set(topic, t);
-  }
-  const topics = [...topicStats.entries()]
-    .map(([topic, t]) => ({ topic, items: t.items, first_try_correct: t.ok, accuracy: Math.round((t.ok / t.items) * 100) }))
-    .sort((a, b) => a.accuracy - b.accuracy || b.items - a.items);
+  const skills = skillStats(items, firsts);
   const mistakeGroups = await buildMistakeGroups(items, orgId, roomId => ROOM_CATEGORY[roomId] ?? null);
 
   const allLatencies: number[] = [];
@@ -200,7 +204,17 @@ export async function GET(_req: Request, { params }: Ctx) {
       tasks_answered: allLatencies.length,
       first_try: firstTry,
     },
-    topics,
+    skills,
+    recommendations: (() => {
+      // The weakest area with enough answers and under 80%; rooms in it not completed yet.
+      const weakest = judged(skills).find(a => (a.accuracy ?? 100) < 80);
+      if (!weakest) return [];
+      const done = new Set(roomRows.filter(r => r.completed_at).map(r => r.room_id));
+      const rank: Record<string, number> = { beginner: 0, intermediate: 1, advanced: 2 };
+      return roomsInArea(weakest.area).filter(r => !done.has(r.id))
+        .sort((a, b) => (rank[a.difficulty] ?? 1) - (rank[b.difficulty] ?? 1)).slice(0, 3)
+        .map(r => ({ room_id: r.id, title: r.title, difficulty: r.difficulty, area_label: weakest.label }));
+    })(),
     mistake_groups: mistakeGroups,
     rooms,
     scenarios: scenarioRows.map(s => {
