@@ -226,15 +226,19 @@ function whyItStandsOut(
 
 // R-11: recover a process object from an endpoint detection that carries the binary
 // only in its vendor-native raw block (CrowdStrike `crowdstrike.ContextBaseFileName`,
-// SentinelOne `s1.process_name`, Sysmon `Image`, MDE `process.name`…), so a case whose
+// SentinelOne `s1.process_name` / native `src.process.name`, Sysmon `Image` / native
+// `winlog.event_data.Image`, MDE `process.name`…), so a case whose
 // EDR events never populated the structured `process` field still opens with a walkable
 // tree. Returns [] when nothing names a real binary — a sensor-silence or pure-network
 // detection legitimately has no process tree and stays a non-EDR investigation.
-const PROC_NAME_KEYS = ["process.name", "process.image", "crowdstrike.ContextBaseFileName", "crowdstrike.ImageFileName", "s1.process_name", "Image", "InitiatingProcessFileName", "proc.name", "ProcessName"];
-const CMDLINE_KEYS   = ["process.command_line", "crowdstrike.CommandLine", "s1.command_line", "CommandLine", "cmdline", "InitiatingProcessCommandLine"];
-const PARENT_KEYS    = ["process.parent.name", "crowdstrike.ParentBaseFileName", "ParentImage", "s1.parent_process_name", "InitiatingProcessParentFileName"];
+const PROC_NAME_KEYS = ["process.name", "process.image", "crowdstrike.ContextBaseFileName", "crowdstrike.ImageFileName", "s1.process_name", "src.process.name", "Image", "winlog.event_data.Image", "winlog.event_data.SourceImage", "InitiatingProcessFileName", "proc.name", "ProcessName"];
+const CMDLINE_KEYS   = ["process.command_line", "crowdstrike.CommandLine", "s1.command_line", "src.process.cmdline", "CommandLine", "winlog.event_data.CommandLine", "cmdline", "ProcessCommandLine", "InitiatingProcessCommandLine"];
+const PARENT_KEYS    = ["process.parent.name", "crowdstrike.ParentBaseFileName", "ParentImage", "winlog.event_data.ParentImage", "s1.parent_process_name", "src.process.parent.name", "InitiatingProcessParentFileName"];
 const PROC_START_ET = /^(process_create|linux_execve|edr_alert|av_detection)$/;
-const PROC_USER_KEYS = ["process.user", "crowdstrike.UserName", "user.name", "s1.process_user", "User", "SubjectUserName"];
+const PROC_USER_KEYS = ["process.user", "crowdstrike.UserName", "user.name", "s1.process_user", "src.process.user", "User", "winlog.event_data.User", "SubjectUserName"];
+// Sysmon Event 6 (driver loaded): the kernel loads a driver, so its actor is the System process.
+const isDriverLoad = (e: TelemetryEvent) => !!pickRaw(e.raw, ["winlog.event_data.ImageLoaded", "ImageLoaded"])
+  && !pickRaw(e.raw, ["winlog.event_data.Image", "Image"]) && String(e.raw?.["winlog.event_id"] ?? e.raw?.["event.code"] ?? "6") === "6";
 const baseName = (v: string) => v.split(/[\\/]/).pop() ?? v;
 function pickRaw(raw: Record<string, unknown> | undefined, keys: string[]): string | undefined {
   for (const k of keys) { const v = raw?.[k]; if (typeof v === "string" && v.trim()) return v.trim(); }
@@ -247,12 +251,17 @@ function synthesizeProcessEvents(endpointEvents: TelemetryEvent[]): TelemetryEve
   for (const e of endpointEvents) {
     // On a process start / detection, Falcon names the image in crowdstrike.FileName (on a
     // file event that key is the written file, so it is only a last resort for process rows).
-    const rawName = pickRaw(e.raw, PROC_NAME_KEYS) ?? (PROC_START_ET.test(e.event_type ?? "") ? pickRaw(e.raw, ["crowdstrike.FileName"]) : undefined);
+    // An AV / EDR detection names the detected binary as its file (CrowdStrike memory://svchost.exe,
+    // Sophos C:\Temp\x.exe): on a process start or detection that file IS the process.
+    const startOrDetect = PROC_START_ET.test(e.event_type ?? "");
+    const rawName = pickRaw(e.raw, PROC_NAME_KEYS)
+      ?? (startOrDetect ? pickRaw(e.raw, ["crowdstrike.FileName", "FileName"]) ?? e.file?.path ?? e.file?.name : undefined)
+      ?? (isDriverLoad(e) ? "System" : undefined);
     const name = rawName ? baseName(rawName) : undefined;
     if (!name || !/^[\w.-]+$/.test(name)) continue;      // must be a real binary token
     const cmdline = pickRaw(e.raw, CMDLINE_KEYS) ?? name;
     const parent = pickRaw(e.raw, PARENT_KEYS);
-    const user = pickRaw(e.raw, PROC_USER_KEYS) ?? e.user_email;
+    const user = pickRaw(e.raw, PROC_USER_KEYS) ?? (name === "System" ? SYSTEM_USER : e.user_email);
     let pid = byName.get(`${name}|${cmdline}`);
     if (pid == null) { pid = nextPid++; byName.set(`${name}|${cmdline}`, pid); }
     out.push({
@@ -260,6 +269,8 @@ function synthesizeProcessEvents(endpointEvents: TelemetryEvent[]): TelemetryEve
       process: {
         pid,
         name,
+        // The log's full image path when it has one (a reflective "memory://" image has none).
+        path: rawName && /[\\/]/.test(rawName) && !/^\w+:\/\//.test(rawName) ? rawName : undefined,
         cmdline,
         parent_name: parent ? baseName(parent) : undefined,
         user,
@@ -478,6 +489,10 @@ export function buildInvestigationFromStory(
   if (procEvents.length === 0) {
     const synth = synthesizeProcessEvents(events.filter(e => ENDPOINT_SOURCES.has(e.source)));
     if (synth.length === 0) return null; // nothing nameable — leave it non-EDR
+    // Each synthesised row REPLACES its source row (same log, now with its process), so
+    // the timeline does not show one DNS lookup twice.
+    const replaced = new Set(synth.map(s => s.id));
+    for (let i = events.length - 1; i >= 0; i--) if (replaced.has(events[i].id) && !events[i].process) events.splice(i, 1);
     events.push(...synth);
     procEvents = synth;
   }

@@ -1723,6 +1723,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     description: "p.hoekstra retrieved CT chest scan for patient P-18847 from PACS (SecuraPACS)",
     raw: {
       "s1.eventType": "IP Connect", "action_result": "allowed",
+      "process.name": "SecuraPACSViewer.exe", "process.command_line": "\"C:\\Program Files\\SecuraPACS\\SecuraPACSViewer.exe\" --dicom", "user.name": "MEDCORE\\phoekstra",
       "pacs.action": "image.retrieve", "pacs.modality": "CT",
       "pacs.study_uid": "1.2.840.10008.5.1.4.1.1.2.47821",
       "pacs.patient_id": "P-18847", "pacs.images_fetched": "84",
@@ -1737,6 +1738,7 @@ const MEDCORE_EVENTS: TelemetryEvent[] = [
     description: "dr.vandijk queried PACS for echocardiogram images (P-19203) on WS-MED-022",
     raw: {
       "s1.eventType": "IP Connect", "action_result": "allowed",
+      "process.name": "SecuraPACSViewer.exe", "process.command_line": "\"C:\\Program Files\\SecuraPACS\\SecuraPACSViewer.exe\" --dicom", "user.name": "MEDCORE\\drvandijk",
       "pacs.action": "image.query", "pacs.modality": "US",
       "pacs.study_uid": "1.2.840.10008.5.1.4.1.1.6.1.19203",
       "pacs.patient_id": "P-19203", "network.destination": "SRV-MEDCORE-PACS01" }
