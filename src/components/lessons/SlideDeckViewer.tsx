@@ -19,6 +19,8 @@ export interface SlideDeckRef {
   src: string;
   title: string;
   pages: number;
+  /** Header label; lesson decks use the default. */
+  kind?: string;
 }
 
 export function SlideDeckViewer({ deck, onClose }: { deck: SlideDeckRef; onClose: () => void }) {
@@ -65,7 +67,7 @@ export function SlideDeckViewer({ deck, onClose }: { deck: SlideDeckRef; onClose
           </span>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-white">{deck.title}</p>
-            <p className="text-[11px] text-slate-500">Lesson slides · {deck.pages} slides · arrow keys or click to move</p>
+            <p className="text-[11px] text-slate-500">{deck.kind ?? "Lesson slides"} · {deck.pages} slides · arrow keys or click to move</p>
           </div>
           <button
             type="button"

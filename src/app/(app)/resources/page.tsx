@@ -15,10 +15,11 @@ import { useEffect, useRef, useState } from "react";
 import { Topbar } from "@/components/nav/Topbar";
 import { LibraryCard } from "@/components/ui/LibraryCard";
 import { cn } from "@/lib/utils";
-import { FileText, Presentation, Video, Loader2, Library, Eye, X, Download, AlertTriangle, Search, ArrowRight } from "lucide-react";
+import { FileText, Presentation, Video, Loader2, Library, Eye, X, Download, AlertTriangle, Search, ArrowRight, Monitor } from "lucide-react";
 import { fetchOrgResources, type OrgResource } from "@/lib/content/publicContent";
 import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 import { LESSON_DECKS, type LessonDeck } from "@/data/lessonDecks";
+import { CONSOLE_GUIDES, type ConsoleGuide } from "@/data/consoleGuides";
 import { SlideDeckViewer } from "@/components/lessons/SlideDeckViewer";
 import { socCover } from "@/lib/ui/socCover";
 
@@ -51,7 +52,7 @@ export default function ResourcesPage() {
   // Track the live blob URL so it can be revoked on close/unmount (no leaks).
   const blobRef = useRef<string | null>(null);
   // The global Learning Path presentations library (view-only, below the org's own materials).
-  const [deck, setDeck] = useState<LessonDeck | null>(null);
+  const [deck, setDeck] = useState<{ src: string; title: string; pages: number; kind?: string } | null>(null);
   const [deckQuery, setDeckQuery] = useState("");
 
   useEffect(() => {
@@ -162,6 +163,9 @@ export default function ResourcesPage() {
           </section>
         ) : null}
 
+        {/* ── Console guides: product walkthroughs (global, view-only) ───── */}
+        <ConsoleGuides onOpen={g => setDeck({ ...g, kind: "Console guide" })} />
+
         {/* ── Learning Path presentations (global, view-only) ────────────── */}
         <LessonPresentations query={deckQuery} onQuery={setDeckQuery} onOpen={setDeck} />
       </div>
@@ -170,9 +174,40 @@ export default function ResourcesPage() {
         <ResourceViewer state={viewer} onClose={close} />
       )}
       {deck && (
-        <SlideDeckViewer deck={{ src: deck.src, title: deck.title, pages: deck.pages }} onClose={() => setDeck(null)} />
+        <SlideDeckViewer deck={{ src: deck.src, title: deck.title, pages: deck.pages, kind: deck.kind }} onClose={() => setDeck(null)} />
       )}
     </div>
+  );
+}
+
+/** Console guides: walkthroughs of real SOC platforms, outside the Learning Path, view-only. */
+function ConsoleGuides({ onOpen }: { onOpen: (g: ConsoleGuide) => void }) {
+  if (CONSOLE_GUIDES.length === 0) return null;
+  return (
+    <section aria-labelledby="console-guides-h">
+      <div className="mb-1 flex items-center gap-2">
+        <Monitor className="h-4 w-4 text-cyber-400" />
+        <h2 id="console-guides-h" className="text-sm font-bold uppercase tracking-widest text-slate-300">Console Guides</h2>
+        <span className="text-[11px] text-slate-500">: every screen of a real SOC platform, explained</span>
+      </div>
+      <p className="mb-4 text-[12px] text-slate-500">{CONSOLE_GUIDES.length} {CONSOLE_GUIDES.length === 1 ? "guide" : "guides"} · view in the browser, full screen available</p>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {CONSOLE_GUIDES.map((g, i) => (
+          <LibraryCard
+            key={g.slug}
+            onClick={() => onOpen(g)}
+            seed={g.slug}
+            index={i}
+            art={socCover(g.slug, g.coverTopic)}
+            icon={Monitor}
+            typeLabel="Console guide"
+            title={g.title}
+            meta={<>{g.topic} · {g.pages} slides</>}
+            cta={<span className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-cyber-500/50 bg-cyber-500/15 px-3 py-1.5 text-xs font-semibold text-cyber-300 transition group-hover:bg-cyber-500/25"><Eye className="h-3.5 w-3.5" /> View</span>}
+          />
+        ))}
+      </div>
+    </section>
   );
 }
 
