@@ -313,7 +313,7 @@ This is called the **detect → learn → improve** loop, and CTI is the fuel th
         {
           question: "CORP-DC01 (10.0.1.55) is the company's domain controller, and the alert shows it connecting OUT to 185.220.101.45. Using the alert and the firewall records described above, what is the most accurate assessment?",
           options: [
-            "False Positive: domain controllers routinely reach the internet for Windows updates",
+            "Benign True Positive: domain controllers routinely reach the internet for Windows updates",
             "Low priority: TLP:CLEAR marks the indicator as public, so it is probably stale",
             "Critical True Positive: allowed, repeating DC sessions to a high-confidence C2 IOC",
             "Hold at Tier-1 until a second intel feed corroborates the IOC, then raise severity",
@@ -1385,14 +1385,14 @@ When escalating, always include:
 
 **Writing Good Triage Documentation**
 
-Every alert closure (whether False Positive or True Positive) requires documentation. A well-written triage note includes:
+Every alert closure (whether False Positive, Benign True Positive or True Positive) requires documentation. A well-written triage note includes:
 
 1. **What triggered**: Which rule, what event
 2. **What you investigated**: Which logs, which tools you used, what queries you ran
 3. **What you found**: The key evidence and context
 4. **Your determination**: TP/FP/BTP and why
 5. **Actions taken**: Alert closed, ticket created, escalated to X at Y time
-6. **Recommended tuning**: If FP, should the rule be tuned to exclude this pattern?
+6. **Recommended tuning**: If FP, should the rule's logic be fixed so it stops matching this pattern? If BTP, does it recur often enough to justify a narrow, owned exclusion (never a weaker rule)?
 
 Good documentation protects you, helps your colleagues understand past alerts, and builds the institutional knowledge that makes the whole SOC better over time.`,
     },

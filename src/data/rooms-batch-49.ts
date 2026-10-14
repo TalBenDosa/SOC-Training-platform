@@ -67,7 +67,7 @@
  * does not touch) -- the EDR-console hash-registry coupling documented for
  * source:"edr" scenario-pack payloads does not apply to standalone Room
  * task content. it_verify_result/it_verify_message (never a raw field) is
- * the sanctioned FP-resolution mechanism for the analyst_choice control
+ * the sanctioned benign-true-positive resolution mechanism for the analyst_choice control
  * case, exactly as used elsewhere on this platform. No raw field states a
  * conclusion (e.g. no invented "is_malicious" field) -- Signed/
  * SignatureStatus/Hashes are real, standard Sysmon Event ID 1 fields, and
@@ -538,8 +538,8 @@ export const roomsBatch49 = [
             "winlog.event_data.ParentCommandLine": "\"C:\\Windows\\CCM\\ccmexec.exe\""
           }
         },
-        "correct_verdict": "false_positive",
-        "explanation": "Every discriminator this room's readings name checks out as benign here: the DLL path sits inside C:\\Windows\\CCM\\, the known working directory of the organization's own SCCM deployment agent (ccmexec.exe), not an unfamiliar Temp or Downloads folder; the parent process is the SCCM client itself, a recognized software-deployment tool, exactly the kind of ancestry this room's readings describe as the routine, everyday case; and the command line names a real local DLL and a plausible function name, not a remote URL or script-protocol handler. The it_verify_message confirms a scheduled, ticketed deployment (CHG-88413) targeting this exact device during this exact time window.",
+        "correct_verdict": "benign_true_positive",
+        "explanation": "Every discriminator this room's readings name checks out as benign here: the DLL path sits inside C:\\Windows\\CCM\\, the known working directory of the organization's own SCCM deployment agent (ccmexec.exe), not an unfamiliar Temp or Downloads folder; the parent process is the SCCM client itself, a recognized software-deployment tool, exactly the kind of ancestry this room's readings describe as the routine, everyday case; and the command line names a real local DLL and a plausible function name, not a remote URL or script-protocol handler. The it_verify_message confirms a scheduled, ticketed deployment (CHG-88413) targeting this exact device during this exact time window. That makes this a benign true positive: the rule correctly caught a real rundll32 DLL execution, and change ticket CHG-88413 is the justification you cite when closing it. It is not a false positive, because nothing misfired, and that label would invite weakening a LOLBin rule that catches the malicious variant.",
         "fp_trap": "A student who has just worked through a malicious regsvr32.exe case with an unfamiliar-sounding function name is primed to treat any rundll32.exe or regsvr32.exe command line referencing a DLL and a named function as suspicious by pattern-matching on shape alone. That is exactly the overcorrection this room's detection reading warned about: the discriminator was never 'does this reference a DLL and a function' -- both benign and malicious cases do that identically. The discriminators are the path (a recognized deployment tool's own directory versus Temp/Downloads/an SMB share), the parent process (a known deployment agent versus explorer.exe or an Office application), and the absence of any remote URL or script-protocol argument -- all three of which resolve this case as benign.",
         "xp": 25
       },

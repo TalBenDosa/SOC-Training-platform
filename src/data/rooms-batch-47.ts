@@ -59,7 +59,7 @@
  * LogSource/EventType unions in src/lib/sim/types.ts. edr_scope:"non_edr" on
  * both events -- there is no EDR sensor on this segment, so no hashDatabase
  * dependency applies. it_verify_result/it_verify_message (never a raw field)
- * is the sanctioned FP-resolution mechanism for the analyst_choice control
+ * is the sanctioned benign-true-positive resolution mechanism for the analyst_choice control
  * case, exactly as used elsewhere in this platform's authored rooms.
  *
  * SOURCES consulted directly for this content:
@@ -390,8 +390,8 @@ const otIcsSecurityRoom = {
           "message": "Modbus WRITE_MULTIPLE_REGISTERS from 172.20.5.9 to 172.20.5.41 unit 1, 2 registers @40030."
         }
       },
-      "correct_verdict": "false_positive",
-      "explanation": "Every discriminator this room's readings name checks out as legitimate: the source, 172.20.5.9 (ENG-WS-02), sits inside Meridian's own 172.20.5.0/24 engineering range and is the plant's sole authorized engineering workstation for Line 4; the IT verification note shown with the alert confirms a documented, ticketed maintenance window (MAINT-2026-0819) for a quarterly setpoint recalibration, performed while the line was offline; and the timing (02:15, inside the approved 02:00-03:00 window) matches the ticket exactly. This is the legitimate write shape this room's protocol reading warned about: it produces the identical Modbus function code (WRITE_MULTIPLE_REGISTERS) as the unauthorized write to plc-dose-03 investigated earlier, and only the surrounding context -- not the function code itself -- tells them apart.",
+      "correct_verdict": "benign_true_positive",
+      "explanation": "Every discriminator this room's readings name checks out as legitimate: the source, 172.20.5.9 (ENG-WS-02), sits inside Meridian's own 172.20.5.0/24 engineering range and is the plant's sole authorized engineering workstation for Line 4; the IT verification note shown with the alert confirms a documented, ticketed maintenance window (MAINT-2026-0819) for a quarterly setpoint recalibration, performed while the line was offline; and the timing (02:15, inside the approved 02:00-03:00 window) matches the ticket exactly. This is the legitimate write shape this room's protocol reading warned about: it produces the identical Modbus function code (WRITE_MULTIPLE_REGISTERS) as the unauthorized write to plc-dose-03 investigated earlier, and only the surrounding context -- not the function code itself -- tells them apart. That makes this a benign true positive: the rule correctly caught real Modbus writes, and maintenance ticket MAINT-2026-0819 is the justification you cite when closing it. It is not a false positive, because nothing misfired, and that label would invite weakening the write detection that caught the plc-dose-03 attack.",
       "fp_trap": "A student who has just learned that writes are the decisive sign of T0855 is primed to escalate reflexively on seeing ANY write function code -- that is exactly the overcorrection this task exists to catch. This room's own protocol reading was explicit that a write function code alone never resolves the verdict on an authenticationless protocol; the source's identity, its membership in the sanctioned engineering range, and independent confirmation of a documented change ticket are what actually decide the case.",
       "xp": 25
     },

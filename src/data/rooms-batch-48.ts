@@ -54,7 +54,7 @@
  * scripts/log-field-registry.json. edr_scope:"non_edr" on both events --
  * this is control-plane identity telemetry with no host process, so no
  * hashDatabase dependency applies. it_verify_result/it_verify_message
- * (never a raw field) is the sanctioned FP-resolution mechanism for the
+ * (never a raw field) is the sanctioned benign-true-positive resolution mechanism for the
  * analyst_choice control case, exactly as used elsewhere on this platform.
  * No raw field states a conclusion (e.g. no invented "is_malicious" or
  * "verification_status" field) -- the only verdict-bearing signal is
@@ -474,8 +474,8 @@ export const roomsBatch48 = [
           "source.ip": "203.0.113.19"
         }
       },
-      "correct_verdict": "false_positive",
-      "explanation": "Every discriminator this room's readings name checks out here: d.nakamura ended the inbound call and independently called back the number already on file for m.alvarez in Solstice's own HR system -- never a number the caller supplied -- exactly the out-of-band verification this room's discriminator reading describes as the control that actually resolves these cases. The it_verify_message confirms the callback was completed and answered by the real m.alvarez before any action was taken, and the new device afterward is consistent with a legitimate replacement device, not an attacker's.",
+      "correct_verdict": "benign_true_positive",
+      "explanation": "Every discriminator this room's readings name checks out here: d.nakamura ended the inbound call and independently called back the number already on file for m.alvarez in Solstice's own HR system -- never a number the caller supplied -- exactly the out-of-band verification this room's discriminator reading describes as the control that actually resolves these cases. The it_verify_message confirms the callback was completed and answered by the real m.alvarez before any action was taken, and the new device afterward is consistent with a legitimate replacement device, not an attacker's. That makes it a benign true positive: the detection correctly caught a real admin password reset followed by a new-device sign-in, and the completed out-of-band callback is the justification; it is not a false positive, because calling it a misfire would invite weakening a detection built for exactly the MGM-style help desk attack.",
       "fp_trap": "A student who has just read about MGM, Caesars, and Retool, and has just worked through a case built on the same raw-field shape, is primed to escalate this reflexively because the surface pattern (admin reset, new device shortly after) looks identical. That is exactly the overcorrection this room's discriminator reading warned about by name: the raw audit fields alone never resolve a case, and here the documented out-of-band callback -- not the shape of the reset -- is what actually makes this legitimate.",
       "xp": 25
     },

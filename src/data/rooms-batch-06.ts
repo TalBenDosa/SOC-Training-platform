@@ -933,7 +933,8 @@ EDR alert timelines let you look at what happened before and after the alert. Di
 Based on your analysis:
 - **Clearly malicious with active threat**: Isolate the host immediately, kill the process, escalate.
 - **Suspicious but uncertain**: Escalate to senior analyst, collect forensic package, investigate further.
-- **False positive**: Document why and tune the detection rule if needed.
+- **Benign true positive** (the activity really happened and is authorized, e.g. an admin script under a change ticket): Close it citing that justification; at most add a narrow, owned exclusion, never a weaker rule.
+- **False positive** (the rule misfired on something it was not meant to catch): Document why and tune the detection rule if needed.
 
 **Common PowerShell Flags and Their Meaning**
 

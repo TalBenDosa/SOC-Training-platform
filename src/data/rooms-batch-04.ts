@@ -79,7 +79,7 @@ interface AnalystChoiceTask {
   heading: string;
   scenario: string;
   event: TelemetryEvent;
-  correct_verdict: "true_positive" | "false_positive" | "escalate" | "informational";
+  correct_verdict: "true_positive" | "benign_true_positive" | "false_positive" | "escalate" | "informational";
   explanation: string;
   fp_trap?: string;
   xp: number;
@@ -385,7 +385,7 @@ In summary: a log aggregator is a **storage and search engine**. A SIEM is a **d
           question:
             "What is the best immediate action for a SOC analyst upon seeing this alert?",
           options: [
-            "Close it as a false positive: admins routinely clear logs during maintenance",
+            "Close it as a benign true positive: admins routinely clear logs during maintenance",
             "Escalate to Tier 2 or IR: possible active compromise of a domain controller",
             "Wait for a second suspicious event on the DC before escalating",
             "Reset the svc-helpdesk02 password and close the ticket as remediated",
@@ -588,11 +588,13 @@ The MITRE ATT&CK framework is a knowledge base of adversary tactics and techniqu
       heading: "True Positives, False Positives, and Alert Fatigue",
       content: `Every SOC analyst deals with one of the hardest problems in security: distinguishing real attacks from innocent activity that merely *looks* suspicious. Getting this wrong in either direction has serious consequences.
 
-**The three alert outcomes:**
+**The four alert outcomes:**
 
 **True Positive (TP)**: The alert fired AND there really is a security incident. The detection is correct. This is the outcome you want. Example: The SIEM fires a "password spray" alert and investigation confirms an attacker from a Tor exit node was attempting to guess passwords. ✓ Correct detection.
 
-**False Positive (FP)**: The alert fired BUT there is no actual security incident. The detection is wrong. Example: The "password spray" alert fires because a developer accidentally ran a script that locked themselves out of 12 test accounts during load testing. The rule fired correctly based on the pattern, but the activity was benign.
+**Benign True Positive (BTP)**: The alert fired, the rule caught exactly the behavior it was written to catch, and that activity really happened, but it is authorized or expected, so there is no incident. Example: The "password spray" alert fires because a developer's load-test script locked out 12 test accounts during sanctioned load testing. The rule did its job correctly; the context (who ran it, why, under which approval) is what makes it benign. Close it citing that justification, and do not weaken the rule (at most, add a narrow, owned exception).
+
+**False Positive (FP)**: The alert fired BUT the rule misfired: it matched something it was never meant to catch, so the behavior it describes did not happen. Example: The "password spray" rule counts failures per source IP, and Monday-morning typos from 12 different employees all reach the domain controller through one shared office NAT address, so ordinary mistakes by 12 people look like one source spraying. No spray happened at all. The fix is to correct the rule's logic.
 
 **False Negative (FN)**: The alert did NOT fire but there WAS a real attack. These are the most dangerous outcome. You are being attacked and do not know it. Example: An attacker performs a "low and slow" password spray, trying only 2 attempts per account over 8 hours to stay below your threshold. The SIEM never alerts. The attack succeeds silently.
 
@@ -615,7 +617,7 @@ Studies have found that some large SOC environments generate thousands of alerts
 
 SIEM rules must be continuously **tuned** based on your specific environment:
 
-1. **Whitelist known-good activity**: if your vulnerability scanner runs every Monday morning and always triggers the port scan rule, add an exception for its IP address.
+1. **Whitelist known-good activity**: if your vulnerability scanner runs every Monday morning and always triggers the port scan rule, add an exception for its IP address. (Those scanner alerts are benign true positives, not false positives: the rule correctly sees a real scan, so the answer is a narrow, owned exception for that one approved scanner, not a weaker rule.)
 2. **Adjust thresholds**: if the "failed login" rule fires 200 times a day because of a service account with an expired password, raise the threshold or create an exception for that account.
 3. **Aggregate similar alerts**: group 50 related alerts into a single incident rather than showing them individually.
 4. **Risk-score entities**: prioritise alerts involving high-value targets (domain controllers, finance systems, CEO accounts) over low-value ones.
@@ -627,13 +629,13 @@ Good rule tuning is an ongoing process, not a one-time task. A mature SOC has a 
           "The password-spray rule fires on 12 failed logins. Investigation shows a developer's load-test script locked out 12 test accounts. The rule matched exactly the pattern it was written for. How should the alert be classified?",
         options: [
           "True Positive: the rule matched its pattern correctly",
-          "False Negative: the rule fired on the wrong activity",
-          "False Positive: the pattern matched but nothing malicious happened",
+          "False Positive: the rule misfired on activity it was not written to catch",
+          "Benign True Positive: the pattern really happened, but it was legitimate testing",
           "True Negative: no harm was done, so nothing was detected",
         ],
         answer: 2,
         explanation:
-          "A False Positive is an alert with no real security incident behind it, even when the rule did exactly what it was written to do. 'True Positive' judges the rule's logic instead of the outcome; a TP needs a real incident. A False Negative is the opposite failure: a real attack with no alert. A True Negative means no alert and no attack, but an alert did fire here.",
+          "This is a Benign True Positive: the rule did exactly what it was written to do on activity that really happened, but the activity was the developer's sanctioned load test, not an attack. 'True Positive' judges the rule's logic instead of the outcome; a TP needs a real incident. 'False Positive' is for a rule that misfired on something it was not meant to catch, which did not happen here, and that label would invite weakening a rule that works. A True Negative means no alert and no attack, but an alert did fire here.",
       },
     } satisfies ReadingTask,
 
@@ -734,14 +736,14 @@ Good rule tuning is an ongoing process, not a one-time task. A mature SOC has a 
       question:
         "A SOC team has a rule that fires every time a user downloads more than 50 MB in an hour from SharePoint. The rule fires 200 times per day, but after investigation, 190 of those are the automated backup service. What is the correct action?",
       options: [
-        "Delete the rule and rely on DLP alerts, since it produces mostly false positives",
+        "Delete the rule and rely on DLP alerts, since most of its alerts are benign",
         "Tune the rule: exclude the backup service account so it stops triggering",
         "Raise the rule's severity so analysts pay closer attention to real incidents",
         "Leave it unchanged and have analysts close the backup alerts each day",
       ],
       answer: 1,
       explanation:
-        "The correct response is rule tuning: add an exception for the known-good backup service account. This eliminates 190 false positives per day while keeping the rule active for all other accounts. Deleting the rule would create false negatives (real data exfiltration would go undetected). Raising the severity makes 190 known-benign alerts louder, not rarer. Leaving it unchanged keeps analysts closing the same backup alerts every day: the alert fatigue the reading warns about. Alert fatigue is solvable through tuning.",
+        "The correct response is rule tuning: add a narrow, owned exception for the known-good backup service account. Those 190 daily alerts are benign true positives (the rule correctly saw real large downloads, made by an authorized backup job), so the exception removes them while keeping the rule active for all other accounts. Deleting the rule would create false negatives (real data exfiltration would go undetected). Raising the severity makes 190 known-benign alerts louder, not rarer. Leaving it unchanged keeps analysts closing the same backup alerts every day: the alert fatigue the reading warns about. Alert fatigue is solvable through tuning.",
       xp: 20,
     } satisfies QuestionTask,
 
@@ -759,7 +761,7 @@ Good rule tuning is an ongoing process, not a one-time task. A mature SOC has a 
       ],
       answer: 2,
       explanation:
-        "This is a False Negative: the most dangerous outcome in security operations. A True Positive needs an alert to have fired, however the attack was later found. A False Positive is an alert with no real attack: the reverse case. 'The rule behaved as designed' does not make it a True Negative, because a real attack did happen. The attack was real, but the SIEM failed to detect it. False negatives occur when detection rules are too conservative, attacker techniques are unknown, or the attacker used legitimate credentials that mimic normal user behaviour. Reducing false negatives requires adding behavioural detection rules (UEBA) on top of signature-based rules.",
+        "This is a False Negative: the most dangerous outcome in security operations. A True Positive needs an alert to have fired, however the attack was later found. A False Positive is an alert that fired with no real attack behind it because the rule misfired: the reverse case. 'The rule behaved as designed' does not make it a True Negative, because a real attack did happen. The attack was real, but the SIEM failed to detect it. False negatives occur when detection rules are too conservative, attacker techniques are unknown, or the attacker used legitimate credentials that mimic normal user behaviour. Reducing false negatives requires adding behavioural detection rules (UEBA) on top of signature-based rules.",
       xp: 20,
     } satisfies QuestionTask,
 
@@ -1723,11 +1725,11 @@ Workbooks are Sentinel's built-in dashboards, built on Azure Monitor Workbooks. 
           "ExtendedProperties.AffectedComputerCount": "14",
         },
       } satisfies TelemetryEvent,
-      correct_verdict: "false_positive",
+      correct_verdict: "benign_true_positive",
       explanation:
-        "The raw numbers here (260 failures, 14 distinct accounts, one source IP, all network logons (LogonType 3)) are exactly the statistical shape this room's KQL reading taught you to build a password-spray detection around (summarize FailureCount, DistinctAccounts by IpAddress). But 10.30.8.14 is an internal, allocated address belonging to the organisation's own vulnerability scanner, not an unrecognised external host, and IT verification directly confirms a scheduled, approved authenticated scan covering this exact time window. Authenticated vulnerability scanners deliberately attempt logons with lists of credentials to test password-policy compliance, producing a near-identical statistical fingerprint to a real password spray. With source ownership and change-ticket confirmation both checked, this is expected internal scanning activity, not an attack.",
+        "The raw numbers here (260 failures, 14 distinct accounts, one source IP, all network logons (LogonType 3)) are exactly the statistical shape this room's KQL reading taught you to build a password-spray detection around (summarize FailureCount, DistinctAccounts by IpAddress), and the rule did its job: these 260 failures really happened, from one source, across many accounts. But 10.30.8.14 is an internal, allocated address belonging to the organisation's own vulnerability scanner, not an unrecognised external host, and IT verification directly confirms a scheduled, approved authenticated scan covering this exact time window. Authenticated vulnerability scanners deliberately attempt logons with lists of credentials to test password-policy compliance, producing a near-identical statistical fingerprint to a real password spray. With source ownership and change-ticket confirmation both checked, this is a benign true positive: the detection fired correctly on real activity, and the approved scan window is the justification you cite when closing it. It is not a false positive, because nothing misfired, and that label would invite weakening a spray rule that works; at most, add a narrow, owned exclusion for the scanner during its approved window.",
       fp_trap:
-        "This alert is a textbook case of a detection rule correctly matching its pattern while still being a false positive, because the rule only measures shape (many accounts, one source, many failures) and cannot see intent. Declaring 'true positive' the moment the numbers match the taught query, without checking whether the source IP belongs to a known internal scanner and whether a change record explains it. Is exactly the alert-fatigue trap that erodes trust in a detection program. If 10.30.8.14 had instead been an external or unrecognised IP with no matching change ticket, the correct verdict would be true_positive or escalate.",
+        "This alert is a textbook benign true positive: the detection rule correctly matched its pattern on real activity, but the rule only measures shape (many accounts, one source, many failures) and cannot see intent or authorization. Declaring 'true positive' the moment the numbers match the taught query, without checking whether the source IP belongs to a known internal scanner and whether a change record explains it, is exactly the alert-fatigue trap that erodes trust in a detection program. If 10.30.8.14 had instead been an external or unrecognised IP with no matching change ticket, the correct verdict would be true_positive or escalate.",
       xp: 30,
     } satisfies AnalystChoiceTask,
   ],

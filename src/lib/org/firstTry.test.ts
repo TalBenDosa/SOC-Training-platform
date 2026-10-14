@@ -47,7 +47,7 @@ describe("a readable mistake", () => {
     const m = describeMistake(task, item);
     expect(m.prompt).toContain("Scheduled Task");
     expect(m.chosen).toBe("True positive");
-    expect(m.correct).toBe("False positive");
+    expect(m.correct).toBe("Benign true positive");
     expect(m.explanation).toMatch(/Decode it first/);
   });
 

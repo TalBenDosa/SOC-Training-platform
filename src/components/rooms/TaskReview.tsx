@@ -208,7 +208,7 @@ export function TaskReview({ task, record, earnedXp, maxXp, prevLogEvent }: Task
             <p className="text-sm text-slate-300 leading-relaxed">{task.scenario}</p>
           </div>
           <ReadOnlyEventCard event={task.event} />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 [&>*:last-child:nth-child(odd)]:col-span-2">
             {ANALYST_VERDICTS.map(v => {
               const isAnswer = rev?.correctVerdict === v.key;
               const isMine = rev?.selected === v.key;

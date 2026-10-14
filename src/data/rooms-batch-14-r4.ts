@@ -525,7 +525,7 @@ const dlpRoom = {
     {
       type: "analyst_choice" as const,
       id: "dlp-ac1",
-      heading: "Verdict: PCI Data Leak or False Positive?",
+      heading: "Verdict: A Credit Card Match in a Procurement Spreadsheet",
       scenario:
         "k.nassar@nexacorp.com, a procurement coordinator, sent a purchase-order reconciliation spreadsheet to procurement@logisticspartner-co.com: a known, existing business partner the company has worked with for three years. Microsoft Purview's DLP flagged the email as a possible Credit Card Number match: 18 instances at 62% confidence, all appearing in a column of 16-digit numbers. The action taken was 'Allowed - Alert Only' since the policy is currently in audit mode for this rule. What is your verdict?",
       event: dlpFpEvent,

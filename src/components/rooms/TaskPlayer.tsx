@@ -1157,7 +1157,10 @@ export function ReadOnlyEventCard({ event }: { event: TelemetryEvent }) {
 // ─── Analyst Choice Task ─────────────────────────────────────────────────────────
 export const ANALYST_VERDICTS = [
   { key: "true_positive",  label: "True Positive",   desc: "Real threat — take action now",   activeClass: "border-red-500/70 bg-red-500/15 text-red-300"          },
-  { key: "false_positive", label: "False Positive",  desc: "Benign — close this alert",       activeClass: "border-neon-green/70 bg-neon-green/15 text-neon-green"  },
+  // A rule that caught exactly what it targets, on activity that is real but authorized, is a
+  // benign true positive, not a false positive (the lessons teach the two apart).
+  { key: "benign_true_positive", label: "Benign True Positive", desc: "Real activity, but authorized: close with the justification", activeClass: "border-cyber-500/70 bg-cyber-500/15 text-cyber-300" },
+  { key: "false_positive", label: "False Positive",  desc: "The rule misfired: close it and tune the rule", activeClass: "border-neon-green/70 bg-neon-green/15 text-neon-green"  },
   { key: "escalate",       label: "Escalate to T2",  desc: "Needs senior analyst review",     activeClass: "border-neon-amber/70 bg-neon-amber/15 text-neon-amber"  },
   { key: "informational",  label: "Informational",   desc: "Log and monitor — no action",     activeClass: "border-slate-500/70 bg-slate-500/15 text-slate-300"     },
 ] as const;
@@ -1247,7 +1250,7 @@ function AnalystChoicePlayer({ roomId, task, onComplete, isCompleted, onRecord }
 
       <div className="space-y-3">
         <p id={verdictLabelId} className="text-sm font-semibold text-slate-200">What is your verdict on this alert?</p>
-        <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-labelledby={verdictLabelId} onKeyDown={onRadioGroupKeyDown}>
+        <div className="grid grid-cols-2 gap-3 [&>*:last-child:nth-child(odd)]:col-span-2" role="radiogroup" aria-labelledby={verdictLabelId} onKeyDown={onRadioGroupKeyDown}>
           {VERDICTS.map((v, vi) => {
             const isSel = selected === v.key;
             const isRight = revealed && v.key === correctVerdict;

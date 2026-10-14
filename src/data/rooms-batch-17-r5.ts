@@ -568,7 +568,7 @@ const emailRoom = {
       ],
     },
 
-    // ── Analyst Choice: legitimate mailing-list DKIM-fail forward FP trap ────
+    // ── Analyst Choice: legitimate mailing-list DKIM-fail benign true positive ────
     {
       type: "analyst_choice" as const,
       id: "email-ac1",
@@ -598,11 +598,11 @@ const emailRoom = {
           list_id: "eng-news.solvix.com",
         },
       },
-      correct_verdict: "false_positive",
+      correct_verdict: "benign_true_positive",
       explanation:
-        "The headers show an ordinary mailing-list modification, the benign DKIM-failure cause from Readings 5 and 6: the list_id (eng-news.solvix.com) and the “[Eng-News]” Subject tag show the message was redistributed by a list, and the failure reason is “body hash did not verify”, the list's added footer changed the signed body. The envelope sender, header From and DMARC alignment are all solvix.com (no lookalike or external domain), DMARC still passes on aligned SPF, the ARC-Authentication-Results written by mx-list.solvix.com record spf=pass, dkim=pass, dmarc=pass before the list's modification, and IT confirms the list has operated for 3 years with this exact tag-and-footer behaviour.",
+        "This is a benign true positive. The headers show an ordinary mailing-list modification, the benign DKIM-failure cause from Readings 5 and 6: the list_id (eng-news.solvix.com) and the “[Eng-News]” Subject tag show the message was redistributed by a list, and the failure reason is “body hash did not verify”, the list's added footer changed the signed body. The envelope sender, header From and DMARC alignment are all solvix.com (no lookalike or external domain), DMARC still passes on aligned SPF, the ARC-Authentication-Results written by mx-list.solvix.com record spf=pass, dkim=pass, dmarc=pass before the list's modification, and IT confirms the list has operated for 3 years with this exact tag-and-footer behaviour. The DKIM check fired correctly (the signed body really was altered), but the alteration is the list's own authorized footer, so close it citing the IT-confirmed list; it is not a false positive, and calling it one invites weakening DKIM-failure alerting rather than adding a narrow, owned exclusion for this list.",
       fp_trap:
-        "'DKIM: fail' can look alarming on its own, especially right after learning how central DKIM is to verifying message integrity, but Reading 5 was explicit that mailing-list and forwarding modifications are a common, benign cause of exactly this failure pattern, and this scenario is a clean example: internal sender, internal list, ARC headers confirming the original message's authentication was clean, and IT-confirmed legitimate list history. Escalating every DKIM failure without checking whether ARC headers explain it, or whether the actual envelope/header domains are internal and legitimate, would generate constant noise from an organization's own routine mailing-list traffic: exactly the kind of false-positive pattern that erodes trust in a detection program.",
+        "'DKIM: fail' can look alarming on its own, especially right after learning how central DKIM is to verifying message integrity, but Reading 5 was explicit that mailing-list and forwarding modifications are a common, benign cause of exactly this failure pattern, and this scenario is a clean example: internal sender, internal list, ARC headers confirming the original message's authentication was clean, and IT-confirmed legitimate list history. Escalating every DKIM failure without checking whether ARC headers explain it, or whether the actual envelope/header domains are internal and legitimate, would generate constant noise from an organization's own routine mailing-list traffic: exactly the kind of benign, expected alert volume that erodes trust in a detection program.",
       xp: 30,
     },
 

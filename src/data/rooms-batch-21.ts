@@ -354,7 +354,7 @@ const logEntryAnatomyRoom: Room = {
           "Severity is a rating the vendor assigned to a category of event, not an objective measurement of this occurrence's real impact -- two 'criticals' from two products, or against two very different targets, can mean very different things in practice.",
       },
     },
-    // ----- Analyst choice (false positive) -----------------------------------------
+    // ----- Analyst choice (benign true positive) -----------------------------------------
     {
       type: "analyst_choice",
       id: "loganat-ac1",
@@ -362,9 +362,9 @@ const logEntryAnatomyRoom: Room = {
       scenario:
         "A detection dashboard escalates any FortiGate IPS event with level=critical for immediate review. Review the event below alongside the change-ticket note attached to it.",
       event: fortigateIpsEvent,
-      correct_verdict: "false_positive",
+      correct_verdict: "benign_true_positive",
       explanation:
-        "The signature genuinely matched: attack=SQL.Injection.Generic and action=detected are real, factual fields, not fabricated. But level=critical is the vendor's static rating for this signature family, not an assessment of this specific occurrence's actual risk. The source, 10.20.1.50, is the organisation's own authorised vulnerability scanner, running inside its documented monthly scan window, confirmed by a change ticket. Severity tells you how the vendor classified the pattern in general; it does not tell you whether this particular event is a real attack: that only comes from checking the context underneath it, exactly as Reading 7 taught.",
+        "The signature genuinely matched: attack=SQL.Injection.Generic and action=detected are real, factual fields, not fabricated. But level=critical is the vendor's static rating for this signature family, not an assessment of this specific occurrence's actual risk. The source, 10.20.1.50, is the organisation's own authorised vulnerability scanner, running inside its documented monthly scan window, confirmed by a change ticket. Severity tells you how the vendor classified the pattern in general; it does not tell you whether this particular event is a real attack: that only comes from checking the context underneath it, exactly as Reading 7 taught. Here that context makes it a benign true positive: the signature fired correctly on real SQL injection payloads, sent by an authorised scanner inside its change-ticketed window. Close it citing that ticket; it is not a false positive, because the signature did not misfire, and calling it one would invite tuning out a signature that works.",
       fp_trap:
         "level=critical paired with attack=SQL.Injection.Generic against a host named SRV-DB07 naturally reads as an active attack against a database server, and a student trained to escalate every 'critical' would fire this straight to incident response. But severity in a vendor log describes the signature's default classification, not the specific event's real-world risk. That only comes from context: is the source authorised, is this a known scan window, does IT verification confirm it. Skipping the source and context check and escalating on severity alone is exactly the over-alerting trap Reading 7 warns about.",
       xp: 25,
@@ -730,7 +730,7 @@ const identityBasicsRoom: Room = {
           "FIDO2/WebAuthn ties the cryptographic challenge to the legitimate domain itself, so a proxy sitting in front of a fake login page cannot get a valid response relayed through it -- SMS and TOTP have no such binding and can still be phished in real time. A security key does not produce a short-lived code for the user to type, so code expiry is not where its protection comes from. A physical tap proves someone is present, but a user on a convincing fake page taps just as readily, Reading 6 stresses that the protection is in the protocol, not in fooling the human less. And a security key is something you have, not something you are.",
       },
     },
-    // ----- Analyst choice (false positive) --------------------------------------------------
+    // ----- Analyst choice (benign true positive) --------------------------------------------------
     {
       type: "analyst_choice",
       id: "idbasics-ac1",
@@ -738,9 +738,9 @@ const identityBasicsRoom: Room = {
       scenario:
         "An MFA-fatigue detection rule fires on any account receiving three or more push challenges within five minutes. Asset records show 10.44.8.12 is the replacement laptop issued to l.marsh this morning. Review the event below alongside the IT verification note attached to it.",
       event: oktaPushEvent,
-      correct_verdict: "false_positive",
+      correct_verdict: "benign_true_positive",
       explanation:
-        "Multiple push prompts followed by one approval is the textbook shape of an MFA-fatigue attack described in Reading 6, and this alert is right to flag it for review. But in a fatigue attack the sign-in attempts come from the attacker's device, and here they come from the laptop issued to l.marsh this morning, while the helpdesk note records her own call explaining that she retried a timing-out sign-in on that laptop several times before approving the last prompt. An internal address alone would not settle it (an attacker on the VPN can look internal too) but her assigned device plus her own confirmation does. The pattern matched the detection rule correctly; the context confirms this occurrence is the user's own repeated sign-ins, not an attacker wearing her down.",
+        "Multiple push prompts followed by one approval is the textbook shape of an MFA-fatigue attack described in Reading 6, and this alert is right to flag it for review. But in a fatigue attack the sign-in attempts come from the attacker's device, and here they come from the laptop issued to l.marsh this morning, while the helpdesk note records her own call explaining that she retried a timing-out sign-in on that laptop several times before approving the last prompt. An internal address alone would not settle it (an attacker on the VPN can look internal too) but her assigned device plus her own confirmation does. The pattern matched the detection rule correctly; the context confirms this occurrence is the user's own repeated sign-ins, not an attacker wearing her down. That makes it a benign true positive, closed citing her assigned device and the helpdesk note; it is not a false positive, because the rule correctly counted real push challenges, and calling it a misfire would invite weakening an MFA-fatigue rule that worked.",
       fp_trap:
         "A burst of pushes followed by one approval is exactly the shape Reading 6 taught as MFA fatigue, which makes this tempting to escalate as a confirmed attack on sight. But the push count alone doesn't distinguish an attacker triggering prompts from a user who keeps retrying her own sign-in, the deciding factor is context: whose device started the sign-ins, and whether the user herself confirms them. Escalating every multi-push event without checking that first floods the queue with users' own retries.",
       xp: 25,

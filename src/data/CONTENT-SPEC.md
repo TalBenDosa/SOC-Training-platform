@@ -121,6 +121,11 @@ fields. It must contain **observations, never conclusions**:
   Do not put the answer in the log and then ask for it.
 - Include false positives. A room where every artefact is malicious teaches
   students to escalate everything, which is the failure mode real SOCs have.
-  Use `analyst_choice` with `correct_verdict: "false_positive"` and an
-  `fp_trap` explaining what makes it look bad.
+  Use `analyst_choice` with an `fp_trap` explaining what makes it look bad, and
+  pick the verdict the lessons teach: `"false_positive"` only when the rule
+  misfired (the activity is not what the rule targets), and
+  `"benign_true_positive"` when the rule caught exactly its behavior on real
+  activity that is authorized (approved pentest, scheduled scanner, ticketed
+  admin work). Calling the second one a false positive invites weakening a
+  working rule.
 - Tone is encouraging and concrete. Explain the *why*, not just the *what*.

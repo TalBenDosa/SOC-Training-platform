@@ -5768,7 +5768,7 @@ export const ROOMS_META: RoomMeta[] = [
   {
     "id": "security-products-behaviour",
     "title": "Security Products: What Each One Sees and What It Does",
-    "description": "Every alert you triage was produced by a specific product sitting in a specific place, and that placement decides what it could possibly have seen. This room walks antivirus, EDR/XDR, NGFW, IDS, IPS, WAF, secure web gateway, email security gateway, NDR, DLP, identity protection/CASB, vulnerability scanners, SIEM and SOAR through one repeated lens: where it sits, what it sees and cannot see, a real log line, what it does when it detects something, and its characteristic false positive. You will finish able to say, for any alert, which product made it and what it structurally could never have caught.",
+    "description": "Every alert you triage was produced by a specific product sitting in a specific place, and that placement decides what it could possibly have seen. This room walks antivirus, EDR/XDR, NGFW, IDS, IPS, WAF, secure web gateway, email security gateway, NDR, DLP, identity protection/CASB, vulnerability scanners, SIEM and SOAR through one repeated lens: where it sits, what it sees and cannot see, a real log line, what it does when it detects something, and its characteristic false positive or benign true positive. You will finish able to say, for any alert, which product made it and what it structurally could never have caught.",
     "difficulty": "beginner",
     "category": "Foundations",
     "estimatedMinutes": 65,

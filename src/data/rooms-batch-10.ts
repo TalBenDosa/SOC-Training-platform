@@ -512,7 +512,7 @@ const rooms = [
         },
         correct_verdict: "escalate",
         explanation: "Escalation to Tier 2 is the correct action. The evidence is ambiguous: MFA was successfully completed (which means the attacker either has the MFA token, or this IS the real user). Thailand is a common holiday destination. The user has a clean 4-year history. But no travel request was filed and this is a Monday morning login. Possibly the first workday of a vacation. Without contacting the user or their manager to confirm travel, you cannot make a TP/FP decision. A Tier-2 analyst should call the user directly, check badge access to the London office, and review what resources were accessed during the VPN session.",
-        fp_trap: "MFA was successfully completed: many analysts close this as false positive because 'if the user approved MFA, it must be them'. But the log shows a TOTP code, and a TOTP code can still be stolen: a real-time phishing page can relay the six digits as the user types them, and a stolen TOTP seed generates valid codes on the attacker's device. More importantly, the right process is to verify, not assume. The absence of a travel request is a meaningful gap that requires confirmation.",
+        fp_trap: "MFA was successfully completed: many analysts close this as a benign true positive because 'if the user approved MFA, it must be them'. But the log shows a TOTP code, and a TOTP code can still be stolen: a real-time phishing page can relay the six digits as the user types them, and a stolen TOTP seed generates valid codes on the attacker's device. More importantly, the right process is to verify, not assume. The absence of a travel request is a meaningful gap that requires confirmation.",
         xp: 30,
       },
 

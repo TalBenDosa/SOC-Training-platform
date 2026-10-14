@@ -88,7 +88,7 @@ const cloudDescribeEvent: TelemetryEvent = {
   },
 };
 
-// Analyst-choice control case: the FP a broad "any domain enumeration
+// Analyst-choice control case: the benign true positive a broad "any domain enumeration
 // command" rule guarantees -- a two-year-old, IT-confirmed nightly audit
 // script, unrelated to any incident.
 const nightlyAuditEvent: TelemetryEvent = {
@@ -163,7 +163,7 @@ const discoveryEnumerationRoom = {
       content:
         "Every named attack this platform teaches -- a Kerberoasting run, a DCSync, a ransomware deployment, an AWS account takeover -- assumes the attacker already knows something about the environment: which accounts have SPNs, which account holds replication rights, which S3 bucket is worth stealing. That knowledge doesn't appear by magic. MITRE ATT&CK calls the phase that produces it **Discovery** (tactic **TA0007**), and describes its purpose in one sentence: \"the adversary is trying to figure out your environment.\" It sits right after Initial Access and Execution in almost every real intrusion, because an attacker who has just landed genuinely does not know what they are looking at -- is this a developer laptop or a domain controller, does this stolen account have any real privilege, which of a thousand cloud resources actually matters.\n\n" +
         "Discovery is one of the most universally practised tactics in the whole framework, and one of the least explicitly taught, for a specific reason: almost every command that performs it -- whoami, net user, an AWS DescribeInstances call -- is a completely ordinary, built-in feature that legitimate IT staff and automation run constantly. There is no single malicious-looking \"discovery virus.\" There is only a PATTERN that separates an attacker's reconnaissance sweep from a Tuesday-afternoon helpdesk script.\n\n" +
-        "This room builds that pattern-recognition skill layer by layer: what an attacker checks the moment they land on one host, how enumeration scales up to a whole Windows domain, the cloud-native version of the same questions asked through API calls, the point where \"looking\" becomes \"taking\" via network shares, and the detection discipline -- baselining, volume, false-positive judgment -- that applies identically across every layer.",
+        "This room builds that pattern-recognition skill layer by layer: what an attacker checks the moment they land on one host, how enumeration scales up to a whole Windows domain, the cloud-native version of the same questions asked through API calls, the point where \"looking\" becomes \"taking\" via network shares, and the detection discipline -- baselining, volume, benign-versus-malicious judgment -- that applies identically across every layer.",
       checkpoint: {
         question: "Why is Discovery one of the hardest ATT&CK tactics to build a reliable detection rule for?",
         options: [
@@ -441,11 +441,11 @@ const discoveryEnumerationRoom = {
     {
       type: "reading" as const,
       id: "disc-r7",
-      heading: "Detecting Discovery Like an Analyst: Baselining, Velocity, and the False-Positive Problem",
+      heading: "Detecting Discovery Like an Analyst: Baselining, Velocity, and the Benign-True-Positive Problem",
       content:
         "Every reading above has pointed at the same underlying principle from a different angle. This reading makes it explicit: a single discovery-shaped event is baseline noise; a pattern is the signature.\n\n" +
         "Three questions turn noise into signal. (1) **Is this identity or host EXPECTED to do this?** A helpdesk service account running net user /domain at 3 AM as part of a nightly audit script is baseline -- IT can confirm the scheduled task that owns it. The identical command from a marketing laptop, once, is not expected. (2) **Is the VOLUME and BREADTH consistent with a human, an automated tool, or an attacker's sweep?** A person manually checking a handful of accounts touches a handful of objects over minutes. A legitimate inventory tool touches everything, on a fixed schedule, from a documented service identity. An attacker's enumeration tool touches dozens-to-thousands of objects in a tight burst, from an identity with no scheduled reason to do so. (3) **Does this activity correlate with something else in the timeline?** Discovery almost never IS the incident by itself -- it's the leading indicator. Did it follow a phishing click or an anomalous sign-in? Is it followed by Lateral Movement, Privilege Escalation, or Collection?\n\n" +
-        "Discovery generates more false positives than almost any other tactic, because so much of the SOC's own tooling performs it as its actual job: vulnerability scanners (Nessus, Qualys, Rapid7) run port/service scans across the entire IP range -- literally T1046's signature, on purpose, on schedule. RMM/asset-management tools (SCCM, Intune) enumerate installed software, local groups, and logged-on users across every managed endpoint. Infrastructure-as-code tools (Terraform, CloudFormation) run Describe*/List* sweeps on every apply to detect drift -- exactly T1580's signature. Backup software enumerates network shares to know what to back up -- exactly T1135's signature. IT helpdesk scripts run nightly domain account audits.\n\n" +
+        "Discovery generates more benign true positives than almost any other tactic: alerts where the rule correctly sees real discovery activity that is authorized, which is different from a false positive, where the rule misfires on something it was not meant to catch. It happens because so much of the SOC's own tooling performs discovery as its actual job: vulnerability scanners (Nessus, Qualys, Rapid7) run port/service scans across the entire IP range -- literally T1046's signature, on purpose, on schedule. RMM/asset-management tools (SCCM, Intune) enumerate installed software, local groups, and logged-on users across every managed endpoint. Infrastructure-as-code tools (Terraform, CloudFormation) run Describe*/List* sweeps on every apply to detect drift -- exactly T1580's signature. Backup software enumerates network shares to know what to back up -- exactly T1135's signature. IT helpdesk scripts run nightly domain account audits.\n\n" +
         "None of these are edge cases -- they are the majority of the volume a real discovery-focused rule will fire on. The professional discipline is maintaining an allowlist of the specific accounts, hosts, and schedules authorized to generate this traffic, and alerting on everything OUTSIDE that allowlist rather than on the raw pattern alone.",
       diagram:
         "flowchart TD\n" +
@@ -466,7 +466,7 @@ const discoveryEnumerationRoom = {
           "Because ATT&CK classifies by who acted, so authorised tools' activity falls outside the Discovery tactic entirely",
         ],
         answer: 1,
-        explanation: "This is the practical weight of the false-positive problem: legitimate scanning, audit and IaC tools generate the bulk of discovery-shaped telemetry, so an accurate allowlist of authorised accounts, hosts and schedules is what makes the detection usable rather than a flood of tickets. “A compromised scanner … deserves top-priority alerts” confuses asset value with alert volume; the reading's point is that the tools' routine runs are the noise. “Only alert when admin groups are targeted” is the wrong fix. Attackers target exactly those groups too, and legitimate audits read them nightly, so narrowing by target does not separate the two; the allowlist of who and when does. “ATT&CK classifies by who acted” is wrong: techniques are classified by behaviour, which is exactly why authorised tools look identical to attackers.",
+        explanation: "This is the practical weight of the benign-true-positive problem: legitimate scanning, audit and IaC tools generate the bulk of discovery-shaped telemetry, so an accurate allowlist of authorised accounts, hosts and schedules is what makes the detection usable rather than a flood of tickets. “A compromised scanner … deserves top-priority alerts” confuses asset value with alert volume; the reading's point is that the tools' routine runs are the noise. “Only alert when admin groups are targeted” is the wrong fix. Attackers target exactly those groups too, and legitimate audits read them nightly, so narrowing by target does not separate the two; the allowlist of who and when does. “ATT&CK classifies by who acted” is wrong: techniques are classified by behaviour, which is exactly why authorised tools look identical to attackers.",
       },
       xp: 5,
     },
@@ -489,7 +489,7 @@ const discoveryEnumerationRoom = {
       xp: 20,
     },
 
-    // ── Analyst choice: FP control case ──────────────────────────────────────
+    // ── Analyst choice: benign true positive control case ──────────────────────────────────────
     {
       type: "analyst_choice" as const,
       id: "disc-ac1",
@@ -497,9 +497,9 @@ const discoveryEnumerationRoom = {
       scenario:
         "An alert fires for 'domain account enumeration command executed' on SRV-ITAUDIT01. The rule watches for any net user /domain or Get-ADUser execution anywhere in the environment, with no allowlist. Review the process event and the IT verification note, and apply the room's three detection questions before you decide.",
       event: nightlyAuditEvent,
-      correct_verdict: "false_positive",
+      correct_verdict: "benign_true_positive",
       explanation:
-        "This is the allowlist principle from the detection-discipline reading applied directly: a scheduled, IT-confirmed nightly audit script, from a service account with no interactive logon capability, running from the one server it always runs from, at the time it always runs. There is no volume anomaly, no unexpected source, and IT verification confirms the scheduled task by name. This is the control case -- a real domain-enumeration command that is not an attack.",
+        "This is the allowlist principle from the detection-discipline reading applied directly: a scheduled, IT-confirmed nightly audit script, from a service account with no interactive logon capability, running from the one server it always runs from, at the time it always runs. There is no volume anomaly, no unexpected source, and IT verification confirms the scheduled task by name. This is the control case -- a real domain-enumeration command that is not an attack. That makes it a benign true positive: the rule correctly caught a real net user /domain execution, and the IT-confirmed scheduled task is the justification; it is not a false positive, because calling it a misfire would invite weakening the rule instead of adding a narrow, owned allowlist entry for this one task.",
       fp_trap:
         "The alert rule fires on ANY execution of this command anywhere in the environment, with no allowlist for the very source this room's detection-discipline reading names explicitly -- a scheduled, IT-confirmed nightly audit script. Escalating this without checking source, schedule, and IT verification is the textbook mistake this room is built to correct.",
       xp: 20,

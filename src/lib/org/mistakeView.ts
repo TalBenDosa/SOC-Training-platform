@@ -45,7 +45,7 @@ export interface MistakeGroup {
 }
 
 const VERDICT: Record<string, string> = {
-  true_positive: "True positive", false_positive: "False positive", escalate: "Escalate", informational: "Informational",
+  true_positive: "True positive", benign_true_positive: "Benign true positive", false_positive: "False positive", escalate: "Escalate", informational: "Informational",
 };
 const cut = (s: unknown, n = 400): string | null => {
   if (s === undefined || s === null || s === "") return null;

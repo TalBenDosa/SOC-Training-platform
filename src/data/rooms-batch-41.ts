@@ -20,7 +20,7 @@ import type { TelemetryEvent } from "@/lib/sim/types";
 // ROOM — MFA Attacks & Session/Token Theft
 // ===========================================================================
 
-// A single accidental push denial, immediately corrected — the false-positive
+// A single accidental push denial, immediately corrected: the benign-true-positive
 // control case for the fatigue-detection readings.
 const singleDeniedPushEvent: TelemetryEvent = {
   id: "evt-mfast-ac1-001",
@@ -251,8 +251,8 @@ const mfaSessionTokenAttacksRoom = {
         "Both Microsoft (Entra ID / Microsoft Authenticator) and Okta ship **number matching**: instead of a simple Approve/Deny button, the sign-in screen shows a two-digit number that the user must type into the Authenticator app to complete the login. This closes the reflex-tap failure mode directly: an exhausted user tapping 'Approve' out of habit can no longer succeed by accident, because completing the login now requires reading a number off a separate screen and actively typing it. Microsoft made number matching mandatory tenant-wide after widespread fatigue-attack abuse; Okta's equivalent, delivered through Okta Verify, is called Number Challenge.\n\n" +
         "### The limit to remember (this comes back later in the room)\n\n" +
         "Number matching stops fatigue specifically. It does **not** stop a reverse-proxy phishing kit that simply relays the real number to the victim in real time, and it does nothing against a stolen session cookie, where no new authentication, and no push at all, ever happens.\n\n" +
-        "### False-positive discipline\n\n" +
-        "A single denied push is common and usually benign: a phone buzzed in a pocket, or a reflex tap before recognizing the login attempt. **Never escalate on one denial alone.** Escalate on the pattern.",
+        "### Benign-denial discipline\n\n" +
+        "A single denied push is common and usually benign: a phone buzzed in a pocket, or a reflex tap before recognizing the login attempt. When a denial rule fires on one of these, it is a benign true positive, not a false positive: the denial really happened and the rule caught it correctly; the harmless explanation is what lets you close it. **Never escalate on one denial alone.** Escalate on the pattern.",
       checkpoint: {
         question: "An org has fully deployed Okta Number Challenge. What is NOT protected by this control alone?",
         options: [
@@ -322,7 +322,7 @@ const mfaSessionTokenAttacksRoom = {
       xp: 5,
     },
 
-    // ── Analyst choice 1: single accidental deny (FP control) ───────────────
+    // ── Analyst choice 1: single accidental deny (benign true positive control) ───────────────
     {
       type: "analyst_choice" as const,
       id: "mfast-ac1",
@@ -330,9 +330,9 @@ const mfaSessionTokenAttacksRoom = {
       scenario:
         "An alert fires on a single denied Okta Verify push for r.aldana, Senior Claims Adjuster at Castellan Risk Partners. The alert rule watches for any MFA denial. Checking the account's recent history shows only this one denial, followed 41 seconds later by an approved push from the same IP address and the same registered device, at a normal mid-morning hour local to the user.",
       event: singleDeniedPushEvent,
-      correct_verdict: "false_positive",
+      correct_verdict: "benign_true_positive",
       explanation:
-        "This is exactly the pattern the fatigue-detection reading warned against escalating on reflex: ONE denial, immediately followed by a correct approval, from the same IP and the same registered device, at a normal working hour. There is no burst, no off-hours timing, and no geographic mismatch -- none of the signature elements of push bombing are present. IT verification confirms a mundane cause (a notification mix-up). This is the control case: a real MFA denial event that is not an attack.",
+        "This is exactly the pattern the fatigue-detection reading warned against escalating on reflex: ONE denial, immediately followed by a correct approval, from the same IP and the same registered device, at a normal working hour. There is no burst, no off-hours timing, and no geographic mismatch -- none of the signature elements of push bombing are present. IT verification confirms a mundane cause (a notification mix-up). This is the control case: a real MFA denial event that is not an attack. In verdict terms it is a benign true positive: the rule correctly caught a real denial, and the IT-confirmed notification mix-up is the justification you cite when closing it. It is not a false positive, because the rule did not misfire, and that label would invite switching off the denial signal that push-bombing detection is built on.",
       fp_trap:
         "The alert rule that fired here watches for ANY denial, which is exactly the kind of overly broad rule that trains analysts to escalate reflexively. A single denial immediately corrected by the same device and network is common, ordinary user behavior -- treating it as a true positive without checking for the burst pattern (multiple denials, then acceptance, from a mismatched source) is the mistake this task is built to catch.",
       xp: 20,

@@ -570,7 +570,7 @@ const tlsRoom = {
       ],
     },
 
-    // ── Analyst Choice: internal self-signed appliance FP trap ──────────────
+    // ── Analyst Choice: internal self-signed appliance benign true positive ──────────────
     {
       type: "analyst_choice" as const,
       id: "tls-ac1",
@@ -606,9 +606,9 @@ const tlsRoom = {
           recurrence: "nightly, 01:00 local, 8 months observed",
         },
       },
-      correct_verdict: "false_positive",
+      correct_verdict: "benign_true_positive",
       explanation:
-        "Every individual element here (self-signed certificate, unrecognized JA3) is exactly the kind of raw signal that this room teaches you to weigh, but the surrounding context resolves it clearly as benign: it_verify_result is confirmed by IT (a legitimate management appliance with a documented, unrotated vendor-default certificate), the certificate is nearly 5,832 hours (about 8 months) old, not recently issued, and destination_hosts_seen_before_today is 244, meaning this is a well-established, frequently-used internal destination, not a rare, first-seen one. Many internal appliances and management interfaces (backup servers, hypervisor management, network gear web UIs) ship with self-signed certificates by default and are never issued a proper internal-CA certificate: this is common, if not ideal, practice, and does not by itself indicate compromise.",
+        "Every individual element here (self-signed certificate, unrecognized JA3) is exactly the kind of raw signal that this room teaches you to weigh, but the surrounding context resolves it clearly as a benign true positive (the rule correctly saw a real self-signed certificate and an unlisted JA3, on traffic that is legitimate): it_verify_result is confirmed by IT (a legitimate management appliance with a documented, unrotated vendor-default certificate), the certificate is nearly 5,832 hours (about 8 months) old, not recently issued, and destination_hosts_seen_before_today is 244, meaning this is a well-established, frequently-used internal destination, not a rare, first-seen one. Many internal appliances and management interfaces (backup servers, hypervisor management, network gear web UIs) ship with self-signed certificates by default and are never issued a proper internal-CA certificate: this is common, if not ideal, practice, and does not by itself indicate compromise. Close it citing the IT confirmation and the nightly backup schedule; it is not a false positive, since the detection matched exactly what it looks for, and calling it a misfire invites loosening the rule instead of adding a narrow, owned exclusion for this one appliance.",
       fp_trap:
         "A self-signed certificate plus an unfamiliar JA3 is exactly the combination Reading 3 and Reading 4 taught you to weigh as suspicious, but those readings were explicit that these signals build a case only in combination with rarity, recency, and lack of business justification. Here, the certificate is old (not recently issued), the destination has been contacted 244 times before (not rare or first-seen), and IT has explicitly confirmed the appliance's identity and purpose. Escalating purely because a system triggers two individually-suspicious-sounding facts, without checking their actual values (age, rarity) or available IT verification, is exactly the kind of alert fatigue trap that erodes trust in a detection program over time. Not every self-signed certificate is a C2 beacon: most, in most networks, are boring internal appliances that were never properly issued a real certificate.",
       xp: 30,

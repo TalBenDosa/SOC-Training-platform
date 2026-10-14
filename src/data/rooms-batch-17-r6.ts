@@ -340,7 +340,7 @@ const tunnelingRoom = {
         `**plink.exe: PuTTY's command-line SSH client, and why EDR often trusts it by default**\n\n` +
         `plink (PuTTY Link) is the command-line-only counterpart to the PuTTY SSH client: a small, digitally-signed, entirely legitimate Windows binary that system administrators have used for decades to script SSH connections and port forwards without needing an interactive terminal. Because it's so old, so widely deployed for entirely legitimate administrative scripting, and properly code-signed, many EDR/allowlisting policies either explicitly trust it or simply never flag it by default, which is precisely why attackers favor it specifically for scripting exactly the -L/-R/-D forwarding techniques from Reading 1 on Windows hosts, where a native SSH client historically wasn't always present. Seeing plink.exe launched from an unusual location (a temp directory rather than a standard admin toolkit path, as in this room's log analysis exercise), by an account or in a context with no history of using it, is the key behavioral differentiator, not the mere fact that plink.exe exists or ran at all.\n\n` +
         `**The common thread**\n\n` +
-        `All three tools share the same appeal: legitimate, often signed, widely available, and genuinely dual-use, which means detection has to rely on CONTEXT (is this host/account/location one that has any business reason to run this tool at all), BEHAVIOR (connection duration, destination, traffic shape), and CORRELATION (does this coincide with other suspicious activity), rather than simply alerting on the tool's mere presence, which would produce constant false positives against legitimate administrative and developer use.`,
+        `All three tools share the same appeal: legitimate, often signed, widely available, and genuinely dual-use, which means detection has to rely on CONTEXT (is this host/account/location one that has any business reason to run this tool at all), BEHAVIOR (connection duration, destination, traffic shape), and CORRELATION (does this coincide with other suspicious activity), rather than simply alerting on the tool's mere presence, which would produce a constant stream of benign true positives (the rule correctly sees the tool, but the use is authorized administrative or developer work) that buries the rare malicious run.`,
       codeExample:
         "LOLBIN TUNNELING TOOL -> LEGITIMATE USE -> ABUSE PATTERN\n" +
         "=======================================================\n" +
@@ -391,7 +391,7 @@ const tunnelingRoom = {
         `**Step 5: Correlate with everything else happening on that host and account**\n\n` +
         `Does this coincide with other suspicious activity: a recent phishing click, an unusual authentication event, a process that shouldn't be there, files recently dropped into an unusual directory (like Temp, as seen with plink.exe in this room's log analysis)? A single, isolated finding is weaker evidence than the same finding appearing alongside two or three other unrelated-looking anomalies on the same host in the same time window.\n\n` +
         `**Step 6, Check for a legitimate explanation BEFORE escalating: verify with the asset/change owner**\n\n` +
-        `Given how genuinely dual-use every technique and tool in this room is. Legitimate SSH tunneling for IT support, legitimate ngrok use by developers, legitimate Chisel use by an approved penetration test, legitimate plink.exe scripting by sysadmins, the final, essential step before treating any of these findings as confirmed malicious is checking for a documented, verifiable business explanation: an open change ticket, a known approved tool deployment, confirmation from the account owner or their manager, or a scheduled penetration test's rules of engagement. This is the industry practice of verifying with the asset or change owner (in this platform, the outcome is recorded as it_verify_result): "confirmed" means a legitimate explanation exists and this is very likely a false positive; "unverified" (or no ticket found at all) means the finding should be escalated and investigated as a real possibility, not dismissed. Skipping this step in either direction. Either escalating every instance of a dual-use tool reflexively, or dismissing every instance because "that tool is sometimes used legitimately". Is exactly the failure mode this entire room has been building you toward avoiding.`,
+        `Given how genuinely dual-use every technique and tool in this room is. Legitimate SSH tunneling for IT support, legitimate ngrok use by developers, legitimate Chisel use by an approved penetration test, legitimate plink.exe scripting by sysadmins, the final, essential step before treating any of these findings as confirmed malicious is checking for a documented, verifiable business explanation: an open change ticket, a known approved tool deployment, confirmation from the account owner or their manager, or a scheduled penetration test's rules of engagement. This is the industry practice of verifying with the asset or change owner (in this platform, the outcome is recorded as it_verify_result): "confirmed" means a legitimate explanation exists and this is very likely a benign true positive (the detection correctly caught real tool use, and that use is authorized), not a false positive, because nothing misfired; "unverified" (or no ticket found at all) means the finding should be escalated and investigated as a real possibility, not dismissed. Skipping this step in either direction. Either escalating every instance of a dual-use tool reflexively, or dismissing every instance because "that tool is sometimes used legitimately". Is exactly the failure mode this entire room has been building you toward avoiding.`,
       codeExample:
         "THE SIX-STEP TUNNELING INVESTIGATION SEQUENCE\n" +
         "=======================================================\n" +
@@ -407,7 +407,7 @@ const tunnelingRoom = {
         "5. Correlate with other activity on the same host/account\n" +
         "   -- phishing click, odd auth event, dropped file, etc.\n" +
         "6. Check for a documented, legitimate explanation\n" +
-        "   -- it_verify_result: confirmed -> likely FP\n" +
+        "   -- it_verify_result: confirmed -> likely BTP\n" +
         "   -- it_verify_result: unverified/none found -> escalate\n" +
         "=======================================================",
       checkpoint: {
@@ -415,13 +415,13 @@ const tunnelingRoom = {
           "According to the reading's six-step investigation playbook, what does an it_verify_result of 'confirmed' indicate?",
         options: [
           "it_verify_result records which analyst reviewed the alert, and says nothing about the activity itself",
-          "A legitimate, documented business explanation exists for the activity, making it very likely a false positive",
+          "A legitimate, documented business explanation exists for the activity, making it very likely a benign true positive",
           "An incident responder has finished forensic analysis of the tool's binary and proved malicious intent",
           "The host has been confirmed compromised, so the playbook's next step is to isolate it from the network",
         ],
         answer: 1,
         explanation:
-          "it_verify_result 'confirmed' means the asset or change owner confirmed a documented business explanation (a change ticket, an approved tool deployment, account-owner confirmation), making the finding very likely a false positive. It is not a reviewer-tracking field, and it is not the output of malware forensics. It also points the opposite way from confirmed compromise: 'confirmed' supports closing, while 'unverified' is what drives escalation and containment.",
+          "it_verify_result 'confirmed' means the asset or change owner confirmed a documented business explanation (a change ticket, an approved tool deployment, account-owner confirmation), making the finding very likely a benign true positive: the detection caught real activity, and the confirmation is the justification that makes it authorized. It is not a false positive, because the rule did not misfire. It is not a reviewer-tracking field, and it is not the output of malware forensics. It also points the opposite way from confirmed compromise: 'confirmed' supports closing, while 'unverified' is what drives escalation and containment.",
       },
     },
 
@@ -587,7 +587,7 @@ const tunnelingRoom = {
       ],
     },
 
-    // ── Analyst Choice: approved pentest / verified dev use FP trap ──────────
+    // ── Analyst Choice: approved pentest / verified dev use benign true positive trap ──────────
     {
       type: "analyst_choice" as const,
       id: "tunnel-ac1",
@@ -621,11 +621,11 @@ const tunnelingRoom = {
           process_hint: "ngrok.exe",
         },
       },
-      correct_verdict: "false_positive",
+      correct_verdict: "benign_true_positive",
       explanation:
-        "The ngrok SNI is the same as in Log Analysis 2, but the surrounding evidence differs on every axis that matters: the process is ngrok.exe (the developer's own tunneling client) on a developer laptop, not sqlservr.exe on a production database server; and it_verify_result confirms a standing, documented, six-month-old exception specifically authorizing this exact behavior for this exact user, the timing precisely matches a scheduled calendar event (a sprint demo, the documented legitimate use case), the connection count is a single session (not dozens of repeating beacon-shaped connections), and the duration (44 minutes) matches a plausible meeting length rather than an indefinitely-sustained tunnel. This is exactly the dual-use, legitimate case Reading 5 described.",
+        "The ngrok SNI is the same as in Log Analysis 2, but the surrounding evidence differs on every axis that matters: the process is ngrok.exe (the developer's own tunneling client) on a developer laptop, not sqlservr.exe on a production database server; and it_verify_result confirms a standing, documented, six-month-old exception specifically authorizing this exact behavior for this exact user, the timing precisely matches a scheduled calendar event (a sprint demo, the documented legitimate use case), the connection count is a single session (not dozens of repeating beacon-shaped connections), and the duration (44 minutes) matches a plausible meeting length rather than an indefinitely-sustained tunnel. This is exactly the dual-use, legitimate case Reading 5 described. That makes this a benign true positive: the rule correctly caught a real ngrok tunnel, and the standing exception plus the calendar entry are the justification you cite when closing it. It is not a false positive, because nothing misfired, and that label would invite weakening the ngrok rule that also caught the real compromise on SRV-DB07.",
       fp_trap:
-        "After Log Analysis 2's finding that an ngrok connection from a database server was a serious active compromise, it's tempting to treat ANY ngrok traffic as inherently high-severity from now on. But the room was explicit throughout: the tool's presence alone is never sufficient, context is everything. Here, unlike the database server case, there IS a documented business justification, an authorized user with a standing exception, a single (not repeating/beacon-shaped) session, and calendar corroboration. None of which existed in the malicious example. Escalating this identically to the database server finding, purely because both involve the string 'ngrok', would ignore every contextual differentiator this room has spent six readings teaching you to weigh.",
+        "After Log Analysis 2's finding that an ngrok connection from a database server was a serious active compromise, it's tempting to treat ANY ngrok traffic as inherently high-severity from now on. But the room was explicit throughout: the tool's presence alone is never sufficient; context is everything. Here, unlike the database server case, there IS a documented business justification, an authorized user with a standing exception, a single (not repeating/beacon-shaped) session, and calendar corroboration, none of which existed in the malicious example. Escalating this identically to the database server finding, purely because both involve the string 'ngrok', would ignore every contextual differentiator this room has spent six readings teaching you to weigh.",
       xp: 30,
     },
 

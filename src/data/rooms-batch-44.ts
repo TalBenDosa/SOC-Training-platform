@@ -65,7 +65,7 @@ const teamViewerProxyEvent: TelemetryEvent = {
   },
 };
 
-// Analyst-choice control case: the FP a broad "any RMM traffic" rule
+// Analyst-choice control case: the benign true positive a broad "any RMM traffic" rule
 // guarantees — the sanctioned ScreenConnect tool, run by a known IT
 // technician against a ticket the user opened herself.
 const screenConnectSanctionedEvent: TelemetryEvent = {
@@ -344,7 +344,7 @@ const rmmAbuseRoom = {
       ],
       answer: 2,
       explanation:
-        "Steps 1-4 of the workflow already flagged this session as suspicious (unsanctioned tool, no ticket, ordinary account); step 6 asks specifically whether follow-on activity shows discovery or lateral-movement behavior. A privileged-group enumeration command spawned by the RMM session is exactly that signal: the same discovery step documented in this room's Storm-1811 and vishing-pattern case studies, and it materially raises confidence toward escalation and containment, not a lower priority. It does not by itself identify WHO the attacker is (nation-state versus criminal), and it is the opposite of evidence for a false-positive/benign IT explanation, since a routine IT session already lacking a ticket now also shows unrequested privileged-group reconnaissance.",
+        "Steps 1-4 of the workflow already flagged this session as suspicious (unsanctioned tool, no ticket, ordinary account); step 6 asks specifically whether follow-on activity shows discovery or lateral-movement behavior. A privileged-group enumeration command spawned by the RMM session is exactly that signal: the same discovery step documented in this room's Storm-1811 and vishing-pattern case studies, and it materially raises confidence toward escalation and containment, not a lower priority. It does not by itself identify WHO the attacker is (nation-state versus criminal), and it is the opposite of evidence for a benign-true-positive (authorized IT) explanation, since a routine IT session already lacking a ticket now also shows unrequested privileged-group reconnaissance.",
       xp: 20,
     },
 
@@ -388,7 +388,7 @@ const rmmAbuseRoom = {
       ],
     },
 
-    // ── Analyst choice: FP control case ────────────────────────────────────
+    // ── Analyst choice: benign true positive control case ────────────────────────────────────
     {
       type: "analyst_choice" as const,
       id: "rmm-ac1",
@@ -396,11 +396,11 @@ const rmmAbuseRoom = {
       scenario:
         "An alert fires for 'remote-access tool traffic detected' on WKS-CF-055. The underlying rule matches any connection to any known RMM vendor domain, anywhere in the environment, with no allowlist filter. Checking further shows the tool is ConnectWise ScreenConnect, Cascadia Freight's own licensed product, connecting to the company's own self-hosted instance.",
       event: screenConnectSanctionedEvent,
-      correct_verdict: "false_positive",
+      correct_verdict: "benign_true_positive",
       explanation:
-        "This is the allowlist principle applied directly: the tool matches Cascadia Freight's sanctioned RMM product exactly, the destination is the company's own self-hosted ScreenConnect instance (cascadia.hostedrmm.com, not a third-party relay), the operator is a named, authorized IT technician (m.delacroix), and a matching help-desk ticket (SD-88231), opened by the affected user herself, is confirmed by IT. Every element of the allowlist triad checks out, and the it_verify_message confirms it directly.",
+        "This is the allowlist principle applied directly: the tool matches Cascadia Freight's sanctioned RMM product exactly, the destination is the company's own self-hosted ScreenConnect instance (cascadia.hostedrmm.com, not a third-party relay), the operator is a named, authorized IT technician (m.delacroix), and a matching help-desk ticket (SD-88231), opened by the affected user herself, is confirmed by IT. Every element of the allowlist triad checks out, and the it_verify_message confirms it directly. This is a benign true positive: the rule correctly caught a real RMM connection, and ticket SD-88231 with an authorized technician is the justification; it is not a false positive, because calling it a misfire would invite weakening the rule rather than adding a narrow, owned allowlist entry for the sanctioned instance.",
       fp_trap:
-        "The underlying alert rule fires on ANY connection to ANY known RMM vendor domain, with no allowlist filter at all, meaning it fires identically on the organization's own sanctioned, ticketed, technician-operated support sessions and on a genuine intrusion. Escalating every RMM-domain hit without checking tool identity, operator account, and the ITSM ticket is exactly the false-positive flood this room's detection-discipline reading warns against, and it is also what would eventually train a SOC to stop taking RMM alerts seriously at all.",
+        "The underlying alert rule fires on ANY connection to ANY known RMM vendor domain, with no allowlist filter at all, meaning it fires identically on the organization's own sanctioned, ticketed, technician-operated support sessions and on a genuine intrusion. Escalating every RMM-domain hit without checking tool identity, operator account, and the ITSM ticket is exactly the flood of benign alerts this room's detection-discipline reading warns against, and it is also what would eventually train a SOC to stop taking RMM alerts seriously at all.",
       xp: 20,
     },
 
@@ -443,7 +443,7 @@ const rmmAbuseRoom = {
       ],
       correct_order: ["step-identify", "step-allowlist", "step-account", "step-ticket", "step-destination", "step-tree", "step-verdict"],
       explanation:
-        "This is the exact sequence this room's investigation-workflow reading teaches: start with what the tool actually is and how it was run, check it against the allowlist, then establish who is operating it and whether a ticket accounts for the session, then widen out to the network destination and the host's own process tree for follow-on activity, and only then reach a verdict. Each step narrows or confirms the picture the previous step built, jumping straight to a verdict without first checking the allowlist, account, and ticket is exactly the mistake this room's false-positive control case is built to correct.",
+        "This is the exact sequence this room's investigation-workflow reading teaches: start with what the tool actually is and how it was run, check it against the allowlist, then establish who is operating it and whether a ticket accounts for the session, then widen out to the network destination and the host's own process tree for follow-on activity, and only then reach a verdict. Each step narrows or confirms the picture the previous step built, jumping straight to a verdict without first checking the allowlist, account, and ticket is exactly the mistake this room's benign-true-positive control case is built to correct.",
       xp: 25,
     },
 

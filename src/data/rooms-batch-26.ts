@@ -381,12 +381,12 @@ const playbookExecutionRoom: Room = {
           options: [
             "Move straight to Step 4 and reset the password: the evidence is already strong enough to act on and every minute of delay is more access for the intruder",
             "Move to Step 3 and pivot on the sign-in's own properties (source IP, ASN, user agent, target app) to establish the boundary of the activity before choosing a response",
-            "Close the ticket as a false positive, since a correct password on the first attempt indicates the legitimate user travelling",
+            "Close the ticket as a benign true positive, since a correct password on the first attempt indicates the legitimate user travelling",
             "Skip to Step 5 and notify the line manager so the user can confirm whether she was in Vilnius",
           ],
           answer: 1,
           explanation:
-            "Step 3 is next, and its instruction is specific: pivot on the source, not the user, to establish the boundary before responding. The urge to jump to a password reset is understandable and it is the trap the ordering exercise was warning about. Containment is destructive, it ends your visibility, and it commits you to a response whose size you have not measured yet. Closing as a false positive is not supportable: a correct first-attempt password from an unmanaged device on a hosting-provider network, 47 minutes after a Dublin sign-in, is not what a travelling employee looks like. Notifying the manager is a real step, but it is Step 5, and doing it now would tip off the intruder if the account is being watched.",
+            "Step 3 is next, and its instruction is specific: pivot on the source, not the user, to establish the boundary before responding. The urge to jump to a password reset is understandable and it is the trap the ordering exercise was warning about. Containment is destructive, it ends your visibility, and it commits you to a response whose size you have not measured yet. Closing it as a benign true positive (a real sign-in by the travelling owner) is not supportable: a correct first-attempt password from an unmanaged device on a hosting-provider network, 47 minutes after a Dublin sign-in, is not what a travelling employee looks like. Notifying the manager is a real step, but it is Step 5, and doing it now would tip off the intruder if the account is being watched.",
           xp: 25,
         },
       ],

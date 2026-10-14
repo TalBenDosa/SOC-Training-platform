@@ -372,7 +372,7 @@ const rooms = [
           `- **Summary of the shift**: How many alerts? Any major incidents?\n` +
           `- **Open cases**: List of all unresolved tickets with their current status and what was done\n` +
           `- **Things to watch**: Patterns or suspicious activity that didn't rise to the level of an incident but deserves monitoring\n` +
-          `- **Environmental notes**: Any planned maintenance, known outages, or system changes that may generate false positives\n` +
+          `- **Environmental notes**: Any planned maintenance, known outages, or system changes that may generate benign alerts (benign true positives: real, authorized activity that rules will correctly flag)\n` +
           `- **Handover items**: Any specific tasks for the incoming shift ("Please follow up with the IT team about host isolation for INC-2026-4892")\n\n` +
           `**Writing for Management: The Executive Summary**\n\n` +
           `When a significant incident occurs, leadership needs to be informed, but they don't need (or want) every technical detail. An executive summary has two layers:\n\n` +

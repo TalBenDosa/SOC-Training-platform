@@ -194,7 +194,7 @@ export interface AnalystChoiceTask {
   heading: string;
   scenario: string;
   event: TelemetryEvent;
-  correct_verdict: "true_positive" | "false_positive" | "escalate" | "informational";
+  correct_verdict: "true_positive" | "benign_true_positive" | "false_positive" | "escalate" | "informational";
   explanation: string;
   fp_trap?: string;
   xp: number;

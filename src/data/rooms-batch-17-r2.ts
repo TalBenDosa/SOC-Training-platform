@@ -562,7 +562,7 @@ const dnsDeepDiveRoom = {
       ],
     },
 
-    // ── Analyst Choice: legitimate browser DoH configuration FP trap ────────
+    // ── Analyst Choice: legitimate browser DoH configuration benign true positive trap ────────
     {
       type: "analyst_choice" as const,
       id: "dns-ac1",
@@ -592,11 +592,11 @@ const dnsDeepDiveRoom = {
           "network.protocol": "https",
         },
       },
-      correct_verdict: "false_positive",
+      correct_verdict: "benign_true_positive",
       explanation:
-        "The destination (1.1.1.1) and SNI (cloudflare-dns.com) are Cloudflare's public DoH endpoint, and a recent Firefox with no policy disabling encrypted DNS is exactly the kind of privacy-focused browser Reading 2 says defaults to DoH. One persistent HTTPS session carrying a steady trickle of small requests is how DoH behaves (a browser keeps one connection open and sends many lookups over it), and it matches a developer browsing documentation and package registries. Nothing points to abuse: no new processes or persistence, no other alerts, no unusual destination. The missing resolver logs are the DoH blind spot by design. The rule did detect real resolver bypass, so the alert is not malicious and is closed as a false positive for incident purposes, but it should be raised as a policy gap: block public DoH endpoints or push a policy that disables browser DoH so lookups go back through the logged resolver.",
+        "The destination (1.1.1.1) and SNI (cloudflare-dns.com) are Cloudflare's public DoH endpoint, and a recent Firefox with no policy disabling encrypted DNS is exactly the kind of privacy-focused browser Reading 2 says defaults to DoH. One persistent HTTPS session carrying a steady trickle of small requests is how DoH behaves (a browser keeps one connection open and sends many lookups over it), and it matches a developer browsing documentation and package registries. Nothing points to abuse: no new processes or persistence, no other alerts, no unusual destination. The missing resolver logs are the DoH blind spot by design. The rule did detect real resolver bypass, so this is a benign true positive: the bypass really happened, and it is expected, permitted browser behavior under current policy (nothing disables encrypted DNS on developer machines), which is the justification you cite when closing it. It is not a false positive, because nothing misfired, and that label would invite weakening a bypass rule that works. It should still be raised as a policy gap: block public DoH endpoints or push a policy that disables browser DoH so lookups go back through the logged resolver.",
       fp_trap:
-        "The 'DNS resolution happening completely outside our visibility' framing sounds alarming, and it's tempting to treat any DoH usage as inherently suspicious specifically because it defeats your usual DNS monitoring. But DoH is default browser behavior for a large and growing share of legitimate traffic, not a targeted evasion technique in the vast majority of cases. The correct organizational response to this scenario is a policy decision. Block known public DoH provider endpoints and force resolution through an internally logged resolver, or accept the blind spot, not treating every individual DoH session as an incident. Escalating this specific session as malicious, without any other supporting signal (volume anomaly, unusual destination beyond the known Cloudflare DoH IP, entropy, or NXDOMAIN pattern), is exactly the over-alerting trap this reading warned about.",
+        "The 'DNS resolution happening completely outside our visibility' framing sounds alarming, and it's tempting to treat any DoH usage as inherently suspicious specifically because it defeats your usual DNS monitoring. But DoH is default browser behavior for a large and growing share of legitimate traffic, not a targeted evasion technique in the vast majority of cases. The correct organizational response to this scenario is a policy decision (block known public DoH provider endpoints and force resolution through an internally logged resolver, or knowingly accept the blind spot), not treating every individual DoH session as an incident. Escalating this specific session as malicious, without any other supporting signal (volume anomaly, unusual destination beyond the known Cloudflare DoH IP, entropy, or NXDOMAIN pattern), is exactly the over-alerting trap this reading warned about.",
       xp: 30,
     },
 

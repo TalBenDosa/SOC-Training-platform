@@ -82,7 +82,7 @@ Compares current behavior to a learned **baseline** and alerts when there is a s
 *Example:* A user normally downloads 50 MB of files per day. Today they downloaded 15 GB at 2 AM. The rule doesn't look for a specific action. It flags the unusual volume.
 
 *Strength:* Can catch novel attacks that don't match known signatures.
-*Weakness:* Requires time to build a baseline (weeks/months). Generates false positives during unusual-but-legitimate events (end of quarter data exports, IT migrations).
+*Weakness:* Requires time to build a baseline (weeks/months). Generates benign alerts during unusual-but-legitimate events (end of quarter data exports, IT migrations): the deviation is real, so these are benign true positives that need business context to close, not misfires.
 
 ---
 
@@ -229,7 +229,9 @@ According to industry surveys, SOC analysts receive an average of 1,000–10,000
 
 ---
 
-## Why False Positives Happen
+## Why Benign Alerts Happen (False Positives and Benign True Positives)
+
+Two different things hide under "benign alert". A **benign true positive** is a rule catching exactly the behavior it describes, on real activity that is authorized: the fix is context (a narrow, owned exception), not a weaker rule. A **false positive** is a rule misfiring on something it was never meant to catch: the fix is correcting the rule's logic. The first three causes below produce benign true positives; the last one is a false positive.
 
 **Rule too broad:** "Alert on any PowerShell execution", but IT admins use PowerShell legitimately hundreds of times per day.
 
@@ -237,13 +239,13 @@ According to industry surveys, SOC analysts receive an average of 1,000–10,000
 
 **No asset context:** "Alert on any admin login outside business hours", but your on-call engineer legitimately logs in at 2 AM during an incident.
 
-**Threshold too low:** "Alert if >3 failed logins", but users forget passwords constantly, especially on Mondays.
+**Threshold too low:** "Alert if >3 failed logins", but users forget passwords constantly, especially on Mondays. A user retrying a forgotten password is not the brute force the rule exists to catch, so this one is a true false positive: the logic itself needs fixing.
 
 ---
 
 ## Tuning Methodology: Step by Step
 
-**Step 1: Identify the false positive pattern**
+**Step 1: Identify the benign pattern (false positive or benign true positive)**
 When an alert fires that's clearly benign, ask: What makes this different from a real threat? Is it the user? The source hostname? The destination URL? The time of day?
 
 **Step 2: Add an exception (allow list)**
@@ -369,9 +371,9 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
     {
       type: "log_analysis" as const,
       id: "det-rules-la1",
-      heading: "Analyze This EDR Alert: Real Threat or False Positive?",
+      heading: "Analyze This EDR Alert: Real Threat or Benign Activity?",
       context:
-        "Your EDR (Endpoint Detection & Response) system fired an alert titled 'Suspicious PowerShell Download'. The rule triggers whenever PowerShell downloads a file from the internet. Examine the alert details below and determine whether this is a real threat or a false positive that needs tuning.",
+        "Your EDR (Endpoint Detection & Response) system fired an alert titled 'Suspicious PowerShell Download'. The rule triggers whenever PowerShell downloads a file from the internet. Examine the alert details below and determine whether this is a real threat or benign activity that needs a narrow, owned exception.",
       event: {
         id: "evt-det-rules-001",
         ts: "2025-06-24T02:14:33Z",
@@ -404,18 +406,18 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
             "Looking at the user ('svc-wsus'), hostname ('WSUS-SERVER-01'), destination domain ('updates.microsoft.com'), and time (02:14 UTC), what is your assessment of this alert?",
           options: [
             "Critical threat: PowerShell downloading .msp files from the internet is malicious",
-            "False positive: the patch server's service account downloading a legitimate Microsoft patch",
+            "Benign true positive: the patch server's service account downloading a legitimate Microsoft patch",
             "Needs escalation: the .msp file type is rarely used by legitimate patching",
             "Suspicious: a service account running PowerShell at 02:14 UTC is anomalous on its own",
           ],
           answer: 1,
           explanation:
-            "The telemetry fields themselves point to legitimate activity, with no prose verdict needed: the actor is a service account (svc-wsus), not a human; the host is named as a patch-management server (WSUS-SERVER-01); the destination is Microsoft's own update domain (updates.microsoft.com); the parent is svchost.exe, where the Windows Update service legitimately runs; and the 02:14 timing fits an overnight patch window. Note too that hashing powershell.exe in VirusTotal would return zero detections (it is a signed Microsoft binary) so the command line and destination, not the hash, are the evidence here. The rule correctly flags 'PowerShell download' generically but lacks the context to tell this benign pattern apart.",
+            "The telemetry fields themselves point to legitimate activity, with no prose verdict needed: the actor is a service account (svc-wsus), not a human; the host is named as a patch-management server (WSUS-SERVER-01); the destination is Microsoft's own update domain (updates.microsoft.com); the parent is svchost.exe, where the Windows Update service legitimately runs; and the 02:14 timing fits an overnight patch window. Note too that hashing powershell.exe in VirusTotal would return zero detections (it is a signed Microsoft binary) so the command line and destination, not the hash, are the evidence here. The rule correctly flags 'PowerShell download' generically but lacks the context to tell this benign pattern apart. That makes it a benign true positive: the rule did its job on a real download, and the documented patch window is the justification; it is not a false positive, because nothing misfired.",
           xp: 40,
         },
         {
           question:
-            "What specific change should you make to this detection rule to prevent this false positive from recurring, while still catching real malicious PowerShell downloads?",
+            "What specific change should you make to this detection rule to stop this benign true positive from recurring, while still catching real malicious PowerShell downloads?",
           options: [
             "Exclude the whole server OU from the rule, since patch servers cause most of the noise",
             "Lower the rule's severity from High to Low so these alerts stop paging analysts",
@@ -424,7 +426,7 @@ A mature SOC tracks which ATT&CK techniques they have detection rules for. This 
           ],
           answer: 2,
           explanation:
-            "The correct tuning approach is a specific exception that excludes this exact legitimate combination: service account 'svc-wsus' on host 'WSUS-SERVER-01' downloading from 'updates.microsoft.com'. All three conditions together keep the exception tight: an attacker would need that machine, that account, and Microsoft's domain all at once to slip through. Excluding the whole server OU is far too broad: it blinds the rule across every server in the OU, not just this one benign case. Lowering the severity from High to Low only hides the alert without fixing the false positive, so analysts still wade through it. Raising the threshold to 100 download attempts would let a real dropper run 99 times before alerting, destroying coverage.",
+            "The correct tuning approach is a specific exception that excludes this exact legitimate combination: service account 'svc-wsus' on host 'WSUS-SERVER-01' downloading from 'updates.microsoft.com'. All three conditions together keep the exception tight: an attacker would need that machine, that account, and Microsoft's domain all at once to slip through. Excluding the whole server OU is far too broad: it blinds the rule across every server in the OU, not just this one benign case. Lowering the severity from High to Low only hides the alert without addressing the benign pattern, so analysts still wade through it. Raising the threshold to 100 download attempts would let a real dropper run 99 times before alerting, destroying coverage.",
           xp: 40,
         },
       ],
