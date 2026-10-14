@@ -378,13 +378,13 @@ export const QUIZZES_VENDOR_STACKS: Quiz[] = [
         id: "ms_10",
         question: "A user signs in from Tel Aviv and, nine minutes later, a sign-in attempt for the same account appears from a location that would be physically impossible to reach in that time. What does Entra ID Identity Protection call this kind of signal, and what does it produce?",
         options: [
-          "It's flagged as 'atypical travel' (impossible travel), raising risk that Conditional Access can act on.",
+          "It's flagged as 'atypical travel' (unlikelyTravel), raising risk that Conditional Access can act on.",
           "It's flagged as a 'compliance violation,' which appears in Microsoft Purview reports and has no sign-in effect.",
           "It's flagged as a 'Secure Score deduction,' which lowers the tenant's overall score but takes no action on the specific sign-in.",
           "It's flagged as an 'audit anomaly,' which is recorded in the audit log for later review, not for live access.",
         ],
         answer: 0,
-        explanation: "Identity Protection lists atypical travel (impossible travel) among its risky sign-in detections. It is an offline detection, computed shortly after the sign-in, so it raises the user's risk state for the next evaluation, where risk-based Conditional Access policies can require MFA or block. Purview compliance reports govern data, not sign-ins. Secure Score is a posture metric that takes no action on a specific sign-in. The audit log records directory changes and does not score risky sign-ins.",
+        explanation: "Identity Protection lists atypical travel (unlikelyTravel) among its risky sign-in detections. It is an offline detection, computed shortly after the sign-in, so it raises the user's risk state for the next evaluation, where risk-based Conditional Access policies can require MFA or block. Purview compliance reports govern data, not sign-ins. Secure Score is a posture metric that takes no action on a specific sign-in. The audit log records directory changes and does not score risky sign-ins.",
         xp: 15,
       },
       {
