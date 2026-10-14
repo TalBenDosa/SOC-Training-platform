@@ -1,0 +1,932 @@
+{
+  "lp-alert-triage": [
+    {
+      "id": "lp-alert-triage-q01",
+      "lesson": "soc-analyst--process-trees-in-depth",
+      "page": 3,
+      "quote": "Attackers sometimes chain multiple legitimate-looking hops (for example, a scheduled task launching a script host, which launches PowerShell) specifically to make the immediate parent look more innocuous than the full chain actually is."
+    },
+    {
+      "id": "lp-alert-triage-q02",
+      "lesson": "soc-analyst--process-trees-in-depth",
+      "page": 5,
+      "quote": "if you pull that claimed parent's actual creation time and recent activity, it may not sensibly correspond to a process that would plausibly have just launched something new"
+    },
+    {
+      "id": "lp-alert-triage-q03",
+      "lesson": "soc-analyst--reading-edr-alerts",
+      "page": 5,
+      "quote": "A skilled analyst decodes the base64 (a standard, reversible encoding, not encryption) to see what the script actually does before forming a verdict."
+    },
+    {
+      "id": "lp-alert-triage-q04",
+      "lesson": "soc-analyst--severity-vs-risk-score",
+      "page": 3,
+      "quote": "will typically carry the same Severity and SeverityName, even if one host belongs to a summer intern and the other belongs to the CFO"
+    },
+    {
+      "id": "lp-alert-triage-q05",
+      "lesson": "soc-analyst--severity-vs-risk-score",
+      "page": 4,
+      "quote": "Splunk Enterprise Security's Risk Framework aggregates these contributions per **entity** (a user, host, or other asset) over a configurable time window, producing one running, aggregated risk score for that entity."
+    },
+    {
+      "id": "lp-alert-triage-q06",
+      "lesson": "soc-analyst--containment-basics",
+      "page": 2,
+      "quote": "isolation does not stop what the malware does *locally* on the host (a ransomware encryption routine already running will continue), it only stops it from spreading over the network or communicating with an attacker's infrastructure"
+    },
+    {
+      "id": "lp-alert-triage-q07",
+      "lesson": "soc-analyst--containment-basics",
+      "page": 3,
+      "quote": "disable the account (or at minimum force sign-out everywhere), revoke active sessions and tokens, reset the password to a new value the attacker never possessed, and only then re-enable the account once eradication is complete."
+    },
+    {
+      "id": "lp-alert-triage-q08",
+      "lesson": "soc-analyst--containment-basics",
+      "page": 6,
+      "quote": "isolating the very first compromised host you find can tip them off that they have been discovered, causing them to accelerate destructive actions (like triggering ransomware early) on other hosts you have not yet identified"
+    },
+    {
+      "id": "lp-alert-triage-q09",
+      "lesson": "soc-analyst--reading-edr-alerts",
+      "page": 2,
+      "quote": "ATT&CK v19 renamed the old Defense Evasion tactic to Stealth and moved tool and log tampering into a new Defense Impairment tactic"
+    },
+    {
+      "id": "lp-alert-triage-q10",
+      "lesson": "soc-analyst--containment-basics",
+      "page": 8,
+      "quote": "an isolation command can be issued while the endpoint is offline and only apply once it reconnects"
+    }
+  ],
+  "lp-mitre-attack": [
+    {
+      "id": "lp-mitre-attack-q01",
+      "lesson": "soc-analyst--tactics-and-techniques",
+      "page": 2,
+      "quote": "TA0112 | Defense Impairment | Disable or degrade security tools, logging, and other defenses"
+    },
+    {
+      "id": "lp-mitre-attack-q02",
+      "lesson": "soc-analyst--mapping-alerts-to-attack",
+      "page": 6,
+      "quote": "Do not create a new mapping every time a different tool is involved in the same underlying behavior."
+    },
+    {
+      "id": "lp-mitre-attack-q03",
+      "lesson": "soc-analyst--tactics-and-techniques",
+      "page": 2,
+      "quote": "ATT&CK explicitly does not require attackers to move through tactics in strict order, and it is common for an intrusion to revisit an earlier tactic multiple times"
+    },
+    {
+      "id": "lp-mitre-attack-q04",
+      "lesson": "soc-analyst--mapping-alerts-to-attack",
+      "page": 2,
+      "quote": "This is the classic fingerprint of a credential-dumping tool reading LSASS's memory to extract stored credentials"
+    },
+    {
+      "id": "lp-mitre-attack-q05",
+      "lesson": "soc-analyst--mapping-alerts-to-attack",
+      "page": 7,
+      "quote": "a clear one-line summary per technique, the tactic, and the specific evidence that supports the mapping, not just the ID by itself"
+    },
+    {
+      "id": "lp-mitre-attack-q06",
+      "lesson": "soc-analyst--tactics-and-techniques",
+      "page": 4,
+      "quote": "(for example, G0016 for APT29), documenting a named threat actor and every technique ATT&CK has evidence they have used"
+    },
+    {
+      "id": "lp-mitre-attack-q07",
+      "lesson": "soc-analyst--coverage-thinking",
+      "page": 3,
+      "quote": "Separating visibility from detection distinguishes 'we can't see this' (a logging problem) from 'we see it but have no rule' (a detection-engineering problem)."
+    },
+    {
+      "id": "lp-mitre-attack-q08",
+      "lesson": "soc-analyst--coverage-thinking",
+      "page": 6,
+      "quote": "Name the exact log source or field that was missing, or the exact rule logic that would have flagged the behavior sooner."
+    },
+    {
+      "id": "lp-mitre-attack-q09",
+      "lesson": "soc-analyst--coverage-thinking",
+      "page": 4,
+      "quote": "A rare but catastrophic technique with zero visibility might reasonably outrank a common but low-impact technique that already has partial detection."
+    },
+    {
+      "id": "lp-mitre-attack-q10",
+      "lesson": "soc-analyst--coverage-thinking",
+      "page": 3,
+      "quote": "a technique that relies on a data source with poor quality (say, inconsistent field names across different log forwarders) inherits a correspondingly weaker visibility score, even before anyone asks whether a detection rule exists"
+    }
+  ],
+  "lp-investigation-workflow": [
+    {
+      "id": "lp-investigation-workflow-q01",
+      "lesson": "soc-analyst--building-timelines",
+      "page": 7,
+      "quote": "The email gateway's timestamp is in local UTC+3 time; converting 09-28 12:14:02 local to UTC gives 2026-09-28T09:14:02Z."
+    },
+    {
+      "id": "lp-investigation-workflow-q02",
+      "lesson": "soc-analyst--building-timelines",
+      "page": 3,
+      "quote": "cloud audit logs can have their own ingestion delay (the event may not appear in the log for several minutes after it actually happened), which matters when deciding how wide a time window to search"
+    },
+    {
+      "id": "lp-investigation-workflow-q03",
+      "lesson": "soc-analyst--building-timelines",
+      "page": 5,
+      "quote": "Conflating inference with confirmed fact is one of the more serious credibility risks in an investigation report"
+    },
+    {
+      "id": "lp-investigation-workflow-q04",
+      "lesson": "soc-analyst--pivoting-on-entities",
+      "page": 3,
+      "quote": "table records Azure AD / Entra ID sign-in activity, including the account name, source IP, location, and application accessed"
+    },
+    {
+      "id": "lp-investigation-workflow-q05",
+      "lesson": "soc-analyst--pivoting-on-entities",
+      "page": 4,
+      "quote": "An IP pivot on a narrow, dedicated attacker IP (a fresh VPS, Virtual Private Server, registered days before the attack, hosting only the malicious domain) will produce a small, high-confidence set of related hosts."
+    },
+    {
+      "id": "lp-investigation-workflow-q06",
+      "lesson": "soc-analyst--pivoting-on-entities",
+      "page": 5,
+      "quote": "Any change to the file, even a single byte, produces a completely different hash, which makes a hash match a very high-confidence indicator that two files are byte-for-byte identical (unlike a filename, which is trivial for an attacker to rename)"
+    },
+    {
+      "id": "lp-investigation-workflow-q07",
+      "lesson": "soc-analyst--verdict-workflows",
+      "page": 7,
+      "quote": "Extensive for True Positive (IOCs, technique IDs, affected hosts/accounts), root-cause-focused for False Positive, scope-and-authorization-focused for Benign Positive"
+    },
+    {
+      "id": "lp-investigation-workflow-q08",
+      "lesson": "soc-analyst--pivoting-on-entities",
+      "page": 7,
+      "quote": "It means escalating with the best current understanding of scope, clearly labeled as provisional, and continuing deeper investigation in parallel with the response actions"
+    },
+    {
+      "id": "lp-investigation-workflow-q09",
+      "lesson": "soc-analyst--verdict-workflows",
+      "page": 4,
+      "quote": "a rule flagging unusual outbound scanning traffic correctly fires during an authorized, scheduled penetration test"
+    },
+    {
+      "id": "lp-investigation-workflow-q10",
+      "lesson": "soc-analyst--verdict-workflows",
+      "page": 2,
+      "quote": "risks closing the ticket while the true extent of the incident is still unknown"
+    }
+  ],
+  "lp-hunt-methodology": [
+    {
+      "id": "lp-hunt-methodology-q01",
+      "lesson": "threat-hunter--ttp-based-hunting",
+      "page": 2,
+      "quote": "from trivial for an attacker to change (bottom) to painful for an attacker to change (top): hash values, IP addresses, domain names, network/host artifacts, tools, and finally TTPs at the very top"
+    },
+    {
+      "id": "lp-hunt-methodology-q02",
+      "lesson": "threat-hunter--coverage-gaps",
+      "page": 4,
+      "quote": "A hunt result should be logged as 'inconclusive: visibility gap' rather than 'clean negative' when the data source isn't confirmed flowing."
+    },
+    {
+      "id": "lp-hunt-methodology-q03",
+      "lesson": "threat-hunter--hypothesis-framework",
+      "page": 3,
+      "quote": "Name the exact table or telemetry feed for the data source, not just 'the SIEM.'"
+    },
+    {
+      "id": "lp-hunt-methodology-q04",
+      "lesson": "threat-hunter--ttp-based-hunting",
+      "page": 8,
+      "quote": "Time-box every hunt's scope to avoid an unmanageable 'boil the ocean' query."
+    },
+    {
+      "id": "lp-hunt-methodology-q05",
+      "lesson": "threat-hunter--hypothesis-framework",
+      "page": 2,
+      "quote": "A hunt that begins with a UEBA risk score still must be narrowed into a specific, testable statement before a hunter starts querying"
+    },
+    {
+      "id": "lp-hunt-methodology-q06",
+      "lesson": "threat-hunter--ttp-based-hunting",
+      "page": 6,
+      "quote": "HM2 organizations run hunts using a documented, repeatable procedure, roughly where the methodology from this lesson operates."
+    },
+    {
+      "id": "lp-hunt-methodology-q07",
+      "lesson": "threat-hunter--coverage-gaps",
+      "page": 7,
+      "quote": "is it actually tuned well enough to be trusted, or does it generate so many false positives that analysts have started ignoring it"
+    },
+    {
+      "id": "lp-hunt-methodology-q08",
+      "lesson": "threat-hunter--coverage-gaps",
+      "page": 6,
+      "quote": "A cheap fix on a relevant, critical gap is an obvious first move; an expensive fix on a low-relevance, low-criticality gap can reasonably wait."
+    },
+    {
+      "id": "lp-hunt-methodology-q09",
+      "lesson": "threat-hunter--coverage-gaps",
+      "page": 5,
+      "quote": "Common convention: red/dark = no visibility, yellow = visibility without detection, green = both visibility and detection confirmed."
+    },
+    {
+      "id": "lp-hunt-methodology-q10",
+      "lesson": "threat-hunter--ttp-based-hunting",
+      "page": 4,
+      "quote": "Each of those three IDs becomes its own mini-hunt with its own hypothesis."
+    }
+  ],
+  "lp-query-languages": [
+    {
+      "id": "lp-query-languages-q01",
+      "lesson": "threat-hunter--kql-joins",
+      "page": 3,
+      "quote": "using inner instead would silently drop every risky sign-in that had no endpoint match at all, hiding exactly the cases a hunter most needs to see and decide on"
+    },
+    {
+      "id": "lp-query-languages-q02",
+      "lesson": "threat-hunter--kql-joins",
+      "page": 5,
+      "quote": "lookup signals to anyone reading the query that the right-hand table is expected to be small and mostly static"
+    },
+    {
+      "id": "lp-query-languages-q03",
+      "lesson": "threat-hunter--kql-joins",
+      "page": 6,
+      "quote": "Prefix a storage URL containing a SAS token with h@ so Kusto redacts it from query history and logs."
+    },
+    {
+      "id": "lp-query-languages-q04",
+      "lesson": "threat-hunter--kql-aggregations",
+      "page": 1,
+      "quote": "omitting the by clause entirely does not produce an error; it silently collapses the entire table into a single row"
+    },
+    {
+      "id": "lp-query-languages-q05",
+      "lesson": "threat-hunter--kql-aggregations",
+      "page": 3,
+      "quote": "an account with 30 failed logons evenly spread across a normal month looks nothing like 30 failed logons in a single hour, even though a plain count() by Account alone would report the same total for both"
+    },
+    {
+      "id": "lp-query-languages-q06",
+      "lesson": "threat-hunter--kql-aggregations",
+      "page": 4,
+      "quote": "returns exactly one row per account, its single most recent logon, with every other column (the device, the source IP, the logon type) intact from that specific, most-recent event"
+    },
+    {
+      "id": "lp-query-languages-q07",
+      "lesson": "threat-hunter--entity-baselining",
+      "page": 5,
+      "quote": "Leave a gap between the baseline window and 'now' so recent, possibly-anomalous activity can't poison its own baseline."
+    },
+    {
+      "id": "lp-query-languages-q08",
+      "lesson": "threat-hunter--kql-aggregations",
+      "page": 5,
+      "quote": "a fixed number treats every account identically regardless of whether it normally sends 10 megabytes a day or 400"
+    },
+    {
+      "id": "lp-query-languages-q09",
+      "lesson": "threat-hunter--time-series-analysis",
+      "page": 3,
+      "quote": "The residual component should look like structureless noise; real anomalies stand out there once seasonality is removed."
+    },
+    {
+      "id": "lp-query-languages-q10",
+      "lesson": "threat-hunter--time-series-analysis",
+      "page": 5,
+      "quote": "A sliding window recomputes make-series on a moving lookback period, refreshed on a schedule."
+    }
+  ],
+  "lp-sigma-and-detection": [
+    {
+      "id": "lp-sigma-and-detection-q01",
+      "lesson": "threat-hunter--sigma-test-data",
+      "page": 2,
+      "quote": "MITRE CALDERA automates multi-step, multi-host adversary emulation operations, not single isolated techniques."
+    },
+    {
+      "id": "lp-sigma-and-detection-q02",
+      "lesson": "threat-hunter--sigma-syntax-basics",
+      "page": 4,
+      "quote": "A selection map combines multiple fields with AND, and multiple values under one field with OR."
+    },
+    {
+      "id": "lp-sigma-and-detection-q03",
+      "lesson": "threat-hunter--sigma-syntax-basics",
+      "page": 5,
+      "quote": "wide|base64offset|contains matches a value hidden inside a PowerShell -EncodedCommand payload: wide converts it to UTF-16LE first, because that is how PowerShell encodes the script before base64."
+    },
+    {
+      "id": "lp-sigma-and-detection-q04",
+      "lesson": "threat-hunter--sigma-syntax-basics",
+      "page": 3,
+      "quote": "The same logsource can be converted against multiple underlying data sources (e.g., Sysmon vs. native Windows auditing)."
+    },
+    {
+      "id": "lp-sigma-and-detection-q05",
+      "lesson": "threat-hunter--backend-conversion",
+      "page": 7,
+      "quote": "A pipeline/data-source mismatch can leave fields silently unmapped, producing a query that runs but never matches anything."
+    },
+    {
+      "id": "lp-sigma-and-detection-q06",
+      "lesson": "threat-hunter--backend-conversion",
+      "page": 4,
+      "quote": "If a converted query ever shows the plain words in this clause, the modifier was lost somewhere and the search can never match an encoded command."
+    },
+    {
+      "id": "lp-sigma-and-detection-q07",
+      "lesson": "threat-hunter--backend-conversion",
+      "page": 6,
+      "quote": "eql is the better choice once a detection needs to express a sequence of related events rather than one event's fields."
+    },
+    {
+      "id": "lp-sigma-and-detection-q08",
+      "lesson": "threat-hunter--sigma-test-data",
+      "page": 3,
+      "quote": "Negative fixtures specifically prove a rule isn't over-broad, not just that it can fire at all."
+    },
+    {
+      "id": "lp-sigma-and-detection-q09",
+      "lesson": "threat-hunter--sigma-test-data",
+      "page": 4,
+      "quote": "A CI pipeline that stops at conversion without fixture testing has not proven the rule actually works."
+    },
+    {
+      "id": "lp-sigma-and-detection-q10",
+      "lesson": "threat-hunter--sigma-syntax-basics",
+      "page": 6,
+      "quote": "Coverage tooling and ATT&CK Navigator heatmaps rely on technique tags to compute per-technique detection coverage."
+    }
+  ],
+  "lp-ir-lifecycle": [
+    {
+      "id": "lp-ir-lifecycle-q01",
+      "lesson": "incident-responder--eradication-and-recovery",
+      "page": 1,
+      "quote": "NIST treats Containment, Eradication, and Recovery as one iterative phase because eradication work often reveals the need to expand containment again"
+    },
+    {
+      "id": "lp-ir-lifecycle-q02",
+      "lesson": "incident-responder--detection-and-analysis",
+      "page": 2,
+      "quote": "Windows Event ID 4625 is a failed logon; 4624 is a successful logon: the pattern together is a classic indicator"
+    },
+    {
+      "id": "lp-ir-lifecycle-q03",
+      "lesson": "incident-responder--detection-and-analysis",
+      "page": 4,
+      "quote": "or isolating too little, leaving a parallel foothold active and undetected while the team declares victory too early"
+    },
+    {
+      "id": "lp-ir-lifecycle-q04",
+      "lesson": "incident-responder--containment-strategies",
+      "page": 5,
+      "quote": "containment for these often requires coordinating with the system owner (from lesson 1's IR roles) before acting, or using a narrower control like restricting the account's allowed source IPs instead"
+    },
+    {
+      "id": "lp-ir-lifecycle-q05",
+      "lesson": "incident-responder--eradication-and-recovery",
+      "page": 3,
+      "quote": "Domain controllers, certificate authorities, and other systems whose compromise has outsized downstream trust implications are typically reimaged rather than cleaned, even at higher cost"
+    },
+    {
+      "id": "lp-ir-lifecycle-q06",
+      "lesson": "incident-responder--post-incident-review",
+      "page": 3,
+      "quote": "A thorough root cause analysis identifies all of them rather than stopping once any single plausible explanation is found, since fixing only one still leaves the others available for the next incident"
+    },
+    {
+      "id": "lp-ir-lifecycle-q07",
+      "lesson": "incident-responder--post-incident-review",
+      "page": 6,
+      "quote": "Tracking these over many incidents (not judging any single incident against them, which risks pressuring people to cut corners) reveals whether process and tooling investments are actually paying off"
+    },
+    {
+      "id": "lp-ir-lifecycle-q08",
+      "lesson": "incident-responder--ir-playbooks",
+      "page": 3,
+      "quote": "Decision points should be tied to concrete, checkable conditions (recipient count, account privilege level), not vague criteria"
+    },
+    {
+      "id": "lp-ir-lifecycle-q09",
+      "lesson": "incident-responder--ir-phases-overview",
+      "page": 7,
+      "quote": "the IC formally declares an incident, which starts the clock on the response SLA (Service Level Agreement) and pulls in the roles from the previous page as needed"
+    },
+    {
+      "id": "lp-ir-lifecycle-q10",
+      "lesson": "incident-responder--eradication-and-recovery",
+      "page": 6,
+      "quote": "Rather than reconnecting every affected system simultaneously, mature recovery plans restore in phases: the most business-critical, highest-confidence-clean systems first, under close monitoring"
+    }
+  ],
+  "lp-forensics-101": [
+    {
+      "id": "lp-forensics-101-q01",
+      "lesson": "incident-responder--triage-acquisition",
+      "page": 7,
+      "quote": "Isolate the host at the network layer (not power-off) if EDR/firewall tooling supports it, so the attacker's C2 channel is cut but the system and its memory stay intact"
+    },
+    {
+      "id": "lp-forensics-101-q02",
+      "lesson": "incident-responder--memory-forensics-basics",
+      "page": 8,
+      "quote": "the immediate priority is severing the C2 channel and eradicating the injected code, while credential reset, though still prudent, is not the most time-critical action"
+    },
+    {
+      "id": "lp-forensics-101-q03",
+      "lesson": "incident-responder--timeline-analysis",
+      "page": 2,
+      "quote": "two events that actually happened simultaneously can look hours apart if one log is in UTC and another is in a local timezone with an unaccounted-for offset"
+    },
+    {
+      "id": "lp-forensics-101-q04",
+      "lesson": "incident-responder--timeline-analysis",
+      "page": 7,
+      "quote": "the $UsnJrnl entry showing when a file was really created is much harder for an attacker to backdate than the file's own MACB fields"
+    },
+    {
+      "id": "lp-forensics-101-q05",
+      "lesson": "incident-responder--triage-acquisition",
+      "page": 4,
+      "quote": "A common mistake is acquiring memory correctly but forgetting to hash it until after it's already been copied across systems, which weakens the argument that the copy matches the original"
+    },
+    {
+      "id": "lp-forensics-101-q06",
+      "lesson": "incident-responder--memory-forensics-basics",
+      "page": 2,
+      "quote": "an analyst should always run Volatility against a copy of the acquired memory image, never the original file from the chain-of-custody evidence store"
+    },
+    {
+      "id": "lp-forensics-101-q07",
+      "lesson": "incident-responder--memory-forensics-basics",
+      "page": 2,
+      "quote": "A sensible first step on any new memory image is confirming what operating system and build the image represents"
+    },
+    {
+      "id": "lp-forensics-101-q08",
+      "lesson": "incident-responder--memory-forensics-basics",
+      "page": 4,
+      "quote": "A malfind hit is a strong indicator, not automatic proof: some legitimate software (certain JIT compilers, some security tools' own instrumentation, and a handful of legacy applications) can also allocate RWX (read-write-execute) memory"
+    },
+    {
+      "id": "lp-forensics-101-q09",
+      "lesson": "incident-responder--triage-acquisition",
+      "page": 3,
+      "quote": "run from read-only media, write output to external storage (never back to the source disk), and hash every output file immediately"
+    },
+    {
+      "id": "lp-forensics-101-q10",
+      "lesson": "incident-responder--timeline-analysis",
+      "page": 5,
+      "quote": "Bracketing a known incident time window is the single biggest way to reduce timeline noise"
+    }
+  ],
+  "lp-comms-and-reporting": [
+    {
+      "id": "lp-comms-and-reporting-q01",
+      "lesson": "incident-responder--exec-briefings",
+      "page": 2,
+      "quote": "state the most important conclusion first, then support it with detail, rather than building up to a conclusion through background and context"
+    },
+    {
+      "id": "lp-comms-and-reporting-q02",
+      "lesson": "incident-responder--customer-notifications",
+      "page": 2,
+      "quote": "the moment a SOC analyst confirms an incident plausibly involves personal data, that finding needs to reach legal/privacy teams immediately, not after the technical investigation is fully wrapped up, since the 72-hour window may already be running"
+    },
+    {
+      "id": "lp-comms-and-reporting-q03",
+      "lesson": "incident-responder--postmortems",
+      "page": 2,
+      "quote": "what about our alert volume, our triage process, our tooling, or our training made it likely that any analyst in that position would miss this alert"
+    },
+    {
+      "id": "lp-comms-and-reporting-q04",
+      "lesson": "incident-responder--exec-briefings",
+      "page": 6,
+      "quote": "Downplaying scope or impact to keep the room calm is not just a communication misstep, it can also create legal and ethical exposure"
+    },
+    {
+      "id": "lp-comms-and-reporting-q05",
+      "lesson": "incident-responder--customer-notifications",
+      "page": 7,
+      "quote": "A multi-jurisdiction incident runs multiple independent notification clocks, not one combined timeline"
+    },
+    {
+      "id": "lp-comms-and-reporting-q06",
+      "lesson": "incident-responder--postmortems",
+      "page": 5,
+      "quote": "Every action item needs exactly one named owner responsible for driving it to completion, not a team name, which diffuses accountability until nobody in particular feels responsible for it"
+    },
+    {
+      "id": "lp-comms-and-reporting-q07",
+      "lesson": "incident-responder--exec-briefings",
+      "page": 5,
+      "quote": "confirmed customer data exposure above a threshold, expected downtime beyond a set number of hours, likely regulatory notification obligations, or media inquiry"
+    },
+    {
+      "id": "lp-comms-and-reporting-q08",
+      "lesson": "incident-responder--customer-notifications",
+      "page": 5,
+      "quote": "Many frameworks offer reduced or no notification obligation when data was properly encrypted and the key wasn't exposed"
+    },
+    {
+      "id": "lp-comms-and-reporting-q09",
+      "lesson": "incident-responder--postmortems",
+      "page": 6,
+      "quote": "whether the same or similar root causes appear across multiple incidents, which suggests a previous postmortem's action items either weren't completed or didn't actually address the real root cause"
+    },
+    {
+      "id": "lp-comms-and-reporting-q10",
+      "lesson": "incident-responder--postmortems",
+      "page": 3,
+      "quote": "an incident that was contained only because, say, an unrelated maintenance window happened to have already isolated the affected segment, reveals a genuine gap that the next incident might hit without that same lucky circumstance"
+    }
+  ],
+  "lp-sigma-mastery": [
+    {
+      "id": "lp-sigma-mastery-q01",
+      "lesson": "detection-engineer--sigma-selection-patterns",
+      "page": 3,
+      "quote": "That selection matches only if ParentImage equals its target AND Image equals one of the three listed values."
+    },
+    {
+      "id": "lp-sigma-mastery-q02",
+      "lesson": "detection-engineer--sigma-selection-patterns",
+      "page": 4,
+      "quote": "'1 of selection*' means OR across a group of similarly-named blocks; 'all of selection*' means AND across that group."
+    },
+    {
+      "id": "lp-sigma-mastery-q03",
+      "lesson": "detection-engineer--sigma-selection-patterns",
+      "page": 5,
+      "quote": "can silently blind the entire rule if an attacker names a malicious binary the same as the legitimate tool being excluded. Strong filters combine multiple fields (path, parent process, and ideally a file hash)"
+    },
+    {
+      "id": "lp-sigma-mastery-q04",
+      "lesson": "detection-engineer--sigma-selection-patterns",
+      "page": 7,
+      "quote": "Using contains or endswith modifiers on the distinctive suffix of a path is usually safer than a full literal match."
+    },
+    {
+      "id": "lp-sigma-mastery-q05",
+      "lesson": "detection-engineer--sigma-modifiers",
+      "page": 4,
+      "quote": "Regex matching is case-sensitive by default; the i flag modifier makes it case-insensitive."
+    },
+    {
+      "id": "lp-sigma-mastery-q06",
+      "lesson": "detection-engineer--sigma-modifiers",
+      "page": 5,
+      "quote": "Encoded-command detections often need both: windash for the flag, and wide|base64offset for the encoded payload substring (PowerShell encodes it as UTF-16LE before base64)."
+    },
+    {
+      "id": "lp-sigma-mastery-q07",
+      "lesson": "detection-engineer--sigma-selection-patterns",
+      "page": 6,
+      "quote": "One Sigma field can map to multiple real fields in a target product's schema (e.g., Image splitting into FolderPath and FileName in Microsoft Defender)."
+    },
+    {
+      "id": "lp-sigma-mastery-q08",
+      "lesson": "detection-engineer--sigma-coverage-testing",
+      "page": 2,
+      "quote": "A rule that misses a positive sample needs a broader or corrected selection; a rule that matches a negative sample needs either a tighter selection or an added filter"
+    },
+    {
+      "id": "lp-sigma-mastery-q09",
+      "lesson": "detection-engineer--sigma-coverage-testing",
+      "page": 6,
+      "quote": "**1. Rule exists, unvalidated**: a rule has been written and tagged, but has not been tested against real telemetry"
+    },
+    {
+      "id": "lp-sigma-mastery-q10",
+      "lesson": "detection-engineer--sigma-coverage-testing",
+      "page": 7,
+      "quote": "A gap cannot be closed by writing a rule if no telemetry source ever records the underlying behavior. That requires a telemetry investment first."
+    }
+  ],
+  "lp-telemetry-sources": [
+    {
+      "id": "lp-telemetry-sources-q01",
+      "lesson": "detection-engineer--edr-vs-sysmon",
+      "page": 2,
+      "quote": "Sysmon out of the box with no configuration logs very little of value: the XML configuration file determines what is actually captured."
+    },
+    {
+      "id": "lp-telemetry-sources-q02",
+      "lesson": "detection-engineer--edr-vs-sysmon",
+      "page": 6,
+      "quote": "Some EDR agents throttle or summarize high-volume registry telemetry, forwarding only detection-tied changes rather than the full raw stream Sysmon can provide."
+    },
+    {
+      "id": "lp-telemetry-sources-q03",
+      "lesson": "detection-engineer--edr-vs-sysmon",
+      "page": 7,
+      "quote": "A rule should be tested against every backend an organization actually has deployed, not just one, since field-mapping differences can change real-world behavior."
+    },
+    {
+      "id": "lp-telemetry-sources-q04",
+      "lesson": "detection-engineer--o365-ual",
+      "page": 3,
+      "quote": "**FileSyncDownloadedFull**, a full file download via the OneDrive sync client, distinct from a browser-based download, and often used for bulk local replication of a document library"
+    },
+    {
+      "id": "lp-telemetry-sources-q05",
+      "lesson": "detection-engineer--o365-ual",
+      "page": 7,
+      "quote": "Service: exchange for mailbox-related operations like the inbox rule detection built in an earlier page, or service: threat_management for certain higher-level Microsoft 365 Defender and Cloud App Security alert types."
+    },
+    {
+      "id": "lp-telemetry-sources-q06",
+      "lesson": "detection-engineer--o365-ual",
+      "page": 8,
+      "quote": "Removing the malicious inbox rule is a required remediation step distinct from resetting the credential, since the rule persists independently."
+    },
+    {
+      "id": "lp-telemetry-sources-q07",
+      "lesson": "detection-engineer--cloudtrail-for-detection",
+      "page": 2,
+      "quote": "GetObject calls against a sensitive S3 bucket, for instance, will never appear anywhere if data event logging was never enabled for that bucket."
+    },
+    {
+      "id": "lp-telemetry-sources-q08",
+      "lesson": "detection-engineer--cloudtrail-for-detection",
+      "page": 6,
+      "quote": "A high-confidence detection correlates CreateUser with a subsequent AttachUserPolicy (or PutUserPolicy) granting broad permissions within a short time window"
+    },
+    {
+      "id": "lp-telemetry-sources-q09",
+      "lesson": "detection-engineer--cloudtrail-for-detection",
+      "page": 4,
+      "quote": "the requestParameters.roleArn's account ID differing from the calling identity's own account (visible in userIdentity.accountId) indicates cross-account role assumption"
+    },
+    {
+      "id": "lp-telemetry-sources-q10",
+      "lesson": "detection-engineer--cloudtrail-for-detection",
+      "page": 3,
+      "quote": "eventName is CloudTrail's equivalent of a Sysmon Event ID or a UAL Operation. It names the specific API call made."
+    }
+  ],
+  "lp-detection-tuning": [
+    {
+      "id": "lp-detection-tuning-q01",
+      "lesson": "detection-engineer--fp-analysis",
+      "page": 2,
+      "quote": "recall equals true positives divided by the sum of true positives and false negatives."
+    },
+    {
+      "id": "lp-detection-tuning-q02",
+      "lesson": "detection-engineer--fp-analysis",
+      "page": 3,
+      "quote": "A 'false positive' caused by a data-quality or field-mapping issue isn't really a detection logic flaw: it needs a pipeline or parsing fix, not a filter."
+    },
+    {
+      "id": "lp-detection-tuning-q03",
+      "lesson": "detection-engineer--fp-analysis",
+      "page": 4,
+      "quote": "treating genuinely novel combinations as higher priority than combinations the environment has seen thousands of times before"
+    },
+    {
+      "id": "lp-detection-tuning-q04",
+      "lesson": "detection-engineer--fp-analysis",
+      "page": 3,
+      "quote": "which is really a severity and prioritization issue (covered later in this path) rather than a detection logic flaw."
+    },
+    {
+      "id": "lp-detection-tuning-q05",
+      "lesson": "detection-engineer--allowlists-and-exceptions",
+      "page": 2,
+      "quote": "Referencing rules by id (not title or file path) keeps the filter's link to its target intact even if the rule is renamed or moved."
+    },
+    {
+      "id": "lp-detection-tuning-q06",
+      "lesson": "detection-engineer--allowlists-and-exceptions",
+      "page": 3,
+      "quote": "SIEM-native suppression operates on the deployed platform, not the Sigma source, so it doesn't survive a rule being re-converted from source unless separately maintained."
+    },
+    {
+      "id": "lp-detection-tuning-q07",
+      "lesson": "detection-engineer--allowlists-and-exceptions",
+      "page": 4,
+      "quote": "Specificity ranking from strongest to weakest: full file hash, then path+parent+user combination, then path alone, then process name alone (the weakest and most abusable)."
+    },
+    {
+      "id": "lp-detection-tuning-q08",
+      "lesson": "detection-engineer--tiered-severities",
+      "page": 6,
+      "quote": "Dynamic severity is computed downstream in SIEM/SOAR enrichment logic, using real-time asset criticality and user privilege data the rule author couldn't have anticipated."
+    },
+    {
+      "id": "lp-detection-tuning-q09",
+      "lesson": "detection-engineer--tiered-severities",
+      "page": 5,
+      "quote": "(a domain controller, a primary financial database) rises to High, while the identical confidence level on a low-value asset (a disposable test VM) settles at Low."
+    },
+    {
+      "id": "lp-detection-tuning-q10",
+      "lesson": "detection-engineer--tiered-severities",
+      "page": 7,
+      "quote": "A very high-confidence detection on a genuinely low-value asset should not automatically outrank a lower-confidence, more ambiguous detection on a crown-jewel asset."
+    }
+  ],
+  "lp-adversary-emulation": [
+    {
+      "id": "lp-adversary-emulation-q01",
+      "lesson": "purple-team--atomic-red-team",
+      "page": 3,
+      "quote": "Running a bare technique ID with no filters against a technique folder that has five tests means all five execute"
+    },
+    {
+      "id": "lp-adversary-emulation-q02",
+      "lesson": "purple-team--caldera-platform",
+      "page": 5,
+      "quote": "A discarded link means the ability's required facts were never satisfied during the operation"
+    },
+    {
+      "id": "lp-adversary-emulation-q03",
+      "lesson": "purple-team--atomic-red-team",
+      "page": 4,
+      "quote": "If the event was logged but no rule matched it, that is a detection-logic gap."
+    },
+    {
+      "id": "lp-adversary-emulation-q04",
+      "lesson": "purple-team--custom-ttps",
+      "page": 3,
+      "quote": "Sequencing techniques to match the real actor's kill chain tests correlation, not just isolated detection"
+    },
+    {
+      "id": "lp-adversary-emulation-q05",
+      "lesson": "purple-team--caldera-platform",
+      "page": 2,
+      "quote": "Each agent communication channel is itself a detectable artifact a SOC should validate independent of the technique being run"
+    },
+    {
+      "id": "lp-adversary-emulation-q06",
+      "lesson": "purple-team--caldera-platform",
+      "page": 4,
+      "quote": "The Atomic planner produces the most realistic, gradual pacing (closest to how a patient human operator would work), which is usually preferred for validating whether a SOC can detect and correlate a slow-building intrusion"
+    },
+    {
+      "id": "lp-adversary-emulation-q07",
+      "lesson": "purple-team--caldera-platform",
+      "page": 8,
+      "quote": "a profile is only as safe as the abilities it contains, and an imported or community profile should never be trusted without reading what it actually does"
+    },
+    {
+      "id": "lp-adversary-emulation-q08",
+      "lesson": "purple-team--custom-ttps",
+      "page": 5,
+      "quote": "A planning layer built before the exercise reveals what the emulation plan does and does not exercise"
+    },
+    {
+      "id": "lp-adversary-emulation-q09",
+      "lesson": "purple-team--atomic-red-team",
+      "page": 5,
+      "quote": "if a test spawned a process that itself wrote additional files, cleanup only removes what the YAML's cleanup_command targets"
+    },
+    {
+      "id": "lp-adversary-emulation-q10",
+      "lesson": "purple-team--atomic-red-team",
+      "page": 7,
+      "quote": "Rules should target the underlying artifact (e.g. handle access to lsass.exe), not the specific tool used in the test"
+    }
+  ],
+  "lp-detection-validation": [
+    {
+      "id": "lp-detection-validation-q01",
+      "lesson": "purple-team--replay-frameworks",
+      "page": 3,
+      "quote": "A rule that fails to convert cleanly -- referencing a field the pipeline does not know how to map -- is caught here, before it is ever tested against data"
+    },
+    {
+      "id": "lp-detection-validation-q02",
+      "lesson": "purple-team--replay-frameworks",
+      "page": 2,
+      "quote": "a fixture log line where a field only partially matches (for example a path that contains but does not end with the target string)"
+    },
+    {
+      "id": "lp-detection-validation-q03",
+      "lesson": "purple-team--replay-frameworks",
+      "page": 6,
+      "quote": "A rule can score perfectly against its fixture set and still generate unexpected false positives in production, because fixtures can only cover the near-miss cases someone thought to write down"
+    },
+    {
+      "id": "lp-detection-validation-q04",
+      "lesson": "purple-team--kpi-tracking",
+      "page": 2,
+      "quote": "MTTD is computed as the average detection delay across a set of tested events or techniques"
+    },
+    {
+      "id": "lp-detection-validation-q05",
+      "lesson": "purple-team--kpi-tracking",
+      "page": 2,
+      "quote": "MTTD needs to be read alongside false positive rate (page 4) to mean anything on its own."
+    },
+    {
+      "id": "lp-detection-validation-q06",
+      "lesson": "purple-team--replay-frameworks",
+      "page": 6,
+      "quote": "100% against known-malicious fixtures, since any known miss should block deployment"
+    },
+    {
+      "id": "lp-detection-validation-q07",
+      "lesson": "purple-team--replay-frameworks",
+      "page": 7,
+      "quote": "A reverted rule should go through the full pipeline again, not be redeployed directly, since the environment may have changed"
+    },
+    {
+      "id": "lp-detection-validation-q08",
+      "lesson": "purple-team--kpi-tracking",
+      "page": 3,
+      "quote": "since coverage against irrelevant techniques inflates the denominator without adding real security value"
+    },
+    {
+      "id": "lp-detection-validation-q09",
+      "lesson": "purple-team--kpi-tracking",
+      "page": 5,
+      "quote": "which may indicate either genuinely rare-but-important coverage (acceptable) or a rule that silently broke due to a log format or field name change upstream"
+    },
+    {
+      "id": "lp-detection-validation-q10",
+      "lesson": "purple-team--kpi-tracking",
+      "page": 8,
+      "quote": "if this number got dramatically worse, would a specific person take a specific action?"
+    }
+  ],
+  "lp-reporting-and-roi": [
+    {
+      "id": "lp-reporting-and-roi-q01",
+      "lesson": "purple-team--heatmap-delta",
+      "page": 3,
+      "quote": "Any technique not actively re-tested in this cycle keeps its prior baseline score unchanged in the after layer"
+    },
+    {
+      "id": "lp-reporting-and-roi-q02",
+      "lesson": "purple-team--heatmap-delta",
+      "page": 7,
+      "quote": "Call out any regression (negative delta) explicitly and first, since it represents newly-introduced, unaddressed risk"
+    },
+    {
+      "id": "lp-reporting-and-roi-q03",
+      "lesson": "purple-team--heatmap-delta",
+      "page": 6,
+      "quote": "A basic signature keyed on one specific tool (score 1) is meaningfully weaker than a correlation rule catching the underlying behavior (score 2)"
+    },
+    {
+      "id": "lp-reporting-and-roi-q04",
+      "lesson": "purple-team--investment-justification",
+      "page": 3,
+      "quote": "ROSI = (monetary loss avoided - cost of the solution) / cost of the solution"
+    },
+    {
+      "id": "lp-reporting-and-roi-q05",
+      "lesson": "purple-team--investment-justification",
+      "page": 3,
+      "quote": "claiming a new rule reduces risk by 90 percent when purple team testing has only validated it against a handful of known procedure variants overstates the return and risks the team's credibility on the next funding request"
+    },
+    {
+      "id": "lp-reporting-and-roi-q06",
+      "lesson": "purple-team--investment-justification",
+      "page": 4,
+      "quote": "divided by the number of techniques that achieved a meaningful validated detection score during that same period"
+    },
+    {
+      "id": "lp-reporting-and-roi-q07",
+      "lesson": "purple-team--investment-justification",
+      "page": 5,
+      "quote": "Generic fear appeals without quantified ALE and ROSI figures read as less credible than a specific, comparable business case"
+    },
+    {
+      "id": "lp-reporting-and-roi-q08",
+      "lesson": "purple-team--detection-maturity",
+      "page": 6,
+      "quote": "Fragile high performers (high capability, low maturity) deserve early roadmap attention despite looking fine today"
+    },
+    {
+      "id": "lp-reporting-and-roi-q09",
+      "lesson": "purple-team--detection-maturity",
+      "page": 5,
+      "quote": "while a low detection score with low visibility is a much larger data-onboarding project"
+    },
+    {
+      "id": "lp-reporting-and-roi-q10",
+      "lesson": "purple-team--detection-maturity",
+      "page": 6,
+      "quote": "most organizations reassess SOC-CMM and DeTT&CT maturity annually or semi-annually, while continuing the faster quarterly cadence for the KPI and heatmap-delta cycles"
+    }
+  ]
+}

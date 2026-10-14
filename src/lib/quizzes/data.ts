@@ -1002,6 +1002,7 @@ import { QUIZZES_HUNTING_DECISIONS } from "./data-hunting-decisions";
 import { QUIZZES_MALWARE_WINDOWS } from "./data-malware-windows";
 import { QUIZZES_LINUX_CLOUD } from "./data-linux-cloud";
 import { QUIZZES_VENDOR_STACKS } from "./data-vendor-stacks";
+import { QUIZZES_LEARNING_PATH } from "./data-learning-path";
 
 export const ALL_QUIZZES: Quiz[] = [
   ...QUIZZES,
@@ -1019,6 +1020,8 @@ export const ALL_QUIZZES: Quiz[] = [
   ...QUIZZES_MALWARE_WINDOWS,
   ...QUIZZES_LINUX_CLOUD,
   ...QUIZZES_VENDOR_STACKS,
+  // One quiz per Learning Path module, every question cited to that module's lessons.
+  ...QUIZZES_LEARNING_PATH,
 ];
 
 export function getQuiz(slug: string): Quiz | undefined {

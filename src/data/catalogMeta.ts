@@ -175,6 +175,96 @@ export const QUIZZES_META: QuizMeta[] = [
     "title": "The Microsoft Security Stack — Defender XDR, Sentinel, Entra",
     "category": "Microsoft Security",
     "difficulty": "Intermediate"
+  },
+  {
+    "slug": "lp-alert-triage",
+    "title": "SOC Analyst · Alert Triage",
+    "category": "SOC Operations",
+    "difficulty": "Beginner"
+  },
+  {
+    "slug": "lp-mitre-attack",
+    "title": "SOC Analyst · MITRE ATT&CK",
+    "category": "Threat Framework",
+    "difficulty": "Intermediate"
+  },
+  {
+    "slug": "lp-investigation-workflow",
+    "title": "SOC Analyst · Investigation",
+    "category": "SOC Operations",
+    "difficulty": "Beginner"
+  },
+  {
+    "slug": "lp-hunt-methodology",
+    "title": "Threat Hunter · Hunt Methodology",
+    "category": "Threat Detection",
+    "difficulty": "Intermediate"
+  },
+  {
+    "slug": "lp-query-languages",
+    "title": "Threat Hunter · KQL & SPL",
+    "category": "SIEM",
+    "difficulty": "Intermediate"
+  },
+  {
+    "slug": "lp-sigma-and-detection",
+    "title": "Threat Hunter · Sigma & Detection",
+    "category": "Threat Detection",
+    "difficulty": "Intermediate"
+  },
+  {
+    "slug": "lp-ir-lifecycle",
+    "title": "Incident Responder · IR Lifecycle (NIST)",
+    "category": "Incident Response",
+    "difficulty": "Advanced"
+  },
+  {
+    "slug": "lp-forensics-101",
+    "title": "Incident Responder · Forensics 101",
+    "category": "Forensics",
+    "difficulty": "Advanced"
+  },
+  {
+    "slug": "lp-comms-and-reporting",
+    "title": "Incident Responder · Comms & Reporting",
+    "category": "Incident Response",
+    "difficulty": "Advanced"
+  },
+  {
+    "slug": "lp-sigma-mastery",
+    "title": "Detection Engineer · Sigma Mastery",
+    "category": "Threat Detection",
+    "difficulty": "Advanced"
+  },
+  {
+    "slug": "lp-telemetry-sources",
+    "title": "Detection Engineer · Telemetry Sources",
+    "category": "Log Analysis",
+    "difficulty": "Advanced"
+  },
+  {
+    "slug": "lp-detection-tuning",
+    "title": "Detection Engineer · Tuning",
+    "category": "Threat Detection",
+    "difficulty": "Advanced"
+  },
+  {
+    "slug": "lp-adversary-emulation",
+    "title": "Purple Team · Adversary Emulation",
+    "category": "Threat Detection",
+    "difficulty": "Advanced"
+  },
+  {
+    "slug": "lp-detection-validation",
+    "title": "Purple Team · Detection Validation",
+    "category": "Threat Detection",
+    "difficulty": "Advanced"
+  },
+  {
+    "slug": "lp-reporting-and-roi",
+    "title": "Purple Team · Reporting & ROI",
+    "category": "SOC Operations",
+    "difficulty": "Advanced"
   }
 ];
 

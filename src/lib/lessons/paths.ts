@@ -61,7 +61,6 @@ export const LESSON_PATHS: PathMeta[] = [
           { slug: "process-trees-in-depth",   title: "Process trees in depth",    kind: "lab",    min: 18, xp: 150, difficulty: "intermediate", topic: "How to read parent-child process relationships in Windows EDR telemetry, PPID spoofing" },
           { slug: "severity-vs-risk-score",   title: "Severity vs. risk score",   kind: "lesson", min: 8,  xp: 50,  difficulty: "beginner",     topic: "Difference between alert severity, confidence, and risk score in SIEM context" },
           { slug: "containment-basics",       title: "Containment basics",        kind: "lesson", min: 10, xp: 75,  difficulty: "beginner",     topic: "Isolating hosts, disabling accounts, blocking IOCs — analyst-level containment actions" },
-          { slug: "quiz-alert-triage",          title: "Quiz: Alert Triage",           kind: "quiz",   min: 8,  xp: 100, difficulty: "beginner", topic: "Module knowledge check: Reading EDR alerts, Process trees in depth, Severity vs. risk score, Containment basics" },
         ],
       },
       {
@@ -71,7 +70,6 @@ export const LESSON_PATHS: PathMeta[] = [
           { slug: "tactics-and-techniques",   title: "Tactics & techniques",      kind: "lesson", min: 10, xp: 75,  difficulty: "beginner",     topic: "MITRE ATT&CK framework: 15 tactics, technique IDs, sub-techniques, and enterprise matrix" },
           { slug: "mapping-alerts-to-attack", title: "Mapping alerts to ATT&CK",  kind: "lab",    min: 20, xp: 150, difficulty: "intermediate", topic: "Practical exercise: mapping EDR/SIEM alerts to MITRE technique IDs with examples" },
           { slug: "coverage-thinking",        title: "Coverage thinking",         kind: "lesson", min: 10, xp: 75,  difficulty: "intermediate", topic: "Detection coverage gaps, ATT&CK heatmaps, prioritizing detection engineering efforts" },
-          { slug: "quiz-mitre-attack",          title: "Quiz: MITRE ATT&CK",           kind: "quiz",   min: 8,  xp: 100, difficulty: "intermediate", topic: "Module knowledge check: Tactics & techniques, Mapping alerts to ATT&CK, Coverage thinking" },
         ],
       },
       {
@@ -81,7 +79,6 @@ export const LESSON_PATHS: PathMeta[] = [
           { slug: "building-timelines",       title: "Building timelines",        kind: "lesson", min: 12, xp: 75,  difficulty: "beginner",     topic: "Creating investigation timelines from disparate log sources, time normalization, pivot chains" },
           { slug: "pivoting-on-entities",     title: "Pivoting on entities",      kind: "lab",    min: 22, xp: 200, difficulty: "intermediate", topic: "Entity-based investigation: pivoting from host to user to IP to domain to hash in SIEM" },
           { slug: "verdict-workflows",        title: "Verdict workflows",         kind: "lesson", min: 10, xp: 75,  difficulty: "beginner",     topic: "True positive, false positive, benign, undetermined — how to classify and document verdicts" },
-          { slug: "quiz-investigation-workflow", title: "Quiz: Investigation",          kind: "quiz",   min: 8,  xp: 100, difficulty: "beginner", topic: "Module knowledge check: Building timelines, Pivoting on entities, Verdict workflows" },
         ],
       },
     ],
@@ -101,7 +98,6 @@ export const LESSON_PATHS: PathMeta[] = [
           { slug: "ttp-based-hunting",        title: "TTP-based hunting",         kind: "lesson", min: 12, xp: 75,  difficulty: "intermediate", topic: "Threat hunting using MITRE ATT&CK TTPs as hypothesis drivers, intel-driven hunting" },
           { slug: "hypothesis-framework",     title: "Hypothesis framework",      kind: "lesson", min: 10, xp: 75,  difficulty: "intermediate", topic: "Structured hypothesis creation for threat hunts: data source, TTP, detection logic" },
           { slug: "coverage-gaps",            title: "Coverage gaps",             kind: "lesson", min: 10, xp: 75,  difficulty: "intermediate", topic: "Identifying blind spots in your detection stack, log source coverage, MITRE gap analysis" },
-          { slug: "quiz-hunt-methodology",      title: "Quiz: Hunt Methodology",       kind: "quiz",   min: 8,  xp: 100, difficulty: "intermediate", topic: "Module knowledge check: TTP-based hunting, Hypothesis framework, Coverage gaps" },
         ],
       },
       {
@@ -112,7 +108,6 @@ export const LESSON_PATHS: PathMeta[] = [
           { slug: "kql-aggregations",         title: "KQL: Aggregations",         kind: "lesson", min: 15, xp: 100, difficulty: "intermediate", topic: "summarize, bin(), arg_max, count, dcountby in KQL for anomaly detection and baselining" },
           { slug: "entity-baselining",        title: "Entity baselining",         kind: "lab",    min: 20, xp: 150, difficulty: "advanced",     topic: "Building user and host behavioral baselines with KQL percentile functions for anomaly detection" },
           { slug: "time-series-analysis",     title: "Time series analysis",      kind: "lesson", min: 15, xp: 100, difficulty: "intermediate", topic: "Time series analysis with KQL: make-series, series_decompose, anomaly detection over sliding windows" },
-          { slug: "quiz-query-languages",       title: "Quiz: KQL & SPL",              kind: "quiz",   min: 8,  xp: 100, difficulty: "intermediate", topic: "Module knowledge check: KQL: Joins and lookups, KQL: Aggregations, Entity baselining, Time series analysis" },
         ],
       },
       {
@@ -122,7 +117,6 @@ export const LESSON_PATHS: PathMeta[] = [
           { slug: "sigma-syntax-basics",      title: "Sigma syntax basics",       kind: "lesson", min: 12, xp: 75,  difficulty: "intermediate", topic: "Sigma rule syntax, YAML structure, logsource definitions, detection conditions for hunt queries" },
           { slug: "backend-conversion",       title: "Backend conversion",        kind: "lesson", min: 10, xp: 75,  difficulty: "intermediate", topic: "Converting Sigma rules to SIEM queries: Splunk SPL, KQL, Elastic ESQL using pySigma backends" },
           { slug: "sigma-test-data",          title: "Test data generation",      kind: "lab",    min: 18, xp: 150, difficulty: "intermediate", topic: "Generating synthetic log data to validate Sigma rules, rule testing frameworks, detection coverage gaps" },
-          { slug: "quiz-sigma-and-detection",   title: "Quiz: Sigma & Detection",      kind: "quiz",   min: 8,  xp: 100, difficulty: "intermediate", topic: "Module knowledge check: Sigma syntax basics, Backend conversion, Test data generation" },
         ],
       },
     ],
@@ -145,7 +139,6 @@ export const LESSON_PATHS: PathMeta[] = [
           { slug: "eradication-and-recovery", title: "Eradication & recovery",    kind: "lesson", min: 12, xp: 75,  difficulty: "advanced", topic: "Malware removal, reimaging, credential reset, hardening, monitoring during recovery phase" },
           { slug: "post-incident-review",     title: "Post-incident review",      kind: "lesson", min: 10, xp: 75,  difficulty: "advanced", topic: "Lessons learned process, root cause analysis, blameless postmortems, IR report writing" },
           { slug: "ir-playbooks",             title: "IR playbooks",              kind: "lab",    min: 20, xp: 150, difficulty: "advanced", topic: "Building incident response playbooks, decision trees, SOAR integration hooks, playbook testing" },
-          { slug: "quiz-ir-lifecycle",          title: "Quiz: IR Lifecycle (NIST)",    kind: "quiz",   min: 8,  xp: 100, difficulty: "advanced", topic: "Module knowledge check: IR phases overview, Detection & Analysis, Containment strategies, Eradication & recovery, Post-incident review, IR playbooks" },
         ],
       },
       {
@@ -155,7 +148,6 @@ export const LESSON_PATHS: PathMeta[] = [
           { slug: "triage-acquisition",       title: "Triage acquisition",        kind: "lesson", min: 12, xp: 75,  difficulty: "advanced", topic: "Volatile data collection (memory, processes, network), disk imaging, chain of custody documentation" },
           { slug: "timeline-analysis",        title: "Timeline analysis",         kind: "lab",    min: 20, xp: 150, difficulty: "advanced", topic: "Creating super-timelines from multiple log sources, filesystem artifacts, log2timeline/plaso" },
           { slug: "memory-forensics-basics",  title: "Memory forensics basics",   kind: "lesson", min: 12, xp: 75,  difficulty: "advanced", topic: "Volatility framework, process injection detection, code caves, malware artifacts in memory" },
-          { slug: "quiz-forensics-101",         title: "Quiz: Forensics 101",          kind: "quiz",   min: 8,  xp: 100, difficulty: "advanced", topic: "Module knowledge check: Triage acquisition, Timeline analysis, Memory forensics basics" },
         ],
       },
       {
@@ -165,7 +157,6 @@ export const LESSON_PATHS: PathMeta[] = [
           { slug: "exec-briefings",           title: "Exec briefings",            kind: "lesson", min: 8,  xp: 50,  difficulty: "advanced", topic: "Communicating incidents to executives and non-technical stakeholders, impact framing, business language" },
           { slug: "customer-notifications",   title: "Customer notifications",    kind: "lesson", min: 8,  xp: 50,  difficulty: "advanced", topic: "Breach notification requirements, GDPR/CCPA timelines, customer communication templates" },
           { slug: "postmortems",              title: "Postmortems",               kind: "lesson", min: 10, xp: 75,  difficulty: "advanced", topic: "Incident postmortem structure, blameless culture, action items, metric improvement tracking" },
-          { slug: "quiz-comms-and-reporting",   title: "Quiz: Comms & Reporting",      kind: "quiz",   min: 8,  xp: 100, difficulty: "advanced", topic: "Module knowledge check: Exec briefings, Customer notifications, Postmortems" },
         ],
       },
     ],
@@ -185,7 +176,6 @@ export const LESSON_PATHS: PathMeta[] = [
           { slug: "sigma-selection-patterns", title: "Sigma selection patterns",  kind: "lesson", min: 12, xp: 75,  difficulty: "advanced", topic: "Sigma rule structure, condition logic, selection/filter patterns, field mappings across backends" },
           { slug: "sigma-modifiers",          title: "Sigma modifiers",           kind: "lesson", min: 10, xp: 75,  difficulty: "advanced", topic: "Sigma modifiers: contains, endswith, startswith, re (regex), base64offset, windash, all" },
           { slug: "sigma-coverage-testing",   title: "Coverage testing",          kind: "lab",    min: 20, xp: 150, difficulty: "advanced", topic: "Testing Sigma rules against log samples, sigma2stix, detection coverage mapping to MITRE ATT&CK heatmaps" },
-          { slug: "quiz-sigma-mastery",         title: "Quiz: Sigma Mastery",          kind: "quiz",   min: 8,  xp: 100, difficulty: "advanced", topic: "Module knowledge check: Sigma selection patterns, Sigma modifiers, Coverage testing" },
         ],
       },
       {
@@ -195,7 +185,6 @@ export const LESSON_PATHS: PathMeta[] = [
           { slug: "edr-vs-sysmon",            title: "EDR vs Sysmon",             kind: "lesson", min: 12, xp: 75,  difficulty: "advanced", topic: "EDR telemetry vs Sysmon event coverage comparison, gaps, event ID mapping, detection implications" },
           { slug: "o365-ual",                 title: "O365 Unified Audit Log",    kind: "lesson", min: 12, xp: 75,  difficulty: "advanced", topic: "Office 365 UAL fields, key operations for detection: FileDownloaded, MailboxLogin, New-InboxRule, retention" },
           { slug: "cloudtrail-for-detection", title: "CloudTrail for detection",  kind: "lesson", min: 12, xp: 75,  difficulty: "advanced", topic: "AWS CloudTrail event types (management/data/insight), key events: AssumeRole, GetSecretValue, CreateUser" },
-          { slug: "quiz-telemetry-sources",     title: "Quiz: Telemetry Sources",      kind: "quiz",   min: 8,  xp: 100, difficulty: "advanced", topic: "Module knowledge check: EDR vs Sysmon, O365 Unified Audit Log, CloudTrail for detection" },
         ],
       },
       {
@@ -205,7 +194,6 @@ export const LESSON_PATHS: PathMeta[] = [
           { slug: "fp-analysis",              title: "FP analysis",               kind: "lesson", min: 10, xp: 75,  difficulty: "advanced", topic: "False positive root cause analysis, baselining legitimate activity, alert fatigue measurement" },
           { slug: "allowlists-and-exceptions",title: "Allowlists & exceptions",   kind: "lab",    min: 18, xp: 150, difficulty: "advanced", topic: "Building Sigma exception lists, SIEM suppression rules, allowlist management lifecycle" },
           { slug: "tiered-severities",        title: "Tiered severities",         kind: "lesson", min: 10, xp: 75,  difficulty: "advanced", topic: "Alert severity classification, risk scoring matrices, priority tiering based on asset criticality and confidence" },
-          { slug: "quiz-detection-tuning",      title: "Quiz: Tuning",                 kind: "quiz",   min: 8,  xp: 100, difficulty: "advanced", topic: "Module knowledge check: FP analysis, Allowlists & exceptions, Tiered severities" },
         ],
       },
     ],
@@ -225,7 +213,6 @@ export const LESSON_PATHS: PathMeta[] = [
           { slug: "atomic-red-team",          title: "Atomic Red Team",           kind: "lab",    min: 20, xp: 150, difficulty: "expert", topic: "Atomic Red Team framework, test atomics, execution on Windows/Linux, ATT&CK coverage tracking" },
           { slug: "caldera-platform",         title: "CALDERA platform",          kind: "lab",    min: 22, xp: 200, difficulty: "expert", topic: "MITRE CALDERA adversary emulation, abilities, adversaries, operations, agent deployment" },
           { slug: "custom-ttps",              title: "Custom TTPs",               kind: "lesson", min: 12, xp: 75,  difficulty: "expert", topic: "Writing custom adversary TTPs, ATT&CK navigator layer creation, emulation plan development" },
-          { slug: "quiz-adversary-emulation",   title: "Quiz: Adversary Emulation",    kind: "quiz",   min: 8,  xp: 100, difficulty: "expert", topic: "Module knowledge check: Atomic Red Team, CALDERA platform, Custom TTPs" },
         ],
       },
       {
@@ -234,7 +221,6 @@ export const LESSON_PATHS: PathMeta[] = [
         lessons: [
           { slug: "replay-frameworks",        title: "Replay frameworks",         kind: "lab",    min: 20, xp: 200, difficulty: "expert", topic: "Log replay for detection testing, sigma replay, detection-as-code CI/CD pipelines, automated validation" },
           { slug: "kpi-tracking",             title: "KPI tracking",              kind: "lesson", min: 10, xp: 75,  difficulty: "expert", topic: "Detection engineering KPIs: MTTD, coverage %, FP rate, rule count, ATT&CK coverage score" },
-          { slug: "quiz-detection-validation",  title: "Quiz: Detection Validation",   kind: "quiz",   min: 8,  xp: 100, difficulty: "expert", topic: "Module knowledge check: Replay frameworks, KPI tracking" },
         ],
       },
       {
@@ -244,7 +230,6 @@ export const LESSON_PATHS: PathMeta[] = [
           { slug: "heatmap-delta",            title: "Heatmap delta",             kind: "lesson", min: 10, xp: 75,  difficulty: "expert", topic: "ATT&CK heatmap before/after purple team exercise, coverage delta reporting, DeTT&CT scoring" },
           { slug: "investment-justification", title: "Investment justification",  kind: "lesson", min: 10, xp: 75,  difficulty: "expert", topic: "Business case for detection investment, ROSI calculation, board-level reporting, cost per detection" },
           { slug: "detection-maturity",       title: "Detection maturity",        kind: "lesson", min: 10, xp: 75,  difficulty: "expert", topic: "Detection maturity models (DeTT&CT, SOC CMM), maturity scoring, improvement roadmap development" },
-          { slug: "quiz-reporting-and-roi",     title: "Quiz: Reporting & ROI",        kind: "quiz",   min: 8,  xp: 100, difficulty: "expert", topic: "Module knowledge check: Heatmap delta, Investment justification, Detection maturity" },
         ],
       },
     ],
