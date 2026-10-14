@@ -154,6 +154,13 @@ describe("remapOptionLetters", () => {
     expect(remapOptionLetters("Options A and D both fail; (b) is the trap. Answer C.", order))
       .toBe("Options B and C both fail; (d) is the trap. Answer A.");
   });
+  it("turns numbered references (authored order) into the letters on screen, once", () => {
+    // authored option 1 (index 0) is shown second -> B; option 3 (index 2) is shown first -> A
+    expect(remapOptionLetters("Option 1 inverts it. Option 3 interleaves.", order))
+      .toBe("Option B inverts it. Option A interleaves.");
+    expect(remapOptionLetters("Options 2 and 4 are traps.", order)).toBe("Options D and C are traps.");
+    expect(remapOptionLetters("Option 2 is the reversal.", [0, 1, 2, 3])).toBe("Option B is the reversal.");
+  });
   it("leaves prose, out-of-range letters and identity order alone", () => {
     expect(remapOptionLetters("Other options and alerts matter.", order)).toBe("Other options and alerts matter.");
     expect(remapOptionLetters("Option f is not an option here.", order)).toBe("Option f is not an option here.");

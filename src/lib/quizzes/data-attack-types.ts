@@ -123,15 +123,15 @@ export const QUIZZES_ATTACK_TYPES: Quiz[] = [
       },
       {
         id: "at_09",
-        question: "What is a 'zero-day' vulnerability?",
+        question: "Why do zero-day attacks so often slip past signature-based defences such as classic antivirus or a signature-based IDS?",
         options: [
-          "A flaw that has been public for exactly zero days because it was responsibly disclosed.",
-          "A flaw the vendor is unaware of, so no patch exists when it is first exploited.",
-          "A flaw that can only be exploited within zero days of a system being installed.",
-          "A flaw rated zero on the severity scale and therefore safe to leave unpatched.",
+          "Signatures only match threats someone has already seen and written a rule for",
+          "Signature updates are paused on the day a vendor releases a patch for the flaw",
+          "Zero-day attacks always travel inside encrypted traffic that no tool can inspect",
+          "Signature engines only check files during scheduled overnight full-disk scans",
         ],
-        answer: 1,
-        explanation: "A zero-day is a vulnerability unknown to the vendor (and thus unpatched) at the time it's exploited — defenders have had 'zero days' to fix it. They're dangerous because signature-based defences don't yet recognise them; behavioural detection (EDR/anomaly) is the fallback until a patch ships.",
+        answer: 0,
+        explanation: "Signature-based detection can only catch what someone has already seen and written a signature for, so a novel or zero-day attack has no matching rule yet and slips past; behaviour-based detection and sandbox detonation are the fallback. Signature updates are not paused when patches ship, and patch timing has nothing to do with how signature matching works. Zero-days are not defined by encryption, and many tools inspect traffic after decryption or watch the endpoint directly. And modern engines scan files in real time on access, not only in overnight scans.",
         xp: 10,
       },
       {

@@ -34,13 +34,13 @@ export const QUIZZES_SECURITY_MODELS: Quiz[] = [
         id: "sm_02",
         question: "An attacker encrypts a company's files with ransomware so no one can open them. Which part of the CIA triad is primarily harmed?",
         options: [
-          "Confidentiality — the data has been exposed to an unauthorised party.",
-          "Integrity — the contents of the data have been silently altered.",
-          "Availability — legitimate users can no longer access the data they need.",
-          "Non-repudiation — the origin of the data can no longer be proven.",
+          "Confidentiality: the data has been exposed to an unauthorised party.",
+          "Integrity: the contents of the data have been silently altered.",
+          "Availability: authorised users can no longer access their data.",
+          "Non-repudiation: the origin of the data can no longer be proven.",
         ],
         answer: 2,
-        explanation: "Ransomware's primary impact is on Availability — the data still exists and isn't (necessarily) stolen or changed, but no one can use it. Modern 'double extortion' ransomware also steals data first, which then adds a Confidentiality impact.",
+        explanation: "Availability is the primary harm: legitimate users can no longer open the files they need. The CIA lesson also notes that ransomware damages integrity, because files are encrypted in place, but option B describes data being silently altered, and ransomware announces itself with a ransom note rather than hiding the change. Option A applies only when data is stolen, as in double-extortion attacks that exfiltrate before encrypting. Option D, non-repudiation, concerns proving who performed an action and is not one of the three CIA properties.",
         xp: 15,
       },
       {

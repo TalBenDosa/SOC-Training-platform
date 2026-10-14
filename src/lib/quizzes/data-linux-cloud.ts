@@ -181,13 +181,13 @@ export const QUIZZES_LINUX_CLOUD: Quiz[] = [
         id: "lx_13",
         question: "An analyst suspects a process is exfiltrating data over an unusual outbound port. Which command would best show which running process owns that specific network connection?",
         options: [
-          "ss -tulpn (or netstat -tulpn), which lists listening and active sockets with their owning process.",
-          "last, which lists recent login sessions and their terminal, but not network sockets.",
+          "ss -tnp (or netstat -tnp), listing TCP connections with their owning process.",
+          "last, which lists recent login sessions and terminals, but not network sockets.",
           "top, which shows live CPU and memory usage, not per-connection ownership.",
           "who, which shows currently logged-in users, not process-to-socket mappings.",
         ],
         answer: 0,
-        explanation: "ss -tulpn, the modern replacement for netstat -tulpn, maps sockets to the PID and process name that owns them — exactly what's needed to tie a suspicious connection back to a process, which can then be inspected further with lsof -p or ps. last, top, and who all give useful context but none map a specific network connection to its owning process.",
+        explanation: "Option A is correct: ss -tnp (the modern replacement for netstat -tnp) lists TCP connections, including ESTABLISHED outbound sessions, with the PID and name of the process that owns each one. Adding -l would limit the output to listening sockets and hide an outbound connection. Option B is wrong because last shows login history, not sockets. Option C is wrong because top shows resource usage, not connections. Option D is wrong because who shows logged-in users, not which process owns a connection.",
         xp: 15,
       },
       {

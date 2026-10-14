@@ -7,6 +7,7 @@ import { lessons_ir1 } from "./group-ir1";
 import { lessons_ir2 } from "./group-ir2";
 import { lessons_de } from "./group-de";
 import { lessons_pt } from "./group-pt";
+import { lessons_module_quizzes } from "./group-module-quizzes";
 
 /**
  * Hand-written content for every Learning Path lesson, keyed by
@@ -20,5 +21,6 @@ export const PATH_LESSON_CONTENT: Record<string, AuthoredPathLesson> = {
   ...lessons_ir1, ...lessons_ir2,
   ...lessons_de,
   ...lessons_pt,
+  ...lessons_module_quizzes,
 };
 export type { AuthoredPathLesson };

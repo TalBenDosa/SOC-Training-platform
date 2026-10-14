@@ -229,13 +229,13 @@ export const QUIZZES_HUNTING_DECISIONS: Quiz[] = [
         id: "dm_02",
         question: "A vulnerability scanner triggers an IDS alert for 'SQL injection attempt' against a web server, at the exact time your change log shows the internal vulnerability management team ran an authorised scan against that server. How should you close this?",
         options: [
-          "Close as a false positive, and document the scanner's source IP, the scan window, and the change ticket that authorised it.",
-          "Close as a true positive, since any SQL injection payload observed on the wire is malicious regardless of its source.",
-          "Escalate to Tier 3 without documentation, since scanner traffic always requires senior analyst review.",
-          "Leave the alert open indefinitely, since a scan and an attack cannot be told apart from network traffic alone.",
+          "Close as a benign true positive, citing scanner IP, scan window and change ticket.",
+          "Close as a false positive, because the detection rule misfired on harmless traffic.",
+          "Escalate to Tier 3 without notes, since scanner traffic needs senior review.",
+          "Leave it open indefinitely, since a scan and an attack look alike on the wire.",
         ],
         answer: 0,
-        explanation: "This is a textbook false positive with a verifiable, documented cause — closing it with the source IP, time window, and change ticket referenced means anyone reviewing later can see exactly why it was closed. Option B ignores the authorised context entirely and treats sanctioned scanning as an attack. Option C escalates without adding any documentation, which pushes an already-explained alert onto someone else instead of resolving it. Option D leaves a fully explainable alert open indefinitely, which clutters the queue and provides no closure reasoning for the next analyst who sees it.",
+        explanation: "Option A is correct: the rule fired correctly on activity that really happened, but the activity was authorised (a scheduled vulnerability scan), which is a benign true positive. Citing the source IP, scan window and change ticket lets anyone reviewing the closure see why. Option B is wrong because a false positive means the rule logic or data was wrong; labelling a working rule FP invites someone to tune it down. Option C is wrong because it pushes an already-explained alert upward and adds nothing. Option D is wrong because the change log already explains the traffic, so leaving it open only clutters the queue.",
         xp: 10,
       },
       {

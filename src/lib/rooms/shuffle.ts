@@ -115,7 +115,8 @@ export function toDisplayIndex(order: readonly number[], originalIndex: number):
  * identity order and nothing changes.
  */
 export function remapOptionLetters(text: string, order: readonly number[]): string {
-  if (!text || order.every((o, i) => o === i)) return text;
+  if (!text) return text;
+  const identity = order.every((o, i) => o === i);
   const map = (ch: string): string => {
     const lower = ch.toLowerCase();
     const orig = lower.charCodeAt(0) - 97;
@@ -125,10 +126,23 @@ export function remapOptionLetters(text: string, order: readonly number[]): stri
     const out = String.fromCharCode(97 + disp);
     return ch === lower ? out : out.toUpperCase();
   };
-  return text
-    // "option c", "Options A, B and D", "options a & c"
-    .replace(/\b([Oo]ptions?)\s+([a-fA-F](?:\s*(?:,|and|&|or)\s*[a-fA-F])*)\b/g,
-      (_m, word: string, list: string) => `${word} ${list.replace(/\b[a-fA-F]\b/g, map)}`)
+  // "Option 2" counts from 1 in the AUTHORED order, but the screen shows letters, so it
+  // becomes the letter that option now sits under ("Option 2" -> "Option D"). One pass
+  // per reference, so a number turned into a letter is never remapped a second time.
+  const ref = (tok: string): string => {
+    if (/^[1-6]$/.test(tok)) {
+      const disp = order.indexOf(Number(tok) - 1);
+      return disp < 0 ? tok : String.fromCharCode(65 + disp);
+    }
+    return identity ? tok : map(tok);
+  };
+  if (identity && !/\b[Oo]ptions?\s+[1-6]\b/.test(text)) return text;
+  const out = text
+    // "Option 1", "option c", "Options A, B and D", "Options 2 and 4"
+    .replace(/\b([Oo]ptions?)\s+([a-fA-F1-6](?:\s*(?:,|and|&|or)\s*[a-fA-F1-6])*)\b/g,
+      (_m, word: string, list: string) => `${word} ${list.replace(/\b[a-fA-F1-6]\b/g, ref)}`);
+  if (identity) return out;
+  return out
     // "(b)" / "(C)" used as an option label
     .replace(/\(([a-fA-F])\)/g, (_m, ch: string) => `(${map(ch)})`)
     // "Answer B" / "answer b"
