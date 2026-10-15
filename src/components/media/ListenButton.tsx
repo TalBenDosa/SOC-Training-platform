@@ -1,8 +1,11 @@
 "use client";
 /**
- * "Listen" — reads a piece of reading content aloud with the browser's Web
- * Speech API (feedback FB-009). No server, no audio files, no third party: the
- * OS/browser voice does the work. Hidden entirely where the API is missing.
+ * "Listen" — reads a piece of reading content aloud (feedback FB-009).
+ *
+ * When a pre-recorded narration exists (`audioSrc`: a neural-voice MP3, the same
+ * voices as the lesson videos) it plays that file; otherwise, or if the file
+ * fails to load, it falls back to the browser's Web Speech API voice. Hidden
+ * only when neither is available.
  *
  * - Play / pause / resume / stop, plus a 0.9× / 1× / 1.25× speed control.
  * - Prefers an English voice (the app's content is English).
@@ -20,6 +23,8 @@ const RATES = [0.9, 1, 1.25] as const;
 
 // Only one Listen button speaks at a time (speechSynthesis is a global queue).
 let activeOwner: string | null = null;
+// The narration file that is playing, so starting another button can stop it.
+let stopActiveAudio: (() => void) | null = null;
 
 function pickEnglishVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
   const en = voices.filter(v => v.lang?.toLowerCase().startsWith("en"));
@@ -33,9 +38,12 @@ function pickEnglishVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice 
 
 type PlayState = "idle" | "playing" | "paused";
 
-export function ListenButton({ text, className, label = "Listen" }: { text: string; className?: string; label?: string }) {
+export function ListenButton({ text, className, label = "Listen", audioSrc }: { text: string; className?: string; label?: string; audioSrc?: string }) {
   const ownerId = useId();
   const [supported, setSupported] = useState(false);
+  const [audioFailed, setAudioFailed] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const useAudio = !!audioSrc && !audioFailed;
   const [state, setState] = useState<PlayState>("idle");
   const [rate, setRate] = useState<number>(1);
 
@@ -77,6 +85,13 @@ export function ListenButton({ text, className, label = "Listen" }: { text: stri
     s.speak(u);
   }, [ownerId]);
 
+  const stopAudio = useCallback(() => {
+    const a = audioRef.current;
+    if (a) { a.pause(); try { a.currentTime = 0; } catch { /* not loaded yet */ } }
+    if (stopActiveAudio === stopAudioRef.current) stopActiveAudio = null;
+  }, []);
+  const stopAudioRef = useRef<() => void>(() => {});
+
   const stop = useCallback(() => {
     tokenRef.current++;
     idxRef.current = 0;
@@ -84,15 +99,21 @@ export function ListenButton({ text, className, label = "Listen" }: { text: stri
       activeOwner = null;
       synth()?.cancel();
     }
+    stopAudio();
     setPlayState("idle");
-  }, [ownerId]);
+  }, [ownerId, stopAudio]);
+  stopAudioRef.current = () => { const a = audioRef.current; if (a) a.pause(); setPlayState("idle"); };
 
   // Feature detection + voice loading + teardown.
   useEffect(() => {
     const s = synth();
     const ok = !!s && typeof window.SpeechSynthesisUtterance === "function";
-    setSupported(ok);
-    if (!ok || !s) return;
+    setSupported(ok || !!audioSrc);
+    if (!ok || !s) {
+      const onHide = () => stop();
+      window.addEventListener("pagehide", onHide);
+      return () => { window.removeEventListener("pagehide", onHide); stop(); };
+    }
     const pick = () => { voiceRef.current = pickEnglishVoice(s.getVoices()); };
     pick();
     s.addEventListener?.("voiceschanged", pick);
@@ -103,14 +124,21 @@ export function ListenButton({ text, className, label = "Listen" }: { text: stri
       window.removeEventListener("pagehide", onHide);
       stop();
     };
-  }, [stop]);
+  }, [stop, audioSrc]);
+
+  // A different recording (next reading) drops the old element and any failure flag.
+  useEffect(() => {
+    audioRef.current?.pause();
+    audioRef.current = null;
+    setAudioFailed(false);
+  }, [audioSrc]);
 
   // New content (e.g. next lesson page) → stop reading the old one.
   useEffect(() => {
     if (stateRef.current !== "idle") stop();
   }, [text, stop]);
 
-  function play() {
+  function playSpeech() {
     const s = synth();
     if (!s) return;
     if (stateRef.current === "paused" && activeOwner === ownerId) {
@@ -127,14 +155,49 @@ export function ListenButton({ text, className, label = "Listen" }: { text: stri
     speakFrom(0, token);
   }
 
+  function playAudio() {
+    let a = audioRef.current;
+    if (stateRef.current === "paused" && a) {
+      void a.play().catch(() => {});
+      setPlayState("playing");
+      return;
+    }
+    // Only one voice at a time: silence any speech or other recording first.
+    if (activeOwner) { activeOwner = null; synth()?.cancel(); }
+    if (stopActiveAudio && stopActiveAudio !== stopAudioRef.current) stopActiveAudio();
+    if (!a) {
+      a = new Audio(audioSrc);
+      a.preload = "auto";
+      a.onended = () => { if (stopActiveAudio === stopAudioRef.current) stopActiveAudio = null; setPlayState("idle"); };
+      a.onerror = () => {
+        // Missing or blocked file: fall back to the browser voice for this reading.
+        if (stopActiveAudio === stopAudioRef.current) stopActiveAudio = null;
+        audioRef.current = null;
+        setAudioFailed(true);
+        setPlayState("idle");
+        playSpeech();
+      };
+      audioRef.current = a;
+    }
+    a.playbackRate = rateRef.current;
+    stopActiveAudio = stopAudioRef.current;
+    setPlayState("playing");
+    void a.play().catch(() => { setPlayState("idle"); });
+  }
+
+  function play() {
+    if (useAudio) playAudio(); else playSpeech();
+  }
+
   function pause() {
-    synth()?.pause();
+    if (useAudio) audioRef.current?.pause(); else synth()?.pause();
     setPlayState("paused");
   }
 
   function changeRate(r: number) {
     rateRef.current = r;
     setRate(r);
+    if (useAudio) { if (audioRef.current) audioRef.current.playbackRate = r; return; }
     // Apply immediately: restart the current chunk at the new speed.
     if (stateRef.current === "playing" && activeOwner === ownerId) {
       const s = synth();

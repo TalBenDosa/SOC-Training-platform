@@ -25,6 +25,7 @@ import { LessonVideo } from "@/components/lessons/LessonVideo";
 import { displayOptions, newShuffleSeed, optionDisplayOrder, remapOptionLetters, shuffleWithSeed } from "@/lib/rooms/shuffle";
 import { saveTaskReview, type ReviewRecord } from "./reviewStore";
 import { ListenButton } from "@/components/media/ListenButton";
+import { roomNarrationSrc } from "@/lib/narration/roomNarration";
 
 /**
  * Render a raw-log value for display and IOC tagging. A value that is an array or
@@ -503,12 +504,13 @@ export function RichContent({ content }: { content: string }) {
  * read-only Review mode so both render identical content. Carries the Listen
  * control (FB-009, reads heading + content).
  */
-export function ReadingBody({ task }: { task: ReadingTask }) {
+export function ReadingBody({ task, roomId }: { task: ReadingTask; roomId?: string }) {
+  const spoken = `${task.heading}.\n\n${task.content}`;
   return (
     <>
       <div className="space-y-3">
         <h2 className="text-3xl font-bold text-white leading-tight">{task.heading}</h2>
-        <ListenButton text={`${task.heading}.\n\n${task.content}`} />
+        <ListenButton text={spoken} audioSrc={roomId ? roomNarrationSrc(roomId, task.id, spoken) : undefined} />
       </div>
       {task.video && <LessonVideo video={task.video} />}
       <RichContent content={task.content} />
@@ -590,7 +592,7 @@ function ReadingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { ro
 
   return (
     <div className="space-y-7">
-      <ReadingBody task={task} />
+      <ReadingBody task={task} roomId={roomId} />
 
       {/* End-of-content sentinel for the scroll gate */}
       <div ref={endRef} aria-hidden className="h-px w-full" />

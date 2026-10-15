@@ -71,3 +71,17 @@ export function chunkForSpeech(text: string, maxLen = 220): string[] {
   if (cur) chunks.push(cur);
   return chunks;
 }
+
+/**
+ * Short fingerprint of the exact text a recording was made from (FNV-1a, hex).
+ * A pre-recorded narration is played only while the reading's current speech
+ * text still has this fingerprint, so an edited reading never plays stale audio.
+ */
+export function speechHash(text: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(16).padStart(8, "0");
+}
