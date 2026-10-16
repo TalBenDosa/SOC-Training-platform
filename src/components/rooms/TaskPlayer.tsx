@@ -68,7 +68,10 @@ type RecordFn = (record: ReviewRecord) => void;
 interface TaskPlayerProps {
   roomId: string;
   task: RoomTask;
-  onComplete: (xpEarned: number, telemetry?: TaskTelemetryEntry) => void;
+  /** `passCredit`: what this run counts toward the room's 65% gate (the task's full
+   *  value when answered correctly, even on a retry that pays reduced XP). See
+   *  src/lib/rooms/mastery.ts. Undefined when nothing was graded (re-visits). */
+  onComplete: (xpEarned: number, telemetry?: TaskTelemetryEntry, passCredit?: number) => void;
   isCompleted: boolean;
   prevLogEvent?: TelemetryEvent;
 }
@@ -543,7 +546,7 @@ const READING_XP_DEFAULT = 5;
  * still reports 0 to the room score; the engagement XP is awarded separately by
  * RoomClient so it never touches the pass gate.
  */
-function ReadingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: ReadingTask; onComplete: (xp: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
+function ReadingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: ReadingTask; onComplete: (xp: number, passCredit?: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
   const reportError = useReportTaskError();
   const shuffleSeed = `${pageSeed()}:${task.id}`; // FB-002: checkpoint option order, fresh per load
   const endRef = useRef<HTMLDivElement | null>(null);
@@ -699,7 +702,7 @@ function ReadingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { ro
 }
 
 // ─── Question Task ──────────────────────────────────────────────────────────────
-function QuestionPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: QuestionTask; onComplete: (xp: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
+function QuestionPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: QuestionTask; onComplete: (xp: number, passCredit?: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
   const reportError = useReportTaskError();
   // FB-002: page-load seed + task id — the correct answer isn't in a predictable
   // slot, options never jump on re-render, and a reload reshuffles.
@@ -811,7 +814,7 @@ function QuestionPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
         </div>
       )}
       {revealed && (
-        <Button variant={correct ? "primary" : "secondary"} size="md" onClick={() => onComplete(correct ? awardedXp : 0)}>
+        <Button variant={correct ? "primary" : "secondary"} size="md" onClick={() => onComplete(correct ? awardedXp : 0, correct ? task.xp : 0)}>
           Next <ChevronRight className="h-4 w-4" />
         </Button>
       )}
@@ -820,7 +823,7 @@ function QuestionPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
 }
 
 // ─── Log Analysis Task ──────────────────────────────────────────────────────────
-function LogAnalysisPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: LogAnalysisTask; onComplete: (xp: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
+function LogAnalysisPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: LogAnalysisTask; onComplete: (xp: number, passCredit?: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
   const reportError = useReportTaskError();
   const shuffleSeed = `${pageSeed()}:${task.id}`; // FB-002: option order, fresh per load (per question below)
   const [iocs, setIocs]           = useState<IocEntry[]>([]);
@@ -987,7 +990,7 @@ function LogAnalysisPlayer({ roomId, task, onComplete, isCompleted, onRecord }: 
               </p>
             </div>
           )}
-          <Button variant="primary" size="md" onClick={() => onComplete(totalXp)}>
+          <Button variant="primary" size="md" onClick={() => onComplete(totalXp, task.questions.reduce((s, q, i) => s + (results[i]?.correct ? q.xp : 0), 0))}>
             Next <ChevronRight className="h-4 w-4" />
           </Button>
         </>
@@ -997,7 +1000,7 @@ function LogAnalysisPlayer({ roomId, task, onComplete, isCompleted, onRecord }: 
 }
 
 // ─── Flag Task ──────────────────────────────────────────────────────────────────
-function FlagPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent, onRecord }: { roomId: string; task: FlagTask; onComplete: (xp: number) => void; isCompleted: boolean; prevLogEvent?: TelemetryEvent; onRecord: RecordFn }) {
+function FlagPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent, onRecord }: { roomId: string; task: FlagTask; onComplete: (xp: number, passCredit?: number) => void; isCompleted: boolean; prevLogEvent?: TelemetryEvent; onRecord: RecordFn }) {
   const reportError = useReportTaskError();
   const [input, setInput]       = useState("");
   const [status, setStatus]     = useState<"idle" | "correct" | "wrong" | "checking">("idle");
@@ -1107,7 +1110,7 @@ function FlagPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent, onRec
           <div ref={resultRef} tabIndex={-1} role="status" className="rounded-lg border border-neon-green/40 bg-neon-green/10 px-4 py-3 text-sm text-neon-green font-semibold">
             Correct! +{awardedXp} XP
           </div>
-          <Button variant="primary" size="md" onClick={() => onComplete(awardedXp)}>
+          <Button variant="primary" size="md" onClick={() => onComplete(awardedXp, task.xp)}>
             Next <ChevronRight className="h-4 w-4" />
           </Button>
         </>
@@ -1167,7 +1170,7 @@ export const ANALYST_VERDICTS = [
   { key: "informational",  label: "Informational",   desc: "Log and monitor — no action",     activeClass: "border-slate-500/70 bg-slate-500/15 text-slate-300"     },
 ] as const;
 
-function AnalystChoicePlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: AnalystChoiceTask; onComplete: (xp: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
+function AnalystChoicePlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: AnalystChoiceTask; onComplete: (xp: number, passCredit?: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
   const reportError = useReportTaskError();
   // FB-002: verdict cards in a per-load order too, so "the answer is usually the
   // first card" can't become a habit. Submitted by verdict KEY — no index mapping.
@@ -1334,7 +1337,7 @@ function AnalystChoicePlayer({ roomId, task, onComplete, isCompleted, onRecord }
       )}
 
       {revealed && (
-        <Button variant={isCorrect ? "primary" : "secondary"} size="md" onClick={() => onComplete(isCorrect ? awardedXp : 0)}>
+        <Button variant={isCorrect ? "primary" : "secondary"} size="md" onClick={() => onComplete(isCorrect ? awardedXp : 0, isCorrect ? task.xp : 0)}>
           Next <ChevronRight className="h-4 w-4" />
         </Button>
       )}
@@ -1343,7 +1346,7 @@ function AnalystChoicePlayer({ roomId, task, onComplete, isCompleted, onRecord }
 }
 
 // ─── Matching Task ────────────────────────────────────────────────────────────────
-function MatchingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: MatchingTask; onComplete: (xp: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
+function MatchingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: MatchingTask; onComplete: (xp: number, passCredit?: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
   const reportError = useReportTaskError();
   const [selectedLeft, setSelectedLeft] = useState<string | null>(null);
   // { leftId -> right TEXT }. The right side has no id: the server delivers it
@@ -1541,7 +1544,7 @@ function MatchingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
 
       {revealed && (
         <Button variant={allCorrect ? "primary" : "secondary"} size="md"
-          onClick={() => onComplete(awardedXp)}>
+          onClick={() => onComplete(awardedXp, allCorrect ? task.xp : awardedXp)}>
           Next <ChevronRight className="h-4 w-4" />
         </Button>
       )}
@@ -1550,7 +1553,7 @@ function MatchingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
 }
 
 // ─── Ordering Task ────────────────────────────────────────────────────────────────
-function OrderingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: OrderingTask; onComplete: (xp: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
+function OrderingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: OrderingTask; onComplete: (xp: number, passCredit?: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
   const reportError = useReportTaskError();
   const [placed, setPlaced] = useState<(string | null)[]>(Array(task.items.length).fill(null));
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
@@ -1774,7 +1777,7 @@ function OrderingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
       )}
 
       {revealed && (
-        <Button variant={allCorrect ? "primary" : "secondary"} size="md" onClick={() => onComplete(xpEarned)}>
+        <Button variant={allCorrect ? "primary" : "secondary"} size="md" onClick={() => onComplete(xpEarned, allCorrect ? task.xp : xpEarned)}>
           Next <ChevronRight className="h-4 w-4" />
         </Button>
       )}
@@ -1788,7 +1791,7 @@ function OrderingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
 // pre-written query does — closes the platform's one real KQL/SPL practice gap.
 const BLANK_TOKEN = /\{\{([a-zA-Z0-9_]+)\}\}/g;
 
-function QueryFillPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: QueryFillTask; onComplete: (xp: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
+function QueryFillPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: QueryFillTask; onComplete: (xp: number, passCredit?: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
   const reportError = useReportTaskError();
   const [values, setValues]     = useState<Record<string, string>>({});
   const [revealed, setRevealed] = useState(false);
@@ -1915,7 +1918,7 @@ function QueryFillPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { 
       )}
 
       {revealed && (
-        <Button variant={allCorrect ? "primary" : "secondary"} size="md" onClick={() => onComplete(xpEarned)}>
+        <Button variant={allCorrect ? "primary" : "secondary"} size="md" onClick={() => onComplete(xpEarned, allCorrect ? task.xp : xpEarned)}>
           Next <ChevronRight className="h-4 w-4" />
         </Button>
       )}
@@ -1923,7 +1926,7 @@ function QueryFillPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { 
   );
 }
 
-function WrittenReportPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: WrittenReportTask; onComplete: (xp: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
+function WrittenReportPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { roomId: string; task: WrittenReportTask; onComplete: (xp: number, passCredit?: number) => void; isCompleted: boolean; onRecord: RecordFn }) {
   const reportError = useReportTaskError();
   const [text, setText]         = useState("");
   const [busy, setBusy]         = useState(false);
@@ -2031,7 +2034,7 @@ function WrittenReportPlayer({ roomId, task, onComplete, isCompleted, onRecord }
       )}
 
       {revealed && (
-        <Button variant={passed ? "primary" : "secondary"} size="md" onClick={() => onComplete(xpEarned)}>
+        <Button variant={passed ? "primary" : "secondary"} size="md" onClick={() => onComplete(xpEarned, passed ? task.xp : xpEarned)}>
           Next <ChevronRight className="h-4 w-4" />
         </Button>
       )}
@@ -2047,8 +2050,8 @@ export function TaskPlayer({ roomId, task, onComplete, isCompleted, prevLogEvent
   // student is just re-reading a finished task) never emit telemetry.
   const { recordInteraction, finalize } = useTaskTelemetry(task.id);
 
-  const handleComplete = useCallback((xp: number) => {
-    onComplete(xp, isCompleted ? undefined : finalize());
+  const handleComplete = useCallback((xp: number, passCredit?: number) => {
+    onComplete(xp, isCompleted ? undefined : finalize(), isCompleted ? undefined : passCredit);
   }, [onComplete, finalize, isCompleted]);
 
   // FB-001: remember the learner's answer + the grader's reveal on this device

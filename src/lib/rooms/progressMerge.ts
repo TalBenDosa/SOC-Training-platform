@@ -18,6 +18,9 @@ export interface MergeableRoomEntry {
   xpEarned: number;
   completedAt?: string;
   perTaskXp?: Record<string, number>;
+  /** Per-task pass credit (mastery.ts): full value once answered correctly, even
+   *  on a retry that paid reduced XP. Never lowered, like perTaskXp. */
+  perTaskCredit?: Record<string, number>;
   telemetry?: unknown[];
 }
 
@@ -65,6 +68,7 @@ export function mergeRoomEntry(
     return {
       ...next,
       perTaskXp,
+      ...(next.perTaskCredit ? { perTaskCredit: mergeTaskXpMax(undefined, next.perTaskCredit) } : {}),
       xpEarned: clampRoomXp(Math.max(next.xpEarned ?? 0, sumTaskXp(perTaskXp))),
     };
   }
@@ -77,30 +81,35 @@ export function mergeRoomEntry(
   const nextTel = next.telemetry ?? [];
   const telemetry = nextTel.length >= storedTel.length ? nextTel : [...storedTel, ...nextTel];
   const completedAt = stored.completedAt ?? next.completedAt;
+  const perTaskCredit = stored.perTaskCredit || next.perTaskCredit ? mergeTaskXpMax(stored.perTaskCredit, next.perTaskCredit) : undefined;
   return {
     completedTaskIds,
     xpEarned,
     perTaskXp,
+    ...(perTaskCredit ? { perTaskCredit } : {}),
     telemetry,
     ...(completedAt ? { completedAt } : {}),
   };
 }
 
 /**
- * The room's SCORE xp for the 65% mastery gate: gradeable tasks only (reading
+ * The room's SCORE for the 65% mastery gate: gradeable tasks only (reading
  * engagement XP is stored in perTaskXp so it survives a reload and reaches the
- * overall score, but it must not help pass a room). Legacy entries saved before
- * perTaskXp existed fall back to the stored xpEarned.
+ * overall score, but it must not help pass a room). Per task, the better of its
+ * XP and its pass credit (a task answered correctly in a review counts in full,
+ * see mastery.ts). Legacy entries saved before perTaskXp existed fall back to the
+ * stored xpEarned.
  */
 export function roomScoreXp(
-  entry: Pick<MergeableRoomEntry, "xpEarned" | "perTaskXp">,
+  entry: Pick<MergeableRoomEntry, "xpEarned" | "perTaskXp" | "perTaskCredit">,
   gradeableTaskMax: Record<string, number>,
 ): number {
   const map = entry.perTaskXp ?? {};
-  if (Object.keys(map).length === 0) return entry.xpEarned ?? 0;
+  const credit = entry.perTaskCredit ?? {};
+  if (Object.keys(map).length === 0 && Object.keys(credit).length === 0) return entry.xpEarned ?? 0;
   let s = 0;
   for (const [id, max] of Object.entries(gradeableTaskMax)) {
-    if (max > 0) s += Math.min(max, map[id] ?? 0);
+    if (max > 0) s += Math.min(max, Math.max(map[id] ?? 0, credit[id] ?? 0));
   }
   return s;
 }

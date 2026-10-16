@@ -6,6 +6,7 @@ import { getEffectiveRoom } from "@/lib/rooms/resolve";
 import { getAuthedUser, canPreviewDrafts } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { ROOM_PASS_THRESHOLD, gradeableTaskMax, readingXp } from "@/lib/rooms/xp";
+import { roomPassScore, type GradedAttempt } from "@/lib/rooms/mastery";
 
 export const runtime = "nodejs";
 
@@ -51,14 +52,18 @@ export async function POST(
   } catch { /* an empty body is fine — telemetry is optional */ }
 
   // ── The task's XP, from server-held records only ────────────────────────────
+  // All of the student's graded attempts in this room: this task's XP comes from
+  // its rows, and the pass check below reads the whole room.
+  const { data: roomAttempts, error: attErr } = await admin.from("task_attempts")
+    .select("task_id, xp_awarded, question_index, correct")
+    .eq("user_id", user.id).eq("room_id", room.id)
+    .limit(5000);
+  if (attErr) return NextResponse.json({ error: "Couldn't read your answers — please try again." }, { status: 503 });
   let taskXp = 0;
   if (task.type === "reading") {
     taskXp = readingXp(task);
   } else {
-    const { data: attempts, error } = await admin.from("task_attempts")
-      .select("xp_awarded, question_index")
-      .eq("user_id", user.id).eq("room_id", room.id).eq("task_id", task.id);
-    if (error) return NextResponse.json({ error: "Couldn't read your answers — please try again." }, { status: 503 });
+    const attempts = (roomAttempts ?? []).filter(a => a.task_id === task.id);
     if (task.type === "log_analysis") {
       const best = new Map<number, number>();
       for (const a of attempts ?? []) {
@@ -76,6 +81,15 @@ export async function POST(
   const telemetry = rawTele && typeof rawTele === "object" && !Array.isArray(rawTele) && JSON.stringify(rawTele).length <= 4_000
     ? rawTele : null;
 
+  // PASS is decided on mastery, not XP (src/lib/rooms/mastery.ts): a task the
+  // student has answered correctly at any point counts in full toward the 65%
+  // gate, so correcting missed tasks in a review can complete the room even though
+  // the retries pay reduced XP. When that credit meets the gate, the DB function is
+  // told to complete the room as soon as every task is done (threshold 0); its own
+  // XP-based check would otherwise keep the room open forever.
+  const pass = roomPassScore(room, (roomAttempts ?? []) as GradedAttempt[]);
+  const masteryPasses = pass.max === 0 || pass.score / pass.max >= ROOM_PASS_THRESHOLD;
+
   const { data, error } = await admin.rpc("record_room_task", {
     p_user: user.id,
     p_org: user.orgId ?? null,
@@ -84,7 +98,7 @@ export async function POST(
     p_task_xp: taskXp,
     p_room_task_ids: room.tasks.map(t => t.id),
     p_gradeable: gradeableTaskMax(room),
-    p_pass_threshold: ROOM_PASS_THRESHOLD,
+    p_pass_threshold: masteryPasses ? 0 : ROOM_PASS_THRESHOLD,
     p_telemetry: telemetry,
   });
   if (error) {

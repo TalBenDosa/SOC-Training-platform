@@ -15,6 +15,9 @@ export interface RoomProgressEntry {
   xpEarned: number;
   completedAt?: string;
   perTaskXp?: Record<string, number>;
+  /** Per-task PASS credit (src/lib/rooms/mastery.ts); device-local, the server
+   *  recomputes it from its own grading records. */
+  perTaskCredit?: Record<string, number>;
   telemetry?: unknown[];
 }
 export type RoomProgressMap = Record<string, RoomProgressEntry>;

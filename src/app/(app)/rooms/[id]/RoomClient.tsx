@@ -43,6 +43,9 @@ type RoomProgressEntry = {
   /** Per-task XP earned, so a near-miss can replay only the tasks scored below
    * full credit instead of wiping the whole room. Additive/optional. */
   perTaskXp?: Record<string, number>;
+  /** Per-task pass credit (src/lib/rooms/mastery.ts): a task answered correctly
+   * counts in full toward the 65% gate even when the retry paid reduced XP. */
+  perTaskCredit?: Record<string, number>;
   /** Phase-1 behavioral telemetry — see ANALYST_TELEMETRY_PLAN.md. Additive
    * and optional; older saved progress simply lacks this field. */
   telemetry?: TaskTelemetryEntry[];
@@ -110,6 +113,7 @@ export function RoomClient({ room }: RoomClientProps) {
   const [completedTaskIds, setCompletedTaskIds] = useState<Set<string>>(new Set());
   const [totalXpEarned, setTotalXpEarned]       = useState(0);
   const [perTaskXp, setPerTaskXp]               = useState<Record<string, number>>({});
+  const [perTaskCredit, setPerTaskCredit]       = useState<Record<string, number>>({});
   const [telemetry, setTelemetry]               = useState<TaskTelemetryEntry[]>([]);
   // A task completion the server could not record (after one retry) — shown so a
   // student never loses points silently.
@@ -140,14 +144,14 @@ export function RoomClient({ room }: RoomClientProps) {
     for (const t of room.tasks) { const mx = taskMaxXp(t); if (mx > 0) m[t.id] = mx; }
     return m;
   }, [room]);
-  const scoreXp  = roomScoreXp({ xpEarned: totalXpEarned, perTaskXp }, gradeableMax);
+  const scoreXp  = roomScoreXp({ xpEarned: totalXpEarned, perTaskXp, perTaskCredit }, gradeableMax);
   const scorePct = maxXp > 0 ? Math.round((scoreXp / maxXp) * 100) : 100;
 
   // Tasks finished during THIS visit. If the remote backend hydrates after we
   // mounted (hard reload / new tab), these are merged into the server entry
   // instead of being lost — and the empty pre-hydrate state is never saved.
-  const sessionRef = useRef<{ ids: Set<string>; xp: Record<string, number>; telemetry: TaskTelemetryEntry[] }>({
-    ids: new Set(), xp: {}, telemetry: [],
+  const sessionRef = useRef<{ ids: Set<string>; xp: Record<string, number>; credit: Record<string, number>; telemetry: TaskTelemetryEntry[] }>({
+    ids: new Set(), xp: {}, credit: {}, telemetry: [],
   });
 
   /** Put a stored entry on screen (resume point, completion / failure screen).
@@ -158,6 +162,7 @@ export function RoomClient({ room }: RoomClientProps) {
       setCompletedTaskIds(new Set());
       setTotalXpEarned(0);
       setPerTaskXp({});
+      setPerTaskCredit({});
       setTelemetry([]);
       setShowCompletion(false);
       setShowFailure(false);
@@ -168,6 +173,7 @@ export function RoomClient({ room }: RoomClientProps) {
     setCompletedTaskIds(ids);
     setTotalXpEarned(entry.xpEarned);
     setPerTaskXp(entry.perTaskXp ?? {});
+    setPerTaskCredit(entry.perTaskCredit ?? {});
     setTelemetry(entry.telemetry ?? []);
     setShowCompletion(false);
     setShowFailure(false);
@@ -191,7 +197,7 @@ export function RoomClient({ room }: RoomClientProps) {
 
   // Load persisted progress on mount
   useEffect(() => {
-    sessionRef.current = { ids: new Set(), xp: {}, telemetry: [] };
+    sessionRef.current = { ids: new Set(), xp: {}, credit: {}, telemetry: [] };
     applyEntry(loadProgress()[room.id]);
     setMounted(true);
   }, [room, applyEntry]);
@@ -211,6 +217,7 @@ export function RoomClient({ room }: RoomClientProps) {
         completedTaskIds: Array.from(session.ids),
         xpEarned: Object.values(session.xp).reduce((s, v) => s + v, 0),
         perTaskXp: session.xp,
+        perTaskCredit: session.credit,
         telemetry: session.telemetry,
       }) as RoomProgressEntry;
       if (!merged.completedAt && room.tasks.every(t => merged.completedTaskIds.includes(t.id))) {
@@ -236,13 +243,14 @@ export function RoomClient({ room }: RoomClientProps) {
    */
   const persistProgress = useCallback((
     ids: Set<string>, xp: number, xpMap: Record<string, number>, taskTelemetry: TaskTelemetryEntry[],
-    completedAt?: string, opts: { replaceIds?: boolean } = {},
+    completedAt?: string, opts: { replaceIds?: boolean; credit?: Record<string, number> } = {},
   ): RoomProgressEntry => {
     const all = loadProgress();
     const merged = mergeRoomEntry(all[room.id], {
       completedTaskIds: Array.from(ids),
       xpEarned: xp,
       perTaskXp: xpMap,
+      ...(opts.credit ? { perTaskCredit: opts.credit } : {}),
       telemetry: taskTelemetry,
       ...(completedAt ? { completedAt } : {}),
     }, opts) as RoomProgressEntry;
@@ -251,9 +259,10 @@ export function RoomClient({ room }: RoomClientProps) {
     return merged;
   }, [room.id]);
 
-  // Gradeable tasks scored below full credit — the only ones a near-miss replays.
+  // Gradeable tasks not yet answered in full (by XP or by a correct retry): the
+  // only ones a near-miss replays.
   const missedTasks = room.tasks.filter(
-    t => taskMaxXp(t) > 0 && (perTaskXp[t.id] ?? 0) < taskMaxXp(t),
+    t => taskMaxXp(t) > 0 && Math.max(perTaskXp[t.id] ?? 0, perTaskCredit[t.id] ?? 0) < taskMaxXp(t),
   );
 
   // Review only the tasks scored below full credit. Earned XP and correct
@@ -292,7 +301,7 @@ export function RoomClient({ room }: RoomClientProps) {
     if (typeof window !== "undefined") window.scrollTo({ top: 0 });
   }
 
-  function handleTaskComplete(xpEarned: number, taskTelemetry?: TaskTelemetryEntry) {
+  function handleTaskComplete(xpEarned: number, taskTelemetry?: TaskTelemetryEntry, passCredit?: number) {
     const task     = room.tasks[currentTaskIndex];
     const firstTime = !completedTaskIds.has(task.id);
 
@@ -312,6 +321,11 @@ export function RoomClient({ room }: RoomClientProps) {
     const bestXp   = Math.max(prevXp, earned);
     const delta    = bestXp - prevXp;
     const newXpMap = { ...knownXp, [task.id]: bestXp };
+    // Pass credit: a correct answer counts in full toward the gate even when the
+    // retry paid reduced XP (mastery.ts). Never lowered.
+    const knownCredit = mergeTaskXpMax(stored?.perTaskCredit, perTaskCredit);
+    const credit = Math.max(knownCredit[task.id] ?? 0, passCredit ?? 0, bestXp);
+    const newCreditMap = task.type === "reading" ? knownCredit : { ...knownCredit, [task.id]: credit };
     const newXp    = Object.values(newXpMap).reduce((s, v) => s + v, 0);
     const newTelemetry = taskTelemetry ? [...telemetry, taskTelemetry] : telemetry;
     const newIds   = new Set([...(stored?.completedTaskIds ?? []), ...completedTaskIds, task.id]);
@@ -321,6 +335,7 @@ export function RoomClient({ room }: RoomClientProps) {
     // What THIS visit earned — not bestXp, which before hydration may include
     // this device's guest-era localStorage values.
     session.xp[task.id] = Math.max(session.xp[task.id] ?? 0, earned);
+    if (task.type !== "reading") session.credit[task.id] = Math.max(session.credit[task.id] ?? 0, passCredit ?? 0, earned);
     if (taskTelemetry) session.telemetry.push(taskTelemetry);
 
     if (delta > 0) addXpToTotal(delta);
@@ -328,20 +343,20 @@ export function RoomClient({ room }: RoomClientProps) {
     const allDone = room.tasks.every(t => newIds.has(t.id));
     let saved: RoomProgressEntry;
     if (allDone) {
-      const passed = maxXp === 0 || (roomScoreXp({ xpEarned: newXp, perTaskXp: newXpMap }, gradeableMax) / maxXp) >= ROOM_PASS_THRESHOLD;
+      const passed = maxXp === 0 || (roomScoreXp({ xpEarned: newXp, perTaskXp: newXpMap, perTaskCredit: newCreditMap }, gradeableMax) / maxXp) >= ROOM_PASS_THRESHOLD;
       if (passed) {
         const completedAt = new Date().toISOString();
-        saved = persistProgress(newIds, newXp, newXpMap, newTelemetry, completedAt);
+        saved = persistProgress(newIds, newXp, newXpMap, newTelemetry, completedAt, { credit: newCreditMap });
         setShowCompletion(true);
       } else {
         // Near-miss: KEEP the earned XP and all correct answers, persist the
         // progress WITHOUT completedAt (room stays "in progress", so it doesn't
         // unlock prerequisites yet), and offer to replay only the missed tasks.
-        saved = persistProgress(newIds, newXp, newXpMap, newTelemetry);
+        saved = persistProgress(newIds, newXp, newXpMap, newTelemetry, undefined, { credit: newCreditMap });
         if (saved.completedAt) setShowCompletion(true); else setShowFailure(true);
       }
     } else {
-      saved = persistProgress(newIds, newXp, newXpMap, newTelemetry);
+      saved = persistProgress(newIds, newXp, newXpMap, newTelemetry, undefined, { credit: newCreditMap });
       // Advance to the next still-incomplete task (linear on first pass; jumps
       // between missed tasks during a review).
       const next = room.tasks.findIndex(t => !newIds.has(t.id));
@@ -350,6 +365,7 @@ export function RoomClient({ room }: RoomClientProps) {
     // Mirror what was actually saved (the merge may know more than our state).
     setCompletedTaskIds(new Set(saved.completedTaskIds));
     setPerTaskXp(saved.perTaskXp ?? newXpMap);
+    setPerTaskCredit(saved.perTaskCredit ?? newCreditMap);
     setTotalXpEarned(saved.xpEarned);
     setTelemetry((saved.telemetry as TaskTelemetryEntry[] | undefined) ?? newTelemetry);
     void reportCompletion(task.id, taskTelemetry);
@@ -394,6 +410,13 @@ export function RoomClient({ room }: RoomClientProps) {
         saveProgress(all);
         setPerTaskXp(serverMap);
         setTotalXpEarned(next.xpEarned);
+        // The server decides the pass from its own grading records (mastery.ts).
+        // If it completed the room, show the completion screen even when this
+        // device lacked the credit (e.g. corrected answers from before a reload).
+        if (d.completedAt && !cur.completedAt && room.tasks.every(t => next.completedTaskIds.includes(t.id))) {
+          setShowFailure(false);
+          setShowCompletion(true);
+        }
       }
       if (isLatest && typeof d.totalXp === "number") setTotalXp(d.totalXp);
     } catch {
@@ -402,6 +425,19 @@ export function RoomClient({ room }: RoomClientProps) {
       setSaveError(true);
     }
   }
+
+  // A room left on "almost there" (e.g. before passing was decided on mastery, or
+  // corrected in an earlier visit): ask the server once to re-check. It recomputes
+  // the pass from its own grading records and, if it now passes, the completion
+  // response above switches to the completion screen. Idempotent per task.
+  const recheckedRef = useRef(false);
+  useEffect(() => {
+    if (!showFailure || recheckedRef.current) return;
+    recheckedRef.current = true;
+    const lastGraded = [...room.tasks].reverse().find(t => taskMaxXp(t) > 0);
+    if (lastGraded) void reportCompletion(lastGraded.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showFailure]);
 
   // Re-send every completion the server hasn't recorded (E-12). The complete
   // route is idempotent per task, so a duplicate send can't double-credit.
@@ -573,6 +609,7 @@ export function RoomClient({ room }: RoomClientProps) {
           <p className="text-sm text-slate-300 leading-relaxed">
             You've got most of this room. {missedCount === 1 ? "One task" : `${missedCount} tasks`} to revisit — just{" "}
             {missedCount === 1 ? "that one" : "those"}, not the whole room. Your correct answers and readings stay done.
+            {" "}A correct answer on a retry counts toward passing in full; only its XP is reduced.
           </p>
           <div className="flex flex-col gap-2">
             <Button variant="primary" size="lg" className="w-full" onClick={handleReviewMissed}>
