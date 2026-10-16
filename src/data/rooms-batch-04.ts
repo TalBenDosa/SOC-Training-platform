@@ -1444,11 +1444,11 @@ This query finds all source IPs that generated more than 20 failed Windows login
         "SecurityEvent | where EventID == 4625 | where TimeGenerated < ago(6h)",
         "SecurityEvent | where EventID == 4625 | where TimeGenerated > ago(6h)",
         "SigninLogs | where EventID == 4625 | where TimeGenerated > ago(6h)",
-        "SecurityEvent | Where EventID == 4625 | Where TimeGenerated > ago(6h)",
+        "SecurityEvent | where TimeGenerated > ago(6h) | summarize count() by EventID",
       ],
       answer: 1,
       explanation:
-        "Start with the SecurityEvent table, filter with where EventID == 4625, and keep rows newer than six hours ago with TimeGenerated > ago(6h). Using < ago(6h) inverts the window and returns everything OLDER than six hours. SigninLogs holds Entra ID sign-ins and has no EventID column; Windows failed logons live in SecurityEvent. 'Where' with a capital W fails, because KQL operators are case-sensitive.",
+        "Start with the SecurityEvent table, filter with where EventID == 4625, and keep rows newer than six hours ago with TimeGenerated > ago(6h). Using < ago(6h) inverts the window and returns everything OLDER than six hours. SigninLogs holds Entra ID sign-ins and has no EventID column; Windows failed logons live in SecurityEvent. Summarizing by EventID counts every event type from the last six hours instead of returning the failed logons, because nothing filters on 4625.",
       xp: 25,
     } satisfies QuestionTask,
 

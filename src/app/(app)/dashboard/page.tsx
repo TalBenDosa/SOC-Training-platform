@@ -1614,11 +1614,14 @@ export default function DashboardPage() {
               </button>
 
               {/* Reset */}
+              {/* Disabled before a shift exists: a reset used to start streaming the feed
+                  without the Start Training dialog (the control still read "Start"). */}
               <button
                 type="button"
                 onClick={() => live.reset()}
-                className="flex items-center gap-1.5 rounded border border-border bg-bg px-2.5 py-1.5 text-xs text-slate-300 hover:bg-bg-hover"
-                title="Clear and restart"
+                disabled={sessionStartedAt === null}
+                className="flex items-center gap-1.5 rounded border border-border bg-bg px-2.5 py-1.5 text-xs text-slate-300 hover:bg-bg-hover disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-bg"
+                title={sessionStartedAt === null ? "Start a shift first" : "Clear and restart"}
                 aria-label="Clear and restart the feed"
               >
                 <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />
