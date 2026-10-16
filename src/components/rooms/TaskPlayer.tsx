@@ -1351,7 +1351,8 @@ function MatchingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
   const [selectedLeft, setSelectedLeft] = useState<string | null>(null);
   // { leftId -> right TEXT }. The right side has no id: the server delivers it
   // as bare shuffled strings precisely so no id can tie a right item back to
-  // its left one. Text is the key — verified unique across every matching task.
+  // its left one. Each text appears once (sanitize.ts); several left items may
+  // connect to the same right one (e.g. two techniques of the same tactic).
   const [connections, setConnections] = useState<Record<string, string>>({});
   const [revealed, setRevealed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -1472,10 +1473,10 @@ function MatchingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
           </p>
           {/* Already shuffled server-side — do NOT reorder here. */}
           {task.right.map(rightText => {
-            const connectedLeftId = Object.entries(connections).find(([, txt]) => txt === rightText)?.[0];
-            const isConnected = !!connectedLeftId;
-            const isCorrect = revealed && connectedLeftId !== undefined && correctOf(connectedLeftId) === true;
-            const isWrong  = revealed && connectedLeftId !== undefined && correctOf(connectedLeftId) === false;
+            const connectedLeftIds = Object.entries(connections).filter(([, txt]) => txt === rightText).map(([id]) => id);
+            const isConnected = connectedLeftIds.length > 0;
+            const isWrong  = revealed && connectedLeftIds.some(id => correctOf(id) === false);
+            const isCorrect = revealed && isConnected && !isWrong;
             return (
               <button
                 key={rightText}
@@ -1489,6 +1490,8 @@ function MatchingPlayer({ roomId, task, onComplete, isCompleted, onRecord }: { r
                       : isWrong ? "border-severity-high/50 bg-severity-high/10 text-severity-high"
                       : "border-border/40 bg-bg-elevated/30 text-slate-400"
                     : selectedLeft && !isConnected ? "border-cyber-500/40 bg-cyber-500/5 text-slate-200 hover:border-cyber-500/70 hover:text-white cursor-pointer"
+                    // still clickable while a left item is selected: a right item can serve several pairs
+                    : selectedLeft ? "border-cyber-500/40 bg-cyber-500/5 text-white hover:border-cyber-500/70 cursor-pointer"
                     : isConnected ? "border-cyber-500/30 bg-cyber-500/5 text-white"
                     : "border-border/50 bg-bg-elevated/40 text-slate-300 cursor-default",
                 )}

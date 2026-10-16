@@ -122,7 +122,10 @@ function sanitizeTask(task: RoomTask): SanitizedRoomTask {
       return {
         ...rest,
         left: pairs.map(p => ({ id: p.id, text: p.left })),
-        right: shuffled(pairs.map(p => p.right)),
+        // Each answer once: several left items may share one right (e.g. three
+        // techniques of the same tactic). Listing it once per pair showed identical
+        // buttons; grading is by text, so one button serves every pair that uses it.
+        right: shuffled([...new Set(pairs.map(p => p.right))]),
       };
     }
     case "ordering": {
