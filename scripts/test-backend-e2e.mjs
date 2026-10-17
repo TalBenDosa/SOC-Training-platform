@@ -10,6 +10,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join, dirname } from "node:path";
 import { randomUUID } from "node:crypto";
+import { PLATFORM_SHIM } from "./lib/supabase-platform-shim.mjs";
 
 const MIG = join(dirname(fileURLToPath(import.meta.url)), "..", "supabase", "migrations");
 const INTERNAL = "d0d0d0d0-0000-4000-8000-000000000000";
@@ -33,6 +34,7 @@ create or replace function public.uuid_generate_v4() returns uuid language sql a
 
 const db = new PGlite();
 await db.exec(SHIM);
+await db.exec(PLATFORM_SHIM);   // storage / pg_cron / realtime stand-ins (scripts/lib/supabase-platform-shim.mjs)
 for (const f of readdirSync(MIG).filter(f => f.endsWith(".sql")).sort()) {
   await db.exec(readFileSync(join(MIG, f), "utf8").replace(/create extension[^;]*;/gi, ""));
 }
@@ -372,6 +374,28 @@ await asUser(iStu, async () => {
 const genTok = await invite(iOrgA, "student"); // email deliberately null
 let genErr = null; try { await signup("generic-victim@x.io", { invitation_token: genTok }); } catch (e) { genErr = e.message; }
 check("0029: generic (email-less) student invite is refused", /student_invite_requires_code/.test(genErr ?? ""), genErr ?? "signup succeeded");
+
+// ── 0097 (QA-TEAM-1/6): Team SOC escalation rounds ───────────────────────────
+group("0097 — Team SOC: a re-escalated case can be resolved; a closed round takes no more work");
+{
+  const ts = (await one(`insert into public.team_sessions (org_id, company_id, status) values ($1, 'nexacorp', 'running') returning id`, [INTERNAL])).id;
+  const t1 = iStu, t2 = iAdmA;   // two existing accounts (the enrollment trigger guards direct inserts)
+  let seq = 0;
+  const ev = (type, actor, payload) => q(`insert into public.session_events (session_id, seq, actor_id, type, payload) values ($1,$2,$3,$4,$5)`, [ts, ++seq, actor, type, JSON.stringify(payload)]);
+  const validate = async (uid, type, payload) => { try { await q(`select public.team_validate_action($1,$2,$3,$4)`, [ts, uid, type, JSON.stringify(payload)]); return null; } catch (e) { return e.message; } };
+  await ev("feed.event", null, { id: "X1" });
+  await ev("escalation.requested", t1, { event_id: "X1" });
+  await ev("escalation.bounced", t2, { event_id: "X1", reason: "need the parent process" });
+  const ackAfterBounce = await validate(t2, "escalation.acknowledged", { event_id: "X1" });
+  check("0097: a bounced round refuses a stale acknowledge (case_closed)", /case_closed/.test(ackAfterBounce ?? ""), ackAfterBounce ?? "accepted");
+  await ev("escalation.requested", t1, { event_id: "X1" });            // round 2
+  await ev("escalation.acknowledged", t2, { event_id: "X1" });
+  const resolveRound2 = await validate(t2, "escalation.resolved", { event_id: "X1" });
+  check("0097: round 2 of a re-escalated case can be resolved", resolveRound2 === null || !/case_closed/.test(resolveRound2), resolveRound2 ?? "ok");
+  await ev("escalation.resolved", t2, { event_id: "X1" });
+  const secondResolve = await validate(t2, "escalation.resolved", { event_id: "X1" });
+  check("0097: resolving the same round twice is refused (case_closed)", /case_closed/.test(secondResolve ?? ""), secondResolve ?? "accepted");
+}
 
 console.log(`\n${"═".repeat(64)}`);
 if (fail === 0) console.log(`\x1b[32m✅ BACKEND E2E: ALL ${pass} CHECKS PASSED\x1b[0m`);

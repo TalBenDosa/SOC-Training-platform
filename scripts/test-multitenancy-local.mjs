@@ -17,6 +17,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join, dirname } from "node:path";
 import { randomUUID } from "node:crypto";
+import { PLATFORM_SHIM } from "./lib/supabase-platform-shim.mjs";
 
 const MIG = join(dirname(fileURLToPath(import.meta.url)), "..", "supabase", "migrations");
 const INTERNAL = "d0d0d0d0-0000-4000-8000-000000000000";
@@ -51,6 +52,7 @@ create or replace function public.uuid_generate_v4() returns uuid language sql a
 
 const db = new PGlite();
 await db.exec(SHIM);
+await db.exec(PLATFORM_SHIM);   // storage / pg_cron / realtime stand-ins (scripts/lib/supabase-platform-shim.mjs)
 for (const f of readdirSync(MIG).filter(f => f.endsWith(".sql")).sort()) {
   await db.exec(readFileSync(join(MIG, f), "utf8").replace(/create extension[^;]*;/gi, ""));
 }
