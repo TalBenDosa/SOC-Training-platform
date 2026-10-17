@@ -16,7 +16,7 @@ import { useEffect, useMemo, useState } from "react";
 import { StackPicker, stackDelta } from "@/components/training/StackPicker";
 import { EnvironmentPicker } from "@/components/training/EnvironmentPicker";
 import { DEFAULT_ENV, type TeamEnv } from "@/lib/team/environment";
-import { teamLoad } from "@/lib/team/load";
+import { teamLoad, SHIFT_CHOICES } from "@/lib/team/load";
 import { MAX_ATTACKS } from "@/lib/team/attackPlan";
 import type { Stack } from "@/lib/logs/native/stack";
 import { useRouter } from "next/navigation";
@@ -89,6 +89,8 @@ export default function TeamIndexPage() {
   const [touched, setTouched] = useState<boolean[]>([false, false, false]);
   // One more random attack, released only once the team has caught every planned one.
   const [bonusAttack, setBonusAttack] = useState(true);
+  // How long the live shift runs; the timeline is built to fit it (attacks all start in the first half).
+  const [shiftMin, setShiftMin] = useState<number>(30);
   // QA L3: a chosen storyline that stops fitting (environment / difficulty / products changed)
   // falls back to Random — and the builder SAYS so instead of clearing it silently.
   const [storyNote, setStoryNote] = useState<string | null>(null);
@@ -219,7 +221,7 @@ export default function TeamIndexPage() {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tenant_name: tenant.name, difficulty, invites, env, stack: stackDelta(company, stack),
         // Slots 2–3 untouched → the count stays automatic (sized by whoever is in the lobby at start).
-        attack_count: touched[1] || touched[2] ? active.length : null, scenario_ids: active.map(id => id || null), bonus_attack: bonusAttack }),
+        attack_count: touched[1] || touched[2] ? active.length : null, scenario_ids: active.map(id => id || null), bonus_attack: bonusAttack, shift_min: shiftMin }),
     }).catch(() => null);
     setCreating(false);
     if (!res) { setError("Couldn't reach the server — check your connection and try again."); return; }
@@ -246,7 +248,7 @@ export default function TeamIndexPage() {
             <h2 className="flex items-center gap-2 text-sm font-bold text-white">
               <Plus className="h-4 w-4 text-cyber-300" /> New team exercise
             </h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <div className="mt-4 grid gap-4 sm:grid-cols-4">
               <label className="block text-sm" htmlFor="team-org-name">
                 <span className="mb-1 block text-xs uppercase tracking-wider text-slate-400">Organization (English)</span>
                 <input id="team-org-name" value={orgNameInput} onChange={e => setOrgNameInput(e.target.value)} dir="ltr" lang="en"
@@ -265,6 +267,14 @@ export default function TeamIndexPage() {
                   className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-slate-200 focus:border-cyber-500/50 focus:outline-none">
                   <option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option>
                 </select>
+              </label>
+              <label className="block text-sm" htmlFor="team-shift-min">
+                <span className="mb-1 block text-xs uppercase tracking-wider text-slate-400">Shift length</span>
+                <select id="team-shift-min" value={shiftMin} onChange={e => setShiftMin(Number(e.target.value))} aria-describedby="team-shift-help"
+                  className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-slate-200 focus:border-cyber-500/50 focus:outline-none">
+                  {SHIFT_CHOICES.map(m => <option key={m} value={m}>{m} minutes</option>)}
+                </select>
+                <span id="team-shift-help" className="mt-1 block text-[11px] text-slate-500">Every chosen attack starts within the first half.</span>
               </label>
               <div className="block text-sm">
                 <span className="mb-1 block text-xs uppercase tracking-wider text-slate-400">Attacks</span>

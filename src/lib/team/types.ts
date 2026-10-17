@@ -7,7 +7,9 @@ export interface SessionMeta { id: string; company_id: string; difficulty: strin
   tenant?: { name: string; domain: string; netbios: string; brand: string } | null;
   env?: { platforms: string[]; industry: string } | null;
   /** Staff only: concurrent attack count (null = by team size) and chosen storylines per slot. */
-  attack_plan?: { count: number | null; slots: (string | null)[]; bonus?: boolean } }
+  attack_plan?: { count: number | null; slots: (string | null)[]; bonus?: boolean };
+  /** The shift length the instructor picked (minutes); null = the difficulty default. */
+  shift_min?: number | null }
 export interface Me { id: string; is_staff: boolean; role: string | null }
 export interface Ev { seq: number; type: string; actor_id: string | null; role: string | null; payload: Record<string, unknown>; occurred_at?: string }
 export type Ioc = { type: string; value: string; source: "picked" | "manual" };

@@ -95,6 +95,25 @@ export function teamLoad(difficulty: Difficulty, roster: { role: string; status?
   return { difficulty, triageAnalysts, players, logsPerMin, baseGapMs, jitterMs, stories, poolAttacks, noiseCount, shiftMin };
 }
 
+/**
+ * Shift lengths the instructor can pick in the Session Builder (2026-10-18 review: the four
+ * Team Training exercises ran 14-27 minutes while their timelines were planned for 35-42, so the
+ * attacks the admin chose arrived after the session had ended). null = the difficulty default.
+ */
+export const SHIFT_CHOICES = [20, 30, 45] as const;
+export function sanitizeShiftMinutes(v: unknown): number | null {
+  const n = Number(v);
+  return (SHIFT_CHOICES as readonly number[]).includes(n) ? n : null;
+}
+
+/** The same load over a shift of `minutes` (the instructor's choice); noise re-sized to fill it at the same pace. */
+export function withShiftMinutes(load: TeamLoad, minutes: number | null): TeamLoad {
+  if (!minutes || minutes === load.shiftMin) return load;
+  const totalLogs = Math.round(load.logsPerMin * minutes);
+  const attackLogs = load.stories * AVG_STORY_LOGS + load.poolAttacks * AVG_POOL_ATTACK_LOGS;
+  return { ...load, shiftMin: minutes, noiseCount: Math.max(Math.round(attackLogs * 1.5), totalLogs - attackLogs) };
+}
+
 /** The same load with `stories` concurrent attack stories (the instructor's plan); noise re-sized so the shift length holds. */
 export function withStoryCount(load: TeamLoad, stories: number): TeamLoad {
   if (stories === load.stories) return load;

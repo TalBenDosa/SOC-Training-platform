@@ -8,6 +8,7 @@ import type { RosterMember, Ev } from "@/lib/team/types";
 import { ROLE_LABEL } from "./shared";
 import { AddMemberPanel } from "./AddMemberPanel";
 import { AnswerKeyPanel } from "./AnswerKeyPanel";
+import { AttackSchedule } from "./AttackSchedule";
 import { RemoveMemberButton } from "./RemoveMemberButton";
 
 /** Roles the reassign control offers (the route also accepts lead/de — legacy seats). Observer parks a seat without dropping the member (QA L8). */
@@ -55,6 +56,7 @@ export function InstructorPanel({ sessionId, roster, online, events, act, isStaf
   return (
     <>
     {/* Live answer key vs team — staff only (RLS enforces it server-side too) */}
+    {isStaff && <AttackSchedule sessionId={sessionId} onError={onError} />}
     {isStaff && <AnswerKeyPanel sessionId={sessionId} events={events} nameOf={nameOf} />}
     <Card>
       <h3 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldCheck className="h-4 w-4 text-cyber-300" /> Instructor view</h3>

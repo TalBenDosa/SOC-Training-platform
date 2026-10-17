@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { tenantFromConfig } from "@/lib/team/tenant";
 import { envFromConfig } from "@/lib/team/environment";
 import { planFromConfig } from "@/lib/team/attackPlan";
+import { sanitizeShiftMinutes } from "@/lib/team/load";
 import { sanitizeStack } from "@/lib/logs/native/stack";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -93,7 +94,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   return NextResponse.json({
     session: { ...sessionOut, pause_reason, pause_detail, stack: sanitizeStack((sess as { config?: { stack?: unknown } }).config?.stack), tenant: tenantFromConfig((sess as { config?: unknown }).config), env: envFromConfig((sess as { config?: unknown }).config),
       // Staff only: the attack plan (count + chosen storylines) — players never learn it.
-      ...(iAmStaff ? { attack_plan: planFromConfig((sess as { config?: unknown }).config, (sess as { scenario_id?: string | null }).scenario_id) } : {}) },
+      ...(iAmStaff ? { attack_plan: planFromConfig((sess as { config?: unknown }).config, (sess as { scenario_id?: string | null }).scenario_id) } : {}),
+      shift_min: sanitizeShiftMinutes(((sess as { config?: { shift_min?: unknown } }).config ?? {}).shift_min) },
     roster,
     me: { id: user.id, is_staff: iAmStaff, role: iAmMember ? (myRow?.role ?? null) : null },
   });

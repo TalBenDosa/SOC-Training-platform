@@ -7,6 +7,7 @@ import { COMPANY_PROFILES } from "@/lib/sim/companyProfilesMeta";
 import { resolveTeamStory, teamStoryFilter } from "@/lib/team/buildTimeline";
 import { sanitizeStack } from "@/lib/logs/native";
 import { sanitizeEnv } from "@/lib/team/environment";
+import { sanitizeShiftMinutes } from "@/lib/team/load";
 import { sanitizeAttackPlan, pinnedIds } from "@/lib/team/attackPlan";
 import { SINGLE_SEAT, rosterConflict } from "@/lib/team/roster";
 import { liveAffiliationFilter } from "@/lib/team/membership";
@@ -58,6 +59,8 @@ export async function POST(req: Request) {
   const stack = sanitizeStack(body.stack);
   // A named organization's environment: the platforms it runs and its industry (which stories fit).
   const env = tenant ? sanitizeEnv(body.env) : null;
+  // The shift length the instructor picked (20 / 30 / 45 min); the timeline is built to fit it.
+  const shift_min = sanitizeShiftMinutes(body.shift_min);
   const fits = pinnedIds(plan).length ? teamStoryFilter(company_id, stack, env) : null;
   for (const sid of pinnedIds(plan)) {
     const pinned = resolveTeamStory(company_id, difficulty as "easy" | "medium" | "hard", sid, env, stack);
@@ -96,7 +99,7 @@ export async function POST(req: Request) {
 
   const { data: sess, error } = await admin
     .from("team_sessions")
-    .insert({ org_id: orgId, created_by: user.id, company_id, difficulty, format, scenario_id, schema_version: 2, config: { ...(Object.keys(stack).length ? { stack } : {}), ...(tenant ? { tenant: { name: tenant.name } } : {}), ...(env ? { env } : {}), attacks: plan } })   // new sessions are v2 from birth (0071)
+    .insert({ org_id: orgId, created_by: user.id, company_id, difficulty, format, scenario_id, schema_version: 2, config: { ...(Object.keys(stack).length ? { stack } : {}), ...(tenant ? { tenant: { name: tenant.name } } : {}), ...(env ? { env } : {}), ...(shift_min ? { shift_min } : {}), attacks: plan } })   // new sessions are v2 from birth (0071)
     .select("id").single();
   if (error || !sess) {
     if (error) console.error("[team create] session insert:", error.message);   // no raw DB text to the client (S12)

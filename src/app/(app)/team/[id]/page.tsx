@@ -37,7 +37,7 @@ import { withRebasedTime } from "@/lib/sim/rebaseTime";
 import { useTeamHeartbeat } from "@/lib/team/useTeamHeartbeat";
 import { calibrateFromDateHeader, noteServerTimestamp, useServerNow } from "@/lib/team/clock";
 import { buildAlertQueue, nextAlertFor } from "@/lib/team/alertQueue";
-import { teamLoad, type Difficulty } from "@/lib/team/load";
+import { teamLoad, withShiftMinutes, type Difficulty } from "@/lib/team/load";
 import { loadWithPlan } from "@/lib/team/attackPlan";
 import { activeClaims, escalationStates, containmentRequests, scopeByIncident, latestScope, incidentLabels, incidentByEvent, openLoadByUser } from "@/lib/team/projections";
 import { pausedSpans } from "@/lib/team/pauses";
@@ -464,7 +464,14 @@ export default function TeamRoomPage() {
     setNote("Exercise starting…"); startCountdown();
   }
   async function end() {
-    if (!confirm("End the session for the whole team and open the Shift review?")) return;
+    // Staff see what ending skips: planned attacks that never reached the feed (2026-10-18 review).
+    let warn = "";
+    if (me?.is_staff) {
+      const sch = await fetch(`/api/team/sessions/${id}/schedule`).then(r => (r.ok ? r.json() : null)).catch(() => null) as { pending?: { kind: string }[] } | null;
+      const planned = (sch?.pending ?? []).filter(p => p.kind === "planned").length;
+      if (planned > 0) warn = `\n\n${planned} planned attack${planned === 1 ? " has" : "s have"} not started yet and won't be part of the review. Use "Attacks still to come" → Now to release ${planned === 1 ? "it" : "them"} first.`;
+    }
+    if (!confirm(`End the session for the whole team and open the Shift review?${warn}`)) return;
     setBusy(true); setError(null);
     const res = await fetch(`/api/team/sessions/${id}/end`, { method: "POST" }).catch(() => null);
     setBusy(false);
@@ -1003,7 +1010,7 @@ export default function TeamRoomPage() {
   // will seed from (src/lib/team/load.ts), so the instructor sees them before starting.
   // The instructor's attack plan (staff only) fixes the concurrent attack count when set.
   const lobbyLoad = session && ["easy", "medium", "hard"].includes(session.difficulty)
-    ? (session.attack_plan ? loadWithPlan(teamLoad(session.difficulty as Difficulty, roster), { ...session.attack_plan, bonus: session.attack_plan.bonus !== false }) : teamLoad(session.difficulty as Difficulty, roster)) : null;
+    ? (session.attack_plan ? loadWithPlan(withShiftMinutes(teamLoad(session.difficulty as Difficulty, roster), session.shift_min ?? null), { ...session.attack_plan, bonus: session.attack_plan.bonus !== false }) : withShiftMinutes(teamLoad(session.difficulty as Difficulty, roster), session.shift_min ?? null)) : null;
   const chosenAttacks = session?.attack_plan?.slots.filter(Boolean).length ?? 0;
 
   // Native-format logs (docs/log-schemas), rendered for the session's company stack.

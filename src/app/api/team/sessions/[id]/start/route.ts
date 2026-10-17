@@ -5,7 +5,7 @@ import { planFromConfig, pinnedIds, loadWithPlan } from "@/lib/team/attackPlan";
 import { requireOrgStaff } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { buildTeamTimeline, resolveTeamStory, teamStoryFilter } from "@/lib/team/buildTimeline";
-import { teamLoad } from "@/lib/team/load";
+import { teamLoad, withShiftMinutes, sanitizeShiftMinutes } from "@/lib/team/load";
 import { teamTransition } from "@/lib/team/transition";
 import { sanitizeStack } from "@/lib/logs/native/stack";
 
@@ -66,7 +66,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     // the DB refill (replenish_feed, 0081) keeps it instead of bursting.
     // The instructor's attack plan sets the concurrent attack count (else the team's size does).
     const plan = planFromConfig(sess.config, sess.scenario_id);
-    const load = loadWithPlan(teamLoad(sess.difficulty, members ?? []), plan);
+    // …over the shift length the instructor picked (config.shift_min; older sessions: the difficulty default).
+    const shiftMin = sanitizeShiftMinutes((sess.config as { shift_min?: unknown } | null)?.shift_min);
+    const load = loadWithPlan(withShiftMinutes(teamLoad(sess.difficulty, members ?? []), shiftMin), plan);
     const { error: paceErr } = await admin.from("team_sessions")
       .update({ feed_gap_ms: load.baseGapMs, feed_jitter_ms: load.jitterMs }).eq("id", id).eq("status", "lobby");
     if (paceErr) { console.error("[team start] set pace:", paceErr.message); return NextResponse.json({ error: "Couldn't start the session." }, { status: 500 }); }

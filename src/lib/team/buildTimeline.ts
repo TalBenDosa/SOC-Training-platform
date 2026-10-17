@@ -633,8 +633,9 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   // ── Placement ─────────────────────────────────────────────────────────────────
   // A warm-up of ordinary traffic first, then each story clusters into its own band so it
   // reads as an unfolding attack. The attacks start at staggered, seed-varied points (Tal,
-  // 2026-10-03: not all at once, different timing every session) and in a seeded order — the
-  // primary incident is not always the first to surface.
+  // 2026-10-03: not all at once, different timing every session). The PRIMARY incident (Attack 1)
+  // always surfaces first and every planned attack has started by the middle of the shift
+  // (2026-10-18 review: a primary incident due at 30:10 never reached a 21-minute exercise).
   // The warm-up holds on the feed the team SEES: ITSM approvals and the MSEL's supporting logs
   // join after placement and lengthen it, so the floor under every attack row counts them too
   // (placing at 10% of the pre-insert rows let some story mixes open inside the first tenth).
@@ -654,21 +655,24 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
       posToAttack.set(pos, evs[i]);
     }
   };
-  const warmup = WARMUP_MIN + rnd() * 0.08;
-  const bands = [attack1, attack2, attack3].filter(a => a.length > 0);
-  for (let i = bands.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [bands[i], bands[j]] = [bands[j], bands[i]]; }
-  const lastStart = bands.length > 1 ? 0.58 : warmup + 0.22;
+  const warmup = WARMUP_MIN + rnd() * 0.05;
+  // Attack 1 leads; the others keep a seeded order behind it.
+  const rest = [attack2, attack3].filter(a => a.length > 0);
+  if (rest.length === 2 && rnd() < 0.5) rest.reverse();
+  const bands = [attack1, ...rest].filter(a => a.length > 0);
+  const lastStart = 0.48;
   bands.forEach((evs, k) => {
     const base = bands.length > 1 ? warmup + ((lastStart - warmup) * k) / (bands.length - 1) : warmup;
-    const startFrac = Math.max(warmup, base + (rnd() - 0.5) * 0.08 + (bands.length > 1 ? 0 : rnd() * 0.22));
-    const len = 0.22 + rnd() * 0.14;
-    place(evs, startFrac, Math.min(0.96, startFrac + len));
+    // Attack 1 starts right after the warm-up; the later ones jitter a little around their slot.
+    const startFrac = k === 0 ? warmup : Math.max(warmup + 0.04, base + (rnd() - 0.5) * 0.06);
+    const len = 0.26 + rnd() * 0.12;
+    place(evs, startFrac, Math.min(0.94, startFrac + len));
   });
   // Standalone pool incidents land at seeded points after the warm-up (a multi-event
-  // one spans a few positions).
+  // one spans a few positions), all before the last fifth of the shift.
   for (const g of poolAttacks) {
-    const startFrac = warmup + rnd() * (0.92 - warmup);
-    place(g, startFrac, Math.min(0.97, startFrac + 0.02 * g.length));
+    const startFrac = warmup + 0.03 + rnd() * (0.8 - warmup);
+    place(g, startFrac, Math.min(0.9, startFrac + 0.02 * g.length));
   }
 
   const ordered: Placed[] = [];
@@ -697,6 +701,16 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
     t += load.baseGapMs + Math.floor(rnd() * load.jitterMs);
     return entry;
   });
+  // The shift ends when the instructor said it would: story overflow, ITSM records and FP alerts
+  // can run the feed past its budget, so a timeline longer than the shift is compressed onto it
+  // (the pace rises slightly; nothing planned falls after the end). The DB refill keeps the feed
+  // going if the instructor runs the session longer.
+  const shiftMs = load.shiftMin * 60_000;
+  const rawSpan = timed.length ? timed[timed.length - 1].at : 0;
+  if (rawSpan > shiftMs * 0.95) {
+    const k = (shiftMs * 0.95) / rawSpan;
+    for (const x of timed) x.at = Math.round(x.at * k);
+  }
   const span = timed.length ? timed[timed.length - 1].at : 0;
 
   // ── MSEL — scripted injects timed against the shift ───────────────────────────
