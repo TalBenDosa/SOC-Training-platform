@@ -20,7 +20,7 @@ vi.mock("@/lib/supabase/admin", () => ({
     rpc,
     from: (t: string) => {
       const b: Record<string, unknown> = {};
-      for (const m of ["select", "eq", "limit"]) b[m] = () => b;
+      for (const m of ["select", "eq", "limit", "or", "order"]) b[m] = () => b;
       b.maybeSingle = async () => ({ data: { xp: 0 }, error: null });
       b.then = (res: (v: unknown) => unknown) => res({ data: t === "task_attempts" ? attempts : [], error: null });
       return b;
@@ -64,5 +64,21 @@ describe("room completion decides the pass on mastery", () => {
     attempts.push({ task_id: q.id, xp_awarded: 0, question_index: null, correct: true });
     await call(q.id);
     expect((rpc.mock.calls.at(-1) as unknown as [string, { p_task_xp: number }])[1].p_task_xp).toBe(0);
+  });
+});
+
+describe("the response carries the server's pass credit (QA-ROOM-2/12)", () => {
+  it("a log-analysis task corrected question by question across runs gets full credit", async () => {
+    const la = room.tasks.find(t => t.type === "log_analysis");
+    if (!la || la.type !== "log_analysis") throw new Error("expected a log_analysis task");
+    // run 1: Q1 right, Q2 wrong. run 2: Q1 wrong, Q2 right. Both were answered correctly once.
+    attempts.push(
+      { task_id: la.id, xp_awarded: la.questions[0].xp, question_index: 0, correct: true },
+      { task_id: la.id, xp_awarded: 0, question_index: 1, correct: true },
+    );
+    const res = await call(la.id);
+    const body = await res.json() as { perTaskCredit: Record<string, number>; passPct: number };
+    expect(body.perTaskCredit[la.id]).toBe(la.questions.reduce((s, q) => s + q.xp, 0));
+    expect(typeof body.passPct).toBe("number");
   });
 });

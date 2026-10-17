@@ -145,7 +145,8 @@ export function RoomClient({ room }: RoomClientProps) {
     return m;
   }, [room]);
   const scoreXp  = roomScoreXp({ xpEarned: totalXpEarned, perTaskXp, perTaskCredit }, gradeableMax);
-  const scorePct = maxXp > 0 ? Math.round((scoreXp / maxXp) * 100) : 100;
+  // Rounded DOWN: Math.round showed "65%" for a failing 64.6% next to "65% needed" (QA-ROOM-11).
+  const scorePct = maxXp > 0 ? Math.floor((scoreXp / maxXp) * 100) : 100;
 
   // Tasks finished during THIS visit. If the remote backend hydrates after we
   // mounted (hard reload / new tab), these are merged into the server entry
@@ -386,7 +387,7 @@ export function RoomClient({ room }: RoomClientProps) {
         body: JSON.stringify(taskTelemetry ? { telemetry: taskTelemetry } : {}),
       });
       if (!res.ok) throw new Error(`status ${res.status}`);
-      const d = await res.json() as { guest?: boolean; taskXp?: number; roomXp?: number | null; completedAt?: string | null; totalXp?: number | null };
+      const d = await res.json() as { guest?: boolean; taskXp?: number; roomXp?: number | null; completedAt?: string | null; totalXp?: number | null; perTaskCredit?: Record<string, number> };
       pendingSavesRef.current.delete(taskId);
       if (pendingSavesRef.current.size === 0) setSaveError(false);
       if (d.guest) return;
@@ -400,15 +401,20 @@ export function RoomClient({ room }: RoomClientProps) {
       if (isLatest) latestAppliedSeqRef.current = seq;
       if (cur && typeof d.taskXp === "number") {
         const serverMap = { ...(cur.perTaskXp ?? {}), [taskId]: d.taskXp };
+        // The server's pass credit (per log-analysis question, from every attempt) is
+        // authoritative; merged as a max so it never lowers what this device knows.
+        const creditMap = mergeTaskXpMax(cur.perTaskCredit, d.perTaskCredit);
         const next: RoomProgressEntry = {
           ...cur,
           perTaskXp: serverMap,
+          perTaskCredit: creditMap,
           xpEarned: isLatest && typeof d.roomXp === "number" ? d.roomXp : cur.xpEarned,
           ...(d.completedAt ? { completedAt: d.completedAt } : {}),
         };
         all[room.id] = next;
         saveProgress(all);
         setPerTaskXp(serverMap);
+        setPerTaskCredit(creditMap);
         setTotalXpEarned(next.xpEarned);
         // The server decides the pass from its own grading records (mastery.ts).
         // If it completed the room, show the completion screen even when this
@@ -425,6 +431,28 @@ export function RoomClient({ room }: RoomClientProps) {
       setSaveError(true);
     }
   }
+
+  // QA-ROOM-2: pass credit is not stored in room_progress, so after a reload this
+  // device has none and the score / "missed" list fell back to XP. Ask the server
+  // once per visit; it recomputes the credit from the student's graded attempts.
+  const creditLoadedRef = useRef(false);
+  useEffect(() => {
+    if (!mounted || creditLoadedRef.current) return;
+    creditLoadedRef.current = true;
+    void (async () => {
+      try {
+        const res = await fetch(`/api/rooms/${encodeURIComponent(room.id)}/pass`, { cache: "no-store" });
+        if (!res.ok) return;
+        const d = await res.json() as { guest?: boolean; perTaskCredit?: Record<string, number> };
+        if (d.guest || !d.perTaskCredit) return;
+        const all = loadProgress();
+        const cur = all[room.id];
+        const merged = mergeTaskXpMax(cur?.perTaskCredit, d.perTaskCredit);
+        if (cur) { all[room.id] = { ...cur, perTaskCredit: merged }; saveProgress(all); }
+        setPerTaskCredit(prev => mergeTaskXpMax(prev, merged));
+      } catch { /* the XP-based view stays; the next completion refreshes it */ }
+    })();
+  }, [mounted, room.id]);
 
   // A room left on "almost there" (e.g. before passing was decided on mastery, or
   // corrected in an earlier visit): ask the server once to re-check. It recomputes

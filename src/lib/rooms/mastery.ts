@@ -36,6 +36,13 @@ export function taskPassCredit(task: RoomTask, attempts: GradedAttempt[]): numbe
   return Math.min(max, Math.max(0, ...mine.map(a => a.xp_awarded ?? 0)));
 }
 
+/** { taskId: pass credit } for every gradeable task (QA-ROOM-2: the client shows it after a reload). */
+export function roomPassCredit(room: Room, attempts: GradedAttempt[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const t of room.tasks) if (taskMaxXp(t) > 0) out[t.id] = taskPassCredit(t, attempts);
+  return out;
+}
+
 /** The room's pass score from graded attempts: gradeable tasks only. */
 export function roomPassScore(room: Room, attempts: GradedAttempt[]): { score: number; max: number } {
   let score = 0, max = 0;

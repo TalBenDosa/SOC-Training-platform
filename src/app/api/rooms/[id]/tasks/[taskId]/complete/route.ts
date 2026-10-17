@@ -6,7 +6,7 @@ import { getEffectiveRoom } from "@/lib/rooms/resolve";
 import { getAuthedUser, canPreviewDrafts } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { ROOM_PASS_THRESHOLD, gradeableTaskMax, readingXp } from "@/lib/rooms/xp";
-import { roomPassScore, type GradedAttempt } from "@/lib/rooms/mastery";
+import { roomPassScore, roomPassCredit, type GradedAttempt } from "@/lib/rooms/mastery";
 
 export const runtime = "nodejs";
 
@@ -54,10 +54,15 @@ export async function POST(
   // ── The task's XP, from server-held records only ────────────────────────────
   // All of the student's graded attempts in this room: this task's XP comes from
   // its rows, and the pass check below reads the whole room.
+  // Only attempts that were correct or paid XP matter for either number, so wrong
+  // guesses (unlimited on flags) are not read at all; that keeps the read well under
+  // PostgREST's row cap instead of truncating an arbitrary subset (QA-ROOM-15).
   const { data: roomAttempts, error: attErr } = await admin.from("task_attempts")
     .select("task_id, xp_awarded, question_index, correct")
     .eq("user_id", user.id).eq("room_id", room.id)
-    .limit(5000);
+    .or("correct.eq.true,xp_awarded.gt.0")
+    .order("task_id").order("question_index")
+    .limit(1000);
   if (attErr) return NextResponse.json({ error: "Couldn't read your answers — please try again." }, { status: 503 });
   let taskXp = 0;
   if (task.type === "reading") {
@@ -116,6 +121,10 @@ export async function POST(
     roomXp: row?.room_xp ?? null,
     completedAt: row?.room_completed_at ?? null,
     newlyCompleted: row?.newly_completed ?? false,
+    // Pass credit per task and the pass percentage, from the server's own records,
+    // so the page shows the same number the server decides with (QA-ROOM-2/12).
+    perTaskCredit: roomPassCredit(room, (roomAttempts ?? []) as GradedAttempt[]),
+    passPct: pass.max > 0 ? pass.score / pass.max : 1,
     totalXp: prof?.xp ?? null,
   }, { headers: { "Cache-Control": "private, no-store" } });
 }
