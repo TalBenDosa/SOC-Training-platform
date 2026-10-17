@@ -323,7 +323,9 @@ function rubricPercent(cells: RubricCell[]): number | null {
 }
 
 interface RubricCtx {
-  role: string; dispAcc: number | null; dispNoAttack: boolean; loadSharePct: number | null; loadHandled: number; loadFair: number; escAckRate: number | null; escPrecision: number | null; escQuality: number | null;
+  role: string; dispAcc: number | null; dispNoAttack: boolean;
+  /** Attack logs this T1 marked TP/suspicious that nobody ever escalated (QA-TEAM-2). */
+  attackNotHandedOff: number; loadSharePct: number | null; loadHandled: number; loadFair: number; escAckRate: number | null; escPrecision: number | null; escQuality: number | null;
   triageMin: number | null; dwellTooShort: boolean; ackLatencyMin: number | null; approvalLatencyMin: number | null;
   huntCount: number; huntTech: number; huntQuality: number | null; noteCount: number; elevAnsweredPct: number | null;
   rulePublished: number; ruleMatched: number; ruleTechniques: number; ruleDocRate: number | null;
@@ -354,7 +356,9 @@ function roleRubric(c: RubricCtx): RubricCell[] {
       return [
         { label: "Disposition accuracy (balanced)", score: c.dispAcc == null ? null : c.dispNoAttack ? Math.min(8, bandHigh(c.dispAcc, 90, 75, 50)) : bandHigh(c.dispAcc, 90, 75, 50), note: c.dispNoAttack ? "capped at 8: no attack log in your work — full marks need a correct call on an attack log" : "average of attack handling (severity-weighted; an attack log you opened and left counts as a miss) and benign accuracy; suspicious = partial credit; unopened logs count at reduced weight" },
         { label: "Share of the load", score: c.loadSharePct == null ? null : smoothBand(c.loadSharePct, LOAD_SHARE_ZERO, LOAD_SHARE_FULL), note: c.loadSharePct == null ? undefined : `you triaged ${c.loadHandled} log${c.loadHandled === 1 ? "" : "s"}; a fair share of this feed was ~${Math.round(c.loadFair)} (${c.loadSharePct}%) — logs a teammate handled never count against you` },
-        { label: "Escalation precision", score: c.escPrecision == null ? null : smoothBand(c.escPrecision, 10, 80), note: "per incident: of what you escalated, how much was a real incident (duplicates of one incident count once)" },
+        c.attackNotHandedOff > 0 && c.escPrecision == null
+          ? { label: "Escalation precision", score: 0, note: `you marked ${c.attackNotHandedOff} real attack log${c.attackNotHandedOff === 1 ? "" : "s"} as malicious and never escalated ${c.attackNotHandedOff === 1 ? "it" : "them"}: Tier-2 never saw the incident` }
+          : { label: "Escalation precision", score: c.escPrecision == null ? null : smoothBand(c.escPrecision, 10, 80), note: "per incident: of what you escalated, how much was a real incident (duplicates of one incident count once)" },
         { label: "Card completeness", score: c.escQuality == null ? null : bandHigh(c.escQuality, 90, 70, 40) },
         { label: "Handoff coordination", score: c.escAckRate == null ? null : bandHigh(c.escAckRate, 80, 60, 40), note: "share of your escalations Tier-2 closed the loop on (acknowledged or bounced)" },
         { label: "Time-to-triage", score: triage == null ? null : c.dwellTooShort ? Math.min(triage, 4) : triage, ...(c.dwellTooShort ? { note: `capped: average read time under ${MIN_EVIDENCE_DWELL_S}s — speed without reading isn't triage` } : {}) },
@@ -607,10 +611,12 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
       : inc.attackEids.some(e => attackVerdictKind.get(e) === "susp") ? 0.5
         : escalated ? 0.25 : 0;
     const timeliness = slaDwellS == null ? 0 : slaDwellS <= slaSec ? 1 : slaDwellS <= 2 * slaSec ? 0.6 : 0.3;
+    // QA-TEAM-2: in a tiered SOC an incident nobody escalated never reached Tier-2, so
+    // no scoping and no containment could follow. A verdict alone caps the grade.
     const handlingScore = !detected ? 0
-      : Math.round(40 + 20 * timeliness + 25 * (coverage / 100) + 15 * verdictQ);
+      : Math.min(escalated ? 100 : 55, Math.round(40 + 20 * timeliness + 25 * (coverage / 100) + 15 * verdictQ));
     const grade: IncidentGrade = !detected ? "missed"
-      : (slaMet === true && coverage >= SCOPE_GOOD && verdictQ >= 1) ? "caught_well"
+      : (escalated && slaMet === true && coverage >= SCOPE_GOOD && verdictQ >= 1) ? "caught_well"
         : (coverage >= SCOPE_PARTIAL || slaMet === true || verdictQ >= 0.5) ? "partial"
           : "noticed";
 
@@ -871,10 +877,17 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
       const inc = incidentOfEid(eid);
       atkDen += sevWeight(truth.get(eid)?.severity ?? "") * (inc && detectedIncidents.has(inc) ? DETECTED_INCIDENT_MISS_WEIGHT : 1);
     }
+    // QA-TEAM-3: escalating a benign log is a wrong call whatever its verdict (it used
+    // to cost only the 1-of-9 precision cell, so flooding Tier-2 scored ~78%).
+    const myBenignEsc = new Set(mine.filter(e => e.type === "escalation.requested").map(eidOf).filter(eid => truth.has(eid) && !attackIds.has(eid)));
     for (const [eid, v] of latestVerdict) {
       if (attackIds.has(eid)) continue;
-      benNum += verdictCredit(eid, v) * openFactor(eid); benDen += 1;
+      benNum += (myBenignEsc.has(eid) ? 0 : verdictCredit(eid, v)) * openFactor(eid); benDen += 1;
     }
+    for (const eid of myBenignEsc) if (!latestVerdict.has(eid)) benDen += 1;
+    // QA-TEAM-2: real attack logs this analyst called malicious that NOBODY escalated.
+    const attackNotHandedOff = [...latestVerdict].filter(([eid, v]) => attackIds.has(eid)
+      && (v === "true_positive" || v === "suspicious") && !escalatedAttack.has(eid)).length;
     const attackHandling = atkDen ? Math.round((atkNum / atkDen) * 100) : null;
     const benignAcc = benDen ? Math.round((benNum / benDen) * 100) : null;
     const dispAcc = attackHandling != null && benignAcc != null ? Math.round((attackHandling + benignAcc) / 2)
@@ -1042,7 +1055,7 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
     const isoPct = pct(isoCorrect, myIso.length);
 
     const rubric = roleRubric({
-      role: m.role, dispAcc, dispNoAttack, loadSharePct, loadHandled, loadFair, escAckRate, escPrecision, escQuality, triageMin, dwellTooShort, ackLatencyMin, approvalLatencyMin,
+      role: m.role, dispAcc, dispNoAttack, attackNotHandedOff, loadSharePct, loadHandled, loadFair, escAckRate, escPrecision, escQuality, triageMin, dwellTooShort, ackLatencyMin, approvalLatencyMin,
       huntCount: hunts.length, huntTech, huntQuality, noteCount, elevAnsweredPct,
       rulePublished: rules.length, ruleMatched, ruleTechniques, ruleDocRate,
       intelAttrib, intelNext, iocPrecision, contReason, contQuality, reportAcc, isoPct,

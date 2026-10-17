@@ -811,15 +811,28 @@ describe("computeReport — incident catch grade (scope coverage + timeliness + 
   };
   const inc = (r: ReturnType<typeof computeReport>) => r.team.incidents.find(i => i.id === "inc-1")!;
 
-  it("caught_well: ≥60% scope, within SLA, firm TP verdict", () => {
+  it("caught_well: ≥60% scope, within SLA, firm TP verdict, handed off to Tier-2", () => {
     const api = incident(log());
     api.add("disposition.set", "a", 60, { event_id: "a1", verdict: "true_positive" }, "t1");
     api.add("disposition.set", "a", 90, { event_id: "a2", verdict: "true_positive" }, "t1");
+    api.add("escalation.requested", "a", 120, { event_id: "a1" }, "t1");
     const i = inc(computeReport(api.events, [member("a", "t1")]));
     expect(i.scopeCoverage).toBe(67);          // 2 of 3 logs
     expect(i.slaMet).toBe(true);               // dwell 59s ≤ 900s (high)
     expect(i.grade).toBe("caught_well");
     expect(i.handlingScore).toBeGreaterThanOrEqual(85);
+  });
+
+  it("QA-TEAM-2: TP verdicts with NO escalation are not caught_well (Tier-2 never saw it)", () => {
+    const api = incident(log());
+    api.add("disposition.set", "a", 60, { event_id: "a1", verdict: "true_positive" }, "t1");
+    api.add("disposition.set", "a", 90, { event_id: "a2", verdict: "true_positive" }, "t1");
+    const r = computeReport(api.events, [member("a", "t1")]);
+    const i = inc(r);
+    expect(i.grade).toBe("partial");
+    expect(i.handlingScore).toBeLessThanOrEqual(55);
+    const cell = r.perUser[0].rubric.find(c => c.label === "Escalation precision");
+    expect(cell?.score).toBe(0);
   });
 
   it("partial: within SLA but low scope (1 of 3)", () => {
@@ -855,6 +868,7 @@ describe("computeReport — incident catch grade (scope coverage + timeliness + 
     const api = incident(log());
     api.add("disposition.set", "a", 60, { event_id: "a1", verdict: "true_positive" }, "t1");
     api.add("disposition.set", "a", 90, { event_id: "a2", verdict: "true_positive" }, "t1");
+    api.add("escalation.requested", "a", 120, { event_id: "a1" }, "t1");
     const r = computeReport(api.events, [member("a", "t1")]);
     expect(r.team.incidentsCaughtWell).toBe(1);
     expect(r.team.avgScopeCoverage).toBe(67);
@@ -995,5 +1009,21 @@ describe("computeReport — share of the load + evidence misses (2026-10-07)", (
     expect(run(true).attackHandling).toBe(67);    // 2 / (2 + 0.5·2)
     expect(run(false).attackHandling).toBe(50);   // 2 / (2 + 2) — a different, undetected incident
     expect(run(true).walkedPast[0].detail).toMatch(/caught through another log/);
+  });
+});
+
+// QA 2026-10-17 (QA-TEAM-3): escalating everything used to score ~78%.
+describe("computeReport: escalating benign logs is a wrong call", () => {
+  it("flooding Tier-2 with every log halves disposition accuracy", () => {
+    const { events, add } = log();
+    add("feed.event", null, 1, { id: "atk-1", expected_verdict: "tp", severity: "high" });
+    for (let i = 1; i <= 4; i++) add("feed.event", null, 1 + i, { id: `noise-${i}`, expected_verdict: "benign", severity: "low" });
+    for (const id of ["atk-1", "noise-1", "noise-2", "noise-3", "noise-4"]) {
+      add("disposition.set", "a", 30, { event_id: id, verdict: "suspicious" }, "t1");
+      add("escalation.requested", "a", 40, { event_id: id }, "t1");
+    }
+    const { perUser } = computeReport(events, [member("instr", "instructor"), member("a", "t1")]);
+    const a = perUser.find(u => u.user_id === "a")!;
+    expect(a.dispAcc).toBeLessThanOrEqual(50);
   });
 });
