@@ -13,10 +13,14 @@
  *  - un-triaged = no disposition yet, and not already escalated;
  *  - high/critical by default, medium optionally (early signs of a story);
  *  - ordered by orphans first (past SLA, unclaimed, not escalated — nobody is
- *    working it), then severity × age.
+ *    working it), then severity × age;
+ *  - 2026-10-18: a log of ANY severity that shares a host / user / external address with a log
+ *    the team escalated or called malicious joins the queue as "linked" (correlate.ts), so the
+ *    quiet steps of an attack already found are not walked past.
  */
 import type { Ev } from "./types";
 import { activeMs, type PauseSpan } from "./pauses";
+import { linkedToHot, entityLabel } from "./correlate";
 
 /** Minutes until an un-triaged alert breaches its triage SLA, by severity. */
 export const slaMinFor = (sev: string) => (sev === "critical" ? 1 : sev === "high" ? 3 : sev === "medium" ? 10 : 30);
@@ -28,6 +32,8 @@ export interface QueueItem {
   mins: number;
   breached: boolean;
   orphan: boolean;
+  /** Pulled in by correlation: the entity it shares with an escalated / malicious log. */
+  linked?: string;
 }
 
 /** The id the team page uses for a feed log (payload id, else its seq). */
@@ -47,16 +53,21 @@ export function buildAlertQueue(opts: {
   pauses?: PauseSpan[];
 }): QueueItem[] {
   const { feed, dispositions, escalated, claims, nowMs, withMedium, pauses = [] } = opts;
+  const linked = linkedToHot(feed, dispositions, escalated);
   const items: (QueueItem & { score: number })[] = [];
   for (const e of feed) {
     const eid = feedEventId(e);
     const severity = String((e.payload as { severity?: unknown }).severity ?? "");
-    const inScope = severity === "high" || severity === "critical" || (withMedium && severity === "medium");
+    const link = linked.get(eid);
+    const inScope = severity === "high" || severity === "critical" || (withMedium && severity === "medium") || !!link;
     if (!inScope || dispositions.has(eid) || escalated.has(eid)) continue;
     const t = e.occurred_at ? Date.parse(e.occurred_at) : NaN;
     const mins = Number.isFinite(t) ? Math.max(0, Math.floor(activeMs(t, nowMs, pauses) / 60000)) : 0;
-    const breached = mins >= slaMinFor(severity);
-    items.push({ e, eid, severity, mins, breached, orphan: breached && !claims.has(eid), score: RANK[severity] * (1 + mins / 5) });
+    // A linked log ages against the medium SLA and ranks at least as a medium.
+    const slaSev = link && !RANK[severity] ? "medium" : severity;
+    const breached = mins >= slaMinFor(slaSev);
+    const rank = Math.max(RANK[severity] ?? 0, link ? 2.5 : 0);
+    items.push({ e, eid, severity, mins, breached, orphan: breached && !claims.has(eid), score: rank * (1 + mins / 5), ...(link ? { linked: entityLabel(link) } : {}) });
   }
   items.sort((a, b) => (a.orphan === b.orphan ? b.score - a.score : a.orphan ? -1 : 1));
   return items.map(({ score: _s, ...rest }) => { void _s; return rest; });

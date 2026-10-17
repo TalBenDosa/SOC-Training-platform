@@ -8,6 +8,7 @@ import type { Ev, Ioc } from "@/lib/team/types";
 import { asStr, detectIocType, isValidIoc, IOC_HELP, type ActR } from "@/lib/team/format";
 import { useServerNow } from "@/lib/team/clock";
 import { activeClaims } from "@/lib/team/projections";
+import { relatedLogs, entityLabel } from "@/lib/team/correlate";
 import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 
 // ── T1 console: pick a log → disposition + structured escalation report ───────
@@ -189,6 +190,15 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
 
   const [closeNote, setCloseNote] = useState("");
   useEffect(() => { setCloseNote(""); }, [sel]);
+  // Read before you close (2026-10-18 review: benign calls made with a 0.5 s average dwell):
+  // closing as benign / false positive unlocks once the log has been open READ_FIRST_MS.
+  const READ_FIRST_MS = 4000;
+  const [openedAt, setOpenedAt] = useState<number>(0);
+  const [readTick, setReadTick] = useState(0);
+  useEffect(() => { setOpenedAt(sel ? Date.now() : 0); }, [sel]);
+  useEffect(() => { if (!sel) return; const t = setTimeout(() => setReadTick(x => x + 1), READ_FIRST_MS + 50); return () => clearTimeout(t); }, [sel]);
+  void readTick;
+  const readEnough = !!sel && openedAt > 0 && Date.now() - openedAt >= READ_FIRST_MS;
   async function disp(v: string) {
     if (!sel) return;
     setBusy(true);
@@ -240,6 +250,7 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
   const selRaw = sel ? feed.find(e => String((e.payload as { id?: string }).id ?? e.seq) === sel) : undefined;
   const selP = selRaw?.payload as { id?: string; description?: unknown; event_type?: unknown; hostname?: unknown; user_email?: unknown; user?: { email?: unknown }; severity?: unknown; source?: unknown } | undefined;
   const selDesc = asStr(selP?.description) || asStr(selP?.event_type) || "event";
+  const related = useMemo(() => (selRaw ? relatedLogs(feed, selRaw) : []), [feed, selRaw]);
   const selHost = asStr(selP?.hostname);
   const selUser = asStr(selP?.user_email) || asStr(selP?.user?.email);
   const selSev = asStr(selP?.severity);
@@ -278,6 +289,30 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
       </label>
       {/* T1-3: soft-claim so two Tier-1 analysts don't work the same alert (server-enforced, P0-3) */}
       {claimBanner(false)}
+      {/* Related activity: the other logs about this host / user / external address (2026-10-18 review:
+          the quiet steps of an attack were skipped once one alert of it was found). */}
+      {selRaw && related.length > 0 && (
+        <div className="mt-2 rounded-lg border border-cyber-500/30 bg-cyber-500/[0.05] p-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-cyber-300">Related activity ({related.length})</p>
+          <ul className="mt-1 max-h-40 space-y-0.5 overflow-y-auto">
+            {related.map(r => {
+              const rp = r.e.payload as { description?: unknown; event_type?: unknown; severity?: unknown };
+              const d = dispositions.get(r.eid);
+              return (
+                <li key={r.eid}>
+                  <button type="button" onClick={() => setSel(r.eid)} className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left text-[10px] hover:bg-white/5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyber-400/60">
+                    <span className="shrink-0 font-mono text-slate-500">#{r.e.seq}</span>
+                    <span className="shrink-0 font-mono uppercase text-slate-400">{asStr(rp.severity) || "info"}</span>
+                    <span className="min-w-0 flex-1 truncate text-slate-300">{asStr(rp.description) || asStr(rp.event_type)}</span>
+                    <span className="shrink-0 text-slate-500">{r.shared.map(entityLabel).join(", ")}</span>
+                    <span className={`shrink-0 font-mono ${d ? "text-neon-green" : "text-neon-amber"}`}>{d ? d.replace("_", " ") : "untriaged"}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
       {/* T1-2: the decision, as two plain paths: close it, or escalate it. */}
       {sel && (selDisp === "false_positive" || selDisp === "benign") ? (
         <p className="mt-3 rounded-lg border border-neon-green/30 bg-neon-green/5 px-3 py-2 text-xs text-neon-green">
@@ -291,9 +326,10 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
               placeholder="Closing note (optional): why it's safe"
               className="mt-1.5 w-full rounded border border-border bg-bg px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none disabled:opacity-50" />
             <div className="mt-1.5 flex flex-wrap gap-1.5">
-              <Button variant="outline" size="sm" disabled={!sel || busy} onClick={() => disp("false_positive")} title="The rule fired, but it is not malicious">Close as false positive</Button>
-              <Button variant="outline" size="sm" disabled={!sel || busy} onClick={() => disp("benign")} title="Expected, normal activity">Close as benign</Button>
+              <Button variant="outline" size="sm" disabled={!sel || busy || !readEnough} onClick={() => disp("false_positive")} title="The rule fired, but it is not malicious">Close as false positive</Button>
+              <Button variant="outline" size="sm" disabled={!sel || busy || !readEnough} onClick={() => disp("benign")} title="Expected, normal activity">Close as benign</Button>
             </div>
+            {sel && !readEnough && <p className="mt-1 text-[10px] text-slate-500">Read the log first: closing unlocks in a few seconds.</p>}
           </div>
           <div className="rounded-lg border border-amber-500/40 bg-amber-500/[0.06] p-2.5">
             <p className="text-xs font-semibold text-amber-200">Attack, or not sure? Escalate to Tier-2</p>

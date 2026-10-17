@@ -1484,6 +1484,11 @@ export default function TeamRoomPage() {
                         <label className="flex items-center gap-1 text-[10px] text-slate-400" title="Early signs of an attack often arrive as medium — include them in Needs triage">
                           <input type="checkbox" checked={queueWithMedium} onChange={e => setQueueWithMedium(e.target.checked)} className="h-3 w-3" /> include medium
                         </label>
+                        {alertQueue.some(q => q.linked) && (
+                          <span className="text-[10px] text-cyber-300" title="Logs of any severity about a host, user or address the team already escalated">
+                            {alertQueue.filter(q => q.linked).length} linked to escalated alerts
+                          </span>
+                        )}
                         {pulledNote && <span role="status" className="text-[11px] text-neon-green">{pulledNote}</span>}
                         <Button variant="outline" size="sm" className="ml-auto" disabled={alertQueue.length === 0} onClick={takeNextAlert}>Take next alert</Button>
                       </div>
