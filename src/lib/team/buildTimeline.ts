@@ -35,7 +35,7 @@ import { mitreVisible } from "@/lib/sim/mitreVisible";
 import { describeEvent } from "@/lib/sim/describeEvent";
 import { fpAlerts } from "./fpAlerts";
 import { serviceNowRecord } from "@/lib/sim/emitters/servicenow";
-import { applyStack, fitsStack, storyFitsOrg, storyFitsStack, storyHonoursLocks } from "@/lib/logs/native";
+import { applyStack, fitsStack, stackFor, storyFitsOrg, storyFitsStack, storyHonoursLocks } from "@/lib/logs/native";
 import { PRODUCT_LABEL, type Stack } from "@/lib/logs/native/stack";
 
 // channel "feed" → promoted as a feed.event (a log); "inject" → a staff.inject
@@ -354,8 +354,14 @@ export function teamStoryPool(companyId: string, difficulty: "easy" | "medium" |
  * (stack) or platform (env) — so the feed never shows a tool the org didn't choose.
  */
 const BASELINE_SOURCES = new Set(["edr", "av", "firewall", "ids", "vpn", "o365", "exchange", "sharepoint", "ad", "windows_security", "sysmon", "dns", "siem", "email_gateway", "cloud_azure", "soar"]);
-function orgRunsSource(e: TelemetryEvent, env: TeamEnv, stack: Stack): boolean {
+function orgRunsSource(e: TelemetryEvent, env: TeamEnv, stack: Stack, companyId: string): boolean {
   const src = String(e.source);
+  const vend = (e.vendor ?? "").toLowerCase();
+  // Products that come WITH a choice, never on their own: Defender for Identity is part of the
+  // Defender suite (EDR = Microsoft Defender for Endpoint); Claude Enterprise audit logs have no
+  // selector. (Sentinel needs the Azure platform: platformsOfEvent.)
+  if (/defender for identity/.test(vend)) return stackFor(companyId, stack).edr === "mde";
+  if (src === "siem" && /anthropic|claude/.test(vend)) return false;
   if (BASELINE_SOURCES.has(src)) return true;
   switch (src) {
     case "proxy": return stack.proxy !== undefined;
@@ -372,6 +378,26 @@ function orgRunsSource(e: TelemetryEvent, env: TeamEnv, stack: Stack): boolean {
     case "waf": case "db_monitor": case "ueba": case "nac": case "dlp": case "infra_monitor": return false;
     default: return true;
   }
+}
+
+/** Sources the session relabels to its chosen product (applyStack): their product is the choice, whatever they were written as. */
+const RELABELLED_SOURCES = new Set(["okta", "mfa", "gws", "o365", "exchange", "sharepoint", "edr", "av", "firewall", "ids", "vpn", "dns", "email_gateway"]);
+
+/**
+ * An attack step a named organization can show: its platform is one the admin chose, and its
+ * product is either relabelled to a chosen one (an Okta-written sign-in in an Entra shop) or
+ * comes with a choice: Sentinel and its UEBA with Azure, Purview DLP with Microsoft 365,
+ * Defender for Identity with Defender for Endpoint. Anything else the admin never selected
+ * (a web proxy, Guardium, a WAF, Claude Enterprise) keeps the story out.
+ */
+function storyEventChosen(e: TelemetryEvent, env: TeamEnv, stack: Stack, companyId: string): boolean {
+  if (!envHasPlatforms(env, [e])) return false;
+  const src = String(e.source), vend = (e.vendor ?? "").toLowerCase();
+  if (/defender for identity/.test(vend)) return stackFor(companyId, stack).edr === "mde";
+  if (src === "ueba") return /sentinel/.test(vend) && env.platforms.includes("azure");
+  if (src === "dlp") return /purview/.test(vend) && stackFor(companyId, stack).collab === "m365";
+  if (RELABELLED_SOURCES.has(src)) return true;
+  return orgRunsSource(e, env, stack, companyId);
 }
 
 /** Platforms whose ordinary logs a named organization's template lacks: borrowed (re-homed) from the demo company that runs them. */
@@ -403,7 +429,7 @@ function storyBase(companyId: string, stack: Stack, env: TeamEnv | null = null) 
   // (endpoint, firewall, VPN, identity, mail, DNS, AD, the SIEM) are always present.
   if (env) {
     const own = (ownPool0 ?? BENIGN_EVENTS).filter(e => envHasPlatforms(env, [e]));
-    basePool = [...basePool.filter(e => envHasPlatforms(env, [e]) && orgRunsSource(e, env, stack)), ...platformNoise(companyId, env, own).filter(e => fitsStack(e, companyId, stack))];
+    basePool = [...basePool.filter(e => envHasPlatforms(env, [e]) && orgRunsSource(e, env, stack, companyId)), ...platformNoise(companyId, env, own).filter(e => fitsStack(e, companyId, stack))];
     if (ownPool) ownPool = basePool;
   }
   // One host, one IP across the noise (normalizeHostIps) — the story is mapped onto it.
@@ -437,10 +463,13 @@ function sessionFit(companyId: string, stack: Stack, env: TeamEnv | null): (evs:
 export function teamStoryFilter(companyId: string, stack: Stack = {}, env: TeamEnv | null = null): (story: AttackStory) => boolean {
   const { companyPool, edr } = storyBase(companyId, stack, env);
   const fits = sessionFit(companyId, stack, env);
+  // A named organization: every log of the attack comes from a product or platform the admin
+  // chose (the same rule its noise follows), so what the admin entered is what the feed shows.
+  const chosen = (e: TelemetryEvent) => !env || storyEventChosen(e, env, stack, companyId);
   return story => {
     try {
       const evs = instantiateStory(story, companyPool, edr, companyId).events ?? [];
-      return evs.length > 0 && fits(evs);
+      return evs.length > 0 && evs.every(chosen) && fits(evs);
     } catch { return false; }
   };
 }
@@ -477,7 +506,9 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   const storyPool = teamStoryPool(companyId, difficulty, env, stack);
   const pickStory = (accept: (s: AttackStory) => boolean): AttackStory => {
     const fit = storyPool.filter(accept);
-    return pick(fit.length ? fit : storyPool, pickRnd);
+    // A named organization never falls back to a story outside what the admin chose: with too few
+    // fitting stories a slot repeats a pick (then dropped as a duplicate) rather than leak one.
+    return pick(fit.length ? fit : env ? storyPool.filter(storyFits) : storyPool, pickRnd);
   };
   // Concurrent incidents hit different people (a team never works two attacks on one victim).
   const victimOf = (evs: TelemetryEvent[]) => evs.find(e => e.user_email && isMalicious(classifyStoryEvent(e)))?.user_email;
@@ -581,7 +612,10 @@ export function buildTeamTimeline(companyId: string, difficulty: "easy" | "mediu
   // alert is not an answer — each provable from its approved ticket in the feed. They count toward
   // the shift's row budget, so the noise sample shrinks by their number and the shift length holds.
   const attackAlerts = [...attack1, ...attack2, ...attack3].filter(p => isMalicious(p.verdict) && isAlertRow(p.ev)).length;
-  const fpRows = fpAlerts(assets, companyId, Math.max(2, Math.min(6, attackAlerts + (rnd() < 0.5 ? 1 : 0))), rnd, new Date(TEAM_TIME_BASE_MS).toISOString());
+  // Each FP alert comes from a product the session runs: Sentinel analytics only when the
+  // organization runs Azure, the EDR / identity alerts only when the chosen product records them.
+  const fpRows = fpAlerts(assets, companyId, Math.max(2, Math.min(6, attackAlerts + (rnd() < 0.5 ? 1 : 0))), rnd, new Date(TEAM_TIME_BASE_MS).toISOString(),
+    { siem: !env || env.platforms.includes("azure"), fits: e => (stacked || !!env ? fitsStack(e, companyId, stack) : true) });
   // Keep the shift at its intended length: the storylines now carry their initial-access and
   // first-alert rows, so the real attack-row count runs over load.ts's estimate (≈10/story, 2/pool).
   // Trim the noise by that overflow and by the FP alerts, so total rows ≈ the planned budget.

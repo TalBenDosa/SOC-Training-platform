@@ -85,7 +85,9 @@ export function platformsOfEvent(ev: TelemetryEvent): Platform[] {
     case "vcs": return ["github"];
     case "iam": return /cyberark/.test(v(ev)) ? ["cyberark"] : [];
     case "ids": return /zeek|corelight/.test(v(ev)) ? ["ndr"] : [];
-    case "siem": return /guardduty|aws/.test(v(ev)) ? ["aws"] : [];
+    // Microsoft Sentinel (and its UEBA) runs on Log Analytics in an Azure subscription.
+    case "siem": return /guardduty|aws/.test(v(ev)) ? ["aws"] : /sentinel|defender for cloud|azure/.test(v(ev)) ? ["azure"] : [];
+    case "ueba": return /sentinel|azure/.test(v(ev)) ? ["azure"] : [];
     case "waf": return /aws/.test(v(ev)) ? ["aws"] : [];
     default: return [];
   }

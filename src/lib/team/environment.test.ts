@@ -48,7 +48,9 @@ describe("the arsenal follows the environment", () => {
   });
   it("opens the Microsoft-world stories the old company fit hid", () => {
     const def = offered(DEFAULT_ENV);
-    for (const id of ["dcsync", "oauth", "insider", "bruteforce-single", "ransomware"]) expect(def.has(id), id).toBe(true);
+    for (const id of ["dcsync", "oauth", "bruteforce-single", "ransomware"]) expect(def.has(id), id).toBe(true);
+    // "insider" stays out: its exfil trail is a Zscaler web-proxy log, a product the admin never chose.
+    expect(def.has("insider")).toBe(false);
     const ndr = offered({ ...DEFAULT_ENV, platforms: [...DEFAULT_ENV.platforms, "ndr"] });
     for (const id of ["asrep-roasting", "ntlm-relay"]) expect(ndr.has(id), id).toBe(true);
   });
@@ -61,7 +63,9 @@ describe("the arsenal follows the environment", () => {
   });
   it("a pinned storyline outside the environment is refused", () => {
     expect(resolveTeamStory(TENANT_TEMPLATE, "medium", "rocketstack-chain-a", DEFAULT_ENV)).toBeNull();
-    expect(resolveTeamStory(TENANT_TEMPLATE, "medium", "rocketstack-chain-a", { platforms: ["aws"], industry: "general" })?.id).toBe("rocketstack-chain-a");
+    // Its first alert is a Microsoft Sentinel analytic, and Sentinel runs on Azure.
+    expect(resolveTeamStory(TENANT_TEMPLATE, "medium", "rocketstack-chain-a", { platforms: ["aws"], industry: "general" })).toBeNull();
+    expect(resolveTeamStory(TENANT_TEMPLATE, "medium", "rocketstack-chain-a", { platforms: ["aws", "azure"], industry: "general" })?.id).toBe("rocketstack-chain-a");
   });
 });
 
