@@ -706,15 +706,18 @@ const windowsEventLogs: Room = {
     } satisfies QuestionTask,
 
     // -------------------------------------------------------------------------
-    // Flag Task
+    // Flag Task: username enumeration. The room already asks twice what 0xC000006A means
+    // (Reading 2 question, Log Analysis 1), so the flag applies the OTHER code the reading
+    // teaches instead of asking for the same value a third time (2026-10-17 learner report).
     // -------------------------------------------------------------------------
     {
       type: "flag",
       id: "win-evtlogs-flag1",
+      logTask: "win-evtlogs-la1",
       prompt:
-        "Look at the log analysis event above (Event ID 4625: password spray). What is the exact SubStatus value shown in the raw log that tells you the account exists but the password was wrong? Enter it exactly as shown in the raw log (format: 0x followed by eight hex digits).",
-      answer: "0xC000006A",
-      hint: "Find the 'winlog.event_data.SubStatus' field in the raw log, not the Status field, which is a more general failure code.",
+        "Ten minutes after the password spray above, 203.0.113.45 starts a second wave of Event ID 4625 failures. This time the TargetUserName values (for example 'jsmith2', 'admin.backup', 'svc_test01') are names that do not exist in the CORP domain, so the attacker is now probing which usernames are real. What SubStatus value will these new 4625 events carry? Enter it in the same format as the SubStatus field in the raw log (0x followed by eight hex digits).",
+      answer: "0xC0000064",
+      hint: "The spray log's SubStatus means 'the account exists, wrong password'. The reading on Event ID 4625 lists a different code for a username that does not exist in the domain.",
       xp: 30,
     } satisfies FlagTask,
 

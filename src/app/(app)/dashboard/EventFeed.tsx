@@ -1409,7 +1409,7 @@ export function EventFeed({
               <tr>
                 <td colSpan={7} className="py-8 text-center text-xs text-slate-400">
                   {events.length === 0
-                    ? (emptyMessage ?? "Press Start Training to begin your shift.")
+                    ? (emptyMessage ?? "Press Start to begin your shift.")
                     : "No events match the current filter."}
                 </td>
               </tr>

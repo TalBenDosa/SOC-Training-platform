@@ -1826,6 +1826,14 @@ export default function DashboardPage() {
             search={search}
             onXp={live.addXp}
             onRowOpened={live.recordEventOpened}
+            // The empty-feed line names the control the student actually sees: "Start" before
+            // a shift, "Resume" for a shift paused before its first event (2026-10-17 report:
+            // "Press Start Training" shown beside a "Resume" button).
+            emptyMessage={sessionStartedAt === null
+              ? "Press Start to begin your shift."
+              : live.isStreaming
+                ? "Shift started. The first events will appear in a few seconds."
+                : "The feed is paused. Press Resume to continue your shift."}
           />
           </NativeLogProvider>
           </IocTruthContext.Provider>
