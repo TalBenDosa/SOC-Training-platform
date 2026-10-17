@@ -33,7 +33,10 @@ export async function GET() {
 
   const { data, error } = await admin
     .from("account_deletion_requests")
-    .select("id, user_id, status, reason, requested_at, profiles(handle, display_name)")
+    // Explicit FK: the table references profiles twice (user_id and decided_by), so a
+    // bare `profiles(...)` embed is ambiguous and PostgREST refuses it (PGRST201),
+    // which failed the whole queue on every load.
+    .select("id, user_id, status, reason, requested_at, profiles!account_deletion_requests_user_id_fkey(handle, display_name)")
     .eq("org_id", orgId)
     .eq("status", "pending")
     .order("requested_at", { ascending: true });
