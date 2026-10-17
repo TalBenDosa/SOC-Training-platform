@@ -23,6 +23,7 @@ import { GroupsPanel } from "@/components/manage/GroupsPanel";
 import { MediaPanel } from "@/components/manage/MediaPanel";
 import { ContentAuthoringPanel } from "@/components/manage/ContentAuthoringPanel";
 import { SkillsPanel } from "@/components/manage/SkillsPanel";
+import { InvitePanel } from "@/components/manage/InvitePanel";
 
 type ManageTab = "students" | "overview" | "skills" | "mistakes" | "plans" | "content";
 type SortKey = "xp" | "name" | "first_try" | "path" | "active";
@@ -227,6 +228,9 @@ export default function ManagePage() {
   }
 
   const active = members.filter(m => m.status === "active");
+  // QA-ADMIN-4: the class is active members with the student role (staff are not students).
+  const activeStudentCount = active.filter(m => m.role === "student").length;
+  const learners = students.filter(s => s.status === "active" && s.role === "student");
   // Active first, then by XP.
   const roster = [...members].sort((a, b) =>
     (a.status === "active" ? 0 : 1) - (b.status === "active" ? 0 : 1) || (b.xp ?? 0) - (a.xp ?? 0),
@@ -234,15 +238,15 @@ export default function ManagePage() {
 
   // Cohort position along the graded path (Foundations → SOC Tier 1 → Advanced),
   // computed client-side from each student's completed_room_ids + ROOMS_META.
-  const pathProg = cohortPathProgress(students);
-  const overallPathPct = students.length
-    ? Math.round(students.reduce((s, st) => s + studentPathPercent(st.completed_room_ids), 0) / students.length)
+  const pathProg = cohortPathProgress(learners);
+  const overallPathPct = learners.length
+    ? Math.round(learners.reduce((s, st) => s + studentPathPercent(st.completed_room_ids), 0) / learners.length)
     : 0;
 
   // Who needs attention, and WHY — one list feeds both the count and the names, so they
   // always agree. Weak = under 60% right on the first try, judged only with 10+ questions.
   const reasonsFor = (s: StudentRow): string[] => {
-    if (s.status !== "active") return [];
+    if (s.status !== "active" || s.role !== "student") return [];
     const r: string[] = [];
     if (s.rooms_started === 0 && s.scenarios_completed === 0 && s.sessions === 0) r.push("not started");
     else if (s.last_active_at && Date.now() - Date.parse(s.last_active_at) >= 14 * 86_400_000) r.push(`quiet ${Math.floor((Date.now() - Date.parse(s.last_active_at)) / 86_400_000)} days`);
@@ -251,7 +255,7 @@ export default function ManagePage() {
     return r;
   };
   const atRisk = students.map(s => ({ s, why: reasonsFor(s) })).filter(x => x.why.length > 0);
-  const graded = students.filter(s => s.status === "active" && s.task_accuracy !== null && s.tasks_graded >= 5);
+  const graded = learners.filter(s => s.task_accuracy !== null && s.tasks_graded >= 5);
   const classFirstTry = graded.length ? Math.round(graded.reduce((n, s) => n + (s.task_accuracy ?? 0), 0) / graded.length) : null;
 
   // Students tab: search, filter, sort.
@@ -298,7 +302,7 @@ export default function ManagePage() {
                 <div className="min-w-0">
                   <p className="text-[10px] uppercase tracking-wider text-slate-400">College</p>
                   <p className="truncate text-lg font-bold text-white"><bdi>{org?.name ?? "n/a"}</bdi></p>
-                  <p className="text-[11px] text-slate-400">{active.length}{org && org.seat_limit > 0 ? ` of ${org.seat_limit} seats` : ""} active students</p>
+                  <p className="text-[11px] text-slate-400">{activeStudentCount}{org && org.seat_limit > 0 ? ` of ${org.seat_limit} seats` : ""} active students</p>
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-3">
@@ -329,6 +333,9 @@ export default function ManagePage() {
                 </Button>
               </div>
             </div>
+
+            {/* Instructors join only through an emailed invitation (QA-ADMIN-1). */}
+            <InvitePanel />
 
             {/* Right-to-deletion queue: above the tabs on purpose (30-day statutory deadline). */}
             {deletionsFailed && (

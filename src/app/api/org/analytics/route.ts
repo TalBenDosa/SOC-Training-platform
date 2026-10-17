@@ -191,7 +191,11 @@ export async function GET() {
   // the fewest of them. A room only one person opened isn't evidence of
   // difficulty, so require at least 3 starters before ranking it.
   const roomStats = new Map<string, { started: number; completed: number }>();
+  const learnerRoomIds = new Set((membersData as unknown as MemberRow[])
+    .filter(m => m.status === "active" && m.role === "student" && !(m.profiles as unknown as { is_platform_admin?: boolean } | null)?.is_platform_admin)
+    .map(m => m.user_id));
   for (const r of roomRows) {
+    if (!learnerRoomIds.has(r.user_id)) continue;   // staff / removed members are not the class (QA-ADMIN-4)
     const s = roomStats.get(r.room_id) ?? { started: 0, completed: 0 };
     s.started++;
     if (r.completed_at) s.completed++;
@@ -208,8 +212,12 @@ export async function GET() {
     .slice(0, 5);
 
   const now = Date.now();
-  const activeStudents = students.filter(s => s.status === "active");
-  const allScenarioScores = scenarioRows.map(s => s.score ?? 0);
+  // QA-ADMIN-4: class figures are about the CLASS: active members with the student role.
+  // College admins and instructors (and removed members) used to count in the size, the
+  // activity buckets, the averages and the hardest-room drop-off.
+  const activeStudents = students.filter(s => s.status === "active" && s.role === "student");
+  const learnerIds = new Set(activeStudents.map(s => s.user_id));
+  const allScenarioScores = scenarioRows.filter(s => learnerIds.has(s.user_id)).map(s => s.score ?? 0);
 
   return NextResponse.json({
     students,
@@ -217,7 +225,7 @@ export async function GET() {
       size: activeStudents.length,
       avg_scenario_score: avg(allScenarioScores),
       avg_rooms_completed: avg(activeStudents.map(s => s.rooms_completed)),
-      total_rooms_completed: students.reduce((n, s) => n + s.rooms_completed, 0),
+      total_rooms_completed: activeStudents.reduce((n, s) => n + s.rooms_completed, 0),
       active_7d: activeStudents.filter(s => s.last_active_at && now - Date.parse(s.last_active_at) < 7 * DAY).length,
       never_started: activeStudents.filter(s => !s.last_active_at).length,
       // Enrolled, did something once, but nothing for two weeks — the group an

@@ -73,7 +73,13 @@ export async function PATCH(req: Request, { params }: Ctx) {
   for (const k of ["starts_at", "expires_at"] as const) {
     if (body[k] === undefined) continue;
     if (!body[k]) { patch[k] = null; continue; }
-    const d = new Date(String(body[k]));
+    // QA-ADMIN-3: a date-only expiry ("2026-12-31" from <input type="date">) means access
+    // THROUGH that day; new Date() read it as 00:00 UTC, so access ended before the day began.
+    // Israel is UTC+2/+3, so +02:00 keeps the whole local day either way.
+    const rawDate = String(body[k]);
+    const d = k === "expires_at" && /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
+      ? new Date(`${rawDate}T23:59:59.999+02:00`)
+      : new Date(rawDate);
     if (Number.isNaN(d.getTime())) return NextResponse.json({ error: "Invalid start or expiry date." }, { status: 400 });
     patch[k] = d.toISOString();
   }
@@ -129,6 +135,25 @@ export async function PATCH(req: Request, { params }: Ctx) {
     patch.contract = contract;
   }
   if (Object.keys(patch).length === 0) return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
+
+  // QA-ADMIN-2: status and expiry must agree. The nightly job flips a lapsed licence to
+  // 'expired'; extending the date while the form still sent 'expired' kept the college
+  // locked out behind a "Licence updated" toast, and "Reactivate" with a past expiry
+  // looked active but stayed blocked (access also checks expires_at) until the job
+  // flipped it back. Renewing now reactivates; reactivating needs a future expiry.
+  if (patch.expires_at !== undefined || patch.status !== undefined) {
+    const { data: cur, error: curErr } = await admin.from("organizations").select("status, expires_at").eq("id", id).maybeSingle();
+    if (curErr) return dbFail(curErr, "api/superadmin/orgs/[id]", 500);
+    if (!cur) return NextResponse.json({ error: "Organisation not found." }, { status: 404 });
+    const expiry = patch.expires_at !== undefined ? patch.expires_at : cur.expires_at;
+    const status = (patch.status ?? cur.status) as OrgStatus;
+    const future = !expiry || Date.parse(String(expiry)) > Date.now();
+    if (status === "expired" && cur.status === "expired" && patch.expires_at !== undefined && future) {
+      patch.status = "active";
+    } else if ((status === "active" || status === "trial") && !future) {
+      return NextResponse.json({ error: "The expiry date has passed. Set a future expiry date to reactivate this licence." }, { status: 400 });
+    }
+  }
 
   const { data: org, error } = await admin.from("organizations").update(patch).eq("id", id).select().single();
   if (error) return dbFail(error, "api/superadmin/orgs/[id]", 500);

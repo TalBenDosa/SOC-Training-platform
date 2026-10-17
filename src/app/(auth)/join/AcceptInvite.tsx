@@ -29,7 +29,9 @@ export function AcceptInvite({ token, orgName, role, invitedEmail, signedInAs }:
     if (!res.ok) { setBusy(false); setError(d?.error ?? "Couldn't accept the invitation."); return; }
     // New org / role → mint a token carrying it before entering the app.
     await getSupabaseBrowserClient()?.auth.refreshSession().catch(() => undefined);
-    window.location.assign(d.role === "student" ? "/dashboard" : "/manage");
+    // QA-ADMIN-1: only an org admin can use /manage (every /manage API needs org_admin);
+    // an instructor landed on a page of errors. Instructors run team exercises.
+    window.location.assign(d.role === "org_admin" ? "/manage" : d.role === "instructor" ? "/team" : "/dashboard");
   }
 
   async function signOut() {
