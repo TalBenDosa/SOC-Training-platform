@@ -213,6 +213,7 @@ exports[`computeReport — characterization (real ended session) > produces the 
       "attackHandling": null,
       "avgDwellS": null,
       "benignAcc": null,
+      "blindCalls": 0,
       "contDecided": 0,
       "contReq": 0,
       "contribution": 0,
@@ -273,6 +274,7 @@ exports[`computeReport — characterization (real ended session) > produces the 
       "attackHandling": null,
       "avgDwellS": null,
       "benignAcc": 0,
+      "blindCalls": 0,
       "contDecided": 0,
       "contReq": 0,
       "contribution": 21,
@@ -299,7 +301,7 @@ exports[`computeReport — characterization (real ended session) > produces the 
       "isoCorrect": 0,
       "isoPct": null,
       "isolations": [],
-      "loadSharePct": 0,
+      "loadSharePct": 2,
       "measuredCells": 6,
       "name": "Member C",
       "opened": 0,
@@ -327,7 +329,7 @@ exports[`computeReport — characterization (real ended session) > produces the 
         },
         {
           "label": "Share of the load",
-          "note": "you triaged 1 log; a fair share of this feed was ~251 (0%) — logs a teammate handled never count against you",
+          "note": "you triaged 1 log; a fair share of this feed was ~49 (2%) — logs a teammate handled never count against you",
           "score": 0,
         },
         {
@@ -363,6 +365,16 @@ exports[`computeReport — characterization (real ended session) > produces the 
           "note": "the right call (verify / refuse) on the tickets injected — not how many you clicked",
           "score": null,
         },
+        {
+          "label": "Read before deciding",
+          "note": undefined,
+          "score": null,
+        },
+        {
+          "label": "Updates judged",
+          "note": undefined,
+          "score": null,
+        },
       ],
       "rubricPct": 33,
       "slaMet": 0,
@@ -376,6 +388,7 @@ exports[`computeReport — characterization (real ended session) > produces the 
       "attackHandling": null,
       "avgDwellS": null,
       "benignAcc": null,
+      "blindCalls": 0,
       "contDecided": 0,
       "contReq": 1,
       "contribution": 25,
@@ -442,6 +455,11 @@ exports[`computeReport — characterization (real ended session) > produces the 
         {
           "label": "Report accuracy",
           "note": "your report's verdict vs the incident's ground truth",
+          "score": null,
+        },
+        {
+          "label": "Updates judged",
+          "note": undefined,
           "score": null,
         },
       ],
@@ -593,7 +611,7 @@ exports[`computeReport — characterization (real ended session) > produces the 
     "timeToDetectS": null,
     "triageActions": 2,
     "triagers": 1,
-    "version": 5,
+    "version": 6,
   },
 }
 `;

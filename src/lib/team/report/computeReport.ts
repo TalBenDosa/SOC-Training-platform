@@ -20,7 +20,13 @@ import { computeForensicReview, type UserForensics } from "./forensicReview";
 // control at 3–7 direct reports — beyond 7 a single coordinator loses oversight.
 export const OVERLOAD_CASES = 3;
 /** Bumped whenever the report's shape/semantics change (cached reports older than this are stale). */
-export const REPORT_VERSION = 5;   // 3: per-event SLA, misses, team triage metrics · 4: EDR host isolation judged · 5: SOC-Manager Command Review
+export const REPORT_VERSION = 6;   // 3: per-event SLA, misses, team triage metrics · 4: EDR host isolation judged · 5: SOC-Manager Command Review · 6: 2026-10-18 measurement fixes (fair share, walked-past per incident, Tier-1-only disposition measures, read-first, inject answers)
+/**
+ * The Action-required box (inject answers) shipped after the four Team Training exercises of
+ * 2026-10-08..17. Sessions that started earlier had no way to answer an update or a management
+ * request, so the cells that judge those answers stay unmeasured for them.
+ */
+export const ACTION_INBOX_SINCE_MS = Date.parse("2026-10-18T12:00:00.000Z");
 // (QA M3 pause-aware timing — like H2 — applies to reports built from now on; no bump, so a
 // cached report keeps matching the XP already awarded from it. Without pauses nothing changes.)
 
@@ -69,7 +75,12 @@ export const DETECTED_INCIDENT_MISS_WEIGHT = 0.5;
 // Tier-1 is now measured against a fair share of the queue: the logs that reached the feed
 // divided by the Tier-1 analysts on the roster. 90% of a fair share or more = full marks,
 // 10% or less = 0, linear in between. (Carrying more than your share caps at full marks.)
-const LOAD_SHARE_FULL = 90, LOAD_SHARE_ZERO = 10;
+// 2026-10-18 review: the fair share was the WHOLE feed ÷ Tier-1s (~83 logs each in a 27-minute
+// exercise, so every Tier-1 scored 0). It now counts the logs that needed triage: medium+ alerts,
+// attack rows and anything a teammate triaged; 70% of that share = full marks.
+const LOAD_SHARE_FULL = 70, LOAD_SHARE_ZERO = 10;
+/** A disposition made after reading the log for less than this is a blind call (review: 0.5 s average dwell). */
+export const BLIND_CALL_MS = 3000;
 
 // ── "Good catch" model (Tal, 2026-10-03). An incident is built from several logs, so a
 // binary "someone flagged one log" over-credits a shallow catch. Catch quality is graded
@@ -149,6 +160,8 @@ export interface UserReport {
   falseNegatives: MissItem[];
   /** Attack logs this analyst opened, took no action on — and nobody else handled either. */
   walkedPast: MissItem[];
+  /** Dispositions made within BLIND_CALL_MS of opening the log (Tier-1). */
+  blindCalls?: number;
   /** Benign logs (not part of any incident) this analyst escalated or called a true positive. */
   falseAlarms: MissItem[];
   // ── v4: EDR host isolation ──
@@ -337,6 +350,12 @@ interface RubricCtx {
   huntToConfirmMin: number | null; caseOwnedMin: number | null; mgmtRespondedRate: number | null;
   backupCount: number; loadBalanceRate: number | null; correctionsCount: number;
   forensic: UserForensics | null;
+  /** Share of this analyst's dispositions made after reading the log ≥ BLIND_CALL_MS (null = no telemetry / none). */
+  readFirstPct: number | null; blindCalls: number;
+  /** Update injects (decoy / twist) answered right ÷ those that reached the shift while seated. */
+  updatesPct: number | null; updatesAnswered: number; updatesTotal: number;
+  /** Tier-2 / Tier-3 with no SOC Manager on the team: management requests answered with a status in 15 min. */
+  mgmtNoMgrPct: number | null;
 }
 /** Tier-3 forensic cells: added only when the analyst did forensic work (a hunt-only Tier-3 is not penalised). */
 function forensicCells(f: UserForensics | null): RubricCell[] {
@@ -348,6 +367,11 @@ function forensicCells(f: UserForensics | null): RubricCell[] {
     { label: "Confidence calibration", score: f.highTotal ? bandHigh(f.calibrationPct ?? 0, 100, 75, 50) : null, note: "your high-confidence findings that were right" },
     { label: "Reporting to the SOC Manager", score: f.reportPoints, note: "a report sent; READY only once every attacked host in play had a confirmed status; the promised next update delivered" },
   ];
+}
+/** Every analyst judges each update inject (Action-required box): a decoy is "not an incident", a twist changes the case. */
+function updatesCell(c: RubricCtx): RubricCell {
+  return { label: "Updates judged", score: c.updatesPct == null ? null : bandHigh(c.updatesPct, 100, 66, 33),
+    note: c.updatesPct == null ? undefined : `${c.updatesAnswered} of ${c.updatesTotal} update${c.updatesTotal === 1 ? "" : "s"} judged right (a decoy is not an incident, a twist changes the case)` };
 }
 function roleRubric(c: RubricCtx): RubricCell[] {
   switch (c.role) {
@@ -365,6 +389,8 @@ function roleRubric(c: RubricCtx): RubricCell[] {
         { label: "Backup & load-balancing", score: c.backupCount ? bandHigh(c.backupCount, 2, 1, 1) : null, note: "took over an alert from an overloaded teammate, or rescued a stale (abandoned) claim — a plain collision earns nothing" },
         { label: "Self-correction", score: c.correctionsCount ? bandHigh(c.correctionsCount, 2, 1, 1) : null, note: "caught and fixed your own verdict — no-fault, scores for you" },
         { label: "Help-desk tickets", score: c.helpdeskPct == null ? null : bandHigh(c.helpdeskPct, 100, 66, 33), note: c.helpdeskDupOnly ? "a second answer to an already-answered ticket earns nothing" : "the right call (verify / refuse) on the tickets injected — not how many you clicked" },
+        { label: "Read before deciding", score: c.readFirstPct == null ? null : bandHigh(c.readFirstPct, 90, 70, 40), note: c.readFirstPct == null ? undefined : `${c.blindCalls} of your calls came within ${BLIND_CALL_MS / 1000}s of opening the log` },
+        updatesCell(c),
       ];
     }
     case "t2": return [
@@ -377,6 +403,8 @@ function roleRubric(c: RubricCtx): RubricCell[] {
       { label: "Backup & load-balancing", score: c.backupCount ? bandHigh(c.backupCount, 2, 1, 1) : null, note: "picked up a case while a teammate was overloaded" },
       { label: "Incident report", score: c.reportQuality == null ? null : bandHigh(c.reportQuality, 85, 60, 35) },
       { label: "Report accuracy", score: c.reportAcc == null ? null : bandHigh(c.reportAcc, 90, 65, 40), note: "your report's verdict vs the incident's ground truth" },
+      updatesCell(c),
+      ...(c.mgmtNoMgrPct != null ? [{ label: "Management requests (no Manager)", score: bandHigh(c.mgmtNoMgrPct, 100, 50, 1), note: "with no SOC Manager on the team, Tier-2 answers management with a status" }] : []),
     ];
     case "t3": return [
       { label: "Final scope (confirmed)", score: c.scopeConfirmed ? (c.scopeConfirmDims >= 3 ? 12 : c.scopeConfirmDims >= 2 ? 8 : c.scopeConfirmDims >= 1 ? 4 : 0) : null, note: c.scopeConfirmed ? "hosts · users · techniques confirmed" : "not confirmed" },
@@ -386,6 +414,7 @@ function roleRubric(c: RubricCtx): RubricCell[] {
       { label: "Elevations answered", score: c.elevAnsweredPct == null ? null : bandHigh(c.elevAnsweredPct, 100, 66, 33), note: "a hunt linked to the elevation (event_id) answers it" },
       { label: "Guidance to T2", score: c.noteCount ? bandHigh(c.noteCount, 3, 2, 1) : null },
       { label: "Host isolation", score: c.isoPct == null ? null : bandHigh(c.isoPct, 100, 75, 50), note: "each host you isolated in EDR, judged: a host with real attack activity was right to isolate; a clean host is a needless business outage" },
+      updatesCell(c),
       ...forensicCells(c.forensic),
     ];
     case "lead": return [
@@ -823,6 +852,11 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
 
   const detectedIncidents = new Set(incidentList.filter(i => i.detected).map(i => i.id));
   const t1Count = players.filter(p => p.role === "t1" && p.status !== "left").length || players.filter(p => p.role === "t1").length;
+  // Logs that needed triage: medium+ severity, attack rows, or triaged by anyone (fair-share base).
+  const triageWorthy = [...feedSev.keys()].filter(eid => ["medium", "high", "critical"].includes((feedSev.get(eid) || "").toLowerCase()) || attackIds.has(eid) || firstTriage.has(eid)).length;
+  // Update injects with their real kind (mergeAnswers restores false_lead / twist).
+  const updateInjects = events.filter(e => e.type === "staff.inject" && ["false_lead", "twist"].includes(asStr((e.payload as { kind?: unknown }).kind)))
+    .map(e => ({ seq: e.seq, kind: asStr((e.payload as { kind?: unknown }).kind) }));
   // Tier-3 forensic work, graded against the truth (views rebuilt from what the players saw).
   const forensic = computeForensicReview({ events, publicEvents: opts.publicEvents ?? null, sessionId: opts.sessionId ?? "", attackIds, roster: players, endMs: endTs, relS });
   const perUser: UserReport[] = players.map(m => {
@@ -871,12 +905,20 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
       const c = myAttackEsc.has(eid) ? 1 : verdictCredit(eid, latestVerdict.get(eid)!);
       atkNum += w * c * openFactor(eid); atkDen += w;
     }
-    // Opened an attack log, took no action, and nobody else caught it: a weighted miss.
+    // Opened an attack log, took no action, and nobody else caught it: a weighted miss, counted
+    // ONCE per incident at its most severe log (2026-10-18 review: an analyst who correctly called
+    // two attack logs scored 0 because every other log of the attacks he opened counted as a miss,
+    // which punished reading). A missed piece of an incident the team did detect weighs half.
+    const walkedInc = new Map<string, number>();
     for (const eid of dwellByEid.keys()) {
       if (!attackIds.has(eid) || atkHandled.has(eid) || caughtByAnyone(eid)) continue;
       const inc = incidentOfEid(eid);
-      atkDen += sevWeight(truth.get(eid)?.severity ?? "") * (inc && detectedIncidents.has(inc) ? DETECTED_INCIDENT_MISS_WEIGHT : 1);
+      const key = inc ?? `solo:${eid}`;
+      if (inc && [...atkHandled].some(h => incidentOfEid(h) === inc)) continue;   // you already acted on this incident
+      const w = sevWeight(truth.get(eid)?.severity ?? "") * (inc && detectedIncidents.has(inc) ? DETECTED_INCIDENT_MISS_WEIGHT : 1);
+      walkedInc.set(key, Math.max(walkedInc.get(key) ?? 0, w));
     }
+    for (const w of walkedInc.values()) atkDen += w;
     // QA-TEAM-3: escalating a benign log is a wrong call whatever its verdict (it used
     // to cost only the 1-of-9 precision cell, so flooding Tier-2 scored ~78%).
     const myBenignEsc = new Set(mine.filter(e => e.type === "escalation.requested").map(eidOf).filter(eid => truth.has(eid) && !attackIds.has(eid)));
@@ -888,14 +930,34 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
     // QA-TEAM-2: real attack logs this analyst called malicious that NOBODY escalated.
     const attackNotHandedOff = [...latestVerdict].filter(([eid, v]) => attackIds.has(eid)
       && (v === "true_positive" || v === "suspicious") && !escalatedAttack.has(eid)).length;
-    const attackHandling = atkDen ? Math.round((atkNum / atkDen) * 100) : null;
-    const benignAcc = benDen ? Math.round((benNum / benDen) * 100) : null;
+    // Disposition accuracy is Tier-1's measure (only Tier-1 dispositions logs): a Tier-2 / Tier-3
+    // reads the feed to investigate and is judged on reports, scope and hunts instead (2026-10-18:
+    // a Tier-2 with a perfect incident report showed "attack handling 0").
+    const isT1 = m.role === "t1";
+    const attackHandling = isT1 && atkDen ? Math.round((atkNum / atkDen) * 100) : null;
+    const benignAcc = isT1 && benDen ? Math.round((benNum / benDen) * 100) : null;
     const dispAcc = attackHandling != null && benignAcc != null ? Math.round((attackHandling + benignAcc) / 2)
       : attackHandling ?? benignAcc;
     const dispNoAttack = attackHandling == null && benignAcc != null;
-    // Share of the load (Tier-1): distinct logs you triaged vs a fair share of the feed.
+    // Share of the load (Tier-1): distinct logs you triaged vs a fair share of the logs that needed triage.
     const loadHandled = new Set<string>([...latestVerdict.keys(), ...mine.filter(e => e.type === "escalation.requested").map(eidOf).filter(eid => truth.has(eid))]).size;
-    const loadFair = m.role === "t1" && t1Count > 0 ? feed.length / t1Count : 0;
+    const loadFair = isT1 && t1Count > 0 ? triageWorthy / t1Count : 0;
+    // Blind calls: dispositions made within BLIND_CALL_MS of opening the log (or never opened).
+    const blindCalls = telemetry ? [...latestVerdict.keys()].filter(eid => (dwellByEid.get(eid) ?? 0) < BLIND_CALL_MS).length : 0;
+    const readFirstPct = telemetry && latestVerdict.size ? Math.round(((latestVerdict.size - blindCalls) / latestVerdict.size) * 100) : null;
+    // Update injects this analyst judged right (inject.responded), of those fired while seated.
+    const inboxEra = startedMs >= ACTION_INBOX_SINCE_MS;
+    const myUpdates = inboxEra && ["t1", "t2", "t3", "de", "ti"].includes(m.role) ? updateInjects : [];
+    const updatesAnswered = myUpdates.filter(u => {
+      const r = events.find(x => x.type === "inject.responded" && x.actor_id === m.user_id && Number((x.payload as { inject_seq?: unknown }).inject_seq) === u.seq);
+      const d = r ? asStr((r.payload as { decision?: unknown }).decision) : "";
+      return u.kind === "false_lead" ? d === "benign" : d === "rescope" || d === "investigate";
+    }).length;
+    const updatesPct = myUpdates.length ? pct(updatesAnswered, myUpdates.length) : null;
+    const noMgr = !players.some(p => (p.role === "mgr" || p.role === "lead") && p.status !== "left");
+    const mgmtNoMgrPct = inboxEra && noMgr && m.role === "t2" && mgmtInjects.length
+      ? pct(mgmtInjects.filter(it => { const at = tsOf(it); return events.some(x => x.type === "inject.responded" && x.actor_id === m.user_id && Number((x.payload as { inject_seq?: unknown }).inject_seq) === it.seq && at != null && tsOf(x) != null && runMs(at, tsOf(x)!) <= 15 * 60000); }).length, mgmtInjects.length)
+      : null;
     const loadSharePct = loadFair > 0 ? Math.round((loadHandled / loadFair) * 100) : null;
     const dwellTooShort = telemetry && avgDwellS != null && avgDwellS < MIN_EVIDENCE_DWELL_S && distinctDisp > 0;
 
@@ -1065,6 +1127,7 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
       huntToConfirmMin, caseOwnedMin, mgmtRespondedRate,
       backupCount: backupByUser.get(m.user_id) ?? 0, loadBalanceRate, correctionsCount,
       forensic: forensic?.perUser[m.user_id] ?? null,
+      readFirstPct, blindCalls, updatesPct, updatesAnswered, updatesTotal: myUpdates.length, mgmtNoMgrPct,
     });
     const measuredCells = rubric.filter(c => c.score != null).length;
     return {
@@ -1076,7 +1139,9 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
       reported: reportedAll.slice(0, REPORTED_CAP),
       slaMet, slaTotal: slaJudged.length, slaPct: pct(slaMet, slaJudged.length),
       falseNegatives: falseNegatives.slice(0, MISS_CAP),
-      walkedPast: walkedPast.slice(0, MISS_CAP),
+      // "Opened, no action" is a Tier-1 miss; a Tier-2 / Tier-3 reads logs to investigate.
+      walkedPast: isT1 ? walkedPast.slice(0, MISS_CAP) : [],
+      blindCalls,
       falseAlarms: falseAlarms.slice(0, MISS_CAP),
       isolations: myIso.slice(0, MISS_CAP), isoCorrect, isoPct,
       forensic: forensic?.perUser[m.user_id] ?? null,

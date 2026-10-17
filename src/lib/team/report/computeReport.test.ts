@@ -772,7 +772,7 @@ describe("computeReport — v4: EDR host isolation judged against the answer key
     add("edr.host_released", "t3", 150, { host: "WS-FIN-2847" }, "t3");
     add("edr.host_isolated", "t2", 160, { host: "WS-FIN-2847" }, "t2");     // re-isolation is not a new team decision
     const r = computeReport(events, roster);
-    expect(r.team.version).toBe(5);
+    expect(r.team.version).toBe(6);
     expect(r.team.isoTotal).toBe(1);
     expect(r.team.isoCorrect).toBe(1);
     expect(r.team.isolations[0]).toMatchObject({ host: "WS-FIN-2847", by: "t3", correct: true, releasedS: 150, timeToIsolateS: 90 });
@@ -973,17 +973,19 @@ describe("computeReport — balanced, severity-weighted disposition accuracy (P0
 
 
 describe("computeReport — share of the load + evidence misses (2026-10-07)", () => {
-  it("measures each Tier-1 against a fair share of the feed; the passive analyst scores low", () => {
+  it("measures each Tier-1 against a fair share of the logs that needed triage; the passive analyst scores low", () => {
+    // 2026-10-18: the share counts medium+ alerts, attack rows and logs anyone triaged, never every
+    // informational row (the whole feed ÷ Tier-1s made ~83 logs "fair" in a 27-minute exercise).
     const { events, add } = log();
-    for (let i = 0; i < 10; i++) add("feed.event", null, 10 + i, { id: `n${i}`, expected_verdict: "benign" });
+    for (let i = 0; i < 10; i++) add("feed.event", null, 10 + i, { id: `n${i}`, expected_verdict: "benign", severity: i < 8 ? "medium" : "informational" });
     for (let i = 0; i < 6; i++) add("disposition.set", "a", 40 + i, { event_id: `n${i}`, verdict: "benign" }, "t1");
-    add("disposition.set", "b", 60, { event_id: "n9", verdict: "benign" }, "t1");
+    add("disposition.set", "b", 60, { event_id: "n6", verdict: "benign" }, "t1");
     const { perUser } = computeReport(events, [member("a", "t1"), member("b", "t1")]);
     const a = perUser.find(u => u.user_id === "a")!, b = perUser.find(u => u.user_id === "b")!;
-    expect(a.loadSharePct).toBe(120);          // 6 of a fair share of 5
-    expect(b.loadSharePct).toBe(20);           // 1 of 5
+    expect(a.loadSharePct).toBe(150);          // 6 of a fair share of 4 (8 medium logs ÷ 2; the 2 informational ones don't count)
+    expect(b.loadSharePct).toBe(25);           // 1 of 4
     expect(cell(a.rubric, "Share of the load").score).toBe(12);
-    expect(cell(b.rubric, "Share of the load").score).toBe(2);   // linear 10%→0 … 90%→12
+    expect(cell(b.rubric, "Share of the load").score).toBe(3);   // linear 10%→0 … 70%→12
   });
 
   it("a log a teammate handled never counts against you", () => {
@@ -996,7 +998,7 @@ describe("computeReport — share of the load + evidence misses (2026-10-07)", (
     expect(b.walkedPast).toHaveLength(0);
   });
 
-  it("an unmarked log of an incident caught through another log is half a miss", () => {
+  it("an unmarked log is no miss when you already called its incident; a different undetected incident is", () => {
     const run = (otherCaught: boolean) => {
       const { events, add } = log();
       add("feed.event", null, 10, { id: "hit", expected_verdict: "tp", incident_id: "inc-A", severity: "medium" });
@@ -1006,7 +1008,7 @@ describe("computeReport — share of the load + evidence misses (2026-10-07)", (
       add("event.opened", "a", 40, { event_id: "left" }, "t1");
       return computeReport(events, [member("a", "t1")]).perUser[0];
     };
-    expect(run(true).attackHandling).toBe(67);    // 2 / (2 + 0.5·2)
+    expect(run(true).attackHandling).toBe(100);   // you already called inc-A: reading more of it is not a miss (2026-10-18)
     expect(run(false).attackHandling).toBe(50);   // 2 / (2 + 2) — a different, undetected incident
     expect(run(true).walkedPast[0].detail).toMatch(/caught through another log/);
   });
@@ -1025,5 +1027,70 @@ describe("computeReport: escalating benign logs is a wrong call", () => {
     const { perUser } = computeReport(events, [member("instr", "instructor"), member("a", "t1")]);
     const a = perUser.find(u => u.user_id === "a")!;
     expect(a.dispAcc).toBeLessThanOrEqual(50);
+  });
+});
+
+// 2026-10-18 review of the four Team Training exercises: the scoring measured the wrong things.
+/** A log for a session after the Action-required box shipped (inject-answer cells are measured). */
+function logAfterInbox() {
+  const api = log();
+  const shift = Date.parse("2026-10-20T10:00:00.000Z") - T0;
+  const add = (type: string, actor_id: string | null, sec: number, payload: Record<string, unknown> = {}, role: string | null = null) => {
+    api.events.push({ seq: api.events.length + 1, type, actor_id, role, payload, occurred_at: new Date(T0 + shift + sec * 1000).toISOString() });
+    return wrapped;
+  };
+  api.events[0] = { ...api.events[0], occurred_at: new Date(T0 + shift).toISOString() };
+  const wrapped = { events: api.events, add };
+  return wrapped;
+}
+describe("computeReport — measurement fixes (2026-10-18)", () => {
+  it("Read before deciding: calls made within 3 s of opening the log count as blind", () => {
+    const { events, add } = log();
+    for (let i = 0; i < 4; i++) add("feed.event", null, 10 + i, { id: `n${i}`, expected_verdict: "benign", severity: "medium" });
+    add("event.opened", "a", 20, { event_id: "n0", dwell_ms: 12000 }, "t1");
+    add("event.opened", "a", 21, { event_id: "n1", dwell_ms: 500 }, "t1");
+    add("event.opened", "a", 22, { event_id: "n2", dwell_ms: 400 }, "t1");
+    for (let i = 0; i < 4; i++) add("disposition.set", "a", 30 + i, { event_id: `n${i}`, verdict: "benign" }, "t1");
+    const a = computeReport(events, [member("a", "t1")]).perUser[0];
+    expect(a.blindCalls).toBe(3);                                  // two short reads + one never opened
+    expect(cell(a.rubric, "Read before deciding").score).toBe(0);  // 25% read first
+  });
+
+  it("disposition accuracy and 'opened, no action' are Tier-1 measures: a Tier-2 who reads logs to investigate is not penalised", () => {
+    const { events, add } = log();
+    add("feed.event", null, 10, { id: "atk", expected_verdict: "tp", incident_id: "inc-A", severity: "critical" });
+    add("event.opened", "t2u", 20, { event_id: "atk", dwell_ms: 9000 }, "t2");
+    add("report.submitted", "t2u", 30, { event_id: "atk", verdict: "true_positive", summary: "RDP from an external IP to the DC", findings: "4624 LogonType 10" }, "t2");
+    const b = computeReport(events, [member("t2u", "t2")]).perUser[0];
+    expect(b.attackHandling).toBeNull();
+    expect(b.dispAcc).toBeNull();
+    expect(b.walkedPast).toHaveLength(0);
+  });
+
+  it("Updates judged: a decoy answered 'not an incident' and a twist answered as a change score, per analyst", () => {
+    const { events, add } = logAfterInbox();
+    add("staff.inject", null, 10, { kind: "false_lead", text: "SaaS tool looks like exfil", inject_id: "i1" });
+    add("staff.inject", null, 20, { kind: "twist", text: "new C2 domain", inject_id: "i2" });
+    add("inject.responded", "a", 30, { inject_seq: 2, decision: "benign", note: "approved vendor domain" }, "t1");
+    add("inject.responded", "a", 40, { inject_seq: 3, decision: "rescope", note: "host already in our case" }, "t1");
+    add("inject.responded", "b", 50, { inject_seq: 2, decision: "investigate", note: "looks like exfil to me" }, "t2");
+    const { perUser } = computeReport(events, [member("a", "t1"), member("b", "t2")]);
+    expect(cell(perUser.find(u => u.user_id === "a")!.rubric, "Updates judged").score).toBe(12);
+    expect(cell(perUser.find(u => u.user_id === "b")!.rubric, "Updates judged").score).toBe(0);
+  });
+
+  it("with no SOC Manager, Tier-2 is scored on answering management requests", () => {
+    const { events, add } = logAfterInbox();
+    add("staff.inject", null, 10, { kind: "mgmt_pressure", text: "CISO wants a status", inject_id: "i1" });
+    add("inject.responded", "b", 200, { inject_seq: 2, decision: "status", note: "one host compromised, contained, scoping" }, "t2");
+    const b = computeReport(events, [member("a", "t1"), member("b", "t2")]).perUser.find(u => u.user_id === "b")!;
+    expect(cell(b.rubric, "Management requests (no Manager)").score).toBe(12);
+  });
+
+  it("sessions that started before the Action-required box shipped are not judged on inject answers", () => {
+    const { events, add } = log();
+    add("staff.inject", null, 10, { kind: "false_lead", text: "SaaS tool looks like exfil", inject_id: "i1" });
+    const a = computeReport(events, [member("a", "t1")]).perUser[0];
+    expect(cell(a.rubric, "Updates judged").score).toBeNull();
   });
 });
