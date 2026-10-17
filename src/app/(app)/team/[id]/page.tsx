@@ -928,6 +928,12 @@ export default function TeamRoomPage() {
     });
     if (raw) setCaseLog(raw);
   }, []);
+  // A log shared in the team chat: show it in the feed (and select it on the Tier-1 console).
+  const openSharedLog = useCallback((eid: string, label: string) => {
+    if (label) setFSearch(label);
+    if (me?.role === "t1") setT1Sel(eid);
+    document.querySelector("[data-tour=feed]")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [me?.role]);
   const takeNextAlert = useCallback(() => {
     const next = me ? nextAlertFor(alertQueue, claimByEid, me.id) : null;
     if (!next) { setPulledNote("Nothing unclaimed right now — every open alert is being worked."); return; }
@@ -1565,7 +1571,7 @@ export default function TeamRoomPage() {
                 {(me.role === "instructor" || (me.is_staff && !me.role)) && <div data-tour="instructor-panel"><InstructorPanel sessionId={id} roster={roster} online={online} events={events} act={act} isStaff={!!me.is_staff} nameOf={nameOf} canInject={me.role === "instructor"} onError={showError} /></div>}
                 {/* The team chat sits with the role panels, never under the feed: a chat under the
                     log list covered the log being read (Tal, 2026-10-08). It folds to one line. */}
-                <div data-tour="chat"><WarRoom sessionId={id} events={events} me={me} nameOf={nameOf} act={act} /></div>
+                <div data-tour="chat"><WarRoom sessionId={id} events={events} me={me} nameOf={nameOf} act={act} onOpenLog={openSharedLog} /></div>
                 {/* Team intel — its own visible card (was buried in a folded tab) */}
                 {!(me.role === "lead" || me.role === "mgr") && <TeamIntel events={events} nameOf={nameOf} />}
                 {/* G-14: injects / announcements / help-desk tickets — visible to everyone */}                {!(me.role === "lead" || me.role === "mgr") && <InjectFeed sessionId={id} events={events} me={me} nameOf={nameOf} act={act} hasManager={hasManager} />}

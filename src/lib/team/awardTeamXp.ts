@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildServerReport, type ServerReport } from "./report/serverReport";
+import { withPracticeLinks } from "./report/practiceLinks";
 import { REPORT_VERSION } from "./report/computeReport";
 import { teamXpFor, TEAM_XP_VERSION } from "./teamXp";
 
@@ -52,7 +53,7 @@ export async function loadOrBuildReport(admin: SupabaseClient, sessionId: string
   try {
     const again = await cachedReport(admin, sessionId);   // built while we were taking the lease
     if (again) return { report: again, fresh: false };
-    const report = await buildServerReport(admin, sessionId);
+    const report = withPracticeLinks(await buildServerReport(admin, sessionId));
     const { error } = await admin.from("team_session_reports").upsert({ session_id: sessionId, report, computed_at: new Date().toISOString() });
     if (error) console.error("[team report] cache write failed:", error.message);
     return { report, fresh: true };

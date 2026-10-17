@@ -9,6 +9,7 @@ import { asStr, detectIocType, isValidIoc, IOC_HELP, type ActR } from "@/lib/tea
 import { useServerNow } from "@/lib/team/clock";
 import { activeClaims } from "@/lib/team/projections";
 import { relatedLogs, entityLabel } from "@/lib/team/correlate";
+import { rationaleProblem } from "@/lib/team/escalationCheck";
 import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
 
 // ── T1 console: pick a log → disposition + structured escalation report ───────
@@ -169,10 +170,13 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
     setIocDraft(d => d.some(x => x.value.toLowerCase() === v.toLowerCase()) ? d : [...d, { type: detectIocType(v), value: v, source }]);
   }
   // T1-6 quality gate — every condition must hold before Escalate is allowed.
+  // The why must cite evidence from the log (2026-10-18 review: escalations said "TI").
+  const selPayload = sel ? (feed.find(e => String((e.payload as { id?: string }).id ?? e.seq) === sel)?.payload as Record<string, unknown> | undefined) : undefined;
+  const rationaleIssue = rationaleProblem(form.observations, selPayload, iocDraft);
   const gate = {
     // No length minimums (0079): the fields must be filled, not a word count.
     summary: !!form.summary.trim(),
-    rationale: !!form.observations.trim(),
+    rationale: rationaleIssue == null,
     ioc: iocDraft.length >= 1,
     severity: !!form.severity,
     // A4: escalate only an attack-ish call — you can't escalate a log you marked benign/FP.
@@ -289,6 +293,14 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
       </label>
       {/* T1-3: soft-claim so two Tier-1 analysts don't work the same alert (server-enforced, P0-3) */}
       {claimBanner(false)}
+      {selRaw && (
+        <div className="mt-1.5 flex justify-end">
+          <Button variant="outline" size="sm" disabled={busy}
+            onClick={() => void act("message.sent", { text: `Take a look at #${selRaw.seq}: ${selDesc}`.slice(0, 400), log_ref: { event_id: sel, seq: selRaw.seq, label: selDesc.slice(0, 160) } })}>
+            Share this log in the team chat
+          </Button>
+        </div>
+      )}
       {/* Related activity: the other logs about this host / user / external address (2026-10-18 review:
           the quiet steps of an attack were skipped once one alert of it was found). */}
       {selRaw && related.length > 0 && (
@@ -430,9 +442,10 @@ export function T1Console({ sessionId, feed, dispositions, events, meId, iocDraf
                 <span className="font-semibold text-neon-green">✓ all set — ready to escalate</span>
               ) : (
                 <>Before escalating:{" "}
-                  {([[gate.disposition, "disposition"], [gate.summary, "summary"], [gate.rationale, "observations"], [gate.ioc, "≥1 IOC"], [gate.severity, "severity"]] as [boolean, string][]).map(([ok, label]) => (
+                  {([[gate.disposition, "disposition"], [gate.summary, "summary"], [gate.rationale, "observations with evidence"], [gate.ioc, "≥1 IOC"], [gate.severity, "severity"]] as [boolean, string][]).map(([ok, label]) => (
                     <span key={label} className={ok ? "text-neon-green" : ""}>{ok ? "✓" : "○"} {label}&nbsp;&nbsp;</span>
                   ))}
+                  {rationaleIssue && form.observations.trim() && <span className="block text-neon-amber">{rationaleIssue}</span>}
                 </>
               )}
             </div>

@@ -117,7 +117,11 @@ export interface ReportedItem {
   verdict?: string;
 }
 /** A log worth talking about in the debrief (a miss / a false alarm). */
-export interface MissItem { label: string; severity: string; arrivedS: number | null; detail?: string }
+export interface MissItem { label: string; severity: string; arrivedS: number | null; detail?: string;
+  /** The log's MITRE technique (answer key, revealed after the shift): links the miss to a practice room. */
+  technique?: string;
+  /** Server-added (practiceLinks.ts): the room that practises this technique. */
+  practice?: { id: string; title: string } }
 /** One EDR network isolation (0082), judged against the answer key. */
 export interface IsolationItem {
   host: string; by: string | null; atS: number | null;
@@ -843,7 +847,7 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
   const sevOf = (eid: string) => (feedSev.get(eid) || "informational").toLowerCase();
   const labelOf = (eid: string) => (truth.get(eid)?.label ?? "event").slice(0, 140);
   const truthClass = (eid: string): "attack" | "related" | "benign" => attackIds.has(eid) ? "attack" : incidentOfEid(eid) ? "related" : "benign";
-  const missItem = (eid: string, detail?: string): MissItem => ({ label: labelOf(eid), severity: sevOf(eid), arrivedS: relS(feedTs.get(eid) ?? null), ...(detail ? { detail } : {}) });
+  const missItem = (eid: string, detail?: string): MissItem => { const tech = techIds(truth.get(eid)?.technique ?? "")[0]; return { label: labelOf(eid), severity: sevOf(eid), arrivedS: relS(feedTs.get(eid) ?? null), ...(detail ? { detail } : {}), ...(tech ? { technique: tech } : {}) }; };
   const escalatedBy = new Map<string, Set<string>>();   // eid → who escalated it
   for (const e of escReq) { const eid = eidOf(e); if (!escalatedBy.has(eid)) escalatedBy.set(eid, new Set()); escalatedBy.get(eid)!.add(e.actor_id ?? ""); }
   const caughtByAnyone = (eid: string) => escalatedBy.has(eid) || markedAttack.has(eid);

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { setTotalXp } from "@/lib/storage/progress";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -256,6 +257,8 @@ function MissList({ title, items, tone, empty }: { title: string; items: MissIte
             <SevChip sev={m.severity} />
             <span className="min-w-0 flex-1 truncate" title={m.label}>{m.label}</span>
             {m.arrivedS != null && <span className="shrink-0 font-mono text-slate-500">{dur(m.arrivedS)}</span>}
+            {/* Where to learn it (2026-10-18 review): the practice room for the log's technique. */}
+            {m.practice && <Link href={`/rooms/${m.practice.id}`} className="shrink-0 text-cyber-300 underline-offset-2 hover:underline" title={`Practice: ${m.practice.title}`}>practice: {m.practice.title}</Link>}
           </li>
         ))}
       </ul>

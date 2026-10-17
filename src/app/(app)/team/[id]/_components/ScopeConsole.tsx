@@ -30,7 +30,10 @@ export function ScopeConsole({ scope, scopes, incidents = [], mode, act }: { sco
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scopeSig]);
   const parse = (s: string) => s.split(",").map(x => x.trim()).filter(Boolean);
+  // 2026-10-18 review: the scope was submitted empty three times before it was filled in.
+  const empty = !parse(hosts).length && !parse(users).length && !parse(techs).length;
   async function submit(type: "scope.set" | "scope.confirmed") {
+    if (empty) return;
     setBusy(true);
     await act(type, { hosts: parse(hosts), users: parse(users), techniques: parse(techs), incident: inc || undefined });
     setBusy(false);
@@ -55,9 +58,10 @@ export function ScopeConsole({ scope, scopes, incidents = [], mode, act }: { sco
         <input aria-label="Techniques (comma-separated)" value={techs} onChange={e => setTechs(e.target.value)} placeholder="techniques (T1234…)" className="w-full rounded-lg border border-border bg-bg px-2 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
       </div>
       <div className="mt-2 flex gap-1.5">
-        <Button variant="outline" size="sm" disabled={busy} onClick={() => submit("scope.set")}>{mode === "set" ? "Set scope" : "Amend"}</Button>
-        {mode === "confirm" && <Button variant="primary" size="sm" disabled={busy} onClick={() => submit("scope.confirmed")}><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Confirm scope</Button>}
+        <Button variant="outline" size="sm" disabled={busy || empty} onClick={() => submit("scope.set")}>{mode === "set" ? "Set scope" : "Amend"}</Button>
+        {mode === "confirm" && <Button variant="primary" size="sm" disabled={busy || empty} onClick={() => submit("scope.confirmed")}><CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Confirm scope</Button>}
       </div>
+      {empty && <p className="mt-1 text-[10px] text-slate-500">Add at least one host, user or technique.</p>}
     </Card>
   );
 }

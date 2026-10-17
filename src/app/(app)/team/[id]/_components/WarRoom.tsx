@@ -2,7 +2,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { ChevronDown, ChevronUp, MessagesSquare, Send } from "lucide-react";
+import { ChevronDown, ChevronUp, FileText, MessagesSquare, Send } from "lucide-react";
 import type { Me, Ev } from "@/lib/team/types";
 import { asStr } from "@/lib/team/format";
 import { ROLE_LABEL } from "./shared";
@@ -26,7 +26,13 @@ const timeOf = (iso?: string) => {
 // 2026-10-08 (Tal: "the chat jumped over the log"): it lives in the role column, not under the
 // feed, and folds to a one-line bar (last message + unread count). A new message never opens
 // it or moves anything; it only lights the badge. Open/closed is remembered per session.
-export function WarRoom({ sessionId, events, me, nameOf, act }: { sessionId: string; events: Ev[]; me: Me; nameOf: (u: string | null) => string; act: (t: string, p: Record<string, unknown>) => Promise<boolean> }) {
+export function WarRoom({ sessionId, events, me, nameOf, act, onOpenLog }: { sessionId: string; events: Ev[]; me: Me; nameOf: (u: string | null) => string; act: (t: string, p: Record<string, unknown>) => Promise<boolean>;
+  /** A shared log reference was clicked (2026-10-18 review: logs were passed around as screenshots). */
+  onOpenLog?: (eventId: string, label: string) => void }) {
+  // The instructor's messages reach every player: the first one asks first (review: test strings
+  // like "ASFDLJKSDNFSD" landed in a live team chat).
+  const isInstructor = me.role === "instructor";
+  const confirmedBroadcast = useRef(false);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -61,6 +67,10 @@ export function WarRoom({ sessionId, events, me, nameOf, act }: { sessionId: str
 
   async function send() {
     if (!canPost || busy) return;
+    if (isInstructor && !confirmedBroadcast.current) {
+      if (!confirm("This message goes to every player in the exercise. Send it?")) return;
+      confirmedBroadcast.current = true;
+    }
     setBusy(true); setFailed(false); att.setError(null);
     let image: Awaited<ReturnType<typeof uploadTeamImage>> | undefined;
     if (att.items[0]) {
@@ -96,14 +106,16 @@ export function WarRoom({ sessionId, events, me, nameOf, act }: { sessionId: str
           ) : msgs.map(e => {
             const mine = e.actor_id === me.id;
             const role = e.role ? (ROLE_LABEL[e.role] ?? e.role) : "";
-            const p = e.payload as { text?: string; image?: unknown };
+            const p = e.payload as { text?: string; image?: unknown; log_ref?: { event_id?: unknown; seq?: unknown; label?: unknown } };
+            const ref = p.log_ref && asStr(p.log_ref.event_id) ? { eid: asStr(p.log_ref.event_id), seq: Number(p.log_ref.seq) || null, label: asStr(p.log_ref.label) } : null;
+            const fromInstructor = e.role === "instructor";
             const text = asStr(p.text);
             const img = imagesOf(p.image)[0];
             const caption = img && text !== IMAGE_ONLY_TEXT ? text : "";
             const who = mine ? "you" : nameOf(e.actor_id);
             return (
               <div key={e.seq} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[85%] rounded-lg px-2.5 py-1.5 ${mine ? "bg-cyber-500/15 border border-cyber-500/30" : "bg-bg-elevated border border-border/60"}`}>
+                <div className={`max-w-[85%] rounded-lg px-2.5 py-1.5 ${fromInstructor ? "border border-neon-amber/50 bg-neon-amber/[0.08]" : mine ? "bg-cyber-500/15 border border-cyber-500/30" : "bg-bg-elevated border border-border/60"}`}>
                   <p className="mb-0.5 flex flex-wrap items-center gap-x-1.5 text-[10px]">
                     <bdi className="font-semibold text-slate-200">{mine ? "You" : nameOf(e.actor_id)}</bdi>
                     {role && <span className="text-cyber-300/80">{role}</span>}
@@ -111,6 +123,12 @@ export function WarRoom({ sessionId, events, me, nameOf, act }: { sessionId: str
                   </p>
                   {img && <div className="mt-0.5"><TeamImageThumb sessionId={sessionId} image={img} alt={caption || `Screenshot shared by ${who}`} /></div>}
                   {(!img || caption) && <p dir="auto" className={`whitespace-pre-wrap break-words text-xs text-slate-200 ${img ? "mt-1" : ""}`}>{text}</p>}
+                  {ref && (
+                    <button type="button" onClick={() => onOpenLog?.(ref.eid, ref.label)} disabled={!onOpenLog}
+                      className="mt-1 flex max-w-full items-center gap-1 rounded border border-cyber-500/40 bg-cyber-500/10 px-1.5 py-0.5 text-left text-[10px] text-cyber-200 hover:bg-cyber-500/20 disabled:cursor-default">
+                      <FileText className="h-3 w-3 shrink-0" aria-hidden /><span className="truncate">{ref.seq ? `#${ref.seq} · ` : ""}{ref.label || "shared log"}</span><span className="shrink-0 text-cyber-300">show in feed</span>
+                    </button>
+                  )}
                 </div>
               </div>
             );
