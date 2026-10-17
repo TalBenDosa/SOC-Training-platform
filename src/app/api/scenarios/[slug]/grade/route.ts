@@ -161,7 +161,10 @@ export async function POST(
   // Quiz and report both count. The quiz tests recognition; the report tests
   // whether they can actually communicate an incident, which is the job.
   const score = Math.round(quizScore * 0.6 + reportScore * 0.4);
-  const passed = score >= 70;
+  // QA-SCN-2: the verdict is the investigation's headline output. A wrong (or
+  // missing) call fails the scenario, whatever the quiz score; the report cap alone
+  // still let a 100% quiz carry a wrong verdict over the line.
+  const passed = score >= 70 && verdictCorrect;
   // Indicator XP is bounded by the scenario's own evidence: at most twice its
   // curated IOC count (min 3). Without a bound, every distinct token pulled from
   // the logs paid +10 XP, so one request could reach the 2000 XP cap.

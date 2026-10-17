@@ -60,21 +60,29 @@ export interface IncidentReportResponse {
 // ── Heuristic fallback ────────────────────────────────────────────────────────
 
 function heuristicGrade(req: IncidentReportRequest, note?: string, deterministicOnly = false): IncidentReportResponse {
-  const { summary, attackTitle, realIndicators = [], evidenceText = "" } = req;
+  const { summary: rawSummary, attackTitle, realIndicators = [], evidenceText = "", attackMitreTechniques = [] } = req;
+  // QA-DASH-1: the guided form joins its field LABELS into the text ("Business
+  // impact:", "Recommended action:" ...). Graded with the labels in, the impact
+  // keyword always matched. Score the student's own words only.
+  const summary = rawSummary.replace(/^\s*(what happened|evidence \(iocs\)|recommended action|business impact)\s*:\s*/gim, "");
   const t = summary.trim().toLowerCase();
 
   // ── Component 1 — Attack Identification (0-40) ───────────────────────────
   const genericWords  = /incident|attack|threat|breach|suspicious|intrusion|compromise|unauthorized|anomal/i;
   const categoryWords = /phishing|malware|ransomware|spray|credential|lateral|exfil|c2|beacon|brute.?force|mfa|injection|privilege|escalat|dump|harvest|backdoor|persist|trojan|rootkit|botnet/i;
-  const specificWords = /password.?spray|mfa.?fatigue|credential.?dump|lsass|kerberos|as.?rep.?roast|mimikatz|impacket|responder|ntlm.?relay|golden.?ticket|dcsync|pass.?the.?hash|process.?inject|dll.?inject|drive.?by|business.?email.?compromise|supply.?chain|pod.?escape|oauth.?consent|apt/i;
+  const specificWords = /password.?spray|mfa.?fatigue|credential.?dump|lsass|kerberos|as.?rep.?roast|mimikatz|impacket|responder|ntlm.?relay|golden.?ticket|dcsync|pass.?the.?hash|process.?inject|dll.?inject|drive.?by|business.?email.?compromise|supply.?chain|pod.?escape|oauth.?consent|\bapt\s?\d{1,3}\b/i;   // "APT29", never the "apt" inside "laptop" / "capture" (QA-DASH-1)
 
   const titleKeywords = attackTitle
     ? attackTitle.toLowerCase().replace(/[→\-–]/g, " ").split(/\s+/).filter(w => w.length > 4)
     : [];
   const matchesTitle = titleKeywords.length > 0 && titleKeywords.some(kw => t.includes(kw));
 
-  const mitreWords = /T1\d{3}|mitre|att&ck|initial.?access|lateral.?movement|exfiltration|command.?and.?control|privilege.?escalat|credential.?access|defense.?evasion/i;
-  const hasMitre   = mitreWords.test(summary);
+  // QA-DASH-1: MITRE credit only for a technique ID the attack really used (or its
+  // parent / sub-technique). The bare word "MITRE" used to add points AND cancel the
+  // wrong-attack penalty below.
+  const realTech = attackMitreTechniques.map(x => x.toUpperCase());
+  const citedTech = [...summary.toUpperCase().matchAll(/\bT1\d{3}(?:\.\d{3})?\b/g)].map(m => m[0]);
+  const hasMitre = citedTech.some(c => realTech.some(r => r === c || r.split(".")[0] === c.split(".")[0]));
 
   let attackScore = 0;
   if (specificWords.test(summary))       attackScore = 30;
@@ -106,7 +114,10 @@ function heuristicGrade(req: IncidentReportRequest, note?: string, deterministic
   const actionScore = (hasAction ? 15 : 0) + (hasImpact ? 15 : 0);
 
   const score  = Math.min(100, attackScore + iocScore + actionScore);
-  const passed = score >= 60;
+  // QA-DASH-1: a report must quote at least one real indicator from the logs to
+  // pass (when ground truth exists). Keywords alone are not an investigation.
+  const evidenced = realIndicators.length === 0 || cited.length > 0;
+  const passed = score >= 60 && evidenced && !hasFabrication;
 
   const strengths: string[] = [];
   const gaps: string[] = [];
@@ -131,23 +142,27 @@ function heuristicGrade(req: IncidentReportRequest, note?: string, deterministic
 
   // Fabrication is the headline gap — name exactly what was invented.
   if (hasFabrication) {
-    gaps.push(`Couldn't verify: "${fabricated.slice(0, 3).join('", "')}" ${fabricated.length > 1 ? "do" : "does"} not appear in the evidence collected for this incident. Re-check the exact value against the raw logs${realIndicators.length ? ` (confirmed indicators here include ${realIndicators.slice(0, 2).join(", ")})` : ""} — quote what you can actually see, character for character.`);
+    // QA-DASH-2: never name the real indicators here, that hands over the answer.
+    gaps.push(`Couldn't verify: "${fabricated.slice(0, 3).join('", "')}" ${fabricated.length > 1 ? "do" : "does"} not appear in the evidence collected for this incident. Re-check the exact value against the raw logs and quote what you can actually see, character for character.`);
   }
   if (wrongType) {
-    gaps.push(`The attack type you named doesn't match the evidence. Re-read the logs and identify what actually happened${attackTitle ? ` (this was: ${attackTitle}).` : "."}`);
+    // QA-DASH-2: the attack's name is the answer, so it is not revealed here.
+    gaps.push("The attack type you named doesn't match the evidence. Re-read the logs and identify what actually happened.");
   } else if (attackScore < 20) {
     gaps.push("Missing: name the specific attack technique (e.g. password spray, MFA fatigue, LSASS dump, phishing). Generic words like 'attack' earn only 10/40.");
   } else if (attackScore < 30) {
     gaps.push("Good category — name the exact technique for full Attack Identification points.");
   }
   if (!hasFabrication && cited.length === 0 && realIndicators.length > 0) {
-    gaps.push(`Missing: quote real indicators from the logs (e.g. ${realIndicators.slice(0, 2).join(", ")}). Generic phrases like "a suspicious IP" don't count.`);
+    gaps.push("Missing: quote at least one real indicator from the logs (an IP, user, host, domain or hash you can see). A report needs evidence to pass; generic phrases like \"a suspicious IP\" don't count.");
   }
   if (!hasAction) gaps.push("Missing: state what action to take (isolate host, block IP, reset credentials, escalate).");
   if (!hasImpact) gaps.push("Missing: explain the business risk or potential impact.");
 
   const base = passed
     ? `Report passed — score ${score}/100. You identified the attack and backed it with real evidence.`
+    : score >= 60 && !evidenced
+      ? `Report scored ${score}/100 but cannot pass without evidence. ${gaps.find(g => g.startsWith("Missing: quote")) ?? ""}`.trim()
     : hasFabrication
       ? `Report scored ${score}/100 — below the 60-point threshold. ${gaps[0]}`
       : `Report scored ${score}/100 — below 60. ${gaps[0] ?? "Add the specific attack technique, real indicators, and a response action."}`;

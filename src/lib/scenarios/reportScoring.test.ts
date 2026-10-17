@@ -59,11 +59,13 @@ describe("scoreScenarioReport — IOC evidence exploit guards", () => {
     expect(r.reportRubric.evidence).toBe(0);
   });
 
-  it("a genuine non-curated indicator pulled from telemetry earns FULL evidence", () => {
+  it("a genuine non-curated indicator pulled from telemetry earns HALF credit", () => {
     // 10.20.14.31 is only in an event's raw block, not in the curated iocs list.
+    // QA-SCN-1: curated key indicators count in full, other real values half, so
+    // padding with any telemetry token can no longer fill the evidence bar.
     const r = score({ indicators: [{ value: "10.20.14.31" }] });
     expect(r.usefulCitedCount).toBe(1);
-    expect(r.reportRubric.evidence).toBe(30);
+    expect(r.reportRubric.evidence).toBe(15);
     // ...but it is NOT a curated key indicator, so the honest "X/Y key" counter stays 0.
     expect(r.iocsCited).toBe(0);
   });
@@ -149,5 +151,30 @@ describe("scoreScenarioReport — rubric & verdict mapping", () => {
   it("a non-array indicators payload does not throw", () => {
     const r = score({ indicators: {} as unknown as { value: string }[] });
     expect(r.usefulCitedCount).toBe(0);
+  });
+});
+
+// QA 2026-10-17 (QA-SCN-1): a nonsense report used to score 100.
+describe("scoreScenarioReport: padding and nonsense earn nothing", () => {
+  const TS_EVENTS = [{ id: "e1", ts: "2026-09-14T10:22:31Z", raw: { "@timestamp": "2026-09-14T10:22:31.000Z", src_ip: "10.20.14.31", pid: 4242 } }];
+  it("timestamps and bare numbers tagged as indicators are not evidence", () => {
+    const r = scoreScenarioReport({
+      verdict: "tp", verdictReason: reason25, analystNotes: notes160,
+      indicators: [{ value: "2026-09-14T10:22:31Z" }, { value: "2026-09-14t10:22:31.000z" }, { value: "4242" }],
+      iocs: [{ value: "185.220.101.9" }], events: TS_EVENTS, attackKind: "malicious",
+    });
+    expect(r.usefulCitedCount).toBe(0);
+    expect(r.reportRubric.evidence).toBe(0);
+  });
+  it("a repeated word earns no depth and no reasoning", () => {
+    const r = score({ analystNotes: "blah ".repeat(160), verdictReason: "blah ".repeat(26) });
+    expect(r.reportRubric.depth).toBeLessThanOrEqual(4);
+    expect(r.reportRubric.reasoning).toBe(0);
+    expect(r.reportScore).toBeLessThan(40);
+  });
+  it("a real write-up still earns full depth and reasoning", () => {
+    const r = score({});
+    expect(r.reportRubric.depth).toBe(25);
+    expect(r.reportRubric.reasoning).toBe(20);
   });
 });

@@ -20,20 +20,56 @@
  * a private host IP, a vendor-keyed raw field the discrete list doesn't enumerate)
  * from being branded "fabricated".
  */
+/**
+ * Everyday Windows/browser/office binaries: they appear in almost every attack
+ * chain as the PARENT of something, so naming one proves nothing about the
+ * incident. They never count as a cited indicator (QA-DASH-3).
+ */
+export const BENIGN_PROCESS_NAMES = new Set([
+  "explorer.exe", "chrome.exe", "msedge.exe", "firefox.exe", "iexplore.exe", "outlook.exe",
+  "winword.exe", "excel.exe", "powerpnt.exe", "teams.exe", "svchost.exe", "services.exe",
+  "lsass.exe", "winlogon.exe", "csrss.exe", "smss.exe", "wininit.exe", "system", "conhost.exe",
+  "runtimebroker.exe", "taskhostw.exe", "dllhost.exe", "sihost.exe", "searchindexer.exe",
+]);
+
+/**
+ * Tokens of a text: whole values, never substrings. "10.0.0.1" must not match
+ * inside "10.0.0.15", and a username must not match inside another word
+ * (QA-DASH-3: substring matching made invented values count as real).
+ */
+export function indicatorTokens(text: string): Set<string> {
+  const out = new Set<string>();
+  for (const raw of text.toLowerCase().split(/[\s"'`,;()[\]{}<>|=]+/)) {
+    const tok = raw.replace(/^[.:!?]+|[.:!?]+$/g, "");
+    if (!tok) continue;
+    out.add(tok);
+    // a path or a DOMAIN\user also yields its last segment (the file / user name)
+    const last = tok.split(/[\\/]/).pop();
+    if (last && last !== tok) out.add(last);
+    // an email also yields its user part
+    const at = tok.indexOf("@");
+    if (at > 0) out.add(tok.slice(0, at));
+  }
+  return out;
+}
+
 export function analyseIndicators(summary: string, real: string[], evidenceText = ""): { cited: string[]; fabricated: string[] } {
-  const t = summary.toLowerCase();
-  const realLower = real.map(r => r.toLowerCase());
-  const evidence = evidenceText.toLowerCase();
+  const said = indicatorTokens(summary);
+  const evidence = indicatorTokens(evidenceText);
+  const realLower = new Set(real.map(r => r.toLowerCase()));
   const isReal = (v: string) => {
     const lv = v.toLowerCase();
-    return (evidence.length > 0 && evidence.includes(lv)) ||
-      realLower.some(r => r === lv || r.includes(lv) || lv.includes(r));
+    return evidence.has(lv) || realLower.has(lv);
   };
 
-  // Which real indicators did they quote?
+  // Which real indicators did they quote? Whole value, or the user part of an
+  // email (3+ chars). Everyday process names never count.
   const cited = real.filter(r => {
     const lr = r.toLowerCase();
-    return t.includes(lr) || t.includes(lr.split("@")[0]); // full value or username part
+    if (BENIGN_PROCESS_NAMES.has(lr)) return false;
+    if (said.has(lr)) return true;
+    const user = lr.includes("@") ? lr.split("@")[0] : "";
+    return user.length >= 3 && said.has(user);
   });
 
   // Extract indicator-shaped claims from the student's text

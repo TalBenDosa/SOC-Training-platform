@@ -89,6 +89,36 @@ export function collectLeafValues(node: unknown, out: string[] = []): string[] {
   return out;
 }
 
+/**
+ * Is this value shaped like an indicator an analyst would cite (QA-SCN-1)? An IP, a
+ * hash, an email, a URL, a domain / host / account name, a file name. NOT a timestamp,
+ * a bare number or an ordinary word: tagging event timestamps as "IPs" used to earn
+ * full evidence credit.
+ */
+export function isIocShaped(v: string): boolean {
+  const s = v.trim().toLowerCase();
+  if (s.length < 3) return false;
+  if (/^\d+$/.test(s)) return false;                                      // a count, a pid, a port
+  if (/^\d{4}-\d{2}-\d{2}([t ]|$)/.test(s) || /^\d{1,2}:\d{2}(:\d{2})?/.test(s)) return false; // timestamps
+  if (/^\d{1,3}(\.\d{1,3}){3}(\/\d{1,2})?$/.test(s)) return true;          // IPv4 / CIDR
+  if (/^[0-9a-f:]+$/.test(s) && s.includes(":") && s.length >= 6) return true;   // IPv6
+  if (/^[0-9a-f]{32,128}$/.test(s)) return true;                            // hashes
+  if (/^[\w.+-]+@[\w.-]+\.[a-z]{2,}$/.test(s)) return true;                 // email
+  if (/^[a-z][a-z0-9+.-]*:\/\//.test(s)) return true;                        // URL
+  if (/^[\w.-]+\.(exe|dll|ps1|bat|cmd|vbs|js|hta|lnk|msi|zip|rar|7z|iso|dmg|pkg|sh|py|elf|so|docm|xlsm|pdf|scr)$/.test(s)) return true; // file
+  // host / domain / account: letters plus a digit, dot, hyphen, underscore or $ (WS-FIN-3041, evil.example, svc_backup, DC01$)
+  if (/^[a-z0-9][\w.$-]*$/.test(s) && /[a-z]/.test(s) && /[\d._$-]/.test(s)) return true;
+  return false;
+}
+
+/** Distinct words relative to the total: "blah blah blah" is one word repeated (QA-SCN-1). */
+function effectiveWordCount(text: string): number {
+  const all = text.toLowerCase().split(/\s+/).filter(Boolean);
+  const distinct = new Set(all).size;
+  // Natural prose repeats words; ~2.5 uses per distinct word is generous. Padding is not.
+  return Math.min(all.length, Math.round(distinct * 2.5));
+}
+
 /** Separators an indicator never contains; splitting a value on them yields its tokens. */
 const TOKEN_SPLIT = /[\s"'`,;|()<>[\]{}=\\/:]+/;
 
@@ -99,6 +129,9 @@ export function scoreScenarioReport(input: ReportScoreInput): ReportScoreResult 
 
   const reportText = [analystNotes, verdictReason].join(" ").trim();
   const words = reportText.split(/\s+/).filter(Boolean).length;
+  // Depth and reasoning count DISTINCT effort, not raw length (QA-SCN-1).
+  const effWords = effectiveWordCount(reportText);
+  const effReasonWords = effectiveWordCount(verdictReason);
 
   const expectedVerdict: "benign" | "malicious" =
     attackKind === "false_positive" ? "benign" : "malicious";
@@ -120,7 +153,7 @@ export function scoreScenarioReport(input: ReportScoreInput): ReportScoreResult 
   const eventsBlob = leaves.join("\n");
   const looksLikeIndicator = (v: string) => v.length >= 6 || /[\d@._-]/.test(v);
   /** Earns credit: a curated IOC, or a whole value / whole token seen in the telemetry. */
-  const isRealValue = (v: string) => realValues.has(v) || (looksLikeIndicator(v) && leafTokens.has(v));
+  const isRealValue = (v: string) => realValues.has(v) || (looksLikeIndicator(v) && isIocShaped(v) && leafTokens.has(v));
   /** Grounded in the telemetry at all (fabrication check only — deliberately lenient). */
   const isGroundedValue = (v: string) => realValues.has(v) || (looksLikeIndicator(v) && eventsBlob.includes(v));
 
@@ -139,7 +172,11 @@ export function scoreScenarioReport(input: ReportScoreInput): ReportScoreResult 
   for (const v of scenarioIocValues) if (reportText.toLowerCase().includes(v)) usefulCited.add(v);
 
   const iocTarget = Math.max(1, scenarioIocValues.length);
-  const iocCoverage = Math.min(1, usefulCited.size / iocTarget);
+  // Curated key indicators count in full; other real, IOC-shaped values from the
+  // telemetry count half (QA-SCN-1: any long token used to fill the whole bar).
+  let evidencePoints = 0;
+  for (const v of usefulCited) evidencePoints += realValues.has(v) ? 1 : 0.5;
+  const iocCoverage = Math.min(1, evidencePoints / iocTarget);
 
   // Fabrication — inventing an IP/hash/email present nowhere is an integrity failure.
   const claimed = new Set<string>();
@@ -154,14 +191,13 @@ export function scoreScenarioReport(input: ReportScoreInput): ReportScoreResult 
 
   const reportRubric = {
     verdict:  verdict ? (verdictCorrect ? 25 : 5) : 0,
-    depth:    words >= 150 ? 25 : words >= 80 ? 18 : words >= 40 ? 10 : words > 0 ? 4 : 0,
+    depth:    effWords >= 150 ? 25 : effWords >= 80 ? 18 : effWords >= 40 ? 10 : effWords > 0 ? 4 : 0,
     // A fabricated OR misattributed indicator caps evidence near zero — precision,
     // not just recall: an unusable report is worse than a sparse one.
     evidence: (fabricated.length > 0 || misattributed.length > 0)
       ? (usefulCited.size > 0 ? 5 : 0)
       : Math.round(iocCoverage * 30),
-    reasoning: verdictReason.trim().split(/\s+/).filter(Boolean).length >= 25 ? 20
-             : verdictReason.trim().split(/\s+/).filter(Boolean).length >= 10 ? 12 : 0,
+    reasoning: effReasonWords >= 25 ? 20 : effReasonWords >= 10 ? 12 : 0,
   };
   const rawReportScore = Math.min(
     100,
