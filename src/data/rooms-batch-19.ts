@@ -600,17 +600,20 @@ const memoryDiskForensicsRoom = {
       content:
         "You already know the order of volatility from the basics room: memory before disk, disk before backups. This reading is about the part that order alone doesn't cover. HOW you touch a live, running, possibly-compromised machine without your own investigation becoming part of the evidence you're trying to read.\n\n" +
         "**Every tool you run changes the system.** Launching any executable on a live host creates a process, allocates memory, may write a Prefetch entry, and touches the filesystem's access timestamps, on the very machine you're trying to examine cleanly. The goal isn't zero footprint (that's impossible on a live system), it's minimum, known, documented footprint: use trusted, statically-linked binaries run from read-only or write-protected external media (a USB drive you control, not something copied onto the target's own disk), so you aren't relying on any DLL or library already present on a machine that might itself be compromised, and so you leave the smallest possible trace of your own presence in the artifact you'll later be reading for attacker activity.\n\n" +
-        "**Order of operations on a live host, in practice:** capture the most volatile, least-footprint information first. Active network connections and the process list, both of which can be queried quickly with minimal impact. Before you kick off a full memory dump, which takes several minutes and is the highest-impact step you'll take (allocating disk space for the dump file, generating significant read activity across RAM). Only after memory is safely captured and hashed do you move to disk imaging, which is comparatively low-risk to the live system's state because you're imaging, not booting into, the disk.\n\n" +
+        "**Order of operations on a live host, in practice:** RAM is the most volatile evidence on the machine, so the full memory dump starts first, as soon as your trusted tool is running from the external media. Do not burn minutes running separate network and process queries before it: every extra command you launch is more footprint inside the very RAM you are about to capture, and the active connections and process list are already inside the dump. After acquisition, windows.netscan recovers the sockets together with the process that owned each one, and windows.pslist / windows.psscan recover the process list, including processes a rootkit unlinked from the live view. Quick live snapshots (a netstat-style connection list, a process listing) are only a stopgap for when the dump genuinely cannot start yet, for example while you wait for a large enough collection drive. Only after memory is safely captured and hashed do you move to disk imaging, which is comparatively low-risk to the live system's state because you're imaging, not booting into, the disk.\n\n" +
         "**Never install anything.** Never run a setup wizard, never write your tool to the target's own C: drive, and never use a GUI tool that requires installation. Every one of those actions writes registry keys, creates Prefetch entries, and potentially overwrites evidence you haven't collected yet. The forensic tools built for this (DumpIt, winpmem, Velociraptor's agent-based collection) are specifically designed to run standalone from removable media with no installation step.\n\n" +
         "**Document as you go, not after.** Write down the exact command you ran, the exact timestamp, and the exact tool version before you run it, not from memory afterward. If your actions ever need to be defended (in a legal proceeding, or just to a skeptical colleague reviewing your findings), a contemporaneous log of exactly what you touched and when is what makes your findings credible instead of disputable. This is the practical extension of chain of custody: it isn't just about the evidence you collected, it's about being able to account for every action you personally took on the live system before you collected it.",
       codeExample:
         "LIVE ACQUISITION -- ORDER OF OPERATIONS\n" +
         "=======================================================\n" +
-        "1. Network connections    -- fastest, lowest footprint\n" +
-        "2. Process list           -- fast, low footprint\n" +
-        "3. Full memory dump       -- highest footprint, do once\n" +
-        "                             volatile snapshots are safe\n" +
-        "4. Disk imaging           -- lower risk to LIVE state,\n" +
+        "1. Full memory dump       -- start AT ONCE, RAM is the\n" +
+        "                             most volatile source\n" +
+        "   (connections + processes are inside the dump:\n" +
+        "    windows.netscan, windows.pslist / psscan)\n" +
+        "   Stopgap ONLY if the dump cannot start yet:\n" +
+        "    quick connection + process snapshots\n" +
+        "2. Hash the memory image  -- before anything else moves\n" +
+        "3. Disk imaging           -- lower risk to LIVE state,\n" +
         "                             comparatively slow\n" +
         "=======================================================\n" +
         "RULES FOR TOUCHING A LIVE, POSSIBLY-COMPROMISED HOST\n" +
@@ -628,13 +631,13 @@ const memoryDiskForensicsRoom = {
           "You reach a live, suspected-compromised host with a write-protected USB of trusted tools. What should your FIRST collection step be?",
         options: [
           "Start the full memory dump at once, since RAM is the most volatile evidence",
-          "Record active network connections and the process list with quick queries",
+          "Record active network connections and the process list with quick queries before the dump",
           "Image the disk first, since imaging does not change the running system's state",
           "Install the forensic agent on C: so every later collection step is logged centrally",
         ],
-        answer: 1,
+        answer: 0,
         explanation:
-          "Network connections and the process list come first: they are the most fleeting state and can be captured in seconds with minimal footprint. “Start the full memory dump at once” is the tempting answer, but the dump is the highest-footprint step and takes minutes, during which connections can close: it comes next. “Image the disk first” has the order backwards: disk is the least volatile source and can wait until memory is safe. “Install the forensic agent on C:” breaks the never-install rule. It writes registry keys and Prefetch entries onto the evidence you are about to read.",
+          "Start the memory dump at once: RAM is the most volatile evidence (RFC 3227 order of volatility), and the dump already contains the active connections and the process list, which windows.netscan and windows.pslist / windows.psscan recover afterward, with the owning process for every socket. “Record active network connections and the process list” first is the tempting answer, but each extra live command adds footprint inside the RAM you are about to capture and delays the dump; quick snapshots are only a stopgap when the dump cannot start yet. “Image the disk first” has the order backwards: disk is the least volatile source and can wait until memory is safe. “Install the forensic agent on C:” breaks the never-install rule. It writes registry keys and Prefetch entries onto the evidence you are about to read.",
       },
     },
 
@@ -973,7 +976,7 @@ const memoryDiskForensicsRoom = {
       instructions: "You are mid-forensic-triage on a host when you observe active file encryption beginning. Arrange the correct sequence of actions.",
       items: [
         { id: "assess", text: "Confirm what's actively happening (active encryption in progress, not a stale alert) and check whether scope beyond this host is already known" },
-        { id: "quickcapture", text: "If time allows within minutes, trigger the fastest available volatile-evidence capture (network connections, process list, and a memory dump if it can start immediately)" },
+        { id: "quickcapture", text: "If time allows within minutes, start the memory dump immediately (it holds the connections and process list); fall back to quick connection and process snapshots only if the dump cannot start" },
         { id: "isolate", text: "Network-isolate the host (EDR containment or physical disconnection) rather than powering it off, to stop the damage while preserving what memory capture already started" },
         { id: "escalate", text: "Escalate to the incident commander / follow the pre-agreed playbook for wider scope, since a single host's containment may not address the full incident" },
         { id: "continueforensics", text: "Once contained, continue full forensic collection (disk imaging, full timeline) on the now-isolated, powered-on host" },

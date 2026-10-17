@@ -500,10 +500,22 @@ describe("emitter-authored scenario packs", () => {
 
   it("destructiveWiper builds a coherent wiper chain from emitters only (CrowdStrike + Sysmon + MDE)", () => {
     const s = buildDestructiveWiperScenario();
-    expect(s.events.length).toBe(10);
+    expect(s.events.length).toBe(12);
     expect(new Set(s.events.map(e => e.vendor))).toEqual(new Set([
-      "CrowdStrike Falcon", "Microsoft Sysmon", "Microsoft Defender for Endpoint",
+      "CrowdStrike Falcon", "Microsoft Sysmon", "Microsoft Defender for Endpoint", "Windows Security",
     ]));
+    // delivery: a.novak's network logon and the remote service (7045) that launches cl64.exe,
+    // so the compromised deployment account is readable in raw fields, not only in prose
+    const logon = s.events.find(e => e.id === "dw_00a_admin_network_logon");
+    expect(logon?.raw?.["winlog.event_data.TargetUserName"]).toBe("a.novak");
+    expect(logon?.raw?.["winlog.event_data.LogonType"]).toBe("3");
+    const svc = s.events.find(e => e.id === "dw_00b_remote_service_install");
+    expect(svc?.raw?.["winlog.event_id"]).toBe("7045");
+    expect(String(svc?.raw?.["winlog.event_data.ImagePath"])).toContain("cl64.exe");
+    expect(svc?.raw?.["winlog.user.identifier"]).toBe(logon?.raw?.["winlog.event_data.TargetUserSid"]);
+    // every event on the bricked host carries ONE user_email (no fabric rotation)
+    const onHost = s.events.filter(e => e.hostname === "VNT-WKS-27");
+    expect(new Set(onHost.map(e => e.user_email))).toEqual(new Set(["a.novak@vantageindustrial.com"]));
     // benign control: signed sdelete, high integrity, resolves fp
     const benign = s.events.find(e => e.id === "dw_00_benign_secure_wipe");
     expect(benign?.expected_verdict).toBe("fp");
@@ -529,11 +541,13 @@ describe("emitter-authored scenario packs", () => {
     const raw = s.events.find(e => e.id === "dw_06_raw_disk_write");
     expect(raw?.raw?.["crowdstrike.event_simpleName"]).toBe("RawDiskAccess");
     expect(String(raw?.raw?.["crowdstrike.TargetFileName"])).toContain("\\Device\\Harddisk0\\DR0");
-    // the detection attributes the deploying account in the company netbios realm
+    // the detection names the SYSTEM token the wiper ran under; the deploying account
+    // is the event's user_email and is readable on the logon / 7045 records above
     const alert = s.events.find(e => e.id === "dw_09_edr_detection");
     expect(alert?.is_detection).toBe(true);
     expect(alert?.edr_scope).toBe("edr");
-    expect(alert?.raw?.["crowdstrike.UserName"]).toBe("VANTAGE\\a.novak");
+    expect(alert?.raw?.["crowdstrike.UserName"]).toBe("NT AUTHORITY\\SYSTEM");
+    expect(alert?.user_email).toBe("a.novak@vantageindustrial.com");
     // one host, correlated
     const inv = buildInvestigationsFromScenario({ title: s.title, events: s.events })[0];
     expect(inv.host.name).toBe("VNT-WKS-27");

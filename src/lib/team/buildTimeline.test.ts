@@ -127,10 +127,13 @@ describe("buildTeamTimeline — answer key (contract 1)", () => {
 
   it("malicious events hiding in the noise pool are tp/escalate, decoys are fp", () => {
     const byId = (id: string) => BENIGN_EVENTS.find(e => e.id === id) as TelemetryEvent;
-    for (const id of ["b_fwd_atk_01", "b_fwd_atk_02", "b_copy_atk_01", "b_copy_atk_02", "b_email_replyto_mismatch", "b_email_spf_fail_lookalike", "b_bf_04"]) {
+    // b_fwd_atk_01/02 became ticketed decoys (QA-DASH-4: a real attack hidden in the solo
+    // noise pool could never be credited), so they are now part of the fp side below.
+    for (const id of ["b_bf_01", "b_copy_atk_01", "b_copy_atk_02", "b_email_replyto_mismatch", "b_email_spf_fail_lookalike", "b_bf_04"]) {
       expect(["tp", "escalate"], id).toContain(classifyPoolEvent(byId(id)));
     }
     expect(classifyPoolEvent(byId("b_fwd_fp_01"))).toBe("fp");
+    expect(classifyPoolEvent(byId("b_fwd_atk_01"))).toBe("fp");
     expect(classifyPoolEvent(byId("b_itv_02"))).toBe("fp");
     expect(classifyPoolEvent(byId("b_dns_08"))).toBe("benign");
   });

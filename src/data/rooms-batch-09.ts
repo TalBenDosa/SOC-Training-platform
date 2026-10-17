@@ -829,9 +829,11 @@ Once you have an image, these artefacts yield attacker activity:
 
 **Prefetch files** (C:\\Windows\\Prefetch\\*.pf), Windows records every executable that has ever run on the system in Prefetch files. Even if the attacker deleted their malware, the Prefetch file may still exist, showing you the malware's name, path, and the last 8 times it ran.
 
-**Amcache** (C:\\Windows\\AppCompat\\Programs\\Amcache.hve): records every executable ever run, with its SHA1 hash. Useful for identifying malware that has been deleted.
+**Amcache** (C:\\Windows\\AppCompat\\Programs\\Amcache.hve): records executables that were present on the system or interacted with (installed, copied, browsed to or run), with path and SHA1 hash. Useful for identifying malware that has since been deleted and for pivoting on its hash. An entry alone is NOT proof that the file executed.
 
-**ShimCache (AppCompatCache)**: stored in the registry, records programs that have been executed on the system. Useful for determining if a binary was ever executed.
+**ShimCache (AppCompatCache)**: stored in the SYSTEM registry hive, records executables the compatibility engine saw on the system, with their path and the file's last-modified time. On Windows 10 and later it proves the file EXISTED at that path, not that it ran, and its entries are only written to the registry at shutdown or reboot.
+
+Treat ShimCache and Amcache as evidence of presence, then corroborate execution with a true execution artefact: Prefetch, process-creation events (Security 4688 or Sysmon Event ID 1), BAM (Background Activity Moderator) entries, or UserAssist for programs a user launched from the GUI.
 
 **LNK files (shortcuts)**: every time you open a file, Windows creates a shortcut (.lnk) in the Recent Items folder. LNK files contain the path, timestamps, and file size of the target, which can reveal files the attacker opened even if those files were deleted.
 

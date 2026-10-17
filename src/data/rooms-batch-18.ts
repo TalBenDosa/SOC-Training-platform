@@ -49,7 +49,10 @@ const kerberoastEvent: TelemetryEvent = {
     "winlog.computer_name": "DC02.meridian.local",
     "winlog.event_data.TargetUserName": "k.alvarez",
     "winlog.event_data.TargetDomainName": "MERIDIAN.LOCAL",
-    "winlog.event_data.ServiceName": "HTTPRpt/rpt04.meridian.local",
+    // ServiceName on a real 4769 is the ACCOUNT that owns the requested SPN
+    // (HTTPRpt/rpt04.meridian.local is registered to svc_reporting), not the
+    // SPN string itself.
+    "winlog.event_data.ServiceName": "svc_reporting",
     "winlog.event_data.TicketEncryptionType": "0x17",
     "winlog.event_data.TicketOptions": "0x40810000",
     "winlog.event_data.Status": "0x0",
@@ -103,7 +106,9 @@ const rc4LegacyBackupEvent: TelemetryEvent = {
     "winlog.computer_name": "DC01.meridian.local",
     "winlog.event_data.TargetUserName": "svc_nasbackup",
     "winlog.event_data.TargetDomainName": "MERIDIAN.LOCAL",
-    "winlog.event_data.ServiceName": "cifs/nas02.meridian.local",
+    // cifs/nas02.meridian.local is registered to the appliance's computer
+    // account, so a real 4769 records that account (NAS02$) as ServiceName.
+    "winlog.event_data.ServiceName": "NAS02$",
     "winlog.event_data.TicketEncryptionType": "0x17",
     "winlog.event_data.TicketOptions": "0x40810000",
     "winlog.event_data.Status": "0x0",
@@ -212,7 +217,7 @@ const kerberosRoom: Room = {
     {
       type: "reading",
       id: "krb-r3",
-      heading: "Encryption Types: 0x12 vs 0x17, and Why a Downgrade Is the Signal",
+      heading: "Encryption Types: 0x12 vs 0x17, and What RC4 Does and Does Not Prove",
       content:
         `Every Kerberos ticket specifies an encryption type, and the value recorded in TicketEncryptionType is one of the highest-value single fields in any Kerberos log, because it tells you not just how the ticket was protected, but how expensive it would be for an attacker to break that protection offline.\n\n` +
         `**The values you'll actually see**\n\n` +
@@ -220,7 +225,7 @@ const kerberosRoom: Room = {
         `**Why RC4 specifically matters for offline cracking**\n\n` +
         `A TGS is encrypted with a key derived from the target service account's password. If an attacker captures that ticket, they can attempt to crack it offline, guessing passwords until one produces a key that correctly decrypts the ticket. AES256's key derivation involves substantially more computational work per guess than RC4-HMAC's, whose key is derived far more directly from the account's NTLM hash. In practice this means an RC4-encrypted ticket can be cracked orders of magnitude faster than the same password protected by AES256, which is precisely why every mainstream Kerberoasting tool explicitly requests RC4 tickets when it can, rather than accepting whatever a domain controller would offer by default.\n\n` +
         `**Reading the field as a downgrade, not a default**\n\n` +
-        `Each account has an msDS-SupportedEncryptionTypes attribute controlling which encryption types the KDC will issue for it. In an environment where every account is correctly configured to support and prefer AES, RC4 should almost never appear in a 4769 at all: a client requesting it anyway is deliberately asking for the weaker option because a request can specify supported encryption types in its own message. Seeing 0x17 where the environment's baseline is AES-only is not a coincidence of legacy configuration; it's the request explicitly asking to be given the crackable version, and that is the signal, not the encryption type by itself. The next reading gives you the mechanism that makes requesting a ticket for any service at all so easy in the first place.`,
+        `Each account has an msDS-SupportedEncryptionTypes attribute controlling which encryption types the KDC will issue for it. The client lists the encryption types it supports in its request, but the KDC picks the service ticket's type from what the TARGET service account supports (that attribute, and whether AES keys exist for the account), not from the requester's preference alone. That is why a Kerberoasting tool's request for RC4 only succeeds against accounts that still allow RC4, and also why RC4 can appear for perfectly ordinary reasons: a legacy service account with the attribute unset, or an old appliance that only implements RC4, produces 0x17 tickets every day with no attacker involved. In an environment where every service account is configured for AES only, a 0x17 ticket is unusual and worth a look, but treat it as a supporting signal, not proof. The decisive Kerberoasting tell is the shape of the activity: one account requesting tickets for many distinct SPNs in a short burst. The next reading gives you the mechanism that makes requesting a ticket for any service at all so easy in the first place.`,
       codeExample:
         "KERBEROS TICKET ENCRYPTION TYPES\n" +
         "=======================================================\n" +
@@ -365,13 +370,13 @@ const kerberosRoom: Room = {
             "Using only the fields in this 4769, which value tells you whose password the attacker can now attempt to crack offline?",
           options: [
             "TargetUserName (k.alvarez): the TGS is encrypted with the requesting account's key",
-            "ServiceName (HTTPRpt/rpt04): the TGS uses the key of the account that owns that SPN",
+            "ServiceName (svc_reporting): the TGS uses the key of the account that owns the requested SPN",
             "TicketEncryptionType (0x17): RC4 tickets are encrypted with the domain's NTLM key",
             "None of its fields: every TGS is encrypted with krbtgt, so only krbtgt is exposed",
           ],
           answer: 1,
           explanation:
-            "A TGS is encrypted with a key derived from the password of the account the SPN is registered to, so ServiceName points you to the exposed account. Here the service account behind HTTPRpt/rpt04 (svc_reporting in Reading 4's example); you resolve it with an SPN lookup. “TargetUserName” is the requester on a 4769; k.alvarez's own key never protects the service ticket. “TicketEncryptionType” tells you how cheap cracking will be, not whose key it is. There is no domain-wide NTLM key. “Every TGS is encrypted with krbtgt” confuses the TGS with the TGT, which is the krbtgt-encrypted one.",
+            "A TGS is encrypted with a key derived from the password of the account the SPN is registered to, and on a 4769 ServiceName already records that account, not the SPN string: here svc_reporting, the account HTTPRpt/rpt04 is registered to in Reading 4's example. No extra lookup is needed to know whose password is exposed. “TargetUserName” is the requester on a 4769; k.alvarez's own key never protects the service ticket. “TicketEncryptionType” tells you how cheap cracking will be, not whose key it is. There is no domain-wide NTLM key. “Every TGS is encrypted with krbtgt” confuses the TGS with the TGT, which is the krbtgt-encrypted one.",
           xp: 25,
         },
         {

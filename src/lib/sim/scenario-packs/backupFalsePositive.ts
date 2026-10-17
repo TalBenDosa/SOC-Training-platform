@@ -88,7 +88,7 @@ export function buildBackupFalsePositiveScenario(
 
     // 4. The agent process — signed vendor binary, SCM parent.
     mdeProcess({
-      companyId: cx, id: "evt_bkpfp_04_agent_start", ts: T(W + 5_000), host: fileServer.hostname, srcIp: fileServer.ip,
+      companyId: cx, id: "evt_bkpfp_04_agent_start", ts: T(W + 5_000), host: fileServer.hostname, srcIp: fileServer.ip, user: svcAccount.email,
       processName: "VeeamAgent.exe", processPath: "C:\\Program Files\\Veeam\\Backup and Replication\\Backup\\VeeamAgent.exe",
       cmdline: `"C:\\Program Files\\Veeam\\Backup and Replication\\Backup\\VeeamAgent.exe" /job:${jobGuid} /mode:full /target:\\\\BKP-REPO-01\\repo01`,
       parentName: "services.exe", parentPid: 500, pid: 5284, sha256: agentHash, integrity: "System", signed: true,
@@ -103,7 +103,7 @@ export function buildBackupFalsePositiveScenario(
 
     // 5. VSS — a snapshot is CREATED (inverse of ransomware behaviour).
     mdeProcess({
-      companyId: cx, id: "evt_bkpfp_05_vss", ts: T(W + 25_000), host: fileServer.hostname,
+      companyId: cx, id: "evt_bkpfp_05_vss", ts: T(W + 25_000), host: fileServer.hostname, srcIp: fileServer.ip, user: svcAccount.email,
       processName: "vssadmin.exe", processPath: "C:\\Windows\\System32\\vssadmin.exe", cmdline: "vssadmin.exe create shadow /for=D:",
       parentName: "VeeamAgent.exe", parentPid: 5284, pid: 5311, sha256: vssadminHash, integrity: "System", signed: true,
       runAsUser: "NEXACORP\\svc_bkp_agent", accountName: svcAccount.name, accountDomain: "nexacorp", severity: "medium",
@@ -125,7 +125,7 @@ export function buildBackupFalsePositiveScenario(
 
     // 7. Large file with an unfamiliar extension — on a dedicated backup target.
     mdeFile({
-      companyId: cx, id: "evt_bkpfp_07_vbk_write", ts: T(W + 4 * MIN), host: fileServer.hostname,
+      companyId: cx, id: "evt_bkpfp_07_vbk_write", ts: T(W + 4 * MIN), host: fileServer.hostname, srcIp: fileServer.ip, user: svcAccount.email,
       path: "\\\\BKP-REPO-01\\repo01\\FS-PROD-04\\FS-PROD-04_2026-03-17T020000_FULL.vbk", sha256: null, size: 26_548_912_128,
       action: "file_create", initiatingProcess: "VeeamAgent.exe", severity: "high",
       extra: {
@@ -146,7 +146,7 @@ export function buildBackupFalsePositiveScenario(
     // 9. THE ALARM — EDR ransomware-behaviour heuristic (the false-positive detection).
     {
       ...mdeAlert({
-        companyId: cx, id: "evt_bkpfp_09_edr_alert", ts: T(W + 7 * MIN), host: fileServer.hostname, user: svcAccount.email,
+        companyId: cx, id: "evt_bkpfp_09_edr_alert", ts: T(W + 7 * MIN), host: fileServer.hostname, srcIp: fileServer.ip, user: svcAccount.email,
         alertTitle: "Ransomware behavior detected", category: "Impact", mitre: "T1486", techniqueName: "Data Encrypted for Impact",
         remediation: "None", detectionSource: "EDR", sha256: agentHash, alertSeverity: "High", severity: "critical",
         extra: {
@@ -160,7 +160,7 @@ export function buildBackupFalsePositiveScenario(
 
     // 10. SIEM correlation — the aggregates that make the FP legible.
     sentinelAlert({
-      companyId: cx, id: "evt_bkpfp_10_correlation", ts: T(W + 8 * MIN), host: fileServer.hostname, user: svcAccount.email,
+      companyId: cx, id: "evt_bkpfp_10_correlation", ts: T(W + 8 * MIN), host: fileServer.hostname, srcIp: fileServer.ip, user: svcAccount.email,
       eventType: "ueba_anomaly", alertName: "HighVolumeFileAccess_SingleAccount", ruleId: "SEN-FILE-0231", severity: "high",
       extendedProperties: {
         "Window Start": T(W + MIN), "Window End": T(W + 7 * MIN), "Time window (s)": 360,

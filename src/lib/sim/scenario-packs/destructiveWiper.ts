@@ -35,6 +35,7 @@ import { makeSha256 } from "@/lib/sim/iocs";
 import { csProcess, csAlert } from "@/lib/sim/emitters/crowdstrike";
 import { sysmonProcess, sysmonFile, sysmonDriver } from "@/lib/sim/emitters/sysmon";
 import { mdeProcess } from "@/lib/sim/emitters/mde";
+import { winLogon, winServiceInstall, domainSidFor } from "@/lib/sim/emitters/windowsSecurity";
 
 export function buildDestructiveWiperScenario(
   scenarioId = "destructive-wiper-2026",
@@ -62,6 +63,10 @@ export function buildDestructiveWiperScenario(
   // The compromised privileged account used to push and launch the payload as a
   // remote service across the fleet. The wiper itself runs as SYSTEM.
   const deployAdmin = { sam: "a.novak", email: "a.novak@vantageindustrial.com", full: "Adam Novak" };
+  const deployAdminSid = domainSidFor("vantageindustrial", deployAdmin.sam);
+  // The host the operator pushed the payload from (the deployment server a.novak's
+  // credentials were used on).
+  const deploySrc = { name: "VNT-DEPLOY-01", ip: "10.60.1.40" };
 
   // The wiper binary, and the signed third-party driver it abuses for raw disk
   // I/O. Both appear literally in the events below.
@@ -88,9 +93,29 @@ export function buildDestructiveWiperScenario(
       description: "sdelete64.exe (signed Sysinternals, Microsoft-published) ran on VNT-WKS-19 under the it.deploy account at high integrity, overwriting the drive of a host being decommissioned under change ticket CHG-20418. No shadow-copy deletion, boot-config change, or log clearing followed.",
     }),
 
+    // 0a. DELIVERY: a.novak's network logon to VNT-WKS-27 from the deployment server.
+    //     (Forwarded to the SIEM before the wiper later cleared the local Security log.)
+    winLogon({
+      companyId: cx, id: "dw_00a_admin_network_logon", ts: T(-50 * SEC), host: host.name, fqdn: host.fqdn,
+      logSource: "windows_security", targetUser: deployAdmin.sam, targetSid: deployAdminSid, userEmail: deployAdmin.email,
+      srcIp: deploySrc.ip, workstation: deploySrc.name, logonType: 3, authPackage: "Kerberos", recordId: "1184207",
+      mitre: "T1021.002", tactic: "Lateral Movement", severity: "medium", incidentId: INCIDENT,
+      description: "VNT-WKS-27 logged a 4624 type 3 (network) logon for a.novak from the deployment server VNT-DEPLOY-01 at 03:11, less than a minute before the destructive activity began.",
+    }),
+
+    // 0b. DELIVERY: the remote service that will launch the payload as SYSTEM (System-log 7045).
+    winServiceInstall({
+      companyId: cx, id: "dw_00b_remote_service_install", ts: T(-8 * SEC), host: host.name, fqdn: host.fqdn,
+      logSource: "windows_security", targetUser: deployAdmin.sam, userEmail: deployAdmin.email, installerSid: deployAdminSid,
+      serviceName: "cl64svc", imagePath: cl64Path, accountName: "LocalSystem",
+      serviceType: "user mode service", startType: "demand start", recordId: "52731",
+      mitre: "T1569.002", tactic: "Execution", severity: "high", incidentId: INCIDENT,
+      description: "The Service Control Manager on VNT-WKS-27 logged 7045: a new demand-start service, cl64svc, with ImagePath C:\\Users\\Public\\cl64.exe running as LocalSystem, created in a.novak's session (the UserID is a.novak's SID).",
+    }),
+
     // 1. THE WIPER EXECUTES — cl64.exe as SYSTEM, launched by the SCM (services.exe).
     csProcess({
-      companyId: cx, id: "dw_01_wiper_exec", ts: T(0), host: host.name, srcIp: host.ip,
+      companyId: cx, id: "dw_01_wiper_exec", ts: T(0), host: host.name, srcIp: host.ip, user: deployAdmin.email,
       processName: "cl64.exe", processPath: cl64Path, cmdline: cl64Path, parentName: "services.exe", parentPid: 720, pid: 6620,
       sha256: wiperHash, signed: false, integrity: "system", runAsUser: "NT AUTHORITY\\SYSTEM",
       mitre: "T1485", tactic: "Impact", severity: "critical", incidentId: INCIDENT,
@@ -100,7 +125,7 @@ export function buildDestructiveWiperScenario(
 
     // 2. THE ABUSED DRIVER — Sysmon Event 6 (DriverLoad), a signed 3rd-party partition driver.
     sysmonDriver({
-      companyId: cx, id: "dw_02_driver_load", ts: T(4 * SEC), host: host.name, srcIp: host.ip,
+      companyId: cx, id: "dw_02_driver_load", ts: T(4 * SEC), host: host.name, srcIp: host.ip, user: deployAdmin.email,
       image: "C:\\Windows\\System32\\drivers\\epmntdrv.sys", sha256: driverHash, signed: true,
       signature: "CHENGDU YIWO Tech Development Co., Ltd.", signatureStatus: "Valid", eventType: "service_install",
       mitre: "T1543.003", tactic: "Privilege Escalation", severity: "high", incidentId: INCIDENT,
@@ -109,7 +134,7 @@ export function buildDestructiveWiperScenario(
 
     // 3. SHADOW COPIES DELETED — Sysmon Event 1, cl64 spawns vssadmin (T1490).
     sysmonProcess({
-      companyId: cx, id: "dw_03_vssadmin_delete", ts: T(20 * SEC), host: host.name, srcIp: host.ip,
+      companyId: cx, id: "dw_03_vssadmin_delete", ts: T(20 * SEC), host: host.name, srcIp: host.ip, user: deployAdmin.email,
       processName: "vssadmin.exe", processPath: "C:\\Windows\\System32\\vssadmin.exe", cmdline: "vssadmin.exe delete shadows /all /quiet",
       parentName: "cl64.exe", parentPath: cl64Path, parentCmdline: cl64Path, pid: 6712, parentPid: 6620,
       integrity: "System", originalFileName: "VSSADMIN.EXE", runAsUser: "NT AUTHORITY\\SYSTEM",
@@ -119,7 +144,7 @@ export function buildDestructiveWiperScenario(
 
     // 4. CORROBORATION — Microsoft Defender for Endpoint sees the same vssadmin run (T1490).
     mdeProcess({
-      companyId: cx, id: "dw_08_mde_corroboration", ts: T(21 * SEC), host: host.name, srcIp: host.ip,
+      companyId: cx, id: "dw_08_mde_corroboration", ts: T(21 * SEC), host: host.name, srcIp: host.ip, user: deployAdmin.email,
       processName: "vssadmin.exe", processPath: "C:\\Windows\\System32\\vssadmin.exe", cmdline: "vssadmin.exe delete shadows /all /quiet",
       parentName: "cl64.exe", pid: 6712, parentPid: 6620, runAsUser: "NT AUTHORITY\\SYSTEM", accountName: "system", accountDomain: "nt authority",
       mitre: "T1490", tactic: "Impact", severity: "high", incidentId: INCIDENT,
@@ -129,7 +154,7 @@ export function buildDestructiveWiperScenario(
 
     // 5. BOOT RECOVERY DISABLED — Sysmon Event 1, bcdedit (T1490).
     sysmonProcess({
-      companyId: cx, id: "dw_04_bcdedit_norecovery", ts: T(35 * SEC), host: host.name, srcIp: host.ip,
+      companyId: cx, id: "dw_04_bcdedit_norecovery", ts: T(35 * SEC), host: host.name, srcIp: host.ip, user: deployAdmin.email,
       processName: "bcdedit.exe", processPath: "C:\\Windows\\System32\\bcdedit.exe", cmdline: "bcdedit.exe /set {default} recoveryenabled no",
       parentName: "cl64.exe", parentPath: cl64Path, parentCmdline: cl64Path, pid: 6744, parentPid: 6620,
       integrity: "System", originalFileName: "bcdedit.exe", runAsUser: "NT AUTHORITY\\SYSTEM",
@@ -139,7 +164,7 @@ export function buildDestructiveWiperScenario(
 
     // 6. EVENT LOG CLEARED — Falcon process_create, wevtutil (T1685.005).
     csProcess({
-      companyId: cx, id: "dw_05_wevtutil_clear", ts: T(50 * SEC), host: host.name, srcIp: host.ip,
+      companyId: cx, id: "dw_05_wevtutil_clear", ts: T(50 * SEC), host: host.name, srcIp: host.ip, user: deployAdmin.email,
       processName: "wevtutil.exe", processPath: "C:\\Windows\\System32\\wevtutil.exe", cmdline: "wevtutil.exe cl Security",
       parentName: "cl64.exe", parentPid: 6620, pid: 6790, integrity: "system", runAsUser: "NT AUTHORITY\\SYSTEM",
       mitre: "T1685.005", tactic: "Defense Impairment", severity: "high", incidentId: INCIDENT,
@@ -149,7 +174,7 @@ export function buildDestructiveWiperScenario(
 
     // 7. THE DISK STRUCTURE WIPE — Falcon RawDiskAccess, raw write to PhysicalDrive0 (T1561.002).
     csProcess({
-      companyId: cx, id: "dw_06_raw_disk_write", ts: T(70 * SEC), host: host.name, srcIp: host.ip,
+      companyId: cx, id: "dw_06_raw_disk_write", ts: T(70 * SEC), host: host.name, srcIp: host.ip, user: deployAdmin.email,
       processName: "cl64.exe", processPath: cl64Path, cmdline: cl64Path, parentName: "services.exe", parentPid: 720, pid: 6620,
       sha256: wiperHash, integrity: "system", runAsUser: "NT AUTHORITY\\SYSTEM", simpleName: "RawDiskAccess", eventType: "file_modify",
       mitre: "T1561.002", tactic: "Impact", severity: "critical", incidentId: INCIDENT,
@@ -159,7 +184,7 @@ export function buildDestructiveWiperScenario(
 
     // 8. FILE CONTENT WIPE — Sysmon Event 11, cl64 overwrites user documents (T1561.001).
     sysmonFile({
-      companyId: cx, id: "dw_07_file_overwrite", ts: T(80 * SEC), host: host.name, srcIp: host.ip,
+      companyId: cx, id: "dw_07_file_overwrite", ts: T(80 * SEC), host: host.name, srcIp: host.ip, user: deployAdmin.email,
       processName: "cl64.exe", processPath: cl64Path, pid: 6620,
       path: "C:\\Users\\m.reyes\\Documents\\Q3-forecast.xlsx", sha256: null,
       mitre: "T1561.001", tactic: "Impact", severity: "critical", incidentId: INCIDENT,
@@ -169,7 +194,7 @@ export function buildDestructiveWiperScenario(
     // 9. THE DETECTION — Falcon Critical destructive-attack detection, attributes the deploy account.
     {
       ...csAlert({
-        companyId: cx, id: "dw_09_edr_detection", ts: T(2 * MIN), host: host.name, srcIp: host.ip, user: deployAdmin.email,
+        companyId: cx, id: "dw_09_edr_detection", ts: T(2 * MIN), host: host.name, srcIp: host.ip, user: deployAdmin.email, runAsUser: "NT AUTHORITY\\SYSTEM",
         threatName: "WindowsWiper_DestructiveDiskWrite", mitre: "T1485", tactic: "Impact", technique: "Data Destruction",
         action: "detected", processTree: "services.exe > cl64.exe", severity: "critical", incidentId: INCIDENT,
         detail: "A SYSTEM binary loaded a signed disk driver, deleted the shadow copies, disabled boot recovery, cleared the Security log, and wrote over the raw disk and user files. The remote service that launched it was created under the a.novak account.",
@@ -192,8 +217,8 @@ export function buildDestructiveWiperScenario(
     },
     {
       type: "user",
-      value: deployAdmin.sam, // a.novak — the compromised deployment account
-      first_seen: T(0),
+      value: deployAdmin.sam, // a.novak: the compromised deployment account
+      first_seen: T(-50 * SEC),
       last_seen: T(2 * MIN),
       reputation: "suspicious",
       tags: ["compromised-account", "deployment", "privileged"],
@@ -329,6 +354,8 @@ This is where the exercise bites. Everything about VNT-WKS-27 rhymes with ransom
     events,
     iocs,
     killchain: [
+      { ts: T(-50 * SEC), phase: "Lateral Movement", action: `a.novak network logon (4624 type 3) to ${host.name} from ${deploySrc.name} (T1021.002)` },
+      { ts: T(-8 * SEC), phase: "Execution", action: "Remote service cl64svc created for C:\\Users\\Public\\cl64.exe as LocalSystem (7045, T1569.002)" },
       { ts: T(0), phase: "Impact", action: `Unsigned cl64.exe launched as SYSTEM by the SCM on ${host.name} (T1485)` },
       { ts: T(4 * SEC), phase: "Privilege Escalation", action: "Signed driver epmntdrv.sys loaded for kernel-mode raw disk access (T1543.003)" },
       { ts: T(20 * SEC), phase: "Impact", action: "vssadmin delete shadows /all /quiet — Volume Shadow Copies removed (T1490)" },

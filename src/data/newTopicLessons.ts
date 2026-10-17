@@ -12132,7 +12132,7 @@ const NEW_TOPIC_LESSONS = [
           }
         ],
         "answer": "a",
-        "explanation": "T1560.001 sits under Collection (TA0009) precisely because packaging data does not move it anywhere: the archive still sits on the host it was created on. The tactic changes to Exfiltration only at the technique that actually removes data from the compromised system. ATT&CK does not use password-protection as a tactic boundary (b), does not classify archive tools differently by vendor/format (c. WinRAR and 7-Zip are both named under T1560.001), and tactic assignment has nothing to do with file extensions (d)."
+        "explanation": "T1560.001 sits under Collection (TA0009) precisely because packaging data does not move it anywhere: the archive still sits on the host it was created on. The tactic changes to Exfiltration only at the technique that actually removes data from the compromised system. ATT&CK does not use password-protection as a tactic boundary, so the option claiming a password makes any archive Exfiltration is wrong; it does not classify archive tools differently by vendor or format, so the WinRAR-versus-7-Zip option is wrong too (both are named under T1560.001); and tactic assignment has nothing to do with file extensions, which rules out the option saying the tactic depends on the archive's extension."
       },
       {
         "question": "A workstation with a strict USB-blocking policy shows a sudden burst of unique DNS queries to subdomains that look like encoded data, immediately after a large password-protected archive was created on that host, with no unusual HTTPS or cloud-storage traffic accompanying it. Which technique best fits this pattern, and why might an attacker prefer it over the cloud-storage channel?",

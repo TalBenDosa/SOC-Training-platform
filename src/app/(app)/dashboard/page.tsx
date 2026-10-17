@@ -288,7 +288,15 @@ function companyEventsRaw(sim: SimData, id: string) {
   // E-12: DNS is the most common log source in any SOC (and the platform teaches a
   // whole room on it), so it must appear in the background noise. It is gated by the
   // company's declared sources like every other source — no blanket exclusion.
-  return base.filter(e => active.size === 0 || active.has(e.source));
+  // QA-DASH-4: the noise pool also carries real malicious events that Team mode scores as
+  // "attacks hiding in the noise". The solo shift can only credit its injected story, so a
+  // real attack in the solo noise could never be caught or debriefed and taught students to
+  // ignore it. Solo noise is benign / false-positive only.
+  const isMalicious = (e: TelemetryEvent) => {
+    const v = String((e as { expected_verdict?: unknown }).expected_verdict ?? "");
+    return v === "tp" || v === "escalate";
+  };
+  return base.filter(e => (active.size === 0 || active.has(e.source)) && !isMalicious(e));
 }
 
 function getCompanyProfile(id: string) {

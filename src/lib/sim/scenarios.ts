@@ -1970,17 +1970,17 @@ export function buildDCSyncScenario(scenarioId = "dcsync-golden-ticket-2026"): S
   const questions: ScenarioQuestion[] = [
     {
       id: "q_dc_01",
-      prompt: "Event ID 4662 appears with Properties {1131f6aa-9c07-11d1-f79f-00c04fc2dcd2} and {1131f6ab-9c07-11d1-f79f-00c04fc2dcd2} on a Domain Controller, triggered by a non-DC user account. What does this indicate?",
+      prompt: "Event ID 4662 appears with Properties {1131f6aa-9c07-11d1-f79f-00c04fc2dcd2} and {1131f6ad-9c07-11d1-f79f-00c04fc2dcd2} on a Domain Controller, triggered by a non-DC user account. What does this indicate?",
       kind: "single",
       options: [
-        { value: "dcsync",     label: "DCSync — a replication request used to extract password hashes without touching LSASS" },
+        { value: "dcsync",     label: "DCSync: a replication request used to extract password hashes without touching LSASS" },
         { value: "normal_rep", label: "Routine AD replication between two Domain Controllers using DRSUAPI GetNCChanges calls" },
-        { value: "kerberoast", label: "Kerberoasting — service ticket requests with an RC4 downgrade for offline cracking" },
-        { value: "ldap_enum",  label: "LDAP enumeration — BloodHound/SharpHound collecting domain objects and their ACLs" },
+        { value: "kerberoast", label: "Kerberoasting: service ticket requests with an RC4 downgrade for offline cracking" },
+        { value: "ldap_enum",  label: "LDAP enumeration: BloodHound/SharpHound collecting domain objects and their ACLs" },
       ],
       answer: "dcsync",
       xp: 75,
-      explanation: "GUIDs {1131f6aa} and {1131f6ab} are the specific extended rights for DS-Replication-Get-Changes and DS-Replication-Get-Changes-All. When a non-DC user account (not ending in $) triggers Event 4662 with these GUIDs on the domain root object, it is a definitive DCSync attack indicator. Normal DC replication uses machine accounts (e.g., DC01$). Kerberoasting generates Event 4769, not 4662. LDAP enumeration generates Event 4662 on object reads but with different ObjectClass and AccessMask values.",
+      explanation: "GUIDs {1131f6aa} (DS-Replication-Get-Changes) and {1131f6ad} (DS-Replication-Get-Changes-All) are the control-access rights a replication client must exercise to pull directory changes including secret attributes such as password hashes. (A similar-looking GUID, {1131f6ab}, is DS-Replication-Synchronize, which is not the DCSync pair.) When a non-DC user account (not ending in $) triggers Event 4662 with these GUIDs on the domain root object, it is a definitive DCSync attack indicator. Normal DC replication uses machine accounts (e.g., DC01$). Kerberoasting generates Event 4769, not 4662. LDAP enumeration generates Event 4662 on object reads but with different ObjectClass and AccessMask values.",
     },
     {
       id: "q_dc_02",
@@ -2458,7 +2458,7 @@ export function buildK8sPodEscapeScenario(scenarioId = "k8s-pod-escape-imds"): S
   const { title, events, T, MIN } = k8sPodEscapeScenarioEvents();
 
   const iocs: IOC[] = [
-    { type: "ip",     value: "193.233.48.71", reputation: "malicious", tags: ["tor-exit-node", "attacker-source", "imds-query-origin", "cloudtrail-source"] },
+    { type: "ip",     value: "193.233.48.71", reputation: "malicious", tags: ["external-hosting-provider", "attacker-source", "imds-query-origin", "cloudtrail-source"] },
     { type: "user",   value: "svc-monitoring-backup", reputation: "malicious", tags: ["iam-principal", "administrator-access", "persistence"] },
     // Were two `sha256` IOCs seeded from strings like
     // "eks-node-role-credentials-stolen". Neither appeared in any event, and
@@ -2471,7 +2471,7 @@ export function buildK8sPodEscapeScenario(scenarioId = "k8s-pod-escape-imds"): S
   ];
 
   const killchain = [
-    { ts: T(0),           phase: "Execution",         action: "kubectl exec into api-prod container via compromised CI/CD token from Tor exit node 193.233.48.71" },
+    { ts: T(0),           phase: "Execution",         action: "kubectl exec into api-prod container via compromised CI/CD token from external hosting-provider IP 193.233.48.71" },
     { ts: T(2 * MIN),     phase: "Execution",         action: "nsenter with full host namespaces — container escape to EC2 node OS, root access achieved" },
     { ts: T(3 * MIN),     phase: "Credential Access", action: "curl to 169.254.169.254 IMDS — IAM role credentials for eks-node-role retrieved" },
     { ts: T(5 * MIN),     phase: "Credential Access", action: "GetCallerIdentity from external IP confirms stolen credentials are valid" },
@@ -2489,11 +2489,11 @@ export function buildK8sPodEscapeScenario(scenarioId = "k8s-pod-escape-imds"): S
       options: [
         { value: "a", label: "The container name 'api-prod-7f8b9c' does not match the deployment naming convention used in this cluster" },
         { value: "b", label: "kubectl exec that spawns an interactive shell in a production namespace is malicious regardless of source" },
-        { value: "c", label: "The source IP 193.233.48.71 is not an internal or corporate IP — it is a known Tor exit node" },
+        { value: "c", label: "The source IP 193.233.48.71 is external: not corporate, not the CI runners, not AWS, for a CI service account" },
         { value: "d", label: "The CI/CD service account token was used, and pipeline tokens should be scoped to deployments, not exec" },
       ],
       answer: "c",
-      explanation: "kubectl exec from an internal developer IP is routine. kubectl exec from 193.233.48.71 (a known Tor exit node, verifiable via threat intel) is immediately suspicious — legitimate CI/CD pipelines don't route through Tor. This is the distinguishing detail that separates routine debugging from an intrusion.",
+      explanation: "kubectl exec from an internal developer IP is routine. Here kubernetes.audit.sourceIPs[0] is 193.233.48.71, a public address on a hosting provider's network: it is not a corporate range, not the pipeline's own runners, and not inside AWS. A CI service account token is only ever used from the CI infrastructure, so the same token calling the API from an unrelated external host means the token was stolen and replayed. That source address is the distinguishing detail that separates routine debugging from an intrusion. The container name is not evidence, an interactive exec is not malicious by itself, and token scoping is a hardening gap rather than proof of compromise.",
     },
     {
       id: "q2", xp: 20,
@@ -2542,7 +2542,7 @@ export function buildK8sPodEscapeScenario(scenarioId = "k8s-pod-escape-imds"): S
     threat_actor: "APT40",
     attack_kind: "Cloud Attack / Container Escape",
     briefing: "GuardDuty raised a finding against the production EKS cluster at 02:50 for anomalous use of the eks-node-role credentials. The Kubernetes audit log separately shows exec activity into container api-prod-7f8b9c by the ci-deploy-token service account.",
-    narrative: "APT40 obtains a compromised CI/CD deploy token and uses it to exec into a production container via kubectl. Using nsenter, they escape to the EC2 node OS and query the AWS Instance Metadata Service (169.254.169.254) to steal the IAM role credentials bound to the node. From an external IP (Tor exit node), they enumerate the entire AWS account, access a secrets S3 bucket containing production database passwords, create a privileged pod in kube-system for cluster persistence, and create a backdoor IAM user with AdministratorAccess. Three log sources must be correlated: Kubernetes audit, EDR on the node, and AWS CloudTrail.",
+    narrative: "APT40 obtains a compromised CI/CD deploy token and uses it to exec into a production container via kubectl. Using nsenter, they escape to the EC2 node OS and query the AWS Instance Metadata Service (169.254.169.254) to steal the IAM role credentials bound to the node. From an external hosting-provider IP, they enumerate the entire AWS account, access a secrets S3 bucket containing production database passwords, create a privileged pod in kube-system for cluster persistence, and create a backdoor IAM user with AdministratorAccess. Three log sources must be correlated: Kubernetes audit, EDR on the node, and AWS CloudTrail.",
     learning_objectives: [
       "Understand the container escape path: kubectl exec → nsenter → host OS access",
       "Know that IMDS (169.254.169.254) queries from containers can steal IAM credentials",
