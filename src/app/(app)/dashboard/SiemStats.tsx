@@ -23,12 +23,6 @@ function mode<T>(arr: T[]): T | undefined {
   return best;
 }
 
-function fmtTimer(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
-
 function fmtSpeed(ms: number): string {
   if (ms < 60_000) return `${Math.round(ms / 1000)}s`;
   return `${(ms / 60_000).toFixed(1)}m`;
@@ -36,16 +30,13 @@ function fmtSpeed(ms: number): string {
 
 interface SiemStatsProps {
   events: LiveEvent[];
-  /** Response clock — ELAPSED seconds since the attack's first phase (counts up).
-   *  Purely informational: it never races a deadline. null when no active attack. */
-  attackTimerSeconds?: number | null;
   avgCatchMs?: number | null;
-  /** The response clock is paused (the analyst is writing the report / in EDR),
-   *  so it isn't counting against them — shown as a paused state, not a race. */
-  slaPaused?: boolean;
 }
 
-export function SiemStats({ events, attackTimerSeconds = null, avgCatchMs = null, slaPaused = false }: SiemStatsProps) {
+// QA-DASH-6: no response clock here. A clock that appears the moment the first
+// attack phase lands announces the attack; the response time is shown in the
+// incident report's result instead, after the report is filed.
+export function SiemStats({ events, avgCatchMs = null }: SiemStatsProps) {
   // Compact by default — beginners see the 4 chips that matter; "+ more" reveals the rest
   const [showAll, setShowAll] = useState(false);
   const fiveMinAgo = Date.now() - 5 * 60 * 1000;
@@ -63,20 +54,6 @@ export function SiemStats({ events, attackTimerSeconds = null, avgCatchMs = null
 
   return (
     <div className="flex flex-wrap items-center gap-2 border-t border-border/60 bg-[#0a0f18] px-5 py-2.5">
-
-      {/* Response clock — a neutral, cyber-colored ELAPSED timer that counts UP
-          while an attack is active. No countdown, no red-alarm pulse: time is a
-          gentle metric here, not a race. Paused (report open / EDR in play) →
-          "paused" label, because that time isn't counting against the analyst. */}
-      {attackTimerSeconds != null && (
-        <div className="inline-flex items-center gap-2 rounded-md border border-cyber-500/40 bg-cyber-500/10 px-3 py-1.5">
-          <span className="text-[10px] text-slate-400 font-medium">Response</span>
-          <span className="font-mono text-[11px] font-bold text-cyber-300">
-            {slaPaused ? "⏸" : "⏱"} {fmtTimer(attackTimerSeconds ?? 0)}
-          </span>
-          {slaPaused && <span className="text-[10px] font-semibold uppercase tracking-wide text-cyber-300">paused</span>}
-        </div>
-      )}
 
       {/* Events/min */}
       <div className="inline-flex items-center gap-2 rounded-md border border-cyber-500/30 bg-cyber-500/10 px-3 py-1.5">

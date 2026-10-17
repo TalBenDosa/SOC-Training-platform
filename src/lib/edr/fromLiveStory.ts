@@ -244,7 +244,13 @@ function pickRaw(raw: Record<string, unknown> | undefined, keys: string[]): stri
   for (const k of keys) { const v = raw?.[k]; if (typeof v === "string" && v.trim()) return v.trim(); }
   return undefined;
 }
-function synthesizeProcessEvents(endpointEvents: TelemetryEvent[]): TelemetryEvent[] {
+/** Does the event's file name the process image itself (not a file the process wrote)?
+ *  A file with no name/path on a start/detection row is the image by construction. */
+function fileIsImage(file: NonNullable<TelemetryEvent["file"]>, procName: string): boolean {
+  const fname = file.name ?? (file.path ? baseName(file.path) : undefined);
+  return !fname || baseName(fname).toLowerCase() === procName.toLowerCase();
+}
+export function synthesizeProcessEvents(endpointEvents: TelemetryEvent[]): TelemetryEvent[] {
   const out: TelemetryEvent[] = [];
   const byName = new Map<string, number>();  // name → assigned pid (dedupe)
   let nextPid = 4000;
@@ -274,7 +280,10 @@ function synthesizeProcessEvents(endpointEvents: TelemetryEvent[]): TelemetryEve
         cmdline,
         parent_name: parent ? baseName(parent) : undefined,
         user,
-        hash: e.file?.sha256 ? { sha256: e.file.sha256 } : undefined,
+        // Only a process start / detection names the process's own image as its file.
+        // On a file write the file is what the process WROTE (chrome.exe downloading a
+        // zip): giving the process that hash would brand the browser as the payload.
+        hash: startOrDetect && e.file?.sha256 && fileIsImage(e.file, name) ? { sha256: e.file.sha256 } : undefined,
       },
     });
   }

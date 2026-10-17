@@ -75,6 +75,10 @@ interface Props {
   responseMs?: number | null;
   /** Response-time target in seconds — the coaching benchmark (default 15 min). */
   responseTargetSeconds?: number;
+  /** True when a passing report would close and credit an open incident. False
+   *  when no incident is open (the attack has not started) or it was already
+   *  credited: the result then says so instead of "objective unlocked". */
+  creditsIncident?: boolean;
   onClose: () => void;
   onPassed: (score: number) => void;
 }
@@ -89,6 +93,7 @@ export function IncidentReportModal({
   decoys = [],
   responseMs = null,
   responseTargetSeconds = 900,
+  creditsIncident = true,
   onClose,
   onPassed,
 }: Props) {
@@ -117,6 +122,9 @@ export function IncidentReportModal({
   const [summary, setSummary] = useState(draft?.summary ?? "");
   const [result,  setResult]  = useState<IncidentReportResponse | null>(null);
   const [passed,  setPassed]  = useState(false);
+  // Whether THIS submission credited an incident: captured at submit time, since
+  // the parent's prop flips to false the moment the pass is counted.
+  const [credited, setCredited] = useState(false);
 
   // Guided mode: 4 labelled fields matching the grading rubric, concatenated
   // into the summary on submit — beginners get structure, the API is unchanged.
@@ -182,6 +190,7 @@ export function IncidentReportModal({
     setError(null);
     setPhase("grading");
     const submittedSummary = effectiveSummary;
+    const willCredit = creditsIncident;
 
     try {
       const res = await fetch("/api/dashboard/incident-report", {
@@ -201,6 +210,7 @@ export function IncidentReportModal({
       const data: IncidentReportResponse = await res.json();
       setResult(data);
       setPassed(data.passed);
+      setCredited(data.passed && willCredit);
       if (data.passed) { onPassed(data.score); lsRemove(draftKey); }
       setPhase("result");
     } catch (e) {
@@ -372,7 +382,7 @@ export function IncidentReportModal({
             <div className="py-8 flex flex-col items-center gap-5" role="status">
               <Loader2 aria-hidden="true" className="h-8 w-8 text-cyber-300 animate-spin" />
               <div className="text-center space-y-1">
-                <p className="text-sm font-semibold text-white">AI Analyst reviewing your report…</p>
+                <p className="text-sm font-semibold text-white">Grading your report…</p>
                 <p className="text-[11px] text-slate-400">Checking attack identification, IOC coverage, and recommended actions</p>
               </div>
             </div>
@@ -381,19 +391,18 @@ export function IncidentReportModal({
           {/* ── RESULT phase ── */}
           {phase === "result" && result && (
             <div className="space-y-4">
-              {/* R-04: when the AI grader was unavailable, present the fallback as a
-                  PRELIMINARY structural check — not an authoritative verdict — so a
-                  keyword-only score never reads as a final judgment of the analysis. */}
+              {/* R-04 / QA-DASH-15: the deterministic grader is what runs when no AI
+                  key is configured (production today), so say plainly what it checks.
+                  No "full review pending": there is no later review that changes it. */}
               {result.graded_by === "deterministic" && (
                 <div className="rounded-lg border border-neon-amber/30 bg-neon-amber/5 px-4 py-2.5 flex items-start gap-2">
                   <AlertTriangle className="h-4 w-4 text-neon-amber mt-0.5 shrink-0" />
                   <p className="text-[11px] text-slate-300 leading-relaxed">
-                    <span className="font-bold text-neon-amber">Preliminary check — full review pending.</span>{" "}
-                    The AI grader wasn&apos;t available, so this is an automated structural check
-                    (real vs. unverified indicators and whether you named a response action). It does
-                    <em> not</em> read your reasoning — so structure, causality and business impact
-                    aren&apos;t scored here. Your XP is awarded; the score may change when the full
-                    review runs.
+                    <span className="font-bold text-neon-amber">Automated check.</span>{" "}
+                    This score comes from an automated structural check: real vs. unverified
+                    indicators, and whether you named a response action. It does <em>not</em> read
+                    your reasoning, so structure, causality and business impact aren&apos;t scored
+                    here.
                   </p>
                 </div>
               )}
@@ -521,11 +530,19 @@ export function IncidentReportModal({
 
               {/* Action buttons */}
               <div className="space-y-2">
-                {passed && (
+                {passed && credited && (
                   <div className="rounded border border-neon-green/30 bg-neon-green/5 px-4 py-2.5 flex items-center gap-2">
                     <Shield className="h-4 w-4 text-neon-green shrink-0" />
                     <p className="text-[11px] text-neon-green font-semibold">
-                      Objective unlocked! End your session to secure {companyName}.
+                      Incident closed and credited to your shift. Catches count toward securing {companyName} automatically.
+                    </p>
+                  </div>
+                )}
+                {passed && !credited && (
+                  <div className="rounded border border-border/50 bg-bg/40 px-4 py-2.5 flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-slate-400 shrink-0" />
+                    <p className="text-[11px] text-slate-300">
+                      No open incident to close right now, so nothing was credited. Keep monitoring the feed.
                     </p>
                   </div>
                 )}

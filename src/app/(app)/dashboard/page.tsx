@@ -29,7 +29,7 @@ import { fetchOrgCompanies, type OrgCompanyContent } from "@/lib/content/publicC
 import { containedHosts, EDR_CONTAINMENT_EVENT } from "@/lib/edr/containment";
 import { setTrainingActive } from "@/lib/sim/trainingSession";
 import { MyLearningPlan } from "@/components/plans/MyLearningPlan";
-import { isSha256Field, isIpCheckField, isDomainCheckField } from "@/components/threat-intel/ThreatIntelDrawer";
+import { incidentGroundTruth } from "./groundTruth";
 import { NativeLogProvider, type NativeRenderer } from "@/lib/logs/native/NativeLogContext";
 import { IocTruthContext } from "@/components/threat-intel/iocTruthContext";
 import { storyIocTruth } from "@/lib/sim/storyTruth";
@@ -55,45 +55,8 @@ const MISSION_BONUS_XP  = 250;         // session-XP reward for completing the m
 // The analyst's ONE deliverable per company: a passing incident report. It
 // already grades attack identification + evidence + action + impact holistically
 // (see /api/dashboard/incident-report), so there's no separate "classify N
-// events" gate — that would just be a second, redundant scoring mechanism.
-/**
- * Pull the real indicator values (IPs, users, hosts, domains, hashes) out of a
- * set of attack events. These are the ground truth the report grader checks the
- * student's write-up against — both to reward citing real evidence and to flag
- * fabricated data (values that never appear in the actual logs).
- */
-function extractIndicators(events: import("@/lib/sim/types").TelemetryEvent[]): string[] {
-  const out = new Set<string>();
-  for (const e of events) {
-    if (e.src_ip)    out.add(e.src_ip);
-    if (e.dst_ip)    out.add(e.dst_ip);
-    if (e.user_email) out.add(e.user_email);
-    if (e.hostname)  out.add(e.hostname);
-    const dom = (e.network as { domain?: string } | undefined)?.domain;
-    if (dom) out.add(dom);
-    const sha = (e.file as { sha256?: string } | undefined)?.sha256;
-    if (sha) out.add(sha);
-    const procObj = e.process as { name?: string; hash?: { sha256?: string } } | undefined;
-    if (procObj?.name) out.add(procObj.name);
-    if (procObj?.hash?.sha256) out.add(procObj.hash.sha256);
-    // Also harvest indicators that live ONLY in the vendor-native `raw` block —
-    // the exact same fields the Threat-Intel drawer lets the analyst "Check
-    // Hash / Check IP / Check Domain" on. A SHA-256 the student pulled from
-    // cs.SHA256HashData (or Sysmon Hashes, Defender SHA256, …) is a real,
-    // observable artifact; if it isn't harvested here the report grader has no
-    // record of it and wrongly brands the student's citation "fabricated". Use
-    // the SAME recognisers the drawer uses so ground truth == what's checkable.
-    const raw = (e.raw ?? {}) as Record<string, unknown>;
-    for (const [k, v] of Object.entries(raw)) {
-      if (typeof v !== "string" || !v.trim()) continue;
-      const val = v.trim();
-      if (isSha256Field(k, val) || isIpCheckField(k, val) || isDomainCheckField(k, val)) {
-        out.add(val);
-      }
-    }
-  }
-  return Array.from(out);
-}
+// events" gate. Its ground truth is built in ./groundTruth (scoped to the active
+// incident's already-injected attack events).
 
 // ─── Source filter options ─────────────────────────────────────────────────────
 
@@ -365,26 +328,24 @@ const ANNOUNCE_GAP_MS = 10_000;
  * ONE visually hidden, polite live region for the whole dashboard (WCAG 4.1.3).
  * New feed events are summarised in batches ("3 new events, 1 high severity"),
  * at most once every ~10 s and only while the feed is streaming; changes to the
- * EDR alert badge and the Session XP chip ride along in the same throttled
- * message. Never announces every event.
+ * Session XP chip ride along in the same throttled message. Never announces every
+ * event, and never announces EDR alerts (that would announce the attack: QA-DASH-6).
  */
-function LiveAnnouncer({ events, isStreaming, edrAlertCount, sessionXp }: {
+function LiveAnnouncer({ events, isStreaming, sessionXp }: {
   events: { id: string; ruleLevel: number }[];
   isStreaming: boolean;
-  edrAlertCount: number;
   sessionXp: number;
 }) {
   const [message, setMessage] = useState("");
   const seenRef = useRef<Set<string> | null>(null);
   const pendingRef = useRef({ count: 0, high: 0 });
-  const lastEdrRef = useRef(edrAlertCount);
   const lastXpRef = useRef(sessionXp);
   const lastFlushRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const streamingRef = useRef(isStreaming);
   streamingRef.current = isStreaming;
-  const latestRef = useRef({ edrAlertCount, sessionXp });
-  latestRef.current = { edrAlertCount, sessionXp };
+  const latestRef = useRef({ sessionXp });
+  latestRef.current = { sessionXp };
 
   const flush = () => {
     timerRef.current = null;
@@ -394,11 +355,7 @@ function LiveAnnouncer({ events, isStreaming, edrAlertCount, sessionXp }: {
     if (count > 0 && streamingRef.current) {
       parts.push(`${count} new event${count > 1 ? "s" : ""}${high > 0 ? `, ${high} high severity` : ""}`);
     }
-    const { edrAlertCount: edr, sessionXp: xp } = latestRef.current;
-    if (edr !== lastEdrRef.current) {
-      if (edr > 0) parts.push(`${edr} EDR alert${edr > 1 ? "s" : ""} on the endpoint — Investigate in EDR is available`);
-      lastEdrRef.current = edr;
-    }
+    const { sessionXp: xp } = latestRef.current;
     if (xp !== lastXpRef.current) {
       if (xp > lastXpRef.current) parts.push(`Session XP ${xp} (+${xp - lastXpRef.current})`);
       lastXpRef.current = xp;
@@ -433,9 +390,9 @@ function LiveAnnouncer({ events, isStreaming, edrAlertCount, sessionXp }: {
   }, [events]);
 
   useEffect(() => {
-    if (edrAlertCount !== lastEdrRef.current || sessionXp !== lastXpRef.current) schedule();
+    if (sessionXp !== lastXpRef.current) schedule();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [edrAlertCount, sessionXp]);
+  }, [sessionXp]);
 
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
 
@@ -712,18 +669,6 @@ export default function DashboardPage() {
   );
   const selectedCompany = useMemo(() => resolveProfile(selectedCompanyId), [selectedCompanyId, orgCompanyMap]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Endpoint view of THE attack currently in the feed — built from the live
-  // story's real process telemetry. Null for pure identity/cloud attacks (no
-  // process tree), in which case "Investigate in EDR" opens the static console.
-  const liveEdrInvestigation = useMemo(
-    () => {
-      if (!sim || !sessionStory) return null;
-      try { return sim.buildInvestigationFromStory(sessionStory); }
-      catch (e) { console.error("[dashboard] EDR view build failed — static console instead:", e); return null; }
-    },
-    [sim, sessionStory],
-  );
-
   const live = useLiveEvents({
     eventPool,
     intervalMs: 90_000,   // 90s between ticks — readable pace for training
@@ -737,12 +682,24 @@ export default function DashboardPage() {
   });
   liveRef.current = live;
 
-  // Number of EDR alerts for the attack currently live in the feed. Non-zero
-  // only while a shift is running AND an endpoint attack is active — an
-  // identity/cloud attack produces no endpoint telemetry, so no EDR alerts.
-  // Drives the badge that pops next to the "Investigate in EDR" button.
-  const edrAlertCount = (live.activeIncident && liveEdrInvestigation)
-    ? liveEdrInvestigation.detections.length : 0;
+  // The story of the ACTIVE incident and its events already in the feed. The EDR
+  // case and the hints key off these, never off `sessionStory`: after a passing
+  // report the next story is armed before any of its logs appear, and the EDR /
+  // hints must not light up for it early (QA-DASH-9).
+  const incidentStory    = live.activeIncident?.story ?? null;
+  const incidentInjected = live.activeIncident?.injected ?? null;
+
+  // Endpoint view of the active incident, built ONLY from its events already
+  // injected into the feed (never a future phase). Null before the incident
+  // opens and for pure identity/cloud attacks (no process tree).
+  const liveEdrInvestigation = useMemo(
+    () => {
+      if (!sim || !incidentStory || !incidentInjected || incidentInjected.length === 0) return null;
+      try { return sim.buildInvestigationFromStory({ ...incidentStory, events: incidentInjected }); }
+      catch (e) { console.error("[dashboard] EDR view build failed — static console instead:", e); return null; }
+    },
+    [sim, incidentStory, incidentInjected],
+  );
 
   // E-09: the "contained in EDR" banner must reflect only THIS shift's hosts. A host
   // contained in a past standalone /edr practice case (FIN-WS-07, RES-SRV-02, …) is
@@ -855,6 +812,9 @@ export default function DashboardPage() {
   };
 
   const handleSelectCompany = (id: string) => {
+    // Switching company ends the running shift: save it first (QA-DASH-8; once per
+    // shift, so the save already made by an auto-advance is not repeated).
+    live.endSession();
     setSelectedCompanyId(id);
     lsSet(COMPANY_KEY, id);
     setShowCompanySelector(false);
@@ -971,6 +931,9 @@ export default function DashboardPage() {
     // below); normal starts use the currently-selected company.
     const company = companyOverride ?? selectedCompanyId;
     if (companyOverride && companyOverride !== selectedCompanyId) setSelectedCompanyId(companyOverride);
+    // A new Start (or a Reset) ends the shift that was running: save it before the
+    // hook's reset() zeroes its counters (QA-DASH-8; no-op for an idle / saved shift).
+    live.endSession();
     // Fresh session for the current company at the chosen difficulty. A new
     // attack story is picked at RANDOM within the difficulty's complexity
     // tier and kept hidden — the objective text never reveals the attack
@@ -1010,6 +973,16 @@ export default function DashboardPage() {
     countedIncidentIdsRef.current.clear();
     setCaughtInWindow(0);
     setWindowRemainingMs(null);
+    // Clean per-shift page state (QA-DASH-5): a Reset mid-shift must not keep the
+    // previous shift's report / chain board / EDR pause around.
+    setReportPassed(false);
+    setShowReportModal(false);
+    setShowChainBoard(false);
+    setPausedForReport(false);
+    setShowResumePrompt(false);
+    setInvestigatingInEdr(false);
+    if (edrPauseCapRef.current) { clearTimeout(edrPauseCapRef.current); edrPauseCapRef.current = null; }
+    prevIncidentIdRef.current = null;
     try {
       lsRemove("soc_edr_investigated");
       lsRemove("edr_live_investigation");
@@ -1021,6 +994,22 @@ export default function DashboardPage() {
     // lives only for this tab and is cleared when the shift is secured.
     try { ssSet("soc_dash_session", JSON.stringify({ c: company, d: difficulty, st: stack })); } catch { /* ignore */ }
   };
+
+  /** Reset = a clean shift: the same path as Start Training, with the current
+   *  difficulty and products (new story from phase 0, counters and report state
+   *  reset). The running shift is saved first (QA-DASH-5 / QA-DASH-8). */
+  const handleResetShift = () => {
+    if (!sessionDifficulty) return;
+    void handleStartTraining(sessionDifficulty, undefined, stackRef.current);
+  };
+
+  // QA-DASH-8: a shift with activity is saved when the tab is hidden for good or
+  // the dashboard unmounts (navigating away). endSession saves each shift once.
+  useEffect(() => {
+    const save = () => { liveRef.current?.endSession(); };
+    window.addEventListener("pagehide", save);
+    return () => { window.removeEventListener("pagehide", save); save(); };
+  }, []);
 
   // L-09: on a page refresh mid-shift, resume the session instead of dropping the
   // analyst back to an idle 0-event feed. Runs once on mount; the marker is written
@@ -1098,33 +1087,14 @@ export default function DashboardPage() {
   // used to run inline in render, i.e. on every 1-second session-clock tick.
   const reportEvidence = useMemo(() => {
     if (!showReportModal) return null;
-    // Ground truth = every GENUINE attack the student actually saw this
-    // session — the injected story PLUS any other real attack event that
-    // surfaced in the feed. Grading only off the picked story used to punish
-    // correct analysis: a student who spotted a different (but equally real)
-    // attack chain in the noise, and quoted its true IOCs, had those IOCs
-    // scored as "fabricated" because they weren't in the one picked story.
-    // FP decoys (it_verify_result / fp_explanation / expected_verdict:"fp")
-    // are excluded so they never become gradeable "attacks".
-    // A gradeable "attack" is any high/critical event that isn't a decoy — NOT
-    // just EDR detections. Requiring mitre_technique used to silently exclude
-    // AV/EDR *block* events (which carry none) and any non-EDR signal (a failed
-    // password spray, a firewall block) that a Tier-1 analyst is expected to
-    // report — so their real IOCs were scored as "fabricated". Severity + the
-    // decoy exclusions are the correct gate; technique is optional.
-    const feedAttackEvents = live.events.filter(e =>
-      (e.severity === "high" || e.severity === "critical") &&
-      !e.it_verify_result && !e.fp_explanation && e.expected_verdict !== "fp"
-    );
-    const groundTruthEvents = [...injectedStories.flatMap(s => s.events), ...feedAttackEvents];
-    const storyMitre = Array.from(new Set([
-      ...injectedStories.flatMap(s => s.mitre),
-      ...feedAttackEvents.map(e => e.mitre_technique).filter((m): m is string => !!m),
-    ]));
-    const storyTitle = injectedStories.map(s => s.title).join(" + ") || null;
-    // Indicators the grader uses to verify the student cited real evidence
-    // and to catch genuinely fabricated data (a hostname that never appears).
-    const realIndicators = extractIndicators(groundTruthEvents);
+    // Ground truth (QA-DASH-2 / QA-DASH-3) = the ACTIVE incident's attack events
+    // that are ALREADY in the feed: no future phase, no earlier story of the shift,
+    // no high-severity background noise, no baseline / decoy rows, and no plain
+    // system / browser / Office process names. Before the attack starts it is empty.
+    const inc = live.activeIncident;
+    const { realIndicators, storyTitle, storyMitre } = incidentGroundTruth(inc
+      ? { title: inc.story?.title ?? inc.title, storyMitre: inc.story?.mitre ?? [], injected: inc.injected }
+      : null);
     // Full serialized evidence (raw blocks included) so the grader's
     // fabrication check treats ANY IP/email/hash the student cites that is
     // visible in a log — including MD5/SHA1, private host IPs, and vendor-keyed
@@ -1157,8 +1127,7 @@ export default function DashboardPage() {
       return out.slice(0, 6);
     })();
     return { realIndicators, evidenceText, storyTitle, storyMitre, decoysSeen };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showReportModal, live.events, injectedStories]);
+  }, [showReportModal, live.events, live.activeIncident]);
 
   const sessionClock = `${String(Math.floor(sessionElapsed / 60)).padStart(2, "0")}:${String(sessionElapsed % 60).padStart(2, "0")}`;
   // Countdown to the oldest catch expiring — the deadline to reach the next catch.
@@ -1194,7 +1163,7 @@ export default function DashboardPage() {
       className="transition-[padding] duration-300 ease-out"
       style={{ paddingRight: showReportModal && isWideViewport ? 480 : 0 }}
     >
-      <LiveAnnouncer events={live.events} isStreaming={live.isStreaming} edrAlertCount={edrAlertCount} sessionXp={live.sessionXp} />
+      <LiveAnnouncer events={live.events} isStreaming={live.isStreaming} sessionXp={live.sessionXp} />
 
       {showWelcome && <SOCWelcomeModal onStart={handleCloseWelcome} onTakeTour={handleTakeTour} />}
 
@@ -1239,19 +1208,20 @@ export default function DashboardPage() {
               <Building2 className="h-3.5 w-3.5 text-slate-400" />
               Switch Company
             </button>
-            {/* Pivot from the SIEM feed into the EDR console — the Falcon motion
-                of alert → endpoint execution details. Present for the whole shift
-                so it's always findable; it stays MUTED/disabled until the attack
-                actually raises endpoint alerts, then lights up cyan with a
-                pulsing count badge. Opens the EDR in a new tab (SIEM + EDR side by
-                side). Only rendered while a shift is running. */}
+            {/* Pivot from the SIEM feed into the EDR console (opens in a new tab,
+                SIEM + EDR side by side). QA-DASH-6: it looks and behaves the same
+                for the whole shift: no badge, no colour change, no alert count.
+                Lighting it up when an endpoint attack started announced the attack.
+                When the active incident has endpoint telemetry already in the feed,
+                the console opens on that host's case; otherwise on its incident list. */}
             {sessionStartedAt !== null && (
               <a
-                href={edrAlertCount > 0 ? "/edr?case=live" : undefined}
+                href="/edr?case=live"
                 target="_blank"
                 rel="noopener"
                 onClick={() => {
-                  if (edrAlertCount > 0 && liveEdrInvestigation && typeof window !== "undefined") {
+                  if (typeof window === "undefined") return;
+                  if (liveEdrInvestigation) {
                     lsSet("edr_live_investigation", JSON.stringify(liveEdrInvestigation));
                     // Pause the response clock (and defer any "missed" verdict)
                     // while they investigate in EDR. Safety cap resumes it after
@@ -1259,26 +1229,15 @@ export default function DashboardPage() {
                     setInvestigatingInEdr(true);
                     if (edrPauseCapRef.current) clearTimeout(edrPauseCapRef.current);
                     edrPauseCapRef.current = setTimeout(() => setInvestigatingInEdr(false), 1_200_000);
+                  } else {
+                    try { lsRemove("edr_live_investigation"); } catch { /* ignore */ }
                   }
                 }}
-                className={cn(
-                  "relative flex items-center gap-1.5 rounded border px-2.5 py-1.5 text-xs font-semibold transition",
-                  edrAlertCount > 0
-                    ? "border-cyber-500/50 bg-cyber-500/10 text-cyber-200 hover:bg-cyber-500/20"
-                    : "cursor-not-allowed border-border bg-bg text-slate-500",
-                )}
-                aria-disabled={edrAlertCount === 0}
-                title={edrAlertCount > 0
-                  ? `${edrAlertCount} EDR alert${edrAlertCount > 1 ? "s" : ""} on the endpoint — investigate this attack (opens the EDR console)`
-                  : "No endpoint alerts yet — this lights up when the attack reaches an endpoint"}
+                className="flex items-center gap-1.5 rounded border border-cyber-500/50 bg-cyber-500/10 px-2.5 py-1.5 text-xs font-semibold text-cyber-200 transition hover:bg-cyber-500/20"
+                title="Open the EDR console in a new tab"
               >
                 <Cpu className="h-3.5 w-3.5" />
                 Investigate in EDR
-                {edrAlertCount > 0 && (
-                  <span className="absolute -top-2 -right-2 flex h-5 min-w-[1.25rem] animate-pulse items-center justify-center rounded-full bg-severity-critical px-1 text-[10px] font-bold text-white shadow ring-2 ring-bg-elevated">
-                    <span className="sr-only">, </span>{edrAlertCount}<span className="sr-only"> endpoint alert{edrAlertCount > 1 ? "s" : ""}</span>
-                  </span>
-                )}
               </a>
             )}
             {/* Report Incident — the key action, and the only place the analyst
@@ -1552,8 +1511,11 @@ export default function DashboardPage() {
             Methodology only; never reveals the IOC/verdict/technique (HintPanel). */}
         {sessionStartedAt !== null && (
           <HintPanel
-            story={sessionStory}
-            resetKey={live.activeIncident?.id ?? sessionStory?.id ?? null}
+            // Keyed to the ACTIVE incident (QA-DASH-9): before the attack's first
+            // log, and after a pass while the next story is only armed, the nudges
+            // stay story-agnostic instead of describing an attack not yet in the feed.
+            story={incidentStory}
+            resetKey={live.activeIncident?.id ?? null}
           />
         )}
 
@@ -1618,7 +1580,7 @@ export default function DashboardPage() {
                   without the Start Training dialog (the control still read "Start"). */}
               <button
                 type="button"
-                onClick={() => live.reset()}
+                onClick={handleResetShift}
                 disabled={sessionStartedAt === null}
                 className="flex items-center gap-1.5 rounded border border-border bg-bg px-2.5 py-1.5 text-xs text-slate-300 hover:bg-bg-hover disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-bg"
                 title={sessionStartedAt === null ? "Start a shift first" : "Clear and restart"}
@@ -1803,9 +1765,7 @@ export default function DashboardPage() {
 
           <SiemStats
             events={live.events}
-            attackTimerSeconds={live.attackTimerSeconds}
             avgCatchMs={live.avgCatchMs}
-            slaPaused={(showReportModal || investigatingInEdr) && live.attackTimerSeconds != null}
           />
 
           {/* The actual feed — pure investigation surface. No alert queue, no
@@ -1861,9 +1821,11 @@ export default function DashboardPage() {
             // current elapsed clock (seconds → ms). Coaching only — not graded.
             responseMs={live.lastResponseMs ?? (live.attackTimerSeconds != null ? live.attackTimerSeconds * 1000 : null)}
             responseTargetSeconds={live.responseTargetSeconds}
+            // QA-DASH-15: a pass only closes something when an incident is open and
+            // not yet credited; otherwise the modal says so instead of "unlocked".
+            creditsIncident={!!live.activeIncident && !countedIncidentIdsRef.current.has(live.activeIncident.id)}
             onClose={closeReport}
             onPassed={async (score: number) => {
-              setReportPassed(true);
               // Report filed — clear the EDR "don't forget" reminder.
               try { lsRemove("soc_edr_investigated"); } catch { /* ignore */ }
               setEdrInvestigated(false);
@@ -1877,6 +1839,8 @@ export default function DashboardPage() {
               // nothing to reward, count, or re-arm. Guards a stale re-submit from
               // re-awarding XP when the dedup key (incident.id) is absent.
               if (!incidentId) return;
+              // Only now is there something the pass actually closes (QA-DASH-15).
+              setReportPassed(true);
               if (countedIncidentIdsRef.current.has(incidentId)) return;
               countedIncidentIdsRef.current.add(incidentId);
 

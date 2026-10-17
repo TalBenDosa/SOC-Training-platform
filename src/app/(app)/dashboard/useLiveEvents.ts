@@ -41,6 +41,35 @@ export interface ActiveIncident {
   severity: "critical" | "high";
   injectedAt: number;     // Date.now()
   eventIds: string[];     // IDs of the injected attack events
+  /** The story this incident belongs to (null in engine mode). Lets the page key
+   *  the EDR case and the hints to the ACTIVE incident, never to a story that was
+   *  armed after it but has not reached the feed yet (QA-DASH-9). */
+  story: AttackStory | null;
+  /** This incident's story events ALREADY injected into the feed, in story order
+   *  (baseline context included; the grader / EDR filter as needed). Never holds a
+   *  future phase (QA-DASH-2 / QA-DASH-9). */
+  injected: TelemetryEvent[];
+}
+
+/**
+ * Event times for benign rows that land together on one tick: each row is
+ * back-dated by its source's ingestion lag, exactly like the attack phases are,
+ * so "the rows stamped right now with identical ms" no longer singles out the
+ * noise from the attack (QA-DASH-7).
+ */
+export function benignTimes(sources: string[], now: number): number[] {
+  return sources.map(s => now - ingestionDelayMs(s) - Math.floor(Math.random() * 1_000));
+}
+
+/**
+ * Backfill times for the k-th most recent of n rows on a fresh shift: an
+ * irregular (never a fixed 60s grid) cumulative offset plus a few seconds of
+ * random jitter. Gaps are >= 20s and jitter < 5s, so order is preserved.
+ */
+export function backfillTimes(n: number, now: number, rnd: () => number = Math.random): number[] {
+  const out: number[] = new Array(n);
+  for (let i = 0; i < n; i++) out[i] = now - jitteredOffset(n - 1 - i) - 2_000 - Math.floor(rnd() * 3_000);
+  return out;
 }
 
 /**
@@ -60,9 +89,10 @@ export interface MissedIncidentDebrief {
 // Display enrichment + feed helpers live in ./liveEventEnrich (no engine import —
 // the team room uses enrichEvent without pulling the simulation's answer data).
 import {
-  enrichEvent, applyUserVariant, buildRuleId, extractDomainUsers, injectAdvancedFidelityNoise, isOnceOnly, jitteredOffset, severityBase, shuffleArray,
+  enrichEvent, applyUserVariant, buildRuleId, extractDomainUsers, ingestionDelayMs, injectAdvancedFidelityNoise, isOnceOnly, jitteredOffset, severityBase, shuffleArray,
   type LiveEvent,
 } from "./liveEventEnrich";
+import { isAttackEvent } from "./groundTruth";
 export { enrichEvent };
 export type { LiveEvent };
 
@@ -226,7 +256,10 @@ export interface LiveEventsApi {
   recordEventOpened: () => void;
   attacksCaughtCount: number;
   avgCatchMs: number | null;
-  endSession: () => DashboardSessionRecord;
+  /** Persist this shift's record (read from refs, so a catch / XP award made in the
+   *  same tick is included). Saves at most once per shift, and only when the shift
+   *  had activity; returns null when nothing was saved. reset() starts a new shift. */
+  endSession: () => DashboardSessionRecord | null;
   // Attack chain reconstruction (populated after student catches an attack)
   lastAttackChain: LiveEvent[] | null;
   clearLastAttackChain: () => void;
@@ -318,10 +351,7 @@ export function useLiveEvents({
   const [fnCount,               setFnCount]              = useState(0);
   const [eventsOpenedCount,     setEventsOpenedCount]    = useState(0);
   const [attacksCaughtCount,    setAttacksCaughtCount]   = useState(0);
-  // Real denominator for detectRate: every non-FP incident that ever opened
-  // this session, whether it was ultimately caught or missed.
-  const [attacksPresentedCount, setAttacksPresentedCount] = useState(0);
-  const [avgCatchMs,           setAvgCatchMs]           = useState<number | null>(null);
+  const [avgCatchMs,          setAvgCatchMs]           = useState<number | null>(null);
   // Response time (ms) for the most recently handled incident — from attack
   // first-phase injection to the catch / passing report. Surfaced as a coaching
   // point in the incident report; never affects pass/fail or score.
@@ -330,6 +360,18 @@ export function useLiveEvents({
   /** Incident ids already counted toward attacksCaughtCount — guards markCaught
    * against double-incrementing if it's ever invoked twice for the same incident. */
   const countedIncidentIdsRef = useRef<Set<string>>(new Set());
+  // QA-DASH-8: the session counters live in refs too, updated at mutation time, so
+  // endSession() sees a catch / XP award made in the same tick (state would be stale).
+  const xpRef            = useRef(0);
+  const fnRef            = useRef(0);
+  const openedRef        = useRef(0);
+  const caughtCountRef   = useRef(0);
+  /** Real denominator for detectRate: every non-FP incident that ever opened this
+   *  shift, whether it was ultimately caught or missed. */
+  const presentedRef     = useRef(0);
+  /** One id per shift (reset() starts a new one); endSession saves each shift once. */
+  const shiftIdRef       = useRef(1);
+  const savedShiftRef    = useRef(0);
 
   const poolRef           = useRef<TelemetryEvent[]>(eventPool);
   const worldStateRef     = useRef<WorldState | null>(
@@ -337,6 +379,14 @@ export function useLiveEvents({
   );
   /** Active attack story + injection cursor (events injected in order) */
   const storyRef          = useRef<AttackStory | null>(story);
+  /** The latest story armed (kept after it fully injects) — reset() with no story
+   *  restarts it from phase 0 instead of leaving the shift with no attack (QA-DASH-5). */
+  const currentStoryRef   = useRef<AttackStory | null>(story);
+  /** The current story's events already injected (rebased), in story order. */
+  const storyInjectedRef  = useRef<TelemetryEvent[]>([]);
+  /** Has the current story opened its incident yet? It opens on the first attack
+   *  (non-baseline) event, not on warm-up context rows (QA-DASH-10). */
+  const incidentOpenedRef = useRef(false);
 
   /**
    * enrichEvent + progressive fidelity. Log fidelity is a property of the
@@ -384,6 +434,8 @@ export function useLiveEvents({
       // analyst actually reads it. No fail, no XP loss — page.tsx resumes on close.
       setMissedIncident(debrief);
       setMissedAttack(true);
+      fnRef.current += 1;                 // a missed attack is a false negative (QA-DASH-8)
+      setFnCount(fnRef.current);
       setIsStreaming(false);
     }, delay);
   }, []);
@@ -535,11 +587,13 @@ export function useLiveEvents({
                 severity: raw.some(e => e.severity === "critical") ? "critical" : "high",
                 injectedAt: now,
                 eventIds: Array.from(batchIds),
+                story: null,
+                injected: raw,
               };
               activeIncidentRef.current = incident;
               caughtRef.current = false;
               attackInjectedAtRef.current = now;
-              setAttacksPresentedCount(c => c + 1);
+              presentedRef.current += 1;
               // Response clock counts UP from 0 — an elapsed timer, not a
               // countdown. It is never a fail at any value; it only measures how
               // long the analyst took so the report can coach on pace.
@@ -583,7 +637,9 @@ export function useLiveEvents({
           newRaw.push(generatedToTelemetry(g, globalIdx.current + i));
         }
         globalIdx.current += newRaw.length;
-        const enriched = newRaw.map(e => enrichWithFidelity(withRebasedTime(e, new Date().toISOString()), globalIdx.current++));
+        // QA-DASH-7: back-date by the source's ingestion lag, like the attack phases.
+        const bt = benignTimes(newRaw.map(e => e.source), Date.now());
+        const enriched = newRaw.map((e, i) => enrichWithFidelity(withRebasedTime(e, new Date(bt[i]).toISOString()), globalIdx.current++));
         const batchIds  = new Set(enriched.map(e => e.id));
         setNewIds(batchIds);
         setEvents(prev => mergeByTime(enriched, prev, maxVisible));
@@ -597,6 +653,7 @@ export function useLiveEvents({
 
       const batchSize = Math.floor(Math.random() * 2) + 1;
       const newRaw: TelemetryEvent[] = [];
+      const tickNow = Date.now();
 
       for (let i = 0; i < batchSize; i++) {
         let chosen: TelemetryEvent | null = null;
@@ -609,7 +666,10 @@ export function useLiveEvents({
         }
         if (!chosen) chosen = nextFromDeck();
         if (!chosen) chosen = pool[Math.floor(Math.random() * pool.length)];
-        newRaw.push({ ...withRebasedTime(chosen, new Date().toISOString()), id: `${chosen.id}_${Date.now()}_${i}` });
+        // QA-DASH-7: each row back-dated by its source's ingestion lag (+ ms jitter),
+        // never "now" with identical ms across the batch.
+        const [t] = benignTimes([chosen.source], tickNow);
+        newRaw.push({ ...withRebasedTime(chosen, new Date(t).toISOString()), id: `${chosen.id}_${tickNow}_${i}` });
       }
 
       const enriched = newRaw.flatMap(ev => {
@@ -658,7 +718,6 @@ export function useLiveEvents({
     // check again shortly; resume continues the story where it stopped.
     if (!isStreamingRef.current) { armPhase(5_000); return; }
 
-    const isFirstPhase = cursor === 0;
     const n = Math.min(s.events.length - cursor, 2 + (Math.random() < 0.5 ? 1 : 0)); // 2-3 events
     const now = Date.now();
     const times = phaseTimes(n, now);
@@ -670,25 +729,40 @@ export function useLiveEvents({
       id: `atk_${e.id}_${now}_${i}`,
     }));
     storyCursorRef.current = cursor + n;
+    const storyDone = storyCursorRef.current >= s.events.length;
+    storyInjectedRef.current = [...storyInjectedRef.current, ...slice];
 
+    // Ids of this phase's ATTACK rows (and their SIEM mirrors): baseline / warm-up
+    // context rows are part of the feed but not of the incident (QA-DASH-10).
+    const attackIds: string[] = [];
     const enriched = slice.flatMap(ev => {
       const en = enrichWithFidelity(ev, globalIdx.current++);
       const m = siemMirror(en, globalIdx.current++);
-      return m ? [en, m] : [en];
+      const rows = m ? [en, m] : [en];
+      if (isAttackEvent(ev)) attackIds.push(...rows.map(r => r.id));
+      return rows;
     });
     const batchIds = new Set(enriched.map(e => e.id));
 
-    if (isFirstPhase) {
-      // Open the incident: SLA countdown + miss detection fire once per story
+    // The incident opens on the story's FIRST ATTACK event — never on a warm-up
+    // baseline row. Safety net: a story whose rows are all context still opens on
+    // its last phase, so it can never become uncatchable.
+    const opensNow = !incidentOpenedRef.current && (attackIds.length > 0 || storyDone);
+    if (opensNow) {
+      incidentOpenedRef.current = true;
+      const attackRows = slice.filter(isAttackEvent);
+      const sevRows = attackRows.length > 0 ? attackRows : slice;
+      // Open the incident: response clock + miss detection fire once per story
       const incident: ActiveIncident = {
         id: `inc_${now}`, title: s.title,
-        severity: slice.some(e => e.severity === "critical") ? "critical" : "high",
-        injectedAt: now, eventIds: Array.from(batchIds),
+        severity: sevRows.some(e => e.severity === "critical") ? "critical" : "high",
+        injectedAt: now, eventIds: attackIds.length > 0 ? attackIds : Array.from(batchIds),
+        story: s, injected: storyInjectedRef.current,
       };
       activeIncidentRef.current = incident;
       caughtRef.current = false;
       attackInjectedAtRef.current = now;
-      setAttacksPresentedCount(c => c + 1);
+      presentedRef.current += 1;
       // Response clock starts at 0 and counts UP — an elapsed timer measuring how
       // long the analyst takes to respond. It never fails or halts at any value.
       setAttackTimerSeconds(0);
@@ -702,11 +776,14 @@ export function useLiveEvents({
         setAttackTimerSeconds(prev => (prev === null ? null : prev + 1));
       }, 1000);
       setActiveIncident(incident);
-    } else if (activeIncidentRef.current) {
-      // Later phases extend the same incident (chain board sees the full story)
+    } else if (incidentOpenedRef.current && activeIncidentRef.current?.story === s) {
+      // Later phases extend the same incident (chain board sees the full story).
+      // Only THIS story's incident: a story armed after a passing report must not
+      // extend the previous one while its own warm-up rows arrive.
       activeIncidentRef.current = {
         ...activeIncidentRef.current,
-        eventIds: [...activeIncidentRef.current.eventIds, ...batchIds],
+        eventIds: [...activeIncidentRef.current.eventIds, ...attackIds],
+        injected: storyInjectedRef.current,
       };
       setActiveIncident(activeIncidentRef.current);
     }
@@ -715,13 +792,13 @@ export function useLiveEvents({
     setEvents(prev => mergeByTime(enriched, prev, maxVisible));
     setTimeout(() => setNewIds(new Set()), 2000);
 
-    if (storyCursorRef.current >= s.events.length) {
+    if (storyDone) {
       // Story fully injected. If it was never caught, schedule the POSITIVE
       // Learning-Moment debrief after a generous grace — never a fail, never a
       // permanent halt (page.tsx pauses the feed behind the modal, then resumes
       // and arms the next attack on dismiss). A passing report before the grace
       // elapses cancels it via markCaught.
-      if (!caughtRef.current) {
+      if (!caughtRef.current && activeIncidentRef.current?.story === s) {
         scheduleDebriefCheck(MISS_DEBRIEF_GRACE_MS, buildMissedDebrief(s.title, s.mitre ?? [], s.events));
       }
       storyRef.current = null;
@@ -764,7 +841,10 @@ export function useLiveEvents({
   /** Arm a new story mid-session (second attack after the first completes) */
   const startStory = useCallback((next: AttackStory, delayMs?: number) => {
     storyRef.current = next;
+    currentStoryRef.current = next;
     storyCursorRef.current = 0;
+    storyInjectedRef.current = [];
+    incidentOpenedRef.current = false;
     armPhase(delayMs ?? ATTACK_COOLDOWN());
   }, [armPhase]);
 
@@ -813,7 +893,8 @@ export function useLiveEvents({
       // Count once per incident — guards against a double-call for the same catch.
       if (!countedIncidentIdsRef.current.has(incident.id)) {
         countedIncidentIdsRef.current.add(incident.id);
-        setAttacksCaughtCount(c => c + 1);
+        caughtCountRef.current += 1;
+        setAttacksCaughtCount(caughtCountRef.current);
       }
       if (slaIntervalRef.current) { clearInterval(slaIntervalRef.current); slaIntervalRef.current = null; }
       setAttackTimerSeconds(null);
@@ -832,12 +913,16 @@ export function useLiveEvents({
     if (attackTimerRef.current) { clearTimeout(attackTimerRef.current); attackTimerRef.current = null; }
     if (missTimerRef.current)   { clearTimeout(missTimerRef.current);   missTimerRef.current   = null; }
     if (missWatchdogRef.current){ clearTimeout(missWatchdogRef.current);missWatchdogRef.current = null; }
-    // Arm the new session story (or keep the current one when omitted)
-    if (newStory !== undefined) {
-      storyRef.current = newStory;
-      storyCursorRef.current = 0;
-    }
-    if (storyRef.current) {
+    // A reset is a CLEAN shift (QA-DASH-5): the session story (the new one, or the
+    // current one when omitted, even after it fully injected) restarts from its
+    // first phase and is re-armed, so the shift always has a catchable attack.
+    const st = newStory !== undefined ? newStory : currentStoryRef.current;
+    storyRef.current = st;
+    currentStoryRef.current = st;
+    storyCursorRef.current = 0;
+    storyInjectedRef.current = [];
+    incidentOpenedRef.current = false;
+    if (st) {
       armPhase(120_000 + Math.floor(Math.random() * 60_000));
     }
     globalIdx.current = 15;
@@ -848,10 +933,16 @@ export function useLiveEvents({
     // Rebuild shuffle deck for the new pool (shuffled so initial 15 cover diverse sources)
     const srcShuffled = shuffleArray(src);
     buildDeck(srcShuffled);
-    const now = Date.now();
-    setEvents(srcShuffled.slice(0, 15).map((e, i) =>
-      enrichWithFidelity(withRebasedTime(e, new Date(now - (14 - i) * 60_000).toISOString()), i)
+    // QA-DASH-7: irregular, jittered backfill (was an exact 60s grid).
+    const backfill = srcShuffled.slice(0, 15);
+    const bf = backfillTimes(backfill.length, Date.now());
+    setEvents(backfill.map((e, i) =>
+      enrichWithFidelity(withRebasedTime(e, new Date(bf[i]).toISOString()), i)
     ).reverse());
+    // New shift: fresh counters (refs + state) and a new shift id for endSession.
+    shiftIdRef.current += 1;
+    xpRef.current = 0; fnRef.current = 0; openedRef.current = 0;
+    caughtCountRef.current = 0; presentedRef.current = 0;
     setSessionXp(0);
     setActiveIncident(null);
     setMissedAttack(false);
@@ -860,7 +951,6 @@ export function useLiveEvents({
     setFnCount(0);
     setEventsOpenedCount(0);
     setAttacksCaughtCount(0);
-    setAttacksPresentedCount(0);
     setAvgCatchMs(null);
     setLastResponseMs(null);
     setAttackTimerSeconds(null);
@@ -873,17 +963,26 @@ export function useLiveEvents({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const endSession = useCallback((): DashboardSessionRecord => {
+  const endSession = useCallback((): DashboardSessionRecord | null => {
+    // QA-DASH-8: read the live refs (state can be a render behind: the final catch
+    // and the mission bonus are awarded in the same tick as this call), save each
+    // shift once, and skip a shift with no activity at all.
+    if (savedShiftRef.current === shiftIdRef.current) return null;
+    const xp = xpRef.current, caught = caughtCountRef.current, presented = presentedRef.current;
+    const opened = openedRef.current, fn = fnRef.current;
+    if (xp === 0 && caught === 0 && presented === 0 && opened === 0 && fn === 0) return null;
+    savedShiftRef.current = shiftIdRef.current;
+    const speeds = catchSpeedMsRef.current;
     const record: DashboardSessionRecord = {
       type: "dashboard",
       date: new Date().toISOString(),
-      xpEarned: sessionXp,
-      detectRate: attacksPresentedCount > 0 ? Math.round((attacksCaughtCount / attacksPresentedCount) * 100) : 0,
-      fnCount,
-      avgCatchMs,
-      attacksCaughtCount,
-      attacksPresentedCount,
-      eventsOpenedCount,
+      xpEarned: xp,
+      detectRate: presented > 0 ? Math.round((caught / presented) * 100) : 0,
+      fnCount: fn,
+      avgCatchMs: speeds.length > 0 ? Math.round(speeds.reduce((a, b) => a + b, 0) / speeds.length) : null,
+      attacksCaughtCount: caught,
+      attacksPresentedCount: presented,
+      eventsOpenedCount: opened,
       durationMs: Date.now() - sessionStartRef.current,
     };
     // Persist through the storage facade → DB `dashboard_sessions` for signed-in
@@ -893,11 +992,12 @@ export function useLiveEvents({
     // Stage 2). The backend is SSR-safe, so no window guard is needed.
     appendDashboardSession(record, Number.MAX_SAFE_INTEGER);
     return record;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionXp, fnCount, attacksCaughtCount, attacksPresentedCount, eventsOpenedCount, avgCatchMs]);
+  }, []);
 
   const addXp = useCallback((xp: number) => {
-    if (xp !== 0) setSessionXp(x => Math.max(0, x + xp));
+    if (xp === 0) return;
+    xpRef.current = Math.max(0, xpRef.current + xp);
+    setSessionXp(xpRef.current);
   }, []);
 
   // Phase-1 telemetry (see ANALYST_TELEMETRY_PLAN.md): a simple running count
@@ -905,7 +1005,8 @@ export function useLiveEvents({
   // their verdict. Session-scoped rather than tightly bound to one incident —
   // per-incident scoping is a Phase 2 refinement.
   const recordEventOpened = useCallback(() => {
-    setEventsOpenedCount(c => c + 1);
+    openedRef.current += 1;
+    setEventsOpenedCount(openedRef.current);
   }, []);
 
   return {
