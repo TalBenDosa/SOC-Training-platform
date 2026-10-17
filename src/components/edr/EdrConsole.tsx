@@ -20,6 +20,7 @@ import {
 import { buildProcessTree, incidentScore, type EdrInvestigation, type EdrProcess } from "@/lib/edr/investigations";
 import { hashIntel, hashVerdictLabel } from "@/lib/edr/iocIntel";
 import { runRtrCommand } from "@/lib/edr/rtr";
+import { isLinuxHost } from "@/lib/edr/hostBaseline";
 import { isContained, setContained } from "@/lib/edr/containment";
 import type { TeamIsolation } from "@/lib/team/useTeamIsolation";
 
@@ -479,7 +480,7 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null }: { 
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
             <h2 className="flex items-center gap-2 text-sm font-bold text-white"><Terminal className="h-4 w-4 text-neon-green" /> Real Time Response — {inv.host.name}</h2>
             <div className="flex flex-wrap gap-1">
-              {["ps", "netstat", "reg query Run", "schtasks /query", "sc query", "wmi", "help"].map(c => (
+              {["ps", "netstat", isLinuxHost(inv.host) ? "netstat -tulpn" : "netstat -ano", "reg query Run", "schtasks /query", "sc query", "wmi", "help"].map(c => (
                 <button key={c} onClick={() => runRtr(c)} className="rounded border border-border bg-bg px-2 py-0.5 font-mono text-[10px] text-slate-400 transition hover:text-white">{c}</button>
               ))}
             </div>
@@ -496,7 +497,7 @@ function CaseConsole({ inv, onBack, embedded = false, teamIsolation = null }: { 
           </div>
           <form onSubmit={e => { e.preventDefault(); runRtr(rtrIn); setRtrIn(""); }} className="flex items-center gap-2 border-t border-border px-4 py-2.5">
             <span aria-hidden="true" className="font-mono text-[12px] text-neon-green">&gt;</span>
-            <input value={rtrIn} onChange={e => setRtrIn(e.target.value)} placeholder="ps · netstat · kill <pid> · get <path> · reg query Run · schtasks /query · sc query · wmi"
+            <input value={rtrIn} onChange={e => setRtrIn(e.target.value)} placeholder="ps · netstat [-ano] · kill <pid> · get <path> · reg query Run · schtasks /query · sc query · wmi"
               className="flex-1 bg-transparent font-mono text-[12px] text-white placeholder-slate-500 focus:outline-none" aria-label={`RTR command for ${inv.host.name}`} />
             <Button type="submit" variant="outline" size="sm">Run</Button>
           </form>

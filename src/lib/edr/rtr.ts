@@ -14,6 +14,7 @@ import {
   isLinuxHost, isServerHost, RUN_HKLM,
   type RunKeyEntry, type ServiceEntry, type TaskEntry, type WmiEntry,
 } from "./hostBaseline";
+import { netstatWithSwitches } from "./netstat";
 
 export interface RtrState {
   inv: EdrInvestigation;
@@ -28,7 +29,7 @@ export interface RtrResult {
 }
 
 export const RTR_HELP =
-  "Commands: ps · netstat · kill <pid> · get <path> · cat <path> · reg query <key> · " +
+  "Commands: ps · netstat [-ano | -tulpn] · kill <pid> · get <path> · cat <path> · reg query <key> · " +
   "schtasks /query [/v] · sc query | sc qc <name> · wmi (root\\subscription filters/consumers) · contain · clear";
 
 const CRITICAL = new Set(["system", "smss.exe", "csrss.exe", "wininit.exe", "services.exe", "lsass.exe", "winlogon.exe"]);
@@ -114,6 +115,8 @@ export function runRtrCommand(raw: string, st: RtrState): RtrResult | null {
     }
 
     case "netstat": {
+      // With switches (netstat -ano, -tulpn …): the OS's own table. Bare: the summary view.
+      if (args.length) return { out: netstatWithSwitches(inv, hostProcesses(inv, killed), killed, isolated, linux, args) };
       if (isolated) return { out: "Host network-contained — only sensor traffic allowed. No analyst-visible connections." };
       const procs = hostProcesses(inv, killed);
       const live = inv.processes.filter(p => !killed.has(p.pid));
