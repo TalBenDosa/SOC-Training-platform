@@ -55,6 +55,7 @@ import { LeadConsole } from "./_components/LeadConsole";
 import { AddMemberPanel } from "./_components/AddMemberPanel";
 import { InstructorPanel } from "./_components/InstructorPanel";
 import { RemoveMemberButton } from "./_components/RemoveMemberButton";
+import { ActionInbox } from "./_components/ActionInbox";
 import { InjectFeed } from "./_components/InjectFeed";
 import { HuntConsole } from "./_components/HuntConsole";
 import { DEConsole } from "./_components/DEConsole";
@@ -1532,6 +1533,8 @@ export default function TeamRoomPage() {
               </div>
               {/* YOUR ROLE — the dominant role panel(s), then secondary panels tabbed (G-03) */}
               <div className={`min-w-0 space-y-4 ${me.role === "lead" || me.role === "mgr" ? "order-first lg:order-none lg:sticky lg:top-16 lg:max-h-[calc(100vh-5rem)] lg:self-start lg:overflow-y-auto lg:pr-1" : ""}`}>
+                {/* Injects waiting for THIS player's answer, above the console (2026-10-18 review: none were handled). */}
+                {["t1", "t2", "t3", "de", "ti"].includes(me.role ?? "") && phase === "running" && <ActionInbox events={events} me={me} roster={roster} act={act} />}
                 {me.role === "t1" && <div data-tour="t1-console"><T1Console sessionId={id} feed={feed} dispositions={dispositions} events={events} meId={me.id} iocDraft={iocDraft} setIocDraft={setIocDraft} nameOf={nameOf} act={act} actR={actR} sel={t1Sel} setSel={setT1Sel} reportOpen={t1ReportOpen} setReportOpen={setT1ReportOpen} /></div>}
                 {/* B12: Tier-3's dominant surface is HUNTING — render it above the (secondary) inbox. */}
                 {me.role === "t3" && <div data-tour="hunt-console"><HuntConsole canEdr={canEdr} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} elevations={elevations} elevAcked={elevAcked} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={onFeedPivot} /></div>}

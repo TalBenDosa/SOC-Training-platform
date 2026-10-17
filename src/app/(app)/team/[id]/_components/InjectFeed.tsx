@@ -23,10 +23,8 @@ function injectLabel(kind: string, isStaff: boolean): string {
 
 // ── G-14: injects/announcements banner (everyone) + help-desk tickets (Tier-1) ─
 export function InjectFeed({ sessionId, events, me, nameOf, act, hasManager = true, onWriteSitrep }: { sessionId: string; events: Ev[]; me: Me; nameOf: (u: string | null) => string; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; hasManager?: boolean; onWriteSitrep?: () => void }) {
-  const [busy, setBusy] = useState<string | null>(null);
-  // T1 playtest: a ticket answer was two canned strings — the analyst can now record
-  // what they actually did (caller, verification, whether a code was shared).
-  const [details, setDetails] = useState<Record<number, string>>({});
+  // Answering moved to the Action-required box at the top of each console (2026-10-18 review);
+  // this card is the team's record: what came in, who answered, how.
   const injects = useMemo(() => events.filter(e => e.type === "staff.inject"), [events]);
   const decided = useMemo(() => new Set(events.filter(e => e.type === "decision.answered").map(e => asStr((e.payload as { inject_id?: unknown }).inject_id))), [events]);
   // Staff: map inject_id → the real (answer-key) kind. RLS lets only session staff read it.
@@ -60,6 +58,8 @@ export function InjectFeed({ sessionId, events, me, nameOf, act, hasManager = tr
   const isT1 = me.role === "t1";
   const isMgr = me.role === "mgr" || me.role === "lead";
   const sitreps = events.filter(e => e.type === "sitrep.sent");
+  const responses = events.filter(e => e.type === "inject.responded");
+  const DECISION_LABEL: Record<string, string> = { benign: "not an incident", investigate: "real, investigating", rescope: "changes our case", status: "status sent" };
   return (
     <>
     <LiveRegion message={announcement} />
@@ -68,16 +68,17 @@ export function InjectFeed({ sessionId, events, me, nameOf, act, hasManager = tr
       <h3 className="flex items-center gap-2 text-sm font-bold text-white"><Siren className="h-4 w-4 text-cyber-300" aria-hidden="true" /> Injects & help-desk</h3>
       {/* Scenario review fix 6: who acts on what was never said. */}
       <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
-        <b className="text-neon-amber">Help-desk tickets</b> are answered by <b className="text-slate-300">Tier-1</b> (right here).{" "}
-        <b className="text-neon-purple">Management requests</b> (CISO, Legal, execs) are answered by the <b className="text-slate-300">SOC Manager</b> with a SITREP.{" "}
-        <b className="text-slate-300">Updates</b> need no reply: if one changes the picture, act in your own console, escalate, re-scope or hunt.
+        <b className="text-neon-amber">Help-desk tickets</b> are answered by <b className="text-slate-300">Tier-1</b>.{" "}
+        <b className="text-neon-purple">Management requests</b> are answered by the <b className="text-slate-300">SOC Manager</b> with a SITREP{hasManager ? "" : " (no Manager on this team: Tier-2 answers them)"}.{" "}
+        <b className="text-slate-300">Updates</b> need a call from every analyst: not an incident, real, or a change to our case. Answer them in <b className="text-neon-amber">Action required</b> at the top of your console.
       </p>
       <div className="mt-2 space-y-1.5">
         {injects.slice().reverse().map(e => {
           const p = e.payload as { kind?: string; text?: string; inject_id?: string };
           const publicKind = asStr(p.kind) || "announcement";
           const kind = (me.is_staff && p.inject_id && realKind[p.inject_id]) || publicKind;
-          const isTicket = publicKind === "ticket"; const done = answered.has(String(e.seq)); const b = busy === e.seq + "";
+          const isTicket = publicKind === "ticket"; const done = answered.has(String(e.seq));
+          const myResponses = responses.filter(r => String((r.payload as { inject_seq?: unknown }).inject_seq) === String(e.seq));
           // A management request (public kind, or the real kind for staff on an
           // instructor-typed one) — answered by the first SITREP sent after it.
           // A decision card is the SOC Manager's, answered on the Command desk; the team sees who asked what.
@@ -99,27 +100,25 @@ export function InjectFeed({ sessionId, events, me, nameOf, act, hasManager = tr
           return (
             <div key={e.seq} className={`rounded-lg border px-2 py-1.5 text-xs ${isTicket ? "border-neon-amber/30 bg-neon-amber/[0.05]" : isMgmt ? "border-neon-purple/30 bg-neon-purple/[0.05]" : "border-border bg-bg"}`}>
               <p className="text-slate-200"><span className="mr-1 font-mono text-[9px] uppercase text-slate-400">{injectLabel(kind, !!me.is_staff)}</span><bdi>{asStr(p.text)}</bdi></p>
-              {isTicket && isT1 && !done && (() => { const d = (details[e.seq] ?? "").trim(); const answer = async (decision: string, base: string) => { setBusy(e.seq + ""); await act("ticket.answered", { ticket_seq: e.seq, decision, response: d ? `${base}, ${d}` : base, details: d || undefined }); setBusy(null); }; return (
-                <div className="mt-1.5 space-y-1.5">
-                  <input aria-label="What you did for this ticket (optional)" value={details[e.seq] ?? ""} onChange={ev => setDetails(m => ({ ...m, [e.seq]: ev.target.value }))} placeholder="What you did, caller / user, how you verified, was anything shared? (optional)" className="w-full rounded border border-border bg-bg px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/50 focus:outline-none" />
-                  <div className="flex flex-wrap gap-1.5">
-                    <Button variant="primary" size="sm" disabled={b} onClick={() => answer("handled", "handled the user's request as asked")}>Handle request</Button>
-                    <Button variant="outline" size="sm" disabled={b} onClick={() => answer("rejected", "refused the request and escalated to security")}>Refuse &amp; escalate to security</Button>
-                  </div>
-                </div>
-              ); })()}
               {isTicket && done && <p className="mt-0.5 text-[10px] text-neon-green">✓ answered by Tier-1</p>}
-              {isTicket && !done && !isT1 && <p className="mt-0.5 text-[10px] text-neon-amber">Waiting for Tier-1 to answer it.</p>}
-              {isMgmt && reply && <p className="mt-0.5 text-[10px] text-neon-green">✓ SITREP sent by <bdi>{nameOf(reply.actor_id)}</bdi></p>}
+              {isTicket && !done && <p className="mt-0.5 text-[10px] text-neon-amber">{isT1 ? "Waiting for your answer in Action required." : "Waiting for Tier-1 to answer it."}</p>}
+              {myResponses.length > 0 && (
+                <ul className="mt-0.5 space-y-0.5">
+                  {myResponses.map(r => { const rp = r.payload as { decision?: unknown; note?: unknown }; return (
+                    <li key={r.seq} className="text-[10px] text-slate-400"><bdi className="text-slate-300">{nameOf(r.actor_id)}</bdi>: {DECISION_LABEL[asStr(rp.decision)] ?? asStr(rp.decision)}{asStr(rp.note) && <> · <bdi>{asStr(rp.note)}</bdi></>}</li>
+                  ); })}
+                </ul>
+              )}
+              {isMgmt && (reply || myResponses.length > 0) && <p className="mt-0.5 text-[10px] text-neon-green">✓ {reply ? <>SITREP sent by <bdi>{nameOf(reply.actor_id)}</bdi></> : "status sent"}</p>}
               {isMgmt && !reply && isMgr && (
                 <div className="mt-1.5 flex flex-wrap items-center gap-2">
                   <span className="text-[10px] text-neon-purple">Yours to answer, send a SITREP within ~15 min.</span>
                   <Button variant="outline" size="sm" onClick={() => (onWriteSitrep ? onWriteSitrep() : document.getElementById("team-sitrep")?.scrollIntoView({ behavior: "smooth", block: "center" }))}>Write SITREP</Button>
                 </div>
               )}
-              {isMgmt && !reply && !isMgr && (
+              {isMgmt && !reply && !myResponses.length && !isMgr && (
                 <p className="mt-0.5 text-[10px] text-neon-purple">
-                  {hasManager ? "Waiting for the SOC Manager's SITREP, keep the case notes current so they can report accurately." : "No SOC Manager on this team, so nobody can answer this, ask the instructor to assign one."}
+                  {hasManager ? "Waiting for the SOC Manager's SITREP, keep the case notes current so they can report accurately." : "No SOC Manager on this team: Tier-2 answers it from Action required."}
                 </p>
               )}
             </div>

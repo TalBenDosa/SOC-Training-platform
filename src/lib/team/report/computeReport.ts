@@ -175,7 +175,7 @@ export interface InjectResult {
   evaluable: boolean; note?: string;
 }
 
-const ROLE_ACTION_TYPES = new Set(["hunt.logged", "rule.published", "rule.tuned", "intel.published", "handover.noted", "decision.logged", "evidence.pinned", "case.status_set", "case.assigned", "note.added", "containment.executed", "scope.set", "scope.confirmed", "sitrep.sent", "ticket.answered", "escalation.resolved", "elevation.requested", "report.submitted", "decision.answered", "incident.declared", "incident.severity_changed", "stakeholder.replied", "stakeholder.report_sent", "containment.advised"]);
+const ROLE_ACTION_TYPES = new Set(["inject.responded", "hunt.logged", "rule.published", "rule.tuned", "intel.published", "handover.noted", "decision.logged", "evidence.pinned", "case.status_set", "case.assigned", "note.added", "containment.executed", "scope.set", "scope.confirmed", "sitrep.sent", "ticket.answered", "escalation.resolved", "elevation.requested", "report.submitted", "decision.answered", "incident.declared", "incident.severity_changed", "stakeholder.replied", "stakeholder.report_sent", "containment.advised"]);
 
 // ── small helpers ──────────────────────────────────────────────────────────────
 const eidOf = (e: Ev) => { const v = (e.payload as { event_id?: unknown } | null)?.event_id; return v == null ? "" : String(v); };
@@ -1136,11 +1136,15 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
     const at = tsOf(e); if (sig !== prevSig && at != null) scopeChanges.push(at);
     prevSig = sig;
   }
-  const RESPONSE_TYPES = new Set(["escalation.requested", "elevation.requested", "hunt.logged", "report.submitted", "containment.requested", "note.added", "scope.set", "scope.confirmed", "case.status_set", "intel.published", "decision.logged", "sitrep.sent", "evidence.pinned"]);
+  const RESPONSE_TYPES = new Set(["inject.responded", "escalation.requested", "elevation.requested", "hunt.logged", "report.submitted", "containment.requested", "note.added", "scope.set", "scope.confirmed", "case.status_set", "intel.published", "decision.logged", "sitrep.sent", "evidence.pinned"]);
   const NOT_EVALUABLE = "not evaluable — no supporting telemetry for it in the feed";
   // A role must exist to own a management inject — with no SOC Manager / Lead / Tier-3 in the room,
   // a CISO/Legal/Exec SITREP request is skipped, not counted missed (diagnostic P1).
-  const hasSenior = players.some(p => ["mgr", "lead", "ti", "t3"].includes(p.role));
+  // 2026-10-18: with no SOC Manager, Tier-2 owns a management request (Action-required box), so it is scored.
+  const hasSenior = players.some(p => ["mgr", "lead", "ti", "t3", "t2"].includes(p.role));
+  // Written answers to an inject (Action-required box, 0098): { inject_seq, decision, note }.
+  const responsesTo = (seq: number) => events.filter(x => x.type === "inject.responded" && Number((x.payload as { inject_seq?: unknown }).inject_seq) === seq)
+    .map(x => ({ decision: asStr((x.payload as { decision?: unknown }).decision), ts: tsOf(x), actor: x.actor_id ?? "" }));
   // Decision cards (kind "decision") are the SOC Manager's and are graded in the Command Review.
   const injectResults: InjectResult[] = events.filter(e => e.type === "staff.inject" && asStr((e.payload as { kind?: unknown }).kind) !== "decision").map(e => {
     const p = e.payload as { id?: string; original_id?: string; kind?: string; text?: string; expected_response?: string; linked_objective?: string };
@@ -1153,17 +1157,23 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
     const sup = supportsByKey.get(key) ?? (key ? supportsByKey.get(`msel_${kind}`) : undefined) ?? [];
     const supSet = new Set(sup);
     if (kind === "false_lead") {
-      if (!sup.length) return { ...base, decoy: true, scored: false, handled: false, evaluable: false, note: NOT_EVALUABLE };
-      const chased = escReq.some(x => supSet.has(eidOf(x)));
-      // Handling a decoy is an EXPLICIT call, not silence: the team must disposition its telemetry
-      // benign / FP (or answer the inject) AND not escalate it. Doing nothing is not "handled".
+      const resp = responsesTo(e.seq);
+      if (!sup.length && !resp.length) return { ...base, decoy: true, scored: false, handled: false, evaluable: false, note: NOT_EVALUABLE };
+      // Answering "real" / "changes our case" to a decoy is chasing it, like escalating its telemetry.
+      const callsBenign = resp.filter(r => r.decision === "benign").length, callsReal = resp.length - callsBenign;
+      const chased = escReq.some(x => supSet.has(eidOf(x))) || callsReal > callsBenign;
+      // Handling a decoy is an EXPLICIT call, not silence: the team must answer it "not an incident"
+      // (or disposition its telemetry benign / FP) AND not escalate it. Doing nothing is not "handled".
       const dispositionedBenign = dispEvents.some(x => supSet.has(eidOf(x)) && ["benign", "false_positive"].includes(verdictOf(x)));
-      const answered = at != null && sitrepAts.some(t => t >= at && runMs(at, t) <= INJECT_WINDOW);
+      const answered = callsBenign > 0 || (at != null && sitrepAts.some(t => t >= at && runMs(at, t) <= INJECT_WINDOW));
       const acted = dispositionedBenign || answered;
       return { ...base, decoy: true, scored: true, handled: acted && !chased,
-        note: chased ? "the team escalated the decoy's benign telemetry (over-escalation)" : acted ? "the team identified it as benign" : "no explicit call — the decoy was neither dispositioned benign nor answered" };
+        note: chased ? "the team treated the decoy as real (over-escalation)" : acted ? "the team identified it as benign" : "no explicit call — the decoy was neither answered nor dispositioned benign" };
     }
     if (kind === "twist") {
+      // A written answer that takes the new telemetry seriously handles the twist.
+      const took = responsesTo(e.seq).some(r => r.decision === "rescope" || r.decision === "investigate");
+      if (took) return { ...base, scored: true, handled: true, note: "answered as a change to the case" };
       if (!sup.length) return { ...base, scored: false, handled: false, evaluable: false, note: NOT_EVALUABLE };
       const tokens = [...new Set(sup.flatMap(id => [...truth.get(id)!.tokens]))].filter(k => !isCommon(k));
       const supTimes = sup.map(id => truth.get(id)!.ts).filter((x): x is number => x != null);
@@ -1187,8 +1197,8 @@ export function computeReport(rawEvents: Ev[], roster: RosterMember[], opts: { s
       return { ...base, scored: true, handled: tk.correct && onTime, note: !tk.correct ? `answered "${tk.decision}" — the wrong call` : onTime ? `answered "${tk.decision}" — the right call` : "answered after the 15-min window" };
     }
     if (kind === "mgmt_pressure" && !hasSenior) return { ...base, scored: false, handled: false, evaluable: false, note: "no SOC Manager / senior in the team to own this — skipped" };
-    let handled = false;
-    if (at != null) { const idx = sitrepAts.findIndex((t, i) => !usedS.has(i) && t >= at && runMs(at, t) <= INJECT_WINDOW); if (idx !== -1) { usedS.add(idx); handled = true; } }
+    let handled = at != null && responsesTo(e.seq).some(r => r.decision === "status" && r.ts != null && runMs(at, r.ts) <= INJECT_WINDOW);
+    if (!handled && at != null) { const idx = sitrepAts.findIndex((t, i) => !usedS.has(i) && t >= at && runMs(at, t) <= INJECT_WINDOW); if (idx !== -1) { usedS.add(idx); handled = true; } }
     return { ...base, scored: true, handled };
   });
   const scoredInjects = injectResults.filter(i => i.scored);

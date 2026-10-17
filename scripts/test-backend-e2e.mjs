@@ -376,6 +376,17 @@ let genErr = null; try { await signup("generic-victim@x.io", { invitation_token:
 check("0029: generic (email-less) student invite is refused", /student_invite_requires_code/.test(genErr ?? ""), genErr ?? "signup succeeded");
 
 // ── 0097 (QA-TEAM-1/6): Team SOC escalation rounds ───────────────────────────
+// ── 0098: a written answer to an inject (Action-required box) ─────────────────
+group("0098 — Team SOC: inject.responded is a player action while running");
+{
+  const allowed = async (type, role, status) => (await one(`select public.session_action_allowed($1,$2,$3) as ok`, [type, role, status])).ok;
+  check("0098: Tier-2 may answer an inject while running", await allowed("inject.responded", "t2", "running") === true);
+  check("0098: Tier-1 may answer an inject while running", await allowed("inject.responded", "t1", "running") === true);
+  check("0098: not in the lobby", await allowed("inject.responded", "t2", "lobby") === false);
+  check("0098: the instructor seat does not answer injects", await allowed("inject.responded", "instructor", "running") === false);
+  check("0098: earlier rules unchanged (ticket.answered stays Tier-1)", await allowed("ticket.answered", "t1", "running") === true && await allowed("ticket.answered", "t2", "running") === false);
+}
+
 group("0097 — Team SOC: a re-escalated case can be resolved; a closed round takes no more work");
 {
   const ts = (await one(`insert into public.team_sessions (org_id, company_id, status) values ($1, 'nexacorp', 'running') returning id`, [INTERNAL])).id;
