@@ -685,6 +685,13 @@ export default function TeamRoomPage() {
   }, [v2, phase, instructor, onlineSig, me, roster, id, paused, pausedReason]);
 
   const feed = useMemo(() => events.filter(e => e.type === "feed.event"), [events]);
+  // A player's seat and last action (Tier-2/3 takeover rule).
+  const personOf = useMemo(() => {
+    const role = new Map(roster.map(m => [m.user_id, m.role]));
+    const last = new Map<string, number>();
+    for (const e of events) if (e.actor_id && e.type !== "event.opened" && e.occurred_at) last.set(e.actor_id, Date.parse(e.occurred_at));
+    return (u: string) => ({ role: role.get(u) ?? null, lastActMs: last.get(u) ?? null });
+  }, [roster, events]);
   // Help-desk tickets nobody has answered yet (Tier-1's to answer — fix 6).
   const openTickets = useMemo(() => {
     const answered = new Set(events.filter(e => e.type === "ticket.answered").map(e => String((e.payload as { ticket_seq?: unknown }).ticket_seq)));
@@ -1542,8 +1549,8 @@ export default function TeamRoomPage() {
                 {["t1", "t2", "t3", "de", "ti"].includes(me.role ?? "") && phase === "running" && <ActionInbox events={events} me={me} roster={roster} act={act} />}
                 {me.role === "t1" && <div data-tour="t1-console"><T1Console sessionId={id} feed={feed} dispositions={dispositions} events={events} meId={me.id} iocDraft={iocDraft} setIocDraft={setIocDraft} nameOf={nameOf} act={act} actR={actR} sel={t1Sel} setSel={setT1Sel} reportOpen={t1ReportOpen} setReportOpen={setT1ReportOpen} /></div>}
                 {/* B12: Tier-3's dominant surface is HUNTING — render it above the (secondary) inbox. */}
-                {me.role === "t3" && <div data-tour="hunt-console"><HuntConsole canEdr={canEdr} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} elevations={elevations} elevAcked={elevAcked} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={onFeedPivot} /></div>}
-                {(me.role === "t2" || me.role === "t3") && <div data-tour="t2-console"><T2Console canEdr={canEdr} sessionId={id} role={me.role} meId={me.id} escalations={escalations} escState={escStates} reportedIds={reportedIds} reportByEid={reportByEid} elevatedIds={elevatedIds} containments={containments} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} nameOf={nameOf} act={act} actR={actR} onEdr={openEdr} onPivot={onFeedPivot} pauses={pauseSpans} /></div>}
+                {me.role === "t3" && <div data-tour="hunt-console"><HuntConsole platforms={session?.env?.platforms ?? []} canEdr={canEdr} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} elevations={elevations} elevAcked={elevAcked} nameOf={nameOf} act={act} onEdr={openEdr} onPivot={onFeedPivot} /></div>}
+                {(me.role === "t2" || me.role === "t3") && <div data-tour="t2-console"><T2Console personOf={personOf} canEdr={canEdr} sessionId={id} role={me.role} meId={me.id} escalations={escalations} escState={escStates} reportedIds={reportedIds} reportByEid={reportByEid} elevatedIds={elevatedIds} containments={containments} scope={scopeState} scopes={scopes} incidents={incidents} incidentOf={incidentOf} nameOf={nameOf} act={act} actR={actR} onEdr={openEdr} onPivot={onFeedPivot} pauses={pauseSpans} /></div>}
                 {/* SOC Manager now holds the coordinator authority (approve containment,
                     decision log, SITREP) as well as shift management. 'lead'/'de' branches
                     stay for backward-compatibility with older sessions; 'ti' is a live seat. */}

@@ -253,11 +253,17 @@ export function computeManagerReview(ctx: ReviewCtx): ManagerReview | null {
   });
 
   // ── Pillar A: team & incident ───────────────────────────────────────────────
-  const declCell: CommandCell = firstAttackEscTs == null ? { label: "Incident declared on time", score: null, note: "no real attack was escalated, nothing to declare" }
+  // 2026-10-18 review: a manager declared Sev-1 on a Tier-1 escalation Tier-2 had not looked at yet;
+  // it was a false alarm, and the declaration still scored "on time" / "severity matched".
+  const declaredOnFalseAlarm = declTs != null && (firstAttackEscTs == null || declTs < firstAttackEscTs);
+  const declCell: CommandCell = declaredOnFalseAlarm
+    ? { label: "Incident declared on time", score: 2, note: "declared before any real attack had been escalated: the escalation behind it was a false alarm. Wait for Tier-2 to confirm before declaring" }
+    : firstAttackEscTs == null ? { label: "Incident declared on time", score: null, note: "no real attack was escalated, nothing to declare" }
     : declTs == null ? { label: "Incident declared on time", score: 0, note: "the incident was never declared" }
       : (() => { const m = Math.max(0, runMs(firstAttackEscTs, declTs) / 60000); return { label: "Incident declared on time", score: bandLow(m, 3, 6, 10), note: `${Math.round(m * 10) / 10} min after the first real escalation (12 = within 3 min)` }; })();
   const sevCell: CommandCell = (() => {
     const label = "Severity accuracy";
+    if (declaredOnFalseAlarm && finalSeverity != null) return { label, score: 0, note: `you set Sev-${finalSeverity} on a false alarm, before any real attack was escalated` };
     if (truthSeverity == null || finalSeverity == null) return { label, score: null };
     const diff = finalSeverity - truthSeverity;                                       // >0 = declared less severe than reality
     const score = diff === 0 ? 12 : diff === -1 ? 8 : diff === 1 ? 4 : diff >= 2 ? 0 : 4;
@@ -317,6 +323,7 @@ export function computeManagerReview(ctx: ReviewCtx): ManagerReview | null {
       if (g > 10 * 60000) gaps.push(i === 1 ? `${mins(g)} min from the first escalation to the first SITREP` : i === points.length - 1 ? `${mins(g)} min without a SITREP at the end of the shift` : `${mins(g)} min between two SITREPs`);
     }
   }
+  if (declaredOnFalseAlarm) gaps.unshift("declared the incident on an escalation Tier-2 had not confirmed, and it was a false alarm");
   if (declTs != null && firstAttackEscTs != null && runMs(firstAttackEscTs, declTs) > 6 * 60000) gaps.unshift(`declared ${mins(runMs(firstAttackEscTs, declTs))} min after the first real escalation`);
   const cadenceCell: CommandCell = firstAttackEscTs == null ? { label: "SITREP cadence", score: null }
     : !sitTs.length ? { label: "SITREP cadence", score: 0, note: "no SITREP during a live incident" }

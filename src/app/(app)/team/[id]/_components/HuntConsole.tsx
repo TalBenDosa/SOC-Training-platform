@@ -10,14 +10,17 @@ import { asStr } from "@/lib/team/format";
 import type { ScopeSnapshot } from "@/lib/team/projections";
 import { enrichSnapshot } from "./shared";
 import { ScopeConsole } from "./ScopeConsole";
+import { huntProblems, starterHypotheses } from "@/lib/team/huntQuality";
 
 // ── T3 threat-hunt console ───────────────────────────────────────────────────
-export function HuntConsole({ canEdr, scope, scopes, incidents = [], incidentOf, elevations, elevAcked, nameOf, act, onEdr, onPivot }: {
+export function HuntConsole({ canEdr, scope, scopes, incidents = [], incidentOf, elevations, elevAcked, nameOf, act, onEdr, onPivot, platforms = [] }: {
   scope: ScopeState; scopes?: Map<string, ScopeSnapshot>; incidents?: string[]; incidentOf?: Map<string, string>;
   elevations: Ev[]; elevAcked: Set<string>; nameOf: (u: string | null) => string;
   act: (t: string, p: Record<string, unknown>) => Promise<boolean>; onEdr?: (description?: string, host?: string) => void;
   canEdr?: (host?: string) => boolean;
   onPivot?: (field: "user" | "host" | "ip", value: string) => void;
+  /** Platforms the organization runs: tailors the starter hypotheses. */
+  platforms?: string[];
 }) {
   // event_id = the elevation this hunt answers (T3 playtest: hunts weren't linked to the
   // hand-off); incident = the optional incident label so findings group per incident.
@@ -26,8 +29,11 @@ export function HuntConsole({ canEdr, scope, scopes, incidents = [], incidentOf,
   const [busyElev, setBusyElev] = useState<string | null>(null);
   const [openElev, setOpenElev] = useState<number | null>(null);
   const [threatQuery, setThreatQuery] = useState<ThreatQuery | null>(null); // A3: live threat-intel enrichment
+  // 2026-10-18 review: one hunt in four exercises, and it was a message to a user.
+  const problems = huntProblems(f);
+  const starters = starterHypotheses(platforms);
   async function log() {
-    if (!f.hypothesis.trim()) return;
+    if (problems.length) return;
     const { event_id, incident, ...rest } = f;
     setBusy(true); const ok = await act("hunt.logged", { ...rest, event_id: event_id || undefined, incident: incident.trim() || undefined }); setBusy(false);
     if (ok) setF(s => ({ hypothesis: "", finding: "", technique: "", conclusion: "confirmed", event_id: s.event_id, incident: s.incident }));
@@ -82,7 +88,14 @@ export function HuntConsole({ canEdr, scope, scopes, incidents = [], incidentOf,
           <h3 className="flex items-center gap-2 text-sm font-bold text-white"><ShieldAlert className="h-4 w-4 text-cyber-300" /> Threat hunt (Tier-3)</h3>
           {onEdr && (canEdr?.() ?? true) && <Button variant="outline" size="sm" onClick={() => onEdr()}><Search className="mr-1 h-3.5 w-3.5" /> Investigate in EDR</Button>}
         </div>
-        <p className="mt-1 text-[11px] text-slate-400">Beyond the queue: form a hypothesis, hunt the feed, record what you found.</p>
+        <p className="mt-1 text-[11px] text-slate-400">Beyond the queue: form a hypothesis, hunt the feed, record what you found. Don&apos;t wait for an elevation: start from one of these.</p>
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {starters.map(st => (
+            <button key={st.hypothesis} type="button" onClick={() => setF(s => ({ ...s, hypothesis: st.hypothesis, technique: s.technique || st.technique }))}
+              className="rounded border border-border bg-bg px-1.5 py-0.5 text-left text-[10px] text-slate-300 hover:border-cyber-500/50 hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyber-400/60"
+              title={`${st.technique}: start a hunt from this hypothesis`}>{st.hypothesis}</button>
+          ))}
+        </div>
         <div className="mt-2 space-y-2">
           {/* Link the finding to the elevation it answers + an optional incident label */}
           <div className="flex gap-1.5">
@@ -104,7 +117,8 @@ export function HuntConsole({ canEdr, scope, scopes, incidents = [], incidentOf,
             </select>
           </div>
           <p className="text-[10px] text-slate-500">Scored on substance: a hypothesis that names real entities, a finding that cites the evidence, a valid in-case technique, and a clear conclusion — a disproved (refuted) hypothesis with evidence counts fully. Findings land in the Shared Case for the whole team.</p>
-          <Button variant="primary" size="sm" disabled={busy || !f.hypothesis.trim()} onClick={log}>Log hunt finding</Button>
+          {problems.length > 0 && (f.hypothesis.trim() || f.finding.trim()) && <p className="text-[10px] text-neon-amber">{problems[0]}</p>}
+          <Button variant="primary" size="sm" disabled={busy || problems.length > 0} onClick={log}>Log hunt finding</Button>
         </div>
       </Card>
       {/* G-10: Tier-3 owns the FINAL scope — confirm or amend what Tier-2 proposed */}

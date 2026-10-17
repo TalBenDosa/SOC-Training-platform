@@ -10,6 +10,7 @@ import { CheckCircle2, ShieldCheck, ArrowUpRight, Check, ShieldAlert, Siren, Che
 import type { Ev, Ioc, ScopeState } from "@/lib/team/types";
 import { asStr, type ActR } from "@/lib/team/format";
 import type { ContainmentRequest, EscalationState, ScopeSnapshot } from "@/lib/team/projections";
+import { takeoverAllowed } from "@/lib/team/projections";
 import { enrichSnapshot, slaMinFor } from "./shared";
 import { ScopeConsole } from "./ScopeConsole";
 import { useServerNow } from "@/lib/team/clock";
@@ -24,7 +25,7 @@ export const CONTAINMENT_TYPES: [string, string][] = [["isolate_host", "Isolate 
 export const containmentVerb = (t?: string) => (t === "disable_account" ? "Disable" : t === "block_indicator" ? "Block" : "Isolate");
 const EMPTY_REP = { summary: "", findings: "", verdict: "true_positive", recommendation: "", incident: "" };
 
-export function T2Console({ canEdr, sessionId, role, meId, escalations, escState, reportedIds, reportByEid, elevatedIds, containments, scope, scopes, incidents, incidentOf, nameOf, act, actR, onEdr, onPivot, pauses = [] }: {
+export function T2Console({ canEdr, sessionId, role, meId, escalations, escState, reportedIds, reportByEid, elevatedIds, containments, scope, scopes, incidents, incidentOf, nameOf, act, actR, onEdr, onPivot, pauses = [], personOf }: {
   sessionId: string; role: string; meId: string;
   /** The CURRENT round of every escalated log (one row per log). */
   escalations: Ev[]; escState: Map<string, EscalationState>;
@@ -37,6 +38,8 @@ export function T2Console({ canEdr, sessionId, role, meId, escalations, escState
   onPivot?: (field: "user" | "host" | "ip", value: string) => void;
   /** Paused spans of the session (pausedSpans) — waits and SLA badges skip them. */
   pauses?: PauseSpan[];
+  /** A case owner's seat and last action (takeover rule). */
+  personOf?: (userId: string) => { role: string | null; lastActMs: number | null };
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [openLog, setOpenLog] = useState<number | null>(null); // which escalation's full log is expanded
@@ -218,7 +221,12 @@ export function T2Console({ canEdr, sessionId, role, meId, escalations, escState
                     <div className="mt-1 rounded border border-neon-amber/30 bg-neon-amber/[0.06] px-2 py-1 text-[11px]">
                       <div className="flex items-center gap-2">
                         <span className="text-neon-amber">🔒 handled by {st?.owner ? nameOf(st.owner) : "another analyst"}</span>
-                        {confirmTake !== eid && <Button variant="outline" size="sm" className="ml-auto" disabled={b} onClick={() => setConfirmTake(eid)}>Take over (backup)</Button>}
+                        {(() => {
+                          const owner = st?.owner ? personOf?.(st.owner) : undefined;
+                          const rule = takeoverAllowed({ myRole: role, ownerRole: owner?.role ?? null, elevated: elevatedIds.has(eid), ownerIdleMs: owner?.lastActMs != null ? now - owner.lastActMs : null });
+                          if (!rule.ok) return <span className="ml-auto text-[10px] text-slate-400">{rule.reason}</span>;
+                          return confirmTake !== eid && <Button variant="outline" size="sm" className="ml-auto" disabled={b} onClick={() => setConfirmTake(eid)}>Take over (backup)</Button>;
+                        })()}
                       </div>
                       {confirmTake === eid && (
                         <div className="mt-1 flex flex-wrap items-center gap-1.5">

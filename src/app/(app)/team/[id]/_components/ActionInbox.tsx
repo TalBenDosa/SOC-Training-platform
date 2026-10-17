@@ -8,8 +8,9 @@ import { actionInbox, UPDATE_DECISIONS, MIN_RESPONSE_CHARS, type InboxItem } fro
 
 // ── Action required: the injects waiting for THIS player's answer, at the top of the console ──
 // 2026-10-18 review: no ticket, decoy or management request was handled in four exercises.
-const TITLE: Record<InboxItem["kind"], string> = { ticket: "Help-desk ticket", update: "Update", mgmt: "Management request" };
+const TITLE: Record<InboxItem["kind"], string> = { ticket: "Help-desk ticket", update: "Update", mgmt: "Management request", elevation: "Elevation from Tier-2" };
 const ASK: Record<InboxItem["kind"], string> = {
+  elevation: "",
   ticket: "What did you do, how did you verify the caller, and was anything shared?",
   update: "What did you check, and what does it mean for us?",
   mgmt: "Your status update: what we know, what is contained, what happens next.",
@@ -36,6 +37,17 @@ export function ActionInbox({ events, me, roster, act }: { events: Ev[]; me: Me;
       </h3>
       <ul className="mt-2 space-y-2">
         {items.map(it => {
+          if (it.kind === "elevation") return (
+            <li key={`elev-${it.seq}`} className="rounded-lg border border-border bg-bg px-2.5 py-2 text-xs">
+              <p className="text-slate-200"><span className="mr-1 font-mono text-[9px] uppercase text-neon-amber">{TITLE.elevation}</span><bdi>{it.text}</bdi></p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                {!it.taken
+                  ? <Button size="sm" variant="primary" disabled={busy === it.seq} onClick={() => send(it, "elevation.acknowledged", { event_id: it.eventId })}>Take the hunt</Button>
+                  : <span className="text-[10px] text-slate-400">Taken. Record a hunt finding linked to it in Threat hunt below.</span>}
+                <Button size="sm" variant="outline" onClick={() => document.querySelector("[data-tour=hunt-console]")?.scrollIntoView({ behavior: "smooth", block: "start" })}>Go to Threat hunt</Button>
+              </div>
+            </li>
+          );
           const note = (notes[it.seq] ?? "").trim();
           const short = note.length < MIN_RESPONSE_CHARS;
           const id = `inbox-note-${it.seq}`;

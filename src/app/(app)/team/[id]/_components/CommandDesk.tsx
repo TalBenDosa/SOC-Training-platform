@@ -8,6 +8,7 @@ import type { Ev } from "@/lib/team/types";
 import { asStr } from "@/lib/team/format";
 import { useServerNow } from "@/lib/team/clock";
 import { requestPhase, LATE_GRACE_S } from "@/lib/team/manager/timing";
+import { confirmedAt } from "@/lib/team/manager/state";
 import { ChoiceGroup } from "./ChoiceGroup";
 
 /**
@@ -93,7 +94,7 @@ export function CommandDesk({ sessionId, events, act, running, onOpenEscalations
     <div data-command-desk className="scroll-mt-24">
     <Card className="border-neon-purple/40">
       <h3 className="flex items-center gap-2 text-sm font-bold text-white"><Gavel className="h-4 w-4 text-neon-purple" aria-hidden /> Command desk</h3>
-      <div data-tour="desk-incident"><IncidentControl declared={!!declared} severity={severity} act={act} /></div>
+      <div data-tour="desk-incident"><IncidentControl declared={!!declared} severity={severity} act={act} confirmed={confirmedAt(events) != null} /></div>
       {fb && cards.length > 0 && <div data-tour="desk-impact"><IndicatorStrip ind={fb.indicators} /></div>}
       <div className="mt-3 space-y-2">
         {open.length === 0 && past.length === 0 && (
@@ -107,12 +108,17 @@ export function CommandDesk({ sessionId, events, act, running, onOpenEscalations
   );
 }
 
-function IncidentControl({ declared, severity, act }: { declared: boolean; severity: number | null; act: (t: string, p: Record<string, unknown>) => Promise<boolean> }) {
+function IncidentControl({ declared, severity, act, confirmed }: { declared: boolean; severity: number | null; act: (t: string, p: Record<string, unknown>) => Promise<boolean>; confirmed: boolean }) {
   const [sev, setSev] = useState<number | null>(null);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [changing, setChanging] = useState(false);
-  async function declare() { if (sev == null) return; setBusy(true); await act("incident.declared", { severity: sev }); setBusy(false); }
+  // 2026-10-18 review: Sev-1 was declared on a Tier-1 escalation Tier-2 had not looked at (a false alarm).
+  async function declare() {
+    if (sev == null) return;
+    if (!confirmed && !confirm("Tier-2 / Tier-3 haven't confirmed any escalation yet (no attack report, elevation or containment request). Declare anyway?")) return;
+    setBusy(true); await act("incident.declared", { severity: sev }); setBusy(false);
+  }
   async function change() {
     if (!reason.trim() || sev == null || sev === severity) return;
     setBusy(true); const ok = await act("incident.severity_changed", { severity: sev, reason: reason.trim() }); setBusy(false);
@@ -121,7 +127,8 @@ function IncidentControl({ declared, severity, act }: { declared: boolean; sever
   const pick = <ChoiceGroup legend="Severity" options={SEVERITY.map(s => ({ value: s.v, label: s.label, hint: s.hint }))} value={sev} onChange={setSev} />;
   if (!declared) return (
     <div className="mt-2 space-y-1.5 rounded-lg border border-border bg-bg px-2.5 py-2">
-      <p className="text-[11px] text-slate-300">Not declared. Declare when the first real escalation lands; you can change the severity later.</p>
+      <p className="text-[11px] text-slate-300">Not declared. Declare once Tier-2 / Tier-3 confirm an escalation is real; you can change the severity later.</p>
+      {!confirmed && <p className="text-[10px] text-slate-500">Nothing confirmed by Tier-2 / Tier-3 yet.</p>}
       {pick}
       <p className="text-[11px] text-slate-400">{sev == null ? "Pick the severity that matches the impact." : SEVERITY.find(s => s.v === sev)?.hint}</p>
       <Button variant="primary" size="sm" disabled={busy || sev == null} onClick={declare}><Megaphone className="mr-1 h-3.5 w-3.5" aria-hidden /> Declare incident</Button>
@@ -175,8 +182,11 @@ function OpenCard({ e, p, now, act, onDone, onOpenEscalations }: { e: Ev; p: Car
   const late = now > deadline;
   const left = late ? Math.max(0, Math.round((deadline + LATE_GRACE_S * 1000 - now) / 1000)) : Math.max(0, Math.round((deadline - now) / 1000));
   const Icon = channelIcon(p.channel);
+  // 2026-10-18 review: decisions were logged with no reason; the review and a regulator ask for one.
+  const RATIONALE_MIN = 10;
+  const why = rationale.trim();
   async function submit() {
-    if (!option || !confidence) return;
+    if (!option || !confidence || why.length < RATIONALE_MIN) return;
     setBusy(true);
     const ok = await act("decision.answered", { inject_id: p.inject_id, option, confidence, rationale: rationale.trim().slice(0, 400) });
     setBusy(false);
@@ -212,12 +222,12 @@ function OpenCard({ e, p, now, act, onDone, onOpenEscalations }: { e: Ev; p: Car
         <ChoiceGroup legend="How sure are you?" size="xs" tone="cyan" value={confidence} onChange={setConfidence}
           options={[{ value: "low", label: "Low" }, { value: "medium", label: "Medium" }, { value: "high", label: "High" }]} />
       </div>
-      <label className="mt-2 block text-[11px] text-slate-300">Why this call? <span className="text-slate-400">(optional, goes into your decision log)</span>
+      <label className="mt-2 block text-[11px] text-slate-300">Why this call? <span className="text-slate-400">(required, goes into your decision log)</span>
         <input value={rationale} maxLength={400} onChange={ev => setRationale(ev.target.value)} className="mt-1 w-full rounded border border-border bg-bg px-2 py-1 text-xs text-slate-200 placeholder:text-slate-500 focus:border-cyber-500/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyber-400/60" />
       </label>
       <div className="mt-2 flex items-center gap-2">
-        <Button variant="primary" size="sm" disabled={busy || !option || !confidence} onClick={submit}>Decide</Button>
-        {(!option || !confidence) && <span className="text-[11px] text-slate-400">{!option ? "Choose an option" : "Say how sure you are"} to decide.</span>}
+        <Button variant="primary" size="sm" disabled={busy || !option || !confidence || why.length < RATIONALE_MIN} onClick={submit}>Decide</Button>
+        {(!option || !confidence || why.length < RATIONALE_MIN) && <span className="text-[11px] text-slate-400">{!option ? "Choose an option" : !confidence ? "Say how sure you are" : "Write why (a short sentence)"} to decide.</span>}
       </div>
     </div>
   );

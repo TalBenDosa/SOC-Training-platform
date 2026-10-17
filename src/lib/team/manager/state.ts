@@ -49,6 +49,10 @@ export interface MgrState {
   seated: Record<string, Member[]>;
   escalations: EscalationView[];
   firstEscalationMs: number | null;
+  /** First time Tier-2 / Tier-3 confirmed something: an attack-verdict report, an elevation, a
+   *  containment request, or a case they opened themselves (2026-10-18: cards fired on an
+   *  unconfirmed Tier-1 escalation that turned out to be a false alarm). */
+  confirmedMs: number | null;
   containments: ContainmentView[];
   isolatedHosts: { host: string; atMs: number }[];
   scopeConfirmed: boolean;
@@ -229,10 +233,27 @@ export function buildMgrState(input: DirectorInput): MgrState {
     verdictConflicts, bounceDisputes, questions, severityChanges, reports, updateTimes,
     nowMs, pauses, difficulty, manager, seated, escalations,
     firstEscalationMs: escalations.length ? Math.min(...escalations.map(e => e.atMs)) : null,
+    confirmedMs: confirmedAt(events),
     containments, isolatedHosts, scopeConfirmed: latestScope(events)?.confirmed ?? false, declared,
     sitrepTimes: events.filter(e => e.type === "sitrep.sent").map(ms),
     loadByUser: openLoadByUser(events, nowMs), lastActionMs, teamText, cards,
   };
+}
+
+const SENIOR = new Set(["t2", "t3"]);
+const ATTACK_REPORT = new Set(["true_positive", "tp", "escalate", "suspicious"]);
+/** When Tier-2 / Tier-3 first stood behind an incident, from the session log only. */
+export function confirmedAt(events: Ev[]): number | null {
+  for (const e of events) {
+    if (!e.actor_id) continue;
+    const senior = SENIOR.has(e.role ?? "");
+    const confirms =
+      (e.type === "report.submitted" && ATTACK_REPORT.has(asStr((e.payload as { verdict?: unknown }).verdict).toLowerCase())) ||
+      e.type === "elevation.requested" || e.type === "containment.requested" ||
+      (e.type === "escalation.requested" && senior);
+    if (confirms) { const t = ms(e); if (Number.isFinite(t)) return t; }
+  }
+  return null;
 }
 
 /** A teammate saying to hold off on a containment ("wait", "not yet", "keep watching it"). */

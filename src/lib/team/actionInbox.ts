@@ -6,6 +6,8 @@
  *  - help-desk ticket → Tier-1 (answered with ticket.answered, as before)
  *  - update (a decoy or a twist; the real kind stays hidden) → every analyst (inject.responded)
  *  - management request with no SOC Manager on the team → Tier-2 (Tier-3 if there is no Tier-2)
+ *  - an elevation from Tier-2 → Tier-3: take it, then record a hunt linked to it (2026-10-18:
+ *    no elevation was ever answered with a hunt)
  *
  * An item leaves the box once this player answered it, or once a teammate answered a ticket /
  * management request (one answer is the team's). Updates stay until this player has made a call:
@@ -13,8 +15,10 @@
  */
 import type { Ev } from "./types";
 
-export type InboxKind = "ticket" | "update" | "mgmt";
-export interface InboxItem { seq: number; injectId: string; kind: InboxKind; text: string }
+export type InboxKind = "ticket" | "update" | "mgmt" | "elevation";
+export interface InboxItem { seq: number; injectId: string; kind: InboxKind; text: string;
+  /** elevation: the log it is about, and whether this Tier-3 already took it. */
+  eventId?: string; taken?: boolean }
 
 export const UPDATE_DECISIONS = [
   { id: "benign", label: "Not an incident", hint: "Verified as approved or benign" },
@@ -42,6 +46,20 @@ export function actionInbox(events: Ev[], me: { id: string; role: string | null 
   const ownsMgmt = !hasManager && (role === "t2" || (role === "t3" && !hasT2));
 
   const out: InboxItem[] = [];
+  if (role === "t3") {
+    const acked = new Map<string, string>();
+    for (const e of events) if (e.type === "elevation.acknowledged") { const id = str((e.payload as { event_id?: unknown }).event_id); if (!acked.has(id)) acked.set(id, e.actor_id ?? ""); }
+    const hunted = new Set(events.filter(e => e.type === "hunt.logged").map(e => str((e.payload as { event_id?: unknown }).event_id)).filter(Boolean));
+    for (const e of events) {
+      if (e.type !== "elevation.requested") continue;
+      const p = e.payload as { event_id?: unknown; summary?: unknown; hunt_ask?: unknown };
+      const eventId = str(p.event_id);
+      if (!eventId || hunted.has(eventId)) continue;
+      const by = acked.get(eventId);
+      if (by && by !== me.id) continue;                                   // a teammate took it
+      out.push({ seq: e.seq, injectId: "", kind: "elevation", eventId, taken: by === me.id, text: [str(p.summary), str(p.hunt_ask)].filter(Boolean).join(" · ") || "Tier-2 asked for a deep hunt" });
+    }
+  }
   for (const e of events) {
     if (e.type !== "staff.inject") continue;
     const p = e.payload as { kind?: unknown; text?: unknown; inject_id?: unknown };

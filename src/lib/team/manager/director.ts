@@ -18,6 +18,9 @@ export const CARD_SPACING_MS = 180_000;
 export function pickCard(s: MgrState): { def: CardDef; ctx: Ctx } | null {
   if (!s.manager) return null;                                         // nobody to answer
   if (s.firstEscalationMs == null) return null;                        // nothing to manage yet
+  // Nothing to brief management on until Tier-2/3 stand behind an incident, or the manager
+  // declared one on their own judgement (2026-10-18 review).
+  if (s.confirmedMs == null && !s.declared) return null;
   if (s.cards.length >= CARD_BUDGET[s.difficulty]) return null;
   if (s.cards.some(c => !c.answered && !c.expired)) return null;       // one at a time
   const last = s.cards.reduce((m, c) => Math.max(m, c.atMs), 0);

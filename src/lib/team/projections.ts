@@ -197,3 +197,17 @@ export function isolationState(events: Ev[]): Map<string, HostIsolation> {
   }
   return m;
 }
+
+/**
+ * May this player take over a case another analyst owns? (2026-10-18 review: Tier-3 took over
+ * Tier-2's case and Tier-2 took it straight back.) Tier-3 takes a Tier-2 case once it was
+ * elevated, or once its owner has been quiet for TAKEOVER_IDLE_MS; Tier-2 does not take back a
+ * case a Tier-3 owns after an elevation; a same-tier backup needs the owner to be quiet.
+ */
+export const TAKEOVER_IDLE_MS = 5 * 60_000;
+export function takeoverAllowed(o: { myRole: string; ownerRole: string | null; elevated: boolean; ownerIdleMs: number | null }): { ok: boolean; reason?: string } {
+  const quiet = o.ownerIdleMs != null && o.ownerIdleMs >= TAKEOVER_IDLE_MS;
+  if (o.myRole === "t3" && o.ownerRole === "t2") return o.elevated || quiet ? { ok: true } : { ok: false, reason: "Tier-3 takes a Tier-2 case once Tier-2 elevates it (or if they go quiet for 5 minutes)." };
+  if (o.myRole === "t2" && o.ownerRole === "t3") return o.elevated && !quiet ? { ok: false, reason: "Tier-3 is hunting this elevated case. Work with them in the chat instead of taking it back." } : { ok: true };
+  return quiet ? { ok: true } : { ok: false, reason: "The owner is still working it. A backup takes over only after 5 quiet minutes, or when they ask for help." };
+}
