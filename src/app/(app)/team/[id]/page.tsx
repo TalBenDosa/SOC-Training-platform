@@ -739,6 +739,24 @@ export default function TeamRoomPage() {
   // G-04b: per-row triage state for the shared feed badges (reflects the player's own
   // actions — claimed/dispositioned/escalated — never ground truth).
   const escalatedIds = useMemo(() => new Set(events.filter(e => e.type === "escalation.requested").map(e => String((e.payload as { event_id?: string }).event_id))), [events]);
+  // QA-TEAM-5: a log Tier-2 bounced back belongs to Tier-1 again. Until someone re-triages
+  // it (a new verdict after the bounce) or re-escalates it, it goes back in the triage queue
+  // with its SLA age instead of vanishing from every queue.
+  const bouncedPending = useMemo(() => {
+    const lastBounce = new Map<string, number>(); const lastTouch = new Map<string, number>();
+    for (const e of events) {
+      const eid = String((e.payload as { event_id?: string }).event_id ?? "");
+      if (!eid) continue;
+      if (e.type === "escalation.bounced") lastBounce.set(eid, e.seq);
+      else if (e.type === "escalation.requested" || e.type === "disposition.set" || e.type === "escalation.resolved") lastTouch.set(eid, e.seq);
+    }
+    return new Set([...lastBounce].filter(([eid, seq]) => (lastTouch.get(eid) ?? -1) < seq).map(([eid]) => eid));
+  }, [events]);
+  const queueEscalated = useMemo(() => new Set([...escalatedIds].filter(eid => !bouncedPending.has(eid))), [escalatedIds, bouncedPending]);
+  const queueDispositions = useMemo(() => {
+    if (!bouncedPending.size) return dispositions;
+    const m = new Map(dispositions); for (const eid of bouncedPending) m.delete(eid); return m;
+  }, [dispositions, bouncedPending]);
   // Threat-intel truth — built on the server, because this feed carries no answer key
   // (without it an attacker's hash / C2 looked up clean). QA M4: asked only for the IOCs
   // of the logs in this analyst's hands — the ones they opened, plus escalated cases.
@@ -761,8 +779,8 @@ export default function TeamRoomPage() {
   const pauseSpans = useMemo(() => pausedSpans(events, nowTick), [events, nowTick]);
   // The Tier-1 alert queue — computed over the WHOLE feed (the SIEM table only renders
   // the latest 120 logs, so an old un-triaged alert used to show only in the queue).
-  const alertQueue = useMemo(() => buildAlertQueue({ feed, dispositions, escalated: escalatedIds, claims: claimByEid, nowMs: nowTick, withMedium: queueWithMedium, pauses: pauseSpans }),
-    [feed, dispositions, escalatedIds, claimByEid, nowTick, queueWithMedium, pauseSpans]);
+  const alertQueue = useMemo(() => buildAlertQueue({ feed, dispositions: queueDispositions, escalated: queueEscalated, claims: claimByEid, nowMs: nowTick, withMedium: queueWithMedium, pauses: pauseSpans }),
+    [feed, queueDispositions, queueEscalated, claimByEid, nowTick, queueWithMedium, pauseSpans]);
   const queueByEid = useMemo(() => new Map(alertQueue.map(q => [q.eid, q])), [alertQueue]);
   const rowStatus = useCallback((rid?: string) => {
     if (!rid) return null;
@@ -793,13 +811,14 @@ export default function TeamRoomPage() {
       byWho: [...who.entries()].map(([name, n]) => ({ name, n })).sort((a, b) => b.n - a.n),
       breached: alertQueue.filter(q => q.breached).length,
       orphans: alertQueue.filter(q => q.orphan).length,
-      escalatedOpen: [...escalatedIds].filter(eid => !resolved.has(eid)).length,
+      // open = escalated, not resolved and not bounced back to Tier-1 (QA-TEAM-5)
+      escalatedOpen: [...escalatedIds].filter(eid => !resolved.has(eid) && !bouncedPending.has(eid)).length,
       escalatedTotal: escalatedIds.size,
       closed: [...dispositions.values()].filter(v => v === "false_positive" || v === "benign").length,
       verdictNotEscalated: [...dispositions.entries()].filter(([eid, v]) => (v === "true_positive" || v === "suspicious") && !escalatedIds.has(eid)).length,
       withMedium: queueWithMedium,
     };
-  }, [alertQueue, claimByEid, events, escalatedIds, dispositions, queueWithMedium, nameOf, me?.id]);
+  }, [alertQueue, claimByEid, events, escalatedIds, bouncedPending, dispositions, queueWithMedium, nameOf, me?.id]);
   const activity = useMemo(() => events.filter(e => ["escalation.requested", "escalation.acknowledged", "escalation.bounced", "escalation.resolved", "elevation.requested", "containment.requested", "containment.approved", "containment.denied", "containment.executed", "edr.host_isolated", "edr.host_released", "disposition.set", "hunt.logged", "rule.published", "intel.published", "handover.noted", "decision.logged", "sitrep.sent", "report.submitted", "evidence.pinned", "case.status_set", "case.assigned", "scope.set", "scope.confirmed", "staff.inject", "ticket.answered"].includes(e.type)), [events]);
   // The team feed rendered with the REAL dashboard EventFeed — enrich each shared
   // event into a LiveEvent so it looks and behaves exactly like the single-player

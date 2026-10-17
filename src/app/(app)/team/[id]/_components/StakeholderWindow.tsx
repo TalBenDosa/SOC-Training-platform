@@ -1,4 +1,5 @@
 "use client";
+import { pausedSpans } from "@/lib/team/pauses";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -26,7 +27,9 @@ export function StakeholderWindow({ sessionId, events, act, declared }: { sessio
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const deadlineOf = (e: Ev) => (e.occurred_at ? Date.parse(e.occurred_at) : now) + (Number((e.payload as { deadline_s?: unknown }).deadline_s) || 240) * 1000;
-  const phaseOf = (e: Ev) => requestPhase(e.occurred_at ? Date.parse(e.occurred_at) : now, Number((e.payload as { deadline_s?: unknown }).deadline_s) || 240, now);
+  // Running time: a pause stops the question's clock (QA-TEAM-4).
+  const pauses = useMemo(() => pausedSpans(events, now), [events, now]);
+  const phaseOf = (e: Ev) => requestPhase(e.occurred_at ? Date.parse(e.occurred_at) : now, Number((e.payload as { deadline_s?: unknown }).deadline_s) || 240, now, pauses);
   const expiredCount = asked.filter(e => !replies.has(asStr((e.payload as { inject_id?: unknown }).inject_id)) && phaseOf(e) === "closed").length;
 
   const load = useCallback(async () => {
@@ -117,5 +120,5 @@ export function StakeholderWindow({ sessionId, events, act, declared }: { sessio
 export function openStakeholderQuestions(events: Ev[], now: number): number {
   const replied = new Set(events.filter(e => e.type === "stakeholder.replied").map(e => asStr((e.payload as { inject_id?: unknown }).inject_id)));
   return events.filter(e => e.type === "stakeholder.asked" && !replied.has(asStr((e.payload as { inject_id?: unknown }).inject_id))
-    && requestPhase(e.occurred_at ? Date.parse(e.occurred_at) : now, Number((e.payload as { deadline_s?: unknown }).deadline_s) || 240, now) !== "closed").length;
+    && requestPhase(e.occurred_at ? Date.parse(e.occurred_at) : now, Number((e.payload as { deadline_s?: unknown }).deadline_s) || 240, now, pausedSpans(events, now)) !== "closed").length;
 }

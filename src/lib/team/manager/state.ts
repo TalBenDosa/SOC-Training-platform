@@ -10,7 +10,8 @@
 import type { Ev } from "@/lib/team/types";
 import { asStr, hostKey } from "@/lib/team/format";
 import { containmentRequests, escalationStates, isOpenEscalation, latestScope, openLoadByUser, isolationState } from "@/lib/team/projections";
-import { LATE_GRACE_S } from "./timing";
+import { requestPhase } from "./timing";
+import { pausedSpans, type PauseSpan } from "../pauses";
 
 export type Difficulty = "easy" | "medium" | "hard";
 export interface Member { user_id: string; role: string; status: string; name: string }
@@ -41,6 +42,8 @@ export interface FiredQuestion { qid: string; injectId: string; seq: number; atM
 
 export interface MgrState {
   nowMs: number;
+  /** Paused spans up to now: manager timing runs on running time (QA-TEAM-4). */
+  pauses: PauseSpan[];
   difficulty: Difficulty;
   manager: Member | null;
   seated: Record<string, Member[]>;
@@ -73,6 +76,8 @@ export const CRITICAL_NAME = /(^|[-_])(dc\d*|pay|payment|gw|erp|emr|ehr|pacs|cor
 
 export function buildMgrState(input: DirectorInput): MgrState {
   const { events, roster, nowMs, difficulty } = input;
+  // Running time only: a pause stops every manager deadline and the card spacing (QA-TEAM-4).
+  const pauses: PauseSpan[] = pausedSpans(events, nowMs);
   const active = roster.filter(ACTIVE);
   const seated: Record<string, Member[]> = {};
   for (const m of active) (seated[m.role] ??= []).push(m);
@@ -160,7 +165,7 @@ export function buildMgrState(input: DirectorInput): MgrState {
       card: String(p.card ?? ""), injectId, seq: e.seq, atMs, deadlineS,
       answered: a ? { option: String(ap?.option ?? ""), confidence: String(ap?.confidence ?? ""), atMs: ms(a) } : null,
       // Closed = past the deadline AND the late window (a late card is still on the desk).
-      expired: !a && nowMs > atMs + (deadlineS + LATE_GRACE_S) * 1000,
+      expired: !a && requestPhase(atMs, deadlineS, nowMs, pauses) === "closed",
     };
   });
 
@@ -214,7 +219,7 @@ export function buildMgrState(input: DirectorInput): MgrState {
     const injectId = String(p.inject_id ?? "");
     const r = replies.get(injectId);
     const atMs = ms(e); const deadlineS = Number(p.deadline_s) || 240;
-    return { qid: String(p.qid ?? ""), injectId, seq: e.seq, atMs, deadlineS, replied: r ? { text: asStr((r.payload as { text?: unknown }).text), atMs: ms(r) } : null, expired: !r && nowMs > atMs + (deadlineS + LATE_GRACE_S) * 1000 };
+    return { qid: String(p.qid ?? ""), injectId, seq: e.seq, atMs, deadlineS, replied: r ? { text: asStr((r.payload as { text?: unknown }).text), atMs: ms(r) } : null, expired: !r && requestPhase(atMs, deadlineS, nowMs, pauses) === "closed" };
   });
   const severityChanges = events.filter(e => e.type === "incident.severity_changed").map(e => ({ severity: Number((e.payload as { severity?: unknown }).severity), reason: asStr((e.payload as { reason?: unknown }).reason), atMs: ms(e) }));
   const reports = events.filter(e => e.type === "stakeholder.report_sent").map(e => ({ atMs: ms(e), dataImpact: asStr((e.payload as { data_impact?: unknown }).data_impact), status: asStr((e.payload as { status?: unknown }).status) }));
@@ -222,7 +227,7 @@ export function buildMgrState(input: DirectorInput): MgrState {
 
   return {
     verdictConflicts, bounceDisputes, questions, severityChanges, reports, updateTimes,
-    nowMs, difficulty, manager, seated, escalations,
+    nowMs, pauses, difficulty, manager, seated, escalations,
     firstEscalationMs: escalations.length ? Math.min(...escalations.map(e => e.atMs)) : null,
     containments, isolatedHosts, scopeConfirmed: latestScope(events)?.confirmed ?? false, declared,
     sitrepTimes: events.filter(e => e.type === "sitrep.sent").map(ms),

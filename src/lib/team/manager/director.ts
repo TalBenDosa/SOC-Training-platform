@@ -7,6 +7,7 @@
  * budget per difficulty, and nothing before the team's first escalation (before that the
  * manager has nothing to manage).
  */
+import { activeMs } from "../pauses";
 import { shuffleWithSeed } from "@/lib/rooms/shuffle";
 import type { MgrState } from "./state";
 import { CARDS, CARD_BY_ID, difficultyAllows, type CardDef, type Ctx, type Delta, type Indicators, type Rank } from "./cards";
@@ -20,7 +21,8 @@ export function pickCard(s: MgrState): { def: CardDef; ctx: Ctx } | null {
   if (s.cards.length >= CARD_BUDGET[s.difficulty]) return null;
   if (s.cards.some(c => !c.answered && !c.expired)) return null;       // one at a time
   const last = s.cards.reduce((m, c) => Math.max(m, c.atMs), 0);
-  if (last && s.nowMs - last < CARD_SPACING_MS) return null;
+  // Spacing on running time: a pause does not count as quiet time between cards (QA-TEAM-4).
+  if (last && activeMs(last, s.nowMs, s.pauses ?? []) < CARD_SPACING_MS) return null;
   const done = new Set(s.cards.map(c => c.card));
   const lastAudience = s.cards.length ? CARD_BY_ID.get(s.cards[s.cards.length - 1].card)?.audience : undefined;
   const eligible: { def: CardDef; ctx: Ctx }[] = [];

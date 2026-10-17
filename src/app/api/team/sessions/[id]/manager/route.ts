@@ -5,7 +5,8 @@ import { activeSeat } from "@/lib/team/membership";
 import { indicatorsAfter, cardScore } from "@/lib/team/manager/director";
 import { loadSession, loadTeamEvents, loadDecisionInjects, loadQuestionInjects } from "@/lib/team/manager/server";
 import { checkReply } from "@/lib/team/manager/questions";
-import { LATE_GRACE_S } from "@/lib/team/manager/timing";
+import { requestPhase, answeredLate } from "@/lib/team/manager/timing";
+import { pausedSpans } from "@/lib/team/pauses";
 
 /**
  * GET /api/team/sessions/[id]/manager - the SOC Manager's view of his own decisions.
@@ -36,6 +37,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const answers = new Map(events.filter(e => e.type === "decision.answered").map(e => [String((e.payload as { inject_id?: unknown }).inject_id), e]));
     const firedAt = new Map(events.filter(e => e.type === "staff.inject").map(e => [e.seq, e.occurred_at ? Date.parse(e.occurred_at) : Date.now()]));
     const now = Date.now();
+    // Running time only: a pause does not close a card or reveal its key (QA-TEAM-4).
+    const pauses = pausedSpans(events, now);
     const decided: { answer: (typeof injects)[number]["expected_action"]; option: string | null }[] = [];
     const cards = injects.map(inj => {
       const key = inj.expected_action;
@@ -43,7 +46,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       const at = inj.fired_seq != null ? firedAt.get(inj.fired_seq) ?? now : now;
       const deadline = Number((inj.body as { deadline_s?: unknown }).deadline_s) || 240;
       // Feedback only once decided, or once the late window closed (a late answer must not copy the key).
-      const expired = !a && now > at + (deadline + LATE_GRACE_S) * 1000;
+      const expired = !a && requestPhase(at, deadline, now, pauses) === "closed";
       if (!a && !expired) return { inject_id: inj.id, card: key.card, state: "open" as const };
       const option = a ? String((a.payload as { option?: unknown }).option) : null;
       const confidence = a ? String((a.payload as { confidence?: unknown }).confidence) : null;
@@ -63,11 +66,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       const r = replies.get(inj.id);
       const at = inj.fired_seq != null ? askedAt.get(inj.fired_seq) ?? now : now;
       const deadline = Number((inj.body as { deadline_s?: unknown }).deadline_s) || 240;
-      if (!r && now <= at + (deadline + LATE_GRACE_S) * 1000) return { inject_id: inj.id, qid: key.qid, state: "open" as const };
+      if (!r && requestPhase(at, deadline, now, pauses) !== "closed") return { inject_id: inj.id, qid: key.qid, state: "open" as const };
       const text = r ? String((r.payload as { text?: unknown }).text ?? "") : "";
       const rt = r?.occurred_at ? Date.parse(r.occurred_at) : null;
       const graded = r ? checkReply(text, key) : { checks: [], score: 0 };
-      return { inject_id: inj.id, qid: key.qid, state: r ? ("answered" as const) : ("expired" as const), late: rt != null && rt > at + deadline * 1000, ...graded, model: key.model, objective: key.objective };
+      return { inject_id: inj.id, qid: key.qid, state: r ? ("answered" as const) : ("expired" as const), late: rt != null && answeredLate(at, deadline, rt, pauses), ...graded, model: key.model, objective: key.objective };
     });
     return NextResponse.json({ cards, questions, indicators: indicatorsAfter(decided) }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (e) {

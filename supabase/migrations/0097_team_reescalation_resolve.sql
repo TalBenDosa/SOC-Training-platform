@@ -1,4 +1,4 @@
--- 0097: Team SOC, a re-escalated case can be resolved or bounced again (QA-TEAM-1).
+-- 0097: Team SOC fixes from the 2026-10-17 QA review (QA-TEAM-1, QA-TEAM-6, QA-TEAM-8).
 --
 -- The terminal-state guard added in 0090 (and carried through 0093-0095) looked up the
 -- latest escalation.bounced / escalation.resolved for the log WITHOUT limiting it to the
@@ -82,6 +82,25 @@ begin
          and seq > v_seq
        order by seq desc limit 1;
       if v_txt in ('escalation.bounced','escalation.resolved') then
+        raise exception 'case_closed: %', v_eid;
+      end if;
+    end if;
+
+    -- QA-TEAM-6 (0097): once the current round is closed, no more case work lands on it.
+    -- A bounced case went back to Tier-1 (nothing until it is re-escalated); a resolved
+    -- case takes no new acknowledgement, report, elevation or containment REQUEST. A
+    -- containment already requested may still be approved / denied / executed after a
+    -- resolve, so a pending approval is never stranded. A stale screen's acknowledge used
+    -- to be accepted and left a phantom open case on that Tier-2's load forever.
+    if p_type in ('escalation.acknowledged','report.submitted','elevation.requested','containment.requested',
+                  'containment.approved','containment.denied','containment.executed') then
+      select type into v_txt from public.session_events
+       where session_id = p_session and payload->>'event_id' = v_eid
+         and type in ('escalation.bounced','escalation.resolved')
+         and seq > v_seq
+       order by seq desc limit 1;
+      if v_txt = 'escalation.bounced'
+         or (v_txt = 'escalation.resolved' and p_type in ('escalation.acknowledged','report.submitted','elevation.requested','containment.requested')) then
         raise exception 'case_closed: %', v_eid;
       end if;
     end if;
@@ -392,3 +411,91 @@ end $$;
 -- privileges unchanged (create or replace keeps them); restated as in 0090
 revoke execute on function public.team_validate_action(uuid, uuid, text, jsonb) from public, anon, authenticated;
 grant  execute on function public.team_validate_action(uuid, uuid, text, jsonb) to service_role;
+
+-- ── QA-TEAM-8: the bonus attack is released for a team that caught by verdict ──
+-- 0089 tested disposition verdicts against ('tp','escalate'), but disposition.set stores
+-- 'true_positive' / 'suspicious' / 'benign' / 'false_positive' (session_action_allowed),
+-- so a team that caught every planned incident with verdicts alone never got the bonus,
+-- although the report called the incidents detected. The catch test now accepts
+-- true_positive / suspicious (as computeReport does); the "don't flag everything" guard
+-- counts escalations and firm true_positive calls. The loop is randomized like 0072.
+create or replace function public.team_release_bonus()
+  returns int language plpgsql security definer set search_path = public as $$
+declare
+  s       record;
+  v_off   bigint;
+  v_rows  int;
+  v_total int := 0;
+begin
+  for s in
+    select ts.id, ts.started_at, coalesce(ts.paused_ms, 0) as pms
+      from public.team_sessions ts
+     where ts.status = 'running'
+       and exists (select 1 from public.session_injects i
+                    where i.session_id = ts.id and i.channel = 'bonus' and i.status = 'pending')
+     order by random()   -- QA-TEAM-8: no fixed first 100 that starves the rest
+     limit 100
+  loop
+    begin
+      if not public.team_try_lock_session(s.id) then continue; end if;   -- busy → next tick
+      -- At least one planned incident, and none of them still uncaught.
+      if not exists (
+        select 1 from public.session_injects i
+         where i.session_id = s.id and i.channel <> 'bonus'
+           and i.expected_action->>'origin' = 'story'
+           and coalesce(i.expected_action->>'bonus', 'false') <> 'true'
+           and i.expected_action->>'expected_verdict' in ('tp', 'escalate')
+      ) then continue; end if;
+      if exists (
+        select 1
+          from (select distinct i.expected_action->>'incident_id' as inc
+                  from public.session_injects i
+                 where i.session_id = s.id and i.channel <> 'bonus'
+                   and i.expected_action->>'origin' = 'story'
+                   and coalesce(i.expected_action->>'bonus', 'false') <> 'true'
+                   and i.expected_action->>'expected_verdict' in ('tp', 'escalate')
+                   and i.expected_action->>'incident_id' is not null) planned
+         where not exists (
+           select 1
+             from public.session_injects j
+             join public.session_events e
+               on e.session_id = s.id
+              and e.payload->>'event_id' = j.body->>'id'
+            where j.session_id = s.id and j.status = 'fired'
+              and j.expected_action->>'incident_id' = planned.inc
+              and j.expected_action->>'expected_verdict' in ('tp', 'escalate')
+              and (e.type = 'escalation.requested'
+                   or (e.type = 'disposition.set' and e.payload->>'verdict' in ('true_positive', 'suspicious')))
+         )
+      ) then continue; end if;
+      -- …and caught by judgement, not by flagging everything (expert review P0-6): the team's wrong
+      -- positive calls (tp / escalate on rows that are benign or a false positive) may not
+      -- outnumber its right ones.
+      if (select count(*) filter (where j.expected_action->>'expected_verdict' not in ('tp', 'escalate'))
+                 > count(*) filter (where j.expected_action->>'expected_verdict' in ('tp', 'escalate'))
+            from public.session_events e
+            join public.session_injects j on j.session_id = s.id and j.body->>'id' = e.payload->>'event_id'
+           where e.session_id = s.id
+             and (e.type = 'escalation.requested'
+                  or (e.type = 'disposition.set' and e.payload->>'verdict' = 'true_positive'))) then
+        continue;
+      end if;
+      v_off := floor(extract(epoch from (clock_timestamp() - s.started_at)) * 1000)::bigint - s.pms;
+      update public.session_injects
+         set channel = 'feed',
+             due_offset_ms = v_off + 30000 + greatest(0, due_offset_ms - 1000000000000000)
+       where session_id = s.id and channel = 'bonus' and status = 'pending';
+      get diagnostics v_rows = row_count;
+      v_total := v_total + v_rows;
+      if v_rows > 0 then
+        insert into public.team_ops_events(kind, session_id, detail) values ('bonus_released', s.id, v_rows || ' rows');
+      end if;
+    exception when others then
+      insert into public.team_ops_events(kind, session_id, detail) values ('bonus_release_error', s.id, sqlerrm);
+    end;
+  end loop;
+  return v_total;
+end $$;
+
+revoke all on function public.team_release_bonus() from public, anon, authenticated;
+grant execute on function public.team_release_bonus() to service_role;

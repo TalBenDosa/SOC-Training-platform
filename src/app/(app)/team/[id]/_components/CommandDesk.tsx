@@ -1,4 +1,5 @@
 "use client";
+import { pausedSpans } from "@/lib/team/pauses";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -71,7 +72,9 @@ export function CommandDesk({ sessionId, events, act, running, onOpenEscalations
   // ── Feedback for decided / expired cards ──
   const [fb, setFb] = useState<{ cards: Feedback[]; indicators: Indicators } | null>(null);
   const decidedCount = cards.filter(c => answered.has(asStr((c.payload as { inject_id?: unknown }).inject_id))).length;
-  const phaseOf = (e: Ev, p: CardBody) => requestPhase(e.occurred_at ? Date.parse(e.occurred_at) : now, Number(p.deadline_s) || 240, now);
+  // Running time: a pause stops the card's clock (QA-TEAM-4).
+  const pauses = useMemo(() => pausedSpans(events, now), [events, now]);
+  const phaseOf = (e: Ev, p: CardBody) => requestPhase(e.occurred_at ? Date.parse(e.occurred_at) : now, Number(p.deadline_s) || 240, now, pauses);
   const expiredCount = cards.filter(c => { const p = c.payload as unknown as CardBody; return !answered.has(p.inject_id) && phaseOf(c, p) === "closed"; }).length;
   const loadFb = useCallback(async () => {
     try {
@@ -249,5 +252,5 @@ export function openDecisionCards(events: Ev[], now: number): number {
   const answered = new Set(events.filter(e => e.type === "decision.answered").map(e => asStr((e.payload as { inject_id?: unknown }).inject_id)));
   return events.filter(e => e.type === "staff.inject" && asStr((e.payload as { kind?: unknown }).kind) === "decision"
     && !answered.has(asStr((e.payload as { inject_id?: unknown }).inject_id))
-    && requestPhase(e.occurred_at ? Date.parse(e.occurred_at) : now, Number((e.payload as { deadline_s?: unknown }).deadline_s) || 240, now) !== "closed").length;
+    && requestPhase(e.occurred_at ? Date.parse(e.occurred_at) : now, Number((e.payload as { deadline_s?: unknown }).deadline_s) || 240, now, pausedSpans(events, now)) !== "closed").length;
 }
