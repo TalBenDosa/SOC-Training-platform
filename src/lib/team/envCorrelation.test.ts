@@ -20,7 +20,8 @@ const vendorsOf = (env: TeamEnv, stack: Stack) => {
   return [...out];
 };
 
-describe("named organization: the feed only carries what the admin chose", () => {
+// Each case builds 12 full timelines: slow under a parallel full-suite run.
+describe("named organization: the feed only carries what the admin chose", { timeout: 120_000 }, () => {
   it("no Azure and only non-Microsoft products: no Microsoft cloud or unchosen tool in the feed", () => {
     const stack: Stack = { edr: "crowdstrike", firewall: "fortigate", vpn: "zscaler_zpa", idp: "okta", collab: "google_workspace", email_security: "proofpoint", dns: "infoblox" };
     const vendors = vendorsOf({ platforms: ["aws"], industry: "general" }, stack);

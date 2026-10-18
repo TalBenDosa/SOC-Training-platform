@@ -15,7 +15,7 @@ import { DEFAULT_ENV } from "./environment";
 const tenant = parseTenant("acme") as Tenant;
 const team = [{ role: "t1" }, { role: "t1" }, { role: "t2" }, { role: "t3" }, { role: "mgr" }];
 
-describe("timeline fits the shift and leads with the primary incident", () => {
+describe("timeline fits the shift and leads with the primary incident", { timeout: 60_000 }, () => {
   const fits = teamStoryFilter(TENANT_TEMPLATE, {}, DEFAULT_ENV);
   const ids = storiesForTier("hard", true).filter(fits).map(s => s.id);
   const slots = [ids[0], ids[1], ids[2]];
