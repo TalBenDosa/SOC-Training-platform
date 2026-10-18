@@ -1534,6 +1534,7 @@ export default function TeamRoomPage() {
                     /></div>
                     <div data-tour="feed"><EventFeed
                       events={me.role === "t1" && feedView === "triage" ? triageFeed : liveFeed}
+                      sortable={!(me.role === "t1" && feedView === "triage")}
                       emptyMessage={me.role === "t1" && feedView === "triage" ? `Nothing needs triage — every ${queueWithMedium ? "medium+" : "high/critical"} alert has a disposition. Keep watching All events.` : "Waiting for the first logs…"}
                       severityFilter={fSeverity} sourceFilter={fSource} search={fSearch}
                       userFilter={fUser} hostFilter={fHost} ipFilter={fIp}

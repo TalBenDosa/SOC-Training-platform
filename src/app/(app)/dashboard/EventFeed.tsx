@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo, memo, useRef, useContext } from "react";
+import { useState, useMemo, memo, useRef, useContext, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronRight, Info, AlertTriangle, Clock, ExternalLink, Shield, X, PhoneCall, CheckCircle2, Copy, BookOpen, Cpu } from "lucide-react";
@@ -1298,15 +1298,33 @@ export interface EventFeedProps {
   onCloseAlert?: DetailPanelProps["onCloseAlert"];
   /** Shown instead of the default when `events` is empty (e.g. an empty team triage view). */
   emptyMessage?: string;
+  /** false = keep the caller's order and hide the Newest / Oldest toggle (a priority-ordered queue). */
+  sortable?: boolean;
+}
+
+/** Newest-first or oldest-first by event time; the choice is remembered in this browser. */
+export type FeedOrder = "newest" | "oldest";
+const ORDER_KEY = "soc-feed-order";
+export function sortFeed<T extends { ts?: string }>(events: T[], order: FeedOrder): T[] {
+  const at = (e: T) => { const t = e.ts ? Date.parse(e.ts) : NaN; return Number.isFinite(t) ? t : null; };
+  // Stable: rows with equal (or missing) times keep the order they came in.
+  return events.map((e, i) => ({ e, i, t: at(e) })).sort((a, b) => {
+    if (a.t == null || b.t == null || a.t === b.t) return order === "newest" ? b.i - a.i : a.i - b.i;
+    return order === "newest" ? b.t - a.t : a.t - b.t;
+  }).map(x => x.e);
 }
 
 export function EventFeed({
   events, newIds = new Set(),
   severityFilter, sourceFilter, search,
   userFilter = "all", hostFilter = "all", ipFilter = "all", mitreFilter = "all",
-  onXp, onRowOpened, onPivot, onAddIoc, onEscalate, onCloseAlert, rowStatus, emptyMessage,
+  onXp, onRowOpened, onPivot, onAddIoc, onEscalate, onCloseAlert, rowStatus, emptyMessage, sortable = true,
 }: EventFeedProps) {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
+  // Log order (Tal, 2026-10-18: newest logs on top, or switch to oldest first).
+  const [order, setOrder] = useState<FeedOrder>("newest");
+  useEffect(() => { try { const v = localStorage.getItem(ORDER_KEY); if (v === "newest" || v === "oldest") setOrder(v); } catch { /* storage blocked */ } }, []);
+  const pickOrder = (o: FeedOrder) => { setOrder(o); try { localStorage.setItem(ORDER_KEY, o); } catch { /* storage blocked */ } };
   const [threatQuery, setThreatQuery] = useState<ThreatQuery | null>(null);
 
   // Memoize the filter pass: it scans up to 100 events with 6 predicates and,
@@ -1335,6 +1353,7 @@ export function EventFeed({
       return true;
     });
   }, [events, timeFilter, severityFilter, sourceFilter, userFilter, hostFilter, ipFilter, mitreFilter, search]);
+  const shown = useMemo(() => (sortable ? sortFeed(filtered, order) : filtered), [filtered, order, sortable]);
 
   return (
     <div className="flex flex-col">
@@ -1356,7 +1375,18 @@ export function EventFeed({
             </button>
           ))}
         </div>
-        <span className="ml-auto font-mono text-[10px] text-slate-400">{filtered.length} events</span>
+        {sortable && (
+          <div className="ml-auto flex items-center gap-1" role="group" aria-label="Log order">
+            {([["newest", "Newest first"], ["oldest", "Oldest first"]] as const).map(([o, label]) => (
+              <button key={o} type="button" aria-pressed={order === o} onClick={() => pickOrder(o)}
+                className={cn("rounded px-2 py-0.5 text-[10px] font-semibold transition",
+                  order === o ? "bg-cyber-500/20 text-cyber-300 border border-cyber-500/40" : "text-slate-400 hover:text-slate-300 border border-transparent hover:border-border/60")}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+        <span className={cn("font-mono text-[10px] text-slate-400", !sortable && "ml-auto")}>{filtered.length} events</span>
       </div>
 
       <SocMethodologyBanner />
@@ -1389,7 +1419,7 @@ export function EventFeed({
           </thead>
           <tbody>
             <AnimatePresence initial={false}>
-              {filtered.map(ev => (
+              {shown.map(ev => (
                 <EventRow
                   key={ev.id}
                   event={ev}
