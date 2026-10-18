@@ -1,3 +1,4 @@
+import { sanitizeTeamLimit } from "@/lib/team/quota";
 import { NextResponse } from "next/server";
 import { asObject } from "@/lib/http/body";
 import { dbFail } from "@/lib/http/dbFail";
@@ -34,11 +35,12 @@ export async function GET(_req: Request, { params }: Ctx) {
   });
 
   // Usage aggregates for the org's cohort.
-  const [xpRows, sessions, scenarios, rooms] = await Promise.all([
+  const [xpRows, sessions, scenarios, rooms, teamStarted] = await Promise.all([
     admin.from("profiles").select("xp").eq("org_id", id),
     admin.from("dashboard_sessions").select("id", { count: "exact", head: true }).eq("org_id", id),
     admin.from("scenario_history").select("id", { count: "exact", head: true }).eq("org_id", id),
     admin.from("room_progress").select("user_id", { count: "exact", head: true }).eq("org_id", id).not("completed_at", "is", null),
+    admin.from("team_sessions").select("id", { count: "exact", head: true }).eq("org_id", id).not("started_at", "is", null),
   ]);
   const usage: OrgUsage = {
     members: members.filter(m => m.status === "active").length,
@@ -46,6 +48,7 @@ export async function GET(_req: Request, { params }: Ctx) {
     sessions: sessions.count ?? 0,
     scenarios_completed: scenarios.count ?? 0,
     rooms_completed: rooms.count ?? 0,
+    team_sessions_used: teamStarted.count ?? 0,
   };
 
   return NextResponse.json({ org, members, usage });
@@ -64,6 +67,11 @@ export async function PATCH(req: Request, { params }: Ctx) {
 
   const patch: Record<string, unknown> = {};
   if (body.name !== undefined) patch.name = String(body.name).trim();
+  {
+    const t = sanitizeTeamLimit(body.team_session_limit);
+    if (t === "invalid") return NextResponse.json({ error: "Team exercises must be a whole number of 0 or more (or blank for unlimited)." }, { status: 400 });
+    if (t !== undefined) patch.team_session_limit = t;
+  }
   if (body.seat_limit !== undefined) {
     const n = Number(body.seat_limit);
     if (!Number.isFinite(n) || n < 0) return NextResponse.json({ error: "Seat limit must be 0 or more." }, { status: 400 });

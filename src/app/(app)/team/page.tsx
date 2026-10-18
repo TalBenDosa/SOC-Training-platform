@@ -44,7 +44,7 @@ interface SessionRow {
   id: string; company_id: string; tenant_name?: string | null; difficulty: string; status: string; created_at: string;
   my_role: string | null; player_count: number; ready_count: number;
 }
-interface OrgInfo { id: string; name: string; is_root: boolean }
+interface OrgInfo { id: string; name: string; is_root: boolean; team_quota?: { limit: number | null; used: number; remaining: number | null } }
 interface Storyline { id: string; title: string; complexity: string; steps: number; category: StoryCategory }
 /** An attack slot switched off (attacks 2–3). */
 const OFF = "__off__";
@@ -174,6 +174,7 @@ export default function TeamIndexPage() {
     [roster, query, picked, emailId],
   );
   const orgLabel = org?.name ?? orgName ?? null;
+  const quotaOut = !!org?.team_quota && org.team_quota.remaining != null && org.team_quota.remaining <= 0;
   const status = builderStatus({
     rosterLoading: roster === null, rosterError, rosterCount: roster?.length ?? 0, orgName: orgLabel, picked,
   });
@@ -396,11 +397,22 @@ export default function TeamIndexPage() {
               )}
             </div>
 
+            {/* Team Training is limited per organization (0099): what is left, said plainly. */}
+            {org?.team_quota && org.team_quota.limit != null && (
+              <p className={`mt-3 rounded-lg border px-3 py-2 text-[11px] ${quotaOut ? "border-neon-amber/40 bg-neon-amber/[0.06] text-neon-amber" : "border-cyber-500/30 bg-cyber-500/[0.05] text-cyber-200"}`}>
+                {org.team_quota.limit === 0
+                  ? "Team training isn't part of your organization's plan. Contact HACK THE SOC to add team exercises."
+                  : quotaOut
+                    ? `Your organization has used all ${org.team_quota.limit} of its team exercises. Contact HACK THE SOC to add more.`
+                    : `Team exercises: ${org.team_quota.remaining} of ${org.team_quota.limit} left. One is used when an exercise starts; a lobby that never starts is free.`}
+                {isPlatformAdmin && quotaOut && " (As platform admin you can still run one.)"}
+              </p>
+            )}
             {status.warnings.map(w => (
               <p key={w} className="mt-3 rounded-lg border border-neon-amber/30 bg-neon-amber/[0.06] px-3 py-2 text-[11px] text-neon-amber">⚠ {w}</p>
             ))}
             <div className="mt-4 flex flex-wrap items-center gap-3">
-              <Button variant="primary" size="sm" disabled={creating || !status.canCreate} onClick={createSession}
+              <Button variant="primary" size="sm" disabled={creating || !status.canCreate || (quotaOut && !isPlatformAdmin)} onClick={createSession}
                 aria-describedby="team-create-hint">
                 {creating ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Plus className="mr-1.5 h-4 w-4" />}
                 Create &amp; open lobby

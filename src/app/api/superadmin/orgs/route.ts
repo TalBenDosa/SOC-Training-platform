@@ -1,3 +1,4 @@
+import { sanitizeTeamLimit } from "@/lib/team/quota";
 import { NextResponse } from "next/server";
 import { asObject } from "@/lib/http/body";
 import { dbFail } from "@/lib/http/dbFail";
@@ -92,6 +93,9 @@ export async function POST(req: Request) {
   const name = String(body.name ?? "").trim();
   const slug = normalizeSlug(String(body.slug ?? body.name ?? ""));
   const seatLimit = Number(body.seat_limit ?? 0);
+  // Team exercises the org may run (0099): blank = unlimited.
+  const teamLimit = sanitizeTeamLimit(body.team_session_limit);
+  if (teamLimit === "invalid") return NextResponse.json({ error: "Team exercises must be a whole number of 0 or more (or blank for unlimited)." }, { status: 400 });
   // E-23: an unparseable date threw RangeError from toISOString() → bodyless 500.
   const startsAt = body.starts_at ? isoOrNull(body.starts_at) : new Date().toISOString();
   const expiresAt = body.expires_at ? isoOrNull(body.expires_at) : null;
@@ -137,7 +141,7 @@ export async function POST(req: Request) {
 
   const { data: org, error } = await admin
     .from("organizations")
-    .insert({ name, slug, seat_limit: seatLimit, starts_at: startsAt, expires_at: expiresAt, status, ...(contract ? { contract } : {}) })
+    .insert({ name, slug, seat_limit: seatLimit, starts_at: startsAt, expires_at: expiresAt, status, ...(contract ? { contract } : {}), ...(teamLimit !== undefined ? { team_session_limit: teamLimit } : {}) })
     .select()
     .single();
 

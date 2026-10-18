@@ -376,6 +376,20 @@ let genErr = null; try { await signup("generic-victim@x.io", { invitation_token:
 check("0029: generic (email-less) student invite is refused", /student_invite_requires_code/.test(genErr ?? ""), genErr ?? "signup succeeded");
 
 // ── 0097 (QA-TEAM-1/6): Team SOC escalation rounds ───────────────────────────
+// ── 0099: team exercises per organization ─────────────────────────────────────
+group("0099 — organizations.team_session_limit: NULL = unlimited, never negative");
+{
+  const col = await one(`select data_type, is_nullable from information_schema.columns where table_schema='public' and table_name='organizations' and column_name='team_session_limit'`);
+  check("0099: column exists, integer, nullable", col?.data_type === "integer" && col?.is_nullable === "YES", JSON.stringify(col));
+  const org = (await one(`select id from public.organizations limit 1`))?.id;
+  let neg = null;
+  try { await q(`update public.organizations set team_session_limit = -1 where id = $1`, [org]); } catch (e) { neg = e.message; }
+  check("0099: a negative limit is refused", /team_session_limit/.test(neg ?? ""), neg ?? "accepted");
+  await q(`update public.organizations set team_session_limit = 3 where id = $1`, [org]);
+  check("0099: a limit can be set", (await one(`select team_session_limit n from public.organizations where id = $1`, [org])).n === 3);
+  await q(`update public.organizations set team_session_limit = null where id = $1`, [org]);
+}
+
 // ── 0098: a written answer to an inject (Action-required box) ─────────────────
 group("0098 — Team SOC: inject.responded is a player action while running");
 {

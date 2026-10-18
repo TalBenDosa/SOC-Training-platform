@@ -52,6 +52,7 @@ export default function OrgDetailPage() {
   // license form
   const [orgName, setOrgName] = useState("");
   const [seatLimit, setSeatLimit] = useState("");
+  const [teamLimit, setTeamLimit] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [status, setStatus] = useState<OrgStatus>("active");
   const [saving, setSaving] = useState(false);
@@ -118,7 +119,7 @@ export default function OrgDetailPage() {
     const data = await res.json();
     setLoadFailed(false);
     setOrg(data.org); setMembers(data.members); setUsage(data.usage);
-    setOrgName(data.org.name); setSeatLimit(String(data.org.seat_limit)); setExpiresAt(toDateInput(data.org.expires_at)); setStatus(data.org.status);
+    setOrgName(data.org.name); setSeatLimit(String(data.org.seat_limit)); setTeamLimit(data.org.team_session_limit == null ? "" : String(data.org.team_session_limit)); setExpiresAt(toDateInput(data.org.expires_at)); setStatus(data.org.status);
     const br = (data.org.branding ?? {}) as { color?: string; logo_url?: string };
     setBrandColor(br.color ?? "#22d3ee"); setBrandLogo(br.logo_url ?? "");
     const ct = (data.org.contract ?? {}) as {
@@ -266,8 +267,9 @@ export default function OrgDetailPage() {
         ) : (
           <>
             {/* Usage */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
               <Stat icon={<Users className="h-4 w-4" />} label="Members" value={`${activeMembers.length}${org.seat_limit > 0 ? `/${org.seat_limit}` : ""}`} />
+              <Stat icon={<Users className="h-4 w-4" />} label="Team exercises" value={`${usage?.team_sessions_used ?? 0}${org.team_session_limit != null ? `/${org.team_session_limit}` : ""}`} />
               <Stat icon={<Trophy className="h-4 w-4" />} label="Total XP" value={(usage?.total_xp ?? 0).toLocaleString()} />
               <Stat icon={<Activity className="h-4 w-4" />} label="Sessions" value={String(usage?.sessions ?? 0)} />
               <Stat icon={<Target className="h-4 w-4" />} label="Scenarios" value={String(usage?.scenarios_completed ?? 0)} />
@@ -295,7 +297,11 @@ export default function OrgDetailPage() {
             {/* License */}
             <Card>
               <h2 className="mb-4 text-sm font-bold text-white">Licence</h2>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+                <div>
+                  <label className={label} htmlFor="l-team">Team exercises (blank = ∞)</label>
+                  <input id="l-team" type="number" min={0} step={1} className={field} value={teamLimit} onChange={e => setTeamLimit(e.target.value)} placeholder="unlimited" />
+                </div>
                 <div>
                   <label className={label} htmlFor="l-seats">Seat limit (0 = ∞)</label>
                   <input id="l-seats" type="number" min={0} className={field} value={seatLimit} onChange={e => setSeatLimit(e.target.value)} />
@@ -316,7 +322,7 @@ export default function OrgDetailPage() {
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button variant="primary" size="sm" disabled={saving}
-                  onClick={() => patch({ seat_limit: Number(seatLimit), expires_at: expiresAt || null, status }, "Licence updated.")}>
+                  onClick={() => patch({ seat_limit: Number(seatLimit), team_session_limit: teamLimit.trim() === "" ? null : Number(teamLimit), expires_at: expiresAt || null, status }, "Licence updated.")}>
                   {saving ? "Saving…" : "Save licence"}
                 </Button>
                 {org.status !== "suspended"

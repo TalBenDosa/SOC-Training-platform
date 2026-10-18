@@ -54,7 +54,10 @@ export async function GET() {
   if ("error" in c) return c.error;
   const { orgId, admin } = c;
 
-  const { data: org } = await admin.from("organizations").select("id, name, slug, seat_limit, status, expires_at").eq("id", orgId).maybeSingle();
+  const { data: org0 } = await admin.from("organizations").select("id, name, slug, seat_limit, status, expires_at, team_session_limit").eq("id", orgId).maybeSingle();
+  // Team exercises started vs the organization's quota (0099), for the admin's overview.
+  const { count: teamUsed } = await admin.from("team_sessions").select("id", { count: "exact", head: true }).eq("org_id", orgId).not("started_at", "is", null);
+  const org = org0 ? { ...org0, team_sessions_used: teamUsed ?? 0 } : org0;
   const { data: memberRows } = await admin
     .from("org_members")
     .select("org_id, user_id, role, status, joined_at, profiles(handle, display_name, xp, is_platform_admin)")

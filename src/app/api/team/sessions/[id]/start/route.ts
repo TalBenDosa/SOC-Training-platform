@@ -7,6 +7,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { buildTeamTimeline, resolveTeamStory, teamStoryFilter } from "@/lib/team/buildTimeline";
 import { teamLoad, withShiftMinutes, sanitizeShiftMinutes } from "@/lib/team/load";
 import { teamTransition } from "@/lib/team/transition";
+import { teamQuotaFor, quotaExhausted, quotaMessage } from "@/lib/team/quota";
 import { sanitizeStack } from "@/lib/logs/native/stack";
 
 /**
@@ -50,6 +51,14 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   // QA L7: a shift with nobody to play it would only pause itself for coverage.
   if (!(members ?? []).some(m => m.role !== "instructor" && m.role !== "observer" && m.status !== "left")) {
     return NextResponse.json({ error: "Add at least one player before starting." }, { status: 409 });
+  }
+
+  // Team Training is limited per organization (0099): starting is what uses one exercise.
+  if (!user.isPlatformAdmin) {
+    let q;
+    try { q = await teamQuotaFor(admin, sess.org_id); }
+    catch (e) { console.error("[team start] quota:", e instanceof Error ? e.message : String(e)); return NextResponse.json({ error: "Couldn't check your organization's team exercises. Try again." }, { status: 503 }); }
+    if (quotaExhausted(q)) return NextResponse.json({ error: quotaMessage(q), quota: q }, { status: 403 });
   }
 
   // v2 + seed while still in the lobby (idempotent: only seeds once).

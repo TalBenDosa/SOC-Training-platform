@@ -8,6 +8,8 @@ export interface Organization {
   name: string;
   slug: string;
   seat_limit: number;
+  /** Team exercises the organization may start (0099): null = unlimited, 0 = none. */
+  team_session_limit?: number | null;
   starts_at: string | null;
   expires_at: string | null;
   status: OrgStatus;
@@ -67,4 +69,6 @@ export interface OrgUsage {
   sessions: number;
   scenarios_completed: number;
   rooms_completed: number;
+  /** Team exercises started (counts against team_session_limit). */
+  team_sessions_used?: number;
 }

@@ -255,6 +255,8 @@ function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated
   const [slug, setSlug] = useState("");
   const [contract, setContract] = useState("");
   const [seatLimit, setSeatLimit] = useState("50");
+  // Team exercises the org may run (0099): blank = unlimited.
+  const [teamLimit, setTeamLimit] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [adminEmail, setAdminEmail] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -277,7 +279,7 @@ function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name, slug: slug || autoSlug(name), seat_limit: Number(seatLimit),
+        name, slug: slug || autoSlug(name), seat_limit: Number(seatLimit), team_session_limit: teamLimit.trim() === "" ? null : Number(teamLimit),
         expires_at: expiresAt || null, admin_email: adminEmail || undefined,
         contract: contract.trim() ? { notes: contract.trim() } : undefined,
       }),
@@ -393,6 +395,10 @@ function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated
                   <div>
                     <label className={label} htmlFor="org-expiry">Expires</label>
                     <input id="org-expiry" type="date" className={field} value={expiresAt} onChange={e => setExpiresAt(e.target.value)} />
+                  </div>
+                  <div className="col-span-2">
+                    <label className={label} htmlFor="org-team-limit">Team exercises (blank = unlimited, 0 = none)</label>
+                    <input id="org-team-limit" type="number" min={0} step={1} className={field} value={teamLimit} onChange={e => setTeamLimit(e.target.value)} placeholder="unlimited" />
                   </div>
                 </div>
               </div>

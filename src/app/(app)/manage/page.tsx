@@ -28,7 +28,7 @@ import { InvitePanel } from "@/components/manage/InvitePanel";
 type ManageTab = "students" | "overview" | "skills" | "mistakes" | "plans" | "content";
 type SortKey = "xp" | "name" | "first_try" | "path" | "active";
 
-interface OrgLite { id: string; name: string; slug: string; seat_limit: number; status: string; expires_at: string | null }
+interface OrgLite { id: string; name: string; slug: string; seat_limit: number; status: string; expires_at: string | null; team_session_limit?: number | null; team_sessions_used?: number }
 type Member = OrgMember & { xp?: number };
 
 /** A student's right-to-deletion request awaiting this college's decision. */
@@ -303,6 +303,9 @@ export default function ManagePage() {
                   <p className="text-[10px] uppercase tracking-wider text-slate-400">College</p>
                   <p className="truncate text-lg font-bold text-white"><bdi>{org?.name ?? "n/a"}</bdi></p>
                   <p className="text-[11px] text-slate-400">{activeStudentCount}{org && org.seat_limit > 0 ? ` of ${org.seat_limit} seats` : ""} active students</p>
+                  {org && org.team_session_limit != null && (
+                    <p className="text-[11px] text-slate-400">Team exercises: {org.team_sessions_used ?? 0} of {org.team_session_limit} used</p>
+                  )}
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-3">

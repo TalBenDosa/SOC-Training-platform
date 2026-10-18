@@ -1,3 +1,4 @@
+import { teamQuotaFor, quotaExhausted, quotaMessage } from "@/lib/team/quota";
 import { NextResponse } from "next/server";
 import { parseTenant, tenantFromConfig, TENANT_TEMPLATE, type Tenant } from "@/lib/team/tenant";
 import { asObject } from "@/lib/http/body";
@@ -74,6 +75,14 @@ export async function POST(req: Request) {
         ? `The chosen products can't show every step of "${pinned.title}" — pick another storyline or keep the default products.`
         : `"${pinned.title}" can't run on these products — pick another storyline.` }, { status: 400 });
     }
+  }
+
+  // Team Training is limited per organization (0099): no new lobby once the quota is used.
+  if (!user.isPlatformAdmin) {
+    let q;
+    try { q = await teamQuotaFor(admin, orgId); }
+    catch (e) { console.error("[team create] quota:", e instanceof Error ? e.message : String(e)); return NextResponse.json({ error: "Couldn't check your organization's team exercises. Try again." }, { status: 503 }); }
+    if (quotaExhausted(q)) return NextResponse.json({ error: quotaMessage(q), quota: q }, { status: 403 });
   }
 
   const rawInvites = Array.isArray(body.invites) ? body.invites : [];

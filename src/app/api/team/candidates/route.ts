@@ -1,3 +1,4 @@
+import { quotaOf } from "@/lib/team/quota";
 import { NextResponse } from "next/server";
 import { asObject } from "@/lib/http/body";
 import { requireOrgStaff } from "@/lib/auth/apiGuard";
@@ -45,7 +46,7 @@ export async function GET() {
   const { admin, orgId, userId } = c;
 
   const [{ data: org }, { data: rows }] = await Promise.all([
-    admin.from("organizations").select("id, name").eq("id", orgId).maybeSingle(),
+    admin.from("organizations").select("id, name, team_session_limit").eq("id", orgId).maybeSingle(),
     admin.from("org_members")
       .select("user_id, role, status, profiles(handle, display_name, is_platform_admin)")
       .eq("org_id", orgId).eq("status", "active").or(liveAffiliationFilter())
@@ -61,8 +62,11 @@ export async function GET() {
     });
 
   const root = isRootOrg(orgId);
+  // Team exercises left (0099): shown in the Session Builder; null limit = unlimited.
+  const { count: started } = await admin.from("team_sessions").select("id", { count: "exact", head: true }).eq("org_id", orgId).not("started_at", "is", null);
+  const team_quota = quotaOf((org as { team_session_limit?: number | null } | null)?.team_session_limit ?? null, started ?? 0);
   return NextResponse.json({
-    org: { id: orgId, name: root ? ROOT_ENVIRONMENT_LABEL : (org?.name ?? "your organisation"), is_root: root },
+    org: { id: orgId, name: root ? ROOT_ENVIRONMENT_LABEL : (org?.name ?? "your organisation"), is_root: root, team_quota },
     members,
   });
 }
