@@ -223,10 +223,12 @@ Logs do not live forever. They go through a defined lifecycle:
 
 How long must logs be kept? It depends on the regulations your organisation is subject to:
 
-- **GDPR (EU data protection)**: no fixed minimum, but typically 12 months for security logs. Data must not be kept longer than necessary.
-- **PCI-DSS (payment card industry)**: at least **12 months**, with the most recent 3 months immediately available for analysis.
-- **HIPAA (US healthcare)**: security-related records must be kept for **6 years**.
-- **SOX (US financial reporting)**: audit logs must be kept for **7 years**.
+- **GDPR (EU data protection)**: no fixed minimum; many organisations keep security logs for about 12 months. Data must not be kept longer than necessary.
+- **PCI-DSS (payment card industry)**: at least **12 months** of audit log history (Requirement 10.5.1), with the most recent **3 months** immediately available for analysis. Older logs may sit in cheaper archive storage and must be restored before they can be searched.
+- **HIPAA (US healthcare)**: the Security Rule requires its documentation (policies, procedures and records of security activities) to be kept for **6 years**, and most healthcare organisations apply the same 6 years to security audit logs.
+- **SOX (US financial reporting)**: auditors must keep audit records for **7 years**, so public companies commonly keep the logs that support their financial-reporting controls for 7 years too.
+
+When several rules apply, the logs must satisfy all of them, so the longest period wins. State laws can add their own periods (for example, US state rules on how long a hospital keeps patient medical records), but those cover the patient record, not security logs. Setting retention is a compliance decision. For the analyst, retention answers a practical question: how far back can this investigation look, and which part of that history must be restored from archive first?
 
 Storing logs is expensive. A busy environment can generate **millions of events per day**. Log volume is measured in **EPS: Events Per Second**. A small organisation might generate 500 EPS; a large enterprise can exceed 100,000 EPS. At 1,000 EPS with an average event size of 500 bytes, you accumulate approximately **43 GB of raw log data per day**. SIEMs typically compress and index logs, reducing storage by 70-80%, but retention costs are still significant and must be budgeted carefully.`,
     } satisfies ReadingTask,
@@ -414,16 +416,16 @@ In summary: a log aggregator is a **storage and search engine**. A SIEM is a **d
       type: "question",
       id: "log-mgmt-q3",
       question:
-        "A US hospital group must comply with HIPAA and also takes card payments, so PCI-DSS applies too. Using the retention requirements in the reading, what is the minimum time its security audit logs should be kept?",
+        "A retailer that takes card payments keeps its logs exactly to the PCI-DSS minimum in the reading. During an incident, you find the attacker's first login was about 5 months ago. What should you expect when you search for that first login?",
       options: [
-        "12 months, because PCI-DSS is the more specific logging rule",
-        "3 months, the period PCI-DSS requires immediately available",
-        "6 years, because the longer of the two requirements applies",
-        "7 years, because healthcare follows the SOX audit-log rule",
+        "It is gone for good: PCI-DSS only requires 3 months of logs to be kept",
+        "It is in the live SIEM index, because PCI-DSS keeps all 12 months searchable",
+        "It is still retained, but in archive: it must be restored before it can be searched",
+        "It survives only on the endpoint, because central logs are purged after 90 days",
       ],
       answer: 2,
       explanation:
-        "When two regulations apply, the logs must satisfy both, so the longer period wins: 6 years under HIPAA (its 6-year documentation rule is commonly applied to security audit logs) versus 12 months under PCI-DSS. Keeping only 12 months satisfies PCI-DSS but not HIPAA. 3 months is only how much PCI-DSS wants immediately searchable, not the total retention. SOX's 7 years covers US financial reporting, not healthcare.",
+        "PCI-DSS requires at least 12 months of audit log history, but only the most recent 3 months must be immediately available. A login from 5 months ago is still retained, most likely in archive storage, so you ask for it to be restored before you can search it. The 3 months is the immediately available window, not the total retention period, and nothing in the requirement keeps all 12 months in the live index. Central logs are not purged at 90 days, and relying on the endpoint ignores the point of central collection.",
       xp: 20,
     } satisfies QuestionTask,
 

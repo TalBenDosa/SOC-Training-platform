@@ -237,6 +237,18 @@ export function getQuizActivityDates(): string[] {
 export function getQuizProgress(): Record<string, { score: number }> {
   return readJson<Record<string, { score: number }>>(LEARNER_KEYS.quizCompleted, {});
 }
+/**
+ * Mark a quiz completed in this page's cache right after it is finished, keeping the best
+ * score. The cache is otherwise filled only at sign-in, so without this the quiz just
+ * finished showed no "Completed" badge on the list until a reload (learner report #12).
+ * Cache-only for signed-in learners (the server's quiz_progress stays the authority).
+ */
+export function markQuizCompleted(slug: string, scorePct: number): void {
+  const map = getQuizProgress();
+  const pct = Number.isFinite(scorePct) ? Math.round(scorePct) : 0;
+  map[slug] = { score: Math.max(map[slug]?.score ?? 0, pct) };
+  writeJson(LEARNER_KEYS.quizCompleted, map);
+}
 export function recordQuizActivity(iso: string = new Date().toISOString()): void {
   appendActivity(LEARNER_KEYS.quizActivity, iso);
 }

@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { Topbar } from "@/components/nav/Topbar";
 import type { Quiz } from "@/lib/quizzes/data";
 import { type ClientQuiz, sanitizeQuizQuestion } from "@/lib/quizzes/sanitize";
-import { addTotalXp, setTotalXp, recordQuizActivity } from "@/lib/storage/progress";
+import { addTotalXp, setTotalXp, recordQuizActivity, markQuizCompleted } from "@/lib/storage/progress";
 import { newShuffleSeed, optionDisplayOrder, remapOptionLetters } from "@/lib/rooms/shuffle";
 import { usePublishReportLocation } from "@/lib/feedback/reportLocation";
 
@@ -218,11 +218,13 @@ export function QuizClient({ quiz: initialQuiz, slug }: { quiz: ClientQuiz; slug
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
         recordQuizActivity(); // streak signal (quiz_progress.last_completed_at on the server)
+        markQuizCompleted(slug, typeof data.scorePct === "number" ? data.scorePct : scorePercent);
         if (typeof data.totalXp === "number") setTotalXp(data.totalXp);
         else if (data.delta > 0) addTotalXp(data.delta);
         setSave({ status: "saved", delta: data.delta ?? 0, bestXp: data.bestXp ?? 0, runXp: typeof data.xpEarned === "number" ? data.xpEarned : undefined });
       } else if (data?.guest) {
         recordQuizActivity();
+        markQuizCompleted(slug, scorePercent);
         let best: Record<string, number> = {};
         try { best = JSON.parse(localStorage.getItem(GUEST_QUIZ_BEST_KEY) ?? "{}"); } catch { /* blocked/malformed */ }
         const prev = best[slug] ?? 0;

@@ -474,15 +474,18 @@ When a WAF does detect a match, its action is genuinely inline and preventive. I
         "AWS WAF LOG -- BLOCKED REQUEST (normal-size body, rule matched)\n" +
         "===========================================================\n" +
         "action:              BLOCK\n" +
-        "terminatingRuleId:   AWSManagedRulesSQLiRuleSet_SQLiBody_Body\n" +
+        "terminatingRuleId:   AWS-AWSManagedRulesSQLiRuleSet\n" +
         "terminatingRuleType: MANAGED_RULE_GROUP\n" +
+        "ruleGroupList[0].terminatingRule.ruleId: SQLi_BODY\n" +
         "httpRequest.uri:     /api/v1/login\n" +
-        "httpRequest.clientIp: 91.203.145.12\n" +
+        "httpRequest.clientIp: 198.51.100.12\n" +
         "httpRequest.httpMethod: POST\n" +
         "===========================================================\n" +
-        "This is what a caught injection attempt looks like: a specific\n" +
-        "terminatingRuleId naming the rule that matched, and action:\n" +
-        "BLOCK. Compare this to the log analysis task below, where the\n" +
+        "This is what a caught injection attempt looks like: action:\n" +
+        "BLOCK, terminatingRuleId naming the web ACL rule that holds the\n" +
+        "managed rule group, and ruleGroupList naming the exact rule\n" +
+        "inside it that matched (SQLi_BODY). Compare this to the log\n" +
+        "analysis task below, where the\n" +
         "same rule group is present but the body was too large for it\n" +
         "to fully evaluate.",
     },

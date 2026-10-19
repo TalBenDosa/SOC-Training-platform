@@ -884,7 +884,7 @@ const aiAttacksSocDetectionRoom = {
   title: "AI Attacks in the SOC, Part 1: Prompt Injection and Attacks on LLM Apps",
   description:
     "Part 1 of 3. Why AI is now a SOC problem, then the attacks aimed at the organization's own LLM applications: direct and indirect prompt injection, sensitive data leaking out of a model's answers, poisoned training and RAG data, and model theft. Each with the log signals an analyst sees and how to detect it. Grounded in OWASP Top 10 for LLM Applications (2025) and MITRE ATLAS.",
-  estimatedMinutes: 40,
+  estimatedMinutes: 50,
   xp: 130,
   prerequisites: ["email-security", "analyst-mindset"],
   tasks: pick([
@@ -899,7 +899,7 @@ const aiAttacksSocLlmRisksRoom = {
   title: "AI Attacks in the SOC, Part 2: Agents, Output Handling and Jailbreaks",
   description:
     "Part 2 of 3. The rest of the OWASP Top 10 for LLM Applications in depth: excessive agency when an AI agent holds too much power, improper output handling, unbounded consumption, adversarial evasion of AI models, and jailbreaks. How each turns an injection attempt into real impact, and the controls and detections that stop it.",
-  estimatedMinutes: 40,
+  estimatedMinutes: 50,
   xp: 145,
   prerequisites: ["ai-attacks-soc-detection"],
   tasks: pick([

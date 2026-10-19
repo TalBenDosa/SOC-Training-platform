@@ -248,8 +248,8 @@ Two different things hide under "benign alert". A **benign true positive** is a 
 **Step 1: Identify the benign pattern (false positive or benign true positive)**
 When an alert fires that's clearly benign, ask: What makes this different from a real threat? Is it the user? The source hostname? The destination URL? The time of day?
 
-**Step 2: Add an exception (allow list)**
-Most SIEMs let you add exclusions:
+**Step 2: Add an exception list (allow list)**
+Most SIEMs let you attach exclusions to a rule, kept together in that rule's exception list:
 - *User exception:* Exclude user "svc-wsus" from PowerShell download rule
 - *IP exception:* Exclude the IT admin's IP range from outside-hours login rule
 - *Hostname exception:* Exclude "WSUS-SERVER-01" from patch management alerts
