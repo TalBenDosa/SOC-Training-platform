@@ -34,7 +34,6 @@ import { NativeLogProvider, type NativeRenderer } from "@/lib/logs/native/Native
 import { IocTruthContext } from "@/components/threat-intel/iocTruthContext";
 import { storyIocTruth } from "@/lib/sim/storyTruth";
 import { normalizeHostIps } from "@/lib/sim/hostIdentity";
-import { StackPicker, savedStack, saveStack, stackDelta } from "@/components/training/StackPicker";
 import { PRODUCT_LABEL, type Stack } from "@/lib/logs/native/stack";
 import {
   BookOpen, Building2, Clock, Cpu, FileText, Filter, GraduationCap, Pause, Play,
@@ -192,19 +191,15 @@ const DIFFICULTIES: { id: Difficulty; label: string; blurb: string; accent: stri
 ];
 
 function StartTrainingModal({
-  companyId,
   onStart,
   onClose,
 }: {
-  companyId: string;
-  onStart: (difficulty: Difficulty, stack: Stack) => void;
+  onStart: (difficulty: Difficulty) => void;
   onClose: () => void;
 }) {
   // Default new analysts to Easy — foundation-tier single-host attacks are the
   // right first practical. Students can step up to Medium/Hard themselves.
   const [selected, setSelected] = useState<Difficulty>("easy");
-  // Security products this session runs on (spec §3) — remembered per company.
-  const [stack, setStack] = useState<Stack>(() => savedStack(companyId));
   // a11y: modal dialog — focus trapped inside, Escape closes, focus returns to the trigger.
   const dialogRef = useRef<HTMLDivElement>(null);
   useFocusTrap(true, dialogRef, { onEscape: onClose });
@@ -245,13 +240,9 @@ function StartTrainingModal({
           ))}
         </div>
 
-        <div className="mt-4">
-          <StackPicker companyId={companyId} value={stack} onChange={setStack} idPrefix="dash-stack" />
-        </div>
-
         <div className="mt-6 flex justify-end gap-3">
           <Button variant="secondary" size="sm" onClick={onClose}>Cancel</Button>
-          <Button variant="primary" size="sm" onClick={() => { const d = stackDelta(companyId, stack); saveStack(companyId, d); onStart(selected, d); onClose(); }}>
+          <Button variant="primary" size="sm" onClick={() => { onStart(selected); onClose(); }}>
             <Zap className="h-4 w-4" /> Start Session
           </Button>
         </div>
@@ -961,7 +952,9 @@ export default function DashboardPage() {
     // authored environment, not the generic built-in pool (fast-click race).
     const orgs = orgLoadRef.current ? await orgLoadRef.current.catch(() => orgCompanies) : orgCompanies;
     const orgMap = new Map(orgs.map(c => [c.profile.id, c]));
-    const stack = stackOverride ?? savedStack(company);
+    // The company's own security products: picking the company already fixes them, so the
+    // Live SOC no longer offers a product picker (an older per-browser choice is ignored).
+    const stack = stackOverride ?? {};
     stackRef.current = stack;
     setSessionStack(stack);
     const nm = await ensureNative().catch(() => null);
@@ -1188,8 +1181,7 @@ export default function DashboardPage() {
 
       {showTrainingModal && (
         <StartTrainingModal
-          companyId={selectedCompanyId}
-          onStart={(d, st) => handleStartTraining(d, undefined, st)}
+          onStart={(d) => handleStartTraining(d)}
           onClose={() => setShowTrainingModal(false)}
         />
       )}
