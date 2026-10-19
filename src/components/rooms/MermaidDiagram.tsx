@@ -17,7 +17,7 @@
  * labels. Diagram source is authored in our data files today, but lesson content
  * can be AI-generated, so this stays strict as defense in depth.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 let mermaidReady: Promise<typeof import("mermaid").default> | null = null;
 
@@ -30,6 +30,14 @@ function getMermaid() {
         securityLevel: "strict",
         theme: "base",
         fontFamily: "ui-sans-serif, system-ui, sans-serif",
+        // SVG <text> labels, not HTML in a <foreignObject>. An HTML label is
+        // measured once at render and then drawn inside a fixed-size box that
+        // clips; when the learner's browser lays the text out slightly wider
+        // (zoom, display scaling, a different system font) the last word or line
+        // is cut off (learner report 2026-10-19, "can't see the whole sentence").
+        // SVG text is measured and wrapped by mermaid itself and is never clipped.
+        htmlLabels: false,
+        flowchart: { htmlLabels: false },
         // Tuned to the platform's dark SOC palette so diagrams read as part of
         // the lesson rather than a pasted-in white image.
         themeVariables: {
@@ -60,6 +68,18 @@ function getMermaid() {
 }
 
 let idCounter = 0;
+
+/**
+ * The smallest width a diagram may shrink to: 75% of its natural width, so 16px
+ * labels never render below ~12px. A diagram wider than the column then scrolls
+ * sideways instead of being scaled into unreadable text.
+ */
+const MIN_SCALE = 0.75;
+function minWidthOf(svg: string): number | null {
+  const m = /viewBox="[\d.\-]+\s+[\d.\-]+\s+([\d.]+)\s+[\d.]+"/.exec(svg);
+  const w = m ? Number(m[1]) : NaN;
+  return Number.isFinite(w) && w > 0 ? Math.round(w * MIN_SCALE) : null;
+}
 
 export function MermaidDiagram({ chart, caption }: { chart: string; caption?: string }) {
   const [svg, setSvg] = useState<string | null>(null);
@@ -100,7 +120,13 @@ export function MermaidDiagram({ chart, caption }: { chart: string; caption?: st
       <div className="overflow-x-auto px-4 py-5">
         {svg
           // Mermaid's own output, produced under securityLevel "strict".
-          ? <div className="mermaid-svg flex justify-center [&_svg]:max-w-full [&_svg]:h-auto" dangerouslySetInnerHTML={{ __html: svg }} />
+          // "safe center": a diagram wider than the column starts at its left edge
+          // (fully scrollable) instead of overflowing on both sides.
+          ? <div
+              className="mermaid-svg flex [justify-content:safe_center] [&_svg]:max-w-full [&_svg]:h-auto [&_svg]:shrink-0 [&_svg]:min-w-[var(--mmd-min-w)]"
+              style={{ "--mmd-min-w": `${minWidthOf(svg) ?? 0}px` } as CSSProperties}
+              dangerouslySetInnerHTML={{ __html: svg }}
+            />
           : <div className="h-24 animate-pulse rounded bg-bg-elevated/50" />}
       </div>
     </figure>

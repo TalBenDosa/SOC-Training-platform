@@ -706,18 +706,20 @@ const windowsEventLogs: Room = {
     } satisfies QuestionTask,
 
     // -------------------------------------------------------------------------
-    // Flag Task: username enumeration. The room already asks twice what 0xC000006A means
-    // (Reading 2 question, Log Analysis 1), so the flag applies the OTHER code the reading
-    // teaches instead of asking for the same value a third time (2026-10-17 learner report).
+    // Flag Task: what the attacker does with a sprayed account. SubStatus codes are already
+    // asked in the Reading 2 checkpoint and Log Analysis 1, and a SubStatus flag repeated
+    // them (learner reports 2026-10-17 and 2026-10-19). Reading 2 teaches the account-
+    // management IDs that no other task tests, so the flag applies one of those: a
+    // global group (Domain Admins) is 4728, a machine-local group is 4732.
     // -------------------------------------------------------------------------
     {
       type: "flag",
       id: "win-evtlogs-flag1",
       logTask: "win-evtlogs-la1",
       prompt:
-        "Ten minutes after the password spray above, 203.0.113.45 starts a second wave of Event ID 4625 failures. This time the TargetUserName values (for example 'jsmith2', 'admin.backup', 'svc_test01') are names that do not exist in the CORP domain, so the attacker is now probing which usernames are real. What SubStatus value will these new 4625 events carry? Enter it in the same format as the SubStatus field in the raw log (0x followed by eight hex digits).",
-      answer: "0xC0000064",
-      hint: "The spray log's SubStatus means 'the account exists, wrong password'. The reading on Event ID 4625 lists a different code for a username that does not exist in the domain.",
+        "The password spray above lands: a few minutes later 203.0.113.45 logs on successfully as svc_backup (Event ID 4624). The attacker then uses that account to add svc_backup to the Domain Admins group. Which Event ID will the domain controller's Security log record for this group change? Enter the number only.",
+      answer: "4728",
+      hint: "Domain Admins is a domain-wide global group, not a group local to one machine. Reading 2 lists separate Event IDs for a member added to a global group and to a local group.",
       xp: 30,
     } satisfies FlagTask,
 
