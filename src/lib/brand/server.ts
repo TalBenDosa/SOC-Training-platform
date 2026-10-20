@@ -12,14 +12,14 @@ import "server-only";
  */
 import { headers } from "next/headers";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { PLATFORM_BRAND, brandFromOrg, hostOf, isPlatformHost, senderFor, type Brand } from "./brand";
+import { PLATFORM_BRAND, brandFromOrg, hostOf, isPlatformHost, senderFor, slugFromHost, type Brand } from "./brand";
 import type { EmailBrand } from "@/lib/email/templates";
 
 const TTL_MS = 60_000;
 const byHost = new Map<string, { at: number; brand: Brand }>();
 const byOrg = new Map<string, { at: number; brand: Brand }>();
 
-const ORG_COLUMNS = "id, name, custom_domain, branding";
+const ORG_COLUMNS = "id, name, slug, custom_domain, branding";
 
 export async function brandForHost(host: string): Promise<Brand> {
   if (isPlatformHost(host)) return PLATFORM_BRAND;
@@ -34,7 +34,11 @@ async function lookupHostBrand(host: string): Promise<Brand> {
   if (hit && Date.now() - hit.at < TTL_MS) return hit.brand;
   const admin = getSupabaseAdminClient();
   if (!admin) return PLATFORM_BRAND;
-  const { data, error } = await admin.from("organizations").select(ORG_COLUMNS).eq("custom_domain", host).maybeSingle();
+  // <slug>.<base domain> → by slug; any other host → by the org's own domain.
+  const slug = slugFromHost(host);
+  const { data, error } = await (slug
+    ? admin.from("organizations").select(ORG_COLUMNS).eq("slug", slug)
+    : admin.from("organizations").select(ORG_COLUMNS).eq("custom_domain", host)).maybeSingle();
   if (error) { console.error("[brand] host lookup failed:", error.message); return hit?.brand ?? PLATFORM_BRAND; }
   const brand = brandFromOrg(data);
   byHost.set(host, { at: Date.now(), brand });

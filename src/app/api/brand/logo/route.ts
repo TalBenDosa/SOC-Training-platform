@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { LOGO_DATA_URL, hostOf, isPlatformHost } from "@/lib/brand/brand";
+import { LOGO_DATA_URL, hostOf, isPlatformHost, slugFromHost } from "@/lib/brand/brand";
 
 /**
  * GET /api/brand/logo?org=<id> — a white-label organization's uploaded logo (white label,
@@ -23,7 +23,8 @@ export async function GET(req: Request) {
   } else {
     const host = hostOf(req.headers.get("host"));
     if (isPlatformHost(host)) return new NextResponse(null, { status: 404 });
-    query = query.eq("custom_domain", host);
+    const slug = slugFromHost(host);
+    query = slug ? query.eq("slug", slug) : query.eq("custom_domain", host);
   }
   const { data } = await query.maybeSingle();
   const b = (data?.branding ?? {}) as Record<string, unknown>;

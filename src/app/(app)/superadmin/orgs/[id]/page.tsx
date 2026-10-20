@@ -20,6 +20,7 @@ import {
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Organization, OrgMember, OrgUsage, OrgStatus, OrgRole } from "@/lib/org/types";
 import type { GlobalStudentRow } from "@/app/api/superadmin/students/route";
+import { subdomainOrigin } from "@/lib/brand/brand";
 
 function toDateInput(iso: string | null): string {
   return iso ? new Date(iso).toISOString().slice(0, 10) : "";
@@ -412,8 +413,15 @@ export default function OrgDetailPage() {
                       <label className={label} htmlFor="wl-name">Product name</label>
                       <input id="wl-name" className={field} value={wlName} maxLength={60} onChange={e => setWlName(e.target.value)} placeholder={org?.name ?? "College SOC Academy"} />
                     </div>
+                    <div className="sm:col-span-2 rounded-md border border-cyber-500/30 bg-cyber-500/[0.05] px-3 py-2 text-xs text-slate-300">
+                      {subdomainOrigin(org?.slug) ? (
+                        <>Address, works as soon as you save: <span className="font-mono text-cyber-200">{subdomainOrigin(org?.slug)}</span></>
+                      ) : (
+                        <>No automatic address yet: set NEXT_PUBLIC_WL_BASE_DOMAIN once (docs/WHITE-LABEL.md). Until then use an own domain below.</>
+                      )}
+                    </div>
                     <div>
-                      <label className={label} htmlFor="wl-domain">Own domain</label>
+                      <label className={label} htmlFor="wl-domain">Own domain <span className="font-normal">(optional)</span></label>
                       <input id="wl-domain" className={field} value={wlDomain} onChange={e => setWlDomain(e.target.value)} placeholder="soc.college.ac.il" />
                     </div>
                     <div>
@@ -453,8 +461,8 @@ export default function OrgDetailPage() {
                       </label>
                     </div>
                     <p className="sm:col-span-2 text-[11px] leading-relaxed text-slate-400">
-                      Before the domain works: add it to the Vercel project, have the customer point a CNAME at Vercel, and add
-                      https://&lt;domain&gt;/** to the Supabase Auth redirect URLs. See docs/WHITE-LABEL.md.
+                      Own domain only: add it in Vercel (Settings → Domains) and have the customer add the CNAME Vercel shows.
+                      Nothing else is needed. See docs/WHITE-LABEL.md.
                     </p>
                   </div>
                 )}

@@ -19,7 +19,7 @@ export async function GET() {
 
   const { data } = await admin
     .from("organizations")
-    .select("id, name, custom_domain, branding, all_rooms_unlocked")
+    .select("id, name, slug, custom_domain, branding, all_rooms_unlocked")
     .eq("id", user.orgId)
     .maybeSingle();
   // The uploaded logo (up to 150 KB) is served by /api/brand/logo, not inlined here.

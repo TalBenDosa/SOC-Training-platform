@@ -2,9 +2,12 @@
  * White label: who the platform presents itself as on this request.
  *
  * By default the platform is HACK THE SOC. A white-label organization (branding.white_label
- * = true) gets its own product name, logo and colour everywhere a learner looks, on its own
- * host name (organizations.custom_domain, migration 0100), so the experience never shows it
- * is running on another product. Isomorphic: no server or React imports.
+ * = true) gets its own product name, logo and colour everywhere a learner looks, so the
+ * experience never shows it is running on another product. Its address is either
+ *  - <org slug>.<NEXT_PUBLIC_WL_BASE_DOMAIN>: a neutral wildcard domain set up once, so a new
+ *    white-label customer needs no DNS or Vercel step at all, or
+ *  - its own host name (organizations.custom_domain, migration 0100): one CNAME per customer.
+ * Isomorphic: no server or React imports.
  */
 
 export interface Brand {
@@ -43,6 +46,31 @@ export const LOGO_DATA_URL = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+
 export const LOGO_MAX_BYTES = 150 * 1024;
 
 const HOSTNAME = /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
+/** organizations.slug is already DNS-label safe (a-z, 0-9, "-", at most 40). */
+const SLUG_LABEL = /^[a-z0-9]([a-z0-9-]{0,38}[a-z0-9])?$/;
+
+/**
+ * The neutral wildcard domain white-label organizations live under (e.g. "soc-academy.app"
+ * → northwind.soc-academy.app). Null when not configured.
+ */
+export function wlBaseDomain(): string | null {
+  const d = (process.env.NEXT_PUBLIC_WL_BASE_DOMAIN ?? "").trim().toLowerCase().replace(/^\.+|\.+$/g, "");
+  return d && HOSTNAME.test(d) ? d : null;
+}
+
+/** "<slug>.<base domain>" → the org slug (null for any other host). */
+export function slugFromHost(host: string): string | null {
+  const base = wlBaseDomain();
+  if (!base || !host.endsWith(`.${base}`)) return null;
+  const label = host.slice(0, -(base.length + 1));
+  return label !== "www" && SLUG_LABEL.test(label) ? label : null;
+}
+
+/** The automatic address of a white-label org under the base domain (null when unusable). */
+export function subdomainOrigin(slug: string | null | undefined): string | null {
+  const base = wlBaseDomain();
+  return base && slug && SLUG_LABEL.test(slug) ? `https://${slug}.${base}` : null;
+}
 
 /** A request Host header → bare lower-case host name (no port); "" when unusable. */
 export function hostOf(header: string | null | undefined): string {
@@ -55,6 +83,9 @@ export function normalizeDomain(input: string): string | null {
   const d = input.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "").replace(/:\d+$/, "").replace(/\.$/, "");
   if (d.length < 4 || d.length > 253 || !HOSTNAME.test(d)) return null;
   if (isPlatformHost(d)) return null;
+  // Hosts under the wildcard base domain are automatic (<slug>.<base>), never typed in.
+  const base = wlBaseDomain();
+  if (base && (d === base || d.endsWith(`.${base}`))) return null;
   return d;
 }
 
@@ -69,6 +100,8 @@ export function isPlatformHost(host: string): boolean {
   if (host === "localhost" || host === "127.0.0.1" || host === "[::1]") return true;
   if (host === "hackthesoc.app" || host.endsWith(".hackthesoc.app")) return true;
   if (host.endsWith(".vercel.app")) return true;
+  const base = wlBaseDomain();
+  if (base && (host === base || host === `www.${base}`)) return true;
   const site = process.env.NEXT_PUBLIC_SITE_URL;
   if (site) { try { if (new URL(site).hostname.toLowerCase() === host) return true; } catch { /* ignore */ } }
   return false;
@@ -77,6 +110,7 @@ export function isPlatformHost(host: string): boolean {
 export interface OrgBrandRow {
   id: string;
   name: string | null;
+  slug?: string | null;
   custom_domain?: string | null;
   branding?: unknown;
 }
@@ -102,7 +136,8 @@ export function brandFromOrg(org: OrgBrandRow | null | undefined): Brand {
     logoHasName: hasLogo && b.logo_has_name === true,
     color: typeof b.color === "string" && /^#[0-9a-fA-F]{6}$/.test(b.color) ? b.color : null,
     supportEmail: EMAIL.test(support) ? support : null,
-    origin: org.custom_domain ? `https://${org.custom_domain}` : null,
+    // Its own domain when it has one, else its automatic <slug>.<base domain> address.
+    origin: org.custom_domain ? `https://${org.custom_domain}` : subdomainOrigin(org.slug),
     emailFrom: typeof b.email_from === "string" && SENDER.test(b.email_from.trim()) ? b.email_from.trim() : null,
   };
 }

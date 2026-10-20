@@ -1,8 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import {
-  PLATFORM_BRAND, brandFromOrg, brandTitle, contactLine, hostOf, isPlatformHost, normalizeDomain, senderFor,
+  PLATFORM_BRAND, brandFromOrg, brandTitle, contactLine, hostOf, isPlatformHost, normalizeDomain, senderFor, slugFromHost, subdomainOrigin,
 } from "./brand";
 import { sanitizeBranding } from "./sanitize";
 import { orgWelcomeEmail, passwordResetEmail, studentInviteEmail, accountAccessEmail, planNotificationEmail, lapsedNudgeEmail } from "@/lib/email/templates";
@@ -36,6 +36,36 @@ describe("hosts and domains", () => {
     expect(normalizeDomain("not a domain")).toBeNull();
     expect(normalizeDomain("www.hackthesoc.app")).toBeNull();
     expect(normalizeDomain("x.vercel.app")).toBeNull();
+  });
+});
+
+describe("wildcard base domain (<slug>.<NEXT_PUBLIC_WL_BASE_DOMAIN>)", () => {
+  const prev = process.env.NEXT_PUBLIC_WL_BASE_DOMAIN;
+  beforeEach(() => { process.env.NEXT_PUBLIC_WL_BASE_DOMAIN = "soc-academy.example"; });
+  afterEach(() => { if (prev === undefined) delete process.env.NEXT_PUBLIC_WL_BASE_DOMAIN; else process.env.NEXT_PUBLIC_WL_BASE_DOMAIN = prev; });
+
+  it("maps a one-label subdomain to the org slug, nothing else", () => {
+    expect(slugFromHost("northwind.soc-academy.example")).toBe("northwind");
+    expect(slugFromHost("a.b.soc-academy.example")).toBeNull();
+    expect(slugFromHost("www.soc-academy.example")).toBeNull();
+    expect(slugFromHost("soc-academy.example")).toBeNull();
+    expect(slugFromHost("northwind.other.example")).toBeNull();
+    expect(isPlatformHost("soc-academy.example")).toBe(true);
+    expect(isPlatformHost("northwind.soc-academy.example")).toBe(false);
+  });
+  it("gives a white-label org without its own domain an automatic address", () => {
+    const b = brandFromOrg({ ...WL_ORG, slug: "northwind", custom_domain: null });
+    expect(b.origin).toBe("https://northwind.soc-academy.example");
+    expect(brandFromOrg({ ...WL_ORG, slug: "northwind" }).origin).toBe("https://soc.college.example"); // own domain wins
+    expect(subdomainOrigin("northwind")).toBe("https://northwind.soc-academy.example");
+  });
+  it("won't take a base-domain host as an org's own domain", () => {
+    expect(normalizeDomain("x.soc-academy.example")).toBeNull();
+  });
+  it("has no automatic address when the base domain isn't set", () => {
+    delete process.env.NEXT_PUBLIC_WL_BASE_DOMAIN;
+    expect(slugFromHost("northwind.soc-academy.example")).toBeNull();
+    expect(subdomainOrigin("northwind")).toBeNull();
   });
 });
 
