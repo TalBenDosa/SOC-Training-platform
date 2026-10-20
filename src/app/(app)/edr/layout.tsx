@@ -1,7 +1,7 @@
-import type { Metadata } from "next";
+import { brandMetadata } from "@/lib/brand/metadata";
 
-// Unique, descriptive tab title per route (WCAG 2.4.2) — the page itself is a client component.
-export const metadata: Metadata = { title: { absolute: "EDR Console // HACK THE SOC" } };
+// Unique, descriptive tab title per route (WCAG 2.4.2), with the request's brand.
+export const generateMetadata = brandMetadata("EDR Console");
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return children;

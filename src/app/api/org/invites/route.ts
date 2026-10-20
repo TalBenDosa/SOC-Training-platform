@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { asObject } from "@/lib/http/body";
 import { dbFail } from "@/lib/http/dbFail";
 import { emailOrigin } from "@/lib/http/siteOrigin";
+import { emailContextForOrg } from "@/lib/brand/server";
 
 /** Invitation emails one college may send per rolling 24 hours (SEC-16). */
 const ORG_INVITE_DAILY_BUDGET = (() => {
@@ -15,8 +16,9 @@ import { studentInviteEmail } from "@/lib/email/templates";
 
 /** Org-admin invite links, always for the caller's own org (from the JWT). */
 
-function joinLink(req: Request, token: string): string {
-  return `${emailOrigin(req)}/join?token=${token}`;
+/** `origin`: the org's own domain for a white-label org (emailContextForOrg), else the site. */
+function joinLink(origin: string, token: string): string {
+  return `${origin}/join?token=${token}`;
 }
 
 async function ctx() {
@@ -39,7 +41,8 @@ export async function GET(req: Request) {
     .is("accepted_at", null)
     .order("created_at", { ascending: false });
   if (error) return dbFail(error, "api/org/invites", 500);
-  return NextResponse.json({ invites: (data ?? []).map(i => ({ ...i, link: joinLink(req, i.token) })) });
+  const { origin } = await emailContextForOrg(c.orgId, emailOrigin(req));
+  return NextResponse.json({ invites: (data ?? []).map(i => ({ ...i, link: joinLink(origin, i.token) })) });
 }
 
 export async function POST(req: Request) {
@@ -86,7 +89,8 @@ export async function POST(req: Request) {
   }));
   const { data, error } = await c.admin.from("invitations").insert(rows).select("id, email, role, token, expires_at");
   if (error) return dbFail(error, "api/org/invites", 500);
-  const invites = (data ?? []).map(i => ({ ...i, link: joinLink(req, i.token) }));
+  const ec = await emailContextForOrg(c.orgId, emailOrigin(req));
+  const invites = (data ?? []).map(i => ({ ...i, link: joinLink(ec.origin, i.token) }));
 
   // Best-effort email to each named recipient (generic links have no recipient).
   const { data: org } = await c.admin.from("organizations").select("name").eq("id", c.orgId).maybeSingle();
@@ -94,8 +98,8 @@ export async function POST(req: Request) {
   // Paced batch send (parallel single sends tripped the provider's rate limit).
   const named = invites.filter(i => i.email);
   const batch = await sendEmailBatch(named.map(i => {
-    const mail = studentInviteEmail({ orgName, joinLink: i.link });
-    return { to: i.email as string, subject: mail.subject, html: mail.html, text: mail.text };
+    const mail = studentInviteEmail({ orgName, joinLink: i.link, brand: ec.emailBrand });
+    return { to: i.email as string, subject: mail.subject, html: mail.html, text: mail.text, from: ec.from || undefined };
   }));
   const emailed = batch.sent.filter(Boolean).length;
 

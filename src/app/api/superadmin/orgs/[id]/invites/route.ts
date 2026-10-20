@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { asObject } from "@/lib/http/body";
 import { dbFail } from "@/lib/http/dbFail";
 import { emailOrigin } from "@/lib/http/siteOrigin";
+import { emailContextForOrg } from "@/lib/brand/server";
 import { requireSuperAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendEmailBatch } from "@/lib/email/sendEmail";
@@ -9,8 +10,8 @@ import { studentInviteEmail } from "@/lib/email/templates";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-function joinLink(req: Request, token: string): string {
-  const origin = emailOrigin(req);
+/** `origin`: the org's own domain for a white-label org (emailContextForOrg), else the site. */
+function joinLink(origin: string, token: string): string {
   return `${origin}/join?token=${token}`;
 }
 
@@ -29,7 +30,8 @@ export async function GET(req: Request, { params }: Ctx) {
     .order("created_at", { ascending: false });
   if (error) return dbFail(error, "api/superadmin/orgs/[id]/invites", 500);
 
-  const invites = (data ?? []).map(i => ({ ...i, link: joinLink(req, i.token) }));
+  const { origin } = await emailContextForOrg(id, emailOrigin(req));
+  const invites = (data ?? []).map(i => ({ ...i, link: joinLink(origin, i.token) }));
   return NextResponse.json({ invites });
 }
 
@@ -73,7 +75,8 @@ export async function POST(req: Request, { params }: Ctx) {
   const { data, error } = await admin.from("invitations").insert(rows).select("id, email, role, token, expires_at");
   if (error) return dbFail(error, "api/superadmin/orgs/[id]/invites", 500);
 
-  const invites = (data ?? []).map(i => ({ ...i, link: joinLink(req, i.token) }));
+  const ec = await emailContextForOrg(orgId, emailOrigin(req));
+  const invites = (data ?? []).map(i => ({ ...i, link: joinLink(ec.origin, i.token) }));
 
   // Best-effort: email each named recipient their personal link (generic links
   // have no recipient). No-op when email isn't configured; never blocks.
@@ -83,8 +86,8 @@ export async function POST(req: Request, { params }: Ctx) {
   // provider's rate limit, so most invites silently never arrived.
   const named = invites.filter(i => i.email);
   const batch = await sendEmailBatch(named.map(i => {
-    const mail = studentInviteEmail({ orgName, joinLink: i.link });
-    return { to: i.email as string, subject: mail.subject, html: mail.html, text: mail.text };
+    const mail = studentInviteEmail({ orgName, joinLink: i.link, brand: ec.emailBrand });
+    return { to: i.email as string, subject: mail.subject, html: mail.html, text: mail.text, from: ec.from || undefined };
   }));
   const emailed = batch.sent.filter(Boolean).length;
   const email_failed = batch.skipped ? 0 : named.length - emailed;

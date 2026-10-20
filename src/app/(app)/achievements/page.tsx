@@ -21,6 +21,8 @@ import { useRank } from "@/lib/progression/useRank";
 import { useProgressSnapshot } from "@/lib/storage/useProgressSnapshot";
 import { format } from "date-fns";
 import { Lock, Award, Download, Sparkles } from "lucide-react";
+import { useBrand } from "@/lib/brand/BrandContext";
+import { certificateHost } from "@/lib/certificate/issuer";
 
 // The certifiable ranks — everything above the entry "Student" rank. You are
 // never promoted INTO Student, so it never earns a certificate.
@@ -33,18 +35,19 @@ function commas(n: number) {
 /** A live mini-render of a rank's certificate, drawn into a downscaled canvas. */
 function CertThumb({ rank, name, orgName }: { rank: Rank; name: string; orgName: string | null }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const brand = useBrand();
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
     let cancelled = false;
     drawCertificate(
       canvas,
-      { meta: certMetaForRank(rank), name, xp: rank.minXp, date: format(new Date(), "d MMM yyyy"), orgName },
+      { meta: certMetaForRank(rank), name, xp: rank.minXp, date: format(new Date(), "d MMM yyyy"), orgName, brand, host: certificateHost(brand) },
       1,
     ).catch(() => {});
     return () => { cancelled = true; void cancelled; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rank.id, name, orgName]);
+  }, [rank.id, name, orgName, brand]);
   return <canvas ref={ref} className="block h-auto w-full" aria-hidden />;
 }
 

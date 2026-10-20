@@ -6,7 +6,8 @@ import { ShieldCheck, ShieldX, Trophy, RotateCcw, ArrowRight, Download, Loader2,
 import { cn } from "@/lib/utils";
 import { useDisplayName } from "@/lib/auth/useDisplayName";
 import { useOrgContext } from "@/lib/auth/useOrgContext";
-import { certificateIssuer, PRODUCTION_HOST } from "@/lib/certificate/issuer";
+import { certificateIssuer, certificateHost } from "@/lib/certificate/issuer";
+import { useBrand } from "@/lib/brand/BrandContext";
 import { pdfText } from "@/lib/certificate/pdfText";
 import { describeScenarioXp } from "@/lib/storage/scenarioXp";
 
@@ -110,6 +111,9 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
   const { orgId, orgName } = useOrgContext();
   // #32: a real organisation, else the platform — never the "Individual" placeholder.
   const issuer = certificateIssuer(orgId, orgName);
+  // White label (src/lib/brand): the organization's name, logo and domain on the certificate.
+  const brand = useBrand();
+  const certHost = certificateHost(brand);
   // FB-007: XP is accuracy + report quality only; time is shown, never scored.
   // #30: only the best attempt per scenario counts, so the headline is what this
   // run actually ADDED to the total — not the run's raw XP on every retry.
@@ -158,11 +162,20 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
       ];
       corners.forEach(([x1, y1, x2, y2]) => pdf.line(x1, y1, x2, y2));
 
-      // ── HACK THE SOC header ───────────────────────────────────────────────────
+      // ── Brand header: HACK THE SOC, or a white-label organization's logo + name ──
+      if (brand.whiteLabel && brand.logoSrc) {
+        try {
+          const blob = await (await fetch(brand.logoSrc)).blob();
+          const dataUrl = await new Promise<string>((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result)); fr.onerror = rej; fr.readAsDataURL(blob); });
+          const props = pdf.getImageProperties(dataUrl);
+          const h = 12, w = Math.min(60, (props.width / Math.max(1, props.height)) * h);
+          pdf.addImage(dataUrl, W / 2 - w / 2, 18, w, h);
+        } catch { /* the name alone still identifies the issuer */ }
+      }
       pdf.setTextColor(34, 211, 238);
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(26);
-      pdf.text("HACK THE SOC", W / 2, 42, { align: "center" });
+      pdf.text(brand.productName, W / 2, 42, { align: "center" });
 
       // Underline header
       pdf.setDrawColor(34, 211, 238);
@@ -238,7 +251,7 @@ export function CompletionModal({ result, scenarioTitle, timeTaken, onRetry, onC
       });
 
       // ── Footer ────────────────────────────────────────────────────────────────
-      pdfText(pdf, `Issued by ${issuer}  •  SOC Analyst Training  •  ${PRODUCTION_HOST}`, W / 2, H - 16, { size: 8, rgb: [71, 85, 105], align: "center" });
+      pdfText(pdf, `Issued by ${issuer}  •  SOC Analyst Training${certHost ? `  •  ${certHost}` : ""}`, W / 2, H - 16, { size: 8, rgb: [71, 85, 105], align: "center" });
 
       // ── Save ─────────────────────────────────────────────────────────────────
       const safeName = scenarioTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "scenario";

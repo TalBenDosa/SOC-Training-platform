@@ -17,11 +17,13 @@ import { cn } from "@/lib/utils";
 import { useDisplayName } from "@/lib/auth/useDisplayName";
 import { useRank } from "@/lib/progression/useRank";
 import { ArrowRight } from "lucide-react";
+import { useBrand } from "@/lib/brand/BrandContext";
 
 export default function WelcomePage() {
   const { xp, rank, ready } = useRank();
   // The nickname chosen at signup, falling back to the email local part.
   const name = useDisplayName();
+  const brand = useBrand();
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-6 py-16">
@@ -35,7 +37,7 @@ export default function WelcomePage() {
           Hello <span className="font-semibold text-white">{name}</span>
         </p>
         <h1 className="mt-2 text-3xl font-bold text-white sm:text-4xl">
-          Welcome to <span className="text-cyber-300">Hack The SOC</span>
+          Welcome to <span className="text-cyber-300">{brand.whiteLabel ? brand.productName : "Hack The SOC"}</span>
         </h1>
 
         {/* ── Score + badge ──────────────────────────────────────────── */}

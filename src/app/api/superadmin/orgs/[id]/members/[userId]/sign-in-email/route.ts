@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { emailOrigin } from "@/lib/http/siteOrigin";
+import { emailContextForOrg } from "@/lib/brand/server";
 import { requireSuperAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/sendEmail";
@@ -45,7 +46,8 @@ export async function POST(req: Request, { params }: Ctx) {
   const email = u?.user?.email;
   if (!email) return NextResponse.json({ error: "This account has no email address on file." }, { status: 400 });
 
-  const origin = emailOrigin(req);
+  const ec = await emailContextForOrg(orgId, emailOrigin(req));
+  const origin = ec.origin;
   const { data, error } = await admin.auth.admin.generateLink({ type: "recovery", email, options: { redirectTo: `${origin}/update-password` } });
   const tokenHash = data?.properties?.hashed_token;
   if (error || !tokenHash) {
@@ -55,8 +57,8 @@ export async function POST(req: Request, { params }: Ctx) {
   const link = `${origin}/update-password?token_hash=${encodeURIComponent(tokenHash)}&type=recovery`;
 
   const { data: org } = await admin.from("organizations").select("name").eq("id", orgId).maybeSingle();
-  const mail = accountAccessEmail({ orgName: org?.name ?? "your organization", link });
-  const r = await sendEmail({ to: email, subject: mail.subject, html: mail.html, text: mail.text });
+  const mail = accountAccessEmail({ orgName: org?.name ?? "your organization", link, brand: ec.emailBrand });
+  const r = await sendEmail({ to: email, subject: mail.subject, html: mail.html, text: mail.text, from: ec.from || undefined });
   const status = emailStatusOf(r);
 
   await logAudit({

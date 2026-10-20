@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getRequestBrand } from "@/lib/brand/server";
 import { Logo } from "@/components/Logo";
 import { buttonClasses } from "@/components/ui/Button";
 import { RecoveryRedirect } from "@/components/auth/RecoveryRedirect";
@@ -99,7 +101,10 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function Landing() {
+export default async function Landing() {
+  // White label: an organization's own domain has no HACK THE SOC marketing page. Its
+  // front door is the sign-in page, under its own name (src/lib/brand).
+  if ((await getRequestBrand()).whiteLabel) redirect("/login");
   return (
     <div className="relative min-h-screen overflow-hidden">
       {/* Salvage password-recovery links that Supabase bounced to the site root

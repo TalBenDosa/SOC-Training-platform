@@ -18,7 +18,8 @@ import { Download, Share2, Linkedin, Copy, Check, X, PartyPopper } from "lucide-
 import type { Rank } from "@/lib/progression/ranks";
 import { certMetaForRank, drawCertificate, canvasToPng, type CertMeta } from "@/lib/certificate/renderCertificate";
 import { useOrgContext } from "@/lib/auth/useOrgContext";
-import { PRODUCTION_ORIGIN } from "@/lib/certificate/issuer";
+import { PRODUCTION_ORIGIN, certificateHost } from "@/lib/certificate/issuer";
+import { useBrand } from "@/lib/brand/BrandContext";
 
 interface Props {
   rank: Rank;
@@ -36,12 +37,15 @@ export function RankCertificateModal({ rank, name, onClose }: Props) {
   // The rank's own threshold is the milestone — not the learner's live total,
   // which may already be higher by the time they dismiss the modal.
   const milestoneXp = rank.minXp;
-  const filename = `HackTheSOC-${meta.title.replace(/\s+/g, "")}-${rank.id}.png`;
+  const brand = useBrand();
+  const brandSlug = brand.productName.replace(/[^A-Za-z0-9]+/g, "") || "SOC";
+  const filename = `${brand.whiteLabel ? brandSlug : "HackTheSOC"}-${meta.title.replace(/\s+/g, "")}-${rank.id}.png`;
   // Always the canonical production domain — window.location.origin baked a
-  // localhost / vercel.app preview URL into shared posts (#32).
-  const site = PRODUCTION_ORIGIN;
+  // localhost / vercel.app preview URL into shared posts (#32). White label: the
+  // organization's own domain (none when it has no domain of its own).
+  const site = brand.whiteLabel && brand.origin ? brand.origin : PRODUCTION_ORIGIN;
   const shortTier = meta.tier.split(" · ")[0];
-  const shareText = `I just reached ${meta.title} · ${shortTier} on HACK THE SOC 🛡️ — training to become a SOC analyst.`;
+  const shareText = `I just reached ${meta.title} · ${shortTier} on ${brand.productName} 🛡️ — training to become a SOC analyst.`;
 
   // Draw once the fonts are ready. Re-draw if the rank/name changes.
   useEffect(() => {
@@ -49,14 +53,14 @@ export function RankCertificateModal({ rank, name, onClose }: Props) {
     const canvas = canvasRef.current;
     if (!canvas) return;
     setReady(false);
-    drawCertificate(canvas, { meta, name, xp: milestoneXp, date: format(new Date(), "d MMM yyyy"), orgName, orgId }).then(() => {
+    drawCertificate(canvas, { meta, name, xp: milestoneXp, date: format(new Date(), "d MMM yyyy"), orgName, orgId, brand, host: certificateHost(brand) }).then(() => {
       if (!cancelled) setReady(true);
     });
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rank.id, name, orgName, orgId]);
+  }, [rank.id, name, orgName, orgId, brand]);
 
   // ESC closes, matching every other overlay on the platform.
   useEffect(() => {
@@ -98,7 +102,7 @@ export function RankCertificateModal({ rank, name, onClose }: Props) {
     };
     if (nav.canShare?.({ files: [file] }) && nav.share) {
       try {
-        await nav.share({ files: [file], title: "HACK THE SOC", text: shareText });
+        await nav.share({ files: [file], title: brand.productName, text: shareText });
       } catch {
         /* user dismissed the share sheet — nothing to do */
       }

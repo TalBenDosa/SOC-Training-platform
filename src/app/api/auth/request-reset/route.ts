@@ -2,6 +2,8 @@ import "server-only";
 import { asObject } from "@/lib/http/body";
 import { NextResponse, after } from "next/server";
 import { emailOrigin } from "@/lib/http/siteOrigin";
+import { brandForHost, emailContextForOrg } from "@/lib/brand/server";
+import { hostOf } from "@/lib/brand/brand";
 import type { NextRequest } from "next/server";
 import { checkRateLimit } from "@/lib/security/rateLimit";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -86,7 +88,10 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = getSupabaseAdminClient();
-  const origin = emailOrigin(req); // canonical site URL — never the request's Host (P-03)
+  const siteOrigin = emailOrigin(req); // canonical site URL — never the request's Host (P-03)
+  // White label: the host only says WHICH of the user's organizations asked (a white-label
+  // domain); the link's origin always comes from that organization's row in the database.
+  const hostBrand = await brandForHost(hostOf(req.headers.get("host")));
 
   // Do the real work but NEVER leak whether the account exists — always 200.
   // It runs AFTER the response is sent (after()): awaiting generateLink + the
@@ -97,10 +102,12 @@ export async function POST(req: NextRequest) {
       const { data, error } = await admin.auth.admin.generateLink({
         type: "recovery",
         email,
-        options: { redirectTo: `${origin}/update-password` },
+        options: { redirectTo: `${siteOrigin}/update-password` },
       });
       const tokenHash = data?.properties?.hashed_token;
       if (!error && tokenHash) {
+        const ec = await emailContextForOrg(await resetOrg(admin, data?.user?.id, hostBrand.orgId), siteOrigin);
+        const origin = ec.origin;
         const resetLink = `${origin}/update-password?token_hash=${encodeURIComponent(tokenHash)}&type=recovery`;
         // SEC-06: the per-IP / per-address limits still let a distributed attacker
         // mail one victim ~300 resets a day and drain the provider's daily quota (then
@@ -114,8 +121,8 @@ export async function POST(req: NextRequest) {
           console.warn(`[request-reset] daily reset-email ceiling reached (${!perAddress.ok ? "per address" : "global"}) — not sent`);
           return;
         }
-        const msg = passwordResetEmail({ resetLink });
-        const sent = await sendEmail({ to: email, subject: msg.subject, html: msg.html, text: msg.text });
+        const msg = passwordResetEmail({ resetLink, brand: ec.emailBrand });
+        const sent = await sendEmail({ to: email, subject: msg.subject, html: msg.html, text: msg.text, from: ec.from || undefined });
         if (!sent.ok && !sent.skipped) {
           console.error(`[request-reset] email send failed for a user: ${sent.error}`);
         }
@@ -130,4 +137,21 @@ export async function POST(req: NextRequest) {
   else console.info("[request-reset] admin client not configured — reset email skipped");
 
   return NextResponse.json({ ok: true });
+}
+
+/**
+ * Which organization's brand a reset email carries: the white-label org whose domain the
+ * request came from, if the user belongs to it; else the user's only organization; else none
+ * (the platform). Membership is read from the database, so the Host header can't pick an
+ * organization the user isn't in.
+ */
+async function resetOrg(admin: NonNullable<ReturnType<typeof getSupabaseAdminClient>>, userId: string | undefined, hostOrgId: string | null): Promise<string | null> {
+  if (!userId) return null;
+  let orgs: string[] = [];
+  try {
+    const { data } = await admin.from("org_members").select("org_id").eq("user_id", userId).eq("status", "active");
+    orgs = (data ?? []).map(r => r.org_id as string);
+  } catch { return null; }
+  if (hostOrgId && orgs.includes(hostOrgId)) return hostOrgId;
+  return orgs.length === 1 ? orgs[0] : null;
 }

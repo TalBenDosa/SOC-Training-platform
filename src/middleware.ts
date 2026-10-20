@@ -96,9 +96,11 @@ function clientIp(req: NextRequest): string {
  *                       authenticated by CRON_SECRET inside the route instead
  *  - /api/invitations/* — pre-signup invite lookup for the /join page; returns
  *                       only an org name + validity, keyed by an opaque token
+ *  - /api/brand/*     — a white-label organization's logo (sign-in page, favicon,
+ *                       emails): shown before anyone signs in
  * Everything else is closed by default (see the gate in middleware()).
  */
-const PUBLIC_API_PREFIXES = ["/api/health", "/api/auth/", "/api/cron/", "/api/invitations/", "/api/access-codes/"];
+const PUBLIC_API_PREFIXES = ["/api/health", "/api/auth/", "/api/cron/", "/api/invitations/", "/api/access-codes/", "/api/brand/"];
 
 function isPublicApi(pathname: string): boolean {
   return PUBLIC_API_PREFIXES.some(p => pathname === p || pathname.startsWith(p));

@@ -27,7 +27,10 @@ export interface EmailInput {
   subject: string;
   html: string;
   text?: string;
+  /** Per-message sender (a white-label organization's, see senderFor in src/lib/brand). */
+  from?: string;
 }
+
 
 const RESEND_BATCH_ENDPOINT = "https://api.resend.com/emails/batch";
 /** Resend accepts at most 100 messages per batch call. */
@@ -76,7 +79,7 @@ export async function sendEmailBatch(inputs: readonly EmailInput[], opts: { paus
         method: "POST",
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify(part.map(i => ({
-          from, to: Array.isArray(i.to) ? i.to : [i.to], subject: i.subject, html: i.html, text: i.text,
+          from: i.from || from, to: Array.isArray(i.to) ? i.to : [i.to], subject: i.subject, html: i.html, text: i.text,
         }))),
         signal: AbortSignal.timeout(15_000),
       });
@@ -106,7 +109,7 @@ export function redactEmails(text: string): string {
 
 export async function sendEmail(input: EmailInput): Promise<{ ok: boolean; skipped?: boolean; error?: string }> {
   const key = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM?.trim() || DEFAULT_FROM;
+  const from = input.from || process.env.EMAIL_FROM?.trim() || DEFAULT_FROM;
   const to = Array.isArray(input.to) ? input.to : [input.to];
 
   if (!key) {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { asObject } from "@/lib/http/body";
 import { dbFail } from "@/lib/http/dbFail";
 import { emailOrigin } from "@/lib/http/siteOrigin";
+import { emailContextForOrg } from "@/lib/brand/server";
 import crypto from "node:crypto";
 import { requireSuperAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -57,8 +58,8 @@ export async function POST(req: Request, { params }: Ctx) {
   });
   if (insErr) return dbFail(insErr, "api/superadmin/orgs/[id]/invite-admin", 500);
 
-  const origin = emailOrigin(req);
-  const adminLink = `${origin}/join?token=${token}`;
+  const ec = await emailContextForOrg(orgId, emailOrigin(req));
+  const adminLink = `${ec.origin}/join?token=${token}`;
 
   // Mint a starter class code so the admin can distribute it to students right
   // away — included in the welcome email. Best-effort: if generation fails,
@@ -70,8 +71,8 @@ export async function POST(req: Request, { params }: Ctx) {
     classCode = (await getActiveCode(admin, orgId))?.code ?? (await generateCode(admin, orgId, gate.user.id)).code;
   } catch { /* non-fatal — the invite is the point, the code is a convenience */ }
 
-  const mail = orgWelcomeEmail({ orgName: org.name, adminLink, classCode });
-  const r = await sendEmail({ to: email, subject: mail.subject, html: mail.html, text: mail.text });
+  const mail = orgWelcomeEmail({ orgName: org.name, adminLink, classCode, brand: ec.emailBrand });
+  const r = await sendEmail({ to: email, subject: mail.subject, html: mail.html, text: mail.text, from: ec.from || undefined });
 
   // Distinguish the two failure modes — they were being reported identically
   // as "delivery is off", which is only true for the first:

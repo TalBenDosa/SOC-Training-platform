@@ -5,6 +5,8 @@ import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/sendEmail";
 import { logAudit } from "@/lib/audit/logAudit";
+import { emailOrigin } from "@/lib/http/siteOrigin";
+import { emailContextForOrg } from "@/lib/brand/server";
 
 /**
  * Reply to a reporter from the reports inbox (platform admin / super-admin only).
@@ -56,20 +58,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   const orig = String(row.message ?? "");
-  const subject = "Re: your report on HACK THE SOC";
+  // White label: the reply comes from the reporter's organization's brand.
+  const { data: prof } = await admin.from("profiles").select("org_id").eq("id", row.user_id).maybeSingle();
+  const ec = await emailContextForOrg((prof?.org_id as string | null) ?? null, emailOrigin(req));
+  const brandName = ec.brand.productName;
+  const subject = `Re: your report on ${brandName}`;
   const html =
     `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:15px;line-height:1.6;color:#141413;max-width:560px">` +
-      `<p>Thanks for taking the time to report this on <b>HACK THE SOC</b>. Here's a reply from the team:</p>` +
+      `<p>Thanks for taking the time to report this on <b>${esc(brandName)}</b>. Here's a reply from the team:</p>` +
       `<div style="border-left:3px solid #16606f;padding:8px 14px;margin:14px 0;background:#f7f8fa;white-space:pre-wrap">${esc(message)}</div>` +
       `<p style="color:#4a5a6a;font-size:13px;margin-top:20px">Your original report:</p>` +
       `<div style="border-left:3px solid #d3dae2;padding:8px 14px;margin:6px 0;background:#faf9f5;color:#4a5a6a;font-size:13px;white-space:pre-wrap">${esc(orig)}</div>` +
-      `<p style="color:#94a3b8;font-size:12px;margin-top:22px">You're receiving this because you submitted a report on HACK THE SOC. You can reply to this email if you need to follow up.</p>` +
+      `<p style="color:#94a3b8;font-size:12px;margin-top:22px">You're receiving this because you submitted a report on ${esc(brandName)}. You can reply to this email if you need to follow up.</p>` +
     `</div>`;
   const text =
-    `Thanks for taking the time to report this on HACK THE SOC. Here's a reply from the team:\n\n` +
+    `Thanks for taking the time to report this on ${brandName}. Here's a reply from the team:\n\n` +
     `${message}\n\n` +
     `--- Your original report ---\n${orig}\n\n` +
-    `You're receiving this because you submitted a report on HACK THE SOC.`;
+    `You're receiving this because you submitted a report on ${brandName}.`;
 
   // E-19 (QA phase 7): save FIRST, then send. It was send-then-save, so a failed
   // save after a delivered email made the admin retry and the reporter got the
@@ -81,7 +87,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     .eq("id", id);
   if (updErr) return dbFail(updErr, "api/feedback/[id]/reply", 500);
 
-  const sent = await sendEmail({ to: email, subject, html, text });
+  const sent = await sendEmail({ to: email, subject, html, text, from: ec.from || undefined });
   if (!sent.ok && !sent.skipped) {
     const { error: undoErr } = await admin
       .from("content_feedback")

@@ -91,7 +91,7 @@ const cache = new Map<string, GeneratedLesson>();
 
 // ─── Prompts ──────────────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are a senior SOC analyst and cybersecurity trainer writing structured lesson content for a training platform called "Hack The SOC".
+const SYSTEM_PROMPT = `You are a senior SOC analyst and cybersecurity trainer writing structured lesson content for a SOC analyst training platform. Never name the platform in the lesson (organizations run it under their own brand).
 
 Your students are junior-to-intermediate security analysts. Write content that is:
 - Practical and grounded in real SOC tooling (Splunk, Sentinel, CrowdStrike, etc.)

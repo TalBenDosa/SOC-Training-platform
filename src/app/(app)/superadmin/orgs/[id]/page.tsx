@@ -100,6 +100,17 @@ export default function OrgDetailPage() {
   // branding
   const [brandColor, setBrandColor] = useState("#22d3ee");
   const [brandLogo, setBrandLogo] = useState("");
+  // white label (src/lib/brand, migration 0100)
+  const [wl, setWl] = useState(false);
+  const [wlName, setWlName] = useState("");
+  const [wlDomain, setWlDomain] = useState("");
+  const [wlSupport, setWlSupport] = useState("");
+  const [wlFrom, setWlFrom] = useState("");
+  const [wlLogoHasName, setWlLogoHasName] = useState(false);
+  const [wlHasStoredLogo, setWlHasStoredLogo] = useState(false);
+  // "keep" = leave the stored logo, a data URL = replace it, "" = remove it.
+  const [wlLogo, setWlLogo] = useState<string>("keep");
+  const [wlLogoError, setWlLogoError] = useState<string | null>(null);
 
   // contract (commercial record — see migration 0020)
   const [cPlan, setCPlan] = useState("");
@@ -120,8 +131,14 @@ export default function OrgDetailPage() {
     setLoadFailed(false);
     setOrg(data.org); setMembers(data.members); setUsage(data.usage);
     setOrgName(data.org.name); setSeatLimit(String(data.org.seat_limit)); setTeamLimit(data.org.team_session_limit == null ? "" : String(data.org.team_session_limit)); setExpiresAt(toDateInput(data.org.expires_at)); setStatus(data.org.status);
-    const br = (data.org.branding ?? {}) as { color?: string; logo_url?: string };
+    const br = (data.org.branding ?? {}) as {
+      color?: string; logo_url?: string; white_label?: boolean; product_name?: string; logo_data?: string;
+      logo_has_name?: boolean; support_email?: string; email_from?: string;
+    };
     setBrandColor(br.color ?? "#22d3ee"); setBrandLogo(br.logo_url ?? "");
+    setWl(br.white_label === true); setWlName(br.product_name ?? ""); setWlDomain(data.org.custom_domain ?? "");
+    setWlSupport(br.support_email ?? ""); setWlFrom(br.email_from ?? ""); setWlLogoHasName(br.logo_has_name === true);
+    setWlHasStoredLogo(typeof br.logo_data === "string" && br.logo_data.length > 0); setWlLogo("keep"); setWlLogoError(null);
     const ct = (data.org.contract ?? {}) as {
       plan?: string; seats_purchased?: number; price?: number; currency?: string;
       po_number?: string; signed_at?: string; notes?: string;
@@ -376,12 +393,87 @@ export default function OrgDetailPage() {
                   <label className={label} htmlFor="b-logo">Logo URL <span className="font-normal">(https)</span></label>
                   <input id="b-logo" className={field} value={brandLogo} onChange={e => setBrandLogo(e.target.value)} placeholder="https://college.ac.il/logo.png" />
                 </div>
+              </div>
+              <p className="mt-2 text-[11px] text-slate-400">Without white label: shown as a badge in the students&apos; top bar and on their certificates.</p>
+
+              {/* White label — the organization's own product, end to end. */}
+              <div className="mt-4 border-t border-border pt-4">
+                <label className="flex items-center gap-2 text-sm font-semibold text-white">
+                  <input type="checkbox" checked={wl} onChange={e => setWl(e.target.checked)} />
+                  White label
+                </label>
+                <p className="mt-1 text-[11px] text-slate-400">
+                  The organization&apos;s members see its own name, logo and domain everywhere: sign-in, every page, emails,
+                  certificates, slide decks. HACK THE SOC is not shown to them.
+                </p>
+                {wl && (
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className={label} htmlFor="wl-name">Product name</label>
+                      <input id="wl-name" className={field} value={wlName} maxLength={60} onChange={e => setWlName(e.target.value)} placeholder={org?.name ?? "College SOC Academy"} />
+                    </div>
+                    <div>
+                      <label className={label} htmlFor="wl-domain">Own domain</label>
+                      <input id="wl-domain" className={field} value={wlDomain} onChange={e => setWlDomain(e.target.value)} placeholder="soc.college.ac.il" />
+                    </div>
+                    <div>
+                      <label className={label} htmlFor="wl-support">Support email <span className="font-normal">(shown to learners)</span></label>
+                      <input id="wl-support" type="email" className={field} value={wlSupport} onChange={e => setWlSupport(e.target.value)} placeholder="soc-support@college.ac.il" />
+                    </div>
+                    <div>
+                      <label className={label} htmlFor="wl-from">Email sender <span className="font-normal">(domain must be verified in Resend)</span></label>
+                      <input id="wl-from" className={field} value={wlFrom} onChange={e => setWlFrom(e.target.value)} placeholder="College SOC <noreply@college.ac.il>" />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className={label} htmlFor="wl-logo">Logo <span className="font-normal">(PNG, JPEG or WebP, up to 150 KB; shown on a dark background)</span></label>
+                      <div className="flex flex-wrap items-center gap-3">
+                        {(wlLogo !== "keep" ? wlLogo : wlHasStoredLogo ? `/api/brand/logo?org=${id}` : "") && (
+                          // eslint-disable-next-line @next/next/no-img-element -- data URL / same-origin preview
+                          <img src={wlLogo !== "keep" ? wlLogo : `/api/brand/logo?org=${id}`} alt="Logo preview" className="h-10 max-w-[180px] rounded bg-bg-elevated object-contain p-1" />
+                        )}
+                        <input id="wl-logo" type="file" accept="image/png,image/jpeg,image/webp" className="text-xs text-slate-300"
+                          onChange={e => {
+                            const f = e.target.files?.[0];
+                            setWlLogoError(null);
+                            if (!f) return;
+                            if (!/^image\/(png|jpeg|webp)$/.test(f.type)) { setWlLogoError("Use a PNG, JPEG or WebP image."); return; }
+                            if (f.size > 150 * 1024) { setWlLogoError("That image is over 150 KB. Export a smaller one."); return; }
+                            const fr = new FileReader();
+                            fr.onload = () => setWlLogo(String(fr.result));
+                            fr.readAsDataURL(f);
+                          }} />
+                        {(wlHasStoredLogo || (wlLogo !== "keep" && wlLogo)) && (
+                          <button type="button" className="text-[11px] text-neon-red hover:underline" onClick={() => { setWlLogo(""); setWlHasStoredLogo(false); }}>Remove logo</button>
+                        )}
+                      </div>
+                      {wlLogoError && <p className="mt-1 text-[11px] text-neon-amber" role="alert">{wlLogoError}</p>}
+                      <label className="mt-2 flex items-center gap-2 text-xs text-slate-300">
+                        <input type="checkbox" checked={wlLogoHasName} onChange={e => setWlLogoHasName(e.target.checked)} />
+                        The logo already includes the name (don&apos;t print the name beside it)
+                      </label>
+                    </div>
+                    <p className="sm:col-span-2 text-[11px] leading-relaxed text-slate-400">
+                      Before the domain works: add it to the Vercel project, have the customer point a CNAME at Vercel, and add
+                      https://&lt;domain&gt;/** to the Supabase Auth redirect URLs. See docs/WHITE-LABEL.md.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-4">
                 <Button variant="outline" size="sm" disabled={saving}
-                  onClick={() => patch({ branding: { color: brandColor, logo_url: brandLogo || undefined } }, "Branding updated.")}>
+                  onClick={() => patch({
+                    branding: {
+                      color: brandColor, logo_url: brandLogo || undefined,
+                      white_label: wl, product_name: wlName || undefined, logo_has_name: wlLogoHasName,
+                      support_email: wlSupport || undefined, email_from: wlFrom || undefined,
+                      logo_data: wlLogo === "keep" ? undefined : wlLogo,
+                    },
+                    custom_domain: wl ? (wlDomain.trim() || null) : null,
+                  }, "Branding updated.")}>
                   Save branding
                 </Button>
               </div>
-              <p className="mt-2 text-[11px] text-slate-400">Shown as a badge in the students&apos; top bar and on their certificates.</p>
             </Card>
 
             {/* Contract — what this college actually bought. A record, not a

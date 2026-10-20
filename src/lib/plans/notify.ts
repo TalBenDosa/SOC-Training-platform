@@ -44,6 +44,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isEmailConfigured, sendEmailBatch } from "@/lib/email/sendEmail";
 import { planNotificationEmail } from "@/lib/email/templates";
+import { emailContextForOrg } from "@/lib/brand/server";
 import { checkRateLimit } from "@/lib/security/rateLimit";
 import {
   NOTIFICATION_LIMITS, emptyEmailReport, isSafeLink, type EmailReport, type NotificationKind,
@@ -445,9 +446,11 @@ export async function emailRecipients(
   // 6. One batch call per ≤ 100.
   const { data: org } = await admin.from("organizations").select("name").eq("id", orgId).maybeSingle();
   const orgName = (org as { name?: string } | null)?.name ?? null;
+  // White label: the org's own brand, sender and domain for the link.
+  const ec = await emailContextForOrg(orgId, ctx.origin);
   const messages = allowed.map(r => {
-    const mail = planNotificationEmail({ kind: r.kind, planTitle: ctx.planTitle, orgName, link: `${ctx.origin}${isSafeLink(r.link) ? r.link : "/learn"}` });
-    return { to: emailOf.get(r.user_id)!, subject: mail.subject, html: mail.html, text: mail.text };
+    const mail = planNotificationEmail({ kind: r.kind, planTitle: ctx.planTitle, orgName, link: `${ec.origin}${isSafeLink(r.link) ? r.link : "/learn"}`, brand: ec.emailBrand });
+    return { to: emailOf.get(r.user_id)!, subject: mail.subject, html: mail.html, text: mail.text, from: ec.from || undefined };
   });
   const result = await sendEmailBatch(messages);
   if (result.skipped) { report.skipped.unconfigured += allowed.length; return report; }

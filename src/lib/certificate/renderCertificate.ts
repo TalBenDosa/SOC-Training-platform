@@ -16,6 +16,7 @@
  */
 import type { Rank } from "@/lib/progression/ranks";
 import { certificateIssuer, PRODUCTION_HOST } from "./issuer";
+import type { Brand } from "@/lib/brand/brand";
 
 const W = 1200;
 const H = 630;
@@ -71,6 +72,10 @@ export interface CertData {
   orgName?: string | null;
   /** Learner's org id — the platform's own system org is never the issuer. */
   orgId?: string | null;
+  /** White label (src/lib/brand): the organization's logo / name replace the platform lockup. */
+  brand?: Brand | null;
+  /** The host printed in the footer (certificateHost); defaults to the production host. */
+  host?: string;
 }
 
 /** Minimal slice of CanvasRenderingContext2D the meta-row measurement needs. */
@@ -109,8 +114,18 @@ export function measureMetaCells(
 }
 
 /** Footer line: the issuer (a real org, else the platform) and the production domain. */
-export function certificateFooter(orgId: string | null | undefined, orgName: string | null | undefined): string {
-  return `Issued by ${certificateIssuer(orgId, orgName)} · SOC Analyst Training · ${PRODUCTION_HOST}`;
+export function certificateFooter(orgId: string | null | undefined, orgName: string | null | undefined, host: string = PRODUCTION_HOST): string {
+  return `Issued by ${certificateIssuer(orgId, orgName)} · SOC Analyst Training${host ? ` · ${host}` : ""}`;
+}
+
+/** Load a same-origin image for the canvas (null when it can't be loaded). */
+function loadImage(src: string): Promise<HTMLImageElement | null> {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
 }
 
 /** Read a next/font family list from a CSS variable, with a safe fallback. */
@@ -165,7 +180,8 @@ export async function drawCertificate(canvas: HTMLCanvasElement, data: CertData,
   ctx.scale(scale, scale);
   ctx.textBaseline = "middle";
 
-  const { meta, name, xp, date, orgName, orgId } = data;
+  const { meta, name, xp, date, orgName, orgId, brand } = data;
+  const brandLogo = brand?.whiteLabel && brand.logoSrc ? await loadImage(brand.logoSrc) : null;
   const accent = meta.accent;
 
   // ── helpers ──────────────────────────────────────────────────────────────
@@ -263,8 +279,20 @@ export async function drawCertificate(canvas: HTMLCanvasElement, data: CertData,
   tick(M, H - M, 1, -1);
   tick(W - M, H - M, -1, -1);
 
-  // ── logo: shield + HACK THE SOC ───────────────────────────────────────────
+  // ── logo: shield + HACK THE SOC, or a white-label organization's own ──────
   const logoY = 78;
+  if (brand?.whiteLabel) {
+    const showName = !(brandLogo && brand.logoHasName);
+    const nameFont = `800 28px "${sansF}", sans-serif`;
+    ctx.font = nameFont;
+    const nameW = showName ? ctx.measureText(brand.productName).width : 0;
+    const logoH = 44;
+    const logoW = brandLogo ? Math.min(220, (brandLogo.naturalWidth / Math.max(1, brandLogo.naturalHeight)) * logoH) : 0;
+    const gapW = brandLogo && showName ? 16 : 0;
+    let x = CX - (logoW + gapW + nameW) / 2;
+    if (brandLogo) { ctx.drawImage(brandLogo, x, logoY - logoH / 2, logoW, logoH); x += logoW + gapW; }
+    if (showName) { ctx.fillStyle = "#fff"; ctx.textAlign = "left"; ctx.fillText(brand.productName, x, logoY); }
+  } else {
   const wordFont = `800 28px "${monoF}", monospace`;
   const wordRuns: Run[] = [
     { text: "HACK", color: "#fff" },
@@ -295,6 +323,7 @@ export async function drawCertificate(canvas: HTMLCanvasElement, data: CertData,
   ctx.restore();
 
   drawTracked(wordRuns, groupStart + iconSize + iconGap + wordW / 2, logoY, wordFont, wordTracking);
+  }
   drawTracked([{ text: "CERTIFICATE OF RANK", color: "#94a3b8" }], CX, 112, `700 16px "${sansF}"`, 8);
 
   // ── medallion ──────────────────────────────────────────────────────────────
@@ -360,7 +389,7 @@ export async function drawCertificate(canvas: HTMLCanvasElement, data: CertData,
   });
 
   // ── footer ───────────────────────────────────────────────────────────────
-  const footerText = certificateFooter(orgId, orgName);
+  const footerText = certificateFooter(orgId, orgName, data.host ?? PRODUCTION_HOST);
   drawTracked([{ text: footerText, color: "#475569" }], CX, 604, `400 15px "${sansF}"`, 0.5);
 }
 

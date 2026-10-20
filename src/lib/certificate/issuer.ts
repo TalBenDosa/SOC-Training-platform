@@ -17,6 +17,16 @@ export const PRODUCTION_ORIGIN = "https://www.hackthesoc.app";
 export const PRODUCTION_HOST = "www.hackthesoc.app";
 export const PLATFORM_ISSUER = "HACK THE SOC";
 
+/**
+ * The host printed on a certificate: a white-label organization's own domain when it has one
+ * (src/lib/brand), "" for a white-label org without one (no platform domain on its
+ * certificates), else the canonical production host.
+ */
+export function certificateHost(brand: { whiteLabel: boolean; origin: string | null } | null | undefined): string {
+  if (!brand?.whiteLabel) return PRODUCTION_HOST;
+  return brand.origin ? brand.origin.replace(/^https?:\/\//, "") : "";
+}
+
 // Names that describe "no organisation" rather than an organisation — the
 // system org has been called "Internal / Default" and "Individual".
 const PLACEHOLDER_ORG = /^(individual|individuals|personal|internal|default|internal\s*\/\s*default|none|n\/a|solo)$/i;

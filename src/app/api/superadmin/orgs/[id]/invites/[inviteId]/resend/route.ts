@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { emailOrigin } from "@/lib/http/siteOrigin";
+import { emailContextForOrg } from "@/lib/brand/server";
 import { requireSuperAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/sendEmail";
@@ -56,15 +57,16 @@ export async function POST(req: Request, { params }: Ctx) {
     renewed = true;
   }
 
-  const link = `${emailOrigin(req)}/join?token=${inv.token}`;
+  const ec = await emailContextForOrg(orgId, emailOrigin(req));
+  const link = `${ec.origin}/join?token=${inv.token}`;
   let mail;
   if (inv.role === "org_admin") {
     const classCode = (await getActiveCode(admin, orgId).catch(() => null))?.code ?? null;
-    mail = orgWelcomeEmail({ orgName, adminLink: link, classCode });
+    mail = orgWelcomeEmail({ orgName, adminLink: link, classCode, brand: ec.emailBrand });
   } else {
-    mail = studentInviteEmail({ orgName, joinLink: link });
+    mail = studentInviteEmail({ orgName, joinLink: link, brand: ec.emailBrand });
   }
-  const r = await sendEmail({ to: inv.email, subject: mail.subject, html: mail.html, text: mail.text });
+  const r = await sendEmail({ to: inv.email, subject: mail.subject, html: mail.html, text: mail.text, from: ec.from || undefined });
   const status = emailStatusOf(r);
 
   await logAudit({

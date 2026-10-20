@@ -5,6 +5,7 @@ import { requireSuperAdmin } from "@/lib/auth/apiGuard";
 import { constantTimeEquals } from "@/lib/security/constantTimeEquals";
 import { sendEmailBatch } from "@/lib/email/sendEmail";
 import { lapsedNudgeEmail } from "@/lib/email/templates";
+import { emailContextForOrg } from "@/lib/brand/server";
 
 export const maxDuration = 120;
 
@@ -85,12 +86,24 @@ async function run(dry: boolean) {
   const claimed = new Set((claimedRows ?? []).map(r => String(r.id)));
   const toSend = rows.filter(r => claimed.has(r.user_id));
 
+  // White label: each learner hears from their own organization's brand and domain.
+  const { data: orgRows } = toSend.length
+    ? await admin.from("profiles").select("id, org_id").in("id", toSend.map(r => r.user_id))
+    : { data: [] };
+  const orgOf = new Map((orgRows ?? []).map(r => [String(r.id), (r.org_id as string | null) ?? null]));
+  const orgIds = [...new Set([...orgOf.values()].filter((v): v is string => !!v))];
+  const contexts = new Map(await Promise.all(orgIds.map(async id => [id, await emailContextForOrg(id, base)] as const)));
+
   // Paced batch send (respects the provider's rate limit; a sequential loop of
   // single sends hit 429s and could outlive the function).
   const batch = await sendEmailBatch(toSend.map(r => {
     const daysAway = Math.max(1, Math.floor((Date.now() - Date.parse(r.last_active)) / 86_400_000));
-    const { subject, html, text } = lapsedNudgeEmail({ name: r.display_name || "there", daysAway, resumeLink: `${base}/rooms` });
-    return { to: r.email, subject, html, text };
+    const orgId = orgOf.get(r.user_id);
+    const ec = orgId ? contexts.get(orgId) : undefined;
+    const { subject, html, text } = lapsedNudgeEmail({
+      name: r.display_name || "there", daysAway, resumeLink: `${ec?.origin ?? base}/rooms`, brand: ec?.emailBrand,
+    });
+    return { to: r.email, subject, html, text, from: ec?.from || undefined };
   }));
   const sentIds = toSend.filter((_, i) => batch.sent[i]).map(r => r.user_id);
   const failedIds = toSend.filter((_, i) => !batch.sent[i]).map(r => r.user_id);

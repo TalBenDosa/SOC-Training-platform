@@ -25,6 +25,7 @@ import { Flame } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useDisplayName } from "@/lib/auth/useDisplayName";
 import { useBranding } from "@/lib/auth/useBranding";
+import { useBrand } from "@/lib/brand/BrandContext";
 import { useRank } from "@/lib/progression/useRank";
 import { useStreak } from "@/lib/progression/useStreak";
 import { initialFor } from "@/lib/progression/ranks";
@@ -36,6 +37,7 @@ export function Topbar({ title, subtitle, actions }: { title?: string; subtitle?
   const { rank, next, progress, ready } = useRank();
   const { streak, atRisk, ready: streakReady } = useStreak();
   const branding = useBranding();
+  const brand = useBrand();
 
   const displayName = useDisplayName();
   // Initial follows the displayed name, so the bubble and the label agree.
@@ -79,7 +81,8 @@ export function Topbar({ title, subtitle, actions }: { title?: string; subtitle?
         <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
           {/* College badge — per-tenant branding. Hidden for the default/guest
               identity; shows the college's name (and logo, if set). */}
-          {branding.name && (
+          {/* A white-label org IS the product here (its logo leads the sidebar): no badge. */}
+          {branding.name && !brand.whiteLabel && (
             <span className="hidden sm:flex items-center gap-2 rounded-md border border-border bg-bg-elevated px-2.5 py-1.5" title={branding.name}>
               {branding.logoUrl && (
                 // eslint-disable-next-line @next/next/no-img-element

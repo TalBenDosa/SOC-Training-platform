@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { useBrand } from "@/lib/brand/BrandContext";
+import { rebrandDocument } from "@/lib/brand/rebrandDocument";
 import { createPortal } from "react-dom";
 import { Expand, Loader2, X, Presentation } from "lucide-react";
 import { useFocusTrap } from "@/lib/a11y/useFocusTrap";
@@ -25,6 +27,7 @@ export interface SlideDeckRef {
 
 export function SlideDeckViewer({ deck, onClose }: { deck: SlideDeckRef; onClose: () => void }) {
   const [loaded, setLoaded] = useState(false);
+  const brand = useBrand();
   const panelRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
   useFocusTrap(true, panelRef);
@@ -95,7 +98,12 @@ export function SlideDeckViewer({ deck, onClose }: { deck: SlideDeckRef; onClose
             ref={frameRef}
             src={deck.src}
             title={`${deck.title}: slides`}
-            onLoad={() => setLoaded(true)}
+            onLoad={() => {
+              // White label: the deck's platform lockup and name become the organization's
+              // before the loading cover lifts (same-origin, so the parent can edit it).
+              try { const d = frameRef.current?.contentDocument; if (d) rebrandDocument(d, brand); } catch { /* cross-origin: leave as is */ }
+              setLoaded(true);
+            }}
             allow="fullscreen"
             className="absolute inset-0 h-full w-full border-0"
           />

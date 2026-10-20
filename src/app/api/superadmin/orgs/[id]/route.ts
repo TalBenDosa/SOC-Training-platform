@@ -5,6 +5,9 @@ import { dbFail } from "@/lib/http/dbFail";
 import { requireSuperAdmin } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { OrgMember, OrgStatus, OrgUsage } from "@/lib/org/types";
+import { LOGO_DATA_URL, normalizeDomain } from "@/lib/brand/brand";
+import { sanitizeBranding } from "@/lib/brand/sanitize";
+import { forgetBrand } from "@/lib/brand/server";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -105,12 +108,24 @@ export async function PATCH(req: Request, { params }: Ctx) {
     )];
   }
   if (body.branding !== undefined && body.branding && typeof body.branding === "object") {
-    const b = body.branding as Record<string, unknown>;
-    const branding: Record<string, string> = {};
-    // Accept a hex accent colour and an https logo URL only.
-    if (typeof b.color === "string" && /^#[0-9a-fA-F]{6}$/.test(b.color)) branding.color = b.color;
-    if (typeof b.logo_url === "string" && /^https:\/\/\S+$/.test(b.logo_url)) branding.logo_url = b.logo_url.slice(0, 500);
-    patch.branding = branding;
+    const r = sanitizeBranding(body.branding as Record<string, unknown>);
+    if ("error" in r) return NextResponse.json({ error: r.error }, { status: 400 });
+    // logo_data omitted = keep the stored logo (the editor doesn't resend 150 KB on every save).
+    if (r.keepLogo) {
+      const { data: cur } = await admin.from("organizations").select("branding").eq("id", id).maybeSingle();
+      const stored = (cur?.branding as Record<string, unknown> | null)?.logo_data;
+      if (typeof stored === "string" && LOGO_DATA_URL.test(stored)) r.branding.logo_data = stored;
+    }
+    patch.branding = r.branding;
+  }
+  // White label: the organization's own domain (migration 0100). "" / null clears it.
+  if (body.custom_domain !== undefined) {
+    if (body.custom_domain === null || body.custom_domain === "") patch.custom_domain = null;
+    else {
+      const d = typeof body.custom_domain === "string" ? normalizeDomain(body.custom_domain) : null;
+      if (!d) return NextResponse.json({ error: "Enter a host name like soc.college.ac.il (not a hackthesoc.app or vercel.app address)." }, { status: 400 });
+      patch.custom_domain = d;
+    }
   }
   // Commercial record (migration 0020). Whitelisted + length-capped rather than
   // stored as free-form client JSON: the org can read its own row under the
@@ -164,6 +179,10 @@ export async function PATCH(req: Request, { params }: Ctx) {
   }
 
   const { data: org, error } = await admin.from("organizations").update(patch).eq("id", id).select().single();
+  if (error?.code === "23505" && String(error.message).includes("custom_domain")) {
+    return NextResponse.json({ error: "Another organization already uses that domain." }, { status: 409 });
+  }
+  if (!error && (patch.branding !== undefined || patch.custom_domain !== undefined)) forgetBrand(id);
   if (error) return dbFail(error, "api/superadmin/orgs/[id]", 500);
   return NextResponse.json({ org });
 }

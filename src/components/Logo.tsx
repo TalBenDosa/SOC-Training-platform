@@ -1,7 +1,26 @@
+"use client";
 import { cn } from "@/lib/utils";
+import { useBrand } from "@/lib/brand/BrandContext";
 
 export function Logo({ className, size = "md" }: { className?: string; size?: "sm" | "md" | "lg" }) {
+  const brand = useBrand();
   const text = size === "lg" ? "text-2xl" : size === "sm" ? "text-sm" : "text-lg";
+
+  // White label (src/lib/brand): the organization's own logo and name, never the platform's.
+  if (brand.whiteLabel) {
+    const img = size === "lg" ? "h-10" : size === "sm" ? "h-6" : "h-8";
+    return (
+      <div className={cn("flex min-w-0 items-center gap-2.5 font-bold", className)}>
+        {brand.logoSrc && (
+          // eslint-disable-next-line @next/next/no-img-element -- same-origin logo route, any aspect ratio
+          <img src={brand.logoSrc} alt={brand.logoHasName ? brand.productName : ""} className={cn(img, "w-auto max-w-[180px] object-contain")} />
+        )}
+        {/* Long product names wrap to two lines instead of being cut off in the sidebar. */}
+        {!brand.logoHasName && <span className={cn("line-clamp-2 min-w-0 leading-tight text-white", size === "lg" ? "text-2xl" : size === "sm" ? "text-sm" : "text-[15px]")}>{brand.productName}</span>}
+      </div>
+    );
+  }
+
   return (
     <div className={cn("flex items-center gap-2.5 font-mono font-bold", className)}>
       <span className="relative flex h-7 w-7 items-center justify-center rounded-md border border-cyber-500/60 bg-cyber-500/10 shadow-glow">

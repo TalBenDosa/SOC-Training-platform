@@ -12,6 +12,8 @@ import { sanitizeShiftMinutes } from "@/lib/team/load";
 import { sanitizeAttackPlan, pinnedIds } from "@/lib/team/attackPlan";
 import { SINGLE_SEAT, rosterConflict } from "@/lib/team/roster";
 import { liveAffiliationFilter } from "@/lib/team/membership";
+import { contactLine } from "@/lib/brand/brand";
+import { brandForOrg } from "@/lib/brand/server";
 
 /**
  * Team-SOC sessions (Phase 0.3). Create = org_admin/instructor only, and always
@@ -82,7 +84,7 @@ export async function POST(req: Request) {
     let q;
     try { q = await teamQuotaFor(admin, orgId); }
     catch (e) { console.error("[team create] quota:", e instanceof Error ? e.message : String(e)); return NextResponse.json({ error: "Couldn't check your organization's team exercises. Try again." }, { status: 503 }); }
-    if (quotaExhausted(q)) return NextResponse.json({ error: quotaMessage(q), quota: q }, { status: 403 });
+    if (quotaExhausted(q)) return NextResponse.json({ error: quotaMessage(q, contactLine(await brandForOrg(orgId))), quota: q }, { status: 403 });
   }
 
   const rawInvites = Array.isArray(body.invites) ? body.invites : [];

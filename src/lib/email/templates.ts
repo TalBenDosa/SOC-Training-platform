@@ -7,6 +7,22 @@
 const BRAND = "#0891b2"; // cyber-600, readable on white
 
 /**
+ * Who the email comes from (white label, src/lib/brand): the platform, or a white-label
+ * organization's own name and logo. Every template takes an optional `brand`; without one
+ * the email is the platform's.
+ */
+export interface EmailBrand {
+  productName: string;
+  whiteLabel: boolean;
+  /** Absolute https URL of the organization's logo for the header (white label only). */
+  logoUrl: string | null;
+  /** Accent colour for buttons, #rrggbb (null = the platform's). */
+  color?: string | null;
+}
+
+export const PLATFORM_EMAIL_BRAND: EmailBrand = { productName: "HACK THE SOC", whiteLabel: false, logoUrl: null };
+
+/**
  * Escape text for an HTML email body. EVERY interpolated value goes through it
  * (SEC-14): display names, org names and room titles are user- or admin-written,
  * and a name like `<a href="https://x">Verify</a>` rendered as a link in our mail.
@@ -16,11 +32,21 @@ function esc(s: string): string {
   return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
-function shell(title: string, bodyHtml: string): string {
+function header(brand: EmailBrand): string {
+  if (!brand.whiteLabel) {
+    return `<span style="font-family:'Courier New',monospace;font-weight:bold;letter-spacing:2px;color:#fff;font-size:16px;">HACK<span style="color:#22d3ee;"> THE </span>SOC</span>`;
+  }
+  const logo = brand.logoUrl && /^https:\/\/\S+$/.test(brand.logoUrl)
+    ? `<img src="${esc(brand.logoUrl)}" alt="" height="32" style="height:32px;max-width:180px;vertical-align:middle;margin-right:10px;">`
+    : "";
+  return `${logo}<span style="font-weight:bold;color:#fff;font-size:17px;vertical-align:middle;">${esc(brand.productName)}</span>`;
+}
+
+function shell(title: string, bodyHtml: string, brand: EmailBrand = PLATFORM_EMAIL_BRAND): string {
   return `<!doctype html><html><body style="margin:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
   <div style="max-width:560px;margin:0 auto;padding:24px;">
     <div style="background:#0b1220;border-radius:12px 12px 0 0;padding:20px 28px;">
-      <span style="font-family:'Courier New',monospace;font-weight:bold;letter-spacing:2px;color:#fff;font-size:16px;">HACK<span style="color:#22d3ee;"> THE </span>SOC</span>
+      ${header(brand)}
     </div>
     <div style="background:#ffffff;border:1px solid #e2e8f0;border-top:0;border-radius:0 0 12px 12px;padding:28px;">
       <h1 style="margin:0 0 14px;font-size:20px;color:#0f172a;">${esc(title)}</h1>
@@ -30,8 +56,9 @@ function shell(title: string, bodyHtml: string): string {
   </div></body></html>`;
 }
 
-function button(href: string, label: string): string {
-  return `<a href="${esc(href)}" style="display:inline-block;background:${BRAND};color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 20px;border-radius:8px;">${esc(label)}</a>`;
+function button(href: string, label: string, color: string | null = null): string {
+  const bg = color && /^#[0-9a-fA-F]{6}$/.test(color) ? color : BRAND;
+  return `<a href="${esc(href)}" style="display:inline-block;background:${bg};color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:12px 20px;border-radius:8px;">${esc(label)}</a>`;
 }
 
 function linkBox(href: string): string {
@@ -44,13 +71,14 @@ function codeChip(code: string): string {
 }
 
 /** Sent to a college's admin when their environment is provisioned. */
-export function orgWelcomeEmail(args: { orgName: string; adminLink?: string | null; classCode?: string | null }): {
+export function orgWelcomeEmail(args: { orgName: string; adminLink?: string | null; classCode?: string | null; brand?: EmailBrand }): {
   subject: string; html: string; text: string;
 } {
   const { orgName, adminLink, classCode } = args;
+  const brand = args.brand ?? PLATFORM_EMAIL_BRAND;
   const adminBlock = adminLink
     ? `<p style="margin:0 0 8px;font-size:14px;line-height:1.6;">First, set up your own admin account:</p>
-       <p style="margin:0 0 4px;">${button(adminLink, "Create your admin account")}</p>
+       <p style="margin:0 0 4px;">${button(adminLink, "Create your admin account", brand.color)}</p>
        ${linkBox(adminLink)}<hr style="border:0;border-top:1px solid #e2e8f0;margin:22px 0;">`
     : "";
   // A starter class code, when one is minted with the invite. It is valid 24h —
@@ -66,6 +94,7 @@ export function orgWelcomeEmail(args: { orgName: string; adminLink?: string | nu
     `${adminBlock}
      ${codeBlock}
      <p style="margin:18px 0 0;font-size:13px;color:#475569;line-height:1.6;">Students register with their email + the code — there is no other way in, so nobody outside your class can enrol. Each student's data is isolated to your organisation, and their enrolment is valid for 100 days before they re-enter a current code.</p>`,
+    brand,
   );
   const text = `Your ${orgName} environment is ready.
 
@@ -79,7 +108,7 @@ Generate a fresh one anytime from "Manage Class".
     : `How students join: from "Manage Class", generate your class's affiliation code (valid 24 hours) and share it.
 
 `}Students register with their email + the code — there is no other way in.`;
-  return { subject: `Your ${orgName} environment on HACK THE SOC is ready`, html, text };
+  return { subject: brand.whiteLabel ? `Your ${orgName} environment is ready` : `Your ${orgName} environment on HACK THE SOC is ready`, html, text };
 }
 
 /**
@@ -89,23 +118,26 @@ Generate a fresh one anytime from "Manage Class".
  * Site URL / redirect allowlist, and (unlike PKCE) works when opened on a
  * different device than the one that asked. Sent via our own Resend sender.
  */
-export function passwordResetEmail(args: { resetLink: string }): {
+export function passwordResetEmail(args: { resetLink: string; brand?: EmailBrand }): {
   subject: string; html: string; text: string;
 } {
   const { resetLink } = args;
+  const brand = args.brand ?? PLATFORM_EMAIL_BRAND;
+  const name = brand.productName;
   const html = shell(
     "Reset your password",
-    `<p style="margin:0 0 12px;font-size:14px;line-height:1.6;">We received a request to reset the password for your HACK THE SOC account. Click below to choose a new one:</p>
-     <p style="margin:0 0 4px;">${button(resetLink, "Set a new password")}</p>
+    `<p style="margin:0 0 12px;font-size:14px;line-height:1.6;">We received a request to reset the password for your ${esc(name)} account. Click below to choose a new one:</p>
+     <p style="margin:0 0 4px;">${button(resetLink, "Set a new password", brand.color)}</p>
      ${linkBox(resetLink)}
      <p style="margin:18px 0 0;font-size:12px;color:#64748b;line-height:1.5;">This link is valid for a limited time and can be used once. If you didn't request this, you can safely ignore this email — your password won't change.</p>`,
+    brand,
   );
-  const text = `Reset your HACK THE SOC password.
+  const text = `Reset your ${name} password.
 
 Set a new password: ${resetLink}
 
 This link is valid for a limited time and can be used once. If you didn't request this, ignore this email — your password won't change.`;
-  return { subject: "Reset your HACK THE SOC password", html, text };
+  return { subject: `Reset your ${name} password`, html, text };
 }
 
 /**
@@ -114,38 +146,47 @@ This link is valid for a limited time and can be used once. If you didn't reques
  * reset (token_hash → /update-password, works on any device): they set a
  * password and land in their dashboard.
  */
-export function accountAccessEmail(args: { orgName: string; link: string }): {
+export function accountAccessEmail(args: { orgName: string; link: string; brand?: EmailBrand }): {
   subject: string; html: string; text: string;
 } {
   const { orgName, link } = args;
+  const brand = args.brand ?? PLATFORM_EMAIL_BRAND;
+  const title = brand.whiteLabel ? `Sign in to ${orgName}` : `Sign in to ${orgName} on HACK THE SOC`;
   const html = shell(
-    `Sign in to ${orgName} on HACK THE SOC`,
+    title,
     `<p style="margin:0 0 12px;font-size:14px;line-height:1.6;">Your admin account for <strong>${esc(orgName)}</strong> is ready and waiting. Click below to set your password and sign in — from there you can manage your class and generate today&#39;s class code for students.</p>
-     <p style="margin:0 0 4px;">${button(link, "Set a password and sign in")}</p>
+     <p style="margin:0 0 4px;">${button(link, "Set a password and sign in", brand.color)}</p>
      ${linkBox(link)}
      <p style="margin:18px 0 0;font-size:12px;color:#64748b;line-height:1.5;">This link is valid for a limited time and can be used once. If it has expired, ask for a new one or use "Forgot password" on the sign-in page.</p>`,
+    brand,
   );
-  const text = `Sign in to ${orgName} on HACK THE SOC.
+  const text = `${title}.
 
 Set a password and sign in: ${link}
 
 This link is valid for a limited time and can be used once. If it has expired, use "Forgot password" on the sign-in page.`;
-  return { subject: `Sign in to ${orgName} on HACK THE SOC`, html, text };
+  return { subject: title, html, text };
 }
 
 /** Sent to an individual invitee (roster / CSV enrollment). */
-export function studentInviteEmail(args: { orgName: string; joinLink: string }): {
+export function studentInviteEmail(args: { orgName: string; joinLink: string; brand?: EmailBrand }): {
   subject: string; html: string; text: string;
 } {
   const { orgName, joinLink } = args;
+  const brand = args.brand ?? PLATFORM_EMAIL_BRAND;
+  const lead = brand.whiteLabel
+    ? `Your course uses ${esc(brand.productName)} to train you as a SOC analyst.`
+    : "Your course is using HACK THE SOC to train as a SOC analyst.";
   const html = shell(
     `You've been invited to ${orgName}`,
-    `<p style="margin:0 0 12px;font-size:14px;line-height:1.6;">Your course is using HACK THE SOC to train as a SOC analyst. Click below to create your account and get started:</p>
-     <p style="margin:0 0 4px;">${button(joinLink, "Accept invitation")}</p>
+    `<p style="margin:0 0 12px;font-size:14px;line-height:1.6;">${lead} Click below to create your account and get started:</p>
+     <p style="margin:0 0 4px;">${button(joinLink, "Accept invitation", brand.color)}</p>
      ${linkBox(joinLink)}`,
+    brand,
   );
-  const text = `You've been invited to ${orgName} on HACK THE SOC.\n\nAccept your invitation and create your account:\n${joinLink}`;
-  return { subject: `You're invited to ${orgName} on HACK THE SOC`, html, text };
+  const where = brand.whiteLabel ? "" : " on HACK THE SOC";
+  const text = `You've been invited to ${orgName}${where}.\n\nAccept your invitation and create your account:\n${joinLink}`;
+  return { subject: `You're invited to ${orgName}${where}`, html, text };
 }
 
 /**
@@ -162,8 +203,10 @@ export function lapsedNudgeEmail(args: {
   resumeLink: string;
   nextRoomTitle?: string | null;
   nextRoomMinutes?: number | null;
+  brand?: EmailBrand;
 }): { subject: string; html: string; text: string } {
   const { name, daysAway, resumeLink, nextRoomTitle, nextRoomMinutes } = args;
+  const brand = args.brand ?? PLATFORM_EMAIL_BRAND;
 
   const nextBlock = nextRoomTitle
     ? `<p style="margin:0 0 8px;font-size:14px;line-height:1.6;">Your next room is <strong>${esc(nextRoomTitle)}</strong>${
@@ -175,9 +218,10 @@ export function lapsedNudgeEmail(args: {
     `Still with us, ${name}?`,
     `<p style="margin:0 0 12px;font-size:14px;line-height:1.6;">It's been about ${daysAway} days. Detection skills fade fast when they're not used — a short session now is worth more than a long one later.</p>
      ${nextBlock}
-     <p style="margin:0 0 4px;">${button(resumeLink, "Pick up where you left off")}</p>
+     <p style="margin:0 0 4px;">${button(resumeLink, "Pick up where you left off", brand.color)}</p>
      ${linkBox(resumeLink)}
      <p style="margin:18px 0 0;font-size:12px;color:#94a3b8;line-height:1.6;">Not training right now? No problem — you can ignore this, and your progress stays saved.</p>`,
+    brand,
   );
 
   const text = `Still with us, ${name}?\n\nIt's been about ${daysAway} days. Detection skills fade fast when they're not used.\n\n${
@@ -204,9 +248,10 @@ export type PlanEmailKind = "plan_assigned" | "plan_updated" | "personal_plan";
  *  - the plan title appears only in the escaped body, clipped to 80 chars;
  *  - no item titles or notes — the plan card in the app is the source of truth.
  */
-export function planNotificationEmail(args: { kind: PlanEmailKind; planTitle: string; orgName?: string | null; link: string }): {
+export function planNotificationEmail(args: { kind: PlanEmailKind; planTitle: string; orgName?: string | null; link: string; brand?: EmailBrand }): {
   subject: string; html: string; text: string;
 } {
+  const brand = args.brand ?? PLATFORM_EMAIL_BRAND;
   const org = oneLine(args.orgName, 60);
   const plan = oneLine(args.planTitle, 80);
   const subject = args.kind === "plan_assigned"
@@ -223,9 +268,10 @@ export function planNotificationEmail(args: { kind: PlanEmailKind; planTitle: st
   const html = shell(
     subject,
     `<p style="margin:0 0 12px;font-size:14px;line-height:1.6;">${esc(lead)}${named ? `: <strong>${esc(plan)}</strong>` : ""}.</p>
-     <p style="margin:0 0 4px;">${button(args.link, "Open my learning plan")}</p>
-     <p style="margin:18px 0 0;font-size:12px;color:#64748b;line-height:1.5;">You're receiving this because your training administrator${org ? ` at ${esc(org)}` : ""} assigned you work on HACK THE SOC. You'll also find it under the bell in the app.</p>`,
+     <p style="margin:0 0 4px;">${button(args.link, "Open my learning plan", brand.color)}</p>
+     <p style="margin:18px 0 0;font-size:12px;color:#64748b;line-height:1.5;">You're receiving this because your training administrator${org ? ` at ${esc(org)}` : ""} assigned you work on ${esc(brand.productName)}. You'll also find it under the bell in the app.</p>`,
+    brand,
   );
-  const text = `${lead}${named ? `: ${plan}` : ""}.\n\nOpen your learning plan: ${args.link}\n\nYou're receiving this because your training administrator${org ? ` at ${org}` : ""} assigned you work on HACK THE SOC.`;
+  const text = `${lead}${named ? `: ${plan}` : ""}.\n\nOpen your learning plan: ${args.link}\n\nYou're receiving this because your training administrator${org ? ` at ${org}` : ""} assigned you work on ${brand.productName}.`;
   return { subject, html, text };
 }

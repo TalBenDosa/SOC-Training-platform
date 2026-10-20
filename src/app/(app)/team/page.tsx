@@ -25,6 +25,9 @@ import { Topbar } from "@/components/nav/Topbar";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { usePageTitle } from "@/lib/hooks/usePageTitle";
+import { useBrand } from "@/lib/brand/BrandContext";
+import { contactLine } from "@/lib/brand/brand";
+import { quotaMessage } from "@/lib/team/quota";
 import { useOrgContext } from "@/lib/auth/useOrgContext";
 import { COMPANY_PROFILES } from "@/lib/sim/companyProfilesMeta";
 import { Users, Plus, Loader2, AlertTriangle, ChevronRight, Radio, Search, Building2 } from "lucide-react";
@@ -59,6 +62,7 @@ const STATUS_STYLE: Record<string, string> = {
 
 export default function TeamIndexPage() {
   usePageTitle("Team training");
+  const brand = useBrand();
   const router = useRouter();
   const { isPlatformAdmin, orgRole, orgName } = useOrgContext();
   const isStaff = isPlatformAdmin || orgRole === "org_admin" || orgRole === "instructor";
@@ -400,10 +404,8 @@ export default function TeamIndexPage() {
             {/* Team Training is limited per organization (0099): what is left, said plainly. */}
             {org?.team_quota && org.team_quota.limit != null && (
               <p className={`mt-3 rounded-lg border px-3 py-2 text-[11px] ${quotaOut ? "border-neon-amber/40 bg-neon-amber/[0.06] text-neon-amber" : "border-cyber-500/30 bg-cyber-500/[0.05] text-cyber-200"}`}>
-                {org.team_quota.limit === 0
-                  ? "Team training isn't part of your organization's plan. Contact HACK THE SOC to add team exercises."
-                  : quotaOut
-                    ? `Your organization has used all ${org.team_quota.limit} of its team exercises. Contact HACK THE SOC to add more.`
+                {org.team_quota.limit === 0 || quotaOut
+                  ? quotaMessage(org.team_quota, contactLine(brand))
                     : `Team exercises: ${org.team_quota.remaining} of ${org.team_quota.limit} left. One is used when an exercise starts; a lobby that never starts is free.`}
                 {isPlatformAdmin && quotaOut && " (As platform admin you can still run one.)"}
               </p>

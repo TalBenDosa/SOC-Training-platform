@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { getRequestBrand } from "@/lib/brand/server";
 
 export const metadata = {
   title: "Accessibility Statement",
@@ -15,7 +16,9 @@ export const metadata = {
 // full conformance until a certified accessibility auditor (מורשה נגישות שירות)
 // has verified it — this page deliberately states "we aim to conform" + known
 // limitations rather than asserting compliance.
-export default function AccessibilityPage() {
+export default async function AccessibilityPage() {
+  // White label (src/lib/brand): the organization's name and its own support contact.
+  const brand = await getRequestBrand();
   return (
     <main id="main-content" className="mx-auto max-w-3xl px-6 py-16 text-slate-300">
       <Link href="/" className="mb-8 inline-flex items-center gap-2 text-sm text-slate-400 hover:text-cyber-300">
@@ -29,7 +32,7 @@ export default function AccessibilityPage() {
         <section>
           <h2 className="mb-2 text-xl font-semibold text-white">Our commitment</h2>
           <p>
-            We want HACK THE SOC to be usable by everyone, including people who rely on
+            We want {brand.productName} to be usable by everyone, including people who rely on
             assistive technology. We aim to conform to <strong className="text-white">Israeli
             Standard IS 5568</strong>, which is based on the international
             <strong className="text-white"> WCAG 2.0 level AA</strong> guidelines (and we work
@@ -78,10 +81,19 @@ export default function AccessibilityPage() {
             If you have trouble using any part of the service, or want to report an accessibility
             problem, contact the platform&rsquo;s accessibility contact:
           </p>
-          <ul className="ml-5 mt-2 list-disc space-y-1 text-slate-400">
-            <li>Accessibility contact: Tal Ben Dosa</li>
-            <li>Email: <a href="mailto:tal14997@gmail.com" className="text-cyber-300 underline underline-offset-2">tal14997@gmail.com</a></li>
-          </ul>
+          {brand.whiteLabel ? (
+            <ul className="ml-5 mt-2 list-disc space-y-1 text-slate-400">
+              <li>Accessibility contact: {brand.productName} support</li>
+              {brand.supportEmail
+                ? <li>Email: <a href={`mailto:${brand.supportEmail}`} className="text-cyber-300 underline underline-offset-2">{brand.supportEmail}</a></li>
+                : <li>Your course administrator</li>}
+            </ul>
+          ) : (
+            <ul className="ml-5 mt-2 list-disc space-y-1 text-slate-400">
+              <li>Accessibility contact: Tal Ben Dosa</li>
+              <li>Email: <a href="mailto:tal14997@gmail.com" className="text-cyber-300 underline underline-offset-2">tal14997@gmail.com</a></li>
+            </ul>
+          )}
           <p className="mt-2 text-sm text-slate-400">
             Please describe the page and what you were trying to do. We aim to reply within
             5 business days and to provide the information or service through an accessible channel.

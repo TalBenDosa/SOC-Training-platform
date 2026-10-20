@@ -4,6 +4,7 @@
  * 0 = none, N = N exercises. An exercise counts once it STARTS, so an abandoned lobby is free.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { PLATFORM_NAME } from "@/lib/brand/brand";
 
 export interface TeamQuota { limit: number | null; used: number; remaining: number | null }
 
@@ -24,9 +25,10 @@ export function quotaOf(limit: number | null | undefined, used: number): TeamQuo
 /** True when the organization has no team exercise left. */
 export const quotaExhausted = (q: TeamQuota) => q.remaining != null && q.remaining <= 0;
 
-export function quotaMessage(q: TeamQuota): string {
-  if (q.limit === 0) return "Team training isn't part of your organization's plan. Contact HACK THE SOC to add team exercises.";
-  return `Your organization has used all ${q.limit} of its team exercises. Contact HACK THE SOC to add more.`;
+/** `contact` names who sells more (contactLine(brand): the platform, or a white-label org's own support). */
+export function quotaMessage(q: TeamQuota, contact = `Contact ${PLATFORM_NAME}`): string {
+  if (q.limit === 0) return `Team training isn't part of your organization's plan. ${contact} to add team exercises.`;
+  return `Your organization has used all ${q.limit} of its team exercises. ${contact} to add more.`;
 }
 
 /** The organization's quota and how many team exercises it has started. */

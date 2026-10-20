@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import type { Metadata } from "next";
+import { getRequestBrand } from "@/lib/brand/server";
 
-export const metadata = {
-  title: "Privacy & Data",
-  description: "What data HACK THE SOC stores, why, and who processes it.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getRequestBrand();
+  return { title: "Privacy & Data", description: `What data ${brand.productName} stores, why, and who processes it.` };
+}
 
 /**
  * Rendered per request rather than prerendered, ONLY because of
@@ -26,13 +28,16 @@ export const dynamic = "force-dynamic";
 // satisfy the transparency duty toward data subjects (יידוע נושא המידע) under
 // תקנות הגנת הפרטיות, and to disclose the third-party AI sub-processors that
 // grade free-text answers.
-export default function PrivacyPage() {
+export default async function PrivacyPage() {
+  // White label (src/lib/brand): the organization's name, and its own support address as the
+  // direct contact (the platform operator's address is never shown on its domain).
+  const brand = await getRequestBrand();
   // Server Component, so this reads at render time and never reaches the client
   // bundle. Left unset deliberately in dev: publishing a wrong or personal
   // address on a public page is worse than routing requests through the course
   // administrator, which is the real channel for a B2B/college deployment
   // anyway. Set PRIVACY_CONTACT_EMAIL in production to offer a direct route.
-  const contactEmail = process.env.PRIVACY_CONTACT_EMAIL?.trim();
+  const contactEmail = brand.whiteLabel ? brand.supportEmail : process.env.PRIVACY_CONTACT_EMAIL?.trim();
 
   return (
     <main id="main-content" className="mx-auto max-w-3xl px-6 py-16 text-slate-300">
@@ -47,7 +52,7 @@ export default function PrivacyPage() {
         <section>
           <h2 className="mb-2 text-xl font-semibold text-white">What we store</h2>
           <p>
-            HACK THE SOC is a training platform. When you create an account we store your
+            {brand.productName} is a training platform. When you create an account we store your
             <strong className="text-white"> email address</strong>, your chosen
             <strong className="text-white"> nickname (handle)</strong> and display name, and your
             <strong className="text-white"> learning progress</strong> — completed rooms and

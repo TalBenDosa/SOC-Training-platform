@@ -9,10 +9,12 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Lock } from "lucide-react";
+import { useBrand } from "@/lib/brand/BrandContext";
 
 export default function LicensePage() {
   usePageTitle("Access paused");
   const { signOut } = useAuth();
+  const brand = useBrand();
 
   return (
     <Card className="w-full max-w-md text-center">
@@ -21,7 +23,7 @@ export default function LicensePage() {
       </span>
       <h1 className="mt-4 text-lg font-bold text-white">Your access is paused</h1>
       <p className="mt-2 text-sm text-slate-400">
-        Your organisation&apos;s access to HACK THE SOC is currently inactive — the
+        Your organisation&apos;s access to {brand.productName} is currently inactive — the
         licence has expired or been suspended. Your progress is safe and will be
         restored the moment access is renewed.
       </p>

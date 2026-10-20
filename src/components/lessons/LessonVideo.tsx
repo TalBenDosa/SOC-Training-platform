@@ -1,4 +1,13 @@
-import React from "react";
+"use client";
+import React, { useRef } from "react";
+import { useBrand } from "@/lib/brand/BrandContext";
+
+/**
+ * Explainer videos end with a 4-second HACK THE SOC logo outro burned into the file
+ * (motion-studio/add-outro.mjs, DUR = 4.0). On a white-label organization's platform the
+ * player stops just before it, so the platform's logo never plays there.
+ */
+export const OUTRO_SECONDS = 4;
 
 /**
  * A self-hosted explainer video inside a lesson reading — the moving-picture
@@ -24,11 +33,25 @@ export interface LessonVideoData {
 }
 
 export function LessonVideo({ video }: { video: LessonVideoData }) {
+  const brand = useBrand();
+  const ref = useRef<HTMLVideoElement>(null);
   if (!video?.src) return null;
+  // White label: hold playback (and any seek) before the platform outro.
+  const stopBeforeOutro = brand.whiteLabel
+    ? () => {
+        const v = ref.current;
+        if (!v || !Number.isFinite(v.duration) || v.duration <= OUTRO_SECONDS + 1) return;
+        const end = v.duration - OUTRO_SECONDS;
+        if (v.currentTime >= end) { v.pause(); v.currentTime = end - 0.05; }
+      }
+    : undefined;
   return (
     <figure className="overflow-hidden rounded-lg border border-border bg-black">
       {/* eslint-disable-next-line jsx-a11y/media-has-caption -- captions ARE provided via <track>; this lint can't see them through the map */}
       <video
+        ref={ref}
+        onTimeUpdate={stopBeforeOutro}
+        onSeeked={stopBeforeOutro}
         controls
         preload="metadata"
         playsInline

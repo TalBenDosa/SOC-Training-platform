@@ -1,30 +1,36 @@
 import { NextResponse } from "next/server";
 import { getAuthedUser } from "@/lib/auth/apiGuard";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { brandFromOrg } from "@/lib/brand/brand";
 
 /**
  * The caller's own org name + branding (accent colour, logo URL), for theming
- * the app. Scoped to the org in the caller's JWT — never another org's. Returns
- * empty branding when there's no org context (pre-migration / guest), so the UI
- * simply shows the default HACK THE SOC identity.
+ * the app, and `brand`: the org's white-label brand (src/lib/brand), which is
+ * the platform brand unless the org is white label. Scoped to the org in the
+ * caller's JWT — never another org's. Returns empty branding when there's no
+ * org context (pre-migration / guest), so the UI keeps the default identity.
  */
 export async function GET() {
   const user = await getAuthedUser();
-  if (!user || !user.orgId) return NextResponse.json({ name: null, branding: {}, all_rooms_unlocked: false });
+  if (!user || !user.orgId) return NextResponse.json({ name: null, branding: {}, all_rooms_unlocked: false, brand: null });
 
   const admin = getSupabaseAdminClient();
-  if (!admin) return NextResponse.json({ name: user.orgName ?? null, branding: {}, all_rooms_unlocked: false });
+  if (!admin) return NextResponse.json({ name: user.orgName ?? null, branding: {}, all_rooms_unlocked: false, brand: null });
 
   const { data } = await admin
     .from("organizations")
-    .select("name, branding, all_rooms_unlocked")
+    .select("id, name, custom_domain, branding, all_rooms_unlocked")
     .eq("id", user.orgId)
     .maybeSingle();
+  // The uploaded logo (up to 150 KB) is served by /api/brand/logo, not inlined here.
+  const { logo_data: _logo, ...branding } = ((data?.branding ?? {}) as Record<string, unknown>);
+  void _logo;
   return NextResponse.json({
     name: data?.name ?? user.orgName ?? null,
-    branding: data?.branding ?? {},
+    branding,
     // Per-org gate bypass (migration 0036). Default false so normal prerequisite
     // gating applies; true only for orgs a super-admin has opted in.
     all_rooms_unlocked: data?.all_rooms_unlocked === true,
+    brand: data ? brandFromOrg(data) : null,
   });
 }
