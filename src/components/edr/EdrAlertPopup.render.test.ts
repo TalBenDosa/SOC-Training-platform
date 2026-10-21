@@ -19,10 +19,14 @@ describe("EDR live alert popup", () => {
     act(() => { root!.render(React.createElement(EdrConsole, { investigations: invs, liveAlerts })); });
   };
   const dialog = () => el!.querySelector('[role="alertdialog"]');
+  const toasts = () => el!.querySelector('[role="status"]');
   const btn = (re: RegExp) => [...el!.querySelectorAll("button")].find(b => re.test(b.textContent ?? ""))!;
 
-  it("shows the detection, host and process data, one alert per detection", () => {
+  it("pops compact red cards, not a blocking window; Details opens the full data", () => {
     mount(true);
+    expect(dialog()).toBeNull();
+    expect(toasts()?.textContent).toContain(inv.detections[0].name);
+    act(() => { btn(/^Details$/).click(); });
     const d = inv.detections[0];
     const p = inv.processes.find(x => x.pid === d.pid)!;
     expect(dialog()).not.toBeNull();
@@ -38,21 +42,22 @@ describe("EDR live alert popup", () => {
 
   it("acknowledged alerts don't come back after a reload", () => {
     mount(true);
-    for (let i = 0; i < inv.detections.length; i++) act(() => { btn(/^Acknowledge$/).click(); });
-    expect(dialog()).toBeNull();
+    for (let i = 0; i < inv.detections.length; i++) act(() => { [...el!.querySelectorAll("button")].find(b => /^Acknowledge /.test(b.getAttribute("aria-label") ?? ""))!.click(); });
+    expect(toasts()).toBeNull();
     act(() => root!.unmount()); el!.remove();
     mount(true);
-    expect(dialog()).toBeNull();
+    expect(toasts()).toBeNull();
   });
 
   it("Investigate opens the case on the alert's process", () => {
     mount(true);
-    act(() => { btn(/Investigate in the process tree/).click(); });
+    act(() => { btn(/^Investigate$/).click(); });
     expect(el!.textContent).toContain("Investigate the endpoint");
   });
 
   it("the practice set (no live shift) never pops", () => {
     mount(false);
     expect(dialog()).toBeNull();
+    expect(toasts()).toBeNull();
   });
 });

@@ -23,7 +23,7 @@ import { runRtrCommand } from "@/lib/edr/rtr";
 import { isLinuxHost } from "@/lib/edr/hostBaseline";
 import { isContained, setContained } from "@/lib/edr/containment";
 import type { TeamIsolation } from "@/lib/team/useTeamIsolation";
-import { EdrAlertPopup, alertKey, type EdrAlert } from "./EdrAlertPopup";
+import { EdrAlertPopup, EdrAlertToasts, alertKey, type EdrAlert } from "./EdrAlertPopup";
 
 /** Detections the analyst already acknowledged (per browser): a reload doesn't re-pop them. */
 const ACK_KEY = "edr_ack_alerts";
@@ -77,11 +77,20 @@ export function EdrConsole({ investigations, initialCaseId, embedded = false, te
     const base = document.title.replace(/^\(\d+\) EDR alert · /, "");
     document.title = pending.length ? `(${pending.length}) EDR alert · ${base}` : base;
   }, [pending.length, liveAlerts]);
-  const popup = pending[0] ? (
-    <EdrAlertPopup alert={pending[0]} index={0} total={pending.length}
-      onAcknowledge={() => acknowledge(pending[0])}
-      onInvestigate={() => { const a = pending[0]; acknowledge(a); setCaseId(a.inv.id); setFocus(f => ({ pid: a.d.pid, n: (f?.n ?? 0) + 1 })); }} />
-  ) : null;
+  // Compact red cards in the corner (the console stays usable); Details opens the full panel.
+  const [detailsKey, setDetailsKey] = useState<string | null>(null);
+  const investigate = (a: EdrAlert) => { acknowledge(a); setDetailsKey(null); setCaseId(a.inv.id); setFocus(f => ({ pid: a.d.pid, n: (f?.n ?? 0) + 1 })); };
+  const details = detailsKey ? pending.find(a => a.key === detailsKey) ?? null : null;
+  const popup = (
+    <>
+      <EdrAlertToasts alerts={pending} onDetails={a => setDetailsKey(a.key)} onInvestigate={investigate} onAcknowledge={acknowledge} />
+      {details && (
+        <EdrAlertPopup alert={details} index={pending.indexOf(details)} total={pending.length}
+          onAcknowledge={() => { acknowledge(details); setDetailsKey(null); }}
+          onInvestigate={() => investigate(details)} />
+      )}
+    </>
+  );
   // More than one incident and none opened yet (or none at all yet, or the opened one is
   // gone) → the Incidents management page.
   if (caseId === null || investigations.length === 0 || !investigations.some(i => i.id === caseId)) {
