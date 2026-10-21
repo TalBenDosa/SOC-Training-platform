@@ -159,3 +159,16 @@ textarea.border-border,
 select.border-border {
   border-color: #64748b;
 }
+
+/* White-label video end card (src/components/lessons/LessonVideo.tsx): the logo settles in,
+   the replay button follows. Still for anyone who prefers reduced motion. */
+@keyframes wl-endcard-in {
+  from { opacity: 0; transform: scale(0.9); filter: blur(4px); }
+  to { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+@keyframes wl-endcard-fade { from { opacity: 0; } to { opacity: 1; } }
+.wl-endcard-in { animation: wl-endcard-in 0.9s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.wl-endcard-in-late { animation: wl-endcard-fade 0.5s ease-out 0.9s both; }
+@media (prefers-reduced-motion: reduce) {
+  .wl-endcard-in, .wl-endcard-in-late { animation: none; }
+}

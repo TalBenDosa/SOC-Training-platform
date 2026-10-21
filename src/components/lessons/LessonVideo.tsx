@@ -1,11 +1,13 @@
 "use client";
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
+import { RotateCcw } from "lucide-react";
 import { useBrand } from "@/lib/brand/BrandContext";
 
 /**
  * Explainer videos end with a 4-second HACK THE SOC logo outro burned into the file
  * (motion-studio/add-outro.mjs, DUR = 4.0). On a white-label organization's platform the
- * player stops just before it, so the platform's logo never plays there.
+ * player stops just before it and shows the organization's own animated end card instead
+ * (logo, name, its theme colours), so every video ends on the customer's brand.
  */
 export const OUTRO_SECONDS = 4;
 
@@ -35,23 +37,31 @@ export interface LessonVideoData {
 export function LessonVideo({ video }: { video: LessonVideoData }) {
   const brand = useBrand();
   const ref = useRef<HTMLVideoElement>(null);
+  const [endCard, setEndCard] = useState(false);
   if (!video?.src) return null;
-  // White label: hold playback (and any seek) before the platform outro.
+  // White label: hold playback (and any seek) before the platform outro, and end on the
+  // organization's own card instead.
   const stopBeforeOutro = brand.whiteLabel
     ? () => {
         const v = ref.current;
         if (!v || !Number.isFinite(v.duration) || v.duration <= OUTRO_SECONDS + 1) return;
         const end = v.duration - OUTRO_SECONDS;
-        if (v.currentTime >= end) { v.pause(); v.currentTime = end - 0.05; }
+        if (v.currentTime >= end) { v.pause(); v.currentTime = end - 0.05; setEndCard(true); }
       }
     : undefined;
+  const replay = () => {
+    const v = ref.current;
+    setEndCard(false);
+    if (v) { v.currentTime = 0; void v.play().catch(() => {}); }
+  };
   return (
-    <figure className="overflow-hidden rounded-lg border border-border bg-black">
+    <figure className="relative overflow-hidden rounded-lg border border-border bg-black">
       {/* eslint-disable-next-line jsx-a11y/media-has-caption -- captions ARE provided via <track>; this lint can't see them through the map */}
       <video
         ref={ref}
         onTimeUpdate={stopBeforeOutro}
         onSeeked={stopBeforeOutro}
+        onPlay={() => setEndCard(false)}
         controls
         preload="metadata"
         playsInline
@@ -79,6 +89,24 @@ export function LessonVideo({ video }: { video: LessonVideoData }) {
           />
         ))}
       </video>
+      {endCard && brand.whiteLabel && (
+        // The organization's end card: its logo and name on its own colours (theme tokens).
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-bg [container-type:size]"
+          style={{ backgroundImage: "radial-gradient(ellipse 60% 55% at 50% 45%, rgb(var(--cyber-400) / 0.16), transparent 70%)" }}>
+          <div className="wl-endcard-in flex flex-col items-center gap-3">
+            {brand.logoSrc && (
+              // eslint-disable-next-line @next/next/no-img-element -- same-origin logo route
+              <img src={brand.logoSrc} alt={brand.logoHasName ? brand.productName : ""}
+                className="h-[clamp(88px,42cqh,260px)] w-auto max-w-[70%] object-contain drop-shadow-[0_0_30px_rgb(var(--cyber-400)/0.25)]" />
+            )}
+            {!brand.logoHasName && <p className="text-[clamp(20px,9cqh,44px)] font-bold tracking-wide text-white">{brand.productName}</p>}
+          </div>
+          <button type="button" onClick={replay}
+            className="wl-endcard-in-late mt-2 inline-flex items-center gap-1.5 rounded-md border border-border-strong bg-bg-elevated/80 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-cyber-500/60 hover:text-white">
+            <RotateCcw className="h-3.5 w-3.5" /> Watch again
+          </button>
+        </div>
+      )}
       {video.caption && (
         <figcaption className="border-t border-border px-3 py-2 text-center text-[11px] text-slate-400">
           {video.caption}
