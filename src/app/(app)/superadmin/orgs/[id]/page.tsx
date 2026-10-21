@@ -291,7 +291,7 @@ export default function OrgDetailPage() {
             {/* Usage */}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-6">
               <Stat icon={<Users className="h-4 w-4" />} label="Members" value={`${activeMembers.length}${org.seat_limit > 0 ? `/${org.seat_limit}` : ""}`} />
-              <Stat icon={<Users className="h-4 w-4" />} label="Team exercises" value={`${usage?.team_sessions_used ?? 0}${org.team_session_limit != null ? `/${org.team_session_limit}` : ""}`} />
+              <Stat icon={<Users className="h-4 w-4" />} label="Team trainings" value={`${usage?.team_sessions_used ?? 0}${org.team_session_limit != null ? `/${org.team_session_limit}` : ""}`} />
               <Stat icon={<Trophy className="h-4 w-4" />} label="Total XP" value={(usage?.total_xp ?? 0).toLocaleString()} />
               <Stat icon={<Activity className="h-4 w-4" />} label="Sessions" value={String(usage?.sessions ?? 0)} />
               <Stat icon={<Target className="h-4 w-4" />} label="Scenarios" value={String(usage?.scenarios_completed ?? 0)} />
@@ -321,8 +321,11 @@ export default function OrgDetailPage() {
               <h2 className="mb-4 text-sm font-bold text-white">Licence</h2>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
                 <div>
-                  <label className={label} htmlFor="l-team">Team exercises (blank = ∞)</label>
-                  <input id="l-team" type="number" min={0} step={1} className={field} value={teamLimit} onChange={e => setTeamLimit(e.target.value)} placeholder="unlimited" />
+                  <label className={label} htmlFor="l-team">Team trainings allowed (blank = ∞)</label>
+                  <input id="l-team" type="number" min={0} step={1} className={field} value={teamLimit} onChange={e => setTeamLimit(e.target.value)} placeholder="unlimited" aria-describedby="l-team-hint" />
+                  <p id="l-team-hint" className="mt-1 text-[11px] text-slate-400">
+                    {usage?.team_sessions_used ?? 0} used. One counts when an exercise starts; 0 = none.
+                  </p>
                 </div>
                 <div>
                   <label className={label} htmlFor="l-seats">Seat limit (0 = ∞)</label>

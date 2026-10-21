@@ -402,7 +402,7 @@ function CreateOrgModal({ onClose, onCreated }: { onClose: () => void; onCreated
                     <input id="org-expiry" type="date" className={field} value={expiresAt} onChange={e => setExpiresAt(e.target.value)} />
                   </div>
                   <div className="col-span-2">
-                    <label className={label} htmlFor="org-team-limit">Team exercises (blank = unlimited, 0 = none)</label>
+                    <label className={label} htmlFor="org-team-limit">Team trainings allowed (blank = unlimited, 0 = none)</label>
                     <input id="org-team-limit" type="number" min={0} step={1} className={field} value={teamLimit} onChange={e => setTeamLimit(e.target.value)} placeholder="unlimited" />
                   </div>
                 </div>
