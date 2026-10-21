@@ -2,6 +2,7 @@
  * Server-side validation of the branding a super-admin saves (src/app/api/superadmin/orgs/[id]).
  */
 import { LOGO_DATA_URL, LOGO_MAX_BYTES, SENDER } from "./brand";
+import { parseTheme } from "./theme";
 
 /**
  * The branding the super-admin may store (organizations.branding is readable by the org's
@@ -28,6 +29,9 @@ export function sanitizeBranding(b: Record<string, unknown>): { branding: Record
     if (!SENDER.test(f)) return { error: 'Sender must look like "College SOC <noreply@college.ac.il>".' };
     branding.email_from = f;
   }
+  // Theme (accent / background colours): only valid #rrggbb values are kept.
+  const theme = parseTheme(b.theme);
+  if (theme) (branding as Record<string, unknown>).theme = theme;
   let keepLogo = b.logo_data === undefined;
   if (typeof b.logo_data === "string" && b.logo_data) {
     if (!LOGO_DATA_URL.test(b.logo_data)) return { error: "Logo must be a PNG, JPEG or WebP image." };

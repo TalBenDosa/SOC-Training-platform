@@ -23,31 +23,32 @@ const config: Config = {
       },
       colors: {
         // Cyber dark palette inspired by CrowdStrike Falcon / Sentinel
+        // Theme tokens (src/lib/brand/theme.ts): a white-label org's theme recolours these.
         bg: {
-          DEFAULT: "#070b14",
-          elevated: "#0b1220",
-          panel: "#0f172a",
-          hover: "#131c2f",
+          DEFAULT: "rgb(var(--bg) / <alpha-value>)",
+          elevated: "rgb(var(--bg-elevated) / <alpha-value>)",
+          panel: "rgb(var(--bg-panel) / <alpha-value>)",
+          hover: "rgb(var(--bg-hover) / <alpha-value>)",
         },
         // WCAG 1.4.3: stock slate-500 (#64748b) is only 3.6-4.1:1 on our dark surfaces, and it is the
         // default "secondary text" colour (~370 uses). Lifted so it clears 4.5:1 on every surface up to #1e293b.
         slate: { 500: "#8190a5" },
         border: {
-          DEFAULT: "#1e293b",
-          strong: "#334155",
+          DEFAULT: "rgb(var(--border) / <alpha-value>)",
+          strong: "rgb(var(--border-strong) / <alpha-value>)",
         },
         cyber: {
-          // primary neon - electric cyan
-          50: "#ecfeff",
-          100: "#cffafe",
-          200: "#a5f3fc",
-          300: "#67e8f9",
-          400: "#22d3ee",
-          500: "#06b6d4",
-          600: "#0891b2",
-          700: "#0e7490",
-          800: "#155e75",
-          900: "#164e63",
+          // primary accent (default: electric cyan), a theme token
+          50: "rgb(var(--cyber-50) / <alpha-value>)",
+          100: "rgb(var(--cyber-100) / <alpha-value>)",
+          200: "rgb(var(--cyber-200) / <alpha-value>)",
+          300: "rgb(var(--cyber-300) / <alpha-value>)",
+          400: "rgb(var(--cyber-400) / <alpha-value>)",
+          500: "rgb(var(--cyber-500) / <alpha-value>)",
+          600: "rgb(var(--cyber-600) / <alpha-value>)",
+          700: "rgb(var(--cyber-700) / <alpha-value>)",
+          800: "rgb(var(--cyber-800) / <alpha-value>)",
+          900: "rgb(var(--cyber-900) / <alpha-value>)",
         },
         neon: {
           green: "#00ff9d",
@@ -70,13 +71,13 @@ const config: Config = {
         "grid-fade":
           "linear-gradient(to bottom, transparent, #070b14), linear-gradient(to right, #1e293b 1px, transparent 1px), linear-gradient(to bottom, #1e293b 1px, transparent 1px)",
         "cyber-glow":
-          "radial-gradient(ellipse 80% 50% at 50% -20%, rgba(34,211,238,0.15), transparent)",
+          "radial-gradient(ellipse 80% 50% at 50% -20%, rgb(var(--cyber-400) / 0.15), transparent)",
       },
       backgroundSize: {
         grid: "100% 100%, 32px 32px, 32px 32px",
       },
       boxShadow: {
-        glow: "0 0 24px -4px rgba(34,211,238,0.45)",
+        glow: "0 0 24px -4px rgb(var(--cyber-400) / 0.45)",
         "glow-red": "0 0 24px -4px rgba(255,45,85,0.55)",
         "glow-green": "0 0 24px -4px rgba(0,255,157,0.45)",
       },

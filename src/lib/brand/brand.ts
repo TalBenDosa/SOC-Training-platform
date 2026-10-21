@@ -30,12 +30,14 @@ export interface Brand {
   /** Sender for this org's emails, "Name <noreply@their-domain>" (needs that domain verified
    *  with the email provider); null = the platform's sender under the brand's name. */
   emailFrom: string | null;
+  /** The organization's colours (src/lib/brand/theme.ts); null = the platform's palette. */
+  theme: Theme | null;
 }
 
 export const PLATFORM_NAME = "HACK THE SOC";
 
 export const PLATFORM_BRAND: Brand = {
-  whiteLabel: false, productName: PLATFORM_NAME, orgId: null, logoSrc: null, logoHasName: false, color: null, supportEmail: null, origin: null, emailFrom: null,
+  whiteLabel: false, productName: PLATFORM_NAME, orgId: null, logoSrc: null, logoHasName: false, color: null, supportEmail: null, origin: null, emailFrom: null, theme: null,
 };
 
 /** The logo route: serves the request host's (or the signed-in org's) uploaded logo. */
@@ -71,6 +73,8 @@ export function subdomainOrigin(slug: string | null | undefined): string | null 
   const base = wlBaseDomain();
   return base && slug && SLUG_LABEL.test(slug) ? `https://${slug}.${base}` : null;
 }
+
+import { parseTheme, type Theme } from "./theme";
 
 /** Short content version for a cache-busting query (FNV-1a over the string, hex). */
 export function shortHash(s: string): string {
@@ -151,6 +155,7 @@ export function brandFromOrg(org: OrgBrandRow | null | undefined): Brand {
     // Its own domain when it has one, else its automatic <slug>.<base domain> address.
     origin: org.custom_domain ? `https://${org.custom_domain}` : subdomainOrigin(org.slug),
     emailFrom: typeof b.email_from === "string" && SENDER.test(b.email_from.trim()) ? b.email_from.trim() : null,
+    theme: parseTheme(b.theme),
   };
 }
 

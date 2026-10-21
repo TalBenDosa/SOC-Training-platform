@@ -15,6 +15,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { PLATFORM_BRAND, type Brand } from "./brand";
+import { themeVars } from "./theme";
 
 export interface OrgBranding {
   name: string | null;
@@ -89,6 +90,17 @@ export function AppBrandScope({ children }: { children: React.ReactNode }) {
     const obs = new MutationObserver(fix);
     obs.observe(titleEl, { childList: true, characterData: true, subtree: true });
     return () => obs.disconnect();
+  }, [brand, c.hostBrand.whiteLabel]);
+
+  // Inside a white-label environment on a platform host, its colours apply while the user is in
+  // the app, and are removed again on the way out (the platform's palette is never overwritten
+  // for good). On a white-label domain the server already rendered them.
+  useEffect(() => {
+    if (c.hostBrand.whiteLabel || !brand.whiteLabel || !brand.theme) return;
+    const vars = themeVars(brand.theme);
+    const root = document.documentElement;
+    for (const [k, v] of Object.entries(vars)) root.style.setProperty(k, v);
+    return () => { for (const k of Object.keys(vars)) root.style.removeProperty(k); };
   }, [brand, c.hostBrand.whiteLabel]);
 
   return <Ctx.Provider value={{ ...c, brand }}>{children}</Ctx.Provider>;

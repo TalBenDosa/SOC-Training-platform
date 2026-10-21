@@ -5,6 +5,7 @@ import { AuthProvider } from "@/lib/auth/AuthContext";
 import { ProgressProvider } from "@/lib/storage/ProgressProvider";
 import { BrandProvider } from "@/lib/brand/BrandContext";
 import { getRequestBrand } from "@/lib/brand/server";
+import { themeCss } from "@/lib/brand/theme";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
@@ -54,6 +55,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en" className={`${inter.variable} ${jetbrains.variable} dark`}>
       <body className="antialiased">
+        {/* A white-label domain's own colours, server-rendered so there's no flash of the platform palette. */}
+        {brand.whiteLabel && brand.theme && <style>{themeCss(brand.theme)}</style>}
         {/* Skip link (WCAG 2.4.1): first focusable element, hidden until focused,
             lets keyboard/screen-reader users jump past the repeated nav to the
             page's <main id="main-content">. */}

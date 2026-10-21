@@ -55,6 +55,29 @@ This needs a paid Resend plan (the free plan allows one domain):
 
 Until then, mail comes from the product name at `noreply@hackthesoc.app`.
 
+## Themes (per-customer colours)
+
+The app's colours are CSS variables, defined in `src/lib/brand/theme.ts` and `globals.css :root`:
+- `--cyber-50` to `--cyber-900`: the accent
+- `--bg*`: the surfaces
+- `--border*`: the lines
+
+Tailwind's `cyber-*`, `bg-bg*` and `border-border*` classes read these variables. A white-label org can store a theme in `organizations.branding.theme`, for example `{"accent":"#3b9ae1","background":"#0c1626"}`:
+
+| Key | What it changes |
+| --- | --- |
+| `accent` | Generates the whole accent scale. Step 400 is exactly that colour. |
+| `background` | Derives the panels, hover states and borders. |
+
+Where the theme applies:
+- **On the org's own domain:** rendered on the server, so there is no flash of the default palette.
+- **Inside its environment on the platform host:** applied in the app only, and removed when the user leaves the app.
+- **Everywhere else:** never. The platform keeps its palette.
+
+There is no Super Admin field for it yet. Until then, set it in the database: the server validates `#rrggbb`. A test guarantees the default tokens in the code and in the CSS stay identical.
+
+Not themed yet: about 14 hard-coded `#22d3ee` uses (charts, a few glows) and the semantic colours (`neon-*`, `severity-*`), which carry meaning (red = malicious).
+
 ## Local testing
 
 `*.localhost` is not a platform host. Put `NEXT_PUBLIC_WL_BASE_DOMAIN=wl.localhost` in `.env.development.local`, turn white label on for a staging org, run the dev server and open `http://<slug>.wl.localhost:3810`. An own domain can be tested the same way, e.g. `wl-demo.localhost`.
