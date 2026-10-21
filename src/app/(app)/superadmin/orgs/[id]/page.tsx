@@ -21,6 +21,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Organization, OrgMember, OrgUsage, OrgStatus, OrgRole } from "@/lib/org/types";
 import type { GlobalStudentRow } from "@/app/api/superadmin/students/route";
 import { subdomainOrigin } from "@/lib/brand/brand";
+import { prepareLogo } from "@/lib/brand/prepareLogo";
 
 function toDateInput(iso: string | null): string {
   return iso ? new Date(iso).toISOString().slice(0, 10) : "";
@@ -433,22 +434,19 @@ export default function OrgDetailPage() {
                       <input id="wl-from" className={field} value={wlFrom} onChange={e => setWlFrom(e.target.value)} placeholder="College SOC <noreply@college.ac.il>" />
                     </div>
                     <div className="sm:col-span-2">
-                      <label className={label} htmlFor="wl-logo">Logo <span className="font-normal">(PNG, JPEG or WebP, up to 150 KB; shown on a dark background)</span></label>
+                      <label className={label} htmlFor="wl-logo">Logo <span className="font-normal">(any image, resized automatically; shown on a dark background)</span></label>
                       <div className="flex flex-wrap items-center gap-3">
                         {(wlLogo !== "keep" ? wlLogo : wlHasStoredLogo ? `/api/brand/logo?org=${id}` : "") && (
                           // eslint-disable-next-line @next/next/no-img-element -- data URL / same-origin preview
                           <img src={wlLogo !== "keep" ? wlLogo : `/api/brand/logo?org=${id}`} alt="Logo preview" className="h-10 max-w-[180px] rounded bg-bg-elevated object-contain p-1" />
                         )}
-                        <input id="wl-logo" type="file" accept="image/png,image/jpeg,image/webp" className="text-xs text-slate-300"
+                        <input id="wl-logo" type="file" accept="image/*" className="text-xs text-slate-300"
                           onChange={e => {
                             const f = e.target.files?.[0];
                             setWlLogoError(null);
                             if (!f) return;
-                            if (!/^image\/(png|jpeg|webp)$/.test(f.type)) { setWlLogoError("Use a PNG, JPEG or WebP image."); return; }
-                            if (f.size > 150 * 1024) { setWlLogoError("That image is over 150 KB. Export a smaller one."); return; }
-                            const fr = new FileReader();
-                            fr.onload = () => setWlLogo(String(fr.result));
-                            fr.readAsDataURL(f);
+                            // Any size or format: shrunk and converted in the browser to fit the stored-logo limit.
+                            prepareLogo(f).then(setWlLogo).catch(err => setWlLogoError(err instanceof Error ? err.message : "That image couldn't be used."));
                           }} />
                         {(wlHasStoredLogo || (wlLogo !== "keep" && wlLogo)) && (
                           <button type="button" className="text-[11px] text-neon-red hover:underline" onClick={() => { setWlLogo(""); setWlHasStoredLogo(false); }}>Remove logo</button>
